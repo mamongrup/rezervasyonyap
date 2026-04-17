@@ -1,0 +1,182 @@
+import avatars1 from '@/images/avatars/Image-1.png'
+import avatars2 from '@/images/avatars/Image-2.png'
+import avatars3 from '@/images/avatars/Image-3.png'
+import avatars4 from '@/images/avatars/Image-4.png'
+import avatars5 from '@/images/avatars/Image-5.png'
+import avatars6 from '@/images/avatars/Image-6.png'
+import avatars7 from '@/images/avatars/Image-7.png'
+import avatars8 from '@/images/avatars/Image-8.png'
+
+export async function getAuthors() {
+  // Tüm kategorilerden ilan sağlayıcıları — starRating DESC, count DESC sıralamasıyla
+  return [
+    {
+      id: 1,
+      displayName: 'Ayşe Kaya',
+      handle: 'ayse-kaya',
+      email: 'ayse@example.com',
+      gender: 'Female',
+      avatarUrl: avatars1.src,
+      bgImage: 'https://images.pexels.com/photos/258154/pexels-photo-258154.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 48,
+      description: 'İstanbul merkezli otel grubu işletmecisi. Misafir memnuniyetini her şeyin önünde tutar.',
+      jobName: 'Otel İşletmecisi',
+      category: 'Otel',
+      categorySlug: 'oteller',
+      starRating: 4.9,
+    },
+    {
+      id: 2,
+      displayName: 'Mehmet Yılmaz',
+      handle: 'mehmet-yilmaz',
+      email: 'mehmet@example.com',
+      gender: 'Male',
+      avatarUrl: avatars2.src,
+      bgImage: 'https://images.pexels.com/photos/1051073/pexels-photo-1051073.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 31,
+      description: 'Kapadokya ve çevresinde 12 yıldır tur rehberliği yapıyor. Kültür ve doğa turlarında uzman.',
+      jobName: 'Tur Rehberi',
+      category: 'Tur',
+      categorySlug: 'turlar',
+      starRating: 4.9,
+    },
+    {
+      id: 3,
+      displayName: 'Zeynep Arslan',
+      handle: 'zeynep-arslan',
+      email: 'zeynep@example.com',
+      gender: 'Female',
+      avatarUrl: avatars3.src,
+      bgImage: 'https://images.pexels.com/photos/3155666/pexels-photo-3155666.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 22,
+      description: 'Bodrum ve Ege kıyılarında lüks tatil villası kiralama. Konforun ve doğanın buluşma noktası.',
+      jobName: 'Tatil Evi Sahibi',
+      category: 'Tatil Evi',
+      categorySlug: 'tatil-evleri',
+      starRating: 4.8,
+    },
+    {
+      id: 4,
+      displayName: 'Ali Demir',
+      handle: 'ali-demir',
+      email: 'ali@example.com',
+      gender: 'Male',
+      avatarUrl: avatars4.src,
+      bgImage: 'https://images.pexels.com/photos/163236/luxury-yacht-boat-speed-water-163236.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 14,
+      description: 'Mavi yolculuk ve tekne kiralama alanında 15 yıllık deneyim. Gulet ve katamaran filosu.',
+      jobName: 'Tekne Sahibi',
+      category: 'Yat Kiralama',
+      categorySlug: 'yat-kiralama',
+      starRating: 4.8,
+    },
+    {
+      id: 5,
+      displayName: 'Selin Öz',
+      handle: 'selin-oz',
+      email: 'selin@example.com',
+      gender: 'Female',
+      avatarUrl: avatars5.src,
+      bgImage: 'https://images.pexels.com/photos/2563681/pexels-photo-2563681.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 67,
+      description: 'Türkiye\'nin dört bir yanında araç kiralama hizmeti. Ekonomikten lükse geniş filo.',
+      jobName: 'Araç Kiralama',
+      category: 'Araç Kiralama',
+      categorySlug: 'arac-kiralama',
+      starRating: 4.7,
+    },
+    {
+      id: 6,
+      displayName: 'Hasan Koç',
+      handle: 'hasan-koc',
+      email: 'hasan@example.com',
+      gender: 'Male',
+      avatarUrl: avatars6.src,
+      bgImage: 'https://images.pexels.com/photos/1157557/pexels-photo-1157557.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 19,
+      description: 'Adrenalin dolu aktivite turları uzmanı. Paraşüt, rafting ve kanyoning deneyimleri.',
+      jobName: 'Aktivite Rehberi',
+      category: 'Aktivite',
+      categorySlug: 'aktiviteler',
+      starRating: 4.7,
+    },
+    {
+      id: 7,
+      displayName: 'Fatma Çelik',
+      handle: 'fatma-celik',
+      email: 'fatma@example.com',
+      gender: 'Female',
+      avatarUrl: avatars7.src,
+      bgImage: 'https://images.pexels.com/photos/1028600/pexels-photo-1028600.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 12,
+      description: 'Akdeniz ve Karayip kruvaziyer rotalarında bilet ve tur paketi sağlıyor.',
+      jobName: 'Kruvaziyer Acentesi',
+      category: 'Kruvaziyer',
+      categorySlug: 'kruvaziyer',
+      starRating: 4.6,
+    },
+    {
+      id: 8,
+      displayName: 'Okan Şahin',
+      handle: 'okan-sahin',
+      email: 'okan@example.com',
+      gender: 'Male',
+      avatarUrl: avatars8.src,
+      bgImage: 'https://images.pexels.com/photos/62623/wing-plane-flying-airplane-62623.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 203,
+      description: 'Yurt içi ve yurt dışı vize işlemlerinde profesyonel danışmanlık. Hızlı ve güvenilir.',
+      jobName: 'Vize Danışmanı',
+      category: 'Vize',
+      categorySlug: 'vize',
+      starRating: 4.6,
+    },
+    {
+      id: 9,
+      displayName: 'İbrahim Yıldız',
+      handle: 'ibrahim-yildiz',
+      email: 'ibrahim@example.com',
+      gender: 'Male',
+      avatarUrl: avatars1.src,
+      bgImage: 'https://images.pexels.com/photos/1268855/pexels-photo-1268855.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 88,
+      description: 'Havalimanı transfer ve şehir içi VIP transfer hizmetleri. 7/24 kesintisiz.',
+      jobName: 'Transfer Hizmeti',
+      category: 'Transfer',
+      categorySlug: 'transfer',
+      starRating: 4.5,
+    },
+    {
+      id: 10,
+      displayName: 'Elif Yaman',
+      handle: 'elif-yaman',
+      email: 'elif@example.com',
+      gender: 'Female',
+      avatarUrl: avatars2.src,
+      bgImage: 'https://images.pexels.com/photos/1001682/pexels-photo-1001682.jpeg?auto=compress&cs=tinysrgb&w=500',
+      count: 35,
+      description: 'Hac ve umre turlarında öncü acente. Konaklama, uçuş ve rehberlik dahil paketler.',
+      jobName: 'Hac & Umre Acentesi',
+      category: 'Hac & Umre',
+      categorySlug: 'hac-umre',
+      starRating: 4.5,
+    },
+  ]
+}
+
+export async function getAuthorByHandle(handle: string) {
+  const authors = await getAuthors()
+  let author = authors.find((a) => a.handle === handle)
+  if (!author) author = authors[0]
+
+  return {
+    ...author,
+    description: author.description,
+    address: 'Türkiye',
+    phone: '+90 555 123 4567',
+    languages: 'Türkçe, İngilizce',
+    joinedDate: 'Mart 2020',
+    reviewsCount: author.count * 3,
+  }
+}
+
+export type TAuthor = Awaited<ReturnType<typeof getAuthors>>[number]

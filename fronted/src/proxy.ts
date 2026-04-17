@@ -1,0 +1,138 @@
+import { LOCALIZED_FIRST_SEGMENT_ALIASES } from './data/localized-middleware-rewrites'
+import { defaultLocale, isAppLocale } from './lib/i18n-config'
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+
+const AUTH_COOKIE = 'travel_auth_token'
+
+const PROTECTED: RegExp[] = [
+  /^\/manage(\/|$)/,
+  /^\/[a-z]{2}(-[a-z0-9]+)?\/manage(\/|$)/i,
+  /^\/api\/upload-image(\/|$)/,
+]
+
+function isProtected(pathname: string): boolean {
+  return PROTECTED.some((re) => re.test(pathname))
+}
+
+function loginUrl(req: NextRequest, pathname: string): URL {
+  const url = req.nextUrl.clone()
+  const localeMatch = pathname.match(/^\/([a-z]{2}(?:-[a-z0-9]+)?)\/manage/i)
+  url.pathname = localeMatch ? `/${localeMatch[1]}/login` : '/login'
+  url.searchParams.set('redirect', pathname)
+  return url
+}
+
+function applyFirstSegmentAlias(pathname: string, locLower: string): string {
+  const segments = pathname.split('/').filter(Boolean)
+  if (segments.length < 2) return pathname
+  if (segments[0].toLowerCase() !== locLower) return pathname
+  const rest = segments.slice(1)
+  const aliasMap = LOCALIZED_FIRST_SEGMENT_ALIASES[locLower]
+  const key = rest[0].toLowerCase()
+  const canonical = aliasMap?.[key]
+  if (canonical && canonical !== rest[0]) {
+    const tail = rest.slice(1)
+    const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
+    return `/${segments[0]}${mid}`
+  }
+  return pathname
+}
+
+/**
+ * Default locale (tr): URL has no locale prefix (/blog).
+ * Internally rewrites to [locale]=tr. /tr/blog -> 308 to /blog.
+ * Optional HTTPS: ENFORCE_HTTPS_REDIRECT=1 + NODE_ENV=production + X-Forwarded-Proto: http -> 308 https.
+ */
+export function proxy(request: NextRequest) {
+  if (process.env.ENFORCE_HTTPS_REDIRECT === '1' && process.env.NODE_ENV === 'production') {
+    const proto = request.headers.get('x-forwarded-proto')
+    if (proto === 'http') {
+      const url = request.nextUrl.clone()
+      url.protocol = 'https:'
+      return NextResponse.redirect(url, 308)
+    }
+  }
+
+  const { pathname } = request.nextUrl
+
+  // /tr/api/... under locale breaks routing; always rewrite to /api/...
+  const localeThenApi = pathname.match(/^\/([a-z]{2}(?:-[a-z0-9]+)?)\/(api(?:\/|$).*)$/i)
+  if (localeThenApi) {
+    const url = request.nextUrl.clone()
+    url.pathname = `/${localeThenApi[2]}`
+    return NextResponse.rewrite(url)
+  }
+
+  if (isProtected(pathname)) {
+    const token = request.cookies.get(AUTH_COOKIE)?.value
+    if (!token) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'Oturum gerekli. L\u00fctfen tekrar giri\u015f yap\u0131n.',
+          },
+          { status: 401 },
+        )
+      }
+      return NextResponse.redirect(loginUrl(request, pathname))
+    }
+  }
+
+  if (
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/_vercel')
+  ) {
+    return NextResponse.next()
+  }
+
+  if (pathname.includes('.')) {
+    return NextResponse.next()
+  }
+
+  const segments = pathname.split('/').filter(Boolean)
+  const first = segments[0]
+  const def = defaultLocale.toLowerCase()
+
+  if (first && isAppLocale(first) && first.toLowerCase() !== def) {
+    const loc = first.toLowerCase()
+    const rest = segments.slice(1)
+    if (rest.length > 0) {
+      const aliasMap = LOCALIZED_FIRST_SEGMENT_ALIASES[loc]
+      const key = rest[0].toLowerCase()
+      const canonical = aliasMap?.[key]
+      if (canonical && canonical !== rest[0]) {
+        const tail = rest.slice(1)
+        const url = request.nextUrl.clone()
+        const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
+        url.pathname = `/${first}${mid}`
+        return NextResponse.rewrite(url)
+      }
+    }
+    return NextResponse.next()
+  }
+
+  if (first && isAppLocale(first) && first.toLowerCase() === def) {
+    const rest = segments.slice(1)
+    const newPath = rest.length === 0 ? '/' : '/' + rest.join('/')
+    const url = request.nextUrl.clone()
+    url.pathname = newPath
+    return NextResponse.redirect(url, 308)
+  }
+
+  const url = request.nextUrl.clone()
+  const suffix = pathname === '/' ? '' : pathname
+  url.pathname = `/${defaultLocale}${suffix}`
+  url.pathname = applyFirstSegmentAlias(url.pathname, def)
+  return NextResponse.rewrite(url)
+}
+
+export const config = {
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
+    '/api/upload-image',
+    '/:locale/api/:path*',
+  ],
+}
