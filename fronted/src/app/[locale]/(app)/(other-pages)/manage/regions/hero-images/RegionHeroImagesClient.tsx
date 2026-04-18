@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { uploadFetch } from '@/lib/upload-fetch'
 import {
   ExternalLink,
   ImageIcon,
@@ -56,8 +57,7 @@ function ImageSlot({
     form.append('category', `region-${categorySlug}-${regionHandle}`)
     form.append('slot', String(slot))
     try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
-      const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
+      const data = await uploadFetch(form)
       if (data.ok && data.url) onChange(data.url)
       else setError(data.error ?? 'Yükleme başarısız.')
     } catch {

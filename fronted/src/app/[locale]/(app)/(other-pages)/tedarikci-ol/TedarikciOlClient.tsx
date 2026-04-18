@@ -2,13 +2,20 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import clsx from 'clsx'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { uploadFetch } from '@/lib/upload-fetch'
 import {
   upsertSupplierApplication,
   uploadSupplierDocument,
   submitSupplierApplication,
 } from '@/lib/travel-api'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { callAiTranslate } from '@/lib/manage-content-ai'
+import { MANAGE_STICKY_FOOTER_SCROLL_PADDING } from '@/components/manage/ManageFormShell'
+import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
+import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
+import { MANAGE_EDITOR_LOCALES_TR_TARGET } from '@/components/manage/manage-editor-locales'
 import { AlertTriangle, CheckCircle2, Loader2, Upload, X, ChevronRight, ChevronLeft } from 'lucide-react'
 import Image from 'next/image'
 
@@ -229,6 +236,10 @@ export default function TedarikciOlClient() {
   const [phone, setPhone] = useState('')
   const [address, setAddress] = useState('')
   const [notes, setNotes] = useState('')
+  const [aiTargetLocale, setAiTargetLocale] = useState('en')
+  const [aiTranslating, setAiTranslating] = useState(false)
+  /** Kayıtta `notes` sonuna eklenir (ücretli AI çıktısı) */
+  const [aiNotesSupplement, setAiNotesSupplement] = useState('')
 
   const token = getStoredAuthToken() ?? ''
 
@@ -245,6 +256,7 @@ export default function TedarikciOlClient() {
     setError('')
     setSaving(true)
     try {
+      const notesCombined = [notes.trim(), aiNotesSupplement.trim()].filter(Boolean).join('\n\n')
       const res = await upsertSupplierApplication(token, {
         category_code: selectedCat,
         business_name: businessName,
@@ -252,7 +264,7 @@ export default function TedarikciOlClient() {
         tax_number: taxNumber,
         phone,
         address,
-        notes,
+        notes: notesCombined || undefined,
       })
       setApplicationId(res.id)
       setStep(2)
@@ -270,9 +282,8 @@ export default function TedarikciOlClient() {
     formData.append('folder', 'supplier-docs')
     formData.append('prefix', `${applicationId}_${docType}`)
 
-    const uploadRes = await fetch('/api/upload-image', { method: 'POST', body: formData })
-    if (!uploadRes.ok) throw new Error('upload_failed')
-    const data = await uploadRes.json() as { url: string; warning?: string }
+    const data = await uploadFetch(formData)
+    if (!data.ok || !data.url) throw new Error(data.error ?? 'upload_failed')
 
     await uploadSupplierDocument(token, applicationId, {
       doc_type: docType,
@@ -308,6 +319,35 @@ export default function TedarikciOlClient() {
   const cat = CATEGORIES[selectedCat]
   const docs = getDocsForCategory(selectedCat)
 
+  const supplierAiLocales = MANAGE_EDITOR_LOCALES_TR_TARGET.map((l) => ({
+    code: l.code,
+    label: l.label,
+    flag: l.flag,
+  }))
+
+  const handleSupplierAiTranslate = async () => {
+    const name = businessName.trim()
+    if (!name) {
+      setError('Önce işletme adını girin.')
+      return
+    }
+    setAiTranslating(true)
+    setError('')
+    try {
+      const out = await callAiTranslate({
+        text: name,
+        context: 'title',
+        sourceLocale: 'tr',
+        targetLocale: aiTargetLocale,
+      })
+      setAiNotesSupplement(`İşletme adı (${aiTargetLocale}): ${out.trim()}`)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Çeviri başarısız')
+    } finally {
+      setAiTranslating(false)
+    }
+  }
+
   if (submitted) {
     return (
       <div className="mx-auto max-w-lg px-4 py-24 text-center">
@@ -342,7 +382,7 @@ export default function TedarikciOlClient() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
+    <div className={clsx('mx-auto max-w-2xl px-4 py-12', MANAGE_STICKY_FOOTER_SCROLL_PADDING)}>
       <div className="mb-10">
         <h1 className="text-2xl font-bold text-neutral-900 dark:text-white mb-6">Tedarikçi Başvurusu</h1>
         <StepBar current={step} />
@@ -454,23 +494,27 @@ export default function TedarikciOlClient() {
             />
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setStep(0)}
-              className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
-            >
-              <ChevronLeft className="h-4 w-4" /> Geri
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveBusinessInfo}
-              disabled={saving}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Devam Et <ChevronRight className="h-4 w-4" />
-            </button>
+          <div className="rounded-2xl border border-amber-200 bg-amber-50/90 p-4 dark:border-amber-900/50 dark:bg-amber-950/25">
+            <p className="mb-2 text-xs font-medium text-amber-900 dark:text-amber-200">
+              AI ile işletme adı çevirisi (tedarikçi başvurusu — ücretli)
+            </p>
+            <ManageAiTranslateToolbar
+              billing="paid_supplier"
+              locales={supplierAiLocales}
+              targetLocale={aiTargetLocale}
+              onTargetLocaleChange={setAiTargetLocale}
+              onTranslate={() => void handleSupplierAiTranslate()}
+              translating={aiTranslating}
+            />
+            {aiNotesSupplement ? (
+              <p className="mt-2 rounded-lg border border-amber-100 bg-white/80 px-3 py-2 font-mono text-xs text-neutral-700 dark:border-amber-900/40 dark:bg-neutral-900/60 dark:text-neutral-200">
+                {aiNotesSupplement}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-amber-800/80 dark:text-amber-200/80">
+                Çıktı başvuru kaydınızdaki notların sonuna eklenir; ücretlendirme politikası geçerlidir.
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -501,30 +545,6 @@ export default function TedarikciOlClient() {
             ))}
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => setStep(1)}
-              className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
-            >
-              <ChevronLeft className="h-4 w-4" /> Geri
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                const required = docs.filter((d) => d.required && !uploadedDocs.has(d.type))
-                if (required.length > 0) {
-                  setError(`Lütfen zorunlu belgeleri yükleyin: ${required.map((d) => d.label).join(', ')}`)
-                  return
-                }
-                setError('')
-                setStep(3)
-              }}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600"
-            >
-              Devam Et <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
         </div>
       )}
 
@@ -561,26 +581,79 @@ export default function TedarikciOlClient() {
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setStep(2)}
-              className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
-            >
-              <ChevronLeft className="h-4 w-4" /> Geri
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={saving}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-              Başvuruyu Gönder
-            </button>
-          </div>
         </div>
       )}
+
+      {step >= 1 ? (
+        <ManageStickyFormFooter>
+          {step === 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep(0)}
+                className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
+              >
+                <ChevronLeft className="h-4 w-4" /> Geri
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSaveBusinessInfo()}
+                disabled={saving}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 disabled:opacity-60 sm:flex-none"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Devam Et <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
+          {step === 2 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
+              >
+                <ChevronLeft className="h-4 w-4" /> Geri
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const required = docs.filter((d) => d.required && !uploadedDocs.has(d.type))
+                  if (required.length > 0) {
+                    setError(`Lütfen zorunlu belgeleri yükleyin: ${required.map((d) => d.label).join(', ')}`)
+                    return
+                  }
+                  setError('')
+                  setStep(3)
+                }}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-600 sm:flex-none"
+              >
+                Devam Et <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
+          {step === 3 ? (
+            <>
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
+              >
+                <ChevronLeft className="h-4 w-4" /> Geri
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={saving}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60 sm:flex-none"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                Başvuruyu Gönder
+              </button>
+            </>
+          ) : null}
+        </ManageStickyFormFooter>
+      ) : null}
     </div>
   )
 }

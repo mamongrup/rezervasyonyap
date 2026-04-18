@@ -56,6 +56,7 @@ function BrandingImageUploadRow({
   hint,
   url,
   onChange,
+  onUploadOk,
   purpose,
   accept,
   preview,
@@ -64,6 +65,8 @@ function BrandingImageUploadRow({
   hint?: string
   url: string
   onChange: (v: string) => void
+  /** Dosya diske yazıldıktan sonra — kalıcı kayıt için ayrıca «Site kimliğini kaydet» gerekir */
+  onUploadOk?: () => void
   purpose: BrandingUploadPurpose
   accept: string
   preview: 'logo-light' | 'logo-dark' | 'favicon'
@@ -78,6 +81,7 @@ function BrandingImageUploadRow({
     try {
       const newUrl = await uploadBrandingAsset(file, purpose)
       onChange(newUrl)
+      onUploadOk?.()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Yükleme başarısız')
     } finally {
@@ -1000,6 +1004,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="PNG, JPEG, WebP, AVIF veya SVG. En fazla 2 MB."
                   url={logoUrl}
                   onChange={setLogoUrl}
+                  onUploadOk={() =>
+                    setStatus({
+                      kind: 'ok',
+                      text: 'Dosya sunucuya yüklendi. Siteye yazmak için «Site kimliğini kaydet»e basın.',
+                    })
+                  }
                   purpose="logo-light"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
                   preview="logo-light"
@@ -1009,6 +1019,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="Koyu arka planda okunaklı bir varyant."
                   url={logoDarkUrl}
                   onChange={setLogoDarkUrl}
+                  onUploadOk={() =>
+                    setStatus({
+                      kind: 'ok',
+                      text: 'Dosya sunucuya yüklendi. Siteye yazmak için «Site kimliğini kaydet»e basın.',
+                    })
+                  }
                   purpose="logo-dark"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
                   preview="logo-dark"
@@ -1114,6 +1130,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="PNG, ICO, WebP veya SVG. En fazla 2 MB."
                   url={faviconUrl}
                   onChange={setFaviconUrl}
+                  onUploadOk={() =>
+                    setStatus({
+                      kind: 'ok',
+                      text: 'Dosya sunucuya yüklendi. Siteye yazmak için «Site kimliğini kaydet»e basın.',
+                    })
+                  }
                   purpose="favicon"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.ico,image/x-icon"
                   preview="favicon"

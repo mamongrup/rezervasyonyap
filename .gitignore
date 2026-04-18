@@ -26,3 +26,6 @@ pnpm-debug.log*
 .vscode/
 .tools/
 desktop-tutorial/
+
+# Panelden yüklenen görseller (yerel disk; GitHub’a ve üretim deploy’a taşınmamalı)
+fronted/public/uploads/

@@ -4,7 +4,6 @@ import { readCookieConsentFromStorage, writeCookieConsentToStorage } from '@/lib
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
-import { Cookie } from 'lucide-react'
 import Link from 'next/link'
 import { useParams, usePathname } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -51,57 +50,43 @@ export default function CookieConsentBanner({ locale, bannerEnabled = true }: Pr
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+      className="pointer-events-auto fixed inset-x-0 bottom-0 z-[55] border-t border-neutral-200 bg-white shadow-[0_-4px_24px_rgba(0,0,0,0.07)] dark:border-neutral-700 dark:bg-neutral-900"
       role="dialog"
       aria-labelledby="cookie-consent-title"
       aria-live="polite"
     >
-      <div
-        className={clsx(
-          'pointer-events-auto flex w-full min-w-0 max-w-[min(100%,42rem)] flex-col gap-3 rounded-2xl border border-neutral-200/80 bg-white/95 p-4 shadow-2xl shadow-neutral-900/10 backdrop-blur-md sm:max-w-2xl sm:flex-row sm:items-stretch sm:gap-4 dark:border-neutral-600/60 dark:bg-neutral-900/95 dark:shadow-black/40',
-        )}
-      >
-        <div className="flex min-w-0 flex-1 items-start gap-3 sm:items-center">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-100 to-orange-50 text-amber-800 ring-1 ring-amber-200/80 dark:from-amber-900/40 dark:to-neutral-800 dark:text-amber-200 dark:ring-amber-800/50">
-            <Cookie className="h-6 w-6" strokeWidth={1.75} aria-hidden />
-          </span>
-          <div className="min-w-0 max-w-full flex-1 overflow-hidden sm:py-0.5">
-            <h2
-              id="cookie-consent-title"
-              className="break-words text-sm font-semibold tracking-tight text-neutral-900 dark:text-neutral-50"
-            >
-              {t.title}
-            </h2>
-            <p className="mt-1 break-words text-xs leading-relaxed text-neutral-600 [overflow-wrap:anywhere] dark:text-neutral-400">
-              {t.description}
-            </p>
-            <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium">
-              <Link href={cookiesHref} className="text-primary-600 underline decoration-primary-400/60 underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
-                {t.policyLink}
-              </Link>
-              <span className="text-neutral-300 dark:text-neutral-600" aria-hidden>
-                ·
-              </span>
-              <Link href={privacyHref} className="text-primary-600 underline decoration-primary-400/60 underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
-                {t.privacyLink}
-              </Link>
-            </p>
-          </div>
-        </div>
-        <div className="flex shrink-0 flex-col gap-2 sm:min-w-[220px]">
-          <button
-            type="button"
-            onClick={() => accept('all')}
-            className="rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-neutral-800 dark:bg-primary-600 dark:hover:bg-primary-500"
+      <div className="mx-auto flex w-full max-w-7xl flex-col items-start gap-4 px-4 py-4 sm:flex-row sm:items-center sm:gap-6 sm:px-6 lg:px-8">
+        {/* Metin */}
+        <p
+          id="cookie-consent-title"
+          className={clsx(
+            'flex-1 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300',
+          )}
+        >
+          {t.description}{' '}
+          <Link
+            href={privacyHref}
+            className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
           >
-            {t.acceptAll}
-          </button>
+            {t.privacyLink}
+          </Link>
+        </p>
+
+        {/* Butonlar */}
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={() => accept('essential')}
-            className="rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 transition hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+            className="rounded-lg border border-neutral-300 bg-white px-5 py-2 text-sm font-medium text-neutral-800 transition hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
           >
             {t.essentialOnly}
+          </button>
+          <button
+            type="button"
+            onClick={() => accept('all')}
+            className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-500 active:bg-primary-700"
+          >
+            {t.acceptAll}
           </button>
         </div>
       </div>

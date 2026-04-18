@@ -2,7 +2,7 @@
 
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
-import { Link } from '@/shared/link'
+import Link from 'next/link'
 import {
   AnchorIcon,
   Building03Icon,

@@ -65,7 +65,11 @@ export function proxy(request: NextRequest) {
   }
 
   if (isProtected(pathname)) {
-    const token = request.cookies.get(AUTH_COOKIE)?.value
+    const cookieTok = request.cookies.get(AUTH_COOKIE)?.value?.trim()
+    const auth = request.headers.get('authorization')
+    const bearerTok =
+      auth?.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : ''
+    const token = cookieTok || bearerTok
     if (!token) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json(

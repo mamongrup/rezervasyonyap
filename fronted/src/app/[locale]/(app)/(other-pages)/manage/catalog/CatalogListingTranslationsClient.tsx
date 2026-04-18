@@ -18,11 +18,15 @@ import { Field, Label } from '@/shared/fieldset'
 import RichEditor from '@/components/editor/RichEditor'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
+import { MANAGE_STICKY_FOOTER_SCROLL_PADDING } from '@/components/manage/ManageFormShell'
+import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
+import { ManageStickyLangBar } from '@/components/manage/ManageStickyLangBar'
+import { MANAGE_EDITOR_LOCALE_TABS } from '@/components/manage/manage-editor-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
 import { Loader2, Sparkles } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import clsx from 'clsx'
 
 const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
@@ -46,6 +50,11 @@ function emptySeoDraft(): SeoDraftRow {
   }
 }
 
+function localeTabForCode(code: string) {
+  const hit = MANAGE_EDITOR_LOCALE_TABS.find((t) => t.code === code)
+  return { code, label: hit?.label ?? code.toUpperCase(), flag: hit?.flag ?? '🌐' }
+}
+
 export default function CatalogListingTranslationsClient({
   categoryCode,
   listingId,
@@ -54,8 +63,6 @@ export default function CatalogListingTranslationsClient({
   listingId: string
 }) {
   const t = useManageT()
-  const params = useParams()
-  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const [rows, setRows] = useState<ManageListingTranslationRow[]>([])
   const [draft, setDraft] = useState<Record<string, { title: string; description: string }>>({})
@@ -69,6 +76,7 @@ export default function CatalogListingTranslationsClient({
   const [aiTargetLocale, setAiTargetLocale] = useState('en')
   const [aiTranslating, setAiTranslating] = useState(false)
   const [aiPolish, setAiPolish] = useState<string | null>(null)
+  const [activeLocale, setActiveLocale] = useState('tr')
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -154,6 +162,11 @@ export default function CatalogListingTranslationsClient({
     void load()
   }, [load])
 
+  useEffect(() => {
+    if (rows.length === 0) return
+    setActiveLocale((cur) => (rows.some((r) => r.locale_code === cur) ? cur : rows[0]!.locale_code))
+  }, [rows])
+
   async function onSave() {
     const token = getStoredAuthToken()
     if (!token) {
@@ -210,11 +223,11 @@ export default function CatalogListingTranslationsClient({
 
   const localeToolbarOptions = rows
     .filter((r) => r.locale_code !== 'tr')
-    .map((r) => ({
-      code: r.locale_code,
-      label: r.locale_code.toUpperCase(),
-      flag: '🌐',
-    }))
+    .map((r) => localeTabForCode(r.locale_code))
+
+  const localeTabs = useMemo(() => rows.map((r) => localeTabForCode(r.locale_code)), [rows])
+
+  const activeRow = rows.find((r) => r.locale_code === activeLocale)
 
   const handleAiTranslateTrToTarget = async () => {
     if (aiTargetLocale === 'tr') {
@@ -293,25 +306,46 @@ export default function CatalogListingTranslationsClient({
   const listHref = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}/listings`)
 
   return (
-    <div>
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {t('catalog.translations_page_title')} — {categoryLabelTr(categoryCode)}
-      </h1>
-      <p className="mt-1 font-mono text-xs text-neutral-500">{listingId}</p>
-
-      {!loading && rows.length > 0 && localeToolbarOptions.length > 0 ? (
-        <div className="mt-4">
-          <ManageAiTranslateToolbar
-            locales={localeToolbarOptions}
-            targetLocale={aiTargetLocale}
-            onTargetLocaleChange={setAiTargetLocale}
-            onTranslate={() => void handleAiTranslateTrToTarget()}
-            translating={aiTranslating}
-          />
-          <p className="mt-1 text-xs text-neutral-500">
-            Türkçe başlık, açıklama ve SEO alanlarını seçilen dile çevirir (taslak; kaydet gerekir).
-          </p>
+    <div
+      className={clsx(
+        'min-h-screen bg-neutral-50 dark:bg-neutral-950',
+        MANAGE_STICKY_FOOTER_SCROLL_PADDING,
+      )}
+    >
+      {!loading && rows.length > 0 ? (
+        <ManageStickyLangBar
+          backHref={listHref}
+          titlePrimary={`${t('catalog.translations_page_title')} — ${categoryLabelTr(categoryCode)}`}
+          titleSecondary={listingId}
+          locales={localeTabs}
+          activeLocale={activeLocale}
+          onActiveLocaleChange={setActiveLocale}
+          toolbarRight={
+            localeToolbarOptions.length > 0 ? (
+              <ManageAiTranslateToolbar
+                locales={localeToolbarOptions}
+                targetLocale={aiTargetLocale}
+                onTargetLocaleChange={setAiTargetLocale}
+                onTranslate={() => void handleAiTranslateTrToTarget()}
+                translating={aiTranslating}
+              />
+            ) : null
+          }
+        />
+      ) : (
+        <div className="border-b border-neutral-100 bg-white px-4 py-4 dark:border-neutral-800 dark:bg-neutral-900 sm:px-6">
+          <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+            {t('catalog.translations_page_title')} — {categoryLabelTr(categoryCode)}
+          </h1>
+          <p className="mt-1 font-mono text-xs text-neutral-500">{listingId}</p>
         </div>
+      )}
+
+      <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 sm:pt-5">
+      {!loading && rows.length > 0 && localeToolbarOptions.length > 0 ? (
+        <p className="mb-4 text-xs text-neutral-500">
+          Türkçe başlık, açıklama ve SEO alanlarını seçilen dile çevirir (taslak; altta kaydedin).
+        </p>
       ) : null}
 
       {needOrg ? (
@@ -335,11 +369,14 @@ export default function CatalogListingTranslationsClient({
       {err ? <p className="mt-4 text-sm text-red-600 dark:text-red-400">{err}</p> : null}
       {ok ? <p className="mt-4 text-sm text-green-700 dark:text-green-400">{ok}</p> : null}
 
-      <div className="mt-6 space-y-6">
+      <div className="mt-2 space-y-6 pb-2">
         {loading ? (
           <p className="text-sm text-neutral-500">…</p>
+        ) : !activeRow ? (
+          <p className="text-sm text-neutral-500">Çeviri satırı bulunamadı.</p>
         ) : (
-          rows.map((r) => {
+          (() => {
+            const r = activeRow
             const lc = r.locale_code
             const cur = draft[lc] ?? { title: '', description: '' }
             const seo = seoDraft[lc] ?? emptySeoDraft()
@@ -351,9 +388,11 @@ export default function CatalogListingTranslationsClient({
             return (
               <div
                 key={lc}
-                className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700"
+                className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900"
               >
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">{lc}</p>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">
+                  {localeTabForCode(lc).flag} {localeTabForCode(lc).label} ({lc})
+                </p>
                 <Field className="block">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <Label>{t('catalog.title_field')}</Label>
@@ -545,18 +584,27 @@ export default function CatalogListingTranslationsClient({
                 </details>
               </div>
             )
-          })
+          })()
         )}
       </div>
+      </div>
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <ButtonPrimary type="button" disabled={saving || loading} onClick={() => void onSave()}>
-          {saving ? '…' : t('catalog.translations_save')}
-        </ButtonPrimary>
-        <Link href={listHref} className="self-center text-sm text-primary-600 underline dark:text-primary-400">
+      <ManageStickyFormFooter>
+        <Link
+          href={listHref}
+          className="order-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800 sm:order-1"
+        >
           {t('catalog.back_hub')}
         </Link>
-      </div>
+        <ButtonPrimary
+          type="button"
+          className="order-1 sm:order-2"
+          disabled={saving || loading || !activeRow}
+          onClick={() => void onSave()}
+        >
+          {saving ? '…' : t('catalog.translations_save')}
+        </ButtonPrimary>
+      </ManageStickyFormFooter>
     </div>
   )
 }
