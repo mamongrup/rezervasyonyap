@@ -17,7 +17,6 @@ import {
   patchCurrencyActive,
   putCurrencyOrder,
   refreshTcmbRates,
-  sendNetgsmTestSms,
   setActivePaymentProvider,
   upsertSiteSetting,
   type CurrencyRow,
@@ -227,11 +226,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [currencyToggleBusy, setCurrencyToggleBusy] = useState<string | null>(null)
   const [currencyHint, setCurrencyHint] = useState<string | null>(null)
   const [currencyOrderSaving, setCurrencyOrderSaving] = useState(false)
-
-  const [netgsmTo, setNetgsmTo] = useState('')
-  const [netgsmText, setNetgsmText] = useState('Travel test mesajı')
-  const [netgsmMsg, setNetgsmMsg] = useState<string | null>(null)
-  const [netgsmBusy, setNetgsmBusy] = useState(false)
 
   type TabId = (typeof SETTINGS_TABS)[number]['id']
   const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
@@ -807,30 +801,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     }
   }
 
-  async function onNetgsmTest() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setNetgsmMsg('NetGSM testi için yönetici oturumu gerekir.')
-      return
-    }
-    setNetgsmBusy(true)
-    setNetgsmMsg(null)
-    try {
-      const r = await sendNetgsmTestSms(token, {
-        gsm: netgsmTo.trim(),
-        message: netgsmText.trim() || 'Test',
-      })
-      const raw = r.provider_raw
-      setNetgsmMsg(
-        `Gönderildi (ham yanıt: ${raw.length > 200 ? `${raw.slice(0, 200)}…` : raw})`,
-      )
-    } catch (e) {
-      setNetgsmMsg(e instanceof Error ? e.message : 'SMS başarısız')
-    } finally {
-      setNetgsmBusy(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className={embedded ? 'py-8' : 'container mx-auto max-w-4xl py-16'}>
@@ -1249,45 +1219,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         </div>
       </section>
 
-      <section className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-700">
-        <h2 className="text-xl font-semibold">NetGSM (test SMS)</h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Ortam değişkenleri: <span className="font-mono">NETGSM_USERCODE</span>,{' '}
-          <span className="font-mono">NETGSM_PASSWORD</span>, <span className="font-mono">NETGSM_MSGHEADER</span>. Yönetici
-          oturumu ve <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">admin.integrations.write</code>.
-        </p>
-        {netgsmMsg ? (
-          <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">{netgsmMsg}</p>
-        ) : null}
-        <div className="mt-4 grid max-w-xl gap-4">
-          <Field>
-            <Label>Alıcı GSM (90532…)</Label>
-            <Input className="mt-1 font-mono" value={netgsmTo} onChange={(e) => setNetgsmTo(e.target.value)} />
-          </Field>
-          <Field>
-            <Label>Mesaj</Label>
-            <Textarea className="mt-1" rows={3} value={netgsmText} onChange={(e) => setNetgsmText(e.target.value)} />
-          </Field>
-          <ButtonPrimary type="button" disabled={netgsmBusy} onClick={() => void onNetgsmTest()}>
-            {netgsmBusy ? 'Gönderiliyor…' : 'Test SMS gönder'}
-          </ButtonPrimary>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
-        <h2 className="text-xl font-semibold">Diller &amp; çeviriler</h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Dil ekleme ve çeviri içe/dışa aktarma için{' '}
-          <Link
-            href={vitrinPath('/manage/i18n')}
-            className="font-medium text-primary-600 underline dark:text-primary-400"
-          >
-            Diller &amp; çeviriler
-          </Link>{' '}
-          sayfasına gidin. Next.js locale routing (G1.2) ayrı iş paketi.
-        </p>
-      </section>
-        </>
+      </>
       )}
 
       {activeTab === 'seo' && (
