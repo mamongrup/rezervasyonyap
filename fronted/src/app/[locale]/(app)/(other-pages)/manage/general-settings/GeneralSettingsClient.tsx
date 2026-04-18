@@ -25,9 +25,6 @@ import {
 } from '@/lib/travel-api'
 import { AI_PROFILE_MODULES, clampTimeoutSec } from '@/lib/ai-upstream-timeouts'
 import {
-  DEFAULT_HOME_PAGE_LINKS,
-  type HomePageLinkItem,
-  parseHomePageLinksFromBranding,
   parseMobileAccountPathFromBranding,
 } from '@/lib/site-branding-seo'
 import { uploadBrandingAsset, type BrandingUploadPurpose } from '@/lib/upload-branding-asset'
@@ -262,7 +259,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     normalizeTravelCategoryHomeOrder(null),
   )
   const [homeCatOrderSaving, setHomeCatOrderSaving] = useState(false)
-  const [homePageLinks, setHomePageLinks] = useState<HomePageLinkItem[]>(() => [...DEFAULT_HOME_PAGE_LINKS])
   const [mobileAccountPath, setMobileAccountPath] = useState('/account')
 
   /** site_settings key `ai` — DeepSeek (blog çevirisi vb.); env hâlâ önceliklidir. */
@@ -319,7 +315,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setAnalyticsRest(restAn)
       const branding = pub.branding ?? {}
       setBrandingJson(JSON.stringify(branding, null, 2))
-      setHomePageLinks(parseHomePageLinksFromBranding(pub))
       setMobileAccountPath(parseMobileAccountPathFromBranding(pub))
       // Extract structured identity fields from branding
       if (typeof branding.site_name === 'string') setSiteName(branding.site_name)
@@ -647,12 +642,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: logoTextLine2.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
         category_logos: categoryLogos,
-        home_page_links: homePageLinks
-          .map((l) => ({
-            label: l.label.trim(),
-            path: l.path.trim().startsWith('/') ? l.path.trim() : `/${l.path.trim()}`,
-          }))
-          .filter((l) => l.label && l.path),
         mobile_account_path: mobileAccountPath.trim().startsWith('/')
           ? mobileAccountPath.trim()
           : '/account',
@@ -684,12 +673,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: logoTextLine2.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
         category_logos: categoryLogos,
-        home_page_links: homePageLinks
-          .map((l) => ({
-            label: l.label.trim(),
-            path: l.path.trim().startsWith('/') ? l.path.trim() : `/${l.path.trim()}`,
-          }))
-          .filter((l) => l.label && l.path),
         mobile_account_path: mobileAccountPath.trim().startsWith('/')
           ? mobileAccountPath.trim()
           : '/account',
@@ -913,53 +896,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               </Field>
             </div>
 
-            <div className="mt-8 border-t border-neutral-100 pt-8 dark:border-neutral-800">
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Önizleme ana sayfa linkleri</h3>
-              <p className="mt-1 text-sm text-neutral-500">
-                Sağdaki «Customize» panelindeki hızlı gezinme. Yol locale öneki olmadan (ör.{' '}
-                <code className="font-mono text-xs">/home-2</code>).
-              </p>
-              <div className="mt-4 space-y-2">
-                {homePageLinks.map((row, i) => (
-                  <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <Input
-                      value={row.label}
-                      onChange={(e) =>
-                        setHomePageLinks((prev) =>
-                          prev.map((r, j) => (j === i ? { ...r, label: e.target.value } : r)),
-                        )
-                      }
-                      placeholder="Etiket"
-                      className="min-w-0 flex-1"
-                    />
-                    <Input
-                      value={row.path}
-                      onChange={(e) =>
-                        setHomePageLinks((prev) =>
-                          prev.map((r, j) => (j === i ? { ...r, path: e.target.value } : r)),
-                        )
-                      }
-                      placeholder="/yol"
-                      className="min-w-0 flex-1 font-mono text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setHomePageLinks((prev) => prev.filter((_, j) => j !== i))}
-                      className="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
-                    >
-                      Kaldır
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                onClick={() => setHomePageLinks((prev) => [...prev, { label: '', path: '/' }])}
-                className="mt-2 text-sm font-medium text-primary-600 hover:text-primary-700"
-              >
-                + Satır ekle
-              </button>
-              <Field className="mt-6 block">
+            <Field className="mt-8 block border-t border-neutral-100 pt-8 dark:border-neutral-800">
                 <Label>Mobil alt bar — Hesap yolu</Label>
                 <Input
                   className="mt-1 font-mono"
@@ -969,7 +906,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 />
                 <p className="mt-1 text-xs text-neutral-400">Mobil alt bardaki «Hesap» kısayolunun hedefi.</p>
               </Field>
-            </div>
           </section>
 
           <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
