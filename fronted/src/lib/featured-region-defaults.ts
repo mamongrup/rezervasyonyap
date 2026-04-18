@@ -1,4 +1,4 @@
-import { en } from '@locales/en'
+import { en } from '../../public/locales/en'
 import type { FeaturedByRegionConfig, FeaturedRegionEntry, TListingBase } from '@/types/listing-types'
 
 /**

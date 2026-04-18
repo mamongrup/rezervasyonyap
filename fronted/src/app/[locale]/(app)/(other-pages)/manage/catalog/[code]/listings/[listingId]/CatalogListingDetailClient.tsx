@@ -3,8 +3,7 @@
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { ManageFormPageHeader, MANAGE_STICKY_FOOTER_SCROLL_PADDING } from '@/components/manage/ManageFormShell'
-import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
+import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useCatalogListingUi, type CatalogListingUi } from '@/hooks/useCatalogListingUi'
 import {
@@ -1130,7 +1129,7 @@ export default function CatalogListingDetailClient({
   // ── Hazır olmayan durum ──
   if (needOrg && !orgId.trim()) {
     return (
-      <div className={MANAGE_STICKY_FOOTER_SCROLL_PADDING}>
+      <div>
         <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">{ui.pageTitleGate}</h1>
         <p className="mt-1 font-mono text-xs text-neutral-500">{listingId}</p>
         <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
@@ -1177,7 +1176,7 @@ export default function CatalogListingDetailClient({
   ]
 
   return (
-    <div className={MANAGE_STICKY_FOOTER_SCROLL_PADDING}>
+    <div>
       {/* Başlık — bölge/blog formları ile aynı desen */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <ManageFormPageHeader
@@ -1192,6 +1191,20 @@ export default function CatalogListingDetailClient({
             </>
           }
         />
+        <div className="flex gap-2">
+          <Link
+            href={transHref}
+            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-primary-300 dark:hover:bg-neutral-800"
+          >
+            {t('catalog.translations_link')}
+          </Link>
+          <Link
+            href={`${base}/listings`}
+            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            ← {ui.back}
+          </Link>
+        </div>
       </div>
 
       {/* Yönetici org alanı */}
@@ -2132,21 +2145,6 @@ export default function CatalogListingDetailClient({
           </div>
         </div>
       )}
-
-      <ManageStickyFormFooter>
-        <Link
-          href={transHref}
-          className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-primary-300 dark:hover:bg-neutral-800"
-        >
-          {t('catalog.translations_link')}
-        </Link>
-        <Link
-          href={`${base}/listings`}
-          className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-        >
-          ← {ui.back}
-        </Link>
-      </ManageStickyFormFooter>
     </div>
   )
 }

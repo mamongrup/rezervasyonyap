@@ -3,7 +3,6 @@
 import { ImageIcon, Loader2, Save, Upload, X } from 'lucide-react'
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { uploadFetch } from '@/lib/upload-fetch'
 
 interface HomepageConfig {
   heroHeading: string
@@ -42,8 +41,9 @@ function ImageSlot({
         fd.append('file', file)
         fd.append('category', 'homepage')
         fd.append('slot', String(index))
-        const json = await uploadFetch(fd)
-        if (json.ok && json.url) onChange(json.url)
+        const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
+        const json = await res.json()
+        if (json.ok) onChange(json.url as string)
       } finally {
         setUploading(false)
       }

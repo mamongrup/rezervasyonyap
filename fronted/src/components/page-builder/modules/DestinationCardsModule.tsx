@@ -1,6 +1,5 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { ViewAllPillLink } from '@/shared/ViewAllPillLink'
 
 interface DestinationCard {
   name: string
@@ -125,7 +124,12 @@ export default function DestinationCardsModule({ config }: { config: Destination
           )}
         </div>
         {config.viewAllHref && (
-          <ViewAllPillLink href={config.viewAllHref}>{config.viewAllLabel ?? 'Tümünü Gör'}</ViewAllPillLink>
+          <Link
+            href={config.viewAllHref}
+            className="shrink-0 text-sm font-medium text-primary-6000 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition"
+          >
+            {config.viewAllLabel ?? 'Tümünü Gör'} →
+          </Link>
         )}
       </div>
 

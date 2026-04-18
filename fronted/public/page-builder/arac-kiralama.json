@@ -1,0 +1,58 @@
+{
+  "categorySlug": "arac-kiralama",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "compact",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/arac-kiralama-1.avif",
+          "/uploads/hero/arac-kiralama-2.avif",
+          "/uploads/hero/arac-kiralama-3.jpg"
+        ]
+      },
+      "id": "arac-kiralama-module-0"
+    },
+    {
+      "type": "why_us",
+      "enabled": true,
+      "order": 2,
+      "config": {},
+      "id": "arac-kiralama-module-1"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 3,
+      "config": {
+        "title": "Popüler Güzergahlar",
+        "count": 12
+      },
+      "id": "arac-kiralama-module-2"
+    },
+    {
+      "type": "newsletter",
+      "enabled": true,
+      "order": 4,
+      "config": {},
+      "id": "arac-kiralama-module-3"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 5,
+      "config": {
+        "title": "🎬 Videolar",
+        "subtitle": "Ulaşım hizmetlerimiz hakkında videolar.",
+        "videos": []
+      },
+      "id": "arac-kiralama-module-4"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:29:21.007Z"
+}

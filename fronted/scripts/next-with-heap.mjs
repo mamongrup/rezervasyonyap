@@ -17,18 +17,10 @@ try {
 }
 
 const args = process.argv.slice(2)
-
-/** Next.js type-check worker ayrı Node süreci; yalnızca argv yetmez, `NODE_OPTIONS` tüm alt süreçlere geçer. */
-const heap = '--max-old-space-size=12288'
-const opt = (process.env.NODE_OPTIONS ?? '').trim()
-if (!opt.includes('max-old-space-size')) {
-  process.env.NODE_OPTIONS = opt ? `${opt} ${heap}` : heap
-}
-
 const result = spawnSync(
   process.execPath,
-  [heap, nextBin, ...args],
-  { stdio: 'inherit', cwd: process.cwd(), shell: false, env: process.env },
+  ['--max-old-space-size=8192', nextBin, ...args],
+  { stdio: 'inherit', cwd: process.cwd(), shell: false },
 )
 
 process.exit(result.status ?? 1)

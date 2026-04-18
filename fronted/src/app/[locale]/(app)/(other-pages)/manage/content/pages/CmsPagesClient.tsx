@@ -1,7 +1,6 @@
 'use client'
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { uploadFetch } from '@/lib/upload-fetch'
 import {
   addCmsBlock,
   createCmsPage,
@@ -32,8 +31,6 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
-import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
-import { MANAGE_EDITOR_LOCALE_TABS } from '@/components/manage/manage-editor-locales'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
@@ -82,7 +79,8 @@ function CmsImageSlot({
     form.append('category', `cms-${pageSlug}`)
     form.append('slot', String(index))
     try {
-      const data = await uploadFetch(form)
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const data = (await res.json()) as { ok: boolean; url?: string }
       if (data.ok && data.url) onChange(data.url)
     } finally {
       setUploading(false)
@@ -354,7 +352,6 @@ function PageEditor({
   const [addingBlock, setAddingBlock] = useState(false)
   const [newBlockType, setNewBlockType] = useState('text')
   const [error, setError] = useState<string | null>(null)
-  const pageMetaFormRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     listCmsBlocks(token, initialPage.id)
@@ -428,29 +425,22 @@ function PageEditor({
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 pt-8">
-      <div className="flex max-h-[calc(100vh-2rem)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-neutral-900">
-        <div className="flex shrink-0 items-center justify-between border-b border-neutral-100 px-6 py-4 dark:border-neutral-800">
+      <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl dark:bg-neutral-900">
+        <div className="flex items-center justify-between border-b border-neutral-100 px-6 py-4 dark:border-neutral-800">
           <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">CMS sayfa</span>
           <button type="button" aria-label="Kapat" onClick={onClose}><X className="h-5 w-5 text-neutral-400" /></button>
         </div>
 
-        <div className="shrink-0 border-b border-neutral-100 bg-neutral-50/90 px-4 py-2 dark:border-neutral-800 dark:bg-neutral-900/80">
-          <p className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-            Sayfa kaydı şu an tek dilde; vitrin diline göre blok içeriklerini düzenleyin. (
-            {MANAGE_EDITOR_LOCALE_TABS.map((l) => l.code).join(', ')})
-          </p>
-        </div>
+        {error ? <div className="border-b border-red-100 bg-red-50 px-6 py-2 text-sm text-red-700">{error}</div> : null}
 
-        {error ? <div className="shrink-0 border-b border-red-100 bg-red-50 px-6 py-2 text-sm text-red-700">{error}</div> : null}
-
-        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-6 pb-4">
+        <div className="p-6 space-y-5">
           <ManageFormPageHeader
             className="mb-0"
             title="Sayfa düzenle"
             subtitle={<span className="font-mono text-neutral-600 dark:text-neutral-300">/{page.slug}</span>}
           />
           {/* Page meta */}
-          <form ref={pageMetaFormRef} onSubmit={handleSavePage} className="space-y-4 rounded-xl border border-neutral-100 p-4 dark:border-neutral-800">
+          <form onSubmit={handleSavePage} className="space-y-4 rounded-xl border border-neutral-100 p-4 dark:border-neutral-800">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Sayfa Ayarları</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -470,6 +460,11 @@ function PageEditor({
               <input type="checkbox" checked={published} onChange={(e) => setPublished(e.target.checked)} className="rounded" />
               Yayınla
             </label>
+            <button type="submit" disabled={saving}
+              className="flex items-center gap-2 rounded-xl bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Kaydet
+            </button>
           </form>
 
           {/* Blocks */}
@@ -549,25 +544,6 @@ function PageEditor({
             </div>
           ) : null}
         </div>
-
-        <ManageStickyFormFooter variant="sticky" className="shrink-0 rounded-b-2xl shadow-none">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-          >
-            Kapat
-          </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => pageMetaFormRef.current?.requestSubmit()}
-            className="flex items-center gap-2 rounded-xl bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-          >
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Sayfa ayarlarını kaydet
-          </button>
-        </ManageStickyFormFooter>
       </div>
     </div>
   )

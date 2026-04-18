@@ -1,0 +1,70 @@
+{
+  "categorySlug": "turlar",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "full",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/turlar-1.avif",
+          "/uploads/hero/turlar-2.avif",
+          "/uploads/hero/turlar-3.avif"
+        ]
+      },
+      "id": "turlar-module-0"
+    },
+    {
+      "type": "listings_slider",
+      "enabled": true,
+      "order": 2,
+      "config": {
+        "title": "Popüler Seçenekler",
+        "count": 8
+      },
+      "id": "turlar-module-1"
+    },
+    {
+      "type": "promo_banner",
+      "enabled": true,
+      "order": 3,
+      "config": {
+        "title": "Erken Rezervasyon İndirimi",
+        "description": "Planlarınızı erkenden yapın, %20'ye kadar tasarruf edin.",
+        "ctaText": "Fırsatları Gör",
+        "ctaHref": "#"
+      },
+      "id": "turlar-module-2"
+    },
+    {
+      "type": "testimonials",
+      "enabled": true,
+      "order": 4,
+      "config": {},
+      "id": "turlar-module-3"
+    },
+    {
+      "type": "newsletter",
+      "enabled": true,
+      "order": 5,
+      "config": {},
+      "id": "turlar-module-4"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 6,
+      "config": {
+        "title": "🎬 Videolar",
+        "subtitle": "En iyi deneyim videolarını izleyin.",
+        "videos": []
+      },
+      "id": "turlar-module-5"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:22:46.179Z"
+}

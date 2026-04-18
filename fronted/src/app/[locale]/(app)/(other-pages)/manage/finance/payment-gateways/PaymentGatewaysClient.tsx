@@ -2,6 +2,7 @@
 
 import clsx from 'clsx'
 import {
+  AlertCircle,
   Check,
   CreditCard,
   Eye,
@@ -9,7 +10,9 @@ import {
   Loader2,
   Save,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getStoredAuthToken } from '@/lib/auth-storage'
+import { listSiteSettings, setActivePaymentProvider, upsertSiteSetting } from '@/lib/travel-api'
 
 type GatewayId = 'paytr' | 'paratika'
 
@@ -80,19 +83,63 @@ function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (v: b
 
 export default function PaymentGatewaysClient() {
   const [configs, setConfigs] = useState<Record<GatewayId, GatewayConfig>>(INITIAL)
+  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const token = getStoredAuthToken()
+    if (!token) { setLoading(false); return }
+    listSiteSettings(token, { key: 'payment_gateways' })
+      .then((res) => {
+        const row = res.settings.find((s) => s.key === 'payment_gateways')
+        if (row?.value_json) {
+          try {
+            const parsed = JSON.parse(row.value_json) as Partial<Record<GatewayId, GatewayConfig>>
+            setConfigs((prev) => ({
+              paytr: { ...prev.paytr, ...(parsed.paytr ?? {}) },
+              paratika: { ...prev.paratika, ...(parsed.paratika ?? {}) },
+            }))
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => { /* ignore load errors */ })
+      .finally(() => setLoading(false))
+  }, [])
 
   const update = (gw: GatewayId, field: keyof GatewayConfig, value: string | boolean) =>
     setConfigs((prev) => ({ ...prev, [gw]: { ...prev[gw], [field]: value } }))
 
   const handleSave = async () => {
+    const token = getStoredAuthToken()
+    if (!token) { setError('Oturum açık değil.'); return }
     setSaving(true)
-    // TODO: connect to settings API
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setError(null)
+    try {
+      await upsertSiteSetting(token, {
+        key: 'payment_gateways',
+        value_json: JSON.stringify(configs),
+      })
+      const enabled = (Object.entries(configs) as [GatewayId, GatewayConfig][]).find(([, cfg]) => cfg.enabled)
+      if (enabled) {
+        await setActivePaymentProvider(enabled[0], token)
+      }
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kaydetme hatası')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
+      </div>
+    )
   }
 
   return (
@@ -108,6 +155,13 @@ export default function PaymentGatewaysClient() {
           </p>
         </div>
       </div>
+
+      {error ? (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/20 dark:text-red-300">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          {error}
+        </div>
+      ) : null}
 
       <div className="space-y-6">
         {(['paytr', 'paratika'] as GatewayId[]).map((gw) => {
@@ -157,7 +211,6 @@ export default function PaymentGatewaysClient() {
 
               {cfg.enabled ? (
                 <div className="space-y-4">
-                  {/* Mode */}
                   <div>
                     <label className="mb-2 block text-xs font-medium text-neutral-500">Mod</label>
                     <div className="flex gap-3">

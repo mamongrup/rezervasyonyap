@@ -385,18 +385,18 @@ fn insert_rates_batch(
     Ok(codes_ret) -> {
       let allowed = codes_ret.rows
       let to_insert =
-        list.filter(try_pair, fn(p) { list.contains(allowed, p.0) })
-      let count =
+        list.filter(try_pair, fn(p) {
+          list.contains(allowed, p.0) || list.contains(allowed, string.uppercase(p.0))
+        })      let count =
         list.fold(to_insert, 0, fn(acc, pair) {
           let #(code, rate) = pair
           case
             pog.query(
-              "insert into currency_rates (base_code, quote_code, rate, source, fetched_at) values ($1::char(3), 'TRY'::char(3), $2::numeric, $3, $4::timestamptz)",
+              "insert into currency_rates (base_code, quote_code, rate, source, fetched_at) values ($1::char(3), 'TRY'::char(3), $2::numeric, $3, now())",
             )
             |> pog.parameter(pog.text(code))
             |> pog.parameter(pog.float(rate))
             |> pog.parameter(pog.text("tcmb"))
-            |> pog.parameter(pog.text(fetched_at))
             |> pog.execute(ctx.db)
           {
             Ok(_) -> acc + 1
@@ -408,10 +408,7 @@ fn insert_rates_batch(
           #("ok", json.bool(True)),
           #("inserted", json.int(count)),
           #("fetched_at", json.string(fetched_at)),
-          #(
-            "pairs_seen",
-            json.int(list.length(rates)),
-          ),
+          #("pairs_seen", json.int(list.length(rates))),
         ])
         |> json.to_string
       wisp.json_response(body, 200)

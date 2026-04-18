@@ -8,6 +8,7 @@
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
+import { useManageT } from '@/lib/manage-i18n-context'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 import {
   type AttributeDef,
@@ -22,11 +23,9 @@ import {
   putAttributeDefTranslations,
   putAttributeGroupTranslations,
 } from '@/lib/travel-api'
-import { MANAGE_PAGE_BOTTOM_SCROLL_CLASS } from '@/components/manage/ManageFormShell'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
-import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
@@ -47,16 +46,6 @@ const ATTR_PREVIEW_LOCALES = [
 
 function allPreviewLocalesFilled(labels: Record<string, string>): boolean {
   return ATTR_PREVIEW_LOCALES.every((l) => (labels[l.code] ?? '').trim().length > 0)
-}
-
-/** API `error` kodu → kullanıcıya Türkçe açıklama */
-const ATTR_API_ERROR_TR: Record<string, string> = {
-  invalid_translation_entries:
-    'Çeviri kayıtları geçersiz: TR, EN, DE, RU, ZH ve FR alanlarının tamamını doldurun; boş veya yinelenen dil kodu bırakmayın.',
-}
-
-function attrApiErrorMessage(raw: string) {
-  return ATTR_API_ERROR_TR[raw] ?? raw
 }
 
 const FIELD_TYPES = [
@@ -102,6 +91,7 @@ function GroupPanel({
   scopeReady,
   needOrg,
   manageOrgId,
+  orgReloadNonce,
 }: {
   code: string
   selectedGroup: AttributeGroup | null
@@ -111,6 +101,7 @@ function GroupPanel({
   needOrg: boolean
   /** Yönetici: API `organization_id`; boşsa istek gönderilmez */
   manageOrgId: string
+  orgReloadNonce: number
 }) {
   const [groups, setGroups] = useState<AttributeGroup[]>([])
   const [loading, setLoading] = useState(true)
@@ -153,6 +144,7 @@ function GroupPanel({
     scopeReady,
     needOrg,
     manageOrgId,
+    orgReloadNonce,
   ])
 
   useEffect(() => {
@@ -206,10 +198,7 @@ function GroupPanel({
       setTransGroupId(null)
       load()
     } catch (e) {
-      setMsg({
-        ok: false,
-        text: e instanceof Error ? attrApiErrorMessage(e.message) : 'save_failed',
-      })
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
     } finally {
       setBusy(false)
     }
@@ -223,10 +212,7 @@ function GroupPanel({
     setMsg(null)
     try {
       if (needOrg && !manageOrgId.trim()) {
-        setMsg({
-          ok: false,
-          text: 'Yönetici kapsamı için kurum kimliği gerekli; tarayıcıda (aynı site için) daha önce kaydedilmiş olmalı.',
-        })
+        setMsg({ ok: false, text: 'Önce kurum UUID girin.' })
         return
       }
       const createdName = form.name.trim()
@@ -254,10 +240,7 @@ function GroupPanel({
       })
       load()
     } catch (e) {
-      setMsg({
-        ok: false,
-        text: e instanceof Error ? attrApiErrorMessage(e.message) : 'create_failed',
-      })
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'create_failed' })
     } finally {
       setBusy(false)
     }
@@ -273,10 +256,7 @@ function GroupPanel({
       load()
       if (selectedGroup?.id === g.id) onSelect(groups[0] ?? g)
     } catch (e) {
-      setMsg({
-        ok: false,
-        text: e instanceof Error ? attrApiErrorMessage(e.message) : 'delete_failed',
-      })
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'delete_failed' })
     }
   }
 
@@ -312,6 +292,7 @@ function GroupPanel({
                   }`}
                 >
                   <p className="truncate font-medium">{g.name}</p>
+                  <p className="mt-0.5 font-mono text-xs text-neutral-400">{g.code}</p>
                 </button>
                 <div
                   className={`flex shrink-0 flex-col justify-center gap-1 pr-2 ${
@@ -528,10 +509,7 @@ function DefsPanel({
       })
       load()
     } catch (e) {
-      setMsg({
-        ok: false,
-        text: e instanceof Error ? attrApiErrorMessage(e.message) : 'create_failed',
-      })
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'create_failed' })
     } finally {
       setBusy(false)
     }
@@ -571,10 +549,7 @@ function DefsPanel({
       if (transDefId === d.id) setTransDefId(null)
       load()
     } catch (e) {
-      setMsg({
-        ok: false,
-        text: e instanceof Error ? attrApiErrorMessage(e.message) : 'delete_failed',
-      })
+      setMsg({ ok: false, text: e instanceof Error ? e.message : 'delete_failed' })
     }
   }
 
@@ -591,10 +566,13 @@ function DefsPanel({
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             {group.name}
           </h2>
+          <p className="mt-0.5 font-mono text-xs text-neutral-400">{group.code}</p>
+        </div>
+        <div className="flex items-center gap-2">
           {group.category_codes.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="flex gap-1">
               {group.category_codes.map((c) => (
-                <Badge key={c} color="blue">{categoryLabelTr(c)}</Badge>
+                <Badge key={c} color="blue">{c}</Badge>
               ))}
             </div>
           )}
@@ -638,6 +616,7 @@ function DefsPanel({
                   <tr key={d.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
                     <td className="px-4 py-3">
                       <p className="font-medium text-neutral-800 dark:text-neutral-200">{d.label}</p>
+                      <p className="mt-0.5 font-mono text-xs text-neutral-400">{d.code}</p>
                     </td>
                     <td className="px-4 py-3">
                       <Badge color={d.field_type === 'boolean' ? 'green' : d.field_type.includes('select') ? 'blue' : 'neutral'}>
@@ -801,6 +780,7 @@ function DefsPanel({
 
 // ─── Ana Bileşen ──────────────────────────────────────────────────────────────
 export default function CatalogCategoryAttributesClient({ code }: { code: string }) {
+  const t = useManageT()
   const [selectedGroup, setSelectedGroup] = useState<AttributeGroup | null>(null)
   const [previewLocale, setPreviewLocale] = useState('tr')
   const [orgId, setOrgId] = useState('')
@@ -831,10 +811,17 @@ export default function CatalogCategoryAttributesClient({ code }: { code: string
       .finally(() => setScopeReady(true))
   }, [])
 
+  const saveOrg = () => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
+    }
+    setOrgReloadNonce((n) => n + 1)
+  }
+
   const manageOrgId = orgId
 
   return (
-    <div className={clsx('flex h-full flex-col gap-6', MANAGE_PAGE_BOTTOM_SCROLL_CLASS)}>
+    <div className="flex h-full flex-col gap-6 pb-10">
       {/* Sayfa başlığı */}
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
@@ -863,6 +850,26 @@ export default function CatalogCategoryAttributesClient({ code }: { code: string
         </div>
       </div>
 
+      {needOrg ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+          <Field className="block max-w-xl">
+            <Label>{t('catalog.org_uuid_label')}</Label>
+            <div className="mt-1 flex flex-wrap gap-2">
+              <Input
+                value={orgId}
+                onChange={(e) => setOrgId(e.target.value)}
+                placeholder="a0000000-0000-4000-8000-000000000001"
+                className="min-w-[280px] flex-1 font-mono text-sm"
+              />
+              <ButtonPrimary type="button" onClick={() => saveOrg()}>
+                {t('catalog.save_load')}
+              </ButtonPrimary>
+            </div>
+            <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">{t('catalog.org_uuid_hint')}</p>
+          </Field>
+        </div>
+      ) : null}
+
       {/* İki panel yan yana */}
       <div className="flex items-start gap-5">
         <GroupPanel
@@ -873,6 +880,7 @@ export default function CatalogCategoryAttributesClient({ code }: { code: string
           scopeReady={scopeReady}
           needOrg={needOrg}
           manageOrgId={manageOrgId}
+          orgReloadNonce={orgReloadNonce}
         />
 
         {selectedGroup ? (

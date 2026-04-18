@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo, useRef, type ReactNode } from 'react'
+import Link from 'next/link'
 import type { TListingBase } from '@/types/listing-types'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
@@ -13,7 +14,6 @@ import {
   Tag01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ViewAllPillLink } from '@/shared/ViewAllPillLink'
 
 export type ListingFilterMode = 'all' | 'new' | 'discounted' | 'campaign'
 export type ListingLayoutMode = 'grid' | 'slider'
@@ -185,7 +185,15 @@ export default function ListingsModule({ config, allListings, cardsByListingId }
           )}
         </div>
 
-        {viewAllHref && <ViewAllPillLink href={viewAllHref}>{viewAllLabel}</ViewAllPillLink>}
+        {viewAllHref && (
+          <Link
+            href={viewAllHref}
+            className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+          >
+            {viewAllLabel}
+            <HugeiconsIcon icon={ArrowRight02Icon} className="size-4 shrink-0" strokeWidth={1.75} />
+          </Link>
+        )}
       </div>
 
       {/* Tabs (only shown when showTabs === true) */}

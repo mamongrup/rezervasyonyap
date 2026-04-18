@@ -1,10 +1,12 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { ViewAllPillLink } from '@/shared/ViewAllPillLink'
+import ButtonSecondary from '@/shared/ButtonSecondary'
 import Heading from '@/shared/Heading'
 import T from '@/utils/getT'
 import { Tab, TabGroup, TabList } from '@headlessui/react'
+import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { FC, ReactNode } from 'react'
 
 interface Props {
@@ -48,9 +50,10 @@ const SectionTabHeader: FC<Props> = ({
             </TabList>
           </TabGroup>
         </div>
-        <ViewAllPillLink href={resolvedRightHref} className="ml-auto">
-          {T['common']['View all']}
-        </ViewAllPillLink>
+        <ButtonSecondary className="ml-auto shrink-0" href={resolvedRightHref}>
+          <span>{T['common']['View all']}</span>
+          <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
+        </ButtonSecondary>
       </div>
     </div>
   )

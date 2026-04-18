@@ -1,5 +1,5 @@
-import { LOCALIZED_FIRST_SEGMENT_ALIASES } from './data/localized-middleware-rewrites'
-import { defaultLocale, isAppLocale } from './lib/i18n-config'
+import { LOCALIZED_FIRST_SEGMENT_ALIASES } from '@/data/localized-middleware-rewrites'
+import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
@@ -40,9 +40,12 @@ function applyFirstSegmentAlias(pathname: string, locLower: string): string {
 }
 
 /**
- * Default locale (tr): URL has no locale prefix (/blog).
- * Internally rewrites to [locale]=tr. /tr/blog -> 308 to /blog.
- * Optional HTTPS: ENFORCE_HTTPS_REDIRECT=1 + NODE_ENV=production + X-Forwarded-Proto: http -> 308 https.
+ * Varsayılan dil (`tr`): adres çubuğunda dil kodu yok (`/blog`).
+ * İçeride `[locale]` = `tr` olacak şekilde `rewrite` yapılır.
+ * `/tr/blog` istekleri kanonik `/blog` adresine yönlendirilir (308).
+ *
+ * (Eski `middleware.ts`) İsteğe bağlı HTTP → HTTPS: `ENFORCE_HTTPS_REDIRECT=1` ve
+ * `NODE_ENV=production` iken `X-Forwarded-Proto: http` ise 308 ile HTTPS’e yönlendirilir.
  */
 export function proxy(request: NextRequest) {
   if (process.env.ENFORCE_HTTPS_REDIRECT === '1' && process.env.NODE_ENV === 'production') {
@@ -56,7 +59,9 @@ export function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // /tr/api/... under locale breaks routing; always rewrite to /api/...
+  // /tr/api/... veya /en/api/... — yanlışlıkla locale altında kalan API istekleri
+  // `[locale]/[categoryMap]` ile çakışır (categoryMap=api → Server Action hatası, 500).
+  // Dahili olarak her zaman `/api/...` route handler'a yönlendir.
   const localeThenApi = pathname.match(/^\/([a-z]{2}(?:-[a-z0-9]+)?)\/(api(?:\/|$).*)$/i)
   if (localeThenApi) {
     const url = request.nextUrl.clone()
@@ -65,18 +70,11 @@ export function proxy(request: NextRequest) {
   }
 
   if (isProtected(pathname)) {
-    const cookieTok = request.cookies.get(AUTH_COOKIE)?.value?.trim()
-    const auth = request.headers.get('authorization')
-    const bearerTok =
-      auth?.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : ''
-    const token = cookieTok || bearerTok
+    const token = request.cookies.get(AUTH_COOKIE)?.value
     if (!token) {
       if (pathname.startsWith('/api/')) {
         return NextResponse.json(
-          {
-            ok: false,
-            error: 'Oturum gerekli. L\u00fctfen tekrar giri\u015f yap\u0131n.',
-          },
+          { ok: false, error: 'Oturum gerekli. Lütfen tekrar giriş yapın.' },
           { status: 401 },
         )
       }
@@ -84,6 +82,8 @@ export function proxy(request: NextRequest) {
     }
   }
 
+  // Tüm `/api/*` rotaları locale rewrite dışında kalmalı; aksi halde örn. `/api/upload-image`
+  // `/tr/api/upload-image` olarak rewrite edilir ve 404 HTML döner (JSON beklenen yükleme kırılır).
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
@@ -100,6 +100,7 @@ export function proxy(request: NextRequest) {
   const first = segments[0]
   const def = defaultLocale.toLowerCase()
 
+  // /en/... — varsayılan dil dışı; vitrin segment alias (rewrite) + next
   if (first && isAppLocale(first) && first.toLowerCase() !== def) {
     const loc = first.toLowerCase()
     const rest = segments.slice(1)
@@ -118,6 +119,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // /tr veya /tr/... — önek olmayan kanonik URL'ye yönlendir
   if (first && isAppLocale(first) && first.toLowerCase() === def) {
     const rest = segments.slice(1)
     const newPath = rest.length === 0 ? '/' : '/' + rest.join('/')
@@ -126,6 +128,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(url, 308)
   }
 
+  // Dil segmenti yok: `/`, `/blog` → içeride `/tr`, `/tr/blog` (+ alias)
   const url = request.nextUrl.clone()
   const suffix = pathname === '/' ? '' : pathname
   url.pathname = `/${defaultLocale}${suffix}`
@@ -135,8 +138,13 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
+    /*
+     * `/api` dahil (HTTPS); locale rewrite içinde `/api` erken `next()`.
+     * Statik uzantılar ve robots/sitemap hariç — eski middleware ile uyumlu.
+     */
     '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
     '/api/upload-image',
+    // /tr/api/... yanlış eşleşmesini düzeltmek için proxy bu yolları da görmeli
     '/:locale/api/:path*',
   ],
 }

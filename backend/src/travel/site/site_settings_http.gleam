@@ -193,33 +193,57 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                     True -> "{}"
                     False -> vj
                   }
-                  let org_p = case org_opt {
-                    None -> pog.null()
-                    Some(o) -> pog.text(o)
-                  }
-                  case
-                    pog.query(
-                      "insert into site_settings (organization_id, key, value_json) values ($1::uuid, $2, $3::jsonb) on conflict (organization_id, key) do update set value_json = excluded.value_json returning id::text",
-                    )
-                    |> pog.parameter(org_p)
-                    |> pog.parameter(pog.text(k))
-                    |> pog.parameter(pog.text(cfg))
-                    |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
-                  {
-                    Error(_) -> json_err(409, "upsert_failed")
-                    Ok(r) ->
-                      case r.rows {
-                        [id] -> {
-                          let out =
-                            json.object([
-                              #("id", json.string(id)),
-                              #("ok", json.bool(True)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(out, 200)
-                        }
-                        _ -> json_err(500, "unexpected")
+                  case org_opt {
+                    None ->
+                      case
+                        pog.query(
+                          "insert into site_settings (organization_id, key, value_json) values (null, $1, $2::jsonb) on conflict (key) where organization_id is null do update set value_json = excluded.value_json returning id::text",
+                        )
+                        |> pog.parameter(pog.text(k))
+                        |> pog.parameter(pog.text(cfg))
+                        |> pog.returning(row_dec.col0_string())
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(409, "upsert_failed")
+                        Ok(r) ->
+                          case r.rows {
+                            [id] -> {
+                              let out =
+                                json.object([
+                                  #("id", json.string(id)),
+                                  #("ok", json.bool(True)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(out, 200)
+                            }
+                            _ -> json_err(500, "unexpected")
+                          }
+                      }
+                    Some(o) ->
+                      case
+                        pog.query(
+                          "insert into site_settings (organization_id, key, value_json) values ($1::uuid, $2, $3::jsonb) on conflict (organization_id, key) do update set value_json = excluded.value_json returning id::text",
+                        )
+                        |> pog.parameter(pog.text(o))
+                        |> pog.parameter(pog.text(k))
+                        |> pog.parameter(pog.text(cfg))
+                        |> pog.returning(row_dec.col0_string())
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(409, "upsert_failed")
+                        Ok(r) ->
+                          case r.rows {
+                            [id] -> {
+                              let out =
+                                json.object([
+                                  #("id", json.string(id)),
+                                  #("ok", json.bool(True)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(out, 200)
+                            }
+                            _ -> json_err(500, "unexpected")
+                          }
                       }
                   }
                 }

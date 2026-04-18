@@ -12,7 +12,6 @@ import {
   putManageCategoryAccommodationRules,
   type CategoryAccommodationRuleItem,
 } from '@/lib/travel-api'
-import { MANAGE_PAGE_BOTTOM_SCROLL_CLASS } from '@/components/manage/ManageFormShell'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
@@ -153,7 +152,7 @@ export default function CatalogCategoryAccommodationRulesClient({
   }
 
   return (
-    <div className={clsx('flex h-full flex-col gap-6', MANAGE_PAGE_BOTTOM_SCROLL_CLASS)}>
+    <div className="flex h-full flex-col gap-6 pb-10">
       <div>
         <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
           {categoryLabelTr(code)}

@@ -7308,43 +7308,6 @@ export interface PublicListingSearchResult {
   per_page: number
 }
 
-type PublicListingsCacheEntry = {
-  expiresAt: number
-  value: PublicListingSearchResult | null
-}
-
-// Public listing aramalarını kısa süre process içinde tutarak aynı sorguların
-// backend'e tekrar gitmesini azaltır; TTFB düşer, API ve RAM baskısı azalır.
-const PUBLIC_LISTINGS_TTL_MS = 15_000
-const PUBLIC_LISTINGS_MAX_ENTRIES = 150
-const publicListingsCache = new Map<string, PublicListingsCacheEntry>()
-
-function makePublicListingsCacheKey(
-  baseUrl: string,
-  queryString: string,
-  revalidateSeconds: number,
-): string {
-  return `${baseUrl}|${queryString}|rv:${revalidateSeconds}`
-}
-
-function getCachedPublicListings(key: string): PublicListingSearchResult | null | undefined {
-  const cached = publicListingsCache.get(key)
-  if (!cached) return undefined
-  if (cached.expiresAt <= Date.now()) {
-    publicListingsCache.delete(key)
-    return undefined
-  }
-  return cached.value
-}
-
-function setCachedPublicListings(key: string, value: PublicListingSearchResult | null): void {
-  if (publicListingsCache.size >= PUBLIC_LISTINGS_MAX_ENTRIES) {
-    const oldestKey = publicListingsCache.keys().next().value as string | undefined
-    if (oldestKey) publicListingsCache.delete(oldestKey)
-  }
-  publicListingsCache.set(key, { value, expiresAt: Date.now() + PUBLIC_LISTINGS_TTL_MS })
-}
-
 /**
  * Genel ön-yüz ilan arama.
  * API URL tanımlı değilse veya API erişilemezse `null` döner (caller mock'a düşer).
@@ -7372,27 +7335,14 @@ export async function searchPublicListings(
   if (params.listingIds?.length)   u.set('listing_ids', params.listingIds.join(','))
   if (params.theme?.trim())        u.set('theme', params.theme.trim())
 
-  const revalidateSeconds = 60
-  const queryString = u.toString()
-  const url = `${b}/api/v1/catalog/public/listings${queryString ? `?${queryString}` : ''}`
-  const cacheKey = makePublicListingsCacheKey(b, queryString, revalidateSeconds)
-  const cached = getCachedPublicListings(cacheKey)
-  if (cached !== undefined) return cached
-
   try {
-    const res = await fetch(url, {
-      next: { revalidate: revalidateSeconds },
-      signal: AbortSignal.timeout(8000),
-    })
-    if (!res.ok) {
-      setCachedPublicListings(cacheKey, null)
-      return null
-    }
-    const data = await json<PublicListingSearchResult>(res)
-    setCachedPublicListings(cacheKey, data)
-    return data
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings${u.toString() ? `?${u.toString()}` : ''}`,
+      { next: { revalidate: 60 } },
+    )
+    if (!res.ok) return null
+    return json<PublicListingSearchResult>(res)
   } catch {
-    setCachedPublicListings(cacheKey, null)
     return null
   }
 }
@@ -7401,15 +7351,6 @@ export interface PublicThemeItem {
   code: string
   label: string
 }
-
-type PublicThemeItemsCacheEntry = {
-  expiresAt: number
-  value: { items: PublicThemeItem[] } | null
-}
-
-const PUBLIC_THEME_ITEMS_TTL_MS = 120_000
-const PUBLIC_THEME_ITEMS_MAX_ENTRIES = 80
-const publicThemeItemsCache = new Map<string, PublicThemeItemsCacheEntry>()
 
 /** Herkese açık — vitrin tema filtresi etiketleri (katalog `category_theme_items`) */
 export async function listPublicThemeItems(params: {
@@ -7421,46 +7362,13 @@ export async function listPublicThemeItems(params: {
   const u = new URLSearchParams()
   u.set('category_code', params.categoryCode.trim())
   if (params.locale?.trim()) u.set('locale', params.locale.trim())
-  const queryString = u.toString()
-  const cacheKey = `${b}|${queryString}`
-  const cached = publicThemeItemsCache.get(cacheKey)
-  if (cached && cached.expiresAt > Date.now()) return cached.value
-  if (cached && cached.expiresAt <= Date.now()) publicThemeItemsCache.delete(cacheKey)
   try {
     const res = await fetch(`${b}/api/v1/catalog/public/theme-items?${u}`, {
       next: { revalidate: 300 },
-      signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) {
-      if (publicThemeItemsCache.size >= PUBLIC_THEME_ITEMS_MAX_ENTRIES) {
-        const oldestKey = publicThemeItemsCache.keys().next().value as string | undefined
-        if (oldestKey) publicThemeItemsCache.delete(oldestKey)
-      }
-      publicThemeItemsCache.set(cacheKey, {
-        value: null,
-        expiresAt: Date.now() + PUBLIC_THEME_ITEMS_TTL_MS,
-      })
-      return null
-    }
-    const data = await json<{ items: PublicThemeItem[] }>(res)
-    if (publicThemeItemsCache.size >= PUBLIC_THEME_ITEMS_MAX_ENTRIES) {
-      const oldestKey = publicThemeItemsCache.keys().next().value as string | undefined
-      if (oldestKey) publicThemeItemsCache.delete(oldestKey)
-    }
-    publicThemeItemsCache.set(cacheKey, {
-      value: data,
-      expiresAt: Date.now() + PUBLIC_THEME_ITEMS_TTL_MS,
-    })
-    return data
+    if (!res.ok) return null
+    return json<{ items: PublicThemeItem[] }>(res)
   } catch {
-    if (publicThemeItemsCache.size >= PUBLIC_THEME_ITEMS_MAX_ENTRIES) {
-      const oldestKey = publicThemeItemsCache.keys().next().value as string | undefined
-      if (oldestKey) publicThemeItemsCache.delete(oldestKey)
-    }
-    publicThemeItemsCache.set(cacheKey, {
-      value: null,
-      expiresAt: Date.now() + PUBLIC_THEME_ITEMS_TTL_MS,
-    })
     return null
   }
 }

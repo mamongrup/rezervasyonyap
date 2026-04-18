@@ -1,0 +1,58 @@
+{
+  "categorySlug": "transfer",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "compact",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/transfer-1.avif",
+          "/uploads/hero/transfer-2.jpg",
+          "/uploads/hero/transfer-3.avif"
+        ]
+      },
+      "id": "transfer-module-0"
+    },
+    {
+      "type": "why_us",
+      "enabled": true,
+      "order": 2,
+      "config": {},
+      "id": "transfer-module-1"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 3,
+      "config": {
+        "title": "Popüler Güzergahlar",
+        "count": 12
+      },
+      "id": "transfer-module-2"
+    },
+    {
+      "type": "newsletter",
+      "enabled": true,
+      "order": 4,
+      "config": {},
+      "id": "transfer-module-3"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 5,
+      "config": {
+        "title": "🎬 Videolar",
+        "subtitle": "Ulaşım hizmetlerimiz hakkında videolar.",
+        "videos": []
+      },
+      "id": "transfer-module-4"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:30:26.276Z"
+}

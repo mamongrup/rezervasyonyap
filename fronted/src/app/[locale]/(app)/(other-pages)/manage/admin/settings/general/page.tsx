@@ -1,20 +1,13 @@
-'use client'
+import { vitrinHref } from '@/lib/vitrin-href'
+import { redirect } from 'next/navigation'
 
-import { ManageAccessGuard } from '@/lib/use-manage-access'
-import GeneralSettingsClient from '../../../general-settings/GeneralSettingsClient'
-import { Suspense } from 'react'
-
-export default function AdminSettingsGeneralPage() {
-  return (
-    <ManageAccessGuard
-      required={{ permissionsPrefixAny: ['admin.'], rolesAny: ['admin'] }}
-      featureHint="admin.*"
-    >
-      <div className="px-4 py-6 md:px-6 lg:px-8">
-        <Suspense fallback={<p className="text-neutral-500">Yükleniyor…</p>}>
-          <GeneralSettingsClient />
-        </Suspense>
-      </div>
-    </ManageAccessGuard>
-  )
+/** admin/settings/general → admin/settings (GeneralSettingsClient her ikisinde de aynı) */
+export default async function AdminSettingsGeneralRedirectPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  const href = await vitrinHref(locale, '/manage/admin/settings')
+  redirect(href)
 }

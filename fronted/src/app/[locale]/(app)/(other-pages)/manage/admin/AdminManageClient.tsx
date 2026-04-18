@@ -298,7 +298,7 @@ export default function AdminManageClient() {
     }
   }
 
-  const manageAdminHref = vitrinPath('/manage/admin')
+  const manageAdminHref = vitrinPath('/manage/admin/manage')
   const settingsHref = vitrinPath('/manage/admin/settings')
   const toolsHref = vitrinPath('/manage/admin/tools')
 
@@ -498,7 +498,6 @@ export default function AdminManageClient() {
       <div id="admin-agency-grants-block" className="scroll-mt-24" />
       <AdminAgencyCategoryGrantsSection />
 
-      <div id="admin-agency-profiles-block" className="scroll-mt-24" />
       <AdminAgencyProfilesSection />
 
       <div id="admin-social-block" className="scroll-mt-24" />

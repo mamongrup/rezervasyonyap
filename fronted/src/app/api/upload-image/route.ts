@@ -74,44 +74,7 @@ const PASSTHROUGH_TYPES = new Set(['image/svg+xml', 'image/x-icon', 'image/vnd.m
 // Minimum kabul edilebilir boyut: hedefin %50'si (altı bulanık görünür)
 const MIN_RATIO = 0.5
 
-function buildRasterPipeline(buffer: Buffer, folder: string) {
-  const profile = FOLDER_PROFILES[folder] ?? FOLDER_PROFILES.general
-  let pipeline = sharp(buffer).resize(profile.width, profile.height, {
-    fit: profile.fit,
-    position: profile.fit === 'cover' ? 'attention' : undefined,
-    withoutEnlargement: profile.fit === 'inside',
-  })
-  if (profile.vivid) {
-    pipeline = pipeline
-      .modulate({ saturation: 1.18, brightness: 1.04 })
-      .linear(1.05, -(255 * 0.05 * 0.5))
-  }
-  return { pipeline, profile }
-}
-
-/** Windows / bazı libvips kurulumlarında AVIF üretimi düşebilir — webp/jpeg ile yedeklenir */
-async function encodeRaster(
-  buffer: Buffer,
-  folder: string,
-): Promise<{ output: Buffer; ext: 'avif' | 'webp' | 'jpg' }> {
-  const { pipeline, profile } = buildRasterPipeline(buffer, folder)
-  try {
-    const output = await pipeline.avif({ quality: profile.quality, effort: 4 }).toBuffer()
-    return { output, ext: 'avif' }
-  } catch {
-    try {
-      const { pipeline: p2, profile: pr } = buildRasterPipeline(buffer, folder)
-      const output = await p2.webp({ quality: Math.min(92, pr.quality) }).toBuffer()
-      return { output, ext: 'webp' }
-    } catch {
-      const { pipeline: p3 } = buildRasterPipeline(buffer, folder)
-      const output = await p3.jpeg({ quality: 88, mozjpeg: true }).toBuffer()
-      return { output, ext: 'jpg' }
-    }
-  }
-}
-
-async function processImage(buffer: Buffer, folder: string): Promise<{ output: Buffer; warning?: string; ext?: string }> {
+async function processImage(buffer: Buffer, folder: string): Promise<{ output: Buffer; warning?: string }> {
   const profile = FOLDER_PROFILES[folder] ?? FOLDER_PROFILES.general
   const meta = await sharp(buffer).metadata()
   const w = meta.width ?? 0
@@ -124,31 +87,27 @@ async function processImage(buffer: Buffer, folder: string): Promise<{ output: B
     }
   }
 
-  const { output, ext } = await encodeRaster(buffer, folder)
-  return { output, ext }
-}
+  let pipeline = sharp(buffer).resize(profile.width, profile.height, {
+    fit: profile.fit,
+    position: profile.fit === 'cover' ? 'attention' : undefined,
+    withoutEnlargement: profile.fit === 'inside',
+  })
 
-function tokenFromRequest(req: NextRequest): string | null {
-  const auth = req.headers.get('authorization')
-  if (auth?.toLowerCase().startsWith('bearer ')) {
-    const t = auth.slice(7).trim()
-    if (t) return t
+  if (profile.vivid) {
+    pipeline = pipeline
+      .modulate({ saturation: 1.18, brightness: 1.04 })
+      .linear(1.05, -(255 * 0.05 * 0.5))
   }
-  return null
+
+  const output = await pipeline.avif({ quality: profile.quality, effort: 4 }).toBuffer()
+  return { output }
 }
 
 export async function POST(req: NextRequest) {
-  // Oturum: çerez veya Authorization Bearer (çerez yazılamadıysa / eski oturumlar için)
+  // Auth guard — middleware zaten yakalamalı; bu ikinci savunma katmanı
   const cookieStore = await cookies()
-  const cookieTok =
-    req.cookies.get('travel_auth_token')?.value?.trim() ??
-    cookieStore.get('travel_auth_token')?.value?.trim()
-  const bearerTok = tokenFromRequest(req)
-  if (!cookieTok && !bearerTok) {
-    return NextResponse.json(
-      { ok: false, error: 'Oturum gerekli. Lütfen tekrar giriş yapın.' },
-      { status: 401 },
-    )
+  if (!cookieStore.get('travel_auth_token')?.value) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
@@ -232,7 +191,7 @@ export async function POST(req: NextRequest) {
       const result = await processImage(rawBuffer, folder)
       outputBuffer = result.output
       warning = result.warning
-      ext = warning ? originalExt : (result.ext ?? 'webp')
+      ext = warning ? originalExt : 'avif'
     }
 
     const idxRaw = formData.get('index') ?? formData.get('imageIndex')
@@ -246,21 +205,16 @@ export async function POST(req: NextRequest) {
       seq != null
         ? `${prefix}-${seq}.${ext}`
         : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
-    await fs.writeFile(path.join(uploadDir, filename), outputBuffer)
+    await fs.writeFile(
+      path.join(uploadDir, filename),
+      new Uint8Array(outputBuffer.buffer, outputBuffer.byteOffset, outputBuffer.byteLength),
+    )
 
     const relParts = [folder, ...subSegments, filename].filter(Boolean)
     const publicUrl = `/uploads/${relParts.join('/')}`
     return NextResponse.json({ ok: true, url: publicUrl, ...(warning ? { warning } : {}) })
   } catch (err) {
     console.error('[upload-image]', err)
-    const detail =
-      process.env.NODE_ENV === 'development' && err instanceof Error ? err.message : undefined
-    return NextResponse.json(
-      {
-        ok: false,
-        error: detail ? `Yükleme hatası: ${detail}` : 'Yükleme sırasında bir hata oluştu.',
-      },
-      { status: 500 },
-    )
+    return NextResponse.json({ ok: false, error: 'Yükleme sırasında bir hata oluştu.' }, { status: 500 })
   }
 }

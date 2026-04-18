@@ -1,9 +1,9 @@
-import { de } from '@locales/de'
-import { en, type AppMessages } from '@locales/en'
-import { fr } from '@locales/fr'
-import { ru } from '@locales/ru'
-import { tr } from '@locales/tr'
-import { zh } from '@locales/zh'
+import { de } from '../../public/locales/de'
+import { en, type AppMessages } from '../../public/locales/en'
+import { ru } from '../../public/locales/ru'
+import { tr } from '../../public/locales/tr'
+import { fr } from '../../public/locales/fr'
+import { zh } from '../../public/locales/zh'
 import { isEnglishLocale } from '@/lib/i18n-config'
 
 export type { AppMessages }

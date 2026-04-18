@@ -54,7 +54,7 @@ const GROUPS: NavGroupDef[] = [
       { path: '/manage/admin', label: 'Gösterge & istatistikler' },
       { path: '/manage/admin/workspace', label: 'İş planı & duyurular' },
       { path: '/manage/admin/manage', label: 'Kullanıcı & rol yönetimi' },
-      { path: '/manage/admin/analytics', label: 'Analitik & raporlar' },
+      { path: '/manage/admin/settings?tab=google', label: 'Analitik & takip kodları' },
     ],
   },
   {
@@ -137,15 +137,8 @@ const GROUPS: NavGroupDef[] = [
     id: 'marketing_comms',
     label: 'Pazarlama & iletişim',
     Icon: MessageSquare,
-    sections: [
-      {
-        heading: 'Mesajlaşma & bildirimler',
-        items: [{ path: '/manage/admin/marketing/messaging', label: 'Mesajlaşma kataloğu' }],
-      },
-      {
-        heading: 'Performans',
-        items: [{ path: '/manage/admin/analytics', label: 'Analitik & raporlar' }],
-      },
+    items: [
+      { path: '/manage/admin/marketing/messaging', label: 'Mesajlaşma kataloğu' },
     ],
   },
   {

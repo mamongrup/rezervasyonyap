@@ -46,7 +46,6 @@ import MapPicker from '@/components/editor/MapPicker'
 import ImageUpload from '@/components/editor/ImageUpload'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
-  MANAGE_STICKY_FOOTER_SCROLL_PADDING,
   ManageFormListingSection,
   ManageFormPageHeader,
 } from '@/components/manage/ManageFormShell'
@@ -744,7 +743,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const currentTranslation = translations[activeLang] ?? {}
 
   return (
-    <div className={clsx('min-h-screen bg-neutral-50 dark:bg-neutral-950', MANAGE_STICKY_FOOTER_SCROLL_PADDING)}>
+    <div className="min-h-screen bg-neutral-50 pb-[5.5rem] dark:bg-neutral-950 sm:pb-20">
       {/* ── Sticky Header ──────────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
@@ -822,7 +821,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       </div>
 
       {/* Sabit alt çubuk: hızlı erişim + yayın / kaydet */}
-      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95">
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
         <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'flex flex-wrap items-center justify-between gap-3')}>
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <span className="hidden text-xs font-semibold uppercase tracking-wide text-neutral-400 sm:inline">
@@ -897,7 +899,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       ) : null}
 
       {/* ── Content ───────────────────────────────────────────────────── */}
-      <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'pt-6 sm:pt-10')}>
+      <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'pb-28 pt-6 sm:pt-10')}>
         <ManageFormPageHeader
           title="Bölge düzenle"
           subtitle={

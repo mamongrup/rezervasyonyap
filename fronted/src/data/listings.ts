@@ -349,8 +349,7 @@ export type StayListingHost = {
   joinedDate: string
 }
 
-/** `getStayListings` birleşiminde `themeCodes` daralıyor; `Omit` ile genişletip API/mock ile uyumlu tutuyoruz. */
-export type TStayListingResolved = Omit<TStayListing, 'themeCodes'> & {
+export type TStayListingResolved = TStayListing & {
   host: StayListingHost
   /** API / arama — otel `hotel_type_code` → vitrin tema öğesi etiketi */
   hotelTypeCode?: string
@@ -494,11 +493,8 @@ export const getStayListingByHandle = async (
     poolsDemo = true
   }
 
-  // `TStayListing` union'ında `themeCodes` daralıyor; spread ile taşımayıp resolved tipine elle yazıyoruz.
-  const { themeCodes: _listingThemeCodes, ...listingCore } = listing
-
   const merged: TStayListingResolved = {
-    ...listingCore,
+    ...listing,
     galleryImgs,
     ...(themeCodes?.length ? { themeCodes } : {}),
     ...(ministryLicenseRef ? { ministryLicenseRef } : {}),
@@ -1236,10 +1232,8 @@ export async function getFlightListings() {
 export type TFlightListing = Awaited<ReturnType<typeof getFlightListings>>[number]
 
 // get Filter Options
-let stayListingFilterOptionsCache: FilterOption[] | null = null
 export async function getStayListingFilterOptions(): Promise<FilterOption[]> {
-  if (stayListingFilterOptionsCache) return stayListingFilterOptionsCache
-  const options: FilterOption[] = [
+  return [
     {
       label: 'Property type',
       name: 'propertyType',
@@ -1430,8 +1424,6 @@ export async function getStayListingFilterOptions(): Promise<FilterOption[]> {
       ],
     },
   ]
-  stayListingFilterOptionsCache = options
-  return options
 }
 export async function getExperienceListingFilterOptions(): Promise<FilterOption[]> {
   return [
@@ -1598,10 +1590,8 @@ export async function getExperienceListingFilterOptions(): Promise<FilterOption[
     },
   ]
 }
-let carListingFilterOptionsCache: FilterOption[] | null = null
 export async function getCarListingFilterOptions(): Promise<FilterOption[]> {
-  if (carListingFilterOptionsCache) return carListingFilterOptionsCache
-  const options: FilterOption[] = [
+  return [
     {
       label: 'Car type',
       name: 'Car-type',
@@ -1715,8 +1705,6 @@ export async function getCarListingFilterOptions(): Promise<FilterOption[]> {
       ],
     },
   ]
-  carListingFilterOptionsCache = options
-  return options
 }
 export async function getFlightFilterOptions(): Promise<FilterOption[]> {
   return [

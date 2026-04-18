@@ -1,5 +1,5 @@
 import type { TListingBase } from '@/types/listing-types'
-import type { AppMessages } from '@locales/en'
+import type { AppMessages } from '../../public/locales/en'
 import { getMessages } from '@/utils/getT'
 
 /** Mock verideki İngilizce tip satırları → çeviri anahtarı */

@@ -1,8 +1,8 @@
 'use client'
 
-import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
-import { detailPathForVertical } from '@/lib/stay-detail-routes'
+import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useManageT } from '@/lib/manage-i18n-context'
@@ -27,14 +27,12 @@ import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-optio
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
-  MANAGE_STICKY_FOOTER_SCROLL_PADDING,
+  ManageFormPageHeader,
 } from '@/components/manage/ManageFormShell'
-import { MANAGE_EDITOR_LOCALE_TABS, MANAGE_EDITOR_LOCALES_TR_TARGET } from '@/components/manage/manage-editor-locales'
-import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
-import { ManageStickyLangBar } from '@/components/manage/ManageStickyLangBar'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { callAiTranslate } from '@/lib/manage-content-ai'
+import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
 import RichEditor from '@/components/editor/RichEditor'
@@ -43,6 +41,7 @@ import MapPicker from '@/components/editor/MapPicker'
 import { Field, Label } from '@/shared/fieldset'
 import Link from 'next/link'
 import {
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
   ExternalLink,
@@ -57,6 +56,18 @@ import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
 
 const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
+
+/** Villa ilanı formu — bölge düzenle ile aynı dil şeridi + AI çeviri */
+const LISTING_LOCALES = [
+  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
+  { code: 'zh', label: '中文', flag: '🇨🇳' },
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+] as const
+
+const LISTING_LOCALES_TR_TARGET = LISTING_LOCALES.filter((l) => l.code !== 'tr')
 
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
 type ListingSeoDraft = {
@@ -81,7 +92,7 @@ function emptyListingSeo(): ListingSeoDraft {
 
 function initSeoByLocale(): Record<string, ListingSeoDraft> {
   const o: Record<string, ListingSeoDraft> = {}
-  for (const l of MANAGE_EDITOR_LOCALE_TABS) o[l.code] = emptyListingSeo()
+  for (const l of LISTING_LOCALES) o[l.code] = emptyListingSeo()
   return o
 }
 
@@ -96,7 +107,7 @@ function stripHtmlToPlain(html: string): string {
 
 function emptyListingByLocale(): Record<string, { title: string; description: string }> {
   const o: Record<string, { title: string; description: string }> = {}
-  for (const l of MANAGE_EDITOR_LOCALE_TABS) o[l.code] = { title: '', description: '' }
+  for (const l of LISTING_LOCALES) o[l.code] = { title: '', description: '' }
   return o
 }
 
@@ -181,22 +192,22 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const vitrinPath = useVitrinHref()
 
   // ── Temel alanlar ──
+  const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [slugManual, setSlugManual] = useState(false)
+  const [description, setDescription] = useState('')
   const [currency, setCurrency] = useState('TRY')
   const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>([])
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
 
-  const [activeLang, setActiveLang] = useState(() =>
-    MANAGE_EDITOR_LOCALE_TABS.some((l) => l.code === locale) ? locale : 'tr',
-  )
+  const [activeLang, setActiveLang] = useState('tr')
   const [listingByLocale, setListingByLocale] = useState(emptyListingByLocale)
   const [seoByLocale, setSeoByLocale] = useState<Record<string, ListingSeoDraft>>(() => initSeoByLocale())
   const [seoPolishBusy, setSeoPolishBusy] = useState<string | null>(null)
   const [priceLineCatalog, setPriceLineCatalog] = useState<PriceLineItem[]>([])
   const [selectedPriceLineIds, setSelectedPriceLineIds] = useState<Set<string>>(new Set())
   const [aiTargetLocale, setAiTargetLocale] = useState(
-    MANAGE_EDITOR_LOCALES_TR_TARGET[0]?.code ?? 'en',
+    LISTING_LOCALES_TR_TARGET[0]?.code ?? 'en',
   )
   const [aiTranslating, setAiTranslating] = useState(false)
   const [translateMsg, setTranslateMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -205,7 +216,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const submitIntentRef = useRef<'save' | 'save-show'>('save')
 
   const setAiTargetFromToolbar = (code: string) => {
-    const picked = MANAGE_EDITOR_LOCALES_TR_TARGET.find((l) => l.code === code)
+    const picked = LISTING_LOCALES_TR_TARGET.find((l) => l.code === code)
     if (picked) setAiTargetLocale(picked.code)
   }
 
@@ -292,8 +303,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const slugRef = useRef<HTMLInputElement>(null)
 
   const isVilla = categoryCode === 'holiday_home'
-  const listingVertical = normalizeCatalogVertical(categoryCode) ?? 'hotel'
-  const listingPublicDetailPath = detailPathForVertical(listingVertical)
 
   const gallerySlugBase = slug.trim() ? slugifyMediaSegment(slug) : 'yeni-ilan'
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
@@ -324,6 +333,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   useEffect(() => {
+    if (categoryCode !== 'holiday_home') return
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
   }, [categoryCode])
 
@@ -399,27 +409,37 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }, [categoryCode, needOrg, orgId])
 
   function handleTitleChange(v: string) {
-    setListingByLocale((prev) => ({
-      ...prev,
-      [activeLang]: { ...(prev[activeLang] ?? { title: '', description: '' }), title: v },
-    }))
-    if (activeLang === 'tr' && !slugManual) setSlug(toSlug(v))
+    if (isVilla) {
+      setListingByLocale((prev) => ({
+        ...prev,
+        [activeLang]: { ...(prev[activeLang] ?? { title: '', description: '' }), title: v },
+      }))
+      if (activeLang === 'tr' && !slugManual) setSlug(toSlug(v))
+      return
+    }
+    setTitle(v)
+    if (!slugManual) setSlug(toSlug(v))
   }
 
   function handleDescriptionChange(v: string) {
-    setListingByLocale((prev) => ({
-      ...prev,
-      [activeLang]: { ...(prev[activeLang] ?? { title: '', description: '' }), description: v },
-    }))
+    if (isVilla) {
+      setListingByLocale((prev) => ({
+        ...prev,
+        [activeLang]: { ...(prev[activeLang] ?? { title: '', description: '' }), description: v },
+      }))
+      return
+    }
+    setDescription(v)
   }
 
   async function handleAiTranslateTrToTarget() {
     const tr = listingByLocale['tr']
     const tTit = (tr?.title ?? '').trim()
     const tDesc = (tr?.description ?? '').trim()
-    const trSeo = seoByLocale['tr'] ?? emptyListingSeo()
+    const trSeo = isVilla ? seoByLocale['tr'] ?? emptyListingSeo() : emptyListingSeo()
     const hasTrSeo =
-      Boolean(trSeo.title.trim() || trSeo.description.trim() || trSeo.keywords.trim())
+      isVilla &&
+      (trSeo.title.trim() || trSeo.description.trim() || trSeo.keywords.trim())
     if (!tTit && !tDesc && !hasTrSeo) {
       setTranslateMsg({ ok: false, text: 'Önce Türkçe başlık, açıklama veya SEO alanlarından en az birini doldurun.' })
       return
@@ -455,46 +475,48 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           description: tDescOut || prev[aiTargetLocale]?.description || '',
         },
       }))
-      const prevSeo = seoByLocale['tr'] ?? emptyListingSeo()
-      const sTit = prevSeo.title.trim()
-      const sDesc = prevSeo.description.trim()
-      const sKw = prevSeo.keywords.trim()
-      const [seoTitle, seoDesc, seoKw] = await Promise.all([
-        sTit
-          ? callAiTranslate({
-              text: sTit,
-              context: 'seo',
-              sourceLocale: 'tr',
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        sDesc
-          ? callAiTranslate({
-              text: sDesc.slice(0, 1200),
-              context: 'seo',
-              sourceLocale: 'tr',
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        sKw
-          ? callAiTranslate({
-              text: sKw,
-              context: 'seo',
-              sourceLocale: 'tr',
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-      ])
-      setSeoByLocale((prev) => ({
-        ...prev,
-        [aiTargetLocale]: {
-          ...(prev[aiTargetLocale] ?? emptyListingSeo()),
-          title: seoTitle || prev[aiTargetLocale]?.title || '',
-          description: seoDesc || prev[aiTargetLocale]?.description || '',
-          keywords: seoKw || prev[aiTargetLocale]?.keywords || '',
-        },
-      }))
-      const label = MANAGE_EDITOR_LOCALE_TABS.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale
+      if (isVilla) {
+        const prevSeo = seoByLocale['tr'] ?? emptyListingSeo()
+        const sTit = prevSeo.title.trim()
+        const sDesc = prevSeo.description.trim()
+        const sKw = prevSeo.keywords.trim()
+        const [seoTitle, seoDesc, seoKw] = await Promise.all([
+          sTit
+            ? callAiTranslate({
+                text: sTit,
+                context: 'seo',
+                sourceLocale: 'tr',
+                targetLocale: aiTargetLocale,
+              })
+            : Promise.resolve(''),
+          sDesc
+            ? callAiTranslate({
+                text: sDesc.slice(0, 1200),
+                context: 'seo',
+                sourceLocale: 'tr',
+                targetLocale: aiTargetLocale,
+              })
+            : Promise.resolve(''),
+          sKw
+            ? callAiTranslate({
+                text: sKw,
+                context: 'seo',
+                sourceLocale: 'tr',
+                targetLocale: aiTargetLocale,
+              })
+            : Promise.resolve(''),
+        ])
+        setSeoByLocale((prev) => ({
+          ...prev,
+          [aiTargetLocale]: {
+            ...(prev[aiTargetLocale] ?? emptyListingSeo()),
+            title: seoTitle || prev[aiTargetLocale]?.title || '',
+            description: seoDesc || prev[aiTargetLocale]?.description || '',
+            keywords: seoKw || prev[aiTargetLocale]?.keywords || '',
+          },
+        }))
+      }
+      const label = LISTING_LOCALES.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale
       setTranslateMsg({
         ok: true,
         text: `${label} çevirisi hazır. Kaydetmeyi unutmayın.`,
@@ -510,10 +532,12 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   /** Bölge düzenle ile aynı: mevcut dilde SEO / yazım iyileştirmesi */
-  const magicSourceLocale = activeLang
+  const magicSourceLocale = isVilla ? activeLang : locale
 
   async function handleMagicPolishTitle() {
-    const raw = (listingByLocale[activeLang]?.title ?? '').trim()
+    const raw = isVilla
+      ? (listingByLocale[activeLang]?.title ?? '').trim()
+      : title.trim()
     if (!raw) {
       setTranslateMsg({ ok: false, text: 'Önce başlık alanına metin girin.' })
       return
@@ -529,14 +553,19 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       })
       if (out) {
         const v = out.slice(0, 200)
-        setListingByLocale((prev) => ({
-          ...prev,
-          [activeLang]: {
-            ...(prev[activeLang] ?? { title: '', description: '' }),
-            title: v,
-          },
-        }))
-        if (activeLang === 'tr' && !slugManual) setSlug(toSlug(v))
+        if (isVilla) {
+          setListingByLocale((prev) => ({
+            ...prev,
+            [activeLang]: {
+              ...(prev[activeLang] ?? { title: '', description: '' }),
+              title: v,
+            },
+          }))
+          if (activeLang === 'tr' && !slugManual) setSlug(toSlug(v))
+        } else {
+          setTitle(v)
+          if (!slugManual) setSlug(toSlug(v))
+        }
       }
       setTranslateMsg({ ok: true, text: 'Başlık SEO ve yazım kurallarına göre iyileştirildi.' })
     } catch (e) {
@@ -550,7 +579,9 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   async function handleMagicPolishBody() {
-    const raw = (listingByLocale[activeLang]?.description ?? '').trim()
+    const raw = isVilla
+      ? (listingByLocale[activeLang]?.description ?? '').trim()
+      : description.trim()
     if (!raw) {
       setTranslateMsg({ ok: false, text: 'Önce açıklama içeriği girin.' })
       return
@@ -567,13 +598,17 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         ...(slugRefVal ? { pageSlug: slugRefVal } : {}),
       })
       if (out) {
-        setListingByLocale((prev) => ({
-          ...prev,
-          [activeLang]: {
-            ...(prev[activeLang] ?? { title: '', description: '' }),
-            description: out,
-          },
-        }))
+        if (isVilla) {
+          setListingByLocale((prev) => ({
+            ...prev,
+            [activeLang]: {
+              ...(prev[activeLang] ?? { title: '', description: '' }),
+              description: out,
+            },
+          }))
+        } else {
+          setDescription(out)
+        }
       }
       setTranslateMsg({
         ok: true,
@@ -597,6 +632,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   async function handleMagicSeoTitle() {
+    if (!isVilla) return
     const raw = (seoByLocale[activeLang]?.title ?? '').trim()
     if (!raw) {
       setTranslateMsg({ ok: false, text: 'Önce meta başlığı yazın veya «İçerikten öner» kullanın.' })
@@ -624,6 +660,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   async function handleMagicSeoDescription() {
+    if (!isVilla) return
     const raw = (seoByLocale[activeLang]?.description ?? '').trim()
     if (!raw) {
       setTranslateMsg({ ok: false, text: 'Önce meta açıklaması yazın veya «İçerikten öner» kullanın.' })
@@ -653,6 +690,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   async function handleAiSuggestSeoFromContent() {
+    if (!isVilla) return
     if (activeLang !== 'tr') {
       setTranslateMsg({ ok: false, text: 'Bu öneriyi Türkçe sekmedeyken kullanın.' })
       return
@@ -734,8 +772,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         return
       }
     }
-    const trTitle = (listingByLocale['tr']?.title ?? '').trim()
-    if (!trTitle) {
+    const trTitle = (isVilla ? listingByLocale['tr']?.title?.trim() : title.trim()) ?? ''
+    if (isVilla && !trTitle) {
       setErr('Türkçe başlık zorunludur.')
       setActiveLang('tr')
       return
@@ -751,7 +789,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         slug: slug.trim().toLowerCase(),
         currency_code: currency.trim().toUpperCase(),
         title: trTitle,
-        title_locale: 'tr',
+        title_locale: isVilla ? 'tr' : locale,
       }
       if (needOrg) body.organization_id = orgId.trim()
       if (contractId.trim()) body.category_contract_id = contractId.trim()
@@ -762,11 +800,13 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
 
       // 2. Çeviri / açıklama
-      const translationEntries = MANAGE_EDITOR_LOCALE_TABS.map((loc) => ({
-        locale_code: loc.code,
-        title: (listingByLocale[loc.code]?.title ?? '').trim(),
-        description: (listingByLocale[loc.code]?.description ?? '').trim() || undefined,
-      })).filter((e) => e.title.length > 0 || (e.description?.length ?? 0) > 0)
+      const translationEntries = isVilla
+        ? LISTING_LOCALES.map((loc) => ({
+            locale_code: loc.code,
+            title: (listingByLocale[loc.code]?.title ?? '').trim(),
+            description: (listingByLocale[loc.code]?.description ?? '').trim() || undefined,
+          })).filter((e) => e.title.length > 0 || (e.description?.length ?? 0) > 0)
+        : [{ locale_code: locale, title: title.trim(), description: description.trim() || undefined }]
       await putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam).catch(() => {})
 
       // 3. Temel gecelik fiyat
@@ -847,30 +887,32 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         }
       }
 
-      for (const loc of MANAGE_EDITOR_LOCALE_TABS) {
-        const s = seoByLocale[loc.code] ?? emptyListingSeo()
-        const hasAny =
-          s.title.trim() ||
-          s.description.trim() ||
-          s.keywords.trim() ||
-          s.canonical_path.trim() ||
-          s.og_image_storage_key.trim() ||
-          s.robots.trim()
-        if (!hasAny) continue
-        await upsertSeoMetadata(
-          {
-            entity_type: 'listing',
-            entity_id: lid,
-            locale: loc.code,
-            title: s.title.trim(),
-            description: s.description.trim(),
-            keywords: s.keywords.trim(),
-            canonical_path: s.canonical_path.trim(),
-            og_image_storage_key: s.og_image_storage_key.trim(),
-            robots: s.robots.trim(),
-          },
-          token,
-        ).catch(() => {})
+      if (isVilla) {
+        for (const loc of LISTING_LOCALES) {
+          const s = seoByLocale[loc.code] ?? emptyListingSeo()
+          const hasAny =
+            s.title.trim() ||
+            s.description.trim() ||
+            s.keywords.trim() ||
+            s.canonical_path.trim() ||
+            s.og_image_storage_key.trim() ||
+            s.robots.trim()
+          if (!hasAny) continue
+          await upsertSeoMetadata(
+            {
+              entity_type: 'listing',
+              entity_id: lid,
+              locale: loc.code,
+              title: s.title.trim(),
+              description: s.description.trim(),
+              keywords: s.keywords.trim(),
+              canonical_path: s.canonical_path.trim(),
+              og_image_storage_key: s.og_image_storage_key.trim(),
+              robots: s.robots.trim(),
+            },
+            token,
+          ).catch(() => {})
+        }
       }
 
       if (isVilla) {
@@ -894,9 +936,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       const manageUrl = vitrinPath(
         `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(lid)}`,
       )
-      const publicStayUrl = vitrinPath(
-        `${listingPublicDetailPath}/${encodeURIComponent(slug.trim().toLowerCase())}`,
-      )
+      const publicPath = stayDetailPathForVertical(categoryCode as CatalogListingVerticalCode)
+      const publicStayUrl = vitrinPath(`${publicPath}/${encodeURIComponent(slug.trim().toLowerCase())}`)
       const intent = submitIntentRef.current
       submitIntentRef.current = 'save'
       if (intent === 'save-show') {
@@ -919,39 +960,30 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
   /** Tatil evi / villa: Booking Core «Alan» akışına uygun blok sırası (içerik → sözleşme → mülk → giriş → fiyat → havuz → konum → iletişim) */
 
-  const hasContractUi = contracts.length > 0 || Boolean(contractsErr)
-
-  const contractInner =
-    hasContractUi &&
-    (contractsErr ? (
-      <p className="text-sm text-amber-700 dark:text-amber-300">
-        Sözleşme listesi yüklenemedi: {contractsErr}
-      </p>
-    ) : (
-      <Field className="block">
-        <Label>Kategori sözleşmesi (havuz)</Label>
-        <select
-          className={`mt-1 ${selectCls}`}
-          value={contractId}
-          onChange={(e) => setContractId(e.target.value)}
-          required
-        >
-          <option value="">— Seçin —</option>
-          {contracts.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.code}
-            </option>
-          ))}
-        </select>
-        <HintText>Yayın ve checkout öncesi her ilana sözleşme bağlanmalıdır.</HintText>
-      </Field>
-    ))
-
-  /** Villa dışı: ayrı kart; villa: Fazladan Bilgi içinde ilan tipi ile yan yana */
   const contractSection =
-    hasContractUi && (
+    (contracts.length > 0 || contractsErr) && (
       <Section title="İlan Sözleşmesi" subtitle="Kurallar ve checkout’ta gösterilir">
-        {contractInner}
+        {contractsErr ? (
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            Sözleşme listesi yüklenemedi: {contractsErr}
+          </p>
+        ) : (
+          <Field className="block">
+            <Label>Kategori sözleşmesi (havuz)</Label>
+            <select
+              className={`mt-1 ${selectCls}`}
+              value={contractId}
+              onChange={(e) => setContractId(e.target.value)}
+              required
+            >
+              <option value="">— Seçin —</option>
+              {contracts.map((c) => (
+                <option key={c.id} value={c.id}>{c.code}</option>
+              ))}
+            </select>
+            <HintText>Yayın ve checkout öncesi her ilana sözleşme bağlanmalıdır.</HintText>
+          </Field>
+        )}
       </Section>
     )
 
@@ -1003,51 +1035,150 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const formId = 'catalog-new-listing-form'
 
   return (
-    <div className={clsx('min-h-screen bg-neutral-50 dark:bg-neutral-950', MANAGE_STICKY_FOOTER_SCROLL_PADDING)}>
-      <ManageStickyLangBar
-        backHref={listHref}
-        titlePrimary={
-          listingByLocale['tr']?.title?.trim() || `Yeni ilan — ${categoryLabelTr(categoryCode)}`
-        }
-        titleSecondary={slug.trim() ? `/${slug.trim()}` : undefined}
-        locales={MANAGE_EDITOR_LOCALE_TABS}
-        activeLocale={activeLang}
-        onActiveLocaleChange={setActiveLang}
-        toolbarRight={
-          <ManageAiTranslateToolbar
-            locales={MANAGE_EDITOR_LOCALES_TR_TARGET}
-            targetLocale={aiTargetLocale}
-            onTargetLocaleChange={setAiTargetFromToolbar}
-            onTranslate={() => void handleAiTranslateTrToTarget()}
-            translating={aiTranslating}
-          />
-        }
-      />
+    <div
+      className={
+        isVilla
+          ? 'min-h-screen bg-neutral-50 pb-[5.5rem] dark:bg-neutral-950 sm:pb-20'
+          : 'pb-20'
+      }
+    >
+      {!isVilla ? (
+        <div className="mb-8 flex flex-wrap items-start gap-3">
+          <Link
+            href={listHref}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+            </svg>
+          </Link>
+          <div className="min-w-0 flex-1">
+            <ManageFormPageHeader
+              className="mb-0"
+              title="Yeni ilan ekle"
+              subtitle={<>{categoryLabelTr(categoryCode)} kategorisi</>}
+            />
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <span
+              className={clsx(
+                'rounded-full px-3 py-1 text-xs font-medium',
+                status === 'published'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+              )}
+            >
+              {status === 'published' ? 'Yayında' : 'Taslak'}
+            </span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+            <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
+              <Link
+                href={listHref}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                  {listingByLocale['tr']?.title?.trim() ||
+                    `Yeni ilan — ${categoryLabelTr(categoryCode)}`}
+                </p>
+                <p className="font-mono text-xs text-neutral-400">
+                  {slug.trim() ? `/${slug.trim()}` : ''}
+                </p>
+              </div>
+
+              <div className="hidden items-center gap-2 md:flex">
+                <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
+                  {LISTING_LOCALES.map((loc) => (
+                    <button
+                      key={loc.code}
+                      type="button"
+                      onClick={() => setActiveLang(loc.code)}
+                      className={clsx(
+                        'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                        activeLang === loc.code
+                          ? 'bg-white text-[color:var(--manage-primary)] shadow-sm dark:bg-neutral-900'
+                          : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
+                      )}
+                    >
+                      <span>{loc.flag}</span>
+                      <span className="hidden lg:inline">{loc.label}</span>
+                    </button>
+                  ))}
+                </div>
+                <ManageAiTranslateToolbar
+                  locales={LISTING_LOCALES_TR_TARGET}
+                  targetLocale={aiTargetLocale}
+                  onTargetLocaleChange={setAiTargetFromToolbar}
+                  onTranslate={() => void handleAiTranslateTrToTarget()}
+                  translating={aiTranslating}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800 md:hidden">
+              <div className="flex gap-1 overflow-x-auto">
+                {LISTING_LOCALES.map((loc) => (
+                  <button
+                    key={loc.code}
+                    type="button"
+                    onClick={() => setActiveLang(loc.code)}
+                    className={clsx(
+                      'flex shrink-0 items-center gap-1 rounded-lg px-3 py-1 text-xs font-medium transition-colors',
+                      activeLang === loc.code
+                        ? 'bg-[color:var(--manage-primary)]/10 text-[color:var(--manage-primary)]'
+                        : 'text-neutral-500',
+                    )}
+                  >
+                    {loc.flag} {loc.label}
+                  </button>
+                ))}
+              </div>
+              <ManageAiTranslateToolbar
+                className="w-full min-w-0 flex-1 [&_select]:max-w-none"
+                locales={LISTING_LOCALES_TR_TARGET}
+                targetLocale={aiTargetLocale}
+                onTargetLocaleChange={setAiTargetFromToolbar}
+                onTranslate={() => void handleAiTranslateTrToTarget()}
+                translating={aiTranslating}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       <form id={formId} onSubmit={(e) => void onSubmit(e)}>
-        <div
-          className={clsx(
-            MANAGE_FORM_CONTAINER_CLASS,
-            'mb-6 sm:mb-8 pt-4 sm:pt-5',
-          )}
-        >
-          <header className="mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <p className="min-w-0 text-sm text-neutral-500 dark:text-neutral-400">
-                {categoryLabelTr(categoryCode)} kategorisi
-              </p>
-              <h1 className="shrink-0 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-                Yeni ilan ekle
-              </h1>
-            </div>
-            <div className="mt-4 border-b border-neutral-200 dark:border-neutral-700" />
-          </header>
-        </div>
+        {isVilla && (
+          <div
+            className={clsx(
+              MANAGE_FORM_CONTAINER_CLASS,
+              'mb-6 sm:mb-8 pt-4 sm:pt-5',
+            )}
+          >
+            <header className="mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                <p className="min-w-0 text-sm text-neutral-500 dark:text-neutral-400">
+                  {categoryLabelTr(categoryCode)} kategorisi
+                </p>
+                <h1 className="shrink-0 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+                  Yeni ilan ekle
+                </h1>
+              </div>
+              <div className="mt-4 border-b border-neutral-200 dark:border-neutral-700" />
+            </header>
+          </div>
+        )}
         {translateMsg ? (
           <div
             className={clsx(
               MANAGE_FORM_CONTAINER_CLASS,
               'mb-4',
+              !isVilla && 'mt-2',
             )}
           >
             <div
@@ -1062,10 +1193,11 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             </div>
           </div>
         ) : null}
-        <div className={MANAGE_FORM_CONTAINER_CLASS}>
-        <div>
+        <div className={clsx(isVilla && MANAGE_FORM_CONTAINER_CLASS, isVilla && 'pb-28')}>
+        <div className={clsx(!isVilla && 'flex flex-wrap gap-6 items-start')}>
+
           {/* ────────── Ana İçerik ────────── */}
-          <div className="w-full space-y-5">
+          <div className={clsx('space-y-5', !isVilla ? 'min-w-0 flex-1' : 'w-full')}>
 
             {/* Admin: Org ID — kilitliyse hesaptan zaten gelir; boş kart göstermeyelim */}
             {needOrg && !orgIdLocked && (
@@ -1101,7 +1233,11 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
             {/* İlan İçeriği */}
             <Section
-              title={`İlan İçeriği — ${MANAGE_EDITOR_LOCALE_TABS.find((l) => l.code === activeLang)?.flag ?? ''} ${MANAGE_EDITOR_LOCALE_TABS.find((l) => l.code === activeLang)?.label ?? activeLang}`}
+              title={
+                isVilla
+                  ? `İlan İçeriği — ${LISTING_LOCALES.find((l) => l.code === activeLang)?.flag ?? ''} ${LISTING_LOCALES.find((l) => l.code === activeLang)?.label ?? activeLang}`
+                  : 'İlan İçeriği'
+              }
             >
               <Field className="block">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1115,16 +1251,20 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   />
                 </div>
                 <Input
-                  value={listingByLocale[activeLang]?.title ?? ''}
+                  value={isVilla ? (listingByLocale[activeLang]?.title ?? '') : title}
                   onChange={(e) => handleTitleChange(e.target.value)}
                   placeholder="ör. Bodrumda Deniz Manzaralı Villa"
                   className="mt-1"
-                  required={activeLang === 'tr'}
+                  required={!isVilla}
                 />
-                <HintText>
-                  Türkçe başlık zorunludur; diğer dilleri AI Çevir ile doldurabilirsiniz. Magic Text mevcut dilde
-                  iyileştirir.
-                </HintText>
+                {isVilla ? (
+                  <HintText>
+                    Türkçe başlık zorunludur; diğer dilleri AI Çevir ile doldurabilirsiniz. Magic Text mevcut dilde
+                    iyileştirir.
+                  </HintText>
+                ) : (
+                  <HintText>Magic Text, arayüz dilinizde başlığı SEO ve yazıma göre iyileştirir.</HintText>
+                )}
               </Field>
 
               <Field className="block">
@@ -1152,7 +1292,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   />
                 </div>
                 <RichEditor
-                  value={listingByLocale[activeLang]?.description ?? ''}
+                  value={isVilla ? (listingByLocale[activeLang]?.description ?? '') : description}
                   onChange={handleDescriptionChange}
                   placeholder="İlan hakkında kapsamlı bir açıklama yazın…"
                   minHeight={200}
@@ -1253,6 +1393,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               </Field>
             </Section>
 
+            {isVilla && contractSection}
+
             {/* Fazladan Bilgi — villa: önceden rezervasyon, kişi/oda/banyo; diğer: yatak, alan… */}
             <Section
               title="Fazladan Bilgi"
@@ -1264,30 +1406,22 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             >
               {isVilla ? (
                 <div className="space-y-4">
-                  <div
-                    className={clsx(
-                      'grid gap-4',
-                      hasContractUi ? 'lg:grid-cols-2 lg:items-start' : '',
-                    )}
-                  >
-                    <Field className="block min-w-0">
-                      <Label>İlan tipi</Label>
-                      <select
-                        className={`mt-1 ${selectCls}`}
-                        value={propertyType}
-                        onChange={(e) => setPropertyType(e.target.value)}
-                      >
-                        <option value="">— Seçin —</option>
-                        {HOLIDAY_PROPERTY_TYPE_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
-                          </option>
-                        ))}
-                      </select>
-                      <HintText>Listelerde alt kategori yerine bu tip satırı gösterilir.</HintText>
-                    </Field>
-                    {hasContractUi ? <div className="min-w-0">{contractInner}</div> : null}
-                  </div>
+                  <Field className="block max-w-md">
+                    <Label>İlan tipi</Label>
+                    <select
+                      className={`mt-1 ${selectCls}`}
+                      value={propertyType}
+                      onChange={(e) => setPropertyType(e.target.value)}
+                    >
+                      <option value="">— Seçin —</option>
+                      {HOLIDAY_PROPERTY_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt}>
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                    <HintText>Listelerde alt kategori yerine bu tip satırı gösterilir.</HintText>
+                  </Field>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <Field className="block">
                       <Label>Kişi sayısı</Label>
@@ -2210,13 +2344,14 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               </Section>
             ) : null}
 
-            {/* SEO — dil şeridine göre; API `seo_metadata` */}
-            <Section
-              title={`SEO — ${
-                MANAGE_EDITOR_LOCALE_TABS.find((l) => l.code === activeLang)?.flag ?? ''
-              } ${MANAGE_EDITOR_LOCALE_TABS.find((l) => l.code === activeLang)?.label ?? activeLang}`}
-              subtitle="Arama sonuçları ve paylaşım önizlemesi için meta alanları; kayıt ilanın çok dilli SEO kaydına yazılır."
-            >
+            {/* SEO — villa: dil şeridine göre; API `seo_metadata` */}
+            {isVilla ? (
+              <Section
+                title={`SEO — ${
+                  LISTING_LOCALES.find((l) => l.code === activeLang)?.flag ?? ''
+                } ${LISTING_LOCALES.find((l) => l.code === activeLang)?.label ?? activeLang}`}
+                subtitle="Arama sonuçları ve paylaşım önizlemesi için meta alanları; kayıt ilanın çok dilli SEO kaydına yazılır."
+              >
                 <div className="flex flex-col gap-3 rounded-xl border border-dashed border-primary-200/80 bg-primary-50/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-primary-900/40 dark:bg-primary-950/20">
                   <p className="text-xs text-neutral-600 dark:text-neutral-300">
                     Manuel girebilir veya Türkçe sekmede içerikten öneri alabilirsiniz. Diğer diller için üstteki{' '}
@@ -2316,32 +2451,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                     className="mt-1"
                   />
                 </Field>
-            </Section>
-
-            {!isVilla ? (
-              <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-900/40 dark:bg-blue-950/20">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                  Oluşturma Sonrası
-                </h3>
-                <ul className="space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
-                  <li>
-                    • <strong>Galeri</strong> — Fotoğrafları ekleyin
-                  </li>
-                  <li>
-                    • <strong>Takvim</strong> — Müsaitlik ve fiyat ayarlayın
-                  </li>
-                  <li>
-                    • <strong>Çeviriler / SEO</strong> — Bu sayfada doldurduğunuz alanlar kayda gider; düzenleme
-                    sayfasından güncelleyebilirsiniz
-                  </li>
-                  <li>
-                    • <strong>Kategori özellikleri</strong> — İlan düzenlemeden tamamlayın
-                  </li>
-                  <li>
-                    • <strong>iCal</strong> — Harici takvim bağlayın (desteklenen kategorilerde)
-                  </li>
-                </ul>
-              </div>
+              </Section>
             ) : null}
 
             {/* Hata mesajı */}
@@ -2352,84 +2462,189 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             )}
 
           </div>
+
+          {/* ────────── Sağ Kenar Çubuğu (villa dışı kategoriler) ────────── */}
+          {!isVilla ? (
+          <div className="w-72 shrink-0 space-y-4">
+            {/* Yayınla */}
+            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+              <div className="border-b border-neutral-100 px-5 py-3 dark:border-neutral-700">
+                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Yayınla</h3>
+              </div>
+              <div className="space-y-3 p-5">
+                <div className="space-y-2">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="published"
+                      checked={status === 'published'}
+                      onChange={() => setStatus('published')}
+                      className="h-4 w-4 accent-primary-600"
+                    />
+                    <span className="text-sm text-neutral-700 dark:text-neutral-300">Yayınla</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="draft"
+                      checked={status === 'draft'}
+                      onChange={() => setStatus('draft')}
+                      className="h-4 w-4 accent-primary-600"
+                    />
+                    <span className="text-sm text-neutral-700 dark:text-neutral-300">Taslak</span>
+                  </label>
+                </div>
+
+                <ButtonPrimary
+                  type="submit"
+                  form={formId}
+                  disabled={busy}
+                  className="w-full justify-center"
+                >
+                  {busy ? 'Kaydediliyor…' : 'Değişiklikleri Kaydet'}
+                </ButtonPrimary>
+
+                <Link
+                  href={listHref}
+                  className="block text-center text-xs text-neutral-400 underline hover:text-neutral-600 dark:hover:text-neutral-200"
+                >
+                  {t('catalog.cancel')}
+                </Link>
+              </div>
+            </div>
+
+            {/* Varsayılan Durum */}
+            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+              <div className="border-b border-neutral-100 px-5 py-3 dark:border-neutral-700">
+                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
+                  Varsayılan Durum
+                </h3>
+              </div>
+              <div className="p-5">
+                <select
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
+                  className={selectCls}
+                >
+                  <option value="draft">Yalnızca belirli tarihlerle</option>
+                  <option value="published">Her zaman müsait</option>
+                </select>
+                <p className="mt-2 text-xs text-neutral-400">
+                  Takvim yönetimi için ilan oluşturduktan sonra Takvim sekmesini kullanın.
+                </p>
+              </div>
+            </div>
+
+            {/* Oluşturma sonrası ipuçları */}
+            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-900/40 dark:bg-blue-950/20">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                Oluşturma Sonrası
+              </h3>
+              <ul className="space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
+                <li>• <strong>Galeri</strong> — Fotoğrafları ekleyin</li>
+                <li>• <strong>Takvim</strong> — Müsaitlik ve fiyat ayarlayın</li>
+                <li>• <strong>Çeviriler</strong> — Çok dil desteği ekleyin</li>
+                <li>• <strong>Kategori Özellikleri</strong> — Villa temaları, ev kuralları (havuz/ek ücret kaydı oluşturma sırasında da yazılır)</li>
+                <li>• <strong>iCal</strong> — Harici takvim bağlayın</li>
+              </ul>
+            </div>
+
+          </div>
+          ) : null}
         </div>
         </div>
       </form>
 
-      <ManageStickyFormFooter>
-        <a
-          href={
-            slug.trim() ? vitrinPath(`${listingPublicDetailPath}/${slug.trim().toLowerCase()}`) : '#'
-          }
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => {
-            if (!slug.trim()) e.preventDefault()
-          }}
-          className={clsx(
-            'order-2 inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800 sm:order-1',
-            !slug.trim() && 'opacity-40',
-          )}
-          aria-disabled={!slug.trim()}
+      {isVilla ? (
+        <div
+          className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
-          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-          Önizleme
-        </a>
-        <div className="order-1 flex w-full flex-wrap items-center justify-end gap-2 sm:order-2 sm:w-auto sm:gap-3">
-          <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-1.5 dark:border-neutral-700">
-            <span className="text-xs text-neutral-500">Yayın</span>
-            <button
-              type="button"
-              onClick={() => setStatus(status === 'published' ? 'draft' : 'published')}
+          <div
+            className={clsx(
+              MANAGE_FORM_CONTAINER_CLASS,
+              'flex flex-wrap items-center justify-end gap-2 sm:justify-between sm:gap-3',
+            )}
+          >
+            <a
+              href={
+                slug.trim()
+                  ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slug.trim().toLowerCase()}`)
+                  : '#'
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!slug.trim()) e.preventDefault()
+              }}
               className={clsx(
-                'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
-                status === 'published' ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600',
+                'inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800',
+                !slug.trim() && 'opacity-40',
               )}
-              aria-pressed={status === 'published'}
-              aria-label={status === 'published' ? 'Yayında' : 'Taslak'}
+              aria-disabled={!slug.trim()}
             >
-              <span
-                className={clsx(
-                  'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
-                  status === 'published' ? 'translate-x-4' : 'translate-x-0.5',
-                )}
-              />
-            </button>
-            <span
-              className={clsx(
-                'text-xs font-semibold',
-                status === 'published' ? 'text-emerald-600' : 'text-neutral-400',
-              )}
-            >
-              {status === 'published' ? 'Yayında' : 'Taslak'}
-            </span>
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              Önizleme
+            </a>
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-1.5 dark:border-neutral-700">
+                <span className="text-xs text-neutral-500">Yayın</span>
+                <button
+                  type="button"
+                  onClick={() => setStatus(status === 'published' ? 'draft' : 'published')}
+                  className={clsx(
+                    'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                    status === 'published' ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600',
+                  )}
+                  aria-pressed={status === 'published'}
+                  aria-label={status === 'published' ? 'Yayında' : 'Taslak'}
+                >
+                  <span
+                    className={clsx(
+                      'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
+                      status === 'published' ? 'translate-x-4' : 'translate-x-0.5',
+                    )}
+                  />
+                </button>
+                <span
+                  className={clsx(
+                    'text-xs font-semibold',
+                    status === 'published' ? 'text-emerald-600' : 'text-neutral-400',
+                  )}
+                >
+                  {status === 'published' ? 'Yayında' : 'Taslak'}
+                </span>
+              </div>
+              <button
+                type="submit"
+                form={formId}
+                disabled={busy}
+                onClick={() => {
+                  submitIntentRef.current = 'save'
+                }}
+                className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 disabled:opacity-60 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                Kaydet
+              </button>
+              <button
+                type="submit"
+                form={formId}
+                disabled={busy}
+                onClick={() => {
+                  submitIntentRef.current = 'save-show'
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 hover:opacity-90"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                Kaydet ve göster
+              </button>
+            </div>
           </div>
-          <button
-            type="submit"
-            form={formId}
-            disabled={busy}
-            onClick={() => {
-              submitIntentRef.current = 'save'
-            }}
-            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 disabled:opacity-60 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Kaydet
-          </button>
-          <button
-            type="submit"
-            form={formId}
-            disabled={busy}
-            onClick={() => {
-              submitIntentRef.current = 'save-show'
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 hover:opacity-90"
-          >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Kaydet ve göster
-          </button>
         </div>
-      </ManageStickyFormFooter>
+      ) : null}
     </div>
   )
 }

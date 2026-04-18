@@ -9,7 +9,6 @@
     "build": "node ./scripts/next-with-heap.mjs build --webpack",
     "start": "next start",
     "lint": "eslint .",
-    "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\"",
     "ensure-images": "node scripts/ensure-placeholder-images.mjs"
   },
   "dependencies": {

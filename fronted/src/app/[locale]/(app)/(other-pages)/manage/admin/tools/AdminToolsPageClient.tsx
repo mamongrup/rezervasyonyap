@@ -40,12 +40,12 @@ export default function AdminToolsPageClient() {
       {
         title: L('admin.tools_card_seo_title'),
         desc: L('admin.tools_card_seo_desc'),
-        href: `${vitrinPath('/manage/admin')}#admin-seo-block`,
+        href: `${vitrinPath('/manage/admin/manage')}#admin-seo-block`,
       },
       {
         title: L('admin.tools_card_audit_title'),
         desc: L('admin.tools_card_audit_desc'),
-        href: `${vitrinPath('/manage/admin')}#admin-access-block`,
+        href: `${vitrinPath('/manage/admin/manage')}#admin-access-block`,
       },
       {
         title: L('admin.tools_card_banner_layout_title'),

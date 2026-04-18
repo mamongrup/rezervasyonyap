@@ -1,0 +1,51 @@
+{
+  "categorySlug": "vize",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "compact",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/vize-1.avif",
+          "/uploads/hero/vize-2.avif",
+          "/uploads/hero/vize-3.jpg"
+        ]
+      },
+      "id": "vize-module-0"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 2,
+      "config": {
+        "title": "Popüler Vizeler",
+        "count": 12
+      },
+      "id": "vize-module-1"
+    },
+    {
+      "type": "why_us",
+      "enabled": true,
+      "order": 3,
+      "config": {},
+      "id": "vize-module-2"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 4,
+      "config": {
+        "title": "🎬 Vize Videoları",
+        "subtitle": "Vize başvurusu hakkında bilgi videoları.",
+        "videos": []
+      },
+      "id": "vize-module-3"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:28:15.531Z"
+}

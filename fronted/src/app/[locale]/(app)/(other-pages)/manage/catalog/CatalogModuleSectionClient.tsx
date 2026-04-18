@@ -15,7 +15,7 @@ export default function CatalogModuleSectionClient({
 }) {
   const vitrinPath = useVitrinHref()
   const base = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)
-  const adminSeo = vitrinPath('/manage/admin#admin-seo-block')
+  const adminSeo = vitrinPath('/manage/admin/manage#admin-seo-block')
   const label = categoryLabelTr(categoryCode)
 
   const titles: Record<CatalogModuleSection, string> = {

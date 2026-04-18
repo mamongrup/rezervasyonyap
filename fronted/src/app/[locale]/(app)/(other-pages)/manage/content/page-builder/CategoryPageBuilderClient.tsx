@@ -1,7 +1,6 @@
 'use client'
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { uploadFetch } from '@/lib/upload-fetch'
 import {
   ChevronDown,
   ChevronUp,
@@ -93,7 +92,8 @@ function HeroImageSlot({
     form.append('index', String(slot + 1))
 
     try {
-      const data = await uploadFetch(form)
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
       if (data.ok && data.url) {
         onChange(data.url)
       } else {

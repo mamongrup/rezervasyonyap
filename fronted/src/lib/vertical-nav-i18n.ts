@@ -1,15 +1,15 @@
-import type { HeroSearchTab } from '@/data/category-registry'
 import type { HeroSearchVertical } from '@/lib/hero-search-plan'
+import type { ListingType } from '@/type'
 
-/** Hero arama sekmeleri (Stays / Cars / Experiences / Flights) — `HeroSearchTab` ile aynı anahtarlar */
-const NAV: Record<HeroSearchTab, { en: string; tr: string }> = {
+/** Hero arama sekmeleri (Stays / Cars / Experiences / Flights) */
+const NAV: Record<ListingType, { en: string; tr: string }> = {
   Stays: { en: 'Stays', tr: 'Konaklama' },
   Cars: { en: 'Cars', tr: 'Araç' },
   Experiences: { en: 'Experiences', tr: 'Deneyimler' },
   Flights: { en: 'Flights', tr: 'Uçuş' },
 }
 
-export function verticalNavLabel(locale: string, tab: HeroSearchTab): string {
+export function verticalNavLabel(locale: string, tab: ListingType): string {
   const tr = locale.toLowerCase().startsWith('tr')
   return tr ? NAV[tab].tr : NAV[tab].en
 }

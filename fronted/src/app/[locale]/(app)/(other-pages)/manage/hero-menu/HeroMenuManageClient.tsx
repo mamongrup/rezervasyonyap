@@ -274,8 +274,6 @@ export default function HeroMenuManageClient() {
                     className="min-h-[3rem] w-full min-w-[160px] rounded-lg border border-neutral-300 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-600 dark:bg-neutral-900"
                     value={String(field(row.id, 'mega_content_json', row))}
                     onChange={(e) => setField(row.id, 'mega_content_json', e.target.value)}
-                    placeholder='{"icon":"building","label_tr":"Otel","label_en":"Hotel"}'
-                    title='JSON format: {"icon":"building","label_tr":"Otel","label_en":"Hotel"} — icon: building, house, anchor, compass, balloon, airplane, car, ferry, bus, visa'
                   />
                 </td>
                 <td className="py-2 pe-2 align-top whitespace-nowrap">

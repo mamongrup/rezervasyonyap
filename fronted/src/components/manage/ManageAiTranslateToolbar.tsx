@@ -14,12 +14,7 @@ type Props = {
   disabled?: boolean
   className?: string
   buttonLabel?: string
-  /** Tedarikçi akışında: ücretli uyarı + onay */
-  billing?: 'included' | 'paid_supplier'
 }
-
-const PAID_CONFIRM =
-  'AI otomatik çeviri tedarikçi başvurularında ücretlidir. Devam ederek bu işlem için ücretlendirme kabul etmiş olursunuz. Çeviriyi başlatmak istiyor musunuz?'
 
 export function ManageAiTranslateToolbar({
   locales,
@@ -29,17 +24,8 @@ export function ManageAiTranslateToolbar({
   translating,
   disabled,
   className = '',
-  buttonLabel,
-  billing = 'included',
+  buttonLabel = 'AI Çevir',
 }: Props) {
-  const paid = billing === 'paid_supplier'
-  const label = buttonLabel ?? (paid ? 'AI Çevir (ücretli)' : 'AI Çevir')
-
-  const runTranslate = () => {
-    if (paid && typeof window !== 'undefined' && !window.confirm(PAID_CONFIRM)) return
-    onTranslate()
-  }
-
   return (
     <div
       className={`flex flex-wrap items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-900 ${className}`}
@@ -57,23 +43,15 @@ export function ManageAiTranslateToolbar({
           </option>
         ))}
       </select>
-      {paid ? (
-        <span
-          className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-900/40 dark:text-amber-200"
-          title="Kullanım ücreti hesabınıza yansıtılabilir"
-        >
-          Ücretli
-        </span>
-      ) : null}
       <button
         type="button"
         disabled={disabled || translating}
-        onClick={runTranslate}
+        onClick={onTranslate}
         className="flex items-center gap-1 rounded-md border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-        title={paid ? 'Ücretli AI çevirisi — onay sonrası çalışır' : 'Türkçe kaynak içeriği seçilen dile çevirir'}
+        title="Türkçe kaynak içeriği seçilen dile çevirir"
       >
         {translating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
-        {label}
+        {buttonLabel}
       </button>
     </div>
   )

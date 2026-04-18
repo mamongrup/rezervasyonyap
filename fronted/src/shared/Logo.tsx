@@ -73,10 +73,6 @@ function writeCachedBranding(b: BrandingConfig) {
   } catch { /* ignore */ }
 }
 
-function clearCachedBranding() {
-  try { localStorage.removeItem(LS_KEY) } catch { /* ignore */ }
-}
-
 /** Metin logosu — logo URL yokken veya yüklenirken gösterilir */
 function TextLogoFallback({ siteName, className }: { siteName?: string; className?: string }) {
   const name = siteName || 'Travel'
@@ -97,8 +93,6 @@ function TextLogoFallback({ siteName, className }: { siteName?: string; classNam
 const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
-  /** Görsel URL var ama 404 / CORS / yanlış host — kırık ikon yerine metin logosu */
-  const [imageFailed, setImageFailed] = useState(false)
 
   /**
    * Hydration güvenliği: sunucu ve ilk istemci render AYNI başlangıç değerini
@@ -144,36 +138,6 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
       .catch(() => { /* cache veya fallback kullanılmaya devam eder */ })
   }, [src])
 
-  useEffect(() => {
-    setImageFailed(false)
-  }, [src, branding.logo_url, branding.logo_url_dark, branding.logo_icon_url, pathname])
-
-  /** 404 / yükleme hatası — eski URL'yi önbellekten sil ve API'yi yenile */
-  function handleImageError() {
-    setImageFailed(true)
-    clearCachedBranding()
-    if (!src) {
-      getSitePublicConfig()
-        .then((cfg) => {
-          const b = (cfg.branding ?? {}) as BrandingConfig & Record<string, unknown>
-          const next: BrandingConfig = {
-            logo_url: b.logo_url,
-            logo_url_dark: b.logo_url_dark,
-            logo_icon_url: b.logo_icon_url,
-            logo_mode: b.logo_mode,
-            logo_text_line1: b.logo_text_line1,
-            logo_text_line2: b.logo_text_line2,
-            logo_text_line2_color: b.logo_text_line2_color,
-            site_name: b.site_name ?? (cfg as { site_name?: string }).site_name,
-            category_logos: b.category_logos as Record<string, CategoryLogo> | undefined,
-          }
-          setBranding(next)
-          writeCachedBranding(next)
-        })
-        .catch(() => { /* metin logosuna devam et */ })
-    }
-  }
-
   const catCode = detectCategoryCode(pathname)
   const catLogo = catCode ? categoryLogos[catCode] : null
 
@@ -182,7 +146,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   const altText = alt ?? branding.site_name ?? 'Logo'
 
   // ── Icon + Text mode ──────────────────────────────────────────────────────
-  if (!catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url && !imageFailed) {
+  if (!catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
     const line2Color = branding.logo_text_line2_color || '#f97316'
@@ -197,7 +161,6 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
           alt={altText}
           className="h-14 w-14 shrink-0 object-contain"
           style={{ imageRendering: '-webkit-optimize-contrast' }}
-          onError={handleImageError}
         />
         <span className="flex flex-col leading-none">
           {line1 && (
@@ -221,21 +184,19 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
       href={vitrinPath('/')}
       className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
     >
-      {activeLogoUrl && !imageFailed ? (
+      {activeLogoUrl ? (
         <>
           <img
             src={activeLogoUrl}
             alt={altText}
             className="block max-h-[56px] w-auto dark:hidden"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={handleImageError}
           />
           <img
             src={activeDarkUrl ?? activeLogoUrl}
             alt={altText}
             className="hidden max-h-[56px] w-auto dark:block"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={handleImageError}
           />
         </>
       ) : (

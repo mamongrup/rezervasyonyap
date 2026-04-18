@@ -1,9 +1,9 @@
-import { de } from '@locales/de'
-import { en } from '@locales/en'
-import { fr } from '@locales/fr'
-import { ru } from '@locales/ru'
-import { tr } from '@locales/tr'
-import { zh } from '@locales/zh'
+import { de } from '../../public/locales/de'
+import { en } from '../../public/locales/en'
+import { fr } from '../../public/locales/fr'
+import { ru } from '../../public/locales/ru'
+import { tr } from '../../public/locales/tr'
+import { zh } from '../../public/locales/zh'
 import { flattenLocaleMessages } from './flatten-locale-messages'
 
 const cache: Record<string, Record<string, string>> = {}

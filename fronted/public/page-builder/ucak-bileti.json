@@ -1,0 +1,55 @@
+{
+  "categorySlug": "ucak-bileti",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "full",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/ucak-bileti-1.avif",
+          "/uploads/hero/ucak-bileti-2.jpg",
+          "/uploads/hero/ucak-bileti-3.jpg"
+        ]
+      },
+      "id": "ucak-bileti-module-0"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 2,
+      "config": {
+        "title": "Popüler Güzergahlar",
+        "count": 12
+      },
+      "id": "ucak-bileti-module-1"
+    },
+    {
+      "type": "promo_banner",
+      "enabled": true,
+      "order": 3,
+      "config": {
+        "title": "Son Dakika Fırsatları",
+        "ctaText": "Keşfet",
+        "ctaHref": "#"
+      },
+      "id": "ucak-bileti-module-2"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 4,
+      "config": {
+        "title": "🎬 Uçuş Videoları",
+        "subtitle": "En iyi destinasyonlara uçuş videoları.",
+        "videos": []
+      },
+      "id": "ucak-bileti-module-3"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:28:46.139Z"
+}

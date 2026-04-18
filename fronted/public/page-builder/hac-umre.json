@@ -1,0 +1,60 @@
+{
+  "categorySlug": "hac-umre",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "full",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/hac-umre-1.avif",
+          "/uploads/hero/hac-umre-2.avif",
+          "/uploads/hero/hac-umre-3.avif"
+        ]
+      },
+      "id": "hac-umre-module-0"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 2,
+      "config": {
+        "title": "Umre Paketleri",
+        "count": 8
+      },
+      "id": "hac-umre-module-1"
+    },
+    {
+      "type": "why_us",
+      "enabled": true,
+      "order": 3,
+      "config": {
+        "title": "Hizmetlerimiz"
+      },
+      "id": "hac-umre-module-2"
+    },
+    {
+      "type": "testimonials",
+      "enabled": true,
+      "order": 4,
+      "config": {},
+      "id": "hac-umre-module-3"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 5,
+      "config": {
+        "title": "🎬 Hac & Umre Videoları",
+        "subtitle": "Kutsal topraklara yolculuk videoları.",
+        "videos": []
+      },
+      "id": "hac-umre-module-4"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:27:23.995Z"
+}

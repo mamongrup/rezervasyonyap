@@ -1,0 +1,158 @@
+{
+  "categorySlug": "homepage",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "full",
+        "hideVerticalTabs": true,
+        "heading": "Hayalinizdeki Otel",
+        "subheading": "Türkiye ve yurtdışı oteller",
+        "images": [
+          "/uploads/general/homepage-1776224582518-8kera.avif",
+          "/uploads/general/homepage-1776224585752-zhtxq.avif",
+          "/uploads/general/homepage-1776224588689-csc97.jpg"
+        ]
+      },
+      "id": "homepage-module-0"
+    },
+    {
+      "type": "category_slider",
+      "enabled": true,
+      "order": 2,
+      "config": {
+        "heading": "Maceraya Çıkmaya Hazır Mısın?",
+        "subheading": "Türkiye ve dünyada unutulmaz bir seyahat için keşfet.",
+        "cardType": "card3",
+        "slice": "first6"
+      },
+      "id": "homepage-module-1"
+    },
+    {
+      "type": "gezi_onerileri",
+      "enabled": true,
+      "order": 3,
+      "config": {},
+      "id": "homepage-module-2"
+    },
+    {
+      "type": "featured_by_region",
+      "enabled": true,
+      "order": 4,
+      "config": {
+        "heading": "Öne Çıkan Konaklama",
+        "subheading": "Popüler şehirlerdeki en beğenilen ilanlar",
+        "viewAllHref": "/oteller/all",
+        "regions": []
+      },
+      "id": "homepage-module-3"
+    },
+    {
+      "type": "featured_places",
+      "enabled": true,
+      "order": 5,
+      "config": {
+        "heading": "Öne çıkan konaklama",
+        "subHeading": "Sakin kalın ve seyahat edin",
+        "viewAllHref": "/oteller/all"
+      },
+      "id": "homepage-module-4"
+    },
+    {
+      "type": "how_it_works",
+      "enabled": true,
+      "order": 6,
+      "config": {
+        "title": "Nasıl çalışır?",
+        "subheading": "Sakin kalın ve seyahat edin"
+      },
+      "id": "homepage-module-5"
+    },
+    {
+      "type": "top_providers",
+      "enabled": true,
+      "order": 7,
+      "config": {
+        "heading": "En Başarılı İlan Sahipleri",
+        "subheading": "Tüm kategorilerde müşterilerinden en yüksek puanı alan ilan sağlayıcılar — siz de aramıza katılın",
+        "ctaText": "İlan vermeye başla",
+        "ctaHref": "/manage",
+        "maxCount": 10
+      },
+      "id": "homepage-module-6"
+    },
+    {
+      "type": "newsletter",
+      "enabled": true,
+      "order": 8,
+      "config": {
+        "title": "Fırsatları Kaçırmayın!",
+        "description": "Özel kampanyalar, son dakika indirimleri ve yeni destinasyonlardan haberdar olmak için abone olun.",
+        "buttonText": "Abone Ol",
+        "gradient": "from-primary-600 to-primary-700"
+      },
+      "id": "homepage-module-7"
+    },
+    {
+      "type": "category_grid",
+      "enabled": true,
+      "order": 9,
+      "config": {
+        "heading": "Kategoriye Göre Ara",
+        "subheading": "Tüm seyahat kategorilerini keşfet"
+      },
+      "id": "homepage-module-8"
+    },
+    {
+      "type": "become_provider",
+      "enabled": true,
+      "order": 10,
+      "config": {
+        "heading": "İlanınızı Ekleyin, Kazanmaya Başlayın",
+        "subheading": "Otel, tur, tatil evi, tekne, araç kiralama — ne sunarsanız sunun, milyonlarca gezgine ulaşmanın en kolay yolu burada. Hemen ücretsiz ilan oluşturun.",
+        "ctaText": "Ücretsiz İlan Ver",
+        "ctaHref": "/ilan-ver",
+        "secondaryCtaText": "Nasıl Çalışır?",
+        "secondaryCtaHref": "/ilan-ver#nasil-calisir",
+        "bgVariant": "gradient"
+      },
+      "id": "homepage-module-9"
+    },
+    {
+      "type": "category_slider",
+      "enabled": true,
+      "order": 11,
+      "config": {
+        "heading": "Seyahat Türüne Göre Keşfet",
+        "subheading": "12 farklı kategori ile seyahat planla",
+        "cardType": "card5",
+        "slice": "last6"
+      },
+      "id": "homepage-module-10"
+    },
+    {
+      "type": "section_videos",
+      "enabled": true,
+      "order": 12,
+      "config": {
+        "heading": "🎬 Videolar",
+        "subheading": "En son destinasyon videolarımızı izleyin, harika deneyimler keşfedin."
+      },
+      "id": "homepage-module-11"
+    },
+    {
+      "type": "client_say",
+      "enabled": true,
+      "order": 13,
+      "config": {
+        "heading": "Misafirlerimiz Ne Diyor? 🥇",
+        "subHeading": "Bizimle seyahat eden gezginlerin gerçek yorumları."
+      },
+      "id": "homepage-module-12"
+    }
+  ],
+  "updatedAt": "2026-04-15T03:57:35.576Z"
+}

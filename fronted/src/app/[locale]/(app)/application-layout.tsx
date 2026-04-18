@@ -27,7 +27,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
   return (
     <Aside.Provider>
       {/* Desktop — normal akış (sayfayla birlikte kayar); harita rotaları kendi layout’ında sticky Header3 kullanır */}
-      <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
+      <div className="relative z-20 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
       {/* Mobil arama çubuğu — viewport üstünde sabit; içerik bu yükseklik kadar aşağıdan başlar */}
       <div className="fixed inset-x-0 top-0 z-40 bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
         <div className="container flex h-20 items-center justify-center">

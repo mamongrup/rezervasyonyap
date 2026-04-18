@@ -1,25 +1,19 @@
-/**
- * Vitrin paylaşım linkleri — `SocialsShare` ve benzeri bileşenler.
- */
+/** Facebook / X (Twitter) / e-posta paylaşım URL’leri — harici aç */
 
 export function buildFacebookShareUrl(pageUrl: string): string {
-  const u = encodeURIComponent(pageUrl.trim())
-  return `https://www.facebook.com/sharer/sharer.php?u=${u}`
+  return `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(pageUrl)}`
 }
 
-export function buildTwitterShareUrl(pageUrl: string, title?: string): string {
-  const u = encodeURIComponent(pageUrl.trim())
-  const t = encodeURIComponent((title ?? '').trim())
-  const q = t ? `url=${u}&text=${t}` : `url=${u}`
-  return `https://twitter.com/intent/tweet?${q}`
+export function buildTwitterShareUrl(pageUrl: string, text?: string): string {
+  const u = new URL('https://twitter.com/intent/tweet')
+  u.searchParams.set('url', pageUrl)
+  if (text?.trim()) u.searchParams.set('text', text.trim())
+  return u.toString()
 }
 
-export function buildMailtoShareUrl(pageUrl: string, title?: string): string {
-  const sub = (title ?? '').trim()
-  const body = pageUrl.trim()
-  const params = new URLSearchParams()
-  if (sub) params.set('subject', sub)
-  if (body) params.set('body', body)
-  const q = params.toString()
-  return q ? `mailto:?${q}` : 'mailto:'
+export function buildMailtoShareUrl(pageUrl: string, subject?: string): string {
+  const q = new URLSearchParams()
+  if (subject?.trim()) q.set('subject', subject.trim())
+  q.set('body', pageUrl)
+  return `mailto:?${q.toString()}`
 }

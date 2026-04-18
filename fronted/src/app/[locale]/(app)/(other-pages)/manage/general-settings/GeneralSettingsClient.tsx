@@ -17,6 +17,7 @@ import {
   patchCurrencyActive,
   putCurrencyOrder,
   refreshTcmbRates,
+  sendNetgsmTestSms,
   setActivePaymentProvider,
   upsertSiteSetting,
   type CurrencyRow,
@@ -24,6 +25,9 @@ import {
 } from '@/lib/travel-api'
 import { AI_PROFILE_MODULES, clampTimeoutSec } from '@/lib/ai-upstream-timeouts'
 import {
+  DEFAULT_HOME_PAGE_LINKS,
+  type HomePageLinkItem,
+  parseHomePageLinksFromBranding,
   parseMobileAccountPathFromBranding,
 } from '@/lib/site-branding-seo'
 import { uploadBrandingAsset, type BrandingUploadPurpose } from '@/lib/upload-branding-asset'
@@ -52,7 +56,6 @@ function BrandingImageUploadRow({
   hint,
   url,
   onChange,
-  onUploadOk,
   purpose,
   accept,
   preview,
@@ -61,8 +64,6 @@ function BrandingImageUploadRow({
   hint?: string
   url: string
   onChange: (v: string) => void
-  /** Dosya diske yazıldıktan sonra — kalıcı kayıt için ayrıca «Site kimliğini kaydet» gerekir */
-  onUploadOk?: () => void
   purpose: BrandingUploadPurpose
   accept: string
   preview: 'logo-light' | 'logo-dark' | 'favicon'
@@ -77,7 +78,6 @@ function BrandingImageUploadRow({
     try {
       const newUrl = await uploadBrandingAsset(file, purpose)
       onChange(newUrl)
-      onUploadOk?.()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Yükleme başarısız')
     } finally {
@@ -227,6 +227,11 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [currencyHint, setCurrencyHint] = useState<string | null>(null)
   const [currencyOrderSaving, setCurrencyOrderSaving] = useState(false)
 
+  const [netgsmTo, setNetgsmTo] = useState('')
+  const [netgsmText, setNetgsmText] = useState('Travel test mesajı')
+  const [netgsmMsg, setNetgsmMsg] = useState<string | null>(null)
+  const [netgsmBusy, setNetgsmBusy] = useState(false)
+
   type TabId = (typeof SETTINGS_TABS)[number]['id']
   const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
   const paramTab = searchParams?.get('tab') as TabId | null
@@ -253,6 +258,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     normalizeTravelCategoryHomeOrder(null),
   )
   const [homeCatOrderSaving, setHomeCatOrderSaving] = useState(false)
+  const [homePageLinks, setHomePageLinks] = useState<HomePageLinkItem[]>(() => [...DEFAULT_HOME_PAGE_LINKS])
   const [mobileAccountPath, setMobileAccountPath] = useState('/account')
 
   /** site_settings key `ai` — DeepSeek (blog çevirisi vb.); env hâlâ önceliklidir. */
@@ -309,6 +315,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setAnalyticsRest(restAn)
       const branding = pub.branding ?? {}
       setBrandingJson(JSON.stringify(branding, null, 2))
+      setHomePageLinks(parseHomePageLinksFromBranding(pub))
       setMobileAccountPath(parseMobileAccountPathFromBranding(pub))
       // Extract structured identity fields from branding
       if (typeof branding.site_name === 'string') setSiteName(branding.site_name)
@@ -636,6 +643,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: logoTextLine2.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
         category_logos: categoryLogos,
+        home_page_links: homePageLinks
+          .map((l) => ({
+            label: l.label.trim(),
+            path: l.path.trim().startsWith('/') ? l.path.trim() : `/${l.path.trim()}`,
+          }))
+          .filter((l) => l.label && l.path),
         mobile_account_path: mobileAccountPath.trim().startsWith('/')
           ? mobileAccountPath.trim()
           : '/account',
@@ -667,6 +680,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line2: logoTextLine2.trim(),
         logo_text_line2_color: logoTextLine2Color.trim(),
         category_logos: categoryLogos,
+        home_page_links: homePageLinks
+          .map((l) => ({
+            label: l.label.trim(),
+            path: l.path.trim().startsWith('/') ? l.path.trim() : `/${l.path.trim()}`,
+          }))
+          .filter((l) => l.label && l.path),
         mobile_account_path: mobileAccountPath.trim().startsWith('/')
           ? mobileAccountPath.trim()
           : '/account',
@@ -801,6 +820,30 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     }
   }
 
+  async function onNetgsmTest() {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setNetgsmMsg('NetGSM testi için yönetici oturumu gerekir.')
+      return
+    }
+    setNetgsmBusy(true)
+    setNetgsmMsg(null)
+    try {
+      const r = await sendNetgsmTestSms(token, {
+        gsm: netgsmTo.trim(),
+        message: netgsmText.trim() || 'Test',
+      })
+      const raw = r.provider_raw
+      setNetgsmMsg(
+        `Gönderildi (ham yanıt: ${raw.length > 200 ? `${raw.slice(0, 200)}…` : raw})`,
+      )
+    } catch (e) {
+      setNetgsmMsg(e instanceof Error ? e.message : 'SMS başarısız')
+    } finally {
+      setNetgsmBusy(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className={embedded ? 'py-8' : 'container mx-auto max-w-4xl py-16'}>
@@ -866,7 +909,53 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               </Field>
             </div>
 
-            <Field className="mt-8 block border-t border-neutral-100 pt-8 dark:border-neutral-800">
+            <div className="mt-8 border-t border-neutral-100 pt-8 dark:border-neutral-800">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Önizleme ana sayfa linkleri</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                Sağdaki «Customize» panelindeki hızlı gezinme. Yol locale öneki olmadan (ör.{' '}
+                <code className="font-mono text-xs">/home-2</code>).
+              </p>
+              <div className="mt-4 space-y-2">
+                {homePageLinks.map((row, i) => (
+                  <div key={i} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <Input
+                      value={row.label}
+                      onChange={(e) =>
+                        setHomePageLinks((prev) =>
+                          prev.map((r, j) => (j === i ? { ...r, label: e.target.value } : r)),
+                        )
+                      }
+                      placeholder="Etiket"
+                      className="min-w-0 flex-1"
+                    />
+                    <Input
+                      value={row.path}
+                      onChange={(e) =>
+                        setHomePageLinks((prev) =>
+                          prev.map((r, j) => (j === i ? { ...r, path: e.target.value } : r)),
+                        )
+                      }
+                      placeholder="/yol"
+                      className="min-w-0 flex-1 font-mono text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setHomePageLinks((prev) => prev.filter((_, j) => j !== i))}
+                      className="shrink-0 rounded-lg border border-neutral-200 px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800"
+                    >
+                      Kaldır
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={() => setHomePageLinks((prev) => [...prev, { label: '', path: '/' }])}
+                className="mt-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+              >
+                + Satır ekle
+              </button>
+              <Field className="mt-6 block">
                 <Label>Mobil alt bar — Hesap yolu</Label>
                 <Input
                   className="mt-1 font-mono"
@@ -876,6 +965,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 />
                 <p className="mt-1 text-xs text-neutral-400">Mobil alt bardaki «Hesap» kısayolunun hedefi.</p>
               </Field>
+            </div>
           </section>
 
           <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
@@ -910,12 +1000,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="PNG, JPEG, WebP, AVIF veya SVG. En fazla 2 MB."
                   url={logoUrl}
                   onChange={setLogoUrl}
-                  onUploadOk={() =>
-                    setStatus({
-                      kind: 'ok',
-                      text: 'Dosya sunucuya yüklendi. Siteye yazmak için «Site kimliğini kaydet»e basın.',
-                    })
-                  }
                   purpose="logo-light"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
                   preview="logo-light"
@@ -925,12 +1009,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="Koyu arka planda okunaklı bir varyant."
                   url={logoDarkUrl}
                   onChange={setLogoDarkUrl}
-                  onUploadOk={() =>
-                    setStatus({
-                      kind: 'ok',
-                      text: 'Dosya sunucuya yüklendi. Siteye yazmak için «Site kimliğini kaydet»e basın.',
-                    })
-                  }
                   purpose="logo-dark"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
                   preview="logo-dark"
@@ -1036,12 +1114,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="PNG, ICO, WebP veya SVG. En fazla 2 MB."
                   url={faviconUrl}
                   onChange={setFaviconUrl}
-                  onUploadOk={() =>
-                    setStatus({
-                      kind: 'ok',
-                      text: 'Dosya sunucuya yüklendi. Siteye yazmak için «Site kimliğini kaydet»e basın.',
-                    })
-                  }
                   purpose="favicon"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.ico,image/x-icon"
                   preview="favicon"
@@ -1219,7 +1291,45 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         </div>
       </section>
 
-      </>
+      <section className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-700">
+        <h2 className="text-xl font-semibold">NetGSM (test SMS)</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Ortam değişkenleri: <span className="font-mono">NETGSM_USERCODE</span>,{' '}
+          <span className="font-mono">NETGSM_PASSWORD</span>, <span className="font-mono">NETGSM_MSGHEADER</span>. Yönetici
+          oturumu ve <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">admin.integrations.write</code>.
+        </p>
+        {netgsmMsg ? (
+          <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">{netgsmMsg}</p>
+        ) : null}
+        <div className="mt-4 grid max-w-xl gap-4">
+          <Field>
+            <Label>Alıcı GSM (90532…)</Label>
+            <Input className="mt-1 font-mono" value={netgsmTo} onChange={(e) => setNetgsmTo(e.target.value)} />
+          </Field>
+          <Field>
+            <Label>Mesaj</Label>
+            <Textarea className="mt-1" rows={3} value={netgsmText} onChange={(e) => setNetgsmText(e.target.value)} />
+          </Field>
+          <ButtonPrimary type="button" disabled={netgsmBusy} onClick={() => void onNetgsmTest()}>
+            {netgsmBusy ? 'Gönderiliyor…' : 'Test SMS gönder'}
+          </ButtonPrimary>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
+        <h2 className="text-xl font-semibold">Diller &amp; çeviriler</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Dil ekleme ve çeviri içe/dışa aktarma için{' '}
+          <Link
+            href={vitrinPath('/manage/i18n')}
+            className="font-medium text-primary-600 underline dark:text-primary-400"
+          >
+            Diller &amp; çeviriler
+          </Link>{' '}
+          sayfasına gidin. Next.js locale routing (G1.2) ayrı iş paketi.
+        </p>
+      </section>
+        </>
       )}
 
       {activeTab === 'seo' && (
@@ -1275,10 +1385,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             </div>
           </section>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            <a href="#admin-seo-block" className="font-medium text-primary-600 underline dark:text-primary-400">
+            <a href={vitrinPath('/manage/admin/manage') + '#admin-seo-block'} className="font-medium text-primary-600 underline dark:text-primary-400">
               SEO — sitemap, yönlendirme ve 404 günlüğü
             </a>{' '}
-            (sayfanın aşağısındaki blok; tıklayınca kayar.)
+            (Admin Yönetimi sayfasındaki SEO bloğuna gider.)
           </p>
         </div>
       )}

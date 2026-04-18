@@ -80,150 +80,6 @@ export interface ListingsResult {
   fromApi: boolean
 }
 
-type CategoryListingsCacheEntry = {
-  expiresAt: number
-  value: ListingsResult
-}
-type FlexibleHolidayListingsCacheEntry = {
-  expiresAt: number
-  value: TListingBase[]
-}
-
-const CATEGORY_LISTINGS_DEFAULT_TTL_MS = 20_000
-const CATEGORY_LISTINGS_MAX_ENTRIES = 120
-const categoryListingsCache = new Map<string, CategoryListingsCacheEntry>()
-const FLEXIBLE_HOLIDAY_LISTINGS_TTL_MS = 20_000
-const FLEXIBLE_HOLIDAY_LISTINGS_MAX_ENTRIES = 80
-const flexibleHolidayListingsCache = new Map<string, FlexibleHolidayListingsCacheEntry>()
-
-const CATEGORY_LISTINGS_TTL_BY_SLUG_MS: Partial<Record<keyof typeof SLUG_TO_CODE | string, number>> = {
-  // Daha dinamik fiyat/değişkenlik gösteren kategoriler: kısa TTL
-  oteller: 12_000,
-  'ucak-bileti': 12_000,
-  'arac-kiralama': 15_000,
-  transfer: 15_000,
-  feribot: 15_000,
-  // İçerik değişimi nispeten daha yavaş kategoriler: uzun TTL
-  'tatil-evleri': 30_000,
-  'yat-kiralama': 25_000,
-  aktiviteler: 30_000,
-  turlar: 35_000,
-  kruvaziyer: 30_000,
-  'hac-umre': 30_000,
-  vize: 60_000,
-}
-
-function resolveCategoryListingsTtlMs(categorySlug: string): number {
-  const ttl = CATEGORY_LISTINGS_TTL_BY_SLUG_MS[categorySlug]
-  if (typeof ttl === 'number' && Number.isFinite(ttl) && ttl > 0) return ttl
-  return CATEGORY_LISTINGS_DEFAULT_TTL_MS
-}
-
-function buildCategoryListingsCacheKey(
-  categorySlug: string,
-  query: SearchQuery,
-  opts: FetchCategoryListingsOpts,
-  locale: string,
-): string {
-  return JSON.stringify({
-    categorySlug,
-    locale: locale || 'tr',
-    regionHandle: opts.regionHandle ?? null,
-    query: {
-      location: query.location ?? null,
-      checkin: query.checkin ?? null,
-      checkout: query.checkout ?? null,
-      guests: query.guests ?? null,
-      page: query.page ?? null,
-      drop_off: query.drop_off ?? null,
-      from: query.from ?? null,
-      to: query.to ?? null,
-      trip: query.trip ?? null,
-      class: query.class ?? null,
-      sort: query.sort ?? null,
-      price_min: query.price_min ?? null,
-      price_max: query.price_max ?? null,
-      beds: query.beds ?? null,
-      bedrooms: query.bedrooms ?? null,
-      bathrooms: query.bathrooms ?? null,
-      attrs: query.attrs ?? null,
-      theme: query.theme ?? null,
-    },
-  })
-}
-
-function getCachedCategoryListings(key: string): ListingsResult | undefined {
-  const cached = categoryListingsCache.get(key)
-  if (!cached) return undefined
-  if (cached.expiresAt <= Date.now()) {
-    categoryListingsCache.delete(key)
-    return undefined
-  }
-  return cached.value
-}
-
-function setCachedCategoryListings(key: string, value: ListingsResult, ttlMs: number): void {
-  if (categoryListingsCache.size >= CATEGORY_LISTINGS_MAX_ENTRIES) {
-    const oldestKey = categoryListingsCache.keys().next().value as string | undefined
-    if (oldestKey) categoryListingsCache.delete(oldestKey)
-  }
-  categoryListingsCache.set(key, { value, expiresAt: Date.now() + ttlMs })
-}
-
-function buildFlexibleHolidayListingsCacheKey(
-  query: SearchQuery,
-  opts: FetchCategoryListingsOpts,
-  locale: string,
-  maxItems: number,
-): string {
-  return JSON.stringify({
-    locale: locale || 'tr',
-    regionHandle: opts.regionHandle ?? null,
-    maxItems,
-    query: {
-      location: query.location ?? null,
-      checkin: query.checkin ?? null,
-      checkout: query.checkout ?? null,
-      guests: query.guests ?? null,
-      page: query.page ?? null,
-      drop_off: query.drop_off ?? null,
-      from: query.from ?? null,
-      to: query.to ?? null,
-      trip: query.trip ?? null,
-      class: query.class ?? null,
-      sort: query.sort ?? null,
-      price_min: query.price_min ?? null,
-      price_max: query.price_max ?? null,
-      beds: query.beds ?? null,
-      bedrooms: query.bedrooms ?? null,
-      bathrooms: query.bathrooms ?? null,
-      attrs: query.attrs ?? null,
-      theme: query.theme ?? null,
-    },
-  })
-}
-
-function getCachedFlexibleHolidayListings(key: string): TListingBase[] | undefined {
-  const cached = flexibleHolidayListingsCache.get(key)
-  if (!cached) return undefined
-  if (cached.expiresAt <= Date.now()) {
-    flexibleHolidayListingsCache.delete(key)
-    return undefined
-  }
-  return cached.value
-}
-
-function setCachedFlexibleHolidayListings(key: string, value: TListingBase[]): void {
-  if (flexibleHolidayListingsCache.size >= FLEXIBLE_HOLIDAY_LISTINGS_MAX_ENTRIES) {
-    const oldestKey = flexibleHolidayListingsCache.keys().next().value as string | undefined
-    if (oldestKey) flexibleHolidayListingsCache.delete(oldestKey)
-  }
-  flexibleHolidayListingsCache.set(key, {
-    value,
-    expiresAt: Date.now() + FLEXIBLE_HOLIDAY_LISTINGS_TTL_MS,
-  })
-}
-
 /** Next.js `searchParams` → düz nesne */
 export function parseSearchParamsFromUrl(
   sp: Record<string, string | string[] | undefined>,
@@ -511,10 +367,6 @@ export async function fetchFlexibleHolidayListings(
   locale: string,
   maxItems = 8,
 ): Promise<TListingBase[]> {
-  const cacheKey = buildFlexibleHolidayListingsCacheKey(query, opts, locale, maxItems)
-  const cached = getCachedFlexibleHolidayListings(cacheKey)
-  if (cached) return cached.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
-
   const relaxed = relaxedHolidaySearchQuery(query)
   const region = opts.regionHandle
   const regionAsLocation =
@@ -538,7 +390,6 @@ export async function fetchFlexibleHolidayListings(
   if (apiResult) {
     let rows = apiResult.listings.map(mapPublicListingItemToListingBase)
     rows = applyHolidayListingQueryFilters(rows, relaxed)
-    setCachedFlexibleHolidayListings(cacheKey, rows)
     return rows.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
   }
 
@@ -547,7 +398,6 @@ export async function fetchFlexibleHolidayListings(
   mock = filterMockByRegion(mock, region)
   mock = filterMockByLocationQuery(mock, query.location)
   mock = applyHolidayListingQueryFilters(mock, relaxed)
-  setCachedFlexibleHolidayListings(cacheKey, mock)
   return mock.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
 }
 
@@ -560,11 +410,6 @@ export async function fetchCategoryListings(
   opts: FetchCategoryListingsOpts = {},
   locale = 'tr',
 ): Promise<ListingsResult> {
-  const ttlMs = resolveCategoryListingsTtlMs(categorySlug)
-  const cacheKey = buildCategoryListingsCacheKey(categorySlug, query, opts, locale)
-  const cached = getCachedCategoryListings(cacheKey)
-  if (cached) return cached
-
   const categoryCode = SLUG_TO_CODE[categorySlug]
   const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
   const perPage = 12
@@ -595,15 +440,13 @@ export async function fetchCategoryListings(
     if (categoryCode === 'holiday_home') {
       rows = applyHolidayListingQueryFilters(rows, query)
     }
-    const result: ListingsResult = {
+    return {
       listings: rows,
       total: apiResult.total,
       page,
       perPage: apiResult.per_page,
       fromApi: true,
     }
-    setCachedCategoryListings(cacheKey, result, ttlMs)
-    return result
   }
 
   const loader = MOCK_LOADERS[categoryCode ?? ''] ?? MOCK_LOADERS['hotel']
@@ -614,13 +457,11 @@ export async function fetchCategoryListings(
     mock = applyHolidayListingQueryFilters(mock, query)
   }
 
-  const result: ListingsResult = {
+  return {
     listings: mock,
     total: mock.length,
     page: 1,
     perPage: mock.length,
     fromApi: false,
   }
-  setCachedCategoryListings(cacheKey, result, ttlMs)
-  return result
 }

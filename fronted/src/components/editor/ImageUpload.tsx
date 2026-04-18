@@ -1,6 +1,5 @@
 'use client'
 
-import { getStoredAuthToken } from '@/lib/auth-storage'
 import clsx from 'clsx'
 import { AlertTriangle, ImagePlus, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import NextImage from 'next/image'
@@ -69,15 +68,7 @@ export default function ImageUpload({
       fd.append('prefix', prefix)
       if (subPath?.trim()) fd.append('subPath', subPath.trim())
       if (indexForName != null && indexForName >= 1) fd.append('index', String(indexForName))
-      const headers: HeadersInit = {}
-      const token = getStoredAuthToken()
-      if (token) headers.Authorization = `Bearer ${token}`
-      const res = await fetch('/api/upload-image', {
-        method: 'POST',
-        body: fd,
-        credentials: 'include',
-        headers,
-      })
+      const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
       const ct = res.headers.get('content-type') ?? ''
       if (!ct.includes('application/json')) {
         await res.text()

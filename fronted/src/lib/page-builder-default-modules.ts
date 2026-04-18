@@ -1,6 +1,6 @@
 import { getCategoryBySlug } from '@/data/category-registry'
 import type { PageBuilderModule } from '@/types/listing-types'
-import type { AppMessages } from '@locales/en'
+import type { AppMessages } from '../../public/locales/en'
 import { interpolate } from '@/utils/interpolate'
 
 const STAY_SLUGS = new Set(['oteller', 'tatil-evleri', 'yat-kiralama'])

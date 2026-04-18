@@ -10,12 +10,9 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
-  MANAGE_STICKY_FOOTER_SCROLL_PADDING,
   ManageFormListingSection,
   ManageFormPageHeader,
 } from '@/components/manage/ManageFormShell'
-import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
-import { ManageStickyLangBar } from '@/components/manage/ManageStickyLangBar'
 import {
   getBlogPost,
   listBlogCategories,
@@ -602,15 +599,24 @@ export default function BlogPostEditClient({
   const hasTranslation = (loc: string) => translations.some((t) => t.locale === loc && t.title)
 
   return (
-    <div className={clsx('min-h-screen bg-neutral-50 dark:bg-neutral-950', MANAGE_STICKY_FOOTER_SCROLL_PADDING)}>
-      <ManageStickyLangBar
-        backHref={vitrinPath('/manage/content/blog')}
-        titlePrimary={title || post?.slug || 'Blog yazısı'}
-        titleSecondary={post?.slug ? `/${post.slug}` : undefined}
-        locales={BLOG_AI_LOCALE_OPTIONS}
-        activeLocale={activeLocale}
-        onActiveLocaleChange={(code) => switchLocale(code)}
-        toolbarRight={
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
+      {/* Top bar */}
+      <div className="sticky top-0 z-40 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href={vitrinPath('/manage/content/blog')}
+              className="p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-sm font-semibold text-neutral-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
+                {title || post?.slug || 'Blog Yazısı'}
+              </h1>
+              <p className="text-xs text-neutral-400 font-mono">{post?.slug}</p>
+            </div>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <ManageAiTranslateToolbar
               locales={BLOG_TR_TARGET_LOCALES}
@@ -619,37 +625,36 @@ export default function BlogPostEditClient({
               onTranslate={() => void handleAiTranslateTrToTarget()}
               translating={aiTranslating}
             />
-            {savedMsg ? (
-              <span className="hidden items-center gap-1 text-sm text-green-600 dark:text-green-400 lg:flex">
-                <CheckCircle2 className="h-4 w-4" />
+            {savedMsg && (
+              <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
+                <CheckCircle2 className="w-4 h-4" />
                 {savedMsg}
               </span>
-            ) : null}
+            )}
             <button
-              type="button"
-              onClick={() => void handlePublishToggle()}
+              onClick={handlePublishToggle}
               disabled={publishing}
               className={clsx(
-                'flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors',
                 isPublished
-                  ? 'bg-amber-100 text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
-                  : 'bg-green-100 text-green-800 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50',
+                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50'
+                  : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50',
               )}
             >
               {publishing ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : isPublished ? (
-                <EyeOff className="h-4 w-4" />
+                <EyeOff className="w-4 h-4" />
               ) : (
-                <Eye className="h-4 w-4" />
+                <Eye className="w-4 h-4" />
               )}
               <span className="hidden sm:inline">{isPublished ? 'Taslağa al' : 'Yayınla'}</span>
             </button>
           </div>
-        }
-      />
+        </div>
+      </div>
 
-      <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'grid grid-cols-1 gap-8 pb-4 pt-4 sm:pt-6 lg:grid-cols-3')}>
+      <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'grid grid-cols-1 gap-8 pb-16 pt-4 sm:pt-6 lg:grid-cols-3')}>
         <div className="lg:col-span-3">
           <ManageFormPageHeader
             title="Blog yazısı düzenle"
@@ -701,20 +706,31 @@ export default function BlogPostEditClient({
           {/* Content Tab */}
           {activeTab === 'content' && (
             <div className="space-y-6">
-              <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-900">
-                <div className="flex flex-wrap items-center gap-2 border-b border-neutral-200 px-4 py-2 text-xs text-neutral-500 dark:border-neutral-700 dark:text-neutral-400 sm:px-6">
-                  <span className="font-medium text-neutral-600 dark:text-neutral-300">Düzenlenen dil:</span>
-                  <span className="rounded-md bg-neutral-100 px-2 py-0.5 font-mono dark:bg-neutral-800">
-                    {activeLocale.toUpperCase()}
-                  </span>
-                  {hasTranslation(activeLocale) ? (
-                    <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-                      Kayıtlı çeviri var
-                    </span>
-                  ) : null}
+              {/* Locale tabs */}
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
+                <div className="flex border-b border-neutral-200 dark:border-neutral-700">
+                  {LOCALES.map((loc) => (
+                    <button
+                      key={loc}
+                      onClick={() => switchLocale(loc)}
+                      className={clsx(
+                        'flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
+                        activeLocale === loc
+                          ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                          : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
+                      )}
+                    >
+                      <span className="text-base">
+                        {loc === 'tr' ? '🇹🇷' : loc === 'en' ? '🇬🇧' : '🌐'}
+                      </span>
+                      {loc.toUpperCase()}
+                      {hasTranslation(loc) && (
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                      )}
+                    </button>
+                  ))}
                 </div>
-                <div className="space-y-5 p-6">
+                <div className="p-6 space-y-5">
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                       <label className="block text-sm font-medium">Başlık *</label>
@@ -770,6 +786,17 @@ export default function BlogPostEditClient({
                   </div>
                 </div>
               </div>
+
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveContent}
+                  disabled={saving}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 font-medium"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  İçeriği Kaydet
+                </button>
+              </div>
             </div>
           )}
 
@@ -797,6 +824,16 @@ export default function BlogPostEditClient({
                     aspectRatio="16/9"
                   />
                 </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveMeta}
+                  disabled={savingMeta}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 font-medium"
+                >
+                  {savingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Görselleri Kaydet
+                </button>
               </div>
             </div>
           )}
@@ -866,6 +903,16 @@ export default function BlogPostEditClient({
                     AI ile meta iyileştir
                   </button>
                 </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSaveMeta}
+                  disabled={savingMeta}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 font-medium"
+                >
+                  {savingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  SEO Kaydet
+                </button>
               </div>
             </div>
           )}
@@ -1069,52 +1116,6 @@ export default function BlogPostEditClient({
           </div>
         </div>
       </div>
-
-      <ManageStickyFormFooter>
-        <div className="hidden min-w-0 flex-1 text-xs text-green-700 dark:text-green-400 sm:flex sm:items-center">
-          {savedMsg ? (
-            <span className="flex items-center gap-1 truncate">
-              <CheckCircle2 className="h-4 w-4 shrink-0" />
-              {savedMsg}
-            </span>
-          ) : null}
-        </div>
-        <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
-          {activeTab === 'content' ? (
-            <button
-              type="button"
-              onClick={() => void handleSaveContent()}
-              disabled={saving}
-              className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              İçeriği Kaydet
-            </button>
-          ) : null}
-          {activeTab === 'images' ? (
-            <button
-              type="button"
-              onClick={() => void handleSaveMeta()}
-              disabled={savingMeta}
-              className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Görselleri Kaydet
-            </button>
-          ) : null}
-          {activeTab === 'seo' ? (
-            <button
-              type="button"
-              onClick={() => void handleSaveMeta()}
-              disabled={savingMeta}
-              className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              SEO Kaydet
-            </button>
-          ) : null}
-        </div>
-      </ManageStickyFormFooter>
     </div>
   )
 }

@@ -1,0 +1,145 @@
+{
+  "categorySlug": "yat-kiralama",
+  "modules": [
+    {
+      "type": "hero",
+      "enabled": true,
+      "order": 1,
+      "config": {
+        "showSearchForm": true,
+        "style": "full",
+        "heading": "",
+        "subheading": "",
+        "images": [
+          "/uploads/hero/yat-kiralama-1.avif",
+          "/uploads/hero/yat-kiralama-2.avif",
+          "/uploads/hero/yat-kiralama-3.jpg"
+        ]
+      },
+      "id": "yat-kiralama-module-0"
+    },
+    {
+      "type": "featured_by_region",
+      "enabled": true,
+      "order": 2,
+      "config": {
+        "heading": "Bölgeye Göre Öne Çıkanlar",
+        "subheading": "Popüler şehirlerdeki en beğenilen ilanlar",
+        "viewAllHref": "/yat-kiralama/all",
+        "regions": []
+      },
+      "id": "yat-kiralama-module-1"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 3,
+      "config": {
+        "title": "Yeni İlanlar",
+        "subheading": "Son eklenen ilanlar",
+        "filterMode": "new",
+        "showTabs": false,
+        "count": 8,
+        "viewAllHref": "/yat-kiralama/all",
+        "viewAllLabel": "Tüm Yeni İlanları Gör"
+      },
+      "id": "yat-kiralama-module-2"
+    },
+    {
+      "type": "listings_slider",
+      "enabled": true,
+      "order": 4,
+      "config": {
+        "title": "İndirimli İlanlar",
+        "subheading": "Özel fiyatlarla kaçırılmayacak fırsatlar",
+        "filterMode": "discounted",
+        "showTabs": false,
+        "count": 8,
+        "viewAllHref": "/yat-kiralama/all",
+        "viewAllLabel": "Tüm İndirimleri Gör"
+      },
+      "id": "yat-kiralama-module-3"
+    },
+    {
+      "type": "listings_grid",
+      "enabled": true,
+      "order": 5,
+      "config": {
+        "title": "Kampanyalı İlanlar",
+        "subheading": "Sınırlı süreli özel kampanyalar",
+        "filterMode": "campaign",
+        "showTabs": false,
+        "count": 4,
+        "viewAllHref": "/yat-kiralama/all",
+        "viewAllLabel": "Tüm Kampanyaları Gör"
+      },
+      "id": "yat-kiralama-module-4"
+    },
+    {
+      "type": "why_us",
+      "enabled": true,
+      "order": 6,
+      "config": {
+        "title": "Neden Bizi Seçin?"
+      },
+      "id": "yat-kiralama-module-5"
+    },
+    {
+      "type": "top_providers",
+      "enabled": true,
+      "order": 7,
+      "config": {
+        "heading": "En İyi İlan Sahipleri",
+        "subheading": "Bu kategorideki en başarılı ilan sağlayıcılar",
+        "ctaText": "İlan ver",
+        "ctaHref": "/manage",
+        "maxCount": 5,
+        "showCategoryFilter": false
+      },
+      "id": "yat-kiralama-module-6"
+    },
+    {
+      "type": "become_provider",
+      "enabled": true,
+      "order": 8,
+      "config": {
+        "heading": "İlanınızı Ekleyin, Kazanmaya Başlayın",
+        "subheading": "Yat Kiralama kategorisinde ilan vererek binlerce gezgine ulaşın. Ücretsiz ve hızlı kurulum.",
+        "ctaText": "Ücretsiz İlan Ver",
+        "ctaHref": "/ilan-ver",
+        "secondaryCtaText": "Nasıl Çalışır?",
+        "secondaryCtaHref": "/ilan-ver#nasil-calisir",
+        "bgVariant": "gradient"
+      },
+      "id": "yat-kiralama-module-7"
+    },
+    {
+      "type": "testimonials",
+      "enabled": true,
+      "order": 9,
+      "config": {
+        "title": "Misafirlerimiz Ne Diyor? 🥇"
+      },
+      "id": "yat-kiralama-module-8"
+    },
+    {
+      "type": "newsletter",
+      "enabled": true,
+      "order": 10,
+      "config": {},
+      "id": "yat-kiralama-module-9"
+    },
+    {
+      "type": "video_gallery",
+      "enabled": false,
+      "order": 11,
+      "config": {
+        "title": "🎬 Yat Kiralama Videoları",
+        "subtitle": "Yat Kiralama hakkında en iyi videoları izleyin.",
+        "videos": []
+      },
+      "id": "yat-kiralama-module-10"
+    }
+  ],
+  "updatedAt": "2026-04-15T14:18:40.459Z"
+}

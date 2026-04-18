@@ -1,4 +1,4 @@
-import { en } from '@locales/en'
+import { en } from '../../public/locales/en'
 import { flattenLocaleMessages } from './flatten-locale-messages'
 
 let cache: Record<string, string> | null = null

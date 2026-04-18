@@ -4,7 +4,7 @@ import type { TListingBase } from '@/types/listing-types'
 import type { FeaturedByRegionConfig, FeaturedRegionEntry } from '@/types/listing-types'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
-import { ViewAllPillLink } from '@/shared/ViewAllPillLink'
+import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Heading, Subheading } from '@/shared/Heading'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -43,13 +43,16 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
 
   return (
     <div className="group relative">
-      {/* Görsel — kategori ızgarasındaki ListingCard ile aynı: dikdörtgen, normal köşe yuvarlama */}
-      <div className="relative w-full overflow-hidden rounded-2xl border border-neutral-100 dark:border-neutral-800">
+      {/* Image — üst-sol / alt-sağ geniş yuvarlak köşe */}
+      <div className="relative overflow-hidden asymmetric-image-corners">
         <GallerySlider
           galleryImgs={images}
           href={listingHref}
           ratioClass="aspect-w-4 aspect-h-3"
           uniqueID={`featured-region-${listing.id}`}
+          galleryClass="!rounded-none overflow-hidden"
+          imageClass="!rounded-none"
+          bottomOverlayClassName="asymmetric-image-bottom-fade"
         />
         {saleOff && <SaleOffBadge desc={saleOff} className="absolute left-3 top-3 z-10" />}
         {isAds && (
@@ -220,9 +223,10 @@ const SectionFeaturedByRegion: FC<Props> = ({
           ))}
         </div>
         {viewAllHref && (
-          <ViewAllPillLink href={viewAllHref} className="ml-auto">
-            {m.common['View all']}
-          </ViewAllPillLink>
+          <ButtonSecondary className="ml-auto shrink-0" href={viewAllHref}>
+            <span>{m.common['View all']}</span>
+            <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
+          </ButtonSecondary>
         )}
       </div>
 
