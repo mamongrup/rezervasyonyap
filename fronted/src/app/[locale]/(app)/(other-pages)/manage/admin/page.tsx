@@ -2,6 +2,7 @@
 
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 import AdminDashboardClient from './AdminDashboardClient'
+import AdminManageClient from './AdminManageClient'
 
 export default function ManageAdminPage() {
   return (
@@ -10,6 +11,7 @@ export default function ManageAdminPage() {
       featureHint="admin.*"
     >
       <AdminDashboardClient />
+      <AdminManageClient />
     </ManageAccessGuard>
   )
 }

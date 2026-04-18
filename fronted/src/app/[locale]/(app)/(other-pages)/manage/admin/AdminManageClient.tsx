@@ -463,18 +463,25 @@ export default function AdminManageClient() {
         </div>
       </section>
 
+      <div id="admin-banners-block" className="scroll-mt-24" />
       <AdminBannersSection />
 
+      <div id="admin-blog-block" className="scroll-mt-24" />
       <AdminBlogSection />
 
+      <div id="admin-navigation-block" className="scroll-mt-24" />
       <AdminNavigationSection />
 
+      <div id="admin-messaging-block" className="scroll-mt-24" />
       <AdminMessagingSection />
 
+      <div id="admin-ai-block" className="scroll-mt-24" />
       <AdminAiSection />
 
+      <div id="admin-merchant-block" className="scroll-mt-24" />
       <AdminMerchantIntegrationsSection />
 
+      <div id="admin-seo-block" className="scroll-mt-24" />
       <AdminSeoRedirectsSection />
 
       <AdminSupplierApplicationsSection />
@@ -488,10 +495,13 @@ export default function AdminManageClient() {
       <div id="admin-provizyon-block" className="scroll-mt-24" />
       <AdminProvizyonPanel />
 
+      <div id="admin-agency-grants-block" className="scroll-mt-24" />
       <AdminAgencyCategoryGrantsSection />
 
+      <div id="admin-agency-profiles-block" className="scroll-mt-24" />
       <AdminAgencyProfilesSection />
 
+      <div id="admin-social-block" className="scroll-mt-24" />
       <AdminSocialSection />
 
       <div id="admin-access-block" className="scroll-mt-24 my-12 border-t border-neutral-200 dark:border-neutral-700" />
