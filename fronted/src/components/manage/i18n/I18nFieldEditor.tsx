@@ -204,7 +204,7 @@ export default function I18nFieldEditor(props: I18nFieldEditorProps) {
             disabled={disabled}
             maxLength={maxLength}
             placeholder={placeholder ? `${placeholder} (${LOCALE_LABELS[active]})` : LOCALE_NAMES[active]}
-            dir={active === 'ar' ? 'rtl' : 'ltr'}
+            dir="ltr"
             className="block w-full resize-y border-0 bg-transparent text-sm text-neutral-900 outline-hidden placeholder:text-neutral-400 focus:ring-0 dark:text-neutral-50"
           />
         ) : (
@@ -216,6 +216,7 @@ export default function I18nFieldEditor(props: I18nFieldEditorProps) {
             disabled={disabled}
             maxLength={maxLength}
             placeholder={placeholder ? `${placeholder} (${LOCALE_LABELS[active]})` : LOCALE_NAMES[active]}
+            dir="ltr"
             className="block w-full border-0 bg-transparent text-sm text-neutral-900 outline-hidden placeholder:text-neutral-400 focus:ring-0 dark:text-neutral-50"
           />
         )}
