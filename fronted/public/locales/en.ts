@@ -949,6 +949,37 @@ export const en = {
       qPets: 'Are pets allowed?',
       qLicense: "What is the property's Ministry license number?",
     },
+    /** Booking-style "Property info at a glance" grid on hotel detail page */
+    propertyInfo: {
+      title: 'Property info at a glance',
+      subtitle: 'Key facts to know about this hotel.',
+      checkInLabel: 'Check-in',
+      checkOutLabel: 'Check-out',
+      starsLabel: 'Class',
+      starsValue: '{count}-star',
+      roomTypesLabel: 'Room types',
+      roomTypesValue: '{count} different room types',
+      breakfastLabel: 'Breakfast',
+      breakfastYes: 'Breakfast options available',
+      prepaymentLabel: 'Payment',
+      locationLabel: 'Location',
+    },
+    /** Booking/ETStur-style room cards — used only for hotels. */
+    roomShowcase: {
+      title: 'Room options',
+      subtitle: 'Browse each room type in a Booking/ETStur-style view.',
+      bedsShort: '{count} beds',
+      sizeM2: '{value} m²',
+      showDetails: 'Room details',
+      hideDetails: 'Hide details',
+      selectRoom: 'Select this room',
+      priceOnDates: 'Price calculated for your selected dates',
+      breakfastIncluded: 'Breakfast included',
+      halfBoard: 'Half board',
+      fullBoard: 'Full board',
+      allInclusive: 'All inclusive',
+      roomOnly: 'Room only',
+    },
     /** İlan detay — olanaklar (Lucide ikonları; `src/lib/listing-amenities.ts`) */
     amenities: {
       title: 'Amenities',

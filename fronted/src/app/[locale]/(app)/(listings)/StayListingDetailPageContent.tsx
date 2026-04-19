@@ -54,6 +54,8 @@ import clsx from 'clsx'
 import HeaderGallery from './components/HeaderGallery'
 import HotelFAQSection from './HotelFAQSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
+import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
+import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
 import ListingAmenitiesSection from './ListingAmenitiesSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
 import ListingSeasonalPricingSection, {
@@ -167,16 +169,64 @@ export default async function StayListingDetailPageContent({
   }
 
   // hotel_rooms (Tur3) — vitrin oda tablosunda demo verisi yerine gerçek odalar.
-  let realHotelRooms: Array<{ id: string; name: string; capacity: number | null; boardType: string | null }> = []
+  // meta_json içindeki opsiyonel alanlar (beds, bed_type, size_m2, description,
+  // amenities, image) Booking/ETStur tarzı kart görünümünde zenginleştirmek için
+  // burada parse edilir. Şema esnek; alan yoksa ilgili satır kart üzerinde gizlenir.
+  let realHotelRooms: HotelRoomShowcaseItem[] = []
   try {
     const r = await getPublicHotelRooms(catalogListingId ?? listing.id)
-    realHotelRooms = r.rooms.map((row) => {
+    realHotelRooms = r.rooms.map((row): HotelRoomShowcaseItem => {
       const cap = row.capacity ? Number.parseInt(row.capacity, 10) : null
+      let meta: Record<string, unknown> = {}
+      try {
+        const parsed = JSON.parse(row.meta_json || '{}')
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          meta = parsed as Record<string, unknown>
+        }
+      } catch {
+        /* meta_json geçersiz → sadece temel alanlarla göster */
+      }
+      const pickNumber = (k: string): number | null => {
+        const v = meta[k]
+        if (typeof v === 'number' && Number.isFinite(v)) return v
+        if (typeof v === 'string' && v.trim()) {
+          const n = Number.parseFloat(v.replace(',', '.'))
+          return Number.isFinite(n) ? n : null
+        }
+        return null
+      }
+      const pickString = (k: string): string | null => {
+        const v = meta[k]
+        return typeof v === 'string' && v.trim() ? v.trim() : null
+      }
+      const pickStringArr = (k: string): string[] | null => {
+        const v = meta[k]
+        if (Array.isArray(v)) {
+          const arr = v
+            .filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+            .map((x) => x.trim())
+          return arr.length > 0 ? arr : null
+        }
+        if (v && typeof v === 'object') {
+          const keys = Object.entries(v as Record<string, unknown>)
+            .filter(([, val]) => val === true || val === 'true' || val === 1)
+            .map(([k2]) => k2)
+          return keys.length > 0 ? keys : null
+        }
+        return null
+      }
       return {
         id: row.id,
         name: row.name,
         capacity: Number.isFinite(cap) ? (cap as number) : null,
         boardType: row.board_type,
+        beds: pickNumber('beds'),
+        bedType: pickString('bed_type') ?? pickString('bedType'),
+        sizeM2:
+          pickNumber('size_m2') ?? pickNumber('size_sqm') ?? pickNumber('size'),
+        description: pickString('description') ?? pickString('summary'),
+        amenities: pickStringArr('amenities'),
+        image: pickString('image') ?? pickString('hero_image'),
       }
     })
   } catch {
@@ -727,6 +777,30 @@ export default async function StayListingDetailPageContent({
           {!isHolidayHome && (
             <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
           )}
+          {/* Booking "Property info at a glance" tarzı hızlı bilgi kutusu —
+              yalnızca otel; yat ve villa gösterimi korunur. */}
+          {vertical === 'hotel' && (
+            <HotelPropertyInfoGrid
+              locale={locale}
+              source={{
+                checkInLine: dp.checkInRule,
+                checkOutLine: dp.checkOutRule,
+                starRating:
+                  typeof (listing as { stars?: number }).stars === 'number'
+                    ? ((listing as { stars?: number }).stars ?? null)
+                    : null,
+                roomTypeCount: realHotelRooms.length > 0 ? realHotelRooms.length : null,
+                hasBreakfast: mealPlans.some((m) =>
+                  ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(
+                    m.plan_code,
+                  ),
+                ),
+                prepaymentLine: prepaymentNoteText?.trim() ?? null,
+                city: listing.city ?? null,
+                regionLabel: null,
+              }}
+            />
+          )}
           {renderSectionDescription()}
           <ListingAmenitiesSection
             locale={locale}
@@ -749,7 +823,20 @@ export default async function StayListingDetailPageContent({
               dualMealPricing={dualMealPricing}
             />
           )}
-          {!isHolidayHome && renderSectionRoomTypes()}
+          {/* Oteller için Booking/ETStur tarzı oda kartı gösterimi; yat için
+              mevcut özet tablosu korunur. Tatil evinde oda listesi yok. */}
+          {vertical === 'hotel' && realHotelRooms.length > 0 ? (
+            <HotelRoomShowcase
+              locale={locale}
+              rooms={realHotelRooms}
+              reservationAnchorId="stay-reservation-card"
+              currencySymbol={
+                priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
+              }
+            />
+          ) : (
+            !isHolidayHome && renderSectionRoomTypes()
+          )}
           {mealPlans.length > 0 && (
             <SectionMealPlans mealPlans={mealPlans} locale={locale} />
           )}
@@ -845,7 +932,8 @@ export default async function StayListingDetailPageContent({
         {/* RIGHT SIDEBAR — lg:self-stretch: main lg:items-start iken sağ kolon sol kadar uzar, sticky takip eder */}
         <div className="flex grow flex-col overflow-visible lg:min-w-[min(100%,320px)] lg:max-w-md lg:self-stretch">
           <div
-            className="sticky top-1 overflow-visible"
+            id="stay-reservation-card"
+            className="sticky top-1 overflow-visible scroll-mt-24"
           >
             {renderSidebarPriceAndForm()}
             <div className="mt-3 px-1">
