@@ -540,8 +540,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     setAiTranslating(true)
     setSaveMsg(null)
     try {
-      const mtSrc = (metaTitle || tr?.meta_title || '').trim()
-      const mdSrc = (metaDesc || tr?.meta_description || '').trim()
+      const mtSrc = (metaTitle || src?.meta_title || '').trim()
+      const mdSrc = (metaDesc || src?.meta_description || '').trim()
       const [tName, tDesc, tMetaTitle, tMetaDesc] = await Promise.all([
         name
           ? callAiTranslate({
