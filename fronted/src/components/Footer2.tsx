@@ -75,7 +75,7 @@ export default async function Footer2({ locale }: Footer2Props) {
 
   const copyName = c.orgLegalName || c.orgName
   const year = new Date().getFullYear()
-  const rights = t.footer?.rights ?? 'All rights reserved.'
+  const rights = t.site.footer.rights
 
   const linkCls = 'text-sm/6 text-gray-600 transition-colors hover:text-primary-600 dark:text-neutral-400 dark:hover:text-neutral-200'
   const headingCls = 'text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-neutral-200'
