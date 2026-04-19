@@ -173,12 +173,12 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       <span>
         <span className="text-neutral-500 dark:text-neutral-400">{regionName} — </span>
         <span className="text-neutral-900 dark:text-neutral-100">
-          {convertNumbThousand(totalListings)}+ {locale === 'tr' ? 'ilan' : 'listings'}
+          {convertNumbThousand(totalListings)}+ {m.site.region.listingsSuffix}
         </span>
       </span>
       {totalPois > 0 ? (
         <span className="ms-1 text-sm text-neutral-400">
-          · {totalPois} {locale === 'tr' ? 'yakın mekan' : 'nearby'}
+          · {totalPois} {m.site.region.nearbyPlaces}
         </span>
       ) : null}
     </div>
@@ -199,7 +199,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       <div className={`relative container mb-6 ${heroContainerBelowHeaderClassName}`}>
         <nav className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
           <Link href={normalizeHrefForLocale(locale, '/')} className="hover:text-primary-600">
-            {locale === 'tr' ? 'Ana Sayfa' : 'Home'}
+            {m.site.region.breadcrumbHome}
           </Link>
           <span>/</span>
           {slug.length > 1
@@ -266,7 +266,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
               rel="noopener noreferrer"
               className="text-sm font-medium text-primary-600 hover:underline dark:text-sky-400"
             >
-              🗺️ {locale === 'tr' ? 'Haritada gör' : 'View on map'}
+              🗺️ {m.site.region.viewOnMap}
             </a>
           ) : null}
         </div>
@@ -324,7 +324,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           <div className="flex flex-col items-center py-14 text-center">
             <div className="text-5xl">🏡</div>
             <p className="mt-3 text-sm text-neutral-500">
-              {locale === 'tr' ? 'Bu bölgede henüz ilan bulunmuyor.' : 'No listings in this area yet.'}
+              {m.site.region.noListings}
             </p>
           </div>
         )}
@@ -350,7 +350,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
         <section className="mt-14 border-t border-neutral-200 bg-white py-14 dark:border-neutral-800 dark:bg-neutral-900">
           <div className="container">
             <h2 className="mb-6 text-2xl font-bold text-neutral-900 dark:text-white">
-              {locale === 'tr' ? 'Bölge Tanıtımı' : 'About this destination'}
+              {m.site.region.aboutHeading}
             </h2>
             {looksLikeHtml ? (
               <div
@@ -377,7 +377,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           <div className="container">
             <NearbyPlacesSection
               initialData={placesData}
-              title={`${regionName} — ${locale === 'tr' ? 'Çevrede ne var?' : 'Nearby'}`}
+              title={`${regionName} — ${m.site.region.nearbySectionTitle}`}
             />
           </div>
         </div>
@@ -387,7 +387,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
         <div className="bg-white py-10 dark:bg-neutral-900">
           <div className="container">
             <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
-              {locale === 'tr' ? 'Konum' : 'Location'}
+              {m.site.region.locationHeading}
             </h2>
             <div className="overflow-hidden rounded-2xl border border-neutral-100 shadow-sm dark:border-neutral-700">
               <iframe
@@ -409,15 +409,13 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           <div className="text-5xl">📍</div>
           <h2 className="mt-4 text-xl font-semibold text-neutral-900 dark:text-white">{regionName}</h2>
           <p className="mt-2 max-w-md text-sm text-neutral-500">
-            {locale === 'tr'
-              ? 'Bu bölge için henüz içerik eklenmemiş. Yönetim panelinden düzenleyebilirsiniz.'
-              : 'No content for this area yet.'}
+            {m.site.region.noContentYet}
           </p>
           <Link
             href={normalizeHrefForLocale(locale, '/manage/regions')}
             className="mt-6 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
           >
-            {locale === 'tr' ? 'Bölge Yönetimi' : 'Region admin'}
+            {m.site.region.goToRegionAdmin}
           </Link>
         </div>
       ) : null}

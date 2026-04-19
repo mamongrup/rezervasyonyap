@@ -190,6 +190,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         listingLinkBase="/otel"
         priceUnit="/gece"
         authors={authors}
+        pageKey="homepage"
       />
     </main>
   )

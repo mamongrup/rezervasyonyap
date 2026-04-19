@@ -277,6 +277,21 @@ export const ru: AppMessages = {
     contractPage: {
       backToListing: 'К объявлению',
     },
+    highlights: {
+      title: 'Особенности отеля',
+      subtitle: 'Что больше всего ценят гости в этом отеле.',
+    },
+    faq: {
+      title: 'Часто задаваемые вопросы',
+      subtitle: 'Самые популярные вопросы гостей об этом отеле.',
+      qCheckInOut: 'Какое время заезда и выезда?',
+      qBreakfast: 'Подаётся ли завтрак в этом отеле?',
+      aBreakfast: 'Да, завтрак подаётся. Подробности — в разделе питания.',
+      qPrepayment: 'Какова сумма требуемой предоплаты?',
+      qCancellation: 'Как я могу отменить бронирование?',
+      qPets: 'Разрешено ли проживание с домашними животными?',
+      qLicense: 'Каков номер министерской лицензии объекта?',
+    },
     sidebar: {
       ...en.listing.sidebar,
       perNight: '/ночь',
@@ -409,6 +424,66 @@ export const ru: AppMessages = {
     car: {
       dropOffLocationAria: 'Тип пункта возврата',
     },
+  },
+  site: {
+    footer: { rights: 'Все права защищены.' },
+    notFound: {
+      title: 'СТРАНИЦА НЕ НАЙДЕНА.',
+      description: 'Возможно, страница была перемещена, удалена или переименована.',
+      backHome: 'На главную',
+    },
+    region: {
+      listingsSuffix: 'предложений',
+      nearbyPlaces: 'рядом',
+      regionPrefix: 'Регион:',
+      browseAll: 'Смотреть все',
+      breadcrumbHome: 'Главная',
+      viewOnMap: 'Показать на карте',
+      noListings: 'В этом регионе пока нет предложений.',
+      aboutHeading: 'О направлении',
+      nearbySectionTitle: 'Рядом',
+      locationHeading: 'Расположение',
+      noContentYet: 'Для этого региона ещё нет содержимого.',
+      goToRegionAdmin: 'Управление регионом',
+    },
+    featured: {
+      heading: 'Рекомендуемые места',
+      tabNew: 'Новые',
+      tabDiscounted: 'Со скидкой',
+      tabFeatured: 'Избранные',
+    },
+    mealPlans: {
+      ro: 'Без питания',
+      bb: 'Завтрак включён',
+      hb: 'Полупансион',
+      fb: 'Полный пансион',
+      ai: 'Всё включено',
+      uai: 'Ультра всё включено',
+    },
+    sortOrder: {
+      recommended: 'Рекомендуемые',
+      priceAsc: 'Цена: по возрастанию',
+      priceDesc: 'Цена: по убыванию',
+      ratingDesc: 'Лучший рейтинг',
+      newest: 'Сначала новые',
+    },
+    actions: {
+      save: 'Сохранить',
+      cancel: 'Отмена',
+      delete: 'Удалить',
+      edit: 'Изменить',
+      add: 'Добавить',
+      loading: 'Загрузка…',
+      retry: 'Повторить',
+      refresh: 'Обновить',
+      yes: 'Да',
+      no: 'Нет',
+    },
+  },
+  reviews: {
+    ...en.reviews,
+    showAll: 'Показать все отзывы ({count})',
+    showLess: 'Свернуть',
   },
 }
 

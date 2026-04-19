@@ -7,11 +7,13 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useManageT } from '@/lib/manage-i18n-context'
 import {
+  createIcalFeed,
   createManageCatalogListing,
   createListingPriceRule,
   getAuthMe,
   getPublicCurrencies,
   listManageCategoryContracts,
+  patchListingPerks,
   putManageListingTranslations,
   patchListingBasics,
   putListingOwnerContact,
@@ -31,6 +33,7 @@ import {
 } from '@/components/manage/ManageFormShell'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
+import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
@@ -57,18 +60,6 @@ import clsx from 'clsx'
 
 const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
-/** Villa ilanı formu — bölge düzenle ile aynı dil şeridi + AI çeviri */
-const LISTING_LOCALES = [
-  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-  { code: 'zh', label: '中文', flag: '🇨🇳' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-] as const
-
-const LISTING_LOCALES_TR_TARGET = LISTING_LOCALES.filter((l) => l.code !== 'tr')
-
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
 type ListingSeoDraft = {
   title: string
@@ -90,9 +81,9 @@ function emptyListingSeo(): ListingSeoDraft {
   }
 }
 
-function initSeoByLocale(): Record<string, ListingSeoDraft> {
+function initSeoByCodes(codes: readonly string[]): Record<string, ListingSeoDraft> {
   const o: Record<string, ListingSeoDraft> = {}
-  for (const l of LISTING_LOCALES) o[l.code] = emptyListingSeo()
+  for (const c of codes) o[c] = emptyListingSeo()
   return o
 }
 
@@ -105,9 +96,9 @@ function stripHtmlToPlain(html: string): string {
     .trim()
 }
 
-function emptyListingByLocale(): Record<string, { title: string; description: string }> {
+function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, { title: string; description: string }> {
   const o: Record<string, { title: string; description: string }> = {}
-  for (const l of LISTING_LOCALES) o[l.code] = { title: '', description: '' }
+  for (const c of codes) o[c] = { title: '', description: '' }
   return o
 }
 
@@ -190,6 +181,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const router = useRouter()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
+  const { allLocales, translateTargets, primaryLocale, localeCodes } = useManageAiLocaleRows()
+  const localeCodesKey = localeCodes.join(',')
 
   // ── Temel alanlar ──
   const [title, setTitle] = useState('')
@@ -200,14 +193,14 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>([])
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
 
-  const [activeLang, setActiveLang] = useState('tr')
-  const [listingByLocale, setListingByLocale] = useState(emptyListingByLocale)
-  const [seoByLocale, setSeoByLocale] = useState<Record<string, ListingSeoDraft>>(() => initSeoByLocale())
+  const [activeLang, setActiveLang] = useState(primaryLocale)
+  const [listingByLocale, setListingByLocale] = useState(() => emptyListingByLocaleForCodes(localeCodes))
+  const [seoByLocale, setSeoByLocale] = useState<Record<string, ListingSeoDraft>>(() => initSeoByCodes(localeCodes))
   const [seoPolishBusy, setSeoPolishBusy] = useState<string | null>(null)
   const [priceLineCatalog, setPriceLineCatalog] = useState<PriceLineItem[]>([])
   const [selectedPriceLineIds, setSelectedPriceLineIds] = useState<Set<string>>(new Set())
   const [aiTargetLocale, setAiTargetLocale] = useState(
-    LISTING_LOCALES_TR_TARGET[0]?.code ?? 'en',
+    () => translateTargets[0]?.code ?? 'en',
   )
   const [aiTranslating, setAiTranslating] = useState(false)
   const [translateMsg, setTranslateMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -216,9 +209,46 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const submitIntentRef = useRef<'save' | 'save-show'>('save')
 
   const setAiTargetFromToolbar = (code: string) => {
-    const picked = LISTING_LOCALES_TR_TARGET.find((l) => l.code === code)
+    const picked = translateTargets.find((l) => l.code === code)
     if (picked) setAiTargetLocale(picked.code)
   }
+
+  useEffect(() => {
+    setListingByLocale((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const c of localeCodes) {
+        if (!next[c]) {
+          next[c] = { title: '', description: '' }
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+    setSeoByLocale((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const c of localeCodes) {
+        if (!next[c]) {
+          next[c] = emptyListingSeo()
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [localeCodesKey, localeCodes])
+
+  useEffect(() => {
+    setAiTargetLocale((cur) => {
+      const targets = localeCodes.filter((c) => c !== primaryLocale)
+      if (targets.includes(cur)) return cur
+      return targets[0] ?? 'en'
+    })
+  }, [localeCodesKey, primaryLocale, localeCodes])
+
+  useEffect(() => {
+    setActiveLang((cur) => (localeCodes.includes(cur) ? cur : primaryLocale))
+  }, [localeCodesKey, primaryLocale, localeCodes])
 
   // ── Fiyatlandırma ──
   const [basePrice, setBasePrice] = useState('')
@@ -275,6 +305,16 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const [address, setAddress] = useState('')
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
+
+  // ── Vitrin promosyon (Tur2 yeni alanlar) ──
+  /** Anında rezervasyon (tedarikçi onayı beklemeden) */
+  const [instantBook, setInstantBook] = useState(false)
+  /** Mobil cihazlardan rezervasyonda ek indirim (%) — boş = yok */
+  const [mobileDiscountPercent, setMobileDiscountPercent] = useState('')
+  /** Tatil evi için takvim senkronu (Airbnb/Booking iCal export URL) */
+  const [icalImportUrl, setIcalImportUrl] = useState('')
+  /** Otel yıldızı (1–5) — sadece hotel kategorisinde */
+  const [starRating, setStarRating] = useState('')
 
   // ── İlan sahibi ──
   const [ownerName, setOwnerName] = useState('')
@@ -414,7 +454,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         ...prev,
         [activeLang]: { ...(prev[activeLang] ?? { title: '', description: '' }), title: v },
       }))
-      if (activeLang === 'tr' && !slugManual) setSlug(toSlug(v))
+      if (activeLang === primaryLocale && !slugManual) setSlug(toSlug(v))
       return
     }
     setTitle(v)
@@ -433,15 +473,26 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   async function handleAiTranslateTrToTarget() {
-    const tr = listingByLocale['tr']
-    const tTit = (tr?.title ?? '').trim()
-    const tDesc = (tr?.description ?? '').trim()
-    const trSeo = isVilla ? seoByLocale['tr'] ?? emptyListingSeo() : emptyListingSeo()
-    const hasTrSeo =
+    if (aiTargetLocale === primaryLocale) {
+      setTranslateMsg({
+        ok: false,
+        text: `Çeviri hedefi birincil kaynak dilden (${primaryLocale.toUpperCase()}) farklı olmalı.`,
+      })
+      return
+    }
+    const src = listingByLocale[primaryLocale]
+    const tTit = (src?.title ?? '').trim()
+    const tDesc = (src?.description ?? '').trim()
+    const srcSeo = isVilla ? seoByLocale[primaryLocale] ?? emptyListingSeo() : emptyListingSeo()
+    const hasPrimarySeo =
       isVilla &&
-      (trSeo.title.trim() || trSeo.description.trim() || trSeo.keywords.trim())
-    if (!tTit && !tDesc && !hasTrSeo) {
-      setTranslateMsg({ ok: false, text: 'Önce Türkçe başlık, açıklama veya SEO alanlarından en az birini doldurun.' })
+      (srcSeo.title.trim() || srcSeo.description.trim() || srcSeo.keywords.trim())
+    if (!tTit && !tDesc && !hasPrimarySeo) {
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setTranslateMsg({
+        ok: false,
+        text: `Önce ${plabel} dilinde başlık, açıklama veya SEO alanlarından en az birini doldurun.`,
+      })
       return
     }
     setAiTranslating(true)
@@ -453,7 +504,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           ? callAiTranslate({
               text: tTit,
               context: 'title',
-              sourceLocale: 'tr',
+              sourceLocale: primaryLocale,
               targetLocale: aiTargetLocale,
             })
           : Promise.resolve(''),
@@ -461,7 +512,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           ? callAiTranslate({
               text: tDesc,
               context: 'body',
-              sourceLocale: 'tr',
+              sourceLocale: primaryLocale,
               targetLocale: aiTargetLocale,
               ...(slugRefVal ? { pageSlug: slugRefVal } : {}),
             })
@@ -476,7 +527,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         },
       }))
       if (isVilla) {
-        const prevSeo = seoByLocale['tr'] ?? emptyListingSeo()
+        const prevSeo = seoByLocale[primaryLocale] ?? emptyListingSeo()
         const sTit = prevSeo.title.trim()
         const sDesc = prevSeo.description.trim()
         const sKw = prevSeo.keywords.trim()
@@ -485,7 +536,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             ? callAiTranslate({
                 text: sTit,
                 context: 'seo',
-                sourceLocale: 'tr',
+                sourceLocale: primaryLocale,
                 targetLocale: aiTargetLocale,
               })
             : Promise.resolve(''),
@@ -493,7 +544,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             ? callAiTranslate({
                 text: sDesc.slice(0, 1200),
                 context: 'seo',
-                sourceLocale: 'tr',
+                sourceLocale: primaryLocale,
                 targetLocale: aiTargetLocale,
               })
             : Promise.resolve(''),
@@ -501,7 +552,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             ? callAiTranslate({
                 text: sKw,
                 context: 'seo',
-                sourceLocale: 'tr',
+                sourceLocale: primaryLocale,
                 targetLocale: aiTargetLocale,
               })
             : Promise.resolve(''),
@@ -516,7 +567,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           },
         }))
       }
-      const label = LISTING_LOCALES.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale
+      const label = allLocales.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale
       setTranslateMsg({
         ok: true,
         text: `${label} çevirisi hazır. Kaydetmeyi unutmayın.`,
@@ -561,7 +612,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               title: v,
             },
           }))
-          if (activeLang === 'tr' && !slugManual) setSlug(toSlug(v))
+          if (activeLang === primaryLocale && !slugManual) setSlug(toSlug(v))
         } else {
           setTitle(v)
           if (!slugManual) setSlug(toSlug(v))
@@ -691,14 +742,18 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
   async function handleAiSuggestSeoFromContent() {
     if (!isVilla) return
-    if (activeLang !== 'tr') {
-      setTranslateMsg({ ok: false, text: 'Bu öneriyi Türkçe sekmedeyken kullanın.' })
+    if (activeLang !== primaryLocale) {
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setTranslateMsg({ ok: false, text: `Bu öneriyi ${plabel} sekmesindeyken kullanın.` })
       return
     }
-    const tit = (listingByLocale['tr']?.title ?? '').trim()
-    const plain = stripHtmlToPlain(listingByLocale['tr']?.description ?? '')
+    const tit = (listingByLocale[primaryLocale]?.title ?? '').trim()
+    const plain = stripHtmlToPlain(listingByLocale[primaryLocale]?.description ?? '')
     if (!tit && !plain) {
-      setTranslateMsg({ ok: false, text: 'Önce Türkçe başlık veya açıklama girin.' })
+      setTranslateMsg({
+        ok: false,
+        text: `Önce ${allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale} başlık veya açıklama girin.`,
+      })
       return
     }
     setSeoPolishBusy('suggest')
@@ -710,31 +765,31 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           ? callAiTranslate({
               text: tit,
               context: 'seo',
-              sourceLocale: 'tr',
-              targetLocale: 'tr',
+              sourceLocale: primaryLocale,
+              targetLocale: primaryLocale,
             })
           : Promise.resolve(''),
         plain
           ? callAiTranslate({
               text: plain.slice(0, 1200),
               context: 'seo',
-              sourceLocale: 'tr',
-              targetLocale: 'tr',
+              sourceLocale: primaryLocale,
+              targetLocale: primaryLocale,
               ...(slugRefVal ? { pageSlug: slugRefVal } : {}),
             })
           : Promise.resolve(''),
       ])
       setSeoByLocale((prev) => ({
         ...prev,
-        tr: {
-          ...(prev.tr ?? emptyListingSeo()),
-          title: (metaTitle || prev.tr?.title || '').slice(0, 70),
-          description: (metaDesc || prev.tr?.description || '').slice(0, 320),
+        [primaryLocale]: {
+          ...(prev[primaryLocale] ?? emptyListingSeo()),
+          title: (metaTitle || prev[primaryLocale]?.title || '').slice(0, 70),
+          description: (metaDesc || prev[primaryLocale]?.description || '').slice(0, 320),
         },
       }))
       setTranslateMsg({
         ok: true,
-        text: 'Türkçe SEO alanları ilan içeriğinden önerildi. Diğer diller için AI Çevir kullanın.',
+        text: `${allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale} SEO alanları ilan içeriğinden önerildi. Diğer diller için AI Çevir kullanın.`,
       })
     } catch (e) {
       setTranslateMsg({
@@ -772,10 +827,10 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         return
       }
     }
-    const trTitle = (isVilla ? listingByLocale['tr']?.title?.trim() : title.trim()) ?? ''
+    const trTitle = (isVilla ? listingByLocale[primaryLocale]?.title?.trim() : title.trim()) ?? ''
     if (isVilla && !trTitle) {
-      setErr('Türkçe başlık zorunludur.')
-      setActiveLang('tr')
+      setErr(`${allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale} başlık zorunludur.`)
+      setActiveLang(primaryLocale)
       return
     }
 
@@ -789,7 +844,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         slug: slug.trim().toLowerCase(),
         currency_code: currency.trim().toUpperCase(),
         title: trTitle,
-        title_locale: isVilla ? 'tr' : locale,
+        title_locale: isVilla ? primaryLocale : locale,
       }
       if (needOrg) body.organization_id = orgId.trim()
       if (contractId.trim()) body.category_contract_id = contractId.trim()
@@ -801,7 +856,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
       // 2. Çeviri / açıklama
       const translationEntries = isVilla
-        ? LISTING_LOCALES.map((loc) => ({
+        ? allLocales.map((loc) => ({
             locale_code: loc.code,
             title: (listingByLocale[loc.code]?.title ?? '').trim(),
             description: (listingByLocale[loc.code]?.description ?? '').trim() || undefined,
@@ -888,7 +943,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       }
 
       if (isVilla) {
-        for (const loc of LISTING_LOCALES) {
+        for (const loc of allLocales) {
           const s = seoByLocale[loc.code] ?? emptyListingSeo()
           const hasAny =
             s.title.trim() ||
@@ -917,6 +972,35 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
       if (isVilla) {
         await putListingPriceLineSelections(token, lid, { item_ids: [...selectedPriceLineIds] }).catch(() => {})
+      }
+
+      // Tur2: Vitrin promosyon — instant book + mobil indirim (best-effort).
+      if (instantBook || mobileDiscountPercent.trim()) {
+        const perksBody: { instant_book?: boolean; mobile_discount_percent?: number } = {}
+        if (instantBook) perksBody.instant_book = true
+        const mdPct = Number.parseFloat(mobileDiscountPercent.trim().replace(',', '.'))
+        if (Number.isFinite(mdPct) && mdPct > 0 && mdPct <= 90) {
+          perksBody.mobile_discount_percent = mdPct
+        }
+        if (Object.keys(perksBody).length > 0) {
+          await patchListingPerks(token, lid, perksBody).catch(() => {})
+        }
+      }
+
+      // Tur2: iCal import URL (sadece holiday_home için anlamlı; backend listing scope kontrol eder).
+      if (icalImportUrl.trim()) {
+        await createIcalFeed({
+          listing_id: lid,
+          url: icalImportUrl.trim(),
+        }).catch(() => {})
+      }
+
+      // Tur2: Otel yıldızı — listing_meta.star_rating üzerinden saklanır.
+      if (categoryCode === 'hotel' && starRating.trim()) {
+        const star = Number.parseInt(starRating.trim(), 10)
+        if (Number.isFinite(star) && star >= 1 && star <= 5) {
+          await putListingMeta(token, lid, { star_rating: star }).catch(() => {})
+        }
       }
 
       const orgIdForImages = needOrg && orgId.trim() ? orgId.trim() : undefined
@@ -1084,7 +1168,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               </Link>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                  {listingByLocale['tr']?.title?.trim() ||
+                  {listingByLocale[primaryLocale]?.title?.trim() ||
                     `Yeni ilan — ${categoryLabelTr(categoryCode)}`}
                 </p>
                 <p className="font-mono text-xs text-neutral-400">
@@ -1094,7 +1178,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
               <div className="hidden items-center gap-2 md:flex">
                 <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
-                  {LISTING_LOCALES.map((loc) => (
+                  {allLocales.map((loc) => (
                     <button
                       key={loc.code}
                       type="button"
@@ -1112,7 +1196,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   ))}
                 </div>
                 <ManageAiTranslateToolbar
-                  locales={LISTING_LOCALES_TR_TARGET}
+                  locales={translateTargets}
                   targetLocale={aiTargetLocale}
                   onTargetLocaleChange={setAiTargetFromToolbar}
                   onTranslate={() => void handleAiTranslateTrToTarget()}
@@ -1123,7 +1207,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
             <div className="flex flex-col gap-2 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800 md:hidden">
               <div className="flex gap-1 overflow-x-auto">
-                {LISTING_LOCALES.map((loc) => (
+                {allLocales.map((loc) => (
                   <button
                     key={loc.code}
                     type="button"
@@ -1141,7 +1225,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               </div>
               <ManageAiTranslateToolbar
                 className="w-full min-w-0 flex-1 [&_select]:max-w-none"
-                locales={LISTING_LOCALES_TR_TARGET}
+                locales={translateTargets}
                 targetLocale={aiTargetLocale}
                 onTargetLocaleChange={setAiTargetFromToolbar}
                 onTranslate={() => void handleAiTranslateTrToTarget()}
@@ -1235,7 +1319,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             <Section
               title={
                 isVilla
-                  ? `İlan İçeriği — ${LISTING_LOCALES.find((l) => l.code === activeLang)?.flag ?? ''} ${LISTING_LOCALES.find((l) => l.code === activeLang)?.label ?? activeLang}`
+                  ? `İlan İçeriği — ${allLocales.find((l) => l.code === activeLang)?.flag ?? ''} ${allLocales.find((l) => l.code === activeLang)?.label ?? activeLang}`
                   : 'İlan İçeriği'
               }
             >
@@ -2348,8 +2432,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             {isVilla ? (
               <Section
                 title={`SEO — ${
-                  LISTING_LOCALES.find((l) => l.code === activeLang)?.flag ?? ''
-                } ${LISTING_LOCALES.find((l) => l.code === activeLang)?.label ?? activeLang}`}
+                  allLocales.find((l) => l.code === activeLang)?.flag ?? ''
+                } ${allLocales.find((l) => l.code === activeLang)?.label ?? activeLang}`}
                 subtitle="Arama sonuçları ve paylaşım önizlemesi için meta alanları; kayıt ilanın çok dilli SEO kaydına yazılır."
               >
                 <div className="flex flex-col gap-3 rounded-xl border border-dashed border-primary-200/80 bg-primary-50/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-primary-900/40 dark:bg-primary-950/20">
@@ -2359,7 +2443,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   </p>
                   <button
                     type="button"
-                    disabled={seoPolishBusy === 'suggest' || activeLang !== 'tr'}
+                    disabled={seoPolishBusy === 'suggest' || activeLang !== primaryLocale}
                     onClick={() => void handleAiSuggestSeoFromContent()}
                     className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg border border-primary-200 bg-white px-3 py-2 text-xs font-medium text-primary-800 disabled:opacity-40 dark:border-primary-800 dark:bg-neutral-900 dark:text-primary-200"
                     title="Türkçe başlık ve açıklamadan meta önerisi"
@@ -2453,6 +2537,72 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                 </Field>
               </Section>
             ) : null}
+
+            {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
+            <Section
+              title="Vitrin Promosyon"
+              subtitle="Anında rezervasyon, mobil indirim, takvim senkronu (iCal) ve otel yıldızı."
+            >
+              <Grid2>
+                <Field className="block">
+                  <Label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={instantBook}
+                      onChange={(e) => setInstantBook(e.target.checked)}
+                      className="h-4 w-4 accent-primary-600"
+                    />
+                    Anında rezervasyon (instant book)
+                  </Label>
+                  <HintText>Tedarikçi onayı beklemeden anında rezervasyon alınır.</HintText>
+                </Field>
+
+                <Field className="block">
+                  <Label>Mobil indirim (%)</Label>
+                  <Input
+                    inputMode="decimal"
+                    value={mobileDiscountPercent}
+                    onChange={(e) => setMobileDiscountPercent(e.target.value)}
+                    placeholder="örn. 5"
+                    className="mt-1"
+                  />
+                  <HintText>Mobil cihazlardan rezervasyonda uygulanır (0–90).</HintText>
+                </Field>
+              </Grid2>
+
+              {(categoryCode === 'holiday_home' || categoryCode === 'hotel') ? (
+                <Field className="block">
+                  <Label>Takvim senkronu — iCal export URL</Label>
+                  <Input
+                    value={icalImportUrl}
+                    onChange={(e) => setIcalImportUrl(e.target.value)}
+                    placeholder="https://airbnb.com/calendar/ical/...."
+                    className="mt-1 font-mono text-sm"
+                  />
+                  <HintText>
+                    Airbnb / Booking.com vb. platformların ical export adresini yapıştırın. Çift rezervasyon engellenir.
+                  </HintText>
+                </Field>
+              ) : null}
+
+              {categoryCode === 'hotel' ? (
+                <Field className="block max-w-xs">
+                  <Label>Otel yıldızı</Label>
+                  <select
+                    value={starRating}
+                    onChange={(e) => setStarRating(e.target.value)}
+                    className="mt-1 block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
+                  >
+                    <option value="">— Belirtilmedi —</option>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={String(n)}>
+                        {`${n} yıldız`}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+            </Section>
 
             {/* Hata mesajı */}
             {err && (

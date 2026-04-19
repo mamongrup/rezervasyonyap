@@ -78,6 +78,7 @@ const SectionOurFeatures: FC<Props> = ({
       >
         <div className="overflow-hidden asymmetric-image-corners">
           {imgIsRemote ? (
+            // eslint-disable-next-line @next/next/no-img-element -- harici URL: remotePatterns whitelist'inde olmayan host'lar olabilir
             <img
               src={rightImg}
               alt=""

@@ -1,10 +1,9 @@
-import ManagePlaceholderPage from '../ManagePlaceholderPage'
+import MediaLibraryClient from './MediaLibraryClient'
 
-export default function Page() {
+export default function ManageMediaPage() {
   return (
-    <ManagePlaceholderPage
-      title="Medya Kütüphanesi"
-      description="Görseller, videolar ve dökümanları merkezi olarak yönetin. Bu modül geliştirme aşamasındadır."
-    />
+    <div className="flex h-[calc(100dvh-6rem)] min-h-[48rem] flex-col px-4 py-4 md:px-6 md:py-6 lg:px-8">
+      <MediaLibraryClient />
+    </div>
   )
 }

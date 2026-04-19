@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import type { PageBuilderModule, PageBuilderModuleType } from '@/types/listing-types'
+import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 
 // ─── Module catalog (all available module types) ───────────────────────────────
 
@@ -41,6 +42,7 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   { type: 'destination_cards', label: 'Destinasyon Kartları', description: 'Bölge/şehir kartları', emoji: '🗂️' },
   { type: 'partners', label: 'Partnerler', description: 'Logo duvarı / partner grid', emoji: '🤝' },
   { type: 'video_gallery', label: 'Video Galerisi', description: 'Büyük öne çıkan video + yan küçük liste', emoji: '🎬' },
+  { type: 'sliders_banner', label: 'Slider & Banner', description: 'Yönetim panelinden eklenen slaytları gösterir', emoji: '🎞️' },
   // Homepage-specific modules
   { type: 'category_slider', label: 'Kategori Slider', description: 'Kategorileri yatay kaydırmalı göster', emoji: '🎡' },
   { type: 'gezi_onerileri', label: 'Gezi Önerileri', description: 'Öne çıkan gezi önerileri bölümü', emoji: '🗺️' },
@@ -49,6 +51,13 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   { type: 'category_grid', label: 'Kategori Grid (Ana Sayfa)', description: 'Tüm kategorilerin grid görünümü', emoji: '🏠' },
   { type: 'section_videos', label: 'Video Bölümü', description: 'Öne çıkan videolar bölümü', emoji: '🎥' },
   { type: 'client_say', label: 'Müşteriler Ne Diyor?', description: 'Müşteri deneyim yorumları', emoji: '🌟' },
+  // Marketing modülleri (admin → vitrin)
+  { type: 'active_campaigns', label: 'Aktif Kampanyalar', description: 'Yönetim panelinde tanımlı kampanyaları kart olarak gösterir', emoji: '🎯' },
+  { type: 'early_booking_promo', label: 'Erken Rezervasyon Vurgu', description: 'Öne çıkan erken rezervasyon kampanyası şeridi', emoji: '🗓️' },
+  { type: 'last_minute_promo', label: 'Son Dakika Vurgu (Geri Sayım)', description: 'Son dakika kampanyası + canlı sayaç', emoji: '⚡' },
+  { type: 'coupons_strip', label: 'Kupon Şeridi', description: 'Aktif & herkese açık kuponlar (kopyala butonu)', emoji: '🎟️' },
+  { type: 'holiday_packages', label: 'Hazır Tatil Paketleri', description: 'Yönetimden tanımlı paket tatil grid', emoji: '🧳' },
+  { type: 'cross_sell_widget', label: 'Birlikte Tercih Edilenler', description: 'Cross-sell kuralları (örn. uçak → otel)', emoji: '🔁' },
 ]
 
 interface CategoryInfo {
@@ -85,14 +94,13 @@ function HeroImageSlot({
     setError(null)
     const form = new FormData()
     form.append('file', file)
-    form.append('folder', 'hero')
-    form.append('category', categorySlug)
-    form.append('slot', String(slot))
-    /** API `index` ile dosya adı: `{category}-{1|2|3}.avif` — slot çakışması önlenir */
+    form.append('folder', 'site')
+    form.append('subPath', `vitrin-kategori/${slugifyMediaSegment(categorySlug)}`)
+    form.append('prefix', 'slide')
     form.append('index', String(slot + 1))
 
     try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
       const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
       if (data.ok && data.url) {
         onChange(data.url)
@@ -1185,6 +1193,52 @@ function PartnersConfigEditor({
 
 // ─── Config field editor ───────────────────────────────────────────────────────
 
+function SlidersBannerConfigEditor({
+  config,
+  defaultPageKey,
+  onChange,
+}: {
+  config: Record<string, unknown>
+  defaultPageKey: string
+  onChange: (updated: Record<string, unknown>) => void
+}) {
+  const pageKey = String(config.pageKey ?? '')
+  const effective = pageKey || defaultPageKey
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+          Slayt kaynağı (pageKey)
+        </label>
+        <input
+          type="text"
+          value={pageKey}
+          placeholder={defaultPageKey || 'homepage'}
+          onChange={(e) => onChange({ ...config, pageKey: e.target.value })}
+          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
+        />
+        <p className="mt-1 text-xs text-neutral-400">
+          Boş bırakırsanız bu sayfanın anahtarı kullanılır:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">{defaultPageKey}</code>
+        </p>
+      </div>
+      <div className="rounded-lg border border-blue-100 bg-blue-50/70 px-3 py-2.5 text-xs text-blue-900 dark:border-blue-900/40 dark:bg-blue-950/30 dark:text-blue-200">
+        Slaytları{' '}
+        <a
+          href={`/manage/content/sliders`}
+          target="_blank"
+          rel="noopener"
+          className="font-semibold underline"
+        >
+          İçerik → Slider & banner
+        </a>{' '}
+        sayfasından düzenleyin. Geçerli kaynak:{' '}
+        <code className="rounded bg-white/70 px-1 dark:bg-neutral-900">{effective}</code>
+      </div>
+    </div>
+  )
+}
+
 function ConfigEditor({
   config,
   onChange,
@@ -1376,6 +1430,12 @@ function ModuleRow({
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
+          ) : module.type === 'sliders_banner' ? (
+            <SlidersBannerConfigEditor
+              config={module.config as Record<string, unknown>}
+              defaultPageKey={categorySlug}
+              onChange={(updated) => onConfigChange(module.id, updated)}
+            />
           ) : (
             <ConfigEditor
               config={module.config as Record<string, unknown>}
@@ -1542,6 +1602,13 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
       section_videos: { heading: '', subheading: '' },
       client_say: { heading: '', subHeading: '' },
       search_results: { perPage: 24 },
+      // Marketing modülleri — varsayılan boş başlık (modül kendi default'unu locale'e göre koyar)
+      active_campaigns: { title: {}, subheading: {}, limit: 6, viewAllHref: `/${selectedSlug}/kampanyalar`, viewAllLabel: {} },
+      early_booking_promo: { title: {}, subheading: {}, ctaHref: `/${selectedSlug}/all`, ctaLabel: {}, gradient: 'from-emerald-500 to-teal-600' },
+      last_minute_promo: { title: {}, subheading: {}, ctaHref: `/${selectedSlug}/all`, ctaLabel: {}, gradient: 'from-rose-500 via-orange-500 to-amber-500' },
+      coupons_strip: { title: {}, subheading: {}, limit: 6 },
+      holiday_packages: { title: {}, subheading: {}, limit: 6, viewAllHref: '/tr/paketler', viewAllLabel: {} },
+      cross_sell_widget: { title: {}, subheading: {}, triggerCategory: selectedSlug, limit: 4 },
     }
 
     const newModule: PageBuilderModule = {

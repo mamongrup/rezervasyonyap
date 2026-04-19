@@ -53,7 +53,7 @@ const GROUPS: NavGroupDef[] = [
     items: [
       { path: '/manage/admin', label: 'Gösterge & istatistikler' },
       { path: '/manage/admin/workspace', label: 'İş planı & duyurular' },
-      { path: '/manage/admin/manage', label: 'Kullanıcı & rol yönetimi' },
+      { path: '/manage/admin/access', label: 'Kullanıcı & rol yönetimi' },
       { path: '/manage/admin/settings?tab=google', label: 'Analitik & takip kodları' },
     ],
   },
@@ -243,7 +243,6 @@ const GROUPS: NavGroupDef[] = [
     Icon: Users,
     items: [
       { path: '/manage/admin/access', label: 'Kullanıcılar & Roller' },
-      { path: '/manage/admin/manage', label: 'Tüm admin bölümleri' },
     ],
   },
   {

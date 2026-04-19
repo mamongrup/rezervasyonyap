@@ -277,6 +277,21 @@ export const fr: AppMessages = {
     contractPage: {
       backToListing: 'Retour à l’annonce',
     },
+    highlights: {
+      title: 'Points forts de l’établissement',
+      subtitle: 'Les caractéristiques les plus appréciées par les voyageurs.',
+    },
+    faq: {
+      title: 'Questions fréquentes',
+      subtitle: 'Les questions les plus posées par les voyageurs sur cet hôtel.',
+      qCheckInOut: 'Quels sont les horaires d’arrivée et de départ ?',
+      qBreakfast: 'Le petit-déjeuner est-il servi dans cet hôtel ?',
+      aBreakfast: 'Oui, le petit-déjeuner est servi. Détails dans la section formules de repas.',
+      qPrepayment: 'Quel est le montant de l’acompte requis ?',
+      qCancellation: 'Comment puis-je annuler ma réservation ?',
+      qPets: 'Les animaux de compagnie sont-ils acceptés ?',
+      qLicense: 'Quel est le numéro d’agrément ministériel de l’établissement ?',
+    },
     sidebar: {
       ...en.listing.sidebar,
       perNight: '/nuit',
@@ -410,6 +425,66 @@ export const fr: AppMessages = {
     car: {
       dropOffLocationAria: 'Type de lieu de retour',
     },
+  },
+  site: {
+    footer: { rights: 'Tous droits réservés.' },
+    notFound: {
+      title: "LA PAGE DEMANDÉE N'EXISTE PAS.",
+      description: 'La page a peut-être été déplacée, supprimée ou renommée.',
+      backHome: "Retour à l'accueil",
+    },
+    region: {
+      listingsSuffix: 'annonces',
+      nearbyPlaces: 'à proximité',
+      regionPrefix: 'Région :',
+      browseAll: 'Tout voir',
+      breadcrumbHome: 'Accueil',
+      viewOnMap: 'Voir sur la carte',
+      noListings: "Aucune annonce dans cette région pour le moment.",
+      aboutHeading: 'À propos de la destination',
+      nearbySectionTitle: 'À proximité',
+      locationHeading: 'Emplacement',
+      noContentYet: "Aucun contenu pour cette région pour le moment.",
+      goToRegionAdmin: 'Gestion des régions',
+    },
+    featured: {
+      heading: 'Lieux à la une',
+      tabNew: 'Nouveau',
+      tabDiscounted: 'En promo',
+      tabFeatured: 'À la une',
+    },
+    mealPlans: {
+      ro: 'Logement seul',
+      bb: 'Petit-déjeuner inclus',
+      hb: 'Demi-pension',
+      fb: 'Pension complète',
+      ai: 'Tout compris',
+      uai: 'Ultra tout compris',
+    },
+    sortOrder: {
+      recommended: 'Recommandé',
+      priceAsc: 'Prix : croissant',
+      priceDesc: 'Prix : décroissant',
+      ratingDesc: 'Mieux notés',
+      newest: 'Plus récents',
+    },
+    actions: {
+      save: 'Enregistrer',
+      cancel: 'Annuler',
+      delete: 'Supprimer',
+      edit: 'Modifier',
+      add: 'Ajouter',
+      loading: 'Chargement…',
+      retry: 'Réessayer',
+      refresh: 'Actualiser',
+      yes: 'Oui',
+      no: 'Non',
+    },
+  },
+  reviews: {
+    ...en.reviews,
+    showAll: 'Afficher tous les avis ({count})',
+    showLess: 'Afficher moins',
   },
 }
 

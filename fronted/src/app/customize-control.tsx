@@ -7,6 +7,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { DEFAULT_HOME_PAGE_LINKS } from '@/lib/site-branding-seo'
+import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -27,9 +28,8 @@ const CustomizeControl = () => {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/site-preview-links')
-      .then((r) => r.json())
-      .then((d: { homePageLinks?: { label: string; path: string }[] }) => {
+    void fetchSitePreviewLinks()
+      .then((d) => {
         if (cancelled || !Array.isArray(d?.homePageLinks)) return
         setHomePages(
           d.homePageLinks.map((x) => ({

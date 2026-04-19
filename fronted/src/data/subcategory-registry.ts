@@ -6,6 +6,7 @@
 
 import { isEnglishLocale } from '@/lib/i18n-config'
 import { SUBCATEGORY_LOCALE_LABELS } from '@/data/subcategory-labels-i18n'
+import { pickI18n, type I18nFieldMap } from '@/lib/i18n-field'
 
 export interface SubcategoryEntry {
   /** Benzersiz kimlik (slug tabanlı, unique olmalı) */
@@ -18,12 +19,16 @@ export interface SubcategoryEntry {
   name: string
   /** İngilizce görünen ad (DE/RU/FR/ZH çevirileri `subcategory-labels-i18n.ts` + `subcategoryLabelForLocale`) */
   nameEn: string
+  /** 6-dilli isim haritası (admin panelinden düzenlenir; varsa diğer kaynakların önüne geçer) */
+  name_i18n?: I18nFieldMap
   /** Emoji ikon */
   emoji: string
   /** Kısa açıklama */
   description: string
   /** İngilizce açıklama */
   descriptionEn: string
+  /** 6-dilli açıklama haritası (admin panelinden düzenlenir; varsa öncelik bunda) */
+  description_i18n?: I18nFieldMap
   /** Renk tonu (Tailwind renk adı, ör. "blue", "emerald") */
   color: string
   /** Sıralama */
@@ -130,10 +135,22 @@ export function getSubcategoriesByParent(parentSlug: string): SubcategoryEntry[]
   ).sort((a, b) => a.order - b.order)
 }
 
-/** Site diline göre alt kategori görünen adı — DE/RU/FR/ZH `SUBCATEGORY_LOCALE_LABELS`, EN `nameEn`, TR `name`. */
+/**
+ * Site diline göre alt kategori görünen adı.
+ *
+ * Öncelik:
+ *   1. `entry.name_i18n[locale]` (admin panelinden girildiyse)
+ *   2. TR → `name`, EN → `nameEn`
+ *   3. `SUBCATEGORY_LOCALE_LABELS` (statik DE/RU/FR/ZH listesi)
+ *   4. `nameEn` (en güvenli son fallback)
+ */
 export function subcategoryLabelForLocale(entry: SubcategoryEntry, locale: string): string {
   const raw = (locale || 'tr').trim()
   const lc = raw.toLowerCase()
+  if (entry.name_i18n) {
+    const fromMap = pickI18n(entry.name_i18n, lc, '')
+    if (fromMap) return fromMap
+  }
   if (lc === 'tr') return entry.name
   if (isEnglishLocale(raw)) return entry.nameEn
   const row = SUBCATEGORY_LOCALE_LABELS[entry.id]
@@ -144,6 +161,26 @@ export function subcategoryLabelForLocale(entry: SubcategoryEntry, locale: strin
     if (lc === 'zh') return row.zh
   }
   return entry.nameEn
+}
+
+/**
+ * Alt kategori açıklamasını mevcut locale için döner.
+ *
+ * Sıra: TR → `description`; EN → `descriptionEn`; diğer 4 dil → henüz çevirisi
+ * olmayan girişler için **İngilizce** açıklamaya düşer (Türkçe metin DE/RU/ZH/FR
+ * kullanıcılarına gösterilmez). Admin panelinden DB'ye yazılan kayıtlar bu fonksiyonu
+ * override eder (vitrin tarafında DB rows tercih edilir).
+ */
+export function subcategoryDescriptionForLocale(entry: SubcategoryEntry, locale: string): string {
+  const raw = (locale || 'tr').trim()
+  const lc = raw.toLowerCase()
+  if (entry.description_i18n) {
+    const fromMap = pickI18n(entry.description_i18n, lc, '')
+    if (fromMap) return fromMap
+  }
+  if (lc === 'tr') return entry.description
+  if (isEnglishLocale(raw)) return entry.descriptionEn
+  return entry.descriptionEn || entry.description
 }
 
 /** Tüm aktif alt kategoriler */

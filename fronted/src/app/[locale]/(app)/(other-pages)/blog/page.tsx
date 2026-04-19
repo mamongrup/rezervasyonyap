@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { listBlogCategories, listBlogPosts, type BlogCategory, type BlogPost } from '@/lib/travel-api'
 import { Calendar, Clock, Tag, ChevronRight } from 'lucide-react'
@@ -36,10 +37,13 @@ function FeaturedCard({ post, category }: { post: BlogPost; category: BlogCatego
     >
       {coverImg ? (
         <div className="relative h-64 sm:h-80 overflow-hidden">
-          <img
+          <Image
             src={coverImg}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            fill
+            sizes="(max-width: 1024px) 100vw, 66vw"
+            priority
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
@@ -90,10 +94,12 @@ function PostCard({ post, category }: { post: BlogPost; category: BlogCategory |
     >
       {coverImg ? (
         <div className="relative h-48 overflow-hidden">
-          <img
+          <Image
             src={coverImg}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
           />
         </div>
       ) : (

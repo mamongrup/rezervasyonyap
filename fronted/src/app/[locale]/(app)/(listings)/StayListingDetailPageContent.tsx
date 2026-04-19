@@ -23,9 +23,12 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import {
   fetchPublicListingAvailabilityDaysSafe,
   fetchPublicListingContractSafe,
+  getPublicHotelRooms,
+  getPublicListingAttributes,
   getPublicMealPlans,
   getPublicListingPriceRules,
   getPublicListingAccommodationRules,
+  isAttributeValueTrue,
   listPublicThemeItems,
   resolvePublishedListingIdForStayPage,
 } from '@/lib/travel-api'
@@ -49,6 +52,8 @@ import { redirect } from 'next/navigation'
 import { Fragment } from 'react'
 import clsx from 'clsx'
 import HeaderGallery from './components/HeaderGallery'
+import HotelFAQSection from './HotelFAQSection'
+import HotelHighlightsSection from './HotelHighlightsSection'
 import ListingAmenitiesSection from './ListingAmenitiesSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
 import ListingSeasonalPricingSection, {
@@ -58,6 +63,10 @@ import StayListingReservationCard from './StayListingReservationCard'
 import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
 import SectionHeader from './components/SectionHeader'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
+import SocialProofBadge from '@/components/listing/SocialProofBadge'
+import ListingPerksBadges from '@/components/listing/ListingPerksBadges'
+import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
+import ReportListingButton from '@/components/listing/ReportListingButton'
 import SectionHost from './components/SectionHost'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
@@ -144,6 +153,35 @@ export default async function StayListingDetailPageContent({
 
   const mealPlans = await getPublicMealPlans(catalogListingId ?? listing.id)
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
+
+  // listing_attributes (admin EAV) → vitrin amenity listesi
+  let amenityKeys: string[] = []
+  try {
+    const attrs = await getPublicListingAttributes(catalogListingId ?? listing.id)
+    amenityKeys = attrs.values
+      .filter((a) => isAttributeValueTrue(a.value_json))
+      .map((a) => a.key)
+    amenityKeys = Array.from(new Set(amenityKeys))
+  } catch {
+    /* attributes yoksa sabit demo listesi devreye girer */
+  }
+
+  // hotel_rooms (Tur3) — vitrin oda tablosunda demo verisi yerine gerçek odalar.
+  let realHotelRooms: Array<{ id: string; name: string; capacity: number | null; boardType: string | null }> = []
+  try {
+    const r = await getPublicHotelRooms(catalogListingId ?? listing.id)
+    realHotelRooms = r.rooms.map((row) => {
+      const cap = row.capacity ? Number.parseInt(row.capacity, 10) : null
+      return {
+        id: row.id,
+        name: row.name,
+        capacity: Number.isFinite(cap) ? (cap as number) : null,
+        boardType: row.board_type,
+      }
+    })
+  } catch {
+    /* odalar yoksa demo akış */
+  }
 
   const {
     address,
@@ -232,7 +270,10 @@ export default async function StayListingDetailPageContent({
             ? { amount: listing.firstChargeAmount }
             : undefined,
         customFees: listing.listingExtraFees,
-        prepaymentLine: prepaymentNoteText?.trim() || null,
+        // prepaymentLine artık politikalar bölümünde tüm kategoriler için
+        // tek noktada gösteriliyor (e2). Burada null bırakıyoruz ki tatil
+        // evinde çift görünmesin.
+        prepaymentLine: null,
       }
     : undefined
 
@@ -252,10 +293,14 @@ export default async function StayListingDetailPageContent({
   const cancellationPolicyPlain = listing.cancellationPolicyText?.trim()
     ? listing.cancellationPolicyText.trim()
     : null
+  // Ön-ödeme notu artık tüm kategorilerde gösterilebilir; tatil evi/villa
+  // gibi tiplerde de prepaymentPercent set edilmişse misafire görünmesi
+  // gerekiyor (e2). Mülk sahibi alanı boş bırakırsa prepaymentNoteText null
+  // kalır → otomatik gizlenir.
   const hasPoliciesSection = Boolean(
     ministryLicenseLine?.trim() ||
       cancellationPolicyPlain ||
-      (!isHolidayHome && prepaymentNoteText?.trim()) ||
+      prepaymentNoteText?.trim() ||
       listingContractHref,
   )
   const regionName = isHolidayHome ? listing.city?.trim() || null : null
@@ -445,12 +490,22 @@ export default async function StayListingDetailPageContent({
   )
 
   const renderSectionRoomTypes = () => {
-    const roomTypes = [
-      { name: dp.demoRoomStandard, guests: 2, beds: 1, price: '₺1.990', weekend: '₺2.290' },
-      { name: dp.demoRoomDeluxe, guests: 2, beds: 1, price: '₺2.490', weekend: '₺2.890' },
-      { name: dp.demoRoomSuite, guests: 3, beds: 2, price: '₺3.490', weekend: '₺3.990' },
-      { name: dp.demoRoomFamily, guests: 4, beds: 2, price: '₺4.190', weekend: '₺4.790' },
-    ]
+    // Gerçek hotel_rooms varsa onu, yoksa demo veriyi göster.
+    const roomTypes = realHotelRooms.length > 0
+      ? realHotelRooms.map((r) => ({
+          name: r.name,
+          guests: r.capacity ?? 2,
+          beds: 1,
+          // Fiyat oda bazlı henüz vitrin paritesinde değil; rezervasyon kartından akar.
+          price: '—',
+          weekend: r.boardType ? r.boardType : '—',
+        }))
+      : [
+          { name: dp.demoRoomStandard, guests: 2, beds: 1, price: '₺1.990', weekend: '₺2.290' },
+          { name: dp.demoRoomDeluxe, guests: 2, beds: 1, price: '₺2.490', weekend: '₺2.890' },
+          { name: dp.demoRoomSuite, guests: 3, beds: 2, price: '₺3.490', weekend: '₺3.990' },
+          { name: dp.demoRoomFamily, guests: 4, beds: 2, price: '₺4.190', weekend: '₺4.790' },
+        ]
     return (
       <div className="listingSection__wrap">
         <div>
@@ -586,7 +641,7 @@ export default async function StayListingDetailPageContent({
           {ministryLicenseLine?.trim() ? (
             <p className="text-neutral-700 dark:text-neutral-300">{ministryLicenseLine.trim()}</p>
           ) : null}
-          {!isHolidayHome && prepaymentNoteText?.trim() ? (
+          {prepaymentNoteText?.trim() ? (
             <p className="text-neutral-700 dark:text-neutral-300">{prepaymentNoteText.trim()}</p>
           ) : null}
           {listingContractHref ? (
@@ -659,8 +714,25 @@ export default async function StayListingDetailPageContent({
         {/* LEFT COLUMN */}
         <div className="flex min-w-0 w-full flex-col gap-y-8 lg:w-3/5 xl:w-[62%] xl:gap-y-10">
           {renderSectionHeader()}
+          <div className="flex flex-col gap-2 px-1">
+            <ListingPerksBadges
+              listingId={listing.id}
+              basePrice={typeof priceAmount === 'number' ? priceAmount : undefined}
+              currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
+            />
+            <SocialProofBadge listingId={listing.id} />
+          </div>
+          {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
+              tatil evinde havuz/tema bölümleri zaten benzer işlevi görüyor. */}
+          {!isHolidayHome && (
+            <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
+          )}
           {renderSectionDescription()}
-          <ListingAmenitiesSection locale={locale} variant={isHolidayHome ? 'villa' : 'hotel'} />
+          <ListingAmenitiesSection
+            locale={locale}
+            variant={isHolidayHome ? 'villa' : 'hotel'}
+            customSelectedIds={amenityKeys}
+          />
           {isHolidayHome && (
             <ListingPoolInfoSection
               locale={locale}
@@ -698,6 +770,46 @@ export default async function StayListingDetailPageContent({
           />
           {renderSectionRules()}
           {renderSectionPolicies()}
+          {!isHolidayHome && (() => {
+            // Booking/ETStur tarzı FAQ — mevcut listing alanlarından otomatik
+            // üretilir, içerik yoksa bölüm gizlenir.
+            const petText: string | null = (() => {
+              if (!catalogAccommodationRules) return null
+              const sel = new Set(catalogAccommodationRules.selectedIds)
+              for (const r of catalogAccommodationRules.rules) {
+                if (!sel.has(r.id)) continue
+                const text =
+                  r.labels[localeLang]?.trim() ||
+                  r.labels.tr?.trim() ||
+                  r.labels.en?.trim() ||
+                  ''
+                if (!text) continue
+                if (/pet|evcil|hayvan|köpek|kedi/i.test(text)) return text
+              }
+              return null
+            })()
+            // Kahvaltı, yarım pansiyon, tam pansiyon veya her şey dahil
+            // planlardan herhangi biri kahvaltıyı içerir.
+            const hasBreakfast = mealPlans.some((m) =>
+              ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(
+                m.plan_code,
+              ),
+            )
+            return (
+              <HotelFAQSection
+                locale={locale}
+                source={{
+                  checkInLine: dp.checkInRule,
+                  checkOutLine: dp.checkOutRule,
+                  prepaymentNote: prepaymentNoteText,
+                  cancellationText: cancellationPolicyPlain,
+                  ministryLicenseRef: listing.ministryLicenseRef,
+                  hasBreakfastIncluded: hasBreakfast,
+                  petPolicyText: petText,
+                }}
+              />
+            )
+          })()}
           <SectionMap
             lat={map?.lat}
             lng={map?.lng}
@@ -736,6 +848,9 @@ export default async function StayListingDetailPageContent({
             className="sticky top-1 overflow-visible"
           >
             {renderSidebarPriceAndForm()}
+            <div className="mt-3 px-1">
+              <WhatsAppListingCTA listingTitle={title} />
+            </div>
           </div>
         </div>
       </main>
@@ -756,6 +871,9 @@ export default async function StayListingDetailPageContent({
               reviewCount={reviewCount}
               reviewStart={reviewStart}
             />
+            <div className="mt-8 flex justify-center lg:justify-start">
+              <ReportListingButton listingId={listing.id} />
+            </div>
           </div>
         </div>
       </div>

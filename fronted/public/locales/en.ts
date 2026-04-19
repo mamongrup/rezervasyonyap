@@ -842,6 +842,8 @@ export const en = {
     verified: '✓ Verified reservation',
     guest: 'Guest',
     you: 'You',
+    showAll: 'Show all reviews ({count})',
+    showLess: 'Show less',
   },
   avatarMenu: {
     adminPanel: 'Admin Panel',
@@ -929,6 +931,23 @@ export const en = {
     /** Full-page contract from catalog `category_contracts` */
     contractPage: {
       backToListing: 'Back to listing',
+    },
+    /** Booking-style "Property highlights" strip on hotel detail page */
+    highlights: {
+      title: 'Property highlights',
+      subtitle: "Features guests value most at this hotel.",
+    },
+    /** Auto-generated FAQ block on hotel detail page */
+    faq: {
+      title: 'Frequently asked questions',
+      subtitle: 'The most common questions guests ask about this hotel.',
+      qCheckInOut: 'What are the check-in and check-out times?',
+      qBreakfast: 'Is breakfast served at this hotel?',
+      aBreakfast: 'Yes, breakfast is served. Details are listed in the meal plan section.',
+      qPrepayment: 'How much prepayment is required?',
+      qCancellation: 'How can I cancel my reservation?',
+      qPets: 'Are pets allowed?',
+      qLicense: "What is the property's Ministry license number?",
     },
     /** İlan detay — olanaklar (Lucide ikonları; `src/lib/listing-amenities.ts`) */
     amenities: {
@@ -1285,6 +1304,20 @@ export const en = {
       offsetPlusLabel: '+Day offset (buffer after booking)',
       offsetMinusLabel: '−Day offset (buffer before booking)',
       addBtn: 'Add iCal',
+      syncBtn: 'Sync now',
+      syncOk: 'Imported {events} events, blocked {days} days.',
+      lastError: 'Last error',
+      exportTitle: 'Export URL for this listing',
+      exportIntro:
+        'Paste this URL into the "iCal sync" field on Airbnb / Booking / VRBO to share your reservations and manual blocks.',
+      exportLoading: 'Preparing URL…',
+      copyBtn: 'Copy',
+      copied: 'Copied',
+      rotateBtn: 'Regenerate URL',
+      rotateConfirm:
+        'The current URL becomes invalid immediately and any external calendar using it will get 404. Continue?',
+      rotateNote:
+        'After regenerating, you must update the link in Airbnb / Booking and similar platforms with the new URL.',
     },
     attrSaveOk: 'Attribute values saved.',
     attrSaveBtn: 'Save attribute values',
@@ -1344,6 +1377,68 @@ export const en = {
     },
   },
   navMenus,
+  /**
+   * Site genel UI metinleri — `locale === 'en' ? 'A' : 'B'` desenini bitirmek için.
+   * Tüm 6 dilde (tr/en/de/ru/zh/fr) eksiksiz doldurulur.
+   */
+  site: {
+    footer: {
+      rights: 'All rights reserved.',
+    },
+    notFound: {
+      title: "THE PAGE YOU WERE LOOKING FOR DOESN'T EXIST.",
+      description: 'The page may have been moved, removed or renamed.',
+      backHome: 'Return home',
+    },
+    region: {
+      listingsSuffix: 'listings',
+      nearbyPlaces: 'nearby',
+      regionPrefix: 'Region:',
+      browseAll: 'Browse all',
+      breadcrumbHome: 'Home',
+      viewOnMap: 'View on map',
+      noListings: 'No listings in this area yet.',
+      aboutHeading: 'About this destination',
+      nearbySectionTitle: 'Nearby',
+      locationHeading: 'Location',
+      noContentYet: 'No content for this area yet.',
+      goToRegionAdmin: 'Region admin',
+    },
+    featured: {
+      heading: 'Featured Places',
+      tabNew: 'New',
+      tabDiscounted: 'Discounted',
+      tabFeatured: 'Featured',
+    },
+    mealPlans: {
+      ro: 'Room Only',
+      bb: 'Bed & Breakfast',
+      hb: 'Half Board',
+      fb: 'Full Board',
+      ai: 'All Inclusive',
+      uai: 'Ultra All Inclusive',
+    },
+    sortOrder: {
+      recommended: 'Recommended',
+      priceAsc: 'Price: low to high',
+      priceDesc: 'Price: high to low',
+      ratingDesc: 'Top rated',
+      newest: 'Newest',
+    },
+    /** Müşteri / acente / tedarikçi paneli ortak buton ve etiketleri. */
+    actions: {
+      save: 'Save',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      edit: 'Edit',
+      add: 'Add',
+      loading: 'Loading…',
+      retry: 'Retry',
+      refresh: 'Refresh',
+      yes: 'Yes',
+      no: 'No',
+    },
+  },
 }
 
 /**

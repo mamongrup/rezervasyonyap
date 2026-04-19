@@ -6,6 +6,7 @@ import Form from 'next/form'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { ButtonSubmit, DateRangeField, GuestNumberField, LocationInputField, VerticalDividerLine } from './ui'
+import FlexDateToggle from './FlexDateToggle'
 
 interface Props {
   className?: string
@@ -27,11 +28,13 @@ export const StaySearchForm = ({ className, formStyle = 'default' }: Props) => {
     const checkin = formDataEntries['checkin'] as string
     const checkout = formDataEntries['checkout'] as string
     const guestAdults = formDataEntries['guestAdults'] as string
+    const flexDays = formDataEntries['flex_days'] as string
     const searchParams = new URLSearchParams()
     if (location) searchParams.set('location', location)
     if (checkin) searchParams.set('checkin', checkin)
     if (checkout) searchParams.set('checkout', checkout)
     if (guestAdults) searchParams.set('guests', guestAdults)
+    if (flexDays && flexDays !== '0') searchParams.set('flex_days', flexDays)
     const qs = searchParams.toString()
     router.push('/oteller/all' + (qs ? `?${qs}` : ''))
   }
@@ -61,6 +64,7 @@ export const StaySearchForm = ({ className, formStyle = 'default' }: Props) => {
       />
 
       <ButtonSubmit fieldStyle={formStyle} className="z-10" />
+      <FlexDateToggle className="absolute -bottom-10 left-1/2 hidden -translate-x-1/2 sm:flex" />
     </Form>
   )
 }

@@ -26,29 +26,10 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   failed: { label: 'Başarısız', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
 }
 
-function EnvBadge({ name, description, required }: { name: string; description: string; required?: boolean }) {
-  return (
-    <div className="flex items-start gap-3 rounded-xl border border-neutral-200 p-3 dark:border-neutral-700">
-      <code className="mt-0.5 shrink-0 rounded bg-neutral-100 px-2 py-0.5 text-xs font-mono dark:bg-neutral-800 dark:text-neutral-300">
-        {name}
-      </code>
-      <div className="min-w-0">
-        <p className="text-sm text-neutral-700 dark:text-neutral-300">{description}</p>
-        {required && (
-          <span className="mt-1 inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600 dark:bg-red-900/20 dark:text-red-400">
-            Zorunlu
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
 export default function AdminNotificationSettingsSection() {
   const [jobs, setJobs] = React.useState<NotificationJob[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [activeTab, setActiveTab] = React.useState<'config' | 'queue'>('config')
 
   const loadJobs = React.useCallback(async () => {
     const token = getStoredAuthToken()
@@ -72,8 +53,8 @@ export default function AdminNotificationSettingsSection() {
   }, [])
 
   React.useEffect(() => {
-    if (activeTab === 'queue') loadJobs()
-  }, [activeTab, loadJobs])
+    void loadJobs()
+  }, [loadJobs])
 
   return (
     <div className="space-y-6">
@@ -85,157 +66,30 @@ export default function AdminNotificationSettingsSection() {
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-neutral-200 bg-neutral-50 p-1 dark:border-neutral-700 dark:bg-neutral-800/50">
-        {[
-          { id: 'config' as const, label: 'Yapılandırma' },
-          { id: 'queue' as const, label: 'Bildirim Kuyruğu' },
-        ].map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setActiveTab(t.id)}
-            className={[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              activeTab === t.id
-                ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-700 dark:text-white'
-                : 'text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200',
-            ].join(' ')}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Bildirim Kuyruğu başlık */}
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 dark:border-neutral-700 dark:bg-neutral-800/50">
+        <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Bildirim Kuyruğu</span>
       </div>
 
-      {activeTab === 'config' && (
-        <div className="space-y-6">
-          {/* SMS */}
-          <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-2xl">📱</span>
-              <div>
-                <h3 className="font-semibold text-neutral-800 dark:text-white">SMS — NetGSM</h3>
-                <p className="text-xs text-neutral-500">Anlık bildirim, tedarikçi + müşteri</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <EnvBadge
-                name="NETGSM_USERCODE"
-                description="NetGSM kullanıcı kodunuz"
-                required
-              />
-              <EnvBadge
-                name="NETGSM_PASSWORD"
-                description="NetGSM şifreniz"
-                required
-              />
-              <EnvBadge
-                name="NETGSM_MSGHEADER"
-                description="SMS başlığı (ör: REZERVASYON). Varsayılan: REZERVASYON"
-              />
-            </div>
-          </div>
-
-          {/* E-posta */}
-          <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-2xl">✉️</span>
-              <div>
-                <h3 className="font-semibold text-neutral-800 dark:text-white">E-posta — Resend</h3>
-                <p className="text-xs text-neutral-500">HTML/Text e-posta, tedarikçi + müşteri</p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <EnvBadge
-                name="RESEND_API_KEY"
-                description="Resend API anahtarınız (resend.com ücretsiz plan: 3.000 e-posta/ay)"
-                required
-              />
-              <EnvBadge
-                name="SUPPLIER_NOTIFY_FROM"
-                description="Tedarikçi bildirimlerinde 'Gönderen' adresi (ör: rezervasyon@siteniz.com.tr). Yoksa INVOICE_NOTIFY_FROM kullanılır."
-              />
-              <EnvBadge
-                name="INVOICE_NOTIFY_FROM"
-                description="Genel sistem e-posta gönderim adresi (fatura + rezervasyon bildirimleri)"
-              />
-            </div>
-          </div>
-
-          {/* WhatsApp */}
-          <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-2xl">💬</span>
-              <div>
-                <h3 className="font-semibold text-neutral-800 dark:text-white">WhatsApp</h3>
-                <p className="text-xs text-neutral-500">
-                  Şu an notification_jobs kuyruğuna alınır. WA Business API entegrasyonu yakında.
-                </p>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
-                WhatsApp mesajları şu an <strong>notification_jobs</strong> tablosuna kuyruğa alınmaktadır.
-                Kuyruktaki mesajlar &ldquo;Bildirim Kuyruğu&rdquo; sekmesinden görüntülenebilir ve manuel
-                gönderim için <code className="rounded bg-amber-100 px-1">wa.me</code> linki mevcuttur.
-              </p>
-              <EnvBadge
-                name="listing_owner_contacts.contact_whatsapp"
-                description="İlan tedarikçisine ait WhatsApp numarasını ilan detay formunda girebilirsiniz. Yoksa contact_phone kullanılır."
-              />
-            </div>
-          </div>
-
-          {/* Site URL */}
-          <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <div className="mb-4 flex items-center gap-2">
-              <span className="text-2xl">🔗</span>
-              <div>
-                <h3 className="font-semibold text-neutral-800 dark:text-white">Site URL</h3>
-                <p className="text-xs text-neutral-500">Bildirim e-postalarında tedarikçi onay linkini oluşturmak için</p>
-              </div>
-            </div>
-            <EnvBadge
-              name="SITE_URL"
-              description="Site URL'niz (ör: https://rezervasyonyap.com.tr). Varsayılan: https://rezervasyonyap.com.tr"
-              required
-            />
-          </div>
-
-          {/* Bildirim akışı */}
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 dark:border-blue-800/50 dark:bg-blue-900/10">
-            <h3 className="mb-3 font-semibold text-blue-800 dark:text-blue-300">Bildirim Akışı</h3>
-            <ol className="space-y-2 text-sm text-blue-700 dark:text-blue-400">
-              <li className="flex gap-2">
-                <span className="shrink-0 font-bold">1.</span>
-                <span>Müşteri ödemeyi tamamlar → checkout transaction commit olur</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 font-bold">2.</span>
-                <span><code className="rounded bg-blue-100 px-1 dark:bg-blue-900/40">fn_compute_provizyon()</code> tetiklenir → tutarlar + deadline hesaplanır</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 font-bold">3.</span>
-                <span>Tedarikçiye: SMS + E-posta + WhatsApp kuyruğu (onay linki içerir)</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 font-bold">4.</span>
-                <span>Müşteriye: SMS + E-posta (ödeme alındı, onay bekleniyor)</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 font-bold">5.</span>
-                <span>Tedarikçi onaylarsa → Müşteriye onay SMS + E-posta</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="shrink-0 font-bold">6.</span>
-                <span>Deadline aşılırsa → Tedarikçiye son uyarı SMS + WhatsApp → Eskalasyon açılır</span>
-              </li>
-            </ol>
-          </div>
+      {/* Entegrasyon ayarları linki */}
+      <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
+        <span className="text-2xl">⚙️</span>
+        <div className="flex-1">
+          <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+            NetGSM, Resend ve WhatsApp API ayarları
+          </p>
+          <p className="text-xs text-neutral-500">SMS, e-posta ve WhatsApp kimlik bilgilerini buradan girin.</p>
         </div>
-      )}
+        <a
+          href="/manage/admin/settings/integrations"
+          className="shrink-0 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600"
+        >
+          Ayarlara Git →
+        </a>
+      </div>
 
-      {activeTab === 'queue' && (
-        <div className="space-y-4">
+      {/* Bildirim Kuyruğu */}
+      <div className="space-y-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-neutral-500">Son 50 bildirim işi</p>
             <button
@@ -328,7 +182,6 @@ export default function AdminNotificationSettingsSection() {
             </div>
           )}
         </div>
-      )}
     </div>
   )
 }

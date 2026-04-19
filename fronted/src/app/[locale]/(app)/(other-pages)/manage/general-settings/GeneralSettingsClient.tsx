@@ -17,7 +17,6 @@ import {
   patchCurrencyActive,
   putCurrencyOrder,
   refreshTcmbRates,
-  sendNetgsmTestSms,
   setActivePaymentProvider,
   upsertSiteSetting,
   type CurrencyRow,
@@ -30,6 +29,7 @@ import {
   parseHomePageLinksFromBranding,
   parseMobileAccountPathFromBranding,
 } from '@/lib/site-branding-seo'
+import { parseLenientJson } from '@/lib/json-parse'
 import { uploadBrandingAsset, type BrandingUploadPurpose } from '@/lib/upload-branding-asset'
 import CurrencyReorderTable from './CurrencyReorderTable'
 import TravelHomeCategoryOrderPanel from './TravelHomeCategoryOrderPanel'
@@ -90,6 +90,7 @@ function BrandingImageUploadRow({
     preview === 'favicon' ? (
       <div className="mt-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
         {url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- admin önizleme; runtime'da girilen URL
           <img src={url} alt="" className="h-9 w-9 object-contain" />
         ) : (
           <span className="text-[10px] text-neutral-400">—</span>
@@ -99,6 +100,7 @@ function BrandingImageUploadRow({
       <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-900 p-3 dark:border-neutral-800">
         {url ? (
           <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin önizleme */}
             <img src={url} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
             <span className="text-xs text-neutral-500">Koyu tema önizleme</span>
           </>
@@ -110,6 +112,7 @@ function BrandingImageUploadRow({
       <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
         {url ? (
           <>
+            {/* eslint-disable-next-line @next/next/no-img-element -- admin önizleme */}
             <img src={url} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
             <span className="text-xs text-neutral-400">Önizleme</span>
           </>
@@ -226,11 +229,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [currencyToggleBusy, setCurrencyToggleBusy] = useState<string | null>(null)
   const [currencyHint, setCurrencyHint] = useState<string | null>(null)
   const [currencyOrderSaving, setCurrencyOrderSaving] = useState(false)
-
-  const [netgsmTo, setNetgsmTo] = useState('')
-  const [netgsmText, setNetgsmText] = useState('Travel test mesajı')
-  const [netgsmMsg, setNetgsmMsg] = useState<string | null>(null)
-  const [netgsmBusy, setNetgsmBusy] = useState(false)
 
   type TabId = (typeof SETTINGS_TABS)[number]['id']
   const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
@@ -358,7 +356,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
           const aiRes = await listSiteSettings(token, { scope: 'platform', key: 'ai' })
           const row = aiRes.settings[0]
           if (row?.value_json) {
-            const obj = JSON.parse(row.value_json) as Record<string, unknown>
+            let obj: Record<string, unknown> = {}
+            try {
+              obj = parseLenientJson(row.value_json) as Record<string, unknown>
+            } catch {
+              obj = {}
+            }
             setAiRest(obj)
             setDeepseekApiKey(typeof obj.deepseek_api_key === 'string' ? obj.deepseek_api_key : '')
             setDeepseekModel(
@@ -820,30 +823,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     }
   }
 
-  async function onNetgsmTest() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setNetgsmMsg('NetGSM testi için yönetici oturumu gerekir.')
-      return
-    }
-    setNetgsmBusy(true)
-    setNetgsmMsg(null)
-    try {
-      const r = await sendNetgsmTestSms(token, {
-        gsm: netgsmTo.trim(),
-        message: netgsmText.trim() || 'Test',
-      })
-      const raw = r.provider_raw
-      setNetgsmMsg(
-        `Gönderildi (ham yanıt: ${raw.length > 200 ? `${raw.slice(0, 200)}…` : raw})`,
-      )
-    } catch (e) {
-      setNetgsmMsg(e instanceof Error ? e.message : 'SMS başarısız')
-    } finally {
-      setNetgsmBusy(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className={embedded ? 'py-8' : 'container mx-auto max-w-4xl py-16'}>
@@ -874,7 +853,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         </>
       )}
 
-      {status.kind !== 'idle' && status.text && (
+      {activeTab === 'operasyon' && status.kind !== 'idle' && status.text && (
         <div
           className={`mt-6 rounded-lg border px-4 py-3 text-sm ${
             status.kind === 'ok'
@@ -1036,6 +1015,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     <p className="mb-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300">Önizleme</p>
                     <div className="flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                       {logoIconUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- admin önizleme; logo URL'si runtime
                         <img src={logoIconUrl} alt="" className="h-12 w-12 shrink-0 object-contain" />
                       ) : (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-2xl dark:bg-neutral-800">🔤</div>
@@ -1291,44 +1271,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         </div>
       </section>
 
-      <section className="mt-10 border-t border-neutral-200 pt-10 dark:border-neutral-700">
-        <h2 className="text-xl font-semibold">NetGSM (test SMS)</h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Ortam değişkenleri: <span className="font-mono">NETGSM_USERCODE</span>,{' '}
-          <span className="font-mono">NETGSM_PASSWORD</span>, <span className="font-mono">NETGSM_MSGHEADER</span>. Yönetici
-          oturumu ve <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">admin.integrations.write</code>.
-        </p>
-        {netgsmMsg ? (
-          <p className="mt-2 text-sm text-neutral-700 dark:text-neutral-300">{netgsmMsg}</p>
-        ) : null}
-        <div className="mt-4 grid max-w-xl gap-4">
-          <Field>
-            <Label>Alıcı GSM (90532…)</Label>
-            <Input className="mt-1 font-mono" value={netgsmTo} onChange={(e) => setNetgsmTo(e.target.value)} />
-          </Field>
-          <Field>
-            <Label>Mesaj</Label>
-            <Textarea className="mt-1" rows={3} value={netgsmText} onChange={(e) => setNetgsmText(e.target.value)} />
-          </Field>
-          <ButtonPrimary type="button" disabled={netgsmBusy} onClick={() => void onNetgsmTest()}>
-            {netgsmBusy ? 'Gönderiliyor…' : 'Test SMS gönder'}
-          </ButtonPrimary>
-        </div>
-      </section>
-
-      <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
-        <h2 className="text-xl font-semibold">Diller &amp; çeviriler</h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Dil ekleme ve çeviri içe/dışa aktarma için{' '}
-          <Link
-            href={vitrinPath('/manage/i18n')}
-            className="font-medium text-primary-600 underline dark:text-primary-400"
-          >
-            Diller &amp; çeviriler
-          </Link>{' '}
-          sayfasına gidin. Next.js locale routing (G1.2) ayrı iş paketi.
-        </p>
-      </section>
         </>
       )}
 
@@ -1385,10 +1327,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             </div>
           </section>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            <a href={vitrinPath('/manage/admin/manage') + '#admin-seo-block'} className="font-medium text-primary-600 underline dark:text-primary-400">
+            <a href={vitrinPath('/manage/admin/content/seo-redirects')} className="font-medium text-primary-600 underline dark:text-primary-400">
               SEO — sitemap, yönlendirme ve 404 günlüğü
             </a>{' '}
-            (Admin Yönetimi sayfasındaki SEO bloğuna gider.)
+            (Yönlendirmeler ve 404 günlüğünün dedicated sayfasına gider.)
           </p>
         </div>
       )}
@@ -1421,7 +1363,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             </div>
           </section>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
-            <a href="#admin-social-block" className="font-medium text-primary-600 underline dark:text-primary-400">
+            <a href={vitrinPath('/manage/admin/marketing/social')} className="font-medium text-primary-600 underline dark:text-primary-400">
               Sosyal paylaşım şablonları ve kuyruk
             </a>{' '}
             — Instagram / Facebook vb. gönderi kuyruğu.
@@ -1544,11 +1486,11 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
           <div className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
             <h2 className="text-xl font-semibold">Yapay zeka</h2>
             <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-              Sağlayıcılar, profiller ve iş kuyruğu bu sayfanın altında ayrı blokta yönetilir (okuma ağırlıklı).
+              Sağlayıcılar, profiller ve iş kuyruğu kendi sayfasında yönetilir (okuma ağırlıklı).
             </p>
             <p className="mt-4 text-sm">
-              <a href="#admin-ai-block" className="font-medium text-primary-600 underline dark:text-primary-400">
-                AI bölümüne git
+              <a href={vitrinPath('/manage/admin/marketing/ai')} className="font-medium text-primary-600 underline dark:text-primary-400">
+                AI yönetim sayfasına git
               </a>
             </p>
           </div>
@@ -1769,10 +1711,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
           </section>
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             Google Merchant Center ürün kayıtları ilan bazındadır.{' '}
-            <a href="#admin-merchant-block" className="font-medium text-primary-600 underline dark:text-primary-400">
+            <a href={vitrinPath('/manage/admin/marketing/merchant')} className="font-medium text-primary-600 underline dark:text-primary-400">
               Ticari entegrasyonlar (Google Merchant &amp; Instagram)
             </a>{' '}
-            bölümüne gidin.
+            sayfasına gidin.
           </p>
         </div>
       )}

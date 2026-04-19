@@ -1,10 +1,20 @@
-import ManagePlaceholderPage from '../../ManagePlaceholderPage'
+import { ManageAccessGuard } from '@/lib/use-manage-access'
+import CouponsManageClient from '../CouponsManageClient'
 
-export default function Page() {
+export default function ManageCampaignCouponsPage() {
   return (
-    <ManagePlaceholderPage
-      title="Kuponlar"
-      description="İndirim kuponlarını oluşturun ve yönetin. Bu modül geliştirme aşamasındadır."
-    />
+    <ManageAccessGuard
+      required={{
+        oneOf: [
+          { permissionsAny: ['admin.users.read'] },
+          { permissionsPrefixAny: ['admin.'], rolesAny: ['admin'] },
+        ],
+      }}
+      featureHint="admin.users.read veya yönetici"
+    >
+      <div className="px-4 py-6 md:px-6 lg:px-8">
+        <CouponsManageClient />
+      </div>
+    </ManageAccessGuard>
   )
 }

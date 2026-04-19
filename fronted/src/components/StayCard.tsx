@@ -8,12 +8,16 @@ import type { TListingBase } from '@/types/listing-types'
 import { Badge } from '@/shared/Badge'
 import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { FC } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
-import GallerySlider from './GallerySlider'
+import listingPlaceholder from '@/images/hero-right.png'
+
+const FALLBACK_IMG =
+  typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
 
 interface StayCardProps {
   className?: string
@@ -43,17 +47,35 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
 
   const detailBase = stayDetailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
-  const sliderImages = galleryImgs?.length ? galleryImgs : featuredImage ? [featuredImage] : []
+  const imgSrc =
+    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
+      ? galleryImgs[0]
+      : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
+    featuredImage ||
+    FALLBACK_IMG
 
   const renderSliderGallery = () => {
     return (
       <div className="relative w-full">
-        <GallerySlider
-          ratioClass="aspect-w-4 aspect-h-3 "
-          galleryImgs={sliderImages}
-          href={listingHref}
-          galleryClass={size === 'default' ? undefined : ''}
-        />
+        <Link href={listingHref} className="block">
+          <div
+            className={`relative w-full overflow-hidden rounded-xl`}
+            style={{ paddingBottom: '75%' }}
+          >
+            <Image
+              src={imgSrc}
+              fill
+              alt={title ?? 'listing'}
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 1025px) 100vw, 25vw"
+              unoptimized={
+                imgSrc.startsWith('http') ||
+                imgSrc.startsWith('/uploads/') ||
+                imgSrc.startsWith('data:')
+              }
+            />
+          </div>
+        </Link>
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3 z-1" />
         {saleOff && <SaleOffBadge className="absolute start-3 top-3" />}
       </div>

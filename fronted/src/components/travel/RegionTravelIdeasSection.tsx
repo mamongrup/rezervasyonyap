@@ -1,6 +1,7 @@
 import type { TravelIdea } from '@/lib/travel-api'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
 import clsx from 'clsx'
+import Image from 'next/image'
 import Link from 'next/link'
 
 export default function RegionTravelIdeasSection({
@@ -44,7 +45,13 @@ export default function RegionTravelIdeasSection({
                 )}
               >
                 {idea.image ? (
-                  <img src={idea.image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                  <Image
+                    src={idea.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-cover"
+                  />
                 ) : (
                   <div className="flex h-full min-h-[200px] items-center justify-center bg-neutral-200/80 text-4xl dark:bg-neutral-800">
                     📷

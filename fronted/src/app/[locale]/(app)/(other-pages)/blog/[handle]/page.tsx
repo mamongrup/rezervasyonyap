@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   getBlogPostBySlug,
@@ -61,13 +62,32 @@ function BlogHero({ images, title }: { images: string[]; title: string }) {
       <div className="relative w-full h-[60vh] min-h-[400px] max-h-[600px] overflow-hidden rounded-none lg:rounded-3xl">
         <div className="grid grid-cols-4 grid-rows-2 h-full gap-1.5">
           <div className="col-span-3 row-span-2 relative overflow-hidden">
-            <img src={img1} alt={title} className="w-full h-full object-cover" />
+            <Image
+              src={img1}
+              alt={title}
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 75vw"
+              className="object-cover"
+            />
           </div>
           <div className="col-span-1 row-span-1 relative overflow-hidden">
-            <img src={img2} alt="" className="w-full h-full object-cover" />
+            <Image
+              src={img2}
+              alt=""
+              fill
+              sizes="(max-width: 1024px) 50vw, 25vw"
+              className="object-cover"
+            />
           </div>
           <div className="col-span-1 row-span-1 relative overflow-hidden">
-            <img src={img3} alt="" className="w-full h-full object-cover" />
+            <Image
+              src={img3}
+              alt=""
+              fill
+              sizes="(max-width: 1024px) 50vw, 25vw"
+              className="object-cover"
+            />
           </div>
         </div>
       </div>
@@ -77,7 +97,14 @@ function BlogHero({ images, title }: { images: string[]; title: string }) {
   if (img1) {
     return (
       <div className="relative w-full h-[50vh] min-h-[300px] max-h-[500px] overflow-hidden rounded-none lg:rounded-3xl">
-        <img src={img1} alt={title} className="w-full h-full object-cover" />
+        <Image
+          src={img1}
+          alt={title}
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover"
+        />
       </div>
     )
   }
@@ -113,11 +140,13 @@ function RelatedPosts({
               className="group overflow-hidden rounded-2xl border border-neutral-200 dark:border-neutral-800 hover:shadow-lg transition-shadow bg-white dark:bg-neutral-900"
             >
               {img ? (
-                <div className="h-36 overflow-hidden">
-                  <img
+                <div className="relative h-36 overflow-hidden">
+                  <Image
                     src={img}
                     alt=""
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    fill
+                    sizes="(max-width: 640px) 100vw, 33vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 </div>
               ) : (

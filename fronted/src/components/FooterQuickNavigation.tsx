@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation'
 import { RefObject, useCallback, useEffect, useRef, useState } from 'react'
 
 const DEFAULT_ACCOUNT_PATH = '/account'
+import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
 import { useIntersection } from 'react-use'
 import { useAside } from './aside'
 import HeroSearchFormMobile from './HeroSearchFormMobile/HeroSearchFormMobile'
@@ -51,9 +52,8 @@ const FooterQuickNavigation = () => {
 
   useEffect(() => {
     let cancelled = false
-    fetch('/api/site-preview-links')
-      .then((r) => r.json())
-      .then((d: { mobileAccountPath?: string }) => {
+    void fetchSitePreviewLinks()
+      .then((d) => {
         if (cancelled) return
         if (typeof d?.mobileAccountPath === 'string' && d.mobileAccountPath.startsWith('/')) {
           setAccountPath(d.mobileAccountPath)

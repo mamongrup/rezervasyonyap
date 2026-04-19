@@ -36,13 +36,19 @@ export default function AdminSupplierApplicationsSection() {
 
   const load = useCallback(async () => {
     const token = getStoredAuthToken()
-    if (!token) return
+    if (!token) {
+      setMsg('Oturum bulunamadı. Lütfen giriş yapın.')
+      setApps([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
+    setMsg('')
     try {
       const res = await adminListSupplierApplications(token, statusFilter)
       setApps(res.applications)
-    } catch {
-      setMsg('Başvurular yüklenemedi')
+    } catch (e: unknown) {
+      setMsg(e instanceof Error ? `Başvurular yüklenemedi: ${e.message}` : 'Başvurular yüklenemedi')
     } finally {
       setLoading(false)
     }

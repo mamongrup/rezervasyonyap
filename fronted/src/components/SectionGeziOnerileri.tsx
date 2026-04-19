@@ -115,7 +115,13 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
                     {/* Küçük görsel */}
                     {img ? (
                       <div className="relative h-20 w-24 shrink-0 overflow-hidden rounded-xl">
-                        <img src={img} alt="" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <Image
+                          src={img}
+                          alt=""
+                          fill
+                          sizes="96px"
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
                       </div>
                     ) : (
                       <div className="flex h-20 w-24 shrink-0 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">

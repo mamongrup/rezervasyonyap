@@ -1,13 +1,12 @@
-/** Yönetim formlarında dil sekmesi + AI çeviri hedefleri (yeni ilan ile aynı liste) */
-export const MANAGE_EDITOR_LOCALE_TABS = [
-  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-  { code: 'zh', label: '中文', flag: '🇨🇳' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-] as const
+import { defaultLocale } from '@/lib/i18n-config'
+import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
+import { buildManageAiLocaleRows, type ManageAiLocaleRow } from '@/lib/manage-ai-locale-rows'
 
-export type ManageEditorLocaleTab = (typeof MANAGE_EDITOR_LOCALE_TABS)[number]
+/** Statik yedek — canlı sitede `useManageAiLocaleRows` kullanın. */
+export const MANAGE_EDITOR_LOCALE_TABS = buildManageAiLocaleRows([...SITE_LOCALE_CATALOG])
 
-export const MANAGE_EDITOR_LOCALES_TR_TARGET = MANAGE_EDITOR_LOCALE_TABS.filter((l) => l.code !== 'tr')
+export type ManageEditorLocaleTab = ManageAiLocaleRow
+
+export const MANAGE_EDITOR_LOCALES_TR_TARGET = MANAGE_EDITOR_LOCALE_TABS.filter(
+  (l) => l.code !== defaultLocale.trim().toLowerCase(),
+)

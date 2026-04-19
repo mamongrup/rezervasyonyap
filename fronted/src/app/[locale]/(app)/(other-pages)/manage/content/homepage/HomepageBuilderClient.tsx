@@ -39,9 +39,11 @@ function ImageSlot({
       try {
         const fd = new FormData()
         fd.append('file', file)
-        fd.append('category', 'homepage')
+        fd.append('folder', 'site')
+        fd.append('subPath', 'anasayfa')
+        fd.append('prefix', 'hero')
         fd.append('slot', String(index))
-        const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
+        const res = await fetch('/api/upload-image', { method: 'POST', body: fd, credentials: 'include' })
         const json = await res.json()
         if (json.ok) onChange(json.url as string)
       } finally {

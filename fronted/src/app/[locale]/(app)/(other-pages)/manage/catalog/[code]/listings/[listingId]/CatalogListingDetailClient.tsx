@@ -22,6 +22,9 @@ import {
   createIcalFeed,
   patchIcalFeed,
   deleteIcalFeed,
+  syncIcalFeed,
+  getListingIcalExportToken,
+  rotateListingIcalExportToken,
   listAttributeGroups,
   listAttributeDefs,
   getListingAttributeValues,
@@ -50,6 +53,7 @@ import {
   type PriceLineItem,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
+import ListingPerksManageCard from '@/components/manage/ListingPerksManageCard'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
@@ -88,6 +92,20 @@ function verticalSectionTitle(verticalTitles: CatalogListingUi['verticalTitles']
 
 /** Konaklama vitrininde kural seçimi — otel / tatil evi / yat */
 const STAY_ACCOMMODATION_RULE_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
+
+/** `options_json` bozuk olsa bile UI'yi crash ettirmemek için güvenli parse. */
+function parseOptionsJsonSafe(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (Array.isArray(parsed)) {
+      return parsed.filter((x): x is string => typeof x === 'string')
+    }
+    return []
+  } catch {
+    return []
+  }
+}
 
 function parseAccommodationRuleIdsFromValueJson(raw: string): string[] {
   try {
@@ -226,12 +244,20 @@ function ListingAttributeValuesSection({
           ),
         )
         setDefsMap(dm)
-        // build values map
         const vm: Record<string, string> = {}
         for (const v of vRes.values) {
           const raw = v.value_json
-          // strip surrounding quotes for string JSON
-          vm[`${v.group_code}.${v.key}`] = raw.startsWith('"') ? JSON.parse(raw) as string : raw
+          // string JSON için tırnakları kaldır; bozuk JSON tüm haritayı yıkmasın.
+          let value: string = raw
+          if (typeof raw === 'string' && raw.startsWith('"')) {
+            try {
+              const parsed = JSON.parse(raw)
+              value = typeof parsed === 'string' ? parsed : raw
+            } catch {
+              value = raw
+            }
+          }
+          vm[`${v.group_code}.${v.key}`] = value
         }
         setValues(vm)
       })
@@ -318,7 +344,7 @@ function ListingAttributeValuesSection({
                         className={`mt-1 ${inputCls}`}
                       >
                         <option value="">{ui.attr.selectPlaceholder}</option>
-                        {(JSON.parse(d.options_json) as string[]).map((opt) => (
+                        {parseOptionsJsonSafe(d.options_json).map((opt) => (
                           <option key={opt} value={opt}>{opt}</option>
                         ))}
                       </select>
@@ -689,6 +715,11 @@ export default function CatalogListingDetailClient({
   const [icalEditPlus, setIcalEditPlus] = useState('0')
   const [icalEditMinus, setIcalEditMinus] = useState('0')
 
+  // ── iCal Export (bu ilanın .ics public URL'i) ──
+  // Token yoksa ical-tab açıldığında lazy-load ile üretilir.
+  const [icalExportUrl, setIcalExportUrl] = useState<string | null>(null)
+  const [icalExportLoading, setIcalExportLoading] = useState(false)
+
   // ── Yemek Planları ──
   const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([])
   const [mpFormOpen, setMpFormOpen] = useState(false)
@@ -1028,6 +1059,60 @@ export default function CatalogListingDetailClient({
     }
   }
 
+  // ── iCal manuel sync (Airbnb/Booking feed'inden takvimi anında yenile) ──
+  async function onSyncIcal(feedId: string) {
+    setBusy(`ical-sync-${feedId}`)
+    setErr(null)
+    try {
+      const r = await syncIcalFeed(feedId)
+      // Kullanıcıya kısa geri bildirim
+      alert(
+        ui.ical.syncOk
+          .replace('{events}', String(r.event_count))
+          .replace('{days}', String(r.day_count)),
+      )
+      await loadIcal()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'ical_sync_failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // ── Export URL: lazy load + rotate ──
+  const loadExportUrl = useCallback(async () => {
+    setIcalExportLoading(true)
+    try {
+      const r = await getListingIcalExportToken(listingId)
+      setIcalExportUrl(r.url)
+    } catch {
+      setIcalExportUrl(null)
+    } finally {
+      setIcalExportLoading(false)
+    }
+  }, [listingId])
+
+  async function onRotateExport() {
+    if (!confirm(ui.ical.rotateConfirm)) return
+    setBusy('ical-rotate')
+    setErr(null)
+    try {
+      const r = await rotateListingIcalExportToken(listingId)
+      setIcalExportUrl(r.url)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'ical_export_rotate_failed')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function onCopyExport() {
+    if (!icalExportUrl) return
+    try {
+      await navigator.clipboard.writeText(icalExportUrl)
+    } catch { /* sessiz */ }
+  }
+
   // ── Yükle: Yemek planları ──
   const loadMealPlans = useCallback(async () => {
     if (!MEAL_PLAN_CATS.has(categoryCode)) return
@@ -1052,6 +1137,13 @@ export default function CatalogListingDetailClient({
     void loadIcal()
     void loadMealPlans()
   }
+
+  // iCal tab açıldığında export URL'i tek seferlik yükle
+  useEffect(() => {
+    if (activeTab === 'ical' && icalExportUrl === null && !icalExportLoading) {
+      void loadExportUrl()
+    }
+  }, [activeTab, icalExportUrl, icalExportLoading, loadExportUrl])
 
   function mpResetForm() {
     setMpFormOpen(false)
@@ -1239,6 +1331,11 @@ export default function CatalogListingDetailClient({
             {label}
           </button>
         ))}
+      </div>
+
+      {/* Vitrin özellikleri (her sekmede görünür kısa kart) */}
+      <div className="mt-6">
+        <ListingPerksManageCard listingId={listingId} />
       </div>
 
       {/* ═══ SEKME: MÜSAİTLİK TAKVİMİ ═══════════════════════════════════════ */}
@@ -1663,12 +1760,33 @@ export default function CatalogListingDetailClient({
                           </>
                         ) : (
                           <>
-                            <td className="max-w-xs truncate px-4 py-2 font-mono text-xs">{feed.url}</td>
+                            <td className="max-w-xs truncate px-4 py-2 font-mono text-xs">
+                              <div className="truncate" title={feed.url}>{feed.url}</div>
+                              {feed.last_error ? (
+                                <div className="mt-1 inline-flex items-center gap-1 rounded bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300" title={feed.last_error}>
+                                  <span>{ui.ical.lastError}:</span>
+                                  <span className="max-w-[14rem] truncate">{feed.last_error}</span>
+                                </div>
+                              ) : null}
+                            </td>
                             <td className="px-4 py-2 text-xs">{feed.day_offset_plus}</td>
                             <td className="px-4 py-2 text-xs">{feed.day_offset_minus}</td>
-                            <td className="px-4 py-2 text-xs text-neutral-400">{feed.last_sync_at ?? ui.common.never}</td>
+                            <td className="px-4 py-2 text-xs text-neutral-400">
+                              {feed.last_sync_at ?? ui.common.never}
+                              {typeof feed.last_event_count === 'number' && feed.last_event_count > 0 ? (
+                                <div className="text-[10px] text-neutral-400">{feed.last_event_count} VEVENT</div>
+                              ) : null}
+                            </td>
                             <td className="px-4 py-2">
-                              <div className="flex gap-3">
+                              <div className="flex flex-wrap gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => void onSyncIcal(feed.id)}
+                                  disabled={busy === `ical-sync-${feed.id}`}
+                                  className="text-xs text-emerald-600 underline disabled:opacity-50 dark:text-emerald-400"
+                                >
+                                  {busy === `ical-sync-${feed.id}` ? ui.common.ellipsis : ui.ical.syncBtn}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1741,6 +1859,48 @@ export default function CatalogListingDetailClient({
                 {busy === 'ical-add' ? ui.common.ellipsis : ui.ical.addBtn}
               </ButtonPrimary>
             </form>
+          </div>
+
+          {/* ─────────────────────────────────────────────────────────────────
+              Export URL kartı — bu ilanın .ics public URL'si.
+              Airbnb / Booking / VRBO yönetim panellerine yapıştırılır.
+              ───────────────────────────────────────────────────────────────── */}
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+              <Link2 className="h-5 w-5 text-emerald-600" />
+              {ui.ical.exportTitle}
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500">{ui.ical.exportIntro}</p>
+
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                readOnly
+                aria-label={ui.ical.exportTitle}
+                className="w-full flex-1 rounded-lg border border-neutral-300 bg-neutral-50 px-3 py-2 font-mono text-xs text-neutral-700 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
+                value={icalExportLoading ? ui.ical.exportLoading : (icalExportUrl ?? '')}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void onCopyExport()}
+                  disabled={!icalExportUrl}
+                  className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  {ui.ical.copyBtn}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void onRotateExport()}
+                  disabled={busy === 'ical-rotate'}
+                  className="inline-flex items-center gap-1 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                >
+                  {busy === 'ical-rotate' ? ui.common.ellipsis : ui.ical.rotateBtn}
+                </button>
+              </div>
+            </div>
+
+            <p className="mt-3 text-xs text-neutral-400">{ui.ical.rotateNote}</p>
           </div>
         </div>
       )}

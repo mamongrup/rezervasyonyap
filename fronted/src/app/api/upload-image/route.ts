@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { promises as fs } from 'node:fs'
+import { constants as fsConstants, promises as fs } from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
 
@@ -20,7 +20,7 @@ function sanitizePathSegment(s: string): string {
     .slice(0, 96)
 }
 
-/** "otel/begonvil-villa" veya "blog/yazi-slug" */
+/** "ilanlar/oteller/otel-slug" veya "icerik/blog/yazi-slug" */
 function parseSubPathSegments(raw: string | null): string[] | null {
   if (!raw || !String(raw).trim()) return null
   const parts = String(raw)
@@ -28,19 +28,66 @@ function parseSubPathSegments(raw: string | null): string[] | null {
     .map((p) => sanitizePathSegment(p))
     .filter((p) => p.length > 0)
   if (parts.length === 0) return null
-  if (parts.length > 6) return null
+  if (parts.length > 8) return null
   return parts
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** `{stem}-{n}.{ext}` için bir sonraki boş sıra numarası (1–100). */
+async function nextSequentialIndex(uploadDir: string, stem: string, ext: string): Promise<number> {
+  let files: string[] = []
+  try {
+    files = await fs.readdir(uploadDir)
+  } catch {
+    return 1
+  }
+  const re = new RegExp(`^${escapeRegExp(stem)}-(\\d+)\\.${escapeRegExp(ext)}$`, 'i')
+  let max = 0
+  for (const f of files) {
+    const m = re.exec(f)
+    if (m) {
+      const n = Number.parseInt(m[1] ?? '', 10)
+      if (Number.isFinite(n)) max = Math.max(max, n)
+    }
+  }
+  const next = max + 1
+  if (next > 100) {
+    throw new Error('Bu klasörde en fazla 100 sıralı görsel desteklenir.')
+  }
+  return next
+}
+
+function stemFromOriginalFilename(name: string): string {
+  const base = name.replace(/\.[^/.]+$/, '')
+  return sanitizePathSegment(base) || 'gorsel'
 }
 
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads')
 const MAX_SIZE = 8 * 1024 * 1024 // 8 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']
+/** Tedarikçi belgeleri için ek izinli MIME — PDF/dokuman; yalnızca `folder=supplier-docs`. */
+const DOC_ALLOWED_TYPES = new Set(['application/pdf'])
+const DOC_ALLOWED_EXTS = new Set(['pdf'])
 
 const SAFE_FOLDERS: Record<string, true> = {
-  hero: true, branding: true, general: true,
-  regions: true, listings: true, blog: true,
-  pages: true, tours: true, events: true,
-  travel_ideas: true, 'supplier-docs': true,
+  hero: true,
+  branding: true,
+  general: true,
+  regions: true,
+  listings: true,
+  blog: true,
+  pages: true,
+  tours: true,
+  events: true,
+  travel_ideas: true,
+  'supplier-docs': true,
+  /** Logo, favicon, anasayfa / kategori / bölge vitrin görselleri */
+  site: true,
+  /** Blog ve CMS sayfa içerik görselleri */
+  icerik: true,
 }
 
 type FolderProfile = {
@@ -64,6 +111,8 @@ const FOLDER_PROFILES: Record<string, FolderProfile> = {
   blog:           { width: 1200, height: 630,  fit: 'cover',  vivid: true,  quality: 72 },
   pages:          { width: 1200, height: 800,  fit: 'cover',  vivid: true,  quality: 72 },
   branding:       { width: 800,  height: 600,  fit: 'inside', vivid: false, quality: 85 },
+  site:           { width: 1920, height: 1080, fit: 'cover',  vivid: true,  quality: 72 },
+  icerik:         { width: 1200, height: 800,  fit: 'cover',  vivid: true,  quality: 72 },
   'supplier-docs':{ width: 1400, height: 2000, fit: 'inside', vivid: false, quality: 82 },
   general:        { width: 1200, height: 900,  fit: 'cover',  vivid: true,  quality: 72 },
 }
@@ -118,23 +167,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Dosya bulunamadı.' }, { status: 400 })
     }
 
-    if (!ALLOWED_TYPES.includes(file.type) && file.type !== '') {
-      const ext = file.name.split('.').pop()?.toLowerCase()
-      if (ext !== 'svg' && ext !== 'ico') {
-        return NextResponse.json(
-          { ok: false, error: 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, SVG veya ICO yükleyin.' },
-          { status: 400 },
-        )
-      }
+    let rawFolder = String(formData.get('folder') ?? formData.get('variant') ?? 'general')
+    if (rawFolder === 'branding') {
+      rawFolder = 'site'
+    }
+    const folder = SAFE_FOLDERS[rawFolder] ? rawFolder : 'general'
+
+    const fileExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+    const isImageType = ALLOWED_TYPES.includes(file.type) || ['svg', 'ico'].includes(fileExt)
+    const isDocType =
+      folder === 'supplier-docs' && (DOC_ALLOWED_TYPES.has(file.type) || DOC_ALLOWED_EXTS.has(fileExt))
+
+    if (!isImageType && !isDocType && file.type !== '') {
+      const allowedMsg =
+        folder === 'supplier-docs'
+          ? 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, SVG, ICO veya PDF yükleyin.'
+          : 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, SVG veya ICO yükleyin.'
+      return NextResponse.json({ ok: false, error: allowedMsg }, { status: 400 })
     }
 
     if (file.size > MAX_SIZE) {
       return NextResponse.json({ ok: false, error: 'Dosya 8 MB sınırını aşıyor.' }, { status: 400 })
     }
-
-    // Determine folder
-    const rawFolder = String(formData.get('folder') ?? formData.get('variant') ?? 'general')
-    const folder = SAFE_FOLDERS[rawFolder] ? rawFolder : 'general'
     const baseRoot = path.resolve(UPLOADS_ROOT, folder)
 
     let subSegments: string[] = []
@@ -157,6 +211,12 @@ export async function POST(req: NextRequest) {
         const p = sanitizePathSegment(String(page))
         if (p) subSegments = [p]
       }
+    } else if (folder === 'icerik') {
+      const page = formData.get('pageSlug') ?? formData.get('page_slug')
+      if (page != null) {
+        const p = sanitizePathSegment(String(page))
+        if (p) subSegments = [p]
+      }
     }
 
     let uploadDir = baseRoot
@@ -170,21 +230,32 @@ export async function POST(req: NextRequest) {
 
     await fs.mkdir(uploadDir, { recursive: true })
 
-    // Build output
-    const prefix =
-      (String(formData.get('prefix') ?? formData.get('category') ?? ''))
-        .replace(/[^a-z0-9_-]/gi, '')
-        .slice(0, 96) || 'img'
+    // Build output — anlamlı dosya adı; rastgele zaman damgası kullanılmaz
+    const rawPrefix = String(formData.get('prefix') ?? formData.get('category') ?? '')
+    const prefix = sanitizePathSegment(rawPrefix) || 'gorsel'
+    const rawFileBase = String(formData.get('fileBase') ?? '').trim()
+    const fileBase = rawFileBase ? sanitizePathSegment(rawFileBase) : ''
+    const rawFixedStem = String(formData.get('fixedStem') ?? '').trim()
+    const fixedStem = rawFixedStem ? sanitizePathSegment(rawFixedStem) : ''
+    const lastSeg =
+      subSegments.length > 0 ? subSegments[subSegments.length - 1] ?? '' : ''
+    const stemBase = fileBase || prefix || lastSeg || 'gorsel'
+
     const rawBuffer = Buffer.from(await file.arrayBuffer())
     const originalExt = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
 
-    const isPassthrough = PASSTHROUGH_TYPES.has(file.type) || ['svg', 'ico'].includes(originalExt)
+    const isPdf = isDocType && (file.type === 'application/pdf' || originalExt === 'pdf')
+    const isPassthrough =
+      isPdf || PASSTHROUGH_TYPES.has(file.type) || ['svg', 'ico'].includes(originalExt)
 
     let outputBuffer: Buffer
     let ext: string
     let warning: string | undefined
 
-    if (isPassthrough) {
+    if (isPdf) {
+      outputBuffer = rawBuffer
+      ext = 'pdf'
+    } else if (isPassthrough) {
       outputBuffer = rawBuffer
       ext = originalExt === 'ico' ? 'ico' : 'svg'
     } else {
@@ -194,17 +265,43 @@ export async function POST(req: NextRequest) {
       ext = warning ? originalExt : 'avif'
     }
 
-    const idxRaw = formData.get('index') ?? formData.get('imageIndex')
     let seq: number | null = null
-    if (idxRaw != null && String(idxRaw).trim() !== '') {
-      const n = Number.parseInt(String(idxRaw), 10)
-      if (Number.isFinite(n) && n >= 1 && n <= 999) seq = n
+    const explicitIdx = formData.get('index') ?? formData.get('imageIndex')
+    if (explicitIdx != null && String(explicitIdx).trim() !== '') {
+      const n = Number.parseInt(String(explicitIdx), 10)
+      if (Number.isFinite(n) && n >= 1 && n <= 100) seq = n
+    } else {
+      const sl = formData.get('slot')
+      if (sl != null && String(sl).trim() !== '') {
+        const n = Number.parseInt(String(sl), 10)
+        if (Number.isFinite(n) && n >= 0 && n <= 99) seq = n + 1
+      }
     }
 
-    const filename =
-      seq != null
-        ? `${prefix}-${seq}.${ext}`
-        : `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`
+    const useOriginalStem =
+      String(formData.get('useOriginalStem') ?? '') === '1' ||
+      String(formData.get('useOriginalStem') ?? '') === 'true'
+
+    let filename: string
+    if (fixedStem) {
+      filename = `${fixedStem}.${ext}`
+    } else if (seq != null) {
+      filename = `${stemBase}-${seq}.${ext}`
+    } else if (useOriginalStem) {
+      const fromName = stemFromOriginalFilename(file.name)
+      const direct = `${fromName}.${ext}`
+      const directPath = path.join(uploadDir, direct)
+      try {
+        await fs.access(directPath, fsConstants.F_OK)
+        const next = await nextSequentialIndex(uploadDir, fromName, ext)
+        filename = `${fromName}-${next}.${ext}`
+      } catch {
+        filename = direct
+      }
+    } else {
+      const next = await nextSequentialIndex(uploadDir, stemBase, ext)
+      filename = `${stemBase}-${next}.${ext}`
+    }
     await fs.writeFile(
       path.join(uploadDir, filename),
       new Uint8Array(outputBuffer.buffer, outputBuffer.byteOffset, outputBuffer.byteLength),

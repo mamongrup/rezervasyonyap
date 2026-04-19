@@ -2,7 +2,6 @@
 
 import ListingPrice from '@/components/ListingPrice'
 import BtnLikeIcon from '@/components/BtnLikeIcon'
-import GallerySlider from '@/components/GallerySlider'
 import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
@@ -13,12 +12,17 @@ import { getMessages } from '@/utils/getT'
 import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { FC } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
+import listingPlaceholder from '@/images/hero-right.png'
+
+const FALLBACK_IMG =
+  typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
 
 interface StayCard2Props {
   className?: string
@@ -48,7 +52,6 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
     priceCurrency,
     reviewStart,
     reviewCount,
-    id,
     listingVertical,
   } = data
 
@@ -59,12 +62,32 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
 
   const detailBase = stayDetailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
-  const sliderImages = galleryImgs?.length ? galleryImgs : featuredImage ? [featuredImage] : []
+  const imgSrc =
+    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
+      ? galleryImgs[0]
+      : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
+    featuredImage ||
+    FALLBACK_IMG
 
   const renderSliderGallery = () => {
     return (
       <div className="relative w-full">
-        <GallerySlider ratioClass="aspect-w-12 aspect-h-11" galleryImgs={sliderImages} href={listingHref} />
+        <Link href={listingHref} className="block">
+          <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '91.6%' }}>
+            <Image
+              src={imgSrc}
+              fill
+              alt={title ?? 'listing'}
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 1025px) 100vw, 25vw"
+              unoptimized={
+                imgSrc.startsWith('http') ||
+                imgSrc.startsWith('/uploads/') ||
+                imgSrc.startsWith('data:')
+              }
+            />
+          </div>
+        </Link>
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3 z-1" />
         {saleOff && <SaleOffBadge className="absolute start-3 top-3" />}
       </div>

@@ -115,7 +115,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
     }
 
     // 2) Sonra API'den güncel veriyi çek ve cache'i güncelle
-    getSitePublicConfig()
+    getSitePublicConfig(undefined, { cache: 'no-store' })
       .then((cfg) => {
         const b = (cfg.branding ?? {}) as BrandingConfig & Record<string, unknown>
         const next: BrandingConfig = {

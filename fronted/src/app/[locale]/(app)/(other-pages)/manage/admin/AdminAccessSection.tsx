@@ -242,8 +242,16 @@ export default function AdminAccessSection() {
                   <th className="sticky left-0 z-10 border-b border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-neutral-700 dark:bg-neutral-800/80">Rol</th>
                   {permCatalog.map((p) => (
                     <th key={p.code} title={p.description}
-                      className="max-w-[8rem] border-b border-l border-neutral-200 px-1 py-2 align-bottom font-mono text-[10px] leading-tight text-neutral-600 dark:border-neutral-700 dark:text-neutral-400">
-                      {p.code}
+                      className="border-b border-l border-neutral-200 px-1 pb-2 pt-3 align-bottom dark:border-neutral-700"
+                      style={{ minWidth: '2rem', width: '2rem' }}>
+                      <div className="flex items-end justify-center" style={{ height: '7rem' }}>
+                        <span
+                          className="font-mono text-[10px] leading-none text-neutral-600 dark:text-neutral-400 whitespace-nowrap"
+                          style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                        >
+                          {p.code}
+                        </span>
+                      </div>
                     </th>
                   ))}
                 </tr>

@@ -23,6 +23,7 @@ import ImageTextModule from './modules/ImageTextModule'
 import DestinationCardsModule from './modules/DestinationCardsModule'
 import PartnersModule from './modules/PartnersModule'
 import CategorySliderModule from './modules/CategorySliderModule'
+import SlidersBannerModule from './modules/SlidersBannerModule'
 import GeziOnerileriModule from './modules/GeziOnerileriModule'
 import FeaturedPlacesModule from './modules/FeaturedPlacesModule'
 import HowItWorksModule from './modules/HowItWorksModule'
@@ -30,6 +31,12 @@ import CategoryGridModule from './modules/CategoryGridModule'
 import SectionVideosModule from './modules/SectionVideosModule'
 import ClientSayModule from './modules/ClientSayModule'
 import SearchResultsModule from './modules/SearchResultsModule'
+import ActiveCampaignsModule from './modules/ActiveCampaignsModule'
+import EarlyBookingPromoModule from './modules/EarlyBookingPromoModule'
+import LastMinutePromoModule from './modules/LastMinutePromoModule'
+import CouponsStripModule from './modules/CouponsStripModule'
+import HolidayPackagesModule from './modules/HolidayPackagesModule'
+import CrossSellWidgetModule from './modules/CrossSellWidgetModule'
 
 interface PageBuilderRendererProps {
   modules: PageBuilderModule[]
@@ -57,6 +64,12 @@ interface PageBuilderRendererProps {
     page?: number
   }
   /**
+   * Slider/banner gibi sayfa-spesifik veri okuyan modüller için varsayılan
+   * dosya anahtarı. Anasayfada `"homepage"`, kategori sayfalarında otomatik
+   * olarak `category.slug` kullanılır.
+   */
+  pageKey?: string
+  /**
    * Sunucuda listingCardRenderer ile üretilmiş kartlar (id → node).
    * Fonksiyon client bileşenine geçirilemediği için burada yalnızca Record kullanılır.
    */
@@ -81,7 +94,9 @@ export default function PageBuilderRenderer({
   authors = [],
   listingCardsById,
   searchContext,
+  pageKey,
 }: PageBuilderRendererProps) {
+  const defaultSliderPageKey = pageKey ?? category.slug
   const messages = getMessages(locale)
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
@@ -150,6 +165,16 @@ export default function PageBuilderRenderer({
               <PromoBannerModule
                 key={module.id}
                 config={cfg as Parameters<typeof PromoBannerModule>[0]['config']}
+              />
+            )
+
+          case 'sliders_banner':
+            return (
+              <SlidersBannerModule
+                key={module.id}
+                config={cfg as { pageKey?: string }}
+                fallbackPageKey={defaultSliderPageKey}
+                locale={locale}
               />
             )
 
@@ -349,6 +374,67 @@ export default function PageBuilderRenderer({
                 categoryFilter={searchContext?.categoryFilter}
                 locale={locale}
                 page={searchContext?.page ?? 1}
+              />
+            )
+
+          // ─── Marketing modülleri (admin içerikleri vitrinde) ────────────────
+          case 'active_campaigns':
+            // @ts-expect-error Async Server Component — React 19 destekler
+            return (
+              <ActiveCampaignsModule
+                key={module.id}
+                config={cfg as Parameters<typeof ActiveCampaignsModule>[0]['config']}
+                locale={locale}
+              />
+            )
+
+          case 'early_booking_promo':
+            // @ts-expect-error Async Server Component
+            return (
+              <EarlyBookingPromoModule
+                key={module.id}
+                config={cfg as Parameters<typeof EarlyBookingPromoModule>[0]['config']}
+                locale={locale}
+              />
+            )
+
+          case 'last_minute_promo':
+            // @ts-expect-error Async Server Component
+            return (
+              <LastMinutePromoModule
+                key={module.id}
+                config={cfg as Parameters<typeof LastMinutePromoModule>[0]['config']}
+                locale={locale}
+              />
+            )
+
+          case 'coupons_strip':
+            // @ts-expect-error Async Server Component
+            return (
+              <CouponsStripModule
+                key={module.id}
+                config={cfg as Parameters<typeof CouponsStripModule>[0]['config']}
+                locale={locale}
+              />
+            )
+
+          case 'holiday_packages':
+            // @ts-expect-error Async Server Component
+            return (
+              <HolidayPackagesModule
+                key={module.id}
+                config={cfg as Parameters<typeof HolidayPackagesModule>[0]['config']}
+                locale={locale}
+              />
+            )
+
+          case 'cross_sell_widget':
+            // @ts-expect-error Async Server Component
+            return (
+              <CrossSellWidgetModule
+                key={module.id}
+                config={cfg as Parameters<typeof CrossSellWidgetModule>[0]['config']}
+                locale={locale}
               />
             )
 

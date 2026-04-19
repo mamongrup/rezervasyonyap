@@ -5,7 +5,7 @@ import DatePickerCustomHeaderTwoMonth from '@/components/DatePickerCustomHeaderT
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { datePickerLocaleId, intlDateLocaleTag } from '@/lib/i18n-config'
 import '@/lib/register-datepicker-locales'
-import { isListingDayFullyBlocked } from '@/lib/listing-availability-day'
+import { isListingDayFullyBlocked, listingDayAmPm } from '@/lib/listing-availability-day'
 import {
   addDays,
   defaultRangeStayNights,
@@ -177,7 +177,12 @@ function SectionDateRangeCalendar({
           renderCustomHeader={(props) => (
             <DatePickerCustomHeaderTwoMonth {...props} monthLocale={monthLocale} monthsShown={monthsShown} />
           )}
-          renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+          renderDayContents={(day, date) => {
+            const ymd = date ? formatLocalYmd(date) : ''
+            const row = ymd ? byYmd.get(ymd) : undefined
+            const { am, pm } = listingDayAmPm(row)
+            return <DatePickerCustomDay dayOfMonth={day} date={date} am={am} pm={pm} />
+          }}
         />
       </div>
 

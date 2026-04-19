@@ -136,25 +136,33 @@ export default function AgencySalesClient() {
     setSubmitting(true)
     try {
       const cart = await createCart(selected.currency_code)
-      await addCartLine(cart.id, {
-        listing_id: selected.id,
-        quantity: 1,
-        starts_on: start,
-        ends_on: end,
-        unit_price: unitPrice.trim() || '100.00',
-        agency_organization_id: state.me.organization_id,
-      })
+      await addCartLine(
+        cart.id,
+        {
+          listing_id: selected.id,
+          quantity: 1,
+          starts_on: start,
+          ends_on: end,
+          unit_price: unitPrice.trim() || '100.00',
+          agency_organization_id: state.me.organization_id,
+        },
+        token,
+      )
       const cx = agencyContractRef.current
-      const out = await checkoutCart(cart.id, {
-        guest_email: email,
-        guest_name: name,
-        ...(guestPhone.trim() ? { guest_phone: guestPhone.trim() } : {}),
-        agency_organization_id: state.me.organization_id,
-        contract_accepted: cx.contract_accepted,
-        general_contract_accepted: cx.general_contract_accepted,
-        sales_contract_accepted: cx.sales_contract_accepted,
-        contract_locale: locale,
-      })
+      const out = await checkoutCart(
+        cart.id,
+        {
+          guest_email: email,
+          guest_name: name,
+          ...(guestPhone.trim() ? { guest_phone: guestPhone.trim() } : {}),
+          agency_organization_id: state.me.organization_id,
+          contract_accepted: cx.contract_accepted,
+          general_contract_accepted: cx.general_contract_accepted,
+          sales_contract_accepted: cx.sales_contract_accepted,
+          contract_locale: locale,
+        },
+        token,
+      )
       const payload = {
         reservation_id: out.reservation_id,
         public_code: out.public_code,

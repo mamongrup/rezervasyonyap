@@ -41,7 +41,12 @@ export async function POST(req: NextRequest) {
   const authErr = await requireAdminCookie()
   if (authErr) return authErr
 
-  const body = (await req.json()) as Partial<HomepageConfig>
+  let body: Partial<HomepageConfig>
+  try {
+    body = (await req.json()) as Partial<HomepageConfig>
+  } catch {
+    return NextResponse.json({ ok: false, error: 'invalid_json_body' }, { status: 400 })
+  }
 
   let previousModules: PageBuilderModule[] | undefined
   try {

@@ -1,7 +1,9 @@
 import { Footer2TrustBadge } from '@/components/Footer2TrustBadge'
 import { getFooterSiteConfig } from '@/lib/footer-site-config'
+import { pickI18nWithLegacy } from '@/lib/i18n-field'
 import { getSitePublicConfig } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { getMessages } from '@/utils/getT'
 import Logo from '@/shared/Logo'
 import type { JSX, SVGProps } from 'react'
 
@@ -56,8 +58,7 @@ async function resolveFooterHref(locale: string, href: string): Promise<string> 
 export default async function Footer2({ locale }: Footer2Props) {
   const c = getSitePublicConfig()
   const cfg = await getFooterSiteConfig()
-
-  const en = locale === 'en'
+  const t = getMessages(locale)
 
   const socialItems = [
     { name: 'Facebook', href: c.socialFacebook, icon: socialIcon('Facebook') },
@@ -67,25 +68,24 @@ export default async function Footer2({ locale }: Footer2Props) {
   ].filter((x) => x.href)
 
   const tagline =
-    (en ? cfg.taglineEn : cfg.taglineTr) ||
+    pickI18nWithLegacy({ tr: cfg.taglineTr, en: cfg.taglineEn }, cfg.tagline_i18n, locale, '') ||
     c.tagline ||
-    (en
-      ? 'Discover stays, experiences and trips with transparent pricing and trusted service.'
-      : 'Konaklama, deneyim ve seyahatleri şeffaf fiyat ve güvenilir hizmetle keşfedin.')
+    cfg.taglineEn ||
+    cfg.taglineTr
 
   const copyName = c.orgLegalName || c.orgName
   const year = new Date().getFullYear()
-  const rights = en ? 'All rights reserved.' : 'Tüm hakları saklıdır.'
+  const rights = t.footer?.rights ?? 'All rights reserved.'
 
   const linkCls = 'text-sm/6 text-gray-600 transition-colors hover:text-primary-600 dark:text-neutral-400 dark:hover:text-neutral-200'
   const headingCls = 'text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-neutral-200'
 
   const columns = await Promise.all(
     cfg.columns.map(async (col) => ({
-      title: en ? col.titleEn : col.titleTr,
+      title: pickI18nWithLegacy({ tr: col.titleTr, en: col.titleEn }, col.title_i18n, locale, col.titleEn || col.titleTr),
       links: await Promise.all(
         col.links.map(async (item) => ({
-          name: en ? item.nameEn : item.nameTr,
+          name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
           href: await resolveFooterHref(locale, item.href),
         })),
       ),
@@ -94,7 +94,7 @@ export default async function Footer2({ locale }: Footer2Props) {
 
   const legal = await Promise.all(
     cfg.legalLinks.map(async (item) => ({
-      name: en ? item.nameEn : item.nameTr,
+      name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
       href: await resolveFooterHref(locale, item.href),
     })),
   )

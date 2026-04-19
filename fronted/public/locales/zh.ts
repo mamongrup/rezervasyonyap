@@ -272,6 +272,21 @@ export const zh: AppMessages = {
     contractPage: {
       backToListing: '返回房源',
     },
+    highlights: {
+      title: '酒店亮点',
+      subtitle: '住客最看重的酒店特色。',
+    },
+    faq: {
+      title: '常见问题',
+      subtitle: '住客最常询问的关于本酒店的问题。',
+      qCheckInOut: '入住和退房时间是几点？',
+      qBreakfast: '本酒店提供早餐吗？',
+      aBreakfast: '是的，本酒店提供早餐。详情请见用餐计划部分。',
+      qPrepayment: '需要预付多少？',
+      qCancellation: '如何取消我的预订？',
+      qPets: '是否允许携带宠物？',
+      qLicense: '本酒店的旅游主管部门许可证号是多少？',
+    },
     sidebar: {
       ...en.listing.sidebar,
       perNight: '/晚',
@@ -401,6 +416,66 @@ export const zh: AppMessages = {
     car: {
       dropOffLocationAria: '还车方式',
     },
+  },
+  site: {
+    footer: { rights: '保留所有权利。' },
+    notFound: {
+      title: '您查找的页面不存在。',
+      description: '该页面可能已被移动、删除或重命名。',
+      backHome: '返回首页',
+    },
+    region: {
+      listingsSuffix: '个房源',
+      nearbyPlaces: '附近',
+      regionPrefix: '地区：',
+      browseAll: '查看全部',
+      breadcrumbHome: '首页',
+      viewOnMap: '在地图上查看',
+      noListings: '该地区暂无房源。',
+      aboutHeading: '关于此目的地',
+      nearbySectionTitle: '附近',
+      locationHeading: '位置',
+      noContentYet: '该地区暂无内容。',
+      goToRegionAdmin: '地区管理',
+    },
+    featured: {
+      heading: '精选地点',
+      tabNew: '最新',
+      tabDiscounted: '特价',
+      tabFeatured: '精选',
+    },
+    mealPlans: {
+      ro: '仅住宿',
+      bb: '含早餐',
+      hb: '半膳',
+      fb: '全膳',
+      ai: '全包式',
+      uai: '超全包式',
+    },
+    sortOrder: {
+      recommended: '推荐',
+      priceAsc: '价格：从低到高',
+      priceDesc: '价格：从高到低',
+      ratingDesc: '评分最高',
+      newest: '最新',
+    },
+    actions: {
+      save: '保存',
+      cancel: '取消',
+      delete: '删除',
+      edit: '编辑',
+      add: '添加',
+      loading: '加载中…',
+      retry: '重试',
+      refresh: '刷新',
+      yes: '是',
+      no: '否',
+    },
+  },
+  reviews: {
+    ...en.reviews,
+    showAll: '显示全部 {count} 条评论',
+    showLess: '收起',
   },
 }
 

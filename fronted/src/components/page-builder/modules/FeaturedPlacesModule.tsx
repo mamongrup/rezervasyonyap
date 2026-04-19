@@ -3,6 +3,7 @@ import { getStayListings } from '@/data/listings'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import type { TListingBase } from '@/types/listing-types'
+import { getMessages } from '@/utils/getT'
 
 interface Config {
   heading?: string
@@ -24,15 +25,14 @@ export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { 
     listingVertical: normalizeCatalogVertical(l.listingVertical),
   }))
 
-  const tabs = locale === 'en'
-    ? ['New', 'Discounted', 'Featured']
-    : ['Yeni', 'İndirimli', 'Öne Çıkan']
+  const t = getMessages(locale)
+  const tabs = [t.site.featured.tabNew, t.site.featured.tabDiscounted, t.site.featured.tabFeatured]
 
   return (
     <SectionGridFeaturePlaces
       stayListings={listings}
       cardType={(config.cardType as 'card1' | 'card2') ?? 'card2'}
-      heading={config.heading ?? (locale === 'en' ? 'Featured Places' : 'Öne Çıkan İlanlar')}
+      heading={config.heading ?? t.site.featured.heading}
       subHeading={config.subHeading ?? ''}
       tabs={tabs}
       tabActive={tabs[0] ?? ''}

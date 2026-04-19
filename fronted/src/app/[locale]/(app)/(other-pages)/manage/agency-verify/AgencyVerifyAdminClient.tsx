@@ -12,171 +12,154 @@ import {
   ShieldX,
   ChevronDown,
   ChevronUp,
-  FileText,
   AlertTriangle,
-  Phone,
-  MapPin,
-  User,
   BadgeCheck,
+  Loader2,
 } from 'lucide-react'
+import {
+  listAdminAgencyProfiles,
+  patchAdminAgencyProfiles,
+  type AdminAgencyProfileRow,
+} from '@/lib/travel-api'
+import { getStoredAuthToken } from '@/lib/auth-storage'
 
 // ─── Tipler ───────────────────────────────────────────────────────────────────
-type DocStatus = 'admin_pending' | 'admin_approved' | 'admin_rejected'
+/** Backend `agency_profiles.document_status` alanı için izinli değerler.
+ *  Sunucu tarafı doğrulama: `valid_agency_document_status` (identity_http.gleam). */
+type DocStatus = 'pending' | 'approved' | 'rejected'
 
 interface AgencyVerifyRecord {
-  id: string
-  userEmail?: string
-  userId?: string
+  organizationId: string
+  userId: string
+  userEmail: string
+  organizationName: string
+  organizationSlug: string
   tursabNo: string
-  agencyName: string
-  vkn?: string
-  taxOffice?: string
-  authorizedPerson?: string
-  phone?: string
-  address?: string
+  tursabVerifyUrl: string
+  discountPercent: string
   status: DocStatus
   submittedAt: string
-  adminNote?: string
-  reviewedAt?: string
-  reviewedBy?: string
 }
 
 const STATUS_LABELS: Record<DocStatus, string> = {
-  admin_pending: 'Onay Bekliyor',
-  admin_approved: 'Onaylandı',
-  admin_rejected: 'Reddedildi',
+  pending: 'Onay Bekliyor',
+  approved: 'Onaylandı',
+  rejected: 'Reddedildi',
 }
 
 const STATUS_BADGE: Record<DocStatus, string> = {
-  admin_pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
-  admin_approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
-  admin_rejected: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
+  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
+  approved: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+  rejected: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
 }
 
-// ─── Demo verisi ─────────────────────────────────────────────────────────────
-function loadDemoRecords(): AgencyVerifyRecord[] {
-  return [
-    {
-      id: 'ag-001',
-      userEmail: 'info@abcseyahat.com',
-      tursabNo: 'A1234',
-      agencyName: 'ABC Seyahat Acentası A.Ş.',
-      vkn: '1234567890',
-      taxOffice: 'Beyoğlu Vergi Dairesi',
-      authorizedPerson: 'Ahmet Yılmaz',
-      phone: '+90 212 123 45 67',
-      address: 'Beyoğlu, İstanbul',
-      status: 'admin_pending',
-      submittedAt: new Date(Date.now() - 3 * 3600_000).toISOString(),
-    },
-    {
-      id: 'ag-002',
-      userEmail: 'bodrum@tatilevi.tr',
-      tursabNo: 'B5678',
-      agencyName: 'Bodrum Tatil Evi Turizm',
-      vkn: '9876543210',
-      taxOffice: 'Bodrum Vergi Dairesi',
-      authorizedPerson: 'Fatma Kaya',
-      phone: '+90 252 316 55 44',
-      address: 'Bodrum, Muğla',
-      status: 'admin_pending',
-      submittedAt: new Date(Date.now() - 18 * 3600_000).toISOString(),
-    },
-    {
-      id: 'ag-003',
-      userEmail: 'marmaris@blueline.com',
-      tursabNo: 'A7890',
-      agencyName: 'Blue Line Turizm A.Ş.',
-      vkn: '5432167890',
-      taxOffice: 'Marmaris Vergi Dairesi',
-      authorizedPerson: 'Mehmet Demir',
-      phone: '+90 252 412 10 10',
-      address: 'Marmaris, Muğla',
-      status: 'admin_approved',
-      submittedAt: new Date(Date.now() - 7 * 24 * 3600_000).toISOString(),
-      reviewedAt: new Date(Date.now() - 6 * 24 * 3600_000).toISOString(),
-      reviewedBy: 'admin@site.com',
-      adminNote: 'TÜRSAB kaydı doğrulandı, A grubu belgesi geçerli.',
-    },
-    {
-      id: 'ag-004',
-      userEmail: 'info@gecelikseyahat.com',
-      tursabNo: 'B0099',
-      agencyName: 'Gecelik Seyahat',
-      status: 'admin_rejected',
-      submittedAt: new Date(Date.now() - 14 * 24 * 3600_000).toISOString(),
-      reviewedAt: new Date(Date.now() - 13 * 24 * 3600_000).toISOString(),
-      reviewedBy: 'admin@site.com',
-      adminNote: 'TÜRSAB.org üzerinde bu belge numarası bulunamadı. Lütfen belgeni yeniden kontrol edin.',
-    },
-  ]
+/** Backend'in döndürdüğü ham `document_status` değerini UI tipine indirger.
+ *  Bilinmeyen değerleri `pending` kabul eder (yeni eklenecek statüler için güvenli varsayılan). */
+function normalizeStatus(raw: string): DocStatus {
+  const s = (raw ?? '').trim().toLowerCase()
+  if (s === 'approved') return 'approved'
+  if (s === 'rejected') return 'rejected'
+  return 'pending'
+}
+
+function rowToRecord(row: AdminAgencyProfileRow): AgencyVerifyRecord {
+  return {
+    organizationId: row.organization_id ?? '',
+    userId: row.user_id,
+    userEmail: row.email ?? '',
+    organizationName: row.organization_name ?? '(adsız acente)',
+    organizationSlug: row.organization_slug ?? '',
+    tursabNo: row.tursab_license_no ?? '',
+    tursabVerifyUrl: row.tursab_verify_url ?? '',
+    discountPercent: row.discount_percent ?? '0',
+    status: normalizeStatus(row.document_status),
+    submittedAt: row.created_at ?? '',
+  }
 }
 
 // ─── Ana bileşen ─────────────────────────────────────────────────────────────
 export default function AgencyVerifyAdminClient() {
   const [records, setRecords] = useState<AgencyVerifyRecord[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | DocStatus>('all')
   const [search, setSearch] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [noteInputs, setNoteInputs] = useState<Record<string, string>>({})
+  const [discountInputs, setDiscountInputs] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [actionMsg, setActionMsg] = useState<{ id: string; ok: boolean; text: string } | null>(null)
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true)
-    setTimeout(() => {
-      const data = loadDemoRecords()
-      setRecords(data)
-      setNoteInputs(Object.fromEntries(data.map((r) => [r.id, r.adminNote ?? ''])))
+    setLoadError(null)
+    const token = getStoredAuthToken()
+    if (!token) {
+      setLoadError('Oturum gerekli. Lütfen yönetici olarak giriş yapın.')
       setLoading(false)
-    }, 350)
-  }, [])
-
-  useEffect(() => { void load() }, [load])
-
-  function handleApprove(id: string) {
-    const note = noteInputs[id]?.trim()
-    setBusy(id)
-    setTimeout(() => {
-      setRecords((prev) =>
-        prev.map((r) =>
-          r.id === id
-            ? { ...r, status: 'admin_approved', reviewedAt: new Date().toISOString(), reviewedBy: 'admin', adminNote: note || undefined }
-            : r,
-        ),
-      )
-      setBusy(null)
-      setActionMsg({ id, ok: true, text: 'Acente onaylandı. Belge durumu güncellendi.' })
-      setTimeout(() => setActionMsg(null), 4000)
-    }, 500)
-  }
-
-  function handleReject(id: string) {
-    const note = noteInputs[id]?.trim()
-    if (!note) {
-      setActionMsg({ id, ok: false, text: 'Lütfen red gerekçesini admin notu alanına yazın.' })
-      setTimeout(() => setActionMsg(null), 4000)
       return
     }
-    setBusy(id)
-    setTimeout(() => {
+    try {
+      const { profiles } = await listAdminAgencyProfiles(token, '')
+      const data = profiles.map(rowToRecord)
+      setRecords(data)
+      setDiscountInputs(
+        Object.fromEntries(data.map((r) => [r.organizationId, r.discountPercent])),
+      )
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'list_failed')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void load()
+  }, [load])
+
+  async function patchStatus(orgId: string, status: DocStatus) {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setActionMsg({ id: orgId, ok: false, text: 'Oturum gerekli.' })
+      return
+    }
+    setBusy(orgId)
+    setActionMsg(null)
+    try {
+      const discount = discountInputs[orgId]?.trim()
+      const body: { agency_organization_id: string; document_status: string; discount_percent?: string } = {
+        agency_organization_id: orgId,
+        document_status: status,
+      }
+      if (discount && discount !== '') body.discount_percent = discount
+      await patchAdminAgencyProfiles(token, body)
       setRecords((prev) =>
         prev.map((r) =>
-          r.id === id
-            ? { ...r, status: 'admin_rejected', reviewedAt: new Date().toISOString(), reviewedBy: 'admin', adminNote: note }
+          r.organizationId === orgId
+            ? { ...r, status, discountPercent: discount && discount !== '' ? discount : r.discountPercent }
             : r,
         ),
       )
-      setBusy(null)
-      setActionMsg({ id, ok: true, text: 'Başvuru reddedildi. Acente bilgilendirildi.' })
+      setActionMsg({
+        id: orgId,
+        ok: true,
+        text:
+          status === 'approved'
+            ? 'Acente onaylandı. Belge durumu güncellendi.'
+            : status === 'rejected'
+              ? 'Başvuru reddedildi.'
+              : 'Durum güncellendi.',
+      })
       setTimeout(() => setActionMsg(null), 4000)
-    }, 500)
-  }
-
-  function handleRequestDoc(id: string) {
-    setActionMsg({ id, ok: true, text: 'Evrak talebi e-postası gönderildi (simülasyon).' })
-    setTimeout(() => setActionMsg(null), 4000)
+    } catch (e) {
+      setActionMsg({
+        id: orgId,
+        ok: false,
+        text: e instanceof Error ? e.message : 'update_failed',
+      })
+      setTimeout(() => setActionMsg(null), 6000)
+    } finally {
+      setBusy(null)
+    }
   }
 
   const filtered = records.filter((r) => {
@@ -184,19 +167,18 @@ export default function AgencyVerifyAdminClient() {
     if (search.trim()) {
       const q = search.toLowerCase()
       return (
-        r.agencyName.toLowerCase().includes(q) ||
+        r.organizationName.toLowerCase().includes(q) ||
         r.tursabNo.toLowerCase().includes(q) ||
-        (r.vkn?.includes(q) ?? false) ||
-        (r.userEmail?.toLowerCase().includes(q) ?? false) ||
-        (r.authorizedPerson?.toLowerCase().includes(q) ?? false)
+        r.organizationSlug.toLowerCase().includes(q) ||
+        r.userEmail.toLowerCase().includes(q)
       )
     }
     return true
   })
 
-  const pendingCount = records.filter((r) => r.status === 'admin_pending').length
-  const approvedCount = records.filter((r) => r.status === 'admin_approved').length
-  const rejectedCount = records.filter((r) => r.status === 'admin_rejected').length
+  const pendingCount = records.filter((r) => r.status === 'pending').length
+  const approvedCount = records.filter((r) => r.status === 'approved').length
+  const rejectedCount = records.filter((r) => r.status === 'rejected').length
 
   return (
     <div className="p-6 lg:p-8">
@@ -207,7 +189,7 @@ export default function AgencyVerifyAdminClient() {
           Acente TÜRSAB Doğrulama
         </h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Acente hesapları için TÜRSAB belge numarası başvurularını inceleyin ve onaylayın.
+          Acente kuruluşları için TÜRSAB belge numarası doğrulayın, belge durumunu ve indirim yüzdesini güncelleyin.
         </p>
       </div>
 
@@ -249,24 +231,31 @@ export default function AgencyVerifyAdminClient() {
           >
             tursab.org.tr/acente-sorgulama
           </a>
-          {' '}— Belge numarasını, unvanı ve grubunu buradan kontrol edebilirsiniz.
+          {' '}— Belge numarasını ve unvanı buradan kontrol edebilirsiniz.
         </span>
       </div>
 
+      {loadError && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span>Liste yüklenemedi: {loadError}</span>
+        </div>
+      )}
+
       {/* Filtreler */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Acente adı, TÜRSAB no, VKN veya e-posta ara…"
+            placeholder="Acente adı, TÜRSAB no, slug veya e-posta ara…"
             className="w-full rounded-xl border border-neutral-200 bg-white py-2 pl-9 pr-4 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
-        <div className="flex gap-1 flex-wrap">
-          {(['all', 'admin_pending', 'admin_approved', 'admin_rejected'] as const).map((f) => (
+        <div className="flex flex-wrap gap-1">
+          {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
             <button
               key={f}
               type="button"
@@ -283,7 +272,7 @@ export default function AgencyVerifyAdminClient() {
         </div>
         <button
           type="button"
-          onClick={load}
+          onClick={() => void load()}
           className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-600 shadow-sm hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
         >
           <RefreshCw className="h-3.5 w-3.5" />
@@ -305,40 +294,51 @@ export default function AgencyVerifyAdminClient() {
       ) : (
         <div className="space-y-3">
           {filtered.map((record) => {
-            const isExpanded = expanded === record.id
-            const isBusy = busy === record.id
-            const msg = actionMsg?.id === record.id ? actionMsg : null
+            const isExpanded = expanded === record.organizationId
+            const isBusy = busy === record.organizationId
+            const msg = actionMsg?.id === record.organizationId ? actionMsg : null
+            const verifyHref =
+              record.tursabVerifyUrl && record.tursabVerifyUrl.trim() !== ''
+                ? record.tursabVerifyUrl
+                : `https://www.tursab.org.tr/acente-sorgulama?q=${encodeURIComponent(record.tursabNo)}`
 
             return (
               <div
-                key={record.id}
+                key={record.organizationId}
                 className="rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900/40"
               >
                 {/* Başlık satırı */}
                 <button
                   type="button"
-                  onClick={() => setExpanded(isExpanded ? null : record.id)}
+                  onClick={() => setExpanded(isExpanded ? null : record.organizationId)}
                   className="flex w-full items-center gap-4 px-5 py-4 text-left"
                 >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
                     <Briefcase className="h-5 w-5 text-neutral-500 dark:text-neutral-400" />
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-neutral-900 dark:text-white truncate">
-                        {record.agencyName}
+                      <span className="truncate font-semibold text-neutral-900 dark:text-white">
+                        {record.organizationName}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-mono font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
-                        TÜRSAB {record.tursabNo}
-                      </span>
-                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[record.status]}`}>
+                      {record.tursabNo && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-0.5 font-mono text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                          TÜRSAB {record.tursabNo}
+                        </span>
+                      )}
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[record.status]}`}
+                      >
                         {STATUS_LABELS[record.status]}
                       </span>
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-                      {record.vkn && <span className="font-mono">VKN: {record.vkn}</span>}
+                      {record.organizationSlug && <span>/{record.organizationSlug}</span>}
                       {record.userEmail && <span>{record.userEmail}</span>}
-                      <span>{new Date(record.submittedAt).toLocaleString('tr-TR')}</span>
+                      {record.submittedAt && (
+                        <span>{new Date(record.submittedAt).toLocaleString('tr-TR')}</span>
+                      )}
+                      <span className="font-mono">İndirim: %{record.discountPercent}</span>
                     </div>
                   </div>
                   {isExpanded ? (
@@ -352,203 +352,153 @@ export default function AgencyVerifyAdminClient() {
                 {isExpanded && (
                   <div className="border-t border-neutral-100 px-5 pb-5 pt-4 dark:border-neutral-800">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {/* Sol: Başvuru bilgileri */}
                       <div>
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                          Başvuru Bilgileri
+                          Acente Bilgileri
                         </p>
                         <dl className="space-y-2 text-sm">
                           <div className="flex gap-2">
-                            <dt className="w-32 shrink-0 text-neutral-500">Acente Adı:</dt>
-                            <dd className="font-medium">{record.agencyName}</dd>
+                            <dt className="w-32 shrink-0 text-neutral-500">Ad:</dt>
+                            <dd className="font-medium">{record.organizationName}</dd>
                           </div>
-                          <div className="flex items-center gap-2">
+                          {record.organizationSlug && (
+                            <div className="flex gap-2">
+                              <dt className="w-32 shrink-0 text-neutral-500">Slug:</dt>
+                              <dd className="font-mono">{record.organizationSlug}</dd>
+                            </div>
+                          )}
+                          <div className="flex gap-2">
                             <dt className="w-32 shrink-0 text-neutral-500">TÜRSAB No:</dt>
                             <dd>
                               <span className="rounded-lg bg-blue-50 px-2 py-0.5 font-mono font-bold text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
-                                {record.tursabNo}
-                              </span>
-                              <span className="ml-2 text-xs text-neutral-400">
-                                {record.tursabNo.startsWith('A') ? '(A Grubu — Yurt içi + dışı)' : record.tursabNo.startsWith('B') ? '(B Grubu — Yurt içi)' : ''}
+                                {record.tursabNo || '—'}
                               </span>
                             </dd>
                           </div>
-                          {record.vkn && (
-                            <div className="flex gap-2">
-                              <dt className="w-32 shrink-0 text-neutral-500">VKN:</dt>
-                              <dd className="font-mono">{record.vkn}</dd>
-                            </div>
-                          )}
-                          {record.taxOffice && (
-                            <div className="flex gap-2">
-                              <dt className="w-32 shrink-0 text-neutral-500">Vergi Dairesi:</dt>
-                              <dd>{record.taxOffice}</dd>
-                            </div>
-                          )}
-                          {record.authorizedPerson && (
-                            <div className="flex items-center gap-2">
-                              <dt className="w-32 shrink-0 text-neutral-500 flex items-center gap-1">
-                                <User className="h-3 w-3" /> Yetkili:
-                              </dt>
-                              <dd>{record.authorizedPerson}</dd>
-                            </div>
-                          )}
-                          {record.phone && (
-                            <div className="flex items-center gap-2">
-                              <dt className="w-32 shrink-0 text-neutral-500 flex items-center gap-1">
-                                <Phone className="h-3 w-3" /> Telefon:
-                              </dt>
-                              <dd>
-                                <a href={`tel:${record.phone}`} className="text-primary-600 hover:underline dark:text-primary-400">
-                                  {record.phone}
-                                </a>
-                              </dd>
-                            </div>
-                          )}
-                          {record.address && (
-                            <div className="flex items-center gap-2">
-                              <dt className="w-32 shrink-0 text-neutral-500 flex items-center gap-1">
-                                <MapPin className="h-3 w-3" /> Adres:
-                              </dt>
-                              <dd>{record.address}</dd>
-                            </div>
-                          )}
                           {record.userEmail && (
                             <div className="flex gap-2">
-                              <dt className="w-32 shrink-0 text-neutral-500">E-posta:</dt>
+                              <dt className="w-32 shrink-0 text-neutral-500">Kullanıcı:</dt>
                               <dd>
-                                <a href={`mailto:${record.userEmail}`} className="text-primary-600 hover:underline dark:text-primary-400">
+                                <a
+                                  href={`mailto:${record.userEmail}`}
+                                  className="text-primary-600 hover:underline dark:text-primary-400"
+                                >
                                   {record.userEmail}
                                 </a>
                               </dd>
                             </div>
                           )}
+                          <div className="flex gap-2">
+                            <dt className="w-32 shrink-0 text-neutral-500">Org ID:</dt>
+                            <dd className="font-mono text-xs text-neutral-500">{record.organizationId}</dd>
+                          </div>
                         </dl>
                       </div>
 
-                      {/* Sağ: TÜRSAB doğrulama rehberi */}
                       <div>
                         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                          Doğrulama Adımları
+                          Doğrulama
                         </p>
-                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
-                          <ol className="space-y-2 text-xs text-neutral-600 dark:text-neutral-400">
-                            <li className="flex items-start gap-2">
-                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-bold dark:bg-neutral-700">1</span>
-                              <span>
-                                <a
-                                  href={`https://www.tursab.org.tr/acente-sorgulama?q=${record.tursabNo}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="font-medium text-primary-600 underline"
-                                >
-                                  TÜRSAB.org'da sorgula
-                                </a>{' '}
-                                → {record.tursabNo} numaralı belgeyi kontrol et
-                              </span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-bold dark:bg-neutral-700">2</span>
-                              <span>
-                                Unvan "{record.agencyName}" ile eşleşiyor mu? kontrol et
-                              </span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-bold dark:bg-neutral-700">3</span>
-                              <span>Belge grubu (A/B) ve geçerlilik tarihi uygunsa onayla</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-xs font-bold dark:bg-neutral-700">4</span>
-                              <span>Eşleşmiyorsa evrak talep et veya reddet</span>
-                            </li>
-                          </ol>
-                        </div>
-                        {record.reviewedAt && (
-                          <p className="mt-3 text-xs text-neutral-400">
-                            İnceleme: {new Date(record.reviewedAt).toLocaleString('tr-TR')}
-                            {record.reviewedBy && ` — ${record.reviewedBy}`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                        <a
+                          href={verifyHref}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
+                        >
+                          <BadgeCheck className="h-4 w-4" />
+                          TÜRSAB'da Sorgula
+                        </a>
 
-                    {/* Admin notu */}
-                    <div className="mt-4">
-                      <label className="block text-xs font-semibold uppercase tracking-wide text-neutral-400 mb-1.5">
-                        Admin Notu{' '}
-                        {record.status === 'admin_pending' && (
-                          <span className="text-red-400 normal-case font-normal">(red için zorunlu)</span>
-                        )}
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={noteInputs[record.id] ?? ''}
-                        onChange={(e) => setNoteInputs((prev) => ({ ...prev, [record.id]: e.target.value }))}
-                        placeholder={
-                          record.status === 'admin_pending'
-                            ? 'Onay veya red notu… Red ise mutlaka gerekçe yazın.'
-                            : record.adminNote || 'Not yok.'
-                        }
-                        disabled={record.status === 'admin_approved'}
-                        className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:bg-neutral-50 disabled:opacity-60 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
-                      />
+                        <div className="mt-4">
+                          <label
+                            htmlFor={`discount-${record.organizationId}`}
+                            className="mb-1 block text-xs font-medium text-neutral-500"
+                          >
+                            İndirim Yüzdesi (acenteye uygulanır)
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <input
+                              id={`discount-${record.organizationId}`}
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              value={discountInputs[record.organizationId] ?? ''}
+                              onChange={(e) =>
+                                setDiscountInputs((prev) => ({
+                                  ...prev,
+                                  [record.organizationId]: e.target.value,
+                                }))
+                              }
+                              className="w-28 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+                            />
+                            <span className="text-sm text-neutral-500">%</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Mesaj */}
                     {msg && (
-                      <div className={`mt-3 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${
-                        msg.ok
-                          ? 'border border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
-                          : 'border border-red-200 bg-red-50 text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
-                      }`}>
-                        {msg.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}
+                      <div
+                        className={`mt-3 flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm ${
+                          msg.ok
+                            ? 'border border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300'
+                            : 'border border-red-200 bg-red-50 text-red-800 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'
+                        }`}
+                      >
+                        {msg.ok ? (
+                          <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                        )}
                         {msg.text}
                       </div>
                     )}
 
                     {/* Aksiyon butonları */}
                     <div className="mt-4 flex flex-wrap items-center gap-3">
-                      {record.status !== 'admin_approved' && (
+                      {record.status !== 'approved' && (
                         <button
                           type="button"
                           disabled={isBusy}
-                          onClick={() => handleApprove(record.id)}
+                          onClick={() => void patchStatus(record.organizationId, 'approved')}
                           className="flex items-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
                         >
-                          <ShieldCheck className="h-4 w-4" />
-                          {isBusy ? 'İşleniyor…' : 'Onayla'}
+                          {isBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-4 w-4" />
+                          )}
+                          Onayla
                         </button>
                       )}
-                      {record.status !== 'admin_rejected' && record.status !== 'admin_approved' && (
+                      {record.status !== 'rejected' && (
                         <button
                           type="button"
                           disabled={isBusy}
-                          onClick={() => handleReject(record.id)}
+                          onClick={() => void patchStatus(record.organizationId, 'rejected')}
                           className="flex items-center gap-1.5 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-neutral-900 dark:text-red-300"
                         >
-                          <ShieldX className="h-4 w-4" />
+                          {isBusy ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ShieldX className="h-4 w-4" />
+                          )}
                           Reddet
                         </button>
                       )}
-                      {record.status === 'admin_approved' && (
-                        <div className="flex items-center gap-1.5 rounded-xl bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-                          <CheckCircle2 className="h-4 w-4" />
-                          Onaylandı
-                          {record.reviewedAt && (
-                            <span className="ml-1 text-xs text-emerald-600">
-                              {new Date(record.reviewedAt).toLocaleDateString('tr-TR')}
-                            </span>
-                          )}
-                        </div>
+                      {record.status !== 'pending' && (
+                        <button
+                          type="button"
+                          disabled={isBusy}
+                          onClick={() => void patchStatus(record.organizationId, 'pending')}
+                          className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          Beklemeye Al
+                        </button>
                       )}
-                      <button
-                        type="button"
-                        onClick={() => handleRequestDoc(record.id)}
-                        className="flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400"
-                      >
-                        <FileText className="h-3.5 w-3.5" />
-                        TÜRSAB Belgesi Talep Et
-                      </button>
                     </div>
                   </div>
                 )}
@@ -562,10 +512,10 @@ export default function AgencyVerifyAdminClient() {
       <div className="mt-6 rounded-xl border border-neutral-100 bg-neutral-50 p-4 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/30">
         <p className="mb-1 font-medium text-neutral-600 dark:text-neutral-400">Onay Akışı</p>
         <ol className="list-inside list-decimal space-y-0.5">
-          <li>Acente TÜRSAB belge numarası ve firma bilgilerini gönderir</li>
-          <li>Admin <strong>tursab.org.tr/acente-sorgulama</strong> üzerinden belgeyi doğrular</li>
-          <li>Unvan ve belge grubu (A/B) eşleşiyorsa onaylar; eşleşmiyorsa evrak talep eder</li>
-          <li>Onay sonrası acente portaldaki tüm özelliklere (API, fatura, iskonto) erişir</li>
+          <li>Acente kuruluşu (organizations.org_type='agency') TÜRSAB belge numarasını yönetici panelinden tanımlar.</li>
+          <li>Admin <strong>tursab.org.tr/acente-sorgulama</strong> üzerinden belgeyi doğrular.</li>
+          <li>Eşleşiyorsa onaylanır → backend `agency_profiles.document_status = 'approved'`.</li>
+          <li>Onay sonrası acente, sepet ve checkout akışlarında (booking_http) bağlı kullanıcılarla işlem yapabilir.</li>
         </ol>
       </div>
     </div>

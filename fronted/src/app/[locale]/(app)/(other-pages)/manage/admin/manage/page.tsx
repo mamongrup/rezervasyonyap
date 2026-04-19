@@ -1,15 +1,11 @@
-'use client'
+import { vitrinHref } from '@/lib/vitrin-href'
+import { redirect } from 'next/navigation'
 
-import { ManageAccessGuard } from '@/lib/use-manage-access'
-import AdminManageClient from '../AdminManageClient'
-
-export default function ManageAdminManagePage() {
-  return (
-    <ManageAccessGuard
-      required={{ permissionsPrefixAny: ['admin.'], rolesAny: ['admin'] }}
-      featureHint="admin.*"
-    >
-      <AdminManageClient />
-    </ManageAccessGuard>
-  )
+export default async function AdminManageRedirectPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>
+}) {
+  const { locale } = await params
+  redirect(await vitrinHref(locale, '/manage/admin'))
 }

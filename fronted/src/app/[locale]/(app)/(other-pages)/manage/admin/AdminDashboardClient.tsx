@@ -9,13 +9,13 @@ import {
   BarChart3,
   CalendarCheck2,
   CreditCard,
-  FileText,
   Globe,
   Layers,
   Link2,
   MessageSquare,
   PenSquare,
   RefreshCw,
+  ShoppingBag,
   Star,
   TrendingUp,
   Users,
@@ -320,11 +320,11 @@ const MOCK_COMMISSION = 14160
 
 const QUICK_ACTIONS = [
   { label: 'Blog Yazıları', icon: PenSquare, href: '/manage/admin/content/blog', color: '#3b82f6' },
-  { label: 'Banner Yönetimi', icon: FileText, href: '/manage/admin/content/banners', color: '#8b5cf6' },
   { label: 'Provizyon', icon: Zap, href: '/manage/admin/payments/provizyon', color: '#f59e0b' },
   { label: 'Bildirimler', icon: MessageSquare, href: '/manage/admin/settings/notifications', color: '#10b981' },
   { label: 'Tüm Faturalar', icon: CreditCard, href: '/manage/finance/invoices', color: '#ef4444' },
   { label: 'Entegrasyonlar', icon: Globe, href: '/manage/admin/settings/integrations', color: '#06b6d4' },
+  { label: 'Merchant & Sosyal Satış', icon: ShoppingBag, href: '/manage/admin/marketing/merchant', color: '#a855f7' },
 ]
 
 // ─── Main Dashboard ───────────────────────────────────────────────────────────

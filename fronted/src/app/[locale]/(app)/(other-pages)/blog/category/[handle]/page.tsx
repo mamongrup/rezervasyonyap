@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
 import { listBlogCategories, listBlogPosts, type BlogCategory, type BlogPost } from '@/lib/travel-api'
 import { Calendar, Clock, Tag, ChevronRight, ArrowLeft } from 'lucide-react'
@@ -49,8 +50,14 @@ export default async function BlogCategoryPage({ params }: Props) {
       <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
           {cat?.image_url && (
-            <div className="w-16 h-16 rounded-2xl overflow-hidden mb-4">
-              <img src={cat.image_url} alt="" className="w-full h-full object-cover" />
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden mb-4">
+              <Image
+                src={cat.image_url}
+                alt=""
+                fill
+                sizes="64px"
+                className="object-cover"
+              />
             </div>
           )}
           <div className="flex items-center gap-2 text-sm text-primary-600 dark:text-primary-400 mb-2">
@@ -128,10 +135,12 @@ export default async function BlogCategoryPage({ params }: Props) {
                 >
                   {img ? (
                     <div className="relative h-48 overflow-hidden">
-                      <img
+                      <Image
                         src={img}
                         alt=""
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        fill
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     </div>
                   ) : (

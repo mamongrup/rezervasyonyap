@@ -4,8 +4,10 @@
  * Kategori bazında konaklama kuralları şablonları (giriş/çıkış saati hariç).
  * İlan vitrininde seçilen kurallar bu şablondan gösterilir.
  */
+import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
+import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import {
   getAuthMe,
   getManageCategoryAccommodationRules,
@@ -23,6 +25,10 @@ const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 const LABEL_KEYS = [
   { code: 'tr', label: 'Türkçe' },
   { code: 'en', label: 'English' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'ru', label: 'Русский' },
+  { code: 'zh', label: '中文' },
+  { code: 'fr', label: 'Français' },
 ] as const
 
 function StatusMsg({ msg }: { msg: { ok: boolean; text: string } | null }) {
@@ -50,6 +56,7 @@ export default function CatalogCategoryAccommodationRulesClient({
   const [rules, setRules] = useState<CategoryAccommodationRuleItem[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [aiBusyId, setAiBusyId] = useState<string | null>(null)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
@@ -102,9 +109,61 @@ export default function CatalogCategoryAccommodationRulesClient({
       {
         id: crypto.randomUUID(),
         severity: 'ok',
-        labels: { tr: '', en: '' },
+        labels: Object.fromEntries(LABEL_KEYS.map((l) => [l.code, ''])),
       },
     ])
+  }
+
+  async function handleAiTranslateRule(ruleId: string, overwrite: boolean) {
+    const rule = rules.find((r) => r.id === ruleId)
+    if (!rule) return
+    const trText = (rule.labels.tr ?? '').trim()
+    if (!trText) {
+      setMsg({ ok: false, text: 'Önce Türkçe alanı doldurun (TR boş).' })
+      return
+    }
+    setAiBusyId(ruleId)
+    setMsg(null)
+    try {
+      const targets = LABEL_KEYS.filter((l) => l.code !== 'tr').map((l) => l.code)
+      const out = await translateOneToMany({
+        text: trText,
+        context: 'short_label',
+        sourceLocale: 'tr',
+        targetLocales: targets,
+      })
+      setRules((prev) =>
+        prev.map((r) => {
+          if (r.id !== ruleId) return r
+          const nextLabels: Record<string, string> = { ...r.labels, tr: trText }
+          for (const lc of targets) {
+            const existing = (r.labels[lc] ?? '').trim()
+            const fresh = out.ok[lc] ?? ''
+            if (fresh && (overwrite || existing.length === 0)) {
+              nextLabels[lc] = fresh
+            }
+          }
+          return { ...r, labels: nextLabels }
+        }),
+      )
+      const filled = Object.keys(out.ok).length
+      const failedLocales = out.failed.map((f) => f.locale.toUpperCase()).join(', ')
+      const firstFailReason = out.failed[0] ? aiErrorMessage(new Error(out.failed[0].error)) : ''
+      const failTail = failedLocales
+        ? ` Başarısız: ${failedLocales}${firstFailReason ? ` (${firstFailReason})` : ''}.`
+        : ''
+      setMsg({
+        ok: filled > 0,
+        text:
+          filled > 0
+            ? `${filled} dile AI çevirisi geldi. Kontrol edip "Kaydet"e basın.` + failTail
+            : `AI çeviri sonucu boş döndü.${firstFailReason ? ' Sebep: ' + firstFailReason : ' Ayarlar → Yapay Zeka anahtarını kontrol edin.'}`,
+      })
+    } catch (e) {
+      setMsg({ ok: false, text: aiErrorMessage(e) })
+    } finally {
+      setAiBusyId(null)
+    }
   }
 
   function removeRule(id: string) {
@@ -186,51 +245,82 @@ export default function CatalogCategoryAccommodationRulesClient({
         </p>
       ) : (
         <div className="space-y-4">
-          {rules.map((r) => (
-            <div
-              key={r.id}
-              className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs dark:border-neutral-700 dark:bg-neutral-900"
-            >
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <Field className="min-w-[140px]">
-                  <Label className="text-xs">Önem</Label>
-                  <select
-                    value={r.severity}
-                    onChange={(e) =>
-                      patchRule(r.id, {
-                        severity: e.target.value === 'warn' ? 'warn' : 'ok',
-                      })
-                    }
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800"
-                  >
-                    <option value="ok">Onay (yeşil)</option>
-                    <option value="warn">Uyarı (turuncu)</option>
-                  </select>
-                </Field>
-                <button
-                  type="button"
-                  onClick={() => removeRule(r.id)}
-                  className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/30"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Kaldır
-                </button>
-              </div>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {LABEL_KEYS.map((lk) => (
-                  <Field key={lk.code}>
-                    <Label className="text-xs">{lk.label}</Label>
-                    <Input
-                      className="mt-1"
-                      value={r.labels[lk.code] ?? ''}
-                      onChange={(e) => setLabel(r.id, lk.code, e.target.value)}
-                      placeholder="Kural metni"
-                    />
+          {rules.map((r) => {
+            const aiBusy = aiBusyId === r.id
+            const trFilled = (r.labels.tr ?? '').trim().length > 0
+            return (
+              <div
+                key={r.id}
+                className="rounded-xl border border-neutral-200 bg-white p-4 shadow-xs dark:border-neutral-700 dark:bg-neutral-900"
+              >
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <Field className="min-w-[140px]">
+                    <Label className="text-xs">Önem</Label>
+                    <select
+                      value={r.severity}
+                      onChange={(e) =>
+                        patchRule(r.id, {
+                          severity: e.target.value === 'warn' ? 'warn' : 'ok',
+                        })
+                      }
+                      className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-2 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800"
+                    >
+                      <option value="ok">Onay (yeşil)</option>
+                      <option value="warn">Uyarı (turuncu)</option>
+                    </select>
                   </Field>
-                ))}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <ManageAiMagicTextButton
+                      loading={aiBusy}
+                      disabled={!trFilled || busy}
+                      onClick={() => void handleAiTranslateRule(r.id, false)}
+                      title="TR alanından boş olan diğer 5 dili AI ile doldur"
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <span aria-hidden>✨</span>
+                        Boşları AI ile doldur
+                      </span>
+                    </ManageAiMagicTextButton>
+                    <button
+                      type="button"
+                      disabled={!trFilled || aiBusy || busy}
+                      onClick={() => void handleAiTranslateRule(r.id, true)}
+                      className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-700 dark:bg-neutral-900 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                      title="TR'den 5 dili yeniden çevir (mevcut çevirilerin üzerine yazar)"
+                    >
+                      Hepsini yeniden çevir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeRule(r.id)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-900/50 dark:text-red-300 dark:hover:bg-red-950/30"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Kaldır
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {LABEL_KEYS.map((lk) => (
+                    <Field key={lk.code}>
+                      <Label className="text-xs">
+                        {lk.label}
+                        {lk.code === 'tr' ? (
+                          <span className="ml-1 text-neutral-400">(kaynak)</span>
+                        ) : null}
+                      </Label>
+                      <Input
+                        className="mt-1"
+                        value={r.labels[lk.code] ?? ''}
+                        onChange={(e) => setLabel(r.id, lk.code, e.target.value)}
+                        placeholder="Kural metni"
+                      />
+                    </Field>
+                  ))}
+                </div>
+                <p className="mt-2 font-mono text-[10px] text-neutral-400">id: {r.id}</p>
               </div>
-              <p className="mt-2 font-mono text-[10px] text-neutral-400">id: {r.id}</p>
-            </div>
-          ))}
+            )
+          })}
 
           <button
             type="button"
@@ -241,7 +331,11 @@ export default function CatalogCategoryAccommodationRulesClient({
           </button>
 
           <StatusMsg msg={msg} />
-          <ButtonPrimary type="button" disabled={busy} onClick={() => void save()}>
+          <ButtonPrimary
+            type="button"
+            disabled={busy || aiBusyId !== null}
+            onClick={() => void save()}
+          >
             {busy ? '…' : 'Kaydet'}
           </ButtonPrimary>
         </div>

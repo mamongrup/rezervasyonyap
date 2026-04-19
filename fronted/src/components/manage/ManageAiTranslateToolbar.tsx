@@ -48,7 +48,7 @@ export function ManageAiTranslateToolbar({
         disabled={disabled || translating}
         onClick={onTranslate}
         className="flex items-center gap-1 rounded-md border border-neutral-200 px-2 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
-        title="Türkçe kaynak içeriği seçilen dile çevirir"
+        title="Kaynak dildeki içeriği seçilen dile çevirir (varsayılan kaynak: site birincil dili)"
       >
         {translating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
         {buttonLabel}

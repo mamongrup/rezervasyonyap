@@ -2,6 +2,7 @@ import Link from 'next/link'
 import {
   getSubcategoriesByParent,
   subcategoryColorClasses,
+  subcategoryDescriptionForLocale,
   subcategoryLabelForLocale,
 } from '@/data/subcategory-registry'
 import type { SubcategoryEntry } from '@/data/subcategory-registry'
@@ -102,7 +103,7 @@ function CardVariant({ items, locale, showHeading, categoryRoute }: { items: Sub
                   {subcategoryLabelForLocale(sub, locale)}
                 </p>
                 <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400 line-clamp-1">
-                  {locale === 'tr' ? sub.description : sub.descriptionEn}
+                  {subcategoryDescriptionForLocale(sub, locale)}
                 </p>
               </div>
             </Link>

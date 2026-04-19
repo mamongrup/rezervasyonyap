@@ -278,6 +278,21 @@ export const de: AppMessages = {
     contractPage: {
       backToListing: 'Zurück zum Inserat',
     },
+    highlights: {
+      title: 'Hervorgehobene Merkmale',
+      subtitle: 'Was Gäste an diesem Hotel besonders schätzen.',
+    },
+    faq: {
+      title: 'Häufig gestellte Fragen',
+      subtitle: 'Die häufigsten Fragen unserer Gäste zu diesem Hotel.',
+      qCheckInOut: 'Wann sind Check-in und Check-out?',
+      qBreakfast: 'Wird in diesem Hotel Frühstück serviert?',
+      aBreakfast: 'Ja, Frühstück wird serviert. Details finden Sie im Abschnitt Verpflegung.',
+      qPrepayment: 'Wie hoch ist die erforderliche Anzahlung?',
+      qCancellation: 'Wie kann ich meine Reservierung stornieren?',
+      qPets: 'Sind Haustiere erlaubt?',
+      qLicense: 'Wie lautet die Ministeriumslizenznummer der Unterkunft?',
+    },
     sidebar: {
       ...en.listing.sidebar,
       perNight: '/Nacht',
@@ -410,6 +425,66 @@ export const de: AppMessages = {
     car: {
       dropOffLocationAria: 'Art der Rückgabestation',
     },
+  },
+  site: {
+    footer: { rights: 'Alle Rechte vorbehalten.' },
+    notFound: {
+      title: 'DIE GESUCHTE SEITE EXISTIERT NICHT.',
+      description: 'Die Seite wurde möglicherweise verschoben, entfernt oder umbenannt.',
+      backHome: 'Zur Startseite',
+    },
+    region: {
+      listingsSuffix: 'Angebote',
+      nearbyPlaces: 'in der Nähe',
+      regionPrefix: 'Region:',
+      browseAll: 'Alle anzeigen',
+      breadcrumbHome: 'Startseite',
+      viewOnMap: 'Auf Karte anzeigen',
+      noListings: 'In dieser Region gibt es noch keine Angebote.',
+      aboutHeading: 'Über dieses Reiseziel',
+      nearbySectionTitle: 'In der Umgebung',
+      locationHeading: 'Standort',
+      noContentYet: 'Für diese Region wurden noch keine Inhalte hinzugefügt.',
+      goToRegionAdmin: 'Regionen verwalten',
+    },
+    featured: {
+      heading: 'Empfohlene Orte',
+      tabNew: 'Neu',
+      tabDiscounted: 'Reduziert',
+      tabFeatured: 'Empfohlen',
+    },
+    mealPlans: {
+      ro: 'Nur Übernachtung',
+      bb: 'Frühstück inklusive',
+      hb: 'Halbpension',
+      fb: 'Vollpension',
+      ai: 'All-inclusive',
+      uai: 'Ultra All-inclusive',
+    },
+    sortOrder: {
+      recommended: 'Empfohlen',
+      priceAsc: 'Preis: aufsteigend',
+      priceDesc: 'Preis: absteigend',
+      ratingDesc: 'Bestbewertet',
+      newest: 'Neueste',
+    },
+    actions: {
+      save: 'Speichern',
+      cancel: 'Abbrechen',
+      delete: 'Löschen',
+      edit: 'Bearbeiten',
+      add: 'Hinzufügen',
+      loading: 'Lädt…',
+      retry: 'Erneut versuchen',
+      refresh: 'Aktualisieren',
+      yes: 'Ja',
+      no: 'Nein',
+    },
+  },
+  reviews: {
+    ...en.reviews,
+    showAll: 'Alle Bewertungen anzeigen ({count})',
+    showLess: 'Weniger anzeigen',
   },
 }
 

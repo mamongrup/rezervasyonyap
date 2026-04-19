@@ -1,10 +1,13 @@
-import ManagePlaceholderPage from '../ManagePlaceholderPage'
+import CmsPagesClient from './CmsPagesClient'
+import { ManageAccessGuard } from '@/lib/use-manage-access'
 
 export default function Page() {
   return (
-    <ManagePlaceholderPage
-      title="CMS Sayfalar"
-      description="Statik sayfaları oluşturun ve düzenleyin. Bu modül geliştirme aşamasındadır."
-    />
+    <ManageAccessGuard
+      required={{ permissionsPrefixAny: ['admin.'], rolesAny: ['admin'] }}
+      featureHint="admin.*"
+    >
+      <CmsPagesClient />
+    </ManageAccessGuard>
   )
 }

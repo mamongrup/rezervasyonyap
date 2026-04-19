@@ -44,13 +44,24 @@ export function ManageI18nProvider({ children }: { children: React.ReactNode }) 
         const p = await getTranslationBundle(locale)
         if (cancelled) return
         setPrimary(flattenNamespaceStrings(p.namespaces?.manage))
-        if (locale !== 'tr') {
-          const tr = await getTranslationBundle('tr')
-          if (cancelled) return
-          setFallback(flattenNamespaceStrings(tr.namespaces?.manage))
-        } else {
-          setFallback({})
+        // Fallback zinciri: istenen dil → EN → TR.
+        // (Sadece istenen dil != 'en' için EN, sonra istenen dil != 'tr' için TR yüklenir.)
+        const lc = (locale ?? '').trim().toLowerCase()
+        const fallbackOrder = lc === 'tr' ? [] : lc === 'en' ? ['tr'] : ['en', 'tr']
+        const merged: Record<string, string> = {}
+        for (const fbCode of fallbackOrder) {
+          try {
+            const fb = await getTranslationBundle(fbCode)
+            if (cancelled) return
+            const flat = flattenNamespaceStrings(fb.namespaces?.manage)
+            for (const [k, v] of Object.entries(flat)) {
+              if (!(k in merged)) merged[k] = v
+            }
+          } catch {
+            /* ignore single locale failure */
+          }
         }
+        setFallback(merged)
       } catch {
         if (!cancelled) {
           setPrimary({})

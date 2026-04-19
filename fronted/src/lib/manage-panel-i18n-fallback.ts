@@ -74,10 +74,18 @@ const FB_EN: Record<string, string> = {
     'A single “clear all caches” action is not available here. In production, use redeploy, API restart, or CDN purge.',
 }
 
+/**
+ * Manage panelinde DB'de henüz çevirisi olmayan anahtarlar için fallback.
+ *
+ * Sıra: DB değer (`t(key)`) → Türkçe için TR fallback → diğer tüm diller için EN fallback
+ * (Türkçe metnin DE/RU/ZH/FR kullanıcılarına sızmaması için EN tercih edilir).
+ * Hâlâ bulunamazsa ham anahtar döner.
+ */
 export function managePanelLabel(locale: string, key: string, t: (k: string) => string): string {
   const v = t(key)
-  const en = locale.toLowerCase().startsWith('en')
-  const fb = en ? FB_EN : FB_TR
+  const lc = (locale ?? '').trim().toLowerCase()
+  const isTr = lc === 'tr'
+  const fb = isTr ? FB_TR : FB_EN
   const looksRaw =
     !v ||
     v.trim() === '' ||

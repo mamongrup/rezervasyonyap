@@ -9,6 +9,8 @@
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useManageT } from '@/lib/manage-i18n-context'
+import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
+import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 import {
   type AttributeDef,
@@ -106,6 +108,7 @@ function GroupPanel({
   const [groups, setGroups] = useState<AttributeGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [form, setForm] = useState({ code: '', name: '', sort_order: '0' })
   const [transGroupId, setTransGroupId] = useState<string | null>(null)
@@ -113,6 +116,53 @@ function GroupPanel({
   /** Kod alanı elle değiştiyse başlık yazarken ezme */
   const codeTouchedRef = useRef(false)
   const formRef = useRef<HTMLFormElement>(null)
+
+  async function handleAiTranslateGroup(overwrite: boolean) {
+    const trText = (transGroupNames.tr ?? '').trim()
+    if (!trText) {
+      setMsg({ ok: false, text: 'Önce TR alanını doldurun.' })
+      return
+    }
+    setAiBusy(true)
+    setMsg(null)
+    try {
+      const targets = ATTR_PREVIEW_LOCALES.filter((l) => l.code !== 'tr').map((l) => l.code)
+      const out = await translateOneToMany({
+        text: trText,
+        context: 'short_label',
+        sourceLocale: 'tr',
+        targetLocales: targets,
+      })
+      setTransGroupNames((prev) => {
+        const next: Record<string, string> = { ...prev, tr: trText }
+        for (const lc of targets) {
+          const existing = (prev[lc] ?? '').trim()
+          const fresh = out.ok[lc] ?? ''
+          if (fresh && (overwrite || existing.length === 0)) {
+            next[lc] = fresh
+          }
+        }
+        return next
+      })
+      const filled = Object.keys(out.ok).length
+      const failedLocales = out.failed.map((f) => f.locale.toUpperCase()).join(', ')
+      const firstFailReason = out.failed[0] ? aiErrorMessage(new Error(out.failed[0].error)) : ''
+      const failTail = failedLocales
+        ? ` Başarısız: ${failedLocales}${firstFailReason ? ` (${firstFailReason})` : ''}.`
+        : ''
+      setMsg({
+        ok: filled > 0,
+        text:
+          filled > 0
+            ? `${filled} dile AI çevirisi geldi. Kontrol edip "Kaydet"e basın.` + failTail
+            : `AI çeviri sonucu boş döndü.${firstFailReason ? ' Sebep: ' + firstFailReason : ' Ayarlar → Yapay Zeka anahtarını kontrol edin.'}`,
+      })
+    } catch (e) {
+      setMsg({ ok: false, text: aiErrorMessage(e) })
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   const orgParam = needOrg && manageOrgId.trim() ? manageOrgId.trim() : undefined
   const groupListParams = useMemo(
@@ -327,14 +377,41 @@ function GroupPanel({
 
       {transGroupId ? (
         <div className="border-t border-primary-200 bg-primary-50/40 px-4 py-4 dark:border-primary-900/30 dark:bg-primary-950/15">
-          <p className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
-            Grup başlığı — tüm diller
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
+              Grup başlığı — tüm diller
+            </p>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <ManageAiMagicTextButton
+                loading={aiBusy}
+                disabled={busy}
+                onClick={() => void handleAiTranslateGroup(false)}
+                title="TR alanından boş olan diğer 5 dili AI ile doldur"
+              >
+                <span className="inline-flex items-center gap-1">
+                  <span aria-hidden>✨</span>
+                  Boşları AI ile doldur
+                </span>
+              </ManageAiMagicTextButton>
+              <button
+                type="button"
+                disabled={aiBusy || busy}
+                onClick={() => void handleAiTranslateGroup(true)}
+                className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-700 dark:bg-neutral-900 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                title="TR'den 5 dili yeniden çevir (mevcut çevirilerin üzerine yazar)"
+              >
+                Hepsini yeniden çevir
+              </button>
+            </div>
+          </div>
           <StatusMsg msg={msg} />
           <div className="mt-2 grid max-h-[min(40vh,18rem)] gap-2 overflow-y-auto">
             {ATTR_PREVIEW_LOCALES.map((l) => (
               <Field key={l.code} className="block">
-                <Label className="text-[11px]">{l.label}</Label>
+                <Label className="text-[11px]">
+                  {l.label}
+                  {l.code === 'tr' ? <span className="ml-1 text-neutral-400">(kaynak)</span> : null}
+                </Label>
                 <Input
                   value={transGroupNames[l.code] ?? ''}
                   onChange={(e) => setTransGroupNames((p) => ({ ...p, [l.code]: e.target.value }))}
@@ -344,7 +421,7 @@ function GroupPanel({
             ))}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            <ButtonPrimary type="button" disabled={busy} className="text-xs" onClick={() => void saveGroupTranslations()}>
+            <ButtonPrimary type="button" disabled={busy || aiBusy} className="text-xs" onClick={() => void saveGroupTranslations()}>
               {busy ? '…' : 'Kaydet'}
             </ButtonPrimary>
             <button type="button" className="text-xs text-neutral-500 underline" onClick={() => setTransGroupId(null)}>
@@ -415,6 +492,7 @@ function DefsPanel({
   const [defs, setDefs] = useState<AttributeDef[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [form, setForm] = useState({
     code: '',
@@ -512,6 +590,53 @@ function DefsPanel({
       setMsg({ ok: false, text: e instanceof Error ? e.message : 'create_failed' })
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function handleAiTranslateDef(overwrite: boolean) {
+    const trText = (transLabels.tr ?? '').trim()
+    if (!trText) {
+      setMsg({ ok: false, text: 'Önce TR alanını doldurun.' })
+      return
+    }
+    setAiBusy(true)
+    setMsg(null)
+    try {
+      const targets = ATTR_PREVIEW_LOCALES.filter((l) => l.code !== 'tr').map((l) => l.code)
+      const out = await translateOneToMany({
+        text: trText,
+        context: 'short_label',
+        sourceLocale: 'tr',
+        targetLocales: targets,
+      })
+      setTransLabels((prev) => {
+        const next: Record<string, string> = { ...prev, tr: trText }
+        for (const lc of targets) {
+          const existing = (prev[lc] ?? '').trim()
+          const fresh = out.ok[lc] ?? ''
+          if (fresh && (overwrite || existing.length === 0)) {
+            next[lc] = fresh
+          }
+        }
+        return next
+      })
+      const filled = Object.keys(out.ok).length
+      const failedLocales = out.failed.map((f) => f.locale.toUpperCase()).join(', ')
+      const firstFailReason = out.failed[0] ? aiErrorMessage(new Error(out.failed[0].error)) : ''
+      const failTail = failedLocales
+        ? ` Başarısız: ${failedLocales}${firstFailReason ? ` (${firstFailReason})` : ''}.`
+        : ''
+      setMsg({
+        ok: filled > 0,
+        text:
+          filled > 0
+            ? `${filled} dile AI çevirisi geldi. Kontrol edip "Kaydet"e basın.` + failTail
+            : `AI çeviri sonucu boş döndü.${firstFailReason ? ' Sebep: ' + firstFailReason : ' Ayarlar → Yapay Zeka anahtarını kontrol edin.'}`,
+      })
+    } catch (e) {
+      setMsg({ ok: false, text: aiErrorMessage(e) })
+    } finally {
+      setAiBusy(false)
     }
   }
 
@@ -663,14 +788,41 @@ function DefsPanel({
 
         {transDefId ? (
           <div className="mt-4 rounded-xl border border-primary-200 bg-primary-50/40 p-4 dark:border-primary-900/40 dark:bg-primary-950/20">
-            <p className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
-              Öznitelik etiketi — tüm diller ({defs.find((x) => x.id === transDefId)?.code ?? ''})
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
+                Öznitelik etiketi — tüm diller ({defs.find((x) => x.id === transDefId)?.code ?? ''})
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ManageAiMagicTextButton
+                  loading={aiBusy}
+                  disabled={busy}
+                  onClick={() => void handleAiTranslateDef(false)}
+                  title="TR alanından boş olan diğer 5 dili AI ile doldur"
+                >
+                  <span className="inline-flex items-center gap-1">
+                    <span aria-hidden>✨</span>
+                    Boşları AI ile doldur
+                  </span>
+                </ManageAiMagicTextButton>
+                <button
+                  type="button"
+                  disabled={aiBusy || busy}
+                  onClick={() => void handleAiTranslateDef(true)}
+                  className="rounded-lg border border-amber-300 bg-white px-2 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-700 dark:bg-neutral-900 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                  title="TR'den 5 dili yeniden çevir (mevcut çevirilerin üzerine yazar)"
+                >
+                  Hepsini yeniden çevir
+                </button>
+              </div>
+            </div>
             <StatusMsg msg={msg} />
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {ATTR_PREVIEW_LOCALES.map((l) => (
                 <Field key={l.code} className="block">
-                  <Label className="text-[11px]">{l.label}</Label>
+                  <Label className="text-[11px]">
+                    {l.label}
+                    {l.code === 'tr' ? <span className="ml-1 text-neutral-400">(kaynak)</span> : null}
+                  </Label>
                   <Input
                     value={transLabels[l.code] ?? ''}
                     onChange={(e) => setTransLabels((p) => ({ ...p, [l.code]: e.target.value }))}
@@ -680,7 +832,7 @@ function DefsPanel({
               ))}
             </div>
             <div className="mt-3 flex gap-2">
-              <ButtonPrimary type="button" disabled={busy} className="text-xs" onClick={() => void saveDefTranslations()}>
+              <ButtonPrimary type="button" disabled={busy || aiBusy} className="text-xs" onClick={() => void saveDefTranslations()}>
                 {busy ? '…' : 'Kaydet'}
               </ButtonPrimary>
               <button type="button" className="text-xs text-neutral-500 underline" onClick={() => setTransDefId(null)}>
@@ -720,13 +872,17 @@ function DefsPanel({
               <Input
                 value={form.code}
                 onChange={(e) => {
-                  defCodeTouchedRef.current = true
-                  setForm((p) => ({ ...p, code: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))
+                  const cleaned = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
+                  defCodeTouchedRef.current = cleaned.length > 0
+                  setForm((p) => ({ ...p, code: cleaned }))
                 }}
                 placeholder="havuz_var_mi"
                 className="mt-1 font-mono text-xs"
                 required
               />
+              {!defCodeTouchedRef.current && form.code ? (
+                <p className="mt-0.5 text-[10px] text-neutral-400">Etiketten otomatik üretildi.</p>
+              ) : null}
             </Field>
             <Field className="block">
               <Label>Alan Türü</Label>

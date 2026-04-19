@@ -2,6 +2,8 @@
 
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
 import type { FooterSiteColumn, FooterSiteConfig, FooterSiteLink, FooterTrustBadge } from '@/types/footer-site-config'
+import I18nFieldEditor from '@/components/manage/i18n/I18nFieldEditor'
+import { compactI18nField, pickI18nWithLegacy, type I18nFieldMap } from '@/lib/i18n-field'
 import clsx from 'clsx'
 import {
   ArrowDown,
@@ -19,7 +21,28 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
-const emptyLink = (): FooterSiteLink => ({ nameTr: '', nameEn: '', href: '/' })
+/**
+ * Eski (TR/EN) ve yeni (`_i18n` map) alanları birleştirir; UI tarafı yalnızca
+ * yeni map ile çalışır, kaydederken legacy alanları da TR/EN değerleriyle senkronlayarak
+ * geriye dönük uyumluluğu korur (eski client'lar yeni alana bakmasa bile metin görür).
+ */
+function mergeLegacyToI18n(legacy: { tr?: string; en?: string }, i18n: I18nFieldMap | undefined): I18nFieldMap {
+  const merged: I18nFieldMap = { ...(i18n ?? {}) }
+  if (!merged.tr && legacy.tr) merged.tr = legacy.tr
+  if (!merged.en && legacy.en) merged.en = legacy.en
+  return merged
+}
+
+function syncLegacyFromI18n(map: I18nFieldMap): { tr: string; en: string } {
+  return { tr: map.tr ?? '', en: map.en ?? '' }
+}
+
+const emptyLink = (): FooterSiteLink => ({
+  nameTr: '',
+  nameEn: '',
+  name_i18n: {},
+  href: '/',
+})
 
 function LinkRowEditor({
   link,
@@ -38,39 +61,49 @@ function LinkRowEditor({
   canUp: boolean
   canDown: boolean
 }) {
+  const nameMap = mergeLegacyToI18n({ tr: link.nameTr, en: link.nameEn }, link.name_i18n)
+  const handleNameChange = (next: I18nFieldMap) => {
+    const compact = compactI18nField(next)
+    const legacy = syncLegacyFromI18n(compact)
+    onChange({
+      ...link,
+      nameTr: legacy.tr,
+      nameEn: legacy.en,
+      name_i18n: compact,
+    })
+  }
   return (
-    <div className="group flex flex-col gap-2 rounded-xl border border-neutral-200/80 bg-white/80 p-3 shadow-sm transition hover:border-[color:var(--manage-primary)]/30 dark:border-neutral-700 dark:bg-neutral-900/50 sm:flex-row sm:items-center sm:gap-2">
-      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:gap-2">
-        <input
-          value={link.nameTr}
-          onChange={(e) => onChange({ ...link, nameTr: e.target.value })}
-          placeholder="Etiket (TR)"
-          className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-600 dark:bg-neutral-800"
-        />
-        <input
-          value={link.nameEn}
-          onChange={(e) => onChange({ ...link, nameEn: e.target.value })}
-          placeholder="Label (EN)"
-          className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-600 dark:bg-neutral-800"
-        />
-        <input
-          value={link.href}
-          onChange={(e) => onChange({ ...link, href: e.target.value })}
-          placeholder="/yol"
-          className="min-w-0 flex-[1.2] rounded-lg border border-neutral-200 px-2.5 py-1.5 font-mono text-xs focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-600 dark:bg-neutral-800"
-        />
-      </div>
-      <div className="flex shrink-0 items-center justify-end gap-0.5">
-        <button type="button" disabled={!canUp} onClick={onMoveUp} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 dark:hover:bg-neutral-800">
-          <ArrowUp className="h-4 w-4" />
-        </button>
-        <button type="button" disabled={!canDown} onClick={onMoveDown} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 dark:hover:bg-neutral-800">
-          <ArrowDown className="h-4 w-4" />
-        </button>
-        <button type="button" onClick={onRemove} className="rounded-lg p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40">
-          <span className="sr-only">Sil</span>
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+    <div className="group flex flex-col gap-3 rounded-xl border border-neutral-200/80 bg-white/80 p-3 shadow-sm transition hover:border-[color:var(--manage-primary)]/30 dark:border-neutral-700 dark:bg-neutral-900/50">
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:gap-3">
+        <div className="min-w-0 flex-1">
+          <I18nFieldEditor
+            label="Etiket"
+            value={nameMap}
+            onChange={handleNameChange}
+            placeholder="Bağlantı adı"
+          />
+        </div>
+        <div className="min-w-0 sm:max-w-xs sm:flex-1">
+          <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-300">URL</label>
+          <input
+            value={link.href}
+            onChange={(e) => onChange({ ...link, href: e.target.value })}
+            placeholder="/yol"
+            className="block w-full rounded-lg border border-neutral-200 px-2.5 py-1.5 font-mono text-xs focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-600 dark:bg-neutral-800"
+          />
+          <div className="mt-2 flex items-center justify-end gap-0.5">
+            <button type="button" disabled={!canUp} onClick={onMoveUp} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 dark:hover:bg-neutral-800">
+              <ArrowUp className="h-4 w-4" />
+            </button>
+            <button type="button" disabled={!canDown} onClick={onMoveDown} className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:opacity-30 dark:hover:bg-neutral-800">
+              <ArrowDown className="h-4 w-4" />
+            </button>
+            <button type="button" onClick={onRemove} className="rounded-lg p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40">
+              <span className="sr-only">Sil</span>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -86,6 +119,8 @@ function TrustBadgeEditor({
   onChange: (b: FooterTrustBadge) => void
 }) {
   const variants: FooterTrustBadge['variant'][] = ['green', 'blue', 'amber']
+  const titleMap = mergeLegacyToI18n({ tr: badge.titleTr, en: badge.titleEn }, badge.title_i18n)
+  const subtitleMap = mergeLegacyToI18n({ tr: badge.subtitleTr, en: badge.subtitleEn }, badge.subtitle_i18n)
   return (
     <div className="rounded-2xl border border-neutral-200/90 bg-gradient-to-br from-white to-neutral-50/80 p-4 shadow-sm dark:border-neutral-700 dark:from-neutral-900 dark:to-neutral-950/80">
       <div className="mb-3 flex items-center gap-2">
@@ -103,11 +138,28 @@ function TrustBadgeEditor({
           ))}
         </select>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <input value={badge.titleTr} onChange={(e) => onChange({ ...badge, titleTr: e.target.value })} placeholder="Başlık TR" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs dark:border-neutral-600 dark:bg-neutral-800" />
-        <input value={badge.titleEn} onChange={(e) => onChange({ ...badge, titleEn: e.target.value })} placeholder="Title EN" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs dark:border-neutral-600 dark:bg-neutral-800" />
-        <input value={badge.subtitleTr} onChange={(e) => onChange({ ...badge, subtitleTr: e.target.value })} placeholder="Alt metin TR" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs dark:border-neutral-600 dark:bg-neutral-800" />
-        <input value={badge.subtitleEn} onChange={(e) => onChange({ ...badge, subtitleEn: e.target.value })} placeholder="Subtitle EN" className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs dark:border-neutral-600 dark:bg-neutral-800" />
+      <div className="space-y-3">
+        <I18nFieldEditor
+          label="Başlık"
+          value={titleMap}
+          onChange={(next) => {
+            const compact = compactI18nField(next)
+            const legacy = syncLegacyFromI18n(compact)
+            onChange({ ...badge, titleTr: legacy.tr, titleEn: legacy.en, title_i18n: compact })
+          }}
+          placeholder="Rozet başlığı"
+        />
+        <I18nFieldEditor
+          label="Alt metin"
+          value={subtitleMap}
+          onChange={(next) => {
+            const compact = compactI18nField(next)
+            const legacy = syncLegacyFromI18n(compact)
+            onChange({ ...badge, subtitleTr: legacy.tr, subtitleEn: legacy.en, subtitle_i18n: compact })
+          }}
+          placeholder="Rozet alt metni"
+          rows={2}
+        />
       </div>
     </div>
   )
@@ -171,7 +223,15 @@ export default function HeaderFooterManageClient() {
   const addColumn = () => {
     setCfg((c) => ({
       ...c,
-      columns: [...c.columns, { titleTr: 'Yeni sütun', titleEn: 'New column', links: [emptyLink()] }],
+      columns: [
+        ...c.columns,
+        {
+          titleTr: 'Yeni sütun',
+          titleEn: 'New column',
+          title_i18n: { tr: 'Yeni sütun', en: 'New column' },
+          links: [emptyLink()],
+        },
+      ],
     }))
   }
 
@@ -261,25 +321,19 @@ export default function HeaderFooterManageClient() {
               Marka metni (logo altı)
             </h2>
           </div>
-          <div className="grid gap-4 p-6 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-neutral-500">Açıklama (TR)</label>
-              <textarea
-                value={cfg.taglineTr}
-                onChange={(e) => setCfg((c) => ({ ...c, taglineTr: e.target.value }))}
-                rows={3}
-                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-600 dark:bg-neutral-800"
-              />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-xs font-medium text-neutral-500">Description (EN)</label>
-              <textarea
-                value={cfg.taglineEn}
-                onChange={(e) => setCfg((c) => ({ ...c, taglineEn: e.target.value }))}
-                rows={3}
-                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-600 dark:bg-neutral-800"
-              />
-            </div>
+          <div className="p-6">
+            <I18nFieldEditor
+              label="Marka açıklaması"
+              description="Logonun altında görünür. 6 dilin tümü için ayrı metin girilebilir."
+              value={mergeLegacyToI18n({ tr: cfg.taglineTr, en: cfg.taglineEn }, cfg.tagline_i18n)}
+              onChange={(next) => {
+                const compact = compactI18nField(next)
+                const legacy = syncLegacyFromI18n(compact)
+                setCfg((c) => ({ ...c, taglineTr: legacy.tr, taglineEn: legacy.en, tagline_i18n: compact }))
+              }}
+              rows={3}
+              placeholder="Kısa marka tanımı"
+            />
           </div>
         </section>
 
@@ -319,7 +373,14 @@ export default function HeaderFooterManageClient() {
                   className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left"
                 >
                   {openCols[ci] ? <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" /> : <ChevronRight className="h-4 w-4 shrink-0 text-neutral-400" />}
-                  <span className="font-medium text-neutral-800 dark:text-neutral-100">{col.titleTr || col.titleEn || `Sütun ${ci + 1}`}</span>
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">{
+                    pickI18nWithLegacy(
+                      { tr: col.titleTr, en: col.titleEn },
+                      col.title_i18n,
+                      'tr',
+                      `Sütun ${ci + 1}`,
+                    )
+                  }</span>
                   <span className="text-xs text-neutral-400">{col.links.length} bağlantı</span>
                 </button>
                 <div className="flex shrink-0 items-center gap-1 pe-4">
@@ -336,24 +397,16 @@ export default function HeaderFooterManageClient() {
               </div>
               {openCols[ci] ? (
                 <div className="space-y-4 p-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">Sütun başlığı (TR)</label>
-                      <input
-                        value={col.titleTr}
-                        onChange={(e) => updateColumn(ci, { ...col, titleTr: e.target.value })}
-                        className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800"
-                      />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">Column title (EN)</label>
-                      <input
-                        value={col.titleEn}
-                        onChange={(e) => updateColumn(ci, { ...col, titleEn: e.target.value })}
-                        className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800"
-                      />
-                    </div>
-                  </div>
+                  <I18nFieldEditor
+                    label="Sütun başlığı"
+                    value={mergeLegacyToI18n({ tr: col.titleTr, en: col.titleEn }, col.title_i18n)}
+                    onChange={(next) => {
+                      const compact = compactI18nField(next)
+                      const legacy = syncLegacyFromI18n(compact)
+                      updateColumn(ci, { ...col, titleTr: legacy.tr, titleEn: legacy.en, title_i18n: compact })
+                    }}
+                    placeholder="Sütun başlığı"
+                  />
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-medium text-neutral-500">Bağlantılar</span>

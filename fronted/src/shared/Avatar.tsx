@@ -45,7 +45,10 @@ export default function Avatar({
           </text>
         </svg>
       )}
-      {src && <img className="size-full" src={src} alt={alt} />}
+      {src && (
+        // eslint-disable-next-line @next/next/no-img-element -- avatar URL'leri çoğu kez harici (gravatar/oauth provider); dynamic boyut nedeniyle <img>
+        <img className="size-full" src={src} alt={alt} />
+      )}
     </span>
   )
 }

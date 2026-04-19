@@ -1,4 +1,4 @@
-import { HotelFacetOptionManagers } from '../../HotelFacetSelectPanels'
+import { HotelFacetOptionManagers } from '@/components/catalog/HotelFacetSelectPanels'
 import { parseCatalogCategoryCodeParam } from '@/lib/catalog-category-ui'
 import { notFound } from 'next/navigation'
 

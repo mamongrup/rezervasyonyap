@@ -1,10 +1,9 @@
-import ManagePlaceholderPage from '../ManagePlaceholderPage'
+import SlidersManageClient from './SlidersManageClient'
+
+export const metadata = {
+  title: 'Slider & Banner Yönetimi',
+}
 
 export default function Page() {
-  return (
-    <ManagePlaceholderPage
-      title="Slider & Banner Yönetimi"
-      description="Ana sayfa ve bölge sayfalarındaki slaytları düzenleyin. Bu modül geliştirme aşamasındadır."
-    />
-  )
+  return <SlidersManageClient />
 }

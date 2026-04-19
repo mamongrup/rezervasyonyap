@@ -80,6 +80,214 @@ export async function createCart(currencyCode: string): Promise<CreateCartRes> {
   return json<CreateCartRes>(res)
 }
 
+// ── Sepete kupon iliştirme (Faz A) ────────────────────────────────────────────
+export type CouponPreview = {
+  ok: boolean
+  code: string
+  discount_type: 'percent' | 'fixed' | string
+  discount_value: string
+  discount_amount: string
+}
+
+export type CartTotals = {
+  subtotal: string
+  discount_amount: string
+  total: string
+  coupon: { code: string; discount_type: string; discount_value: string } | null
+}
+
+/** Sepetsiz ön doğrulama. Sepet altyapısına bağlanmadan kullanıcıya geri bildirim verir. */
+export async function validateCouponPublic(
+  code: string,
+  subtotal: number | string = 0,
+): Promise<CouponPreview> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const url = new URL(`${b}/api/v1/public/coupons/validate`)
+  url.searchParams.set('code', code)
+  url.searchParams.set('subtotal', String(subtotal))
+  const res = await fetch(url.toString())
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `coupon_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function applyCouponToCart(
+  cartId: string,
+  code: string,
+): Promise<CouponPreview & { subtotal: string; total: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/carts/${encodeURIComponent(cartId)}/apply-coupon`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `apply_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function removeCouponFromCart(cartId: string): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/carts/${encodeURIComponent(cartId)}/coupon`,
+    { method: 'DELETE' },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `coupon_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function getCartTotals(cartId: string): Promise<CartTotals> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/carts/${encodeURIComponent(cartId)}/totals`,
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `totals_${res.status}`)
+  }
+  return json(res)
+}
+
+// ── Listing perks (Faz D + E): instant_book + mobile_discount + super_host ─
+export type ListingPerks = {
+  instant_book: boolean
+  mobile_discount_percent: number
+  super_host: boolean
+}
+
+export async function getListingPerks(listingId: string): Promise<ListingPerks> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/public/listings/${encodeURIComponent(listingId)}/perks`,
+    { cache: 'no-store' },
+  )
+  if (!res.ok) throw new Error(`perks_${res.status}`)
+  return json(res)
+}
+
+export type PublicHotelRoom = {
+  id: string
+  name: string
+  capacity: string | null
+  board_type: string | null
+  meta_json: string
+}
+
+/** Vitrin için otel oda listesi — auth gerektirmez. Boş dönerse vitrinin demo akışı çalışır. */
+export async function getPublicHotelRooms(
+  listingId: string,
+): Promise<{ rooms: PublicHotelRoom[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/verticals/listings/${encodeURIComponent(listingId)}/hotel-rooms`,
+    { cache: 'no-store' },
+  )
+  if (!res.ok) throw new Error(`hotel_rooms_public_${res.status}`)
+  return json(res)
+}
+
+/** Vitrin "Bu ilanı bildir" formundan gönderilen şikayet. */
+export async function submitListingReport(
+  listingId: string,
+  body: { reason_code: string; message?: string; reporter_email?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/public/listings/${encodeURIComponent(listingId)}/report`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `report_${res.status}`)
+  }
+  return json(res)
+}
+
+export type PublicListingAttribute = {
+  group_code: string
+  key: string
+  value_json: string
+}
+
+/** Vitrin için listing_attributes satırlarını çeker (auth gerektirmez). */
+export async function getPublicListingAttributes(
+  listingId: string,
+): Promise<{ values: PublicListingAttribute[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/public/listings/${encodeURIComponent(listingId)}/attributes`,
+    { cache: 'no-store' },
+  )
+  if (!res.ok) throw new Error(`public_attrs_${res.status}`)
+  return json(res)
+}
+
+/** value_json string'inden boolean true tespit eder; "true", "1", `{value:true}` gibi serbest formatları kabul eder. */
+export function isAttributeValueTrue(raw: string): boolean {
+  const v = (raw ?? '').trim()
+  if (!v) return false
+  if (v === 'true' || v === '"true"' || v === '1' || v === '"1"') return true
+  try {
+    const p = JSON.parse(v)
+    if (p === true || p === 1) return true
+    if (p && typeof p === 'object') {
+      const o = p as Record<string, unknown>
+      if (o.value === true || o.value === 1 || o.value === 'true') return true
+      if (o.enabled === true || o.enabled === 1) return true
+    }
+  } catch {
+    /* ignore */
+  }
+  return false
+}
+
+export async function patchListingPerks(
+  authToken: string,
+  listingId: string,
+  body: Partial<{ instant_book: boolean; mobile_discount_percent: number }>,
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/listings/${encodeURIComponent(listingId)}/perks`,
+    {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `perks_patch_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function getCart(cartId: string): Promise<CartDetail> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
@@ -102,11 +310,16 @@ export async function addCartLine(
     /** Verilirse ilan kategorisi bu acente için onaylı olmalı (`agency_category_grants`). */
     agency_organization_id?: string
   },
+  /** Acente sepetleri için backend `user_roles` doğrulaması yapar; token şarttır. */
+  authToken?: string,
 ): Promise<{ id: string; cart_id: string }> {
   const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
   const res = await fetch(`${b}/api/v1/carts/${cartId}/lines`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -138,11 +351,16 @@ export async function checkoutCart(
     /** Taksit sayısı (1-12, varsayılan 1) */
     installments?: number
   },
+  /** Acente checkout'larında backend `user_roles` doğrulaması yapar; token şarttır. */
+  authToken?: string,
 ): Promise<CheckoutRes & { payment_type?: string }> {
   const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (authToken) headers.Authorization = `Bearer ${authToken}`
   const res = await fetch(`${b}/api/v1/carts/${cartId}/checkout`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -158,14 +376,28 @@ export function encodePaytrUserBasket(rows: [string, string, number][]): string 
   return btoa(unescape(encodeURIComponent(s)))
 }
 
-/** Müşteri IP (PayTR zorunlu alan). Üretimde doğru IP için tercih edin. */
+/** Müşteri IP (PayTR zorunlu alan). Üretimde doğru IP için tercih edin.
+ *
+ * Notlar:
+ * - `cache: 'no-store'` — IP yanıtı oturuma özgü, Next.js fetch cache'ine yazılmamalı.
+ * - 3 sn timeout (`AbortController`) — `ipify` erişilemezse checkout sayfası asılı kalmasın.
+ * - JSON parse hatasında fallback IP dön. */
 export async function fetchPublicIp(): Promise<string> {
+  const fallback = process.env.NEXT_PUBLIC_PAYTR_FALLBACK_IP ?? '127.0.0.1'
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null
+  const t = ctrl ? setTimeout(() => ctrl.abort(), 3000) : null
   try {
-    const r = await fetch('https://api.ipify.org?format=json')
-    const j = (await r.json()) as { ip?: string }
-    return j.ip ?? '127.0.0.1'
+    const r = await fetch('https://api.ipify.org?format=json', {
+      cache: 'no-store',
+      signal: ctrl?.signal,
+    })
+    if (!r.ok) return fallback
+    const j = (await r.json().catch(() => ({}))) as { ip?: string }
+    return typeof j.ip === 'string' && j.ip.length > 0 ? j.ip : fallback
   } catch {
-    return process.env.NEXT_PUBLIC_PAYTR_FALLBACK_IP ?? '127.0.0.1'
+    return fallback
+  } finally {
+    if (t) clearTimeout(t)
   }
 }
 
@@ -778,6 +1010,11 @@ export async function deleteManageHotelRoom(
 
 export type MealPlanCode = 'room_only' | 'bed_breakfast' | 'half_board' | 'full_board' | 'all_inclusive' | 'custom'
 
+/**
+ * Yemek planı görünen etiketleri — 6 dilde (tr/en/de/ru/zh/fr).
+ * Eski `tr`/`en` alanları geriye dönük uyumluluk için tutuluyor; yeni kodda
+ * `MEAL_PLAN_LABELS_I18N[code][locale]` veya `pickI18n` ile okuyun.
+ */
 export const MEAL_PLAN_LABELS: Record<MealPlanCode, { tr: string; en: string; emoji: string }> = {
   room_only:      { tr: 'Yemeksiz',        en: 'Room Only',       emoji: '🛏️' },
   bed_breakfast:  { tr: 'Oda & Kahvaltı',  en: 'Bed & Breakfast', emoji: '☕' },
@@ -787,21 +1024,51 @@ export const MEAL_PLAN_LABELS: Record<MealPlanCode, { tr: string; en: string; em
   custom:         { tr: 'Özel Plan',        en: 'Custom Plan',     emoji: '📋' },
 }
 
-export const MEAL_OPTIONS = [
-  { value: 'breakfast', labelTr: 'Kahvaltı',     labelEn: 'Breakfast' },
-  { value: 'lunch',     labelTr: 'Öğle Yemeği',  labelEn: 'Lunch' },
-  { value: 'dinner',    labelTr: 'Akşam Yemeği', labelEn: 'Dinner' },
-  { value: 'supper',    labelTr: 'Gece Yemeği',  labelEn: 'Supper' },
+/** Yemek planı kodu için 6-dilli görünen etiket haritası. */
+export const MEAL_PLAN_LABELS_I18N: Record<MealPlanCode, Record<'tr' | 'en' | 'de' | 'ru' | 'zh' | 'fr', string>> = {
+  room_only: {
+    tr: 'Yemeksiz', en: 'Room Only', de: 'Nur Übernachtung', ru: 'Без питания', zh: '仅住宿', fr: 'Logement seul',
+  },
+  bed_breakfast: {
+    tr: 'Oda & Kahvaltı', en: 'Bed & Breakfast', de: 'Übernachtung mit Frühstück', ru: 'Завтрак включён', zh: '含早餐', fr: 'Petit-déjeuner inclus',
+  },
+  half_board: {
+    tr: 'Yarım Pansiyon', en: 'Half Board', de: 'Halbpension', ru: 'Полупансион', zh: '半膳', fr: 'Demi-pension',
+  },
+  full_board: {
+    tr: 'Tam Pansiyon', en: 'Full Board', de: 'Vollpension', ru: 'Полный пансион', zh: '全膳', fr: 'Pension complète',
+  },
+  all_inclusive: {
+    tr: 'Her Şey Dahil', en: 'All Inclusive', de: 'All-inclusive', ru: 'Всё включено', zh: '全包式', fr: 'Tout compris',
+  },
+  custom: {
+    tr: 'Özel Plan', en: 'Custom Plan', de: 'Individueller Plan', ru: 'Индивидуальный план', zh: '定制方案', fr: 'Plan personnalisé',
+  },
+}
+
+type MealOption = {
+  value: string
+  labelTr: string
+  labelEn: string
+  /** 6 dilli etiket — yeni kodlar için tercih edilir. */
+  label_i18n?: Partial<Record<'tr' | 'en' | 'de' | 'ru' | 'zh' | 'fr', string>>
+}
+
+export const MEAL_OPTIONS: MealOption[] = [
+  { value: 'breakfast', labelTr: 'Kahvaltı',     labelEn: 'Breakfast', label_i18n: { tr: 'Kahvaltı',     en: 'Breakfast', de: 'Frühstück',     ru: 'Завтрак',  zh: '早餐', fr: 'Petit-déjeuner' } },
+  { value: 'lunch',     labelTr: 'Öğle Yemeği',  labelEn: 'Lunch',     label_i18n: { tr: 'Öğle Yemeği',  en: 'Lunch',     de: 'Mittagessen',   ru: 'Обед',     zh: '午餐', fr: 'Déjeuner' } },
+  { value: 'dinner',    labelTr: 'Akşam Yemeği', labelEn: 'Dinner',    label_i18n: { tr: 'Akşam Yemeği', en: 'Dinner',    de: 'Abendessen',    ru: 'Ужин',     zh: '晚餐', fr: 'Dîner' } },
+  { value: 'supper',    labelTr: 'Gece Yemeği',  labelEn: 'Supper',    label_i18n: { tr: 'Gece Yemeği',  en: 'Supper',    de: 'Spätmahlzeit',  ru: 'Поздний ужин', zh: '宵夜', fr: 'Souper' } },
 ]
 
-export const MEAL_EXTRAS_OPTIONS = [
-  { value: 'tea',           labelTr: 'Çay / Kahve',      labelEn: 'Tea / Coffee' },
-  { value: 'soft_drinks',   labelTr: 'Alkolsüz İçecek',  labelEn: 'Soft Drinks' },
-  { value: 'minibar',       labelTr: 'Mini Bar',          labelEn: 'Minibar' },
-  { value: 'snacks',        labelTr: 'Atıştırmalık',      labelEn: 'Snacks' },
-  { value: 'welcome_drink', labelTr: 'Karşılama İçeceği', labelEn: 'Welcome Drink' },
-  { value: 'fruit_basket',  labelTr: 'Meyve Tabağı',      labelEn: 'Fruit Basket' },
-  { value: 'bbq',           labelTr: 'Barbekü',            labelEn: 'BBQ' },
+export const MEAL_EXTRAS_OPTIONS: MealOption[] = [
+  { value: 'tea',           labelTr: 'Çay / Kahve',       labelEn: 'Tea / Coffee',  label_i18n: { tr: 'Çay / Kahve',      en: 'Tea / Coffee',  de: 'Tee / Kaffee',     ru: 'Чай / кофе',         zh: '茶 / 咖啡',  fr: 'Thé / café' } },
+  { value: 'soft_drinks',   labelTr: 'Alkolsüz İçecek',   labelEn: 'Soft Drinks',   label_i18n: { tr: 'Alkolsüz İçecek',  en: 'Soft Drinks',   de: 'Alkoholfreie Getränke', ru: 'Безалкогольные', zh: '软饮',       fr: 'Boissons sans alcool' } },
+  { value: 'minibar',       labelTr: 'Mini Bar',           labelEn: 'Minibar',       label_i18n: { tr: 'Mini Bar',          en: 'Minibar',       de: 'Minibar',          ru: 'Мини-бар',           zh: '迷你吧',     fr: 'Minibar' } },
+  { value: 'snacks',        labelTr: 'Atıştırmalık',       labelEn: 'Snacks',        label_i18n: { tr: 'Atıştırmalık',      en: 'Snacks',        de: 'Snacks',           ru: 'Закуски',            zh: '小吃',       fr: 'En-cas' } },
+  { value: 'welcome_drink', labelTr: 'Karşılama İçeceği',  labelEn: 'Welcome Drink', label_i18n: { tr: 'Karşılama İçeceği', en: 'Welcome Drink', de: 'Willkommensgetränk', ru: 'Приветственный напиток', zh: '欢迎饮品', fr: 'Boisson de bienvenue' } },
+  { value: 'fruit_basket',  labelTr: 'Meyve Tabağı',       labelEn: 'Fruit Basket',  label_i18n: { tr: 'Meyve Tabağı',     en: 'Fruit Basket',  de: 'Obstkorb',         ru: 'Корзина фруктов',    zh: '水果盘',     fr: 'Corbeille de fruits' } },
+  { value: 'bbq',           labelTr: 'Barbekü',             labelEn: 'BBQ',           label_i18n: { tr: 'Barbekü',           en: 'BBQ',           de: 'Grillen',          ru: 'Барбекю',            zh: '烧烤',       fr: 'Barbecue' } },
 ]
 
 export interface MealPlanRow {
@@ -1425,41 +1692,50 @@ export type RoleAssignment = { role_code: string; organization_id: string | null
 
 export type RoleCatalogEntry = { code: string; description: string }
 
+/**
+ * Kayıt: tarayıcıdan **Next API proxy** üzerine gider; dönen yanıtta
+ * sunucu HttpOnly cookie set eder ve tokenı gövdede de döner. Doğrudan
+ * backend'e değil, `/api/auth/register`'a istek atarız.
+ */
 export async function registerUser(body: {
   email: string
   password: string
   display_name?: string
 }): Promise<{ token: string; user: AuthUser }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/auth/register`, {
+  const res = await fetch(`/api/auth/register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    credentials: 'same-origin',
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `auth_register_${res.status}`)
   }
-  return json(res)
+  const data = (await res.json()) as { token: string; user: AuthUser }
+  return data
 }
 
+/**
+ * Giriş: aynı şekilde proxy route üzerinden gider. Cookie HttpOnly;
+ * `localStorage` yedeği `Authorization: Bearer ...` API çağrıları için.
+ */
 export async function loginUser(body: {
   email: string
   password: string
 }): Promise<{ token: string; user: AuthUser }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/auth/login`, {
+  const res = await fetch(`/api/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+    credentials: 'same-origin',
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `auth_login_${res.status}`)
   }
-  return json(res)
+  const data = (await res.json()) as { token: string; user: AuthUser }
+  return data
 }
 
 export async function getAuthMe(
@@ -2333,17 +2609,31 @@ export type AdminAgencyProfileRow = {
   email: string
   document_status: string
   discount_percent: string
+  /** Backend `agency_organization_id` boş gönderildiğinde tüm acente profilleri döner;
+   *  bu alanlar tek-kurum modunda da geriye dönük uyumlu olarak doldurulur. */
+  organization_id?: string
+  organization_slug?: string
+  organization_name?: string
+  tursab_license_no?: string
+  tursab_verify_url?: string
+  created_at?: string
 }
 
 export async function listAdminAgencyProfiles(
   token: string,
+  /** Boş bırakılırsa tüm acente profilleri (admin TÜRSAB doğrulama paneli için) listelenir. */
   agencyOrganizationId: string,
+  /** Opsiyonel `pending` | `approved` | `rejected` filtresi. */
+  status?: string,
 ): Promise<{ profiles: AdminAgencyProfileRow[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const q = new URLSearchParams({ agency_organization_id: agencyOrganizationId.trim() })
+  const params: Record<string, string> = { agency_organization_id: agencyOrganizationId.trim() }
+  if (status && status.trim() !== '') params.status = status.trim()
+  const q = new URLSearchParams(params)
   const res = await fetch(`${b}/api/v1/admin/agency-profiles?${q}`, {
     headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -3361,6 +3651,76 @@ export async function setActiveCdn(code: 'bunny' | 'cloudflare'): Promise<{ ok: 
   return json(res)
 }
 
+export async function deactivateCdn(): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/media/cdn/deactivate`, { method: 'POST' })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `media_cdn_deactivate_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function updateCdnPullZoneUrl(
+  code: 'bunny' | 'cloudflare',
+  pull_zone_url: string,
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/media/cdn/url`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, pull_zone_url }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `media_cdn_url_${res.status}`)
+  }
+  return json(res)
+}
+
+export type CdnProviderRecord = {
+  code: 'bunny' | 'cloudflare'
+  pull_zone_url: string | null
+  is_active: boolean
+  config_json: Record<string, string>
+}
+
+export async function getAllCdnProviders(): Promise<CdnProviderRecord[]> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/media/cdn/all`)
+  if (!res.ok) throw new Error(`media_cdn_all_${res.status}`)
+  // `json()` helper'ı parseLenientJson + 200/non-JSON tespiti yapar.
+  const rows = await json<Array<{ code: string; pull_zone_url: string | null; is_active: boolean; config_json: string }>>(res)
+  return rows.map((r) => ({
+    code: r.code as 'bunny' | 'cloudflare',
+    pull_zone_url: r.pull_zone_url ?? null,
+    is_active: r.is_active,
+    config_json: (() => { try { return JSON.parse(r.config_json) } catch { return {} } })(),
+  }))
+}
+
+export async function updateCdnConfig(
+  code: 'bunny' | 'cloudflare',
+  pull_zone_url: string,
+  config: Record<string, string>,
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/media/cdn/config`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code, pull_zone_url, config_json: JSON.stringify(config) }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `media_cdn_config_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function registerMediaFile(body: {
   owner_type: string
   owner_id: string
@@ -3844,14 +4204,15 @@ export async function getCmsPageBySlug(params: {
   slug: string
   /** Boş: yalnızca `organization_id` null olan sayfa */
   organization_id?: string
-}): Promise<{ page: CmsPage }> {
+}): Promise<{ page: CmsPage; blocks: CmsBlock[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams({ slug: params.slug })
   if (params.organization_id != null) q.set('organization_id', params.organization_id)
   const res = await fetch(`${b}/api/v1/cms/pages/by-slug?${q}`)
   if (!res.ok) throw new Error(`cms_page_by_slug_${res.status}`)
-  return json(res)
+  const data = (await json(res)) as { page: CmsPage; blocks?: CmsBlock[] }
+  return { page: data.page, blocks: Array.isArray(data.blocks) ? data.blocks : [] }
 }
 
 export async function patchCmsPage(
@@ -4257,127 +4618,6 @@ export async function patchBlogCategory(
   return json(res)
 }
 
-// --- Banner yerleşimleri ---
-
-export type BannerPlacement = {
-  id: string
-  placement_code: string
-  organization_id: string | null
-  image_storage_key: string
-  link_url: string | null
-  /** locales.id (string) */
-  locale_id: string | null
-  active: boolean
-}
-
-export async function listBannerPlacements(
-  token: string,
-  params?: {
-    organization_id?: string
-    locale?: string
-    active?: boolean
-  },
-): Promise<{ placements: BannerPlacement[] }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const q = new URLSearchParams()
-  if (params?.organization_id != null && params.organization_id !== '')
-    q.set('organization_id', params.organization_id)
-  if (params?.locale) q.set('locale', params.locale)
-  if (params?.active != null) q.set('active', String(params.active))
-  const res = await fetch(`${b}/api/v1/banners/placements${q.toString() ? `?${q}` : ''}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) throw new Error(`banners_${res.status}`)
-  return json(res)
-}
-
-/** Kimliksiz vitrin: yalnızca aktif yerleşimler (sunucu en fazla 200 döner). */
-export async function listBannerPlacementsPublic(params?: {
-  organization_id?: string
-  locale?: string
-}): Promise<{ placements: BannerPlacement[] }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const q = new URLSearchParams()
-  if (params?.organization_id != null && params.organization_id !== '')
-    q.set('organization_id', params.organization_id)
-  if (params?.locale) q.set('locale', params.locale)
-  const res = await fetch(
-    `${b}/api/v1/banners/placements/public${q.toString() ? `?${q}` : ''}`,
-  )
-  if (!res.ok) throw new Error(`banners_public_${res.status}`)
-  return json(res)
-}
-
-export async function createBannerPlacement(
-  token: string,
-  body: {
-    placement_code: string
-    image_storage_key: string
-    organization_id?: string
-    link_url?: string
-    locale?: string
-    active?: boolean
-  },
-): Promise<{ id: string }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/banners/placements`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string }).error ?? `banner_create_${res.status}`)
-  }
-  return json(res)
-}
-
-export async function patchBannerPlacement(
-  token: string,
-  placementId: string,
-  body: {
-    placement_code?: string
-    organization_id?: string
-    image_storage_key?: string
-    link_url?: string
-    locale?: string
-    active?: boolean
-  },
-): Promise<{ id: string; ok: boolean }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/banners/placements/${encodeURIComponent(placementId)}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string }).error ?? `banner_patch_${res.status}`)
-  }
-  return json(res)
-}
-
-export async function deleteBannerPlacement(
-  token: string,
-  placementId: string,
-): Promise<{ ok: boolean }> {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/banners/placements/${encodeURIComponent(placementId)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  })
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as { error?: string }).error ?? `banner_delete_${res.status}`)
-  }
-  return json(res)
-}
-
 // --- Çok dilli URL (localized_routes) ---
 
 export type LocalizedRoute = {
@@ -4459,12 +4699,17 @@ export async function deleteLocalizedRoute(
 export type Coupon = {
   id: string
   code: string
+  name?: string
+  description?: string
+  name_translations?: string
+  description_translations?: string
   discount_type: string
   discount_value: string
   max_uses: string | null
   used_count: string
   valid_from: string | null
   valid_to: string | null
+  is_public?: boolean
   created_at: string
 }
 
@@ -4487,6 +4732,11 @@ export async function createCoupon(
     max_uses?: number
     valid_from?: string
     valid_to?: string
+    name?: string
+    description?: string
+    name_translations?: string
+    description_translations?: string
+    is_public?: boolean
   },
 ): Promise<{ id: string }> {
   const b = base()
@@ -4513,6 +4763,11 @@ export async function patchCoupon(
     max_uses?: number
     valid_from?: string
     valid_to?: string
+    name?: string
+    description?: string
+    name_translations?: string
+    description_translations?: string
+    is_public?: boolean
   },
 ): Promise<{ id: string; ok: boolean }> {
   const b = base()
@@ -4525,6 +4780,47 @@ export async function patchCoupon(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `marketing_coupon_patch_${res.status}`)
+  }
+  return json(res)
+}
+
+export type CouponLimits = {
+  min_order_amount: string
+  allowed_category_codes: string
+}
+
+export async function getCouponLimits(
+  token: string,
+  couponId: string,
+): Promise<CouponLimits> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/marketing/coupons/${encodeURIComponent(couponId)}/limits`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) throw new Error(`coupon_limits_get_${res.status}`)
+  return json(res)
+}
+
+export async function patchCouponLimits(
+  token: string,
+  couponId: string,
+  body: { min_order_amount?: string; allowed_category_codes?: string },
+): Promise<{ id: string; ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/marketing/coupons/${encodeURIComponent(couponId)}/limits`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `coupon_limits_patch_${res.status}`)
   }
   return json(res)
 }
@@ -4548,10 +4844,46 @@ export type Campaign = {
   code: string
   campaign_type: string
   name: string
+  /** Çoklu dil isim haritası — JSONB string ham gelir; `parseNameTranslations` ile çöz */
+  name_translations?: string
   rules_json: string
   starts_at: string | null
   ends_at: string | null
   is_active: boolean
+}
+
+/**
+ * Backend `name_translations` alanını JSONB metin olarak gönderir;
+ * `{ "tr": "Yaz", "en": "Summer", ... }` haritasına dönüştürür.
+ */
+export function parseNameTranslations(raw: string | undefined | null): Record<string, string> {
+  if (!raw) return {}
+  try {
+    const v = JSON.parse(raw) as unknown
+    if (!v || typeof v !== 'object' || Array.isArray(v)) return {}
+    const out: Record<string, string> = {}
+    for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+      if (typeof k === 'string' && typeof val === 'string') out[k] = val
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+/** Aktif locale'e göre çevrilmiş isim, yoksa varsayılan TR `name` */
+export function pickLocalizedName(
+  defaultName: string,
+  rawTranslations: string | undefined | null,
+  locale: string,
+): string {
+  const map = parseNameTranslations(rawTranslations)
+  const lc = locale.toLowerCase()
+  const fromLocale = map[lc]?.trim()
+  if (fromLocale) return fromLocale
+  const fromTr = map.tr?.trim()
+  if (fromTr) return fromTr
+  return defaultName
 }
 
 export async function listCampaigns(token: string): Promise<{ campaigns: Campaign[] }> {
@@ -4570,6 +4902,8 @@ export async function createCampaign(
     code: string
     campaign_type: string
     name: string
+    /** JSONB string: '{"tr":"...","en":"..."}'. Boşsa "{}" varsayılır. */
+    name_translations?: string
     rules_json?: string
     starts_at?: string
     ends_at?: string
@@ -4586,6 +4920,143 @@ export async function createCampaign(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `marketing_campaign_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchCampaign(
+  token: string,
+  campaignId: string,
+  body: {
+    code?: string
+    name?: string
+    /** JSONB string: '{"tr":"...","en":"..."}'. Mevcut değeri korumak için bırakın. */
+    name_translations?: string
+    rules_json?: string
+    starts_at?: string
+    ends_at?: string
+    is_active?: boolean
+  },
+): Promise<{ id: string; ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/marketing/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `marketing_campaign_patch_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function deleteCampaign(token: string, campaignId: string): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/marketing/campaigns/${encodeURIComponent(campaignId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `marketing_campaign_delete_${res.status}`)
+  }
+  return json(res)
+}
+
+export type HolidayPackage = {
+  id: string
+  name: string
+  /** Çoklu dil isim haritası — JSONB string ham gelir; `parseNameTranslations` ile çöz */
+  name_translations?: string
+  bundle_json: string
+  organization_id: string | null
+  created_at: string
+}
+
+/** Tarayıcıda Next vekil rotası; sunucuda doğrudan Gleam. */
+function holidayPackagesUrl(packageId?: string): string {
+  const tail = packageId ? `/${encodeURIComponent(packageId)}` : ''
+  if (typeof window !== 'undefined') {
+    return `/api/v1/marketing/holiday-packages${tail}`
+  }
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  return `${b}/api/v1/marketing/holiday-packages${tail}`
+}
+
+function holidayHeaders(token: string, jsonBody: boolean): HeadersInit {
+  const h: Record<string, string> = { Authorization: `Bearer ${token}` }
+  if (jsonBody) h['Content-Type'] = 'application/json'
+  return h
+}
+
+export async function listHolidayPackages(token: string): Promise<{ packages: HolidayPackage[] }> {
+  const res = await fetch(holidayPackagesUrl(), {
+    headers: holidayHeaders(token, false),
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    const hint =
+      res.status === 404
+        ? 'Paket tatil listesi bulunamadı. Gleam backend’i güncel kodla derleyip yeniden başlatın veya NEXT_PUBLIC_API_URL’i kontrol edin.'
+        : (err as { error?: string }).error
+    throw new Error(hint ?? `marketing_holiday_packages_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function createHolidayPackage(
+  token: string,
+  body: { name: string; name_translations?: string; bundle_json?: string },
+): Promise<{ id: string }> {
+  const res = await fetch(holidayPackagesUrl(), {
+    method: 'POST',
+    headers: holidayHeaders(token, true),
+    body: JSON.stringify(body),
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `marketing_holiday_package_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchHolidayPackage(
+  token: string,
+  packageId: string,
+  body: { name?: string; name_translations?: string; bundle_json?: string },
+): Promise<{ id: string; ok: boolean }> {
+  const res = await fetch(holidayPackagesUrl(packageId), {
+    method: 'PATCH',
+    headers: holidayHeaders(token, true),
+    body: JSON.stringify(body),
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `marketing_holiday_package_patch_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function deleteHolidayPackage(token: string, packageId: string): Promise<{ ok: boolean }> {
+  const res = await fetch(holidayPackagesUrl(packageId), {
+    method: 'DELETE',
+    headers: holidayHeaders(token, false),
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `marketing_holiday_package_delete_${res.status}`)
   }
   return json(res)
 }
@@ -6077,6 +6548,108 @@ export type IcalFeed = {
   day_offset_minus: number
   last_sync_at: string | null
   last_hash: string | null
+  /** Son sync hatası; null = başarılı veya henüz sync edilmedi. */
+  last_error?: string | null
+  /** Son sync'te içe aktarılan VEVENT sayısı. */
+  last_event_count?: number
+  /** false ise sync atlanır (UI'da kapatma toggle'ı için). */
+  is_active?: boolean
+}
+
+/**
+ * Manuel iCal sync — verilen feed'in URL'sinden takvimi çekip
+ * `listing_availability_calendar`'ı günceller.
+ */
+export async function syncIcalFeed(
+  feedId: string,
+): Promise<{ ok: true; event_count: number; day_count: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/locations/ical-feeds/${encodeURIComponent(feedId)}/sync`,
+    { method: 'POST', headers: locJson() },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(
+      (err as { error?: string }).error ?? `locations_ical_sync_${res.status}`,
+    )
+  }
+  return json(res)
+}
+
+/**
+ * iCal feed'inden içe aktarılan ham blok kayıtları (debug + denetim).
+ *
+ * Backend `feed_id` veya `listing_id`'den birini ister. Her sync feed'i
+ * idempotent yeniden yazar (önce silip sonra ekler) → bu uçtaki kayıtlar her
+ * zaman feed'in son halini yansıtır.
+ */
+export type IcalImportedBlock = {
+  id: number
+  feed_id: string
+  listing_id: string
+  uid: string
+  starts_on: string
+  ends_on: string
+  summary: string
+  imported_at: string
+}
+
+export async function listIcalImportedBlocks(params: {
+  feed_id?: string
+  listing_id?: string
+  limit?: number
+}): Promise<{ blocks: IcalImportedBlock[]; count: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const qs = new URLSearchParams()
+  if (params.feed_id) qs.set('feed_id', params.feed_id)
+  if (params.listing_id) qs.set('listing_id', params.listing_id)
+  if (typeof params.limit === 'number') qs.set('limit', String(params.limit))
+  const res = await fetch(
+    `${b}/api/v1/locations/ical-imported-blocks?${qs.toString()}`,
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(
+      (err as { error?: string }).error ?? `ical_imported_blocks_${res.status}`,
+    )
+  }
+  return json(res)
+}
+
+/**
+ * iCal export token + public URL'i döner. Token yoksa otomatik üretir.
+ * Aynı listing için her çağrıda aynı sonucu verir (idempotent).
+ */
+export async function getListingIcalExportToken(
+  listingId: string,
+): Promise<{ token: string; url: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/ical-export-token`,
+  )
+  if (!res.ok) throw new Error(`ical_export_token_get_${res.status}`)
+  return json(res)
+}
+
+/**
+ * Mevcut export token'ı geçersizleştirip yenisini üretir.
+ * Eski URL'i kullanan harici takvimler 404 alır → admin bilinçli rotation.
+ */
+export async function rotateListingIcalExportToken(
+  listingId: string,
+): Promise<{ token: string; url: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/ical-export-token`,
+    { method: 'POST', headers: locJson() },
+  )
+  if (!res.ok) throw new Error(`ical_export_token_rotate_${res.status}`)
+  return json(res)
 }
 
 export async function listIcalFeeds(listingId: string): Promise<{ feeds: IcalFeed[] }> {
@@ -6116,6 +6689,8 @@ export async function patchIcalFeed(
     day_offset_minus?: number
     last_sync_at?: string
     last_hash?: string
+    /** false → sync atlanır (kullanıcı geçici durdurmak için) */
+    is_active?: boolean
   },
 ): Promise<{ id: string; ok: boolean }> {
   const b = base()
@@ -7758,12 +8333,13 @@ export type PriceLineItem = {
 
 export async function listPriceLineItems(
   token: string,
-  params: { categoryCode: string; locale?: string },
+  params: { categoryCode: string; locale?: string; organizationId?: string },
 ): Promise<{ items: PriceLineItem[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const sp = new URLSearchParams({ category_code: params.categoryCode })
   if (params.locale) sp.set('locale', params.locale)
+  if (params.organizationId) sp.set('organization_id', params.organizationId)
   const res = await fetch(`${b}/api/v1/catalog/price-line-items?${sp.toString()}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
@@ -7780,10 +8356,14 @@ export async function createPriceLineItem(
     sort_order?: string
     label: string
   },
+  options?: { organizationId?: string },
 ): Promise<{ id: string; ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/price-line-items`, {
+  const sp = new URLSearchParams()
+  if (options?.organizationId) sp.set('organization_id', options.organizationId)
+  const qs = sp.toString() ? `?${sp.toString()}` : ''
+  const res = await fetch(`${b}/api/v1/catalog/price-line-items${qs}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(body),
@@ -7795,13 +8375,23 @@ export async function createPriceLineItem(
   return json(res)
 }
 
-export async function deletePriceLineItem(token: string, itemId: string): Promise<{ ok: boolean }> {
+export async function deletePriceLineItem(
+  token: string,
+  itemId: string,
+  options?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/price-line-items/${encodeURIComponent(itemId)}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const sp = new URLSearchParams()
+  if (options?.organizationId) sp.set('organization_id', options.organizationId)
+  const qs = sp.toString() ? `?${sp.toString()}` : ''
+  const res = await fetch(
+    `${b}/api/v1/catalog/price-line-items/${encodeURIComponent(itemId)}${qs}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `price_line_del_${res.status}`)
@@ -7813,11 +8403,15 @@ export async function putPriceLineItemTranslations(
   token: string,
   itemId: string,
   body: { entries: { locale_code: string; label: string }[] },
+  options?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const sp = new URLSearchParams()
+  if (options?.organizationId) sp.set('organization_id', options.organizationId)
+  const qs = sp.toString() ? `?${sp.toString()}` : ''
   const res = await fetch(
-    `${b}/api/v1/catalog/price-line-items/${encodeURIComponent(itemId)}/translations`,
+    `${b}/api/v1/catalog/price-line-items/${encodeURIComponent(itemId)}/translations${qs}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -8423,4 +9017,97 @@ export async function listAgencyAnnouncements(token: string): Promise<{ announce
     throw new Error((err as { error?: string }).error ?? `agency_announcements_${res.status}`)
   }
   return json(res)
+}
+
+// ─── Public Marketing (Page Builder vitrin modülleri için) ───────────────────
+// Auth gerektirmez; storefront tarafında ISR ile çağrılır.
+
+/** Aktif kampanyalar listesi. type: campaigns.campaign_type filtresi (örn. 'flash', 'early_booking'). */
+export async function listPublicActiveCampaigns(params?: {
+  type?: string
+  limit?: number
+}): Promise<{ campaigns: Campaign[] }> {
+  const b = base()
+  if (!b) return { campaigns: [] }
+  const q = new URLSearchParams()
+  if (params?.type) q.set('type', params.type)
+  if (params?.limit) q.set('limit', String(params.limit))
+  try {
+    const res = await fetch(`${b}/api/v1/public/marketing/active-campaigns${q.toString() ? `?${q}` : ''}`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return { campaigns: [] }
+    return json(res)
+  } catch {
+    return { campaigns: [] }
+  }
+}
+
+/** Sadece is_public=true kuponlar. Vitrin şeridi/banner için. */
+export async function listPublicActiveCoupons(params?: {
+  limit?: number
+}): Promise<{ coupons: Coupon[] }> {
+  const b = base()
+  if (!b) return { coupons: [] }
+  const q = new URLSearchParams()
+  if (params?.limit) q.set('limit', String(params.limit))
+  try {
+    const res = await fetch(`${b}/api/v1/public/marketing/active-coupons${q.toString() ? `?${q}` : ''}`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return { coupons: [] }
+    return json(res)
+  } catch {
+    return { coupons: [] }
+  }
+}
+
+/** Tatil paketleri (vitrinde "Hazır Paketler" modülü). */
+export async function listPublicHolidayPackages(params?: {
+  limit?: number
+}): Promise<{ packages: HolidayPackage[] }> {
+  const b = base()
+  if (!b) return { packages: [] }
+  const q = new URLSearchParams()
+  if (params?.limit) q.set('limit', String(params.limit))
+  try {
+    const res = await fetch(`${b}/api/v1/public/marketing/holiday-packages${q.toString() ? `?${q}` : ''}`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return { packages: [] }
+    return json(res)
+  } catch {
+    return { packages: [] }
+  }
+}
+
+// ─── Coupon name/description i18n helper'ları ────────────────────────────────
+
+/** name_translations / description_translations JSONB string'ini güvenli parse. */
+export function parseCouponTranslations(raw: string | undefined | null): Record<string, string> {
+  if (!raw) return {}
+  try {
+    const v = JSON.parse(raw)
+    if (v && typeof v === 'object' && !Array.isArray(v)) return v as Record<string, string>
+  } catch {
+    /* noop */
+  }
+  return {}
+}
+
+/** Coupon vitrin başlığını locale'e göre seçer; boşsa code fallback. */
+export function pickCouponName(coupon: Coupon, locale: string): string {
+  const map = parseCouponTranslations(coupon.name_translations)
+  const v = map[locale]
+  if (v && v.trim()) return v
+  if (coupon.name && coupon.name.trim()) return coupon.name
+  return coupon.code
+}
+
+/** Coupon açıklamasını locale'e göre seçer; boş ise boş string döner. */
+export function pickCouponDescription(coupon: Coupon, locale: string): string {
+  const map = parseCouponTranslations(coupon.description_translations)
+  const v = map[locale]
+  if (v && v.trim()) return v
+  return coupon.description ?? ''
 }

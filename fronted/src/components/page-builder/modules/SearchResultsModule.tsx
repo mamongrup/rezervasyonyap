@@ -4,7 +4,9 @@ import {
   type PublicListingItem,
   type ListingCollection,
 } from '@/lib/travel-api'
+import { toIntlLocale } from '@/lib/intl-locale'
 import { getMessages } from '@/utils/getT'
+import Image from 'next/image'
 import Link from 'next/link'
 import { Search, Star, MapPin, Tag, Layers, ArrowRight } from 'lucide-react'
 
@@ -44,10 +46,12 @@ function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?
       {/* Görsel */}
       <div className="relative h-20 w-24 flex-shrink-0">
         {img ? (
-          <img
+          <Image
             src={img}
             alt={item.title}
-            className="h-full w-full rounded-xl object-cover transition-transform group-hover:scale-105"
+            fill
+            sizes="96px"
+            className="rounded-xl object-cover transition-transform group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
@@ -74,7 +78,7 @@ function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?
         <div className="mt-2 flex items-center justify-between">
           {price ? (
             <span className="text-sm font-bold">
-              {new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'tr-TR', { minimumFractionDigits: 0 }).format(price)}{' '}
+              {new Intl.NumberFormat(toIntlLocale(locale), { minimumFractionDigits: 0 }).format(price)}{' '}
               {item.currency_code}
             </span>
           ) : (
@@ -99,11 +103,15 @@ function CollectionCard({ col }: { col: ListingCollection }) {
       className="group flex items-center gap-4 rounded-2xl border border-primary-200 bg-gradient-to-r from-primary-50 to-primary-100 p-4 transition-all hover:shadow-md dark:border-primary-800 dark:from-primary-900/20 dark:to-primary-800/20"
     >
       {col.hero_image_url ? (
-        <img
-          src={col.hero_image_url}
-          alt={col.title}
-          className="h-14 w-16 flex-shrink-0 rounded-xl object-cover"
-        />
+        <div className="relative h-14 w-16 flex-shrink-0 overflow-hidden rounded-xl">
+          <Image
+            src={col.hero_image_url}
+            alt={col.title}
+            fill
+            sizes="64px"
+            className="object-cover"
+          />
+        </div>
       ) : (
         <div className="flex h-14 w-16 flex-shrink-0 items-center justify-center rounded-xl bg-primary-200 dark:bg-primary-900/50">
           <Layers className="h-6 w-6 text-primary-500" />

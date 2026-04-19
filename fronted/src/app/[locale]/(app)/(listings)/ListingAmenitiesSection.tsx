@@ -2,6 +2,7 @@
 
 import {
   HOTEL_AMENITY_IDS,
+  LISTING_AMENITY_ICONS,
   VILLA_AMENITY_IDS,
   buildGroupedAmenities,
   getListingAmenityIcon,
@@ -14,10 +15,12 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import clsx from 'clsx'
+import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 const PREVIEW_COUNT = 9
+const KNOWN_AMENITY_IDS = new Set(Object.keys(LISTING_AMENITY_ICONS))
 
 /** Şablondaki (Chisfis) satır ikonları: 24×24, nötr gri, ince çizgi — `Icons.tsx` (stroke 1.5) ile uyum */
 const AMENITY_ICON_CLASS = 'h-6 w-6 shrink-0 text-neutral-600 dark:text-neutral-400'
@@ -36,25 +39,51 @@ export default function ListingAmenitiesSection({
   locale,
   variant,
   className,
+  customSelectedIds,
+  customLabels,
 }: {
   locale: string
   variant: 'hotel' | 'villa'
   className?: string
+  /** Backend `listing_attributes` üzerinden gelen seçili amenity key listesi.
+   *  Boş/undefined ise sabit demo listesi kullanılır. */
+  customSelectedIds?: readonly string[]
+  /** Bilinmeyen key'ler için tedarikçi etiket map'i (örn. {"private_chef":"Özel şef"}). */
+  customLabels?: Record<string, string>
 }) {
   const messages = getMessages(locale)
-  const ids = (
+
+  const fallbackIds = (
     variant === 'hotel' ? HOTEL_AMENITY_IDS : VILLA_AMENITY_IDS
   ) as readonly ListingAmenityId[]
 
+  const useCustom = Array.isArray(customSelectedIds) && customSelectedIds.length > 0
+
+  // Bilinen + bilinmeyen ayrımı: bilinenler ikon/grup desteği alır, bilinmeyenler "extras" havuzunda gösterilir.
+  const knownCustom = useCustom
+    ? (customSelectedIds!.filter((id) => KNOWN_AMENITY_IDS.has(id)) as readonly ListingAmenityId[])
+    : fallbackIds
+  const extraCustom = useCustom
+    ? customSelectedIds!.filter((id) => !KNOWN_AMENITY_IDS.has(id))
+    : []
+
   const [open, setOpen] = useState(false)
 
-  const previewIds = ids.slice(0, PREVIEW_COUNT)
-  const remaining = Math.max(0, ids.length - PREVIEW_COUNT)
+  // Önizleme: önce bilinenler, sonra extras (PREVIEW_COUNT'a kadar).
+  const allPreview = [...knownCustom, ...extraCustom]
+  const previewIds = allPreview.slice(0, PREVIEW_COUNT)
+  const remaining = Math.max(0, allPreview.length - PREVIEW_COUNT)
 
   const subtitle =
     variant === 'hotel' ? messages.listing.amenities.subtitleHotel : messages.listing.amenities.subtitleVilla
 
-  const modalGroups = buildGroupedAmenities(ids, variant)
+  const modalGroups = buildGroupedAmenities(knownCustom, variant)
+
+  const labelOf = (id: string): string =>
+    KNOWN_AMENITY_IDS.has(id) ? labelFor(messages, id) : (customLabels?.[id] ?? id.replace(/_/g, ' '))
+
+  const iconFor = (id: string) =>
+    KNOWN_AMENITY_IDS.has(id) ? getListingAmenityIcon(id as ListingAmenityId) : Sparkles
 
   return (
     <div className={clsx('listingSection__wrap', className)}>
@@ -65,11 +94,11 @@ export default function ListingAmenitiesSection({
       <Divider className="w-14!" />
       <div className="grid grid-cols-2 gap-4 text-sm text-neutral-700 sm:grid-cols-3 dark:text-neutral-300">
         {previewIds.map((id) => {
-          const Icon = getListingAmenityIcon(id)
+          const Icon = iconFor(id)
           return (
             <div key={id} className="flex items-center gap-x-3">
               <Icon className={AMENITY_ICON_CLASS} strokeWidth={1.5} aria-hidden />
-              <span className="leading-snug">{labelFor(messages, id)}</span>
+              <span className="leading-snug">{labelOf(id)}</span>
             </div>
           )
         })}
@@ -124,6 +153,24 @@ export default function ListingAmenitiesSection({
                     </div>
                   </section>
                 ))}
+                {extraCustom.length > 0 ? (
+                  <section aria-labelledby="amenity-group-extras">
+                    <h3
+                      id="amenity-group-extras"
+                      className="mb-3 text-sm font-semibold tracking-tight text-neutral-900 dark:text-white"
+                    >
+                      {messages.listing.amenities.groups?.comfort ?? 'Diğer'}
+                    </h3>
+                    <div className="grid grid-cols-1 gap-3.5 text-sm text-neutral-700 sm:grid-cols-2 dark:text-neutral-300">
+                      {extraCustom.map((id) => (
+                        <div key={id} className="flex items-center gap-x-3">
+                          <Sparkles className={AMENITY_ICON_CLASS} strokeWidth={1.5} aria-hidden />
+                          <span className="leading-snug">{labelOf(id)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
               </div>
             </div>
           </DialogPanel>

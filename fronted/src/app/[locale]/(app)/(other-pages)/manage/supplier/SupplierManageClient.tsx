@@ -65,6 +65,7 @@ type LoadState =
       persistedAccruals: PersistedCommissionAccruals
       invoices: SupplierInvoiceRow[]
       invoicesLoading: boolean
+      invoicesError?: string | null
     }
 
 export default function SupplierManageClient() {
@@ -137,15 +138,23 @@ export default function SupplierManageClient() {
         persistedAccruals,
         invoices: [],
         invoicesLoading: true,
+        invoicesError: null,
       })
       void listSupplierInvoices(token)
         .then((invRes) => {
           setState((prev: LoadState) =>
-            prev.kind === 'ok' ? { ...prev, invoices: invRes.invoices, invoicesLoading: false } : prev,
+            prev.kind === 'ok'
+              ? { ...prev, invoices: invRes.invoices, invoicesLoading: false, invoicesError: null }
+              : prev,
           )
         })
-        .catch(() => {
-          setState((prev: LoadState) => (prev.kind === 'ok' ? { ...prev, invoices: [], invoicesLoading: false } : prev))
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : 'invoices_load_failed'
+          setState((prev: LoadState) =>
+            prev.kind === 'ok'
+              ? { ...prev, invoices: [], invoicesLoading: false, invoicesError: msg }
+              : prev,
+          )
         })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'load_failed'
@@ -480,6 +489,7 @@ export default function SupplierManageClient() {
     persistedAccruals,
     invoices,
     invoicesLoading,
+    invoicesError,
   } = state
 
   const previewLineCount =
@@ -607,7 +617,13 @@ export default function SupplierManageClient() {
       })
       setState((prev: LoadState) =>
         prev.kind === 'ok'
-          ? { ...prev, invoices: invRes.invoices, invoicesLoading: false, persistedAccruals: persisted }
+          ? {
+              ...prev,
+              invoices: invRes.invoices,
+              invoicesLoading: false,
+              invoicesError: null,
+              persistedAccruals: persisted,
+            }
           : prev,
       )
     } catch (e) {
@@ -1105,6 +1121,12 @@ export default function SupplierManageClient() {
                   <tr>
                     <td colSpan={8} className="px-4 py-6 text-neutral-500">
                       Yükleniyor…
+                    </td>
+                  </tr>
+                ) : invoicesError ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-6 text-red-600 dark:text-red-400">
+                      Faturalar yüklenemedi: {invoicesError}
                     </td>
                   </tr>
                 ) : invoices.length === 0 ? (

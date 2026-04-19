@@ -100,7 +100,11 @@ export default function SectionListingReviews({ listingId, reviewCount: initCoun
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitOk, setSubmitOk] = useState(false)
+  // İlk açılışta yalnızca öne çıkan birkaç yorumu gösterip uzun sayfayı kısaltıyoruz.
+  // "Tamamını göster" butonuyla geri kalanı in-place açıyoruz (modal/route gerekmez).
+  const [showAll, setShowAll] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const INITIAL_VISIBLE = 6
 
   useEffect(() => {
     if (!listingId) return
@@ -190,9 +194,25 @@ export default function SectionListingReviews({ listingId, reviewCount: initCoun
         ) : reviews.length === 0 ? (
           <div className="py-8 text-center text-sm text-neutral-400">{T.empty}</div>
         ) : (
-          reviews.map((r) => <ReviewCard key={r.id} review={r} labels={{ guest: T.guest, verified: T.verified }} />)
+          (showAll ? reviews : reviews.slice(0, INITIAL_VISIBLE)).map((r) => (
+            <ReviewCard key={r.id} review={r} labels={{ guest: T.guest, verified: T.verified }} />
+          ))
         )}
       </div>
+
+      {!loadingReviews && reviews.length > INITIAL_VISIBLE && (
+        <div className="flex justify-center pt-2">
+          <button
+            type="button"
+            onClick={() => setShowAll((v) => !v)}
+            className="rounded-full border border-neutral-200 px-6 py-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            {showAll
+              ? (T.showLess ?? 'Daha az göster')
+              : (T.showAll ?? 'Tüm yorumları göster').replace('{count}', String(reviews.length))}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

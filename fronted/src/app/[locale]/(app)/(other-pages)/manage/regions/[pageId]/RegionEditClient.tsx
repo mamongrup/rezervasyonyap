@@ -51,6 +51,7 @@ import {
 } from '@/components/manage/ManageFormShell'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
+import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
@@ -70,18 +71,6 @@ function toSlug(text: string): string {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
 }
-
-// ─── Locale config ────────────────────────────────────────────────────────────
-const LOCALES = [
-  { code: 'tr', label: 'Türkçe', flag: '🇹🇷' },
-  { code: 'en', label: 'English', flag: '🇬🇧' },
-  { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
-  { code: 'ru', label: 'Русский', flag: '🇷🇺' },
-  { code: 'zh', label: '中文', flag: '🇨🇳' },
-  { code: 'fr', label: 'Français', flag: '🇫🇷' },
-]
-
-const LOCALES_TR_TARGET = LOCALES.filter((l) => l.code !== 'tr')
 
 const REGION_TYPES = [
   { value: 'country',     label: 'Ülke — tek başına ülke kaydı' },
@@ -244,7 +233,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [activeLang, setActiveLang] = useState('tr')
+  const [activeLang, setActiveLang] = useState(primaryLocale)
 
   // ─── Content state ────────────────────────────────────────────────────────
   const [slugPath, setSlugPath] = useState('')
@@ -263,14 +252,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [ciCurrInput, setCiCurrInput] = useState('')
 
   // Per-language content
-  const [translations, setTranslations] = useState<LocationTranslations>({
-    tr: { name: '', description: '', meta_title: '', meta_description: '' },
-    en: { name: '', description: '', meta_title: '', meta_description: '' },
-    de: { name: '', description: '', meta_title: '', meta_description: '' },
-    ru: { name: '', description: '', meta_title: '', meta_description: '' },
-    fr: { name: '', description: '', meta_title: '', meta_description: '' },
-    zh: { name: '', description: '', meta_title: '', meta_description: '' },
-  })
+  const [translations, setTranslations] = useState<LocationTranslations>({})
 
   // ─── Images ───────────────────────────────────────────────────────────────
   const [featuredImageUrl, setFeaturedImageUrl] = useState('')
@@ -314,11 +296,41 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [metaDesc, setMetaDesc] = useState('')
 
   // ─── AI (çeviri + Magic Text polish) ───────────────────────────────────────
-  const [aiTargetLocale, setAiTargetLocale] = useState('en')
+  const [aiTargetLocale, setAiTargetLocale] = useState(
+    () => translateTargets[0]?.code ?? 'en',
+  )
   const [aiTranslating, setAiTranslating] = useState(false)
   const [aiPolishTitle, setAiPolishTitle] = useState(false)
   const [aiPolishBody, setAiPolishBody] = useState(false)
   const [aiPolishFooterMeta, setAiPolishFooterMeta] = useState(false)
+
+  const localeCodesKey = localeCodes.join(',')
+
+  useEffect(() => {
+    setTranslations((prev) => {
+      const next = { ...prev }
+      let changed = false
+      for (const code of localeCodes) {
+        if (next[code] == null) {
+          next[code] = { name: '', description: '', meta_title: '', meta_description: '' }
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [localeCodesKey, localeCodes])
+
+  useEffect(() => {
+    setAiTargetLocale((cur) => {
+      const targets = localeCodes.filter((c) => c !== primaryLocale)
+      if (targets.includes(cur)) return cur
+      return targets[0] ?? 'en'
+    })
+  }, [localeCodesKey, primaryLocale, localeCodes])
+
+  useEffect(() => {
+    setActiveLang((cur) => (localeCodes.includes(cur) ? cur : primaryLocale))
+  }, [localeCodesKey, primaryLocale, localeCodes])
 
   // ─── Load ─────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -351,19 +363,24 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         try {
           const parsed = JSON.parse(p.translations_json) as LocationTranslations
           const merged: LocationTranslations = {}
-          for (const loc of LOCALES) {
-            merged[loc.code] = {
-              name: parsed[loc.code]?.name ?? (loc.code === 'tr' ? p.title ?? '' : ''),
-              description: parsed[loc.code]?.description ?? (loc.code === 'tr' ? p.description ?? '' : ''),
-              meta_title: parsed[loc.code]?.meta_title ?? '',
-              meta_description: parsed[loc.code]?.meta_description ?? '',
+          for (const code of localeCodes) {
+            merged[code] = {
+              name: parsed[code]?.name ?? (code === primaryLocale ? p.title ?? '' : ''),
+              description: parsed[code]?.description ?? (code === primaryLocale ? p.description ?? '' : ''),
+              meta_title: parsed[code]?.meta_title ?? '',
+              meta_description: parsed[code]?.meta_description ?? '',
             }
           }
           setTranslations(merged)
         } catch {
           setTranslations((prev) => ({
             ...prev,
-            tr: { name: p.title ?? '', description: p.description ?? '', meta_title: p.meta_title ?? '', meta_description: p.meta_description ?? '' },
+            [primaryLocale]: {
+              name: p.title ?? '',
+              description: p.description ?? '',
+              meta_title: p.meta_title ?? '',
+              meta_description: p.meta_description ?? '',
+            },
           }))
         }
 
@@ -396,7 +413,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         setLoading(false)
       }
     })()
-  }, [pageId])
+  }, [pageId, primaryLocale, localeCodesKey])
 
   useEffect(() => {
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
@@ -420,7 +437,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       [locale]: { ...prev[locale], [field]: value },
     }))
     // Auto-generate slug from TR name when locked
-    if (locale === 'tr' && field === 'name' && slugLocked) {
+    if (locale === primaryLocale && field === 'name' && slugLocked) {
       const base = slugPath.includes('/')
         ? slugPath.slice(0, slugPath.lastIndexOf('/') + 1)
         : ''
@@ -429,10 +446,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }
 
   const handleAutoSeo = useCallback(() => {
-    const tr = translations['tr']
+    const primary = translations[primaryLocale]
     const slugTail = slugPath.split('/').filter(Boolean).pop() ?? ''
-    const nameRaw = (tr?.name ?? page?.title ?? slugTail).trim() || 'Bölge'
-    const plain = stripHtmlToPlain(tr?.description ?? page?.description ?? '')
+    const nameRaw = (primary?.name ?? page?.title ?? slugTail).trim() || 'Bölge'
+    const plain = stripHtmlToPlain(primary?.description ?? page?.description ?? '')
     const regionLabel =
       REGION_TYPES.find((r) => r.value === regionType)?.label?.split('—')[0]?.trim() ?? ''
     const title = fitMetaTitle(nameRaw)
@@ -441,14 +458,14 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     setMetaDesc(desc.slice(0, 160))
     setTranslations((prev) => ({
       ...prev,
-      tr: {
-        ...prev.tr,
+      [primaryLocale]: {
+        ...prev[primaryLocale],
         meta_title: title.slice(0, 70),
         meta_description: desc.slice(0, 160),
       },
     }))
     setSaveMsg({ ok: true, text: 'SEO başlık ve açıklama üretildi. Kaydetmeyi unutmayın.' })
-  }, [translations, slugPath, page, regionType])
+  }, [translations, slugPath, page, regionType, primaryLocale])
 
   const handleMagicPolishTitle = async () => {
     const raw = (translations[activeLang]?.name ?? '').trim()
@@ -503,15 +520,19 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }
 
   const handleAiTranslateTrToTarget = async () => {
-    if (aiTargetLocale === 'tr') {
-      setSaveMsg({ ok: false, text: 'Hedef dil olarak Türkçe dışında bir dil seçin.' })
+    if (aiTargetLocale === primaryLocale) {
+      setSaveMsg({
+        ok: false,
+        text: `Hedef dil, birincil kaynak dilden (${primaryLocale.toUpperCase()}) farklı olmalı.`,
+      })
       return
     }
-    const tr = translations['tr']
-    const name = (tr?.name ?? '').trim()
-    const desc = (tr?.description ?? '').trim()
+    const src = translations[primaryLocale]
+    const name = (src?.name ?? '').trim()
+    const desc = (src?.description ?? '').trim()
     if (!name && !desc) {
-      setSaveMsg({ ok: false, text: 'Önce Türkçe isim veya açıklama girin.' })
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setSaveMsg({ ok: false, text: `Önce ${plabel} dilinde isim veya açıklama girin.` })
       return
     }
     setAiTranslating(true)
@@ -521,22 +542,37 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       const mdSrc = (metaDesc || tr?.meta_description || '').trim()
       const [tName, tDesc, tMetaTitle, tMetaDesc] = await Promise.all([
         name
-          ? callAiTranslate({ text: name, context: 'title', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+          ? callAiTranslate({
+              text: name,
+              context: 'title',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
         desc
           ? callAiTranslate({
               text: desc,
               context: 'body',
-              sourceLocale: 'tr',
+              sourceLocale: primaryLocale,
               targetLocale: aiTargetLocale,
               pageSlug: slugPath,
             })
           : Promise.resolve(''),
         mtSrc
-          ? callAiTranslate({ text: mtSrc, context: 'seo', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+          ? callAiTranslate({
+              text: mtSrc,
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
         mdSrc
-          ? callAiTranslate({ text: mdSrc, context: 'seo', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+          ? callAiTranslate({
+              text: mdSrc,
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
       ])
       setTranslations((prev) => ({
@@ -551,7 +587,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       }))
       setSaveMsg({
         ok: true,
-        text: `${LOCALES.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale} çevirisi hazır. Kaydetmeyi unutmayın.`,
+        text: `${allLocales.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale} çevirisi hazır. Kaydetmeyi unutmayın.`,
       })
     } catch (e) {
       setSaveMsg({ ok: false, text: e instanceof Error ? e.message : 'Çeviri başarısız' })
@@ -561,8 +597,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }
 
   const handleFooterAiPolishMeta = async () => {
-    const mt = (metaTitle || translations['tr']?.meta_title || '').trim()
-    const md = (metaDesc || translations['tr']?.meta_description || '').trim()
+    const mt = (metaTitle || translations[primaryLocale]?.meta_title || '').trim()
+    const md = (metaDesc || translations[primaryLocale]?.meta_description || '').trim()
     if (!mt && !md) {
       setSaveMsg({ ok: false, text: 'Önce meta alanlarını doldurun veya “SEO Otomatik” kullanın.' })
       return
@@ -571,17 +607,31 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     setSaveMsg(null)
     try {
       const [t1, t2] = await Promise.all([
-        mt ? callAiTranslate({ text: mt, context: 'seo', sourceLocale: 'tr', targetLocale: 'tr' }) : Promise.resolve(''),
-        md ? callAiTranslate({ text: md, context: 'seo', sourceLocale: 'tr', targetLocale: 'tr' }) : Promise.resolve(''),
+        mt
+          ? callAiTranslate({
+              text: mt,
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: primaryLocale,
+            })
+          : Promise.resolve(''),
+        md
+          ? callAiTranslate({
+              text: md,
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: primaryLocale,
+            })
+          : Promise.resolve(''),
       ])
       if (t1) setMetaTitle(t1.slice(0, 70))
       if (t2) setMetaDesc(t2.slice(0, 160))
       setTranslations((prev) => ({
         ...prev,
-        tr: {
-          ...prev.tr,
-          meta_title: t1 ? t1.slice(0, 70) : prev.tr?.meta_title,
-          meta_description: t2 ? t2.slice(0, 160) : prev.tr?.meta_description,
+        [primaryLocale]: {
+          ...prev[primaryLocale],
+          meta_title: t1 ? t1.slice(0, 70) : prev[primaryLocale]?.meta_title,
+          meta_description: t2 ? t2.slice(0, 160) : prev[primaryLocale]?.meta_description,
         },
       }))
       setSaveMsg({ ok: true, text: 'Meta alanları SEO ve yazım için iyileştirildi.' })
@@ -596,7 +646,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const handleSave = async () => {
     setSaving(true); setSaveMsg(null)
     try {
-      const trLang = translations['tr'] ?? {}
+      const trLang = translations[primaryLocale] ?? {}
       await patchLocationPage(pageId, {
         slug_path: slugPath || undefined,
         district_id: districtId || undefined,
@@ -755,7 +805,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           </Link>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-              {translations['tr']?.name || page.slug_path}
+              {translations[primaryLocale]?.name || page.slug_path}
             </p>
             <p className="font-mono text-xs text-neutral-400">{regionPublicHref(routeLocale, page.slug_path)}</p>
           </div>
@@ -763,7 +813,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           {/* Language tabs + AI çeviri */}
           <div className="hidden items-center gap-2 md:flex">
             <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
-              {LOCALES.map((loc) => (
+              {allLocales.map((loc) => (
                 <button
                   key={loc.code}
                   type="button"
@@ -781,7 +831,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               ))}
             </div>
             <ManageAiTranslateToolbar
-              locales={LOCALES_TR_TARGET}
+              locales={translateTargets}
               targetLocale={aiTargetLocale}
               onTargetLocaleChange={setAiTargetLocale}
               onTranslate={() => void handleAiTranslateTrToTarget()}
@@ -793,7 +843,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         {/* Mobile language tabs + AI */}
         <div className="flex flex-col gap-2 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800 md:hidden">
           <div className="flex gap-1 overflow-x-auto">
-            {LOCALES.map((loc) => (
+            {allLocales.map((loc) => (
               <button
                 key={loc.code}
                 type="button"
@@ -811,7 +861,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           </div>
           <ManageAiTranslateToolbar
             className="w-full min-w-0 flex-1 [&_select]:max-w-none"
-            locales={LOCALES_TR_TARGET}
+            locales={translateTargets}
             targetLocale={aiTargetLocale}
             onTargetLocaleChange={setAiTargetLocale}
             onTranslate={() => void handleAiTranslateTrToTarget()}
@@ -905,7 +955,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           subtitle={
             <>
               <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                {translations['tr']?.name?.trim() || page.slug_path}
+                {translations[primaryLocale]?.name?.trim() || page.slug_path}
               </span>
               <span className="ml-2 font-mono text-xs text-neutral-400">{regionPublicHref(routeLocale, slugPath)}</span>
             </>
@@ -914,7 +964,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
         <ManageFormListingSection>
           {/* Konum İçeriği */}
-          <Card plain title={`Konum İçeriği — ${LOCALES.find((l) => l.code === activeLang)?.flag} ${LOCALES.find((l) => l.code === activeLang)?.label}`}>
+          <Card plain title={`Konum İçeriği — ${allLocales.find((l) => l.code === activeLang)?.flag} ${allLocales.find((l) => l.code === activeLang)?.label}`}>
             <div className="space-y-4">
               {/* İsim + otomatik slug ─────────────────────────────── */}
               <div>
@@ -935,7 +985,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   placeholder="örn: Bodrum, Antalya…"
                   className={inputCls}
                 />
-                <p className={hintCls}>Aktif dil: {LOCALES.find((l) => l.code === activeLang)?.label}. Magic Text mevcut dilde iyileştirir.</p>
+                <p className={hintCls}>Aktif dil: {allLocales.find((l) => l.code === activeLang)?.label}. Magic Text mevcut dilde iyileştirir.</p>
               </div>
 
               {/* Slug — auto-generated or manually edited */}
@@ -951,7 +1001,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                         setSlugLocked(false)
                       } else {
                         // Re-lock: regenerate from TR name
-                        const name = translations['tr']?.name ?? ''
+                        const name = translations[primaryLocale]?.name ?? ''
                         const base = slugPath.includes('/')
                           ? slugPath.slice(0, slugPath.lastIndexOf('/') + 1)
                           : ''
@@ -1124,6 +1174,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               <div className="mb-5 flex h-52 min-h-[13rem] w-full max-w-xl flex-col gap-2 overflow-hidden rounded-2xl sm:h-56 md:max-w-2xl">
                 <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                   {heroGallery[0] ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- admin önizleme; bilinmeyen CDN host'ları için <img> kasıtlı
                     <img src={heroGallery[0]} alt="Hero 1" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full min-h-[2.5rem] items-center justify-center text-neutral-300">
@@ -1134,6 +1185,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
                   <div className="min-h-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                     {heroGallery[1] ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin önizleme
                       <img src={heroGallery[1]} alt="Hero 2" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full min-h-[2.5rem] items-center justify-center text-neutral-300">
@@ -1143,6 +1195,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   </div>
                   <div className="min-h-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                     {heroGallery[2] ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- admin önizleme
                       <img src={heroGallery[2]} alt="Hero 3" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full min-h-[2.5rem] items-center justify-center text-neutral-300">
@@ -1271,7 +1324,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                     <button
                       type="button"
                       onClick={() => {
-                        const name = translations['tr']?.name?.trim() ?? ''
+                        const name = translations[primaryLocale]?.name?.trim() ?? ''
                         if (!name) { alert('Önce ülke adını (Türkçe) girin.'); return }
                         // ISO2 eşleştir
                         const found = countries.find(
@@ -1633,6 +1686,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   )}>
                     <div className="flex items-start gap-3">
                       {idea.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- admin liste önizlemesi
                         <img src={idea.image} alt={idea.title} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                       ) : (
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-xl dark:bg-neutral-800">🗺️</div>
@@ -1719,16 +1773,16 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               {(metaTitle || metaDesc) && (
                 <div className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                   <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">Google Önizleme</p>
-                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{metaTitle || translations['tr']?.name || slugPath}</p>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">{metaTitle || translations[primaryLocale]?.name || slugPath}</p>
                   <p className="mt-0.5 text-xs text-neutral-500 line-clamp-2">{metaDesc}</p>
                 </div>
               )}
 
               {/* Per-language SEO */}
-              {activeLang !== 'tr' && (
+              {activeLang !== primaryLocale && (
                 <div className="rounded-xl border border-neutral-100 p-4 dark:border-neutral-800">
                   <p className="mb-3 text-xs font-semibold text-neutral-400 uppercase tracking-wide">
-                    {LOCALES.find((l) => l.code === activeLang)?.flag} {LOCALES.find((l) => l.code === activeLang)?.label} SEO
+                    {allLocales.find((l) => l.code === activeLang)?.flag} {allLocales.find((l) => l.code === activeLang)?.label} SEO
                   </p>
                   <div className="space-y-3">
                     <input

@@ -242,6 +242,7 @@ export type PageBuilderModuleType =
   | 'faq'
   | 'partners'
   | 'video_gallery'
+  | 'sliders_banner'
   // Anasayfa & arama sayfası modülleri
   | 'category_slider'
   | 'gezi_onerileri'
@@ -251,6 +252,13 @@ export type PageBuilderModuleType =
   | 'section_videos'
   | 'client_say'
   | 'search_results'
+  // Marketing modülleri (admin → vitrin)
+  | 'active_campaigns'
+  | 'early_booking_promo'
+  | 'last_minute_promo'
+  | 'coupons_strip'
+  | 'holiday_packages'
+  | 'cross_sell_widget'
 
 /** Bölgeye göre öne çıkarma modülü config tipi */
 export interface FeaturedRegionEntry {

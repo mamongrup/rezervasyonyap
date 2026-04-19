@@ -29,6 +29,7 @@ import {
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { callAiTranslate } from '@/lib/manage-content-ai'
+import { defaultLocale } from '@/lib/i18n-config'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -147,8 +148,8 @@ function CollectionModal({
       const out = await callAiTranslate({
         text: title,
         context: 'title',
-        sourceLocale: 'tr',
-        targetLocale: 'tr',
+        sourceLocale: defaultLocale,
+        targetLocale: defaultLocale,
       })
       if (out) setTitle(out.slice(0, 200))
     } catch (e) {
@@ -169,8 +170,8 @@ function CollectionModal({
       const out = await callAiTranslate({
         text: description,
         context: 'excerpt',
-        sourceLocale: 'tr',
-        targetLocale: 'tr',
+        sourceLocale: defaultLocale,
+        targetLocale: defaultLocale,
         pageSlug: slug.trim() || 'collection',
       })
       if (out) setDescription(out)
@@ -430,6 +431,7 @@ export default function CollectionsManageClient() {
               return (
                 <div key={col.id} className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-md transition-shadow">
                   {col.hero_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- admin paneli; bilinmeyen CDN host'ları için <img> kasıtlı
                     <img src={col.hero_image_url} alt="" className="w-full h-32 object-cover" />
                   ) : (
                     <div className="w-full h-32 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 flex items-center justify-center">

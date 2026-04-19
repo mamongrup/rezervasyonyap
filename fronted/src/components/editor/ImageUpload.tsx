@@ -16,8 +16,14 @@ interface ImageUploadProps {
   subPath?: string
   /** Sıralı dosya adı: `{prefix}-{index}.avif` */
   imageIndex?: number
-  /** Dosya adı öneki */
+  /** Dosya adı öneki (`{prefix}-{sıra}.avif`) */
   prefix?: string
+  /** Öncelikli dosya adı gövdesi (slug vb.) */
+  fileBase?: string
+  /** Tek sabit dosya adı — `{fixedStem}.{ext}` (ör. kapak, logo) */
+  fixedStem?: string
+  /** Sıra verilmezse orijinal dosya adından güvenli gövde kullanılır */
+  useOriginalStem?: boolean
   /** Placeholder metin */
   placeholder?: string
   /** Aspect ratio hint (CSS değeri: "16/9", "1/1", "4/3") */
@@ -43,6 +49,9 @@ export default function ImageUpload({
   subPath,
   imageIndex,
   prefix = 'img',
+  fileBase,
+  fixedStem,
+  useOriginalStem,
   placeholder = 'Resim yükleyin veya sürükleyin',
   aspectRatio = '16/9',
   compact = false,
@@ -66,9 +75,14 @@ export default function ImageUpload({
       fd.append('file', file)
       fd.append('folder', folder)
       fd.append('prefix', prefix)
+      if (fileBase?.trim()) fd.append('fileBase', fileBase.trim())
+      if (fixedStem?.trim()) fd.append('fixedStem', fixedStem.trim())
+      if (useOriginalStem) fd.append('useOriginalStem', '1')
       if (subPath?.trim()) fd.append('subPath', subPath.trim())
-      if (indexForName != null && indexForName >= 1) fd.append('index', String(indexForName))
-      const res = await fetch('/api/upload-image', { method: 'POST', body: fd })
+      if (indexForName != null && indexForName >= 1 && !fixedStem?.trim()) {
+        fd.append('index', String(indexForName))
+      }
+      const res = await fetch('/api/upload-image', { method: 'POST', body: fd, credentials: 'include' })
       const ct = res.headers.get('content-type') ?? ''
       if (!ct.includes('application/json')) {
         await res.text()
@@ -82,7 +96,7 @@ export default function ImageUpload({
       if (!data.ok || !data.url) throw new Error(data.error ?? 'Yükleme başarısız')
       return { url: data.url, warning: data.warning }
     },
-    [folder, subPath, prefix],
+    [folder, subPath, prefix, fileBase, fixedStem, useOriginalStem],
   )
 
   const upload = useCallback(

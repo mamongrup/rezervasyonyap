@@ -493,7 +493,7 @@ export const getStayListingByHandle = async (
     poolsDemo = true
   }
 
-  const merged: TStayListingResolved = {
+  const merged = {
     ...listing,
     galleryImgs,
     ...(themeCodes?.length ? { themeCodes } : {}),
@@ -517,7 +517,7 @@ export const getStayListingByHandle = async (
       isVerified: Boolean(contactName),
       joinedDate: 'March 2024',
     },
-  }
+  } as unknown as TStayListingResolved
 
   /** Demo ekstralar — yalnızca `NEXT_PUBLIC_ENABLE_DEMO_LISTING_EXTRAS=true` (katalog verisini ezmesin) */
   const demoListingExtrasEnabled =
@@ -543,7 +543,7 @@ export const getStayListingByHandle = async (
         shortStayFeeAmount: 750,
         minAdvanceBookingDays: m.stayBookingRules?.minAdvanceBookingDays ?? 0,
         allowSubMinStayGapBooking: m.stayBookingRules?.allowSubMinStayGapBooking,
-      },
+      } as import('@/types/listing-types').StayBookingRules,
       firstChargeAmount: m.firstChargeAmount ?? 5000,
       listingExtraFees:
         m.listingExtraFees && m.listingExtraFees.length > 0

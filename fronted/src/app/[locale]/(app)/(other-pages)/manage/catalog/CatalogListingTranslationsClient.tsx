@@ -18,11 +18,12 @@ import { Field, Label } from '@/shared/fieldset'
 import RichEditor from '@/components/editor/RichEditor'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
+import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Loader2, Sparkles } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
@@ -57,6 +58,7 @@ export default function CatalogListingTranslationsClient({
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
+  const { allLocales, translateTargets, primaryLocale } = useManageAiLocaleRows()
   const [rows, setRows] = useState<ManageListingTranslationRow[]>([])
   const [draft, setDraft] = useState<Record<string, { title: string; description: string }>>({})
   const [seoDraft, setSeoDraft] = useState<Record<string, SeoDraftRow>>({})
@@ -66,7 +68,9 @@ export default function CatalogListingTranslationsClient({
   const [ok, setOk] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [aiTargetLocale, setAiTargetLocale] = useState('en')
+  const [aiTargetLocale, setAiTargetLocale] = useState(
+    () => translateTargets[0]?.code ?? 'en',
+  )
   const [aiTranslating, setAiTranslating] = useState(false)
   const [aiPolish, setAiPolish] = useState<string | null>(null)
 
@@ -208,48 +212,86 @@ export default function CatalogListingTranslationsClient({
     }
   }
 
-  const localeToolbarOptions = rows
-    .filter((r) => r.locale_code !== 'tr')
-    .map((r) => ({
-      code: r.locale_code,
-      label: r.locale_code.toUpperCase(),
-      flag: '🌐',
-    }))
+  const localeToolbarOptions = useMemo(
+    () =>
+      rows
+        .filter((r) => r.locale_code !== primaryLocale)
+        .map((r) => {
+          const meta = allLocales.find((l) => l.code === r.locale_code)
+          return {
+            code: r.locale_code,
+            label: meta?.label ?? r.locale_code.toUpperCase(),
+            flag: meta?.flag ?? '🌐',
+          }
+        }),
+    [rows, primaryLocale, allLocales],
+  )
+
+  const nonPrimaryRowCodesKey = useMemo(
+    () => rows.filter((r) => r.locale_code !== primaryLocale).map((r) => r.locale_code).join(','),
+    [rows, primaryLocale],
+  )
+
+  useEffect(() => {
+    const opts = rows.filter((r) => r.locale_code !== primaryLocale).map((r) => r.locale_code)
+    setAiTargetLocale((cur) => {
+      if (opts.includes(cur)) return cur
+      return opts[0] ?? 'en'
+    })
+  }, [nonPrimaryRowCodesKey, primaryLocale, rows])
 
   const handleAiTranslateTrToTarget = async () => {
-    if (aiTargetLocale === 'tr') {
-      setErr('Hedef dil: Türkçe dışında bir dil seçin.')
+    if (aiTargetLocale === primaryLocale) {
+      setErr(`Hedef dil, birincil kaynak dilden (${primaryLocale.toUpperCase()}) farklı olmalı.`)
       return
     }
-    const tr = draft['tr'] ?? { title: '', description: '' }
-    const name = tr.title.trim()
-    const desc = tr.description.trim()
+    const src = draft[primaryLocale] ?? { title: '', description: '' }
+    const name = src.title.trim()
+    const desc = src.description.trim()
     if (!name && !desc) {
-      setErr('Önce Türkçe başlık veya açıklama girin.')
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setErr(`Önce ${plabel} başlık veya açıklama girin.`)
       return
     }
-    const trSeo = seoDraft['tr'] ?? emptySeoDraft()
+    const srcSeo = seoDraft[primaryLocale] ?? emptySeoDraft()
     setAiTranslating(true)
     setErr(null)
     setOk(null)
     try {
       const listingPath = `listing/${listingId.slice(0, 8)}`
       const [tTitle, tDesc, st, sd] = await Promise.all([
-        name ? callAiTranslate({ text: name, context: 'title', sourceLocale: 'tr', targetLocale: aiTargetLocale }) : Promise.resolve(''),
+        name
+          ? callAiTranslate({
+              text: name,
+              context: 'title',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
+          : Promise.resolve(''),
         desc
           ? callAiTranslate({
               text: desc,
               context: 'body',
-              sourceLocale: 'tr',
+              sourceLocale: primaryLocale,
               targetLocale: aiTargetLocale,
               pageSlug: listingPath,
             })
           : Promise.resolve(''),
-        (trSeo.title || '').trim()
-          ? callAiTranslate({ text: trSeo.title.trim(), context: 'seo', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+        (srcSeo.title || '').trim()
+          ? callAiTranslate({
+              text: srcSeo.title.trim(),
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
-        (trSeo.description || '').trim()
-          ? callAiTranslate({ text: trSeo.description.trim(), context: 'seo', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+        (srcSeo.description || '').trim()
+          ? callAiTranslate({
+              text: srcSeo.description.trim(),
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
       ])
       setDraft((prev) => ({

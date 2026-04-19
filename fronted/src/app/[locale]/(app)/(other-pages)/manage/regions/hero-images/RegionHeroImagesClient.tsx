@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
+import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 
 interface RegionHeroConfig {
   category: string
@@ -53,10 +54,15 @@ function ImageSlot({
     setError(null)
     const form = new FormData()
     form.append('file', file)
-    form.append('category', `region-${categorySlug}-${regionHandle}`)
+    form.append('folder', 'site')
+    form.append(
+      'subPath',
+      `bolgeler/${slugifyMediaSegment(categorySlug)}-${slugifyMediaSegment(regionHandle)}`,
+    )
+    form.append('prefix', 'hero')
     form.append('slot', String(slot))
     try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
       const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
       if (data.ok && data.url) onChange(data.url)
       else setError(data.error ?? 'Yükleme başarısız.')

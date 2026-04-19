@@ -1,3 +1,4 @@
+import { pickI18nWithLegacy } from '@/lib/i18n-field'
 import type { FooterTrustBadge } from '@/types/footer-site-config'
 
 type Props = {
@@ -6,9 +7,18 @@ type Props = {
 }
 
 export function Footer2TrustBadge({ badge, locale }: Props) {
-  const en = locale === 'en'
-  const title = en ? badge.titleEn : badge.titleTr
-  const subtitle = en ? badge.subtitleEn : badge.subtitleTr
+  const title = pickI18nWithLegacy(
+    { tr: badge.titleTr, en: badge.titleEn },
+    badge.title_i18n,
+    locale,
+    badge.titleEn || badge.titleTr,
+  )
+  const subtitle = pickI18nWithLegacy(
+    { tr: badge.subtitleTr, en: badge.subtitleEn },
+    badge.subtitle_i18n,
+    locale,
+    badge.subtitleEn || badge.subtitleTr,
+  )
 
   if (badge.variant === 'green') {
     return (

@@ -8,11 +8,14 @@ import { Description, Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import {
   addCartLine,
+  applyCouponToCart,
   checkoutCart,
   createCart,
   getActivePaymentProvider,
+  type CouponPreview,
   type FxLockSnapshot,
 } from '@/lib/travel-api'
+import CouponBox from '@/components/checkout/CouponBox'
 import Form from 'next/form'
 import Image from 'next/image'
 import { useParams, useRouter } from 'next/navigation'
@@ -58,6 +61,13 @@ const Page = () => {
   const totalPrice = Number(process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? 0)
   const [paymentType, setPaymentType] = React.useState<'full' | 'partial'>('partial')
   const hasCheckoutListing = Boolean(process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID?.trim())
+  const [coupon, setCoupon] = React.useState<CouponPreview | null>(null)
+  const couponDiscount = React.useMemo(() => {
+    if (!coupon) return 0
+    const n = Number(coupon.discount_amount)
+    return Number.isFinite(n) ? n : 0
+  }, [coupon])
+  const grandTotal = Math.max(0, totalPrice - couponDiscount)
 
   React.useEffect(() => {
     document.documentElement.scrollTo({
@@ -99,6 +109,13 @@ const Page = () => {
           ends_on: end,
           unit_price: unitPrice,
         })
+        if (coupon?.code) {
+          try {
+            await applyCouponToCart(cart.id, coupon.code)
+          } catch (err) {
+            console.warn('Kupon uygulanamadı, devam ediliyor:', err)
+          }
+        }
         const cx = contractRef.current
         const out = await checkoutCart(cart.id, {
           guest_email: email,
@@ -201,9 +218,21 @@ const Page = () => {
           <DescriptionDetails className="sm:text-right">$0.00</DescriptionDetails>
           <DescriptionTerm>Tax</DescriptionTerm>
           <DescriptionDetails className="sm:text-right">$0.00</DescriptionDetails>
+          {coupon && couponDiscount > 0 && (
+            <>
+              <DescriptionTerm className="text-emerald-700">Kupon ({coupon.code})</DescriptionTerm>
+              <DescriptionDetails className="text-emerald-700 sm:text-right">
+                -{couponDiscount.toFixed(2)}
+              </DescriptionDetails>
+            </>
+          )}
           <DescriptionTerm className="font-semibold text-neutral-900">Total</DescriptionTerm>
-          <DescriptionDetails className="font-semibold sm:text-right">$57.00</DescriptionDetails>
+          <DescriptionDetails className="font-semibold sm:text-right">
+            {totalPrice > 0 ? grandTotal.toFixed(2) : '$57.00'}
+          </DescriptionDetails>
         </DescriptionList>
+
+        <CouponBox subtotal={totalPrice > 0 ? totalPrice : 0} onCouponChange={setCoupon} />
       </div>
     )
   }

@@ -1,5 +1,6 @@
 import ConciergeChatWidget from '@/components/ConciergeChatWidget'
 import CookieConsentBanner from '@/components/CookieConsentBanner'
+import SitePopupsRenderer from '@/components/popups/SitePopupsRenderer'
 import Footer2 from '@/components/Footer2'
 import WhatsAppFloatButton from '@/components/WhatsAppFloatButton'
 import FooterQuickNavigation from '@/components/FooterQuickNavigation'
@@ -26,8 +27,10 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
 
   return (
     <Aside.Provider>
-      {/* Desktop — normal akış (sayfayla birlikte kayar); harita rotaları kendi layout’ında sticky Header3 kullanır */}
-      <div className="relative z-20 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
+      {/* Desktop — normal akış (sayfayla birlikte kayar); harita rotaları kendi layout'ında sticky Header3 kullanır.
+          z-50: Header kendi stacking context'i oluşturur ve içerideki dropdown panel'leri (Popover z-40)
+          her zaman sayfa içeriğindeki z-30 hero/arama formu blokları üzerinde kalır. */}
+      <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
       {/* Mobil arama çubuğu — viewport üstünde sabit; içerik bu yükseklik kadar aşağıdan başlar */}
       <div className="fixed inset-x-0 top-0 z-40 bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
         <div className="container flex h-20 items-center justify-center">
@@ -49,6 +52,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       <WhatsAppFloatButton />
       <ConciergeChatWidget />
       <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
+      <SitePopupsRenderer locale={locale} />
     </Aside.Provider>
   )
 }

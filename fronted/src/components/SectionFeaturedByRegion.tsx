@@ -10,6 +10,7 @@ import { displayListingCategoryLine } from '@/lib/listing-category-display'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon, Location06Icon } from '@hugeicons/core-free-icons'
+import Image from 'next/image'
 import Link from 'next/link'
 import { FC, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -18,8 +19,11 @@ import SaleOffBadge from '@/components/SaleOffBadge'
 import BtnLikeIcon from '@/components/BtnLikeIcon'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/shared/Badge'
-import GallerySlider from '@/components/GallerySlider'
 import ListingPrice from '@/components/ListingPrice'
+import listingPlaceholder from '@/images/hero-right.png'
+
+const FALLBACK_IMG =
+  typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
 
 // ─── Minimal listing card (like StayCard2 but generic) ───────────────────────
 
@@ -36,24 +40,37 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
   const vitrinHref = useVitrinHref()
   const { title, address, city, price, priceAmount, priceCurrency, reviewStart, reviewCount, saleOff, isAds, featuredImage, galleryImgs, like, handle } = listing
   const categoryLine = displayListingCategoryLine(listing, locale)
-  const images = galleryImgs?.length ? galleryImgs : featuredImage ? [featuredImage] : []
   const unitFromProp = priceUnit?.replace(/^\//, '').trim()
   const unitLabel = unitFromProp || nightLabel || 'gece'
   const listingHref = vitrinHref(`${linkBase}/${handle}`)
 
+  const imgSrc =
+    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
+      ? galleryImgs[0]
+      : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
+    featuredImage ||
+    FALLBACK_IMG
+
   return (
     <div className="group relative">
-      {/* Image — üst-sol / alt-sağ geniş yuvarlak köşe */}
-      <div className="relative overflow-hidden asymmetric-image-corners">
-        <GallerySlider
-          galleryImgs={images}
-          href={listingHref}
-          ratioClass="aspect-w-4 aspect-h-3"
-          uniqueID={`featured-region-${listing.id}`}
-          galleryClass="!rounded-none overflow-hidden"
-          imageClass="!rounded-none"
-          bottomOverlayClassName="asymmetric-image-bottom-fade"
-        />
+      {/* Image */}
+      <div className="relative overflow-hidden rounded-xl">
+        <Link href={listingHref} className="block">
+          <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
+            <Image
+              src={imgSrc}
+              fill
+              alt={title ?? 'listing'}
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 1025px) 100vw, 25vw"
+              unoptimized={
+                imgSrc.startsWith('http') ||
+                imgSrc.startsWith('/uploads/') ||
+                imgSrc.startsWith('data:')
+              }
+            />
+          </div>
+        </Link>
         {saleOff && <SaleOffBadge desc={saleOff} className="absolute left-3 top-3 z-10" />}
         {isAds && (
           <Badge color="green" className="absolute left-3 bottom-3 z-10 !bg-white !text-neutral-900">

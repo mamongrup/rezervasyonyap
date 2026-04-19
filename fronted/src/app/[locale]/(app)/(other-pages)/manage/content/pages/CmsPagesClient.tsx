@@ -33,11 +33,21 @@ import Image from 'next/image'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { callAiTranslate } from '@/lib/manage-content-ai'
+import { defaultLocale } from '@/lib/i18n-config'
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import StructuredCmsBlockEditor, { STRUCTURED_BLOCK_TYPES } from './StructuredCmsBlockEditor'
+import { cmsPageMediaSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 
 const BLOCK_TYPES = [
-  { code: 'hero', label: 'Hero Banner' },
-  { code: 'text', label: 'Metin Bloğu' },
+  { code: 'hero', label: 'Hero (başlık + mozaik görseller)' },
+  { code: 'rich_html', label: 'Metin — HTML editör' },
+  { code: 'text', label: 'Metin — düz paragraf' },
+  { code: 'image_text', label: 'Modül: Görsel + metin' },
+  { code: 'stats', label: 'Modül: Rakamlar / istatistik' },
+  { code: 'client_say', label: 'Modül: Misafir yorumları' },
+  { code: 'founders', label: 'Modül: Kurucu kartları' },
+  { code: 'become_provider', label: 'Modül: İlan verin (CTA)' },
+  { code: 'newsletter', label: 'Modül: Bülten' },
   { code: 'image', label: 'Görsel' },
   { code: 'gallery', label: 'Galeri' },
   { code: 'cta', label: 'Eylem Çağrısı (CTA)' },
@@ -48,6 +58,74 @@ const BLOCK_TYPES = [
   { code: 'map', label: 'Harita' },
   { code: 'html', label: 'Özel HTML' },
 ]
+
+function defaultConfigForBlockType(code: string): string {
+  switch (code) {
+    case 'hero':
+      return JSON.stringify({ heading: '', subheading: '', images: ['', '', ''] })
+    case 'rich_html':
+      return JSON.stringify({
+        title: '',
+        content: '<p>Buraya HTML veya düz metin yazın. Güvenli etiketler: p, strong, em, ul, ol, li, a, br.</p>',
+        align: 'left',
+      })
+    case 'image_text':
+      return JSON.stringify({
+        title: 'Başlık',
+        subtitle: '',
+        content: '<p>Açıklama metni</p>',
+        imageUrl: '',
+        imageAlt: '',
+        imagePosition: 'right',
+      })
+    case 'stats':
+      return JSON.stringify({
+        title: '🚀 Rakamlarla Biz',
+        items: [
+          { value: '50.000+', label: 'Aylık aktif gezgin', emoji: '🧭' },
+          { value: '12.000+', label: 'Yayında ilan', emoji: '🏨' },
+          { value: '81 İl', label: 'Türkiye geneli', emoji: '🗺️' },
+        ],
+      })
+    case 'client_say':
+      return JSON.stringify({
+        heading: 'Misafirlerimiz Ne Diyor? 🏅',
+        subHeading: 'Bizimle seyahat eden gezginlerin gerçek yorumları.',
+      })
+    case 'founders':
+      return JSON.stringify({
+        heading: '⛱ Kurucularımız',
+        subheading: 'Seyahat sektörünü daha erişilebilir, şeffaf ve verimli hale getirmek için bir araya geldik',
+        members: [
+          {
+            name: 'Ad Soyad',
+            job: 'Unvan',
+            avatarUrl: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
+          },
+        ],
+      })
+    case 'become_provider':
+      return JSON.stringify({
+        heading: 'Siz de Aramıza Katılın',
+        subheading:
+          'Otel, tatil evi, tur, yat, araç kiralama — her türlü seyahat hizmetinizi platformumuza ekleyin.',
+        ctaText: 'İlan Oluştur',
+        ctaHref: '/manage',
+        secondaryCtaText: 'Daha Fazla Bilgi',
+        secondaryCtaHref: '#',
+        bgVariant: 'gradient',
+      })
+    case 'newsletter':
+      return JSON.stringify({
+        title: 'Haberdar Olun',
+        description: 'Yeni destinasyonlar ve kampanyalar için bültenimize abone olun.',
+        buttonText: 'Abone Ol',
+        gradient: 'from-primary-600 to-primary-700',
+      })
+    default:
+      return JSON.stringify({ title: '', text: '' })
+  }
+}
 
 const TEMPLATES = [
   { code: 'default', label: 'Varsayılan' },
@@ -76,10 +154,12 @@ function CmsImageSlot({
     setUploading(true)
     const form = new FormData()
     form.append('file', file)
-    form.append('category', `cms-${pageSlug}`)
-    form.append('slot', String(index))
+    form.append('folder', 'icerik')
+    form.append('subPath', cmsPageMediaSubPath(pageSlug))
+    form.append('prefix', `${slugifyMediaSegment(pageSlug)}-hero`)
+    form.append('index', String(index + 1))
     try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form })
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
       const data = (await res.json()) as { ok: boolean; url?: string }
       if (data.ok && data.url) onChange(data.url)
     } finally {
@@ -195,8 +275,8 @@ function HeroBlockEditor({
       const out = await callAiTranslate({
         text: heading,
         context: 'title',
-        sourceLocale: 'tr',
-        targetLocale: 'tr',
+        sourceLocale: defaultLocale,
+        targetLocale: defaultLocale,
       })
       if (out) mergeConfig({ heading: out.slice(0, 200) })
     } finally {
@@ -211,8 +291,8 @@ function HeroBlockEditor({
       const out = await callAiTranslate({
         text: subheading,
         context: 'excerpt',
-        sourceLocale: 'tr',
-        targetLocale: 'tr',
+        sourceLocale: defaultLocale,
+        targetLocale: defaultLocale,
         pageSlug,
       })
       if (out) mergeConfig({ subheading: out.slice(0, 300) })
@@ -376,8 +456,8 @@ function PageEditor({
   const handleAddBlock = useCallback(async () => {
     setAddingBlock(true)
     try {
-      const defaultJson = JSON.stringify({ title: '', text: '' })
-      const res = await addCmsBlock(token, page.id, {
+      const defaultJson = defaultConfigForBlockType(newBlockType)
+      await addCmsBlock(token, page.id, {
         block_type: newBlockType,
         sort_order: (blocks[blocks.length - 1]?.sort_order ?? 0) + 10,
         config_json: defaultJson,
@@ -528,6 +608,13 @@ function PageEditor({
                   pageSlug={page.slug}
                   onChange={setEditJson}
                 />
+              ) : STRUCTURED_BLOCK_TYPES.has(editType) ? (
+                <StructuredCmsBlockEditor
+                  key={`${editBlock.id}-${editType}`}
+                  blockType={editType}
+                  configJson={editJson}
+                  onChange={setEditJson}
+                />
               ) : (
                 <>
                   <label className="mb-1 block text-xs text-neutral-500">Config JSON</label>
@@ -598,7 +685,13 @@ export default function CmsPagesClient() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">CMS Sayfalar</h1>
-            <p className="mt-1 text-sm text-neutral-500">Sayfa oluşturun, blok düzeni yapın, yayına alın.</p>
+            <p className="mt-1 text-sm text-neutral-500">
+              Sayfa oluşturun, blok ekleyin, yayına alın. Genel adres:{' '}
+              <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">/p/slug</code> —{' '}
+              <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">about</code> slug’ı
+              ayrıca <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">/about</code>{' '}
+              üzerinden gösterilir.
+            </p>
           </div>
         </div>
         <div className="flex gap-2">

@@ -5,6 +5,7 @@ import I404Png from '@/images/404.png'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import ButtonPrimary from '@/shared/ButtonPrimary'
+import { getMessages } from '@/utils/getT'
 import Image from 'next/image'
 import { useParams } from 'next/navigation'
 
@@ -14,11 +15,9 @@ export default function LocaleNotFound() {
   const raw = params?.locale
   const locale = typeof raw === 'string' && isAppLocale(raw) ? raw : defaultLocale
   const homeHref = vitrinPath('/')
-  const title =
-    locale === 'en'
-      ? `THE PAGE YOU WERE LOOKING FOR DOESN'T EXIST.`
-      : `ARADIĞINIZ SAYFA BULUNAMADI.`
-  const cta = locale === 'en' ? 'Return home' : 'Ana sayfaya dön'
+  const t = getMessages(locale)
+  const title = t.site.notFound.title
+  const cta = t.site.notFound.backHome
 
   return (
     <div className="nc-Page404">

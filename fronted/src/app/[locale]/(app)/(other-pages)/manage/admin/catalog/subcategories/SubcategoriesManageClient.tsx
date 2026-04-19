@@ -5,8 +5,10 @@ import { getStoredAuthToken } from '@/lib/auth-storage'
 import { SUBCATEGORY_REGISTRY, subcategoryColorClasses } from '@/data/subcategory-registry'
 import type { SubcategoryEntry } from '@/data/subcategory-registry'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
+import I18nFieldEditor from '@/components/manage/i18n/I18nFieldEditor'
+import { compactI18nField, type I18nFieldMap } from '@/lib/i18n-field'
 import {
-  Plus, Pencil, Trash2, Save, X, Loader2, GripVertical,
+  Plus, Pencil, Trash2, Save, X, Loader2,
   ChevronDown, ChevronUp, Eye, EyeOff, AlertCircle, CheckCircle2,
 } from 'lucide-react'
 
@@ -17,6 +19,14 @@ const COLORS = ['red','rose','orange','amber','yellow','green','emerald','teal',
 const BLANK_FORM: EditForm = {
   slug: '', parentCategorySlug: '', name: '', nameEn: '', emoji: '📌',
   description: '', descriptionEn: '', color: 'blue', order: 99, enabled: true,
+  name_i18n: {}, description_i18n: {},
+}
+
+function mergeLegacy(legacy: { tr?: string; en?: string }, i18n: I18nFieldMap | undefined): I18nFieldMap {
+  const out: I18nFieldMap = { ...(i18n ?? {}) }
+  if (!out.tr && legacy.tr) out.tr = legacy.tr
+  if (!out.en && legacy.en) out.en = legacy.en
+  return out
 }
 
 function generateId(slug: string, parent: string) {
@@ -248,26 +258,22 @@ export default function SubcategoriesManageClient() {
                     })}
                   </div>
                 </div>
-                {/* Türkçe Ad */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">Türkçe Ad *</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                    className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                    placeholder="Butik Oteller"
-                  />
-                </div>
-                {/* İngilizce Ad */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">İngilizce Ad</label>
-                  <input
-                    type="text"
-                    value={form.nameEn}
-                    onChange={(e) => setForm((f) => ({ ...f, nameEn: e.target.value }))}
-                    className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                    placeholder="Boutique Hotels"
+                {/* Çoklu dil: Ad (6 dil) */}
+                <div className="sm:col-span-2">
+                  <I18nFieldEditor
+                    label="Ad"
+                    description="Tüm sitedeki dillerde görünür. TR zorunlu; diğer diller boşsa fallback uygulanır."
+                    value={mergeLegacy({ tr: form.name, en: form.nameEn }, form.name_i18n)}
+                    onChange={(next) => {
+                      const compact = compactI18nField(next)
+                      setForm((f) => ({
+                        ...f,
+                        name: compact.tr ?? '',
+                        nameEn: compact.en ?? '',
+                        name_i18n: compact,
+                      }))
+                    }}
+                    placeholder="Alt kategori adı"
                   />
                 </div>
                 {/* Slug */}
@@ -292,15 +298,24 @@ export default function SubcategoriesManageClient() {
                     placeholder="/oteller/all?type=butik"
                   />
                 </div>
-                {/* Türkçe Açıklama */}
+                {/* Çoklu dil: Açıklama (6 dil) */}
                 <div className="sm:col-span-2">
-                  <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">Türkçe Açıklama</label>
-                  <input
-                    type="text"
-                    value={form.description}
-                    onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                    className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                    placeholder="Kısa açıklama..."
+                  <I18nFieldEditor
+                    label="Açıklama"
+                    description="Vitrin kartlarında alt başlık olarak gösterilir."
+                    value={mergeLegacy({ tr: form.description, en: form.descriptionEn }, form.description_i18n)}
+                    onChange={(next) => {
+                      const compact = compactI18nField(next)
+                      setForm((f) => ({
+                        ...f,
+                        description: compact.tr ?? '',
+                        descriptionEn: compact.en ?? '',
+                        description_i18n: compact,
+                      }))
+                    }}
+                    rows={2}
+                    requireTr={false}
+                    placeholder="Kısa açıklama"
                   />
                 </div>
               </div>

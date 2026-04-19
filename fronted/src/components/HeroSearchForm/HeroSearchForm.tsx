@@ -11,31 +11,13 @@ import {
 } from '@hugeicons/core-free-icons'
 import { IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
-import dynamic from 'next/dynamic'
 import { Fragment } from 'react'
 import { ExperiencesSearchForm } from './ExperiencesSearchForm'
 import { FlightSearchForm } from './FlightSearchForm'
 import { verticalNavLabel } from '@/lib/vertical-nav-i18n'
 import { RentalCarSearchForm } from './RentalCarSearchForm'
 import { StaySearchForm } from './StaySearchForm'
-
-// SSR devre dışı — ilk render viewport genişliğine göre doğru ikon sayısını gösterir
-const HeroMenuCategoryBar = dynamic(
-  () => import('./HeroMenuCategoryBar').then((m) => ({ default: m.HeroMenuCategoryBar })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="mb-3 flex flex-wrap items-end gap-x-3 gap-y-2 sm:mb-4 sm:gap-x-5">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <div className="size-10 animate-pulse rounded-full bg-neutral-200 sm:size-11 dark:bg-neutral-700" />
-            <div className="h-3 w-8 animate-pulse rounded bg-neutral-200 dark:bg-neutral-700" />
-          </div>
-        ))}
-      </div>
-    ),
-  },
-)
+import { HeroMenuCategoryBar } from './HeroMenuCategoryBar'
 
 export const formTabs: {
   name: ListingType

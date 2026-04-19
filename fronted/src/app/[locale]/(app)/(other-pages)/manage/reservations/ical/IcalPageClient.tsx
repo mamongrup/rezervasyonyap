@@ -4,12 +4,15 @@ import {
   createIcalFeed,
   deleteIcalFeed,
   listIcalFeeds,
+  listIcalImportedBlocks,
   patchIcalFeed,
   type IcalFeed,
+  type IcalImportedBlock,
 } from '@/lib/travel-api'
 import clsx from 'clsx'
 import {
   CalendarSync,
+  Eye,
   Link2,
   Loader2,
   Minus,
@@ -24,23 +27,36 @@ function FeedRow({
   feed,
   onDelete,
   onPatch,
+  onShowBlocks,
   deleting,
 }: {
   feed: IcalFeed
   onDelete: (id: string) => void
-  onPatch: (id: string, data: { day_offset_plus?: number; day_offset_minus?: number }) => void
+  onPatch: (
+    id: string,
+    data: { day_offset_plus?: number; day_offset_minus?: number; is_active?: boolean },
+  ) => void
+  onShowBlocks: (feed: IcalFeed) => void
   deleting: boolean
 }) {
   const [editMode, setEditMode] = useState(false)
   const [plus, setPlus] = useState(feed.day_offset_plus)
   const [minus, setMinus] = useState(feed.day_offset_minus)
   const [saving, setSaving] = useState(false)
+  const [togglingActive, setTogglingActive] = useState(false)
+  const isActive = feed.is_active !== false
 
   const handleSave = async () => {
     setSaving(true)
     await onPatch(feed.id, { day_offset_plus: plus, day_offset_minus: minus })
     setSaving(false)
     setEditMode(false)
+  }
+
+  const handleToggleActive = async () => {
+    setTogglingActive(true)
+    await onPatch(feed.id, { is_active: !isActive })
+    setTogglingActive(false)
   }
 
   return (
@@ -88,6 +104,25 @@ function FeedRow({
       <td className="py-3 text-xs text-neutral-400">
         {feed.last_sync_at ? new Date(feed.last_sync_at).toLocaleString('tr-TR') : 'Henüz senkronize edilmedi'}
       </td>
+      <td className="py-3 text-center">
+        <button
+          type="button"
+          onClick={() => void handleToggleActive()}
+          disabled={togglingActive}
+          title={isActive ? 'Aktif - tıklayarak duraklat' : 'Duraklatıldı - tıklayarak aktive et'}
+          className={clsx(
+            'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50',
+            isActive ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600',
+          )}
+        >
+          <span
+            className={clsx(
+              'inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform',
+              isActive ? 'translate-x-5' : 'translate-x-1',
+            )}
+          />
+        </button>
+      </td>
       <td className="py-3 pr-5">
         <div className="flex items-center justify-end gap-1">
           {editMode ? (
@@ -109,13 +144,24 @@ function FeedRow({
               </button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => setEditMode(true)}
-              className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50 dark:border-neutral-700"
-            >
-              Düzenle
-            </button>
+            <>
+              <button
+                type="button"
+                onClick={() => onShowBlocks(feed)}
+                title="İçe aktarılmış blokları gör"
+                className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50 dark:border-neutral-700"
+              >
+                <Eye className="h-3 w-3" />
+                Bloklar
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditMode(true)}
+                className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs text-neutral-500 hover:bg-neutral-50 dark:border-neutral-700"
+              >
+                Düzenle
+              </button>
+            </>
           )}
           <button
             type="button"
@@ -149,6 +195,27 @@ export default function IcalPageClient() {
   const [searchListingId, setSearchListingId] = useState('')
   const [searched, setSearched] = useState(false)
 
+  // İçe aktarılmış bloklar modalı
+  const [blocksFeed, setBlocksFeed] = useState<IcalFeed | null>(null)
+  const [blocks, setBlocks] = useState<IcalImportedBlock[]>([])
+  const [blocksLoading, setBlocksLoading] = useState(false)
+  const [blocksError, setBlocksError] = useState<string | null>(null)
+
+  const handleShowBlocks = useCallback(async (feed: IcalFeed) => {
+    setBlocksFeed(feed)
+    setBlocks([])
+    setBlocksError(null)
+    setBlocksLoading(true)
+    try {
+      const res = await listIcalImportedBlocks({ feed_id: feed.id, limit: 500 })
+      setBlocks(res.blocks)
+    } catch (e) {
+      setBlocksError(e instanceof Error ? e.message : 'Bloklar yüklenemedi')
+    } finally {
+      setBlocksLoading(false)
+    }
+  }, [])
+
   const loadFeeds = useCallback(async (listingId: string) => {
     if (!listingId.trim()) return
     setLoading(true)
@@ -178,7 +245,10 @@ export default function IcalPageClient() {
   }, [])
 
   const handlePatch = useCallback(
-    async (id: string, data: { day_offset_plus?: number; day_offset_minus?: number }) => {
+    async (
+      id: string,
+      data: { day_offset_plus?: number; day_offset_minus?: number; is_active?: boolean },
+    ) => {
       try {
         await patchIcalFeed(id, data)
         setFeeds((prev) =>
@@ -188,6 +258,7 @@ export default function IcalPageClient() {
                   ...f,
                   day_offset_plus: data.day_offset_plus ?? f.day_offset_plus,
                   day_offset_minus: data.day_offset_minus ?? f.day_offset_minus,
+                  ...(data.is_active !== undefined ? { is_active: data.is_active } : {}),
                 }
               : f,
           ),
@@ -371,6 +442,7 @@ export default function IcalPageClient() {
                 <th className="py-3 text-center">+Tampon</th>
                 <th className="py-3 text-center">-Tampon</th>
                 <th className="py-3 text-left">Son senkron</th>
+                <th className="py-3 text-center">Aktif</th>
                 <th className="py-3 pr-5 text-right">İşlem</th>
               </tr>
             </thead>
@@ -381,6 +453,7 @@ export default function IcalPageClient() {
                   feed={f}
                   onDelete={(id) => void handleDelete(id)}
                   onPatch={handlePatch}
+                  onShowBlocks={(feed) => void handleShowBlocks(feed)}
                   deleting={deletingId === f.id}
                 />
               ))}
@@ -388,6 +461,100 @@ export default function IcalPageClient() {
           </table>
         )}
       </div>
+
+      {/* İçe aktarılmış bloklar modalı */}
+      {blocksFeed ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setBlocksFeed(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-neutral-900"
+          >
+            <div className="flex items-start justify-between border-b border-neutral-100 px-5 py-4 dark:border-neutral-800">
+              <div>
+                <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                  İçe Aktarılmış Bloklar
+                </h3>
+                <p className="mt-0.5 truncate font-mono text-[11px] text-neutral-400">
+                  {blocksFeed.url}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBlocksFeed(null)}
+                className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[70vh] overflow-y-auto p-5">
+              {blocksLoading ? (
+                <div className="flex items-center justify-center py-12 text-neutral-400">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Yükleniyor…
+                </div>
+              ) : blocksError ? (
+                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">
+                  {blocksError}
+                </div>
+              ) : blocks.length === 0 ? (
+                <div className="py-8 text-center text-sm text-neutral-400">
+                  Bu feed için içe aktarılmış blok bulunamadı.
+                  <br />
+                  <span className="text-xs">
+                    Önce bir senkronizasyon çalıştırılmalı (eller&nbsp;<RefreshCw className="inline h-3 w-3" />&nbsp;ile manuel ya da otomatik).
+                  </span>
+                </div>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-neutral-100 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:border-neutral-800">
+                      <th className="py-2 pr-3 text-left">Başlangıç</th>
+                      <th className="py-2 pr-3 text-left">Bitiş</th>
+                      <th className="py-2 pr-3 text-left">Özet</th>
+                      <th className="py-2 text-left">UID</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
+                    {blocks.map((b) => (
+                      <tr key={b.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                        <td className="py-2 pr-3 text-neutral-700 dark:text-neutral-200">
+                          {b.starts_on}
+                        </td>
+                        <td className="py-2 pr-3 text-neutral-700 dark:text-neutral-200">
+                          {b.ends_on}
+                        </td>
+                        <td className="py-2 pr-3 text-neutral-600 dark:text-neutral-400">
+                          {b.summary || <span className="italic text-neutral-300">—</span>}
+                        </td>
+                        <td className="py-2 max-w-[260px] truncate font-mono text-[11px] text-neutral-400">
+                          {b.uid}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-neutral-100 bg-neutral-50/50 px-5 py-3 dark:border-neutral-800 dark:bg-neutral-800/30">
+              <span className="text-xs text-neutral-400">
+                {blocks.length} kayıt
+              </span>
+              <button
+                type="button"
+                onClick={() => setBlocksFeed(null)}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-white dark:border-neutral-700 dark:text-neutral-300"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { resolveTranslatorTimeoutMs } from '@/lib/ai-upstream-timeouts'
+import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
@@ -10,7 +11,7 @@ type TranslateBody = {
   text: string
   targetLocale: string
   sourceLocale?: string
-  context?: 'title' | 'excerpt' | 'body' | 'seo'
+  context?: 'title' | 'excerpt' | 'body' | 'seo' | 'short_label'
   /** Bölge / sayfa yolu — içerik polish modunda iç link önerisi için (ör. turkiye/antalya) */
   pageSlug?: string
 }
@@ -35,10 +36,11 @@ function canonicalLocaleCode(raw: string): string | null {
   if (lower === 'zh-cn' || lower === 'zh-tw') return 'zh'
   if (ALLOWED_LOCALE_CODES.has(s)) return s
   if (ALLOWED_LOCALE_CODES.has(lower)) return lower
+  if (isAppLocale(lower)) return lower
   return null
 }
 
-const VALID_CONTEXTS = new Set(['title', 'excerpt', 'body', 'seo'])
+const VALID_CONTEXTS = new Set(['title', 'excerpt', 'body', 'seo', 'short_label'])
 
 /** Blog yönetimi ile aynı: `blog_http` `admin_gate.require_admin_users_read`. */
 const ADMIN_TRANSLATE_PERM = 'admin.users.read'
@@ -87,6 +89,8 @@ function checkRateLimit(key: string): { ok: boolean; retryAfterSec?: number } {
 
 function maxTokensForContext(ctx: string): number {
   switch (ctx) {
+    case 'short_label':
+      return 256
     case 'title':
       return 1024
     case 'seo':
@@ -230,11 +234,16 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const context: 'title' | 'excerpt' | 'body' | 'seo' =
-    rawContext === 'title' || rawContext === 'excerpt' || rawContext === 'seo' ? rawContext : 'body'
+  const context: 'title' | 'excerpt' | 'body' | 'seo' | 'short_label' =
+    rawContext === 'title' ||
+    rawContext === 'excerpt' ||
+    rawContext === 'seo' ||
+    rawContext === 'short_label'
+      ? rawContext
+      : 'body'
 
   const { text, targetLocale: rawTarget } = body
-  const sourceLocaleRaw = body.sourceLocale ?? 'tr'
+  const sourceLocaleRaw = body.sourceLocale ?? defaultLocale
 
   if (!text?.trim()) {
     return NextResponse.json({ error: 'text_required' }, { status: 400 })
@@ -270,7 +279,9 @@ export async function POST(req: NextRequest) {
         ? 'This is a blog excerpt: 2–3 fluent sentences.'
         : context === 'seo'
           ? 'This is SEO meta text: concise and keyword-aware.'
-          : 'This is blog HTML body: preserve tags and structure; translate visible text only.'
+          : context === 'short_label'
+            ? 'This is a SHORT travel/booking UI text (a label, attribute, feature or house-rule sentence, typically 1-15 words) used in a vacation rental / villa platform. Examples: "Ek Temizlik" → "Extra Cleaning"; "Havuz ısıtma" → "Pool Heating"; "Tüp Kullanımı" → "Gas Bottle Usage"; "Ulaşım Hizmeti" → "Transfer Service"; "Erken Rezervasyon" → "Early Booking"; "İçeride sigara içilmez" → "No smoking indoors"; "Evcil hayvan kabul edilmez" → "Pets not allowed"; "Etkinlik / parti yasak" → "No events or parties". Translate the literal meaning faithfully; keep it concise; use natural sentence-case for short rules and Title Case for short labels where appropriate; do NOT invent extra words; do NOT add quotes, surrounding punctuation, parentheses or commentary; do NOT translate brand names. Output ONLY the translated text, nothing else.'
+            : 'This is blog HTML body: preserve tags and structure; translate visible text only.'
 
   const slug = typeof body.pageSlug === 'string' ? body.pageSlug.trim() : ''
   const linkHint =
@@ -287,6 +298,8 @@ export async function POST(req: NextRequest) {
         return `You are an SEO specialist writing in ${langName}. Improve this meta title or meta description for a travel destination: natural wording, relevant keywords, respect typical length (title ~70 chars, description ~160 chars when the input looks like a description). Return only the improved text, no prefixes.`
       case 'excerpt':
         return `You are a professional editor writing in ${langName}. Improve this short excerpt: grammar, clarity, SEO-friendly phrasing. Return only the improved text.`
+      case 'short_label':
+        return `You are a UI copywriter writing in ${langName}. Improve this short label (max 4 words) used in a vacation rental UI: fix capitalization and grammar; keep it concise. Return only the improved label, no quotes or commentary.`
       case 'body':
       default:
         return `You are an SEO editor writing in ${langName}. Improve the HTML: fix grammar and readability; wrap 2–4 important phrases in <strong>...</strong>; add 2–5 relevant internal links with <a href="...">. ${linkHint} Preserve valid HTML structure (p, br, ul, li, headings). Return only the HTML fragment — no markdown fences or commentary.`

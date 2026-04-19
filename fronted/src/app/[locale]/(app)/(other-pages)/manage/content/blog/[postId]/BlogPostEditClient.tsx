@@ -1,17 +1,18 @@
 'use client'
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { blogImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { blogPostMediaSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import ImageUpload from '@/components/editor/ImageUpload'
 import RichEditor from '@/components/editor/RichEditor'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
+import { ManageStickyLangBar } from '@/components/manage/ManageStickyLangBar'
+import { ManageStickyFormFooter } from '@/components/manage/ManageStickyFormFooter'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
   ManageFormListingSection,
-  ManageFormPageHeader,
 } from '@/components/manage/ManageFormShell'
 import {
   getBlogPost,
@@ -30,6 +31,7 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
+  ExternalLink,
   Eye,
   EyeOff,
   Globe,
@@ -43,32 +45,11 @@ import {
   X,
   Plus,
 } from 'lucide-react'
-import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
-
-const BLOG_AI_LOCALE_OPTIONS = SITE_LOCALE_CATALOG.map((c) => ({
-  code: c.code,
-  label: c.name,
-  flag:
-    c.code === 'tr'
-      ? '🇹🇷'
-      : c.code === 'en'
-        ? '🇬🇧'
-        : c.code === 'de'
-          ? '🇩🇪'
-          : c.code === 'ru'
-            ? '🇷🇺'
-            : c.code === 'fr'
-              ? '🇫🇷'
-              : c.code === 'zh'
-                ? '🇨🇳'
-                : '🌐',
-}))
-const BLOG_TR_TARGET_LOCALES = BLOG_AI_LOCALE_OPTIONS.filter((l) => l.code !== 'tr')
+import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
+import { localeFlagEmoji } from '@/lib/manage-ai-locale-rows'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { use, useCallback, useEffect, useMemo, useState } from 'react'
-
-const LOCALES = SITE_LOCALE_CATALOG.map((c) => c.code)
+import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 function toSlug(s: string) {
   return s
@@ -101,12 +82,13 @@ function HeroGallery({
     next[idx] = val
     onChange(next.filter((_, i) => i < 3))
   }
-  const sub = blogImageSubPath(slugBase)
+  const sub = blogPostMediaSubPath(slugBase)
+  const slugSan = slugifyMediaSegment(slugBase)
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-500">Hero bölümünde gösterilecek 3 resim</p>
       <p className="text-xs font-mono text-neutral-400">
-        /uploads/blog/{slugBase}/…
+        /uploads/icerik/blog/{slugSan}/…
       </p>
       <div className="grid grid-cols-3 gap-3">
         {slots.map((img, idx) => (
@@ -115,9 +97,9 @@ function HeroGallery({
             <ImageUpload
               value={img}
               onChange={(val) => update(idx, val)}
-              folder="blog"
+              folder="icerik"
               subPath={sub}
-              prefix={slugBase}
+              prefix={`${slugSan}-hero`}
               imageIndex={idx + 1}
               aspectRatio={idx === 0 ? '4/3' : '1/1'}
               compact
@@ -190,12 +172,14 @@ export default function BlogPostEditClient({
   const locale = (params?.locale as string) ?? 'tr'
   const router = useRouter()
   const vitrinPath = useVitrinHref()
+  const { allLocales, translateTargets, primaryLocale, localeCodes } = useManageAiLocaleRows()
+  const localeCodesKey = localeCodes.join(',')
 
   const [token, setToken] = useState('')
   const [post, setPost] = useState<BlogPost | null>(null)
   const [categories, setCategories] = useState<BlogCategory[]>([])
   const [translations, setTranslations] = useState<BlogTranslation[]>([])
-  const [activeLocale, setActiveLocale] = useState('tr')
+  const [activeLocale, setActiveLocale] = useState(primaryLocale)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingMeta, setSavingMeta] = useState(false)
@@ -203,7 +187,9 @@ export default function BlogPostEditClient({
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'content' | 'images' | 'seo' | 'translate'>('content')
-  const [aiTargetLocale, setAiTargetLocale] = useState('en')
+  const [aiTargetLocale, setAiTargetLocale] = useState(
+    () => translateTargets[0]?.code ?? 'en',
+  )
   const [aiTranslating, setAiTranslating] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiResult, setAiResult] = useState<{ title: string; excerpt: string; body: string } | null>(null)
@@ -232,6 +218,18 @@ export default function BlogPostEditClient({
   const [readTime, setReadTime] = useState('')
   const [metaTitle, setMetaTitle] = useState('')
   const [metaDescription, setMetaDescription] = useState('')
+
+  useEffect(() => {
+    setAiTargetLocale((cur) => {
+      const targets = localeCodes.filter((c) => c !== primaryLocale)
+      if (targets.includes(cur)) return cur
+      return targets[0] ?? 'en'
+    })
+  }, [localeCodesKey, primaryLocale, localeCodes])
+
+  useEffect(() => {
+    setActiveLocale((cur) => (localeCodes.includes(cur) ? cur : primaryLocale))
+  }, [localeCodesKey, primaryLocale, localeCodes])
 
   useEffect(() => {
     setToken(getStoredAuthToken() ?? '')
@@ -289,54 +287,6 @@ export default function BlogPostEditClient({
   const showSaved = (msg = 'Kaydedildi') => {
     setSavedMsg(msg)
     setTimeout(() => setSavedMsg(null), 3000)
-  }
-
-  const handleSaveContent = async () => {
-    if (!title.trim()) { setError('Başlık gerekli'); return }
-    setSaving(true)
-    setError(null)
-    try {
-      await Promise.all([
-        patchBlogPost(token, postId, { slug: slug.trim(), category_id: categoryId || undefined }),
-        upsertBlogTranslation(token, postId, {
-          locale: activeLocale,
-          title: title.trim(),
-          body,
-          excerpt: excerpt || undefined,
-        }),
-      ])
-      setTranslations((prev) => {
-        const idx = prev.findIndex((t) => t.locale === activeLocale)
-        const entry: BlogTranslation = { locale: activeLocale, title, body, excerpt }
-        if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next }
-        return [...prev, entry]
-      })
-      showSaved('İçerik kaydedildi')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydedilemedi')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleSaveMeta = async () => {
-    setSavingMeta(true)
-    setError(null)
-    try {
-      await putBlogPostMeta(token, postId, {
-        featured_image_url: featuredImageUrl || null,
-        hero_gallery_json: JSON.stringify(heroImages.filter(Boolean)),
-        tags_json: JSON.stringify(tags),
-        read_time_minutes: readTime ? Number(readTime) : null,
-        meta_title: metaTitle || null,
-        meta_description: metaDescription || null,
-      })
-      showSaved('Meta kaydedildi')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Meta kaydedilemedi')
-    } finally {
-      setSavingMeta(false)
-    }
   }
 
   const handleAiTranslate = async () => {
@@ -400,23 +350,26 @@ export default function BlogPostEditClient({
     }
   }
 
-  const turkishSourceStrings = () => {
-    const trT = translations.find((t) => t.locale === 'tr')
+  const primarySourceStrings = () => {
+    const primaryT = translations.find((t) => t.locale === primaryLocale)
     return {
-      title: (activeLocale === 'tr' ? title : trT?.title ?? '').trim(),
-      excerpt: (activeLocale === 'tr' ? excerpt : trT?.excerpt ?? '').trim(),
-      body: (activeLocale === 'tr' ? body : trT?.body ?? '').trim(),
+      title: (activeLocale === primaryLocale ? title : primaryT?.title ?? '').trim(),
+      excerpt: (activeLocale === primaryLocale ? excerpt : primaryT?.excerpt ?? '').trim(),
+      body: (activeLocale === primaryLocale ? body : primaryT?.body ?? '').trim(),
     }
   }
 
   const handleAiTranslateTrToTarget = async () => {
-    if (aiTargetLocale === 'tr') {
-      setError('Hedef dil olarak Türkçe dışında bir dil seçin.')
+    if (aiTargetLocale === primaryLocale) {
+      setError(
+        `Hedef dil, birincil kaynak dilden (${primaryLocale.toUpperCase()}) farklı olmalı.`,
+      )
       return
     }
-    const src = turkishSourceStrings()
+    const src = primarySourceStrings()
     if (!src.title && !src.body) {
-      setError('Önce Türkçe başlık veya içerik girin.')
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setError(`Önce ${plabel} başlık veya içerik girin.`)
       return
     }
     setAiTranslating(true)
@@ -425,16 +378,26 @@ export default function BlogPostEditClient({
       const pageSlug = slug.trim() || 'blog'
       const [tTitle, tExcerpt, tBody] = await Promise.all([
         src.title
-          ? callAiTranslate({ text: src.title, context: 'title', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+          ? callAiTranslate({
+              text: src.title,
+              context: 'title',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
         src.excerpt
-          ? callAiTranslate({ text: src.excerpt, context: 'excerpt', sourceLocale: 'tr', targetLocale: aiTargetLocale })
+          ? callAiTranslate({
+              text: src.excerpt,
+              context: 'excerpt',
+              sourceLocale: primaryLocale,
+              targetLocale: aiTargetLocale,
+            })
           : Promise.resolve(''),
         src.body
           ? callAiTranslate({
               text: src.body,
               context: 'body',
-              sourceLocale: 'tr',
+              sourceLocale: primaryLocale,
               targetLocale: aiTargetLocale,
               pageSlug,
             })
@@ -587,6 +550,101 @@ export default function BlogPostEditClient({
     }
   }
 
+  // ─── Birleşik kaydetme (sticky alt çubuk için) ────────────────────────────
+  const submitIntentRef = useRef<'save' | 'save-show'>('save')
+
+  const previewHref = useMemo(() => {
+    const targetSlug = (post?.slug ?? slug).trim() || ''
+    return vitrinPath(targetSlug ? `/blog/${targetSlug}` : '/blog')
+  }, [post?.slug, slug, vitrinPath])
+
+  const langBarLocales = useMemo(
+    () =>
+      allLocales.map((l) => ({
+        code: l.code,
+        label: l.label,
+        flag: l.flag,
+      })),
+    [allLocales],
+  )
+
+  const handleSaveAll = useCallback(async () => {
+    if (!title.trim()) {
+      setError('Başlık gerekli')
+      setActiveTab('content')
+      return false
+    }
+    setSaving(true)
+    setSavingMeta(true)
+    setError(null)
+    try {
+      await Promise.all([
+        patchBlogPost(token, postId, { slug: slug.trim(), category_id: categoryId || undefined }),
+        upsertBlogTranslation(token, postId, {
+          locale: activeLocale,
+          title: title.trim(),
+          body,
+          excerpt: excerpt || undefined,
+        }),
+        putBlogPostMeta(token, postId, {
+          featured_image_url: featuredImageUrl || null,
+          hero_gallery_json: JSON.stringify(heroImages.filter(Boolean)),
+          tags_json: JSON.stringify(tags),
+          read_time_minutes: readTime ? Number(readTime) : null,
+          meta_title: metaTitle || null,
+          meta_description: metaDescription || null,
+        }),
+      ])
+      setTranslations((prev) => {
+        const idx = prev.findIndex((t) => t.locale === activeLocale)
+        const entry: BlogTranslation = { locale: activeLocale, title, body, excerpt }
+        if (idx >= 0) {
+          const next = [...prev]
+          next[idx] = entry
+          return next
+        }
+        return [...prev, entry]
+      })
+      showSaved('Tüm değişiklikler kaydedildi')
+      if (submitIntentRef.current === 'save-show' && typeof window !== 'undefined') {
+        window.open(previewHref, '_blank', 'noopener,noreferrer')
+      }
+      return true
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+      return false
+    } finally {
+      setSaving(false)
+      setSavingMeta(false)
+    }
+  }, [
+    activeLocale,
+    body,
+    categoryId,
+    excerpt,
+    featuredImageUrl,
+    heroImages,
+    metaDescription,
+    metaTitle,
+    postId,
+    previewHref,
+    readTime,
+    slug,
+    tags,
+    title,
+    token,
+  ])
+
+  const handleSave = useCallback(() => {
+    submitIntentRef.current = 'save'
+    void handleSaveAll()
+  }, [handleSaveAll])
+
+  const handleSaveAndShow = useCallback(() => {
+    submitIntentRef.current = 'save-show'
+    void handleSaveAll()
+  }, [handleSaveAll])
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -599,77 +657,29 @@ export default function BlogPostEditClient({
   const hasTranslation = (loc: string) => translations.some((t) => t.locale === loc && t.title)
 
   return (
-    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950">
-      {/* Top bar */}
-      <div className="sticky top-0 z-40 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-700 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Link
-              href={vitrinPath('/manage/content/blog')}
-              className="p-2 rounded-xl hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <div>
-              <h1 className="text-sm font-semibold text-neutral-900 dark:text-white truncate max-w-[200px] sm:max-w-none">
-                {title || post?.slug || 'Blog Yazısı'}
-              </h1>
-              <p className="text-xs text-neutral-400 font-mono">{post?.slug}</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+    <div className="min-h-screen bg-neutral-50 pb-28 dark:bg-neutral-950">
+      {/* ── Üst sticky çubuk: Geri · Başlık · Dil tabları · AI Çevir ── */}
+      <ManageStickyLangBar
+        backHref={vitrinPath('/manage/content/blog')}
+        titlePrimary={title || post?.slug || 'Blog Yazısı'}
+        titleSecondary={post?.slug ? `/${post.slug}` : undefined}
+        locales={langBarLocales}
+        activeLocale={activeLocale}
+        onActiveLocaleChange={switchLocale}
+        toolbarRight={
+          translateTargets.length > 0 ? (
             <ManageAiTranslateToolbar
-              locales={BLOG_TR_TARGET_LOCALES}
+              locales={translateTargets}
               targetLocale={aiTargetLocale}
               onTargetLocaleChange={setAiTargetLocale}
               onTranslate={() => void handleAiTranslateTrToTarget()}
               translating={aiTranslating}
             />
-            {savedMsg && (
-              <span className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
-                <CheckCircle2 className="w-4 h-4" />
-                {savedMsg}
-              </span>
-            )}
-            <button
-              onClick={handlePublishToggle}
-              disabled={publishing}
-              className={clsx(
-                'flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-colors',
-                isPublished
-                  ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-900/50'
-                  : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-900/50',
-              )}
-            >
-              {publishing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : isPublished ? (
-                <EyeOff className="w-4 h-4" />
-              ) : (
-                <Eye className="w-4 h-4" />
-              )}
-              <span className="hidden sm:inline">{isPublished ? 'Taslağa al' : 'Yayınla'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
+          ) : null
+        }
+      />
 
       <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'grid grid-cols-1 gap-8 pb-16 pt-4 sm:pt-6 lg:grid-cols-3')}>
-        <div className="lg:col-span-3">
-          <ManageFormPageHeader
-            title="Blog yazısı düzenle"
-            subtitle={
-              <>
-                <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                  {title || post?.slug || '—'}
-                </span>
-                {post?.slug ? (
-                  <span className="ml-2 font-mono text-xs text-neutral-400">/{post.slug}</span>
-                ) : null}
-              </>
-            }
-          />
-        </div>
         {/* Left: Main content */}
         <ManageFormListingSection className="min-w-0 lg:col-span-2">
           {error && (
@@ -706,30 +716,35 @@ export default function BlogPostEditClient({
           {/* Content Tab */}
           {activeTab === 'content' && (
             <div className="space-y-6">
-              {/* Locale tabs */}
-              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
-                <div className="flex border-b border-neutral-200 dark:border-neutral-700">
-                  {LOCALES.map((loc) => (
+              {/* Doluluk rozetleri (yardımcı; düzenleme dili üst sticky'den değişir) */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="font-semibold uppercase tracking-wide text-neutral-500">
+                  Çeviri durumu:
+                </span>
+                {localeCodes.map((loc) => {
+                  const filled = hasTranslation(loc)
+                  return (
                     <button
                       key={loc}
+                      type="button"
                       onClick={() => switchLocale(loc)}
                       className={clsx(
-                        'flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 -mb-px transition-colors',
-                        activeLocale === loc
-                          ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                          : 'border-transparent text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
+                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold transition',
+                        filled
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                          : 'bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300',
                       )}
+                      title={`${allLocales.find((l) => l.code === loc)?.label ?? loc.toUpperCase()}: ${filled ? 'Çevrildi' : 'Eksik'}`}
                     >
-                      <span className="text-base">
-                        {loc === 'tr' ? '🇹🇷' : loc === 'en' ? '🇬🇧' : '🌐'}
-                      </span>
-                      {loc.toUpperCase()}
-                      {hasTranslation(loc) && (
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                      )}
+                      <span>{localeFlagEmoji(loc)}</span>
+                      <span className="uppercase">{loc}</span>
+                      <span>{filled ? '✓' : '—'}</span>
                     </button>
-                  ))}
-                </div>
+                  )
+                })}
+              </div>
+
+              <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">
                 <div className="p-6 space-y-5">
                   <div>
                     <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -786,17 +801,6 @@ export default function BlogPostEditClient({
                   </div>
                 </div>
               </div>
-
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSaveContent}
-                  disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 font-medium"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  İçeriği Kaydet
-                </button>
-              </div>
             </div>
           )}
 
@@ -818,22 +822,12 @@ export default function BlogPostEditClient({
                   <ImageUpload
                     value={featuredImageUrl}
                     onChange={setFeaturedImageUrl}
-                    folder="blog"
-                    subPath={blogImageSubPath(blogSlugBase)}
-                    prefix={`${blogSlugBase}-kapak`}
+                    folder="icerik"
+                    subPath={blogPostMediaSubPath(blogSlugBase)}
+                    fixedStem={`${slugifyMediaSegment(blogSlugBase)}-kapak`}
                     aspectRatio="16/9"
                   />
                 </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSaveMeta}
-                  disabled={savingMeta}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 font-medium"
-                >
-                  {savingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Görselleri Kaydet
-                </button>
               </div>
             </div>
           )}
@@ -904,16 +898,6 @@ export default function BlogPostEditClient({
                   </button>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSaveMeta}
-                  disabled={savingMeta}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 font-medium"
-                >
-                  {savingMeta ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  SEO Kaydet
-                </button>
-              </div>
             </div>
           )}
           {/* AI Translate Tab */}
@@ -943,9 +927,11 @@ export default function BlogPostEditClient({
                       onChange={(e) => { setAiTargetLocale(e.target.value); setAiResult(null); setAiError(null) }}
                       className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
                     >
-                      {LOCALES.filter((l) => l !== activeLocale).map((l) => (
+                      {localeCodes
+                        .filter((l) => l !== activeLocale)
+                        .map((l) => (
                         <option key={l} value={l}>
-                          {l === 'tr' ? '🇹🇷 Türkçe' : l === 'en' ? '🇬🇧 İngilizce' : l.toUpperCase()}
+                          {`${localeFlagEmoji(l)} ${allLocales.find((x) => x.code === l)?.label ?? l.toUpperCase()}`}
                         </option>
                       ))}
                     </select>
@@ -1116,6 +1102,69 @@ export default function BlogPostEditClient({
           </div>
         </div>
       </div>
+
+      {/* ── Alt sticky aksiyon çubuğu ── */}
+      <ManageStickyFormFooter>
+        <div className="flex flex-wrap items-center gap-2">
+          {post?.slug && (
+            <a
+              href={previewHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              Önizleme
+            </a>
+          )}
+          {savedMsg && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              {savedMsg}
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <button
+            type="button"
+            onClick={handlePublishToggle}
+            disabled={publishing || saving || savingMeta}
+            className={clsx(
+              'inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors disabled:opacity-50',
+              isPublished
+                ? 'bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:hover:bg-amber-900/50'
+                : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-300 dark:hover:bg-green-900/50',
+            )}
+          >
+            {publishing ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isPublished ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">{isPublished ? 'Taslağa al' : 'Yayınla'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || savingMeta || loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-semibold text-neutral-800 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700"
+          >
+            {saving || savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet
+          </button>
+          <button
+            type="button"
+            onClick={handleSaveAndShow}
+            disabled={saving || savingMeta || loading}
+            className="inline-flex items-center gap-2 rounded-xl bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {saving || savingMeta ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Kaydet ve Göster
+          </button>
+        </div>
+      </ManageStickyFormFooter>
     </div>
   )
 }
