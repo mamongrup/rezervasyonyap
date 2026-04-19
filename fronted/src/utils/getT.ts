@@ -34,7 +34,7 @@ export function getMessages(locale: string | undefined | null): AppMessages {
  * karşılığı görünür (`undefined` dönerse çağıran kaynaktan fallback alabilir).
  *
  * @example
- *   pickTranslation('fr', (m) => m.footer.rights)
+ *   pickTranslation('fr', (m) => m.site.footer.rights)
  */
 export function pickTranslation<T>(
   locale: string | undefined | null,
