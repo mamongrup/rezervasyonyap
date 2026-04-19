@@ -25,8 +25,8 @@ const nextConfig = {
   turbopack: {
     root: __dirname,
     resolveAlias: {
-      // Paketler yalnızca fronted/node_modules altında (üst dizinde package.json yok).
-      picocolors: path.resolve(__dirname, 'node_modules/picocolors'),
+      // Mutlak yol (`path.resolve`) Turbopack’te `./opt/...` gibi bozuluyor; kök `__dirname` ile göreli bırak.
+      picocolors: './node_modules/picocolors',
     },
   },
   webpack: (config, { dev }) => {
