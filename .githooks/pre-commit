@@ -36,7 +36,7 @@ if [ -n "$CHANGED_TS" ]; then
       echo "✖ frontend lint başarısız. Commit iptal."
       exit 1
     }
-  elif [ -f "fronted/package-lock.json" ]; then
+  elif command -v npm >/dev/null 2>&1; then
     ( cd fronted && npm run lint --silent ) || exit 1
   else
     echo "! pnpm/npm bulunamadı; lint atlandı."
