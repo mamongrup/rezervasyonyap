@@ -1,0 +1,26 @@
+---
+description: 6-dil desteği (tr, en, de, ru, zh, fr) kuralları
+alwaysApply: false
+---
+
+# 6 dil i18n kuralları
+
+## Aktif locale'ler
+
+`tr` (kaynak), `en`, `de`, `ru`, `zh`, `fr` — `site_locales` tablosundan beslenir.
+
+## Yeni metin / çeviri ekleme
+
+1. DB'de bir `*_translations` JSONB kolonu varsa: TR kaynak alanını + JSONB haritasını birlikte kaydet.
+2. Form tarafında `MultiLangNamePanel` zorunlu — TR yazıldıkça AI ile diğer dillere otomatik öneri çevirisi yapar.
+3. Static UI metinleri için: `manage/panel/i18n` modülü (örn. `messaging_catalog_seed`) içinde 6 dilin de **dolu** olmasını sağla.
+
+## API yanıt kuralı
+
+- Public API'de bir entity'nin `name`/`description`'ı yanında **mutlaka** `name_translations` ve `description_translations` JSON string olarak gönder.
+- Frontend `parseNameTranslations(raw)` ile mevcut locale'i seçer.
+
+## Sıkıntı yaşadığımız nokta
+
+- Migration'da yeni metin alanı eklediysen i18n backfill için **ayrı bir migration** yazıp 6 locale için minimum placeholder doldur.
+- Eksik dil → vitrinde fallback olarak TR gösterilir, ama bu UX kaybıdır. Mümkünse her zaman 6 dilin de dolu olmasını sağla.

@@ -1,0 +1,34 @@
+---
+description: Travel monorepo - genel mimari ve dosya konvansiyonları
+alwaysApply: true
+---
+
+# Proje haritası
+
+Bu repo iki ana parçadan oluşur:
+
+- `backend/` — **Gleam** (wisp + pog + mist). HTTP modülleri `backend/src/travel/<domain>/<modul>_http.gleam`. Router tek noktada: `backend/src/backend/router.gleam`.
+- `fronted/` — Next.js (App Router, RSC + client components). API çağrıları **tek dosyada** toplanır: `fronted/src/lib/travel-api.ts`.
+
+## Veritabanı
+
+- PostgreSQL. Migration'lar `backend/priv/sql/modules/NNN_<ad>.sql` (numaralı, sıralı).
+- Sıra dosyası: `backend/priv/sql/install_order.txt`. **Yeni migration eklediğinde bu dosyaya satır ekle**.
+- Mevcut migration'ı **asla** düzenleme — her zaman yeni numara aç.
+
+## Diller (i18n)
+
+- Aktif locale'ler: `tr, en, de, ru, zh, fr` (6 dil). Default `tr`.
+- Çeviri sütunları genellikle `*_translations` JSONB. Frontend `parseNameTranslations()` ile okur.
+
+## Çalışma akışı
+
+1. Backend değişikliği → `gleam build` çalıştır (CWD: `backend/`).
+2. Frontend değişikliği → değişen dosyaları `ReadLints` ile kontrol et.
+3. SQL değişikliği → migration ekle + `install_order.txt` güncelle. **Çalıştırma talimatını cevabına ekle**.
+
+## DB komutu (Windows / Laragon)
+
+```powershell
+& "C:\laragon\bin\postgresql\postgresql\bin\psql.exe" -h 127.0.0.1 -p 5432 -U postgres -d travel -f backend\priv\sql\modules\<dosya>.sql
+```

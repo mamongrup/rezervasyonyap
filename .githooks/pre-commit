@@ -1,0 +1,46 @@
+#!/usr/bin/env sh
+# Travel monorepo pre-commit hook.
+# Aktive etmek için: git config core.hooksPath .githooks
+#
+# Yapılan kontroller:
+#   1. Migration drift (install_order.txt ile diski senkronize tut)
+#   2. Backend gleam değişikliği varsa: gleam build
+#   3. Frontend ts/tsx değişikliği varsa: pnpm lint (yoksa npm run lint)
+
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+# 1) Migration drift
+if [ -f "scripts/check-migration-drift.mjs" ]; then
+  node scripts/check-migration-drift.mjs || exit 1
+fi
+
+# 2) Backend gleam değişti mi?
+CHANGED_GLEAM="$(git diff --cached --name-only --diff-filter=ACM | grep -E '^backend/.*\.gleam$' || true)"
+if [ -n "$CHANGED_GLEAM" ]; then
+  echo "→ Gleam dosyaları değişti, derleme yapılıyor..."
+  ( cd backend && gleam build ) || {
+    echo "✖ gleam build başarısız. Commit iptal."
+    exit 1
+  }
+fi
+
+# 3) Frontend ts/tsx değişti mi?
+CHANGED_TS="$(git diff --cached --name-only --diff-filter=ACM | grep -E '^fronted/.*\.(ts|tsx)$' || true)"
+if [ -n "$CHANGED_TS" ]; then
+  echo "→ Frontend tip dosyaları değişti, lint çalıştırılıyor..."
+  if command -v pnpm >/dev/null 2>&1; then
+    ( cd fronted && pnpm lint --no-cache --max-warnings=200 ) || {
+      echo "✖ frontend lint başarısız. Commit iptal."
+      exit 1
+    }
+  elif [ -f "fronted/package-lock.json" ]; then
+    ( cd fronted && npm run lint --silent ) || exit 1
+  else
+    echo "! pnpm/npm bulunamadı; lint atlandı."
+  fi
+fi
+
+echo "✓ pre-commit: tüm kontroller geçti."

@@ -1,0 +1,33 @@
+---
+description: Geliştirme döngüsü ve doğrulama adımları
+alwaysApply: true
+---
+
+# Çalışma döngüsü
+
+## Her dokunuştan sonra
+
+1. **Backend** dosyası değişti mi? → `gleam build` (CWD: `backend/`).
+2. **Frontend** dosyası değişti mi? → `ReadLints` ile kontrol; pre-existing olmayan hataları düzelt.
+3. **SQL** dosyası eklediysen → Manuel çalıştırma komutunu cevaba ekle (`psql ... -f modules/NNN_*.sql`).
+
+## Cevap formatı (özet)
+
+Bir feature tamamlanınca cevabı şu sırayla yaz:
+
+1. **Yapılanlar** — değişen dosyalar listesi (kısa, konuşmaya yön veren).
+2. **Manuel adımlar** — varsa SQL çalıştırma, env değişkeni, vs.
+3. **Doğrulama** — `gleam build ✓`, `ReadLints ✓` durumu.
+4. **Sıradaki öneri** — kullanıcının takip etmek isteyebileceği 1-3 madde.
+
+## Kaçınılacaklar
+
+- Cevap içinde uzun teori anlatma. Gerçek dosya yolları + tek satırlık açıklama.
+- Yeni dosya açmadan önce `Glob`/`Grep` ile mevcut çözümü kontrol et (örn. yeni helper yazmadan önce `parse_numeric_text` zaten var mı?).
+- Mevcut migration'a SQL ekleme — her zaman yeni `NNN_xxx.sql`.
+
+## TodoWrite kullanımı
+
+- 3+ adımlı işlerde TodoWrite ile plan kur.
+- Her adım bittiğinde `merge: true` ile statü güncelle.
+- "Cancelled" da geçerli bir statüdür — gereksiz bir madde varsa kapat.

@@ -1,0 +1,40 @@
+---
+description: PostgreSQL migration kuralları
+globs: backend/priv/sql/**/*.sql
+alwaysApply: false
+---
+
+# Migration kuralları
+
+## Dosya isimlendirme
+
+- `backend/priv/sql/modules/NNN_<kisa_ad>.sql`
+- `NNN` = en son numaranın bir fazlası (gap bırakma).
+- En son numarayı bulmak için: `Glob backend/priv/sql/modules/*.sql` ve sayısal sırala.
+
+## Eklendikten sonra
+
+1. **Kesinlikle** `backend/priv/sql/install_order.txt` dosyasına `modules/NNN_<ad>.sql` satırını ekle.
+2. Cevabında "Manuel çalıştırma" başlığıyla şu komutu ver:
+   ```powershell
+   & "C:\laragon\bin\postgresql\postgresql\bin\psql.exe" -h 127.0.0.1 -p 5432 -U postgres -d travel -f backend\priv\sql\modules\NNN_<ad>.sql
+   ```
+
+## İçerik kuralları
+
+- Her statement **idempotent** olmalı: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`.
+- Mevcut migration'ı **asla düzenleme**. Bir kolonu değiştirmek için yeni numaralı migration aç.
+- Constraint adı vermek istiyorsan açıkça yaz; default sistem isimleriyle çakışmasın.
+- TEXT[] tarzı array kolonlarında `GIN` index düşün (filtreleme yapılacaksa).
+
+## Örnek şablon
+
+```sql
+-- Faz X — kısa açıklama (referans: Booking/Etstur/Airbnb paritesi).
+
+ALTER TABLE listings
+  ADD COLUMN IF NOT EXISTS some_flag BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_listings_some_flag
+  ON listings (some_flag) WHERE some_flag = TRUE;
+```

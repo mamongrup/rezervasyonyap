@@ -1,0 +1,39 @@
+---
+description: Next.js frontend kuralları (App Router, RSC, travel-api)
+globs: fronted/**/*.{ts,tsx}
+alwaysApply: false
+---
+
+# Frontend kuralları
+
+## API çağrıları
+
+- **Tüm** backend çağrıları `fronted/src/lib/travel-api.ts` üzerinden geçer.
+  - Yeni domain ekliyorsan: `type X`, `getX`, `patchX`, `createX`, `deleteX` fn'leri burada toplu.
+  - Sayfa/komponent içinden doğrudan `fetch('/api/v1/...')` **YAZMA**.
+- API base: `process.env.NEXT_PUBLIC_API_URL`. `base()` helper'ı yoksa `NEXT_PUBLIC_API_URL_missing` fırlat.
+
+## Yetki & token
+
+- Auth token: `getStoredAuthToken()` (`@/lib/auth-storage`).
+- Yönetim sayfaları: `<ManageAccessGuard required={...}>` ile sar.
+
+## Dil (i18n)
+
+- Çoklu dil ad alanı için `MultiLangNamePanel` + `parseMultiLangTranslations` / `stringifyMultiLangTranslations` kullan.
+- Kaynak metin **TR**'dir; diğer diller `name_translations` JSONB içinde tutulur.
+
+## Component konvansiyonları
+
+- Client component → dosya başına `'use client'`.
+- Sayfa wrapper'ı (RSC) → `'use client'` direktifsiz; gerekirse içeriden client child'ı çağır.
+- `ButtonPrimary`, `Input`, `ModalSelectDate`, `ModalSelectGuests` mevcut tasarım sistemi parçalarıdır — yenisini yazma.
+
+## Storefront (vitrin) konvansiyonu
+
+- Yönetim panelinden vitrindeki yeni bir özellik açtıysan, `ListingPerksBadges`, `SocialProofBadge` gibi küçük client component üret ve `StayListingDetailPageContent.tsx` tarzı detay sayfasına entegre et.
+- Mobil tespiti için `window.matchMedia('(max-width: 768px)')` veya UA kontrolü. Hidratasyon hatası vermemesi için `useEffect` içinde state'e yaz.
+
+## Lint
+
+- Düzenlediğin dosyaları `ReadLints` ile kontrol et. Sıfır lint hatası ile teslim et.

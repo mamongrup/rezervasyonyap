@@ -1,0 +1,58 @@
+---
+description: Gleam backend kuralları — wisp HTTP, pog, decoder tuzakları
+globs: backend/**/*.gleam
+alwaysApply: false
+---
+
+# Gleam backend kuralları
+
+## Yeni endpoint açma
+
+1. Modül: `backend/src/travel/<domain>/<modul>_http.gleam`
+2. Router'a kayıt: `backend/src/backend/router.gleam` içindeki `case` listesine ekle:
+   ```gleam
+   http.Post, ["api", "v1", "x", "y"] -> mymodule.handler(req, ctx)
+   ```
+3. Her dokunuştan sonra `gleam build` çalıştır (CWD: `backend/`). Hata varsa cevap vermeden önce düzelt.
+
+## Decoder kuralı (KRİTİK)
+
+- `decode.field` zinciri ile oluşturulan tuple **maksimum 11 alan** taşıyabilir. Daha fazlasına ihtiyaç varsa:
+  - Yeni bir alt-endpoint aç (örn. `patch_x_limits`).
+  - Veya alanları parça parça `decode.optional_field(..., None, ..., fn(x) { ... })` içinde işle ve ara record/tuple kullan.
+- `int.parse_to_float` **YOKTUR**. Sayısal text parse etmek için:
+  ```gleam
+  fn parse_numeric_text(s: String) -> Float {
+    case float.parse(s) {
+      Ok(f) -> f
+      Error(_) ->
+        case int.parse(s) {
+          Ok(n) -> int.to_float(n)
+          Error(_) -> 0.0
+        }
+    }
+  }
+  ```
+
+## Yetkilendirme
+
+- **Admin (kullanıcı/sistem yönetimi)**: `travel/identity/admin_gate.require_admin_users_read(req, ctx)`
+- **Listing/Catalog yönetimi**: `travel/catalog/catalog_http.resolve_manage_listings_scope(...)`
+- `admin_gate.assert_session_can_manage_catalog` **YOKTUR** — kullanma.
+
+## SQL stil
+
+- Çok satırlı SQL'i `const x_sql: String = "..."` olarak çıkar.
+- Tüm sayısal alanları `::text` ile cast'leyip frontend'e string olarak gönder (numeric precision güvenliği).
+- `coalesce(...::text, '')` her opsiyonel kolonda — null kontrolü kolaylaşır.
+
+## Yaygın hata kodları (JSON response convention)
+
+```gleam
+fn json_err(status: Int, msg: String) -> Response {
+  let body = json.object([#("error", json.string(msg))]) |> json.to_string
+  wisp.json_response(body, status)
+}
+```
+
+`error` alanı snake_case ve makine-okuyucu olmalı (`coupon_min_order_not_met`). UI bu key'leri lokalize eder.
