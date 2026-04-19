@@ -64,7 +64,6 @@ modules/217_listing_collections.sql
 modules/218_supplier_applications.sql
 modules/220_notification_settings.sql
 modules/221_listing_meal_plans.sql
-modules/221_messaging_catalog_seed.sql
 modules/222_location_pages_country_info.sql
 modules/223_auth_password_reset.sql
 modules/224_workspace_portal.sql
@@ -90,7 +89,6 @@ modules/243_category_accommodation_rules.sql
 modules/244_supplier_application_documents_unique.sql
 modules/245_fn_compute_provizyon_use_effective_commission.sql
 modules/246_manage_panel_i18n_de_ru_zh_fr.sql
-modules/247_messaging_catalog_seed_de_ru_zh_fr.sql
 modules/248_auth_rate_limit.sql
 modules/249_ical_sync_export.sql
 modules/250_marketing_name_translations.sql
@@ -100,6 +98,8 @@ modules/253_listing_view_pings.sql
 modules/254_coupons_min_order.sql
 modules/255_coupons_sort_order.sql
 modules/256_listing_reports.sql
+modules/257_messaging_catalog_seed.sql
+modules/258_messaging_catalog_seed_de_ru_zh_fr.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

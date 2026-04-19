@@ -1,5 +1,5 @@
--- MODÜL 247: Mesajlaşma kataloğu (e-posta + sms + wa) — DE/RU/ZH/FR seedleri
--- Önkoşul: 221_messaging_catalog_seed.sql, 228_site_locales_five.sql, 229_locale_fr.sql
+-- MODÜL 258: Mesajlaşma kataloğu (e-posta + sms + wa) — DE/RU/ZH/FR seedleri
+-- Önkoşul: 257_messaging_catalog_seed.sql, 228_site_locales_five.sql, 229_locale_fr.sql
 --
 -- Idempotenttir: var olan kayıtlar `ON CONFLICT (entry_id, locale_id) DO UPDATE` ile
 -- güncellenir; TR/EN değerlerine dokunulmaz çünkü sadece DE/RU/ZH/FR satırları yazılır.

@@ -1,4 +1,4 @@
--- MODÜL 221: Mesajlaşma kataloğu — tetikleyiciler, e-posta şablon satırları, TR/EN çevirileri
+-- MODÜL 257: Mesajlaşma kataloğu — tetikleyiciler, e-posta şablon satırları, TR/EN çevirileri
 -- Önkoşul: 100_messaging, 030_i18n, 220_notification_settings (organizations.contact_*)
 
 -- Yeni tetikleyiciler (mevcut kodlarla çakışmaz)
