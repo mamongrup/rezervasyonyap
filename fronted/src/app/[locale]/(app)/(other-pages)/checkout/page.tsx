@@ -232,7 +232,9 @@ const Page = () => {
           </DescriptionDetails>
         </DescriptionList>
 
-        <CouponBox subtotal={totalPrice > 0 ? totalPrice : 0} onCouponChange={setCoupon} />
+        <Suspense fallback={<div className="min-h-[48px]" aria-hidden />}>
+          <CouponBox subtotal={totalPrice > 0 ? totalPrice : 0} onCouponChange={setCoupon} />
+        </Suspense>
       </div>
     )
   }
