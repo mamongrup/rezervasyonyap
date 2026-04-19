@@ -27,6 +27,7 @@ BEGIN
       (mid, NULL, 20, 'hero.tab.villa', '/stay-categories/all', '{"icon":"house"}', TRUE),
       (mid, NULL, 30, 'hero.tab.tour', '/experience-categories/all', '{"icon":"compass"}', TRUE),
       (mid, NULL, 40, 'hero.tab.ship', '/experience-categories/all', '{"icon":"ship"}', TRUE),
-      (mid, NULL, 50, 'hero.tab.yacht', '/yat-kiralama/all', '{"icon":"anchor"}', TRUE);
+      (mid, NULL, 50, 'hero.tab.yacht', '/yat-kiralama/all', '{"icon":"anchor"}', TRUE)
+ON CONFLICT DO NOTHING;
   END IF;
 END $$;

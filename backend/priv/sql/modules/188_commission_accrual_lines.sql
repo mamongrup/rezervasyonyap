@@ -34,7 +34,7 @@ AS $$
   );
 $$;
 
-CREATE TABLE commission_accrual_lines (
+CREATE TABLE IF NOT EXISTS commission_accrual_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id UUID NOT NULL REFERENCES reservations (id) ON DELETE CASCADE,
   reservation_line_item_id UUID NOT NULL REFERENCES reservation_line_items (id) ON DELETE CASCADE,
@@ -50,7 +50,7 @@ CREATE TABLE commission_accrual_lines (
   UNIQUE (reservation_line_item_id)
 );
 
-CREATE INDEX idx_commission_accrual_lines_res ON commission_accrual_lines (reservation_id);
-CREATE INDEX idx_commission_accrual_lines_supplier ON commission_accrual_lines (supplier_organization_id);
-CREATE INDEX idx_commission_accrual_lines_agency ON commission_accrual_lines (agency_organization_id);
-CREATE INDEX idx_commission_accrual_lines_created ON commission_accrual_lines (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_commission_accrual_lines_res ON commission_accrual_lines (reservation_id);
+CREATE INDEX IF NOT EXISTS idx_commission_accrual_lines_supplier ON commission_accrual_lines (supplier_organization_id);
+CREATE INDEX IF NOT EXISTS idx_commission_accrual_lines_agency ON commission_accrual_lines (agency_organization_id);
+CREATE INDEX IF NOT EXISTS idx_commission_accrual_lines_created ON commission_accrual_lines (created_at DESC);

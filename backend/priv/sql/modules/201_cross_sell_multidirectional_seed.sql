@@ -59,4 +59,5 @@ FROM (VALUES
 WHERE NOT EXISTS (
   SELECT 1 FROM cross_sell_rules c
   WHERE c.trigger_category_code = v.tr AND c.offer_category_code = v.of
-);
+)
+ON CONFLICT DO NOTHING;

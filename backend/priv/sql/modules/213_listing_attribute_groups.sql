@@ -2,7 +2,7 @@
 -- Mevcut listing_attributes(listing_id, group_code, key, value_json) değerleri bu tanımlara bağlanır.
 
 -- ─── Öznitelik Grupları ──────────────────────────────────────────────────────
-CREATE TABLE listing_attribute_groups (
+CREATE TABLE IF NOT EXISTS listing_attribute_groups (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID        REFERENCES organizations(id) ON DELETE CASCADE,
   code            TEXT        NOT NULL,
@@ -13,10 +13,10 @@ CREATE TABLE listing_attribute_groups (
   UNIQUE (organization_id, code)
 );
 
-CREATE INDEX idx_lag_org_active ON listing_attribute_groups (organization_id, is_active);
+CREATE INDEX IF NOT EXISTS idx_lag_org_active ON listing_attribute_groups (organization_id, is_active);
 
 -- ─── Grup Çevirileri ─────────────────────────────────────────────────────────
-CREATE TABLE listing_attribute_group_translations (
+CREATE TABLE IF NOT EXISTS listing_attribute_group_translations (
   group_id  UUID      NOT NULL REFERENCES listing_attribute_groups(id) ON DELETE CASCADE,
   locale_id SMALLINT  NOT NULL REFERENCES locales(id) ON DELETE CASCADE,
   name      TEXT      NOT NULL,
@@ -24,7 +24,7 @@ CREATE TABLE listing_attribute_group_translations (
 );
 
 -- ─── Öznitelik Tanımları ─────────────────────────────────────────────────────
-CREATE TABLE listing_attribute_defs (
+CREATE TABLE IF NOT EXISTS listing_attribute_defs (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   group_id    UUID        NOT NULL REFERENCES listing_attribute_groups(id) ON DELETE CASCADE,
   code        TEXT        NOT NULL,
@@ -38,10 +38,10 @@ CREATE TABLE listing_attribute_defs (
   UNIQUE (group_id, code)
 );
 
-CREATE INDEX idx_lad_group_active ON listing_attribute_defs (group_id, is_active, sort_order);
+CREATE INDEX IF NOT EXISTS idx_lad_group_active ON listing_attribute_defs (group_id, is_active, sort_order);
 
 -- ─── Öznitelik Tanım Çevirileri ──────────────────────────────────────────────
-CREATE TABLE listing_attribute_def_translations (
+CREATE TABLE IF NOT EXISTS listing_attribute_def_translations (
   def_id    UUID      NOT NULL REFERENCES listing_attribute_defs(id) ON DELETE CASCADE,
   locale_id SMALLINT  NOT NULL REFERENCES locales(id) ON DELETE CASCADE,
   label     TEXT      NOT NULL,

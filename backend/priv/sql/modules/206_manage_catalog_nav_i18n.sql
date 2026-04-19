@@ -29,7 +29,8 @@ FROM (VALUES
   ('catalog.sidebar_collapse', 'en', 'Collapse submenu'),
   ('catalog.sidebar_sub_summary', 'tr', 'Kategori özeti'),
   ('catalog.sidebar_sub_summary', 'en', 'Category hub'),
-  ('catalog.attributes_intro', 'tr', 'Bu sayfa veritabanı şemasına göre salt okunur rehberdir. Öznitelik değerleri ilan kaydı üzerinden yönetilir; aşağıdaki bağlantılarla ilan listesine gidebilirsiniz.'),
+  ('catalog.attributes_intro', 'tr', 'Bu sayfa veritabanı şemasına göre salt okunur rehberdir. Öznitelik değerleri ilan kaydı üzerinden yönetilir
+ON CONFLICT DO NOTHING; aşağıdaki bağlantılarla ilan listesine gidebilirsiniz.'),
   ('catalog.attributes_intro', 'en', 'This page is a read-only guide aligned with the database schema. Attribute values are managed per listing; use the links below to open listings.'),
   ('catalog.attributes_core_title', 'tr', 'Ortak çekirdek (listings + çeviriler)'),
   ('catalog.attributes_core_title', 'en', 'Shared core (listings + translations)'),

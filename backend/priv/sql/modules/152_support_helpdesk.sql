@@ -1,5 +1,5 @@
 -- MODÜL: kapsamlı destek — ticket, SLA, makrolar, bilgi bankası, chat ile köprü
-CREATE TABLE support_departments (
+CREATE TABLE IF NOT EXISTS support_departments (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name_key TEXT NOT NULL,
@@ -12,9 +12,10 @@ INSERT INTO support_departments (code, name_key, sort_order) VALUES
   ('technical', 'support.dept.technical', 30),
   ('supplier', 'support.dept.supplier', 40),
   ('agency', 'support.dept.agency', 50),
-  ('general', 'support.dept.general', 90);
+  ('general', 'support.dept.general', 90)
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE support_sla_policies (
+CREATE TABLE IF NOT EXISTS support_sla_policies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   department_id SMALLINT REFERENCES support_departments (id) ON DELETE CASCADE,
   priority TEXT NOT NULL,
@@ -22,7 +23,7 @@ CREATE TABLE support_sla_policies (
   resolve_minutes INT NOT NULL
 );
 
-CREATE TABLE support_macros (
+CREATE TABLE IF NOT EXISTS support_macros (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL,
@@ -30,7 +31,7 @@ CREATE TABLE support_macros (
   department_id SMALLINT REFERENCES support_departments (id) ON DELETE SET NULL
 );
 
-CREATE TABLE support_kb_articles (
+CREATE TABLE IF NOT EXISTS support_kb_articles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL UNIQUE,
   department_id SMALLINT REFERENCES support_departments (id) ON DELETE SET NULL,
@@ -38,7 +39,7 @@ CREATE TABLE support_kb_articles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE support_kb_article_translations (
+CREATE TABLE IF NOT EXISTS support_kb_article_translations (
   article_id UUID NOT NULL REFERENCES support_kb_articles (id) ON DELETE CASCADE,
   locale_id SMALLINT NOT NULL REFERENCES locales (id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -46,7 +47,7 @@ CREATE TABLE support_kb_article_translations (
   PRIMARY KEY (article_id, locale_id)
 );
 
-CREATE TABLE support_tickets (
+CREATE TABLE IF NOT EXISTS support_tickets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   public_code TEXT NOT NULL UNIQUE DEFAULT ('TKT-' || REPLACE(gen_random_uuid()::text, '-', '')),
   department_id SMALLINT NOT NULL REFERENCES support_departments (id),
@@ -71,18 +72,18 @@ CREATE TABLE support_tickets (
   CHECK (user_id IS NOT NULL OR guest_email IS NOT NULL)
 );
 
-CREATE INDEX idx_support_tickets_status ON support_tickets (status, created_at DESC);
-CREATE INDEX idx_support_tickets_assignee ON support_tickets (assigned_to);
-CREATE INDEX idx_support_tickets_guest_email ON support_tickets (guest_email);
-CREATE INDEX idx_support_tickets_user ON support_tickets (user_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_status ON support_tickets (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_assignee ON support_tickets (assigned_to);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_guest_email ON support_tickets (guest_email);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_user ON support_tickets (user_id);
 
-CREATE TABLE support_ticket_watchers (
+CREATE TABLE IF NOT EXISTS support_ticket_watchers (
   ticket_id UUID NOT NULL REFERENCES support_tickets (id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   PRIMARY KEY (ticket_id, user_id)
 );
 
-CREATE TABLE support_ticket_messages (
+CREATE TABLE IF NOT EXISTS support_ticket_messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id UUID NOT NULL REFERENCES support_tickets (id) ON DELETE CASCADE,
   author_type TEXT NOT NULL CHECK (author_type IN ('customer', 'agent', 'system', 'ai')),
@@ -93,9 +94,9 @@ CREATE TABLE support_ticket_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_support_messages_ticket ON support_ticket_messages (ticket_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_support_messages_ticket ON support_ticket_messages (ticket_id, created_at);
 
-CREATE TABLE support_ticket_attachments (
+CREATE TABLE IF NOT EXISTS support_ticket_attachments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   message_id UUID REFERENCES support_ticket_messages (id) ON DELETE CASCADE,
   ticket_id UUID NOT NULL REFERENCES support_tickets (id) ON DELETE CASCADE,
@@ -105,7 +106,7 @@ CREATE TABLE support_ticket_attachments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE support_ticket_events (
+CREATE TABLE IF NOT EXISTS support_ticket_events (
   id BIGSERIAL PRIMARY KEY,
   ticket_id UUID NOT NULL REFERENCES support_tickets (id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
@@ -114,4 +115,4 @@ CREATE TABLE support_ticket_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_support_events_ticket ON support_ticket_events (ticket_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_support_events_ticket ON support_ticket_events (ticket_id, created_at DESC);

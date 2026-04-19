@@ -36,7 +36,8 @@ JOIN (
     ('nav.hero_menu', 'en', 'Hero menu'),
     ('hero_menu.page_title', 'tr', 'Anasayfa kategori şeridi'),
     ('hero_menu.page_title', 'en', 'Homepage category bar'),
-    ('hero_menu.intro', 'tr', 'Sıra, yayın ve üst kategori; önyüz `hero_search` menü kodunu kullanır.'),
+    ('hero_menu.intro', 'tr', 'Sıra, yayın ve üst kategori
+ON CONFLICT DO NOTHING; önyüz `hero_search` menü kodunu kullanır.'),
     ('hero_menu.intro', 'en', 'Order, publish, and parent; the site uses menu code `hero_search`.'),
     ('hero_menu.menu_label', 'tr', 'Menü'),
     ('hero_menu.menu_label', 'en', 'Menu'),

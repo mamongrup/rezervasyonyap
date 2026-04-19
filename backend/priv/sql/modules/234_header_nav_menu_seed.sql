@@ -21,6 +21,7 @@ BEGIN
       (mid, NULL, 20, 'Tatil Evleri & Villalar', '/tatil-evleri/all', '{}', TRUE),
       (mid, NULL, 30, 'Araç Kiralama', '/arac-kiralama/all', '{}', TRUE),
       (mid, NULL, 40, '📋 İlan Ver', '/ilan-ver', '{}', TRUE),
-      (mid, NULL, 50, 'Kategoriler', '/', '{"mergeMegaMenu":true}', TRUE);
+      (mid, NULL, 50, 'Kategoriler', '/', '{"mergeMegaMenu":true}', TRUE)
+ON CONFLICT DO NOTHING;
   END IF;
 END $$;

@@ -1,11 +1,11 @@
 -- MODÜL: bölge hiyerarşisi + Google Maps POI mesafeleri + iCal
-CREATE TABLE countries (
+CREATE TABLE IF NOT EXISTS countries (
   id SMALLSERIAL PRIMARY KEY,
   iso2 CHAR(2) NOT NULL UNIQUE,
   name TEXT NOT NULL
 );
 
-CREATE TABLE regions (
+CREATE TABLE IF NOT EXISTS regions (
   id SERIAL PRIMARY KEY,
   country_id SMALLINT NOT NULL REFERENCES countries (id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -15,7 +15,7 @@ CREATE TABLE regions (
   UNIQUE (country_id, slug)
 );
 
-CREATE TABLE districts (
+CREATE TABLE IF NOT EXISTS districts (
   id SERIAL PRIMARY KEY,
   region_id INT NOT NULL REFERENCES regions (id) ON DELETE CASCADE,
   name TEXT NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE districts (
   UNIQUE (region_id, slug)
 );
 
-CREATE TABLE location_pages (
+CREATE TABLE IF NOT EXISTS location_pages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   district_id INT REFERENCES districts (id) ON DELETE SET NULL,
   slug_path TEXT NOT NULL UNIQUE,
@@ -33,7 +33,7 @@ CREATE TABLE location_pages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE location_poi_settings (
+CREATE TABLE IF NOT EXISTS location_poi_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   location_page_id UUID NOT NULL REFERENCES location_pages (id) ON DELETE CASCADE,
   poi_types TEXT[] NOT NULL DEFAULT '{}',
@@ -41,7 +41,7 @@ CREATE TABLE location_poi_settings (
   radius_meters INT NOT NULL DEFAULT 2000
 );
 
-CREATE TABLE location_poi_cache (
+CREATE TABLE IF NOT EXISTS location_poi_cache (
   id BIGSERIAL PRIMARY KEY,
   location_page_id UUID NOT NULL REFERENCES location_pages (id) ON DELETE CASCADE,
   place_id TEXT,
@@ -54,7 +54,7 @@ CREATE TABLE location_poi_cache (
   fetched_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE ical_feeds (
+CREATE TABLE IF NOT EXISTS ical_feeds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   url TEXT NOT NULL,

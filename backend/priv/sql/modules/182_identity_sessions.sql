@@ -9,13 +9,13 @@ VALUES (
   )
 ON CONFLICT (slug) DO NOTHING;
 
-CREATE TABLE user_sessions (
+CREATE TABLE IF NOT EXISTS user_sessions (
   token TEXT PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   expires_at TIMESTAMPTZ NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_user_sessions_user ON user_sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions (user_id);
 
-CREATE INDEX idx_user_sessions_expires ON user_sessions (expires_at);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_expires ON user_sessions (expires_at);

@@ -1,5 +1,5 @@
 -- MODÜL: canlı destek, WhatsApp tıkla, chatbot, AI müşteri temsilcisi
-CREATE TABLE support_channels (
+CREATE TABLE IF NOT EXISTS support_channels (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   config_json JSONB NOT NULL DEFAULT '{}'
@@ -8,9 +8,10 @@ CREATE TABLE support_channels (
 INSERT INTO support_channels (code, config_json) VALUES
   ('whatsapp', '{}'),
   ('phone', '{}'),
-  ('live_chat', '{}');
+  ('live_chat', '{}')
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE chat_sessions (
+CREATE TABLE IF NOT EXISTS chat_sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users (id) ON DELETE SET NULL,
   channel_id SMALLINT NOT NULL REFERENCES support_channels (id),
@@ -19,7 +20,7 @@ CREATE TABLE chat_sessions (
   ai_mode TEXT NOT NULL DEFAULT 'off' CHECK (ai_mode IN ('off', 'sales', 'cross_sell', 'concierge'))
 );
 
-CREATE TABLE chat_messages (
+CREATE TABLE IF NOT EXISTS chat_messages (
   id BIGSERIAL PRIMARY KEY,
   session_id UUID NOT NULL REFERENCES chat_sessions (id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'agent', 'system')),
@@ -28,7 +29,7 @@ CREATE TABLE chat_messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE chat_followup_sequences (
+CREATE TABLE IF NOT EXISTS chat_followup_sequences (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   session_id UUID NOT NULL REFERENCES chat_sessions (id) ON DELETE CASCADE,
   step SMALLINT NOT NULL,

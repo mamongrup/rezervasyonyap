@@ -1,5 +1,5 @@
 -- MODÜL: kampanya, kupon, çapraz satış, paket tatil
-CREATE TABLE campaigns (
+CREATE TABLE IF NOT EXISTS campaigns (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   campaign_type TEXT NOT NULL CHECK (campaign_type IN (
@@ -13,14 +13,14 @@ CREATE TABLE campaigns (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE listing_campaigns (
+CREATE TABLE IF NOT EXISTS listing_campaigns (
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   campaign_id UUID NOT NULL REFERENCES campaigns (id) ON DELETE CASCADE,
   discount_percent NUMERIC(5, 2),
   PRIMARY KEY (listing_id, campaign_id)
 );
 
-CREATE TABLE coupons (
+CREATE TABLE IF NOT EXISTS coupons (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   discount_type TEXT NOT NULL CHECK (discount_type IN ('percent', 'fixed')),
@@ -32,7 +32,7 @@ CREATE TABLE coupons (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE cross_sell_rules (
+CREATE TABLE IF NOT EXISTS cross_sell_rules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trigger_category_code TEXT NOT NULL,
   offer_category_code TEXT NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE cross_sell_rules (
   priority INT NOT NULL DEFAULT 0
 );
 
-CREATE TABLE holiday_packages (
+CREATE TABLE IF NOT EXISTS holiday_packages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
@@ -49,7 +49,7 @@ CREATE TABLE holiday_packages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE cart_cross_sell_suggestions (
+CREATE TABLE IF NOT EXISTS cart_cross_sell_suggestions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cart_id UUID NOT NULL REFERENCES carts (id) ON DELETE CASCADE,
   listing_id UUID REFERENCES listings (id) ON DELETE CASCADE,

@@ -33,9 +33,12 @@ modules/186_agency_reservations.sql
 modules/187_identity_audit_rbac.sql
 modules/188_commission_accrual_lines.sql
 modules/189_identity_permissions_matrix.sql
-modules/194_admin_integrations_read.sql
 modules/190_agency_invoices.sql
 modules/191_supplier_invoices.sql
+modules/192_staff_pos_permission.sql
+modules/193_social_permissions.sql
+modules/194_admin_integrations_read.sql
+modules/195_admin_integrations_write.sql
 modules/196_catalog_modular_categories.sql
 modules/197_manage_panel_i18n.sql
 modules/198_localized_routes_seed.sql
@@ -53,9 +56,18 @@ modules/209_manage_admin_hub_i18n.sql
 modules/210_manage_admin_copy_neutral.sql
 modules/211_manage_portal_nav_i18n.sql
 modules/212_currencies_sort_order.sql
-modules/224_workspace_portal.sql
+modules/213_listing_attribute_groups.sql
+modules/214_location_pages_rich_content.sql
+modules/215_location_pages_extended.sql
+modules/216_blog_enrichment.sql
+modules/217_listing_collections.sql
+modules/218_supplier_applications.sql
 modules/220_notification_settings.sql
+modules/221_listing_meal_plans.sql
 modules/221_messaging_catalog_seed.sql
+modules/222_location_pages_country_info.sql
+modules/223_auth_password_reset.sql
+modules/224_workspace_portal.sql
 modules/225_listing_prepayment_commission_check.sql
 modules/226_ai_ops_agent_profile.sql
 modules/227_enable_deepseek_ai_provider.sql
@@ -65,6 +77,7 @@ modules/230_account_page_ui_translations.sql
 modules/231_chat_sessions_locale.sql
 modules/232_seed_sample_category_contracts.sql
 modules/233_contract_translations_backfill_i18n.sql
+modules/234_header_nav_menu_seed.sql
 modules/235_category_price_line_items.sql
 modules/236_catalog_hub_price_inclusions_i18n.sql
 modules/237_listing_image_scene.sql
@@ -74,6 +87,19 @@ modules/240_category_theme_items_translations_i18n.sql
 modules/241_remove_real_estate_routes_and_hero_url.sql
 modules/242_listing_availability_half_days.sql
 modules/243_category_accommodation_rules.sql
+modules/244_supplier_application_documents_unique.sql
+modules/245_fn_compute_provizyon_use_effective_commission.sql
+modules/246_manage_panel_i18n_de_ru_zh_fr.sql
+modules/247_messaging_catalog_seed_de_ru_zh_fr.sql
+modules/248_auth_rate_limit.sql
+modules/249_ical_sync_export.sql
+modules/250_marketing_name_translations.sql
+modules/251_coupons_i18n_meta.sql
+modules/252_market_perks.sql
+modules/253_listing_view_pings.sql
+modules/254_coupons_min_order.sql
+modules/255_coupons_sort_order.sql
+modules/256_listing_reports.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

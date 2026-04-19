@@ -1,5 +1,5 @@
 -- MODÜL: çekirdek / çok kiracılı platform
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   slug TEXT NOT NULL UNIQUE,
   name TEXT NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE organizations (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE tenant_domains (
+CREATE TABLE IF NOT EXISTS tenant_domains (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   hostname TEXT NOT NULL UNIQUE,
@@ -18,9 +18,9 @@ CREATE TABLE tenant_domains (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_tenant_domains_org ON tenant_domains (organization_id);
+CREATE INDEX IF NOT EXISTS idx_tenant_domains_org ON tenant_domains (organization_id);
 
-CREATE TABLE site_settings (
+CREATE TABLE IF NOT EXISTS site_settings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
   key TEXT NOT NULL,

@@ -1,7 +1,7 @@
 -- Tatil evi (ve benzeri) kategoriler için vitrin "Tema" kodları — çok dilli etiketler.
 -- İlan seçimi: listing_holiday_home_details.theme_codes (text[]) ile aynı kodlar kullanılır.
 
-CREATE TABLE category_theme_items (
+CREATE TABLE IF NOT EXISTS category_theme_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_code TEXT NOT NULL,
   code TEXT NOT NULL,
@@ -11,9 +11,9 @@ CREATE TABLE category_theme_items (
   UNIQUE (category_code, code)
 );
 
-CREATE INDEX idx_category_theme_items_cat ON category_theme_items (category_code, sort_order);
+CREATE INDEX IF NOT EXISTS idx_category_theme_items_cat ON category_theme_items (category_code, sort_order);
 
-CREATE TABLE category_theme_item_translations (
+CREATE TABLE IF NOT EXISTS category_theme_item_translations (
   item_id UUID NOT NULL REFERENCES category_theme_items (id) ON DELETE CASCADE,
   locale_id SMALLINT NOT NULL REFERENCES locales (id) ON DELETE CASCADE,
   label TEXT NOT NULL,
@@ -29,7 +29,8 @@ INSERT INTO category_theme_items (category_code, code, sort_order) VALUES
   ('holiday_home', 'honeymoon', 50),
   ('holiday_home', 'family', 60),
   ('holiday_home', 'nature', 70),
-  ('holiday_home', 'historic', 80);
+  ('holiday_home', 'historic', 80)
+ON CONFLICT DO NOTHING;
 
 INSERT INTO category_theme_item_translations (item_id, locale_id, label)
 SELECT i.id, lo.id,

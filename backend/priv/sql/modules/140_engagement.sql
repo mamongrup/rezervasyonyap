@@ -1,5 +1,5 @@
 -- MODÜL: karşılaştırma, favoriler, son gezilenler, sesli arama sorgu günlüğü, NLP arama
-CREATE TABLE comparison_sets (
+CREATE TABLE IF NOT EXISTS comparison_sets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users (id) ON DELETE CASCADE,
   session_key TEXT,
@@ -7,21 +7,21 @@ CREATE TABLE comparison_sets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE comparison_items (
+CREATE TABLE IF NOT EXISTS comparison_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   set_id UUID NOT NULL REFERENCES comparison_sets (id) ON DELETE CASCADE,
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   UNIQUE (set_id, listing_id)
 );
 
-CREATE TABLE favorites (
+CREATE TABLE IF NOT EXISTS favorites (
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (user_id, listing_id)
 );
 
-CREATE TABLE recently_viewed (
+CREATE TABLE IF NOT EXISTS recently_viewed (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID REFERENCES users (id) ON DELETE CASCADE,
   session_key TEXT,
@@ -29,9 +29,9 @@ CREATE TABLE recently_viewed (
   viewed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_recently_viewed_user ON recently_viewed (user_id, viewed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recently_viewed_user ON recently_viewed (user_id, viewed_at DESC);
 
-CREATE TABLE voice_search_logs (
+CREATE TABLE IF NOT EXISTS voice_search_logs (
   id BIGSERIAL PRIMARY KEY,
   user_id UUID REFERENCES users (id) ON DELETE SET NULL,
   transcript TEXT NOT NULL,
@@ -39,7 +39,7 @@ CREATE TABLE voice_search_logs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE semantic_search_cache (
+CREATE TABLE IF NOT EXISTS semantic_search_cache (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   query_hash TEXT NOT NULL UNIQUE,
   embedding_ref TEXT,

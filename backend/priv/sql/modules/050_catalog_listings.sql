@@ -1,5 +1,5 @@
 -- MODÜL: katalog — tüm ürün kategorileri (tek polymorphic çekirdek)
-CREATE TABLE product_categories (
+CREATE TABLE IF NOT EXISTS product_categories (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   name_key TEXT NOT NULL,
@@ -20,9 +20,10 @@ INSERT INTO product_categories (code, name_key, parent_id, sort_order) VALUES
   ('cruise', 'cat.cruise', NULL, 100),
   ('visa', 'cat.visa', NULL, 110),
   ('cinema_ticket', 'cat.cinema_ticket', NULL, 120),
-  ('beach_lounger', 'cat.beach_lounger', NULL, 130);
+  ('beach_lounger', 'cat.beach_lounger', NULL, 130)
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE listings (
+CREATE TABLE IF NOT EXISTS listings (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   category_id SMALLINT NOT NULL REFERENCES product_categories (id),
@@ -43,10 +44,10 @@ CREATE TABLE listings (
   UNIQUE (organization_id, slug)
 );
 
-CREATE INDEX idx_listings_org_cat ON listings (organization_id, category_id);
-CREATE INDEX idx_listings_status ON listings (status);
+CREATE INDEX IF NOT EXISTS idx_listings_org_cat ON listings (organization_id, category_id);
+CREATE INDEX IF NOT EXISTS idx_listings_status ON listings (status);
 
-CREATE TABLE listing_translations (
+CREATE TABLE IF NOT EXISTS listing_translations (
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   locale_id SMALLINT NOT NULL REFERENCES locales (id) ON DELETE CASCADE,
   title TEXT NOT NULL,
@@ -54,7 +55,7 @@ CREATE TABLE listing_translations (
   PRIMARY KEY (listing_id, locale_id)
 );
 
-CREATE TABLE listing_attributes (
+CREATE TABLE IF NOT EXISTS listing_attributes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   group_code TEXT NOT NULL,
@@ -63,7 +64,7 @@ CREATE TABLE listing_attributes (
   UNIQUE (listing_id, group_code, key)
 );
 
-CREATE TABLE listing_images (
+CREATE TABLE IF NOT EXISTS listing_images (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   sort_order INT NOT NULL DEFAULT 0,
@@ -74,9 +75,9 @@ CREATE TABLE listing_images (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_listing_images_listing ON listing_images (listing_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_listing_images_listing ON listing_images (listing_id, sort_order);
 
-CREATE TABLE listing_price_rules (
+CREATE TABLE IF NOT EXISTS listing_price_rules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   rule_json JSONB NOT NULL,
@@ -85,7 +86,7 @@ CREATE TABLE listing_price_rules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE listing_availability_calendar (
+CREATE TABLE IF NOT EXISTS listing_availability_calendar (
   id BIGSERIAL PRIMARY KEY,
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   day DATE NOT NULL,
@@ -94,7 +95,7 @@ CREATE TABLE listing_availability_calendar (
   UNIQUE (listing_id, day)
 );
 
-CREATE TABLE listing_owner_contacts (
+CREATE TABLE IF NOT EXISTS listing_owner_contacts (
   listing_id UUID PRIMARY KEY REFERENCES listings (id) ON DELETE CASCADE,
   contact_name TEXT,
   contact_phone TEXT,

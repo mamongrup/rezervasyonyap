@@ -1,5 +1,5 @@
 -- MODÜL: NetGSM SMS, e-posta şablonları, tetikleyiciler
-CREATE TABLE sms_providers (
+CREATE TABLE IF NOT EXISTS sms_providers (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   config_secret_ref TEXT NOT NULL,
@@ -7,16 +7,17 @@ CREATE TABLE sms_providers (
 );
 
 INSERT INTO sms_providers (code, config_secret_ref, is_active) VALUES
-  ('netgsm', 'vault:netgsm', FALSE);
+  ('netgsm', 'vault:netgsm', FALSE)
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE email_templates (
+CREATE TABLE IF NOT EXISTS email_templates (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   subject_key TEXT NOT NULL,
   body_key TEXT NOT NULL
 );
 
-CREATE TABLE notification_triggers (
+CREATE TABLE IF NOT EXISTS notification_triggers (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   description TEXT
@@ -27,9 +28,10 @@ INSERT INTO notification_triggers (code, description) VALUES
   ('reservation_confirmed', 'Rezervasyon sonrası'),
   ('cart_abandoned', 'Sepette ürün'),
   ('chat_followup', 'Sohbet sonrası takip'),
-  ('ai_trip_followup', 'AI seyahat önerisi 3 gün sonra');
+  ('ai_trip_followup', 'AI seyahat önerisi 3 gün sonra')
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE notification_jobs (
+CREATE TABLE IF NOT EXISTS notification_jobs (
   id BIGSERIAL PRIMARY KEY,
   trigger_id SMALLINT REFERENCES notification_triggers (id),
   user_id UUID REFERENCES users (id) ON DELETE SET NULL,
@@ -40,4 +42,4 @@ CREATE TABLE notification_jobs (
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed'))
 );
 
-CREATE INDEX idx_notification_jobs_due ON notification_jobs (scheduled_at, status);
+CREATE INDEX IF NOT EXISTS idx_notification_jobs_due ON notification_jobs (scheduled_at, status);

@@ -1,5 +1,5 @@
 -- MODÜL: yorumlar, moderasyon, IP engeli, harici yorum özeti (Trustpilot vb.)
-CREATE TABLE reviews (
+CREATE TABLE IF NOT EXISTS reviews (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   entity_type TEXT NOT NULL,
   entity_id UUID NOT NULL,
@@ -14,16 +14,16 @@ CREATE TABLE reviews (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_reviews_entity ON reviews (entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_entity ON reviews (entity_type, entity_id);
 
-CREATE TABLE blocked_ips (
+CREATE TABLE IF NOT EXISTS blocked_ips (
   id SERIAL PRIMARY KEY,
   ip INET NOT NULL UNIQUE,
   reason TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE external_review_snapshots (
+CREATE TABLE IF NOT EXISTS external_review_snapshots (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   source TEXT NOT NULL,
   entity_type TEXT NOT NULL,

@@ -1,12 +1,12 @@
 -- MODÜL: mega menü, anasayfa bölüm sıralaması, popup, çerez
-CREATE TABLE menus (
+CREATE TABLE IF NOT EXISTS menus (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
   code TEXT NOT NULL,
   UNIQUE (organization_id, code)
 );
 
-CREATE TABLE menu_items (
+CREATE TABLE IF NOT EXISTS menu_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   menu_id UUID NOT NULL REFERENCES menus (id) ON DELETE CASCADE,
   parent_id UUID REFERENCES menu_items (id) ON DELETE CASCADE,
@@ -16,7 +16,7 @@ CREATE TABLE menu_items (
   mega_content_json JSONB
 );
 
-CREATE TABLE home_layout_sections (
+CREATE TABLE IF NOT EXISTS home_layout_sections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
   section_type TEXT NOT NULL,
@@ -25,7 +25,7 @@ CREATE TABLE home_layout_sections (
   UNIQUE (organization_id, section_type, sort_order)
 );
 
-CREATE TABLE site_popups (
+CREATE TABLE IF NOT EXISTS site_popups (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
   popup_type TEXT NOT NULL CHECK (popup_type IN ('campaign', 'generic', 'cookie_notice')),

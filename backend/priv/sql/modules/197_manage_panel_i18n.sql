@@ -114,7 +114,8 @@ JOIN (
     ('catalog.slug_field', 'en', 'Slug (lowercase, hyphen, digits)'),
     ('catalog.title_field', 'tr', 'Başlık'),
     ('catalog.title_field', 'en', 'Title'),
-    ('catalog.title_panel_locale_note', 'tr', 'Panel dilinde kaydedilir; diğer dilleri çeviriler sayfasından ekleyin.'),
+    ('catalog.title_panel_locale_note', 'tr', 'Panel dilinde kaydedilir
+ON CONFLICT DO NOTHING; diğer dilleri çeviriler sayfasından ekleyin.'),
     ('catalog.title_panel_locale_note', 'en', 'Saved in panel locale; add other languages on the translations page.'),
     ('catalog.currency_field', 'tr', 'Para birimi'),
     ('catalog.currency_field', 'en', 'Currency'),

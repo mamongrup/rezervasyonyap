@@ -1,5 +1,5 @@
 -- MODÜL: sepet, rezervasyon, ödeme, cüzdan, şeffaf fiyat kırılımı
-CREATE TABLE carts (
+CREATE TABLE IF NOT EXISTS carts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES users (id) ON DELETE SET NULL,
   session_key TEXT,
@@ -8,7 +8,7 @@ CREATE TABLE carts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE cart_lines (
+CREATE TABLE IF NOT EXISTS cart_lines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cart_id UUID NOT NULL REFERENCES carts (id) ON DELETE CASCADE,
   listing_id UUID NOT NULL REFERENCES listings (id),
@@ -22,7 +22,7 @@ CREATE TABLE cart_lines (
   meta_json JSONB NOT NULL DEFAULT '{}'
 );
 
-CREATE TABLE reservations (
+CREATE TABLE IF NOT EXISTS reservations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE RESTRICT,
   user_id UUID REFERENCES users (id) ON DELETE SET NULL,
@@ -38,9 +38,9 @@ CREATE TABLE reservations (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_reservations_listing ON reservations (listing_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_listing ON reservations (listing_id);
 
-CREATE TABLE wallets (
+CREATE TABLE IF NOT EXISTS wallets (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
   balance NUMERIC(14, 2) NOT NULL DEFAULT 0,
@@ -48,7 +48,7 @@ CREATE TABLE wallets (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE wallet_transactions (
+CREATE TABLE IF NOT EXISTS wallet_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   wallet_id UUID NOT NULL REFERENCES wallets (id) ON DELETE CASCADE,
   amount NUMERIC(14, 2) NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE wallet_transactions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE payment_providers (
+CREATE TABLE IF NOT EXISTS payment_providers (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   is_active BOOLEAN NOT NULL DEFAULT FALSE,
@@ -67,9 +67,10 @@ CREATE TABLE payment_providers (
 
 INSERT INTO payment_providers (code, is_active, config_secret_ref, display_name) VALUES
   ('paytr', FALSE, 'vault:paytr', 'PayTR'),
-  ('paratika', FALSE, 'vault:paratika', 'Paratika');
+  ('paratika', FALSE, 'vault:paratika', 'Paratika')
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id UUID REFERENCES reservations (id) ON DELETE SET NULL,
   provider_id SMALLINT NOT NULL REFERENCES payment_providers (id),
@@ -82,4 +83,4 @@ CREATE TABLE payments (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_payments_reservation ON payments (reservation_id);
+CREATE INDEX IF NOT EXISTS idx_payments_reservation ON payments (reservation_id);

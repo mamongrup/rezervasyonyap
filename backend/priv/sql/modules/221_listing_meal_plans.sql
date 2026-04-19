@@ -3,7 +3,7 @@
 -- Tatil evi / otel ilanları için yemekli/yemeksiz fiyat seçenekleri
 -- =====================================================================
 
-CREATE TABLE listing_meal_plans (
+CREATE TABLE IF NOT EXISTS listing_meal_plans (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id    UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   plan_code     TEXT NOT NULL CHECK (
@@ -28,5 +28,5 @@ CREATE TABLE listing_meal_plans (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX ON listing_meal_plans (listing_id);
-CREATE UNIQUE INDEX ON listing_meal_plans (listing_id, plan_code);
+CREATE INDEX IF NOT EXISTS ON listing_meal_plans (listing_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ON listing_meal_plans (listing_id, plan_code);

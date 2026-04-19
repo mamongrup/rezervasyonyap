@@ -1,19 +1,19 @@
 -- MODÜL: ince taneli izinler (rol × izin matrisi; G3.5 genişletme)
 -- Önkoşul: 020_identity_membership, 187_identity_audit_rbac
 
-CREATE TABLE permissions (
+CREATE TABLE IF NOT EXISTS permissions (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   description TEXT
 );
 
-CREATE TABLE role_permissions (
+CREATE TABLE IF NOT EXISTS role_permissions (
   role_id SMALLINT NOT NULL REFERENCES roles (id) ON DELETE CASCADE,
   permission_id SMALLINT NOT NULL REFERENCES permissions (id) ON DELETE CASCADE,
   PRIMARY KEY (role_id, permission_id)
 );
 
-CREATE INDEX idx_role_permissions_permission ON role_permissions (permission_id);
+CREATE INDEX IF NOT EXISTS idx_role_permissions_permission ON role_permissions (permission_id);
 
 INSERT INTO permissions (code, description) VALUES
   ('admin.users.read', 'Yönetici: kullanıcı listesi'),

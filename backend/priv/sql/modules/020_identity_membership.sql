@@ -1,5 +1,5 @@
 -- MODÜL: üyelik (müşteri, acente, tedarikçi, personel, yönetici)
-CREATE TABLE roles (
+CREATE TABLE IF NOT EXISTS roles (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   description TEXT
@@ -10,9 +10,10 @@ INSERT INTO roles (code, description) VALUES
   ('agency', 'Acente'),
   ('supplier', 'Tedarikçi'),
   ('staff', 'Personel'),
-  ('admin', 'Yönetici');
+  ('admin', 'Yönetici')
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE,
   phone TEXT UNIQUE,
@@ -30,14 +31,14 @@ CREATE TABLE users (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE user_roles (
+CREATE TABLE IF NOT EXISTS user_roles (
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   role_id SMALLINT NOT NULL REFERENCES roles (id) ON DELETE CASCADE,
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
   PRIMARY KEY (user_id, role_id, organization_id)
 );
 
-CREATE TABLE agency_profiles (
+CREATE TABLE IF NOT EXISTS agency_profiles (
   user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   discount_percent NUMERIC(5, 2) NOT NULL DEFAULT 0,
@@ -45,7 +46,7 @@ CREATE TABLE agency_profiles (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE agency_category_grants (
+CREATE TABLE IF NOT EXISTS agency_category_grants (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   agency_organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   category_code TEXT NOT NULL,
@@ -53,14 +54,14 @@ CREATE TABLE agency_category_grants (
   UNIQUE (agency_organization_id, category_code)
 );
 
-CREATE TABLE supplier_profiles (
+CREATE TABLE IF NOT EXISTS supplier_profiles (
   user_id UUID PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
   organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Tedarikçinin acentelere göre komisyon (toplu / tek tek)
-CREATE TABLE supplier_agency_commissions (
+CREATE TABLE IF NOT EXISTS supplier_agency_commissions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   supplier_organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   agency_organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
@@ -69,7 +70,7 @@ CREATE TABLE supplier_agency_commissions (
 );
 
 -- Reklam / öne çıkarma / anasayfa için ek komisyon oranları (tedarikçi politikası)
-CREATE TABLE supplier_promotion_fee_rules (
+CREATE TABLE IF NOT EXISTS supplier_promotion_fee_rules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   supplier_organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   rule_type TEXT NOT NULL CHECK (rule_type IN ('ads_support', 'category_featured', 'homepage_feature')),
@@ -77,7 +78,7 @@ CREATE TABLE supplier_promotion_fee_rules (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE api_keys (
+CREATE TABLE IF NOT EXISTS api_keys (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES organizations (id) ON DELETE CASCADE,
   key_prefix TEXT NOT NULL,
@@ -87,9 +88,9 @@ CREATE TABLE api_keys (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_api_keys_org ON api_keys (organization_id);
+CREATE INDEX IF NOT EXISTS idx_api_keys_org ON api_keys (organization_id);
 
-CREATE TABLE uploaded_documents (
+CREATE TABLE IF NOT EXISTS uploaded_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users (id) ON DELETE CASCADE,
   doc_type TEXT NOT NULL,

@@ -1,5 +1,5 @@
 -- MODÜL: yapay zeka — tüm AI özellikleri tek başlık altında (DeepSeek + görev kuyruğu)
-CREATE TABLE ai_providers (
+CREATE TABLE IF NOT EXISTS ai_providers (
   id SMALLSERIAL PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
@@ -9,9 +9,10 @@ CREATE TABLE ai_providers (
 );
 
 INSERT INTO ai_providers (code, display_name, default_model, config_secret_ref, is_active) VALUES
-  ('deepseek', 'DeepSeek', 'deepseek-chat', 'vault:deepseek', FALSE);
+  ('deepseek', 'DeepSeek', 'deepseek-chat', 'vault:deepseek', FALSE)
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE ai_feature_profiles (
+CREATE TABLE IF NOT EXISTS ai_feature_profiles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT NOT NULL UNIQUE,
   provider_id SMALLINT NOT NULL REFERENCES ai_providers (id),
@@ -31,9 +32,10 @@ INSERT INTO ai_feature_profiles (code, provider_id, system_prompt) VALUES
   ('post_booking_concierge', 1, 'Rezervasyon sonrası ulaşım ve aktivite önerisi.'),
   ('price_hint', 1, 'Fiyat trendi / FOMO metni.'),
   ('image_enhance_prompt', 1, 'Görsel iyileştirme talimatı.'),
-  ('chat_sales', 1, 'Satış ve çapraz satış sohbet.');
+  ('chat_sales', 1, 'Satış ve çapraz satış sohbet.')
+ON CONFLICT DO NOTHING;
 
-CREATE TABLE ai_jobs (
+CREATE TABLE IF NOT EXISTS ai_jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_code TEXT NOT NULL REFERENCES ai_feature_profiles (code),
   input_json JSONB NOT NULL,
@@ -44,9 +46,9 @@ CREATE TABLE ai_jobs (
   finished_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_ai_jobs_status ON ai_jobs (status, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_jobs_status ON ai_jobs (status, created_at);
 
-CREATE TABLE ai_region_generation_tasks (
+CREATE TABLE IF NOT EXISTS ai_region_generation_tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   country_id SMALLINT REFERENCES countries (id) ON DELETE CASCADE,
   country_name TEXT NOT NULL,
@@ -56,7 +58,7 @@ CREATE TABLE ai_region_generation_tasks (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE ai_geo_blog_batches (
+CREATE TABLE IF NOT EXISTS ai_geo_blog_batches (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   location_page_id UUID NOT NULL REFERENCES location_pages (id) ON DELETE CASCADE,
   category_slug TEXT NOT NULL DEFAULT 'gezi-fikirleri',
@@ -65,7 +67,7 @@ CREATE TABLE ai_geo_blog_batches (
   status TEXT NOT NULL DEFAULT 'pending'
 );
 
-CREATE TABLE ai_post_booking_plans (
+CREATE TABLE IF NOT EXISTS ai_post_booking_plans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id UUID NOT NULL REFERENCES reservations (id) ON DELETE CASCADE,
   plan_json JSONB NOT NULL,

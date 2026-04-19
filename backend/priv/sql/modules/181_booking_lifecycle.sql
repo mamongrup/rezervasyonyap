@@ -30,7 +30,7 @@ ALTER TABLE reservations ALTER COLUMN public_code SET NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_reservations_public_code ON reservations (public_code);
 
 -- Çoklu kalem (satır bazlı snapshot)
-CREATE TABLE reservation_line_items (
+CREATE TABLE IF NOT EXISTS reservation_line_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reservation_id UUID NOT NULL REFERENCES reservations (id) ON DELETE CASCADE,
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE RESTRICT,
@@ -47,11 +47,11 @@ CREATE TABLE reservation_line_items (
   UNIQUE (reservation_id, line_no)
 );
 
-CREATE INDEX idx_reservation_line_items_res ON reservation_line_items (reservation_id);
-CREATE INDEX idx_reservation_line_items_listing ON reservation_line_items (listing_id);
+CREATE INDEX IF NOT EXISTS idx_reservation_line_items_res ON reservation_line_items (reservation_id);
+CREATE INDEX IF NOT EXISTS idx_reservation_line_items_listing ON reservation_line_items (listing_id);
 
 -- Ödeme öncesi geçici kontenjan (çakışmayı azaltır)
-CREATE TABLE inventory_holds (
+CREATE TABLE IF NOT EXISTS inventory_holds (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   listing_id UUID NOT NULL REFERENCES listings (id) ON DELETE CASCADE,
   starts_on DATE NOT NULL,
@@ -65,12 +65,12 @@ CREATE TABLE inventory_holds (
   CHECK (ends_on >= starts_on)
 );
 
-CREATE INDEX idx_inventory_holds_active ON inventory_holds (listing_id, starts_on, ends_on)
+CREATE INDEX IF NOT EXISTS idx_inventory_holds_active ON inventory_holds (listing_id, starts_on, ends_on)
   WHERE status = 'active';
-CREATE INDEX idx_inventory_holds_expires ON inventory_holds (expires_at) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_inventory_holds_expires ON inventory_holds (expires_at) WHERE status = 'active';
 
 -- Durum geçişleri ve entegrasyon günlüğü
-CREATE TABLE reservation_events (
+CREATE TABLE IF NOT EXISTS reservation_events (
   id BIGSERIAL PRIMARY KEY,
   reservation_id UUID NOT NULL REFERENCES reservations (id) ON DELETE CASCADE,
   event_type TEXT NOT NULL,
@@ -78,7 +78,7 @@ CREATE TABLE reservation_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_reservation_events_res ON reservation_events (reservation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reservation_events_res ON reservation_events (reservation_id, created_at DESC);
 
 -- Eski tek-listing rezervasyonları için tek satır üret (idempotent)
 INSERT INTO reservation_line_items (

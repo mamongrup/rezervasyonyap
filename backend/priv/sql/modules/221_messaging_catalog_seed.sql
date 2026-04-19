@@ -87,7 +87,8 @@ JOIN (
     ('cart_abandoned.body', 'en', 'Hello {{display_name}},\n\nYou have items in your cart. Sign in to continue.\n\nRezervasyonYap')
   ) AS s(key, locale, value)
 ) AS s ON e.key = s.key
-JOIN locales l ON l.code = s.locale;
+JOIN locales l ON l.code = s.locale
+ON CONFLICT DO NOTHING;
 
 -- SMS / WhatsApp metinleri (sms ad alanı)
 INSERT INTO translation_entries (namespace_id, key)
@@ -141,4 +142,5 @@ JOIN (
     ('cart_abandoned.wa', 'en', 'Your cart is waiting — sign in to continue.')
   ) AS s(key, locale, value)
 ) AS s ON e.key = s.key
-JOIN locales l ON l.code = s.locale;
+JOIN locales l ON l.code = s.locale
+ON CONFLICT DO NOTHING;

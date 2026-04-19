@@ -32,22 +32,22 @@ COMMENT ON COLUMN category_contracts.contract_scope IS 'general = site geneli; s
 DROP INDEX IF EXISTS uq_category_contracts_platform;
 DROP INDEX IF EXISTS uq_category_contracts_org;
 
-CREATE UNIQUE INDEX uq_cc_category_platform ON category_contracts (category_id, code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_category_platform ON category_contracts (category_id, code)
   WHERE organization_id IS NULL AND contract_scope = 'category';
 
-CREATE UNIQUE INDEX uq_cc_category_org ON category_contracts (organization_id, category_id, code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_category_org ON category_contracts (organization_id, category_id, code)
   WHERE organization_id IS NOT NULL AND contract_scope = 'category';
 
-CREATE UNIQUE INDEX uq_cc_general_platform ON category_contracts (code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_general_platform ON category_contracts (code)
   WHERE organization_id IS NULL AND contract_scope = 'general';
 
-CREATE UNIQUE INDEX uq_cc_sales_platform ON category_contracts (code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_sales_platform ON category_contracts (code)
   WHERE organization_id IS NULL AND contract_scope = 'sales';
 
-CREATE UNIQUE INDEX uq_cc_general_org ON category_contracts (organization_id, code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_general_org ON category_contracts (organization_id, code)
   WHERE organization_id IS NOT NULL AND contract_scope = 'general';
 
-CREATE UNIQUE INDEX uq_cc_sales_org ON category_contracts (organization_id, code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_cc_sales_org ON category_contracts (organization_id, code)
   WHERE organization_id IS NOT NULL AND contract_scope = 'sales';
 
 CREATE OR REPLACE FUNCTION fn_listing_category_contract_must_be_category_scope()

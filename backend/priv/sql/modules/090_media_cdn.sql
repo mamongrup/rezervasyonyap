@@ -1,5 +1,5 @@
 -- MODÜL: medya işleme (AVIF), CDN (Bunny, Cloudflare)
-CREATE TABLE media_files (
+CREATE TABLE IF NOT EXISTS media_files (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_type TEXT NOT NULL,
   owner_id UUID NOT NULL,
@@ -12,9 +12,9 @@ CREATE TABLE media_files (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_media_owner ON media_files (owner_type, owner_id);
+CREATE INDEX IF NOT EXISTS idx_media_owner ON media_files (owner_type, owner_id);
 
-CREATE TABLE cdn_connections (
+CREATE TABLE IF NOT EXISTS cdn_connections (
   id SMALLSERIAL PRIMARY KEY,
   provider_code TEXT NOT NULL UNIQUE CHECK (provider_code IN ('bunny', 'cloudflare')),
   is_active BOOLEAN NOT NULL DEFAULT FALSE,

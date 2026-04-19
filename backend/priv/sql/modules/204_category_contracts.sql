@@ -1,7 +1,7 @@
 -- MODÜL: Kategori sözleşme havuzu, ilan bağlantısı, rezervasyonda kabul kanıtı
 -- Önkoşul: 050_catalog_listings, 030_i18n, 060_booking_commerce
 
-CREATE TABLE category_contracts (
+CREATE TABLE IF NOT EXISTS category_contracts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   category_id SMALLINT NOT NULL REFERENCES product_categories (id) ON DELETE RESTRICT,
   organization_id UUID REFERENCES organizations (id) ON DELETE CASCADE,
@@ -13,13 +13,13 @@ CREATE TABLE category_contracts (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE UNIQUE INDEX uq_category_contracts_platform ON category_contracts (category_id, code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_category_contracts_platform ON category_contracts (category_id, code)
   WHERE organization_id IS NULL;
 
-CREATE UNIQUE INDEX uq_category_contracts_org ON category_contracts (organization_id, category_id, code)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_category_contracts_org ON category_contracts (organization_id, category_id, code)
   WHERE organization_id IS NOT NULL;
 
-CREATE TABLE category_contract_translations (
+CREATE TABLE IF NOT EXISTS category_contract_translations (
   contract_id UUID NOT NULL REFERENCES category_contracts (id) ON DELETE CASCADE,
   locale_id SMALLINT NOT NULL REFERENCES locales (id) ON DELETE CASCADE,
   title TEXT NOT NULL,
