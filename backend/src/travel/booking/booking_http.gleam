@@ -114,6 +114,7 @@ fn add_line_decoder() -> decode.Decoder(#(String, Int, String, String, String, S
 
 pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
   use <- wisp.require_method(req, http.Post)
+  let session_token = auth_header_token(req)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -128,6 +129,18 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
               case price_trim == "" {
                 True -> json_err(400, "unit_price_required")
                 False -> {
+                  let agency_opt = case agency_for_line == "" {
+                    True -> None
+                    False -> Some(agency_for_line)
+                  }
+                  case maybe_assert_agency_session(ctx.db, session_token, agency_opt) {
+                    Error(e) ->
+                      case e {
+                        "agency_session_required" -> json_err(401, e)
+                        "agency_membership_required" -> json_err(403, e)
+                        _ -> json_err(500, e)
+                      }
+                    Ok(Nil) ->
                   case
                     pog.transaction(ctx.db, fn(conn) {
                       case
@@ -230,6 +243,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                         "cart_or_listing_not_found" -> json_err(404, msg)
                         _ -> json_err(400, msg)
                       }
+                  }
                   }
                 }
               }
@@ -689,6 +703,124 @@ fn maybe_assert_agency_checkout_allowed(
   }
 }
 
+/// Oturumlu kullanıcının `user_roles` üzerinden verilen acente kurumu için
+/// `agency` rolünde üye olduğunu doğrular. Bu kontrol, istemciden gönderilen
+/// `agency_organization_id` ile başka bir acentenin adına rezervasyon yazdırılmasını engeller.
+fn assert_agency_session_membership(
+  conn: pog.Connection,
+  user_id: String,
+  agency_id: String,
+) -> Result(Nil, String) {
+  case
+    pog.query(
+      "select 1::text
+         from user_roles ur
+         join roles r on r.id = ur.role_id and r.code = 'agency'
+        where ur.user_id = $1::uuid and ur.organization_id = $2::uuid
+        limit 1",
+    )
+    |> pog.parameter(pog.text(user_id))
+    |> pog.parameter(pog.text(agency_id))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(conn)
+  {
+    Error(_) -> Error("agency_membership_check_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> Error("agency_membership_required")
+        _ -> Ok(Nil)
+      }
+  }
+}
+
+/// Acente kimliği gönderildiyse: oturum kullanıcısı zorunlu ve `user_roles` ile eşleşmeli.
+/// Kimlik gönderilmediyse (None) hiçbir şey yapmaz.
+fn maybe_assert_agency_session(
+  conn: pog.Connection,
+  token: String,
+  agency_id_opt: Option(String),
+) -> Result(Nil, String) {
+  case agency_id_opt {
+    None -> Ok(Nil)
+    Some(aid) ->
+      case user_id_email_from_session(conn, token) {
+        Error(_) -> Error("agency_session_required")
+        Ok(#(uid, _)) -> assert_agency_session_membership(conn, uid, aid)
+      }
+  }
+}
+
+/// Sepete iliştirilmiş kupon varsa:
+///  1) reservations.discount_amount, coupon_id, coupon_code güncelle
+///  2) coupons.used_count += 1
+/// Hata durumunda sessizce geçer; kuponsuz akış bozulmasın.
+fn apply_pending_coupon_to_reservation(
+  conn: pog.Connection,
+  cart_id: String,
+  reservation_id: String,
+  subtotal: Float,
+) -> Nil {
+  case
+    pog.query(
+      "select coupon_id::text, code, discount_type, discount_value::text from cart_coupons where cart_id = $1::uuid",
+    )
+    |> pog.parameter(pog.text(cart_id))
+    |> pog.returning({
+      use cid <- decode.field(0, decode.string)
+      use code <- decode.field(1, decode.string)
+      use dt <- decode.field(2, decode.string)
+      use dv <- decode.field(3, decode.string)
+      decode.success(#(cid, code, dt, dv))
+    })
+    |> pog.execute(conn)
+  {
+    Error(_) -> Nil
+    Ok(r) ->
+      case r.rows {
+        [#(coupon_id, code, dt, dv_raw)] -> {
+          let dv = case float.parse(dv_raw) {
+            Ok(f) -> f
+            Error(_) ->
+              case int.parse(dv_raw) {
+                Ok(n) -> int.to_float(n)
+                Error(_) -> 0.0
+              }
+          }
+          let discount = case string.lowercase(dt) {
+            "percent" -> {
+              let raw = subtotal *. dv /. 100.0
+              let cents = float.round(raw *. 100.0)
+              int.to_float(cents) /. 100.0
+            }
+            "fixed" ->
+              case dv >. subtotal {
+                True -> subtotal
+                False -> dv
+              }
+            _ -> 0.0
+          }
+          let _ =
+            pog.query(
+              "update reservations set discount_amount = $1::numeric, coupon_id = $2::uuid, coupon_code = $3 where id = $4::uuid",
+            )
+            |> pog.parameter(pog.text(float.to_string(discount)))
+            |> pog.parameter(pog.text(coupon_id))
+            |> pog.parameter(pog.text(code))
+            |> pog.parameter(pog.text(reservation_id))
+            |> pog.execute(conn)
+          let _ =
+            pog.query(
+              "update coupons set used_count = used_count + 1 where id = $1::uuid",
+            )
+            |> pog.parameter(pog.text(coupon_id))
+            |> pog.execute(conn)
+          Nil
+        }
+        _ -> Nil
+      }
+  }
+}
+
 fn complete_checkout_with_snapshot(
   conn: pog.Connection,
   cart_id: String,
@@ -759,7 +891,11 @@ fn complete_checkout_with_snapshot(
       }
     Error(_) -> "TRY"
   }
-  let assert [first, ..] = lines
+  // Boş `lines` panik etmesin: do_checkout zaten engelliyor; bu defansif guard
+  // bir bug nedeniyle buraya boş listeyle düşersek 500 yerine açıklayıcı hata döner.
+  use first <- result.try(
+    list.first(lines) |> result.replace_error("cart_empty"),
+  )
   let #(lid0, _, _, s0, e0, _) = first
   let range = list.fold(lines, #(s0, e0), fn(acc, line) {
     let #(_, _, _, s, e, _) = line
@@ -914,6 +1050,8 @@ fn complete_checkout_with_snapshot(
               case hold_result {
                 Error(_) -> Error("holds_failed")
                 Ok(_) -> {
+                  // Sepete iliştirilmiş kupon varsa rezervasyona snapshot olarak yansıt + used_count++.
+                  let _ = apply_pending_coupon_to_reservation(conn, cart_id, rid, total_q)
                   let _ =
                     pog.query(
                       "delete from cart_lines where cart_id = $1::uuid",
@@ -1156,6 +1294,7 @@ pub fn get_cart(req: Request, ctx: Context, cart_id: String) -> Response {
 
 pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
   use <- wisp.require_method(req, http.Post)
+  let session_token = auth_header_token(req)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1178,6 +1317,20 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
             True -> 15
             False -> hold_minutes
           }
+          // Acente kimliği gönderildiyse oturum + üyelik şart (cross-agency booking guard).
+          let agency_pre_opt = case agency_org {
+            Some(a) ->
+              case string.trim(a) == "" {
+                True -> None
+                False -> Some(string.trim(a))
+              }
+            None -> None
+          }
+          case maybe_assert_agency_session(ctx.db, session_token, agency_pre_opt) {
+            Error("agency_session_required") -> json_err(401, "agency_session_required")
+            Error("agency_membership_required") -> json_err(403, "agency_membership_required")
+            Error(e) -> json_err(500, e)
+            Ok(Nil) ->
           case
             pog.transaction(ctx.db, fn(conn) {
               do_checkout(
@@ -1229,6 +1382,7 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
                 "checkout_contract_extras_failed" -> json_err(500, msg)
                 _ -> json_err(400, msg)
               }
+          }
           }
         }
       }

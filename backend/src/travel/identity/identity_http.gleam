@@ -1,7 +1,9 @@
 //// Üyelik — kayıt, giriş, oturum (020 + 182).
 
 import backend/context.{type Context}
+import travel/identity/password
 import travel/identity/permissions
+import travel/identity/rate_limit
 import travel/messaging/notification_runtime
 import gleam/bit_array
 import gleam/crypto
@@ -44,32 +46,74 @@ fn json_err(status: Int, msg: String) -> Response {
   wisp.json_response(body, status)
 }
 
+/// Rate-limit'e takılan istek için 429 yanıtı + `Retry-After` header'ı.
+fn json_too_many(retry_after_seconds: Int) -> Response {
+  let body =
+    json.object([#("error", json.string("too_many_attempts"))])
+    |> json.to_string
+  wisp.json_response(body, 429)
+  |> wisp.set_header("retry-after", int.to_string(retry_after_seconds))
+}
+
+/// Reverse proxy arkasında client IP'yi okur. Trust boundary: yalnızca
+/// Next.js proxy'si bu header'ı set eder; doğrudan internete açık değilse
+/// güvenilirdir. Yoksa `unknown` döner.
+fn client_ip(req: Request) -> String {
+  case request.get_header(req, "x-forwarded-for") {
+    Ok(h) -> {
+      let trimmed = string.trim(h)
+      case string.split(trimmed, ",") {
+        [first, ..] -> string.trim(first)
+        _ -> trimmed
+      }
+    }
+    Error(_) ->
+      case request.get_header(req, "x-real-ip") {
+        Ok(h) -> string.trim(h)
+        Error(_) -> "unknown"
+      }
+  }
+}
+
+/// Rate-limit anahtarı: IP + email birleşimi, böylece tek IP'den çoklu hesap
+/// taraması ve aynı hesaba çoklu IP brute-force ayrı ayrı limitlenir.
+fn rate_key(ip: String, email: String) -> String {
+  ip <> "|" <> email
+}
+
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
   bit_array.to_string(bits)
 }
 
-fn hash_password(password: String) -> String {
-  let salt = crypto.strong_random_bytes(16)
-  let combined = bit_array.append(salt, bit_array.from_string(password))
-  let digest = crypto.hash(crypto.Sha256, combined)
-  string.append(bit_array.base16_encode(salt), ":")
-  |> string.append(bit_array.base16_encode(digest))
+/// Yeni parola hash'i (PBKDF2-HMAC-SHA512). Eski SHA-256 tabanlı hash
+/// formatı `password.verify` tarafından geriye dönük olarak doğrulanır;
+/// `password.needs_rehash/1` `True` ise login başarılı olduktan sonra
+/// kullanıcıya özel hash sessizce güncellenir (silent rotation).
+fn hash_password(plain: String) -> String {
+  password.hash(plain)
 }
 
-fn verify_password(stored: String, password: String) -> Bool {
-  case string.split(stored, ":") {
-    [salt_hex, hash_hex] -> {
-      case bit_array.base16_decode(salt_hex), bit_array.base16_decode(hash_hex) {
-        Ok(salt), Ok(expected) -> {
-          let combined = bit_array.append(salt, bit_array.from_string(password))
-          let digest = crypto.hash(crypto.Sha256, combined)
-          crypto.secure_compare(digest, expected)
-        }
-        _, _ -> False
-      }
+fn verify_password(stored: String, plain: String) -> Bool {
+  password.verify(stored, plain)
+}
+
+/// Login başarılı + saklanan hash zayıf ise kullanıcıyı yeni hash'e
+/// taşı. Hata durumunda sessizce yutar (kullanıcının login'ini kırma).
+fn maybe_rehash(ctx: Context, user_id: String, stored: String, plain: String) -> Nil {
+  case password.needs_rehash(stored) {
+    False -> Nil
+    True -> {
+      let new_hash = password.hash(plain)
+      let _ =
+        pog.query(
+          "update users set password_hash = $1, updated_at = now() where id = $2::uuid",
+        )
+        |> pog.parameter(pog.text(new_hash))
+        |> pog.parameter(pog.text(user_id))
+        |> pog.execute(ctx.db)
+      Nil
     }
-    _ -> False
   }
 }
 
@@ -83,7 +127,74 @@ fn register_decoder() -> decode.Decoder(#(String, String, String)) {
   })
 }
 
-/// POST /api/v1/auth/register
+/// İçeriği rate-limit dışındaki tüm akışı tutar; `register` ve
+/// `login` rate-limit kontrolünden sonra bunu çağırır.
+fn do_register(
+  ctx: Context,
+  email: String,
+  password: String,
+  display_raw: String,
+) -> Response {
+  let hash = hash_password(password)
+  let display = case string.trim(display_raw) {
+    "" -> None
+    s -> Some(s)
+  }
+  let display_param = case display {
+    Some(s) -> pog.text(s)
+    None -> pog.null()
+  }
+  case
+    pog.query(
+      "insert into users (email, password_hash, display_name) values ($1, $2, $3) returning id::text",
+    )
+    |> pog.parameter(pog.text(email))
+    |> pog.parameter(pog.text(hash))
+    |> pog.parameter(display_param)
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Ok(ret) ->
+      case ret.rows {
+        [uid] -> {
+          let role_sql =
+            "insert into user_roles (user_id, role_id, organization_id) select $1::uuid, r.id, $2::uuid from roles r where r.code = 'customer'"
+          let _ =
+            pog.query(role_sql)
+            |> pog.parameter(pog.text(uid))
+            |> pog.parameter(pog.text(platform_org_id))
+            |> pog.execute(ctx.db)
+          let display_str = case display {
+            Some(s) -> s
+            None -> ""
+          }
+          let reg_payload =
+            json.object([
+              #("email", json.string(email)),
+              #("display_name", json.string(display_str)),
+            ])
+            |> json.to_string
+          let _ =
+            notification_runtime.dispatch_trigger(
+              ctx.db,
+              "register",
+              "tr",
+              Some(uid),
+              None,
+              email,
+              "",
+              reg_payload,
+            )
+          new_session_response(ctx, uid, email, display, 201)
+        }
+        _ -> json_err(500, "unexpected_user_id")
+      }
+    Error(_) -> json_err(409, "email_taken_or_invalid")
+  }
+}
+
+/// POST /api/v1/auth/register — rate-limit + `do_register`. Başarı/başarısızlık
+/// `auth_rate_limit` tablosuna kaydedilir; eşik aşılınca 429 döner.
 pub fn register(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
@@ -96,62 +207,17 @@ pub fn register(req: Request, ctx: Context) -> Response {
           case string.trim(password) == "" || email == "" {
             True -> json_err(400, "email_password_required")
             False -> {
-              let hash = hash_password(password)
-              let display =
-                case string.trim(display_raw) {
-                  "" -> None
-                  s -> Some(s)
-                }
-              let display_param = case display {
-                Some(s) -> pog.text(s)
-                None -> pog.null()
-              }
-              case
-                pog.query(
-                  "insert into users (email, password_hash, display_name) values ($1, $2, $3) returning id::text",
-                )
-                |> pog.parameter(pog.text(email))
-                |> pog.parameter(pog.text(hash))
-                |> pog.parameter(display_param)
-                |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
-              {
-                Ok(ret) ->
-                  case ret.rows {
-                    [uid] -> {
-                      let role_sql =
-                        "insert into user_roles (user_id, role_id, organization_id) select $1::uuid, r.id, $2::uuid from roles r where r.code = 'customer'"
-                      let _ =
-                        pog.query(role_sql)
-                        |> pog.parameter(pog.text(uid))
-                        |> pog.parameter(pog.text(platform_org_id))
-                        |> pog.execute(ctx.db)
-                      let display_str = case display {
-                        Some(s) -> s
-                        None -> ""
-                      }
-                      let reg_payload =
-                        json.object([
-                          #("email", json.string(email)),
-                          #("display_name", json.string(display_str)),
-                        ])
-                        |> json.to_string
-                      let _ =
-                        notification_runtime.dispatch_trigger(
-                          ctx.db,
-                          "register",
-                          "tr",
-                          Some(uid),
-                          None,
-                          email,
-                          "",
-                          reg_payload,
-                        )
-                      new_session_response(ctx, uid, email, display, 201)
-                    }
-                    _ -> json_err(500, "unexpected_user_id")
+              let rkey = rate_key(client_ip(req), email)
+              case rate_limit.check(ctx, "register", rkey) {
+                rate_limit.Blocked(secs) -> json_too_many(secs)
+                rate_limit.Allowed -> {
+                  let resp = do_register(ctx, email, password, display_raw)
+                  case resp.status >= 200 && resp.status < 300 {
+                    True -> rate_limit.record_success(ctx, "register", rkey)
+                    False -> rate_limit.record_failure(ctx, "register", rkey)
                   }
-                Error(_) -> json_err(409, "email_taken_or_invalid")
+                  resp
+                }
               }
             }
           }
@@ -435,7 +501,49 @@ pub fn reset_password(req: Request, ctx: Context) -> Response {
   }
 }
 
-/// POST /api/v1/auth/login
+/// `do_login`: rate-limit dışındaki tüm akış. `login` rate-limit kontrolünden
+/// sonra bunu çağırır.
+fn do_login(ctx: Context, email: String, password: String) -> Response {
+  let row = {
+    use id <- decode.field(0, decode.string)
+    use ph <- decode.field(1, decode.string)
+    use dn <- decode.field(2, decode.string)
+    decode.success(#(id, ph, dn))
+  }
+  case
+    pog.query(
+      "select id::text, coalesce(password_hash, ''), coalesce(display_name, '') from users where email = $1 limit 1",
+    )
+    |> pog.parameter(pog.text(email))
+    |> pog.returning(row)
+    |> pog.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ = io.println("login users select: " <> query_error_debug(e))
+      json_err(500, "login_query_failed")
+    }
+    Ok(qr) ->
+      case qr.rows {
+        [] -> json_err(401, "invalid_credentials")
+        [#(uid, ph, dn)] ->
+          case verify_password(ph, password) {
+            False -> json_err(401, "invalid_credentials")
+            True -> {
+              maybe_rehash(ctx, uid, ph, password)
+              let disp = case string.trim(dn) {
+                "" -> None
+                s -> Some(s)
+              }
+              new_session_response(ctx, uid, email, disp, 200)
+            }
+          }
+        _ -> json_err(500, "unexpected_rows")
+      }
+  }
+}
+
+/// POST /api/v1/auth/login — rate-limit + `do_login`. 5 başarısız denemeden
+/// sonra `IP|email` 15 dk için 429 alır.
 pub fn login(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
@@ -445,41 +553,17 @@ pub fn login(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(email_raw, password)) -> {
           let email = string.lowercase(string.trim(email_raw))
-          let row = {
-            use id <- decode.field(0, decode.string)
-            use ph <- decode.field(1, decode.string)
-            use dn <- decode.field(2, decode.string)
-            decode.success(#(id, ph, dn))
-          }
-          case
-            pog.query(
-              "select id::text, coalesce(password_hash, ''), coalesce(display_name, '') from users where email = $1 limit 1",
-            )
-            |> pog.parameter(pog.text(email))
-            |> pog.returning(row)
-            |> pog.execute(ctx.db)
-          {
-            Error(e) -> {
-              let _ = io.println("login users select: " <> query_error_debug(e))
-              json_err(500, "login_query_failed")
-            }
-            Ok(qr) ->
-              case qr.rows {
-                [] -> json_err(401, "invalid_credentials")
-                [#(uid, ph, dn)] -> {
-                  case verify_password(ph, password) {
-                    False -> json_err(401, "invalid_credentials")
-                    True -> {
-                      let disp = case string.trim(dn) {
-                        "" -> None
-                        s -> Some(s)
-                      }
-                      new_session_response(ctx, uid, email, disp, 200)
-                    }
-                  }
-                }
-                _ -> json_err(500, "unexpected_rows")
+          let rkey = rate_key(client_ip(req), email)
+          case rate_limit.check(ctx, "login", rkey) {
+            rate_limit.Blocked(secs) -> json_too_many(secs)
+            rate_limit.Allowed -> {
+              let resp = do_login(ctx, email, password)
+              case resp.status >= 200 && resp.status < 300 {
+                True -> rate_limit.record_success(ctx, "login", rkey)
+                False -> rate_limit.record_failure(ctx, "login", rkey)
               }
+              resp
+            }
           }
         }
       }
@@ -1425,12 +1509,20 @@ pub fn admin_upsert_agency_category_grant(req: Request, ctx: Context) -> Respons
   }
 }
 
-fn admin_agency_profile_row() -> decode.Decoder(#(String, String, String, String)) {
+fn admin_agency_profile_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String, String, String),
+) {
   use uid <- decode.field(0, decode.string)
   use em <- decode.field(1, decode.string)
   use ds <- decode.field(2, decode.string)
   use dp <- decode.field(3, decode.string)
-  decode.success(#(uid, em, ds, dp))
+  use oid <- decode.field(4, decode.string)
+  use slug <- decode.field(5, decode.string)
+  use name <- decode.field(6, decode.string)
+  use tursab_no <- decode.field(7, decode.string)
+  use tursab_url <- decode.field(8, decode.string)
+  use created_at <- decode.field(9, decode.string)
+  decode.success(#(uid, em, ds, dp, oid, slug, name, tursab_no, tursab_url, created_at))
 }
 
 fn valid_agency_document_status(s: String) -> Bool {
@@ -1504,8 +1596,70 @@ pub fn admin_list_agency_profiles(req: Request, ctx: Context) -> Response {
         list.key_find(qs, "agency_organization_id")
         |> result.unwrap("")
         |> string.trim
+      let status_filter =
+        list.key_find(qs, "status")
+        |> result.unwrap("")
+        |> string.trim
+        |> string.lowercase
+      // `agency_organization_id` boş geçilirse tüm acente profilleri listelenir.
+      // Aksi halde sadece o kuruma ait profiller döner (eski davranış korunur).
+      let do_list = fn() {
+        case
+          pog.query(
+            "select ap.user_id::text,
+                    coalesce(u.email, ''),
+                    ap.document_status::text,
+                    ap.discount_percent::text,
+                    o.id::text,
+                    coalesce(o.slug, ''),
+                    coalesce(o.name, ''),
+                    coalesce(o.tursab_license_no, ''),
+                    coalesce(o.tursab_verify_url, ''),
+                    to_char(ap.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')
+               from agency_profiles ap
+               left join users u on u.id = ap.user_id
+               inner join organizations o
+                       on o.id = ap.organization_id and o.org_type = 'agency'
+              where ($1::text = '' or ap.organization_id::text = $1)
+                and ($2::text = '' or lower(coalesce(ap.document_status, '')) = $2)
+              order by case when lower(coalesce(ap.document_status, '')) = 'pending' then 0
+                            when lower(coalesce(ap.document_status, '')) = 'rejected' then 1
+                            else 2 end,
+                       ap.created_at desc",
+          )
+          |> pog.parameter(pog.text(oid))
+          |> pog.parameter(pog.text(status_filter))
+          |> pog.returning(admin_agency_profile_row())
+          |> pog.execute(ctx.db)
+        {
+          Error(_) -> json_err(500, "list_failed")
+          Ok(ret) -> {
+            let arr =
+              list.map(ret.rows, fn(row) {
+                let #(uid, em, ds, dp, org_id, slug, name, tursab_no, tursab_url, created) =
+                  row
+                json.object([
+                  #("user_id", json.string(uid)),
+                  #("email", json.string(em)),
+                  #("document_status", json.string(ds)),
+                  #("discount_percent", json.string(dp)),
+                  #("organization_id", json.string(org_id)),
+                  #("organization_slug", json.string(slug)),
+                  #("organization_name", json.string(name)),
+                  #("tursab_license_no", json.string(tursab_no)),
+                  #("tursab_verify_url", json.string(tursab_url)),
+                  #("created_at", json.string(created)),
+                ])
+              })
+            let body =
+              json.object([#("profiles", json.preprocessed_array(arr))])
+              |> json.to_string
+            wisp.json_response(body, 200)
+          }
+        }
+      }
       case oid == "" {
-        True -> json_err(400, "agency_organization_id_required")
+        True -> do_list()
         False ->
           case
             pog.query(
@@ -1519,33 +1673,7 @@ pub fn admin_list_agency_profiles(req: Request, ctx: Context) -> Response {
             Ok(chk) ->
               case chk.rows {
                 [] -> json_err(404, "not_agency_organization")
-                _ ->
-                  case
-                    pog.query(
-                      "select ap.user_id::text, coalesce(u.email, ''), ap.document_status::text, ap.discount_percent::text from agency_profiles ap left join users u on u.id = ap.user_id where ap.organization_id = $1::uuid order by ap.created_at",
-                    )
-                    |> pog.parameter(pog.text(oid))
-                    |> pog.returning(admin_agency_profile_row())
-                    |> pog.execute(ctx.db)
-                  {
-                    Error(_) -> json_err(500, "list_failed")
-                    Ok(ret) -> {
-                      let arr =
-                        list.map(ret.rows, fn(row) {
-                          let #(uid, em, ds, dp) = row
-                          json.object([
-                            #("user_id", json.string(uid)),
-                            #("email", json.string(em)),
-                            #("document_status", json.string(ds)),
-                            #("discount_percent", json.string(dp)),
-                          ])
-                        })
-                      let body =
-                        json.object([#("profiles", json.preprocessed_array(arr))])
-                        |> json.to_string
-                      wisp.json_response(body, 200)
-                    }
-                  }
+                _ -> do_list()
               }
           }
       }

@@ -38,9 +38,21 @@ pub fn response(
   from_q: String,
   to_q: String,
 ) -> Response {
+  // estimated_commission satır bazlı hesaplanır:
+  //   1. öncelik: commission_accrual_lines (capture sonrası kalemler) → tam tahakkuk
+  //   2. fallback: reservations.commission_amount (henüz capture olmayan held kayıtlar)
+  // Eski "AVG(supplier_agency_commissions) * gross" formülü, accrual ile çelişiyordu.
   let sum_sql =
     string.concat([
-      "select count(*)::text, coalesce(sum(case when trim(coalesce(price_breakdown_json->>'total','')) = '' then 0::numeric else (nullif(trim(price_breakdown_json->>'total'),''))::numeric end), 0)::text, coalesce((select avg(commission_percent) from supplier_agency_commissions where agency_organization_id = $1::uuid), 0)::text, (coalesce(sum(case when trim(coalesce(price_breakdown_json->>'total','')) = '' then 0::numeric else (nullif(trim(price_breakdown_json->>'total'),''))::numeric end), 0) * coalesce((select avg(commission_percent) from supplier_agency_commissions where agency_organization_id = $1::uuid), 0) / 100.0)::text from reservations r where ",
+      "select
+         count(*)::text,
+         coalesce(sum(case when trim(coalesce(price_breakdown_json->>'total','')) = '' then 0::numeric else (nullif(trim(price_breakdown_json->>'total'),''))::numeric end), 0)::text,
+         coalesce((select avg(commission_percent) from supplier_agency_commissions where agency_organization_id = $1::uuid), 0)::text,
+         coalesce(sum(coalesce(
+           (select sum(cal.commission_amount) from commission_accrual_lines cal where cal.reservation_id = r.id),
+           coalesce(r.commission_amount, 0)
+         )), 0)::text
+       from reservations r where ",
       where_range,
     ])
   case

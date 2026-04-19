@@ -69,6 +69,53 @@ fn or_error(
   }
 }
 
+/// `submit` öncesi: başvurunun zorunlu alanlarının dolu ve en az 1 belgesinin
+/// yüklü olduğunu garanti eder. Hata kodu çağırana iletilir.
+fn check_submit_ready(
+  conn: pog.Connection,
+  app_id: String,
+  user_id: String,
+) -> Result(Nil, String) {
+  case
+    pog.query(
+      "select
+         coalesce(nullif(trim(business_name), ''), '')   as bname,
+         coalesce(nullif(trim(tax_number),    ''), '')   as taxno,
+         coalesce(nullif(trim(phone),         ''), '')   as ph,
+         (select count(*) from supplier_application_documents d
+            where d.application_id = a.id and d.status in ('uploaded','approved'))::text as doc_count
+       from supplier_applications a
+       where a.id = $1 and a.user_id = $2 and a.status in ('draft','rejected')
+       limit 1",
+    )
+    |> pog.parameter(pog.text(app_id))
+    |> pog.parameter(pog.text(user_id))
+    |> pog.returning({
+      use bname <- decode.field(0, decode.string)
+      use taxno <- decode.field(1, decode.string)
+      use ph <- decode.field(2, decode.string)
+      use doc_count <- decode.field(3, decode.string)
+      decode.success(#(bname, taxno, ph, doc_count))
+    })
+    |> pog.execute(conn)
+  {
+    Error(_) -> Error("db_error")
+    Ok(r) ->
+      case list.first(r.rows) {
+        Error(_) -> Error("not_found_or_not_allowed")
+        Ok(#(bname, taxno, ph, doc_count)) -> {
+          case bname, taxno, ph, doc_count {
+            "", _, _, _ -> Error("business_name_required")
+            _, "", _, _ -> Error("tax_number_required")
+            _, _, "", _ -> Error("phone_required")
+            _, _, _, "0" -> Error("documents_required")
+            _, _, _, _ -> Ok(Nil)
+          }
+        }
+      }
+  }
+}
+
 // ── Application row decoder ───────────────────────────────────────────────────
 
 fn app_row_decoder() -> decode.Decoder(
@@ -237,10 +284,15 @@ pub fn upsert_application(req: Request, ctx: Context) -> Response {
   }
   case json.parse(body, decoder) {
     Error(_) -> json_err(400, "invalid_json")
-    Ok(#(cat, bname, btype, taxno, phone, addr, notes)) ->
-      case
-        pog.query(
-          "insert into supplier_applications
+    Ok(#(cat, bname, btype, taxno, phone, addr, notes)) -> {
+      // Sunucu tarafı sıkı doğrulama (taslak için sadece kategori; submit için tam set).
+      let cat_norm = string.lowercase(string.trim(cat))
+      case is_known_supplier_category(cat_norm) {
+        False -> json_err(400, "unknown_category")
+        True ->
+          case
+            pog.query(
+              "insert into supplier_applications
              (user_id, category_code, business_name, business_type, tax_number, phone, address, notes, updated_at)
            values ($1,$2,$3,$4,$5,$6,$7,$8,now())
            on conflict (user_id, category_code)
@@ -253,31 +305,43 @@ pub fn upsert_application(req: Request, ctx: Context) -> Response {
              notes          = coalesce(excluded.notes, supplier_applications.notes),
              updated_at     = now()
            returning id::text",
-        )
-        |> pog.parameter(pog.text(user_id))
-        |> pog.parameter(pog.text(cat))
-        |> pog.parameter(pog.nullable(pog.text, bname))
-        |> pog.parameter(pog.nullable(pog.text, btype))
-        |> pog.parameter(pog.nullable(pog.text, taxno))
-        |> pog.parameter(pog.nullable(pog.text, phone))
-        |> pog.parameter(pog.nullable(pog.text, addr))
-        |> pog.parameter(pog.nullable(pog.text, notes))
-        |> pog.returning({
-          use a <- decode.field(0, decode.string)
-          decode.success(a)
-        })
-        |> pog.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "db_error")
-        Ok(r) ->
-          case list.first(r.rows) {
-            Error(_) -> json_err(500, "no_row")
-            Ok(id) ->
-              json.object([#("id", json.string(id)), #("ok", json.bool(True))])
-              |> json.to_string
-              |> wisp.json_response(200)
+            )
+            |> pog.parameter(pog.text(user_id))
+            |> pog.parameter(pog.text(cat_norm))
+            |> pog.parameter(pog.nullable(pog.text, bname))
+            |> pog.parameter(pog.nullable(pog.text, btype))
+            |> pog.parameter(pog.nullable(pog.text, taxno))
+            |> pog.parameter(pog.nullable(pog.text, phone))
+            |> pog.parameter(pog.nullable(pog.text, addr))
+            |> pog.parameter(pog.nullable(pog.text, notes))
+            |> pog.returning({
+              use a <- decode.field(0, decode.string)
+              decode.success(a)
+            })
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "db_error")
+            Ok(r) ->
+              case list.first(r.rows) {
+                Error(_) -> json_err(500, "no_row")
+                Ok(id) ->
+                  json.object([#("id", json.string(id)), #("ok", json.bool(True))])
+                  |> json.to_string
+                  |> wisp.json_response(200)
+              }
           }
       }
+    }
+  }
+}
+
+/// Tedarikçi başvurusu için tanınan kategori kodları.
+/// Listenin frontend `TedarikciOlClient.tsx > CATEGORIES` ile senkron tutulması gerekir.
+fn is_known_supplier_category(code: String) -> Bool {
+  case code {
+    "hotel" | "holiday_home" | "yacht_charter" | "tour" | "activity" | "cruise"
+    | "car_rental" | "transfer" | "ferry" | "hajj" | "visa" | "flight" -> True
+    _ -> False
   }
 }
 
@@ -322,12 +386,18 @@ pub fn upsert_document(req: Request, ctx: Context, app_id: String) -> Response {
   case json.parse(body, decoder) {
     Error(_) -> json_err(400, "invalid_json")
     Ok(#(dtype, dlabel, fpath)) ->
+      // (application_id, doc_type) UNIQUE — `244_supplier_application_documents_unique.sql`
+      // sayesinde temiz upsert: aynı belge tipi yeniden yüklenirse path/status güncellenir.
       case
         pog.query(
           "insert into supplier_application_documents
              (application_id, doc_type, doc_label, file_path, status, uploaded_at)
            values ($1,$2,$3,$4,'uploaded',now())
-           on conflict do nothing
+           on conflict (application_id, doc_type) do update
+             set doc_label   = excluded.doc_label,
+                 file_path   = excluded.file_path,
+                 status      = 'uploaded',
+                 uploaded_at = now()
            returning id::text",
         )
         |> pog.parameter(pog.text(app_id))
@@ -340,30 +410,7 @@ pub fn upsert_document(req: Request, ctx: Context, app_id: String) -> Response {
         })
         |> pog.execute(ctx.db)
       {
-        Error(_) ->
-          // try update if already exists
-          case
-            pog.query(
-              "update supplier_application_documents
-               set file_path=$3, status='uploaded', uploaded_at=now()
-               where application_id=$1 and doc_type=$2
-               returning id::text",
-            )
-            |> pog.parameter(pog.text(app_id))
-            |> pog.parameter(pog.text(dtype))
-            |> pog.parameter(pog.text(fpath))
-            |> pog.returning({
-              use a <- decode.field(0, decode.string)
-              decode.success(a)
-            })
-            |> pog.execute(ctx.db)
-          {
-            Ok(_) ->
-              json.object([#("ok", json.bool(True))])
-              |> json.to_string
-              |> wisp.json_response(200)
-            Error(_) -> json_err(500, "db_error")
-          }
+        Error(_) -> json_err(500, "db_error")
         Ok(_) ->
           json.object([#("ok", json.bool(True))])
           |> json.to_string
@@ -380,6 +427,11 @@ pub fn submit_application(req: Request, ctx: Context, app_id: String) -> Respons
     session_user(ctx.db, token)
     |> result.map_error(fn(_) { json_err(401, "unauthorized") }),
   )
+  // Submit öncesi sıkı doğrulama: zorunlu alanlar ve en az 1 yüklü belge.
+  use _ <- or_error(case check_submit_ready(ctx.db, app_id, user_id) {
+    Ok(Nil) -> Ok(Nil)
+    Error(code) -> Error(json_err(400, code))
+  })
   case
     pog.query(
       "update supplier_applications

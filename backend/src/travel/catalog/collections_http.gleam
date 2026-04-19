@@ -288,6 +288,41 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     False -> pog.text(theme_raw)
   }
 
+  // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
+  // flex_days (0|3|7) verilirse aralık her iki uçtan o kadar genişler — daha çok sonuç.
+  let start_raw =
+    list.key_find(qs, "start_date")
+    |> result.unwrap("")
+    |> string.trim
+  let end_raw =
+    list.key_find(qs, "end_date")
+    |> result.unwrap("")
+    |> string.trim
+  let flex_raw =
+    list.key_find(qs, "flex_days")
+    |> result.unwrap("0")
+    |> string.trim
+  let flex_days = case int.parse(flex_raw) {
+    Ok(n) ->
+      case n < 0 {
+        True -> 0
+        False ->
+          case n > 14 {
+            True -> 14
+            False -> n
+          }
+      }
+    Error(_) -> 0
+  }
+  let start_param = case start_raw == "" {
+    True -> pog.null()
+    False -> pog.text(start_raw)
+  }
+  let end_param = case end_raw == "" {
+    True -> pog.null()
+    False -> pog.text(end_raw)
+  }
+
   let sql =
     "select l.id::text, l.slug, "
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
@@ -329,6 +364,19 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "and ($7::text is null or $7 = '' or pc.code != 'holiday_home' or ( "
     <> "  coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[] "
     <> ")) "
+    // Faz F: müsaitlik. Yalnızca tarih verilirse aktif. flex_days kadar her iki uçtan genişlet.
+    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "  select 1 from inventory_holds ih "
+    <> "  where ih.listing_id = l.id and ih.status = 'active' "
+    <> "    and ih.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
+    <> "    and ih.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> ")) "
+    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "  select 1 from reservations r "
+    <> "  where r.listing_id = l.id and r.status in ('held','confirmed') "
+    <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
+    <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> ")) "
     <> "order by l.review_avg desc nulls last, l.created_at desc "
     <> "limit $5"
 
@@ -341,6 +389,9 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.parameter(pog.int(lim))
     |> pog.parameter(ids_param)
     |> pog.parameter(theme_param)
+    |> pog.parameter(start_param)
+    |> pog.parameter(end_param)
+    |> pog.parameter(pog.text(int.to_string(flex_days)))
     |> pog.returning(pub_listing_row())
     |> pog.execute(ctx.db)
   {

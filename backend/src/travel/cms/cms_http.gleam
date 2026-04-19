@@ -251,10 +251,27 @@ pub fn get_by_slug(req: Request, ctx: Context) -> Response {
           case ret.rows {
             [] -> json_err(404, "not_found")
             [row] -> {
-              let body =
-                json.object([#("page", page_json(row))])
-                |> json.to_string
-              wisp.json_response(body, 200)
+              let #(page_id, _, _, _, _, _) = row
+              case
+                pog.query(
+                  "select id::text, sort_order, block_type, config_json::text from cms_page_blocks where page_id = $1::uuid order by sort_order asc, id asc",
+                )
+                |> pog.parameter(pog.text(page_id))
+                |> pog.returning(block_row())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "blocks_query_failed")
+                Ok(bret) -> {
+                  let blocks = list.map(bret.rows, block_json)
+                  let body =
+                    json.object([
+                      #("page", page_json(row)),
+                      #("blocks", json.array(from: blocks, of: fn(x) { x })),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
+                }
+              }
             }
             _ -> json_err(500, "unexpected")
           }

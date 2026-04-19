@@ -1,6 +1,7 @@
 import backend/config.{type AppConfig}
 import backend/context.{type Context, Context}
 import travel/booking/booking_http
+import travel/booking/cart_coupon_http
 import travel/currency/currency_http
 import travel/banners/banner_http
 import travel/i18n/i18n_http
@@ -22,7 +23,12 @@ import travel/marketing/marketing_http
 import travel/messaging/messaging_catalog_http
 import travel/navigation/navigation_http
 import travel/engagement/engagement_http
+import travel/engagement/social_proof_http
+import travel/engagement/listing_reports_http
+import travel/catalog/listing_perks_http
+import travel/catalog/super_host_http
 import travel/reviews/reviews_http
+import travel/ical/ical_export_http
 import travel/locations/locations_http
 import travel/media/listing_images_http
 import travel/media/media_http
@@ -71,6 +77,11 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, [] -> home_json()
 
     http.Get, ["health"] -> health_check(ctx)
+
+    // Public iCal export — 3. taraf takvimler (Airbnb/Booking/Apple/Google)
+    // bu URL'i okur. Auth yok; gizlilik 64-karakterlik token ile sağlanır.
+    http.Get, ["ical", "listing", slug] ->
+      ical_export_http.serve_public_ics(req, ctx, slug)
 
     http.Get, ["api", "v1", "meta"] -> api_meta(req)
 
@@ -232,6 +243,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Put, ["api", "v1", "catalog", "listings", lid, "attribute-values"] ->
       catalog_http.put_listing_attribute_values(req, ctx, lid)
+
+    http.Get, ["api", "v1", "public", "listings", lid, "attributes"] ->
+      catalog_http.get_public_listing_attributes(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "price-line-items"] ->
       catalog_http.list_price_line_items(req, ctx)
@@ -612,6 +626,39 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "carts", cart_id, "checkout"] ->
       booking_http.checkout(req, ctx, cart_id)
 
+    http.Get, ["api", "v1", "public", "coupons", "validate"] ->
+      cart_coupon_http.validate_public(req, ctx)
+
+    http.Post, ["api", "v1", "public", "listings", lid, "view-ping"] ->
+      social_proof_http.view_ping(req, ctx, lid)
+    http.Get, ["api", "v1", "public", "listings", lid, "social-proof"] ->
+      social_proof_http.social_proof(req, ctx, lid)
+
+    http.Post, ["api", "v1", "public", "listings", lid, "report"] ->
+      listing_reports_http.submit(req, ctx, lid)
+    http.Get, ["api", "v1", "admin", "listing-reports"] ->
+      listing_reports_http.list_reports(req, ctx)
+    http.Patch, ["api", "v1", "admin", "listing-reports", rid] ->
+      listing_reports_http.patch_status(req, ctx, rid)
+    http.Get, ["api", "v1", "public", "listings", lid, "perks"] ->
+      listing_perks_http.get_perks(req, ctx, lid)
+    http.Patch, ["api", "v1", "listings", lid, "perks"] ->
+      listing_perks_http.patch_perks(req, ctx, lid)
+
+    http.Post, ["api", "v1", "admin", "super-host", "recompute"] ->
+      super_host_http.recompute_all(req, ctx)
+    http.Get, ["api", "v1", "admin", "super-host", "organizations"] ->
+      super_host_http.list_organizations(req, ctx)
+    http.Patch, ["api", "v1", "admin", "organizations", oid, "super-host"] ->
+      super_host_http.manual_toggle(req, ctx, oid)
+
+    http.Post, ["api", "v1", "carts", cart_id, "apply-coupon"] ->
+      cart_coupon_http.apply_coupon(req, ctx, cart_id)
+    http.Delete, ["api", "v1", "carts", cart_id, "coupon"] ->
+      cart_coupon_http.remove_coupon(req, ctx, cart_id)
+    http.Get, ["api", "v1", "carts", cart_id, "totals"] ->
+      cart_coupon_http.get_totals(req, ctx, cart_id)
+
     http.Get, ["api", "v1", "carts", cart_id] ->
       booking_http.get_cart(req, ctx, cart_id)
 
@@ -681,8 +728,20 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "media", "cdn"] -> media_http.get_cdn(req, ctx)
 
+    http.Get, ["api", "v1", "media", "cdn", "all"] ->
+      media_http.get_cdn_all(req, ctx)
+
     http.Post, ["api", "v1", "media", "cdn", "active"] ->
       media_http.set_cdn_active(req, ctx)
+
+    http.Post, ["api", "v1", "media", "cdn", "deactivate"] ->
+      media_http.deactivate_cdn(req, ctx)
+
+    http.Patch, ["api", "v1", "media", "cdn", "url"] ->
+      media_http.update_cdn_url(req, ctx)
+
+    http.Patch, ["api", "v1", "media", "cdn", "config"] ->
+      media_http.update_cdn_config(req, ctx)
 
     http.Post, ["api", "v1", "media", "files"] -> media_http.register_file(req, ctx)
 
@@ -842,14 +901,47 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "marketing", "coupons", cid] ->
       marketing_http.delete_coupon(req, ctx, cid)
 
+    http.Get, ["api", "v1", "marketing", "coupons", cid, "limits"] ->
+      marketing_http.get_coupon_limits(req, ctx, cid)
+
+    http.Patch, ["api", "v1", "marketing", "coupons", cid, "limits"] ->
+      marketing_http.patch_coupon_limits(req, ctx, cid)
+
     http.Get, ["api", "v1", "marketing", "campaigns"] ->
       marketing_http.list_campaigns(req, ctx)
 
     http.Post, ["api", "v1", "marketing", "campaigns"] ->
       marketing_http.create_campaign(req, ctx)
 
+    http.Patch, ["api", "v1", "marketing", "campaigns", cid] ->
+      marketing_http.patch_campaign(req, ctx, cid)
+
+    http.Delete, ["api", "v1", "marketing", "campaigns", cid] ->
+      marketing_http.delete_campaign(req, ctx, cid)
+
+    http.Get, ["api", "v1", "marketing", "holiday-packages"] ->
+      marketing_http.list_holiday_packages(req, ctx)
+
+    http.Post, ["api", "v1", "marketing", "holiday-packages"] ->
+      marketing_http.create_holiday_package(req, ctx)
+
+    http.Patch, ["api", "v1", "marketing", "holiday-packages", hid] ->
+      marketing_http.patch_holiday_package(req, ctx, hid)
+
+    http.Delete, ["api", "v1", "marketing", "holiday-packages", hid] ->
+      marketing_http.delete_holiday_package(req, ctx, hid)
+
     http.Get, ["api", "v1", "marketing", "public", "cross-sell-suggestions"] ->
       marketing_http.list_public_cross_sell_suggestions(req, ctx)
+
+    http.Get, ["api", "v1", "public", "marketing", "active-campaigns"] ->
+      marketing_http.list_public_active_campaigns(req, ctx)
+
+    http.Get, ["api", "v1", "public", "marketing", "active-coupons"] ->
+      marketing_http.list_public_active_coupons(req, ctx)
+
+    http.Get, ["api", "v1", "public", "marketing", "holiday-packages"] ->
+      marketing_http.list_public_holiday_packages(req, ctx)
 
     http.Get, ["api", "v1", "marketing", "cross-sell-rules"] ->
       marketing_http.list_cross_sell_rules(req, ctx)
@@ -1040,6 +1132,21 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Delete, ["api", "v1", "locations", "ical-feeds", fid] ->
       locations_http.delete_ical_feed(req, ctx, fid)
+
+    // Manuel iCal sync (Airbnb/Booking'den feed çek → availability güncelle)
+    http.Post, ["api", "v1", "locations", "ical-feeds", fid, "sync"] ->
+      locations_http.sync_ical_feed(req, ctx, fid)
+
+    // iCal'den içe aktarılmış ham bloklar (debug + admin denetim)
+    http.Get, ["api", "v1", "locations", "ical-imported-blocks"] ->
+      locations_http.list_imported_blocks(req, ctx)
+
+    // iCal export token (her listing için unique URL üretir/yeniler)
+    http.Get, ["api", "v1", "catalog", "listings", lid, "ical-export-token"] ->
+      ical_export_http.get_or_create_token(req, ctx, lid)
+
+    http.Post, ["api", "v1", "catalog", "listings", lid, "ical-export-token"] ->
+      ical_export_http.rotate_token(req, ctx, lid)
 
     http.Get, ["api", "v1", "integrations", "accounts"] ->
       integrations_http.list_integration_accounts(req, ctx)

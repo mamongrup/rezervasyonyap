@@ -5,6 +5,7 @@ import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/json
+import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
@@ -29,6 +30,14 @@ fn cdn_row() -> decode.Decoder(#(String, String, Bool)) {
   use url <- decode.field(1, decode.string)
   use active <- decode.field(2, decode.bool)
   decode.success(#(code, url, active))
+}
+
+fn cdn_full_row() -> decode.Decoder(#(String, String, Bool, String)) {
+  use code <- decode.field(0, decode.string)
+  use url <- decode.field(1, decode.string)
+  use active <- decode.field(2, decode.bool)
+  use cfg <- decode.field(3, decode.string)
+  decode.success(#(code, url, active, cfg))
 }
 
 /// GET /api/v1/media/cdn — aktif CDN ve çekme adresi.
@@ -69,8 +78,153 @@ pub fn get_cdn(req: Request, ctx: Context) -> Response {
   }
 }
 
+/// POST /api/v1/media/cdn/deactivate — tüm sağlayıcıları pasif yapar.
+pub fn deactivate_cdn(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case
+    pog.query("update cdn_connections set is_active = false")
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "deactivate_failed")
+    Ok(_) -> {
+      let out = json.object([#("ok", json.bool(True))]) |> json.to_string
+      wisp.json_response(out, 200)
+    }
+  }
+}
+
+
 fn set_cdn_decoder() -> decode.Decoder(String) {
   decode.field("code", decode.string, fn(code) { decode.success(code) })
+}
+
+fn update_cdn_url_decoder() -> decode.Decoder(#(String, String)) {
+  use code <- decode.field("code", decode.string)
+  use url <- decode.field("pull_zone_url", decode.string)
+  decode.success(#(code, url))
+}
+
+fn update_cdn_config_decoder() -> decode.Decoder(#(String, String, String)) {
+  use code <- decode.field("code", decode.string)
+  use url <- decode.optional_field("pull_zone_url", "", decode.string)
+  use cfg <- decode.field("config_json", decode.string)
+  decode.success(#(code, url, cfg))
+}
+
+/// GET /api/v1/media/cdn/all — tüm sağlayıcıları config ile döner (admin).
+pub fn get_cdn_all(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select provider_code::text, coalesce(pull_zone_url,''), is_active, coalesce(config_json::text,'{}') from cdn_connections order by provider_code",
+    )
+    |> pog.returning(cdn_full_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "cdn_query_failed")
+    Ok(ret) -> {
+      let rows =
+        ret.rows
+        |> list.map(fn(r) {
+          let #(code, url, active, cfg) = r
+          let url_field = case url == "" { True -> json.null() False -> json.string(url) }
+          json.object([
+            #("code", json.string(code)),
+            #("pull_zone_url", url_field),
+            #("is_active", json.bool(active)),
+            #("config_json", json.string(cfg)),
+          ])
+        })
+      let body = json.array(rows, fn(x) { x }) |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+/// PATCH /api/v1/media/cdn/config — `{ "code": "bunny|cloudflare", "pull_zone_url": "...", "config_json": "{...}" }`
+pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, update_cdn_config_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(code_raw, url_raw, cfg_raw)) -> {
+          let code = string.lowercase(string.trim(code_raw))
+          let url = string.trim(url_raw)
+          let cfg = case string.trim(cfg_raw) { "" -> "{}" c -> c }
+          case code == "bunny" || code == "cloudflare" {
+            False -> json_err(400, "invalid_code")
+            True ->
+              case
+                pog.query(
+                  "update cdn_connections set pull_zone_url = $2, config_json = $3::jsonb where provider_code = $1 returning provider_code::text",
+                )
+                |> pog.parameter(pog.text(code))
+                |> pog.parameter(case url == "" { True -> pog.null() False -> pog.text(url) })
+                |> pog.parameter(pog.text(cfg))
+                |> pog.returning(row_dec.col0_string())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "update_failed")
+                Ok(r) ->
+                  case r.rows {
+                    [] -> json_err(404, "provider_not_found")
+                    [_] -> {
+                      let out =
+                        json.object([#("ok", json.bool(True)), #("code", json.string(code))])
+                        |> json.to_string
+                      wisp.json_response(out, 200)
+                    }
+                    _ -> json_err(500, "unexpected")
+                  }
+              }
+          }
+        }
+      }
+  }
+}
+
+/// PATCH /api/v1/media/cdn/url — `{ "code": "bunny|cloudflare", "pull_zone_url": "https://..." }`
+pub fn update_cdn_url(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, update_cdn_url_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(code_raw, url_raw)) -> {
+          let code = string.lowercase(string.trim(code_raw))
+          let url = string.trim(url_raw)
+          case code == "bunny" || code == "cloudflare" {
+            False -> json_err(400, "invalid_code")
+            True ->
+              case
+                pog.query(
+                  "update cdn_connections set pull_zone_url = $2 where provider_code = $1 returning provider_code::text",
+                )
+                |> pog.parameter(pog.text(code))
+                |> pog.parameter(case url == "" { True -> pog.null() False -> pog.text(url) })
+                |> pog.returning(row_dec.col0_string())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "update_failed")
+                Ok(r) ->
+                  case r.rows {
+                    [] -> json_err(404, "provider_not_found")
+                    [_] -> {
+                      let out =
+                        json.object([#("ok", json.bool(True)), #("code", json.string(code))])
+                        |> json.to_string
+                      wisp.json_response(out, 200)
+                    }
+                    _ -> json_err(500, "unexpected")
+                  }
+              }
+          }
+        }
+      }
+  }
 }
 
 /// POST /api/v1/media/cdn/active — `{ "code": "bunny" | "cloudflare" }`

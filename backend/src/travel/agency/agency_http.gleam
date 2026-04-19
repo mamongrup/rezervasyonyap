@@ -87,7 +87,16 @@ fn require_agency_org(
 ) -> Result(#(String, String, String, String, String), Nil) {
   case
     pog.query(
-      "select o.id::text, o.slug, o.name, coalesce(ap.document_status, ''), coalesce(ap.discount_percent::text, '0') from user_roles ur inner join roles r on r.id = ur.role_id inner join organizations o on o.id = ur.organization_id left join agency_profiles ap on ap.user_id = ur.user_id and ap.organization_id = ur.organization_id where ur.user_id = $1::uuid and r.code = 'agency' order by o.id limit 1",
+      "select o.id::text, o.slug, o.name, coalesce(ap.document_status, ''), coalesce(ap.discount_percent::text, '0')
+         from user_roles ur
+         inner join roles r on r.id = ur.role_id
+         inner join organizations o on o.id = ur.organization_id and o.org_type = 'agency'
+         left join agency_profiles ap on ap.user_id = ur.user_id and ap.organization_id = ur.organization_id
+        where ur.user_id = $1::uuid and r.code = 'agency'
+        order by case when lower(coalesce(ap.document_status, '')) = 'approved' then 0 else 1 end,
+                 ur.created_at desc nulls last,
+                 o.id
+        limit 1",
     )
     |> pog.parameter(pog.text(user_id))
     |> pog.returning(agency_context_row())
@@ -481,9 +490,20 @@ pub fn commission_rates(req: Request, ctx: Context) -> Response {
   case auth_agency_portal(req, ctx.db) {
     Error(r) -> r
     Ok(#(_, oid, _, _, _, _)) ->
+      // Her tedarikçi için tek bir oran döner: önce acente'ye özel oran, yoksa
+      // sistem geneli default (agency_organization_id IS NULL).
+      // DISTINCT ON + ORDER BY ile aynı supplier'ın hem özel hem default kaydı
+      // varsa, özel kayıt seçilir.
       case
         pog.query(
-          "select id::text, supplier_organization_id::text, commission_percent::text from supplier_agency_commissions where agency_organization_id = $1::uuid order by supplier_organization_id",
+          "select distinct on (supplier_organization_id)
+                  id::text,
+                  supplier_organization_id::text,
+                  commission_percent::text
+             from supplier_agency_commissions
+            where agency_organization_id = $1::uuid
+               or agency_organization_id is null
+            order by supplier_organization_id, agency_organization_id nulls last",
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(rate_row())

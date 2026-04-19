@@ -5,6 +5,7 @@ import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -12,6 +13,7 @@ import gleam/result
 import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
+import travel/ical/ical_sync
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -1044,8 +1046,17 @@ pub fn clear_poi_cache(req: Request, ctx: Context, page_id: String) -> Response 
 }
 
 // --- ical_feeds ---
+//
+// Satır şeması (yeni 249 sonrası):
+//   0 id          1 listing_id     2 url
+//   3 day_offset_plus  4 day_offset_minus
+//   5 last_sync_at(text or '')   6 last_hash(text or '')
+//   7 last_error(text or '')     8 last_event_count(int)   9 is_active(bool)
 
-fn ical_row() -> decode.Decoder(#(String, String, String, Int, Int, String, String)) {
+type IcalRow =
+  #(String, String, String, Int, Int, String, String, String, Int, Bool)
+
+fn ical_row() -> decode.Decoder(IcalRow) {
   use id <- decode.field(0, decode.string)
   use lid <- decode.field(1, decode.string)
   use url <- decode.field(2, decode.string)
@@ -1053,11 +1064,20 @@ fn ical_row() -> decode.Decoder(#(String, String, String, Int, Int, String, Stri
   use dm <- decode.field(4, decode.int)
   use lsa <- decode.field(5, decode.string)
   use lh <- decode.field(6, decode.string)
-  decode.success(#(id, lid, url, dp, dm, lsa, lh))
+  use le <- decode.field(7, decode.string)
+  use lec <- decode.field(8, decode.int)
+  use ia <- decode.field(9, decode.bool)
+  decode.success(#(id, lid, url, dp, dm, lsa, lh, le, lec, ia))
 }
 
-fn ical_json(row: #(String, String, String, Int, Int, String, String)) -> json.Json {
-  let #(id, lid, url, dp, dm, lsa, lh) = row
+const ical_select_cols: String =
+  "select id::text, listing_id::text, url, day_offset_plus, day_offset_minus, "
+  <> "coalesce(last_sync_at::text,''), coalesce(last_hash,''), "
+  <> "coalesce(last_error,''), last_event_count, is_active "
+  <> "from ical_feeds"
+
+fn ical_json(row: IcalRow) -> json.Json {
+  let #(id, lid, url, dp, dm, lsa, lh, le, lec, ia) = row
   let lsaj = case lsa == "" {
     True -> json.null()
     False -> json.string(lsa)
@@ -1065,6 +1085,10 @@ fn ical_json(row: #(String, String, String, Int, Int, String, String)) -> json.J
   let lhj = case lh == "" {
     True -> json.null()
     False -> json.string(lh)
+  }
+  let lej = case le == "" {
+    True -> json.null()
+    False -> json.string(le)
   }
   json.object([
     #("id", json.string(id)),
@@ -1074,6 +1098,9 @@ fn ical_json(row: #(String, String, String, Int, Int, String, String)) -> json.J
     #("day_offset_minus", json.int(dm)),
     #("last_sync_at", lsaj),
     #("last_hash", lhj),
+    #("last_error", lej),
+    #("last_event_count", json.int(lec)),
+    #("is_active", json.bool(ia)),
   ])
 }
 
@@ -1093,7 +1120,8 @@ pub fn list_ical_feeds(req: Request, ctx: Context) -> Response {
     False ->
       case
         pog.query(
-          "select id::text, listing_id::text, url, day_offset_plus, day_offset_minus, coalesce(last_sync_at::text,''), coalesce(last_hash,'') from ical_feeds where listing_id = $1::uuid order by id",
+          ical_select_cols
+          <> " where listing_id = $1::uuid order by id",
         )
         |> pog.parameter(pog.text(lf))
         |> pog.returning(ical_row())
@@ -1163,14 +1191,16 @@ pub fn create_ical_feed(req: Request, ctx: Context) -> Response {
 }
 
 fn ical_patch_decoder() -> decode.Decoder(
-  #(Option(String), Option(Int), Option(Int), Option(String), Option(String)),
+  #(Option(String), Option(Int), Option(Int), Option(String), Option(String), Option(Bool)),
 ) {
   decode.optional_field("url", None, decode.optional(decode.string), fn(url) {
     decode.optional_field("day_offset_plus", None, decode.optional(decode.int), fn(dp) {
       decode.optional_field("day_offset_minus", None, decode.optional(decode.int), fn(dm) {
         decode.optional_field("last_sync_at", None, decode.optional(decode.string), fn(lsa) {
           decode.optional_field("last_hash", None, decode.optional(decode.string), fn(lh) {
-            decode.success(#(url, dp, dm, lsa, lh))
+            decode.optional_field("is_active", None, decode.optional(decode.bool), fn(ia) {
+              decode.success(#(url, dp, dm, lsa, lh, ia))
+            })
           })
         })
       })
@@ -1186,10 +1216,10 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
     Ok(body) ->
       case json.parse(body, ical_patch_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
-        Ok(#(url_opt, dp_opt, dm_opt, lsa_opt, lh_opt)) ->
-          case url_opt, dp_opt, dm_opt, lsa_opt, lh_opt {
-            None, None, None, None, None -> json_err(400, "no_fields")
-            _, _, _, _, _ -> {
+        Ok(#(url_opt, dp_opt, dm_opt, lsa_opt, lh_opt, ia_opt)) ->
+          case url_opt, dp_opt, dm_opt, lsa_opt, lh_opt, ia_opt {
+            None, None, None, None, None, None -> json_err(400, "no_fields")
+            _, _, _, _, _, _ -> {
               let p_u = case url_opt {
                 None -> pog.null()
                 Some(s) ->
@@ -1218,9 +1248,13 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
                 None -> pog.null()
                 Some(s) -> pog.text(string.trim(s))
               }
+              let p_ia = case ia_opt {
+                None -> pog.null()
+                Some(b) -> pog.bool(b)
+              }
               case
                 pog.query(
-                  "update ical_feeds set url = coalesce($2::text, url), day_offset_plus = coalesce($3::int, day_offset_plus), day_offset_minus = coalesce($4::int, day_offset_minus), last_sync_at = coalesce($5::timestamptz, last_sync_at), last_hash = coalesce($6::text, last_hash) where id = $1::uuid returning id::text",
+                  "update ical_feeds set url = coalesce($2::text, url), day_offset_plus = coalesce($3::int, day_offset_plus), day_offset_minus = coalesce($4::int, day_offset_minus), last_sync_at = coalesce($5::timestamptz, last_sync_at), last_hash = coalesce($6::text, last_hash), is_active = coalesce($7::bool, is_active) where id = $1::uuid returning id::text",
                 )
                 |> pog.parameter(pog.text(string.trim(feed_id)))
                 |> pog.parameter(p_u)
@@ -1228,6 +1262,7 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
                 |> pog.parameter(p_dm)
                 |> pog.parameter(p_lsa)
                 |> pog.parameter(p_lh)
+                |> pog.parameter(p_ia)
                 |> pog.returning(row_dec.col0_string())
                 |> pog.execute(ctx.db)
               {
@@ -1264,5 +1299,143 @@ pub fn delete_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response
         0 -> json_err(404, "not_found")
         _ -> wisp.json_response("{\"ok\":true}", 200)
       }
+  }
+}
+
+/// POST /api/v1/locations/ical-feeds/:feed_id/sync
+/// Manuel sync — feed URL'sini fetch eder, parse eder, availability'yi günceller.
+/// Yanıt:
+///   200 → `{ "ok": true, "event_count": N, "day_count": M }`
+///   400/404/502 → `{ "error": "kısa_kod" }`
+pub fn sync_ical_feed(
+  req: Request,
+  ctx: Context,
+  feed_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case ical_sync.sync_feed(ctx, string.trim(feed_id)) {
+    Error("feed_not_found") -> json_err(404, "feed_not_found")
+    Error("feed_inactive") -> json_err(409, "feed_inactive")
+    Error("fetch_failed") -> json_err(502, "fetch_failed")
+    Error(other) -> json_err(500, other)
+    Ok(report) -> {
+      let body =
+        json.object([
+          #("ok", json.bool(True)),
+          #("event_count", json.int(report.event_count)),
+          #("day_count", json.int(report.day_count)),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+// --- ical_imported_blocks (debug / admin tracing) ---
+
+type ImportedBlockRow =
+  #(Int, String, String, String, String, String, String, String)
+
+fn imported_block_row() -> decode.Decoder(ImportedBlockRow) {
+  use id <- decode.field(0, decode.int)
+  use feed_id <- decode.field(1, decode.string)
+  use lid <- decode.field(2, decode.string)
+  use uid <- decode.field(3, decode.string)
+  use s <- decode.field(4, decode.string)
+  use e <- decode.field(5, decode.string)
+  use summary <- decode.field(6, decode.string)
+  use imp <- decode.field(7, decode.string)
+  decode.success(#(id, feed_id, lid, uid, s, e, summary, imp))
+}
+
+fn imported_block_json(row: ImportedBlockRow) -> json.Json {
+  let #(id, feed_id, lid, uid, s, e, summary, imp) = row
+  json.object([
+    #("id", json.int(id)),
+    #("feed_id", json.string(feed_id)),
+    #("listing_id", json.string(lid)),
+    #("uid", json.string(uid)),
+    #("starts_on", json.string(s)),
+    #("ends_on", json.string(e)),
+    #("summary", json.string(summary)),
+    #("imported_at", json.string(imp)),
+  ])
+}
+
+/// GET /api/v1/locations/ical-imported-blocks?feed_id=...|listing_id=...&limit=N
+///
+/// Yönetici için "iCal'den içeri aktarılmış blok" listesi.
+/// `feed_id` veya `listing_id` parametrelerinden en az biri gerekir.
+/// Varsayılan limit 200 (üst sınır 1000).
+pub fn list_imported_blocks(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let feed_id =
+    list.key_find(qs, "feed_id")
+    |> result.unwrap("")
+    |> string.trim
+  let listing_id =
+    list.key_find(qs, "listing_id")
+    |> result.unwrap("")
+    |> string.trim
+  let limit_raw =
+    list.key_find(qs, "limit")
+    |> result.unwrap("200")
+    |> string.trim
+  let limit = case int.parse(limit_raw) {
+    Ok(n) ->
+      case n < 1 {
+        True -> 1
+        False ->
+          case n > 1000 {
+            True -> 1000
+            False -> n
+          }
+      }
+    Error(_) -> 200
+  }
+
+  case feed_id == "" && listing_id == "" {
+    True -> json_err(400, "feed_id_or_listing_id_required")
+    False -> {
+      let base =
+        "select b.id, b.feed_id::text, f.listing_id::text, b.uid, "
+        <> "to_char(b.starts_on, 'YYYY-MM-DD'), to_char(b.ends_on, 'YYYY-MM-DD'), "
+        <> "coalesce(b.summary,''), to_char(b.imported_at, 'YYYY-MM-DD\"T\"HH24:MI:SSOF') "
+        <> "from ical_imported_blocks b "
+        <> "join ical_feeds f on f.id = b.feed_id"
+      let #(sql, param) = case feed_id == "" {
+        False -> #(
+          base <> " where b.feed_id = $1::uuid order by b.imported_at desc, b.id desc limit $2::int",
+          feed_id,
+        )
+        True -> #(
+          base <> " where f.listing_id = $1::uuid order by b.imported_at desc, b.id desc limit $2::int",
+          listing_id,
+        )
+      }
+      case
+        pog.query(sql)
+        |> pog.parameter(pog.text(param))
+        |> pog.parameter(pog.int(limit))
+        |> pog.returning(imported_block_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "imported_blocks_query_failed")
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, imported_block_json)
+          let body =
+            json.object([
+              #("blocks", json.array(from: arr, of: fn(x) { x })),
+              #("count", json.int(list.length(arr))),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+    }
   }
 }

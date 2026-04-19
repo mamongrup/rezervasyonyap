@@ -107,7 +107,13 @@ fn require_agency_org(
 ) -> Result(#(String, String, String), Nil) {
   case
     pog.query(
-      "select o.id::text, o.slug, o.name from user_roles ur inner join roles r on r.id = ur.role_id inner join organizations o on o.id = ur.organization_id where ur.user_id = $1::uuid and r.code = 'agency' order by o.id limit 1",
+      "select o.id::text, o.slug, o.name
+         from user_roles ur
+         inner join roles r on r.id = ur.role_id
+         inner join organizations o on o.id = ur.organization_id and o.org_type = 'agency'
+        where ur.user_id = $1::uuid and r.code = 'agency'
+        order by ur.created_at desc nulls last, o.id
+        limit 1",
     )
     |> pog.parameter(pog.text(user_id))
     |> pog.returning(agency_context_row())

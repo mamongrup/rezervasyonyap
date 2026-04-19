@@ -109,7 +109,13 @@ fn require_agency_org(
 ) -> Result(#(String, String, String), Nil) {
   case
     pog.query(
-      "select o.id::text, o.slug, o.name from user_roles ur inner join roles r on r.id = ur.role_id inner join organizations o on o.id = ur.organization_id where ur.user_id = $1::uuid and r.code = 'agency' order by o.id limit 1",
+      "select o.id::text, o.slug, o.name
+         from user_roles ur
+         inner join roles r on r.id = ur.role_id
+         inner join organizations o on o.id = ur.organization_id and o.org_type = 'agency'
+        where ur.user_id = $1::uuid and r.code = 'agency'
+        order by ur.created_at desc nulls last, o.id
+        limit 1",
     )
     |> pog.parameter(pog.text(user_id))
     |> pog.returning(staff_org_row())
@@ -2876,6 +2882,41 @@ pub fn get_listing_attribute_values(
             }
           }
       }
+  }
+}
+
+/// GET /api/v1/public/listings/:id/attributes
+/// Vitrin tarafı — auth/scope yok. listing_meta hariç tüm öznitelik satırlarını döndürür.
+pub fn get_public_listing_attributes(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select group_code, key, value_json::text from listing_attributes where listing_id=$1::uuid and group_code != 'listing_meta'",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(attr_value_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "attr_values_query_failed")
+    Ok(ret) -> {
+      let rows =
+        list.map(ret.rows, fn(r) {
+          let #(gc, k, v) = r
+          json.object([
+            #("group_code", json.string(gc)),
+            #("key", json.string(k)),
+            #("value_json", json.string(v)),
+          ])
+        })
+      let body =
+        json.object([#("values", json.array(rows, fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
   }
 }
 
