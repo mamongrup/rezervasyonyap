@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node ./scripts/next-with-heap.mjs dev --webpack",
     "dev:turbo": "node ./scripts/next-with-heap.mjs dev --turbo",
-    "build": "node ./scripts/next-with-heap.mjs build --webpack",
+    "build": "node ./scripts/next-with-heap.mjs build",
+    "build:webpack": "node ./scripts/next-with-heap.mjs build --webpack",
     "start": "next start",
     "lint": "eslint .",
     "ensure-images": "node scripts/ensure-placeholder-images.mjs"
