@@ -229,6 +229,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       ? routeParams.locale
       : defaultLocale
 
+  const { allLocales, translateTargets, localeCodes, primaryLocale } = useManageAiLocaleRows()
+
   const [page, setPage] = useState<LocationPage | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
