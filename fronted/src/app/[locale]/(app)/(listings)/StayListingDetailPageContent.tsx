@@ -134,7 +134,21 @@ export default async function StayListingDetailPageContent({
     return redirect(await vitrinHref(locale, browse))
   }
 
-  const vertical = normalizeCatalogVertical(listing.listingVertical)
+  // `listingVertical` kayıtta varsa onu kullan; demo veride veya eski kayıtlarda
+  // boş kalabildiği için URL `linkBase`'inden de güvenli fallback üretiyoruz.
+  // Bu sayede otele özel bileşenler (HotelRoomShowcase / HotelPropertyInfoGrid)
+  // canonical /otel sayfasında her durumda görünür; yat ve tatil evi yine kendi
+  // dallarında kalır.
+  const verticalFromListing = normalizeCatalogVertical(listing.listingVertical)
+  const verticalFromUrl =
+    linkBase === HOLIDAY_HOME_DETAIL_PATH
+      ? 'holiday_home'
+      : linkBase === STAY_DETAIL_YACHT_PATH
+        ? 'yacht_charter'
+        : linkBase === STAY_DETAIL_HOTEL_PATH
+          ? 'hotel'
+          : undefined
+  const vertical = verticalFromListing ?? verticalFromUrl
   const canonicalPath = stayDetailPathForVertical(vertical)
   if (linkBase !== canonicalPath) {
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
@@ -825,10 +839,73 @@ export default async function StayListingDetailPageContent({
           )}
           {/* Oteller için Booking/ETStur tarzı oda kartı gösterimi; yat için
               mevcut özet tablosu korunur. Tatil evinde oda listesi yok. */}
-          {vertical === 'hotel' && realHotelRooms.length > 0 ? (
+          {vertical === 'hotel' ? (
             <HotelRoomShowcase
               locale={locale}
-              rooms={realHotelRooms}
+              rooms={
+                realHotelRooms.length > 0
+                  ? realHotelRooms
+                  : [
+                      // Gerçek hotel_rooms yoksa (vitrin demo akışı) eski tablodaki
+                      // 4 demo odayı zenginleştirilmiş yapıyla aynı bileşene besliyoruz
+                      // ki kart-grid görünümü her durumda görülebilsin.
+                      {
+                        id: 'demo-standard',
+                        name: dp.demoRoomStandard,
+                        capacity: 2,
+                        boardType: 'bed_breakfast',
+                        beds: 1,
+                        bedType: '1 çift kişilik yatak',
+                        sizeM2: 22,
+                        amenities: ['wifi', 'tv', 'air_conditioning', 'minibar'],
+                      },
+                      {
+                        id: 'demo-deluxe',
+                        name: dp.demoRoomDeluxe,
+                        capacity: 2,
+                        boardType: 'half_board',
+                        beds: 1,
+                        bedType: '1 king-size yatak',
+                        sizeM2: 28,
+                        amenities: [
+                          'wifi',
+                          'tv',
+                          'air_conditioning',
+                          'minibar',
+                          'safe',
+                          'balcony',
+                        ],
+                      },
+                      {
+                        id: 'demo-suite',
+                        name: dp.demoRoomSuite,
+                        capacity: 3,
+                        boardType: 'all_inclusive',
+                        beds: 2,
+                        bedType: '1 king + 1 tek',
+                        sizeM2: 42,
+                        amenities: [
+                          'wifi',
+                          'tv',
+                          'air_conditioning',
+                          'minibar',
+                          'safe',
+                          'balcony',
+                          'sea_view',
+                        ],
+                      },
+                      {
+                        id: 'demo-family',
+                        name: dp.demoRoomFamily,
+                        capacity: 4,
+                        boardType: 'full_board',
+                        beds: 2,
+                        bedType: '2 çift kişilik yatak',
+                        sizeM2: 38,
+                        amenities: ['wifi', 'tv', 'air_conditioning', 'kids_play_area'],
+                      },
+                    ]
+              }
               reservationAnchorId="stay-reservation-card"
               currencySymbol={
                 priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
