@@ -379,7 +379,6 @@ export default function PageBuilderRenderer({
 
           // ─── Marketing modülleri (admin içerikleri vitrinde) ────────────────
           case 'active_campaigns':
-            // @ts-expect-error Async Server Component — React 19 destekler
             return (
               <ActiveCampaignsModule
                 key={module.id}
@@ -389,7 +388,6 @@ export default function PageBuilderRenderer({
             )
 
           case 'early_booking_promo':
-            // @ts-expect-error Async Server Component
             return (
               <EarlyBookingPromoModule
                 key={module.id}
@@ -399,7 +397,6 @@ export default function PageBuilderRenderer({
             )
 
           case 'last_minute_promo':
-            // @ts-expect-error Async Server Component
             return (
               <LastMinutePromoModule
                 key={module.id}
@@ -409,7 +406,6 @@ export default function PageBuilderRenderer({
             )
 
           case 'coupons_strip':
-            // @ts-expect-error Async Server Component
             return (
               <CouponsStripModule
                 key={module.id}
@@ -419,7 +415,6 @@ export default function PageBuilderRenderer({
             )
 
           case 'holiday_packages':
-            // @ts-expect-error Async Server Component
             return (
               <HolidayPackagesModule
                 key={module.id}
@@ -429,7 +424,6 @@ export default function PageBuilderRenderer({
             )
 
           case 'cross_sell_widget':
-            // @ts-expect-error Async Server Component
             return (
               <CrossSellWidgetModule
                 key={module.id}
