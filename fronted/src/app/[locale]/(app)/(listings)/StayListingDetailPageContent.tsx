@@ -12,6 +12,7 @@ import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
 import {
   HOLIDAY_HOME_DETAIL_PATH,
+  STAY_DETAIL_HOTEL_PATH,
   STAY_DETAIL_YACHT_PATH,
   stayDetailPathForVertical,
   type StayDetailLinkBase,
