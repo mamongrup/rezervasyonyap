@@ -60,10 +60,10 @@ export interface PopupCampaignCard {
 }
 
 export interface PopupTargeting {
-  /** Sayfa anahtarları. `'*'` tüm sayfalar; aksi halde liste. */
-  pages: string[] | ['*']
-  /** Diller: `['*']` veya `['tr','en',...]` */
-  locales: string[] | ['*']
+  /** Sayfa anahtarları. Tek eleman `'*'` ise tüm sayfalar; aksi halde anahtar listesi. */
+  pages: string[]
+  /** Diller: `['*']` tüm diller veya `['tr','en',...]` */
+  locales: string[]
   device: PopupDevice
   audience: PopupAudience
 }
@@ -214,14 +214,14 @@ function sanitizeStringArray(value: unknown, maxItems = 50, maxLen = 96): string
     .map((v) => v.trim().toLowerCase().slice(0, maxLen))
 }
 
-function sanitizePages(value: unknown): string[] | ['*'] {
+function sanitizePages(value: unknown): string[] {
   if (Array.isArray(value) && value.length === 1 && value[0] === '*') return ['*']
   const arr = sanitizeStringArray(value)
   if (arr.length === 0 || arr.includes('*')) return ['*']
   return arr
 }
 
-function sanitizeLocales(value: unknown): string[] | ['*'] {
+function sanitizeLocales(value: unknown): string[] {
   if (Array.isArray(value) && value.length === 1 && value[0] === '*') return ['*']
   const arr = sanitizeStringArray(value, 50, 12)
   if (arr.length === 0 || arr.includes('*')) return ['*']
