@@ -6,8 +6,8 @@ import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
 export interface CrossSellWidgetConfig {
   title?: LocalizedText | string
   subheading?: LocalizedText | string
-  /** Tetikleyen kategori kodu (otel, ucak, tur vb.) */
-  triggerCategory: string
+  /** Tetikleyen kategori kodu (otel, ucak, tur vb.) — yoksa modül render edilmez */
+  triggerCategory?: string
   /** Maks. öneri sayısı */
   limit?: number
 }
