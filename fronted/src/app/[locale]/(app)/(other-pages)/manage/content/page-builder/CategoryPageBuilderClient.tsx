@@ -1569,6 +1569,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
       listings_slider: { title: 'İndirimli İlanlar', subheading: 'Özel fiyatlı seçenekler', filterMode: 'discounted', showTabs: false, count: 8, viewAllHref: `/${selectedSlug}/all`, viewAllLabel: 'Tümünü Gör' },
       categories_grid: { title: 'Destinasyonlar', layout: 'grid' },
       promo_banner: { title: 'Kampanya', description: '', ctaText: 'İncele', ctaHref: '#' },
+      sliders_banner: { pageKey: selectedSlug },
       text_block: { title: '', content: '', align: 'left' },
       image_text: { title: '', content: '', imageUrl: '', imagePosition: 'left' },
       stats: { title: '' },
