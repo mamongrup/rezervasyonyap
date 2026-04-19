@@ -1,10 +1,11 @@
 -- 209 sonrası yüklenmiş veritabanları: yönetici metinlerinde ürün dışı atıf kaldırıldı (TR/EN güncelleme).
 
+-- PostgreSQL: UPDATE hedef tablosu (tv) FROM zincirindeki JOIN koşullarında kullanılamaz;
+-- locale eşlemesi WHERE içinde yapılır.
 UPDATE translation_values AS tv
 SET value = x.new_val, updated_at = now()
 FROM translation_entries e
 JOIN translation_namespaces n ON n.id = e.namespace_id AND n.code = 'manage'
-JOIN locales l ON l.id = tv.locale_id
 JOIN (
   SELECT * FROM (VALUES
     ('admin.overview_summary_tools_desc', 'tr', '— diller, katalog, SEO / denetim kısayolları.'),
@@ -16,5 +17,7 @@ JOIN (
     ('admin.tools_cache_desc', 'tr', 'Tek tuşla tüm önbelleği silmek bu ortamda desteklenmiyor. Üretimde yeniden dağıtım, API yeniden başlatma veya CDN temizliği kullanın.'),
     ('admin.tools_cache_desc', 'en', 'A single “clear all caches” action is not available here. In production, use redeploy, API restart, or CDN purge.')
   ) AS t(key, loc, new_val)
-) AS x ON e.key = x.key AND lower(l.code) = lower(x.loc)
-WHERE tv.entry_id = e.id;
+) AS x ON e.key = x.key
+JOIN locales l ON lower(l.code) = lower(x.loc)
+WHERE tv.entry_id = e.id
+  AND tv.locale_id = l.id;
