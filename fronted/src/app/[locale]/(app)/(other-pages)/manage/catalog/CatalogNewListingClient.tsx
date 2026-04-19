@@ -16,6 +16,7 @@ import {
   patchListingPerks,
   putManageListingTranslations,
   patchListingBasics,
+  patchManageHotelDetails,
   putListingOwnerContact,
   putListingMeta,
   putVerticalMeta,
@@ -995,11 +996,13 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         }).catch(() => {})
       }
 
-      // Tur2: Otel yıldızı — listing_meta.star_rating üzerinden saklanır.
+      // Tur2: Otel yıldızı — `listing_hotel_details.star_rating` (PATCH /hotel-details).
       if (categoryCode === 'hotel' && starRating.trim()) {
         const star = Number.parseInt(starRating.trim(), 10)
         if (Number.isFinite(star) && star >= 1 && star <= 5) {
-          await putListingMeta(token, lid, { star_rating: star }).catch(() => {})
+          await patchManageHotelDetails(token, lid, { star_rating: String(star) }, orgParam).catch(
+            () => {},
+          )
         }
       }
 
