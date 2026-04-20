@@ -1,5 +1,10 @@
 import { ApplicationLayout } from '../(app)/application-layout'
 import { PageNavigation } from './PageNavigation'
+import { connection } from 'next/server'
+
+/** Hesap sayfaları build’de SSG ile takılmasın (aynı site config / API gecikmesi). */
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 export default async function Layout({
   children,
@@ -8,6 +13,7 @@ export default async function Layout({
   children?: React.ReactNode
   params: Promise<{ locale: string }>
 }) {
+  await connection()
   const { locale } = await params
   return (
     <ApplicationLayout locale={locale}>
