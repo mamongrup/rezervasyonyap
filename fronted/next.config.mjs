@@ -20,6 +20,8 @@ const extraImageHost =
     : []
 
 const nextConfig = {
+  /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
+  staticPageGenerationTimeout: 300,
   reactStrictMode: false,
   poweredByHeader: false,
   turbopack: {
