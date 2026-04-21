@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { resolveTranslatorTimeoutMs } from '@/lib/ai-upstream-timeouts'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
@@ -103,7 +104,7 @@ function maxTokensForContext(ctx: string): number {
 }
 
 async function userHasAdminTranslate(token: string): Promise<boolean> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
+  const apiBase = apiOriginForFetch()
   if (!apiBase) return false
   try {
     const r = await fetch(`${apiBase}/api/v1/auth/me`, {
@@ -121,7 +122,7 @@ async function userHasAdminTranslate(token: string): Promise<boolean> {
 async function resolveDeepseekConfig(
   token: string,
 ): Promise<{ apiKey: string; model: string; url: string; timeoutMs: number } | null> {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
+  const apiBase = apiOriginForFetch()
   let settings: Record<string, unknown> | null = null
   if (apiBase) {
     try {

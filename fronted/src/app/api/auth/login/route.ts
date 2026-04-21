@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { AUTH_COOKIE_NAME, authCookieOptions } from '@/lib/auth-cookie'
 import { recordAuthAttempt, isRateLimited, rateLimitRetryAfter } from '@/lib/auth-rate-limit'
 
@@ -12,7 +13,7 @@ import { recordAuthAttempt, isRateLimited, rateLimitRetryAfter } from '@/lib/aut
  * Ek olarak basit bir IP+email tabanlı rate-limit uygulanır.
  */
 export async function POST(req: NextRequest) {
-  const base = process.env.NEXT_PUBLIC_API_URL?.trim()
+  const base = apiOriginForFetch()
   if (!base) {
     return NextResponse.json({ error: 'NEXT_PUBLIC_API_URL_missing' }, { status: 500 })
   }
@@ -42,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   let upstream: Response
   try {
-    upstream = await fetch(`${base.replace(/\/$/, '')}/api/v1/auth/login`, {
+    upstream = await fetch(`${base}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: body.password }),

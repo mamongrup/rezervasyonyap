@@ -3,6 +3,7 @@
  *
  * İlan başlığına + koleksiyonlara göre autocomplete sonuçları döner.
  */
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { NextRequest, NextResponse } from 'next/server'
 
 export interface SearchSuggestion {
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ suggestions: [] })
   }
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? ''
+  const apiBase =
+    apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
 
   const suggestions: SearchSuggestion[] = []
 

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminCookie } from '@/lib/api-require-admin'
+import { apiOriginForFetch } from '@/lib/api-origin'
 
 export const dynamic = 'force-dynamic'
 
 function upstreamBase(): string {
-  return (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '')
+  return apiOriginForFetch()
 }
 
 async function proxyToBackend(req: NextRequest, id: string): Promise<NextResponse> {

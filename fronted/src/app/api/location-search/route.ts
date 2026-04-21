@@ -6,6 +6,7 @@
  * Türkiye'nin popüler şehirlerinden oluşan statik fallback döner.
  */
 
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { NextRequest, NextResponse } from 'next/server'
 
 export interface LocationSuggestion {
@@ -80,7 +81,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ suggestions: defaultSuggestions() })
   }
 
-  const apiBase = process.env.NEXT_PUBLIC_API_URL
+  const apiBase = apiOriginForFetch()
   if (!apiBase) {
     // API URL tanımlı değil — statik fallback
     return NextResponse.json({ suggestions: staticFallback(q) })

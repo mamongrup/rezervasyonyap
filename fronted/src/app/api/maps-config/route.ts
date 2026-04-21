@@ -1,10 +1,12 @@
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { NextResponse } from 'next/server'
 
 /** Returns Google Maps API key + default center from the backend site settings.
  *  This is intentionally public – the key is already visible in the browser
  *  when the map renders. Cache for 60 s on the edge. */
 export async function GET() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? ''
+  const apiBase =
+    apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
   if (!apiBase) {
     // Fall back to env-only key
     return NextResponse.json({

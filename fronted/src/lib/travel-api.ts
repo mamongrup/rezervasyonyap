@@ -3,10 +3,11 @@
  * PostgreSQL tabanlı backend; üretimde ortam değişkenleri ve güvenli anahtar yönetimi kullanın.
  */
 
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { parseLenientJson } from '@/lib/json-parse'
 
-const base = () => (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '')
+const base = () => apiOriginForFetch()
 
 async function json<T>(res: Response): Promise<T> {
   // Clone before reading: Next.js fetch deduplication may return the same

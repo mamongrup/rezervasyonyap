@@ -6,6 +6,7 @@ import {
   SITE_LOCALE_CATALOG,
   type PublicLocaleRow,
 } from '@/lib/i18n-catalog-locales'
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { parseLenientJson } from '@/lib/json-parse'
 import { cache } from 'react'
@@ -22,10 +23,10 @@ const FALLBACK: PublicLocaleRow[] = SITE_LOCALE_CATALOG.map((c) => ({
 }))
 
 export const fetchActiveLocales = cache(async function fetchActiveLocales(): Promise<PublicLocaleRow[]> {
-  const b = process.env.NEXT_PUBLIC_API_URL
+  const b = apiOriginForFetch()
   if (!b) return FALLBACK
   try {
-    const res = await fetch(`${b.replace(/\/$/, '')}/api/v1/i18n/locales`, {
+    const res = await fetch(`${b}/api/v1/i18n/locales`, {
       ...withDevNoStore({ next: { revalidate: 120 } }),
       signal: AbortSignal.timeout(I18N_FETCH_MS),
     })
@@ -60,11 +61,11 @@ export type LocalizedRouteApiRow = {
 
 /** Tüm diller — `GET /api/v1/i18n/localized-routes` (auth gerekmez). API boşsa statik yedek eklenir. */
 export const fetchLocalizedRoutes = cache(async function fetchLocalizedRoutes(): Promise<LocalizedRouteApiRow[]> {
-  const b = process.env.NEXT_PUBLIC_API_URL
+  const b = apiOriginForFetch()
   let routes: LocalizedRouteApiRow[] = []
   if (b) {
     try {
-      const res = await fetch(`${b.replace(/\/$/, '')}/api/v1/i18n/localized-routes`, {
+      const res = await fetch(`${b}/api/v1/i18n/localized-routes`, {
         ...withDevNoStore({ next: { revalidate: 120 } }),
         signal: AbortSignal.timeout(I18N_FETCH_MS),
       })

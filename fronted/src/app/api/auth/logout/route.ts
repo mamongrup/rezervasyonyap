@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { AUTH_COOKIE_NAME, authCookieClearOptions } from '@/lib/auth-cookie'
 
 /**
@@ -22,10 +23,10 @@ export async function POST() {
   jar.set(AUTH_COOKIE_NAME, '', authCookieClearOptions())
 
   if (token) {
-    const base = process.env.NEXT_PUBLIC_API_URL?.trim()
+    const base = apiOriginForFetch()
     if (base) {
       try {
-        await fetch(`${base.replace(/\/$/, '')}/api/v1/auth/session`, {
+        await fetch(`${base}/api/v1/auth/session`, {
           method: 'DELETE',
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
