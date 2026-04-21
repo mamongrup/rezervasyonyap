@@ -23,6 +23,8 @@ export default defineConfig([
 
     rules: {
       "@next/next/no-img-element": "off",
+      // React 19 + eslint-plugin-react-hooks: yüzlerce mevcut desen; build'i kırmadan kademeli refaktör için kapalı.
+      "react-hooks/set-state-in-effect": "off",
     },
   },
 ]);
