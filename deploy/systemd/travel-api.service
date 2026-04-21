@@ -1,0 +1,27 @@
+# Travel backend (Gleam/Erlang). Kurulum: /etc/systemd/system/travel-api.service
+# entrypoint.sh yalnızca "run" | "shell" kabul eder; "daemon" geçersizdir.
+#
+# Sunucuda:
+#   sudo cp deploy/systemd/travel-api.service /etc/systemd/system/travel-api.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart travel-api
+#   sudo systemctl status travel-api
+
+[Unit]
+Description=Travel Backend API (Erlang/Gleam)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/rezervasyonyap/backend/build/erlang-shipment
+EnvironmentFile=/etc/rezervasyonyap/backend.env
+ExecStart=/opt/rezervasyonyap/backend/build/erlang-shipment/entrypoint.sh run
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/travel-api.log
+StandardError=append:/var/log/travel-api.log
+
+[Install]
+WantedBy=multi-user.target
