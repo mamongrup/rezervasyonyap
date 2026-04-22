@@ -28,24 +28,43 @@ function loginUrl(req: NextRequest, pathname: string): URL {
  * ile birleşince `nextUrl` https://localhost:3000 olur ve dahili rewrite TLS ile HTTP
  * portuna bağlanır (`EPROTO` / packet length too long).
  *
- * Üretimde `INTERNAL_MIDDLEWARE_REWRITE_ORIGIN=http://127.0.0.1:3000` (PORT ile aynı)
- * vererek rewrite hedefini düz HTTP + loopback ile sabitleyin. Vercel vb. ortamda
- * tanımlamayın — yalnızca kendi VPS reverse proxy kurulumunuz için.
+ * - Açıkça: `INTERNAL_MIDDLEWARE_REWRITE_ORIGIN=http://127.0.0.1:3000` (PORT ile aynı).
+ * - Ayrıca üretimde Host loopback + `X-Forwarded-Proto: https` ise otomatik olarak
+ *   `http://127.0.0.1:$PORT` kullanılır (Plesk’te env unutulsa bile).
  */
 function rewriteTarget(request: NextRequest, pathname: string): URL {
+  const pathNorm = pathname.startsWith('/') ? pathname : `/${pathname}`
+  const search = request.nextUrl.search
+
   const originRaw = process.env.INTERNAL_MIDDLEWARE_REWRITE_ORIGIN?.trim()
   if (originRaw && process.env.NODE_ENV === 'production') {
     try {
       const origin = originRaw.includes('://') ? originRaw : `http://${originRaw}`
       const base = new URL(origin.endsWith('/') ? origin.slice(0, -1) : origin)
-      const path = pathname.startsWith('/') ? pathname : `/${pathname}`
-      return new URL(path + request.nextUrl.search, base)
+      return new URL(pathNorm + search, base)
     } catch {
-      /* yut — aşağıdaki varsayılan */
+      /* aşağıya düş */
     }
   }
+
+  if (process.env.NODE_ENV === 'production') {
+    const rawHost = request.headers.get('host')?.toLowerCase() ?? ''
+    const loopbackHost =
+      rawHost === 'localhost' ||
+      rawHost.startsWith('localhost:') ||
+      rawHost === '127.0.0.1' ||
+      rawHost.startsWith('127.0.0.1:') ||
+      rawHost === '[::1]' ||
+      rawHost.startsWith('[::1]:')
+    const xfProto = request.headers.get('x-forwarded-proto')?.toLowerCase()
+    if (loopbackHost && xfProto === 'https') {
+      const port = process.env.PORT?.trim() || '3000'
+      return new URL(pathNorm + search, `http://127.0.0.1:${port}`)
+    }
+  }
+
   const url = request.nextUrl.clone()
-  url.pathname = pathname
+  url.pathname = pathNorm
   return url
 }
 
