@@ -23,6 +23,32 @@ function loginUrl(req: NextRequest, pathname: string): URL {
   return url
 }
 
+/**
+ * Apache/nginx bazen arka uca `Host: localhost:3000` gönderir; `X-Forwarded-Proto: https`
+ * ile birleşince `nextUrl` https://localhost:3000 olur ve dahili rewrite TLS ile HTTP
+ * portuna bağlanır (`EPROTO` / packet length too long).
+ *
+ * Üretimde `INTERNAL_MIDDLEWARE_REWRITE_ORIGIN=http://127.0.0.1:3000` (PORT ile aynı)
+ * vererek rewrite hedefini düz HTTP + loopback ile sabitleyin. Vercel vb. ortamda
+ * tanımlamayın — yalnızca kendi VPS reverse proxy kurulumunuz için.
+ */
+function rewriteTarget(request: NextRequest, pathname: string): URL {
+  const originRaw = process.env.INTERNAL_MIDDLEWARE_REWRITE_ORIGIN?.trim()
+  if (originRaw && process.env.NODE_ENV === 'production') {
+    try {
+      const origin = originRaw.includes('://') ? originRaw : `http://${originRaw}`
+      const base = new URL(origin.endsWith('/') ? origin.slice(0, -1) : origin)
+      const path = pathname.startsWith('/') ? pathname : `/${pathname}`
+      return new URL(path + request.nextUrl.search, base)
+    } catch {
+      /* yut — aşağıdaki varsayılan */
+    }
+  }
+  const url = request.nextUrl.clone()
+  url.pathname = pathname
+  return url
+}
+
 function applyFirstSegmentAlias(pathname: string, locLower: string): string {
   const segments = pathname.split('/').filter(Boolean)
   if (segments.length < 2) return pathname
@@ -64,9 +90,7 @@ export function proxy(request: NextRequest) {
   // Dahili olarak her zaman `/api/...` route handler'a yönlendir.
   const localeThenApi = pathname.match(/^\/([a-z]{2}(?:-[a-z0-9]+)?)\/(api(?:\/|$).*)$/i)
   if (localeThenApi) {
-    const url = request.nextUrl.clone()
-    url.pathname = `/${localeThenApi[2]}`
-    return NextResponse.rewrite(url)
+    return NextResponse.rewrite(rewriteTarget(request, `/${localeThenApi[2]}`))
   }
 
   if (isProtected(pathname)) {
@@ -110,10 +134,8 @@ export function proxy(request: NextRequest) {
       const canonical = aliasMap?.[key]
       if (canonical && canonical !== rest[0]) {
         const tail = rest.slice(1)
-        const url = request.nextUrl.clone()
         const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
-        url.pathname = `/${first}${mid}`
-        return NextResponse.rewrite(url)
+        return NextResponse.rewrite(rewriteTarget(request, `/${first}${mid}`))
       }
     }
     return NextResponse.next()
@@ -129,11 +151,9 @@ export function proxy(request: NextRequest) {
   }
 
   // Dil segmenti yok: `/`, `/blog` → içeride `/tr`, `/tr/blog` (+ alias)
-  const url = request.nextUrl.clone()
   const suffix = pathname === '/' ? '' : pathname
-  url.pathname = `/${defaultLocale}${suffix}`
-  url.pathname = applyFirstSegmentAlias(url.pathname, def)
-  return NextResponse.rewrite(url)
+  const pathOut = applyFirstSegmentAlias(`/${defaultLocale}${suffix}`, def)
+  return NextResponse.rewrite(rewriteTarget(request, pathOut))
 }
 
 export const config = {
