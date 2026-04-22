@@ -8,11 +8,11 @@ Bu dosya, bu repoda yapılan veya tartışılan işleri **sonraki agent / geliş
 
 | Konum | Rol |
 |--------|-----|
-| `travel/` | Monorepo kökü; `package.json` + **npm workspaces** (`fronted`) |
-| `travel/fronted/` | Next.js 16 uygulaması (`chisfis-template`), asıl `node_modules` burada |
+| `travel/` | Monorepo kökü; `package.json` + **npm workspaces** (`frontend`) |
+| `travel/frontend/` | Next.js 16 uygulaması (`chisfis-template`), asıl `node_modules` burada |
 | `travel/backend/` | Gleam API |
 
-**Önemli:** IDE veya Next bazen çözümlemeyi `C:\laragon\www\travel` kökünden yapar. Kökte `npm install` (workspaces + kök `devDependencies` içinde `tailwindcss`, `@tailwindcss/postcss`) ve/veya `fronted/next.config.mjs` içindeki `turbopack.root` / `resolveAlias` ayarları bu yüzden eklendi.
+**Önemli:** IDE veya Next bazen çözümlemeyi `C:\laragon\www\travel` kökünden yapar. Kökte `npm install` (workspaces + kök `devDependencies` içinde `tailwindcss`, `@tailwindcss/postcss`) ve/veya `frontend/next.config.mjs` içindeki `turbopack.root` / `resolveAlias` ayarları bu yüzden eklendi.
 
 ---
 
@@ -38,17 +38,17 @@ Bu dosya, bu repoda yapılan veya tartışılan işleri **sonraki agent / geliş
 
 **Projede yapılan / korunması gerekenler:**
 
-- `fronted/postcss.config.mjs`: `@tailwindcss/postcss` için **`base: __dirname`** (fronted kökü).
-- `fronted/next.config.mjs`: `turbopack.root`, gerekirse `resolveAlias`, webpack `resolve.modules` / `alias`.
-- `fronted/src/styles/tailwind.css`: Tailwind v4 sözdizimi (`@import "tailwindcss"`, `@plugin`, …); göreli `node_modules` yolları **kırılgandır** — paket sürümü/kurulum doğruysa paket adıyla import tercih edilir.
+- `frontend/postcss.config.mjs`: `@tailwindcss/postcss` için **`base: __dirname`** (frontend kökü).
+- `frontend/next.config.mjs`: `turbopack.root`, gerekirse `resolveAlias`, webpack `resolve.modules` / `alias`.
+- `frontend/src/styles/tailwind.css`: Tailwind v4 sözdizimi (`@import "tailwindcss"`, `@plugin`, …); göreli `node_modules` yolları **kırılgandır** — paket sürümü/kurulum doğruysa paket adıyla import tercih edilir.
 - Kök `package.json`: `workspaces` + kök `devDependencies` (`tailwindcss`, `@tailwindcss/postcss`) — üst dizinden modül arayan araçlar için.
-- `fronted/scripts/next-with-heap.mjs`: `next` binary’sini `require.resolve` ile bulur; **8GB heap** ile çalıştırır (büyük derleme için).
+- `frontend/scripts/next-with-heap.mjs`: `next` binary’sini `require.resolve` ile bulur; **8GB heap** ile çalıştırır (büyük derleme için).
 
 ---
 
 ## 5. `npm run dev` / takılma / localhost
 
-- Uzun süre **`Compiling /[locale]`**: `fronted/src/lib/i18n-server.ts` içinde API `fetch` için **`AbortSignal.timeout(8000)`** — backend kapalıyken sonsuz bekleme yok, fallback locale listesi.
+- Uzun süre **`Compiling /[locale]`**: `frontend/src/lib/i18n-server.ts` içinde API `fetch` için **`AbortSignal.timeout(8000)`** — backend kapalıyken sonsuz bekleme yok, fallback locale listesi.
 - Varsayılan dev: **`--webpack`** (Turbopack bazen Windows’ta uzun süre derlemede kalıyor); hızlı deneme: `npm run dev:turbo`.
 - `ERR_CONNECTION_REFUSED`: süreç gerçekten dinliyor mu, port 3000, güvenlik duvarı; derleme 500 veriyorsa önce CSS/TS hatasını gider.
 
@@ -62,8 +62,8 @@ Bu dosya, bu repoda yapılan veya tartışılan işleri **sonraki agent / geliş
 
 ## 7. VS Code / terminal
 
-- `travel/.vscode/settings.json`: workspace kökü `travel` iken yeni terminalin varsayılanı `fronted` (isteğe bağlı).
-- Komutlar: kökten `npm run dev` veya `cd fronted` → `npm run dev`.
+- `travel/.vscode/settings.json`: workspace kökü `travel` iken yeni terminalin varsayılanı `frontend` (isteğe bağlı).
+- Komutlar: kökten `npm run dev` veya `cd frontend` → `npm run dev`.
 
 ---
 
@@ -87,8 +87,8 @@ Bu bölüm, `travel - Kopya` yedeğindeki agent özetleri ana repoya alındıkta
 | Konu | Dosya / yer | Not |
 |------|-------------|-----|
 | **Site ayarları kaydı `upsert_failed`** | `backend/src/travel/site/site_settings_http.gleam` | Platform geneli (`organization_id` NULL) satırlar için `ON CONFLICT (organization_id, key)` PostgreSQL’de partial unique index ile uyumsuzdu. **Çözüm:** NULL için ayrı sorgu: `ON CONFLICT (key) WHERE organization_id IS NULL`. |
-| **Admin hash anchor’lar** | `fronted/.../manage/admin/AdminManageClient.tsx` | `#admin-seo-block`, `#admin-access-block` vb. **sayfa:** `/manage/admin/manage` (dashboard `/manage/admin` değil). `manageAdminHref` ve araçlar kartları buna göre; eksik `id="admin-*-block"` div’leri eklendi. |
-| **Denetim günlüğü URL** | `fronted/.../manage/audit-log/page.tsx` | Gerçek audit tablosu `admin/manage` içinde; rota **sunucu yönlendirmesi** ile oraya. |
+| **Admin hash anchor’lar** | `frontend/.../manage/admin/AdminManageClient.tsx` | `#admin-seo-block`, `#admin-access-block` vb. **sayfa:** `/manage/admin/manage` (dashboard `/manage/admin` değil). `manageAdminHref` ve araçlar kartları buna göre; eksik `id="admin-*-block"` div’leri eklendi. |
+| **Denetim günlüğü URL** | `frontend/.../manage/audit-log/page.tsx` | Gerçek audit tablosu `admin/manage` içinde; rota **sunucu yönlendirmesi** ile oraya. |
 | **Çift analitik ayar** | `admin/analytics` | GA/GTM zaten **Ayarlar → Google** sekmesinde; sayfa yönlendirme + menü tekrarı kaldırıldı. |
 
 **Cursor agent transcript’leri** proje kökünde değil; Cursor’un workspace storage’ında (`…/agent-transcripts/*.jsonl`). Sohbet yedeği bu repoda yoksa yalnızca bu `.md` dosyaları kalıcı referanstır.

@@ -2,7 +2,7 @@
 
 **Referans (v1):** Booking Core / Laravel tabanlı ürün — özellik seti ve iş akışları için kaynak; **kopya değil**, veri modeli ve API tasarımında daha kontrollü bir çekirdek hedeflenir.
 
-**Hedef (v2):** Bu repodaki mimari — PostgreSQL modüller (`priv/sql/modules/`), Gleam API, Next.js (`fronted`), modüler genişleme.
+**Hedef (v2):** Bu repodaki mimari — PostgreSQL modüller (`priv/sql/modules/`), Gleam API, Next.js (`frontend`), modüler genişleme.
 
 **Nasıl kullanılır:** Aşağıdaki kutular ilerleme takibi içindir. Her faz, bağımlılıkları azaltacak şekilde sıralanmıştır.
 
@@ -52,7 +52,7 @@
 ### 1. Sınırsız dil
 
 - [x] **G1** Çeviri anahtarları ve bundle API — `030_i18n` (tam içerik yönetimi G1.1 ile)
-- [x] **G1.1** Yönetim arayüzü: dil ekleme, çeviri import/export — fronted `/manage/i18n`
+- [x] **G1.1** Yönetim arayüzü: dil ekleme, çeviri import/export — frontend `/manage/i18n`
 - [x] **G1.2** Next.js `app/[locale]`, middleware (`/` → `/tr/...`), `alternates.languages` + `buildLocaleAlternates` (blog örneği); CMS `localized_routes` API ile tam URL eşlemesi ayrı ince ayar
 
 ### 2. Sınırsız para birimi + MB kuru
@@ -63,9 +63,9 @@
 ### 3. Üyelik sistemi
 
 - [x] **G3.0** Roller (katalog + oturumdaki atamalar): `GET /api/v1/roles`, `GET /api/v1/auth/me` içinde `roles[]` + **`permissions[]`** (etkin izin kodları) — `020_identity_membership` + **`189_identity_permissions_matrix`** (RBAC panelleri **G3.4–G3.5**)
-- [x] **G3.1** Müşteri: `POST` kayıt/giriş, `GET/PATCH /api/v1/auth/me`, `GET /api/v1/reservations/mine` (user_id veya misafir e-posta); checkout `reservations.user_id` ← sepet `user_id`; fronted `/login`, `/signup`, `/account` (token `localStorage`, profil + rezervasyon listesi)
+- [x] **G3.1** Müşteri: `POST` kayıt/giriş, `GET/PATCH /api/v1/auth/me`, `GET /api/v1/reservations/mine` (user_id veya misafir e-posta); checkout `reservations.user_id` ← sepet `user_id`; frontend `/login`, `/signup`, `/account` (token `localStorage`, profil + rezervasyon listesi)
 - [ ] **G3.2** Acente: API anahtarları + rezervasyon listesi + **`GET …/sales-summary`** + **`GET …/commission-accruals`** + **`GET …/persisted-commission-accruals`** + **`GET …/invoices`** (liste + `created_at`) + **`GET …/invoices/:id`** (başlık + satır kalemleri) + **`POST …/invoices/preview`** + **`POST …/invoices`** (iç komisyon faturası; `190_agency_invoices`, önek `AGC-`) + **`GET …/browse-listings`**; `GET /agent/*` aynı özet; checkout `agency_organization_id`; `/manage/agency` + **`/manage/agency/sales`** — *eksik:* **e-fatura / e-arşiv** (GİB vb.) dış entegrasyonu
-- [ ] **G3.3** Tedarikçi: ilan bazlı komisyon, öne çıkarma katmanları (reklam / kategori / anasayfa) için **oran kuralları** ve faturalama — *kısmi (2026-04):* `GET /api/v1/supplier/me|listings|agency-commissions|promotion-fee-rules|commission-accruals|persisted-commission-accruals` + **`GET …/invoices`** (liste + `created_at`) + **`GET …/invoices/:id`** + **`POST …/invoices/preview`** + **`POST …/invoices`** (iç komisyon faturası; `191_supplier_invoices`, önek `SPR-`) + `188_commission_accrual_lines.sql` + fronted `/manage/supplier` — *eksik:* ilan düzenleme UI, **e-fatura / e-arşiv** dış entegrasyonu
+- [ ] **G3.3** Tedarikçi: ilan bazlı komisyon, öne çıkarma katmanları (reklam / kategori / anasayfa) için **oran kuralları** ve faturalama — *kısmi (2026-04):* `GET /api/v1/supplier/me|listings|agency-commissions|promotion-fee-rules|commission-accruals|persisted-commission-accruals` + **`GET …/invoices`** (liste + `created_at`) + **`GET …/invoices/:id`** + **`POST …/invoices/preview`** + **`POST …/invoices`** (iç komisyon faturası; `191_supplier_invoices`, önek `SPR-`) + `188_commission_accrual_lines.sql` + frontend `/manage/supplier` — *eksik:* ilan düzenleme UI, **e-fatura / e-arşiv** dış entegrasyonu
 - [ ] **G3.4** Personel, **G3.5** Yönetici: yetki matrisi (RBAC), denetim günlüğü — *kısmi (2026-04):* **`GET /api/v1/staff/me|reservations`** (izin: `staff.*`) + `/manage/staff`; `audit_log` + `admin/*` (izin: `admin.users.read`, `admin.roles.read`, …) + **`GET/POST /api/v1/admin/permissions`**, **`GET/POST /api/v1/admin/role-permissions`** (matris) + `/manage/admin` — *UI’da matris ekranı isteğe bağlı*
 
 #### G3.x — RBAC izin rehberi (özet)
@@ -80,7 +80,7 @@
   - `agency` → `agency.portal`
   - `supplier` → `supplier.portal`
 - **Komisyon faturaları (`commission_accrual_lines`):** Acente ve tedarikçi faturaları ayrı kolonlarla bağlanır (`agency_invoice_id`, `supplier_invoice_id`). Aynı tahakkuk satırı her iki tarafta da ayrı faturalanabilir; tek tarafta kilitleme istenirse uygulama kuralı veya DB kısıtı ayrıca tanımlanmalıdır.
-- **Önerilen paketler (fronted `admin-permission-presets.ts`)**:
+- **Önerilen paketler (frontend `admin-permission-presets.ts`)**:
   - `super_admin`: tüm `admin.*`
   - `rbac_admin`: yalnız izin katalogu + matris (`admin.permissions.*`)
   - `support_admin`: kullanıcı/rol okuma + audit (`admin.users.read`, `admin.roles.read`, `admin.audit.read`)
@@ -89,7 +89,7 @@
 
 - [x] **G4.1** PayTR iFrame token + Bildirim URL (hash, ödeme kaydı, rezervasyon onayı) — *backend*
 - [x] **G4.2** Paratika: session token + RETURNURL + bildirim — *backend* (`paratika_http`, `paratika_notify`)
-- [x] **G4.3** “Aktif gateway” — `POST /api/v1/payments/active-provider` + fronted `/manage/general-settings`
+- [x] **G4.3** “Aktif gateway” — `POST /api/v1/payments/active-provider` + frontend `/manage/general-settings`
 
 ### 5. Sosyal medya paylaşımı
 
@@ -98,7 +98,7 @@
 ### 6. Medya: AVIF, editör, sıralama
 
 - [ ] **G6** Pipeline: yükleme → dönüştürme → CDN anahtarı — `090_media_cdn`
-- [ ] **G6.1** Fotoğraf editörü (kırpma/filtre) — fronted bileşeni + kayıt
+- [ ] **G6.1** Fotoğraf editörü (kırpma/filtre) — frontend bileşeni + kayıt
 - [ ] **G6.2** Sürükle-bırak ve alfabetik sıra — `listing_images` veya medya tablosu
 
 ### 7. SEO
@@ -117,7 +117,7 @@
 
 ### 10–14. Harita, header/footer, popup, anasayfa sırası, iCal offset
 
-- [x] **G10** Google Maps — API anahtarı + varsayılan merkez/zoom (`site_settings.maps`, fronted `/manage/general-settings`)
+- [x] **G10** Google Maps — API anahtarı + varsayılan merkez/zoom (`site_settings.maps`, frontend `/manage/general-settings`)
 - [x] **G11** Header/footer — `site_settings.ui` (`header_html` / `footer_html`) aynı sayfada; görsel sürükle-bırak builder yok
 - [ ] **G12** Popup kampanya / çerez — `130` + KVKK metni
 - [ ] **G13** Anasayfa blok sırası — `130`

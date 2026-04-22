@@ -10,7 +10,7 @@ git pull
 
 (cd "$APP_ROOT/backend" && gleam build)
 
-(cd "$APP_ROOT/fronted" && npm ci && npm run build)
+(cd "$APP_ROOT/frontend" && npm ci && npm run build)
 
 # root değilsen: sudo systemctl restart travel-api travel-web
 systemctl restart travel-api travel-web

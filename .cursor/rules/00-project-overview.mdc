@@ -8,7 +8,7 @@ alwaysApply: true
 Bu repo iki ana parçadan oluşur:
 
 - `backend/` — **Gleam** (wisp + pog + mist). HTTP modülleri `backend/src/travel/<domain>/<modul>_http.gleam`. Router tek noktada: `backend/src/backend/router.gleam`.
-- `fronted/` — Next.js (App Router, RSC + client components). API çağrıları **tek dosyada** toplanır: `fronted/src/lib/travel-api.ts`.
+- `frontend/` — Next.js (App Router, RSC + client components). API çağrıları **tek dosyada** toplanır: `frontend/src/lib/travel-api.ts`.
 
 ## Veritabanı
 

@@ -41,7 +41,7 @@ try {
   nextBin = require.resolve('next/dist/bin/next')
 } catch {
   console.error(
-    '[next-with-heap] `next` paketi bulunamadı. Kök dizinde (travel) veya fronted içinde `npm install` çalıştırın.',
+    '[next-with-heap] `next` paketi bulunamadı. Kök dizinde (travel) veya frontend içinde `npm install` çalıştırın.',
   )
   process.exit(1)
 }

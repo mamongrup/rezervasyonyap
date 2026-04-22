@@ -1,6 +1,6 @@
 ---
 description: Next.js frontend kuralları (App Router, RSC, travel-api)
-globs: fronted/**/*.{ts,tsx}
+globs: frontend/**/*.{ts,tsx}
 alwaysApply: false
 ---
 
@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## API çağrıları
 
-- **Tüm** backend çağrıları `fronted/src/lib/travel-api.ts` üzerinden geçer.
+- **Tüm** backend çağrıları `frontend/src/lib/travel-api.ts` üzerinden geçer.
   - Yeni domain ekliyorsan: `type X`, `getX`, `patchX`, `createX`, `deleteX` fn'leri burada toplu.
   - Sayfa/komponent içinden doğrudan `fetch('/api/v1/...')` **YAZMA**.
 - API base: `process.env.NEXT_PUBLIC_API_URL`. `base()` helper'ı yoksa `NEXT_PUBLIC_API_URL_missing` fırlat.

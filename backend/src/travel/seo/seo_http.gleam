@@ -573,7 +573,7 @@ fn sitemap_row_decoder() -> decode.Decoder(#(String, String, String, String)) {
   decode.success(#(k, slug, oid, cat))
 }
 
-/// Next.js App Router ilk segmenti — `fronted/src/lib/listing-detail-routes.ts` ile aynı anahtarlar.
+/// Next.js App Router ilk segmenti — `frontend/src/lib/listing-detail-routes.ts` ile aynı anahtarlar.
 fn listing_detail_path_prefix(category_code: String) -> String {
   let c =
     category_code

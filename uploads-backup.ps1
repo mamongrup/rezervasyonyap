@@ -7,7 +7,7 @@ param(
     [switch]$Restore
 )
 
-$uploadsDir = "$PSScriptRoot\fronted\public\uploads"
+$uploadsDir = "$PSScriptRoot\frontend\public\uploads"
 $backupDir  = "$PSScriptRoot\..\travel-uploads-backup"   # repo dışında
 $timestamp  = Get-Date -Format "yyyy-MM-dd_HH-mm"
 

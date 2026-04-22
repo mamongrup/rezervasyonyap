@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const config = {
   plugins: {
     '@tailwindcss/postcss': {
-      // cwd bazen repo kökü (travel) oluyor; tarama ve çözümleme fronted’e sabitlensin
+      // cwd bazen repo kökü (travel) oluyor; tarama ve çözümleme frontend’e sabitlensin
       base: __dirname,
     },
   },

@@ -1,26 +1,26 @@
-# sync-fronted-uploads-to-server.ps1
-# Yerel fronted/public/uploads -> sunucuda .../fronted/public/uploads (scp -r)
+# sync-frontend-uploads-to-server.ps1
+# Yerel frontend/public/uploads -> sunucuda .../frontend/public/uploads (scp -r)
 #
 # Gereksinim: Windows OpenSSH İstemcisi (scp). Ayarlar -> Uygulamalar -> İsteğe bağlı özellikler.
 #
 # Örnek:
-#   .\scripts\sync-fronted-uploads-to-server.ps1 -Server 50.114.185.100 -User root
-#   .\scripts\sync-fronted-uploads-to-server.ps1 -Server 50.114.185.100 -User root -Port 22
+#   .\scripts\sync-frontend-uploads-to-server.ps1 -Server 50.114.185.100 -User root
+#   .\scripts\sync-frontend-uploads-to-server.ps1 -Server 50.114.185.100 -User root -Port 22
 #
-# İlk seferde sunucuda: mkdir -p /opt/rezervasyonyap/fronted/public/uploads
+# İlk seferde sunucuda: mkdir -p /opt/rezervasyonyap/frontend/public/uploads
 
 param(
     [Parameter(Mandatory = $true)]
     [string]$Server,
     [string]$User = 'root',
     [int]$Port = 22,
-    [string]$RemotePublicParent = '/opt/rezervasyonyap/fronted/public'
+    [string]$RemotePublicParent = '/opt/rezervasyonyap/frontend/public'
 )
 
 $ErrorActionPreference = 'Stop'
 
 $travelRoot = Split-Path -Parent $PSScriptRoot
-$localUploads = Join-Path $travelRoot 'fronted\public\uploads'
+$localUploads = Join-Path $travelRoot 'frontend\public\uploads'
 
 if (-not (Test-Path $localUploads)) {
     Write-Error "Yerel klasör yok: $localUploads"

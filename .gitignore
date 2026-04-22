@@ -1,10 +1,10 @@
 # dependencies
 node_modules/
-fronted/node_modules/
+frontend/node_modules/
 backend/node_modules/
 
 # build caches
-fronted/.next/
+frontend/.next/
 backend/.next/
 dist/
 build/
@@ -29,4 +29,4 @@ pnpm-debug.log*
 desktop-tutorial/
 
 # Panelden yüklenen görseller (yerel disk; GitHub’a ve üretim deploy’a taşınmamalı)
-fronted/public/uploads/
+frontend/public/uploads/
