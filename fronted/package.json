@@ -31,11 +31,11 @@
     "@tiptap/pm": "^3.22.3",
     "@tiptap/react": "^3.22.3",
     "@tiptap/starter-kit": "^3.22.3",
+    "@types/lodash": "^4.17.13",
     "@types/node": "20.9.2",
     "@types/react": "19.2.14",
     "@types/react-datepicker": "^4.19.6",
     "@types/react-dom": "19.2.3",
-    "@types/lodash": "^4.17.13",
     "chisfis-template": "file:",
     "class-variance-authority": "^0.7.1",
     "client-only": "^0.0.1",
@@ -68,7 +68,6 @@
     "typescript": "^5.2.2"
   },
   "devDependencies": {
-    "@types/sanitize-html": "^2.16.0",
     "prettier": "^3.3.2",
     "prettier-plugin-organize-imports": "^4.0.0",
     "prettier-plugin-tailwindcss": "^0.6.11"
