@@ -4,12 +4,9 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 const AUTH_COOKIE = 'travel_auth_token'
-const INTERNAL_REWRITE_MARKER = 'x-travel-internal-rewrite'
 
-function rewriteResponse(request: NextRequest, target: URL): NextResponse {
-  const headers = new Headers(request.headers)
-  headers.set(INTERNAL_REWRITE_MARKER, '1')
-  return NextResponse.rewrite(target, { request: { headers } })
+function rewriteResponse(_request: NextRequest, target: URL): NextResponse {
+  return NextResponse.rewrite(target)
 }
 
 const PROTECTED: RegExp[] = [
@@ -31,15 +28,26 @@ function loginUrl(req: NextRequest, pathname: string): URL {
 }
 
 /**
- * Dahili rewrite hedefi same-origin (`nextUrl.clone()`) olmalı; aksi halde Next dış
- * HTTP fetch yapar ve kendi middleware'ine geri döner → 308 redirect döngüsü.
+ * Next.js 16 edge middleware + reverse proxy senaryosunda rewrite hedefinin
+ * origin'i istek origin'iyle birebir aynı olmalı. Apache `ProxyPreserveHost On`
+ * ile `request.nextUrl.origin` = `https://rezervasyonyap.tr` olur; Next standalone
+ * server bunu *external* rewrite sayıp client'a 307 + `location: /tr` döndürür
+ * (client yeni istek başlatır → ekstra redirect mantığı ile döngü).
  *
- * Apache `ProxyPreserveHost On` ile Host = gerçek domain gelir; loopback/EPROTO
- * senaryosu oluşmaz. Proxy düzgün yapılandırıldığında ek bir origin zorlaması
- * gerekmez.
+ * `INTERNAL_MIDDLEWARE_REWRITE_ORIGIN` (örn. `http://127.0.0.1:3000`) tanımlıysa
+ * rewrite hedefini loopback origin'e sabitleyerek aynı isteği *internal* olarak
+ * çözmesini sağlar (200 + gerçek içerik).
  */
 function rewriteTarget(request: NextRequest, pathname: string): URL {
   const pathNorm = pathname.startsWith('/') ? pathname : `/${pathname}`
+  const forcedOrigin = process.env.INTERNAL_MIDDLEWARE_REWRITE_ORIGIN
+  if (forcedOrigin) {
+    const url = new URL(pathNorm, forcedOrigin)
+    for (const [k, v] of request.nextUrl.searchParams.entries()) {
+      url.searchParams.append(k, v)
+    }
+    return url
+  }
   const url = request.nextUrl.clone()
   url.pathname = pathNorm
   return url
@@ -137,17 +145,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // /tr veya /tr/... — önek olmayan kanonik URL'ye yönlendir
-  // İç rewrite'tan gelen istekte bu bloğu atla (aksi halde `/` ⇄ `/tr` döngüsü).
+  // /tr veya /tr/... — **redirect YOK**. Next.js 16 standalone/edge middleware
+  // kombinasyonunda `/tr → /` 308'i, `/ → /tr` internal rewrite'ıyla döngü
+  // yaratıyor (bkz. vercel/next.js#91844). Duplicate URL riskini SEO tarafında
+  // `<link rel="canonical">` ile hallediyoruz; burada hiçbir şey yapmıyoruz.
   if (first && isAppLocale(first) && first.toLowerCase() === def) {
-    if (request.headers.get(INTERNAL_REWRITE_MARKER) === '1') {
-      return NextResponse.next()
-    }
-    const rest = segments.slice(1)
-    const newPath = rest.length === 0 ? '/' : '/' + rest.join('/')
-    const url = request.nextUrl.clone()
-    url.pathname = newPath
-    return NextResponse.redirect(url, 308)
+    return NextResponse.next()
   }
 
   // Dil segmenti yok: `/`, `/blog` → içeride `/tr`, `/tr/blog` (+ alias)
