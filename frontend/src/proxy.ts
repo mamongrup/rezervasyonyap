@@ -4,6 +4,13 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 
 const AUTH_COOKIE = 'travel_auth_token'
+const INTERNAL_REWRITE_MARKER = 'x-travel-internal-rewrite'
+
+function rewriteResponse(request: NextRequest, target: URL): NextResponse {
+  const headers = new Headers(request.headers)
+  headers.set(INTERNAL_REWRITE_MARKER, '1')
+  return NextResponse.rewrite(target, { request: { headers } })
+}
 
 const PROTECTED: RegExp[] = [
   /^\/manage(\/|$)/,
@@ -79,7 +86,7 @@ export function proxy(request: NextRequest) {
   // Dahili olarak her zaman `/api/...` route handler'a yönlendir.
   const localeThenApi = pathname.match(/^\/([a-z]{2}(?:-[a-z0-9]+)?)\/(api(?:\/|$).*)$/i)
   if (localeThenApi) {
-    return NextResponse.rewrite(rewriteTarget(request, `/${localeThenApi[2]}`))
+    return rewriteResponse(request, rewriteTarget(request, `/${localeThenApi[2]}`))
   }
 
   if (isProtected(pathname)) {
@@ -124,14 +131,18 @@ export function proxy(request: NextRequest) {
       if (canonical && canonical !== rest[0]) {
         const tail = rest.slice(1)
         const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
-        return NextResponse.rewrite(rewriteTarget(request, `/${first}${mid}`))
+        return rewriteResponse(request, rewriteTarget(request, `/${first}${mid}`))
       }
     }
     return NextResponse.next()
   }
 
   // /tr veya /tr/... — önek olmayan kanonik URL'ye yönlendir
+  // İç rewrite'tan gelen istekte bu bloğu atla (aksi halde `/` ⇄ `/tr` döngüsü).
   if (first && isAppLocale(first) && first.toLowerCase() === def) {
+    if (request.headers.get(INTERNAL_REWRITE_MARKER) === '1') {
+      return NextResponse.next()
+    }
     const rest = segments.slice(1)
     const newPath = rest.length === 0 ? '/' : '/' + rest.join('/')
     const url = request.nextUrl.clone()
@@ -142,7 +153,7 @@ export function proxy(request: NextRequest) {
   // Dil segmenti yok: `/`, `/blog` → içeride `/tr`, `/tr/blog` (+ alias)
   const suffix = pathname === '/' ? '' : pathname
   const pathOut = applyFirstSegmentAlias(`/${defaultLocale}${suffix}`, def)
-  return NextResponse.rewrite(rewriteTarget(request, pathOut))
+  return rewriteResponse(request, rewriteTarget(request, pathOut))
 }
 
 export const config = {
