@@ -10,7 +10,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
-import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchForm'
+import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
 import ListingFilterTabs from '@/components/ListingFilterTabs'

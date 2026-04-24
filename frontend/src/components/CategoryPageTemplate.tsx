@@ -14,7 +14,7 @@ import {
 } from '@/components/hero-sections/hero-link-classes'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
-import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchForm'
+import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
 import type { RegionSliderItem } from '@/components/SectionSliderRegions'
 import type { CategoryRegistryEntry } from '@/data/category-registry'

@@ -24,6 +24,12 @@ const nextConfig = {
   staticPageGenerationTimeout: 300,
   reactStrictMode: false,
   poweredByHeader: false,
+  compiler: {
+    removeConsole:
+      process.env.NODE_ENV === 'production'
+        ? { exclude: ['error', 'warn'] }
+        : false,
+  },
   /** gzip/brotli fallback — Apache/Nginx bunu zaten yapıyor ama SSR response buffer’ı için ek kat. */
   compress: true,
   /** LCP için server response küçük tutulur; `<Image>` responsive srcset’i Apache cache’iyle birleşir. */
