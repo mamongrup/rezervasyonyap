@@ -23,8 +23,8 @@ import { Poppins } from 'next/font/google'
 const poppins = Poppins({
   subsets: ['latin'],
   variable: '--font-sans',
-  /** 300 çıkarıldı — bir woff2 daha az indirilir (PSI kritik font zinciri). */
-  weight: ['400', '500', '600', '700'],
+  /** 600 çıkarıldı — 3 woff2; `font-semibold` tema ile 700 kullanır (PSI kritik istek zinciri). */
+  weight: ['400', '500', '700'],
   display: 'swap',
 })
 

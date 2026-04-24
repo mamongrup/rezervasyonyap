@@ -9,6 +9,9 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
+  /* Poppins yalnız 400/500/700 yüklü — semibold sınıfı 600 yerine 700 (bir woff2 daha az). */
+  --font-weight-semibold: 700;
+
   --color-primary-50: rgb(238, 242, 255);
   --color-primary-100: rgb(224, 231, 255);
   --color-primary-200: rgb(199, 210, 254);
