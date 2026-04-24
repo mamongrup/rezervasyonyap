@@ -92,7 +92,7 @@ export const PropertyTypeSelectField: FC<Props> = ({
               <span className={clsx('block font-semibold', styles.mainText[fieldStyle])}>
                 <span className="line-clamp-1">{typeStringConverted || placeholder}</span>
               </span>
-              <span className="mt-1 block text-sm leading-none font-light text-neutral-400">{description}</span>
+              <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">{description}</span>
             </div>
           </PopoverButton>
 

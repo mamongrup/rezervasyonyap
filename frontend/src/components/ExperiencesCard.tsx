@@ -81,7 +81,7 @@ const ExperiencesCard: FC<Props> = ({
             />
             {size === 'default' && (
               <>
-                <span className="mx-1 text-xs font-light text-neutral-400 dark:text-neutral-500">/</span>
+                <span className="mx-1 text-xs font-normal text-neutral-400 dark:text-neutral-500">/</span>
                 <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">guest</span>
               </>
             )}

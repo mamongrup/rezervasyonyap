@@ -51,7 +51,7 @@ const GuestsInputPopover: FC<Props> = ({ className = 'flex-1' }) => {
                 <span className="block font-semibold xl:text-lg">
                   {totalGuests || ''} {T['HeroSearchForm']['Guests']}
                 </span>
-                <span className="mt-1 block text-sm leading-none font-light text-neutral-400">
+                <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">
                   {totalGuests ? T['HeroSearchForm']['Guests'] : T['HeroSearchForm']['Add guests']}
                 </span>
               </div>

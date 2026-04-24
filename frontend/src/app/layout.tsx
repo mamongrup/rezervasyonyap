@@ -24,7 +24,8 @@ import 'rc-slider/assets/index.css'
 const poppins = Poppins({
   subsets: ['latin'],
   variable: '--font-sans',
-  weight: ['300', '400', '500', '600', '700'],
+  /** 300 çıkarıldı — bir woff2 daha az indirilir (PSI kritik font zinciri). */
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
 })
 

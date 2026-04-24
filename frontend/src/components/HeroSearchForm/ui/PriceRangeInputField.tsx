@@ -67,7 +67,7 @@ export const PriceRangeInputField: FC<Props> = ({
                 <span className={clsx('block font-semibold', styles.mainText[fieldStyle])}>
                   {`$${convertNumbThousand(rangePrices[0] / 1000)}k ~ $${convertNumbThousand(rangePrices[1] / 1000)}k`}
                 </span>
-                <span className="mt-1 block text-sm leading-none font-light text-neutral-400">
+                <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">
                   {T['HeroSearchForm']['Choose price range']}
                 </span>
               </div>

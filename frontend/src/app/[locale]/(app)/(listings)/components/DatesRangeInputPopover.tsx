@@ -127,7 +127,7 @@ const DatesRangeInputPopover: FC<Props> = ({
           <span className="block font-semibold text-neutral-900 xl:text-lg dark:text-neutral-100">
             {startDate ? rangeLabel + endPart : addDates}
           </span>
-          <span className="mt-1 block text-sm leading-none font-light text-neutral-400 dark:text-neutral-500">
+          <span className="mt-1 block text-sm leading-none font-normal text-neutral-400 dark:text-neutral-500">
             {msgs.HeroSearchForm.CheckIn} - {msgs.HeroSearchForm.CheckOut}
           </span>
         </div>

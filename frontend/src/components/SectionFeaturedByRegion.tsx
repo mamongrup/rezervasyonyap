@@ -101,7 +101,7 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
                 priceAmount={priceAmount}
                 priceCurrency={priceCurrency}
               />
-              <span className="mx-1 text-sm font-light text-neutral-400 dark:text-neutral-500">/</span>
+              <span className="mx-1 text-sm font-normal text-neutral-400 dark:text-neutral-500">/</span>
               <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">{unitLabel}</span>
             </div>
           )}
