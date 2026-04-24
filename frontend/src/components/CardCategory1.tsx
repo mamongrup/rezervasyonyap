@@ -18,7 +18,7 @@ const CardCategory1: FC<CardCategory1Props> = ({ className = '', size = 'normal'
   return (
     <Link href={href} className={`flex items-center ${className}`}>
       <div className={`relative shrink-0 ${size === 'large' ? 'size-20' : 'size-12'} me-4 overflow-hidden rounded-lg`}>
-        <Image alt={name} fill src={thumbSrc} sizes={imgSizes} />
+        <Image alt={name} fill src={thumbSrc} sizes={imgSizes} className="object-cover" />
       </div>
 
       <div>

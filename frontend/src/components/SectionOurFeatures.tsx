@@ -1,4 +1,4 @@
-import rightImgPng from '@/images/our-features.png'
+import rightImgAvif from '@/images/our-features.avif'
 import { en } from '../../public/locales/en'
 import { Badge } from '@/shared/Badge'
 import { Heading } from '@/shared/Heading'
@@ -51,7 +51,7 @@ interface Props {
 
 const SectionOurFeatures: FC<Props> = ({
   className,
-  rightImg = rightImgPng,
+  rightImg = rightImgAvif,
   type = 'type1',
   layout = 'default',
   subHeading = of.subHeading,

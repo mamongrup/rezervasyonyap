@@ -21,7 +21,13 @@ const CardAuthorBox2: FC<CardAuthorBox2Props> = ({ className = '', author }) => 
     >
       <div className="relative shrink-0">
         <div className="aspect-w-7 flex h-0 w-full aspect-h-3 md:aspect-h-4">
-          <Image fill alt="" src={bgImage || ''} sizes="(max-width: 400px) 100vw, 400px" />
+          <Image
+            fill
+            alt=""
+            src={bgImage || ''}
+            sizes="(max-width: 400px) 100vw, 400px"
+            className="object-cover"
+          />
         </div>
         <div className="absolute inset-x-3 top-3 flex">
           <div className="flex items-center justify-center rounded-full bg-neutral-100 px-4 py-1 text-xs leading-none font-medium dark:bg-neutral-800">

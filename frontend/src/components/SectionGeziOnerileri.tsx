@@ -3,7 +3,7 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, Clock, ArrowRight, Compass, MapPin, Waves, TreePine, type LucideIcon } from 'lucide-react'
-import rightImgPng from '@/images/our-features.png'
+import rightImgAvif from '@/images/our-features.avif'
 
 const PLACEHOLDER_ITEMS: { icon: LucideIcon; color: string; title: string; desc: string }[] = [
   {
@@ -90,7 +90,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
         ) : (
-          <Image src={rightImgPng} alt="" sizes="(max-width: 1024px) 100vw, 50vw" priority />
+          <Image src={rightImgAvif} alt="" sizes="(max-width: 1024px) 100vw, 50vw" priority />
         )}
       </div>
 
