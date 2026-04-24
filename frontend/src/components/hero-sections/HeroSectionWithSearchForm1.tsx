@@ -25,11 +25,27 @@ function MosaicSlot({
   sizes: string
   priority?: boolean
 }) {
-  // Next optimizer external URL'leri yeniden encode ederken LCP'yi bozuyor;
-  // local `/uploads/*` görsellerini Next optimize eder, kalanları ham serve ederiz.
   const isExternal = /^https?:\/\//i.test(src)
   if (!src.trim()) {
     return <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+  }
+  // LCP slot'unda (`priority`) native <img> kullanıyoruz:
+  // Next/Image, `unoptimized` veya bazı yol kombinlerinde `fetchpriority="high"`
+  // attribute'unu HTML'e düşürmüyor → PageSpeed "fetchpriority=high uygulanmalıdır"
+  // uyarısı çıkıyor. Doğrudan <img> ile attribute garanti HTML'e yazılır.
+  if (priority) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        sizes={sizes}
+        className="absolute inset-0 h-full w-full object-cover"
+        fetchPriority="high"
+        loading="eager"
+        decoding="async"
+      />
+    )
   }
   return (
     <Image
@@ -38,9 +54,7 @@ function MosaicSlot({
       fill
       sizes={sizes}
       className="object-cover"
-      priority={priority}
-      fetchPriority={priority ? 'high' : undefined}
-      loading={priority ? 'eager' : undefined}
+      loading="lazy"
       unoptimized={isExternal}
     />
   )

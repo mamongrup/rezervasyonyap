@@ -22,9 +22,11 @@
  *
  * Opsiyonel env:
  *   UPLOADS_ROOT     — varsayılan: ./public/uploads
- *   TARGET_WIDTH     — varsayılan: 1600 (px)
+ *   TARGET_WIDTH     — varsayılan: 1600 (px). Mobil için 800 önerilir.
  *   AVIF_QUALITY     — varsayılan: 72
  *   MAX_CONCURRENT   — varsayılan: 4
+ *   FORCE            — "1" olursa mevcut dosya varsa bile yeniden indirir ve override eder.
+ *                      Kullanım: TARGET_WIDTH=800 FORCE=1 DATABASE_URL=... node scripts/...
  */
 
 import { createHash } from 'node:crypto'
@@ -39,6 +41,7 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 
 const DATABASE_URL = process.env.DATABASE_URL
 const DRY_RUN = process.env.DRY_RUN === '1'
+const FORCE = process.env.FORCE === '1'
 const UPLOADS_ROOT =
   process.env.UPLOADS_ROOT || path.join(PROJECT_ROOT, 'public', 'uploads')
 const EXTERNAL_SUBDIR = 'external'
@@ -96,7 +99,7 @@ async function downloadAndConvert(url) {
   const target = localPathFor(url)
   const publicUrl = publicPathFor(url)
 
-  if (await fileExists(target)) {
+  if (!FORCE && (await fileExists(target))) {
     downloadCache.set(url, publicUrl)
     return publicUrl
   }
