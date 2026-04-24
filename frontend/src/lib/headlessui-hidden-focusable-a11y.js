@@ -1,0 +1,42 @@
+/**
+ * @headlessui/react `Hidden` (Focusable): odak tuzağı sentinel'inde `aria-hidden="true"`
+ * kullanımı Lighthouse/PSI'da "focusable inside aria-hidden" uyarısı üretir.
+ * Focusable modda `aria-hidden` atanmaz; görünürlük yine `style` ile gizlenir.
+ */
+import { forwardRefWithAs as i, useRender as p } from 'headlessui-internal/render'
+
+let a = 'span'
+var s = ((e) => (
+  (e[(e.None = 1)] = 'None'),
+  (e[(e.Focusable = 2)] = 'Focusable'),
+  (e[(e.Hidden = 4)] = 'Hidden'),
+  e
+))(s || {})
+
+function l(t, r) {
+  var n
+  let { features: d = 1, ...e } = t,
+    o = {
+      ref: r,
+      'aria-hidden': (d & 2) === 2 ? void 0 : (n = e['aria-hidden']) != null ? n : void 0,
+      hidden: (d & 4) === 4 ? !0 : void 0,
+      style: {
+        position: 'fixed',
+        top: 1,
+        left: 1,
+        width: 1,
+        height: 0,
+        padding: 0,
+        margin: -1,
+        overflow: 'hidden',
+        clip: 'rect(0, 0, 0, 0)',
+        whiteSpace: 'nowrap',
+        borderWidth: '0',
+        ...((d & 4) === 4 && (d & 2) !== 2 && { display: 'none' }),
+      },
+    }
+  return p()({ ourProps: o, theirProps: e, slot: {}, defaultTag: a, name: 'Hidden' })
+}
+
+let f = i(l)
+export { f as Hidden, s as HiddenFeatures }

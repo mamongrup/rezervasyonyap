@@ -61,6 +61,13 @@ const nextConfig = {
       ...(config.resolve.modules ?? []),
       path.resolve(__dirname, 'node_modules'),
     ]
+    config.resolve.alias = {
+      ...(config.resolve.alias ?? {}),
+      'headlessui-internal/render': path.resolve(
+        __dirname,
+        'node_modules/@headlessui/react/dist/utils/render.js',
+      ),
+    }
     /** `resolve.alias` eşleşmedi; NormalModuleReplacementPlugin kesin yol. */
     if (!isServer) {
       const minimal = path.resolve(__dirname, 'src/lib/next-polyfill-module-minimal.js')
@@ -71,6 +78,13 @@ const nextConfig = {
         ),
       )
     }
+    const headlessHiddenA11y = path.resolve(__dirname, 'src/lib/headlessui-hidden-focusable-a11y.js')
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(
+        /[\\/]node_modules[\\/]@headlessui[\\/]react[\\/]dist[\\/]internal[\\/]hidden\.js$/,
+        headlessHiddenA11y,
+      ),
+    )
     return config
   },
   async headers() {

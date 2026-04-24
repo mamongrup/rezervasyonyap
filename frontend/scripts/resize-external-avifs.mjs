@@ -3,13 +3,13 @@
  * `public/uploads/external/*.avif` dosyalarını yeniden boyutlandırır (DB / ağ gerekmez).
  * `-thumb.avif` dosyalarını atlar; ana dosyayı güncelledikten sonra THUMB_SIZE>0 ise thumb yeniden üretir.
  *
- *   TARGET_WIDTH=800 THUMB_SIZE=256 node scripts/resize-external-avifs.mjs
+ *   TARGET_WIDTH=720 THUMB_SIZE=256 node scripts/resize-external-avifs.mjs
  *
  * Opsiyonel env:
  *   UPLOADS_ROOT  — varsayılan: ./public/uploads
- *   TARGET_WIDTH  — varsayılan: 800
- *   AVIF_QUALITY  — varsayılan: 58 (PSI görsel boyutu)
- *   AVIF_EFFORT   — sharp AVIF effort 0–9, varsayılan: 6
+ *   TARGET_WIDTH  — varsayılan: 720 (mobil LCP; PSI byte tasarrufu)
+ *   AVIF_QUALITY  — varsayılan: 50 (PSI “sıkıştırmayı artır”)
+ *   AVIF_EFFORT   — sharp AVIF effort 0–9, varsayılan: 7
  *   AVIF_RECOMPRESS_MIN_KB — hedef genişlik zaten küçük ama dosya bu KB üzerindeyse yeniden AVIF (varsayılan 10; 0=kapat)
  *   THUMB_SIZE    — varsayılan: 256, 0 → thumb üretme
  *   DRY_RUN       — 1 ise sadece listeler, yazmaz
@@ -24,13 +24,13 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 const UPLOADS_ROOT =
   process.env.UPLOADS_ROOT || path.join(PROJECT_ROOT, 'public', 'uploads')
 const EXTERNAL_DIR = path.join(UPLOADS_ROOT, 'external')
-const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 800)
-const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 58)
-const AVIF_EFFORT = Math.min(9, Math.max(0, Number(process.env.AVIF_EFFORT ?? 6)))
+const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 720)
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 50)
+const AVIF_EFFORT = Math.min(9, Math.max(0, Number(process.env.AVIF_EFFORT ?? 7)))
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const DRY_RUN = process.env.DRY_RUN === '1'
 /** ≤TARGET_WIDTH görsellerde yalnız boyut büyükse yeniden sıkıştır (PSI “sıkıştırmayı artır”) */
-const RECOMPRESS_MIN_KB = Number(process.env.AVIF_RECOMPRESS_MIN_KB ?? 10)
+const RECOMPRESS_MIN_KB = Number(process.env.AVIF_RECOMPRESS_MIN_KB ?? 6)
 
 async function main() {
   console.log(`[resize-external-avifs] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
