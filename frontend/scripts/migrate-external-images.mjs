@@ -27,6 +27,8 @@
  *   MAX_CONCURRENT   — varsayılan: 4
  *   FORCE            — "1" olursa mevcut dosya varsa bile yeniden indirir ve override eder.
  *                      Kullanım: TARGET_WIDTH=800 FORCE=1 DATABASE_URL=... node scripts/...
+ *   THUMB_SIZE       — varsayılan: 256. Her resmin yanına `<hash>-thumb.avif` olarak
+ *                      kare (cover crop) thumbnail üretir. 0 → thumb üretme.
  */
 
 import { createHash } from 'node:crypto'
@@ -49,6 +51,7 @@ const PUBLIC_PREFIX = '/uploads/external'
 const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 1600)
 const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 72)
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT || 4)
+const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 
 const EXTERNAL_HOSTS = [
   'images.unsplash.com',
@@ -82,6 +85,10 @@ function localPathFor(url) {
   return path.join(externalDir, `${hashUrl(url)}.avif`)
 }
 
+function localThumbPathFor(url) {
+  return path.join(externalDir, `${hashUrl(url)}-thumb.avif`)
+}
+
 async function fileExists(p) {
   try {
     await fs.stat(p)
@@ -97,9 +104,13 @@ async function downloadAndConvert(url) {
   if (downloadCache.has(url)) return downloadCache.get(url)
 
   const target = localPathFor(url)
+  const thumbTarget = localThumbPathFor(url)
   const publicUrl = publicPathFor(url)
 
-  if (!FORCE && (await fileExists(target))) {
+  const mainExists = await fileExists(target)
+  const thumbExists = THUMB_SIZE > 0 ? await fileExists(thumbTarget) : true
+
+  if (!FORCE && mainExists && thumbExists) {
     downloadCache.set(url, publicUrl)
     return publicUrl
   }
@@ -110,25 +121,56 @@ async function downloadAndConvert(url) {
   }
 
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'travel-image-migrator/1.0' },
-      redirect: 'follow',
-    })
-    if (!res.ok) {
-      console.warn(`  ! HTTP ${res.status}: ${url.slice(0, 100)}`)
-      downloadCache.set(url, null)
-      return null
+    // Mevcut dosya buffer'ını kullanabiliyorsak network'e çıkmayalım:
+    // thumb eksikse ama main var → main dosyayı oku ve thumb üret.
+    let srcBuf
+    if (mainExists && !FORCE) {
+      srcBuf = await fs.readFile(target)
+    } else {
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'travel-image-migrator/1.0' },
+        redirect: 'follow',
+      })
+      if (!res.ok) {
+        console.warn(`  ! HTTP ${res.status}: ${url.slice(0, 100)}`)
+        downloadCache.set(url, null)
+        return null
+      }
+      srcBuf = Buffer.from(await res.arrayBuffer())
+
+      const output = await sharp(srcBuf)
+        .resize({ width: TARGET_WIDTH, withoutEnlargement: true, fit: 'inside' })
+        .avif({ quality: AVIF_QUALITY, effort: 4 })
+        .toBuffer()
+      await fs.mkdir(externalDir, { recursive: true })
+      await fs.writeFile(target, output)
+      console.log(
+        `  + ${publicUrl} (${(output.length / 1024).toFixed(1)} KB) ← ${url.slice(0, 80)}`,
+      )
     }
-    const buf = Buffer.from(await res.arrayBuffer())
-    const output = await sharp(buf)
-      .resize({ width: TARGET_WIDTH, withoutEnlargement: true, fit: 'inside' })
-      .avif({ quality: AVIF_QUALITY, effort: 4 })
-      .toBuffer()
-    await fs.mkdir(externalDir, { recursive: true })
-    await fs.writeFile(target, output)
-    console.log(
-      `  + ${publicUrl} (${(output.length / 1024).toFixed(1)} KB) ← ${url.slice(0, 80)}`,
-    )
+
+    // Square thumbnail üret (kategori kartları / avatar küçük daire için).
+    if (THUMB_SIZE > 0 && (!thumbExists || FORCE)) {
+      try {
+        const thumb = await sharp(srcBuf)
+          .resize({
+            width: THUMB_SIZE,
+            height: THUMB_SIZE,
+            fit: 'cover',
+            position: 'attention',
+            withoutEnlargement: true,
+          })
+          .avif({ quality: AVIF_QUALITY, effort: 4 })
+          .toBuffer()
+        await fs.writeFile(thumbTarget, thumb)
+        console.log(
+          `    · thumb ${path.basename(thumbTarget)} (${(thumb.length / 1024).toFixed(1)} KB)`,
+        )
+      } catch (e) {
+        console.warn(`    ! thumb üretim hatası: ${e.message}`)
+      }
+    }
+
     downloadCache.set(url, publicUrl)
     return publicUrl
   } catch (e) {

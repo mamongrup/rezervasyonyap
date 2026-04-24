@@ -1,4 +1,5 @@
 import { TCategory } from '@/data/categories'
+import { toExternalThumb } from '@/lib/image-thumb'
 import Image from 'next/image'
 import Link from 'next/link'
 import { FC } from 'react'
@@ -11,10 +12,13 @@ export interface CardCategory1Props {
 
 const CardCategory1: FC<CardCategory1Props> = ({ className = '', size = 'normal', category }) => {
   const { count, name, href, thumbnail } = category
+  // 48–80px kare render — migration thumb (256x256) varsa onu tercih et.
+  const thumbSrc = toExternalThumb(thumbnail || '')
+  const imgSizes = size === 'large' ? '80px' : '48px'
   return (
     <Link href={href} className={`flex items-center ${className}`}>
       <div className={`relative shrink-0 ${size === 'large' ? 'size-20' : 'size-12'} me-4 overflow-hidden rounded-lg`}>
-        <Image alt={name} fill src={thumbnail || ''} />
+        <Image alt={name} fill src={thumbSrc} sizes={imgSizes} />
       </div>
 
       <div>

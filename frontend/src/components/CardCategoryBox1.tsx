@@ -1,4 +1,5 @@
 import { TCategory } from '@/data/categories'
+import { toExternalThumb } from '@/lib/image-thumb'
 import { Link } from '@/shared/link'
 import convertNumbThousand from '@/utils/convertNumbThousand'
 import Image from 'next/image'
@@ -15,6 +16,8 @@ const CardCategoryBox1: FC<CardCategoryBox1Props> = ({ className = '', category 
   const regionLine = regionCount != null ? `${convertNumbThousand(regionCount)} bölge` : ''
   const listingLine = count > 0 ? `${convertNumbThousand(count)}+ ilan` : 'İlan bekleniyor'
   const muted = 'text-sm text-neutral-500 dark:text-neutral-400'
+  // 96px daire için — migration script `/uploads/external/<hash>-thumb.avif` (256x256) üretir.
+  const thumbSrc = toExternalThumb(thumbnail || '')
 
   return (
     <Link
@@ -22,7 +25,7 @@ const CardCategoryBox1: FC<CardCategoryBox1Props> = ({ className = '', category 
       className={`relative flex items-start gap-4 nc-box-has-hover p-3 sm:gap-5 sm:p-6 ${className}`}
     >
       <div className="relative size-24 shrink-0 overflow-hidden rounded-full">
-        <Image src={thumbnail || ''} fill alt="" sizes="96px" />
+        <Image src={thumbSrc} fill alt="" sizes="96px" />
       </div>
 
       <div className="min-w-0 flex-1">
