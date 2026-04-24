@@ -4,7 +4,9 @@
  *
  * External (Unsplash / Pexels / Pixabay) image URL'lerini indirir,
  * sharp ile AVIF'e çevirir, public/uploads/external/<hash>.avif olarak kaydeder
- * ve DB'deki tüm text/varchar/jsonb kolonlarında eski URL'i yenisi ile değiştirir.
+ * ve iki yerde eski URL'i yenisi ile değiştirir:
+ *   1) DB'deki tüm text/varchar/jsonb kolonlarında
+ *   2) `public/page-builder/**\/*.json` statik dosyalarında
  *
  * KULLANIM (frontend/ dizininden):
  *
@@ -148,6 +150,27 @@ async function runWithConcurrency(items, worker, concurrency) {
   await Promise.all(Array.from({ length: concurrency }, runner))
 }
 
+async function scanJsonFiles() {
+  const root = path.join(PROJECT_ROOT, 'public', 'page-builder')
+  let entries
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true })
+  } catch {
+    return []
+  }
+  const out = []
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith('.json')) continue
+    const full = path.join(root, e.name)
+    const txt = await fs.readFile(full, 'utf8')
+    const matches = txt.match(URL_RE)
+    if (!matches || matches.length === 0) continue
+    const urls = new Set(matches)
+    out.push({ file: full, rel: path.relative(PROJECT_ROOT, full), urls })
+  }
+  return out
+}
+
 async function main() {
   console.log(`[migrate-external-images] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
   console.log(`  UPLOADS_ROOT = ${UPLOADS_ROOT}`)
@@ -159,7 +182,7 @@ async function main() {
   const client = new Client({ connectionString: DATABASE_URL })
   await client.connect()
 
-  // ---- 1) Keşif: URL içeren kolonları bul ----
+  // ---- 1) Keşif: URL içeren kolonları ve JSON dosyalarını bul ----
   console.log('\n[1/3] Tablolar taranıyor...')
   const colsRes = await client.query(`
     SELECT c.table_schema, c.table_name, c.column_name, c.data_type
@@ -216,9 +239,18 @@ async function main() {
     }
   }
 
+  // JSON statik dosyalarını tara
+  console.log('\n  JSON dosyaları taranıyor (public/page-builder/*.json)...')
+  const jsonFiles = await scanJsonFiles()
+  for (const jf of jsonFiles) {
+    for (const u of jf.urls) allUrls.add(u)
+    console.log(`  · ${jf.rel} — urls=${jf.urls.size}`)
+  }
+
   console.log(`\n[özet]`)
-  console.log(`  benzersiz URL     = ${allUrls.size}`)
-  console.log(`  etkilenen kolon   = ${colsWithMatches.length}`)
+  console.log(`  benzersiz URL      = ${allUrls.size}`)
+  console.log(`  etkilenen kolon    = ${colsWithMatches.length}`)
+  console.log(`  etkilenen JSON dsy = ${jsonFiles.length}`)
 
   if (allUrls.size === 0) {
     console.log('Hiç external URL bulunamadı, çıkılıyor.')
@@ -291,10 +323,35 @@ async function main() {
     console.log(`  ✓ ${col.table_schema}.${col.table_name}.${col.column_name}`)
   }
 
+  // JSON dosyalarını güncelle
+  let jsonFilesUpdated = 0
+  let jsonReplacements = 0
+  for (const jf of jsonFiles) {
+    let txt = await fs.readFile(jf.file, 'utf8')
+    let localReplacements = 0
+    for (const oldUrl of jf.urls) {
+      const newUrl = urlMap.get(oldUrl)
+      if (!newUrl) continue
+      if (!txt.includes(oldUrl)) continue
+      // replaceAll ile tüm kopyalar
+      txt = txt.split(oldUrl).join(newUrl)
+      localReplacements++
+    }
+    if (localReplacements > 0) {
+      await fs.writeFile(jf.file, txt, 'utf8')
+      jsonFilesUpdated++
+      jsonReplacements += localReplacements
+      console.log(`  ✓ ${jf.rel} (${localReplacements} replacement)`)
+    }
+  }
+
   console.log(`\n[bitti]`)
-  console.log(`  toplam replacement = ${totalReplacements}`)
-  console.log(`  toplam satır etk.  = ${totalRowsUpdated}`)
-  console.log(`\nFrontend'i restart etmeyi unutma: systemctl restart travel-web`)
+  console.log(`  DB replacement     = ${totalReplacements}`)
+  console.log(`  DB satır etk.      = ${totalRowsUpdated}`)
+  console.log(`  JSON dosya         = ${jsonFilesUpdated}`)
+  console.log(`  JSON replacement   = ${jsonReplacements}`)
+  console.log(`\nŞimdi build + restart lazım:`)
+  console.log(`  npm run build && systemctl restart travel-web`)
 
   await client.end()
 }
