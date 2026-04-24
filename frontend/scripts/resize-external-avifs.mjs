@@ -8,7 +8,8 @@
  * Opsiyonel env:
  *   UPLOADS_ROOT  — varsayılan: ./public/uploads
  *   TARGET_WIDTH  — varsayılan: 800
- *   AVIF_QUALITY  — varsayılan: 68
+ *   AVIF_QUALITY  — varsayılan: 58 (PSI görsel boyutu)
+ *   AVIF_EFFORT   — sharp AVIF effort 0–9, varsayılan: 6
  *   AVIF_RECOMPRESS_MIN_KB — hedef genişlik zaten küçük ama dosya bu KB üzerindeyse yeniden AVIF (varsayılan 10; 0=kapat)
  *   THUMB_SIZE    — varsayılan: 256, 0 → thumb üretme
  *   DRY_RUN       — 1 ise sadece listeler, yazmaz
@@ -24,7 +25,8 @@ const UPLOADS_ROOT =
   process.env.UPLOADS_ROOT || path.join(PROJECT_ROOT, 'public', 'uploads')
 const EXTERNAL_DIR = path.join(UPLOADS_ROOT, 'external')
 const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 800)
-const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 68)
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 58)
+const AVIF_EFFORT = Math.min(9, Math.max(0, Number(process.env.AVIF_EFFORT ?? 6)))
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const DRY_RUN = process.env.DRY_RUN === '1'
 /** ≤TARGET_WIDTH görsellerde yalnız boyut büyükse yeniden sıkıştır (PSI “sıkıştırmayı artır”) */
@@ -34,7 +36,7 @@ async function main() {
   console.log(`[resize-external-avifs] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
   console.log(`  dir = ${EXTERNAL_DIR}`)
   console.log(
-    `  target width = ${TARGET_WIDTH}, avif q = ${AVIF_QUALITY}, thumb = ${THUMB_SIZE || 'off'}, recompress if >${RECOMPRESS_MIN_KB || 'off'} KB`,
+    `  target width = ${TARGET_WIDTH}, avif q = ${AVIF_QUALITY}, effort = ${AVIF_EFFORT}, thumb = ${THUMB_SIZE || 'off'}, recompress if >${RECOMPRESS_MIN_KB || 'off'} KB`,
   )
 
   let names
@@ -88,7 +90,7 @@ async function main() {
 
     const out = await sharp(buf)
       .resize({ width: TARGET_WIDTH, withoutEnlargement: true, fit: 'inside' })
-      .avif({ quality: AVIF_QUALITY, effort: 4 })
+      .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
       .toBuffer()
     await fs.writeFile(full, out)
     bytesAfter += out.length
@@ -108,7 +110,7 @@ async function main() {
           position: 'attention',
           withoutEnlargement: true,
         })
-        .avif({ quality: AVIF_QUALITY, effort: 4 })
+        .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
         .toBuffer()
       await fs.writeFile(thumbPath, thumb)
       console.log(`    · thumb ${base}-thumb.avif (${(thumb.length / 1024).toFixed(1)} KB)`)
