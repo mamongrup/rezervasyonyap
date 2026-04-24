@@ -1,6 +1,10 @@
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { buildAllSecurityHeaders } from './security-headers.mjs'
+
+const require = createRequire(import.meta.url)
+const webpack = require('webpack')
 
 /** Monorepo kökünde (üst dizinde) package.json varken Turbopack varsayılan olarak orayı "repo root" sayıp tailwindcss'i oradan arıyor; kökte node_modules yoksa derleme düşer. Çözümlemeyi bu Next uygulamasının klasörüne kilitle. */
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -47,7 +51,7 @@ const nextConfig = {
       picocolors: './node_modules/picocolors',
     },
   },
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     /** Düşük RAM / Windows: PackFileCacheStrategy "Array buffer allocation failed" — dev’de kalıcı cache kapatılır */
     if (dev) {
       config.cache = false
@@ -57,6 +61,16 @@ const nextConfig = {
       ...(config.resolve.modules ?? []),
       path.resolve(__dirname, 'node_modules'),
     ]
+    /** `resolve.alias` eşleşmedi; NormalModuleReplacementPlugin kesin yol. */
+    if (!isServer) {
+      const minimal = path.resolve(__dirname, 'src/lib/next-polyfill-module-minimal.js')
+      config.plugins.push(
+        new webpack.NormalModuleReplacementPlugin(
+          /next[\\/]dist[\\/]build[\\/]polyfills[\\/]polyfill-module\.js$/,
+          minimal,
+        ),
+      )
+    }
     return config
   },
   async headers() {
