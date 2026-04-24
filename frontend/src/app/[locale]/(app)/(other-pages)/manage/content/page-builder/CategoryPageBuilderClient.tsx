@@ -1032,7 +1032,7 @@ function DestinationCardsConfigEditor({
             {[
               { key: 'name', placeholder: 'İstanbul' },
               { key: 'description', placeholder: 'Tarihin ve modernliğin buluştuğu şehir' },
-              { key: 'imageUrl', placeholder: 'https://images.pexels.com/...' },
+              { key: 'imageUrl', placeholder: 'Tam görsel URL (Pexels/Unsplash vb.)' },
               { key: 'href', placeholder: '/destinasyonlar/istanbul' },
               { key: 'listingCount', placeholder: '248' },
             ].map(({ key, placeholder }) => (
