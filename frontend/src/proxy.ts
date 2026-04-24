@@ -165,7 +165,7 @@ export const config = {
      * `/api` dahil (HTTPS); locale rewrite içinde `/api` erken `next()`.
      * Statik uzantılar ve robots/sitemap hariç — eski middleware ile uyumlu.
      */
-    '/((?!_next/static|_next/image|uploads/|favicon.ico|robots.txt|sitemap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|txt|xml|woff|woff2|ttf|otf|css|js|map|mp4|webm|pdf)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|txt|xml)$).*)',
     '/api/upload-image',
     // /tr/api/... yanlış eşleşmesini düzeltmek için proxy bu yolları da görmeli
     '/:locale/api/:path*',
