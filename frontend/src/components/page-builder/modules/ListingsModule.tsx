@@ -3,8 +3,10 @@
 import { useState, useMemo, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import type { TListingBase } from '@/types/listing-types'
+import { useLocaleSegment } from '@/contexts/locale-context'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
+import { getMessages } from '@/utils/getT'
 import {
   ArrowLeft02Icon,
   ArrowRight02Icon,
@@ -101,6 +103,8 @@ function ListingsSliderRow({
 }) {
   const sliderRef = useRef<HTMLDivElement>(null)
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
+  const locale = useLocaleSegment()
+  const pag = getMessages(locale).common.pagination
 
   if (filtered.length === 0) {
     return <EmptyState label={emptyLabel} />
@@ -124,12 +128,12 @@ function ListingsSliderRow({
 
       <div className="pointer-events-none absolute inset-y-0 start-0 end-0 flex items-center justify-between">
         <div className="pointer-events-auto -ms-1 sm:-ms-3 xl:-ms-4">
-          <ButtonCircle color="white" onClick={scrollToPrevSlide} className="shadow-md xl:size-11" disabled={isAtStart}>
+          <ButtonCircle color="white" onClick={scrollToPrevSlide} className="shadow-md xl:size-11" disabled={isAtStart} aria-label={pag.previous}>
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
           </ButtonCircle>
         </div>
         <div className="pointer-events-auto -me-1 sm:-me-3 xl:-me-4">
-          <ButtonCircle color="white" onClick={scrollToNextSlide} className="shadow-md xl:size-11" disabled={isAtEnd}>
+          <ButtonCircle color="white" onClick={scrollToNextSlide} className="shadow-md xl:size-11" disabled={isAtEnd} aria-label={pag.next}>
             <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
           </ButtonCircle>
         </div>

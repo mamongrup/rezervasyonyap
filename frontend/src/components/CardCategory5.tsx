@@ -25,7 +25,7 @@ const CardCategory5: FC<CardCategory5Props> = ({ className = '', category }) => 
       </div>
       <div className="mt-3.5 px-2">
         <h2 className={`text-base font-medium text-neutral-900 dark:text-neutral-100`}>
-          <Link href={href} className="absolute inset-0"></Link>
+          <Link href={href} className="absolute inset-0" aria-label={name}></Link>
           <span className="line-clamp-1">{name}</span>
         </h2>
         <span className={`mt-1.5 block text-sm text-neutral-600 dark:text-neutral-400`}>

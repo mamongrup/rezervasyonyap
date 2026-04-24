@@ -84,7 +84,7 @@ export const DateRangeField: FC<Props> = ({
                       })
                     : ''}
                 </span>
-                <span className="mt-0.5 block text-xs leading-tight font-normal text-neutral-500 dark:text-neutral-400">
+                <span className="mt-0.5 block text-xs leading-tight font-normal text-neutral-700 dark:text-neutral-300">
                   {description || T['HeroSearchForm']['Add dates']}
                 </span>
               </div>

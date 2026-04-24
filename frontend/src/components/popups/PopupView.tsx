@@ -85,7 +85,7 @@ export default function PopupView({ popup, locale, onClose, onDismissForever }: 
                 alt={title || popup.name}
                 fill
                 className="object-cover"
-                unoptimized={popup.imageUrl.startsWith('/uploads/')}
+
               />
             </div>
           )}
@@ -176,7 +176,7 @@ export default function PopupView({ popup, locale, onClose, onDismissForever }: 
                   alt={title || popup.name}
                   fill
                   className="object-cover"
-                  unoptimized={popup.imageUrl.startsWith('/uploads/')}
+
                 />
               ) : (
                 <div
@@ -232,7 +232,7 @@ export default function PopupView({ popup, locale, onClose, onDismissForever }: 
                   alt={title || popup.name}
                   fill
                   className="object-cover"
-                  unoptimized={popup.imageUrl.startsWith('/uploads/')}
+
                 />
               </div>
             )}
@@ -576,7 +576,7 @@ function CardGrid({
                   alt={cardTitle || ''}
                   fill
                   className="object-cover transition-transform group-hover:scale-105"
-                  unoptimized={c.imageUrl.startsWith('/uploads/')}
+
                 />
               ) : null}
               {cardBadge && (

@@ -50,7 +50,7 @@ const CardCategory7: FC<Props> = ({ className = '', category: { name, descriptio
             <div className="max-w-sm">
               <p className={`mb-2 block text-sm text-slate-700`}>{badge}</p>
               <h2 className={`text-xl font-semibold text-slate-900 md:text-2xl`}>
-                <Link href={href} className="absolute inset-0"></Link>
+                <Link href={href} className="absolute inset-0" aria-label={name}></Link>
                 {name}
               </h2>
               {description ? (

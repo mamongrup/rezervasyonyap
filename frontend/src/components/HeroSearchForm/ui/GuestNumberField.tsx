@@ -83,7 +83,7 @@ export const GuestNumberField: FC<Props> = ({
               <span className={clsx('block font-semibold text-neutral-900 dark:text-neutral-100', styles.mainText[fieldStyle])}>
                 {totalGuests || ''} {T['HeroSearchForm']['Guests']}
               </span>
-              <span className="mt-0.5 block text-xs leading-tight font-normal text-neutral-500 dark:text-neutral-400">
+              <span className="mt-0.5 block text-xs leading-tight font-normal text-neutral-700 dark:text-neutral-300">
                 {totalGuests ? T['HeroSearchForm']['Guests'] : T['HeroSearchForm']['Add guests']}
               </span>
             </div>

@@ -185,7 +185,7 @@ export const LocationInputField: FC<Props> = ({
             <div
               aria-hidden={!!selected?.name?.trim()}
               className={clsx(
-                'mt-0.5 text-start text-xs leading-tight font-normal text-neutral-500 dark:text-neutral-400',
+                'mt-0.5 text-start text-xs leading-tight font-normal text-neutral-700 dark:text-neutral-300',
                 selected?.name?.trim() && 'invisible pointer-events-none select-none'
               )}
             >

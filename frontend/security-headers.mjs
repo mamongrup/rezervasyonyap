@@ -22,11 +22,13 @@ function cspModeEffective() {
 /**
  * Kademeli CSP: önce Report-Only ile konsol / rapor uçlarında ihlalleri izleyin,
  * ardından CSP_MODE=enforce ile sıkılaştırın. Gerekirse domain listesini genişletin.
+ *
+ * @param {'enforce' | 'report-only'} mode
  */
-export function buildContentSecurityPolicy() {
+export function buildContentSecurityPolicy(mode = 'enforce') {
   const directives = [
     "default-src 'self'",
-    // Next.js, React, GTM/GA/AdSense, Google Maps picker
+    // Next.js, React, GTM/GA/AdSense, Google Maps picker, Tawk.to
     [
       'script-src',
       "'self'",
@@ -40,14 +42,16 @@ export function buildContentSecurityPolicy() {
       'https://pagead2.googlesyndication.com',
       'https://www.google.com',
       'https://www.gstatic.com',
+      'https://embed.tawk.to',
+      'https://*.tawk.to',
     ].join(' '),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://embed.tawk.to",
     // Harita karoları (Carto, OSM vb.) + CDN görselleri
     "img-src 'self' data: blob: https: http:",
-    "font-src 'self' data: https://fonts.gstatic.com",
-    // API (NEXT_PUBLIC_API_URL), harita stilleri, analytics
+    "font-src 'self' data: https://fonts.gstatic.com https://embed.tawk.to",
+    // API (NEXT_PUBLIC_API_URL), harita stilleri, analytics, tawk.to websocket
     "connect-src 'self' https: wss: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*",
-    "frame-src 'self' https://www.google.com https://www.googletagmanager.com https://www.google.com/recaptcha/",
+    "frame-src 'self' https://www.google.com https://www.googletagmanager.com https://www.google.com/recaptcha/ https://embed.tawk.to",
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
     "object-src 'none'",
@@ -56,7 +60,9 @@ export function buildContentSecurityPolicy() {
     "frame-ancestors 'self'",
   ]
 
-  if (IS_PROD && process.env.SECURITY_UPGRADE_INSECURE !== '0') {
+  // `upgrade-insecure-requests` yalnızca enforce modunda geçerlidir — Report-Only’de
+  // tarayıcı konsoluna "ignored" uyarısı basar (Best Practices puanını düşürür).
+  if (IS_PROD && mode === 'enforce' && process.env.SECURITY_UPGRADE_INSECURE !== '0') {
     directives.push('upgrade-insecure-requests')
   }
 
@@ -100,7 +106,7 @@ export function buildAllSecurityHeaders() {
 
   const mode = cspModeEffective()
   if (mode !== 'off') {
-    const csp = buildContentSecurityPolicy()
+    const csp = buildContentSecurityPolicy(mode)
     const name =
       mode === 'enforce' ? 'Content-Security-Policy' : 'Content-Security-Policy-Report-Only'
     headers.push({ key: name, value: csp })

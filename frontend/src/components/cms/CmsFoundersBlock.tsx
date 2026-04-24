@@ -32,11 +32,6 @@ export default function CmsFoundersBlock({ config }: { config: CmsFoundersConfig
                   src={item.avatarUrl || 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg'}
                   alt={item.name}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 30vw, 30vw"
-                  unoptimized={
-                    Boolean(
-                      item.avatarUrl?.startsWith('http') || item.avatarUrl?.startsWith('/uploads/'),
-                    )
-                  }
                 />
               </div>
               <h3 className="mt-4 text-lg font-semibold text-neutral-900 md:text-xl dark:text-neutral-200">

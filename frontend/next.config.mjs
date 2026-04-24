@@ -24,6 +24,10 @@ const nextConfig = {
   staticPageGenerationTimeout: 300,
   reactStrictMode: false,
   poweredByHeader: false,
+  /** gzip/brotli fallback — Apache/Nginx bunu zaten yapıyor ama SSR response buffer’ı için ek kat. */
+  compress: true,
+  /** LCP için server response küçük tutulur; `<Image>` responsive srcset’i Apache cache’iyle birleşir. */
+  productionBrowserSourceMaps: false,
   turbopack: {
     root: __dirname,
     resolveAlias: {
@@ -52,6 +56,12 @@ const nextConfig = {
     ]
   },
   experimental: {
+    /**
+     * `optimizeCss` (beasties) bazı sayfalarda critical CSS üretirken büyük <style> blok inline eder
+     * ve LCP’yi **kötüleştirebilir** (özellikle Tailwind + çok modüllü homepage). Kapalı tutuyoruz.
+     * İhtiyaç olursa `CSS_OPTIMIZE=1` env ile açılır.
+     */
+    optimizeCss: process.env.CSS_OPTIMIZE === '1',
     optimizePackageImports: [
       'lucide-react',
       'lodash',
@@ -59,6 +69,12 @@ const nextConfig = {
       '@hugeicons/core-free-icons',
       'framer-motion',
       'date-fns',
+      'react-datepicker',
+      'embla-carousel-react',
+      'rc-slider',
+      '@tiptap/react',
+      '@tiptap/starter-kit',
+      'react-icons',
     ],
   },
   images: {

@@ -156,7 +156,7 @@ export default async function Footer2({ locale }: Footer2Props) {
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             {legal.map((item) => (
-              <a key={item.name} href={item.href} className="text-xs text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300">
+              <a key={item.name} href={item.href} className="text-xs text-gray-700 hover:text-gray-900 dark:text-neutral-300 dark:hover:text-neutral-100">
                 {item.name}
               </a>
             ))}

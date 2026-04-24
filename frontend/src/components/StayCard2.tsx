@@ -80,11 +80,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
               alt={title ?? 'listing'}
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 1025px) 100vw, 25vw"
-              unoptimized={
-                imgSrc.startsWith('http') ||
-                imgSrc.startsWith('/uploads/') ||
-                imgSrc.startsWith('data:')
-              }
+              unoptimized={imgSrc.startsWith('data:') || /^https?:\/\//i.test(imgSrc)}
             />
           </div>
         </Link>

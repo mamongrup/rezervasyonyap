@@ -147,9 +147,10 @@ function Slide({
           alt={title || eyebrow || 'Slider'}
           fill
           priority={active}
+          fetchPriority={active ? 'high' : 'low'}
           sizes="100vw"
           className="object-cover md:hidden"
-          unoptimized={mobileUrl.startsWith('/uploads/')}
+          unoptimized={/^https?:\/\//i.test(mobileUrl)}
         />
       )}
       {desktopUrl && (
@@ -158,9 +159,10 @@ function Slide({
           alt={title || eyebrow || 'Slider'}
           fill
           priority={active}
+          fetchPriority={active ? 'high' : 'low'}
           sizes="100vw"
           className="hidden object-cover md:block"
-          unoptimized={desktopUrl.startsWith('/uploads/')}
+          unoptimized={/^https?:\/\//i.test(desktopUrl)}
         />
       )}
 

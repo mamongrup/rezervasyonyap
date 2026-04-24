@@ -68,6 +68,7 @@
     "typescript": "^5.2.2"
   },
   "devDependencies": {
+    "beasties": "^0.4.1",
     "prettier": "^3.3.2",
     "prettier-plugin-organize-imports": "^4.0.0",
     "prettier-plugin-tailwindcss": "^0.6.11"
@@ -75,5 +76,12 @@
   "overrides": {
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3"
-  }
+  },
+  "browserslist": [
+    "chrome >= 111",
+    "edge >= 111",
+    "firefox >= 110",
+    "safari >= 16.4",
+    "opera >= 95"
+  ]
 }

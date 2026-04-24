@@ -9,6 +9,13 @@ export type CmsHeroConfig = {
   images?: string[]
 }
 
+/**
+ * External (ör. Unsplash) URL’leri Next optimizer’ından geçirmek, ilk istekte uzak sunucuya
+ * bağlanıp AVIF encode ettiği için LCP’yi 8-9 sn’ye çıkarıyor. Bu yüzden `http(s)://` başlayan
+ * kaynaklar unoptimized olarak servis edilir; yalnızca local `/uploads/*` Next optimize edilir.
+ */
+const isExternalUrl = (src: string) => /^https?:\/\//i.test(src)
+
 export default function CmsHeroBlock({ config }: { config: CmsHeroConfig }) {
   const heading = config.heading ?? ''
   const subheading = config.subheading ?? ''
@@ -38,7 +45,9 @@ export default function CmsHeroBlock({ config }: { config: CmsHeroConfig }) {
                     fill
                     className="object-cover"
                     sizes="(max-width: 768px) 33vw, 25vw"
-                    unoptimized={src.startsWith('http') || src.startsWith('/uploads/')}
+                    priority={i === 0}
+                    fetchPriority={i === 0 ? 'high' : undefined}
+                    unoptimized={isExternalUrl(src)}
                   />
                 </div>
               ))}
@@ -53,7 +62,9 @@ export default function CmsHeroBlock({ config }: { config: CmsHeroConfig }) {
                     fill
                     className="object-cover"
                     sizes="(max-width: 768px) 100vw, 50vw"
-                    unoptimized={src.startsWith('http') || src.startsWith('/uploads/')}
+                    priority={i === 0}
+                    fetchPriority={i === 0 ? 'high' : undefined}
+                    unoptimized={isExternalUrl(src)}
                   />
                 </div>
               ))}

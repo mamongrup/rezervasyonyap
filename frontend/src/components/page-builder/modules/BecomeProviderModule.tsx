@@ -67,6 +67,7 @@ export default function BecomeProviderModule({ config }: { config: BecomeProvide
           {secondaryCtaText && (
             <Link
               href={secondaryCtaHref ?? '#'}
+              aria-label={`${secondaryCtaText} — ${ctaText}`}
               className="inline-flex items-center rounded-full border border-neutral-300 px-7 py-3 text-sm font-medium text-neutral-700 transition hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
             >
               {secondaryCtaText}

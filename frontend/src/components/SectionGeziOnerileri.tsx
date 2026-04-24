@@ -96,7 +96,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
 
       {/* Sağ: İçerik */}
       <div className="mt-10 max-w-2xl shrink-0 lg:mt-0 lg:w-2/5 lg:ps-16">
-        <span className="text-sm uppercase tracking-widest text-gray-400">Blog</span>
+        <span className="text-sm uppercase tracking-widest text-neutral-600 dark:text-neutral-300">Blog</span>
 
         <h2 className="mt-4 text-3xl font-semibold text-neutral-900 dark:text-white lg:text-4xl">
           Gezi Önerileri

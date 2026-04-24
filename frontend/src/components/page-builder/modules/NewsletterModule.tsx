@@ -17,9 +17,9 @@ interface NewsletterConfig {
 }
 
 const DEFAULT_BULLETS: { label: string; color: string }[] = [
-  { label: 'Özel indirim ve kampanyalara ilk sen ulaş', color: 'bg-blue-100 text-blue-600' },
-  { label: 'Premium fırsatları kaçırma',                color: 'bg-rose-100 text-rose-500' },
-  { label: 'Sonsuz seyahat ilhamı al',                  color: 'bg-teal-100 text-teal-600' },
+  { label: 'Özel indirim ve kampanyalara ilk sen ulaş', color: 'bg-blue-100 text-blue-800' },
+  { label: 'Premium fırsatları kaçırma',                color: 'bg-rose-100 text-rose-800' },
+  { label: 'Sonsuz seyahat ilhamı al',                  color: 'bg-teal-100 text-teal-800' },
 ]
 
 export default function NewsletterModule({ config }: { config: NewsletterConfig }) {

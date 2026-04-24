@@ -223,20 +223,26 @@ const SectionClientSay: FC<SectionClientSayProps> = ({
               </ul>
             </div>
 
-            <div className="embla__dots flex items-center justify-center gap-2 pt-8">
+            <div className="embla__dots flex items-center justify-center gap-1 pt-8">
               {scrollSnaps.map((_, index) => (
                 <button
                   type="button"
                   key={index}
                   aria-label={`Yorum ${index + 1}`}
+                  aria-current={index === selectedIndex ? 'true' : undefined}
                   onClick={() => onDotButtonClick(index)}
-                  className={clsx(
-                    'size-2.5 rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500',
-                    index === selectedIndex
-                      ? 'bg-neutral-800 dark:bg-neutral-200'
-                      : 'bg-neutral-300 dark:bg-neutral-600',
-                  )}
-                />
+                  className="flex size-11 items-center justify-center rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={clsx(
+                      'block size-2.5 rounded-full transition',
+                      index === selectedIndex
+                        ? 'bg-neutral-800 dark:bg-neutral-200'
+                        : 'bg-neutral-400 dark:bg-neutral-500',
+                    )}
+                  />
+                </button>
               ))}
             </div>
           </div>

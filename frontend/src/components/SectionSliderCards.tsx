@@ -1,9 +1,11 @@
 'use client'
 
 import type { TListingBase } from '@/types/listing-types'
+import { useLocaleSegment } from '@/contexts/locale-context'
 import { TExperienceListing } from '@/data/listings'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
+import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
@@ -26,6 +28,8 @@ const SectionSliderCards: FC<Props> = ({
 }) => {
   const sliderRef = useRef<HTMLDivElement>(null)
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
+  const locale = useLocaleSegment()
+  const pag = getMessages(locale).common.pagination
 
   const renderCard = (item: Props['listings'][number]) => {
     switch (cardType) {
@@ -52,13 +56,13 @@ const SectionSliderCards: FC<Props> = ({
       </div>
 
       <div className="absolute -start-3 top-[40%] z-1 -translate-y-1/2 sm:-start-5 xl:-start-5">
-        <ButtonCircle color="white" onClick={scrollToPrevSlide} className={'xl:size-11'} disabled={isAtStart}>
+        <ButtonCircle color="white" onClick={scrollToPrevSlide} className={'xl:size-11'} disabled={isAtStart} aria-label={pag.previous}>
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
       </div>
 
       <div className="absolute -end-3 top-[40%] z-1 -translate-y-1/2 sm:-end-5 xl:-end-6">
-        <ButtonCircle color="white" onClick={scrollToNextSlide} className={'xl:size-11'} disabled={isAtEnd}>
+        <ButtonCircle color="white" onClick={scrollToNextSlide} className={'xl:size-11'} disabled={isAtEnd} aria-label={pag.next}>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
       </div>

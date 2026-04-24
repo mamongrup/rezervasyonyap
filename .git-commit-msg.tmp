@@ -1,0 +1,24 @@
+perf+a11y: PageSpeed 100 hedefi icin optimizasyon turu
+
+Accessibility:
+- Slider prev/next butonlarina aria-label (6 dil)
+- CardCategory3/5/7: overlay link'lere aria-label
+- Renk kontrasti (placeholder, footer, badge'ler, blog eyebrow)
+- SectionClientSay dots 44x44 touch target + aria-label
+- BecomeProviderModule duplicate link diferansiyasyonu
+- NewsletterModule bullet text -800 tonlari
+
+Performance:
+- Hero/listing/gallery: local /uploads/ Next optimize, external http(s) unoptimized
+- CmsHeroBlock: priority + fetchPriority=high LCP icin
+- SlidersBannerCarousel active banner fetchPriority
+- next.config optimizePackageImports genisletildi
+- optimizeCss env flag (CSS_OPTIMIZE=1)
+- productionBrowserSourceMaps=false, compress=true
+
+Best Practices:
+- security-headers: upgrade-insecure-requests sadece enforce mode
+- CSP'ye Tawk.to domain'leri
+
+- browserslist (chrome>=111 vb) legacy JS polyfill'leri icin
+- beasties devDependency

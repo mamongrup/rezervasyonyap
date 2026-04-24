@@ -126,11 +126,7 @@ export default function GallerySlider({
                   className={clsx(`rounded-xl object-cover`, imageClass)}
                   onLoad={() => setLoaded(true)}
                   sizes="(max-width: 1025px) 100vw, 25vw"
-                  unoptimized={
-                    currentSrc.startsWith('http') ||
-                    currentSrc.startsWith('/uploads/') ||
-                    currentSrc.startsWith('data:')
-                  }
+                  unoptimized={currentSrc.startsWith('data:') || /^https?:\/\//i.test(currentSrc)}
                 />
               </motion.div>
             </AnimatePresence>
