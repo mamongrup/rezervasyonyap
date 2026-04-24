@@ -25,8 +25,8 @@ const poppins = Poppins({
   variable: '--font-sans',
   /** 600 çıkarıldı — 3 woff2; `font-semibold` tema ile 700 kullanır (PSI kritik istek zinciri). */
   weight: ['400', '500', '700'],
-  /** `swap` uzun kritik font zinciri; `optional` ilk boyamayı serbest bırakır (LCP/PSI). */
-  display: 'optional',
+  /** `optional` bazı ortamlarda web fontu hiç yüklemeden bırakıp “font kayboldu” hissi verebilir. */
+  display: 'swap',
   adjustFontFallback: true,
 })
 

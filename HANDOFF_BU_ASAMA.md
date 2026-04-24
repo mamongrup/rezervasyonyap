@@ -22,7 +22,7 @@ systemctl restart travel-web
 | Konu | Dosya / not |
 |------|----------------|
 | Headless UI PSI: `aria-hidden` + odaklanabilir sentinel | `frontend/src/lib/headlessui-hidden-focusable-a11y.js` + `next.config.mjs` (`NormalModuleReplacementPlugin` + `headlessui-internal/render` alias) |
-| Widget’lar ayrı chunk (kullanılmayan JS) | `frontend/src/components/DeferredChromeWidgets.tsx`, `application-layout.tsx` içinde kullanım |
+| ~~Widget’lar deferred~~ (geri alındı) | `application-layout.tsx` tekrar doğrudan import; font `swap` + hero arama `ssr: true` |
 | Harici AVIF sıkıştırma (LCP / “resim boyutu”) | `frontend/scripts/resize-external-avifs.mjs` — varsayılanlar: genişlik **720**, kalite **50**, effort **7**, recompress eşiği **6** KB |
 | Dokümantasyon | `README.md` (deploy, `curl` ile `/_next/static` kontrolü, isteğe bağlı `CSS_OPTIMIZE=1`, AVIF script) |
 

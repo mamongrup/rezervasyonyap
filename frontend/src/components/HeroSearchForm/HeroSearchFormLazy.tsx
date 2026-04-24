@@ -8,8 +8,9 @@ import dynamic from 'next/dynamic'
  * `react-datepicker`, `@headlessui/react` ve alt formlar ilk paketten ayrı chunk’ta yüklenir
  * → mobil PSI’de TBT ve ana iş parçacığı süresi düşer.
  */
+/** `ssr: false` yalnızca istemci chunk’ı yüklendiğinde formu gösterir; chunk/CSS hatasında arama kaybolur. */
 export default dynamic(() => import('./HeroSearchForm'), {
-  ssr: false,
+  ssr: true,
   loading: () => (
     <div className="hero-search-form w-full min-w-0" aria-busy="true" aria-label="Yükleniyor">
       <div

@@ -15,7 +15,7 @@ systemctl restart travel-web
 
 - `npm run build` webpack kullanır (`frontend/package.json`). Eski `.next` silindiği için build her sefer temiz çıktı üretir.
 - `package-lock.json` / bağımlılıklar değiştiyse, üçüncü satırdan önce bir kez: `cd frontend && npm ci` (ardından yine `rm -rf .next && npm run build`).
-- **Erişilebilirlik (Headless UI sentinel)** ve **layout’taki gecikmeli widget chunk’ları** bu repodaki `frontend` kodunda; üretimde mutlaka güncel `git pull` + yukarıdaki build + restart uygulanmalı.
+- **Erişilebilirlik (Headless UI sentinel)** bu repodaki `frontend` kodunda; üretimde mutlaka güncel `git pull` + yukarıdaki build + restart uygulanmalı.
 
 **İsteğe bağlı — LCP / “resim sıkıştır” (PageSpeed):** Build’den önce veya arada bir kez (`frontend` kökünde). Varsayılanlar script içinde: genişlik 720px, AVIF kalite 50, effort 7.
 
