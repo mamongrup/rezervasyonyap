@@ -82,7 +82,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
       <HugeiconsIcon icon={Search01Icon} size={20} color="currentColor" strokeWidth={1.5} className="shrink-0 text-primary-600 dark:text-primary-400" />
       <div className="ms-3 flex-1 overflow-hidden text-start">
         <span className="block text-sm font-semibold text-neutral-800 dark:text-neutral-100">{locationText}</span>
-        <span className="mt-0.5 flex gap-1.5 text-xs font-normal text-neutral-400 dark:text-neutral-500">
+        <span className="mt-0.5 flex gap-1.5 text-xs font-normal text-neutral-700 dark:text-neutral-300">
           <span>{weekText}</span>
           {guestsText && <><span>·</span><span>{guestsText}</span></>}
         </span>
