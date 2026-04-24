@@ -29,7 +29,7 @@ export default function CmsFoundersBlock({ config }: { config: CmsFoundersConfig
                 <Image
                   fill
                   className="object-cover"
-                  src={item.avatarUrl || 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg'}
+                  src={item.avatarUrl || '/uploads/external/02562cf14d6979ef57f7.avif'}
                   alt={item.name}
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 30vw, 30vw"
                 />

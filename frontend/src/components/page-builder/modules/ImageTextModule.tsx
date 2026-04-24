@@ -17,7 +17,7 @@ interface ImageTextConfig {
   imageRounded?: boolean
 }
 
-const DEFAULT_IMAGE = 'https://images.pexels.com/photos/3155666/pexels-photo-3155666.jpeg'
+const DEFAULT_IMAGE = '/uploads/external/844320702b7f31d298cb.avif'
 
 export default function ImageTextModule({ config }: { config: ImageTextConfig }) {
   const imageOnRight = (config.imagePosition ?? 'left') === 'right'

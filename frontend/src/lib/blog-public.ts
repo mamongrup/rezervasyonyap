@@ -4,7 +4,7 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import type { TBlogPost } from '@/types/blog'
 
 const DEFAULT_FEATURED = {
-  src: 'https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg',
+  src: '/uploads/external/b9da4d0ed5058ab92bd9.avif',
   alt: '',
   width: 1920,
   height: 1280,

@@ -24,31 +24,31 @@ const demo_videos: VideoType[] = [
     id: 'p4U5ArTFMEY',
     title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
     thumbnail:
-      'https://images.pexels.com/photos/131423/pexels-photo-131423.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      '/uploads/external/c7cedf9e9e98b097910e.avif',
   },
   {
     id: 'y7gKlzvg8xk',
     title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
     thumbnail:
-      'https://images.pexels.com/photos/186077/pexels-photo-186077.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      '/uploads/external/587acaa3c9f011e1dea6.avif',
   },
   {
     id: 'fKXaypnVL8s',
     title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
     thumbnail:
-      'https://images.pexels.com/photos/1660995/pexels-photo-1660995.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      '/uploads/external/f31c6e8a566b70d2181b.avif',
   },
   {
     id: 'unPKJJjQP0A',
     title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
     thumbnail:
-      'https://images.pexels.com/photos/4983184/pexels-photo-4983184.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      '/uploads/external/e680d161511d3797f4ad.avif',
   },
   {
     id: 'vazwd0HOohE',
     title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
     thumbnail:
-      'https://images.pexels.com/photos/2549018/pexels-photo-2549018.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      '/uploads/external/fc63b0d4e036f7f847d5.avif',
   },
 ]
 

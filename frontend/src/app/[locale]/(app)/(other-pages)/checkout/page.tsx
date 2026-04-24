@@ -178,7 +178,7 @@ const Page = () => {
                 alt=""
                 fill
                 sizes="200px"
-                src="https://images.pexels.com/photos/6373478/pexels-photo-6373478.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940"
+                src="/uploads/external/8081091c1bed4d7ee13a.avif"
               />
             </div>
           </div>

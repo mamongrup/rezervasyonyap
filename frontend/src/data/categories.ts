@@ -18,7 +18,7 @@ export async function getStayCategories() {
       href: '/stay-categories/new-york-usa',
       count: 5000,
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -33,7 +33,7 @@ export async function getStayCategories() {
       handle: 'singapore',
       href: '/stay-categories/singapore',
       count: 2500,
-      thumbnail: 'https://images.pexels.com/photos/7740160/pexels-photo-7740160.jpeg',
+      thumbnail: '/uploads/external/604495586a104b5cbac8.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -48,7 +48,7 @@ export async function getStayCategories() {
       handle: 'paris-france',
       href: '/stay-categories/paris-france',
       count: 3000,
-      thumbnail: 'https://images.pexels.com/photos/739407/pexels-photo-739407.jpeg',
+      thumbnail: '/uploads/external/f579f38dc529c6d599a3.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -63,7 +63,7 @@ export async function getStayCategories() {
       handle: 'london-uk',
       href: '/stay-categories/london-uk',
       count: 116288,
-      thumbnail: 'https://images.pexels.com/photos/460672/pexels-photo-460672.jpeg',
+      thumbnail: '/uploads/external/699afbb0018e6546be9f.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -78,7 +78,7 @@ export async function getStayCategories() {
       handle: 'tokyo-japan',
       href: '/stay-categories/tokyo-japan',
       count: 5000,
-      thumbnail: 'https://images.pexels.com/photos/4151484/pexels-photo-4151484.jpeg',
+      thumbnail: '/uploads/external/f7382cfceb0958ecab47.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -93,7 +93,7 @@ export async function getStayCategories() {
       handle: 'maldives',
       href: '/stay-categories/maldives',
       count: 7500,
-      thumbnail: 'https://images.pexels.com/photos/3250613/pexels-photo-3250613.jpeg',
+      thumbnail: '/uploads/external/9281ffe1c0768320d7ad.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -108,7 +108,7 @@ export async function getStayCategories() {
       handle: 'roma-italy',
       href: '/stay-categories/roma-italy',
       count: 8100,
-      thumbnail: 'https://images.pexels.com/photos/7740160/pexels-photo-7740160.jpeg',
+      thumbnail: '/uploads/external/604495586a104b5cbac8.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -123,7 +123,7 @@ export async function getStayCategories() {
       handle: 'enjoy-the-great-cold',
       href: '/stay-categories/enjoy-the-great-cold',
       count: 15600,
-      thumbnail: 'https://images.pexels.com/photos/5764100/pexels-photo-5764100.jpeg',
+      thumbnail: '/uploads/external/574be99acdc891ae0bad.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -138,7 +138,7 @@ export async function getStayCategories() {
       handle: 'sleep-in-a-floating-way',
       href: '/stay-categories/sleep-in-a-floating-way',
       count: 1000,
-      thumbnail: 'https://images.pexels.com/photos/2869499/pexels-photo-2869499.jpeg',
+      thumbnail: '/uploads/external/b3e6f5cbe4e373a9ca3d.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -153,7 +153,7 @@ export async function getStayCategories() {
       handle: 'in-the-billionaires-house',
       href: '/stay-categories/in-the-billionaires-house',
       count: 3000,
-      thumbnail: 'https://images.pexels.com/photos/7031413/pexels-photo-7031413.jpeg',
+      thumbnail: '/uploads/external/19b53daad779201c1c16.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -168,7 +168,7 @@ export async function getStayCategories() {
       handle: 'cool-in-the-deep-forest',
       href: '/stay-categories/cool-in-the-deep-forest',
       count: 6000,
-      thumbnail: 'https://images.pexels.com/photos/247532/pexels-photo-247532.jpeg',
+      thumbnail: '/uploads/external/eb8793c010d75469e573.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -184,7 +184,7 @@ export async function getStayCategories() {
       href: '/stay-categories/sunset-in-the-desert',
       count: 1000,
       thumbnail:
-        'https://images.pexels.com/photos/32223288/pexels-photo-32223288/free-photo-of-ngoi-nha-da-d-a-trung-h-i-quy-n-ru-v-i-di-m-nh-n-mau-vang.jpeg',
+        '/uploads/external/b4b016792a6565bdecb1.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -208,7 +208,7 @@ export async function getStayCategoryByHandle(handle?: string) {
       count: 144000,
       description: 'Explore all stays around the world',
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: stayCategoryCoverImage.src,
         width: stayCategoryCoverImage.width,
@@ -233,7 +233,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/tokyo',
       description: 'lorem ipsum dolor sit amet',
       count: 500,
-      thumbnail: 'https://images.pexels.com/photos/547116/pexels-photo-547116.jpeg',
+      thumbnail: '/uploads/external/3e11e7d4af0c7ab629ba.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -248,7 +248,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/denmark',
       description: 'lorem ipsum dolor sit amet',
       count: 750,
-      thumbnail: 'https://images.pexels.com/photos/7243314/pexels-photo-7243314.jpeg',
+      thumbnail: '/uploads/external/d40f61f6a7e1f9ef3275.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -263,7 +263,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/baceno-italy',
       description: 'Baceno, a small town in the Piedmont region of Italy.',
       count: 8100,
-      thumbnail: 'https://images.pexels.com/photos/12256847/pexels-photo-12256847.jpeg',
+      thumbnail: '/uploads/external/2c4637ee35d36e1bf4d2.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -278,7 +278,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/new-york',
       description: 'lorem ipsum dolor sit amet',
       count: 1000,
-      thumbnail: 'https://images.pexels.com/photos/4587344/pexels-photo-4587344.jpeg',
+      thumbnail: '/uploads/external/978489b0881016539afb.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -294,7 +294,7 @@ export async function getExperienceCategories() {
       description: 'lorem ipsum dolor sit amet',
       count: 2500,
       thumbnail:
-        'https://images.pexels.com/photos/24702952/pexels-photo-24702952/free-photo-of-nui-dan-ba-ng-i-du-l-ch.jpeg',
+        '/uploads/external/6ebdcd21300f1012ea2c.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -309,7 +309,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/paris',
       description: 'lorem ipsum dolor sit amet',
       count: 2000,
-      thumbnail: 'https://images.pexels.com/photos/12256878/pexels-photo-12256878.jpeg',
+      thumbnail: '/uploads/external/1968291aa1d67fd930a6.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -324,7 +324,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/london',
       description: 'lorem ipsum dolor sit amet',
       count: 1500,
-      thumbnail: 'https://images.pexels.com/photos/5036873/pexels-photo-5036873.jpeg',
+      thumbnail: '/uploads/external/1108dec51a235a815c01.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -339,7 +339,7 @@ export async function getExperienceCategories() {
       href: '/experience-categories/roma-italy',
       description: 'Italy, a European country with a long Mediterranean.',
       count: 8100,
-      thumbnail: 'https://images.pexels.com/photos/12256858/pexels-photo-12256858.jpeg',
+      thumbnail: '/uploads/external/8be2c8bf82802e7a9354.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -362,7 +362,7 @@ export async function getExperienceCategoryByHandle(handle?: string) {
       description: 'lorem ipsum dolor sit amet',
       count: 3000,
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: experienceCategoryCoverImage.src,
         width: experienceCategoryCoverImage.width,
@@ -384,7 +384,7 @@ export async function getCarCategories() {
       handle: 'london',
       href: '/car-categories/london',
       count: 1000,
-      thumbnail: 'https://images.pexels.com/photos/460672/pexels-photo-460672.jpeg',
+      thumbnail: '/uploads/external/699afbb0018e6546be9f.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -399,7 +399,7 @@ export async function getCarCategories() {
       handle: 'tokyo',
       href: '/car-categories/tokyo',
       count: 5000,
-      thumbnail: 'https://images.pexels.com/photos/4151484/pexels-photo-4151484.jpeg',
+      thumbnail: '/uploads/external/f7382cfceb0958ecab47.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -414,7 +414,7 @@ export async function getCarCategories() {
       handle: 'maldives',
       href: '/car-categories/maldives',
       count: 750,
-      thumbnail: 'https://images.pexels.com/photos/3250613/pexels-photo-3250613.jpeg',
+      thumbnail: '/uploads/external/9281ffe1c0768320d7ad.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -430,7 +430,7 @@ export async function getCarCategories() {
       href: '/car-categories/new-york',
       count: 1500,
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -445,7 +445,7 @@ export async function getCarCategories() {
       handle: 'singapore',
       href: '/car-categories/singapore',
       count: 2500,
-      thumbnail: 'https://images.pexels.com/photos/7740160/pexels-photo-7740160.jpeg',
+      thumbnail: '/uploads/external/604495586a104b5cbac8.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -460,7 +460,7 @@ export async function getCarCategories() {
       handle: 'paris',
       href: '/car-categories/paris',
       count: 3000,
-      thumbnail: 'https://images.pexels.com/photos/739407/pexels-photo-739407.jpeg',
+      thumbnail: '/uploads/external/f579f38dc529c6d599a3.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -483,7 +483,7 @@ export async function getCarCategoryByHandle(handle?: string) {
       href: '/car-categories/all',
       count: 3000,
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: carCategoryCoverImage.src,
         width: carCategoryCoverImage.width,
@@ -508,7 +508,7 @@ export async function getFlightCategories() {
       href: '/flight-categories/new-york',
       count: 1500,
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: filghtCategoryCoverImage.src,
         width: filghtCategoryCoverImage.width,
@@ -523,7 +523,7 @@ export async function getFlightCategories() {
       handle: 'singapore',
       href: '/flight-categories/singapore',
       count: 2500,
-      thumbnail: 'https://images.pexels.com/photos/7740160/pexels-photo-7740160.jpeg',
+      thumbnail: '/uploads/external/604495586a104b5cbac8.avif',
       coverImage: {
         src: filghtCategoryCoverImage.src,
         width: filghtCategoryCoverImage.width,
@@ -546,7 +546,7 @@ export async function getFlightCategoryByHandle(handle?: string) {
       href: '/flight-categories/all',
       count: 3000,
       thumbnail:
-        'https://images.pexels.com/photos/64271/queen-of-liberty-statue-of-liberty-new-york-liberty-statue-64271.jpeg',
+        '/uploads/external/89576098f09083d5c693.avif',
       coverImage: {
         src: filghtCategoryCoverImage.src,
         width: filghtCategoryCoverImage.width,
@@ -572,28 +572,28 @@ export type TCategory = TStayCategory | TExperienceCategory | TCarCategory | TFl
 /** Pexels thumbnail URLs for each category slug */
 const CATEGORY_THUMBNAILS: Record<string, string> = {
   oteller:
-    'https://images.pexels.com/photos/1268855/pexels-photo-1268855.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/4e2cad429ba10635413c.avif',
   'tatil-evleri':
-    'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/8617586fba59e6c624d2.avif',
   'yat-kiralama':
-    'https://images.pexels.com/photos/163236/luxury-yacht-boat-speed-water-163236.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/2b0678462ab30d3b5d84.avif',
   turlar:
-    'https://images.pexels.com/photos/2325446/pexels-photo-2325446.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/bda9ccb6e8fce406c360.avif',
   aktiviteler:
-    'https://images.pexels.com/photos/1371360/pexels-photo-1371360.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/c15ff70d6b98f26b6781.avif',
   kruvaziyer:
-    'https://images.pexels.com/photos/2193300/pexels-photo-2193300.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/e7b29d483282370aee7c.avif',
   'hac-umre':
-    'https://images.pexels.com/photos/3608967/pexels-photo-3608967.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
-  vize: 'https://images.pexels.com/photos/1010657/pexels-photo-1010657.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/7d4d22b7b4d65a5d1cb1.avif',
+  vize: '/uploads/external/a6d17baa4ce6e2f04973.avif',
   'ucak-bileti':
-    'https://images.pexels.com/photos/62623/wing-plane-flying-airplane-62623.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/c32b2ae1cced147cf838.avif',
   'arac-kiralama':
-    'https://images.pexels.com/photos/1007410/pexels-photo-1007410.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/856ef5f9932480496d10.avif',
   feribot:
-    'https://images.pexels.com/photos/635512/pexels-photo-635512.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/496a11e0cc1b55c3f9d7.avif',
   transfer:
-    'https://images.pexels.com/photos/3155666/pexels-photo-3155666.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+    '/uploads/external/4eb5c8b66586b520aa17.avif',
 }
 
 const COVER_IMAGE_MAP = {

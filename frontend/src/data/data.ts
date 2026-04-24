@@ -76,7 +76,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Peri bacaları, balon turları ve tarihi yeraltı şehirleriyle Kapadokya, Türkiye\'nin en büyülü destinasyonlarından biri. Bu kılavuzda, kısa bir seyahati nasıl en verimli şekilde planlayacağınızı anlatıyoruz.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/2325446/pexels-photo-2325446.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/bda9ccb6e8fce406c360.avif',
       alt: 'Kapadokya\'da Balon Turu',
       width: 1260,
       height: 750,
@@ -98,7 +98,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Türkiye\'nin Ege kıyılarındaki muhteşem koylar, kristal berraklığındaki deniz ve taze deniz ürünleriyle dolu bir mavi yolculuk için en iyi güzergahları ve ipuçlarını derlendi.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/163236/luxury-yacht-boat-speed-water-163236.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/2b0678462ab30d3b5d84.avif',
       alt: 'Ege\'de Tekne Turu',
       width: 1260,
       height: 750,
@@ -120,7 +120,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Büyük çoğunluğun bilmediği ama her seyahat meraklısının mutlaka görmesi gereken İstanbul\'un saklı güzellikleri. Tarihi yarımada\'nın arka sokaklarından Boğaz\'ın sessiz köşelerine kadar bir rehber.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/1268855/pexels-photo-1268855.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/4e2cad429ba10635413c.avif',
       alt: 'İstanbul Manzarası',
       width: 1260,
       height: 750,
@@ -142,7 +142,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Akdeniz\'in incisi Antalya\'da konaklama seçerken göz önünde bulundurmanız gereken en iyi otelleri, fiyat-performans karşılaştırması ve gerçek misafir yorumlarıyla derlendi.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/1396122/pexels-photo-1396122.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/8617586fba59e6c624d2.avif',
       alt: 'Antalya Otel Havuzu',
       width: 1260,
       height: 750,
@@ -164,7 +164,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Seyahat etmek pahalı olmak zorunda değil! Uçak bileti bulmaktan konaklama seçimine, yerel yemek deneyimlemekten ulaşım tasarruflarına kadar her şeyi kapsayan tam kapsamlı bir rehber.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/62623/wing-plane-flying-airplane-62623.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/c32b2ae1cced147cf838.avif',
       alt: 'Ekonomik Seyahat',
       width: 1260,
       height: 750,
@@ -186,7 +186,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Dünyanın en büyük antik kentlerinden biri olan Efes ile doğanın mucizesi Pamukkale travertenleri arasında nasıl mükemmel bir tur planlanır? Güzergah, konaklama ve dikkat edilmesi gereken noktalar.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/3155666/pexels-photo-3155666.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/4eb5c8b66586b520aa17.avif',
       alt: 'Pamukkale Travertenleri',
       width: 1260,
       height: 750,
@@ -208,7 +208,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Bodrum\'un el değmemiş balıkçı köyleri ve lüks marinalarındaki restoranlarda taze deniz ürünleri deneyimi için özenle seçilmiş rehber. Adres, fiyat ve tat puanları ile.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/1007410/pexels-photo-1007410.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/856ef5f9932480496d10.avif',
       alt: 'Bodrum Deniz Ürünleri',
       width: 1260,
       height: 750,
@@ -230,7 +230,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Yurt dışı seyahatlerinde en çok sorun yaratılan konuların başında gelen vize sürecini stressiz yönetmek için deneyimli gezginlerin paylaştığı pratik ipuçları ve dikkat edilmesi gereken noktalar.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/1010657/pexels-photo-1010657.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/a6d17baa4ce6e2f04973.avif',
       alt: 'Pasaport ve Vize',
       width: 1260,
       height: 750,
@@ -252,7 +252,7 @@ const MOCK_BLOG_POSTS: Omit<TBlogPost, 'detailHref'>[] = [
     excerpt:
       'Yemyeşil yaylalar, dev şelaleler ve çay bahçelerinin arasında adeta kaybolmak için Doğu Karadeniz\'in en güzel rotalarını, konaklama noktalarını ve yerel lezzetleri keşfedin.',
     featuredImage: {
-      src: 'https://images.pexels.com/photos/2193300/pexels-photo-2193300.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260',
+      src: '/uploads/external/e7b29d483282370aee7c.avif',
       alt: 'Karadeniz Yaylaları',
       width: 1260,
       height: 750,

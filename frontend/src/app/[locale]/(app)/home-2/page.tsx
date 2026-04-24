@@ -27,7 +27,7 @@ const SectionHero = () => {
       <div className="aspect-w-3 relative aspect-h-4 sm:aspect-w-4 sm:aspect-h-3 lg:aspect-w-16 lg:aspect-h-9 xl:aspect-h-8">
         <Image
           className="rounded-xl object-cover object-center"
-          src={'https://images.pexels.com/photos/2303781/pexels-photo-2303781.jpeg'}
+          src={'/uploads/external/2a531c991caf6b637b53.avif'}
           alt="hero"
           priority
           fill

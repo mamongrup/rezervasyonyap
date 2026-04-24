@@ -21,7 +21,7 @@ interface Props {
 }
 
 const FALLBACK_THUMB =
-  'https://images.pexels.com/photos/7740160/pexels-photo-7740160.jpeg?auto=compress&cs=tinysrgb&w=800'
+  '/uploads/external/b6b5f7c1d0076e468b7c.avif'
 
 const CardCategory7: FC<Props> = ({ className = '', category: { name, description, count, href, thumbnail, badgeLabel, ctaLabel } }) => {
   const badge = badgeLabel?.trim() || 'Collection'

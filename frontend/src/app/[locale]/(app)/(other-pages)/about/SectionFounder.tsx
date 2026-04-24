@@ -6,25 +6,25 @@ const team = [
     id: '1',
     name: 'Ahmet Yıldız',
     job: 'Kurucu & CEO',
-    avatar: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
+    avatar: '/uploads/external/02562cf14d6979ef57f7.avif',
   },
   {
     id: '2',
     name: 'Elif Kaya',
     job: 'Kurucu Ortak & COO',
-    avatar: 'https://images.pexels.com/photos/2804282/pexels-photo-2804282.jpeg',
+    avatar: '/uploads/external/1f8ad01d802594ecfd4f.avif',
   },
   {
     id: '3',
     name: 'Murat Demir',
     job: 'Kurucu & CTO',
-    avatar: 'https://images.pexels.com/photos/769772/pexels-photo-769772.jpeg',
+    avatar: '/uploads/external/19291e1b9be7f4564866.avif',
   },
   {
     id: '4',
     name: 'Zeynep Arslan',
     job: 'Kurucu & Strateji Direktörü',
-    avatar: 'https://images.pexels.com/photos/732425/pexels-photo-732425.jpeg',
+    avatar: '/uploads/external/f225618cb658a6c0b576.avif',
   },
 ]
 

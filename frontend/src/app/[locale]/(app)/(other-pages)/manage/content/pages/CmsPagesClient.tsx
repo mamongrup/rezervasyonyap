@@ -100,7 +100,7 @@ function defaultConfigForBlockType(code: string): string {
           {
             name: 'Ad Soyad',
             job: 'Unvan',
-            avatarUrl: 'https://images.pexels.com/photos/2379005/pexels-photo-2379005.jpeg',
+            avatarUrl: '/uploads/external/02562cf14d6979ef57f7.avif',
           },
         ],
       })

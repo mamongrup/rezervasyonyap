@@ -45,32 +45,32 @@ function parseVideo(url: string): { embedUrl: string; thumbnail: string } {
   return { embedUrl: url, thumbnail: '' }
 }
 
-const FALLBACK_THUMB = 'https://images.pexels.com/photos/1591373/pexels-photo-1591373.jpeg?auto=compress&cs=tinysrgb&w=800'
+const FALLBACK_THUMB = '/uploads/external/51cf4a52af7100feb678.avif'
 
 const DEFAULT_VIDEOS: VideoItem[] = [
   {
     id: 'v1',
     title: 'Türkiye\'nin En Güzel Plajları',
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    thumbnail: 'https://images.pexels.com/photos/1591373/pexels-photo-1591373.jpeg?auto=compress&cs=tinysrgb&w=800',
+    thumbnail: '/uploads/external/51cf4a52af7100feb678.avif',
   },
   {
     id: 'v2',
     title: 'Kapadokya Balon Turu',
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    thumbnail: 'https://images.pexels.com/photos/3601422/pexels-photo-3601422.jpeg?auto=compress&cs=tinysrgb&w=400',
+    thumbnail: '/uploads/external/45c36779eb1ef7f239a2.avif',
   },
   {
     id: 'v3',
     title: 'Bodrum\'da Yat Kiralama',
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    thumbnail: 'https://images.pexels.com/photos/1437218/pexels-photo-1437218.jpeg?auto=compress&cs=tinysrgb&w=400',
+    thumbnail: '/uploads/external/5cf9600df0163373786a.avif',
   },
   {
     id: 'v4',
     title: 'İstanbul Gezi Rehberi',
     videoUrl: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-    thumbnail: 'https://images.pexels.com/photos/3408744/pexels-photo-3408744.jpeg?auto=compress&cs=tinysrgb&w=400',
+    thumbnail: '/uploads/external/fb5e30434ad6f2816dc0.avif',
   },
 ]
 
