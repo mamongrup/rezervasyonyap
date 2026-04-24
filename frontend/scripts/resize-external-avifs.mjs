@@ -8,7 +8,8 @@
  * Opsiyonel env:
  *   UPLOADS_ROOT  — varsayılan: ./public/uploads
  *   TARGET_WIDTH  — varsayılan: 800
- *   AVIF_QUALITY  — varsayılan: 72
+ *   AVIF_QUALITY  — varsayılan: 68
+ *   AVIF_RECOMPRESS_MIN_KB — hedef genişlik zaten küçük ama dosya bu KB üzerindeyse yeniden AVIF (varsayılan 10; 0=kapat)
  *   THUMB_SIZE    — varsayılan: 256, 0 → thumb üretme
  *   DRY_RUN       — 1 ise sadece listeler, yazmaz
  */
@@ -23,14 +24,18 @@ const UPLOADS_ROOT =
   process.env.UPLOADS_ROOT || path.join(PROJECT_ROOT, 'public', 'uploads')
 const EXTERNAL_DIR = path.join(UPLOADS_ROOT, 'external')
 const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 800)
-const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 72)
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 68)
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const DRY_RUN = process.env.DRY_RUN === '1'
+/** ≤TARGET_WIDTH görsellerde yalnız boyut büyükse yeniden sıkıştır (PSI “sıkıştırmayı artır”) */
+const RECOMPRESS_MIN_KB = Number(process.env.AVIF_RECOMPRESS_MIN_KB ?? 10)
 
 async function main() {
   console.log(`[resize-external-avifs] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
   console.log(`  dir = ${EXTERNAL_DIR}`)
-  console.log(`  target width = ${TARGET_WIDTH}, thumb = ${THUMB_SIZE || 'off'}`)
+  console.log(
+    `  target width = ${TARGET_WIDTH}, avif q = ${AVIF_QUALITY}, thumb = ${THUMB_SIZE || 'off'}, recompress if >${RECOMPRESS_MIN_KB || 'off'} KB`,
+  )
 
   let names
   try {
@@ -63,7 +68,13 @@ async function main() {
     const buf = await fs.readFile(full)
     const meta = await sharp(buf).metadata()
     const w = meta.width ?? 0
-    if (w > 0 && w <= TARGET_WIDTH && !DRY_RUN) {
+    const smallDims = w > 0 && w <= TARGET_WIDTH
+    const shouldRecompressOnly =
+      smallDims &&
+      !DRY_RUN &&
+      RECOMPRESS_MIN_KB > 0 &&
+      stat.size >= RECOMPRESS_MIN_KB * 1024
+    if (smallDims && !DRY_RUN && !shouldRecompressOnly) {
       skipped++
       bytesAfter += stat.size
       console.log(`  - skip (zaten ≤${TARGET_WIDTH}px) ${name} (${w}px)`)

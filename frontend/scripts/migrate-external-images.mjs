@@ -23,7 +23,7 @@
  * Opsiyonel env:
  *   UPLOADS_ROOT     — varsayılan: ./public/uploads
  *   TARGET_WIDTH     — varsayılan: 1600 (px). Mobil için 800 önerilir.
- *   AVIF_QUALITY     — varsayılan: 72
+ *   AVIF_QUALITY     — varsayılan: 68 (PSI görsel boyutu; 72 eski)
  *   MAX_CONCURRENT   — varsayılan: 4
  *   FORCE            — "1" olursa mevcut dosya varsa bile yeniden indirir ve override eder.
  *                      Kullanım: TARGET_WIDTH=800 FORCE=1 DATABASE_URL=... node scripts/...
@@ -53,7 +53,7 @@ const UPLOADS_ROOT =
 const EXTERNAL_SUBDIR = 'external'
 const PUBLIC_PREFIX = '/uploads/external'
 const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 1600)
-const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 72)
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 68)
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT || 4)
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 

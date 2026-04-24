@@ -9,7 +9,6 @@ import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFo
 import Aside from '@/components/aside'
 import AsideSidebarNavigation from '@/components/aside-sidebar-navigation'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
-import 'rc-slider/assets/index.css'
 import type { ReactNode } from 'react'
 
 interface Props {

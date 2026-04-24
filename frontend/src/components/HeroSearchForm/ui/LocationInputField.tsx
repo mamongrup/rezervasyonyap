@@ -15,7 +15,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
-import _ from 'lodash'
+import debounce from 'lodash/debounce'
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
 import type { LocationSuggestion } from '@/app/api/location-search/route'
@@ -105,7 +105,7 @@ export const LocationInputField: FC<Props> = ({
   useInteractOutside(containerRef, closePopover)
 
   const fetchSearch = useCallback(
-    _.debounce(async (q: string) => {
+    debounce(async (q: string) => {
       if (!q.trim()) { setSearchResults([]); return }
       setLoadingSearch(true)
       try {

@@ -22,6 +22,12 @@ const extraImageHost =
 const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
+  /** `import lodash from 'lodash'` yerine alt yol — PSI “Eski JavaScript” / paket boyutu. */
+  modularizeImports: {
+    lodash: {
+      transform: 'lodash/{{member}}',
+    },
+  },
   reactStrictMode: false,
   poweredByHeader: false,
   compiler: {
