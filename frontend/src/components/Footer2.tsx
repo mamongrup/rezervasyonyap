@@ -139,7 +139,11 @@ export default async function Footer2({ locale }: Footer2Props) {
                 <ul role="list" className="mt-4 space-y-3">
                   {col.links.map((item) => (
                     <li key={`${col.title}-${item.name}`}>
-                      <a href={item.href} className={linkCls}>
+                      <a
+                        href={item.href}
+                        className={linkCls}
+                        aria-label={item.href.includes('#') ? `${item.name} — ${col.title}` : undefined}
+                      >
                         {item.name}
                       </a>
                     </li>
