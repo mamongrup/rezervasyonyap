@@ -25,7 +25,9 @@ function MosaicSlot({
   sizes: string
   priority?: boolean
 }) {
-  const unopt = (u: string) => u.startsWith('http') || u.startsWith('/uploads/')
+  // Next optimizer external URL'leri yeniden encode ederken LCP'yi bozuyor;
+  // local `/uploads/*` görsellerini Next optimize eder, kalanları ham serve ederiz.
+  const isExternal = /^https?:\/\//i.test(src)
   if (!src.trim()) {
     return <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
   }
@@ -37,7 +39,9 @@ function MosaicSlot({
       sizes={sizes}
       className="object-cover"
       priority={priority}
-      unoptimized={unopt(src)}
+      fetchPriority={priority ? 'high' : undefined}
+      loading={priority ? 'eager' : undefined}
+      unoptimized={isExternal}
     />
   )
 }
