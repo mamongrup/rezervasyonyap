@@ -29,6 +29,9 @@
  *                      Kullanım: TARGET_WIDTH=800 FORCE=1 DATABASE_URL=... node scripts/...
  *   THUMB_SIZE       — varsayılan: 256. Her resmin yanına `<hash>-thumb.avif` olarak
  *                      kare (cover crop) thumbnail üretir. 0 → thumb üretme.
+ *   SKIP_DB          — "1" olursa PostgreSQL'e bağlanmaz; yalnızca page-builder JSON + src/
+ *                      taraması ve dosya içi replace. DATABASE_URL gerekmez.
+ *                      (DB'de kalan Pexels URL'leri için sonra tam migration çalıştır.)
  */
 
 import { createHash } from 'node:crypto'
@@ -42,6 +45,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const PROJECT_ROOT = path.resolve(__dirname, '..')
 
 const DATABASE_URL = process.env.DATABASE_URL
+const SKIP_DB = process.env.SKIP_DB === '1'
 const DRY_RUN = process.env.DRY_RUN === '1'
 const FORCE = process.env.FORCE === '1'
 const UPLOADS_ROOT =
@@ -66,8 +70,8 @@ const URL_RE = new RegExp(`https?://(?:${hostAlternation})/[^\\s"'<>\\\\)]+`, 'g
 // DB taraması için POSIX regex (PostgreSQL ~ operatörü)
 const PG_PATTERN = `https?://(${hostAlternation})/`
 
-if (!DATABASE_URL) {
-  console.error('HATA: DATABASE_URL env değişkeni zorunlu.')
+if (!SKIP_DB && !DATABASE_URL) {
+  console.error('HATA: DATABASE_URL zorunlu (veya yalnızca dosya taraması için SKIP_DB=1).')
   process.exit(1)
 }
 
@@ -263,19 +267,24 @@ async function scanSourceFiles() {
 }
 
 async function main() {
-  console.log(`[migrate-external-images] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
+  console.log(`[migrate-external-images] DRY_RUN=${DRY_RUN ? 'YES' : 'no'} SKIP_DB=${SKIP_DB ? 'YES' : 'no'}`)
   console.log(`  UPLOADS_ROOT = ${UPLOADS_ROOT}`)
   console.log(`  external dir = ${externalDir}`)
   console.log(`  target width = ${TARGET_WIDTH}, avif quality = ${AVIF_QUALITY}`)
   console.log(`  hosts = ${EXTERNAL_HOSTS.join(', ')}`)
 
-  const { Client } = pg
-  const client = new Client({ connectionString: DATABASE_URL })
-  await client.connect()
+  const allUrls = new Set()
+  const colsWithMatches = []
 
-  // ---- 1) Keşif: URL içeren kolonları ve JSON dosyalarını bul ----
-  console.log('\n[1/3] Tablolar taranıyor...')
-  const colsRes = await client.query(`
+  let client = null
+  if (!SKIP_DB) {
+    const { Client } = pg
+    client = new Client({ connectionString: DATABASE_URL })
+    await client.connect()
+
+    // ---- 1) Keşif: URL içeren kolonları ve JSON dosyalarını bul ----
+    console.log('\n[1/3] Tablolar taranıyor...')
+    const colsRes = await client.query(`
     SELECT c.table_schema, c.table_name, c.column_name, c.data_type
     FROM information_schema.columns c
     JOIN information_schema.tables t
@@ -287,47 +296,47 @@ async function main() {
     ORDER BY c.table_schema, c.table_name, c.column_name
   `)
 
-  console.log(`  taranacak kolon = ${colsRes.rows.length}`)
+    console.log(`  taranacak kolon = ${colsRes.rows.length}`)
 
-  const allUrls = new Set()
-  const colsWithMatches = []
+    for (const col of colsRes.rows) {
+      const fq = `"${col.table_schema}"."${col.table_name}"`
+      const isJson = col.data_type === 'jsonb' || col.data_type === 'json'
+      const readExpr = isJson ? `"${col.column_name}"::text` : `"${col.column_name}"`
 
-  for (const col of colsRes.rows) {
-    const fq = `"${col.table_schema}"."${col.table_name}"`
-    const isJson = col.data_type === 'jsonb' || col.data_type === 'json'
-    const readExpr = isJson ? `"${col.column_name}"::text` : `"${col.column_name}"`
+      let q
+      try {
+        q = await client.query(
+          `SELECT ${readExpr} AS val FROM ${fq} WHERE ${readExpr} ~ $1`,
+          [PG_PATTERN],
+        )
+      } catch (e) {
+        console.warn(
+          `  ? SKIP ${col.table_schema}.${col.table_name}.${col.column_name}: ${e.message}`,
+        )
+        continue
+      }
+      if (q.rows.length === 0) continue
 
-    let q
-    try {
-      q = await client.query(
-        `SELECT ${readExpr} AS val FROM ${fq} WHERE ${readExpr} ~ $1`,
-        [PG_PATTERN],
-      )
-    } catch (e) {
-      console.warn(
-        `  ? SKIP ${col.table_schema}.${col.table_name}.${col.column_name}: ${e.message}`,
-      )
-      continue
-    }
-    if (q.rows.length === 0) continue
-
-    const colUrls = new Set()
-    for (const row of q.rows) {
-      const val = row.val
-      if (!val) continue
-      const matches = String(val).match(URL_RE)
-      if (!matches) continue
-      for (const m of matches) {
-        allUrls.add(m)
-        colUrls.add(m)
+      const colUrls = new Set()
+      for (const row of q.rows) {
+        const val = row.val
+        if (!val) continue
+        const matches = String(val).match(URL_RE)
+        if (!matches) continue
+        for (const m of matches) {
+          allUrls.add(m)
+          colUrls.add(m)
+        }
+      }
+      if (colUrls.size > 0) {
+        colsWithMatches.push({ ...col, urls: colUrls, rowCount: q.rows.length })
+        console.log(
+          `  · ${col.table_schema}.${col.table_name}.${col.column_name} (${col.data_type}) — rows=${q.rows.length} urls=${colUrls.size}`,
+        )
       }
     }
-    if (colUrls.size > 0) {
-      colsWithMatches.push({ ...col, urls: colUrls, rowCount: q.rows.length })
-      console.log(
-        `  · ${col.table_schema}.${col.table_name}.${col.column_name} (${col.data_type}) — rows=${q.rows.length} urls=${colUrls.size}`,
-      )
-    }
+  } else {
+    console.log('\n[1/3] SKIP_DB=1 — tablo taraması atlandı.')
   }
 
   // JSON statik dosyalarını tara
@@ -354,7 +363,7 @@ async function main() {
 
   if (allUrls.size === 0) {
     console.log('Hiç external URL bulunamadı, çıkılıyor.')
-    await client.end()
+    if (client) await client.end()
     return
   }
 
@@ -377,50 +386,54 @@ async function main() {
 
   if (DRY_RUN) {
     console.log('\nDRY_RUN=1 — DB güncellenmedi. Gerçek çalıştırma için DRY_RUN bayrağını kaldır.')
-    await client.end()
+    if (client) await client.end()
     return
   }
 
   if (successCount === 0) {
     console.log('\nHiç URL başarıyla indirilemedi, DB güncellemesi atlanıyor.')
-    await client.end()
+    if (client) await client.end()
     return
   }
 
   // ---- 3) DB güncelle ----
-  console.log('\n[3/3] DB güncellemesi başlıyor...')
   let totalRowsUpdated = 0
   let totalReplacements = 0
 
-  for (const col of colsWithMatches) {
-    const fq = `"${col.table_schema}"."${col.table_name}"`
-    const isJson = col.data_type === 'jsonb' || col.data_type === 'json'
-    const colRef = `"${col.column_name}"`
-    const readExpr = isJson ? `${colRef}::text` : colRef
+  if (client && colsWithMatches.length > 0) {
+    console.log('\n[3/3] DB güncellemesi başlıyor...')
+    for (const col of colsWithMatches) {
+      const fq = `"${col.table_schema}"."${col.table_name}"`
+      const isJson = col.data_type === 'jsonb' || col.data_type === 'json'
+      const colRef = `"${col.column_name}"`
+      const readExpr = isJson ? `${colRef}::text` : colRef
 
-    for (const oldUrl of col.urls) {
-      const newUrl = urlMap.get(oldUrl)
-      if (!newUrl) continue
+      for (const oldUrl of col.urls) {
+        const newUrl = urlMap.get(oldUrl)
+        if (!newUrl) continue
 
-      const setExpr = isJson
-        ? `SET ${colRef} = replace(${readExpr}, $1, $2)::${col.data_type}`
-        : `SET ${colRef} = replace(${readExpr}, $1, $2)`
-      const whereExpr = `WHERE position($1 in ${readExpr}) > 0`
-      const sql = `UPDATE ${fq} ${setExpr} ${whereExpr}`
+        const setExpr = isJson
+          ? `SET ${colRef} = replace(${readExpr}, $1, $2)::${col.data_type}`
+          : `SET ${colRef} = replace(${readExpr}, $1, $2)`
+        const whereExpr = `WHERE position($1 in ${readExpr}) > 0`
+        const sql = `UPDATE ${fq} ${setExpr} ${whereExpr}`
 
-      try {
-        const r = await client.query(sql, [oldUrl, newUrl])
-        if (r.rowCount && r.rowCount > 0) {
-          totalRowsUpdated += r.rowCount
-          totalReplacements++
+        try {
+          const r = await client.query(sql, [oldUrl, newUrl])
+          if (r.rowCount && r.rowCount > 0) {
+            totalRowsUpdated += r.rowCount
+            totalReplacements++
+          }
+        } catch (e) {
+          console.warn(
+            `  ! UPDATE hatası ${col.table_schema}.${col.table_name}.${col.column_name}: ${e.message}`,
+          )
         }
-      } catch (e) {
-        console.warn(
-          `  ! UPDATE hatası ${col.table_schema}.${col.table_name}.${col.column_name}: ${e.message}`,
-        )
       }
+      console.log(`  ✓ ${col.table_schema}.${col.table_name}.${col.column_name}`)
     }
-    console.log(`  ✓ ${col.table_schema}.${col.table_name}.${col.column_name}`)
+  } else if (SKIP_DB) {
+    console.log('\n[3/3] SKIP_DB=1 — DB güncellemesi atlandı.')
   }
 
   // Dosya içi string replace — hem page-builder JSON hem src/ kaynak dosyaları
@@ -460,7 +473,7 @@ async function main() {
   console.log(`\nŞimdi build + restart lazım:`)
   console.log(`  npm run build && systemctl restart travel-web`)
 
-  await client.end()
+  if (client) await client.end()
 }
 
 main().catch((e) => {
