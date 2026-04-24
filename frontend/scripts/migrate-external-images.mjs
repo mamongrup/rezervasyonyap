@@ -4,9 +4,11 @@
  *
  * External (Unsplash / Pexels / Pixabay) image URL'lerini indirir,
  * sharp ile AVIF'e çevirir, public/uploads/external/<hash>.avif olarak kaydeder
- * ve iki yerde eski URL'i yenisi ile değiştirir:
+ * ve üç yerde eski URL'i yenisi ile değiştirir:
  *   1) DB'deki tüm text/varchar/jsonb kolonlarında
  *   2) `public/page-builder/**\/*.json` statik dosyalarında
+ *   3) `src/` altındaki `.ts`, `.tsx`, `.js`, `.mjs`, `.json` dosyalarında
+ *      (src/data/listings.ts, src/contains/fakeData.ts, vb.)
  *
  * KULLANIM (frontend/ dizininden):
  *
@@ -171,6 +173,50 @@ async function scanJsonFiles() {
   return out
 }
 
+// src/ altındaki .ts, .tsx, .js, .mjs, .json dosyalarını recursive tara.
+// node_modules, .next, dist gibi dizinleri skip eder.
+const SRC_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.json'])
+const SKIP_DIRS = new Set(['node_modules', '.next', '.turbo', 'dist', '.git', 'coverage'])
+
+async function walkDir(dir, acc) {
+  let entries
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true })
+  } catch {
+    return
+  }
+  for (const e of entries) {
+    if (e.isDirectory()) {
+      if (SKIP_DIRS.has(e.name)) continue
+      await walkDir(path.join(dir, e.name), acc)
+    } else if (e.isFile()) {
+      const ext = path.extname(e.name).toLowerCase()
+      if (!SRC_EXTENSIONS.has(ext)) continue
+      acc.push(path.join(dir, e.name))
+    }
+  }
+}
+
+async function scanSourceFiles() {
+  const root = path.join(PROJECT_ROOT, 'src')
+  const files = []
+  await walkDir(root, files)
+  const out = []
+  for (const full of files) {
+    let txt
+    try {
+      txt = await fs.readFile(full, 'utf8')
+    } catch {
+      continue
+    }
+    const matches = txt.match(URL_RE)
+    if (!matches || matches.length === 0) continue
+    const urls = new Set(matches)
+    out.push({ file: full, rel: path.relative(PROJECT_ROOT, full), urls })
+  }
+  return out
+}
+
 async function main() {
   console.log(`[migrate-external-images] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
   console.log(`  UPLOADS_ROOT = ${UPLOADS_ROOT}`)
@@ -247,10 +293,19 @@ async function main() {
     console.log(`  · ${jf.rel} — urls=${jf.urls.size}`)
   }
 
+  // src/ altındaki kaynak dosyalarını tara
+  console.log('\n  Kaynak dosyalar taranıyor (src/**/*.{ts,tsx,js,mjs,json})...')
+  const sourceFiles = await scanSourceFiles()
+  for (const sf of sourceFiles) {
+    for (const u of sf.urls) allUrls.add(u)
+    console.log(`  · ${sf.rel} — urls=${sf.urls.size}`)
+  }
+
   console.log(`\n[özet]`)
   console.log(`  benzersiz URL      = ${allUrls.size}`)
   console.log(`  etkilenen kolon    = ${colsWithMatches.length}`)
   console.log(`  etkilenen JSON dsy = ${jsonFiles.length}`)
+  console.log(`  etkilenen src dsy  = ${sourceFiles.length}`)
 
   if (allUrls.size === 0) {
     console.log('Hiç external URL bulunamadı, çıkılıyor.')
@@ -323,33 +378,40 @@ async function main() {
     console.log(`  ✓ ${col.table_schema}.${col.table_name}.${col.column_name}`)
   }
 
-  // JSON dosyalarını güncelle
-  let jsonFilesUpdated = 0
-  let jsonReplacements = 0
-  for (const jf of jsonFiles) {
-    let txt = await fs.readFile(jf.file, 'utf8')
-    let localReplacements = 0
-    for (const oldUrl of jf.urls) {
-      const newUrl = urlMap.get(oldUrl)
-      if (!newUrl) continue
-      if (!txt.includes(oldUrl)) continue
-      // replaceAll ile tüm kopyalar
-      txt = txt.split(oldUrl).join(newUrl)
-      localReplacements++
+  // Dosya içi string replace — hem page-builder JSON hem src/ kaynak dosyaları
+  async function replaceInFileList(list, label) {
+    let filesUpdated = 0
+    let totalReplacements = 0
+    for (const jf of list) {
+      let txt = await fs.readFile(jf.file, 'utf8')
+      let localReplacements = 0
+      for (const oldUrl of jf.urls) {
+        const newUrl = urlMap.get(oldUrl)
+        if (!newUrl) continue
+        if (!txt.includes(oldUrl)) continue
+        txt = txt.split(oldUrl).join(newUrl)
+        localReplacements++
+      }
+      if (localReplacements > 0) {
+        await fs.writeFile(jf.file, txt, 'utf8')
+        filesUpdated++
+        totalReplacements += localReplacements
+        console.log(`  ✓ [${label}] ${jf.rel} (${localReplacements} replacement)`)
+      }
     }
-    if (localReplacements > 0) {
-      await fs.writeFile(jf.file, txt, 'utf8')
-      jsonFilesUpdated++
-      jsonReplacements += localReplacements
-      console.log(`  ✓ ${jf.rel} (${localReplacements} replacement)`)
-    }
+    return { filesUpdated, totalReplacements }
   }
+
+  const jsonRes = await replaceInFileList(jsonFiles, 'json')
+  const srcRes = await replaceInFileList(sourceFiles, 'src')
 
   console.log(`\n[bitti]`)
   console.log(`  DB replacement     = ${totalReplacements}`)
   console.log(`  DB satır etk.      = ${totalRowsUpdated}`)
-  console.log(`  JSON dosya         = ${jsonFilesUpdated}`)
-  console.log(`  JSON replacement   = ${jsonReplacements}`)
+  console.log(`  JSON dosya         = ${jsonRes.filesUpdated}`)
+  console.log(`  JSON replacement   = ${jsonRes.totalReplacements}`)
+  console.log(`  SRC  dosya         = ${srcRes.filesUpdated}`)
+  console.log(`  SRC  replacement   = ${srcRes.totalReplacements}`)
   console.log(`\nŞimdi build + restart lazım:`)
   console.log(`  npm run build && systemctl restart travel-web`)
 
