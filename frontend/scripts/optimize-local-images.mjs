@@ -152,13 +152,33 @@ async function main() {
     sourceFiles,
   )
 
-  // Basit replace mapping: `<basename>.png` → `<basename>.avif`
-  // Her conversion için iki varyant: unix ve windows path separator.
+  // Replace key olarak `images/<relative_path>` kullanırız — BASENAME DEĞİL.
+  // Aksi halde `src/images/2.png` (eğer büyük olup dönüştürüldüyse) basename'i `2.png`
+  // olduğu için `src/images/avatars/2.png` referansları da yanlışlıkla değişirdi
+  // (küçük olduğu için skip edilmiş ama basename çakışıyor).
+  //
+  // Örn: `src/images/avatars/2.png` → key = "images/avatars/2.png"
+  //      import path `@/images/avatars/2.png`, `../images/avatars/2.png` hepsi
+  //      bu substring'i içerir — güvenli.
+  //
+  // Path separator'unu daima forward slash'e zorla (Windows'ta da import path'lerde
+  // forward slash kullanılır).
+  const srcImagesRoot = path.join(PROJECT_ROOT, 'src')
   const replacements = conversions.map((c) => {
-    const oldBase = path.basename(c.src) // örn "our-features.png"
-    const newBase = path.basename(c.avif) // örn "our-features.avif"
-    return { oldBase, newBase }
+    const oldRelFromSrc = path.relative(srcImagesRoot, c.src).split(path.sep).join('/')
+    const newRelFromSrc = path.relative(srcImagesRoot, c.avif).split(path.sep).join('/')
+    // "images/avatars/2.png" → "images/avatars/2.avif"
+    return { oldKey: oldRelFromSrc, newKey: newRelFromSrc }
   })
+
+  // Collision uyarısı: aynı oldKey birden fazla kez varsa (olmamalı) hata ver.
+  const seenKeys = new Set()
+  for (const r of replacements) {
+    if (seenKeys.has(r.oldKey)) {
+      console.warn(`  ! Uyarı: aynı key iki kez: ${r.oldKey}`)
+    }
+    seenKeys.add(r.oldKey)
+  }
 
   let filesUpdated = 0
   let totalReplacements = 0
@@ -171,11 +191,9 @@ async function main() {
     }
     let localReplacements = 0
     for (const r of replacements) {
-      if (!txt.includes(r.oldBase)) continue
-      // Tam basename match ile değiştir (başka dosya adına zarar vermemek için
-      // word boundary analoğu: baştaki '/', '\\' veya '"', "'" vb. kalmalı).
+      if (!txt.includes(r.oldKey)) continue
       const before = txt
-      txt = txt.split(r.oldBase).join(r.newBase)
+      txt = txt.split(r.oldKey).join(r.newKey)
       if (before !== txt) localReplacements++
     }
     if (localReplacements > 0) {
