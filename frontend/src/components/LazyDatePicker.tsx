@@ -8,16 +8,10 @@
  */
 import dynamic from 'next/dynamic'
 
-const LazyDatePicker = dynamic(
-  async () => {
-    const [{ default: DatePicker }] = await Promise.all([
-      import('react-datepicker'),
-      import('@/lib/register-datepicker-tr'),
-    ])
-    return DatePicker
-  },
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const LazyDatePicker: any = dynamic(
+  () => import('@/components/DatePickerWithLocales'),
   { ssr: false, loading: () => null },
 )
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export default LazyDatePicker as any
+export default LazyDatePicker
