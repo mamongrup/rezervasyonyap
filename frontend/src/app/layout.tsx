@@ -21,8 +21,8 @@ import type { SitePublicConfig } from '@/lib/travel-api'
 import { Poppins } from 'next/font/google'
 
 const poppins = Poppins({
-  /** Türkçe / Doğu Avrupa glifleri; tek woff2 paketinde (latin + latin-ext). */
-  subsets: ['latin', 'latin-ext'],
+  /** PSI: latin-ext ek woff2 indirir; LCP/perf düşebilir. TR için latin + fallback yeter. */
+  subsets: ['latin'],
   variable: '--font-sans',
   /**
    * 4 woff2 → 3'e indirildi (300 + 600 çıkarıldı). PSI mobil "Kritik istek zinciri"nde

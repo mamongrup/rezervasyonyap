@@ -3,8 +3,8 @@
 import dynamic from 'next/dynamic'
 
 /**
- * Tüm sitede footer üstü widget'lar (WhatsApp, concierge, çerez, popup).
- * `next/dynamic` + `ssr: false` ile ana RSC/ilk JS paketinden ayrı chunk'lar; ilk boyama ve TBT'ye katkıları azalır.
+ * Footer üstü — WhatsApp, concierge, site popup (çerez çubuğu application-layout'ta doğrudan).
+ * `next/dynamic` + `ssr: false` ile ayrı chunk; TBT / ana bundle küçülür.
  */
 const WhatsAppFloatButton = dynamic(() => import('@/components/WhatsAppFloatButton'), {
   ssr: false,
@@ -14,27 +14,18 @@ const ConciergeChatWidget = dynamic(() => import('@/components/ConciergeChatWidg
   ssr: false,
   loading: () => null,
 })
-const CookieConsentBanner = dynamic(() => import('@/components/CookieConsentBanner'), {
-  ssr: false,
-  loading: () => null,
-})
 const SitePopupsRenderer = dynamic(() => import('@/components/popups/SitePopupsRenderer'), {
   ssr: false,
   loading: () => null,
 })
 
-type Props = {
-  locale: string
-  /** Sunucudan: `ui.cookie_consent.banner_enabled === false` ise çubuk kapalı */
-  bannerEnabled: boolean
-}
+type Props = { locale: string }
 
-export function DeferredLayoutWidgets({ locale, bannerEnabled }: Props) {
+export function DeferredLayoutWidgets({ locale }: Props) {
   return (
     <>
       <WhatsAppFloatButton />
       <ConciergeChatWidget />
-      <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
       <SitePopupsRenderer locale={locale} />
     </>
   )

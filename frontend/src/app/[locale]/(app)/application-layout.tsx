@@ -1,3 +1,4 @@
+import CookieConsentBanner from '@/components/CookieConsentBanner'
 import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
 import Footer2 from '@/components/Footer2'
 import FooterQuickNavigation from '@/components/FooterQuickNavigation'
@@ -45,7 +46,8 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       {/* Chose footer style here!!!! */}
       <Footer2 locale={locale} />
       <AsideSidebarNavigation locale={locale} />
-      <DeferredLayoutWidgets locale={locale} bannerEnabled={bannerEnabled} />
+      <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
+      <DeferredLayoutWidgets locale={locale} />
     </Aside.Provider>
   )
 }
