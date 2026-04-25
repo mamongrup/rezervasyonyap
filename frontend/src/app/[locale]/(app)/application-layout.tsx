@@ -1,8 +1,5 @@
-import ConciergeChatWidget from '@/components/ConciergeChatWidget'
-import CookieConsentBanner from '@/components/CookieConsentBanner'
-import SitePopupsRenderer from '@/components/popups/SitePopupsRenderer'
+import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
 import Footer2 from '@/components/Footer2'
-import WhatsAppFloatButton from '@/components/WhatsAppFloatButton'
 import FooterQuickNavigation from '@/components/FooterQuickNavigation'
 import Header from '@/components/Header/Header'
 import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFormMobile'
@@ -48,10 +45,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       {/* Chose footer style here!!!! */}
       <Footer2 locale={locale} />
       <AsideSidebarNavigation locale={locale} />
-      <WhatsAppFloatButton />
-      <ConciergeChatWidget />
-      <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
-      <SitePopupsRenderer locale={locale} />
+      <DeferredLayoutWidgets locale={locale} bannerEnabled={bannerEnabled} />
     </Aside.Provider>
   )
 }
