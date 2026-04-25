@@ -2,6 +2,10 @@
 
 > Bu doküman bir önceki ajanın (Opus) çıktısıdır. **Sen (Composer 2) bunu en başta oku, sonra çalış.** Tek hedef: PSI Mobile → **Performance 100** (diğer üçü zaten 100).
 
+**Son senk (2026-04-25):** `3f26a88fa` bu dosyayı ekledi. Devam: `e0bc41c3c` **mobile hero** için `react-datepicker` ağzını kıstı: `HeroSearchFormMobile` içinde `StaySearchFormMobile` + `HeroMenuCategoryBar` artık `next/dynamic` (`ssr: false`); `rc-slider` global CSS de `PriceRangeSlider` içine taşındı (global layout’lardan silindi). **Chunk 1413** build sonrası `.next` manifest’le teyit edilmeli — numara sürüme göre değişir.
+
+> Sunucu dizin örneği: `cd /var/www/.../travel` satırları **placeholder**; Plesk’te proje nerede ise `cd` ona göre (çoğu zaman `pwd` ile mevcut `frontend#` yeter).
+
 ---
 
 ## 0) Çalışma kuralları (kısa)
@@ -25,7 +29,7 @@
 - **Şu anki ana bottleneck'ler (PSI raporu):**
   - **LCP ~5.1 s** (hero görseli) — hedef <2.5 s.
   - **Render-blocking CSS ~1190 ms.**
-  - **TBT** yüksek; en büyük katkı `chunks/1413-*.js` (kim olduğunu hâlâ tespit etmedik).
+  - **TBT** yüksek; büyük chunk adı (ör. `1413-*.js`) sürüme göre değişir; build sonrası manifest’le doğrula. Mobil hero modal lazy ile bir kısım ayrıldı.
   - **DOM 1610 düğüm** — anasayfada gizli react-datepicker dahil çok component mount oluyor.
   - **Web font kritik yol** — Poppins.
   - **Fazladan görsel yükü** — recompress'le ~361 KiB tasarruf hâlâ sahada.
@@ -74,12 +78,14 @@ ls -lh frontend/.next/BUILD_ID 2>&1
 
 > Etki sırasıyla. Her madde için: **Ne yapılacak → Hangi dosya(lar) → Beklenen kazanım → Risk.**
 
-### p1 — Chunk 1413'ü tespit et + ağır lib'leri lazy yükle  *(IN_PROGRESS)*
+### p1 — Chunk 1413'ü tespit et + ağır lib'leri lazy yükle  *(KISMEN TAMAM — doğrulama açık)*
+- **Yapıldı (2026-04-25, `e0bc41c3c`):** `HeroSearchFormMobile` — modal açılana kadar `StaySearchFormMobile` (içinde `react-datepicker` + `HeroMenuCategoryBar` yükü) dynamic. Anasayfa hero alanı hâlâ `HeroSearchFormLazy` (önceden vardı). `rc-slider` CSS artık sadece `PriceRangeSlider` mount olunca; anasayfa ilk boyutta slider yokken render-block azalır.
+- **Hâlâ yapılacak:** Başarılı `npm run build` sonrası büyük chunk numarasını (1413 sadece örnek) `build-manifest` / `webpack` çıktısından doğrula. Kalan adaylar: harita, swiper, ağır listeler, `PageBuilder` alt modülleri, `application-layout` global widget’lar (WhatsApp, concierge, popups) → bkz. p6.
 - **Ne yapılacak:**
-  - `ANALYZE=1 npm run build` (next bundle-analyzer kurulu değilse `@next/bundle-analyzer` ekle veya geçici `next build --profile` çıktısına bak). En kolay yol: `frontend/.next/server/app-paths-manifest.json` + `frontend/.next/build-manifest.json` üzerinden `1413` chunk'ı hangi modül(ler)i içeriyor bul.
-  - Adaylar: `react-datepicker` (anasayfada gerek yok), tarih kütüphaneleri, harita/swiper, locale-data dump'ları.
+  - `ANALYZE=1 npm run build` (next bundle-analyzer kurulu değilse `@next/bundle-analyzer` ekle veya geçici `next build --profile` çıktısına bak). En kolay yol: `frontend/.next/server/app-paths-manifest.json` + `frontend/.next/build-manifest.json` üzerinden büyük chunk'ın hangi modül(ler)i içeriyor bul.
+  - Adaylar: kalan `react-datepicker` import zincirleri, harita/swiper, locale-data dump'ları.
   - `next/dynamic({ ssr: false })` ile lazy yükle. Anasayfada görünmüyorsa **anasayfada hiç import etme**.
-- **Dosyalar:** `frontend/src/components/...DatePicker*.tsx`, anasayfada zincirleme import edenler. `Grep "react-datepicker"` ile başla.
+- **Dosyalar:** `Grep "react-datepicker"`; `application-layout.tsx` (mobil bar + footer widget’lar); ihtiyaca göre `PageBuilderRenderer` alt ağaç.
 - **Kazanım:** TBT'de büyük düşüş; PSI'ın "Unused JavaScript" satırı ~150-300 KiB azalır.
 - **Risk:** SSR/CSR uyumsuzluğu — dynamic import ederken `ssr: false` kullan.
 
@@ -183,8 +189,8 @@ sleep 3 && systemctl status travel-web --no-pager | head -n 10
 ## 8) TodoWrite başlangıç listesi (kopyala, statüleri güncelle)
 
 ```
-p0  Site ayağa kaldır: tail /tmp/next-build.log → hata bul → CSS_OPTIMIZE=0 build → restart  [in_progress]
-p1  Chunk 1413 kim? bundle analyzer + react-datepicker'ı dynamic yap                          [pending]
+p0  Site ayağa kaldır: BUILD_ID + systemctl + CSS_OPTIMIZE=0 build bitti mi teyit               [in_progress]
+p1  Build sonrası büyük chunk doğrulama; kalan ağır lib / widget dynamic (p1 metnine bak)        [in_progress]
 p2  Render-blocking CSS: optimizeCss tamir veya manuel critical CSS                           [pending]
 p3  Poppins subset/optimize finalize                                                          [pending]
 p4  resize-external-avifs sunucuda yeniden + kalan görseller                                  [pending]
