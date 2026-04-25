@@ -22,6 +22,7 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Link from 'next/link'
+import { preload } from 'react-dom'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import type { PageBuilderModule, TListingBase } from '@/types/listing-types'
@@ -124,6 +125,17 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     mosaicGrid[0],
     mosaicGrid[1],
   ]
+
+  /**
+   * LCP boost: hero kolajının ilk görseli için `<link rel="preload" as="image" fetchpriority="high">`.
+   * PSI mobilde "Kaynak yükleme gecikmesi 750 ms" uyarısı, tarayıcının görseli HTML parse + CSS/JS
+   * indirmesinden sonra keşfetmesinden kaynaklanıyor. `preload` head'e erken hint yerleştirir.
+   * Yanlış URL durumunda da yan etki yok (zaten bandwidth `<img>` ile harcanacaktı).
+   */
+  const lcpHeroUrl = mosaicForRegionHero.find((u) => u && u.trim() !== '')
+  if (lcpHeroUrl) {
+    preload(lcpHeroUrl, { as: 'image', fetchPriority: 'high' })
+  }
 
   // featured_by_region modülü varsa savedRegionConfig ile override et
   const modulesWithRegion = modules.map((mod) => {

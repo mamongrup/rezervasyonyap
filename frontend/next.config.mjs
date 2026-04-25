@@ -41,7 +41,7 @@ const nextConfig = {
       picocolors: './node_modules/picocolors',
     },
   },
-  webpack: (config, { dev }) => {
+  webpack: (config, { dev, isServer }) => {
     /** Düşük RAM / Windows: PackFileCacheStrategy "Array buffer allocation failed" — dev’de kalıcı cache kapatılır */
     if (dev) {
       config.cache = false
@@ -51,6 +51,23 @@ const nextConfig = {
       ...(config.resolve.modules ?? []),
       path.resolve(__dirname, 'node_modules'),
     ]
+    /**
+     * Next.js varsayılan `polyfill-module`, modern tarayıcılarda gerek olmayan
+     * `Array.prototype.at/flat/flatMap`, `Object.fromEntries/hasOwn`,
+     * `String.prototype.trimStart/trimEnd` polyfill'lerini ek bir chunk olarak
+     * yükler. PSI mobilde "Eski JavaScript ~12 KiB + Kullanılmayan JS ~22 KiB"
+     * uyarısı buradan gelir. Sadece tarayıcı bundle'ında, modern engine'lerde
+     * gereksiz olan bu modülü minimal shim ile değiştiriyoruz.
+     * (Webpack üst-düzey bağımlılık olmadığı için plugin yerine `alias` ile.)
+     */
+    if (!isServer) {
+      const minimal = path.resolve(__dirname, 'src/lib/next-polyfill-module-minimal.js')
+      config.resolve.alias = {
+        ...(config.resolve.alias ?? {}),
+        'next/dist/build/polyfills/polyfill-module': minimal,
+        'next/dist/build/polyfills/polyfill-module.js': minimal,
+      }
+    }
     return config
   },
   async headers() {
