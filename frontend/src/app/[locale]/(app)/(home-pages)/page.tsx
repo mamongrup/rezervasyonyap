@@ -127,15 +127,21 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   ]
 
   /**
-   * LCP boost: hero kolajının ilk görseli için `<link rel="preload" as="image" fetchpriority="high">`.
-   * PSI mobilde "Kaynak yükleme gecikmesi 750 ms" uyarısı, tarayıcının görseli HTML parse + CSS/JS
-   * indirmesinden sonra keşfetmesinden kaynaklanıyor. `preload` head'e erken hint yerleştirir.
-   * Yanlış URL durumunda da yan etki yok (zaten bandwidth `<img>` ile harcanacaktı).
+   * LCP boost: hero kolajının tüm görselleri için `<link rel="preload" as="image">`.
+   * 3 görsel de ilk viewport'ta görünür; mobilde LCP image bunlardan herhangi
+   * biri olabilir. İlk URL'i `fetchPriority='high'` ile, kalanları normal
+   * öncelikte preload ediyoruz. PSI mobil "Kaynak yükleme gecikmesi 440-750 ms"
+   * uyarısını hedefliyor (HTML parse + CSS/JS indirmesinden ÖNCE keşif).
    */
-  const lcpHeroUrl = mosaicForRegionHero.find((u) => u && u.trim() !== '')
-  if (lcpHeroUrl) {
-    preload(lcpHeroUrl, { as: 'image', fetchPriority: 'high' })
-  }
+  const heroPreloadUrls = Array.from(
+    new Set(mosaicForRegionHero.filter((u) => typeof u === 'string' && u.trim() !== '')),
+  )
+  heroPreloadUrls.forEach((url, i) => {
+    preload(url, {
+      as: 'image',
+      fetchPriority: i === 0 ? 'high' : 'auto',
+    })
+  })
 
   // featured_by_region modülü varsa savedRegionConfig ile override et
   const modulesWithRegion = modules.map((mod) => {

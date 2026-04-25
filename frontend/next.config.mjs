@@ -1,6 +1,20 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { buildAllSecurityHeaders } from './security-headers.mjs'
+
+/**
+ * Next.js bundle'ı içindeki webpack'e erişim — üst-düzey `webpack` paketini
+ * dependency yapmadan `NormalModuleReplacementPlugin`'i kullanmak için.
+ */
+const requireFromHere = createRequire(import.meta.url)
+let nextWebpack = null
+try {
+  nextWebpack = requireFromHere('next/dist/compiled/webpack/webpack.js')
+  if (typeof nextWebpack.init === 'function') nextWebpack.init()
+} catch {
+  /* webpack erişilemezse plugin atlanır, build kırılmaz. */
+}
 
 /** Monorepo kökünde (üst dizinde) package.json varken Turbopack varsayılan olarak orayı "repo root" sayıp tailwindcss'i oradan arıyor; kökte node_modules yoksa derleme düşer. Çözümlemeyi bu Next uygulamasının klasörüne kilitle. */
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -58,15 +72,21 @@ const nextConfig = {
      * yükler. PSI mobilde "Eski JavaScript ~12 KiB + Kullanılmayan JS ~22 KiB"
      * uyarısı buradan gelir. Sadece tarayıcı bundle'ında, modern engine'lerde
      * gereksiz olan bu modülü minimal shim ile değiştiriyoruz.
-     * (Webpack üst-düzey bağımlılık olmadığı için plugin yerine `alias` ile.)
+     *
+     * `resolve.alias` Next entry-point seviyesinde bu dosyayı ABSOLUTE path
+     * ile resolve ettiği için yetmez; gerçek yer değiştirme için
+     * `NormalModuleReplacementPlugin` (resource path regex) gerekir.
      */
-    if (!isServer) {
+    const polyfillPlugin = nextWebpack?.webpack?.NormalModuleReplacementPlugin
+    if (!isServer && polyfillPlugin) {
       const minimal = path.resolve(__dirname, 'src/lib/next-polyfill-module-minimal.js')
-      config.resolve.alias = {
-        ...(config.resolve.alias ?? {}),
-        'next/dist/build/polyfills/polyfill-module': minimal,
-        'next/dist/build/polyfills/polyfill-module.js': minimal,
-      }
+      config.plugins = config.plugins ?? []
+      config.plugins.push(
+        new polyfillPlugin(
+          /next[\\/]dist[\\/]build[\\/]polyfills[\\/]polyfill-module(\.js)?$/i,
+          minimal,
+        ),
+      )
     }
     return config
   },
