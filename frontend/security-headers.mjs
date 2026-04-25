@@ -6,18 +6,40 @@
  * - CSP_REPORT_URI: İhlal raporları (Reporting API veya report-uri uyumlu uç)
  * - SECURITY_HSTS_DISABLE: `1` ise HSTS gönderilmez (ilk kurulum / HTTP test)
  * - ENFORCE_HTTPS_REDIRECT: `src/proxy.ts` içinde — .env.local.example’a bakın
- * - CSP_CDN_ORIGIN / NEXT_PUBLIC_CDN_ORIGIN: örn. https://cdn.rezervasyonyap.tr — Bunny’den
- *   gelen font / statik (assetPrefix) için script-src, style-src, font-src’e eklenir
+ * - CSP_CDN_ORIGIN / NEXT_PUBLIC_CDN_ORIGIN: açıkça CDN origin (en yüksek öncelik)
+ * - CSP_CDN_AUTO=1: yukarı boşsa → NEXT_PUBLIC_SITE_URL’den `https://cdn.<apex>` türet
+ *   (www kırpılır). Başka CDN host’u için her zaman açık origin veya farklı prefix:
+ *   CSP_CDN_SUBDOMAIN=cdn
  */
 
 const IS_PROD = process.env.NODE_ENV === 'production'
 
-/** Bunny vb. medya; boş bırakılırsa eski davranış */
+/**
+ * `script-src` / `style-src` / `font-src` içine eklenecek CDN origin; boş bırakılabilir.
+ */
 function cspCdnOrigin() {
   const raw = (process.env.CSP_CDN_ORIGIN || process.env.NEXT_PUBLIC_CDN_ORIGIN || '').trim()
-  if (!raw) return ''
+  if (raw) {
+    try {
+      return new URL(raw).origin
+    } catch {
+      return ''
+    }
+  }
+  const auto =
+    process.env.CSP_CDN_AUTO === '1' ||
+    process.env.CSP_CDN_AUTO === 'true' ||
+    process.env.CSP_CDN_AUTO === 'yes'
+  if (!auto) return ''
+
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || '').trim()
+  if (!site) return ''
   try {
-    return new URL(raw).origin
+    const u = new URL(site)
+    let host = u.hostname
+    if (host.startsWith('www.')) host = host.slice(4)
+    const sub = (process.env.CSP_CDN_SUBDOMAIN || 'cdn').trim() || 'cdn'
+    return `https://${sub}.${host}`
   } catch {
     return ''
   }

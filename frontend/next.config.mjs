@@ -20,7 +20,33 @@ try {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
-const imageRemoteHost = process.env.NEXT_PUBLIC_IMAGE_REMOTE_HOST
+/** Domain taşımada: `NEXT_PUBLIC_IMAGE_REMOTE_HOST` yok + `CSP_CDN_AUTO=1` → `https://cdn.<site>` (SITE_URL’den) */
+function derivedCdnImageUrl() {
+  const auto =
+    process.env.CSP_CDN_AUTO === '1' ||
+    process.env.CSP_CDN_AUTO === 'true' ||
+    process.env.NEXT_PUBLIC_CDN_AUTO === '1' ||
+    process.env.NEXT_PUBLIC_CDN_AUTO === 'true'
+  if (!auto) return ''
+  const site = (process.env.NEXT_PUBLIC_SITE_URL || '').trim()
+  if (!site) return ''
+  try {
+    const u = new URL(site)
+    let host = u.hostname
+    if (host.startsWith('www.')) host = host.slice(4)
+    const sub = (process.env.CSP_CDN_SUBDOMAIN || process.env.NEXT_PUBLIC_CDN_SUBDOMAIN || 'cdn')
+      .trim() || 'cdn'
+    return `https://${sub}.${host}`
+  } catch {
+    return ''
+  }
+}
+
+const imageRemoteHostRaw =
+  (process.env.NEXT_PUBLIC_IMAGE_REMOTE_HOST && String(process.env.NEXT_PUBLIC_IMAGE_REMOTE_HOST).trim() !== ''
+    ? process.env.NEXT_PUBLIC_IMAGE_REMOTE_HOST
+    : derivedCdnImageUrl()) || ''
+const imageRemoteHost = imageRemoteHostRaw
 const extraImageHost =
   typeof imageRemoteHost === 'string' && imageRemoteHost.trim() !== ''
     ? [
