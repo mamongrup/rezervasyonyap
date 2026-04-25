@@ -1,10 +1,6 @@
 import path from 'node:path'
-import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import { buildAllSecurityHeaders } from './security-headers.mjs'
-
-const require = createRequire(import.meta.url)
-const webpack = require('webpack')
 
 /** Monorepo kökünde (üst dizinde) package.json varken Turbopack varsayılan olarak orayı "repo root" sayıp tailwindcss'i oradan arıyor; kökte node_modules yoksa derleme düşer. Çözümlemeyi bu Next uygulamasının klasörüne kilitle. */
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -26,12 +22,6 @@ const extraImageHost =
 const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
-  /** `import lodash from 'lodash'` yerine alt yol — PSI “Eski JavaScript” / paket boyutu. */
-  modularizeImports: {
-    lodash: {
-      transform: 'lodash/{{member}}',
-    },
-  },
   reactStrictMode: false,
   poweredByHeader: false,
   compiler: {
@@ -51,7 +41,7 @@ const nextConfig = {
       picocolors: './node_modules/picocolors',
     },
   },
-  webpack: (config, { dev, isServer }) => {
+  webpack: (config, { dev }) => {
     /** Düşük RAM / Windows: PackFileCacheStrategy "Array buffer allocation failed" — dev’de kalıcı cache kapatılır */
     if (dev) {
       config.cache = false
@@ -61,30 +51,6 @@ const nextConfig = {
       ...(config.resolve.modules ?? []),
       path.resolve(__dirname, 'node_modules'),
     ]
-    config.resolve.alias = {
-      ...(config.resolve.alias ?? {}),
-      'headlessui-internal/render': path.resolve(
-        __dirname,
-        'node_modules/@headlessui/react/dist/utils/render.js',
-      ),
-    }
-    /** `resolve.alias` eşleşmedi; NormalModuleReplacementPlugin kesin yol. */
-    if (!isServer) {
-      const minimal = path.resolve(__dirname, 'src/lib/next-polyfill-module-minimal.js')
-      config.plugins.push(
-        new webpack.NormalModuleReplacementPlugin(
-          /next[\\/]dist[\\/]build[\\/]polyfills[\\/]polyfill-module\.js$/,
-          minimal,
-        ),
-      )
-    }
-    const headlessHiddenA11y = path.resolve(__dirname, 'src/lib/headlessui-hidden-focusable-a11y.js')
-    config.plugins.push(
-      new webpack.NormalModuleReplacementPlugin(
-        /[\\/]node_modules[\\/]@headlessui[\\/]react[\\/]dist[\\/]internal[\\/]hidden\.js$/,
-        headlessHiddenA11y,
-      ),
-    )
     return config
   },
   async headers() {

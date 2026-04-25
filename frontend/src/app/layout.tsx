@@ -19,15 +19,14 @@ import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 import { Poppins } from 'next/font/google'
+import 'rc-slider/assets/index.css'
 
 const poppins = Poppins({
   subsets: ['latin'],
   variable: '--font-sans',
-  /** 600 çıkarıldı — 3 woff2; `font-semibold` tema ile 700 kullanır (PSI kritik istek zinciri). */
-  weight: ['400', '500', '700'],
-  /** `optional` bazı ortamlarda web fontu hiç yüklemeden bırakıp “font kayboldu” hissi verebilir. */
+  /** 300 çıkarıldı — bir woff2 daha az indirilir (PSI kritik font zinciri). */
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
-  adjustFontFallback: true,
 })
 
 const themeDirection =

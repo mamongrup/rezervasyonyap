@@ -3,14 +3,12 @@
  * `public/uploads/external/*.avif` dosyalarını yeniden boyutlandırır (DB / ağ gerekmez).
  * `-thumb.avif` dosyalarını atlar; ana dosyayı güncelledikten sonra THUMB_SIZE>0 ise thumb yeniden üretir.
  *
- *   TARGET_WIDTH=720 THUMB_SIZE=256 node scripts/resize-external-avifs.mjs
+ *   TARGET_WIDTH=800 THUMB_SIZE=256 node scripts/resize-external-avifs.mjs
  *
  * Opsiyonel env:
  *   UPLOADS_ROOT  — varsayılan: ./public/uploads
- *   TARGET_WIDTH  — varsayılan: 720 (mobil LCP; PSI byte tasarrufu)
- *   AVIF_QUALITY  — varsayılan: 50 (PSI “sıkıştırmayı artır”)
- *   AVIF_EFFORT   — sharp AVIF effort 0–9, varsayılan: 7
- *   AVIF_RECOMPRESS_MIN_KB — hedef genişlik zaten küçük ama dosya bu KB üzerindeyse yeniden AVIF (varsayılan 10; 0=kapat)
+ *   TARGET_WIDTH  — varsayılan: 800
+ *   AVIF_QUALITY  — varsayılan: 72
  *   THUMB_SIZE    — varsayılan: 256, 0 → thumb üretme
  *   DRY_RUN       — 1 ise sadece listeler, yazmaz
  */
@@ -24,20 +22,15 @@ const PROJECT_ROOT = path.resolve(__dirname, '..')
 const UPLOADS_ROOT =
   process.env.UPLOADS_ROOT || path.join(PROJECT_ROOT, 'public', 'uploads')
 const EXTERNAL_DIR = path.join(UPLOADS_ROOT, 'external')
-const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 720)
-const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 50)
-const AVIF_EFFORT = Math.min(9, Math.max(0, Number(process.env.AVIF_EFFORT ?? 7)))
+const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 800)
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 72)
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 const DRY_RUN = process.env.DRY_RUN === '1'
-/** ≤TARGET_WIDTH görsellerde yalnız boyut büyükse yeniden sıkıştır (PSI “sıkıştırmayı artır”) */
-const RECOMPRESS_MIN_KB = Number(process.env.AVIF_RECOMPRESS_MIN_KB ?? 6)
 
 async function main() {
   console.log(`[resize-external-avifs] DRY_RUN=${DRY_RUN ? 'YES' : 'no'}`)
   console.log(`  dir = ${EXTERNAL_DIR}`)
-  console.log(
-    `  target width = ${TARGET_WIDTH}, avif q = ${AVIF_QUALITY}, effort = ${AVIF_EFFORT}, thumb = ${THUMB_SIZE || 'off'}, recompress if >${RECOMPRESS_MIN_KB || 'off'} KB`,
-  )
+  console.log(`  target width = ${TARGET_WIDTH}, thumb = ${THUMB_SIZE || 'off'}`)
 
   let names
   try {
@@ -70,13 +63,7 @@ async function main() {
     const buf = await fs.readFile(full)
     const meta = await sharp(buf).metadata()
     const w = meta.width ?? 0
-    const smallDims = w > 0 && w <= TARGET_WIDTH
-    const shouldRecompressOnly =
-      smallDims &&
-      !DRY_RUN &&
-      RECOMPRESS_MIN_KB > 0 &&
-      stat.size >= RECOMPRESS_MIN_KB * 1024
-    if (smallDims && !DRY_RUN && !shouldRecompressOnly) {
+    if (w > 0 && w <= TARGET_WIDTH && !DRY_RUN) {
       skipped++
       bytesAfter += stat.size
       console.log(`  - skip (zaten ≤${TARGET_WIDTH}px) ${name} (${w}px)`)
@@ -90,7 +77,7 @@ async function main() {
 
     const out = await sharp(buf)
       .resize({ width: TARGET_WIDTH, withoutEnlargement: true, fit: 'inside' })
-      .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+      .avif({ quality: AVIF_QUALITY, effort: 4 })
       .toBuffer()
     await fs.writeFile(full, out)
     bytesAfter += out.length
@@ -110,7 +97,7 @@ async function main() {
           position: 'attention',
           withoutEnlargement: true,
         })
-        .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+        .avif({ quality: AVIF_QUALITY, effort: 4 })
         .toBuffer()
       await fs.writeFile(thumbPath, thumb)
       console.log(`    · thumb ${base}-thumb.avif (${(thumb.length / 1024).toFixed(1)} KB)`)

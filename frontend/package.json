@@ -82,7 +82,7 @@
     "chrome >= 111",
     "edge >= 111",
     "firefox >= 110",
-    "safari >= 17",
+    "safari >= 16.4",
     "opera >= 95"
   ]
 }

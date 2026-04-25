@@ -23,8 +23,7 @@
  * Opsiyonel env:
  *   UPLOADS_ROOT     — varsayılan: ./public/uploads
  *   TARGET_WIDTH     — varsayılan: 1600 (px). Mobil için 800 önerilir.
- *   AVIF_QUALITY     — varsayılan: 58 (PSI görsel boyutu)
- *   AVIF_EFFORT      — sharp AVIF effort 0–9, varsayılan: 6
+ *   AVIF_QUALITY     — varsayılan: 72
  *   MAX_CONCURRENT   — varsayılan: 4
  *   FORCE            — "1" olursa mevcut dosya varsa bile yeniden indirir ve override eder.
  *                      Kullanım: TARGET_WIDTH=800 FORCE=1 DATABASE_URL=... node scripts/...
@@ -54,8 +53,7 @@ const UPLOADS_ROOT =
 const EXTERNAL_SUBDIR = 'external'
 const PUBLIC_PREFIX = '/uploads/external'
 const TARGET_WIDTH = Number(process.env.TARGET_WIDTH || 1600)
-const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 58)
-const AVIF_EFFORT = Math.min(9, Math.max(0, Number(process.env.AVIF_EFFORT ?? 6)))
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 72)
 const MAX_CONCURRENT = Number(process.env.MAX_CONCURRENT || 4)
 const THUMB_SIZE = Number(process.env.THUMB_SIZE ?? 256)
 
@@ -146,7 +144,7 @@ async function downloadAndConvert(url) {
 
       const output = await sharp(srcBuf)
         .resize({ width: TARGET_WIDTH, withoutEnlargement: true, fit: 'inside' })
-        .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+        .avif({ quality: AVIF_QUALITY, effort: 4 })
         .toBuffer()
       await fs.mkdir(externalDir, { recursive: true })
       await fs.writeFile(target, output)
@@ -166,7 +164,7 @@ async function downloadAndConvert(url) {
             position: 'attention',
             withoutEnlargement: true,
           })
-          .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
+          .avif({ quality: AVIF_QUALITY, effort: 4 })
           .toBuffer()
         await fs.writeFile(thumbTarget, thumb)
         console.log(
@@ -272,7 +270,7 @@ async function main() {
   console.log(`[migrate-external-images] DRY_RUN=${DRY_RUN ? 'YES' : 'no'} SKIP_DB=${SKIP_DB ? 'YES' : 'no'}`)
   console.log(`  UPLOADS_ROOT = ${UPLOADS_ROOT}`)
   console.log(`  external dir = ${externalDir}`)
-  console.log(`  target width = ${TARGET_WIDTH}, avif quality = ${AVIF_QUALITY}, effort = ${AVIF_EFFORT}`)
+  console.log(`  target width = ${TARGET_WIDTH}, avif quality = ${AVIF_QUALITY}`)
   console.log(`  hosts = ${EXTERNAL_HOSTS.join(', ')}`)
 
   const allUrls = new Set()

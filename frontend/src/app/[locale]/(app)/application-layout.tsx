@@ -1,13 +1,15 @@
 import ConciergeChatWidget from '@/components/ConciergeChatWidget'
 import CookieConsentBanner from '@/components/CookieConsentBanner'
+import SitePopupsRenderer from '@/components/popups/SitePopupsRenderer'
 import Footer2 from '@/components/Footer2'
+import WhatsAppFloatButton from '@/components/WhatsAppFloatButton'
 import FooterQuickNavigation from '@/components/FooterQuickNavigation'
 import Header from '@/components/Header/Header'
 import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFormMobile'
 import Aside from '@/components/aside'
 import AsideSidebarNavigation from '@/components/aside-sidebar-navigation'
-import WhatsAppFloatButton from '@/components/WhatsAppFloatButton'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
+import 'rc-slider/assets/index.css'
 import type { ReactNode } from 'react'
 
 interface Props {

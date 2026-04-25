@@ -1,8 +1,5 @@
 'use client'
 
-/** Global layout’tan çıkarıldı — yalnızca fiyat aralığı kullanan chunk’larla yüklenir (mobil PSI render-blocking CSS azalır). */
-import 'rc-slider/assets/index.css'
-
 import convertNumbThousand from '@/utils/convertNumbThousand'
 import clsx from 'clsx'
 import Slider from 'rc-slider'
