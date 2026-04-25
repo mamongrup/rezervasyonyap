@@ -124,7 +124,7 @@ export const DateRangeField: FC<Props> = ({
                 <DatePicker
                   locale="tr"
                   selected={startDate}
-                  onChange={(dates) => {
+                  onChange={(dates: [Date | null, Date | null]) => {
                     const [start, end] = dates
                     setStartDate(start)
                     setEndDate(end)
