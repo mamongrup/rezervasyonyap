@@ -7,12 +7,9 @@
  * Mobil PSI'de chunk-1413 (react-datepicker + date-fns, ~58 KiB) yüklenmez → TBT düşer.
  */
 import dynamic from 'next/dynamic'
-import type { ComponentType } from 'react'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const LazyDatePicker: ComponentType<any> = dynamic(
+const LazyDatePicker = dynamic(
   async () => {
-    // locale kaydı ve DatePicker aynı anda yüklensin
     const [{ default: DatePicker }] = await Promise.all([
       import('react-datepicker'),
       import('@/lib/register-datepicker-tr'),
@@ -22,4 +19,5 @@ const LazyDatePicker: ComponentType<any> = dynamic(
   { ssr: false, loading: () => null },
 )
 
-export default LazyDatePicker
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default LazyDatePicker as any
