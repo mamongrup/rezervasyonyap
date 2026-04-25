@@ -119,6 +119,7 @@ const GROUPS: NavGroupDef[] = [
     Icon: GalleryHorizontalEnd,
     items: [
       { path: '/manage/media', label: 'Medya kütüphanesi' },
+      { path: '/manage/settings/image-quality', label: 'Görsel kalitesi & yükleme' },
     ],
   },
   {

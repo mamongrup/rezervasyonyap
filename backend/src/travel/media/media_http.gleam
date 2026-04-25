@@ -4,6 +4,7 @@ import backend/context.{type Context}
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -404,6 +405,39 @@ fn patch_file_decoder() -> decode.Decoder(#(Option(String), Option(Int), Option(
 // Image upload profiles (260_image_upload_profiles)
 // ----------------------------------------------------------------------------
 
+fn pog_error_to_string(e: pog.QueryError) -> String {
+  case e {
+    pog.ConstraintViolated(m, c, d) ->
+      "ConstraintViolated[" <> c <> "] " <> m <> " | " <> d
+    pog.PostgresqlError(code, name, message) ->
+      "PostgresqlError[" <> code <> "/" <> name <> "] " <> message
+    pog.UnexpectedArgumentCount(expected, got) ->
+      "UnexpectedArgumentCount expected="
+      <> int.to_string(expected)
+      <> " got="
+      <> int.to_string(got)
+    pog.UnexpectedArgumentType(expected, got) ->
+      "UnexpectedArgumentType expected=" <> expected <> " got=" <> got
+    pog.UnexpectedResultType(errs) -> {
+      let parts =
+        errs
+        |> list.map(fn(de) {
+          let decode.DecodeError(exp, found, path) = de
+          "expected="
+          <> exp
+          <> " found="
+          <> found
+          <> " path=["
+          <> string.join(path, ",")
+          <> "]"
+        })
+      "UnexpectedResultType " <> string.join(parts, " | ")
+    }
+    pog.QueryTimeout -> "QueryTimeout"
+    pog.ConnectionUnavailable -> "ConnectionUnavailable"
+  }
+}
+
 fn image_profile_row() -> decode.Decoder(
   #(String, Int, Int, String, Bool, Int, Int, Int, String, Int),
 ) {
@@ -430,7 +464,8 @@ pub fn get_image_profiles(req: Request, ctx: Context) -> Response {
     |> pog.returning(image_profile_row())
     |> pog.execute(ctx.db)
   {
-    Error(_) -> json_err(500, "image_profiles_query_failed")
+    Error(e) ->
+      json_err(500, "image_profiles_query_failed: " <> pog_error_to_string(e))
     Ok(ret) -> {
       let rows =
         ret.rows
@@ -510,7 +545,8 @@ pub fn update_image_profile(req: Request, ctx: Context) -> Response {
                 |> pog.returning(row_dec.col0_string())
                 |> pog.execute(ctx.db)
               {
-                Error(_) -> json_err(500, "update_failed")
+                Error(e) ->
+                  json_err(500, "update_failed: " <> pog_error_to_string(e))
                 Ok(r) ->
                   case r.rows {
                     [] -> json_err(404, "profile_not_found")
