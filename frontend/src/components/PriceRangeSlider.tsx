@@ -3,6 +3,7 @@
 import convertNumbThousand from '@/utils/convertNumbThousand'
 import clsx from 'clsx'
 import Slider from 'rc-slider'
+import 'rc-slider/assets/index.css'
 import { useState } from 'react'
 
 export const PriceRangeSlider = ({

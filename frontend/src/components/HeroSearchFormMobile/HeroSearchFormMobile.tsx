@@ -9,11 +9,27 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
+import dynamic from 'next/dynamic'
 import { useParams, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { useTimeoutFn } from 'react-use'
-import StaySearchFormMobile from './stay-search-form/StaySearchFormMobile'
-import { HeroMenuCategoryBar } from '@/components/HeroSearchForm/HeroMenuCategoryBar'
+
+/**
+ * Modal içeriği — `react-datepicker` zinciri ve kategori barı yalnızca kullanıcı
+ * arama çubuğuna dokununca yüklenir. Mobil PSI: ana JS bundle'ından `react-datepicker`
+ * + locale-data + ilgili CSS çıkar → TBT ve "Unused JavaScript" düşer.
+ */
+const StaySearchFormMobile = dynamic(
+  () => import('./stay-search-form/StaySearchFormMobile'),
+  { ssr: false, loading: () => null },
+)
+const HeroMenuCategoryBar = dynamic(
+  () =>
+    import('@/components/HeroSearchForm/HeroMenuCategoryBar').then(
+      (m) => m.HeroMenuCategoryBar,
+    ),
+  { ssr: false, loading: () => null },
+)
 
 interface HeroSearchFormMobileProps {
   className?: string

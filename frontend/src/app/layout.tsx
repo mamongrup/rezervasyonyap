@@ -19,7 +19,6 @@ import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 import { Poppins } from 'next/font/google'
-import 'rc-slider/assets/index.css'
 
 const poppins = Poppins({
   subsets: ['latin'],
