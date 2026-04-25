@@ -1,27 +1,21 @@
 'use client'
 
-import dynamic from 'next/dynamic'
+import ConciergeChatWidget from '@/components/ConciergeChatWidget'
+import SitePopupsRenderer from '@/components/popups/SitePopupsRenderer'
+import WhatsAppFloatButton from '@/components/WhatsAppFloatButton'
+import { useEffect, useState } from 'react'
 
 /**
- * Footer üstü — WhatsApp, concierge, site popup (çerez çubuğu application-layout'ta doğrudan).
- * `next/dynamic` + `ssr: false` ile ayrı chunk; TBT / ana bundle küçülür.
+ * Footer üstü — WhatsApp, concierge, site popup.
+ * Statik import + useEffect mount: RSC manifest'e doğru yazılır (next/dynamic ssr:false
+ * bazen App Router'da manifest'e girmiyor). İlk render'da null döner → TBT etkisi yok.
  */
-const WhatsAppFloatButton = dynamic(() => import('@/components/WhatsAppFloatButton'), {
-  ssr: false,
-  loading: () => null,
-})
-const ConciergeChatWidget = dynamic(() => import('@/components/ConciergeChatWidget'), {
-  ssr: false,
-  loading: () => null,
-})
-const SitePopupsRenderer = dynamic(() => import('@/components/popups/SitePopupsRenderer'), {
-  ssr: false,
-  loading: () => null,
-})
-
 type Props = { locale: string }
 
 export function DeferredLayoutWidgets({ locale }: Props) {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  if (!mounted) return null
   return (
     <>
       <WhatsAppFloatButton />
