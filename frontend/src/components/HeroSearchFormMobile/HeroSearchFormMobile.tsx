@@ -120,7 +120,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
               transition
               className="relative flex-1 flex flex-col transition data-closed:translate-y-28 data-closed:opacity-0"
             >
-              {showDialog && (
+              {showModal && showDialog && (
                 <>
                   {/* Kapat butonu */}
                   <div className="absolute end-3 top-3 z-10">
