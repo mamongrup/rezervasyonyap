@@ -22,7 +22,8 @@ import { Poppins } from 'next/font/google'
 
 const poppins = Poppins({
   subsets: ['latin'],
-  variable: '--font-sans',
+  /** tailwind @theme'te --font-sans: var(--font-sans) döngüsü yaratmamak için ayrı değişken */
+  variable: '--font-poppins',
   weight: ['400', '500', '600', '700'],
   display: 'swap',
 })
