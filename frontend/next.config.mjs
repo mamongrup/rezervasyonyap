@@ -100,11 +100,11 @@ const nextConfig = {
   },
   experimental: {
     /**
-     * `optimizeCss` (beasties) bazı sayfalarda critical CSS üretirken büyük <style> blok inline eder
-     * ve LCP’yi **kötüleştirebilir** (özellikle Tailwind + çok modüllü homepage). Kapalı tutuyoruz.
-     * İhtiyaç olursa `CSS_OPTIMIZE=1` env ile açılır.
+     * `optimizeCss` (beasties) — Next 15 + beasties 0.4 ile critical CSS inline + non-critical
+     * defer. PSI mobil "Render-blocking requests 1190 ms" uyarısının ana kaynağı bu;
+     * açtığımızda CSS dosyası async hale gelir, FCP/LCP düşer. Sorun çıkarsa `CSS_OPTIMIZE=0` ile kapatılır.
      */
-    optimizeCss: process.env.CSS_OPTIMIZE === '1',
+    optimizeCss: process.env.CSS_OPTIMIZE !== '0',
     optimizePackageImports: [
       'lucide-react',
       'lodash',

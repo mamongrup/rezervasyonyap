@@ -24,9 +24,15 @@ import 'rc-slider/assets/index.css'
 const poppins = Poppins({
   subsets: ['latin'],
   variable: '--font-sans',
-  /** 300 çıkarıldı — bir woff2 daha az indirilir (PSI kritik font zinciri). */
-  weight: ['400', '500', '600', '700'],
+  /**
+   * 4 woff2 → 3'e indirildi (300 + 600 çıkarıldı). PSI mobil "Kritik istek zinciri"nde
+   * her woff2 ~1.5-1.9 sn. 600 (semibold) çağrıları en yakın ağırlığa (700) düşürülür.
+   * Görsel etki minimal, LCP / kritik yol kazancı yüksek.
+   */
+  weight: ['400', '500', '700'],
   display: 'swap',
+  adjustFontFallback: true,
+  fallback: ['system-ui', 'arial'],
 })
 
 const themeDirection =
