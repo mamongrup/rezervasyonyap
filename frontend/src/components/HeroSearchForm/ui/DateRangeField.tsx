@@ -10,6 +10,7 @@ import clsx from 'clsx'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import { FC, useState } from 'react'
 import DatePicker from '@/components/LazyDatePicker'
+import type { ReactDatePickerCustomHeaderProps } from 'react-datepicker'
 import { ClearDataButton } from './ClearDataButton'
 
 const DATE_LOCALE = 'tr-TR'
@@ -114,7 +115,7 @@ export const DateRangeField: FC<Props> = ({
                   monthsShown={monthsShown}
                   showPopperArrow={false}
                   inline
-                  renderCustomHeader={(p) => (
+                  renderCustomHeader={(p: ReactDatePickerCustomHeaderProps) => (
                     <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
                   )}
                   renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
@@ -134,7 +135,7 @@ export const DateRangeField: FC<Props> = ({
                   monthsShown={monthsShown}
                   showPopperArrow={false}
                   inline
-                  renderCustomHeader={(p) => (
+                  renderCustomHeader={(p: ReactDatePickerCustomHeaderProps) => (
                     <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
                   )}
                   renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
