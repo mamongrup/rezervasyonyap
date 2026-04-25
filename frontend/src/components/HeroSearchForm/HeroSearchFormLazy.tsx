@@ -2,15 +2,13 @@
 
 import clsx from 'clsx'
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
-import type { ListingType } from '@/type'
 
 /**
- * Masaüstü hero arama formu — yalnızca lg+ ekranlarda yükler.
- * Mobilde (PSI mobile crawl dahil) chunk yüklenmez: react-datepicker, headlessui
- * ve date-fns yığını yalnızca büyük ekranlarda indirilir → TBT sıfıra yaklaşır.
+ * Ana sayfa / bölge / kategori şablonlarında hero arama formu.
+ * `react-datepicker`, `@headlessui/react` ve alt formlar ilk paketten ayrı chunk'ta yüklenir
+ * → mobil PSI'de TBT ve ana iş parçacığı süresi düşer.
  */
-const HeroSearchFormInner = dynamic(() => import('./HeroSearchForm'), {
+export default dynamic(() => import('./HeroSearchForm'), {
   ssr: false,
   loading: () => (
     <div className="hero-search-form w-full min-w-0" aria-busy="true" aria-label="Yükleniyor">
@@ -23,38 +21,3 @@ const HeroSearchFormInner = dynamic(() => import('./HeroSearchForm'), {
     </div>
   ),
 })
-
-export default function HeroSearchFormLazy({
-  initTab = 'Stays',
-  locale = 'tr',
-  hideVerticalTabs = false,
-  categoryBarLayout = 'default',
-}: {
-  initTab?: ListingType
-  locale?: string
-  hideVerticalTabs?: boolean
-  categoryBarLayout?: 'default' | 'spread'
-}) {
-  const [isDesktop, setIsDesktop] = useState(false)
-
-  useEffect(() => {
-    const mql = window.matchMedia('(min-width: 1024px)')
-    const update = () => setIsDesktop(mql.matches)
-    update()
-    mql.addEventListener('change', update)
-    return () => mql.removeEventListener('change', update)
-  }, [])
-
-  if (!isDesktop) {
-    return <div className="hero-search-form w-full min-w-0" aria-hidden />
-  }
-
-  return (
-    <HeroSearchFormInner
-      initTab={initTab}
-      locale={locale}
-      hideVerticalTabs={hideVerticalTabs}
-      categoryBarLayout={categoryBarLayout}
-    />
-  )
-}
