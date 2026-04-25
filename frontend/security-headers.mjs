@@ -6,9 +6,22 @@
  * - CSP_REPORT_URI: İhlal raporları (Reporting API veya report-uri uyumlu uç)
  * - SECURITY_HSTS_DISABLE: `1` ise HSTS gönderilmez (ilk kurulum / HTTP test)
  * - ENFORCE_HTTPS_REDIRECT: `src/proxy.ts` içinde — .env.local.example’a bakın
+ * - CSP_CDN_ORIGIN / NEXT_PUBLIC_CDN_ORIGIN: örn. https://cdn.rezervasyonyap.tr — Bunny’den
+ *   gelen font / statik (assetPrefix) için script-src, style-src, font-src’e eklenir
  */
 
 const IS_PROD = process.env.NODE_ENV === 'production'
+
+/** Bunny vb. medya; boş bırakılırsa eski davranış */
+function cspCdnOrigin() {
+  const raw = (process.env.CSP_CDN_ORIGIN || process.env.NEXT_PUBLIC_CDN_ORIGIN || '').trim()
+  if (!raw) return ''
+  try {
+    return new URL(raw).origin
+  } catch {
+    return ''
+  }
+}
 
 function cspModeEffective() {
   const raw = (process.env.CSP_MODE ?? '').trim().toLowerCase()
@@ -26,6 +39,9 @@ function cspModeEffective() {
  * @param {'enforce' | 'report-only'} mode
  */
 export function buildContentSecurityPolicy(mode = 'enforce') {
+  const cdn = cspCdnOrigin()
+  const cspC = cdn ? ` ${cdn}` : ''
+
   const directives = [
     "default-src 'self'",
     // Next.js, React, GTM/GA/AdSense, Google Maps picker, Tawk.to
@@ -44,11 +60,12 @@ export function buildContentSecurityPolicy(mode = 'enforce') {
       'https://www.gstatic.com',
       'https://embed.tawk.to',
       'https://*.tawk.to',
+      ...(cdn ? [cdn] : []),
     ].join(' '),
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://embed.tawk.to",
+    `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://embed.tawk.to${cspC}`,
     // Harita karoları (Carto, OSM vb.) + CDN görselleri
     "img-src 'self' data: blob: https: http:",
-    "font-src 'self' data: https://fonts.gstatic.com https://embed.tawk.to",
+    `font-src 'self' data: https://fonts.gstatic.com https://embed.tawk.to${cspC}`,
     // API (NEXT_PUBLIC_API_URL), harita stilleri, analytics, tawk.to websocket
     "connect-src 'self' https: wss: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*",
     "frame-src 'self' https://www.google.com https://www.googletagmanager.com https://www.google.com/recaptcha/ https://embed.tawk.to",
