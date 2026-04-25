@@ -36,7 +36,7 @@ type FieldDef = {
 const BUNNY_FIELDS: FieldDef[] = [
   { key: 'storage_zone_name', label: 'Storage Zone Name', placeholder: 'my-travel-zone', required: true },
   { key: 'storage_api_key', label: 'Storage API Key (Password)', placeholder: 'xxxx-xxxx-xxxx', secret: true, required: true },
-  { key: 'pull_zone_url', label: 'Pull Zone URL', placeholder: 'https://my-zone.b-cdn.net', isPullZone: true, required: true },
+  { key: 'pull_zone_url', label: 'Pull Zone URL', placeholder: 'https://cdn.rezervasyonyap.tr', isPullZone: true, required: true },
   { key: 'storage_region', label: 'Storage Region', placeholder: 'de  (veya ny, la, sg, syd)', required: true },
 ]
 
