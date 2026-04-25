@@ -99,7 +99,6 @@ export const DateRangeField: FC<Props> = ({
             />
 
             <PopoverPanel
-              unmount={false}
               transition
               className={clsx(panelClassName, styles.panel.base, styles.panel[fieldStyle])}
             >
