@@ -118,7 +118,7 @@ export const DateRangeField: FC<Props> = ({
                   renderCustomHeader={(p: ReactDatePickerCustomHeaderProps) => (
                     <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
                   )}
-                  renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+                  renderDayContents={(day: number, date?: Date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
                 />
               ) : (
                 <DatePicker
@@ -138,7 +138,7 @@ export const DateRangeField: FC<Props> = ({
                   renderCustomHeader={(p: ReactDatePickerCustomHeaderProps) => (
                     <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
                   )}
-                  renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+                  renderDayContents={(day: number, date?: Date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
                 />
               )}
             </PopoverPanel>
