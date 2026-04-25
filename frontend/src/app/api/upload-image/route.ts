@@ -97,24 +97,85 @@ type FolderProfile = {
   fit: 'cover' | 'inside'
   /** Seyahat fotoğrafları için saturation/brightness boost */
   vivid: boolean
-  /** AVIF quality */
+  /** AVIF quality (PSI/dosya boyutu dengesi: fotoğraf 60, logo/belge 80–85) */
   quality: number
+  /** AVIF effort 0–9 (yüksek = daha küçük dosya, daha yavaş encode) */
+  effort: number
+  /** >0 ise aynı stem + `-thumb.avif` 1:1 kare üretilir (kart/grid önizleme) */
+  thumb: number
 }
 
-const FOLDER_PROFILES: Record<string, FolderProfile> = {
-  hero:           { width: 1920, height: 1080, fit: 'cover',  vivid: true,  quality: 72 },
-  regions:        { width: 1200, height: 800,  fit: 'cover',  vivid: true,  quality: 72 },
-  listings:       { width: 1000, height: 750,  fit: 'cover',  vivid: true,  quality: 72 },
-  tours:          { width: 1000, height: 750,  fit: 'cover',  vivid: true,  quality: 72 },
-  events:         { width: 1000, height: 750,  fit: 'cover',  vivid: true,  quality: 72 },
-  travel_ideas:   { width: 1000, height: 750,  fit: 'cover',  vivid: true,  quality: 72 },
-  blog:           { width: 1200, height: 630,  fit: 'cover',  vivid: true,  quality: 72 },
-  pages:          { width: 1200, height: 800,  fit: 'cover',  vivid: true,  quality: 72 },
-  branding:       { width: 800,  height: 600,  fit: 'inside', vivid: false, quality: 85 },
-  site:           { width: 1920, height: 1080, fit: 'cover',  vivid: true,  quality: 72 },
-  icerik:         { width: 1200, height: 800,  fit: 'cover',  vivid: true,  quality: 72 },
-  'supplier-docs':{ width: 1400, height: 2000, fit: 'inside', vivid: false, quality: 82 },
-  general:        { width: 1200, height: 900,  fit: 'cover',  vivid: true,  quality: 72 },
+/**
+ * Kod-içi fallback profilleri — backend `image_upload_profiles` tablosu
+ * okunamadığında devreye girer (DB indirmesi, ağ kesintisi, eski deploy).
+ * Yönetim panelindeki PSI defaults ile birebir aynıdır.
+ */
+const FALLBACK_PROFILES: Record<string, FolderProfile> = {
+  hero:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  regions:        { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  listings:       { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  tours:          { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  events:         { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  travel_ideas:   { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  blog:           { width: 1080, height: 566,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 0 },
+  pages:          { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 0 },
+  branding:       { width: 800,  height: 600,  fit: 'inside', vivid: false, quality: 82, effort: 6, thumb: 0 },
+  site:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 0 },
+  icerik:         { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 0 },
+  'supplier-docs':{ width: 1400, height: 2000, fit: 'inside', vivid: false, quality: 82, effort: 6, thumb: 0 },
+  general:        { width: 1080, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 0 },
+}
+
+/**
+ * In-memory cache: backend HTTP'den profil tablosunu 60 saniyede bir tazeler.
+ * Panel'den profil değiştirildiğinde değişiklik en geç 1 dakikada yansır.
+ */
+const PROFILE_TTL_MS = 60_000
+let profileCache: { data: Record<string, FolderProfile>; expiresAt: number } | null = null
+
+async function loadProfilesFromBackend(): Promise<Record<string, FolderProfile>> {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL
+  if (!apiBase) return FALLBACK_PROFILES
+  try {
+    const res = await fetch(`${apiBase}/api/v1/media/image-profiles`, { cache: 'no-store' })
+    if (!res.ok) return FALLBACK_PROFILES
+    const rows: Array<{
+      folder: string
+      width: number
+      height: number
+      fit: string
+      vivid: boolean
+      quality: number
+      effort: number
+      thumb_size: number
+    }> = await res.json()
+    const out: Record<string, FolderProfile> = {}
+    for (const r of rows) {
+      out[r.folder] = {
+        width: r.width,
+        height: r.height,
+        fit: r.fit === 'inside' ? 'inside' : 'cover',
+        vivid: !!r.vivid,
+        quality: r.quality,
+        effort: r.effort,
+        thumb: r.thumb_size,
+      }
+    }
+    return Object.keys(out).length > 0 ? out : FALLBACK_PROFILES
+  } catch {
+    return FALLBACK_PROFILES
+  }
+}
+
+async function getProfile(folder: string): Promise<FolderProfile> {
+  const now = Date.now()
+  if (!profileCache || profileCache.expiresAt < now) {
+    profileCache = {
+      data: await loadProfilesFromBackend(),
+      expiresAt: now + PROFILE_TTL_MS,
+    }
+  }
+  return profileCache.data[folder] ?? profileCache.data.general ?? FALLBACK_PROFILES.general!
 }
 
 // SVG ve ICO: sharp ile işlenmez, olduğu gibi kaydedilir.
@@ -123,8 +184,10 @@ const PASSTHROUGH_TYPES = new Set(['image/svg+xml', 'image/x-icon', 'image/vnd.m
 // Minimum kabul edilebilir boyut: hedefin %50'si (altı bulanık görünür)
 const MIN_RATIO = 0.5
 
-async function processImage(buffer: Buffer, folder: string): Promise<{ output: Buffer; warning?: string }> {
-  const profile = FOLDER_PROFILES[folder] ?? FOLDER_PROFILES.general
+async function processImage(
+  buffer: Buffer,
+  profile: FolderProfile,
+): Promise<{ output: Buffer; thumb?: Buffer; warning?: string }> {
   const meta = await sharp(buffer).metadata()
   const w = meta.width ?? 0
   const h = meta.height ?? 0
@@ -148,8 +211,27 @@ async function processImage(buffer: Buffer, folder: string): Promise<{ output: B
       .linear(1.05, -(255 * 0.05 * 0.5))
   }
 
-  const output = await pipeline.avif({ quality: profile.quality, effort: 4 }).toBuffer()
-  return { output }
+  const output = await pipeline.avif({ quality: profile.quality, effort: profile.effort }).toBuffer()
+
+  /**
+   * Thumbnail: kart/grid sayfalarında (listings, tours, events, …) ana görselin
+   * yanında küçük versiyon. `attention` ile öne çıkan bölge merkez alınır.
+   */
+  let thumb: Buffer | undefined
+  if (profile.thumb > 0) {
+    thumb = await sharp(buffer)
+      .resize({
+        width: profile.thumb,
+        height: profile.thumb,
+        fit: 'cover',
+        position: 'attention',
+        withoutEnlargement: true,
+      })
+      .avif({ quality: profile.quality, effort: profile.effort })
+      .toBuffer()
+  }
+
+  return { output, thumb }
 }
 
 export async function POST(req: NextRequest) {
@@ -249,6 +331,7 @@ export async function POST(req: NextRequest) {
       isPdf || PASSTHROUGH_TYPES.has(file.type) || ['svg', 'ico'].includes(originalExt)
 
     let outputBuffer: Buffer
+    let thumbBuffer: Buffer | undefined
     let ext: string
     let warning: string | undefined
 
@@ -259,8 +342,10 @@ export async function POST(req: NextRequest) {
       outputBuffer = rawBuffer
       ext = originalExt === 'ico' ? 'ico' : 'svg'
     } else {
-      const result = await processImage(rawBuffer, folder)
+      const profile = await getProfile(folder)
+      const result = await processImage(rawBuffer, profile)
       outputBuffer = result.output
+      thumbBuffer = result.thumb
       warning = result.warning
       ext = warning ? originalExt : 'avif'
     }
@@ -307,9 +392,30 @@ export async function POST(req: NextRequest) {
       new Uint8Array(outputBuffer.buffer, outputBuffer.byteOffset, outputBuffer.byteLength),
     )
 
+    /**
+     * Aynı stem + `-thumb.avif`: kart/grid'lerde tek bir küçük dosya yüklenir,
+     * büyük görsel sadece detay sayfasında istenir.
+     */
+    let thumbUrl: string | undefined
+    if (thumbBuffer && ext === 'avif') {
+      const stem = filename.replace(/\.avif$/i, '')
+      const thumbName = `${stem}-thumb.avif`
+      await fs.writeFile(
+        path.join(uploadDir, thumbName),
+        new Uint8Array(thumbBuffer.buffer, thumbBuffer.byteOffset, thumbBuffer.byteLength),
+      )
+      const thumbParts = [folder, ...subSegments, thumbName].filter(Boolean)
+      thumbUrl = `/uploads/${thumbParts.join('/')}`
+    }
+
     const relParts = [folder, ...subSegments, filename].filter(Boolean)
     const publicUrl = `/uploads/${relParts.join('/')}`
-    return NextResponse.json({ ok: true, url: publicUrl, ...(warning ? { warning } : {}) })
+    return NextResponse.json({
+      ok: true,
+      url: publicUrl,
+      ...(thumbUrl ? { thumbUrl } : {}),
+      ...(warning ? { warning } : {}),
+    })
   } catch (err) {
     console.error('[upload-image]', err)
     return NextResponse.json({ ok: false, error: 'Yükleme sırasında bir hata oluştu.' }, { status: 500 })

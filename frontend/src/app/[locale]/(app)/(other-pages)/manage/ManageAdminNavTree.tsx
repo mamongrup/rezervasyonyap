@@ -234,6 +234,7 @@ const GROUPS: NavGroupDef[] = [
       { path: '/manage/admin/settings/notifications', label: 'Bildirim ayarları' },
       { path: '/manage/i18n', label: 'Diller & çeviriler' },
       { path: '/manage/settings/cdn', label: 'CDN (Bunny / Cloudflare)' },
+      { path: '/manage/settings/image-quality', label: 'Görsel kalitesi & yükleme' },
       { path: '/manage/settings/reviews', label: 'Yorum yönetimi' },
     ],
   },

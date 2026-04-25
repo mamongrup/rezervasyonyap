@@ -3722,6 +3722,55 @@ export async function updateCdnConfig(
   return json(res)
 }
 
+// ---------------------------------------------------------------------------
+// Image upload profiles (260_image_upload_profiles)
+// ---------------------------------------------------------------------------
+
+export type ImageUploadProfile = {
+  folder: string
+  width: number
+  height: number
+  fit: 'cover' | 'inside'
+  vivid: boolean
+  quality: number
+  effort: number
+  thumb_size: number
+  description: string
+  display_order: number
+}
+
+export async function getImageUploadProfiles(): Promise<ImageUploadProfile[]> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/media/image-profiles`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`image_profiles_${res.status}`)
+  const rows = await json<Array<ImageUploadProfile & { fit: string }>>(res)
+  return rows.map((r) => ({
+    ...r,
+    fit: r.fit === 'inside' ? 'inside' : 'cover',
+  }))
+}
+
+export async function updateImageUploadProfile(
+  profile: Pick<
+    ImageUploadProfile,
+    'folder' | 'width' | 'height' | 'fit' | 'vivid' | 'quality' | 'effort' | 'thumb_size'
+  >,
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/media/image-profiles`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(profile),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `image_profile_update_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function registerMediaFile(body: {
   owner_type: string
   owner_id: string

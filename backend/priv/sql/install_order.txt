@@ -101,6 +101,7 @@ modules/256_listing_reports.sql
 modules/257_messaging_catalog_seed.sql
 modules/258_messaging_catalog_seed_de_ru_zh_fr.sql
 modules/259_update_image_urls_to_avif.sql
+modules/260_image_upload_profiles.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

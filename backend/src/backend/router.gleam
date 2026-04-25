@@ -743,6 +743,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "media", "cdn", "config"] ->
       media_http.update_cdn_config(req, ctx)
 
+    http.Get, ["api", "v1", "media", "image-profiles"] ->
+      media_http.get_image_profiles(req, ctx)
+
+    http.Patch, ["api", "v1", "media", "image-profiles"] ->
+      media_http.update_image_profile(req, ctx)
+
     http.Post, ["api", "v1", "media", "files"] -> media_http.register_file(req, ctx)
 
     http.Patch, ["api", "v1", "media", "files", fid] ->

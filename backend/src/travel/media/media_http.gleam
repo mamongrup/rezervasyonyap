@@ -400,6 +400,142 @@ fn patch_file_decoder() -> decode.Decoder(#(Option(String), Option(Int), Option(
   })
 }
 
+// ----------------------------------------------------------------------------
+// Image upload profiles (260_image_upload_profiles)
+// ----------------------------------------------------------------------------
+
+fn image_profile_row() -> decode.Decoder(
+  #(String, Int, Int, String, Bool, Int, Int, Int, String, Int),
+) {
+  use folder <- decode.field(0, decode.string)
+  use w <- decode.field(1, decode.int)
+  use h <- decode.field(2, decode.int)
+  use fit <- decode.field(3, decode.string)
+  use vivid <- decode.field(4, decode.bool)
+  use quality <- decode.field(5, decode.int)
+  use effort <- decode.field(6, decode.int)
+  use thumb <- decode.field(7, decode.int)
+  use desc <- decode.field(8, decode.string)
+  use order <- decode.field(9, decode.int)
+  decode.success(#(folder, w, h, fit, vivid, quality, effort, thumb, desc, order))
+}
+
+/// GET /api/v1/media/image-profiles — yükleme profilleri (admin).
+pub fn get_image_profiles(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select folder, width, height, fit, vivid, quality, effort, thumb_size, coalesce(description,''), display_order from image_upload_profiles order by display_order, folder",
+    )
+    |> pog.returning(image_profile_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "image_profiles_query_failed")
+    Ok(ret) -> {
+      let rows =
+        ret.rows
+        |> list.map(fn(r) {
+          let #(folder, w, h, fit, vivid, q, eff, thumb, desc, order) = r
+          json.object([
+            #("folder", json.string(folder)),
+            #("width", json.int(w)),
+            #("height", json.int(h)),
+            #("fit", json.string(fit)),
+            #("vivid", json.bool(vivid)),
+            #("quality", json.int(q)),
+            #("effort", json.int(eff)),
+            #("thumb_size", json.int(thumb)),
+            #("description", json.string(desc)),
+            #("display_order", json.int(order)),
+          ])
+        })
+      let body = json.array(rows, fn(x) { x }) |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+fn update_image_profile_decoder() -> decode.Decoder(
+  #(String, Int, Int, String, Bool, Int, Int, Int),
+) {
+  use folder <- decode.field("folder", decode.string)
+  use w <- decode.field("width", decode.int)
+  use h <- decode.field("height", decode.int)
+  use fit <- decode.field("fit", decode.string)
+  use vivid <- decode.field("vivid", decode.bool)
+  use q <- decode.field("quality", decode.int)
+  use eff <- decode.field("effort", decode.int)
+  use thumb <- decode.field("thumb_size", decode.int)
+  decode.success(#(folder, w, h, fit, vivid, q, eff, thumb))
+}
+
+fn within(value: Int, lo: Int, hi: Int) -> Bool {
+  value >= lo && value <= hi
+}
+
+/// PATCH /api/v1/media/image-profiles — tek bir klasörün profilini günceller.
+pub fn update_image_profile(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, update_image_profile_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(folder_raw, w, h, fit_raw, vivid, q, eff, thumb)) -> {
+          let folder = string.lowercase(string.trim(folder_raw))
+          let fit = string.lowercase(string.trim(fit_raw))
+          let valid =
+            folder != ""
+            && { fit == "cover" || fit == "inside" }
+            && within(w, 64, 4096)
+            && within(h, 64, 4096)
+            && within(q, 30, 95)
+            && within(eff, 0, 9)
+            && within(thumb, 0, 1024)
+          case valid {
+            False -> json_err(400, "invalid_values")
+            True ->
+              case
+                pog.query(
+                  "update image_upload_profiles set width=$2, height=$3, fit=$4, vivid=$5, quality=$6, effort=$7, thumb_size=$8 where folder=$1 returning folder",
+                )
+                |> pog.parameter(pog.text(folder))
+                |> pog.parameter(pog.int(w))
+                |> pog.parameter(pog.int(h))
+                |> pog.parameter(pog.text(fit))
+                |> pog.parameter(pog.bool(vivid))
+                |> pog.parameter(pog.int(q))
+                |> pog.parameter(pog.int(eff))
+                |> pog.parameter(pog.int(thumb))
+                |> pog.returning(row_dec.col0_string())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "update_failed")
+                Ok(r) ->
+                  case r.rows {
+                    [] -> json_err(404, "profile_not_found")
+                    [_] -> {
+                      let out =
+                        json.object([
+                          #("ok", json.bool(True)),
+                          #("folder", json.string(folder)),
+                        ])
+                        |> json.to_string
+                      wisp.json_response(out, 200)
+                    }
+                    _ -> json_err(500, "unexpected")
+                  }
+              }
+          }
+        }
+      }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Media files (mevcut)
+// ----------------------------------------------------------------------------
+
 /// PATCH /api/v1/media/files/:id — AVIF anahtarı / boyut (işçi veya admin).
 pub fn patch_file(req: Request, ctx: Context, file_id: String) -> Response {
   use <- wisp.require_method(req, http.Patch)
