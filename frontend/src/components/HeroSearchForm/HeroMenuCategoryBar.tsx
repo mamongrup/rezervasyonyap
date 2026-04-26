@@ -260,7 +260,8 @@ export function HeroMenuCategoryBar({
           const slug = (item.url ?? '').replace(/^\/+/, '').split('/')[0]
           if (slug) map.set(slug, item.sort_order)
         })
-        setSlugOrder(map)
+        // Boş Map truthy olduğu için eskiden tüm ikonlar kayboluyordu; boş yanıtta registry fallback.
+        setSlugOrder(map.size > 0 ? map : null)
       } catch {
         /* ağ hatası — mevcut slugOrder */
       }
@@ -270,11 +271,12 @@ export function HeroMenuCategoryBar({
     }
   }, [])
 
-  const cats = slugOrder
-    ? ALL_NAV_CATEGORIES
-        .filter((c) => slugOrder.has(c.slug))
-        .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
-    : ALL_NAV_CATEGORIES
+  const cats =
+    slugOrder != null && slugOrder.size > 0
+      ? ALL_NAV_CATEGORIES
+          .filter((c) => slugOrder.has(c.slug))
+          .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
+      : ALL_NAV_CATEGORIES
 
   const spread = layout === 'spread'
   const totalCats = cats.length

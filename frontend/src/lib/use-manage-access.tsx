@@ -55,6 +55,8 @@ function matchesRequired(
   return true
 }
 
+const AUTH_ME_TIMEOUT_MS = 25_000
+
 export function useManageAccess(required?: ManageAccessOptions): AccessState {
   const [state, setState] = useState<AccessState>({ kind: 'loading' })
 
@@ -65,8 +67,13 @@ export function useManageAccess(required?: ManageAccessOptions): AccessState {
       return
     }
     let cancelled = false
-    void getAuthMe(token)
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const timeoutReject = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error('auth_me_timeout')), AUTH_ME_TIMEOUT_MS)
+    })
+    void Promise.race([getAuthMe(token), timeoutReject])
       .then((u) => {
+        if (timeoutId !== undefined) clearTimeout(timeoutId)
         if (cancelled) return
         const perms = Array.isArray(u.permissions) ? u.permissions : []
         const roles = Array.isArray(u.roles) ? u.roles : []
@@ -77,10 +84,12 @@ export function useManageAccess(required?: ManageAccessOptions): AccessState {
         }
       })
       .catch(() => {
+        if (timeoutId !== undefined) clearTimeout(timeoutId)
         if (!cancelled) setState({ kind: 'no_token' })
       })
     return () => {
       cancelled = true
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
     }
   }, [])
 
