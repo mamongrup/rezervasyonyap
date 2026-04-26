@@ -202,7 +202,7 @@ const MORE_ARIA: Record<string, string> = {
 }
 
 // ─── Hero'da gösterilecek üst kategoriler — statik fallback ──────────────────
-const ALL_cats = CATEGORY_REGISTRY.filter((c) => c.showInNav)
+const ALL_NAV_CATEGORIES = CATEGORY_REGISTRY.filter((c) => c.showInNav)
   .sort((a, b) => a.navOrder - b.navOrder)
 
 // ─── Route aktif mi? ─────────────────────────────────────────────────────────
@@ -247,10 +247,10 @@ export function HeroMenuCategoryBar({
   }, [])
 
   const cats = slugOrder
-    ? ALL_cats
+    ? ALL_NAV_CATEGORIES
         .filter((c) => slugOrder.has(c.slug))
         .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
-    : ALL_cats
+    : ALL_NAV_CATEGORIES
 
   const spread = layout === 'spread'
   const totalCats = cats.length
