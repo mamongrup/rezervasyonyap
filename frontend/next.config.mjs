@@ -120,7 +120,12 @@ const nextConfig = {
     return [
       {
         source: '/(.*)',
-        headers: buildAllSecurityHeaders(),
+        headers: [
+          ...buildAllSecurityHeaders(),
+          // Preconnect to image CDN and Google domains for faster resource loading (reduces LCP delay)
+          ['Link', '<https://fonts.googleapis.com>; rel=preconnect'],
+          ['Link', '<https://fonts.gstatic.com>; rel=preconnect; crossorigin'],
+        ],
       },
     ]
   },

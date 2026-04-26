@@ -1,12 +1,8 @@
-import CookieConsentBanner from '@/components/CookieConsentBanner'
 import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
-import Footer2 from '@/components/Footer2'
-import FooterQuickNavigation from '@/components/FooterQuickNavigation'
+import { DeferredFooterWidgets } from '@/components/DeferredFooterWidgets'
 import Header from '@/components/Header/Header'
 import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFormMobile'
 import Aside from '@/components/aside'
-import AsideSidebarNavigation from '@/components/aside-sidebar-navigation'
-import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import type { ReactNode } from 'react'
 
 interface Props {
@@ -17,11 +13,6 @@ interface Props {
 }
 
 export async function ApplicationLayout({ children, header, locale = 'tr' }: Props) {
-  const pub = await getCachedSiteConfig()
-  const ui = pub?.ui as Record<string, unknown> | null | undefined
-  const cc = ui?.cookie_consent as Record<string, unknown> | undefined
-  const bannerEnabled = cc?.banner_enabled !== false
-
   return (
     <Aside.Provider>
       {/* Desktop — normal akış (sayfayla birlikte kayar); harita rotaları kendi layout'ında sticky Header3 kullanır.
@@ -40,13 +31,8 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
         aria-hidden
       />
       {children}
-      {/*  */}
-      {/* FooterQuickNavigation - Displays on mobile devices and is fixed at the bottom of the screen */}
-      <FooterQuickNavigation />
-      {/* Chose footer style here!!!! */}
-      <Footer2 locale={locale} />
-      <AsideSidebarNavigation locale={locale} />
-      <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
+      {/* Non-critical widgets deferred until after hydration for better LCP/TTI */}
+      <DeferredFooterWidgets locale={locale} />
       <DeferredLayoutWidgets locale={locale} />
     </Aside.Provider>
   )
