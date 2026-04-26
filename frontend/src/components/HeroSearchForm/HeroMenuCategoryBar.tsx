@@ -2,6 +2,7 @@
 
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
+import { fetchPublicNavMenuItems } from '@/lib/travel-api'
 import { Link } from '@/shared/link'
 import {
   AnchorIcon,
@@ -200,8 +201,8 @@ const MORE_ARIA: Record<string, string> = {
   fr: 'Plus de catégories',
 }
 
-// ─── Hero'da gösterilecek üst kategoriler (alt kategori olanlar hariç) ───────
-const NAV_CATEGORIES = CATEGORY_REGISTRY.filter((c) => c.showInNav)
+// ─── Hero'da gösterilecek üst kategoriler — statik fallback ──────────────────
+const ALL_cats = CATEGORY_REGISTRY.filter((c) => c.showInNav)
   .sort((a, b) => a.navOrder - b.navOrder)
 
 // ─── Route aktif mi? ─────────────────────────────────────────────────────────
@@ -229,9 +230,30 @@ export function HeroMenuCategoryBar({
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
+  // null → henüz yüklenmedi (fallback olarak tüm kategoriler gösterilir)
+  const [slugOrder, setSlugOrder] = useState<Map<string, number> | null>(null)
+
+  useEffect(() => {
+    fetchPublicNavMenuItems('hero_search')
+      .then(({ items }) => {
+        const map = new Map<string, number>()
+        items.forEach((item) => {
+          const slug = (item.url ?? '').replace(/^\/+/, '').split('/')[0]
+          if (slug) map.set(slug, item.sort_order)
+        })
+        if (map.size > 0) setSlugOrder(map)
+      })
+      .catch(() => {/* fallback: tüm cats göster */})
+  }, [])
+
+  const cats = slugOrder
+    ? ALL_cats
+        .filter((c) => slugOrder.has(c.slug))
+        .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
+    : ALL_cats
 
   const spread = layout === 'spread'
-  const totalCats = NAV_CATEGORIES.length
+  const totalCats = cats.length
 
   const handleMoreClick = useCallback(() => {
     if (btnRef.current) {
@@ -257,7 +279,7 @@ export function HeroMenuCategoryBar({
    * gerekli responsive görünürlük class'ı verilir; spread modunda gerek yoktur.
    */
   const catLink = (
-    cat: typeof NAV_CATEGORIES[0],
+    cat: typeof cats[0],
     extraClass: string,
   ) => {
     const active = isActive(pathname, cat.categoryRoute)
@@ -312,7 +334,7 @@ export function HeroMenuCategoryBar({
         className,
       )}
     >
-      {NAV_CATEGORIES.map((cat, i) =>
+      {cats.map((cat, i) =>
         catLink(cat, spread ? '' : inlineVisibilityClass(i)),
       )}
 
@@ -343,7 +365,7 @@ export function HeroMenuCategoryBar({
                 style={{ position: 'fixed', top: dropPos.top, right: dropPos.right, zIndex: 9999 }}
                 className="min-w-[13rem] rounded-xl border border-neutral-200 bg-white py-1 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
               >
-                {NAV_CATEGORIES.map((cat, i) => {
+                {cats.map((cat, i) => {
                   const active = isActive(pathname, cat.categoryRoute)
                   const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
                   const label = pickLabel(lc, cat.slug, lc === 'tr' ? cat.name : cat.namePlural)
