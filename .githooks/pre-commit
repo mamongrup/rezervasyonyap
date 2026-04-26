@@ -27,17 +27,20 @@ if [ -n "$CHANGED_GLEAM" ]; then
   }
 fi
 
-# 3) Frontend ts/tsx değişti mi?
+# 3) Frontend ts/tsx değişti mi? — sadece değişen dosyaları lint et
 CHANGED_TS="$(git diff --cached --name-only --diff-filter=ACM | grep -E '^frontend/.*\.(ts|tsx)$' || true)"
 if [ -n "$CHANGED_TS" ]; then
   echo "→ Frontend tip dosyaları değişti, lint çalıştırılıyor..."
+  # Repo-root yollarını frontend/ önekini kırparak --file argümanlarına dönüştür
+  # Repo-root yollarını frontend/ önekini kırparak dosya listesi oluştur
+  FILE_LIST="$(echo "$CHANGED_TS" | sed 's|^frontend/||' | tr '\n' ' ')"
   if command -v pnpm >/dev/null 2>&1; then
-    ( cd frontend && pnpm lint --no-cache --max-warnings=200 ) || {
+    ( cd frontend && eval "pnpm eslint --max-warnings=50 $FILE_LIST" ) || {
       echo "✖ frontend lint başarısız. Commit iptal."
       exit 1
     }
   elif command -v npm >/dev/null 2>&1; then
-    ( cd frontend && npm run lint --silent ) || exit 1
+    ( cd frontend && eval "npx eslint --max-warnings=50 $FILE_LIST" ) || exit 1
   else
     echo "! pnpm/npm bulunamadı; lint atlandı."
   fi
