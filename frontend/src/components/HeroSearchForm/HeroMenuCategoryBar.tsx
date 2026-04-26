@@ -218,10 +218,13 @@ export function HeroMenuCategoryBar({
   className,
   /** Bölge hero: tüm kategoriler tek satırda yayılı, daha geniş aralık */
   layout = 'default',
+  /** Server component'ten gelen aktif slug listesi (sıralı). Verilirse API çağrısı yapılmaz. */
+  activeSlugs,
 }: {
   locale: string
   className?: string
   layout?: 'default' | 'spread'
+  activeSlugs?: string[]
 }) {
   const pathname = usePathname()
   const lc = (locale || 'tr').toLowerCase().slice(0, 2)
@@ -229,21 +232,42 @@ export function HeroMenuCategoryBar({
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [dropPos, setDropPos] = useState({ top: 0, right: 0 })
   const btnRef = useRef<HTMLButtonElement>(null)
-  // null → henüz yüklenmedi (fallback olarak tüm kategoriler gösterilir)
-  const [slugOrder, setSlugOrder] = useState<Map<string, number> | null>(null)
 
+  const [slugOrder, setSlugOrder] = useState<Map<string, number> | null>(() =>
+    activeSlugs != null && activeSlugs.length > 0
+      ? new Map(activeSlugs.map((s, i) => [s, i]))
+      : null,
+  )
+
+  /**
+   * Her zaman güncel menü — ISR/önbellekli HTML'deki eski `activeSlugs` düzelir.
+   * Yalnızca `response.ok` iken uygula: route hata dönerken boş `items` göndermez (502),
+   * böylece eski listeyi yanlışlıkla silmeyiz. Boş başarılı yanıt = gerçekten yayında sekme yok.
+   */
   useEffect(() => {
-    fetch('/api/hero-tabs')
-      .then((r) => r.json())
-      .then(({ items }: { items: { url: string | null; sort_order: number }[] }) => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const r = await fetch('/api/hero-tabs')
+        if (cancelled || !r.ok) return
+        const data = (await r.json()) as {
+          items?: { url: string | null; sort_order: number; is_published?: boolean }[]
+        }
+        const items = Array.isArray(data.items) ? data.items : []
         const map = new Map<string, number>()
         items.forEach((item) => {
+          if (item.is_published === false) return
           const slug = (item.url ?? '').replace(/^\/+/, '').split('/')[0]
           if (slug) map.set(slug, item.sort_order)
         })
-        if (map.size > 0) setSlugOrder(map)
-      })
-      .catch(() => {/* fallback: tüm kategoriler */})
+        setSlugOrder(map)
+      } catch {
+        /* ağ hatası — mevcut slugOrder */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const cats = slugOrder

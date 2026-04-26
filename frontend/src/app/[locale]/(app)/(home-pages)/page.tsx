@@ -18,6 +18,8 @@ import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
+import { getPublicNavigationOrganizationId } from '@/lib/nav-public-org-id'
+import { fetchPublicNavMenuItems } from '@/lib/travel-api'
 import { vitrinHref } from '@/lib/vitrin-href'
 import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -51,14 +53,22 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const { locale } = await params
   const m = getMessages(locale)
 
-  const [stayListings, apiListingsResult, authors, homepageConfig, savedRegionConfig] =
+  const [stayListings, apiListingsResult, authors, homepageConfig, savedRegionConfig, heroTabsResult] =
     await Promise.all([
       getStayListings(),
       fetchCategoryListings('oteller', {}, {}),
       getAuthors(),
       getHomepageConfig(),
       getFeaturedRegionConfig('homepage'),
+      fetchPublicNavMenuItems('hero_search', getPublicNavigationOrganizationId(), {
+        cache: 'no-store',
+      }).catch(() => ({ items: [] })),
     ])
+
+  const activeSlugs = heroTabsResult.items
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map((item) => (item.url ?? '').replace(/^\/+/, '').split('/')[0])
+    .filter(Boolean)
 
   const featuredListings: TListingBase[] = (
     apiListingsResult.fromApi && apiListingsResult.listings.length > 0
@@ -156,7 +166,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   })
 
   const searchForm = (
-    <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs />
+    <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs activeSlugs={activeSlugs} />
   )
 
   const heroHeadingLinked = (

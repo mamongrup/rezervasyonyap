@@ -397,16 +397,31 @@ export default function AdminNavigationSection() {
     setLoadErr(null)
     try {
       const r = await listNavMenus()
-      setMenus(r.menus)
-      if (r.menus.length > 0 && !selectedMenuId) {
-        setSelectedMenuId(r.menus[0]!.id)
-      }
+      const sorted = [...r.menus].sort((a, b) => {
+        const byCode = a.code.localeCompare(b.code)
+        if (byCode !== 0) return byCode
+        const aGlobal = a.organization_id == null || a.organization_id === ''
+        const bGlobal = b.organization_id == null || b.organization_id === ''
+        if (aGlobal && !bGlobal) return -1
+        if (!aGlobal && bGlobal) return 1
+        return (a.organization_id ?? '').localeCompare(b.organization_id ?? '')
+      })
+      setMenus(sorted)
+      setSelectedMenuId((prev) => {
+        if (sorted.length === 0) return null
+        if (prev && sorted.some((m) => m.id === prev)) return prev
+        const heroGlobal = sorted.find(
+          (m) => m.code === 'hero_search' && (m.organization_id == null || m.organization_id === ''),
+        )
+        const heroAny = sorted.find((m) => m.code === 'hero_search')
+        return (heroGlobal ?? heroAny ?? sorted[0]!).id
+      })
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : 'Menüler yüklenemedi')
     } finally {
       setLoadingMenus(false)
     }
-  }, [selectedMenuId])
+  }, [])
 
   const refreshItems = useCallback(async () => {
     if (!selectedMenuId) { setItems([]); return }
@@ -667,7 +682,12 @@ export default function AdminNavigationSection() {
                         <p className={clsx('font-medium text-sm', selectedMenuId === m.id ? 'text-primary-700 dark:text-primary-300' : 'text-neutral-900 dark:text-white')}>
                           {MENU_CODE_LABELS[m.code] ?? m.code}
                         </p>
-                        <p className="text-xs text-neutral-400 font-mono">{m.code}</p>
+                        <p className="text-xs text-neutral-400 font-mono">
+                          {m.code}
+                          {m.organization_id
+                            ? ` · org ${m.organization_id.slice(0, 8)}…`
+                            : ' · site geneli'}
+                        </p>
                       </div>
                       <ChevronRight className={clsx('w-4 h-4 flex-shrink-0 transition-transform', selectedMenuId === m.id ? 'text-primary-400 rotate-90' : 'text-neutral-300')} />
                     </button>

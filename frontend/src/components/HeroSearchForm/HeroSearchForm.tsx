@@ -39,6 +39,8 @@ const HeroSearchForm = ({
   hideVerticalTabs = false,
   /** Bölge hero: ikon şeridi tam genişlikte yayılı */
   categoryBarLayout = 'default',
+  /** Server component'ten pre-fetch edilen aktif hero slug listesi */
+  activeSlugs,
 }: {
   className?: string
   initTab: ListingType
@@ -46,11 +48,12 @@ const HeroSearchForm = ({
   locale?: string
   hideVerticalTabs?: boolean
   categoryBarLayout?: 'default' | 'spread'
+  activeSlugs?: string[]
 }) => {
   return (
     <div className={clsx('hero-search-form w-full min-w-0', className)}>
       {hideVerticalTabs ? (
-        <HeroMenuCategoryBar locale={locale} layout={categoryBarLayout} />
+        <HeroMenuCategoryBar locale={locale} layout={categoryBarLayout} activeSlugs={activeSlugs} />
       ) : (
         <Headless.TabGroup defaultIndex={formTabs.findIndex((tab) => tab.name === initTab)}>
           {/* Chisfis: ms-3 mb-8 sm:gap-x-6 xl:ms-10 xl:gap-x-10 */}
