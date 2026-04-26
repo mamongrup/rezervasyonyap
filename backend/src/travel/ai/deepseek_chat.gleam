@@ -6,6 +6,7 @@ import gleam/json
 import gleam/list
 import gleam/result
 import gleam/string
+import travel/ai/ai_config.{type AiConfig}
 import travel/net/http_client
 
 fn choice_content_decoder() -> decode.Decoder(String) {
@@ -86,6 +87,83 @@ pub fn chat_completion(
         Error(_) -> Error("deepseek_json_parse_failed")
       }
     Error(e) -> Error(string.append("deepseek_http: ", e))
+  }
+}
+
+/// AiConfig ile chat completion — DB'den yüklenen key/model/url kullanır.
+pub fn chat_completion_with_config(
+  cfg: AiConfig,
+  system_prompt: String,
+  transcript: List(#(String, String)),
+) -> Result(String, String) {
+  case string.trim(cfg.deepseek_api_key) == "" {
+    True -> Error("deepseek_api_key_missing")
+    False -> {
+      let hist = list.map(transcript, fn(pair) {
+        let #(r, b) = pair
+        message_json(r, b)
+      })
+      let msgs = list.append([message_json("system", system_prompt)], hist)
+      let payload =
+        json.object([
+          #("model", json.string(cfg.deepseek_model)),
+          #("messages", json.array(from: msgs, of: fn(x) { x })),
+          #("temperature", json.float(0.55)),
+        ])
+        |> json.to_string
+      let auth = "Bearer " <> cfg.deepseek_api_key
+      case http_client.post_json(cfg.deepseek_api_url, payload, auth) {
+        Ok(raw) ->
+          case json.parse(raw, choices_first_content_decoder()) {
+            Ok(text) ->
+              case string.trim(text) == "" {
+                True -> Error("deepseek_empty_content")
+                False -> Ok(string.trim(text))
+              }
+            Error(_) -> Error("deepseek_json_parse_failed")
+          }
+        Error(e) -> Error(string.append("deepseek_http: ", e))
+      }
+    }
+  }
+}
+
+/// AiConfig ile tek mesaj completion — DB'den yüklenen key/model/url kullanır.
+pub fn chat_completion_single_with_config(
+  cfg: AiConfig,
+  system_prompt: String,
+  user_content: String,
+  temperature: Float,
+) -> Result(String, String) {
+  case string.trim(cfg.deepseek_api_key) == "" {
+    True -> Error("deepseek_api_key_missing")
+    False -> {
+      let msgs =
+        list.append(
+          [message_json("system", system_prompt)],
+          [message_json("user", user_content)],
+        )
+      let payload =
+        json.object([
+          #("model", json.string(cfg.deepseek_model)),
+          #("messages", json.array(from: msgs, of: fn(x) { x })),
+          #("temperature", json.float(temperature)),
+        ])
+        |> json.to_string
+      let auth = "Bearer " <> cfg.deepseek_api_key
+      case http_client.post_json(cfg.deepseek_api_url, payload, auth) {
+        Ok(raw) ->
+          case json.parse(raw, choices_first_content_decoder()) {
+            Ok(text) ->
+              case string.trim(text) == "" {
+                True -> Error("deepseek_empty_content")
+                False -> Ok(string.trim(text))
+              }
+            Error(_) -> Error("deepseek_json_parse_failed")
+          }
+        Error(e) -> Error(string.append("deepseek_http: ", e))
+      }
+    }
   }
 }
 

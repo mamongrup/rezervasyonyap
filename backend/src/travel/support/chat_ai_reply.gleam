@@ -6,6 +6,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
+import travel/ai/ai_config
 import travel/ai/deepseek_chat
 import travel/db/decode_helpers as row_dec
 
@@ -123,7 +124,14 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                               let #(r, b) = pr
                               #(string.lowercase(string.trim(r)), b)
                             })
-                          case deepseek_chat.chat_completion(sys, pairs) {
+                          let cfg = ai_config.load(ctx.db)
+                          case
+                            deepseek_chat.chat_completion_with_config(
+                              cfg,
+                              sys,
+                              pairs,
+                            )
+                          {
                             Ok(reply_text) -> insert_assistant(ctx, sid, reply_text)
                             Error(_) -> {
                               let fallback = ai_unavailable_fallback(loc)

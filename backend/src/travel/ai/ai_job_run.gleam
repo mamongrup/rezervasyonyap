@@ -6,6 +6,7 @@ import gleam/float
 import gleam/json
 import gleam/string
 import pog
+import travel/ai/ai_config
 import travel/ai/deepseek_chat
 
 fn start_row() -> decode.Decoder(#(String, String)) {
@@ -104,11 +105,15 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
                           let user_msg =
                             "The following JSON is the queued job input. Follow the profile system prompt; prefer structured output when possible. If the JSON includes a top-level string field `locale` (tr, en, de, ru, zh, fr), write the entire response in that language; otherwise use Turkish.\n\n"
                             <> input_json_text
-                          case deepseek_chat.chat_completion_single(
-                            sys_prompt,
-                            user_msg,
-                            temp,
-                          ) {
+                          let cfg = ai_config.load(ctx.db)
+                          case
+                            deepseek_chat.chat_completion_single_with_config(
+                              cfg,
+                              sys_prompt,
+                              user_msg,
+                              temp,
+                            )
+                          {
                             Ok(reply) -> {
                               let out_obj =
                                 json.object([
