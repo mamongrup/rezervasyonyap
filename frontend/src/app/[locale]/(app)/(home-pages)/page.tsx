@@ -40,6 +40,10 @@ export async function generateMetadata({
   }
 }
 
+// ISR: beasties (optimizeCss) static HTML'i inline CSS'e dönüştürsün diye ISR gerekli.
+// Gerçek revalidate, searchPublicListings'teki 60 sn ile sınırlanır.
+export const revalidate = 3600
+
 // Anasayfa için sahte bir "category" — PageBuilderRenderer bağlamı için
 const HOME_CATEGORY = CATEGORY_REGISTRY.find((c) => c.slug === 'oteller')!
 
