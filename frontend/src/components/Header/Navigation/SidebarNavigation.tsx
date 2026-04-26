@@ -1,7 +1,15 @@
 'use client'
 
 import { type HeaderCurrencyItem, TNavigationItem } from '@/data/navigation'
+import { getStoredAuthToken } from '@/lib/auth-storage'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
+import {
+  detectRole,
+  NOTIFICATIONS_BY_ROLE,
+  SECTION_LABELS,
+  type UserRole,
+} from '@/lib/notification-roles'
+import { getAuthMe } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import { Link } from '@/shared/link'
@@ -23,7 +31,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import Form from 'next/form'
 import { useParams, useRouter } from 'next/navigation'
-import React, { useEffect, useMemo } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { getMessages } from '@/utils/getT'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import CurrLangDropdown from '../CurrLangDropdown'
@@ -74,6 +82,19 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
   const vitrinPath = useVitrinHref()
   const stayBrowseHref = vitrinPath('/oteller/all')
   const s = getMessages(effectiveLocale).sidebar
+  const [role, setRole] = useState<UserRole>('guest')
+
+  useEffect(() => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    getAuthMe(token)
+      .then((u) => {
+        const perms = Array.isArray(u.permissions) ? u.permissions : []
+        const roles = Array.isArray(u.roles) ? u.roles : []
+        setRole(detectRole(roles, perms))
+      })
+      .catch(() => setRole('guest'))
+  }, [])
 
   const quickItems = data.filter((item) => item.id && QUICK_NAV_IDS.has(String(item.id)))
 
@@ -282,33 +303,81 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
         </section>
       ) : null}
 
-      {/* Hesap */}
+      {/* Rol bazlı bildirimler */}
+      <section aria-labelledby="sidebar-notif-heading">
+        <h2 id="sidebar-notif-heading" className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
+          {SECTION_LABELS[role]}
+        </h2>
+        <div className="space-y-1.5">
+          {NOTIFICATIONS_BY_ROLE[role].map((notif) => {
+            const href = role === 'guest' ? notif.href : vitrinPath(notif.href)
+            return (
+              <Link
+                key={notif.id}
+                href={href}
+                onClick={handleClose}
+                className="flex items-center gap-3 rounded-xl p-2.5 transition hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                  style={{ backgroundColor: `${notif.color}18` }}
+                >
+                  <notif.icon className="h-4 w-4" style={{ color: notif.color }} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                      {notif.title}
+                    </p>
+                    {notif.badge && (
+                      <span
+                        className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ backgroundColor: `${notif.color}20`, color: notif.color }}
+                      >
+                        {notif.badge}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[11px] leading-tight text-neutral-400">{notif.desc}</p>
+                </div>
+              </Link>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* Hesap — misafirler için giriş/kayıt, üyeler için hesabım */}
       <section aria-labelledby="sidebar-account-heading">
         <h2 id="sidebar-account-heading" className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
           {s.quickLinksTitle}
         </h2>
         <div className="flex flex-wrap gap-2">
-          <Link
-            href={navItemHref(effectiveLocale, vitrinPath, '/login')}
-            onClick={handleClose}
-            className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
-          >
-            {s.login}
-          </Link>
-          <Link
-            href={navItemHref(effectiveLocale, vitrinPath, '/signup')}
-            onClick={handleClose}
-            className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
-          >
-            {s.signup}
-          </Link>
-          <Link
-            href={navItemHref(effectiveLocale, vitrinPath, '/account')}
-            onClick={handleClose}
-            className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
-          >
-            {s.account}
-          </Link>
+          {role === 'guest' ? (
+            <>
+              <Link
+                href={navItemHref(effectiveLocale, vitrinPath, '/login')}
+                onClick={handleClose}
+                className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
+              >
+                {s.login}
+              </Link>
+              <Link
+                href={navItemHref(effectiveLocale, vitrinPath, '/signup')}
+                onClick={handleClose}
+                className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
+              >
+                {s.signup}
+              </Link>
+            </>
+          ) : (
+            <Link
+              href={navItemHref(effectiveLocale, vitrinPath, '/account')}
+              onClick={handleClose}
+              className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            >
+              {s.account}
+            </Link>
+          )}
         </div>
       </section>
 
