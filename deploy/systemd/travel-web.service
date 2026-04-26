@@ -1,0 +1,35 @@
+# Travel frontend (Next.js). Kurulum: /etc/systemd/system/travel-web.service
+#
+# Sunucuda:
+#   sudo cp deploy/systemd/travel-web.service /etc/systemd/system/travel-web.service
+#   sudo mkdir -p /etc/rezervasyonyap
+#   sudo cp deploy/systemd/frontend.env.example /etc/rezervasyonyap/frontend.env
+#   sudo systemctl daemon-reload
+#   sudo systemctl restart travel-web
+#   sudo systemctl status travel-web
+
+[Unit]
+Description=Travel Next.js (rezervasyonyap.tr)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend
+
+# .env.local systemd tarafinda otomatik okunmaz; uretim env bu dosyadan gelir.
+EnvironmentFile=/etc/rezervasyonyap/frontend.env
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Next production server
+ExecStart=/usr/bin/node ./node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3000
+
+Restart=always
+RestartSec=5
+KillMode=control-group
+StandardOutput=append:/var/log/travel-web.log
+StandardError=append:/var/log/travel-web.log
+
+[Install]
+WantedBy=multi-user.target
