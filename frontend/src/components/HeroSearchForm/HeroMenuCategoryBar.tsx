@@ -2,7 +2,6 @@
 
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
-import { fetchPublicNavMenuItems } from '@/lib/travel-api'
 import { Link } from '@/shared/link'
 import {
   AnchorIcon,
@@ -234,8 +233,9 @@ export function HeroMenuCategoryBar({
   const [slugOrder, setSlugOrder] = useState<Map<string, number> | null>(null)
 
   useEffect(() => {
-    fetchPublicNavMenuItems('hero_search')
-      .then(({ items }) => {
+    fetch('/api/hero-tabs')
+      .then((r) => r.json())
+      .then(({ items }: { items: { url: string | null; sort_order: number }[] }) => {
         const map = new Map<string, number>()
         items.forEach((item) => {
           const slug = (item.url ?? '').replace(/^\/+/, '').split('/')[0]
@@ -243,7 +243,7 @@ export function HeroMenuCategoryBar({
         })
         if (map.size > 0) setSlugOrder(map)
       })
-      .catch(() => {/* fallback: tüm cats göster */})
+      .catch(() => {/* fallback: tüm kategoriler */})
   }, [])
 
   const cats = slugOrder
