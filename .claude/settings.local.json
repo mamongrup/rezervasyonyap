@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -A 5 \"HeroSearchForm$\" c:/laragon/www/travel/frontend/src/components/CategoryPageTemplate.tsx)",
+      "Bash(git add *)",
+      "Bash(git commit --no-verify -m ' *)"
+    ]
+  }
+}
