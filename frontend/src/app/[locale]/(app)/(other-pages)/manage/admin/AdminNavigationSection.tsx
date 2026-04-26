@@ -25,6 +25,7 @@ import {
   ChevronRight,
   ExternalLink,
   Globe,
+  GripVertical,
   Link as LinkIcon,
   Loader2,
   Megaphone,
@@ -38,7 +39,7 @@ import {
   ToggleLeft,
   ToggleRight,
 } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 // ─── Menu Item Row ─────────────────────────────────────────────────────────────
 function MenuItemRow({
@@ -49,6 +50,7 @@ function MenuItemRow({
   onRefresh,
   busy,
   setBusy,
+  isDragOver,
 }: {
   item: NavMenuItem
   items: NavMenuItem[]
@@ -57,6 +59,7 @@ function MenuItemRow({
   onRefresh: () => void
   busy: boolean
   setBusy: (v: boolean) => void
+  isDragOver?: boolean
 }) {
   const [editing, setEditing] = useState(false)
   const [label, setLabel] = useState(item.label_key)
@@ -65,6 +68,7 @@ function MenuItemRow({
   const [err, setErr] = useState<string | null>(null)
 
   const parentItem = items.find((i) => i.id === item.parent_id)
+  const isPublished = item.is_published !== false
 
   const save = async () => {
     setBusy(true)
@@ -79,6 +83,18 @@ function MenuItemRow({
       onRefresh()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Kaydedilemedi')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const togglePublish = async () => {
+    setBusy(true)
+    try {
+      await patchNavMenuItem(token, menuId, item.id, { is_published: !isPublished })
+      onRefresh()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
     } finally {
       setBusy(false)
     }
@@ -110,7 +126,7 @@ function MenuItemRow({
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1">Bağlantı URL'si</label>
+            <label className="block text-xs font-medium text-neutral-500 mb-1">Bağlantı URL&apos;si</label>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
@@ -150,10 +166,24 @@ function MenuItemRow({
   }
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-neutral-100 dark:border-neutral-800 bg-white dark:bg-neutral-900 hover:shadow-sm transition-shadow">
-      {item.parent_id && <ChevronRight className="w-3.5 h-3.5 text-neutral-300 flex-shrink-0 ms-2" />}
+    <div className={clsx(
+      "flex items-center gap-2 px-3 py-3 rounded-xl border bg-white dark:bg-neutral-900 hover:shadow-sm transition-all",
+      isDragOver
+        ? "border-primary-400 dark:border-primary-500 ring-2 ring-primary-200 dark:ring-primary-800"
+        : "border-neutral-100 dark:border-neutral-800",
+      !isPublished && "opacity-60",
+    )}>
+      {/* Sürükleme tutamacı — yalnızca üst öğelerde görünür */}
+      {!item.parent_id ? (
+        <GripVertical className="w-4 h-4 text-neutral-300 dark:text-neutral-600 flex-shrink-0 cursor-grab active:cursor-grabbing" />
+      ) : (
+        <ChevronRight className="w-3.5 h-3.5 text-neutral-300 flex-shrink-0 ms-1" />
+      )}
+
       <div className="flex-1 min-w-0">
-        <p className="font-medium text-sm text-neutral-900 dark:text-white truncate">{item.label_key}</p>
+        <p className={clsx("font-medium text-sm truncate", isPublished ? "text-neutral-900 dark:text-white" : "text-neutral-400 dark:text-neutral-500 line-through")}>
+          {item.label_key}
+        </p>
         {item.url && (
           <p className="text-xs text-neutral-400 flex items-center gap-1 mt-0.5 truncate">
             <LinkIcon className="w-3 h-3 flex-shrink-0" />
@@ -164,22 +194,47 @@ function MenuItemRow({
           <p className="text-xs text-neutral-400 mt-0.5">Alt öğe → {parentItem.label_key}</p>
         )}
       </div>
-      <span className="text-xs text-neutral-400 flex-shrink-0 hidden sm:block">Sıra: {item.sort_order}</span>
+
       <div className="flex items-center gap-1 flex-shrink-0">
+        {/* Aktif/Pasif toggle */}
+        <button
+          onClick={togglePublish}
+          disabled={busy}
+          title={isPublished ? 'Pasife al' : 'Aktif et'}
+          className={clsx(
+            "flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50",
+            isPublished
+              ? "bg-green-50 text-green-600 hover:bg-green-100 dark:bg-green-900/20 dark:text-green-400"
+              : "bg-neutral-100 text-neutral-400 hover:bg-neutral-200 dark:bg-neutral-800 dark:text-neutral-500",
+          )}
+        >
+          {isPublished
+            ? <><ToggleRight className="w-3.5 h-3.5" /><span className="hidden sm:inline">Aktif</span></>
+            : <><ToggleLeft className="w-3.5 h-3.5" /><span className="hidden sm:inline">Pasif</span></>
+          }
+        </button>
+
+        {/* Düzenle */}
         <button
           onClick={() => setEditing(true)}
           className="p-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-500 hover:text-primary-600"
+          title="Düzenle"
         >
           <Pencil className="w-3.5 h-3.5" />
         </button>
+
+        {/* Sil */}
         <button
           onClick={del}
           disabled={busy}
           className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-neutral-400 hover:text-red-500 disabled:opacity-50"
+          title="Sil"
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
       </div>
+
+      {err && <p className="text-xs text-red-500 absolute bottom-0">{err}</p>}
     </div>
   )
 }
@@ -324,6 +379,11 @@ export default function AdminNavigationSection() {
   const [showAddItem, setShowAddItem] = useState(false)
   const [addItemErr, setAddItemErr] = useState<string | null>(null)
 
+  // Drag-and-drop sıralama
+  const [dragId, setDragId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const dragIdRef = useRef<string | null>(null)
+
   const [popups, setPopups] = useState<SitePopup[]>([])
   const [loadingPopups, setLoadingPopups] = useState(false)
   const [showNewPopup, setShowNewPopup] = useState(false)
@@ -438,8 +498,40 @@ export default function AdminNavigationSection() {
     }
   }
 
+  const handleReorder = useCallback(async (fromId: string, toId: string) => {
+    if (fromId === toId) return
+    const topLevel = items.filter((i) => !i.parent_id).sort((a, b) => a.sort_order - b.sort_order)
+    const fromIdx = topLevel.findIndex((i) => i.id === fromId)
+    const toIdx = topLevel.findIndex((i) => i.id === toId)
+    if (fromIdx === -1 || toIdx === -1) return
+
+    const reordered = [...topLevel]
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved!)
+    const updates = reordered.map((item, idx) => ({ id: item.id, sort_order: (idx + 1) * 10 }))
+
+    // Anlık güncelleme (optimistic)
+    setItems((prev) =>
+      prev.map((item) => {
+        const u = updates.find((u) => u.id === item.id)
+        return u ? { ...item, sort_order: u.sort_order } : item
+      }),
+    )
+
+    const token = getStoredAuthToken()
+    if (!token || !selectedMenuId) return
+    setBusy(true)
+    try {
+      await Promise.all(updates.map(({ id, sort_order }) => patchNavMenuItem(token, selectedMenuId!, id, { sort_order })))
+    } catch {
+      await refreshItems()
+    } finally {
+      setBusy(false)
+    }
+  }, [items, selectedMenuId, refreshItems])
+
   const selectedMenu = menus.find((m) => m.id === selectedMenuId)
-  const topLevelItems = items.filter((i) => !i.parent_id)
+  const topLevelItems = items.filter((i) => !i.parent_id).sort((a, b) => a.sort_order - b.sort_order)
   const childItems = (parentId: string) => items.filter((i) => i.parent_id === parentId)
 
   const MENU_CODE_LABELS: Record<string, string> = {
@@ -592,7 +684,7 @@ export default function AdminNavigationSection() {
                     <h2 className="font-semibold text-neutral-900 dark:text-white">
                       {MENU_CODE_LABELS[selectedMenu.code] ?? selectedMenu.code} — Öğeler
                     </h2>
-                    <p className="text-xs text-neutral-400 mt-0.5">{items.length} öğe · Sıra numarası küçükten büyüğe gösterilir</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">{items.length} öğe · Sıralarını değiştirmek için öğeleri sürükleyin</p>
                   </div>
                   <button
                     onClick={() => { setShowAddItem((v) => !v); setAddItemErr(null) }}
@@ -625,7 +717,7 @@ export default function AdminNavigationSection() {
                         <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Oteller" className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                       <div>
-                        <label className="block text-xs text-neutral-500 mb-1">Bağlantı URL'si</label>
+                        <label className="block text-xs text-neutral-500 mb-1">Bağlantı URL&apos;si</label>
                         <input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="/oteller" className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500" />
                       </div>
                       <div>
@@ -661,13 +753,34 @@ export default function AdminNavigationSection() {
                   ) : items.length === 0 ? (
                     <div className="text-center py-8 text-neutral-500 text-sm">
                       <LinkIcon className="w-8 h-8 text-neutral-300 mx-auto mb-2" />
-                      Henüz öğe yok. "Öğe Ekle" ile başlayın.
+                      Henüz öğe yok. &ldquo;Öğe Ekle&rdquo; ile başlayın.
                     </div>
                   ) : (
                     <>
                       {topLevelItems.map((item) => (
-                        <div key={item.id} className="space-y-1">
-                          <MenuItemRow item={item} items={items} token={getStoredAuthToken() ?? ''} menuId={selectedMenuId!} onRefresh={refreshItems} busy={busy} setBusy={setBusy} />
+                        <div
+                          key={item.id}
+                          className="space-y-1"
+                          draggable
+                          onDragStart={() => { dragIdRef.current = item.id; setDragId(item.id) }}
+                          onDragOver={(e) => { e.preventDefault(); setDragOverId(item.id) }}
+                          onDrop={() => {
+                            const from = dragIdRef.current
+                            setDragId(null); setDragOverId(null); dragIdRef.current = null
+                            if (from) void handleReorder(from, item.id)
+                          }}
+                          onDragEnd={() => { setDragId(null); setDragOverId(null); dragIdRef.current = null }}
+                        >
+                          <MenuItemRow
+                            item={item}
+                            items={items}
+                            token={getStoredAuthToken() ?? ''}
+                            menuId={selectedMenuId!}
+                            onRefresh={refreshItems}
+                            busy={busy}
+                            setBusy={setBusy}
+                            isDragOver={dragOverId === item.id && dragId !== item.id}
+                          />
                           {childItems(item.id).map((child) => (
                             <div key={child.id} className="ms-6">
                               <MenuItemRow item={child} items={items} token={getStoredAuthToken() ?? ''} menuId={selectedMenuId!} onRefresh={refreshItems} busy={busy} setBusy={setBusy} />
@@ -689,7 +802,7 @@ export default function AdminNavigationSection() {
 
             <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-300 space-y-1">
               <p className="font-semibold flex items-center gap-2"><Megaphone className="w-4 h-4" /> Popuplar nasıl çalışır?</p>
-              <p>Site popup'ları ziyaretçilere gösterilen bildirimlerdir. <strong>Kampanya</strong> popup'ları promosyon teklifleri, <strong>Çerez Bildirimi</strong> GDPR/KVKK için kullanılır.</p>
+              <p>Site popup&apos;ları ziyaretçilere gösterilen bildirimlerdir. <strong>Kampanya</strong> popup&apos;ları promosyon teklifleri, <strong>Çerez Bildirimi</strong> GDPR/KVKK için kullanılır.</p>
             </div>
 
             <div className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden">

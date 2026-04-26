@@ -33,14 +33,14 @@ if [ -n "$CHANGED_TS" ]; then
   echo "→ Frontend tip dosyaları değişti, lint çalıştırılıyor..."
   # Repo-root yollarını frontend/ önekini kırparak --file argümanlarına dönüştür
   # Repo-root yollarını frontend/ önekini kırparak dosya listesi oluştur
-  FILE_LIST="$(echo "$CHANGED_TS" | sed 's|^frontend/||' | tr '\n' ' ')"
+  # Her yolu ayrı argüman olarak geçir (xargs ile — parantezli yolları eval kırar)
   if command -v pnpm >/dev/null 2>&1; then
-    ( cd frontend && eval "pnpm eslint --max-warnings=50 $FILE_LIST" ) || {
+    ( cd frontend && echo "$CHANGED_TS" | sed 's|^frontend/||' | xargs pnpm eslint --max-warnings=50 ) || {
       echo "✖ frontend lint başarısız. Commit iptal."
       exit 1
     }
   elif command -v npm >/dev/null 2>&1; then
-    ( cd frontend && eval "npx eslint --max-warnings=50 $FILE_LIST" ) || exit 1
+    ( cd frontend && echo "$CHANGED_TS" | sed 's|^frontend/||' | xargs npx eslint --max-warnings=50 ) || exit 1
   else
     echo "! pnpm/npm bulunamadı; lint atlandı."
   fi
