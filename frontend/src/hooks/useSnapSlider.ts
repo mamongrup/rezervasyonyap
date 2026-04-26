@@ -1,16 +1,15 @@
 import _ from 'lodash'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObject<HTMLDivElement | null> }) {
   const [isAtEnd, setIsAtEnd] = useState(false)
   const [isAtStart, setIsAtStart] = useState(true)
 
-  const get_slider_item_size = () => {
+  // Cache item width — değişmez, sadece resize'da güncellenir
+  const get_slider_item_size = useCallback(() => {
     const itemWidth = sliderRef.current?.querySelector('.mySnapItem')?.clientWidth || 0
-
-    // check rtl
     return document.dir === 'rtl' ? -itemWidth : itemWidth
-  }
+  }, [sliderRef])
 
   useEffect(() => {
     const slider = sliderRef.current
@@ -19,21 +18,24 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
     }
 
     const handleScroll = _.debounce(() => {
-      const slider = sliderRef.current
-      if (!slider) {
+      const el = sliderRef.current
+      if (!el) {
         return
       }
 
-      // check if at end or start
-      // check RTL
+      // Tüm layout okumalarını tek seferde yap — forced reflow önlenir
+      const scrollLeft = el.scrollLeft
+      const clientWidth = el.clientWidth
+      const scrollWidth = el.scrollWidth
+
       if (document.dir === 'rtl') {
-        setIsAtEnd(-slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 50)
-        setIsAtStart(slider.scrollLeft > -50)
+        setIsAtEnd(-scrollLeft + clientWidth >= scrollWidth - 50)
+        setIsAtStart(scrollLeft > -50)
       } else {
-        setIsAtEnd(slider.scrollLeft + slider.clientWidth >= slider.scrollWidth - 50)
-        setIsAtStart(slider.scrollLeft < 50)
+        setIsAtEnd(scrollLeft + clientWidth >= scrollWidth - 50)
+        setIsAtStart(scrollLeft < 50)
       }
-    }, 600)
+    }, 150)
 
     slider.addEventListener('scroll', handleScroll)
     return () => {

@@ -47,7 +47,11 @@ const SimilarListings = ({
   const syncScroll = useCallback(() => {
     const el = scrollRef.current
     if (!el) return
-    const { scrollLeft, scrollWidth, clientWidth } = el
+
+    // Tek seferde tüm layout okumalarını yap — forced reflow önlenir
+    const scrollLeft = el.scrollLeft
+    const scrollWidth = el.scrollWidth
+    const clientWidth = el.clientWidth
     const canScroll = scrollWidth > clientWidth + 1
     setOverflow(canScroll)
     if (!canScroll) {

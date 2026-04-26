@@ -282,11 +282,19 @@ export function HeroMenuCategoryBar({
   const totalCats = cats.length
 
   const handleMoreClick = useCallback(() => {
-    if (btnRef.current) {
-      const r = btnRef.current.getBoundingClientRect()
-      setDropPos({ top: r.bottom + 8, right: window.innerWidth - r.right })
-    }
-    setOverflowOpen((v) => !v)
+    setOverflowOpen((v) => {
+      const next = !v
+      if (next && btnRef.current) {
+        // RAF ile layout okuması, state'e yaz — aynı frame'de forced reflow önlenir
+        requestAnimationFrame(() => {
+          const rect = btnRef.current?.getBoundingClientRect()
+          if (rect) {
+            setDropPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right })
+          }
+        })
+      }
+      return next
+    })
   }, [])
 
   useEffect(() => {

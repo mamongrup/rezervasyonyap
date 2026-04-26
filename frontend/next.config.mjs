@@ -134,6 +134,7 @@ const nextConfig = {
     optimizePackageImports: [
       'lucide-react',
       'lodash',
+      '@headlessui/react',
       '@hugeicons/react',
       '@hugeicons/core-free-icons',
       'framer-motion',

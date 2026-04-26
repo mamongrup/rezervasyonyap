@@ -21,11 +21,12 @@ import type { SitePublicConfig } from '@/lib/travel-api'
 import { Poppins } from 'next/font/google'
 
 const poppins = Poppins({
-  subsets: ['latin'],
+  subsets: ['latin', 'latin-ext'],
   /** tailwind @theme'te --font-sans: var(--font-sans) döngüsü yaratmamak için ayrı değişken */
   variable: '--font-poppins',
   weight: ['400', '500', '600', '700'],
   display: 'swap',
+  adjustFontFallback: false,
 })
 
 const themeDirection =
