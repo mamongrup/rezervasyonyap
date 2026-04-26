@@ -86,6 +86,13 @@ Beklenen:
 - `auth/me`: token yoksa `401 {"error":"missing_token"}` normal.
 - `hero-tabs`: `200` + JSON (`items`) donmeli.
 
+Alternatif: tek komut dogrulama scripti
+
+```bash
+chmod +x deploy/verify.sh
+./deploy/verify.sh
+```
+
 ## 6) Tarayici kontrolu
 
 - Hard refresh: `Ctrl + Shift + R`
