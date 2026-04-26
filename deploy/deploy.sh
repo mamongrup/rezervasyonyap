@@ -16,3 +16,6 @@ git pull
 systemctl restart travel-api travel-web
 
 echo "OK: travel-api + travel-web yeniden başlatıldı."
+
+# Deploy sonrası temel sağlık kontrolü
+bash "$APP_ROOT/deploy/verify.sh"
