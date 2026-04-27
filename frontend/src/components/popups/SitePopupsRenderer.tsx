@@ -112,22 +112,40 @@ export default function SitePopupsRenderer({ locale }: { locale: string }) {
       }
       case 'scroll': {
         let scrollRaf = 0
+        /** Her scroll’da `scrollHeight` okumak forced reflow üretir; kısa TTL ile önbellekle. */
+        let cachedMaxPx = -1
+        let cacheAtMs = 0
+        const CACHE_MS = 320
+        const invalidateMaxScrollCache = () => {
+          cachedMaxPx = -1
+        }
+        const maxScrollPx = (): number => {
+          const now = typeof performance !== 'undefined' ? performance.now() : Date.now()
+          if (cachedMaxPx < 0 || now - cacheAtMs > CACHE_MS) {
+            const doc = document.documentElement
+            cachedMaxPx = Math.max(0, (doc.scrollHeight || 0) - (window.innerHeight || 0))
+            cacheAtMs = now
+          }
+          return cachedMaxPx
+        }
         const onScroll = () => {
           if (scrollRaf) return
           scrollRaf = window.requestAnimationFrame(() => {
             scrollRaf = 0
-            const doc = document.documentElement
-            const max = (doc.scrollHeight || 0) - (window.innerHeight || 0)
+            const max = maxScrollPx()
             const ratio = max > 0 ? (window.scrollY / max) * 100 : 0
             if (ratio >= target.trigger.scrollPercent) {
               show()
               window.removeEventListener('scroll', onScroll)
+              window.removeEventListener('resize', invalidateMaxScrollCache)
             }
           })
         }
         window.addEventListener('scroll', onScroll, { passive: true })
+        window.addEventListener('resize', invalidateMaxScrollCache, { passive: true })
         cleanup.push(() => {
           window.removeEventListener('scroll', onScroll)
+          window.removeEventListener('resize', invalidateMaxScrollCache)
           if (scrollRaf) window.cancelAnimationFrame(scrollRaf)
         })
         break
