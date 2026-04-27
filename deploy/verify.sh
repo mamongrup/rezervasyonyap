@@ -49,15 +49,32 @@ http_status() {
   curl -sS -o /dev/null -w "%{http_code}" "$url"
 }
 
+wait_http_status() {
+  local url="$1"
+  local max_attempts="${2:-10}"
+  local sleep_seconds="${3:-2}"
+  local i status
+  for ((i=1; i<=max_attempts; i++)); do
+    status="$(http_status "$url" || true)"
+    if [[ -n "$status" ]]; then
+      echo "$status"
+      return 0
+    fi
+    sleep "$sleep_seconds"
+  done
+  echo ""
+}
+
 check_endpoints() {
   local auth_status hero_status
-  auth_status="$(http_status "$API_ORIGIN/api/v1/auth/me")"
+  auth_status="$(wait_http_status "$API_ORIGIN/api/v1/auth/me" 12 2)"
   case "$auth_status" in
     200|401) ok "auth/me reachable ($auth_status)";;
+    "") fail "auth/me unreachable after retries ($API_ORIGIN/api/v1/auth/me)";;
     *) fail "auth/me unexpected status: $auth_status ($API_ORIGIN/api/v1/auth/me)";;
   esac
 
-  hero_status="$(http_status "$WEB_ORIGIN/api/hero-tabs")"
+  hero_status="$(wait_http_status "$WEB_ORIGIN/api/hero-tabs" 8 2)"
   [[ "$hero_status" == "200" ]] || fail "hero-tabs unexpected status: $hero_status ($WEB_ORIGIN/api/hero-tabs)"
   ok "hero-tabs reachable (200)"
 }
