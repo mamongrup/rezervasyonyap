@@ -40,6 +40,7 @@ const SimilarListings = ({
   ariaNext = 'Next',
 }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const stepRef = useRef(280)
   const [overflow, setOverflow] = useState(false)
   const [atStart, setAtStart] = useState(true)
   const [atEnd, setAtEnd] = useState(false)
@@ -54,6 +55,8 @@ const SimilarListings = ({
     const clientWidth = el.clientWidth
     const canScroll = scrollWidth > clientWidth + 1
     setOverflow(canScroll)
+    const item = el.querySelector('.mySnapItem') as HTMLElement | null
+    if (item) stepRef.current = item.clientWidth + 16
     if (!canScroll) {
       setAtStart(true)
       setAtEnd(true)
@@ -78,12 +81,7 @@ const SimilarListings = ({
     }
   }, [listings, syncScroll])
 
-  const scrollStep = useCallback(() => {
-    const item = scrollRef.current?.querySelector('.mySnapItem') as HTMLElement | null
-    if (!item) return 280
-    const gap = 16
-    return item.offsetWidth + gap
-  }, [])
+  const scrollStep = useCallback(() => stepRef.current, [])
 
   const scrollPrev = () => {
     scrollRef.current?.scrollBy({ left: -scrollStep(), behavior: 'smooth' })

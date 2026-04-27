@@ -1,9 +1,9 @@
-import _ from 'lodash'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObject<HTMLDivElement | null> }) {
   const [isAtEnd, setIsAtEnd] = useState(false)
   const [isAtStart, setIsAtStart] = useState(true)
+  const rafIdRef = useRef<number | null>(null)
 
   // Cache item width — değişmez, sadece resize'da güncellenir
   const get_slider_item_size = useCallback(() => {
@@ -17,7 +17,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       return
     }
 
-    const handleScroll = _.debounce(() => {
+    const readAndSetBounds = () => {
       const el = sliderRef.current
       if (!el) {
         return
@@ -35,11 +35,24 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
         setIsAtEnd(scrollLeft + clientWidth >= scrollWidth - 50)
         setIsAtStart(scrollLeft < 50)
       }
-    }, 150)
+    }
 
-    slider.addEventListener('scroll', handleScroll)
+    const handleScroll = () => {
+      if (rafIdRef.current != null) return
+      rafIdRef.current = window.requestAnimationFrame(() => {
+        rafIdRef.current = null
+        readAndSetBounds()
+      })
+    }
+
+    readAndSetBounds()
+    slider.addEventListener('scroll', handleScroll, { passive: true })
     return () => {
       slider.removeEventListener('scroll', handleScroll)
+      if (rafIdRef.current != null) {
+        window.cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
     }
   }, [sliderRef])
 
