@@ -2,7 +2,6 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { getFooterSiteConfigPath } from '@/lib/footer-site-config'
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
 import type { FooterSiteConfig } from '@/types/footer-site-config'
 
@@ -75,7 +74,7 @@ export async function POST(req: NextRequest) {
   }
 
   await ensureDir()
-  await fs.writeFile(getFooterSiteConfigPath(), JSON.stringify(cfg, null, 2), 'utf-8')
+  await fs.writeFile(FILE, JSON.stringify(cfg, null, 2), 'utf-8')
 
   return NextResponse.json({ ok: true, savedAt: cfg.updatedAt })
 }
