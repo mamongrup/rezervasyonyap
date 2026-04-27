@@ -1,6 +1,6 @@
 'use client'
 
-import * as Headless from '@headlessui/react'
+import { DataInteractive, useClose } from '@headlessui/react'
 import NextLink, { type LinkProps } from 'next/link'
 import React, { forwardRef } from 'react'
 
@@ -8,10 +8,10 @@ export const Link = forwardRef(function Link(
   props: LinkProps & React.ComponentPropsWithoutRef<'a'>,
   ref: React.ForwardedRef<HTMLAnchorElement>
 ) {
-  const closeHeadless = Headless.useClose()
+  const closeHeadless = useClose()
 
   return (
-    <Headless.DataInteractive>
+    <DataInteractive>
       <NextLink
         {...props}
         ref={ref}
@@ -32,6 +32,6 @@ export const Link = forwardRef(function Link(
           closeHeadless()
         }}
       />
-    </Headless.DataInteractive>
+    </DataInteractive>
   )
 })
