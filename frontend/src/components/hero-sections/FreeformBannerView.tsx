@@ -122,7 +122,7 @@ export default function FreeformBannerView({
                     }}
                     fetchPriority="high"
                     loading="eager"
-                    decoding="async"
+                    decoding="sync"
                   />
                 ) : (
                   <Image

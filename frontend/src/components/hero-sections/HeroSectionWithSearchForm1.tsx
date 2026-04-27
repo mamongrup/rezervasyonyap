@@ -43,7 +43,7 @@ function MosaicSlot({
         className="absolute inset-0 h-full w-full object-cover"
         fetchPriority="high"
         loading="eager"
-        decoding="async"
+        decoding="sync"
       />
     )
   }

@@ -246,30 +246,43 @@ export function HeroMenuCategoryBar({
    */
   useEffect(() => {
     let cancelled = false
-    ;(async () => {
-      try {
-        const r = await fetch('/api/hero-tabs')
-        if (cancelled || !r.ok) return
-        const data = (await r.json()) as {
-          items?: { url: string | null; sort_order: number; is_published?: boolean }[]
+    const hasServerPrefetchedSlugs = activeSlugs != null && activeSlugs.length > 0
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const startFetch = () => {
+      ;(async () => {
+        try {
+          const r = await fetch('/api/hero-tabs')
+          if (cancelled || !r.ok) return
+          const data = (await r.json()) as {
+            items?: { url: string | null; sort_order: number; is_published?: boolean }[]
+          }
+          const items = Array.isArray(data.items) ? data.items : []
+          const map = new Map<string, number>()
+          items.forEach((item) => {
+            if (item.is_published === false) return
+            const slug = (item.url ?? '').replace(/^\/+/, '').split('/')[0]
+            if (slug) map.set(slug, item.sort_order)
+          })
+          // Boş Map truthy olduğu için eskiden tüm ikonlar kayboluyordu; boş yanıtta registry fallback.
+          setSlugOrder(map.size > 0 ? map : null)
+        } catch {
+          /* ağ hatası — mevcut slugOrder */
         }
-        const items = Array.isArray(data.items) ? data.items : []
-        const map = new Map<string, number>()
-        items.forEach((item) => {
-          if (item.is_published === false) return
-          const slug = (item.url ?? '').replace(/^\/+/, '').split('/')[0]
-          if (slug) map.set(slug, item.sort_order)
-        })
-        // Boş Map truthy olduğu için eskiden tüm ikonlar kayboluyordu; boş yanıtta registry fallback.
-        setSlugOrder(map.size > 0 ? map : null)
-      } catch {
-        /* ağ hatası — mevcut slugOrder */
-      }
-    })()
+      })()
+    }
+
+    if (hasServerPrefetchedSlugs) {
+      // İlk boyamada hazır server verisini kullan; client revalidate'i biraz erteleyip TBT/reflow baskısını düşür.
+      timer = setTimeout(startFetch, 2500)
+    } else {
+      startFetch()
+    }
+
     return () => {
       cancelled = true
+      if (timer) clearTimeout(timer)
     }
-  }, [])
+  }, [activeSlugs])
 
   const cats =
     slugOrder != null && slugOrder.size > 0
