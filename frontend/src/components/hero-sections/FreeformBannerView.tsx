@@ -123,7 +123,7 @@ export default function FreeformBannerView({
                     fetchPriority="high"
                     priority
                     loading="eager"
-                    decoding="async"
+                    decoding="sync"
                     unoptimized={slotUnopt(src)}
                   />
                 ) : (

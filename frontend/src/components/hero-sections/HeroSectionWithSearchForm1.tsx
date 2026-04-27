@@ -40,7 +40,7 @@ function MosaicSlot({
         fetchPriority="high"
         priority
         loading="eager"
-        decoding="async"
+        decoding="sync"
         unoptimized={isExternal}
       />
     )
