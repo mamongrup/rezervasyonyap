@@ -16,6 +16,7 @@ import { getFeaturedRegionConfig, getHomepageConfig } from '@/data/page-builder-
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
+import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
 import { getPublicNavigationOrganizationId } from '@/lib/nav-public-org-id'
@@ -108,7 +109,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const heroPreloadUrls = Array.from(
     new Set(mosaicForRegionHero.filter((u) => typeof u === 'string' && u.trim() !== '')),
   )
-  heroPreloadUrls.forEach((url, i) => {
+  /** Freeform’daki gerçek LCP URL’si dizinin ilk elemanı olmayabilir — önce onu preload et. */
+  const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero)
+  const orderedPreload = lcpHeroUrl
+    ? [lcpHeroUrl, ...heroPreloadUrls.filter((u) => u !== lcpHeroUrl)]
+    : heroPreloadUrls
+  orderedPreload.forEach((url, i) => {
     preload(url, {
       as: 'image',
       fetchPriority: i === 0 ? 'high' : 'auto',
