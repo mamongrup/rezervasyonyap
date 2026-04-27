@@ -28,5 +28,7 @@ CREATE TABLE IF NOT EXISTS listing_meal_plans (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS ON listing_meal_plans (listing_id);
-CREATE UNIQUE INDEX IF NOT EXISTS ON listing_meal_plans (listing_id, plan_code);
+CREATE INDEX IF NOT EXISTS idx_listing_meal_plans_listing_id
+  ON listing_meal_plans (listing_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_listing_meal_plans_listing_plan_code
+  ON listing_meal_plans (listing_id, plan_code);
