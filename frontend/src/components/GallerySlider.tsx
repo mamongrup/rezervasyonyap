@@ -1,8 +1,5 @@
 'use client'
 
-import { ButtonCircle } from '@/shared/Button'
-import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -82,25 +79,8 @@ export default function GallerySlider({
 
       {/* Buttons + bottom nav bar */}
       <>
-        {/* Buttons */}
-        {navigation && images.length > 1 && (
-          <div className="opacity-0 transition-opacity group-hover/cardGallerySlider:opacity-100">
-            {index > 0 && (
-              <div className="absolute start-3 top-[calc(50%-1rem)]">
-                <ButtonCircle color="white" onClick={() => changePhotoId(index - 1)} className={'size-8!'}>
-                  <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4! rtl:rotate-180" strokeWidth={1.75} />
-                </ButtonCircle>
-              </div>
-            )}
-            {index + 1 < images.length && (
-              <div className="absolute end-3 top-[calc(50%-1rem)]">
-                <ButtonCircle color="white" onClick={() => changePhotoId(index + 1)} className={'size-8!'}>
-                  <HugeiconsIcon icon={ArrowRight02Icon} className="size-4! rtl:rotate-180" strokeWidth={1.75} />
-                </ButtonCircle>
-              </div>
-            )}
-          </div>
-        )}
+        {/* DOM/TBT optimizasyonu: kartlarda yüzlerce tekrar eden ok butonunu kaldırıyoruz.
+            Kaydırma noktaları (dot) ile gezinme korunur, ilk yükte node sayısı düşer. */}
 
         {/* Bottom Nav bar */}
         <div
@@ -109,15 +89,18 @@ export default function GallerySlider({
             bottomOverlayClassName,
           )}
         ></div>
-        <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center justify-center gap-x-1.5">
-          {images.map((_, i) => (
-            <button
-              className={`h-1.5 w-1.5 rounded-full ${i === index ? 'bg-white' : 'bg-white/60'}`}
-              onClick={() => changePhotoId(i)}
-              key={uniqueID ? `${uniqueID}-dot-${i}` : i}
-            />
-          ))}
-        </div>
+        {navigation && images.length > 1 && (
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center justify-center gap-x-1.5">
+            {images.map((_, i) => (
+              <button
+                className={`h-1.5 w-1.5 rounded-full ${i === index ? 'bg-white' : 'bg-white/60'}`}
+                onClick={() => changePhotoId(i)}
+                key={uniqueID ? `${uniqueID}-dot-${i}` : i}
+                aria-label={`Go to image ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </>
     </div>
   )
