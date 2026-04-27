@@ -89,8 +89,7 @@ const SectionOurFeatures: FC<Props> = ({
             <Image
               src={rightImg}
               alt=""
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              priority={!isListingTravelIdeas}
+              sizes="(max-width: 1024px) 100vw, 38vw"
               className="h-auto w-full object-cover"
             />
           )}
