@@ -15,7 +15,7 @@ const DEFAULT_ACCOUNT_PATH = '/account'
 import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
 import { useIntersection } from 'react-use'
 import { useAside } from './aside'
-import HeroSearchFormMobile from './HeroSearchFormMobile/HeroSearchFormMobile'
+import HeroSearchFormMobileLazy from './HeroSearchFormMobile/HeroSearchFormMobileLazy'
 
 const SCROLL_THRESHOLD = 80
 
@@ -241,7 +241,7 @@ const FooterQuickNavigation = () => {
       </div>
 
       {/* Masaüstü ile aynı tam arama formu — mobil bottom nav'dan açılır */}
-      <HeroSearchFormMobile
+      <HeroSearchFormMobileLazy
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
         locale={loc}

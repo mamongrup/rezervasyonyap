@@ -1,7 +1,7 @@
 import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
 import { DeferredFooterWidgets } from '@/components/DeferredFooterWidgets'
 import Header from '@/components/Header/Header'
-import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFormMobile'
+import HeroSearchFormMobileLazy from '@/components/HeroSearchFormMobile/HeroSearchFormMobileLazy'
 import Aside from '@/components/aside'
 import type { ReactNode } from 'react'
 
@@ -22,7 +22,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       {/* Mobil arama çubuğu — viewport üstünde sabit; içerik bu yükseklik kadar aşağıdan başlar */}
       <div className="fixed inset-x-0 top-0 z-40 bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
         <div className="container flex h-20 items-center justify-center">
-          <HeroSearchFormMobile locale={locale} />
+          <HeroSearchFormMobileLazy locale={locale} />
         </div>
       </div>
       <div
