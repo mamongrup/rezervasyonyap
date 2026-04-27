@@ -29,21 +29,19 @@ function MosaicSlot({
   if (!src.trim()) {
     return <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
   }
-  // LCP slot'unda (`priority`) native <img> kullanıyoruz:
-  // Next/Image, `unoptimized` veya bazı yol kombinlerinde `fetchpriority="high"`
-  // attribute'unu HTML'e düşürmüyor → PageSpeed "fetchpriority=high uygulanmalıdır"
-  // uyarısı çıkıyor. Doğrudan <img> ile attribute garanti HTML'e yazılır.
   if (priority) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
+      <Image
         src={src}
         alt={alt}
+        fill
         sizes={sizes}
-        className="absolute inset-0 h-full w-full object-cover"
+        className="object-cover"
         fetchPriority="high"
+        priority
         loading="eager"
-        decoding="sync"
+        decoding="async"
+        unoptimized={isExternal}
       />
     )
   }

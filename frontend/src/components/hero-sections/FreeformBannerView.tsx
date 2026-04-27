@@ -111,18 +111,20 @@ export default function FreeformBannerView({
             >
               {has ? (
                 firstPriorityIdx === i ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={src}
                     alt={`${alt} — ${i + 1}`}
+                    fill
                     sizes="(max-width: 768px) 100vw, 58vw"
-                    className="absolute inset-0 h-full w-full object-cover"
+                    className="object-cover"
                     style={{
                       objectPosition: `${layer.focusX}% ${layer.focusY}%`,
                     }}
                     fetchPriority="high"
+                    priority
                     loading="eager"
-                    decoding="sync"
+                    decoding="async"
+                    unoptimized={slotUnopt(src)}
                   />
                 ) : (
                   <Image
