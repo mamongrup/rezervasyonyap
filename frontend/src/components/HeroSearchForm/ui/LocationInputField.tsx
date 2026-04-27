@@ -3,7 +3,13 @@
 import { useInteractOutside } from '@/hooks/useInteractOutside'
 import { Divider } from '@/shared/divider'
 import T from '@/utils/getT'
-import * as Headless from '@headlessui/react'
+import {
+  Combobox,
+  ComboboxInput,
+  ComboboxOption,
+  ComboboxOptions,
+  Transition,
+} from '@headlessui/react'
 import {
   BeachIcon,
   EiffelTowerIcon,
@@ -15,7 +21,6 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
-import _ from 'lodash'
 import { FC, useCallback, useEffect, useRef, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
 import type { LocationSuggestion } from '@/app/api/location-search/route'
@@ -104,36 +109,52 @@ export const LocationInputField: FC<Props> = ({
   const closePopover = useCallback(() => setShowPopover(false), [])
   useInteractOutside(containerRef, closePopover)
 
-  const fetchSearch = useCallback(
-    _.debounce(async (q: string) => {
-      if (!q.trim()) { setSearchResults([]); return }
-      setLoadingSearch(true)
-      try {
-        const r = await fetch(`/api/location-search?q=${encodeURIComponent(q)}`)
-        const d = (await r.json()) as { suggestions: LocationSuggestion[] }
-        setSearchResults((d.suggestions ?? []).map(apiToSuggest))
-      } catch {
-        setSearchResults([])
-      } finally {
-        setLoadingSearch(false)
-      }
-    }, 300),
-    []
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const runLocationSearch = useCallback(async (q: string) => {
+    if (!q.trim()) {
+      setSearchResults([])
+      return
+    }
+    setLoadingSearch(true)
+    try {
+      const r = await fetch(`/api/location-search?q=${encodeURIComponent(q)}`)
+      const d = (await r.json()) as { suggestions: LocationSuggestion[] }
+      setSearchResults((d.suggestions ?? []).map(apiToSuggest))
+    } catch {
+      setSearchResults([])
+    } finally {
+      setLoadingSearch(false)
+    }
+  }, [])
+
+  useEffect(
+    () => () => {
+      if (searchDebounceRef.current != null) clearTimeout(searchDebounceRef.current)
+    },
+    [],
   )
 
-  useEffect(() => () => fetchSearch.cancel(), [fetchSearch])
+  const scheduleLocationSearch = useCallback((q: string) => {
+    if (searchDebounceRef.current != null) clearTimeout(searchDebounceRef.current)
+    searchDebounceRef.current = setTimeout(() => {
+      searchDebounceRef.current = null
+      void runLocationSearch(q)
+    }, 300)
+  }, [runLocationSearch])
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setShowPopover(true)
     const val = e.target.value
     if (val) {
       setSelected({ id: Date.now().toString(), name: val })
-      void fetchSearch(val)
+      scheduleLocationSearch(val)
     } else {
+      if (searchDebounceRef.current != null) clearTimeout(searchDebounceRef.current)
       setSelected(null)
       setSearchResults([])
     }
-  }, [fetchSearch])
+  }, [scheduleLocationSearch])
 
   const isShowInitSuggests = !selected?.id
   const suggestsToShow = isShowInitSuggests ? initSuggests : (searchResults.length ? searchResults : initSuggests)
@@ -145,7 +166,7 @@ export const LocationInputField: FC<Props> = ({
         'data-open': 'true',
       })}
     >
-      <Headless.Combobox
+      <Combobox
         value={selected}
         onChange={(value) => {
           setSelected(value || { id: '', name: '' })
@@ -172,7 +193,7 @@ export const LocationInputField: FC<Props> = ({
           )}
 
           <div className="min-w-0 grow">
-            <Headless.ComboboxInput
+            <ComboboxInput
               ref={inputRef}
               aria-label="Search for a location"
               className={clsx(styles.input.base, styles.input[fieldStyle])}
@@ -203,7 +224,7 @@ export const LocationInputField: FC<Props> = ({
           </div>
         </div>
 
-        <Headless.Transition show={showPopover} unmount={false}>
+        <Transition show={showPopover} unmount={false}>
           <div className={clsx(styles.panel.base, styles.panel[fieldStyle])}>
             {isShowInitSuggests && (
               <p className="mt-2 mb-3 px-4 text-xs/6 font-normal text-neutral-600 sm:mt-0 sm:px-8 dark:text-neutral-400">
@@ -214,9 +235,9 @@ export const LocationInputField: FC<Props> = ({
             {loadingSearch && (
               <p className="px-8 py-3 text-xs text-neutral-400">Aranıyor…</p>
             )}
-            <Headless.ComboboxOptions static unmount={false}>
+            <ComboboxOptions static unmount={false}>
               {suggestsToShow.map((item) => (
-                <Headless.ComboboxOption
+                <ComboboxOption
                   key={item.id}
                   value={item}
                   className="flex items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
@@ -226,12 +247,12 @@ export const LocationInputField: FC<Props> = ({
                     className="size-4 text-neutral-400 sm:size-6 dark:text-neutral-500"
                   />
                   <span className="block font-medium text-neutral-700 dark:text-neutral-200">{item.name}</span>
-                </Headless.ComboboxOption>
+                </ComboboxOption>
               ))}
-            </Headless.ComboboxOptions>
+            </ComboboxOptions>
           </div>
-        </Headless.Transition>
-      </Headless.Combobox>
+        </Transition>
+      </Combobox>
     </div>
   )
 }

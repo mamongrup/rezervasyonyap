@@ -69,14 +69,37 @@ const SimilarListings = ({
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    syncScroll()
-    const id = requestAnimationFrame(() => syncScroll())
-    el.addEventListener('scroll', syncScroll, { passive: true })
-    const ro = new ResizeObserver(() => syncScroll())
+
+    /** Birden fazla ResizeObserver tetiklemesini ve commit ile çakışmayı önlemek için tek rAF'da ölç */
+    let syncRaf = 0
+    const scheduleSync = () => {
+      if (syncRaf) cancelAnimationFrame(syncRaf)
+      syncRaf = requestAnimationFrame(() => {
+        syncRaf = 0
+        syncScroll()
+      })
+    }
+
+    /** Çift rAF: font/görsel layout'u yerleştikten sonra ölç (forced reflow azaltır) */
+    let initOuter: number | null = null
+    let initInner: number | null = null
+    initOuter = requestAnimationFrame(() => {
+      initOuter = null
+      initInner = requestAnimationFrame(() => {
+        initInner = null
+        syncScroll()
+      })
+    })
+
+    el.addEventListener('scroll', scheduleSync, { passive: true })
+    const ro = new ResizeObserver(scheduleSync)
     ro.observe(el)
+
     return () => {
-      cancelAnimationFrame(id)
-      el.removeEventListener('scroll', syncScroll)
+      if (initOuter != null) cancelAnimationFrame(initOuter)
+      if (initInner != null) cancelAnimationFrame(initInner)
+      if (syncRaf) cancelAnimationFrame(syncRaf)
+      el.removeEventListener('scroll', scheduleSync)
       ro.disconnect()
     }
   }, [listings, syncScroll])

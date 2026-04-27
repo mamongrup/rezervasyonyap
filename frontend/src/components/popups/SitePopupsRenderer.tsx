@@ -111,18 +111,25 @@ export default function SitePopupsRenderer({ locale }: { locale: string }) {
         break
       }
       case 'scroll': {
+        let scrollRaf = 0
         const onScroll = () => {
-          const max =
-            (document.documentElement.scrollHeight || 0) -
-            (window.innerHeight || 0)
-          const ratio = max > 0 ? (window.scrollY / max) * 100 : 0
-          if (ratio >= target.trigger.scrollPercent) {
-            show()
-            window.removeEventListener('scroll', onScroll)
-          }
+          if (scrollRaf) return
+          scrollRaf = window.requestAnimationFrame(() => {
+            scrollRaf = 0
+            const doc = document.documentElement
+            const max = (doc.scrollHeight || 0) - (window.innerHeight || 0)
+            const ratio = max > 0 ? (window.scrollY / max) * 100 : 0
+            if (ratio >= target.trigger.scrollPercent) {
+              show()
+              window.removeEventListener('scroll', onScroll)
+            }
+          })
         }
         window.addEventListener('scroll', onScroll, { passive: true })
-        cleanup.push(() => window.removeEventListener('scroll', onScroll))
+        cleanup.push(() => {
+          window.removeEventListener('scroll', onScroll)
+          if (scrollRaf) window.cancelAnimationFrame(scrollRaf)
+        })
         break
       }
       case 'exit_intent': {

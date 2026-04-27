@@ -2,7 +2,7 @@
 
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import T from '@/utils/getT'
-import * as Headless from '@headlessui/react'
+import { Radio, RadioGroup } from '@headlessui/react'
 import clsx from 'clsx'
 import Form from 'next/form'
 import { useRouter } from 'next/navigation'
@@ -52,7 +52,7 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
       action={handleFormSubmit}
     >
       {/* RADIO */}
-      <Headless.RadioGroup
+      <RadioGroup
         value={dropOffLocationType}
         onChange={setDropOffLocationType}
         aria-label="Drop Off Location Type"
@@ -63,19 +63,19 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
           formStyle === 'default' && 'px-7 py-4 xl:px-8 xl:py-6'
         )}
       >
-        <Headless.Radio
+        <Radio
           value="different"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700 data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
           {T['HeroSearchForm']['Different drop off']}
-        </Headless.Radio>
-        <Headless.Radio
+        </Radio>
+        <Radio
           value="same"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700 data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
           {T['HeroSearchForm']['Same drop off']}
-        </Headless.Radio>
-      </Headless.RadioGroup>
+        </Radio>
+      </RadioGroup>
 
       {/*  */}
       <div className="relative flex">

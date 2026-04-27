@@ -1,6 +1,6 @@
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ReactDatePickerCustomHeaderProps } from 'react-datepicker'
+import type { ReactDatePickerCustomHeaderProps } from 'react-datepicker'
 
 type Props = ReactDatePickerCustomHeaderProps & {
   /** Intl BCP 47 — ay/yıl başlığı (`monthLocale` yoksa `tr-TR`) */

@@ -6,10 +6,10 @@ import {
 } from '@/components/hero-sections/hero-link-classes'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
+import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { getAuthors } from '@/data/authors'
-import { getTravelCategories } from '@/data/categories'
 import { getStayListings } from '@/data/listings'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getFeaturedRegionConfig, getHomepageConfig } from '@/data/page-builder-config'
@@ -53,12 +53,73 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const { locale } = await params
   const m = getMessages(locale)
 
-  const [stayListings, apiListingsResult, authors, homepageConfig, savedRegionConfig, heroTabsResult] =
+  /**
+   * LCP: `preload()` daha önce tüm `Promise.all` bittiğinde çalışıyordu → kaynak yükleme gecikmesi ~hundreds ms.
+   * Önce yalnızca hero URL’leri için config alıp preload’ı işaretliyoruz; vitrin/API ile paralel değil, **önce** keşif.
+   */
+  const homepageConfig = await getHomepageConfig()
+
+  const defaultModules = getHomepageDefaultModules(m)
+  const savedModules = homepageConfig?.modules
+  const rawModules: Omit<PageBuilderModule, 'id'>[] = savedModules?.length ? savedModules : defaultModules
+  const modules: PageBuilderModule[] = rawModules.map((mod, i) => ({
+    ...mod,
+    id: (mod as PageBuilderModule).id ?? `home-module-${i}`,
+  }))
+
+  const defaultHeroSrc =
+    typeof heroRightStay.src === 'string' ? heroRightStay.src : String(heroRightStay.src)
+
+  const heroModuleImages = (() => {
+    const hero = modules.find((mod) => mod.type === 'hero' && mod.enabled)
+    const imgs = (hero?.config as Record<string, unknown> | undefined)?.images as string[] | undefined
+    if (!Array.isArray(imgs)) return undefined
+    const a = (imgs[0] ?? '').trim()
+    const b = (imgs[1] ?? '').trim()
+    const c = (imgs[2] ?? '').trim()
+    if (!a && !b && !c) return undefined
+    return [a, b, c] as [string, string, string]
+  })()
+
+  const topLevelImages = homepageConfig?.heroImages
+  const mosaicFromFile = (() => {
+    if (!topLevelImages) return undefined
+    const a = (topLevelImages[0] ?? '').trim()
+    const b = (topLevelImages[1] ?? '').trim()
+    const c = (topLevelImages[2] ?? '').trim()
+    if (!a && !b && !c) return undefined
+    return [a, b, c] as [string, string, string]
+  })()
+
+  const mosaicRaw = mosaicFromFile ?? heroModuleImages
+  const mosaicGrid: [string, string, string] = mosaicRaw
+    ? [
+        mosaicRaw[0] || defaultHeroSrc,
+        mosaicRaw[1] || defaultHeroSrc,
+        mosaicRaw[2] || defaultHeroSrc,
+      ]
+    : [defaultHeroSrc, defaultHeroSrc, defaultHeroSrc]
+  const mosaicForRegionHero: [string, string, string] = [
+    mosaicGrid[2],
+    mosaicGrid[0],
+    mosaicGrid[1],
+  ]
+
+  const heroPreloadUrls = Array.from(
+    new Set(mosaicForRegionHero.filter((u) => typeof u === 'string' && u.trim() !== '')),
+  )
+  heroPreloadUrls.forEach((url, i) => {
+    preload(url, {
+      as: 'image',
+      fetchPriority: i === 0 ? 'high' : 'auto',
+    })
+  })
+
+  const [stayListings, apiListingsResult, authors, savedRegionConfig, heroTabsResult] =
     await Promise.all([
       getStayListings(),
       fetchCategoryListings('oteller', {}, {}),
       getAuthors(),
-      getHomepageConfig(),
       getFeaturedRegionConfig('homepage'),
       fetchPublicNavMenuItems('hero_search', getPublicNavigationOrganizationId(), {
         cache: 'no-store',
@@ -85,77 +146,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const heroCtaText = homepageConfig?.heroCtaText ?? m.homePage.heroDefaults.cta
   /** Anasayfa hero — başlık / alt metin / CTA aynı kategori vitrinine (PageBuilder `HOME_CATEGORY`) */
   const categoryPageHref = await vitrinHref(locale, `${HOME_CATEGORY.categoryRoute}/all`)
-  // Modüller: DB'den gelenleri al, yoksa defaults kullan
-  const defaultModules = getHomepageDefaultModules(m)
-  const savedModules = homepageConfig?.modules
-
-  // Kayıtlı modüller varsa onları kullan, yoksa default
-  const rawModules: Omit<PageBuilderModule, 'id'>[] = savedModules?.length
-    ? savedModules
-    : defaultModules
-
-  // id ekle (yoksa)
-  const modules: PageBuilderModule[] = rawModules.map((mod, i) => ({
-    ...mod,
-    id: (mod as PageBuilderModule).id ?? `home-module-${i}`,
-  }))
-
-  const defaultHeroSrc =
-    typeof heroRightStay.src === 'string' ? heroRightStay.src : String(heroRightStay.src)
-
-  /** Page Builder → Hero modülü: en az bir URL varsa üçlü tuple (boşlar sonra varsayılanla dolar) */
-  const heroModuleImages = (() => {
-    const hero = modules.find((mod) => mod.type === 'hero' && mod.enabled)
-    const imgs = (hero?.config as Record<string, unknown> | undefined)?.images as string[] | undefined
-    if (!Array.isArray(imgs)) return undefined
-    const a = (imgs[0] ?? '').trim()
-    const b = (imgs[1] ?? '').trim()
-    const c = (imgs[2] ?? '').trim()
-    if (!a && !b && !c) return undefined
-    return [a, b, c] as [string, string, string]
-  })()
-
-  const topLevelImages = homepageConfig?.heroImages
-  const mosaicFromFile = (() => {
-    if (!topLevelImages) return undefined
-    const a = (topLevelImages[0] ?? '').trim()
-    const b = (topLevelImages[1] ?? '').trim()
-    const c = (topLevelImages[2] ?? '').trim()
-    if (!a && !b && !c) return undefined
-    return [a, b, c] as [string, string, string]
-  })()
-
-  /** Grid sırası (panel): [0] sol üst, [1] sol alt, [2] sağ uzun — bölge freeform slot: 0=sağ, 1=sol üst, 2=sol alt */
-  const mosaicRaw = mosaicFromFile ?? heroModuleImages
-  const mosaicGrid: [string, string, string] = mosaicRaw
-    ? [
-        mosaicRaw[0] || defaultHeroSrc,
-        mosaicRaw[1] || defaultHeroSrc,
-        mosaicRaw[2] || defaultHeroSrc,
-      ]
-    : [defaultHeroSrc, defaultHeroSrc, defaultHeroSrc]
-  const mosaicForRegionHero: [string, string, string] = [
-    mosaicGrid[2],
-    mosaicGrid[0],
-    mosaicGrid[1],
-  ]
-
-  /**
-   * LCP boost: hero kolajının tüm görselleri için `<link rel="preload" as="image">`.
-   * 3 görsel de ilk viewport'ta görünür; mobilde LCP image bunlardan herhangi
-   * biri olabilir. İlk URL'i `fetchPriority='high'` ile, kalanları normal
-   * öncelikte preload ediyoruz. PSI mobil "Kaynak yükleme gecikmesi 440-750 ms"
-   * uyarısını hedefliyor (HTML parse + CSS/JS indirmesinden ÖNCE keşif).
-   */
-  const heroPreloadUrls = Array.from(
-    new Set(mosaicForRegionHero.filter((u) => typeof u === 'string' && u.trim() !== '')),
-  )
-  heroPreloadUrls.forEach((url, i) => {
-    preload(url, {
-      as: 'image',
-      fetchPriority: i === 0 ? 'high' : 'auto',
-    })
-  })
 
   // featured_by_region modülü varsa savedRegionConfig ile override et
   const modulesWithRegion = modules.map((mod) => {
@@ -166,7 +156,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   })
 
   const searchForm = (
-    <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs activeSlugs={activeSlugs} />
+    <HeroSearchDesktopOnly>
+      <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs activeSlugs={activeSlugs} />
+    </HeroSearchDesktopOnly>
   )
 
   const heroHeadingLinked = (
@@ -212,25 +204,23 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         <HeroLastSearchRow locale={locale} />
       </div>
 
-      {/* Tüm geri kalan bölümler — modüler */}
-      <section
-        style={{
+      {/* Tüm geri kalan bölümler — tek kök (`section`) ile ek sarmalayıcı yok; DOM daha küçük */}
+      <PageBuilderRenderer
+        rootAs="section"
+        rootStyle={{
           contentVisibility: 'auto',
           containIntrinsicSize: '1px 2200px',
         }}
-      >
-        <PageBuilderRenderer
-          modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
-          category={HOME_CATEGORY}
-          locale={locale}
-          searchFormNode={searchForm}
-          allListings={featuredListings}
-          listingLinkBase="/otel"
-          priceUnit="/gece"
-          authors={authors}
-          pageKey="homepage"
-        />
-      </section>
+        modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
+        category={HOME_CATEGORY}
+        locale={locale}
+        searchFormNode={searchForm}
+        allListings={featuredListings}
+        listingLinkBase="/otel"
+        priceUnit="/gece"
+        authors={authors}
+        pageKey="homepage"
+      />
     </main>
   )
 }

@@ -1,17 +1,26 @@
 'use client'
 
-import DatePickerCustomDay from '@/components/DatePickerCustomDay'
-import DatePickerCustomHeaderTwoMonth from '@/components/DatePickerCustomHeaderTwoMonth'
 import T from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
+import dynamic from 'next/dynamic'
 import { FC, useState } from 'react'
-import DatePicker from '@/components/LazyDatePicker'
-import type { ReactDatePickerCustomHeaderProps } from 'react-datepicker'
 import { ClearDataButton } from './ClearDataButton'
+
+const DateRangePickerPanel = dynamic(() => import('./DateRangePickerPanel'), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="flex min-h-[22rem] w-full items-center justify-center rounded-2xl bg-neutral-100/90 dark:bg-neutral-800/90"
+      aria-busy="true"
+    >
+      <div className="h-48 w-full max-w-md animate-pulse rounded-xl bg-neutral-200/80 dark:bg-neutral-700/80" />
+    </div>
+  ),
+})
 
 const DATE_LOCALE = 'tr-TR'
 
@@ -102,45 +111,14 @@ export const DateRangeField: FC<Props> = ({
               transition
               className={clsx(panelClassName, styles.panel.base, styles.panel[fieldStyle])}
             >
-              {isOnlySingleDate ? (
-                <DatePicker
-                  locale="tr"
-                  selected={startDate}
-                  onChange={(date: Date | null) => {
-                    setStartDate(date)
-                    // set end-date = start-date + 2 day
-                    setEndDate(new Date((date?.getTime() || 0) + 2 * 24 * 60 * 60 * 1000))
-                  }}
-                  startDate={startDate}
-                  monthsShown={monthsShown}
-                  showPopperArrow={false}
-                  inline
-                  renderCustomHeader={(p: ReactDatePickerCustomHeaderProps) => (
-                    <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
-                  )}
-                  renderDayContents={(day: number, date?: Date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
-                />
-              ) : (
-                <DatePicker
-                  locale="tr"
-                  selected={startDate}
-                  onChange={(dates: [Date | null, Date | null]) => {
-                    const [start, end] = dates
-                    setStartDate(start)
-                    setEndDate(end)
-                  }}
-                  startDate={startDate}
-                  endDate={endDate}
-                  selectsRange
-                  monthsShown={monthsShown}
-                  showPopperArrow={false}
-                  inline
-                  renderCustomHeader={(p: ReactDatePickerCustomHeaderProps) => (
-                    <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
-                  )}
-                  renderDayContents={(day: number, date?: Date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
-                />
-              )}
+              <DateRangePickerPanel
+                isOnlySingleDate={isOnlySingleDate}
+                monthsShown={monthsShown}
+                startDate={startDate}
+                endDate={endDate}
+                setStartDate={setStartDate}
+                setEndDate={setEndDate}
+              />
             </PopoverPanel>
           </>
         )}

@@ -2,11 +2,11 @@
 
 import { verticalNavLabel } from '@/lib/vertical-nav-i18n'
 import { ListingType } from '@/type'
-import * as Headless from '@headlessui/react'
+import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@headlessui/react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { Fragment } from 'react'
-import { formTabs } from './HeroSearchForm'
+import { formTabs } from './HeroSearchFormTabs'
 
 const HeroSearchFormSmall = ({
   className,
@@ -18,14 +18,14 @@ const HeroSearchFormSmall = ({
   locale?: string
 }) => {
   return (
-    <Headless.TabGroup
+    <TabGroup
       defaultIndex={formTabs.findIndex((tab) => tab.name === initTab)}
       className={clsx('hero-search-form-sm', className)}
     >
-      <Headless.TabList className="flex h-20 justify-center gap-x-10">
+      <TabList className="flex h-20 justify-center gap-x-10">
         {formTabs.map((tab) => {
           return (
-            <Headless.Tab
+            <Tab
               key={tab.name}
               as="div"
               className={clsx(
@@ -37,19 +37,19 @@ const HeroSearchFormSmall = ({
                 <HugeiconsIcon icon={tab.icon} size={28} />
                 <span className="absolute top-full me-2 mt-1 hidden h-0.5 w-full rounded-full bg-neutral-800 group-data-[selected]:block dark:bg-neutral-100" />
               </div>
-            </Headless.Tab>
+            </Tab>
           )
         })}
-      </Headless.TabList>
+      </TabList>
 
-      <Headless.TabPanels className="mt-2">
+      <TabPanels className="mt-2">
         {formTabs.map((tab) => (
-          <Headless.TabPanel as={Fragment} key={tab.name}>
+          <TabPanel as={Fragment} key={tab.name}>
             <tab.formComponent formStyle={'small'} />
-          </Headless.TabPanel>
+          </TabPanel>
         ))}
-      </Headless.TabPanels>
-    </Headless.TabGroup>
+      </TabPanels>
+    </TabGroup>
   )
 }
 

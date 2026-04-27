@@ -4,7 +4,14 @@ import NcInputNumber from '@/components/NcInputNumber'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { GuestsObject } from '@/type'
 import T from '@/utils/getT'
-import * as Headless from '@headlessui/react'
+import {
+  CloseButton,
+  Popover,
+  PopoverButton,
+  PopoverPanel,
+  Radio,
+  RadioGroup,
+} from '@headlessui/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
@@ -91,8 +98,8 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
 
   const renderGuest = () => {
     return (
-      <Headless.Popover className="group relative">
-        <Headless.PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
+      <Popover className="group relative">
+        <PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
           <span>
             {totalGuests || ''} {T['HeroSearchForm']['Guests']}
           </span>
@@ -101,9 +108,9 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
             className="-me-1 size-3.5 group-data-open:rotate-180"
             strokeWidth={1.75}
           />
-        </Headless.PopoverButton>
+        </PopoverButton>
 
-        <Headless.PopoverPanel
+        <PopoverPanel
           unmount={false}
           transition
           className="absolute top-full left-1/2 z-20 mt-3 w-84 -translate-x-1/2 rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:px-8 sm:py-6 dark:bg-neutral-800 dark:ring-white/10"
@@ -137,31 +144,31 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
             description={T['HeroSearchForm']['Ages 0–2']}
             inputName="guestInfants"
           />
-        </Headless.PopoverPanel>
-      </Headless.Popover>
+        </PopoverPanel>
+      </Popover>
     )
   }
 
   const renderSelectClassType = () => {
     return (
       <>
-        <Headless.Popover className="group relative">
-          <Headless.PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
+        <Popover className="group relative">
+          <PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
             <span>{flightClassState}</span>
             <HugeiconsIcon
             icon={ArrowDown01Icon}
             className="-me-1 size-3.5 group-data-open:rotate-180"
             strokeWidth={1.75}
           />
-          </Headless.PopoverButton>
+          </PopoverButton>
 
-          <Headless.PopoverPanel
+          <PopoverPanel
             transition
             className="absolute top-full left-1/2 z-20 mt-3 w-56 -translate-x-1/2 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0"
           >
             <div className="relative grid gap-7 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
               {flightClass.map((item) => (
-                <Headless.CloseButton
+                <CloseButton
                   key={item.name}
                   onClick={() => {
                     setFlightClassState(item.name)
@@ -169,11 +176,11 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
                   className="-m-3 flex cursor-pointer items-center rounded-lg p-2 text-sm font-medium hover:bg-gray-50 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-orange-500/50 dark:hover:bg-gray-700"
                 >
                   {item.name}
-                </Headless.CloseButton>
+                </CloseButton>
               ))}
             </div>
-          </Headless.PopoverPanel>
-        </Headless.Popover>
+          </PopoverPanel>
+        </Popover>
 
         {/* hidden inputs */}
         <input type="hidden" name="flight-class-type" value={flightClassState} />
@@ -183,26 +190,26 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
 
   const renderTripType = () => {
     return (
-      <Headless.RadioGroup
+      <RadioGroup
         value={tripType}
         onChange={setTripType}
         aria-label="Trip Type"
         name="trip-type"
         className="flex flex-wrap items-center gap-2.5"
       >
-        <Headless.Radio
+        <Radio
           value="roundTrip"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:border-neutral-700 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
           {T['HeroSearchForm']['Round-trip']}
-        </Headless.Radio>
-        <Headless.Radio
+        </Radio>
+        <Radio
           value="oneWay"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:border-neutral-700 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
           {T['HeroSearchForm']['One-way']}
-        </Headless.Radio>
-      </Headless.RadioGroup>
+        </Radio>
+      </RadioGroup>
     )
   }
 

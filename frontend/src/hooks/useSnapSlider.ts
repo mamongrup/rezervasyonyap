@@ -4,11 +4,13 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
   const [isAtEnd, setIsAtEnd] = useState(false)
   const [isAtStart, setIsAtStart] = useState(true)
   const rafIdRef = useRef<number | null>(null)
+  /** Ok tıklanınca tekrar ölçüm yapmayı önlemek için `readAndSetBounds` ile güncellenir → forced reflow azalır */
+  const itemStridePxRef = useRef(0)
 
-  // Cache item width — değişmez, sadece resize'da güncellenir
   const get_slider_item_size = useCallback(() => {
-    const itemWidth = sliderRef.current?.querySelector('.mySnapItem')?.clientWidth || 0
-    return document.dir === 'rtl' ? -itemWidth : itemWidth
+    const fallback = sliderRef.current?.querySelector('.mySnapItem')?.clientWidth ?? 0
+    const w = itemStridePxRef.current > 0 ? itemStridePxRef.current : fallback
+    return document.dir === 'rtl' ? -w : w
   }, [sliderRef])
 
   useEffect(() => {
@@ -23,7 +25,9 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
         return
       }
 
-      // Tüm layout okumalarını tek seferde yap — forced reflow önlenir
+      const item = el.querySelector('.mySnapItem') as HTMLElement | null
+      if (item?.clientWidth) itemStridePxRef.current = item.clientWidth
+
       const scrollLeft = el.scrollLeft
       const clientWidth = el.clientWidth
       const scrollWidth = el.scrollWidth
@@ -37,7 +41,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       }
     }
 
-    const handleScroll = () => {
+    const scheduleReadFromScrollOrResize = () => {
       if (rafIdRef.current != null) return
       rafIdRef.current = window.requestAnimationFrame(() => {
         rafIdRef.current = null
@@ -45,10 +49,25 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       })
     }
 
-    readAndSetBounds()
-    slider.addEventListener('scroll', handleScroll, { passive: true })
+    /** İlk okuma: çift rAF ile commit sonrası layout otursun; iç/dış id cleanup'ta iptal */
+    let initOuter: number | null = null
+    let initInner: number | null = null
+    initOuter = window.requestAnimationFrame(() => {
+      initOuter = null
+      initInner = window.requestAnimationFrame(() => {
+        initInner = null
+        readAndSetBounds()
+      })
+    })
+
+    slider.addEventListener('scroll', scheduleReadFromScrollOrResize, { passive: true })
+    window.addEventListener('resize', scheduleReadFromScrollOrResize, { passive: true })
+
     return () => {
-      slider.removeEventListener('scroll', handleScroll)
+      if (initOuter != null) window.cancelAnimationFrame(initOuter)
+      if (initInner != null) window.cancelAnimationFrame(initInner)
+      slider.removeEventListener('scroll', scheduleReadFromScrollOrResize)
+      window.removeEventListener('resize', scheduleReadFromScrollOrResize)
       if (rafIdRef.current != null) {
         window.cancelAnimationFrame(rafIdRef.current)
         rafIdRef.current = null

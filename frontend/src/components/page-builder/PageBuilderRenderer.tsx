@@ -1,3 +1,4 @@
+import type { CSSProperties, ReactNode } from 'react'
 import type { FeaturedByRegionConfig, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
@@ -42,11 +43,11 @@ interface PageBuilderRendererProps {
   modules: PageBuilderModule[]
   category: CategoryRegistryEntry
   /** Optional search form node to inject into hero */
-  searchFormNode?: React.ReactNode
+  searchFormNode?: ReactNode
   /** Optional listings node to inject into listings sections (legacy fallback) */
-  listingsNode?: React.ReactNode
+  listingsNode?: ReactNode
   /** Optional categories/destinations node */
-  categoriesNode?: React.ReactNode
+  categoriesNode?: ReactNode
   /** Tüm ilanlar — listings_grid/slider/featured_by_region modülleri için */
   allListings?: TListingBase[]
   /** İlan detail URL prefix */
@@ -73,7 +74,11 @@ interface PageBuilderRendererProps {
    * Sunucuda listingCardRenderer ile üretilmiş kartlar (id → node).
    * Fonksiyon client bileşenine geçirilemediği için burada yalnızca Record kullanılır.
    */
-  listingCardsById?: Record<string, React.ReactNode>
+  listingCardsById?: Record<string, ReactNode>
+  /** Varsayılan `div` — anasayfada `section` ile ek sarmalayıcı olmadan semantik + daha az DOM */
+  rootAs?: 'div' | 'section'
+  /** Kök öğeye (örn. `contentVisibility` — PSI DOM/style maliyeti) */
+  rootStyle?: CSSProperties
 }
 
 /**
@@ -95,13 +100,17 @@ export default function PageBuilderRenderer({
   listingCardsById,
   searchContext,
   pageKey,
+  rootAs = 'div',
+  rootStyle,
 }: PageBuilderRendererProps) {
   const defaultSliderPageKey = pageKey ?? category.slug
   const messages = getMessages(locale)
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
+  const Root = rootAs
+
   return (
-    <div className="flex flex-col gap-16 py-12 container">
+    <Root className="flex flex-col gap-16 py-12 container" style={rootStyle}>
       {enabled.map((module) => {
         const cfg = module.config as Record<string, unknown>
 
@@ -436,6 +445,6 @@ export default function PageBuilderRenderer({
             return null
         }
       })}
-    </div>
+    </Root>
   )
 }

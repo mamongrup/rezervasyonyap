@@ -10,6 +10,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
+import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
@@ -226,7 +227,9 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           image={heroRightStay}
           imageAlt={regionName}
           searchForm={
-            <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs />
+            <HeroSearchDesktopOnly>
+              <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs />
+            </HeroSearchDesktopOnly>
           }
           topSpacing="minimal"
           searchFormOffsetYPx={-30}
