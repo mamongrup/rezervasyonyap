@@ -22,14 +22,6 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Eksik komut: $1"
 }
 
-frontend_install() {
-  if npm ci; then
-    return 0
-  fi
-  echo "[WARN] npm ci basarisiz oldu, npm install fallback deneniyor..."
-  npm install
-}
-
 git_sync_ref() {
   local ref="$1"
   git fetch origin "$ref"
@@ -61,7 +53,7 @@ main() {
   ok "backend build tamam"
 
   step "Frontend install + clean build"
-  (cd "$APP_ROOT/frontend" && rm -rf .next && frontend_install && npm run build)
+  (cd "$APP_ROOT/frontend" && rm -rf .next && npm install && npm run build)
   ok "frontend build tamam"
 
   step "Servis restart"
