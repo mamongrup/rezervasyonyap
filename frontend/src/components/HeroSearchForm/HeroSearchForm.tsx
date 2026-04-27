@@ -11,13 +11,21 @@ import {
 } from '@hugeicons/core-free-icons'
 import { IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
+import dynamic from 'next/dynamic'
 import { Fragment } from 'react'
-import { ExperiencesSearchForm } from './ExperiencesSearchForm'
-import { FlightSearchForm } from './FlightSearchForm'
 import { verticalNavLabel } from '@/lib/vertical-nav-i18n'
-import { RentalCarSearchForm } from './RentalCarSearchForm'
 import { StaySearchForm } from './StaySearchForm'
 import { HeroMenuCategoryBar } from './HeroMenuCategoryBar'
+
+const RentalCarSearchFormLazy = dynamic(
+  () => import('./RentalCarSearchForm').then((m) => m.RentalCarSearchForm),
+)
+const ExperiencesSearchFormLazy = dynamic(
+  () => import('./ExperiencesSearchForm').then((m) => m.ExperiencesSearchForm),
+)
+const FlightSearchFormLazy = dynamic(
+  () => import('./FlightSearchForm').then((m) => m.FlightSearchForm),
+)
 
 export const formTabs: {
   name: ListingType
@@ -26,9 +34,9 @@ export const formTabs: {
   formComponent: React.ComponentType<{ formStyle: 'default' | 'small' }>
 }[] = [
   { name: 'Stays', icon: House03Icon, href: '/', formComponent: StaySearchForm },
-  { name: 'Cars', icon: Car05Icon, href: '/car', formComponent: RentalCarSearchForm },
-  { name: 'Experiences', icon: HotAirBalloonFreeIcons, href: '/experience', formComponent: ExperiencesSearchForm },
-  { name: 'Flights', icon: Airplane02Icon, href: '/ucak-bileti/all', formComponent: FlightSearchForm },
+  { name: 'Cars', icon: Car05Icon, href: '/car', formComponent: RentalCarSearchFormLazy },
+  { name: 'Experiences', icon: HotAirBalloonFreeIcons, href: '/experience', formComponent: ExperiencesSearchFormLazy },
+  { name: 'Flights', icon: Airplane02Icon, href: '/ucak-bileti/all', formComponent: FlightSearchFormLazy },
 ]
 
 const HeroSearchForm = ({
