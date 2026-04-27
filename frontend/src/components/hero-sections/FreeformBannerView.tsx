@@ -1,5 +1,3 @@
-'use client'
-
 import type { FreeformBannerDocV2 } from '@/lib/freeform-banner-spec'
 import clsx from 'clsx'
 import Image from 'next/image'
@@ -117,7 +115,7 @@ export default function FreeformBannerView({
                   <img
                     src={src}
                     alt={`${alt} — ${i + 1}`}
-                    sizes="(max-width: 768px) 100vw, min(900px, 58vw)"
+                    sizes="(max-width: 768px) 100vw, 58vw"
                     className="absolute inset-0 h-full w-full object-cover"
                     style={{
                       objectPosition: `${layer.focusX}% ${layer.focusY}%`,
@@ -131,7 +129,7 @@ export default function FreeformBannerView({
                     src={src}
                     alt={`${alt} — ${i + 1}`}
                     fill
-                    sizes="(max-width: 768px) 100vw, min(900px, 58vw)"
+                    sizes="(max-width: 768px) 100vw, 58vw"
                     className="object-cover"
                     style={{
                       objectPosition: `${layer.focusX}% ${layer.focusY}%`,

@@ -213,17 +213,24 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       </div>
 
       {/* Tüm geri kalan bölümler — modüler */}
-      <PageBuilderRenderer
-        modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
-        category={HOME_CATEGORY}
-        locale={locale}
-        searchFormNode={searchForm}
-        allListings={featuredListings}
-        listingLinkBase="/otel"
-        priceUnit="/gece"
-        authors={authors}
-        pageKey="homepage"
-      />
+      <section
+        style={{
+          contentVisibility: 'auto',
+          containIntrinsicSize: '1px 2200px',
+        }}
+      >
+        <PageBuilderRenderer
+          modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
+          category={HOME_CATEGORY}
+          locale={locale}
+          searchFormNode={searchForm}
+          allListings={featuredListings}
+          listingLinkBase="/otel"
+          priceUnit="/gece"
+          authors={authors}
+          pageKey="homepage"
+        />
+      </section>
     </main>
   )
 }

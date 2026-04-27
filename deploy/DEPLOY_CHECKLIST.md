@@ -54,7 +54,26 @@ Repo icindeki ornek dosyalar:
 - `deploy/systemd/travel-web.service`
 - `deploy/systemd/frontend.env.example`
 
-## 3) Kodu cek + build al
+## 3) Onerilen: tek komut deploy
+
+Repo kokunde:
+
+```bash
+chmod +x deploy/deploy.sh deploy/verify.sh
+DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh
+```
+
+Notlar:
+
+- Varsayilan ref artik `stable/b92d735` (stabil nokta).
+- Istersen `DEPLOY_REF=main` ile main deploy edebilirsin.
+- Script otomatik olarak:
+  - hedef ref'e hard sync yapar,
+  - lokal kirli dosyalari temizler (`git clean -fd`),
+  - backend/frontend build alir,
+  - service restart + verify yapar.
+
+## 4) Manuel akış (ihtiyaç halinde)
 
 `NEXT_PUBLIC_*` degiskenleri build-time gomulur. Env degistiyse **yeniden build zorunlu**.
 
@@ -64,7 +83,7 @@ npm ci
 npm run build
 ```
 
-## 4) Servisleri restart et
+## 5) Servisleri restart et
 
 ```bash
 sudo systemctl daemon-reload
@@ -74,7 +93,7 @@ sudo systemctl status travel-web.service
 sudo systemctl status travel-api.service
 ```
 
-## 5) Hızlı smoke test
+## 6) Hizli smoke test
 
 ```bash
 curl -i http://127.0.0.1:8080/api/v1/auth/me
@@ -93,7 +112,7 @@ chmod +x deploy/verify.sh
 ./deploy/verify.sh
 ```
 
-## 6) Tarayici kontrolu
+## 7) Tarayici kontrolu
 
 - Hard refresh: `Ctrl + Shift + R`
 - Ana sayfada hero kategori ikonlari gorunmeli.

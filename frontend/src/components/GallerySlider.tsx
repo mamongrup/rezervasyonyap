@@ -125,7 +125,7 @@ export default function GallerySlider({
                   alt="listing card gallery"
                   className={clsx(`rounded-xl object-cover`, imageClass)}
                   onLoad={() => setLoaded(true)}
-                  sizes="(max-width: 1025px) 100vw, 25vw"
+                  sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
                   unoptimized={currentSrc.startsWith('data:') || /^https?:\/\//i.test(currentSrc)}
                 />
               </motion.div>
