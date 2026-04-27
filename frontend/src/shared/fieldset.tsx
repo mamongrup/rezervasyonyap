@@ -1,13 +1,24 @@
-import * as Headless from '@headlessui/react'
+import {
+  Description as HuiDescription,
+  type DescriptionProps,
+  Field as HuiField,
+  type FieldProps,
+  Fieldset as HuiFieldset,
+  type FieldsetProps,
+  Label as HuiLabel,
+  type LabelProps,
+  Legend as HuiLegend,
+  type LegendProps,
+} from '@headlessui/react'
 import clsx from 'clsx'
 import type React from 'react'
 
 export function Fieldset({
   className,
   ...props
-}: { className?: string } & Omit<Headless.FieldsetProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<FieldsetProps, 'as' | 'className'>) {
   return (
-    <Headless.Fieldset
+    <HuiFieldset
       {...props}
       className={clsx(className, '*:data-[slot=text]:mt-1 [&>*+[data-slot=control]]:mt-6')}
     />
@@ -17,9 +28,9 @@ export function Fieldset({
 export function Legend({
   className,
   ...props
-}: { className?: string } & Omit<Headless.LegendProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<LegendProps, 'as' | 'className'>) {
   return (
-    <Headless.Legend
+    <HuiLegend
       data-slot="legend"
       {...props}
       className={clsx(className, 'text-sm/6 font-semibold text-neutral-950 data-disabled:opacity-50 dark:text-white')}
@@ -31,9 +42,9 @@ export function FieldGroup({ className, ...props }: React.ComponentPropsWithoutR
   return <div data-slot="control" {...props} className={clsx(className, 'space-y-8')} />
 }
 
-export function Field({ className, ...props }: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+export function Field({ className, ...props }: { className?: string } & Omit<FieldProps, 'as' | 'className'>) {
   return (
-    <Headless.Field
+    <HuiField
       {...props}
       className={clsx(
         className,
@@ -42,20 +53,20 @@ export function Field({ className, ...props }: { className?: string } & Omit<Hea
         '[&>[data-slot=description]+[data-slot=control]]:mt-2',
         '[&>[data-slot=control]+[data-slot=description]]:mt-2',
         '[&>[data-slot=control]+[data-slot=error]]:mt-2',
-        '*:data-[slot=label]:font-medium'
+        '*:data-[slot=label]:font-medium',
       )}
     />
   )
 }
 
-export function Label({ className, ...props }: { className?: string } & Omit<Headless.LabelProps, 'as' | 'className'>) {
+export function Label({ className, ...props }: { className?: string } & Omit<LabelProps, 'as' | 'className'>) {
   return (
-    <Headless.Label
+    <HuiLabel
       data-slot="label"
       {...props}
       className={clsx(
         className,
-        'text-sm/6 font-medium text-neutral-950 select-none data-disabled:opacity-50 dark:text-white'
+        'text-sm/6 font-medium text-neutral-950 select-none data-disabled:opacity-50 dark:text-white',
       )}
     />
   )
@@ -64,9 +75,9 @@ export function Label({ className, ...props }: { className?: string } & Omit<Hea
 export function Description({
   className,
   ...props
-}: { className?: string } & Omit<Headless.DescriptionProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<DescriptionProps, 'as' | 'className'>) {
   return (
-    <Headless.Description
+    <HuiDescription
       data-slot="description"
       {...props}
       className={clsx(className, 'text-sm/6 text-neutral-500 data-disabled:opacity-50 dark:text-neutral-400')}
@@ -77,9 +88,9 @@ export function Description({
 export function ErrorMessage({
   className,
   ...props
-}: { className?: string } & Omit<Headless.DescriptionProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<DescriptionProps, 'as' | 'className'>) {
   return (
-    <Headless.Description
+    <HuiDescription
       data-slot="error"
       {...props}
       className={clsx(className, 'text-sm/6 text-red-600 data-disabled:opacity-50 dark:text-red-500')}

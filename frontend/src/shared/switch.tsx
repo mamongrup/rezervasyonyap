@@ -1,4 +1,4 @@
-import * as Headless from '@headlessui/react'
+import { Field as HuiField, type FieldProps, Switch as HuiSwitch, type SwitchProps } from '@headlessui/react'
 import clsx from 'clsx'
 import type React from 'react'
 
@@ -21,9 +21,9 @@ export function SwitchGroup({ className, ...props }: React.ComponentPropsWithout
 export function SwitchField({
   className,
   ...props
-}: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<FieldProps, 'as' | 'className'>) {
   return (
-    <Headless.Field
+    <HuiField
       data-slot="field"
       {...props}
       className={clsx(
@@ -143,9 +143,9 @@ export function Switch({
 }: {
   color?: Color
   className?: string
-} & Omit<Headless.SwitchProps, 'as' | 'className' | 'children'>) {
+} & Omit<SwitchProps, 'as' | 'className' | 'children'>) {
   return (
-    <Headless.Switch
+    <HuiSwitch
       data-slot="control"
       {...props}
       className={clsx(
@@ -190,6 +190,6 @@ export function Switch({
           'group-data-checked:group-data-disabled:bg-white group-data-checked:group-data-disabled:shadow-sm group-data-checked:group-data-disabled:ring-black/5'
         )}
       />
-    </Headless.Switch>
+    </HuiSwitch>
   )
 }

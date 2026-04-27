@@ -4,7 +4,7 @@ import { useInteractOutside } from '@/hooks/useInteractOutside'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import Logo from '@/shared/Logo'
 import { ListingType } from '@/type'
-import * as Headless from '@headlessui/react'
+import { Transition } from '@headlessui/react'
 import { Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
@@ -151,7 +151,7 @@ const Header3: FC<Header3Props> = ({ className, hasBorderBottom = true, initSear
 
             <div className="mx-auto flex w-full max-w-md shrink-0 justify-center">
               {/* BUTTON SHOW HERO SEARCH FORM DESKTOP */}
-              <Headless.Transition show={!showHeroSearch}>
+              <Transition show={!showHeroSearch}>
                 <div
                   className={clsx(
                     'relative flex cursor-pointer items-center justify-between self-center rounded-full border border-neutral-200 shadow-xs transition ease-in-out hover:shadow-md dark:border-neutral-600',
@@ -181,10 +181,10 @@ const Header3: FC<Header3Props> = ({ className, hasBorderBottom = true, initSear
                     </span>
                   </div>
                 </div>
-              </Headless.Transition>
+              </Transition>
 
               {/* HERO SEARCH FORM - DESKTOP */}
-              <Headless.Transition show={showHeroSearch}>
+              <Transition show={showHeroSearch}>
                 <div
                   className={clsx(
                     'absolute inset-x-0 top-0 z-10 transition ease-in-out',
@@ -199,7 +199,7 @@ const Header3: FC<Header3Props> = ({ className, hasBorderBottom = true, initSear
                     <HeroSearchFormSmall initTab={initSearchFormTab} locale={locale} />
                   </div>
                 </div>
-              </Headless.Transition>
+              </Transition>
             </div>
 
             {/* NAVIGATIONS */}

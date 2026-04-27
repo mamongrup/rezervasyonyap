@@ -1,12 +1,19 @@
-import * as Headless from '@headlessui/react'
+import {
+  Field as HuiField,
+  type FieldProps,
+  Radio as HuiRadio,
+  type RadioProps,
+  RadioGroup as HuiRadioGroup,
+  type RadioGroupProps,
+} from '@headlessui/react'
 import clsx from 'clsx'
 
 export function RadioGroup({
   className,
   ...props
-}: { className?: string } & Omit<Headless.RadioGroupProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<RadioGroupProps, 'as' | 'className'>) {
   return (
-    <Headless.RadioGroup
+    <HuiRadioGroup
       data-slot="control"
       {...props}
       className={clsx(
@@ -23,9 +30,9 @@ export function RadioGroup({
 export function RadioField({
   className,
   ...props
-}: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<FieldProps, 'as' | 'className'>) {
   return (
-    <Headless.Field
+    <HuiField
       data-slot="field"
       {...props}
       className={clsx(
@@ -121,9 +128,9 @@ export function Radio({
   color = 'dark/zinc',
   className,
   ...props
-}: { color?: Color; className?: string } & Omit<Headless.RadioProps, 'as' | 'className' | 'children'>) {
+}: { color?: Color; className?: string } & Omit<RadioProps, 'as' | 'className' | 'children'>) {
   return (
-    <Headless.Radio
+    <HuiRadio
       data-slot="control"
       {...props}
       className={clsx(className, 'group inline-flex focus:outline-hidden')}
@@ -137,6 +144,6 @@ export function Radio({
           )}
         />
       </span>
-    </Headless.Radio>
+    </HuiRadio>
   )
 }

@@ -1,4 +1,9 @@
-import * as Headless from '@headlessui/react'
+import {
+  Checkbox as HuiCheckbox,
+  type CheckboxProps,
+  Field as HuiField,
+  type FieldProps,
+} from '@headlessui/react'
 import clsx from 'clsx'
 import type React from 'react'
 
@@ -21,9 +26,9 @@ export function CheckboxGroup({ className, ...props }: React.ComponentPropsWitho
 export function CheckboxField({
   className,
   ...props
-}: { className?: string } & Omit<Headless.FieldProps, 'as' | 'className'>) {
+}: { className?: string } & Omit<FieldProps, 'as' | 'className'>) {
   return (
-    <Headless.Field
+    <HuiField
       data-slot="field"
       {...props}
       className={clsx(
@@ -121,9 +126,9 @@ export function Checkbox({
 }: {
   color?: Color
   className?: string
-} & Omit<Headless.CheckboxProps, 'as' | 'className'>) {
+} & Omit<CheckboxProps, 'as' | 'className'>) {
   return (
-    <Headless.Checkbox
+    <HuiCheckbox
       data-slot="control"
       {...props}
       className={clsx(className, 'group inline-flex focus:outline-hidden')}
@@ -152,6 +157,6 @@ export function Checkbox({
           />
         </svg>
       </span>
-    </Headless.Checkbox>
+    </HuiCheckbox>
   )
 }

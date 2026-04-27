@@ -1,4 +1,4 @@
-import * as Headless from '@headlessui/react'
+import { Button as HuiButton, type ButtonProps } from '@headlessui/react'
 import clsx from 'clsx'
 import React, { forwardRef } from 'react'
 import { TouchTarget } from './Button'
@@ -46,7 +46,6 @@ export default function Avatar({
         </svg>
       )}
       {src && (
-        // eslint-disable-next-line @next/next/no-img-element -- avatar URL'leri çoğu kez harici (gravatar/oauth provider); dynamic boyut nedeniyle <img>
         <img className="size-full" src={src} alt={alt} />
       )}
     </span>
@@ -62,7 +61,7 @@ export const AvatarButton = forwardRef(function AvatarButton(
     className,
     ...props
   }: AvatarProps &
-    (Omit<Headless.ButtonProps, 'as' | 'className'> | Omit<React.ComponentPropsWithoutRef<typeof Link>, 'className'>),
+    (Omit<ButtonProps, 'as' | 'className'> | Omit<React.ComponentPropsWithoutRef<typeof Link>, 'className'>),
   ref: React.ForwardedRef<HTMLElement>
 ) {
   let classes = clsx(
@@ -78,10 +77,10 @@ export const AvatarButton = forwardRef(function AvatarButton(
       </TouchTarget>
     </Link>
   ) : (
-    <Headless.Button {...props} className={classes} ref={ref}>
+    <HuiButton {...props} className={classes} ref={ref}>
       <TouchTarget>
         <Avatar src={src} square={square} initials={initials} alt={alt} />
       </TouchTarget>
-    </Headless.Button>
+    </HuiButton>
   )
 })
