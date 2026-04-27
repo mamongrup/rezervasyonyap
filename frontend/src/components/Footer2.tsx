@@ -5,7 +5,7 @@ import { getSitePublicConfig } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { getMessages } from '@/utils/getT'
 import Logo from '@/shared/Logo'
-import type { JSX, SVGProps } from 'react'
+import { use, type JSX, type SVGProps } from 'react'
 
 function socialIcon(name: string): (props: SVGProps<SVGSVGElement>) => JSX.Element {
   const icons: Record<string, (props: SVGProps<SVGSVGElement>) => JSX.Element> = {
@@ -55,9 +55,9 @@ async function resolveFooterHref(locale: string, href: string): Promise<string> 
   return vitrinHref(locale, path)
 }
 
-export default async function Footer2({ locale }: Footer2Props) {
+export default function Footer2({ locale }: Footer2Props) {
   const c = getSitePublicConfig()
-  const cfg = await getFooterSiteConfig()
+  const cfg = use(getFooterSiteConfig())
   const t = getMessages(locale)
 
   const socialItems = [
@@ -80,23 +80,27 @@ export default async function Footer2({ locale }: Footer2Props) {
   const linkCls = 'text-sm/6 text-gray-600 transition-colors hover:text-primary-600 dark:text-neutral-400 dark:hover:text-neutral-200'
   const headingCls = 'text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-neutral-200'
 
-  const columns = await Promise.all(
-    cfg.columns.map(async (col) => ({
-      title: pickI18nWithLegacy({ tr: col.titleTr, en: col.titleEn }, col.title_i18n, locale, col.titleEn || col.titleTr),
-      links: await Promise.all(
-        col.links.map(async (item) => ({
-          name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
-          href: await resolveFooterHref(locale, item.href),
-        })),
-      ),
-    })),
+  const columns = use(
+    Promise.all(
+      cfg.columns.map(async (col) => ({
+        title: pickI18nWithLegacy({ tr: col.titleTr, en: col.titleEn }, col.title_i18n, locale, col.titleEn || col.titleTr),
+        links: await Promise.all(
+          col.links.map(async (item) => ({
+            name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
+            href: await resolveFooterHref(locale, item.href),
+          })),
+        ),
+      })),
+    ),
   )
 
-  const legal = await Promise.all(
-    cfg.legalLinks.map(async (item) => ({
-      name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
-      href: await resolveFooterHref(locale, item.href),
-    })),
+  const legal = use(
+    Promise.all(
+      cfg.legalLinks.map(async (item) => ({
+        name: pickI18nWithLegacy({ tr: item.nameTr, en: item.nameEn }, item.name_i18n, locale, item.nameEn || item.nameTr),
+        href: await resolveFooterHref(locale, item.href),
+      })),
+    ),
   )
 
   return (
