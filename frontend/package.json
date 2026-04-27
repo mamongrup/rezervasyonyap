@@ -10,7 +10,8 @@
     "build:turbo": "node ./scripts/next-with-heap.mjs build",
     "start": "next start",
     "lint": "eslint .",
-    "ensure-images": "node scripts/ensure-placeholder-images.mjs"
+    "ensure-images": "node scripts/ensure-placeholder-images.mjs",
+    "recompress:external": "node scripts/recompress-external-avif.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
