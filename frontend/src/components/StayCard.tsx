@@ -10,7 +10,7 @@ import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { FC } from 'react'
+import { FC, useState } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
@@ -53,6 +53,8 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
       : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
     featuredImage ||
     FALLBACK_IMG
+  const [brokenImage, setBrokenImage] = useState(false)
+  const resolvedImgSrc = brokenImage || imgSrc.startsWith('/uploads/') ? FALLBACK_IMG : imgSrc
 
   const renderSliderGallery = () => {
     return (
@@ -63,12 +65,13 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
             style={{ paddingBottom: '75%' }}
           >
             <Image
-              src={imgSrc}
+              src={resolvedImgSrc}
               fill
               alt={title ?? 'listing'}
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-              unoptimized={imgSrc.startsWith('data:') || /^https?:\/\//i.test(imgSrc)}
+              unoptimized={resolvedImgSrc.startsWith('data:') || /^https?:\/\//i.test(resolvedImgSrc)}
+              onError={() => setBrokenImage(true)}
             />
           </div>
         </Link>

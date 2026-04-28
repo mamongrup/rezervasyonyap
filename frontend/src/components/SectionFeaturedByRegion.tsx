@@ -50,6 +50,8 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
       : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
     featuredImage ||
     FALLBACK_IMG
+  const [brokenImage, setBrokenImage] = useState(false)
+  const resolvedImgSrc = brokenImage || imgSrc.startsWith('/uploads/') ? FALLBACK_IMG : imgSrc
 
   return (
     <div className="group relative">
@@ -58,12 +60,13 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
         <Link href={listingHref} className="block">
           <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
             <Image
-              src={imgSrc}
+              src={resolvedImgSrc}
               fill
               alt={title ?? 'listing'}
               className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-              unoptimized={imgSrc.startsWith('data:') || /^https?:\/\//i.test(imgSrc)}
+              unoptimized={resolvedImgSrc.startsWith('data:') || /^https?:\/\//i.test(resolvedImgSrc)}
+              onError={() => setBrokenImage(true)}
             />
           </div>
         </Link>
