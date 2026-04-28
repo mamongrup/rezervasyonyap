@@ -9,7 +9,8 @@ import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRef } from 'react'
+import listingPlaceholder from '@/images/hero-right.png'
+import { useRef, useState } from 'react'
 
 export interface RegionSliderItem {
   name: string
@@ -34,9 +35,12 @@ export default function SectionSliderRegions({
   className = '',
 }: Props) {
   const sliderRef = useRef<HTMLDivElement>(null)
+  const [brokenThumbs, setBrokenThumbs] = useState<Record<string, boolean>>({})
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
   const locale = useLocaleSegment()
   const pag = getMessages(locale).common.pagination
+  const fallbackSrc =
+    typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
 
   if (!regions.length) return null
 
@@ -53,13 +57,19 @@ export default function SectionSliderRegions({
           >
             <div className="group relative flex flex-col">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
-                {region.thumbnail ? (
+                {region.thumbnail || brokenThumbs[region.slug] ? (
                   <Image
-                    src={region.thumbnail}
+                    src={brokenThumbs[region.slug] ? fallbackSrc : region.thumbnail}
                     alt={region.name}
                     fill
                     className="rounded-2xl object-cover transition-transform duration-300 group-hover:scale-105"
                     sizes="(max-width: 400px) 100vw, 300px"
+                    onError={() =>
+                      setBrokenThumbs((prev) =>
+                        prev[region.slug] ? prev : { ...prev, [region.slug]: true },
+                      )
+                    }
+                    unoptimized
                   />
                 ) : (
                   <div className="h-full w-full bg-neutral-200 dark:bg-neutral-700" />
