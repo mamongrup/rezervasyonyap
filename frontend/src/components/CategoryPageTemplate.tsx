@@ -458,7 +458,7 @@ export default async function CategoryPageTemplate({
       .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
 
     return (
-      <div className="relative overflow-x-hidden pb-28">
+      <div className="relative isolate overflow-x-hidden pb-28">
         <BgGlassmorphism />
         {itemListJsonLd && (
           <script
@@ -466,7 +466,7 @@ export default async function CategoryPageTemplate({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
           />
         )}
-        <div className={`relative container mb-6 ${heroContainerBelowHeaderClassName}`}>
+        <div className={`relative z-10 container mb-6 ${heroContainerBelowHeaderClassName}`}>
           <HeroSectionWithSearchForm1
             heading={heroHeadingLinked}
             description={heroDescription}
@@ -517,7 +517,7 @@ export default async function CategoryPageTemplate({
     .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
 
   return (
-    <div className="relative overflow-x-hidden pb-28">
+    <div className="relative isolate overflow-x-hidden pb-28">
       <BgGlassmorphism />
       {itemListJsonLd && (
         <script
@@ -525,7 +525,7 @@ export default async function CategoryPageTemplate({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
-      <div className={`relative container mb-6 ${heroContainerBelowHeaderClassName}`}>
+      <div className={`relative z-10 container mb-6 ${heroContainerBelowHeaderClassName}`}>
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
           description={heroDescription}

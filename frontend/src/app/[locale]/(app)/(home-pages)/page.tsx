@@ -187,11 +187,11 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   )
 
   return (
-    <main className="relative overflow-x-hidden">
+    <main className="relative isolate overflow-x-hidden">
       <BgGlassmorphism />
 
-      {/* Hero — PageBuilderRenderer dışında, tam genişlik */}
-      <div className={`relative container mb-6 ${heroContainerBelowHeaderClassName}`}>
+      {/* Hero — PageBuilderRenderer dışında, tam genişlik — z-10: arkada gövde zemini arkasında kalmayı önler (prod stacking) */}
+      <div className={`relative z-10 container mb-6 ${heroContainerBelowHeaderClassName}`}>
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
           image={heroRightStay}

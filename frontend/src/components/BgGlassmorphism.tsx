@@ -5,7 +5,8 @@ export interface BgGlassmorphismProps {
 }
 
 const BgGlassmorphism: FC<BgGlassmorphismProps> = ({
-  className = 'absolute inset-x-0 top-0 min-h-[700px] pl-20 py-24 flex -z-10',
+  className =
+    'pointer-events-none absolute inset-x-0 top-0 z-0 min-h-[700px] pl-20 py-24 flex',
 }) => {
   return (
     <div className={` ${className}`} aria-hidden>
