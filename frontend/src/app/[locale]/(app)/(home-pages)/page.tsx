@@ -10,7 +10,6 @@ import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktop
 import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { getAuthors } from '@/data/authors'
-import { getStayListings } from '@/data/listings'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getFeaturedRegionConfig, getHomepageConfig } from '@/data/page-builder-config'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -121,10 +120,8 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     })
   })
 
-  const [stayListings, apiListingsResult, authors, savedRegionConfig, heroTabsResult] =
-    await Promise.all([
-      getStayListings(),
-      fetchCategoryListings('oteller', {}, {}),
+  const [apiListingsResult, authors, savedRegionConfig, heroTabsResult] = await Promise.all([
+      fetchCategoryListings('oteller', {}, {}, locale),
       getAuthors(),
       getFeaturedRegionConfig('homepage'),
       fetchPublicNavMenuItems('hero_search', getPublicNavigationOrganizationId(), {
@@ -137,10 +134,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     .map((item) => (item.url ?? '').replace(/^\/+/, '').split('/')[0])
     .filter(Boolean)
 
-  const featuredListings: TListingBase[] = (
-    apiListingsResult.fromApi && apiListingsResult.listings.length > 0
-      ? apiListingsResult.listings
-      : stayListings
+  const featuredListings: TListingBase[] = (apiListingsResult.listings.length > 0
+    ? apiListingsResult.listings
+    : []
   ).map((l) => ({
     ...l,
     listingVertical: normalizeCatalogVertical(l.listingVertical),

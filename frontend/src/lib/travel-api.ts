@@ -7963,7 +7963,9 @@ export async function searchPublicListings(
   try {
     const res = await fetch(
       `${b}/api/v1/catalog/public/listings${u.toString() ? `?${u.toString()}` : ''}`,
-      { next: { revalidate: 60 } },
+      typeof window === 'undefined'
+        ? ({ next: { revalidate: 60 } } as Parameters<typeof fetch>[1])
+        : {},
     )
     if (!res.ok) return null
     return json<PublicListingSearchResult>(res)

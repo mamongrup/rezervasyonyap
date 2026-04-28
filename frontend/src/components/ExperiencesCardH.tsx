@@ -47,7 +47,7 @@ const ExperiencesCardH: FC<Props> = ({ className = '', data }) => {
       <div className="relative w-full shrink-0 overflow-hidden md:w-72">
         <GallerySlider
           ratioClass="aspect-w-12 aspect-h-9 md:aspect-h-11"
-          galleryImgs={galleryImgs}
+          galleryImgs={galleryImgs ?? []}
           href={listingHref}
         />
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3" />
@@ -97,9 +97,9 @@ const ExperiencesCardH: FC<Props> = ({ className = '', data }) => {
         <div className="my-4 w-14 border-b border-neutral-100 dark:border-neutral-800"></div>
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-x-3 text-sm text-neutral-700 dark:text-neutral-300">
-            <Avatar src={author.avatarUrl} />
+            <Avatar src={author?.avatarUrl} />
             <span className="hidden sm:inline-block">
-              <span className="hidden sm:inline">{T['common']['Hosted by']}</span> {author.displayName}
+              <span className="hidden sm:inline">{T['common']['Hosted by']}</span> {author?.displayName}
             </span>
           </div>
           <span className="text-base font-semibold text-secondary-700">

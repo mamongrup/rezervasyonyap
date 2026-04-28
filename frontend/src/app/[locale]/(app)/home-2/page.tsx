@@ -7,8 +7,6 @@ import SectionGridFeaturePlaces from '@/components/SectionGridFeaturePlaces'
 import SectionSubscribe2 from '@/components/SectionSubscribe2'
 import { getAuthors } from '@/data/authors'
 import { getStayCategories } from '@/data/categories'
-import { getStayListings } from '@/data/listings'
-import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import type { TListingBase } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -56,11 +54,7 @@ async function Home({ params }: { params: Promise<{ locale: string }> }) {
   const categories = await getStayCategories()
   const categories_1 = categories.slice(0, 8)
   const categories_2 = categories.slice(7, 14)
-  const stayListingsRaw = await getStayListings()
-  const stayListings: TListingBase[] = stayListingsRaw.map((l) => ({
-    ...l,
-    listingVertical: normalizeCatalogVertical(l.listingVertical),
-  }))
+  const stayListings: TListingBase[] = []
   const fp = m.homePage.featuredPlaces
 
   return (

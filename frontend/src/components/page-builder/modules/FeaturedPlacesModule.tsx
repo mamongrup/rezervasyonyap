@@ -1,5 +1,4 @@
 import SectionGridFeaturePlaces from '@/components/SectionGridFeaturePlaces'
-import { getStayListings } from '@/data/listings'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import type { TListingBase } from '@/types/listing-types'
@@ -13,13 +12,8 @@ interface Config {
 }
 
 export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { config: Config; locale?: string }) {
-  const [stayListings, apiResult] = await Promise.all([
-    getStayListings(),
-    fetchCategoryListings('oteller', {}, {}),
-  ])
-
-  const raw =
-    apiResult.fromApi && apiResult.listings.length > 0 ? apiResult.listings : stayListings
+  const apiResult = await fetchCategoryListings('oteller', {}, {}, locale)
+  const raw = apiResult.listings
   const listings: TListingBase[] = raw.map((l) => ({
     ...l,
     listingVertical: normalizeCatalogVertical(l.listingVertical),

@@ -1,7 +1,6 @@
 import type { FreeformBannerDocV2 } from '@/lib/freeform-banner-spec'
 import clsx from 'clsx'
 import Image from 'next/image'
-import listingPlaceholder from '@/images/hero-right.png'
 
 function slotUnopt(u: string) {
   return u.startsWith('http') || u.startsWith('/uploads/')
@@ -55,8 +54,6 @@ export default function FreeformBannerView({
   className?: string
   fitContentBounds?: boolean
 }) {
-  const fallbackSrc =
-    typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
   const bounds = fitContentBounds ? unionLayerBounds(doc.layers) : null
   /** Tuval 16:9 iken x,y 0–1 kare normalize; fiziksel en/boy oranı (width/height) = bw*16/(bh*9) */
   const ar =
@@ -87,7 +84,8 @@ export default function FreeformBannerView({
           const urlIdx =
             typeof si === 'number' && Number.isFinite(si) ? Math.min(2, Math.max(0, Math.round(si))) : i
           const rawSrc = (imageUrls[urlIdx] ?? layer.src ?? '').trim()
-          const src = rawSrc.startsWith('/uploads/') ? fallbackSrc : rawSrc
+          const uploadsBlocked = rawSrc.startsWith('/uploads/')
+          const src = uploadsBlocked ? '' : rawSrc
           const has = src !== ''
           const bx = bounds
             ? ((layer.x - bounds.minX) / bounds.bw) * 100

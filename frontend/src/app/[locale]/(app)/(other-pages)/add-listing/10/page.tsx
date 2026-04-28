@@ -1,6 +1,4 @@
 import StayCard from '@/components/StayCard'
-import { getStayListings } from '@/data/listings'
-import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { vitrinHref } from '@/lib/vitrin-href'
 import type { TListingBase } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -17,10 +15,17 @@ const Page = async ({ params }: { params: Promise<{ locale: string }> }) => {
     vitrinHref(locale, '/otel/preview-stay-84763232'),
   ])
   const L = getMessages(locale).addListings
-  const raw = (await getStayListings())[0]
+  /** Yerel kart şekli — demo ilan dizisi kaldırıldı */
   const listing: TListingBase = {
-    ...raw,
-    listingVertical: normalizeCatalogVertical(raw.listingVertical),
+    id: 'add-flow-preview',
+    handle: 'ornek-listing-karti',
+    title: 'Örnek vitrin kartı',
+    listingVertical: 'hotel',
+    listingCategory: 'Otel',
+    address: '',
+    reviewStart: 0,
+    reviewCount: 0,
+    price: '—',
   }
 
   return (

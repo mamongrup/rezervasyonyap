@@ -1,8 +1,7 @@
 /**
  * Merkezi ilan arama yardımcısı.
  *
- * 1. Backend API bağlıysa `searchPublicListings` çağrılır ve sonuç `TListingBase`'e dönüştürülür.
- * 2. API tanımlı değilse veya hata varsa mock veri fonksiyonu çağrılır.
+ * Backend API (`searchPublicListings`) yanıt vermezse boş liste döner — yerel demo/mock yok.
  *
  * Tüm kategori sayfaları bu helper'ı kullanmalı.
  */
@@ -13,23 +12,6 @@ import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { TListingBase } from '@/types/listing-types'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
-
-type MockFn = () => Promise<TListingBase[]>
-
-const MOCK_LOADERS: Record<string, MockFn> = {
-  hotel:         () => import('@/data/listings').then((m) => m.getStayListings() as Promise<TListingBase[]>),
-  holiday_home:  () => import('@/data/listings').then((m) => m.getStayListings() as Promise<TListingBase[]>),
-  yacht_charter: () => import('@/data/listings').then((m) => m.getStayListings() as Promise<TListingBase[]>),
-  tour:          () => import('@/data/listings').then((m) => m.getExperienceListings() as Promise<TListingBase[]>),
-  activity:      () => import('@/data/listings').then((m) => m.getExperienceListings() as Promise<TListingBase[]>),
-  cruise:        () => import('@/data/listings').then((m) => m.getExperienceListings() as Promise<TListingBase[]>),
-  hajj:          () => import('@/data/listings').then((m) => m.getExperienceListings() as Promise<TListingBase[]>),
-  visa:          () => import('@/data/listings').then((m) => m.getVisaMockListings() as Promise<TListingBase[]>),
-  car_rental:    () => import('@/data/listings').then((m) => m.getCarListings() as Promise<TListingBase[]>),
-  transfer:      () => import('@/data/listings').then((m) => m.getCarListings() as Promise<TListingBase[]>),
-  ferry:         () => import('@/data/listings').then((m) => m.getCarListings() as Promise<TListingBase[]>),
-  flight:        () => import('@/data/listings').then((m) => m.getFlightListings() as Promise<TListingBase[]>),
-}
 
 export const SLUG_TO_CODE: Record<string, string> = {
   oteller:        'hotel',
@@ -393,12 +375,7 @@ export async function fetchFlexibleHolidayListings(
     return rows.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
   }
 
-  const loader = MOCK_LOADERS.holiday_home
-  let mock = await loader()
-  mock = filterMockByRegion(mock, region)
-  mock = filterMockByLocationQuery(mock, query.location)
-  mock = applyHolidayListingQueryFilters(mock, relaxed)
-  return mock.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
+  return []
 }
 
 /**
@@ -449,19 +426,11 @@ export async function fetchCategoryListings(
     }
   }
 
-  const loader = MOCK_LOADERS[categoryCode ?? ''] ?? MOCK_LOADERS['hotel']
-  let mock = await loader()
-  mock = filterMockByRegion(mock, region)
-  mock = filterMockByLocationQuery(mock, query.location)
-  if (categoryCode === 'holiday_home') {
-    mock = applyHolidayListingQueryFilters(mock, query)
-  }
-
   return {
-    listings: mock,
-    total: mock.length,
-    page: 1,
-    perPage: mock.length,
+    listings: [],
+    total: 0,
+    page,
+    perPage,
     fromApi: false,
   }
 }

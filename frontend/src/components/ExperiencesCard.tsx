@@ -50,7 +50,7 @@ const ExperiencesCard: FC<Props> = ({
   const renderSliderGallery = () => {
     return (
       <div className="relative w-full overflow-hidden rounded-2xl">
-        <GallerySlider ratioClass={ratioClass} galleryImgs={galleryImgs} href={listingHref} />
+        <GallerySlider ratioClass={ratioClass} galleryImgs={galleryImgs ?? []} href={listingHref} />
         <BtnLikeIcon isLiked={like} className="absolute top-3 right-3" />
         {saleOff && <SaleOffBadge className="absolute top-3 left-3" />}
       </div>

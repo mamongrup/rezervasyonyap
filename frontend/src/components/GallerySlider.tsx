@@ -4,11 +4,6 @@ import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
-import listingPlaceholder from '@/images/hero-right.png'
-
-const FALLBACK_LISTING_IMG =
-  typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
-
 interface GallerySliderProps {
   className?: string
   uniqueID?: string
@@ -50,14 +45,15 @@ export default function GallerySlider({
   navigation = true,
 }: GallerySliderProps) {
   const [index, setIndex] = useState(0)
-  const urlStrings = galleryToUrlStrings(galleryImgs ?? [])
-  const images = urlStrings.length > 0 ? urlStrings : [FALLBACK_LISTING_IMG]
+  const images = galleryToUrlStrings(galleryImgs ?? []).filter(
+    (u) => u.trim() !== '' && !u.trim().startsWith('/uploads/'),
+  )
 
   function changePhotoId(newVal: number) {
     setIndex(newVal)
   }
 
-  const currentSrc = images[index] ?? images[0]
+  const currentSrc = images.length > 0 ? (images[index] ?? images[0]) : ''
 
   return (
     <div className={clsx(`group/cardGallerySlider group relative`, className)}>
@@ -65,14 +61,18 @@ export default function GallerySlider({
       <div className={clsx(`w-full overflow-hidden rounded-xl`, galleryClass)}>
         <Link href={href} className={clsx(`relative flex items-center justify-center`, ratioClass)}>
           <div className="absolute inset-0">
-            <Image
-              src={currentSrc}
-              fill
-              alt="listing card gallery"
-              className={clsx(`rounded-xl object-cover`, imageClass)}
-              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-              unoptimized={currentSrc.startsWith('data:') || /^https?:\/\//i.test(currentSrc)}
-            />
+            {currentSrc ? (
+              <Image
+                src={currentSrc}
+                fill
+                alt="listing card gallery"
+                className={clsx(`rounded-xl object-cover`, imageClass)}
+                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
+                unoptimized={currentSrc.startsWith('data:') || /^https?:\/\//i.test(currentSrc)}
+              />
+            ) : (
+              <div className="absolute inset-0 rounded-xl bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+            )}
           </div>
         </Link>
       </div>

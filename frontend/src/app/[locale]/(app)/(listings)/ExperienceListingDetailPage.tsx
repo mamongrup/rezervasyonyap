@@ -1,5 +1,5 @@
 import StartRating from '@/components/StartRating'
-import { getExperienceListingByHandle } from '@/data/listings'
+import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
@@ -170,10 +170,10 @@ export default async function ExperienceListingDetailPage({
   const renderSectionHeader = () => {
     return (
       <SectionHeader
-        address={address}
-        listingCategory={listingCategory}
-        reviewCount={reviewCount}
-        reviewStart={reviewStart}
+        address={address ?? ''}
+        listingCategory={listingCategory ?? ''}
+        reviewCount={reviewCount ?? 0}
+        reviewStart={reviewStart ?? 0}
         title={title}
         shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       >
@@ -187,7 +187,9 @@ export default async function ExperienceListingDetailPage({
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{languages.length > 0 ? languages.join(', ') : 'Languages not specified'}</span>
+          <span>
+            {(languages ?? []).length > 0 ? (languages ?? []).join(', ') : 'Languages not specified'}
+          </span>
         </div>
       </SectionHeader>
     )
@@ -297,7 +299,7 @@ export default async function ExperienceListingDetailPage({
             {price}
             <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">/person</span>
           </span>
-          <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} />
+          <StartRating size="lg" point={reviewStart ?? 0} reviewCount={reviewCount ?? 0} />
         </div>
 
         <Form
@@ -334,7 +336,7 @@ export default async function ExperienceListingDetailPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(detailJsonLd) }}
         />
       )}
-      <HeaderGallery gridType="grid4" images={galleryImgs} />
+      <HeaderGallery gridType="grid4" images={galleryImgs ?? []} />
 
       <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
@@ -360,10 +362,14 @@ export default async function ExperienceListingDetailPage({
       <div className="flex flex-col gap-y-10">
         <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
           <div className="w-full lg:w-4/9 xl:w-1/3">
-            <SectionHost {...host} locale={locale} />
+            <SectionHost {...listingHostForSection(title, host)} locale={locale} />
           </div>
           <div className="w-full lg:w-2/3">
-            <SectionListingReviews listingId={listing.id} reviewCount={reviewCount} reviewStart={reviewStart} />
+            <SectionListingReviews
+              listingId={listing.id}
+              reviewCount={reviewCount ?? 0}
+              reviewStart={reviewStart ?? 0}
+            />
           </div>
         </div>
 

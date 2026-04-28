@@ -482,10 +482,10 @@ export default async function StayListingDetailPageContent({
 
   const renderSectionHeader = () => (
     <SectionHeader
-      address={address}
-      listingCategory={listingCategoryBadge}
-      reviewCount={reviewCount}
-      reviewStart={reviewStart}
+      address={address ?? ''}
+      listingCategory={listingCategoryBadge ?? ''}
+      reviewCount={reviewCount ?? 0}
+      reviewStart={reviewStart ?? 0}
       title={title}
       shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       themePills={isHolidayHome && themePillLabels.length > 0 ? themePillLabels : undefined}
@@ -549,7 +549,7 @@ export default async function StayListingDetailPageContent({
       <Divider className="w-14!" />
       <div
         className="prose prose-sm max-w-none leading-relaxed text-neutral-700 dark:text-neutral-300 dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description) }}
+        dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description ?? '') }}
       />
     </div>
   )
@@ -737,7 +737,7 @@ export default async function StayListingDetailPageContent({
       locale={locale}
       isHolidayHome={isHolidayHome}
       mealPlans={mealPlans}
-      price={price}
+      price={price ?? ''}
       priceAmount={priceAmount}
       priceCurrency={priceCurrency}
       saleOff={saleOff}
@@ -925,7 +925,7 @@ export default async function StayListingDetailPageContent({
             initialMonthsShown={calendarMonthsShown}
             stayBookingRules={listing.stayBookingRules}
             mealPlans={mealPlans}
-            price={price}
+            price={price ?? ''}
             priceAmount={priceAmount}
             priceCurrency={priceCurrency}
             saleOff={saleOff}
@@ -1034,8 +1034,8 @@ export default async function StayListingDetailPageContent({
           <div className="w-full lg:w-2/3">
             <SectionListingReviews
               listingId={listing.id}
-              reviewCount={reviewCount}
-              reviewStart={reviewStart}
+              reviewCount={reviewCount ?? 0}
+              reviewStart={reviewStart ?? 0}
             />
             <div className="mt-8 flex justify-center lg:justify-start">
               <ReportListingButton listingId={listing.id} />

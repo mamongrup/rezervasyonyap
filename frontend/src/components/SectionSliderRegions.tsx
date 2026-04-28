@@ -9,7 +9,6 @@ import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
 import Link from 'next/link'
-import listingPlaceholder from '@/images/hero-right.png'
 import { useRef, useState } from 'react'
 
 export interface RegionSliderItem {
@@ -39,8 +38,6 @@ export default function SectionSliderRegions({
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
   const locale = useLocaleSegment()
   const pag = getMessages(locale).common.pagination
-  const fallbackSrc =
-    typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
 
   if (!regions.length) return null
 
@@ -57,9 +54,11 @@ export default function SectionSliderRegions({
           >
             <div className="group relative flex flex-col">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
-                {region.thumbnail || brokenThumbs[region.slug] ? (
+                {region.thumbnail &&
+                !brokenThumbs[region.slug] &&
+                !region.thumbnail.trim().startsWith('/uploads/') ? (
                   <Image
-                    src={brokenThumbs[region.slug] ? fallbackSrc : region.thumbnail}
+                    src={region.thumbnail}
                     alt={region.name}
                     fill
                     className="rounded-2xl object-cover transition-transform duration-300 group-hover:scale-105"
@@ -72,7 +71,7 @@ export default function SectionSliderRegions({
                     unoptimized
                   />
                 ) : (
-                  <div className="h-full w-full bg-neutral-200 dark:bg-neutral-700" />
+                  <div className="h-full w-full bg-neutral-200 dark:bg-neutral-700" aria-hidden />
                 )}
                 <span className="absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100 rounded-2xl" />
               </div>

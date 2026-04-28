@@ -3,9 +3,12 @@
 import CarCard from '@/components/CarCard'
 import ExperiencesCard from '@/components/ExperiencesCard'
 import StayCard from '@/components/StayCard'
-import { getCarListings, getExperienceListings, getStayListings, TCarListing, TExperienceListing, TStayListing } from '@/data/listings'
+import type { TCarListing, TExperienceListing, TStayListing } from '@/data/listings'
+import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
+import { searchPublicListings } from '@/lib/travel-api'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { Tab, TabGroup, TabList } from '@headlessui/react'
+import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 const tabs = ['Stays', 'Experiences', 'Car Rentals'] as const
@@ -15,27 +18,40 @@ interface Props {
 }
 
 const ListingTabs = ({ onChangeTab }: Props) => {
+  const params = useParams()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
+
   const [stayListings, setStayListings] = useState<TStayListing[]>([])
   const [carListings, setCarListings] = useState<TCarListing[]>([])
   const [experienceListings, setExperienceListings] = useState<TExperienceListing[]>([])
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]>(tabs[0])
 
   useEffect(() => {
-    const fetchListings = async () => {
-      if (activeTab === 'Stays' && !stayListings.length) {
-        const stays = await getStayListings()
-        setStayListings(stays)
-      } else if (activeTab === 'Car Rentals' && !carListings.length) {
-        const cars = await getCarListings()
-        setCarListings(cars)
-      } else if (activeTab === 'Experiences' && !experienceListings.length) {
-        const experiences = await getExperienceListings()
-        setExperienceListings(experiences)
+    let cancelled = false
+    void (async () => {
+      if (activeTab === 'Stays' && stayListings.length === 0) {
+        const res = await searchPublicListings({ categoryCode: 'hotel', perPage: 8, page: 1, locale })
+        if (!cancelled && res?.listings?.length)
+          setStayListings(res.listings.map(mapPublicListingItemToListingBase) as TStayListing[])
+      } else if (activeTab === 'Car Rentals' && carListings.length === 0) {
+        const res = await searchPublicListings({
+          categoryCode: 'car_rental',
+          perPage: 8,
+          page: 1,
+          locale,
+        })
+        if (!cancelled && res?.listings?.length)
+          setCarListings(res.listings.map(mapPublicListingItemToListingBase) as TCarListing[])
+      } else if (activeTab === 'Experiences' && experienceListings.length === 0) {
+        const res = await searchPublicListings({ categoryCode: 'tour', perPage: 8, page: 1, locale })
+        if (!cancelled && res?.listings?.length)
+          setExperienceListings(res.listings.map(mapPublicListingItemToListingBase) as TExperienceListing[])
       }
+    })()
+    return () => {
+      cancelled = true
     }
-
-    fetchListings()
-  }, [activeTab, stayListings.length, carListings.length, experienceListings.length])
+  }, [activeTab, locale, stayListings.length, carListings.length, experienceListings.length])
 
   const handleTabChange = async (index: number) => {
     onChangeTab && onChangeTab(tabs[index])
@@ -75,7 +91,9 @@ const ListingTabs = ({ onChangeTab }: Props) => {
         {activeTab === 'Car Rentals' && carListings.slice(0, 4).map((car) => <CarCard key={car.id} data={car} />)}
 
         {activeTab === 'Experiences' &&
-          experienceListings.slice(0, 4).map((experience) => <ExperiencesCard key={experience.id} data={experience} />)}
+          experienceListings.slice(0, 4).map((experience) => (
+            <ExperiencesCard key={experience.id} data={experience} />
+          ))}
       </div>
     </div>
   )

@@ -20,11 +20,6 @@ import BtnLikeIcon from '@/components/BtnLikeIcon'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Badge } from '@/shared/Badge'
 import ListingPrice from '@/components/ListingPrice'
-import listingPlaceholder from '@/images/hero-right.png'
-
-const FALLBACK_IMG =
-  typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
-
 // ─── Minimal listing card (like StayCard2 but generic) ───────────────────────
 
 interface ListingCardProps {
@@ -44,14 +39,16 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
   const unitLabel = unitFromProp || nightLabel || 'gece'
   const listingHref = vitrinHref(`${linkBase}/${handle}`)
 
-  const imgSrc =
-    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
-      ? galleryImgs[0]
-      : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
+  const imgSrcRaw =
+    (galleryImgs?.[0] && typeof galleryImgs[0] === 'string' ? galleryImgs[0] : undefined) ||
+    (galleryImgs?.[0] as { src: string } | undefined)?.src ||
     featuredImage ||
-    FALLBACK_IMG
+    ''
+
   const [brokenImage, setBrokenImage] = useState(false)
-  const resolvedImgSrc = brokenImage || imgSrc.startsWith('/uploads/') ? FALLBACK_IMG : imgSrc
+  const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
+  const uploadsBlocked = trimmed.startsWith('/uploads/')
+  const showRemoteImage = Boolean(trimmed) && !uploadsBlocked && !brokenImage
 
   return (
     <div className="group relative">
@@ -59,15 +56,19 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
       <div className="relative overflow-hidden rounded-xl">
         <Link href={listingHref} className="block">
           <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
-            <Image
-              src={resolvedImgSrc}
-              fill
-              alt={title ?? 'listing'}
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-              unoptimized={resolvedImgSrc.startsWith('data:') || /^https?:\/\//i.test(resolvedImgSrc)}
-              onError={() => setBrokenImage(true)}
-            />
+            {showRemoteImage ? (
+              <Image
+                src={trimmed}
+                fill
+                alt={title ?? 'listing'}
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
+                unoptimized={trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)}
+                onError={() => setBrokenImage(true)}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+            )}
           </div>
         </Link>
         {saleOff && <SaleOffBadge desc={saleOff} className="absolute left-3 top-3 z-10" />}

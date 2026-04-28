@@ -357,9 +357,6 @@ export default async function CategoryPageTemplate({
                   {[activeSearch.from, activeSearch.to].filter(Boolean).join(' → ')}
                 </span>
               )}
-              {activeSearch?.fromApi === false && (
-                <span className="text-[10px] text-neutral-400">{cat.demoData}</span>
-              )}
             </div>
           )}
         </div>

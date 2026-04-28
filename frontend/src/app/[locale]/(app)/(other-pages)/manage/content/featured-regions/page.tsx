@@ -1,4 +1,4 @@
-import { getStayListings } from '@/data/listings'
+import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import FeaturedRegionsClient from './FeaturedRegionsClient'
 
 /** Admin panel — her sayfa için "Bölgeye Göre Öne Çıkar" yapılandırması */
@@ -10,7 +10,7 @@ export default async function FeaturedRegionsPage({
   searchParams: Promise<{ page?: string }>
 }) {
   const [{ locale: _locale }, { page: pageKey = 'homepage' }] = await Promise.all([params, searchParams])
-  const allListings = await getStayListings()
+  const { listings: allListings } = await fetchCategoryListings('oteller', {}, {}, _locale || 'tr')
 
   // Mevcut tüm şehirleri çıkar
   const cityCounts: Record<string, number> = {}

@@ -41,16 +41,22 @@ const CarCard: FC<CarCardProps> = ({ size = 'default', className = '', data }) =
   const listingHref = vitrinHref(`${base}/${listingHandle}`)
 
   const renderSliderGallery = () => {
+    const img = featuredImage?.trim()
+    const blocked = img?.startsWith('/uploads/')
     return (
       <div className="relative w-full overflow-hidden rounded-2xl">
-        <div className="aspect-w-16 aspect-h-9">
-          <Image
-            fill
-            src={featuredImage}
-            alt={title}
-            sizes="(max-width: 640px) 100vw, 350px"
-            className="object-contain"
-          />
+        <div className="relative aspect-w-16 aspect-h-9">
+          {img && !blocked ? (
+            <Image
+              fill
+              src={img}
+              alt={title}
+              sizes="(max-width: 640px) 100vw, 350px"
+              className="object-contain"
+            />
+          ) : (
+            <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+          )}
         </div>
         <BtnLikeIcon
           colorClass="text-white bg-black/20 hover:bg-black/30"

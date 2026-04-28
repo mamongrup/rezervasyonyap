@@ -13,6 +13,14 @@ interface FlightCardProps {
   data: TFlightListing
 }
 
+function formatListingTime(value: unknown): string {
+  if (value == null) return '--:--'
+  const d = value instanceof Date ? value : new Date(value as string | number)
+  return Number.isNaN(d.getTime())
+    ? '--:--'
+    : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
 const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
   const {
     departure,
@@ -30,12 +38,24 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
     departureTime,
   } = data
 
+  const airlinesSafe = airlines ?? { logo: '', name: '' }
+  const logoSrc = airlinesSafe.logo?.trim() ?? ''
+  const airlineName = airlinesSafe.name?.trim() ?? ''
+  const hrefSafe = typeof href === 'string' && href.trim() !== '' ? href : '#'
+  const departureTimeFormatted = formatListingTime(departureTime)
+  const arrivalTimeFormatted = formatListingTime(arrivalTime)
+  const stopCount = typeof stopNumber === 'number' ? stopNumber : 0
+
   const renderFlightItem = () => {
     return (
       <div>
         <div className="flex flex-col md:flex-row">
           <div className="w-24 shrink-0 md:w-20 md:pt-7 lg:w-24">
-            <Image src={airlines.logo} className="w-10" alt="" sizes="40px" width={40} height={40} />
+            {logoSrc ? (
+              <Image src={logoSrc} className="w-10" alt="" sizes="40px" width={40} height={40} />
+            ) : (
+              <div className="h-10 w-10 rounded bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+            )}
           </div>
           <div className="my-5 flex md:my-0">
             <div className="flex shrink-0 flex-col items-center py-2">
@@ -64,16 +84,6 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
     )
   }
 
-  const departureTimeFormatted = new Date(departureTime).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
-  const arrivalTimeFormatted = new Date(arrivalTime).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-
   return (
     <Disclosure
       as={'div'}
@@ -81,7 +91,7 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
     >
       <DisclosureButton as="div" tabIndex={0} className="relative sm:pe-20">
         <div className="absolute end-0 bottom-0 md:top-1/2 md:bottom-auto md:-translate-y-1/2">
-          <ButtonCircle color="white" href={href} aria-label="View flight details">
+          <ButtonCircle color="white" href={hrefSafe} aria-label="View flight details">
             <HugeiconsIcon
               icon={ArrowUpRight01Icon}
               size={20}
@@ -95,7 +105,11 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
         <div className="flex flex-col gap-y-6 sm:gap-y-0 md:flex-row md:items-center">
           {/* LOGO IMG */}
           <div className="w-24 shrink-0 lg:w-32">
-            <Image src={airlines.logo} width={40} height={40} className="w-10" alt={airlines.name} sizes="40px" />
+            {logoSrc ? (
+              <Image src={logoSrc} width={40} height={40} className="w-10" alt={airlineName} sizes="40px" />
+            ) : (
+              <div className="h-10 w-10 rounded bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+            )}
           </div>
 
           {/* FOR MOBILE RESPONSIVE */}
@@ -116,7 +130,7 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
 
             <div className="mt-0.5 text-sm font-normal text-neutral-500">
               <span className="VG3hNb">
-                {!stopNumber ? 'Non-stop' : `${stopNumber} stop${stopNumber > 1 ? 's' : ''}`}
+                {!stopCount ? 'Non-stop' : `${stopCount} stop${stopCount > 1 ? 's' : ''}`}
               </span>
               <span className="mx-2">·</span>
               <span>{duration}</span>
@@ -130,7 +144,7 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
             <div className="text-lg font-medium">
               {departureTimeFormatted} - {arrivalTimeFormatted}
             </div>
-            <div className="mt-0.5 text-sm font-normal text-neutral-500">{airlines.name}</div>
+              <div className="mt-0.5 text-sm font-normal text-neutral-500">{airlineName}</div>
           </div>
 
           {/* TIMME */}
@@ -142,7 +156,7 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
           {/* stop */}
           <div className="hidden flex-4 whitespace-nowrap lg:block">
             <div className="text-lg font-medium">
-              {!stopNumber ? 'Non-stop' : `${stopNumber} stop${stopNumber > 1 ? 's' : ''}`}
+              {!stopCount ? 'Non-stop' : `${stopCount} stop${stopCount > 1 ? 's' : ''}`}
             </div>
             <div className="mt-0.5 text-sm font-normal text-neutral-500">
               {duration} · {arrival}
@@ -164,7 +178,7 @@ const FlightCard: FC<FlightCardProps> = ({ className = '', data }) => {
         <div className="my-7 space-y-5 md:my-10 md:ps-24">
           <div className="border-t border-neutral-200 dark:border-neutral-700" />
           <div className="text-sm text-neutral-700 md:text-base dark:text-neutral-300">
-            Transit time: {layover} - {stopAirport}
+            Transit time: {(layover ?? '') + (stopAirport ? ` - ${stopAirport}` : '')}
           </div>
           <div className="border-t border-neutral-200 dark:border-neutral-700" />
         </div>

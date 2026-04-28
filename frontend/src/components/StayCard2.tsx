@@ -19,11 +19,6 @@ import { FC, useState } from 'react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
-import listingPlaceholder from '@/images/hero-right.png'
-
-const FALLBACK_IMG =
-  typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
-
 interface StayCard2Props {
   className?: string
   data: TListingBase
@@ -62,29 +57,33 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
 
   const detailBase = stayDetailPathForVertical(normalizeCatalogVertical(listingVertical))
   const listingHref = vitrinHref(`${detailBase}/${listingHandle}`)
-  const imgSrc =
+  const imgSrcRaw =
     (galleryImgs?.[0] && typeof galleryImgs[0] === 'string'
       ? galleryImgs[0]
-      : (galleryImgs?.[0] as { src: string } | undefined)?.src) ||
-    featuredImage ||
-    FALLBACK_IMG
+      : (galleryImgs?.[0] as { src: string } | undefined)?.src) || featuredImage
   const [brokenImage, setBrokenImage] = useState(false)
-  const resolvedImgSrc = brokenImage || imgSrc.startsWith('/uploads/') ? FALLBACK_IMG : imgSrc
+  const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
+  const uploadsBlocked = trimmed.startsWith('/uploads/')
+  const showRemoteImage = Boolean(trimmed) && !uploadsBlocked && !brokenImage
 
   const renderSliderGallery = () => {
     return (
       <div className="relative w-full">
         <Link href={listingHref} className="block">
           <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '91.6%' }}>
-            <Image
-              src={resolvedImgSrc}
-              fill
-              alt={title ?? 'listing'}
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-              unoptimized={resolvedImgSrc.startsWith('data:') || /^https?:\/\//i.test(resolvedImgSrc)}
-              onError={() => setBrokenImage(true)}
-            />
+            {showRemoteImage ? (
+              <Image
+                src={trimmed}
+                fill
+                alt={title ?? 'listing'}
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
+                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
+                unoptimized={trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)}
+                onError={() => setBrokenImage(true)}
+              />
+            ) : (
+              <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+            )}
           </div>
         </Link>
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3 z-1" />

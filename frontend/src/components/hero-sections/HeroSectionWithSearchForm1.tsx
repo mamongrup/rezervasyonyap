@@ -4,7 +4,6 @@ import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
-import listingPlaceholder from '@/images/hero-right.png'
 import FreeformBannerView from './FreeformBannerView'
 
 type HeroImageDims = { src: string; width: number; height: number }
@@ -26,17 +25,15 @@ function MosaicSlot({
   sizes: string
   priority?: boolean
 }) {
-  const fallbackSrc =
-    typeof listingPlaceholder === 'string' ? listingPlaceholder : listingPlaceholder.src
-  const resolvedSrc = src.startsWith('/uploads/') ? fallbackSrc : src
-  const isExternal = /^https?:\/\//i.test(resolvedSrc)
-  if (!resolvedSrc.trim()) {
+  const t = src.trim()
+  if (!t || t.startsWith('/uploads/')) {
     return <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
   }
+  const isExternal = /^https?:\/\//i.test(t)
   if (priority) {
     return (
       <Image
-        src={resolvedSrc}
+        src={t}
         alt={alt}
         fill
         sizes={sizes}
@@ -51,7 +48,7 @@ function MosaicSlot({
   }
   return (
     <Image
-      src={resolvedSrc}
+      src={t}
       alt={alt}
       fill
       sizes={sizes}
