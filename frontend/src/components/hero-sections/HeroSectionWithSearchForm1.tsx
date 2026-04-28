@@ -361,21 +361,9 @@ function HeroSectionWithSearchForm1({
         className,
       )}
     >
-      {spacing === 'minimal' ? (
-        <div
-          aria-hidden
-          className={clsx(
-            'pointer-events-none absolute left-0 top-0 z-0',
-            'h-[860px] w-[76%] rounded-e-[56px]',
-            'bg-gradient-to-br from-rose-100/80 via-white/70 to-cyan-100/80',
-            'md:h-[920px] md:w-[72%]',
-            'lg:h-[980px] lg:w-[68%]',
-          )}
-        />
-      ) : null}
       <div
         className={clsx(
-          'relative z-10',
+          'relative',
           minimalBelowFoldSearch
             ? 'grid grid-cols-1 gap-x-6 gap-y-6 lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-8'
             : 'flex flex-col lg:flex-row',
