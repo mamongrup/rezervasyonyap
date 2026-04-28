@@ -10,6 +10,9 @@ import {
   createIcalFeed,
   createManageCatalogListing,
   createListingPriceRule,
+  listAttributeDefs,
+  listAttributeGroups,
+  listSiteSettings,
   getAuthMe,
   getPublicCurrencies,
   listManageCategoryContracts,
@@ -17,13 +20,17 @@ import {
   putManageListingTranslations,
   patchListingBasics,
   patchManageHotelDetails,
+  putListingAttributeValues,
   putListingOwnerContact,
   putListingMeta,
   putVerticalMeta,
+  upsertSiteSetting,
   upsertSeoMetadata,
   listPriceLineItems,
   putListingPriceLineSelections,
   addListingImage,
+  type AttributeDef,
+  type AttributeGroup,
   type PriceLineItem,
 } from '@/lib/travel-api'
 import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
@@ -138,6 +145,17 @@ function toSlug(s: string): string {
     .replace(/[\s]+/g, '-')
     .replace(/-+/g, '-')
     .slice(0, 120)
+}
+
+function parseOptionsJsonSafe(raw: string | null | undefined): string[] {
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (Array.isArray(parsed)) return parsed.filter((x): x is string => typeof x === 'string')
+  } catch {
+    /* ignore */
+  }
+  return []
 }
 
 function Section({
@@ -280,6 +298,9 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
   const [roomCount, setRoomCount] = useState('')
   const [propertyType, setPropertyType] = useState('')
+  const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>(HOLIDAY_PROPERTY_TYPE_OPTIONS)
+  const [newPropertyType, setNewPropertyType] = useState('')
+  const [propertyTypeBusy, setPropertyTypeBusy] = useState(false)
   const [poolSizeLabel, setPoolSizeLabel] = useState('')
   const [pools, setPools] = useState<{
     open_pool: PoolRow
@@ -337,6 +358,11 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const [contracts, setContracts] = useState<{ id: string; code: string }[]>([])
   const [contractId, setContractId] = useState('')
   const [contractsErr, setContractsErr] = useState<string | null>(null)
+
+  // ── Öznitelikler (ilan eklemede seçim) ──
+  const [attributeGroups, setAttributeGroups] = useState<AttributeGroup[]>([])
+  const [attributeDefsByGroup, setAttributeDefsByGroup] = useState<Record<string, AttributeDef[]>>({})
+  const [attributeValues, setAttributeValues] = useState<Record<string, string>>({})
 
   // ── UI ──
   const [err, setErr] = useState<string | null>(null)
@@ -448,6 +474,58 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       })
     return () => { cancelled = true }
   }, [categoryCode, needOrg, orgId])
+
+  useEffect(() => {
+    if (!isVilla) return
+    const token = getStoredAuthToken()
+    if (!token) return
+    void listSiteSettings(token, { scope: 'platform', key: 'catalog.holiday_home_property_types' })
+      .then((res) => {
+        const row = res.settings[0]
+        if (!row?.value_json) return
+        const parsed = JSON.parse(row.value_json) as unknown
+        if (Array.isArray(parsed)) {
+          const vals = parsed.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+          if (vals.length > 0) setPropertyTypeOptions(vals)
+        }
+      })
+      .catch(() => {
+        /* fallback: static list */
+      })
+  }, [isVilla])
+
+  useEffect(() => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    let cancelled = false
+    void listAttributeGroups(token, { categoryCode, locale })
+      .then(async (gRes) => {
+        if (cancelled) return
+        setAttributeGroups(gRes.groups)
+        const defsMap: Record<string, AttributeDef[]> = {}
+        await Promise.all(
+          gRes.groups.map((g) =>
+            listAttributeDefs(token, g.id, { locale })
+              .then((r) => {
+                defsMap[g.id] = r.defs.filter((d) => d.is_active)
+              })
+              .catch(() => {
+                defsMap[g.id] = []
+              }),
+          ),
+        )
+        if (!cancelled) setAttributeDefsByGroup(defsMap)
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAttributeGroups([])
+          setAttributeDefsByGroup({})
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [categoryCode, locale])
 
   function handleTitleChange(v: string) {
     if (isVilla) {
@@ -811,6 +889,46 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     setPools((p) => ({ ...p, [key]: { ...p[key], [field]: val } }))
   }
 
+  function setAttributeValue(groupCode: string, key: string, value: string) {
+    setAttributeValues((prev) => ({ ...prev, [`${groupCode}.${key}`]: value }))
+  }
+
+  async function persistPropertyTypeOptions(nextOptions: string[]) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setPropertyTypeBusy(true)
+    setErr(null)
+    try {
+      await upsertSiteSetting(token, {
+        key: 'catalog.holiday_home_property_types',
+        value_json: JSON.stringify(nextOptions),
+      })
+      setPropertyTypeOptions(nextOptions)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'property_type_options_save_failed')
+    } finally {
+      setPropertyTypeBusy(false)
+    }
+  }
+
+  async function addPropertyTypeOption() {
+    const candidate = newPropertyType.trim()
+    if (!candidate) return
+    if (propertyTypeOptions.some((x) => x.toLocaleLowerCase('tr-TR') === candidate.toLocaleLowerCase('tr-TR'))) {
+      setNewPropertyType('')
+      return
+    }
+    const next = [...propertyTypeOptions, candidate]
+    await persistPropertyTypeOptions(next)
+    setNewPropertyType('')
+  }
+
+  async function removePropertyTypeOption(opt: string) {
+    const next = propertyTypeOptions.filter((x) => x !== opt)
+    await persistPropertyTypeOptions(next)
+    if (propertyType === opt) setPropertyType('')
+  }
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setErr(null)
@@ -929,6 +1047,16 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
       if (Object.keys(metaBody).length > 0) {
         await putListingMeta(token, lid, metaBody).catch(() => {})
+      }
+
+      const attrPayload = Object.entries(attributeValues)
+        .filter(([, v]) => v !== '')
+        .map(([k, v]) => {
+          const [group_code, ...rest] = k.split('.')
+          return { group_code, key: rest.join('.'), value: v }
+        })
+      if (attrPayload.length > 0) {
+        await putListingAttributeValues(token, lid, attrPayload).catch(() => {})
       }
 
       if (categoryCode === 'holiday_home') {
@@ -1309,7 +1437,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   {orgIdLocked ? (
                     <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-400">Hesabınızdan otomatik dolduruldu.</p>
                   ) : (
-                    <p className="mt-1 text-xs text-neutral-400">Platform yöneticisi: hedef kurumun UUID'sini girin.</p>
+                    <p className="mt-1 text-xs text-neutral-400">Platform yöneticisi: hedef kurumun UUID bilgisini girin.</p>
                   )}
                 </Field>
               </Section>
@@ -1413,7 +1541,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                     key={`${im}-${idx}`}
                     className="relative overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={im.startsWith('http') || im.startsWith('/') ? im : `/${im}`}
                       alt=""
@@ -1480,8 +1607,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               </Field>
             </Section>
 
-            {isVilla && contractSection}
-
             {/* Fazladan Bilgi — villa: önceden rezervasyon, kişi/oda/banyo; diğer: yatak, alan… */}
             <Section
               title="Fazladan Bilgi"
@@ -1493,22 +1618,85 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             >
               {isVilla ? (
                 <div className="space-y-4">
-                  <Field className="block max-w-md">
-                    <Label>İlan tipi</Label>
-                    <select
-                      className={`mt-1 ${selectCls}`}
-                      value={propertyType}
-                      onChange={(e) => setPropertyType(e.target.value)}
-                    >
-                      <option value="">— Seçin —</option>
-                      {HOLIDAY_PROPERTY_TYPE_OPTIONS.map((opt) => (
-                        <option key={opt} value={opt}>
-                          {opt}
-                        </option>
-                      ))}
-                    </select>
-                    <HintText>Listelerde alt kategori yerine bu tip satırı gösterilir.</HintText>
-                  </Field>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field className="block">
+                      <Label>İlan tipi</Label>
+                      <select
+                        className={`mt-1 ${selectCls}`}
+                        value={propertyType}
+                        onChange={(e) => setPropertyType(e.target.value)}
+                      >
+                        <option value="">— Seçin —</option>
+                        {propertyTypeOptions.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                      <HintText>Listelerde alt kategori yerine bu tip satırı gösterilir.</HintText>
+                      {needOrg && (
+                        <div className="mt-3 rounded-xl border border-neutral-200 p-3 dark:border-neutral-700">
+                          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                            İlan tipi yönetimi (yalnızca yönetici)
+                          </p>
+                          <div className="mt-2 flex gap-2">
+                            <Input
+                              className="flex-1"
+                              value={newPropertyType}
+                              onChange={(e) => setNewPropertyType(e.target.value)}
+                              placeholder="Yeni ilan tipi ekle"
+                            />
+                            <ButtonPrimary
+                              type="button"
+                              onClick={() => void addPropertyTypeOption()}
+                              disabled={propertyTypeBusy}
+                              className="px-3 py-2 text-xs"
+                            >
+                              Ekle
+                            </ButtonPrimary>
+                          </div>
+                          {propertyTypeOptions.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {propertyTypeOptions.map((opt) => (
+                                <button
+                                  key={opt}
+                                  type="button"
+                                  onClick={() => void removePropertyTypeOption(opt)}
+                                  disabled={propertyTypeBusy}
+                                  className="rounded-full border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                                  title="Listeden çıkar"
+                                >
+                                  {opt} ×
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </Field>
+                    <Field className="block">
+                      <Label>Kategori sözleşmesi</Label>
+                      <select
+                        className={`mt-1 ${selectCls}`}
+                        value={contractId}
+                        onChange={(e) => setContractId(e.target.value)}
+                        required={contracts.length > 0}
+                      >
+                        <option value="">— Seçin —</option>
+                        {contracts.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.code}
+                          </option>
+                        ))}
+                      </select>
+                      <HintText>Bu ilan için uygulanacak sözleşme şablonu.</HintText>
+                      {contractsErr && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                          Sözleşme listesi yüklenemedi: {contractsErr}
+                        </p>
+                      )}
+                    </Field>
+                  </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <Field className="block">
                       <Label>Kişi sayısı</Label>
@@ -1629,6 +1817,78 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                 </Grid3>
               )}
             </Section>
+
+            {attributeGroups.length > 0 && (
+              <Section
+                title="Öznitelikler"
+                subtitle="Kategoriye ait özellikleri ilan oluştururken işaretleyin."
+              >
+                <div className="space-y-5">
+                  {attributeGroups.map((g) => {
+                    const defs = attributeDefsByGroup[g.id] ?? []
+                    if (defs.length === 0) return null
+                    return (
+                      <div key={g.id} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                        <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{g.name}</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                          {defs.map((d) => {
+                            const k = `${g.code}.${d.code}`
+                            const v = attributeValues[k] ?? ''
+                            const options = parseOptionsJsonSafe(d.options_json)
+                            if (d.field_type === 'boolean') {
+                              return (
+                                <label
+                                  key={d.id}
+                                  className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={v === 'true'}
+                                    onChange={(e) => setAttributeValue(g.code, d.code, e.target.checked ? 'true' : '')}
+                                    className="h-4 w-4 accent-primary-600"
+                                  />
+                                  <span>{d.label}</span>
+                                </label>
+                              )
+                            }
+                            if (d.field_type === 'select') {
+                              return (
+                                <Field key={d.id} className="block">
+                                  <Label>{d.label}</Label>
+                                  <select
+                                    className={`mt-1 ${selectCls}`}
+                                    value={v}
+                                    onChange={(e) => setAttributeValue(g.code, d.code, e.target.value)}
+                                  >
+                                    <option value="">— Seçin —</option>
+                                    {options.map((o) => (
+                                      <option key={o} value={o}>
+                                        {o}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </Field>
+                              )
+                            }
+                            return (
+                              <Field key={d.id} className="block">
+                                <Label>{d.label}</Label>
+                                <Input
+                                  type={d.field_type === 'number' ? 'number' : 'text'}
+                                  className="mt-1"
+                                  value={v}
+                                  onChange={(e) => setAttributeValue(g.code, d.code, e.target.value)}
+                                />
+                              </Field>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </Section>
+            )}
 
             {isVilla ? (
               <>
@@ -2431,7 +2691,73 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               </Section>
             ) : null}
 
-            {/* SEO — villa: dil şeridine göre; API `seo_metadata` */}
+            {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
+            <Section
+              title="Vitrin Promosyon"
+              subtitle="Anında rezervasyon, mobil indirim, takvim senkronu (iCal) ve otel yıldızı."
+            >
+              <Grid2>
+                <Field className="block">
+                  <Label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={instantBook}
+                      onChange={(e) => setInstantBook(e.target.checked)}
+                      className="h-4 w-4 accent-primary-600"
+                    />
+                    Anında rezervasyon (instant book)
+                  </Label>
+                  <HintText>Tedarikçi onayı beklemeden anında rezervasyon alınır.</HintText>
+                </Field>
+
+                <Field className="block">
+                  <Label>Mobil indirim (%)</Label>
+                  <Input
+                    inputMode="decimal"
+                    value={mobileDiscountPercent}
+                    onChange={(e) => setMobileDiscountPercent(e.target.value)}
+                    placeholder="örn. 5"
+                    className="mt-1"
+                  />
+                  <HintText>Mobil cihazlardan rezervasyonda uygulanır (0–90).</HintText>
+                </Field>
+              </Grid2>
+
+              {(categoryCode === 'holiday_home' || categoryCode === 'hotel') ? (
+                <Field className="block">
+                  <Label>Takvim senkronu — iCal export URL</Label>
+                  <Input
+                    value={icalImportUrl}
+                    onChange={(e) => setIcalImportUrl(e.target.value)}
+                    placeholder="https://airbnb.com/calendar/ical/...."
+                    className="mt-1 font-mono text-sm"
+                  />
+                  <HintText>
+                    Airbnb / Booking.com vb. platformların ical export adresini yapıştırın. Çift rezervasyon engellenir.
+                  </HintText>
+                </Field>
+              ) : null}
+
+              {categoryCode === 'hotel' ? (
+                <Field className="block max-w-xs">
+                  <Label>Otel yıldızı</Label>
+                  <select
+                    value={starRating}
+                    onChange={(e) => setStarRating(e.target.value)}
+                    className="mt-1 block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
+                  >
+                    <option value="">— Belirtilmedi —</option>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <option key={n} value={String(n)}>
+                        {`${n} yıldız`}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              ) : null}
+            </Section>
+
+            {/* SEO — villa: dil şeridine göre; API `seo_metadata` (daima içerik sonunda) */}
             {isVilla ? (
               <Section
                 title={`SEO — ${
@@ -2540,72 +2866,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                 </Field>
               </Section>
             ) : null}
-
-            {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
-            <Section
-              title="Vitrin Promosyon"
-              subtitle="Anında rezervasyon, mobil indirim, takvim senkronu (iCal) ve otel yıldızı."
-            >
-              <Grid2>
-                <Field className="block">
-                  <Label className="flex cursor-pointer items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={instantBook}
-                      onChange={(e) => setInstantBook(e.target.checked)}
-                      className="h-4 w-4 accent-primary-600"
-                    />
-                    Anında rezervasyon (instant book)
-                  </Label>
-                  <HintText>Tedarikçi onayı beklemeden anında rezervasyon alınır.</HintText>
-                </Field>
-
-                <Field className="block">
-                  <Label>Mobil indirim (%)</Label>
-                  <Input
-                    inputMode="decimal"
-                    value={mobileDiscountPercent}
-                    onChange={(e) => setMobileDiscountPercent(e.target.value)}
-                    placeholder="örn. 5"
-                    className="mt-1"
-                  />
-                  <HintText>Mobil cihazlardan rezervasyonda uygulanır (0–90).</HintText>
-                </Field>
-              </Grid2>
-
-              {(categoryCode === 'holiday_home' || categoryCode === 'hotel') ? (
-                <Field className="block">
-                  <Label>Takvim senkronu — iCal export URL</Label>
-                  <Input
-                    value={icalImportUrl}
-                    onChange={(e) => setIcalImportUrl(e.target.value)}
-                    placeholder="https://airbnb.com/calendar/ical/...."
-                    className="mt-1 font-mono text-sm"
-                  />
-                  <HintText>
-                    Airbnb / Booking.com vb. platformların ical export adresini yapıştırın. Çift rezervasyon engellenir.
-                  </HintText>
-                </Field>
-              ) : null}
-
-              {categoryCode === 'hotel' ? (
-                <Field className="block max-w-xs">
-                  <Label>Otel yıldızı</Label>
-                  <select
-                    value={starRating}
-                    onChange={(e) => setStarRating(e.target.value)}
-                    className="mt-1 block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
-                  >
-                    <option value="">— Belirtilmedi —</option>
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <option key={n} value={String(n)}>
-                        {`${n} yıldız`}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
-              ) : null}
-            </Section>
 
             {/* Hata mesajı */}
             {err && (
