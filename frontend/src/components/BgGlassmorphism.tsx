@@ -8,16 +8,16 @@ export interface BgGlassmorphismProps {
 
 /**
  * Hero arkası dekoratif "cam" bloblar — orijinal Chisfis tek-konteyner yaklaşımının aksine
- * 4 ayrı yumuşak daire kullanıyoruz:
- *  • [0] sol-üst kırmızı  → başlık alanını boyar
- *  • [1] orta-sağ turkuaz → mozaik bandını boyar
- *  • [2] sol-orta kırmızı → buton + ikon barı altını boyar
- *  • [3] orta-alt turkuaz → search form arkasına denk gelir
- *
- * Her blob `mix-blend-multiply` + `blur-3xl` ile yumuşatılır.
+ * 6 ayrı yumuşak daire kullanıyoruz; konteyner search form altına kadar uzanır:
+ *  • [0] sol-üst kırmızı   → başlık alanı
+ *  • [1] orta-sağ turkuaz  → mozaik bandı
+ *  • [2] sol-orta kırmızı  → buton + ikon barı arası
+ *  • [3] sağ-orta turkuaz  → mozaiğin alt sağ köşesi
+ *  • [4] sol-alt kırmızı   → search form sol arkası
+ *  • [5] sağ-alt turkuaz   → search form sağ arkası + alt
  */
 const BgGlassmorphism: FC<BgGlassmorphismProps> = ({
-  className = 'absolute inset-x-0 top-0 h-[1100px] overflow-hidden -z-10 md:top-8 md:h-[1180px] xl:top-20 xl:h-[1280px]',
+  className = 'absolute inset-x-0 top-0 h-[1400px] overflow-hidden -z-10 md:top-8 md:h-[1500px] xl:top-20 xl:h-[1620px]',
   intensity = 'default',
 }) => {
   const red = intensity === 'strong' ? 'bg-[#ef233c]/16' : 'bg-[#ef233c]/12'
@@ -50,12 +50,28 @@ const BgGlassmorphism: FC<BgGlassmorphismProps> = ({
           'left-2 top-[420px] h-72 w-72 sm:left-16 md:left-32 md:top-[460px] lg:h-[420px] lg:w-[420px]',
         )}
       />
-      {/* [3] orta-alt turkuaz — search form arkası */}
+      {/* [3] sağ-orta turkuaz — mozaik alt sağ köşesi */}
       <span
         className={clsx(
           blob,
           teal,
-          'left-1/2 top-[640px] h-72 w-72 -translate-x-1/2 md:top-[700px] lg:h-[460px] lg:w-[460px] xl:top-[760px]',
+          'right-4 top-[520px] h-72 w-72 md:right-24 md:top-[560px] lg:h-[420px] lg:w-[420px]',
+        )}
+      />
+      {/* [4] sol-alt kırmızı — search form sol arkası */}
+      <span
+        className={clsx(
+          blob,
+          red,
+          'left-4 top-[820px] h-72 w-72 sm:left-20 md:left-40 md:top-[900px] lg:h-[460px] lg:w-[460px] xl:top-[980px]',
+        )}
+      />
+      {/* [5] sağ-alt turkuaz — search form sağ arkası ve alt */}
+      <span
+        className={clsx(
+          blob,
+          teal,
+          'right-4 top-[1000px] h-72 w-72 md:right-32 md:top-[1080px] lg:h-[480px] lg:w-[480px] xl:top-[1180px]',
         )}
       />
     </div>
