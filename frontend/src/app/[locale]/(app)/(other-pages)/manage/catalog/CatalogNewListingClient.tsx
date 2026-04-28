@@ -298,7 +298,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
   const [roomCount, setRoomCount] = useState('')
   const [propertyType, setPropertyType] = useState('')
-  const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>(HOLIDAY_PROPERTY_TYPE_OPTIONS)
+  const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>([...HOLIDAY_PROPERTY_TYPE_OPTIONS])
   const [newPropertyType, setNewPropertyType] = useState('')
   const [propertyTypeBusy, setPropertyTypeBusy] = useState(false)
   const [poolSizeLabel, setPoolSizeLabel] = useState('')
