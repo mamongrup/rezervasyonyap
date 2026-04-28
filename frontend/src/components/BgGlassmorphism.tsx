@@ -17,7 +17,7 @@ export interface BgGlassmorphismProps {
  *  • [5] sağ-alt turkuaz   → search form sağ arkası + alt
  */
 const BgGlassmorphism: FC<BgGlassmorphismProps> = ({
-  className = 'absolute inset-x-0 top-0 h-[1400px] overflow-hidden -z-10 md:top-8 md:h-[1500px] xl:top-20 xl:h-[1620px]',
+  className = 'absolute inset-x-0 top-0 z-0 h-[980px] overflow-hidden md:top-6 md:h-[1040px] xl:top-12 xl:h-[1120px]',
   intensity = 'default',
 }) => {
   const red = intensity === 'strong' ? 'bg-[#ef233c]/16' : 'bg-[#ef233c]/12'
@@ -26,6 +26,14 @@ const BgGlassmorphism: FC<BgGlassmorphismProps> = ({
 
   return (
     <div aria-hidden className={clsx(className, 'pointer-events-none')}>
+      {/* Ana pastel panel: sol blok + search form altına kadar uzanan gerçek zemin */}
+      <div
+        className={clsx(
+          'absolute left-0 top-0 h-full w-[74%] rounded-e-[52px]',
+          'bg-gradient-to-br from-rose-100/75 via-white/65 to-cyan-100/75',
+          'md:w-[70%] lg:w-[66%]',
+        )}
+      />
       {/* [0] sol-üst kırmızı — başlık ve açıklama alanı */}
       <span
         className={clsx(
