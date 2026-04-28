@@ -8,14 +8,19 @@ import { useManageT } from '@/lib/manage-i18n-context'
 import { useCatalogListingUi, type CatalogListingUi } from '@/hooks/useCatalogListingUi'
 import {
   addManageHotelRoom,
+  patchListingBasics,
   deleteListingPriceRule,
   deleteManageHotelRoom,
   getAuthMe,
+  getListingMeta,
+  getListingOwnerContact,
   getListingAvailabilityCalendar,
   getManageHotelDetails,
   listListingPriceRules,
   listManageHotelRooms,
   patchManageHotelDetails,
+  putListingMeta,
+  putListingOwnerContact,
   putListingAvailabilityCalendar,
   createListingPriceRule,
   listIcalFeeds,
@@ -736,9 +741,36 @@ export default function CatalogListingDetailClient({
 
   const [busy, setBusy] = useState<string | null>(null)
   const [listingSlug, setListingSlug] = useState('')
+  const [listingStatus, setListingStatus] = useState<'draft' | 'published' | 'archived'>('draft')
+  const [minStayNights, setMinStayNights] = useState('')
+  const [cleaningFee, setCleaningFee] = useState('')
+  const [depositAmount, setDepositAmount] = useState('')
+  const [prepaymentPercent, setPrepaymentPercent] = useState('')
+  const [commissionPercent, setCommissionPercent] = useState('')
+  const [cancellationPolicy, setCancellationPolicy] = useState('')
+  const [licenseRef, setLicenseRef] = useState('')
+  const [shareToSocial, setShareToSocial] = useState(true)
+  const [allowAiCaption, setAllowAiCaption] = useState(true)
+  const [allowGapBooking, setAllowGapBooking] = useState(false)
+  const [ownerName, setOwnerName] = useState('')
+  const [ownerPhone, setOwnerPhone] = useState('')
+  const [ownerEmail, setOwnerEmail] = useState('')
+  const [checkInTime, setCheckInTime] = useState('')
+  const [checkOutTime, setCheckOutTime] = useState('')
+  const [bedCount, setBedCount] = useState('')
+  const [bathCount, setBathCount] = useState('')
+  const [squareMeters, setSquareMeters] = useState('')
+  const [maxGuests, setMaxGuests] = useState('')
+  const [address, setAddress] = useState('')
+  const [lat, setLat] = useState('')
+  const [lng, setLng] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
+  const [minShortStayNights, setMinShortStayNights] = useState('')
   const MEAL_PLAN_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
   const CALENDAR_INIT_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
   const [activeTab, setActiveTab] = useState<
+    | 'listing'
     | 'calendar'
     | 'price'
     | 'ical'
@@ -749,7 +781,7 @@ export default function CatalogListingDetailClient({
     | 'photos'
     | 'hotel'
     | 'meal_plans'
-  >(CALENDAR_INIT_CATS.has(categoryCode) ? 'calendar' : 'vertical')
+  >('listing')
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -762,7 +794,15 @@ export default function CatalogListingDetailClient({
     })
       .then((r) => {
         const row = r.listings.find((l) => l.id === listingId)
-        if (row?.slug) setListingSlug(row.slug)
+        if (row) {
+          if (row.slug) setListingSlug(row.slug)
+          if (row.status === 'published' || row.status === 'archived') setListingStatus(row.status)
+          else setListingStatus('draft')
+          setCommissionPercent(row.commission_percent ?? '')
+          setPrepaymentPercent(row.prepayment_percent ?? '')
+          setShareToSocial(Boolean(row.share_to_social))
+          setAllowAiCaption(Boolean(row.allow_ai_caption))
+        }
       })
       .catch(() => {})
   }, [categoryCode, listingId, needOrg, orgId])
@@ -824,6 +864,38 @@ export default function CatalogListingDetailClient({
     } catch { /* ignore */ }
   }, [listingId])
 
+  const loadListingForm = useCallback(async () => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    try {
+      const [owner, meta] = await Promise.all([
+        getListingOwnerContact(token, listingId).catch(() => null),
+        getListingMeta(token, listingId).catch(() => null),
+      ])
+      if (owner) {
+        setOwnerName(owner.contact_name ?? '')
+        setOwnerPhone(owner.contact_phone ?? '')
+        setOwnerEmail(owner.contact_email ?? '')
+      }
+      if (meta) {
+        setCheckInTime(meta.check_in_time ?? '')
+        setCheckOutTime(meta.check_out_time ?? '')
+        setBedCount(meta.bed_count ?? '')
+        setBathCount(meta.bath_count ?? '')
+        setSquareMeters(meta.square_meters ?? '')
+        setMaxGuests(meta.max_guests ?? '')
+        setAddress(meta.address ?? '')
+        setLat(meta.lat ?? '')
+        setLng(meta.lng ?? '')
+        setYoutubeUrl(meta.youtube_url ?? '')
+        setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
+        setMinShortStayNights(meta.min_short_stay_nights ?? '')
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [listingId])
+
   // ── Yükle: Takvim ──
   const loadCalendar = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -848,8 +920,55 @@ export default function CatalogListingDetailClient({
     void loadHotel()
     void loadIcal()
     void loadCalendar()
+    void loadListingForm()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [needOrg, orgId])
+
+  async function saveListingForm() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setBusy('listing-save')
+    setErr(null)
+    try {
+      await patchListingBasics(token, listingId, {
+        status: listingStatus,
+        min_stay_nights: minStayNights.trim() || undefined,
+        cleaning_fee_amount: cleaningFee.trim() || undefined,
+        first_charge_amount: depositAmount.trim() || undefined,
+        prepayment_percent: prepaymentPercent.trim() || undefined,
+        commission_percent: commissionPercent.trim() || undefined,
+        cancellation_policy_text: cancellationPolicy.trim() || undefined,
+        ministry_license_ref: licenseRef.trim() || undefined,
+        share_to_social: shareToSocial,
+        allow_ai_caption: allowAiCaption,
+        allow_sub_min_stay_gap_booking: allowGapBooking,
+      })
+      await putListingOwnerContact(token, listingId, {
+        contact_name: ownerName.trim() || undefined,
+        contact_phone: ownerPhone.trim() || undefined,
+        contact_email: ownerEmail.trim() || undefined,
+      })
+      await putListingMeta(token, listingId, {
+        check_in_time: checkInTime.trim() || undefined,
+        check_out_time: checkOutTime.trim() || undefined,
+        bed_count: bedCount.trim() || undefined,
+        bath_count: bathCount.trim() || undefined,
+        square_meters: squareMeters.trim() || undefined,
+        max_guests: maxGuests.trim() || undefined,
+        address: address.trim() || undefined,
+        lat: lat.trim() || undefined,
+        lng: lng.trim() || undefined,
+        youtube_url: youtubeUrl.trim() || undefined,
+        min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
+        min_short_stay_nights: minShortStayNights.trim() || undefined,
+      })
+      await loadListingForm()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'listing_form_save_failed')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   // ── Takvim kaydet ──
   async function saveCalendar() {
@@ -872,6 +991,7 @@ export default function CatalogListingDetailClient({
         },
         orgQ,
       )
+      await loadCalendar()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'cal_save_failed')
     } finally {
@@ -911,9 +1031,25 @@ export default function CatalogListingDetailClient({
     setBusy('rule-add')
     setErr(null)
     try {
+      if (ruleFrom && ruleTo && ruleFrom > ruleTo) {
+        setErr('invalid_rule_date_range')
+        return
+      }
       const finalJson = showRawJson
         ? ruleRaw.trim()
         : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel)
+      if (!finalJson) {
+        setErr('rule_json_required')
+        return
+      }
+      if (showRawJson) {
+        try {
+          JSON.parse(finalJson)
+        } catch {
+          setErr('rule_json_invalid')
+          return
+        }
+      }
       await createListingPriceRule(
         token,
         listingId,
@@ -1072,6 +1208,7 @@ export default function CatalogListingDetailClient({
           .replace('{days}', String(r.day_count)),
       )
       await loadIcal()
+      await loadCalendar()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'ical_sync_failed')
     } finally {
@@ -1253,6 +1390,7 @@ export default function CatalogListingDetailClient({
   const hasCalendar = CALENDAR_CATEGORIES.has(categoryCode)
 
   const tabs = [
+    { id: 'listing' as const, label: ui.tabs.listing, Icon: Settings2 },
     ...(hasCalendar ? [{ id: 'calendar' as const, label: ui.tabs.calendar, Icon: CalendarDays }] : []),
     { id: 'price' as const, label: ui.tabs.price, Icon: Tag },
     { id: 'ical' as const, label: ui.tabs.ical, Icon: Link2 },
@@ -1337,6 +1475,152 @@ export default function CatalogListingDetailClient({
       <div className="mt-6">
         <ListingPerksManageCard listingId={listingId} />
       </div>
+
+      {/* ═══ SEKME: İLAN BİLGİLERİ ═══════════════════════════════════════════ */}
+      {activeTab === 'listing' && (
+        <div className="mt-6 space-y-5">
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.mainTitle}</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field className="block">
+                <Label>{ui.listingForm.slug}</Label>
+                <Input className="mt-1 font-mono" value={listingSlug} disabled />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.status}</Label>
+                <select
+                  className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+                  value={listingStatus}
+                  onChange={(e) => setListingStatus(e.target.value as 'draft' | 'published' | 'archived')}
+                >
+                  <option value="draft">{ui.listingForm.statusDraft}</option>
+                  <option value="published">{ui.listingForm.statusPublished}</option>
+                  <option value="archived">{ui.listingForm.statusArchived}</option>
+                </select>
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.minStayNights}</Label>
+                <Input className="mt-1" value={minStayNights} onChange={(e) => setMinStayNights(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.cleaningFee}</Label>
+                <Input className="mt-1" value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.depositAmount}</Label>
+                <Input className="mt-1" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.prepaymentPercent}</Label>
+                <Input className="mt-1" value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.commissionPercent}</Label>
+                <Input className="mt-1" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.licenseRef}</Label>
+                <Input className="mt-1" value={licenseRef} onChange={(e) => setLicenseRef(e.target.value)} />
+              </Field>
+            </div>
+            <Field className="mt-4 block">
+              <Label>{ui.listingForm.cancellationPolicy}</Label>
+              <Textarea className="mt-1" rows={3} value={cancellationPolicy} onChange={(e) => setCancellationPolicy(e.target.value)} />
+            </Field>
+            <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <label className="inline-flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                <input type="checkbox" checked={shareToSocial} onChange={(e) => setShareToSocial(e.target.checked)} />
+                {ui.listingForm.shareToSocial}
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                <input type="checkbox" checked={allowAiCaption} onChange={(e) => setAllowAiCaption(e.target.checked)} />
+                {ui.listingForm.allowAiCaption}
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+                <input type="checkbox" checked={allowGapBooking} onChange={(e) => setAllowGapBooking(e.target.checked)} />
+                {ui.listingForm.allowGapBooking}
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.ownerTitle}</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <Field className="block">
+                <Label>{ui.listingForm.ownerName}</Label>
+                <Input className="mt-1" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.ownerPhone}</Label>
+                <Input className="mt-1" value={ownerPhone} onChange={(e) => setOwnerPhone(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.ownerEmail}</Label>
+                <Input className="mt-1" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} />
+              </Field>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.metaTitle}</h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field className="block">
+                <Label>{ui.listingForm.checkIn}</Label>
+                <Input className="mt-1" value={checkInTime} onChange={(e) => setCheckInTime(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.checkOut}</Label>
+                <Input className="mt-1" value={checkOutTime} onChange={(e) => setCheckOutTime(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.bedCount}</Label>
+                <Input className="mt-1" value={bedCount} onChange={(e) => setBedCount(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.bathCount}</Label>
+                <Input className="mt-1" value={bathCount} onChange={(e) => setBathCount(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.squareMeters}</Label>
+                <Input className="mt-1" value={squareMeters} onChange={(e) => setSquareMeters(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.maxGuests}</Label>
+                <Input className="mt-1" value={maxGuests} onChange={(e) => setMaxGuests(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.minAdvanceBookingDays}</Label>
+                <Input className="mt-1" value={minAdvanceBookingDays} onChange={(e) => setMinAdvanceBookingDays(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.minShortStayNights}</Label>
+                <Input className="mt-1" value={minShortStayNights} onChange={(e) => setMinShortStayNights(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.youtubeUrl}</Label>
+                <Input className="mt-1" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>Lat</Label>
+                <Input className="mt-1" value={lat} onChange={(e) => setLat(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>Lng</Label>
+                <Input className="mt-1" value={lng} onChange={(e) => setLng(e.target.value)} />
+              </Field>
+            </div>
+            <Field className="mt-4 block">
+              <Label>{ui.listingForm.address}</Label>
+              <Textarea className="mt-1" rows={3} value={address} onChange={(e) => setAddress(e.target.value)} />
+            </Field>
+            <div className="mt-4">
+              <ButtonPrimary type="button" onClick={() => void saveListingForm()} disabled={busy === 'listing-save'}>
+                {busy === 'listing-save' ? ui.common.ellipsis : ui.listingForm.saveBtn}
+              </ButtonPrimary>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ═══ SEKME: MÜSAİTLİK TAKVİMİ ═══════════════════════════════════════ */}
       {activeTab === 'calendar' && (
