@@ -5,6 +5,7 @@
  * (`page.tsx` ile uyumlu); klasik mozaik grid yerine freeform banner görünümü.
  */
 
+import BgGlassmorphism from '@/components/BgGlassmorphism'
 import HolidayListingFilters from '@/components/HolidayListingFilters'
 import ListingFilterTabs from '@/components/ListingFilterTabs'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
@@ -457,7 +458,8 @@ export default async function CategoryPageTemplate({
       .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
 
     return (
-      <div className="pb-28">
+      <div className="relative overflow-x-hidden pb-28">
+        <BgGlassmorphism />
         {itemListJsonLd && (
           <script
             type="application/ld+json"
@@ -515,7 +517,8 @@ export default async function CategoryPageTemplate({
     .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
 
   return (
-    <div className="pb-28">
+    <div className="relative overflow-x-hidden pb-28">
+      <BgGlassmorphism />
       {itemListJsonLd && (
         <script
           type="application/ld+json"
