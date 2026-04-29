@@ -36,6 +36,10 @@ sudo REPO_ROOT=/var/www/vhosts/ALANADINIZ.tr/httpdocs ./deploy/plesk-vitrin-depl
 
 Vitrin **stabil `next@16.2.x`** ile sabitlenir; canary sunucu/os uyumsuzluğunda riski artırır. `frontend/package.json` + `package-lock.json` birlikte commitlenir; sunucu her zaman **`npm ci`** kullanmalı.
 
+## CI (GitHub Actions)
+
+Repoda **`.github/workflows/frontend-ci.yml`** var: **`ubuntu-latest`** + Node 20 ile `frontend` içinde **`npm ci`** ve **`npm run build`** çalışır. Push sonrası Actions yeşilse kod tarafı üretime uygun derleniyor demektir; sunucuda yalnızca eski **GLIBC / ortam** sorunu kalabilir — o zaman OS yükseltmesi veya `plesk-vitrin-deploy.sh` ile eşleştirilmiş disk/cache kontrolü gerekir.
+
 ## Ayrıca bkz.
 
 - [DEPLOY_CHECKLIST.md](./DEPLOY_CHECKLIST.md) — tam checklist, env, smoke test.
