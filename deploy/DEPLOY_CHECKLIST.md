@@ -1,5 +1,7 @@
 # Production Deploy Checklist (Plesk + systemd)
 
+Üretim vitrin domain: **`rezervasyonyap.tr`** — ayrıntı ve sunucu yolu: [`deploy/DOMAIN.md`](./DOMAIN.md).
+
 Bu liste, `travel-web.service` (Next.js) ve `travel-api.service` (Gleam API) ile calisan sunucuda "menu/admin kayboldu" tipindeki hatalari onlemek icindir.
 
 ## 1) Dogru dizine gir
