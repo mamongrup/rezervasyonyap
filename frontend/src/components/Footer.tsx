@@ -59,6 +59,8 @@ const widgetMenus: WidgetFooterMenu[] = [
 ]
 
 const Footer: React.FC = () => {
+  const socials = buildSocialLinksFromSiteConfig(getSitePublicConfig())
+
   const renderWidgetMenuItem = (menu: WidgetFooterMenu, index: number) => {
     return (
       <div key={index} className="text-sm">
