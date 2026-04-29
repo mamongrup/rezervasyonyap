@@ -54,198 +54,6 @@ type SelectNumberFilter = {
   }[]
 }
 
-const demo_filters_options = [
-  {
-    name: 'type-of-place',
-    label: 'Type of place',
-    tabUIType: 'checkbox',
-    options: [
-      {
-        name: 'Entire place',
-        value: 'entire_place',
-        description: 'Have a place to yourself',
-        defaultChecked: true,
-      },
-      {
-        name: 'Private room',
-        value: 'private_room',
-        description: 'Have your own room and share some common spaces',
-        defaultChecked: true,
-      },
-      {
-        name: 'Hotel room',
-        value: 'hotel_room',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Shared room',
-        value: 'shared_room',
-        description: 'Stay in a shared space, like a common room',
-      },
-    ],
-  },
-  {
-    label: 'Price per day',
-    name: 'price-per-day',
-    tabUIType: 'price-range',
-    min: 0,
-    max: 1000,
-  },
-  {
-    label: 'Rooms & Beds',
-    name: 'rooms-beds',
-    tabUIType: 'select-number',
-    options: [
-      { name: 'Beds', max: 10 },
-      { name: 'Bedrooms', max: 10 },
-      { name: 'Bathrooms', max: 10 },
-    ],
-  },
-  {
-    label: 'Amenities',
-    name: 'amenities',
-    tabUIType: 'checkbox',
-    options: [
-      {
-        name: 'Kitchen',
-        value: 'kitchen',
-        description: 'Have a place to yourself',
-        defaultChecked: true,
-      },
-      {
-        name: 'Air conditioning',
-        value: 'air_conditioning',
-        description: 'Have your own room and share some common spaces',
-        defaultChecked: true,
-      },
-      {
-        name: 'Heating',
-        value: 'heating',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Dryer',
-        value: 'dryer',
-        description: 'Stay in a shared space, like a common room',
-      },
-      {
-        name: 'Washer',
-        value: 'washer',
-        description: 'Stay in a shared space, like a common room',
-      },
-    ],
-  },
-  {
-    name: 'Facilities',
-    label: 'Facilities',
-    tabUIType: 'checkbox',
-    options: [
-      {
-        name: 'Free parking on premise',
-        value: 'free_parking_on_premise',
-        description: 'Have a place to yourself',
-      },
-      {
-        name: 'Hot tub',
-        value: 'hot_tub',
-        description: 'Have your own room and share some common spaces',
-      },
-      {
-        name: 'Gym',
-        value: 'gym',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Pool',
-        value: 'pool',
-        description: 'Stay in a shared space, like a common room',
-      },
-      {
-        name: 'EV charger',
-        value: 'ev_charger',
-        description: 'Stay in a shared space, like a common room',
-      },
-    ],
-  },
-  {
-    name: 'Property-type',
-    label: 'Property type',
-    tabUIType: 'checkbox',
-    options: [
-      {
-        name: 'House',
-        value: 'house',
-        description: 'Have a place to yourself',
-      },
-      {
-        name: 'Bed and breakfast',
-        value: 'bed_and_breakfast',
-        description: 'Have your own room and share some common spaces',
-      },
-      {
-        name: 'Apartment',
-        defaultChecked: true,
-        value: 'apartment',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Boutique hotel',
-        value: 'boutique_hotel',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Bungalow',
-        value: 'bungalow',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Chalet',
-        defaultChecked: true,
-        value: 'chalet',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Condominium',
-        defaultChecked: true,
-        value: 'condominium',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Cottage',
-        value: 'cottage',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Guest suite',
-        value: 'guest_suite',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-      {
-        name: 'Guesthouse',
-        value: 'guesthouse',
-        description: 'Have a private or shared room in a boutique hotel, hostel, and more',
-      },
-    ],
-  },
-  {
-    name: 'House-rules',
-    label: 'House rules',
-    tabUIType: 'checkbox',
-    options: [
-      {
-        name: 'Pets allowed',
-        value: 'pets_allowed',
-        description: 'Have a place to yourself',
-      },
-      {
-        name: 'Smoking allowed',
-        value: 'smoking_allowed',
-        description: 'Have your own room and share some common spaces',
-      },
-    ],
-  },
-]
-
 const CheckboxPanel = ({ filterOption, className }: { filterOption: CheckboxFilter; className?: string }) => {
   return (
     <Fieldset>
@@ -277,7 +85,7 @@ const NumberSelectPanel = ({ filterOption: { name, options } }: { filterOption: 
 }
 
 const ListingFilterTabs = ({
-  filterOptions = demo_filters_options as FilterOption[],
+  filterOptions = [],
 }: {
   filterOptions?: FilterOption[]
 }) => {
@@ -298,9 +106,11 @@ const ListingFilterTabs = ({
         >
           <HugeiconsIcon icon={FilterVerticalIcon} size={16} color="currentColor" strokeWidth={1.5} />
           <span>{T['common']['All filters']}</span>
-          <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
-            4
-          </span>
+          {filterOptions.length > 0 ? (
+            <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
+              {Math.min(filterOptions.length, 99)}
+            </span>
+          ) : null}
         </Button>
 
         <Dialog
@@ -367,7 +177,7 @@ const ListingFilterTabs = ({
   }
 
   if (!filterOptions || filterOptions.length === 0) {
-    return <div>No filter options available</div>
+    return null
   }
 
   return (

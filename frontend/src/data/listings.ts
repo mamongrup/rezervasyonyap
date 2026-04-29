@@ -15,7 +15,7 @@ import {
   resolvePublishedListingIdForStayPage,
   searchPublicListings,
 } from '@/lib/travel-api'
-import type { FilterOption, MealPlanSummary, TListingBase, TListingVisa } from '@/types/listing-types'
+import type { FilterOption, MealPlanSummary, TListingBase } from '@/types/listing-types'
 
 /** SectionHost vitrin tipi — konaklama birleştirmesi ve araç / deneyim kısmi host bilgisi */
 export type StayListingHost = {
@@ -889,8 +889,4 @@ export async function getFlightFilterOptions(): Promise<FilterOption[]> {
       ],
     },
   ]
-}
-
-export async function getVisaMockListings(): Promise<TListingVisa[]> {
-  return []
 }

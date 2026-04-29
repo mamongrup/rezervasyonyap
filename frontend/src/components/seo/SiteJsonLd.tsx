@@ -7,7 +7,7 @@ import {
   rawSiteDescription,
   toAbsoluteSiteUrl,
 } from '@/lib/site-branding-seo'
-import { getSitePublicConfig } from '@/lib/site-public-config'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
 
 type Props = {
@@ -17,7 +17,7 @@ type Props = {
 /** Organization + WebSite şeması — panel `branding` + ortam iletişim alanları birleşik. */
 export default async function SiteJsonLd({ locale }: Props) {
   const pub = await getCachedSiteConfig()
-  const c = getSitePublicConfig()
+  const c = mergeBrandingIntoEnvContact(getSitePublicConfig(), pub?.branding ?? null)
   const base = getPublicSiteUrl()
   if (!base) return null
   const homePath = await vitrinHref(locale, '/')

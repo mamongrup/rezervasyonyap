@@ -1,5 +1,3 @@
-import { getMessages } from '@/utils/getT'
-
 /**
  * Tatil evi dikey meta (`vertical_holiday_home`) — havuz satırları.
  * Panel: `CatalogNewListingClient` → `putVerticalMeta(..., 'holiday_home', { pools })`
@@ -87,38 +85,6 @@ export function getPoolHeatingReservationOption(
   if (dailyAmount == null || dailyAmount <= 0) return null
   const currencyCode = listingCurrencyCode.trim().toUpperCase() || 'TRY'
   return { dailyAmount, feeSummary: raw, currencyCode }
-}
-
-/** API’de havuz meta’sı yokken vitrin önizlemesi için örnek veri */
-export function getDemoHolidayHomePools(locale?: string | null): HolidayHomePools {
-  const heatingDemo =
-    getMessages(locale).listing.poolInfo.heatingFeeDemoValue ?? '350 ₺'
-  return {
-    open_pool: {
-      enabled: true,
-      width: '12',
-      length: '6',
-      depth: '1.5',
-      description: 'Bahçe tarafında, güneşlenme alanı ve şezlonglar.',
-      heating_fee_per_day: '',
-    },
-    heated_pool: {
-      enabled: true,
-      width: '8',
-      length: '4',
-      depth: '1.4',
-      description: 'Kış aylarında ısıtılabilir; kapalı alan yanında.',
-      heating_fee_per_day: heatingDemo,
-    },
-    children_pool: {
-      enabled: true,
-      width: '4',
-      length: '3',
-      depth: '0.5',
-      description: 'Sığ derinlik; çocuk oyun alanına yakın.',
-      heating_fee_per_day: '',
-    },
-  }
 }
 
 /** Ölçülerden en az biri doluysa göster */

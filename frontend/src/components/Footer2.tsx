@@ -1,7 +1,7 @@
 import { Footer2TrustBadge } from '@/components/Footer2TrustBadge'
 import { getFooterSiteConfig } from '@/lib/footer-site-config'
 import { pickI18nWithLegacy } from '@/lib/i18n-field'
-import { getSitePublicConfig } from '@/lib/site-public-config'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { getMessages } from '@/utils/getT'
 import Logo from '@/shared/Logo'
@@ -47,6 +47,8 @@ function socialIcon(name: string): (props: SVGProps<SVGSVGElement>) => JSX.Eleme
 
 type Footer2Props = {
   locale: string
+  /** `site_settings.branding` — sosyal / iletişim env değerlerinin üzerine yazar */
+  branding?: Record<string, unknown> | null
 }
 
 async function resolveFooterHref(locale: string, href: string): Promise<string> {
@@ -55,8 +57,8 @@ async function resolveFooterHref(locale: string, href: string): Promise<string> 
   return vitrinHref(locale, path)
 }
 
-export default function Footer2({ locale }: Footer2Props) {
-  const c = getSitePublicConfig()
+export default function Footer2({ locale, branding }: Footer2Props) {
+  const c = mergeBrandingIntoEnvContact(getSitePublicConfig(), branding)
   const cfg = use(getFooterSiteConfig())
   const t = getMessages(locale)
 

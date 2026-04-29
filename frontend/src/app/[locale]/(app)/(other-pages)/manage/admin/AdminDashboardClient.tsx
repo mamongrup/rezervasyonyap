@@ -297,7 +297,7 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Tamamlandı',
 }
 
-// ─── Mock Data (backend admin stats endpoint hazır olana kadar) ───────────────
+// ─── Yer tutucu: gerçek admin KPI endpoint’i gelene kadar 0 gösterilir ───────
 
 function buildMonthLabels(n = 6) {
   const months = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara']
@@ -308,13 +308,7 @@ function buildMonthLabels(n = 6) {
   })
 }
 
-const MOCK_MONTHLY_REVENUE = [42000, 67000, 55000, 89000, 104000, 118000]
-const MOCK_MONTHLY_RESERVATIONS = [31, 48, 40, 62, 74, 88]
-const MOCK_STATUS_COUNTS = { inquiry: 12, held: 8, confirmed: 74, cancelled: 6, completed: 188 }
-const MOCK_LISTING_COUNT = 142
-const MOCK_AD_SPEND = 18400
-const MOCK_GROSS = 118000
-const MOCK_COMMISSION = 14160
+const EMPTY_SPARKLINE_6 = [0, 0, 0, 0, 0, 0]
 
 // ─── Quick Actions ────────────────────────────────────────────────────────────
 
@@ -352,7 +346,7 @@ export default function AdminDashboardClient() {
       if (resRes.status === 'fulfilled') setReservations(resRes.value.reservations)
       if (seoRes.status === 'fulfilled') setNotFoundCount(seoRes.value.logs.length)
     } catch {
-      /* ignore — use mock data */
+      /* ignore */
     } finally {
       setLoading(false)
     }
@@ -367,8 +361,7 @@ export default function AdminDashboardClient() {
       .reduce((sum, i) => sum + parseFloat(i.commission_total || '0'), 0)
   }, [invoices])
 
-  const totalCommission = realCommission > 0 ? realCommission : MOCK_COMMISSION
-  const isReal = realCommission > 0
+  const totalCommission = realCommission
 
   const pendingReservations = reservations.filter((r) => r.status === 'pending').length
   const confirmedToday = reservations.filter((r) => {
@@ -382,7 +375,6 @@ export default function AdminDashboardClient() {
   const attentionItems = [
     pendingReservations > 0 && { label: 'Onay bekleyen rezervasyon', count: pendingReservations, href: '/manage/reservations', color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/20', border: 'border-amber-200 dark:border-amber-900/30' },
     notFoundCount > 0 && { label: '404 kırık bağlantı', count: notFoundCount, href: '/manage/seo/404', color: 'text-red-600', bg: 'bg-red-50 dark:bg-red-950/20', border: 'border-red-200 dark:border-red-900/30' },
-    { label: 'Yorum onay bekliyor', count: 3, href: '/manage/settings/reviews', color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-950/20', border: 'border-blue-200 dark:border-blue-900/30' },
   ].filter(Boolean) as { label: string; count: number; href: string; color: string; bg: string; border: string }[]
 
   // Status donut data
@@ -390,7 +382,7 @@ export default function AdminDashboardClient() {
     acc[r.status] = (acc[r.status] ?? 0) + 1
     return acc
   }, {})
-  const statusCounts = Object.keys(liveStatusCounts).length > 0 ? liveStatusCounts : MOCK_STATUS_COUNTS
+  const statusCounts = liveStatusCounts
   const statusSegments: DonutSegment[] = Object.entries(statusCounts).map(([key, val]) => ({
     label: STATUS_LABELS[key] ?? key,
     value: val,
@@ -413,11 +405,6 @@ export default function AdminDashboardClient() {
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
             Platform genel durumu ve istatistikler
-            {!isReal && (
-              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                Demo veri
-              </span>
-            )}
           </p>
         </div>
         <button
@@ -485,12 +472,11 @@ export default function AdminDashboardClient() {
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           label="Toplam ilan"
-          value={fmtCount(MOCK_LISTING_COUNT)}
+          value={fmtCount(0)}
           sub="yayında"
           icon={Layers}
           iconColor="#00a76f"
-          trend={+5.2}
-          sparkline={[80, 95, 88, 110, 125, 142]}
+          sparkline={EMPTY_SPARKLINE_6}
         />
         <KpiCard
           label="Rezervasyonlar"
@@ -498,35 +484,31 @@ export default function AdminDashboardClient() {
           sub="tüm zamanlar"
           icon={CalendarCheck2}
           iconColor="#3b82f6"
-          trend={+12.4}
-          sparkline={[120, 145, 160, 188, 210, 288]}
+          sparkline={EMPTY_SPARKLINE_6}
         />
         <KpiCard
           label="Brüt gelir"
-          value={fmt(MOCK_GROSS)}
+          value={fmt(0)}
           sub="son 30 gün"
           icon={TrendingUp}
           iconColor="#8b5cf6"
-          trend={+8.7}
-          sparkline={MOCK_MONTHLY_REVENUE.slice(-5)}
+          sparkline={EMPTY_SPARKLINE_6.slice(-5)}
         />
         <KpiCard
           label="Net komisyon"
           value={fmt(totalCommission)}
-          sub={isReal ? 'kesilmiş faturalar' : 'tahmini'}
+          sub="kesilmiş faturalar"
           icon={CreditCard}
           iconColor="#f59e0b"
-          trend={isReal ? undefined : +6.1}
-          sparkline={MOCK_MONTHLY_REVENUE.map((v) => v * 0.12)}
+          sparkline={EMPTY_SPARKLINE_6}
         />
         <KpiCard
           label="Reklam harcaması"
-          value={fmt(MOCK_AD_SPEND)}
+          value={fmt(0)}
           sub="tedarikçi promosyon"
           icon={Globe}
           iconColor="#ef4444"
-          trend={-2.3}
-          sparkline={[12000, 14000, 16000, 15000, 17000, 18400]}
+          sparkline={EMPTY_SPARKLINE_6}
         />
       </div>
 
@@ -541,7 +523,10 @@ export default function AdminDashboardClient() {
             <span className="text-xs text-neutral-400">Son 30 gün</span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-            {Object.entries(MOCK_STATUS_COUNTS).map(([status, count]) => {
+            {Object.keys(statusCounts).length === 0 ? (
+              <p className="col-span-full text-sm text-neutral-500">Henüz rezervasyon kaydı yok.</p>
+            ) : (
+            Object.entries(statusCounts).map(([status, count]) => {
               const color = STATUS_COLORS[status] ?? '#888'
               const pct = ((count / totalReservations) * 100).toFixed(0)
               return (
@@ -564,7 +549,8 @@ export default function AdminDashboardClient() {
                   <p className="mt-1 text-[10px] text-neutral-400">%{pct}</p>
                 </div>
               )
-            })}
+            })
+            )}
           </div>
         </div>
 
@@ -606,14 +592,14 @@ export default function AdminDashboardClient() {
           <SvgBarChart
             data={monthLabels.map((label, i) => ({
               label,
-              value: MOCK_MONTHLY_REVENUE[i] ?? 0,
+              value: EMPTY_SPARKLINE_6[i] ?? 0,
             }))}
             color="#00a76f"
           />
           <div className="mt-3 flex items-center justify-between border-t border-neutral-50 pt-3 dark:border-neutral-800">
             <span className="text-xs text-neutral-400">Toplam (6 ay)</span>
             <span className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
-              {fmt(MOCK_MONTHLY_REVENUE.reduce((a, b) => a + b, 0))}
+              {fmt(0)}
             </span>
           </div>
         </div>
@@ -632,14 +618,14 @@ export default function AdminDashboardClient() {
           <SvgBarChart
             data={monthLabels.map((label, i) => ({
               label,
-              value: MOCK_MONTHLY_RESERVATIONS[i] ?? 0,
+              value: EMPTY_SPARKLINE_6[i] ?? 0,
             }))}
             color="#3b82f6"
           />
           <div className="mt-3 flex items-center justify-between border-t border-neutral-50 pt-3 dark:border-neutral-800">
             <span className="text-xs text-neutral-400">Toplam (6 ay)</span>
             <span className="text-sm font-bold text-neutral-800 dark:text-neutral-200">
-              {MOCK_MONTHLY_RESERVATIONS.reduce((a, b) => a + b, 0)} rezervasyon
+              0 rezervasyon
             </span>
           </div>
         </div>

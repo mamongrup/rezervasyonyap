@@ -37,6 +37,8 @@ const ExperiencesCardH: FC<Props> = ({ className = '', data }) => {
     host: author,
     id,
     listingVertical,
+    durationTime,
+    maxGuests,
   } = data
 
   const base = detailPathForVertical(normalizeCatalogVertical(listingVertical) ?? 'activity')
@@ -77,23 +79,24 @@ const ExperiencesCardH: FC<Props> = ({ className = '', data }) => {
             </div>
           </div>
         </div>
-        <div className="mt-4 hidden text-sm text-neutral-500 sm:block dark:text-neutral-400">
-          <span className="line-clamp-2">
-            {`Making a cup of coffee in Vietnam is a whole process that you barely
-            have free time in the middle. But it's also not a really complicated
-            task to start the day with`}
-          </span>
-        </div>
+        {(durationTime?.trim() || maxGuests != null) && (
         <div className="mt-4 flex items-center gap-x-8">
+          {durationTime?.trim() ? (
           <div className="flex items-center gap-x-2">
             <HugeiconsIcon icon={Clock01Icon} className="h-4 w-4" strokeWidth={1.75} />
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">3 hours</span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">{durationTime}</span>
           </div>
+          ) : null}
+          {maxGuests != null ? (
           <div className="flex items-center gap-x-2">
             <HugeiconsIcon icon={UserMultiple02Icon} className="h-4 w-4" strokeWidth={1.75} />
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">Up to 6 people</span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">
+              Up to {maxGuests} people
+            </span>
           </div>
+          ) : null}
         </div>
+        )}
         <div className="my-4 w-14 border-b border-neutral-100 dark:border-neutral-800"></div>
         <div className="flex items-end justify-between">
           <div className="flex items-center gap-x-3 text-sm text-neutral-700 dark:text-neutral-300">

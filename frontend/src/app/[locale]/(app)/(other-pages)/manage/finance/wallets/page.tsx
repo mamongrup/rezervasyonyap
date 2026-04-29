@@ -2,14 +2,11 @@
 
 import { Wallet } from 'lucide-react'
 
-const DEMO_WALLETS = [
-  { user: 'ali@example.com', balance: '1250.00', currency: 'TRY', lastTx: '2025-03-15' },
-  { user: 'ayse@example.com', balance: '3780.50', currency: 'TRY', lastTx: '2025-03-20' },
-  { user: 'mehmet@example.com', balance: '520.00', currency: 'TRY', lastTx: '2025-03-10' },
-]
+type WalletRow = { user: string; balance: string; currency: string; lastTx: string }
 
 export default function Page() {
-  const total = DEMO_WALLETS.reduce((a, w) => a + parseFloat(w.balance), 0)
+  const rows: WalletRow[] = []
+  const total = rows.reduce((a, w) => a + parseFloat(w.balance), 0)
 
   return (
     <div className="p-6 lg:p-8">
@@ -27,7 +24,7 @@ export default function Page() {
           <p className="text-xs text-neutral-500">Toplam cüzdan bakiyesi</p>
         </div>
         <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-          <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{DEMO_WALLETS.length}</p>
+          <p className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">{rows.length}</p>
           <p className="text-xs text-neutral-500">Aktif cüzdan</p>
         </div>
       </div>
@@ -45,17 +42,24 @@ export default function Page() {
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
-            {DEMO_WALLETS.map((w) => (
-              <tr key={w.user} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
-                <td className="py-3 pl-5 text-neutral-700 dark:text-neutral-300">{w.user}</td>
-                <td className="py-3 text-right font-mono text-sm font-bold text-violet-600">{parseFloat(w.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} {w.currency}</td>
-                <td className="py-3 pr-5 text-right text-xs text-neutral-400">{new Date(w.lastTx).toLocaleDateString('tr-TR')}</td>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="py-10 text-center text-sm text-neutral-500">
+                  Henüz cüzdan kaydı yok. Veriler API bağlandığında burada listelenecek.
+                </td>
               </tr>
-            ))}
+            ) : (
+              rows.map((w) => (
+                <tr key={w.user} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
+                  <td className="py-3 pl-5 text-neutral-700 dark:text-neutral-300">{w.user}</td>
+                  <td className="py-3 text-right font-mono text-sm font-bold text-violet-600">{parseFloat(w.balance).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} {w.currency}</td>
+                  <td className="py-3 pr-5 text-right text-xs text-neutral-400">{new Date(w.lastTx).toLocaleDateString('tr-TR')}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
-      <p className="mt-3 text-xs text-neutral-400">* Demo veri — cüzdan API entegrasyonu yapılandırma gerektirir.</p>
     </div>
   )
 }

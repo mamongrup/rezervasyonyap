@@ -19,44 +19,18 @@ interface SectionVideosProps {
   subheading?: string
 }
 
-const demo_videos: VideoType[] = [
-  {
-    id: 'p4U5ArTFMEY',
-    title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
-    thumbnail:
-      '/uploads/external/c7cedf9e9e98b097910e.avif',
-  },
-  {
-    id: 'y7gKlzvg8xk',
-    title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
-    thumbnail:
-      '/uploads/external/587acaa3c9f011e1dea6.avif',
-  },
-  {
-    id: 'fKXaypnVL8s',
-    title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
-    thumbnail:
-      '/uploads/external/f31c6e8a566b70d2181b.avif',
-  },
-  {
-    id: 'unPKJJjQP0A',
-    title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
-    thumbnail:
-      '/uploads/external/e680d161511d3797f4ad.avif',
-  },
-  {
-    id: 'vazwd0HOohE',
-    title: 'Magical Scotland - 4K Scenic Relaxation Film with Calming Music',
-    thumbnail:
-      '/uploads/external/fc63b0d4e036f7f847d5.avif',
-  },
-]
+const SectionVideos: FC<SectionVideosProps> = (props) => {
+  const list = props.videos ?? []
+  if (list.length === 0) return null
+  return <SectionVideosInner {...props} videos={list} />
+}
 
-const SectionVideos: FC<SectionVideosProps> = ({
-  videos = demo_videos,
+const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
+  videos,
   className = '',
   heading = '🎬 The Videos',
-  subheading = 'Check out our hottest videos. View more and share more new perspectives on just about any topic. Everyone\'s welcome.',
+  subheading =
+    "Check out our hottest videos. View more and share more new perspectives on just about any topic. Everyone's welcome.",
 }) => {
   const [isPlay, setIsPlay] = useState(false)
   const [currentVideo, setCurrentVideo] = useState(0)
@@ -125,9 +99,7 @@ const SectionVideos: FC<SectionVideosProps> = ({
 
   return (
     <div className={`nc-SectionVideos ${className}`}>
-      <Heading subheading={subheading}>
-        {heading}
-      </Heading>
+      <Heading subheading={subheading}>{heading}</Heading>
 
       <div className="relative flex flex-col sm:py-4 sm:pe-4 md:py-6 md:pe-6 lg:flex-row xl:py-14 xl:pe-14">
         <div className="absolute -end-4 -top-4 -bottom-4 z-0 w-2/3 rounded-3xl bg-primary-100/40 sm:rounded-[50px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />

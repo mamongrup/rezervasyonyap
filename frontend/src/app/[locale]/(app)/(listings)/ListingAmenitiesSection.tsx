@@ -46,7 +46,7 @@ export default function ListingAmenitiesSection({
   variant: 'hotel' | 'villa'
   className?: string
   /** Backend `listing_attributes` üzerinden gelen seçili amenity key listesi.
-   *  Boş/undefined ise sabit demo listesi kullanılır. */
+   *  Boş/undefined ise şablondaki varsayılan otel/villa havuzu kullanılır. */
   customSelectedIds?: readonly string[]
   /** Bilinmeyen key'ler için tedarikçi etiket map'i (örn. {"private_chef":"Özel şef"}). */
   customLabels?: Record<string, string>

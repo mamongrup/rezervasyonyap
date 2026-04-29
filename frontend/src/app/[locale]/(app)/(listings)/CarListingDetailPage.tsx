@@ -1,15 +1,13 @@
 import { getCarListingByHandle, listingHostForSection } from '@/data/listings'
 import StartRating from '@/components/StartRating'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import T from '@/utils/getT'
-import { Backpack02Icon, CheckmarkCircle01Icon, HumidityIcon, SeatSelectorIcon, Settings03Icon } from '@hugeicons/core-free-icons'
+import { Backpack02Icon, HumidityIcon, SeatSelectorIcon, Settings03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
 import Form from 'next/form'
 import { redirect } from 'next/navigation'
-import { Fragment } from 'react'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
@@ -136,64 +134,6 @@ export default async function CarListingDetailPage({
     )
   }
 
-  const renderSectionInfo = () => {
-    const checklists = [
-      { title: 'Pick-up time', description: 'Your pick-up time is 10:00 AM' },
-      { title: 'Insurance coverage', description: 'Collision Damage Waiver included' },
-      { title: 'Driver requirements', description: 'Valid driver’s license and ID' },
-      { title: 'Payment method', description: "A credit card in the main driver's name, to hold the security deposit" },
-      { title: 'Return instructions', description: 'Return the car to the same location by 10:00 AM' },
-      { title: 'Additional services', description: 'GPS and child seat available upon request' },
-      { title: 'Cancellation policy', description: 'Free cancellation up to 48 hours before pick-up' },
-    ]
-
-    return (
-      <div className="listingSection__wrap">
-        <SectionHeading>Your pick-up checklist</SectionHeading>
-        <Divider className="w-14!" />
-
-        <DescriptionList>
-          {checklists.map((item) => (
-            <Fragment key={item.title}>
-              <DescriptionTerm>{item.title}</DescriptionTerm>
-              <DescriptionDetails>{item.description}</DescriptionDetails>
-            </Fragment>
-          ))}
-        </DescriptionList>
-      </div>
-    )
-  }
-
-  const renderSectionIncludes = () => {
-    const includes_demo = [
-      { name: 'Free cancellation up to 48 hours' },
-      { name: 'Collision Damage Waiver with $214 deductible' },
-      { name: 'Theft Protection with $19,999 excess' },
-      { name: 'Unlimited mileage' },
-      { name: 'Car interiors and exteriors cleaned with disinfectant before pick-up' },
-      { name: 'Masks are required at the pick-up location' },
-      { name: '24/7 roadside assistance' },
-      { name: 'Free Wi-Fi in the car' },
-      { name: 'GPS navigation system included' },
-      { name: 'Child safety seat available upon request' },
-    ]
-    return (
-      <div className="listingSection__wrap">
-        <SectionHeading>Included in the price </SectionHeading>
-        <Divider className="w-14!" />
-
-        <div className="grid grid-cols-1 gap-6 text-sm text-neutral-700 lg:grid-cols-2 dark:text-neutral-300">
-          {includes_demo.map((item) => (
-            <div key={item.name} className="flex items-center gap-x-3">
-              <HugeiconsIcon icon={CheckmarkCircle01Icon} className="mt-px h-6 w-6 shrink-0" strokeWidth={1.75} />
-              <span>{item.name}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-    )
-  }
-
   const renderSidebarPriceAndForm = () => {
     return (
       <>
@@ -235,13 +175,6 @@ export default async function CarListingDetailPage({
             <DatesRangeInputPopover locale={locale} />
           </div>
 
-          <DescriptionList>
-            <DescriptionTerm>$19.00 x 3 day</DescriptionTerm>
-            <DescriptionDetails className="sm:text-right">$57.00</DescriptionDetails>
-            <DescriptionTerm className="font-semibold text-neutral-900">Total</DescriptionTerm>
-            <DescriptionDetails className="font-semibold sm:text-right">$57.00</DescriptionDetails>
-          </DescriptionList>
-
           <ButtonPrimary form="booking-form" type="submit" className="w-full">
             {T['common']['Reserve']}
           </ButtonPrimary>
@@ -257,8 +190,6 @@ export default async function CarListingDetailPage({
       <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
           {renderSectionHeader()}
-          {renderSectionIncludes()}
-          {renderSectionInfo()}
           <SectionDateRange
             locale={locale}
             initialDays={availabilityCalendarDays}

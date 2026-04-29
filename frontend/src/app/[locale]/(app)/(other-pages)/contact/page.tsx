@@ -1,21 +1,48 @@
 'use client'
 
 import SectionSubscribe2 from '@/components/SectionSubscribe2'
-import { getSitePublicConfig } from '@/lib/site-public-config'
-import { createSupportChatSession, postSupportChatMessage } from '@/lib/travel-api'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
+import { buildSocialLinksFromSiteConfig } from '@/lib/site-social-links'
+import {
+  createSupportChatSession,
+  getSitePublicConfig as fetchSitePublicConfig,
+  postSupportChatMessage,
+} from '@/lib/travel-api'
 import { getMessages } from '@/utils/getT'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import SocialsList from '@/shared/SocialsList'
 import { useParams } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 export default function PageContact() {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const T = getMessages(locale).contactPage
 
-  const c = getSitePublicConfig()
+  const [contactCfg, setContactCfg] = useState(() => getSitePublicConfig())
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [message, setMessage] = useState('')
+  const [pending, setPending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchSitePublicConfig(undefined)
+      .then((pub) => {
+        if (!cancelled) {
+          setContactCfg(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding))
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const c = contactCfg
   const info: { title: string; description: string; href?: string }[] = []
   if (c.address) info.push({ title: T.addressLabel, description: c.address })
   if (c.email) info.push({ title: T.emailLabel, description: c.email, href: `mailto:${c.email}` })
@@ -28,12 +55,7 @@ export default function PageContact() {
     )
   }
 
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [message, setMessage] = useState('')
-  const [pending, setPending] = useState(false)
-  const [sent, setSent] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const socials = buildSocialLinksFromSiteConfig(c)
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -77,7 +99,7 @@ export default function PageContact() {
               ))}
               <div>
                 <h3 className="text-sm font-semibold tracking-wider uppercase dark:text-neutral-200">{T.socialLabel}</h3>
-                <SocialsList className="mt-2" />
+                <SocialsList className="mt-2" socials={socials} />
               </div>
             </div>
           </div>

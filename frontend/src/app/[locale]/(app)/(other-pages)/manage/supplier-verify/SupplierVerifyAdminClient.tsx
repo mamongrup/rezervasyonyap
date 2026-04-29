@@ -18,7 +18,7 @@ import {
 import { getStoredAuthToken } from '@/lib/auth-storage'
 
 // ─── Tipler ───────────────────────────────────────────────────────────────────
-// Gerçek sistemde backend'den gelir; şimdilik localStorage tabanlı demo
+// Gerçek sistemde backend'den gelir; API bağlanana kadar boş liste.
 type VerifyStatus = 'admin_pending' | 'admin_approved' | 'admin_rejected' | 'gib_found' | 'vkn_valid' | 'gib_not_found'
 
 interface SupplierVerifyRecord {
@@ -55,54 +55,8 @@ const STATUS_BADGE: Record<VerifyStatus, string> = {
   gib_not_found: 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-400',
 }
 
-// ─── Demo veri üreteci (localStorage'dan + örnek kayıtlar) ────────────────────
-function loadDemoRecords(): SupplierVerifyRecord[] {
-  const examples: SupplierVerifyRecord[] = [
-    {
-      id: 'demo-1',
-      userEmail: 'ahmet@abcturizm.com',
-      vkn: '1234567890',
-      companyName: 'ABC Turizm A.Ş.',
-      taxOffice: 'Fethiye Vergi Dairesi',
-      gibTitle: 'ABC TURİZM ANONİM ŞİRKETİ',
-      gibTaxOffice: 'FETHİYE',
-      status: 'admin_pending',
-      submittedAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
-    },
-    {
-      id: 'demo-2',
-      userEmail: 'info@bodrum-villa.tr',
-      vkn: '9876543210',
-      companyName: 'Bodrum Villa Kiralama Ltd. Şti.',
-      taxOffice: 'Bodrum Vergi Dairesi',
-      status: 'gib_not_found',
-      submittedAt: new Date(Date.now() - 24 * 3600_000).toISOString(),
-    },
-    {
-      id: 'demo-3',
-      userEmail: 'marmaris@example.com',
-      vkn: '5432167890',
-      companyName: 'Marmaris Deniz Turizm',
-      gibTitle: 'MARMARİS DENİZ TURİZM TİC. A.Ş.',
-      gibTaxOffice: 'MARMARİS',
-      status: 'admin_approved',
-      submittedAt: new Date(Date.now() - 5 * 24 * 3600_000).toISOString(),
-      reviewedAt: new Date(Date.now() - 4 * 24 * 3600_000).toISOString(),
-      reviewedBy: 'admin@site.com',
-    },
-    {
-      id: 'demo-4',
-      userEmail: 'test@rejected.com',
-      vkn: '1111111110',
-      companyName: 'Test Şirketi',
-      status: 'admin_rejected',
-      submittedAt: new Date(Date.now() - 10 * 24 * 3600_000).toISOString(),
-      reviewedAt: new Date(Date.now() - 9 * 24 * 3600_000).toISOString(),
-      reviewedBy: 'admin@site.com',
-      adminNote: 'VKN gerçek firma ile eşleşmiyor, evrak yüklemesi talep edildi.',
-    },
-  ]
-  return examples
+function loadInitialRecords(): SupplierVerifyRecord[] {
+  return []
 }
 
 // ─── Ana bileşen ─────────────────────────────────────────────────────────────
@@ -117,12 +71,11 @@ export default function SupplierVerifyAdminClient() {
 
   const load = useCallback(() => {
     setLoading(true)
-    // Gerçek sistemde: API çağrısı ile backend'den çekilir
-    // Şimdilik demo veri + localStorage
+    // Gerçek sistemde: API ile yüklenir
     setTimeout(() => {
-      const demo = loadDemoRecords()
-      setRecords(demo)
-      setNoteInputs(Object.fromEntries(demo.map((r) => [r.id, r.adminNote ?? ''])))
+      const initial = loadInitialRecords()
+      setRecords(initial)
+      setNoteInputs(initial.length ? Object.fromEntries(initial.map((r) => [r.id, r.adminNote ?? ''])) : {})
       setLoading(false)
     }, 400)
   }, [])

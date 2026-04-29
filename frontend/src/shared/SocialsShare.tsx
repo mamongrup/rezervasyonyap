@@ -24,12 +24,6 @@ export interface SocialType {
   href: string
 }
 
-const socialsDemo: SocialType[] = [
-  { name: 'Facebook', href: '#', icon: Facebook01Icon },
-  { name: 'Email', href: '#', icon: Mail01Icon },
-  { name: 'Twitter', href: '#', icon: NewTwitterIcon },
-]
-
 function builtInSocials(pageUrl: string, title?: string): SocialType[] {
   return [
     { name: 'Facebook', href: buildFacebookShareUrl(pageUrl), icon: Facebook01Icon },
@@ -48,8 +42,10 @@ const SocialsShare: FC<SocialsShareProps> = ({
   const items = useMemo(() => {
     if (socials?.length) return socials
     if (url) return builtInSocials(url, title)
-    return socialsDemo
+    return []
   }, [socials, url, title])
+
+  if (items.length === 0) return null
 
   const renderItem = (item: SocialType, index: number) => {
     const isMail = item.href.startsWith('mailto:')

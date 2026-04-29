@@ -1,13 +1,14 @@
 import { Bathtub02Icon, BedSingle01Icon, MeetingRoomIcon } from '@/components/Icons'
 import { getListingReviews } from '@/data/data'
+import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getStayListingByHandle } from '@/data/listings'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
-import { getSitePublicConfig as getSitePublicConfigSync } from '@/lib/site-public-config'
+import { getSitePublicConfig as getSitePublicConfigSync, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { buildSeasonalPricingTableRows, getDemoSeasonalPricingTableRows } from '@/lib/listing-price-rules-public'
+import { buildSeasonalPricingTableRows } from '@/lib/listing-price-rules-public'
 import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
 import {
@@ -123,7 +124,10 @@ export default async function StayListingDetailPageContent({
   linkBase: StayDetailLinkBase | string
 }) {
   const { handle, locale } = await params
-  const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
+  const [calendarMonthsShown, sitePubApi] = await Promise.all([
+    guessCalendarMonthsShownFromRequest(),
+    getCachedSiteConfig(),
+  ])
   const listing = await getStayListingByHandle(handle, locale)
   if (!listing?.id) {
     const browse =
@@ -180,7 +184,7 @@ export default async function StayListingDetailPageContent({
       .map((a) => a.key)
     amenityKeys = Array.from(new Set(amenityKeys))
   } catch {
-    /* attributes yoksa sabit demo listesi devreye girer */
+    /* attributes API yok — boş liste */
   }
 
   // hotel_rooms (Tur3) — vitrin oda tablosunda demo verisi yerine gerçek odalar.
@@ -245,7 +249,7 @@ export default async function StayListingDetailPageContent({
       }
     })
   } catch {
-    /* odalar yoksa demo akış */
+    /* hotel_rooms API yok */
   }
 
   const {
@@ -290,7 +294,6 @@ export default async function StayListingDetailPageContent({
   /** API `meal_plan_summary === 'both'` — ücret tablosunda yemekli / yemeksiz sütunları */
   const dualMealPricing = isHolidayHome && listing.mealPlanSummary === 'both'
   let seasonalPricingRows: ReturnType<typeof buildSeasonalPricingTableRows> = []
-  let seasonalPricingDemo = false
   if (isHolidayHome) {
     const seasonalMsg = {
       defaultPeriod: messages.listing.seasonalPricing.defaultPeriod,
@@ -306,15 +309,6 @@ export default async function StayListingDetailPageContent({
       seasonalMsg,
       { preferDualMealColumns: dualMealPricing },
     )
-    if (seasonalPricingRows.length === 0) {
-      seasonalPricingRows = getDemoSeasonalPricingTableRows(
-        locale,
-        listingCurrencyUpper,
-        seasonalMsg,
-        { preferDualMealColumns: dualMealPricing },
-      )
-      seasonalPricingDemo = true
-    }
   }
 
   const seasonalExtraCharges: ListingExtraChargesModel | undefined = isHolidayHome
@@ -405,7 +399,7 @@ export default async function StayListingDetailPageContent({
   const similarListings = (isHolidayHome ? otherStays.slice(0, 4) : otherStays.slice(0, 8)).map(mapSimilar)
   const nearbyListings = isHolidayHome ? otherStays.slice(4, 8).map(mapSimilar) : []
 
-  const siteConfig = getSitePublicConfigSync()
+  const siteConfig = mergeBrandingIntoEnvContact(getSitePublicConfigSync(), sitePubApi?.branding ?? null)
   const whatsappNumber = siteConfig.whatsappE164
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
 
@@ -555,22 +549,15 @@ export default async function StayListingDetailPageContent({
   )
 
   const renderSectionRoomTypes = () => {
-    // Gerçek hotel_rooms varsa onu, yoksa demo veriyi göster.
-    const roomTypes = realHotelRooms.length > 0
-      ? realHotelRooms.map((r) => ({
-          name: r.name,
-          guests: r.capacity ?? 2,
-          beds: 1,
-          // Fiyat oda bazlı henüz vitrin paritesinde değil; rezervasyon kartından akar.
-          price: '—',
-          weekend: r.boardType ? r.boardType : '—',
-        }))
-      : [
-          { name: dp.demoRoomStandard, guests: 2, beds: 1, price: '₺1.990', weekend: '₺2.290' },
-          { name: dp.demoRoomDeluxe, guests: 2, beds: 1, price: '₺2.490', weekend: '₺2.890' },
-          { name: dp.demoRoomSuite, guests: 3, beds: 2, price: '₺3.490', weekend: '₺3.990' },
-          { name: dp.demoRoomFamily, guests: 4, beds: 2, price: '₺4.190', weekend: '₺4.790' },
-        ]
+    if (realHotelRooms.length === 0) return null
+    const roomTypes = realHotelRooms.map((r) => ({
+      name: r.name,
+      guests: r.capacity ?? 2,
+      beds: 1,
+      // Fiyat oda bazlı henüz vitrin paritesinde değil; rezervasyon kartından akar.
+      price: '—',
+      weekend: r.boardType ? r.boardType : '—',
+    }))
     return (
       <div className="listingSection__wrap">
         <div>
@@ -617,32 +604,7 @@ export default async function StayListingDetailPageContent({
     )
   }
 
-  const renderSectionPriceRates = () => {
-    const roomRates = [
-      { title: dp.priceDemoWeekday, value: '₺1.990' },
-      { title: dp.priceDemoWeekend, value: '₺2.190' },
-      { title: dp.priceDemoMonthly, value: dp.priceDemoDiscount },
-      { title: dp.priceDemoMinStay, value: dp.priceDemoMinNights },
-      { title: dp.priceDemoMaxStay, value: dp.priceDemoMaxNights },
-    ]
-    return (
-      <div className="listingSection__wrap">
-        <div>
-          <SectionHeading>{dp.priceRatesTitle}</SectionHeading>
-          <SectionSubheading>{dp.priceRatesSubtitle}</SectionSubheading>
-        </div>
-        <Divider className="w-14!" />
-        <DescriptionList>
-          {roomRates.map((item) => (
-            <Fragment key={item.title}>
-              <DescriptionTerm>{item.title}</DescriptionTerm>
-              <DescriptionDetails>{item.value}</DescriptionDetails>
-            </Fragment>
-          ))}
-        </DescriptionList>
-      </div>
-    )
-  }
+  const renderSectionPriceRates = () => null
 
   const renderSectionRules = () => {
     const checkInOut = [
@@ -817,11 +779,13 @@ export default async function StayListingDetailPageContent({
             />
           )}
           {renderSectionDescription()}
-          <ListingAmenitiesSection
-            locale={locale}
-            variant={isHolidayHome ? 'villa' : 'hotel'}
-            customSelectedIds={amenityKeys}
-          />
+          {amenityKeys.length > 0 && (
+            <ListingAmenitiesSection
+              locale={locale}
+              variant={isHolidayHome ? 'villa' : 'hotel'}
+              customSelectedIds={amenityKeys}
+            />
+          )}
           {isHolidayHome && (
             <ListingPoolInfoSection
               locale={locale}
@@ -829,96 +793,32 @@ export default async function StayListingDetailPageContent({
               demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
             />
           )}
-          {isHolidayHome && (
+          {isHolidayHome && seasonalPricingRows.length > 0 && (
             <ListingSeasonalPricingSection
               locale={locale}
               rows={seasonalPricingRows}
-              demo={seasonalPricingDemo}
+              demo={false}
               extraCharges={seasonalExtraCharges}
               dualMealPricing={dualMealPricing}
             />
           )}
           {/* Oteller için Booking/ETStur tarzı oda kartı gösterimi; yat için
               mevcut özet tablosu korunur. Tatil evinde oda listesi yok. */}
-          {vertical === 'hotel' ? (
+          {vertical === 'hotel' && realHotelRooms.length > 0 ? (
             <HotelRoomShowcase
               locale={locale}
-              rooms={
-                realHotelRooms.length > 0
-                  ? realHotelRooms
-                  : [
-                      // Gerçek hotel_rooms yoksa (vitrin demo akışı) eski tablodaki
-                      // 4 demo odayı zenginleştirilmiş yapıyla aynı bileşene besliyoruz
-                      // ki kart-grid görünümü her durumda görülebilsin.
-                      {
-                        id: 'demo-standard',
-                        name: dp.demoRoomStandard,
-                        capacity: 2,
-                        boardType: 'bed_breakfast',
-                        beds: 1,
-                        bedType: '1 çift kişilik yatak',
-                        sizeM2: 22,
-                        amenities: ['wifi', 'tv', 'air_conditioning', 'minibar'],
-                      },
-                      {
-                        id: 'demo-deluxe',
-                        name: dp.demoRoomDeluxe,
-                        capacity: 2,
-                        boardType: 'half_board',
-                        beds: 1,
-                        bedType: '1 king-size yatak',
-                        sizeM2: 28,
-                        amenities: [
-                          'wifi',
-                          'tv',
-                          'air_conditioning',
-                          'minibar',
-                          'safe',
-                          'balcony',
-                        ],
-                      },
-                      {
-                        id: 'demo-suite',
-                        name: dp.demoRoomSuite,
-                        capacity: 3,
-                        boardType: 'all_inclusive',
-                        beds: 2,
-                        bedType: '1 king + 1 tek',
-                        sizeM2: 42,
-                        amenities: [
-                          'wifi',
-                          'tv',
-                          'air_conditioning',
-                          'minibar',
-                          'safe',
-                          'balcony',
-                          'sea_view',
-                        ],
-                      },
-                      {
-                        id: 'demo-family',
-                        name: dp.demoRoomFamily,
-                        capacity: 4,
-                        boardType: 'full_board',
-                        beds: 2,
-                        bedType: '2 çift kişilik yatak',
-                        sizeM2: 38,
-                        amenities: ['wifi', 'tv', 'air_conditioning', 'kids_play_area'],
-                      },
-                    ]
-              }
+              rooms={realHotelRooms}
               reservationAnchorId="stay-reservation-card"
               currencySymbol={
                 priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
               }
             />
           ) : (
-            !isHolidayHome && renderSectionRoomTypes()
+            !isHolidayHome && vertical !== 'hotel' && renderSectionRoomTypes()
           )}
           {mealPlans.length > 0 && (
             <SectionMealPlans mealPlans={mealPlans} locale={locale} />
           )}
-          {!isHolidayHome && renderSectionPriceRates()}
           <StayListingCalendarBookingBlock
             locale={locale}
             initialDays={availabilityCalendarDays}

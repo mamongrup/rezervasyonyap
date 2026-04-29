@@ -259,6 +259,16 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [homePageLinks, setHomePageLinks] = useState<HomePageLinkItem[]>(() => [...DEFAULT_HOME_PAGE_LINKS])
   const [mobileAccountPath, setMobileAccountPath] = useState('/account')
 
+  /** Vitrin iletişim / sosyal — `site_settings.branding` (env üzerine yazar) */
+  const [publicContactEmail, setPublicContactEmail] = useState('')
+  const [publicPhone, setPublicPhone] = useState('')
+  const [publicAddress, setPublicAddress] = useState('')
+  const [publicWhatsappE164, setPublicWhatsappE164] = useState('')
+  const [socialFacebookUrl, setSocialFacebookUrl] = useState('')
+  const [socialInstagramUrl, setSocialInstagramUrl] = useState('')
+  const [socialXUrl, setSocialXUrl] = useState('')
+  const [socialYoutubeUrl, setSocialYoutubeUrl] = useState('')
+
   /** site_settings key `ai` — DeepSeek (blog çevirisi vb.); env hâlâ önceliklidir. */
   const [aiRest, setAiRest] = useState<Record<string, unknown>>({})
   const [deepseekApiKey, setDeepseekApiKey] = useState('')
@@ -326,6 +336,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       if (typeof branding.logo_text_line1 === 'string') setLogoTextLine1(branding.logo_text_line1)
       if (typeof branding.logo_text_line2 === 'string') setLogoTextLine2(branding.logo_text_line2)
       if (typeof branding.logo_text_line2_color === 'string') setLogoTextLine2Color(branding.logo_text_line2_color)
+      if (typeof branding.public_contact_email === 'string') setPublicContactEmail(branding.public_contact_email)
+      if (typeof branding.public_phone === 'string') setPublicPhone(branding.public_phone)
+      if (typeof branding.public_address === 'string') setPublicAddress(branding.public_address)
+      if (typeof branding.public_whatsapp_e164 === 'string') setPublicWhatsappE164(branding.public_whatsapp_e164)
+      if (typeof branding.social_facebook_url === 'string') setSocialFacebookUrl(branding.social_facebook_url)
+      if (typeof branding.social_instagram_url === 'string') setSocialInstagramUrl(branding.social_instagram_url)
+      if (typeof branding.social_x_url === 'string') setSocialXUrl(branding.social_x_url)
+      if (typeof branding.social_youtube_url === 'string') setSocialYoutubeUrl(branding.social_youtube_url)
       const {
         site_name: _sn,
         site_description: _sd,
@@ -340,6 +358,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         logo_text_line1: _lt1,
         logo_text_line2: _lt2,
         logo_text_line2_color: _lt2c,
+        public_contact_email: _pce,
+        public_phone: _pp,
+        public_address: _pa,
+        public_whatsapp_e164: _pwa,
+        social_facebook_url: _sfb,
+        social_instagram_url: _sig,
+        social_x_url: _sx,
+        social_youtube_url: _syt,
         ...rest
       } = branding
       setBrandingRest(rest)
@@ -655,6 +681,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         mobile_account_path: mobileAccountPath.trim().startsWith('/')
           ? mobileAccountPath.trim()
           : '/account',
+        public_contact_email: publicContactEmail.trim(),
+        public_phone: publicPhone.trim(),
+        public_address: publicAddress.trim(),
+        public_whatsapp_e164: publicWhatsappE164.trim(),
+        social_facebook_url: socialFacebookUrl.trim(),
+        social_instagram_url: socialInstagramUrl.trim(),
+        social_x_url: socialXUrl.trim(),
+        social_youtube_url: socialYoutubeUrl.trim(),
       }
       await upsertSiteSetting(token, { key: 'branding', value_json: JSON.stringify(next) })
       setBrandingJson(JSON.stringify(next, null, 2))
@@ -692,6 +726,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         mobile_account_path: mobileAccountPath.trim().startsWith('/')
           ? mobileAccountPath.trim()
           : '/account',
+        public_contact_email: publicContactEmail.trim(),
+        public_phone: publicPhone.trim(),
+        public_address: publicAddress.trim(),
+        public_whatsapp_e164: publicWhatsappE164.trim(),
+        social_facebook_url: socialFacebookUrl.trim(),
+        social_instagram_url: socialInstagramUrl.trim(),
+        social_x_url: socialXUrl.trim(),
+        social_youtube_url: socialYoutubeUrl.trim(),
       }
       await upsertSiteSetting(token, { key: 'branding', value_json: JSON.stringify(next) })
       setBrandingJson(JSON.stringify(next, null, 2))
@@ -886,6 +928,48 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 <Label>Site Açıklaması (meta description)</Label>
                 <Textarea className="mt-1" rows={3} value={siteDescription} onChange={(e) => setSiteDescription(e.target.value)} placeholder="Anasayfa için varsayılan meta açıklama" />
               </Field>
+            </div>
+
+            <div className="mt-8 border-t border-neutral-100 pt-8 dark:border-neutral-800">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Vitrin iletişim ve sosyal</h3>
+              <p className="mt-1 text-sm text-neutral-500">
+                Bu alanlar <code className="font-mono text-xs">site_settings.branding</code> içinde saklanır; dolu olduklarında{' '}
+                <code className="font-mono text-xs">NEXT_PUBLIC_*</code> ve .env iletişim değerlerinin üzerine yazar (footer, iletişim sayfası, JSON-LD).
+              </p>
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field className="block sm:col-span-2">
+                  <Label>Genel e-posta (footer / schema.org)</Label>
+                  <Input className="mt-1 font-mono text-sm" value={publicContactEmail} onChange={(e) => setPublicContactEmail(e.target.value)} placeholder="info@example.com" type="email" />
+                </Field>
+                <Field className="block">
+                  <Label>Telefon</Label>
+                  <Input className="mt-1" value={publicPhone} onChange={(e) => setPublicPhone(e.target.value)} placeholder="+90 …" />
+                </Field>
+                <Field className="block">
+                  <Label>WhatsApp (E.164, ülke kodu ile)</Label>
+                  <Input className="mt-1 font-mono text-sm" value={publicWhatsappE164} onChange={(e) => setPublicWhatsappE164(e.target.value)} placeholder="905551112233" />
+                </Field>
+                <Field className="block sm:col-span-2">
+                  <Label>Adres (tek satır veya birkaç satır)</Label>
+                  <Textarea className="mt-1" rows={2} value={publicAddress} onChange={(e) => setPublicAddress(e.target.value)} />
+                </Field>
+                <Field className="block sm:col-span-2">
+                  <Label>Facebook URL</Label>
+                  <Input className="mt-1 font-mono text-sm" value={socialFacebookUrl} onChange={(e) => setSocialFacebookUrl(e.target.value)} placeholder="https://facebook.com/…" />
+                </Field>
+                <Field className="block sm:col-span-2">
+                  <Label>Instagram URL</Label>
+                  <Input className="mt-1 font-mono text-sm" value={socialInstagramUrl} onChange={(e) => setSocialInstagramUrl(e.target.value)} placeholder="https://instagram.com/…" />
+                </Field>
+                <Field className="block sm:col-span-2">
+                  <Label>X (Twitter) URL</Label>
+                  <Input className="mt-1 font-mono text-sm" value={socialXUrl} onChange={(e) => setSocialXUrl(e.target.value)} placeholder="https://x.com/…" />
+                </Field>
+                <Field className="block sm:col-span-2">
+                  <Label>YouTube URL</Label>
+                  <Input className="mt-1 font-mono text-sm" value={socialYoutubeUrl} onChange={(e) => setSocialYoutubeUrl(e.target.value)} placeholder="https://youtube.com/…" />
+                </Field>
+              </div>
             </div>
 
             <div className="mt-8 border-t border-neutral-100 pt-8 dark:border-neutral-800">

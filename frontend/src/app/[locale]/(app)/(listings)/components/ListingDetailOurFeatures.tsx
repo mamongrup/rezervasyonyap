@@ -1,5 +1,4 @@
 import SectionOurFeatures from '@/components/SectionOurFeatures'
-import featuresImg from '@/images/listing-detail-our-features-demo.avif'
 import { getLocationPageByName, getLocationPageBySlug } from '@/lib/travel-api'
 import { parseTravelIdeas } from '@/lib/travel-ideas-parse'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
@@ -50,6 +49,9 @@ export default async function ListingDetailOurFeatures({
   const ideas = parseTravelIdeas(page.travel_ideas_json)
   if (ideas.length === 0) return null
 
+  const heroUrl = pickHeroImageUrl(page)
+  if (!heroUrl) return null
+
   const m = getMessages(locale)
   const t = m.listing.travelIdeasSection
   const regionDisplayName = (page.title?.trim() || trimmed).trim()
@@ -63,11 +65,10 @@ export default async function ListingDetailOurFeatures({
 
   const subHeading = interpolate(t.regionLabel, { city: regionDisplayName })
   const heading = t.mainTitle
-  const heroUrl = pickHeroImageUrl(page)
 
   return (
     <SectionOurFeatures
-      rightImg={heroUrl ?? featuresImg}
+      rightImg={heroUrl}
       type="type2"
       layout="listingTravelIdeas"
       subHeading={subHeading}

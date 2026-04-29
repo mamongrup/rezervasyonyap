@@ -18,15 +18,6 @@ interface PartnersConfig {
   items?: PartnerItem[]
 }
 
-const DEFAULT_ITEMS: PartnerItem[] = [
-  { name: 'Turkish Airlines', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6d/Turkish_Airlines_logo.svg/1200px-Turkish_Airlines_logo.svg.png' },
-  { name: 'Pegasus', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/Pegasus_Airlines_logo.svg/1200px-Pegasus_Airlines_logo.svg.png' },
-  { name: 'Booking.com', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/b/be/Booking.com_logo.svg/1200px-Booking.com_logo.svg.png' },
-  { name: 'Marriott', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Marriott_International_logo.svg/1200px-Marriott_International_logo.svg.png' },
-  { name: 'Airbnb', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Airbnb_Logo_Bélo.svg/1200px-Airbnb_Logo_Bélo.svg.png' },
-  { name: 'Expedia', logoUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a4/Expedia_logo_2012.svg/1200px-Expedia_logo_2012.svg.png' },
-]
-
 function PartnerLogo({ item, showName }: { item: PartnerItem; showName?: boolean }) {
   const inner = (
     <div className="flex flex-col items-center gap-2">
@@ -57,7 +48,9 @@ function PartnerLogo({ item, showName }: { item: PartnerItem; showName?: boolean
 }
 
 export default function PartnersModule({ config }: { config: PartnersConfig }) {
-  const items = config.items?.length ? config.items : DEFAULT_ITEMS
+  const raw = config.items?.filter((i) => typeof i.logoUrl === 'string' && i.logoUrl.trim().length > 0) ?? []
+  if (raw.length === 0) return null
+  const items = raw
   const layout = config.layout ?? 'strip'
   const cols = config.columns ?? 4
   const showNames = config.showNames ?? false

@@ -1,4 +1,6 @@
 import { CustomLink } from '@/data/types'
+import { getSitePublicConfig } from '@/lib/site-public-config'
+import { buildSocialLinksFromSiteConfig } from '@/lib/site-social-links'
 import Logo from '@/shared/Logo'
 import SocialsList1 from '@/shared/SocialsList1'
 import React from 'react'
@@ -86,7 +88,7 @@ const Footer: React.FC = () => {
             <Logo className="w-20" />
           </div>
           <div className="col-span-2 flex items-center md:col-span-3">
-            <SocialsList1 className="flex items-center gap-x-3 lg:flex-col lg:items-start lg:gap-x-0 lg:gap-y-2.5" />
+            <SocialsList1 className="flex items-center gap-x-3 lg:flex-col lg:items-start lg:gap-x-0 lg:gap-y-2.5" socials={socials} />
           </div>
         </div>
         {widgetMenus.map(renderWidgetMenuItem)}

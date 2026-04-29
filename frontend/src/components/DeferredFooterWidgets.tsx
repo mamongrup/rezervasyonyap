@@ -23,7 +23,7 @@ export function DeferredFooterWidgets({ locale }: Props) {
       {/* FooterQuickNavigation - Displays on mobile devices and is fixed at the bottom of the screen */}
       <FooterQuickNavigation />
       {/* Chose footer style here!!!! */}
-      <Footer2 locale={locale} />
+      <Footer2 locale={locale} branding={config?.branding ?? null} />
       <AsideSidebarNavigation locale={locale} />
       <CookieConsentBanner locale={locale} bannerEnabled={bannerEnabled} />
     </>

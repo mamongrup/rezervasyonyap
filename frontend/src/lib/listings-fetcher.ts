@@ -211,23 +211,6 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
   } as TListingBase
 }
 
-function regionHandleToNeedle(handle: string): string {
-  return handle.replace(/-/g, ' ').toLowerCase()
-}
-
-function filterMockByRegion(list: TListingBase[], regionHandle?: string): TListingBase[] {
-  if (!regionHandle || regionHandle === 'all') return list
-  const needle = regionHandleToNeedle(regionHandle)
-  const filtered = list.filter(
-    (l) =>
-      l.city?.toLowerCase().includes(needle) ||
-      l.handle?.toLowerCase().includes(needle) ||
-      l.title?.toLowerCase().includes(needle) ||
-      l.address?.toLowerCase().includes(needle),
-  )
-  return filtered.length > 0 ? filtered : list
-}
-
 function listingNumericPrice(l: TListingBase): number {
   if (l.priceAmount != null && Number.isFinite(l.priceAmount)) return l.priceAmount
   const raw = l.price?.replace(/[^\d.,]/g, '').replace(',', '.') ?? ''
@@ -306,20 +289,8 @@ export function applyHolidayListingQueryFilters(
   return out
 }
 
-function filterMockByLocationQuery(list: TListingBase[], loc?: string): TListingBase[] {
-  if (!loc?.trim()) return list
-  const q = loc.trim().toLowerCase()
-  const filtered = list.filter(
-    (l) =>
-      l.city?.toLowerCase().includes(q) ||
-      l.address?.toLowerCase().includes(q) ||
-      l.title.toLowerCase().includes(q),
-  )
-  return filtered.length > 0 ? filtered : list
-}
-
 export interface FetchCategoryListingsOpts {
-  /** URL segmenti: `antalya` gibi — mock’ta ve API’de konum olarak kullanılır */
+  /** URL segmenti: `antalya` gibi — API sorgusunda kullanılır */
   regionHandle?: string
 }
 

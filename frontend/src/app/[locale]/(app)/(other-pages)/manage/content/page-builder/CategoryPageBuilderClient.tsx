@@ -1154,7 +1154,7 @@ function PartnersConfigEditor({
 
         {items.length === 0 && (
           <p className="rounded-lg bg-neutral-50 px-4 py-3 text-xs text-neutral-400 dark:bg-neutral-800">
-            Partner eklenmedi. Varsayılan logolar gösterilecek.
+            Partner eklenmedi. Bu alan yalnızca en az bir geçerli logo URL’si varken yayında görünür.
           </p>
         )}
 
@@ -1185,7 +1185,7 @@ function PartnersConfigEditor({
       </div>
 
       <p className="text-xs text-neutral-400">
-        💡 Logo listesi boş bırakılırsa demo partnerler gösterilir.
+        💡 Logo listesi boşsa vitrinde partner bölümü gösterilmez; yalnızca kayıtlı logolar yayınlanır.
       </p>
     </div>
   )

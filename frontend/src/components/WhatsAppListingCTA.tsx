@@ -1,7 +1,8 @@
 'use client'
 
-import { getSitePublicConfig } from '@/lib/site-public-config'
-import { useMemo } from 'react'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
+import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
+import { useEffect, useState } from 'react'
 
 type Props = {
   /** İlan başlığı — mesajda kullanılır. */
@@ -16,7 +17,18 @@ type Props = {
  * Tıklanınca önceden doldurulmuş mesajla wa.me açar.
  */
 export default function WhatsAppListingCTA({ listingTitle, listingUrl, className }: Props) {
-  const wa = useMemo(() => getSitePublicConfig().whatsappE164, [])
+  const [wa, setWa] = useState(() => getSitePublicConfig().whatsappE164)
+  useEffect(() => {
+    let c = false
+    void fetchSitePublicConfig(undefined)
+      .then((pub) => {
+        if (!c) setWa(mergeBrandingIntoEnvContact(getSitePublicConfig(), pub.branding).whatsappE164)
+      })
+      .catch(() => {})
+    return () => {
+      c = true
+    }
+  }, [])
   if (!wa) return null
 
   const lines = [

@@ -1,8 +1,11 @@
 import { Calendar01Icon, Comment01Icon } from '@/components/Icons'
 import ListingReview from '@/components/ListingReview'
 import StartRating from '@/components/StartRating'
+import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getAuthorByHandle } from '@/data/authors'
 import { getListingReviews } from '@/data/data'
+import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
+import { buildSocialLinksFromSiteConfig } from '@/lib/site-social-links'
 import Avatar from '@/shared/Avatar'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Divider } from '@/shared/divider'
@@ -44,6 +47,11 @@ const Page = async ({ params }: { params: Promise<{ handle: string }> }) => {
   const { displayName, avatarUrl, count, description, starRating, address, languages, joinedDate, reviewsCount } =
     author
 
+  const sitePub = await getCachedSiteConfig()
+  const socials = buildSocialLinksFromSiteConfig(
+    mergeBrandingIntoEnvContact(getSitePublicConfig(), sitePub?.branding ?? null),
+  )
+
   const renderSidebar = () => {
     return (
       <div>
@@ -76,7 +84,10 @@ const Page = async ({ params }: { params: Promise<{ handle: string }> }) => {
           <p className="block leading-relaxed text-neutral-700 dark:text-neutral-300">{description}</p>
 
           {/* ---- */}
-          <SocialsList itemClass="flex items-center justify-center w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 text-xl" />
+          <SocialsList
+            itemClass="flex items-center justify-center w-9 h-9 rounded-full bg-neutral-100 dark:bg-neutral-800 text-xl"
+            socials={socials}
+          />
 
           {/* ---- */}
           <div className="flex flex-col gap-y-3.5 text-neutral-700 dark:text-neutral-300">
@@ -130,13 +141,19 @@ const Page = async ({ params }: { params: Promise<{ handle: string }> }) => {
 
         {/* comment */}
         <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-          {reviews.map((review) => (
-            <ListingReview key={review.id} className="py-8 first:pt-0 last:pb-0" reivew={review} />
-          ))}
+          {reviews.length === 0 ? (
+            <p className="py-8 text-sm text-neutral-500 dark:text-neutral-400">Henüz yorum yok.</p>
+          ) : (
+            reviews.map((review) => (
+              <ListingReview key={review.id} className="py-8 first:pt-0 last:pb-0" reivew={review} />
+            ))
+          )}
 
-          <div className="pt-8">
-            <ButtonSecondary>View more 20 reviews</ButtonSecondary>
-          </div>
+          {reviews.length > 0 ? (
+            <div className="pt-8">
+              <ButtonSecondary>View more 20 reviews</ButtonSecondary>
+            </div>
+          ) : null}
         </div>
       </div>
     )

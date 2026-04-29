@@ -1,5 +1,4 @@
 import { SocialType } from '@/shared/SocialsShare'
-import { Facebook01Icon, Mail01Icon, NewTwitterIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { FC } from 'react'
@@ -10,25 +9,8 @@ interface Props {
   socials?: SocialType[]
 }
 
-const socialsDemo: SocialType[] = [
-  {
-    name: 'Facebook',
-    href: '#',
-    icon: Facebook01Icon,
-  },
-  {
-    name: 'Email',
-    href: '#',
-    icon: Mail01Icon,
-  },
-  {
-    name: 'Twitter',
-    href: '#',
-    icon: NewTwitterIcon,
-  },
-]
-
-const SocialsList: FC<Props> = ({ className = '', itemClass = 'block', socials = socialsDemo }) => {
+const SocialsList: FC<Props> = ({ className = '', itemClass = 'block', socials = [] }) => {
+  if (socials.length === 0) return null
   return (
     <nav className={`flex gap-x-3.5 text-2xl text-neutral-600 dark:text-neutral-300 ${className}`}>
       {socials.map((item, i) => (

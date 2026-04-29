@@ -18,7 +18,7 @@ import type { EmblaOptionsType } from 'embla-carousel'
 import Autoplay from 'embla-carousel-autoplay'
 import useEmblaCarousel from 'embla-carousel-react'
 import Image, { type StaticImageData } from 'next/image'
-import { FC, useMemo } from 'react'
+import { FC } from 'react'
 
 const AVATAR_POOL: StaticImageData[] = [
   userImage1,
@@ -48,33 +48,6 @@ export type ClientSaySlideItem = {
   /** Harici URL veya statik görsel — yoksa slayta göre döner */
   avatar?: StaticImageData | string
 }
-
-const DEMO_DATA: ClientSaySlideItem[] = [
-  {
-    id: 1,
-    clientName: 'Tiana Abie',
-    content:
-      'Great quality products, affordable prices, fast and friendly delivery. I very recommend.',
-    rating: 5,
-    avatar: userImage1,
-  },
-  {
-    id: 2,
-    clientName: 'Lennie Swiffan',
-    content:
-      'Great quality products, affordable prices, fast and friendly delivery. I very recommend.',
-    rating: 5,
-    avatar: userImage2,
-  },
-  {
-    id: 3,
-    clientName: 'Berta Emili',
-    content:
-      'Great quality products, affordable prices, fast and friendly delivery. I very recommend.',
-    rating: 5,
-    avatar: userImage3,
-  },
-]
 
 function resolveSlideAvatar(item: ClientSaySlideItem, index: number): StaticImageData | string {
   if (item.avatar) return item.avatar
@@ -126,11 +99,16 @@ interface SectionClientSayProps {
   emblaOptions?: EmblaOptionsType
   heading?: string
   subHeading?: string
-  /** API veya CMS — verilmezse demo veri */
+  /** API veya CMS — boşsa bölüm gösterilmez */
   items?: ClientSaySlideItem[]
 }
 
-const SectionClientSay: FC<SectionClientSayProps> = ({
+const SectionClientSay: FC<SectionClientSayProps> = (props) => {
+  if (!props.items?.length) return null
+  return <SectionClientSayInner {...props} items={props.items} />
+}
+
+const SectionClientSayInner: FC<SectionClientSayProps & { items: ClientSaySlideItem[] }> = ({
   className,
   emblaOptions = {
     slidesToScroll: 1,
@@ -138,13 +116,8 @@ const SectionClientSay: FC<SectionClientSayProps> = ({
   },
   heading = 'Misafirlerimiz Ne Diyor? 🥇',
   subHeading = 'Bizimle seyahat eden gezginlerin gerçek yorumları.',
-  items: itemsProp,
+  items: slides,
 }) => {
-  const slides = useMemo(
-    () => (itemsProp && itemsProp.length > 0 ? itemsProp : DEMO_DATA),
-    [itemsProp],
-  )
-
   const emblaDirection: 'ltr' | 'rtl' =
     process.env.NEXT_PUBLIC_THEME_DIR === 'rtl' ? 'rtl' : 'ltr'
   const [emblaRef, emblaApi] = useEmblaCarousel(

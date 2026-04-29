@@ -1,5 +1,4 @@
 import { SocialType } from '@/shared/SocialsShare'
-import { Facebook01Icon, Mail01Icon, NewTwitterIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
 import { FC } from 'react'
@@ -9,25 +8,7 @@ interface Props {
   socials?: SocialType[]
 }
 
-const socialsDemo: SocialType[] = [
-  {
-    name: 'Facebook',
-    href: '#',
-    icon: Facebook01Icon,
-  },
-  {
-    name: 'Email',
-    href: '#',
-    icon: Mail01Icon,
-  },
-  {
-    name: 'Twitter',
-    href: '#',
-    icon: NewTwitterIcon,
-  },
-]
-
-const SocialsList1: FC<Props> = ({ className = 'gap-y-2.5', socials = socialsDemo }) => {
+const SocialsList1: FC<Props> = ({ className = 'gap-y-2.5', socials = [] }) => {
   const renderItem = (item: SocialType, index: number) => {
     return (
       <Link
@@ -45,6 +26,7 @@ const SocialsList1: FC<Props> = ({ className = 'gap-y-2.5', socials = socialsDem
     )
   }
 
+  if (socials.length === 0) return null
   return <div className={className}>{socials.map(renderItem)}</div>
 }
 

@@ -6,11 +6,6 @@ import clsx from 'clsx'
 
 type Offer = { id: string; guestName: string; guestEmail: string; listing: string; checkIn: string; checkOut: string; totalPrice: string; status: 'draft' | 'sent' | 'accepted' | 'rejected' }
 
-const DEMO: Offer[] = [
-  { id: '1', guestName: 'Ali Yılmaz', guestEmail: 'ali@email.com', listing: 'Bodrum Deniz Manzaralı Villa', checkIn: '2025-07-01', checkOut: '2025-07-07', totalPrice: '21000', status: 'sent' },
-  { id: '2', guestName: 'Sarah Johnson', guestEmail: 'sarah@email.com', listing: 'Fethiye Yat Turu', checkIn: '2025-08-15', checkOut: '2025-08-22', totalPrice: '14500', status: 'draft' },
-]
-
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-neutral-100 text-neutral-600',
   sent: 'bg-blue-100 text-blue-700',
@@ -20,7 +15,7 @@ const STATUS_STYLES: Record<string, string> = {
 const STATUS_LABELS: Record<string, string> = { draft: 'Taslak', sent: 'Gönderildi', accepted: 'Kabul Edildi', rejected: 'Reddedildi' }
 
 export default function Page() {
-  const [offers, setOffers] = useState<Offer[]>(DEMO)
+  const [offers, setOffers] = useState<Offer[]>([])
 
   return (
     <div className="p-6 lg:p-8">
@@ -50,7 +45,14 @@ export default function Page() {
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
-            {offers.map((offer) => (
+            {offers.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-sm text-neutral-500">
+                  Henüz teklif yok. &quot;Yeni teklif&quot; ile ekleyebilirsiniz.
+                </td>
+              </tr>
+            ) : (
+              offers.map((offer) => (
               <tr key={offer.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
                 <td className="py-3 pl-5">
                   <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{offer.guestName || '—'}</p>
@@ -70,7 +72,8 @@ export default function Page() {
                   </select>
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
