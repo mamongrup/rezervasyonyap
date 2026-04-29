@@ -56,36 +56,42 @@ Repo icindeki ornek dosyalar:
 - `deploy/systemd/travel-web.service`
 - `deploy/systemd/frontend.env.example`
 
-## 3) Onerilen: tek komut deploy
+## 3) Plesk vitrin (yalniz Next.js, tek SSH komutu)
+
+Tam akış: **[`deploy/PLESK_VITRIN.md`](./PLESK_VITRIN.md)** — `plesk-vitrin-deploy.sh` sunucuyu `origin/main` ile sıfırlayıp `npm ci` + build + `travel-web` restart yapar (`package-lock` çakışması yaşamazsınız).
+
+## 4) Monorepo: tek komut deploy (backend + frontend)
 
 Repo kokunde:
 
 ```bash
 chmod +x deploy/deploy.sh deploy/verify.sh
-DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh
+./deploy/deploy.sh
 ```
 
 Notlar:
 
-- Varsayilan ref artik `stable/b92d735` (stabil nokta).
-- Istersen `DEPLOY_REF=main` ile main deploy edebilirsin.
+- Varsayılan `DEPLOY_REF` **main**. Eski sabit nokta için: `DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh`.
 - Script otomatik olarak:
   - hedef ref'e hard sync yapar,
   - lokal kirli dosyalari temizler (`git clean -fd`),
   - backend/frontend build alir,
   - service restart + verify yapar.
 
-## 4) Manuel akış (ihtiyaç halinde)
+## 5) Manuel akış (ihtiyaç halinde)
 
 `NEXT_PUBLIC_*` degiskenleri build-time gomulur. Env degistiyse **yeniden build zorunlu**.
 
+Sunucuda **`frontend/package-lock.json` elle degisti ise** `git pull` reddeder. Guvenli yol: [`PLESK_VITRIN.md`](./PLESK_VITRIN.md) scripti veya:
+
 ```bash
-git pull origin main
-npm ci
-npm run build
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+git fetch origin
+git checkout main && git reset --hard origin/main
+cd frontend && rm -rf node_modules .next && npm ci && npm run build
 ```
 
-## 5) Servisleri restart et
+## 6) Servisleri restart et
 
 ```bash
 sudo systemctl daemon-reload
@@ -95,7 +101,7 @@ sudo systemctl status travel-web.service
 sudo systemctl status travel-api.service
 ```
 
-## 6) Hizli smoke test
+## 7) Hizli smoke test
 
 ```bash
 curl -i http://127.0.0.1:8080/api/v1/auth/me
@@ -114,7 +120,7 @@ chmod +x deploy/verify.sh
 ./deploy/verify.sh
 ```
 
-## 7) Tarayici kontrolu
+## 8) Tarayici kontrolu
 
 - Hard refresh: `Ctrl + Shift + R`
 - Ana sayfada hero kategori ikonlari gorunmeli.

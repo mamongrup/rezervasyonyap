@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type ReactNode } from 'react'
 
 /**
  * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını mobilde `hidden md:block`
@@ -10,7 +10,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 export default function HeroSearchDesktopOnly({ children }: { children: ReactNode }) {
   const [show, setShow] = useState(false)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)')
     const sync = () => setShow(mq.matches)
     sync()

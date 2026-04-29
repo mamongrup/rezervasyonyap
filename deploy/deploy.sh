@@ -10,7 +10,8 @@
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DEPLOY_REF="${DEPLOY_REF:-stable/b92d735}"
+# Varsayılan: main. Eski stabil nokta: DEPLOY_REF=stable/b92d735
+DEPLOY_REF="${DEPLOY_REF:-main}"
 RESTART_WEB="${RESTART_WEB:-1}"
 RESTART_API="${RESTART_API:-1}"
 
@@ -53,7 +54,7 @@ main() {
   ok "backend build tamam"
 
   step "Frontend install + clean build"
-  (cd "$APP_ROOT/frontend" && rm -rf .next && npm install && npm run build)
+  (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build)
   ok "frontend build tamam"
 
   step "Servis restart"

@@ -183,7 +183,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   )
 
   return (
-    <main className="relative isolate overflow-x-hidden">
+    <main className="relative isolate">
       <BgGlassmorphism />
 
       {/* Hero — PageBuilderRenderer dışında, tam genişlik — z-10: arkada gövde zemini arkasında kalmayı önler (prod stacking) */}
@@ -201,28 +201,29 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         />
       </div>
 
-      {/* Son aramalar */}
-      <div className="container mb-10 flex justify-center px-4 sm:px-0">
-        <HeroLastSearchRow locale={locale} />
-      </div>
+      <div className="overflow-x-hidden">
+        {/* Son aramalar */}
+        <div className="container mb-10 flex justify-center px-4 sm:px-0">
+          <HeroLastSearchRow locale={locale} />
+        </div>
 
-      {/* Tüm geri kalan bölümler — tek kök (`section`) ile ek sarmalayıcı yok; DOM daha küçük */}
-      <PageBuilderRenderer
-        rootAs="section"
-        rootStyle={{
-          contentVisibility: 'auto',
-          containIntrinsicSize: '1px 2200px',
-        }}
-        modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
-        category={HOME_CATEGORY}
-        locale={locale}
-        searchFormNode={searchForm}
-        allListings={featuredListings}
-        listingLinkBase="/otel"
-        priceUnit="/gece"
-        authors={authors}
-        pageKey="homepage"
-      />
+        <PageBuilderRenderer
+          rootAs="section"
+          rootStyle={{
+            contentVisibility: 'auto',
+            containIntrinsicSize: '1px 2200px',
+          }}
+          modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
+          category={HOME_CATEGORY}
+          locale={locale}
+          searchFormNode={searchForm}
+          allListings={featuredListings}
+          listingLinkBase="/otel"
+          priceUnit="/gece"
+          authors={authors}
+          pageKey="homepage"
+        />
+      </div>
     </main>
   )
 }
