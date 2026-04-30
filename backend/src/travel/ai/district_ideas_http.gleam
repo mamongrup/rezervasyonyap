@@ -648,7 +648,7 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
            left join countries co2 on co2.id = lp.country_id
            left join regions   r4  on r4.id = d.region_id
            where  lp.cover_image = 'not_found'
-           order  by lp.region_type, location_name
+           order  by lp.region_type, lp.slug_path
            limit  200",
         )
         |> pog.returning({
@@ -676,6 +676,40 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
             })
           wisp.json_response(json.to_string(json.array(items, fn(x) { x })), 200)
         }
+      }
+    }
+  }
+}
+
+/// POST /api/v1/ai/district-ideas/reset-not-found — `admin.users.read`
+///
+/// `not_found` durumundaki tüm kapak resimlerini sıfırlar ('' yapar)
+/// böylece Pexels işlemi yeniden denenebilir.
+pub fn reset_not_found(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      case
+        pog.query(
+          "update location_pages set cover_image = ''
+           where  cover_image = 'not_found'
+           returning id",
+        )
+        |> pog.returning({
+          use id <- decode.field(0, decode.int)
+          decode.success(id)
+        })
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "reset_not_found_failed")
+        Ok(ret) ->
+          wisp.json_response(
+            json.to_string(json.object([
+              #("reset_count", json.int(list.length(ret.rows))),
+            ])),
+            200,
+          )
       }
     }
   }

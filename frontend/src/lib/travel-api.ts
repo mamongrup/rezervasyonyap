@@ -9417,6 +9417,17 @@ export async function saveDistrictCover(
   if (!res.ok) throw new Error(`save_cover_${res.status}`)
 }
 
+export async function resetNotFoundCovers(token: string): Promise<{ reset_count: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/reset-not-found`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`reset_not_found_${res.status}`)
+  return res.json() as Promise<{ reset_count: number }>
+}
+
 // ─── Listing nearby POIs ──────────────────────────────────────────────────────
 
 export async function computeAllListingsNearbyPois(

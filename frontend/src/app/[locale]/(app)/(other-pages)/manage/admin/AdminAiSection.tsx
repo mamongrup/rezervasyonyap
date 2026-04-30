@@ -12,6 +12,7 @@ import {
   listAiProviders,
   processNextDistrictIdea,
   queueAllDistrictIdeas,
+  resetNotFoundCovers,
   saveDistrictCover,
   saveDistrictPlaces,
   searchPexelsImage,
@@ -333,21 +334,25 @@ export default function AdminAiSection() {
           break
         }
         const { location_page_id, location_name, parent_name, region_type } = next
-        // Arama sorgusunu lokasyon tipine göre oluştur
-        const coverQuery = region_type === 'country'
-          ? `${location_name} country landscape`
-          : region_type === 'region'
-            ? `${location_name} Turkey province`
-            : `${location_name} ${parent_name} Turkey`
-        const fallbackQuery = parent_name ? `${parent_name} Turkey` : 'Turkey landscape'
+        // Arama sorgusunu lokasyon tipine göre oluştur (3 kademeli fallback)
+        const queries =
+          region_type === 'country'
+            ? [`${location_name} landscape travel`, `${location_name} nature`, 'Turkey landscape']
+            : region_type === 'province'
+              ? [`${location_name} Turkey province`, `${location_name} Turkey`, 'Turkey landscape']
+              : [
+                  `${location_name} ${parent_name} Turkey`,
+                  `${parent_name} Turkey`,
+                  'Turkey nature landscape',
+                ]
         let coverUrl = ''
         try {
-          const photos = await searchPexelsImage(coverQuery, nextKey(), 1)
-          if (photos.length === 0) {
-            const fallback = await searchPexelsImage(fallbackQuery, nextKey(), 1)
-            coverUrl = fallback[0]?.src.large ?? ''
-          } else {
-            coverUrl = photos[0]?.src.large ?? ''
+          for (const q of queries) {
+            const photos = await searchPexelsImage(q, nextKey(), 1)
+            if (photos.length > 0) {
+              coverUrl = photos[0]?.src.large ?? ''
+              break
+            }
           }
         } catch {
           coverUrl = ''
@@ -725,13 +730,34 @@ export default function AdminAiSection() {
 
         <div className="mt-4 flex flex-wrap gap-3">
           {!pexelsRunning ? (
-            <ButtonPrimary
-              type="button"
-              onClick={() => void onStartPexelsProcessing()}
-              className="bg-pink-600 hover:bg-pink-700"
-            >
-              Pexels&apos;ten Resim Çek
-            </ButtonPrimary>
+            <>
+              <ButtonPrimary
+                type="button"
+                onClick={() => void onStartPexelsProcessing()}
+                className="bg-pink-600 hover:bg-pink-700"
+              >
+                Pexels&apos;ten Resim Çek
+              </ButtonPrimary>
+              {coverStats && coverStats.not_found > 0 && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const token = getStoredAuthToken()
+                    if (!token) return
+                    try {
+                      const r = await resetNotFoundCovers(token)
+                      setPexelsLog([`↺ ${r.reset_count} lokasyon sıfırlandı, yeniden deneniyor…`])
+                      void onStartPexelsProcessing()
+                    } catch (e) {
+                      setPexelsErr(e instanceof Error ? e.message : 'reset_failed')
+                    }
+                  }}
+                  className="rounded-xl border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-300"
+                >
+                  ↺ Bulunamayanları Yeniden Dene ({coverStats.not_found})
+                </button>
+              )}
+            </>
           ) : (
             <button
               type="button"
