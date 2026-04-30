@@ -468,17 +468,18 @@ fn cover_body_decoder() -> decode.Decoder(#(String, String)) {
   decode.success(#(lp_id, cover))
 }
 
-fn no_cover_row() -> decode.Decoder(#(String, String, String, String)) {
-  use lp_id <- decode.field(0, decode.string)
-  use slug <- decode.field(1, decode.string)
-  use district_name <- decode.field(2, decode.string)
-  use region_name <- decode.field(3, decode.string)
-  decode.success(#(lp_id, slug, district_name, region_name))
+fn no_cover_row() -> decode.Decoder(#(String, String, String, String, String)) {
+  use lp_id        <- decode.field(0, decode.string)
+  use slug         <- decode.field(1, decode.string)
+  use region_type  <- decode.field(2, decode.string)
+  use location_name <- decode.field(3, decode.string)
+  use parent_name  <- decode.field(4, decode.string)
+  decode.success(#(lp_id, slug, region_type, location_name, parent_name))
 }
 
 /// GET /api/v1/ai/district-ideas/next-no-cover — `admin.users.read`
 ///
-/// Kapak resmi henüz atanmamış (cover_image = '') bir sonraki ilçeyi döndürür.
+/// Kapak resmi henüz atanmamış bir sonraki lokasyonu döndürür (ülke, il, ilçe, belde).
 /// Pexels döngüsü bu endpoint'i kullanır. Tümü tamamlanmışsa `{"done":true}` döner.
 pub fn next_no_cover(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -487,13 +488,28 @@ pub fn next_no_cover(req: Request, ctx: Context) -> Response {
     Ok(_) -> {
       case
         pog.query(
-          "select lp.id::text, lp.slug_path, d.name, r.name
+          "select lp.id::text,
+                  lp.slug_path,
+                  coalesce(lp.region_type, 'district') as region_type,
+                  case
+                    when lp.region_type = 'country' then co2.name
+                    when lp.region_type = 'region'  then r2.name
+                    else coalesce(d.name, r3.name, '')
+                  end as location_name,
+                  case
+                    when lp.region_type = 'country' then ''
+                    when lp.region_type = 'region'  then coalesce(co3.name, '')
+                    else coalesce(r4.name, '')
+                  end as parent_name
            from   location_pages lp
-           join   districts d on d.id = lp.district_id
-           join   regions   r on r.id = d.region_id
-           where  lp.region_type = 'district'
-             and  (lp.cover_image is null or lp.cover_image = '')
-           order  by r.name, d.name
+           left join districts d   on d.id  = lp.district_id
+           left join regions   r3  on r3.id = d.region_id
+           left join regions   r2  on r2.id = lp.region_id
+           left join countries co3 on co3.id = r2.country_id
+           left join countries co2 on co2.id = lp.country_id
+           left join regions   r4  on r4.id = d.region_id
+           where  (lp.cover_image is null or lp.cover_image = '')
+           order  by lp.region_type desc, location_name
            limit  1",
         )
         |> pog.returning(no_cover_row())
@@ -504,14 +520,15 @@ pub fn next_no_cover(req: Request, ctx: Context) -> Response {
           case ret.rows {
             [] ->
               wisp.json_response("{\"done\":true}", 200)
-            [#(lp_id, slug, district_name, region_name)] -> {
+            [#(lp_id, slug, region_type, location_name, parent_name)] -> {
               let body =
                 json.object([
                   #("done", json.bool(False)),
                   #("location_page_id", json.string(lp_id)),
                   #("slug_path", json.string(slug)),
-                  #("district_name", json.string(district_name)),
-                  #("region_name", json.string(region_name)),
+                  #("region_type", json.string(region_type)),
+                  #("location_name", json.string(location_name)),
+                  #("parent_name", json.string(parent_name)),
                 ])
                 |> json.to_string
               wisp.json_response(body, 200)

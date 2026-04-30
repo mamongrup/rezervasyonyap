@@ -311,16 +311,22 @@ export default function AdminAiSection() {
       while (!pexelsStopRef.current) {
         const next = await getNextNoCoverDistrict(token)
         if (next.done) {
-          setPexelsLog((l) => [...l, 'Tüm ilçe kapak resimleri tamamlandı.'])
+          setPexelsLog((l) => [...l, 'Tüm lokasyon kapak resimleri tamamlandı.'])
           break
         }
-        const { location_page_id, district_name, region_name } = next
-        const coverQuery = `${district_name} ${region_name} Turkey`
+        const { location_page_id, location_name, parent_name, region_type } = next
+        // Arama sorgusunu lokasyon tipine göre oluştur
+        const coverQuery = region_type === 'country'
+          ? `${location_name} country landscape`
+          : region_type === 'region'
+            ? `${location_name} Turkey province`
+            : `${location_name} ${parent_name} Turkey`
+        const fallbackQuery = parent_name ? `${parent_name} Turkey` : 'Turkey landscape'
         let coverUrl = ''
         try {
           const photos = await searchPexelsImage(coverQuery, nextKey(), 1)
           if (photos.length === 0) {
-            const fallback = await searchPexelsImage(`${region_name} Turkey`, nextKey(), 1)
+            const fallback = await searchPexelsImage(fallbackQuery, nextKey(), 1)
             coverUrl = fallback[0]?.src.large ?? ''
           } else {
             coverUrl = photos[0]?.src.large ?? ''
@@ -332,10 +338,10 @@ export default function AdminAiSection() {
           await saveDistrictCover(token, location_page_id, coverUrl)
           done++
           const keyNum = (pexelsKeyIndexRef.current % activeKeys.length) + 1
-          setPexelsLog((l) => [...l, `✓ [${done}] ${district_name} (${region_name}) [key ${keyNum}/${activeKeys.length}]`])
+          setPexelsLog((l) => [...l, `✓ [${done}] ${location_name} (${region_type}) [key ${keyNum}/${activeKeys.length}]`])
         } else {
           await saveDistrictCover(token, location_page_id, 'not_found')
-          setPexelsLog((l) => [...l, `– ${district_name}: resim bulunamadı, atlandı`])
+          setPexelsLog((l) => [...l, `– ${location_name}: resim bulunamadı, atlandı`])
         }
         await new Promise((r) => setTimeout(r, 350))
       }
@@ -651,10 +657,10 @@ export default function AdminAiSection() {
       <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40">
         <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
           <MapPin className="h-4 w-4 text-pink-500" />
-          Pexels — İlçe Kapak Resimleri
+          Pexels — Lokasyon Kapak Resimleri
         </h2>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Kapak resmi olmayan her ilçe için Pexels&apos;ten otomatik fotoğraf çeker ve kaydeder.
+          Kapak resmi olmayan her lokasyon (ülke, il, ilçe, belde) için Pexels&apos;ten otomatik fotoğraf çeker ve kaydeder.
           API anahtarı ücretsiz: <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer" className="text-pink-600 hover:underline">pexels.com/api</a>
         </p>
 

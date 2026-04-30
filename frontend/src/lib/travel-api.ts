@@ -9353,10 +9353,10 @@ export async function searchPexelsImage(
   return data.photos ?? []
 }
 
-/** İçeriği olan ama kapak resmi olmayan sonraki ilçeyi döndürür. */
+/** Kapak resmi olmayan sonraki lokasyonu döndürür (ülke, il, ilçe, belde). */
 export async function getNextNoCoverDistrict(
   token: string,
-): Promise<{ done: true } | { done: false; location_page_id: string; slug_path: string; district_name: string; region_name: string }> {
+): Promise<{ done: true } | { done: false; location_page_id: string; slug_path: string; region_type: string; location_name: string; parent_name: string }> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
   const res = await fetch(`${b}/api/v1/ai/district-ideas/next-no-cover`, {
