@@ -182,23 +182,18 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       <BgGlassmorphism />
 
       {/* Hero — PageBuilderRenderer dışında, tam genişlik — z-10: arkada gövde zemini arkasında kalmayı önler (prod stacking) */}
-      <div className={`relative z-10 container mb-0 ${heroContainerBelowHeaderClassName}`}>
+      <div className={`relative z-10 container mb-6 ${heroContainerBelowHeaderClassName}`}>
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
           image={heroRightStay}
           imageAlt={m.homePage.heroAlt}
           freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}
           mosaicImages={mosaicForRegionHero}
-          searchForm={null}
+          searchForm={searchForm}
           description={heroDescription}
           topSpacing="minimal"
           heroMosaicBleed
         />
-      </div>
-
-      {/* Arama formu — hero grid dışında, her zaman görünür */}
-      <div className="container relative z-20 -mt-4 mb-6 px-4 sm:px-0">
-        {searchForm}
       </div>
 
       <div className="overflow-x-hidden">
