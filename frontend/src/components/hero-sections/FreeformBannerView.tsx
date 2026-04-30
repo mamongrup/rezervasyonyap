@@ -84,8 +84,7 @@ export default function FreeformBannerView({
           const urlIdx =
             typeof si === 'number' && Number.isFinite(si) ? Math.min(2, Math.max(0, Math.round(si))) : i
           const rawSrc = (imageUrls[urlIdx] ?? layer.src ?? '').trim()
-          const uploadsBlocked = rawSrc.startsWith('/uploads/')
-          const src = uploadsBlocked ? '' : rawSrc
+          const src = rawSrc
           const has = src !== ''
           const bx = bounds
             ? ((layer.x - bounds.minX) / bounds.bw) * 100

@@ -26,7 +26,7 @@ function MosaicSlot({
   priority?: boolean
 }) {
   const t = src.trim()
-  if (!t || t.startsWith('/uploads/')) {
+  if (!t) {
     return <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
   }
   const isExternal = /^https?:\/\//i.test(t)
