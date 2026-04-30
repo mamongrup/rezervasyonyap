@@ -13,8 +13,8 @@ export interface CardCategoryBox1Props {
 const CardCategoryBox1: FC<CardCategoryBox1Props> = ({ className = '', category }) => {
   const { count, name, thumbnail, href } = category
   const regionCount = 'regionCount' in category ? (category as { regionCount?: number }).regionCount : undefined
-  const regionLine = regionCount != null ? `${convertNumbThousand(regionCount)} bölge` : ''
-  const listingLine = count > 0 ? `${convertNumbThousand(count)}+ ilan` : 'İlan bekleniyor'
+  const regionLine = regionCount != null && regionCount > 0 ? `${convertNumbThousand(regionCount)} bölge` : ''
+  const listingLine = count > 0 ? `${convertNumbThousand(count)}+ ilan` : ''
   const muted = 'text-sm text-neutral-500 dark:text-neutral-400'
   // 96px daire için — migration script `/uploads/external/<hash>-thumb.avif` (256x256) üretir.
   const thumbSrc = toExternalThumb(thumbnail || '')

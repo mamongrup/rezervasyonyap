@@ -678,6 +678,7 @@ export async function getTravelCategories() {
     const listingCount = apiSucceeded
       ? (typeof liveCount === 'number' ? liveCount : 0)
       : fallback.listingCount
+    const regionCount = apiSucceeded ? 0 : fallback.regionCount
     return {
       id: `travel-cat://${entry.slug}`,
       name: entry.name,
@@ -685,7 +686,7 @@ export async function getTravelCategories() {
       handle: entry.slug,
       href: `${entry.categoryRoute}/all`,
       count: listingCount,
-      regionCount: fallback.regionCount,
+      regionCount: regionCount,
       thumbnail: CATEGORY_THUMBNAILS[entry.slug] ?? '',
       coverImage: {
         src: coverImg.src,
