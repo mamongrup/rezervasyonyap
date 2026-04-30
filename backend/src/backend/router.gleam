@@ -26,6 +26,7 @@ import travel/engagement/engagement_http
 import travel/engagement/social_proof_http
 import travel/engagement/listing_reports_http
 import travel/catalog/listing_perks_http
+import travel/catalog/listing_pois_http
 import travel/catalog/super_host_http
 import travel/reviews/reviews_http
 import travel/ical/ical_export_http
@@ -42,6 +43,7 @@ import travel/support/chat_http
 import travel/support/helpdesk_catalog_http
 import travel/integrations/integrations_http
 import travel/ai/ai_http
+import travel/ai/district_ideas_http
 import travel/verticals/verticals_http
 import travel/catalog/catalog_http
 import travel/workspace/workspace_http
@@ -645,6 +647,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "listings", lid, "perks"] ->
       listing_perks_http.patch_perks(req, ctx, lid)
 
+    http.Get, ["api", "v1", "listings", lid, "nearby-pois"] ->
+      listing_pois_http.get_nearby_pois(req, ctx, lid)
+
+    http.Post, ["api", "v1", "listings", lid, "compute-nearby-pois"] ->
+      listing_pois_http.compute_nearby_pois(req, ctx, lid)
+
+    http.Patch, ["api", "v1", "listings", lid, "nearby-pois"] ->
+      listing_pois_http.patch_nearby_pois(req, ctx, lid)
+
     http.Post, ["api", "v1", "admin", "super-host", "recompute"] ->
       super_host_http.recompute_all(req, ctx)
     http.Get, ["api", "v1", "admin", "super-host", "organizations"] ->
@@ -1226,6 +1237,21 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "ops-agent", "run"] ->
       ai_http.ops_agent_run(req, ctx)
+
+    http.Get, ["api", "v1", "ai", "district-ideas", "stats"] ->
+      district_ideas_http.get_stats(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "district-ideas", "queue-all"] ->
+      district_ideas_http.queue_all(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "district-ideas", "process-next"] ->
+      district_ideas_http.process_next(req, ctx)
+
+    http.Get, ["api", "v1", "ai", "district-ideas", "next-empty"] ->
+      district_ideas_http.next_empty(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "district-ideas", "save-places"] ->
+      district_ideas_http.save_places(req, ctx)
 
     http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
       verticals_http.delete_hotel_room(req, ctx, lid, rid)

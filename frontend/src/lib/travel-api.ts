@@ -6349,11 +6349,19 @@ export type LocationPage = {
 }
 
 export type TravelIdea = {
-  id: string
-  image: string
+  id: string | number
+  image?: string
   title: string
-  link: string
+  link?: string
   summary: string
+  /** POI koordinatları (Google Maps'ten çekildiğinde dolu gelir) */
+  lat?: number
+  lng?: number
+  place_id?: string
+  /** İlçe merkezinden mesafe (Google Maps çekme sırasında hesaplanır) */
+  distance_km_from_district?: number
+  /** İlandan mesafe (ilana koordinat girilince hesaplanır) */
+  distance_km_from_listing?: number
 }
 
 export type ManualPoi = {
@@ -9181,4 +9189,174 @@ export function pickCouponDescription(coupon: Coupon, locale: string): string {
   const v = map[locale]
   if (v && v.trim()) return v
   return coupon.description ?? ''
+}
+
+// ---------------------------------------------------------------------------
+// İlçe gezi fikirleri — toplu AI üretimi
+// ---------------------------------------------------------------------------
+
+export interface DistrictIdeasStats {
+  total_districts: number
+  districts_with_content: number
+  jobs: Record<string, number>
+}
+
+export async function getDistrictIdeasStats(token: string): Promise<DistrictIdeasStats> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`district_ideas_stats_${res.status}`)
+  return res.json() as Promise<DistrictIdeasStats>
+}
+
+export async function queueAllDistrictIdeas(token: string): Promise<{ queued: number; total_found: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/queue-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`district_ideas_queue_${res.status}`)
+  return res.json() as Promise<{ queued: number; total_found: number }>
+}
+
+export interface DistrictIdeasProcessResult {
+  done: boolean
+  message?: string
+  job_id?: string
+  location_page_id?: string
+  ideas_stored?: boolean
+  skipped?: boolean
+}
+
+export async function processNextDistrictIdea(token: string): Promise<DistrictIdeasProcessResult> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/process-next`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`district_ideas_process_${res.status}`)
+  return res.json() as Promise<DistrictIdeasProcessResult>
+}
+
+export interface NextEmptyDistrict {
+  done: boolean
+  location_page_id?: string
+  slug_path?: string
+  district_name?: string
+  region_name?: string
+  country_name?: string
+  /** İlçe merkezi (varsa — region fallback ile) */
+  center_lat?: string
+  center_lng?: string
+}
+
+export async function getNextEmptyDistrict(token: string): Promise<NextEmptyDistrict> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/next-empty`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`next_empty_district_${res.status}`)
+  return res.json() as Promise<NextEmptyDistrict>
+}
+
+export async function saveDistrictPlaces(
+  token: string,
+  locationPageId: string,
+  ideasJson: string,
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/save-places`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ location_page_id: locationPageId, ideas_json: ideasJson }),
+  })
+  if (!res.ok) throw new Error(`save_district_places_${res.status}`)
+}
+
+// ---------------------------------------------------------------------------
+// İlan yakın mekan (POI) mesafe hesabı
+// ---------------------------------------------------------------------------
+
+export interface NearbyPoi {
+  title: string
+  summary?: string
+  image?: string
+  link?: string
+  place_id?: string
+  lat: number
+  lng: number
+  distance_km: number
+}
+
+/** Sunucu tarafında Haversine hesabı yapar ve listings.nearby_pois_json'u günceller. */
+export async function computeListingNearbyPois(
+  token: string,
+  listingId: string,
+): Promise<{ listing_id: string; nearby_pois: NearbyPoi[] }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/listings/${listingId}/compute-nearby-pois`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`compute_nearby_pois_${res.status}`)
+  const data = await res.json() as { listing_id: string; nearby_pois: string }
+  return {
+    listing_id: data.listing_id,
+    nearby_pois: JSON.parse(data.nearby_pois) as NearbyPoi[],
+  }
+}
+
+/** İlanın mevcut nearby_pois_json'unu getirir (önbellek). */
+export async function getListingNearbyPois(listingId: string): Promise<NearbyPoi[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(`${b}/api/v1/listings/${listingId}/nearby-pois`)
+    if (!res.ok) return []
+    const data = await res.json() as { nearby_pois: string }
+    return JSON.parse(data.nearby_pois) as NearbyPoi[]
+  } catch {
+    return []
+  }
+}
+
+/** Koordinatı olan tüm ilanların nearby_pois_json'unu toplu hesaplar. */
+export async function computeAllListingsNearbyPois(
+  token: string,
+  onProgress?: (done: number, total: number, listingId: string) => void,
+): Promise<{ processed: number; skipped: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  // Koordinatı olan ilanları listele
+  const listRes = await fetch(
+    `${b}/api/v1/listings?has_map_coords=1&status=published&limit=500`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!listRes.ok) throw new Error(`listings_list_${listRes.status}`)
+  const listData = await listRes.json() as { listings?: Array<{ id: string }> }
+  const listings = listData.listings ?? []
+  let processed = 0
+  let skipped = 0
+  for (const l of listings) {
+    try {
+      const r = await computeListingNearbyPois(token, l.id)
+      if (r.nearby_pois.length > 0) processed++
+      else skipped++
+    } catch {
+      skipped++
+    }
+    onProgress?.(processed + skipped, listings.length, l.id)
+    await new Promise((res) => setTimeout(res, 300))
+  }
+  return { processed, skipped }
 }

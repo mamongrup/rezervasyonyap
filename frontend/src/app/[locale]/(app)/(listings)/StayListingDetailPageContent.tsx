@@ -25,6 +25,7 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import {
   fetchPublicListingAvailabilityDaysSafe,
   fetchPublicListingContractSafe,
+  getListingNearbyPois,
   getPublicHotelRooms,
   getPublicListingAttributes,
   getPublicMealPlans,
@@ -77,6 +78,7 @@ import SectionMap from './components/SectionMap'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
+import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
 
 function formatPrepaymentPercentForDisplay(raw: string): string {
@@ -174,6 +176,7 @@ export default async function StayListingDetailPageContent({
 
   const mealPlans = await getPublicMealPlans(catalogListingId ?? listing.id)
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
+  const nearbyPois = await getListingNearbyPois(listing.id)
 
   // listing_attributes (admin EAV) → vitrin amenity listesi
   let amenityKeys: string[] = []
@@ -889,6 +892,7 @@ export default async function StayListingDetailPageContent({
             overrideLat={map?.lat}
             overrideLng={map?.lng}
           />
+          <ListingNearbyPoisSection pois={nearbyPois} />
           <SimilarListings
             listings={similarListings}
             title={dp.similarListings}
