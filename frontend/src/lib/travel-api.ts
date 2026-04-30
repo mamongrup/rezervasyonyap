@@ -7513,6 +7513,25 @@ export async function createAiRegionTask(
   return json(res)
 }
 
+/** Ülke için illeri DeepSeek ile üretir ve doğrudan `regions` tablosuna yazar (senkron). */
+export async function generateAiProvincesSync(
+  token: string,
+  body: { country_name: string; country_id?: string },
+): Promise<{ job_id: string; created: number; skipped: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/region-tasks/generate-provinces`, {
+    method: 'POST',
+    headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_generate_provinces_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function listAiRegionTasks(token: string): Promise<{ tasks: Record<string, unknown>[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')

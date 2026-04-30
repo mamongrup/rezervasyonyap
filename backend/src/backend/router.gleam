@@ -1206,6 +1206,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "ai", "region-tasks"] ->
       ai_http.list_region_tasks(req, ctx)
 
+    http.Post, ["api", "v1", "ai", "region-tasks", "generate-provinces"] ->
+      ai_http.generate_provinces_sync(req, ctx)
+
     http.Post, ["api", "v1", "ai", "region-tasks"] ->
       ai_http.create_region_task(req, ctx)
 

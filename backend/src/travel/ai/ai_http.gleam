@@ -13,6 +13,7 @@ import gleam/string
 import pog
 import travel/ai/ai_job_run
 import travel/ai/ops_agent_enqueue
+import travel/ai/region_provinces_sync
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -388,6 +389,52 @@ fn region_task_decoder() -> decode.Decoder(
       })
     })
   })
+}
+
+fn gen_prov_decoder() -> decode.Decoder(#(String, Option(String))) {
+  decode.field("country_name", decode.string, fn(cn) {
+    decode.optional_field("country_id", "", decode.string, fn(cid) {
+      let opt = case string.trim(cid) == "" {
+        True -> None
+        False -> Some(string.trim(cid))
+      }
+      decode.success(#(string.trim(cn), opt))
+    })
+  })
+}
+
+/// POST /api/v1/ai/region-tasks/generate-provinces — `admin.users.read` — ülke için illeri AI ile üretir ve DB’ye yazar (senkron).
+pub fn generate_provinces_sync(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, gen_prov_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(cn, cid_opt)) ->
+              case cn == "" {
+                True -> json_err(400, "country_name_required")
+                False ->
+                  case region_provinces_sync.generate_and_insert_provinces(ctx, cn, cid_opt) {
+                    Error(e) -> json_err(400, e)
+                    Ok(out) -> {
+                      let body =
+                        json.object([
+                          #("job_id", json.string(out.job_id)),
+                          #("created", json.int(out.created)),
+                          #("skipped", json.int(out.skipped)),
+                        ])
+                        |> json.to_string
+                      wisp.json_response(body, 200)
+                    }
+                  }
+              }
+          }
+      }
+  }
 }
 
 /// POST /api/v1/ai/region-tasks — `admin.users.read`

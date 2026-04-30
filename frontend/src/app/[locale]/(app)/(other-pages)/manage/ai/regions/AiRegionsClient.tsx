@@ -3,6 +3,7 @@
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   createAiRegionTask,
+  generateAiProvincesSync,
   listAiRegionTasks,
   listLocationCountries,
   listLocationRegions,
@@ -51,6 +52,7 @@ export default function AiRegionsClient() {
   const [countryName, setCountryName] = useState('')
   const [selectedCountryId, setSelectedCountryId] = useState('')
   const [creatingCities, setCreatingCities] = useState(false)
+  const [provincesOk, setProvincesOk] = useState<string | null>(null)
 
   // Create districts
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null)
@@ -99,17 +101,18 @@ export default function AiRegionsClient() {
     if (!countryName.trim()) return
     setCreatingCities(true)
     setError(null)
+    setProvincesOk(null)
     try {
-      await createAiRegionTask(token, {
+      const out = await generateAiProvincesSync(token, {
         country_id: selectedCountryId || undefined,
         country_name: countryName.trim(),
-        step: 'provinces',
       })
+      setProvincesOk(`${out.created} il eklendi, ${out.skipped} atlandı (yinelenen veya boş). İş no: ${out.job_id.slice(0, 8)}…`)
       setCountryName('')
       setSelectedCountryId('')
       await loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Görev oluşturulamadı')
+      setError(e instanceof Error ? e.message : 'İller oluşturulamadı')
     } finally {
       setCreatingCities(false)
     }
@@ -182,7 +185,8 @@ export default function AiRegionsClient() {
             </h2>
           </div>
           <p className="mb-4 text-sm text-neutral-500">
-            Ülke adını yazın. Yapay zeka o ülkenin tüm il/bölgelerini (merkez koordinatlarıyla birlikte) oluşturacak.
+            Ülke adını yazın — istek tek seferde işlenir; iller veritabanına yazılır (ülke kaydı önceden{' '}
+            <span className="font-medium">Ülkeler &amp; şehirler</span> ekranında olmalı veya adı eşleşmeli).
           </p>
           <div className="space-y-3">
             <div>
@@ -219,9 +223,12 @@ export default function AiRegionsClient() {
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
             >
               {creatingCities
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Gönderiliyor…</>
+                ? <><Loader2 className="h-4 w-4 animate-spin" />Oluşturuluyor…</>
                 : <><Sparkles className="h-4 w-4" />İlleri oluştur</>}
             </button>
+            {provincesOk ? (
+              <p className="text-xs text-emerald-600 dark:text-emerald-400">{provincesOk}</p>
+            ) : null}
           </div>
         </div>
 
