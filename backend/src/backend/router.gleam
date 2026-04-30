@@ -1253,6 +1253,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "ai", "district-ideas", "save-places"] ->
       district_ideas_http.save_places(req, ctx)
 
+    http.Get, ["api", "v1", "ai", "district-ideas", "next-no-cover"] ->
+      district_ideas_http.next_no_cover(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "district-ideas", "save-cover"] ->
+      district_ideas_http.save_cover(req, ctx)
+
     http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
       verticals_http.delete_hotel_room(req, ctx, lid, rid)
 

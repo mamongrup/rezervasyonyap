@@ -5,6 +5,8 @@
 //// GET  /api/v1/ai/district-ideas/stats              → kuyruk durumu
 //// GET  /api/v1/ai/district-ideas/next-empty         → içeriksiz bir sonraki ilçe (Google Maps için)
 //// POST /api/v1/ai/district-ideas/save-places        → Google Maps sonuçlarını kaydet
+//// POST /api/v1/ai/district-ideas/save-cover         → Pexels kapak resmini kaydet
+//// GET  /api/v1/ai/district-ideas/next-no-cover      → kapak resmi olmayan sonraki ilçe
 
 import backend/context.{type Context}
 import gleam/bit_array
@@ -453,6 +455,104 @@ pub fn save_places(req: Request, ctx: Context) -> Response {
             Ok(#(lp_id, ideas_json)) -> {
               let cleaned = clean_json_text(ideas_json)
               apply_ideas(ctx, "google_maps", string.trim(lp_id), cleaned)
+            }
+          }
+      }
+    }
+  }
+}
+
+fn cover_body_decoder() -> decode.Decoder(#(String, String)) {
+  use lp_id <- decode.field("location_page_id", decode.string)
+  use cover <- decode.field("cover_image", decode.string)
+  decode.success(#(lp_id, cover))
+}
+
+fn no_cover_row() -> decode.Decoder(#(String, String, String, String)) {
+  use lp_id <- decode.field(0, decode.string)
+  use slug <- decode.field(1, decode.string)
+  use district_name <- decode.field(2, decode.string)
+  use region_name <- decode.field(3, decode.string)
+  decode.success(#(lp_id, slug, district_name, region_name))
+}
+
+/// GET /api/v1/ai/district-ideas/next-no-cover — `admin.users.read`
+///
+/// Kapak resmi henüz atanmamış (cover_image = '') bir sonraki ilçeyi döndürür.
+/// Pexels döngüsü bu endpoint'i kullanır. Tümü tamamlanmışsa `{"done":true}` döner.
+pub fn next_no_cover(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      case
+        pog.query(
+          "select lp.id::text, lp.slug_path, d.name, r.name
+           from   location_pages lp
+           join   districts d on d.id = lp.district_id
+           join   regions   r on r.id = d.region_id
+           where  lp.region_type = 'district'
+             and  (lp.cover_image is null or lp.cover_image = '')
+           order  by r.name, d.name
+           limit  1",
+        )
+        |> pog.returning(no_cover_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "next_no_cover_query_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [] ->
+              wisp.json_response("{\"done\":true}", 200)
+            [#(lp_id, slug, district_name, region_name)] -> {
+              let body =
+                json.object([
+                  #("done", json.bool(False)),
+                  #("location_page_id", json.string(lp_id)),
+                  #("slug_path", json.string(slug)),
+                  #("district_name", json.string(district_name)),
+                  #("region_name", json.string(region_name)),
+                ])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+            _ -> json_err(500, "unexpected_rows")
+          }
+      }
+    }
+  }
+}
+
+/// POST /api/v1/ai/district-ideas/save-cover — `admin.users.read`
+///
+/// Body: { "location_page_id": "...", "cover_image": "https://..." }
+/// location_pages.cover_image alanını günceller.
+pub fn save_cover(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "body_read_failed")
+        Ok(body_str) ->
+          case json.parse(body_str, cover_body_decoder()) {
+            Error(_) -> json_err(400, "invalid_json_body")
+            Ok(#(lp_id, cover_url)) -> {
+              case
+                pog.query(
+                  "update location_pages set cover_image = $2 where id = $1::uuid",
+                )
+                |> pog.parameter(pog.text(string.trim(lp_id)))
+                |> pog.parameter(pog.text(string.trim(cover_url)))
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "cover_update_failed")
+                Ok(_) ->
+                  wisp.json_response(
+                    "{\"ok\":true}",
+                    200,
+                  )
+              }
             }
           }
       }

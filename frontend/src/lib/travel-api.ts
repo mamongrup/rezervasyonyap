@@ -9331,6 +9331,59 @@ export async function getListingNearbyPois(listingId: string): Promise<NearbyPoi
 }
 
 /** Koordinatı olan tüm ilanların nearby_pois_json'unu toplu hesaplar. */
+// ─── Pexels ───────────────────────────────────────────────────────────────────
+
+export interface PexelsPhoto {
+  id: number
+  alt: string
+  photographer: string
+  src: { large: string; medium: string; small: string }
+}
+
+/** Pexels proxy üzerinden arama yapar. apiKey: Pexels API anahtarı. */
+export async function searchPexelsImage(
+  query: string,
+  apiKey: string,
+  perPage = 1,
+): Promise<PexelsPhoto[]> {
+  const params = new URLSearchParams({ q: query, per_page: String(perPage), apiKey })
+  const res = await fetch(`/api/pexels-search?${params}`)
+  if (!res.ok) throw new Error(`pexels_${res.status}`)
+  const data = await res.json() as { photos: PexelsPhoto[]; total: number }
+  return data.photos ?? []
+}
+
+/** İçeriği olan ama kapak resmi olmayan sonraki ilçeyi döndürür. */
+export async function getNextNoCoverDistrict(
+  token: string,
+): Promise<{ done: true } | { done: false; location_page_id: string; slug_path: string; district_name: string; region_name: string }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/next-no-cover`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`next_no_cover_${res.status}`)
+  return res.json()
+}
+
+/** İlçe kapak resmini kaydeder. */
+export async function saveDistrictCover(
+  token: string,
+  locationPageId: string,
+  coverImage: string,
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/save-cover`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ location_page_id: locationPageId, cover_image: coverImage }),
+  })
+  if (!res.ok) throw new Error(`save_cover_${res.status}`)
+}
+
+// ─── Listing nearby POIs ──────────────────────────────────────────────────────
+
 export async function computeAllListingsNearbyPois(
   token: string,
   onProgress?: (done: number, total: number, listingId: string) => void,

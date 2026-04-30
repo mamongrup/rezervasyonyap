@@ -4,12 +4,15 @@ import {
   getAiJob,
   getDistrictIdeasStats,
   getNextEmptyDistrict,
+  getNextNoCoverDistrict,
   listAiFeatureProfiles,
   listAiJobs,
   listAiProviders,
   processNextDistrictIdea,
   queueAllDistrictIdeas,
+  saveDistrictCover,
   saveDistrictPlaces,
+  searchPexelsImage,
   type DistrictIdeasStats,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -66,6 +69,13 @@ export default function AdminAiSection() {
   const [mapsErr, setMapsErr] = useState<string | null>(null)
   const [mapsApiKey, setMapsApiKey] = useState('')
   const mapsStopRef = useRef(false)
+
+  // Pexels kapak + fikir resimleri
+  const [pexelsRunning, setPexelsRunning] = useState(false)
+  const [pexelsLog, setPexelsLog] = useState<string[]>([])
+  const [pexelsErr, setPexelsErr] = useState<string | null>(null)
+  const [pexelsApiKey, setPexelsApiKey] = useState('')
+  const pexelsStopRef = useRef(false)
 
   const refresh = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -273,6 +283,59 @@ export default function AdminAiSection() {
     } finally {
       setMapsRunning(false)
       await loadDistrictStats()
+    }
+  }
+
+  async function onStartPexelsProcessing() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    const key = pexelsApiKey.trim()
+    if (!key) {
+      setPexelsErr('Pexels API anahtarı gerekli.')
+      return
+    }
+    setPexelsRunning(true)
+    setPexelsErr(null)
+    setPexelsLog([])
+    pexelsStopRef.current = false
+    try {
+      let done = 0
+      while (!pexelsStopRef.current) {
+        const next = await getNextNoCoverDistrict(token)
+        if (next.done) {
+          setPexelsLog((l) => [...l, 'Tüm ilçe kapak resimleri tamamlandı.'])
+          break
+        }
+        const { location_page_id, district_name, region_name } = next
+        // 1. Kapak resmi: "{ilçe} {il} Turkey"
+        const coverQuery = `${district_name} ${region_name} Turkey`
+        let coverUrl = ''
+        try {
+          const photos = await searchPexelsImage(coverQuery, key, 1)
+          if (photos.length === 0) {
+            // Fallback: sadece il adı
+            const fallback = await searchPexelsImage(`${region_name} Turkey`, key, 1)
+            coverUrl = fallback[0]?.src.large ?? ''
+          } else {
+            coverUrl = photos[0]?.src.large ?? ''
+          }
+        } catch {
+          coverUrl = ''
+        }
+        if (coverUrl) {
+          await saveDistrictCover(token, location_page_id, coverUrl)
+          done++
+          setPexelsLog((l) => [...l, `✓ [${done}] ${district_name} (${region_name}) → kapak kaydedildi`])
+        } else {
+          await saveDistrictCover(token, location_page_id, 'not_found')
+          setPexelsLog((l) => [...l, `– ${district_name}: Pexels'te resim bulunamadı, atlandı`])
+        }
+        await new Promise((r) => setTimeout(r, 400))
+      }
+    } catch (e) {
+      setPexelsErr(e instanceof Error ? e.message : 'pexels_process_failed')
+    } finally {
+      setPexelsRunning(false)
     }
   }
 
@@ -575,6 +638,72 @@ export default function AdminAiSection() {
             </ul>
           </div>
         ) : null}
+      </div>
+
+      {/* Pexels kapak resimleri */}
+      <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+          <MapPin className="h-4 w-4 text-pink-500" />
+          Pexels — İlçe Kapak Resimleri
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          Kapak resmi olmayan her ilçe için Pexels&apos;ten otomatik fotoğraf çeker ve kaydeder.
+          API anahtarı ücretsiz: <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer" className="text-pink-600 hover:underline">pexels.com/api</a>
+        </p>
+
+        {pexelsErr ? (
+          <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{pexelsErr}</p>
+        ) : null}
+
+        <div className="mt-4">
+          <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            Pexels API Anahtarı
+          </label>
+          <input
+            type="password"
+            value={pexelsApiKey}
+            onChange={(e) => setPexelsApiKey(e.target.value)}
+            placeholder="Pexels API key..."
+            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+            disabled={pexelsRunning}
+          />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          {!pexelsRunning ? (
+            <ButtonPrimary
+              type="button"
+              onClick={() => void onStartPexelsProcessing()}
+              className="bg-pink-600 hover:bg-pink-700"
+            >
+              Pexels&apos;ten Resim Çek
+            </ButtonPrimary>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { pexelsStopRef.current = true }}
+              className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+            >
+              Durdur
+            </button>
+          )}
+          {pexelsRunning && (
+            <span className="inline-flex items-center gap-2 text-sm text-neutral-500">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              İşleniyor…
+            </span>
+          )}
+        </div>
+
+        {pexelsLog.length > 0 && (
+          <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+              {pexelsLog.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40">
