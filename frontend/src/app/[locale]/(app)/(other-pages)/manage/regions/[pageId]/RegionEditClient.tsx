@@ -1684,7 +1684,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 {travelIdeas.map((idea, idx) => (
                   <div key={idea.id} className={clsx(
                     'rounded-xl border p-4 transition-colors dark:border-neutral-800',
-                    editingIdeaId === idea.id ? 'border-[color:var(--manage-primary)]/30 bg-[color:var(--manage-primary)]/5' : 'border-neutral-100',
+                    editingIdeaId === String(idea.id) ? 'border-[color:var(--manage-primary)]/30 bg-[color:var(--manage-primary)]/5' : 'border-neutral-100',
                   )}>
                     <div className="flex items-start gap-3">
                       {idea.image ? (
@@ -1694,7 +1694,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-xl dark:bg-neutral-800">🗺️</div>
                       )}
                       <div className="min-w-0 flex-1">
-                        {editingIdeaId === idea.id ? (
+                        {editingIdeaId === String(idea.id) ? (
                           <div className="space-y-2">
                             <ImageUpload
                               value={idea.image ?? ''}
@@ -1718,12 +1718,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                         )}
                       </div>
                       <div className="flex shrink-0 gap-1">
-                        {editingIdeaId !== idea.id && (
-                          <button type="button" onClick={() => setEditingIdeaId(idea.id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                        {editingIdeaId !== String(idea.id) && (
+                          <button type="button" onClick={() => setEditingIdeaId(String(idea.id))} className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800">
                             <Pencil className="h-3.5 w-3.5" />
                           </button>
                         )}
-                        <button type="button" onClick={() => removeTravelIdea(idea.id)} className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30">
+                        <button type="button" onClick={() => removeTravelIdea(String(idea.id))} className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
