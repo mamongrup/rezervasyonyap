@@ -141,12 +141,24 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     listingVertical: normalizeCatalogVertical(l.listingVertical),
   }))
 
-  // Hero config
-  const heroHeading   = homepageConfig?.heroHeading   ?? m.homePage.heroDefaults.heading
-  const heroSubheading = homepageConfig?.heroSubheading ?? m.homePage.heroDefaults.subheading
-  const heroCtaText = homepageConfig?.heroCtaText ?? m.homePage.heroDefaults.cta
-  /** Anasayfa hero — başlık / alt metin / CTA aynı kategori vitrinine (PageBuilder `HOME_CATEGORY`) */
+  // Hero config — page-builder hero modülü > homepageConfig > varsayılan mesaj
+  const heroModule = modules.find((mod) => mod.type === 'hero' && mod.enabled)
+  const heroModuleCfg = heroModule?.config as Record<string, unknown> | undefined
+  const heroHeading =
+    (heroModuleCfg?.heading as string | undefined)?.trim() ||
+    homepageConfig?.heroHeading ||
+    m.homePage.heroDefaults.heading
+  const heroSubheading =
+    (heroModuleCfg?.subheading as string | undefined)?.trim() ||
+    homepageConfig?.heroSubheading ||
+    m.homePage.heroDefaults.subheading
+  const heroCtaText =
+    (heroModuleCfg?.ctaText as string | undefined)?.trim() ||
+    homepageConfig?.heroCtaText ||
+    m.homePage.heroDefaults.cta
+  /** Anasayfa hero CTA linki — hero modülünde özel link varsa onu kullan, yoksa kategori vitrin */
   const categoryPageHref = await vitrinHref(locale, `${HOME_CATEGORY.categoryRoute}/all`)
+  const heroCtaHref = (heroModuleCfg?.ctaHref as string | undefined)?.trim() || categoryPageHref
 
   // featured_by_region modülü varsa savedRegionConfig ile override et
   const modulesWithRegion = modules.map((mod) => {
@@ -171,7 +183,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           {heroSubheading}
         </Link>
       </p>
-      <ButtonPrimary href={categoryPageHref} className="sm:text-base/normal">
+      <ButtonPrimary href={heroCtaHref} className="sm:text-base/normal">
         {heroCtaText}
       </ButtonPrimary>
     </>
