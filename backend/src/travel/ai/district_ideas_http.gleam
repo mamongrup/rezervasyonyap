@@ -7,6 +7,7 @@
 //// POST /api/v1/ai/district-ideas/save-places        → Google Maps sonuçlarını kaydet
 //// POST /api/v1/ai/district-ideas/save-cover         → Pexels kapak resmini kaydet
 //// GET  /api/v1/ai/district-ideas/next-no-cover      → kapak resmi olmayan sonraki ilçe
+//// GET  /api/v1/ai/district-ideas/cover-stats        → kapak resmi istatistikleri
 
 import backend/context.{type Context}
 import gleam/bit_array
@@ -572,6 +573,118 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
               }
             }
           }
+      }
+    }
+  }
+}
+
+fn cover_stats_row() -> decode.Decoder(#(Int, Int, Int, Int)) {
+  use total     <- decode.field(0, decode.int)
+  use has_cover <- decode.field(1, decode.int)
+  use not_found <- decode.field(2, decode.int)
+  use empty     <- decode.field(3, decode.int)
+  decode.success(#(total, has_cover, not_found, empty))
+}
+
+/// GET /api/v1/ai/district-ideas/cover-stats — `admin.users.read`
+///
+/// Tüm lokasyonlar için kapak resmi durumu istatistiklerini döndürür.
+pub fn cover_stats(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      case
+        pog.query(
+          "select
+             count(*)::int                                              as total,
+             count(*) filter (where cover_image <> '' and cover_image <> 'not_found')::int as has_cover,
+             count(*) filter (where cover_image = 'not_found')::int    as not_found,
+             count(*) filter (where cover_image is null or cover_image = '')::int as empty
+           from location_pages",
+        )
+        |> pog.returning(cover_stats_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "cover_stats_query_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [#(total, has_cover, not_found, empty)] -> {
+              let body =
+                json.object([
+                  #("total", json.int(total)),
+                  #("has_cover", json.int(has_cover)),
+                  #("not_found", json.int(not_found)),
+                  #("empty", json.int(empty)),
+                ])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+            _ -> json_err(500, "unexpected_stats_rows")
+          }
+      }
+    }
+  }
+}
+
+/// GET /api/v1/ai/district-ideas/not-found-covers — `admin.users.read`
+///
+/// Pexels'te resim bulunamayan lokasyonların listesini döndürür.
+pub fn not_found_covers(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      case
+        pog.query(
+          "select
+             lp.id::text,
+             lp.slug_path,
+             coalesce(lp.region_type, 'district') as region_type,
+             case
+               when lp.region_type = 'country' then co2.name
+               when lp.region_type = 'region'  then r2.name
+               else coalesce(d.name, '')
+             end as location_name,
+             case
+               when lp.region_type = 'region'  then coalesce(co3.name, '')
+               else coalesce(r4.name, '')
+             end as parent_name
+           from   location_pages lp
+           left join districts d   on d.id  = lp.district_id
+           left join regions   r2  on r2.id = lp.region_id
+           left join countries co3 on co3.id = r2.country_id
+           left join countries co2 on co2.id = lp.country_id
+           left join regions   r4  on r4.id = d.region_id
+           where  lp.cover_image = 'not_found'
+           order  by lp.region_type, location_name
+           limit  200",
+        )
+        |> pog.returning({
+          use id   <- decode.field(0, decode.string)
+          use slug <- decode.field(1, decode.string)
+          use rt   <- decode.field(2, decode.string)
+          use loc  <- decode.field(3, decode.string)
+          use par  <- decode.field(4, decode.string)
+          decode.success(#(id, slug, rt, loc, par))
+        })
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "not_found_covers_query_failed")
+        Ok(ret) -> {
+          let items =
+            list.map(ret.rows, fn(row) {
+              let #(id, slug, rt, loc, par) = row
+              json.object([
+                #("id", json.string(id)),
+                #("slug_path", json.string(slug)),
+                #("region_type", json.string(rt)),
+                #("location_name", json.string(loc)),
+                #("parent_name", json.string(par)),
+              ])
+            })
+          wisp.json_response(json.to_string(json.array(items, fn(x) { x })), 200)
+        }
       }
     }
   }

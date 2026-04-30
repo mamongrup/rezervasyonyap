@@ -2,9 +2,11 @@
 
 import {
   getAiJob,
+  getCoverStats,
   getDistrictIdeasStats,
   getNextEmptyDistrict,
   getNextNoCoverDistrict,
+  getNotFoundCovers,
   listAiFeatureProfiles,
   listAiJobs,
   listAiProviders,
@@ -13,7 +15,9 @@ import {
   saveDistrictCover,
   saveDistrictPlaces,
   searchPexelsImage,
+  type CoverStats,
   type DistrictIdeasStats,
+  type NotFoundCoverItem,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -77,6 +81,9 @@ export default function AdminAiSection() {
   const [pexelsApiKeys, setPexelsApiKeys] = useState<string[]>(['', '', '', '', ''])
   const pexelsStopRef = useRef(false)
   const pexelsKeyIndexRef = useRef(0)
+  const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
+  const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
+  const [notFoundExpanded, setNotFoundExpanded] = useState(false)
 
   const refresh = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -349,6 +356,24 @@ export default function AdminAiSection() {
       setPexelsErr(e instanceof Error ? e.message : 'pexels_process_failed')
     } finally {
       setPexelsRunning(false)
+      // İstatistikleri ve bulunamayanları yükle
+      try {
+        const [stats, nf] = await Promise.all([getCoverStats(token), getNotFoundCovers(token)])
+        setCoverStats(stats)
+        setNotFoundCovers(nf)
+      } catch { /* sessizce geç */ }
+    }
+  }
+
+  async function onLoadCoverStats() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    try {
+      const [stats, nf] = await Promise.all([getCoverStats(token), getNotFoundCovers(token)])
+      setCoverStats(stats)
+      setNotFoundCovers(nf)
+    } catch (e) {
+      setPexelsErr(e instanceof Error ? e.message : 'stats_load_failed')
     }
   }
 
@@ -721,6 +746,51 @@ export default function AdminAiSection() {
               ))}
             </ul>
           </div>
+        )}
+
+        {/* İstatistik + uyarı */}
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void onLoadCoverStats()}
+            className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+          >
+            İstatistikleri Gör
+          </button>
+          {coverStats && (
+            <span className="text-xs text-neutral-500">
+              Toplam: <b>{coverStats.total}</b> · Resimli: <b className="text-emerald-600">{coverStats.has_cover}</b> · Boş: <b className="text-amber-600">{coverStats.empty}</b> · Bulunamadı: <b className="text-red-600">{coverStats.not_found}</b>
+            </span>
+          )}
+        </div>
+
+        {notFoundCovers && notFoundCovers.length > 0 && (
+          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/20">
+            <button
+              type="button"
+              onClick={() => setNotFoundExpanded((v) => !v)}
+              className="flex w-full items-center justify-between text-sm font-semibold text-red-700 dark:text-red-300"
+            >
+              <span>⚠️ Pexels&apos;te resim bulunamayan {notFoundCovers.length} lokasyon</span>
+              <span className="text-xs">{notFoundExpanded ? '▲ Gizle' : '▼ Göster'}</span>
+            </button>
+            {notFoundExpanded && (
+              <ul className="mt-3 max-h-64 overflow-y-auto space-y-1">
+                {notFoundCovers.map((item) => (
+                  <li key={item.id} className="flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
+                    <span className="rounded bg-red-100 px-1.5 py-0.5 font-mono dark:bg-red-900/40">{item.region_type}</span>
+                    <span className="font-medium">{item.location_name}</span>
+                    {item.parent_name && <span className="text-red-400">/ {item.parent_name}</span>}
+                    <span className="ml-auto font-mono text-[10px] text-red-400">{item.slug_path}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        {notFoundCovers?.length === 0 && coverStats && (
+          <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-400">✓ Tüm lokasyonlarda resim bulundu.</p>
         )}
       </div>
 

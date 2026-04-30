@@ -9366,6 +9366,41 @@ export async function getNextNoCoverDistrict(
   return res.json()
 }
 
+export interface CoverStats {
+  total: number
+  has_cover: number
+  not_found: number
+  empty: number
+}
+
+export interface NotFoundCoverItem {
+  id: string
+  slug_path: string
+  region_type: string
+  location_name: string
+  parent_name: string
+}
+
+export async function getCoverStats(token: string): Promise<CoverStats> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/cover-stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`cover_stats_${res.status}`)
+  return res.json()
+}
+
+export async function getNotFoundCovers(token: string): Promise<NotFoundCoverItem[]> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/not-found-covers`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`not_found_covers_${res.status}`)
+  return res.json()
+}
+
 /** İlçe kapak resmini kaydeder. */
 export async function saveDistrictCover(
   token: string,
