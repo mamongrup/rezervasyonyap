@@ -17,6 +17,7 @@ interface Props {
 }
 
 export default function TopProvidersModule({ config, authors, categorySlug }: Props) {
+  if (!authors.length) return null
   return (
     <SectionTopProviders
       authors={authors}

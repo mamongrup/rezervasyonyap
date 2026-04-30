@@ -8,7 +8,27 @@ import avatars7 from '@/images/avatars/Image-7.png'
 import avatars8 from '@/images/avatars/Image-8.png'
 
 export async function getAuthors() {
-  // Tüm kategorilerden ilan sağlayıcıları — starRating DESC, count DESC sıralamasıyla
+  // Gerçek tedarikçi verisi API'den gelecek; henüz ilan sahibi yokken boş dönelim.
+  return [] as {
+    id: number
+    displayName: string
+    handle: string
+    email: string
+    gender: string
+    avatarUrl: string
+    bgImage: string
+    count: number
+    description: string
+    jobName: string
+    category: string
+    categorySlug: string
+    starRating: number
+  }[]
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+async function _getAuthorsDemoData() {
+  // Demo veriler — gerçek API entegrasyonuna geçildiğinde bu fonksiyon kullanılır
   return [
     {
       id: 1,
