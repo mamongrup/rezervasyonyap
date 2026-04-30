@@ -24,6 +24,7 @@ import ImageTextModule from './modules/ImageTextModule'
 import DestinationCardsModule from './modules/DestinationCardsModule'
 import PartnersModule from './modules/PartnersModule'
 import CategorySliderModule from './modules/CategorySliderModule'
+import RegionSliderModule from './modules/RegionSliderModule'
 import SlidersBannerModule from './modules/SlidersBannerModule'
 import GeziOnerileriModule from './modules/GeziOnerileriModule'
 import FeaturedPlacesModule from './modules/FeaturedPlacesModule'
@@ -322,6 +323,14 @@ export default function PageBuilderRenderer({
               <CategorySliderModule
                 key={module.id}
                 config={cfg as Parameters<typeof CategorySliderModule>[0]['config']}
+              />
+            )
+
+          case 'region_slider':
+            return (
+              <RegionSliderModule
+                key={module.id}
+                config={cfg as Parameters<typeof RegionSliderModule>[0]['config']}
               />
             )
 

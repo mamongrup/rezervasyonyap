@@ -54,9 +54,7 @@ export default function SectionSliderRegions({
           >
             <div className="group relative flex flex-col">
               <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
-                {region.thumbnail &&
-                !brokenThumbs[region.slug] &&
-                !region.thumbnail.trim().startsWith('/uploads/') ? (
+                {region.thumbnail && !brokenThumbs[region.slug] ? (
                   <Image
                     src={region.thumbnail}
                     alt={region.name}

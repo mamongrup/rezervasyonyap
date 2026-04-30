@@ -245,6 +245,7 @@ export type PageBuilderModuleType =
   | 'sliders_banner'
   // Anasayfa & arama sayfası modülleri
   | 'category_slider'
+  | 'region_slider'
   | 'gezi_onerileri'
   | 'featured_places'
   | 'how_it_works'

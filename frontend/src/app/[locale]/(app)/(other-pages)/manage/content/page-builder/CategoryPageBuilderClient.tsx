@@ -45,6 +45,7 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   { type: 'sliders_banner', label: 'Slider & Banner', description: 'Yönetim panelinden eklenen slaytları gösterir', emoji: '🎞️' },
   // Homepage-specific modules
   { type: 'category_slider', label: 'Kategori Slider', description: 'Kategorileri yatay kaydırmalı göster', emoji: '🎡' },
+  { type: 'region_slider', label: 'Bölge Slider', description: 'Bölgeleri API\'den çekerek yatay kaydırmalı göster', emoji: '🗾' },
   { type: 'gezi_onerileri', label: 'Gezi Önerileri', description: 'Öne çıkan gezi önerileri bölümü', emoji: '🗺️' },
   { type: 'featured_places', label: 'Öne Çıkan Yerler', description: 'Popüler destinasyonlar vitrini', emoji: '📌' },
   { type: 'how_it_works', label: 'Nasıl Çalışır?', description: 'Adım adım platform açıklaması', emoji: '⚙️' },
@@ -1596,6 +1597,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
         ],
       },
       category_slider: { heading: '', subheading: '', cardType: 'card3', slice: 'first6' },
+      region_slider: { heading: '', subheading: '', categoryCode: '', categoryRoute: 'oteller', unit: 'ilan', limit: 12 },
       gezi_onerileri: {},
       featured_places: { heading: '', subHeading: '', viewAllHref: `/${selectedSlug}/all` },
       how_it_works: { title: '', subheading: '' },
