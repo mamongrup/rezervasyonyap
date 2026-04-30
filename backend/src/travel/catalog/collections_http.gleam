@@ -539,16 +539,7 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Error(_) -> 12
   }
   let sql =
-    "select r.slug, r.name, count(distinct l.id)::int as cnt, "
-    <> "coalesce( "
-    <> "  (select coalesce(nullif(l2.featured_image_url,''), nullif(l2.thumbnail_url,'')) "
-    <> "   from listings l2 "
-    <> "   where l2.status = 'published' "
-    <> "   and lower(l2.location_name) ilike '%' || lower(r.name) || '%' "
-    <> "   and coalesce(nullif(l2.featured_image_url,''), nullif(l2.thumbnail_url,'')) is not null "
-    <> "   limit 1), "
-    <> "  '' "
-    <> ") as thumbnail "
+    "select r.slug, r.name, count(distinct l.id)::int as cnt, '' as thumbnail "
     <> "from regions r "
     <> "join listings l on l.status = 'published' "
     <> "  and lower(l.location_name) ilike '%' || lower(r.name) || '%' "
