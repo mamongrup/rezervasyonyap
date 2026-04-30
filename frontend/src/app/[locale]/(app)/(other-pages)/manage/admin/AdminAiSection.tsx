@@ -71,14 +71,25 @@ export default function AdminAiSection() {
   const [mapsRunning, setMapsRunning] = useState(false)
   const [mapsLog, setMapsLog] = useState<string[]>([])
   const [mapsErr, setMapsErr] = useState<string | null>(null)
-  const [mapsApiKey, setMapsApiKey] = useState('')
+  const [mapsApiKey, setMapsApiKey] = useState<string>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('admin_maps_api_key') ?? ''
+    return ''
+  })
   const mapsStopRef = useRef(false)
 
   // Pexels kapak + fikir resimleri
   const [pexelsRunning, setPexelsRunning] = useState(false)
   const [pexelsLog, setPexelsLog] = useState<string[]>([])
   const [pexelsErr, setPexelsErr] = useState<string | null>(null)
-  const [pexelsApiKeys, setPexelsApiKeys] = useState<string[]>(['', '', '', '', ''])
+  const [pexelsApiKeys, setPexelsApiKeys] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('admin_pexels_api_keys')
+        if (stored) return JSON.parse(stored) as string[]
+      } catch { /* ignore */ }
+    }
+    return ['', '', '', '', '']
+  })
   const pexelsStopRef = useRef(false)
   const pexelsKeyIndexRef = useRef(0)
   const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
@@ -633,7 +644,7 @@ export default function AdminAiSection() {
             <input
               type="password"
               value={mapsApiKey}
-              onChange={(e) => setMapsApiKey(e.target.value)}
+              onChange={(e) => { setMapsApiKey(e.target.value); localStorage.setItem('admin_maps_api_key', e.target.value) }}
               placeholder="AIzaSy..."
               className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
               disabled={mapsRunning}
@@ -703,7 +714,7 @@ export default function AdminAiSection() {
               <input
                 type="password"
                 value={k}
-                onChange={(e) => setPexelsApiKeys((prev) => prev.map((v, j) => j === i ? e.target.value : v))}
+                onChange={(e) => setPexelsApiKeys((prev) => { const next = prev.map((v, j) => j === i ? e.target.value : v); localStorage.setItem('admin_pexels_api_keys', JSON.stringify(next)); return next })}
                 placeholder={`Pexels API key ${i + 1}...`}
                 className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
                 disabled={pexelsRunning}
