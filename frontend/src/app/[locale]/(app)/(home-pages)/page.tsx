@@ -6,7 +6,7 @@ import {
 } from '@/components/hero-sections/hero-link-classes'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
-import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
+import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchForm'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { getAuthors } from '@/data/authors'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
