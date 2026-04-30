@@ -1698,15 +1698,15 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                           <div className="space-y-2">
                             <ImageUpload
                               value={idea.image ?? ''}
-                              onChange={(url) => updateTravelIdea(idea.id, 'image', url)}
+                              onChange={(url) => updateTravelIdea(String(idea.id), 'image', url)}
                               folder="travel_ideas"
                               prefix="idea"
                               aspectRatio="16/9"
                               placeholder="Gezi fikri resmi"
                             />
-                            <input type="text" value={idea.title} onChange={(e) => updateTravelIdea(idea.id, 'title', e.target.value)} placeholder="Başlık / Blog Bağlantısı" className={inputCls} />
-                            <input type="url" value={idea.link} onChange={(e) => updateTravelIdea(idea.id, 'link', e.target.value)} placeholder="https://…" className={inputCls} />
-                            <textarea value={idea.summary} onChange={(e) => updateTravelIdea(idea.id, 'summary', e.target.value)} placeholder="İçindekiler Özeti" className={`${inputCls} min-h-[60px]`} rows={2} />
+                            <input type="text" value={idea.title} onChange={(e) => updateTravelIdea(String(idea.id), 'title', e.target.value)} placeholder="Başlık / Blog Bağlantısı" className={inputCls} />
+                            <input type="url" value={idea.link} onChange={(e) => updateTravelIdea(String(idea.id), 'link', e.target.value)} placeholder="https://…" className={inputCls} />
+                            <textarea value={idea.summary} onChange={(e) => updateTravelIdea(String(idea.id), 'summary', e.target.value)} placeholder="İçindekiler Özeti" className={`${inputCls} min-h-[60px]`} rows={2} />
                             <button type="button" onClick={() => setEditingIdeaId(null)} className="text-xs text-[color:var(--manage-primary)] hover:underline">✓ Tamam</button>
                           </div>
                         ) : (
