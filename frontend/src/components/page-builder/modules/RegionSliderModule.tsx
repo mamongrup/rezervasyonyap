@@ -53,11 +53,13 @@ export default async function RegionSliderModule({
       {config.heading && (
         <HeadingWithSub subheading={config.subheading}>{config.heading}</HeadingWithSub>
       )}
-      <SectionSliderRegions
-        regions={regions}
-        categoryRoute={resolvedRoute}
-        unit={config.unit ?? 'ilan'}
-      />
+      <div className="px-3 sm:px-5 xl:px-6">
+        <SectionSliderRegions
+          regions={regions}
+          categoryRoute={resolvedRoute}
+          unit={config.unit ?? 'ilan'}
+        />
+      </div>
     </div>
   )
 }

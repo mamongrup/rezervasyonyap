@@ -27,10 +27,13 @@ export default async function CategorySliderModule({ config }: { config: Config 
       {config.heading && (
         <HeadingWithSub subheading={config.subheading}>{config.heading}</HeadingWithSub>
       )}
-      <SectionSliderNewCategories
-        categories={displayed}
-        categoryCardType={(config.cardType as 'card3' | 'card5') ?? 'card3'}
-      />
+      {/* px-3 sm:px-5 xl:px-6: ok butonları (-start/end-3..6) overflow-x-hidden tarafından kesilmemesi için */}
+      <div className="px-3 sm:px-5 xl:px-6">
+        <SectionSliderNewCategories
+          categories={displayed}
+          categoryCardType={(config.cardType as 'card3' | 'card5') ?? 'card3'}
+        />
+      </div>
     </div>
   )
 }
