@@ -541,8 +541,8 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   let sql =
     "select r.slug, r.name, count(distinct l.id)::int as cnt, '' as thumbnail "
     <> "from regions r "
-    <> "join listings l on l.status = 'published' "
-    <> "  and lower(l.location_name) ilike '%' || lower(r.name) || '%' "
+    <> "join listing_translations lt on lt.region_id = r.id "
+    <> "join listings l on l.id = lt.listing_id and l.status = 'published' "
     <> "group by r.id, r.slug, r.name "
     <> "order by cnt desc "
     <> "limit $1"
