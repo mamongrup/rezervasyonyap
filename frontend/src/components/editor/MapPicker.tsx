@@ -3,12 +3,11 @@
 import clsx from 'clsx'
 import { Crosshair, MapPin, Search, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { loadGoogleMaps, isGoogleMapsAuthFailed, onGoogleMapsAuthFail } from '@/lib/google-maps-loader'
 
 declare global {
   interface Window {
     google?: any
-    initMapPickerCallback?: () => void
-    gm_authFailure?: () => void
   }
 }
 
@@ -34,50 +33,6 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     if (msg.includes('BillingNotEnabled') || msg.includes('Google Maps JavaScript API')) return
     _origError(...args)
   }
-}
-
-// ─── Google Maps Script loader ────────────────────────────────────────────────
-let scriptLoaded = false
-let scriptLoading = false
-let gmAuthFailed = false
-const readyCallbacks: (() => void)[] = []
-const authFailListeners = new Set<() => void>()
-
-// Set gm_authFailure once at module level so it catches the event regardless of timing
-if (typeof window !== 'undefined') {
-  window.gm_authFailure = () => {
-    gmAuthFailed = true
-    scriptLoading = false
-    authFailListeners.forEach((fn) => fn())
-    authFailListeners.clear()
-  }
-}
-
-function loadGoogleMaps(apiKey: string, cb: () => void) {
-  if (typeof window === 'undefined') return
-  if (gmAuthFailed) return  // already known to be failed — authFailListeners will handle it
-  if (scriptLoaded) { cb(); return }
-  readyCallbacks.push(cb)
-  if (scriptLoading) return
-  scriptLoading = true
-
-  window.initMapPickerCallback = () => {
-    scriptLoaded = true
-    scriptLoading = false
-    readyCallbacks.forEach((fn) => fn())
-    readyCallbacks.length = 0
-  }
-  const script = document.createElement('script')
-  script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initMapPickerCallback`
-  script.async = true
-  script.defer = true
-  script.onerror = () => {
-    gmAuthFailed = true
-    scriptLoading = false
-    authFailListeners.forEach((fn) => fn())
-    authFailListeners.clear()
-  }
-  document.head.appendChild(script)
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -165,15 +120,13 @@ export default function MapPicker({ lat, lng, zoom = 12, onChange, className }: 
 
   // Subscribe to auth failure events
   useEffect(() => {
-    if (gmAuthFailed) { setMapError(true); return }
-    const handler = () => setMapError(true)
-    authFailListeners.add(handler)
-    return () => { authFailListeners.delete(handler) }
+    if (isGoogleMapsAuthFailed()) { setMapError(true); return }
+    return onGoogleMapsAuthFail(() => setMapError(true))
   }, [])
 
   useEffect(() => {
-    if (!apiKey || gmAuthFailed) { setReady(false); return }
-    loadGoogleMaps(apiKey, initMap)
+    if (!apiKey || isGoogleMapsAuthFailed()) { setReady(false); return }
+    loadGoogleMaps(apiKey, initMap, () => setMapError(true))
   }, [apiKey, initMap])
 
   // When lat/lng props change externally, sync the marker

@@ -87,6 +87,7 @@ import {
 } from 'lucide-react'
 import { VerticalDetailsSection } from '../../../VerticalDetailsSection'
 import ListingImagesSection from '../../../ListingImagesSection'
+import PlacesAutocompleteInput from '@/components/editor/PlacesAutocompleteInput'
 
 const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
@@ -1611,7 +1612,18 @@ export default function CatalogListingDetailClient({
             </div>
             <Field className="mt-4 block">
               <Label>{ui.listingForm.address}</Label>
-              <Textarea className="mt-1" rows={3} value={address} onChange={(e) => setAddress(e.target.value)} />
+              <div className="mt-1">
+                <PlacesAutocompleteInput
+                  value={address}
+                  placeholder="Adres ara veya yazın…"
+                  onChange={setAddress}
+                  onPlaceSelect={(place) => {
+                    setAddress(place.address)
+                    setLat(place.lat.toFixed(6))
+                    setLng(place.lng.toFixed(6))
+                  }}
+                />
+              </div>
             </Field>
             <div className="mt-4">
               <ButtonPrimary type="button" onClick={() => void saveListingForm()} disabled={busy === 'listing-save'}>
