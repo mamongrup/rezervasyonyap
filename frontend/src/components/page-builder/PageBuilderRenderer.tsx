@@ -307,6 +307,7 @@ export default function PageBuilderRenderer({
               <DestinationCardsModule
                 key={module.id}
                 config={cfg as Parameters<typeof DestinationCardsModule>[0]['config']}
+                locale={locale}
               />
             )
 
@@ -331,6 +332,7 @@ export default function PageBuilderRenderer({
               <RegionSliderModule
                 key={module.id}
                 config={cfg as Parameters<typeof RegionSliderModule>[0]['config']}
+                locale={locale}
               />
             )
 

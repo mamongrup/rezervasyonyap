@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { getPublicRegionStats } from '@/lib/travel-api'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
+import { vitrinHref } from '@/lib/vitrin-href'
 
 interface DestinationCard {
   name: string
@@ -107,7 +108,13 @@ function DestinationCard({ card }: { card: DestinationCard }) {
   return <div>{inner}</div>
 }
 
-export default async function DestinationCardsModule({ config }: { config: DestinationCardsConfig }) {
+export default async function DestinationCardsModule({
+  config,
+  locale = 'tr',
+}: {
+  config: DestinationCardsConfig
+  locale?: string
+}) {
   // Panelde manuel kart tanımlanmışsa onları kullan
   let cards: DestinationCard[] = config.cards?.length ? config.cards : []
 
@@ -121,12 +128,14 @@ export default async function DestinationCardsModule({ config }: { config: Desti
         withDevNoStore({ next: { revalidate: 300 } }),
       )
       if (apiRegions.length > 0) {
-        cards = apiRegions.map((r) => ({
-          name: r.name,
-          imageUrl: r.thumbnail,
-          href: `/destinasyonlar/${r.slug}`,
-          listingCount: r.count,
-        }))
+        cards = await Promise.all(
+          apiRegions.map(async (r) => ({
+            name: r.name,
+            imageUrl: r.thumbnail,
+            href: await vitrinHref(locale, `/location/${r.slug}`),
+            listingCount: r.count,
+          })),
+        )
       }
     } catch {
       // API yoksa hardcoded fallback
