@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { CategoryRegistryEntry } from '@/data/category-registry'
 
 interface HeroModuleConfig {
@@ -9,6 +10,8 @@ interface HeroModuleConfig {
   style?: 'full' | 'compact' | 'minimal'
   showSearchForm?: boolean
   overlayOpacity?: number
+  ctaText?: string
+  ctaHref?: string
 }
 
 interface HeroModuleProps {
@@ -22,6 +25,7 @@ export default function HeroModule({ config, category, searchFormNode }: HeroMod
   const subheading = config.subheading || category.heroSubheading
   const gradient = category.heroGradient ?? 'from-primary-600 to-primary-800'
   const isCompact = config.style === 'compact'
+  const hasButton = config.ctaText && config.ctaHref
 
   return (
     <div
@@ -55,6 +59,17 @@ export default function HeroModule({ config, category, searchFormNode }: HeroMod
           {config.showSearchForm !== false && searchFormNode && (
             <div className="mt-8 rounded-2xl bg-white p-4 shadow-2xl dark:bg-neutral-900">
               {searchFormNode}
+            </div>
+          )}
+
+          {hasButton && (
+            <div className="mt-8">
+              <Link
+                href={config.ctaHref!}
+                className="inline-flex items-center rounded-full bg-white px-8 py-3 text-sm font-semibold text-neutral-900 shadow-lg transition hover:bg-neutral-100 hover:shadow-xl"
+              >
+                {config.ctaText}
+              </Link>
             </div>
           )}
         </div>

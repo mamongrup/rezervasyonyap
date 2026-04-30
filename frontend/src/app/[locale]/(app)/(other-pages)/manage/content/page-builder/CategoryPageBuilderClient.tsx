@@ -277,6 +277,32 @@ function HeroConfigEditor({
         </div>
       </div>
 
+      {/* CTA Button */}
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Buton (İsteğe Bağlı)</p>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Buton Metni</label>
+          <input
+            type="text"
+            placeholder="ör. Otelleri Keşfet"
+            value={(config.ctaText as string) ?? ''}
+            onChange={(e) => onChange({ ...config, ctaText: e.target.value })}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Buton Linki</label>
+          <input
+            type="text"
+            placeholder="ör. /oteller veya https://..."
+            value={(config.ctaHref as string) ?? ''}
+            onChange={(e) => onChange({ ...config, ctaHref: e.target.value })}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+          />
+        </div>
+        <p className="text-xs text-neutral-400">Boş bırakılırsa buton gösterilmez.</p>
+      </div>
+
       {/* Image mosaic */}
       <div>
         <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-neutral-400">
@@ -1551,7 +1577,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
 
   const handleAddModule = useCallback((type: PageBuilderModuleType) => {
     const defaultConfigs: Record<PageBuilderModuleType, Record<string, unknown>> = {
-      hero: { heading: '', subheading: '', images: ['', '', ''], showSearchForm: true },
+      hero: { heading: '', subheading: '', ctaText: '', ctaHref: '', images: ['', '', ''], showSearchForm: true },
       featured_by_region: {
         heading: 'Bölgeye Göre Öne Çıkanlar',
         subheading: 'Popüler şehirlerdeki en beğenilen ilanlar',
