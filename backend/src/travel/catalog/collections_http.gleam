@@ -539,12 +539,9 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Error(_) -> 12
   }
   let sql =
-    "select r.slug, r.name, count(distinct l.id)::int as cnt, '' as thumbnail "
+    "select r.slug, r.name, 0::int as cnt, '' as thumbnail "
     <> "from regions r "
-    <> "join listing_translations lt on lt.region_id = r.id "
-    <> "join listings l on l.id = lt.listing_id and l.status = 'published' "
-    <> "group by r.id, r.slug, r.name "
-    <> "order by cnt desc "
+    <> "order by r.name "
     <> "limit $1"
   case
     pog.query(sql)
