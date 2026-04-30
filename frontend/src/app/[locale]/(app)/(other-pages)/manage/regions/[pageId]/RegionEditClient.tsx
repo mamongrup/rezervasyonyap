@@ -1697,7 +1697,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                         {editingIdeaId === idea.id ? (
                           <div className="space-y-2">
                             <ImageUpload
-                              value={idea.image}
+                              value={idea.image ?? ''}
                               onChange={(url) => updateTravelIdea(idea.id, 'image', url)}
                               folder="travel_ideas"
                               prefix="idea"
