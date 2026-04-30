@@ -1,7 +1,10 @@
 # dependencies
 node_modules/
+node_modules.bak*/
 frontend/node_modules/
+frontend/node_modules.bak*/
 backend/node_modules/
+backend/node_modules.bak*/
 
 # build caches
 frontend/.next/

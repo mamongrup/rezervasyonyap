@@ -170,6 +170,8 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                       #("region_name", json.string(region_name)),
                       #("country_name", json.string(country_name)),
                       #("locale", json.string("tr")),
+                      #("count", json.string("5-10")),
+                      #("instruction", json.string("Bu ilçenin en popüler ve en çok aranan turistik mekanlarını, tarihi ve doğal güzelliklerini listele.")),
                     ])
                     |> json.to_string
                   pog.query(

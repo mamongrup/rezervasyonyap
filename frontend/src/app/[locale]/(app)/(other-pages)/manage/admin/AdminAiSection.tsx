@@ -180,9 +180,12 @@ export default function AdminAiSection() {
         const hasCoords = !!center_lat && !!center_lng && center_lat !== '' && center_lng !== ''
         const lat = hasCoords ? parseFloat(center_lat!) : 39.0
         const lng = hasCoords ? parseFloat(center_lng!) : 35.0
-        // Koordinat varsa Nearby Search (dar radius), yoksa Text Search (geniş + sorgu adı)
-        const query = `${district_name} ${region_name ?? ''} gezilecek yer tourist attraction`
-        const radiusM = hasCoords ? 30_000 : 80_000
+        // Popüler turistik mekan araması: ören yeri, tarihi yer, doğa vb.
+        // Koordinat varsa Nearby Search; yoksa ilçe + bölge adıyla Text Search
+        const query = hasCoords
+          ? 'tourist_attraction'
+          : `${district_name} ${region_name ?? ''} en popüler turistik yer görülecek gezilecek`
+        const radiusM = hasCoords ? 25_000 : 60_000
 
         type PlaceRow = {
           name: string
@@ -208,9 +211,9 @@ export default function AdminAiSection() {
             body: JSON.stringify({
               lat,
               lng,
-              googleType: hasCoords ? 'tourist_attraction' : query,
+              googleType: query,
               radiusM,
-              maxCount: 5,
+              maxCount: 10,
               language: 'tr',
               apiKey: key,
             }),
