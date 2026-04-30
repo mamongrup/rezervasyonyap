@@ -119,46 +119,52 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
       {!isControlled && renderButtonOpenModal()}
 
       <Dialog as="div" className="relative z-max" onClose={closeModal} open={showModal}>
-        {/* Tam ekran + overflow kilidi — içerik taşması / “patlama” önlenir (Chisfis TabPanels ile aynı mantık) */}
-        <div className="fixed inset-0 z-max flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-900">
-          <DialogPanel
-            transition
-            className="relative flex min-h-0 flex-1 flex-col overflow-hidden transition data-closed:translate-y-28 data-closed:opacity-0"
-          >
-            {showModal ? (
-              <div
-                key={contentKey}
-                className="relative flex min-h-0 flex-1 flex-col justify-between pt-[env(safe-area-inset-top,0px)]"
-              >
-                <div className="absolute end-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10">
-                  <CloseButton color="light" as={ButtonCircle} className="size-7!">
-                    <HugeiconsIcon icon={Cancel01Icon} className="size-4!" strokeWidth={1.75} />
-                  </CloseButton>
-                </div>
+        {/* Chisfis: fixed shell → flex h-full → DialogPanel flex-1; yatay taşma yok */}
+        <div className="fixed inset-0 z-max overflow-x-hidden overflow-y-hidden bg-neutral-100 dark:bg-neutral-900">
+          <div className="flex h-full w-full min-w-0 max-w-[100dvw]">
+            <DialogPanel
+              transition
+              className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition data-closed:translate-y-6 data-closed:opacity-0 motion-reduce:data-closed:translate-y-0"
+            >
+              {showModal ? (
+                <div
+                  key={contentKey}
+                  className="relative flex h-full min-h-0 w-full min-w-0 flex-col justify-between pt-[env(safe-area-inset-top,0px)]"
+                >
+                  <div className="absolute end-3 top-[max(0.5rem,env(safe-area-inset-top))] z-10">
+                    <CloseButton color="light" as={ButtonCircle} className="size-7!">
+                      <HugeiconsIcon icon={Cancel01Icon} className="size-4!" strokeWidth={1.75} />
+                    </CloseButton>
+                  </div>
 
-                <div className="shrink-0 border-b border-neutral-100 px-4 pt-10 pb-4 dark:border-neutral-800">
-                  <HeroMenuCategoryBar
-                    locale={locale}
-                    className="mb-0 justify-start gap-x-4 gap-y-3 sm:gap-x-6"
-                  />
-                </div>
+                  <div className="shrink-0 border-b border-neutral-100 px-3 pt-10 pb-3 dark:border-neutral-800 sm:px-4 sm:pb-4">
+                    <HeroMenuCategoryBar
+                      locale={locale}
+                      layout="spread"
+                      className="mb-0"
+                    />
+                  </div>
 
-                <div className="hidden-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pt-4 pb-4">
-                  <StaySearchFormMobile />
-                </div>
+                  {/* Chisfis TabPanels: dış overflow-hidden, iç scroll */}
+                  <div className="flex min-h-0 flex-1 overflow-hidden px-1.5 sm:px-4">
+                    <div className="hidden-scrollbar min-h-0 w-full min-w-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain py-2 pb-4">
+                      <StaySearchFormMobile />
+                    </div>
+                  </div>
 
-                <div className="flex shrink-0 justify-between border-t border-neutral-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-neutral-700 dark:bg-neutral-900">
-                  <ButtonThird type="button" onClick={() => setContentKey((k) => k + 1)}>
-                    {msg.mobile.modal.clear}
-                  </ButtonThird>
-                  <ButtonPrimary type="submit" form="form-hero-search-form-mobile" onClick={closeModal}>
-                    <HugeiconsIcon icon={Search01Icon} size={16} />
-                    <span>{msg.mobile.modal.search}</span>
-                  </ButtonPrimary>
+                  <div className="flex w-full min-w-0 shrink-0 justify-between gap-2 border-t border-neutral-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-neutral-700 dark:bg-neutral-900">
+                    <ButtonThird type="button" onClick={() => setContentKey((k) => k + 1)}>
+                      {msg.mobile.modal.clear}
+                    </ButtonThird>
+                    <ButtonPrimary type="submit" form="form-hero-search-form-mobile" onClick={closeModal}>
+                      <HugeiconsIcon icon={Search01Icon} size={16} />
+                      <span>{msg.mobile.modal.search}</span>
+                    </ButtonPrimary>
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </DialogPanel>
+              ) : null}
+            </DialogPanel>
+          </div>
         </div>
       </Dialog>
     </div>
