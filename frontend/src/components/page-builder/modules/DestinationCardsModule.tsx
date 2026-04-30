@@ -89,7 +89,7 @@ function DestinationCard({ card }: { card: DestinationCard }) {
         {card.description && (
           <p className="mt-0.5 text-sm text-white/80 line-clamp-1">{card.description}</p>
         )}
-        {card.listingCount !== undefined && (
+        {card.listingCount !== undefined && card.listingCount > 0 && (
           <span className="mt-1.5 inline-block rounded-full bg-white/20 backdrop-blur-sm px-2.5 py-0.5 text-xs font-medium text-white">
             {card.listingCount}+ ilan
           </span>

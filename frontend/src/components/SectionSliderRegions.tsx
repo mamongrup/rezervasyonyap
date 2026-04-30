@@ -78,9 +78,11 @@ export default function SectionSliderRegions({
                   <Link href={`${categoryRoute}/${region.slug}`} className="absolute inset-0" />
                   <span className="line-clamp-1">{region.name}</span>
                 </h2>
-                <span className="mt-1.5 block text-sm text-neutral-600 dark:text-neutral-400">
-                  {convertNumbThousand(region.count)}+ {unit}
-                </span>
+                {region.count > 0 && (
+                  <span className="mt-1.5 block text-sm text-neutral-600 dark:text-neutral-400">
+                    {convertNumbThousand(region.count)}+ {unit}
+                  </span>
+                )}
               </div>
             </div>
           </div>
