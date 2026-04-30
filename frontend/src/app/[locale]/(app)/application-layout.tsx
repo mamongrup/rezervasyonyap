@@ -1,7 +1,7 @@
 import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
 import { DeferredFooterWidgets } from '@/components/DeferredFooterWidgets'
 import Header from '@/components/Header/Header'
-import HeroSearchFormMobileLazy from '@/components/HeroSearchFormMobile/HeroSearchFormMobileLazy'
+import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFormMobile'
 import Aside from '@/components/aside'
 import type { ReactNode } from 'react'
 
@@ -22,7 +22,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       {/* Mobil arama çubuğu — sticky (orijinal tema ile aynı; fixed + spacer yerine) */}
       <div className="sticky top-0 z-40 bg-white shadow-xs lg:hidden dark:bg-neutral-900">
         <div className="container flex h-20 items-center justify-center">
-          <HeroSearchFormMobileLazy locale={locale} />
+          <HeroSearchFormMobile locale={locale} />
         </div>
       </div>
       {children}
