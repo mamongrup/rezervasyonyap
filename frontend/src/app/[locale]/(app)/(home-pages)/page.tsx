@@ -188,7 +188,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
           {heroSubheading}
         </Link>
       </p>
-      <ButtonPrimary href={heroCtaHref} className="sm:text-base/normal">
+      <ButtonPrimary
+        href={heroCtaHref}
+        className="w-full max-w-full justify-center sm:w-auto sm:text-base/normal"
+      >
         {heroCtaText}
       </ButtonPrimary>
     </>

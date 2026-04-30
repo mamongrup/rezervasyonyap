@@ -12,7 +12,6 @@ import clsx from 'clsx'
 import dynamic from 'next/dynamic'
 import { useParams, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useTimeoutFn } from 'react-use'
 
 /**
  * Modal içeriği — `react-datepicker` zinciri ve kategori barı yalnızca kullanıcı
@@ -48,8 +47,8 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
     if (isControlled) setShowModal(openProp)
   }, [isControlled, openProp])
 
-  const [showDialog, setShowDialog] = useState(false)
-  const [, , resetIsShowingDialog] = useTimeoutFn(() => setShowDialog(true), 1)
+  /** Clear sonrası form state sıfırlansın diye içeriği remount (Chisfis’teki showDialog + timeout ile aynı amaç) */
+  const [contentKey, setContentKey] = useState(0)
 
   const pathname = usePathname() ?? ''
   const params = useParams()
@@ -92,75 +91,74 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
 
   const renderButtonOpenModal = () => (
     <button
+      type="button"
       onClick={openModal}
-      className="relative flex w-full items-center rounded-full border border-neutral-200 bg-white px-4 py-2.5 pe-12 shadow-md transition hover:shadow-lg dark:border-neutral-600 dark:bg-neutral-900"
+      className="relative flex w-full max-w-full items-center rounded-full border border-neutral-200 px-4 py-2 pe-11 shadow-lg transition hover:shadow-lg dark:border-neutral-600 dark:bg-neutral-900"
     >
       <HugeiconsIcon icon={Search01Icon} size={20} color="currentColor" strokeWidth={1.5} className="shrink-0 text-primary-600 dark:text-primary-400" />
-      <div className="ms-3 flex-1 overflow-hidden text-start">
-        <span className="block text-sm font-semibold text-neutral-800 dark:text-neutral-100">{locationText}</span>
-        <span className="mt-0.5 flex gap-1.5 text-xs font-normal text-neutral-700 dark:text-neutral-300">
-          <span>{weekText}</span>
-          {guestsText && <><span>·</span><span>{guestsText}</span></>}
+      <div className="ms-4 min-w-0 flex-1 overflow-hidden text-start">
+        <span className="block truncate text-sm/5 font-medium text-neutral-800 dark:text-neutral-100">{locationText}</span>
+        <span className="mt-px flex flex-wrap gap-x-2 gap-y-0 text-sm/5 font-normal text-neutral-500 dark:text-neutral-400">
+          <span className="truncate">{weekText}</span>
+          {guestsText ? (
+            <>
+              <span aria-hidden>•</span>
+              <span className="truncate">{guestsText}</span>
+            </>
+          ) : null}
         </span>
       </div>
-      <span className="absolute end-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 dark:border-neutral-600 dark:text-neutral-300">
-        <HugeiconsIcon icon={FilterVerticalIcon} size={18} color="currentColor" strokeWidth={1.5} />
+      <span className="absolute end-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-neutral-200 sm:flex dark:border-neutral-600 dark:text-neutral-300">
+        <HugeiconsIcon icon={FilterVerticalIcon} size={20} color="currentColor" strokeWidth={1.5} />
       </span>
     </button>
   )
 
   return (
-    <div className={clsx(className, isControlled ? '' : 'relative z-10 w-full max-w-lg')}>
+    <div className={clsx(className, isControlled ? '' : 'relative z-10 w-full min-w-0 max-w-lg')}>
       {!isControlled && renderButtonOpenModal()}
 
       <Dialog as="div" className="relative z-max" onClose={closeModal} open={showModal}>
-        <div className="fixed inset-0 bg-neutral-100 dark:bg-neutral-900">
-          <div className="flex h-full">
-            <DialogPanel
-              transition
-              className="relative flex-1 flex flex-col transition data-closed:translate-y-28 data-closed:opacity-0"
-            >
-              {showModal && showDialog && (
-                <>
-                  {/* Kapat butonu */}
-                  <div className="absolute end-3 top-3 z-10">
-                    <CloseButton color="light" as={ButtonCircle} className="size-7!">
-                      <HugeiconsIcon icon={Cancel01Icon} className="size-4!" strokeWidth={1.75} />
-                    </CloseButton>
-                  </div>
+        {/* Tam ekran + overflow kilidi — içerik taşması / “patlama” önlenir (Chisfis TabPanels ile aynı mantık) */}
+        <div className="fixed inset-0 z-max flex flex-col overflow-hidden bg-neutral-100 dark:bg-neutral-900">
+          <DialogPanel
+            transition
+            className="relative flex min-h-0 flex-1 flex-col overflow-hidden transition data-closed:translate-y-28 data-closed:opacity-0"
+          >
+            {showModal ? (
+              <div
+                key={contentKey}
+                className="relative flex min-h-0 flex-1 flex-col justify-between pt-[env(safe-area-inset-top,0px)]"
+              >
+                <div className="absolute end-3 top-[max(0.75rem,env(safe-area-inset-top))] z-10">
+                  <CloseButton color="light" as={ButtonCircle} className="size-7!">
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-4!" strokeWidth={1.75} />
+                  </CloseButton>
+                </div>
 
-                  {/* Kategori ikonları */}
-                  <div className="border-b border-neutral-100 px-4 pt-10 pb-4 dark:border-neutral-800">
-                    <HeroMenuCategoryBar
-                      locale={locale}
-                      className="justify-start gap-x-4 gap-y-3 sm:gap-x-6 mb-0"
-                    />
-                  </div>
+                <div className="shrink-0 border-b border-neutral-100 px-4 pt-10 pb-4 dark:border-neutral-800">
+                  <HeroMenuCategoryBar
+                    locale={locale}
+                    className="mb-0 justify-start gap-x-4 gap-y-3 sm:gap-x-6"
+                  />
+                </div>
 
-                  {/* Arama formu */}
-                  <div className="hidden-scrollbar flex-1 overflow-y-auto px-4 pt-4 pb-4">
-                    <StaySearchFormMobile />
-                  </div>
+                <div className="hidden-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-4 pt-4 pb-4">
+                  <StaySearchFormMobile />
+                </div>
 
-                  {/* Alt butonlar */}
-                  <div className="flex justify-between border-t border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
-                    <ButtonThird
-                      onClick={() => {
-                        setShowDialog(false)
-                        resetIsShowingDialog()
-                      }}
-                    >
-                      {msg.mobile.modal.clear}
-                    </ButtonThird>
-                    <ButtonPrimary type="submit" form="form-hero-search-form-mobile" onClick={closeModal}>
-                      <HugeiconsIcon icon={Search01Icon} size={16} />
-                      <span>{msg.mobile.modal.search}</span>
-                    </ButtonPrimary>
-                  </div>
-                </>
-              )}
-            </DialogPanel>
-          </div>
+                <div className="flex shrink-0 justify-between border-t border-neutral-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-neutral-700 dark:bg-neutral-900">
+                  <ButtonThird type="button" onClick={() => setContentKey((k) => k + 1)}>
+                    {msg.mobile.modal.clear}
+                  </ButtonThird>
+                  <ButtonPrimary type="submit" form="form-hero-search-form-mobile" onClick={closeModal}>
+                    <HugeiconsIcon icon={Search01Icon} size={16} />
+                    <span>{msg.mobile.modal.search}</span>
+                  </ButtonPrimary>
+                </div>
+              </div>
+            ) : null}
+          </DialogPanel>
         </div>
       </Dialog>
     </div>

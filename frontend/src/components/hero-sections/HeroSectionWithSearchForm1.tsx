@@ -395,7 +395,7 @@ function HeroSectionWithSearchForm1({
             spacing === 'default' && 'lg:pt-2',
           )}
         >
-          <h2 className="w-full max-w-full text-5xl/[1.15] font-medium tracking-tight text-pretty xl:text-7xl/[1.1]">
+          <h2 className="w-full min-w-0 max-w-full break-words text-4xl/[1.15] font-medium tracking-tight text-pretty sm:text-5xl/[1.15] xl:text-7xl/[1.1]">
             {typeof heading === 'string' ? (
               <span dangerouslySetInnerHTML={{ __html: sanitizeHeroInlineHtml(heading || '') }} />
             ) : (

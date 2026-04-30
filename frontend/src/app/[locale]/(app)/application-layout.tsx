@@ -20,8 +20,8 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
           her zaman sayfa içeriğindeki z-30 hero/arama formu blokları üzerinde kalır. */}
       <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
       {/* Mobil arama çubuğu — sticky (orijinal tema ile aynı; fixed + spacer yerine) */}
-      <div className="sticky top-0 z-40 bg-white shadow-xs lg:hidden dark:bg-neutral-900">
-        <div className="container flex h-20 items-center justify-center">
+      <div className="sticky top-0 z-20 bg-white shadow-xs lg:hidden dark:bg-neutral-900">
+        <div className="container flex h-20 max-w-full items-center justify-center">
           <HeroSearchFormMobile locale={locale} />
         </div>
       </div>

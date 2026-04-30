@@ -136,9 +136,9 @@ const FooterQuickNavigation = () => {
     <>
       <div
         ref={containerRef}
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center bg-white/90 px-2 py-2 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
+        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-4 bg-white/90 px-2.5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
       >
-        <div className="mx-auto flex w-full max-w-lg items-center justify-around">
+        <div className="mx-auto flex w-full max-w-lg items-end justify-around text-center">
           {/* Sol 2 ikon */}
           {sideItems.map((item) => {
             const itemHref = 'link' in item ? href(item.link!) : ''
@@ -151,7 +151,7 @@ const FooterQuickNavigation = () => {
                   onClick={item.onClick}
                   aria-label={item.name}
                   className={clsx(
-                    'flex flex-col items-center gap-0.5 px-3 py-1.5 text-neutral-500 dark:text-neutral-300',
+                    '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
                     isActive && 'text-primary-600 dark:text-primary-400',
                   )}
                 >
@@ -159,7 +159,7 @@ const FooterQuickNavigation = () => {
                     lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
                     huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
                   />
-                  <span className="text-[10px] leading-none">{item.name}</span>
+                  <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
                 </button>
               )
             }
@@ -170,7 +170,7 @@ const FooterQuickNavigation = () => {
                 href={itemHref}
                 aria-label={item.name}
                 className={clsx(
-                  'flex flex-col items-center gap-0.5 px-3 py-1.5 text-neutral-500 dark:text-neutral-300',
+                  '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
                   isActive && 'text-primary-600 dark:text-primary-400',
                 )}
               >
@@ -178,18 +178,18 @@ const FooterQuickNavigation = () => {
                   lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
                   huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
                 />
-                <span className="text-[10px] leading-none">{item.name}</span>
+                <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
               </Link>
             )
           })}
 
-          {/* Orta: Chat butonu (yükseltilmiş) */}
+          {/* Orta: asistan — Chisfis’e yakın, daha az taşma */}
           <button
             onClick={openChat}
             aria-label={bn.assistantAria}
-            className="relative -mt-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-4 ring-white dark:ring-neutral-950 hover:bg-primary-700 transition-colors"
+            className="relative -mt-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white dark:ring-neutral-950 hover:bg-primary-700 transition-colors"
           >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="h-7 w-7">
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
               <path d="M12 2C6.477 2 2 6.164 2 11.299c0 2.862 1.388 5.415 3.567 7.12L4.5 22l4.29-2.123A10.854 10.854 0 0012 20.598c5.523 0 10-4.164 10-9.299S17.523 2 12 2z" />
             </svg>
           </button>
@@ -206,7 +206,7 @@ const FooterQuickNavigation = () => {
                   onClick={item.onClick}
                   aria-label={item.name}
                   className={clsx(
-                    'flex flex-col items-center gap-0.5 px-3 py-1.5 text-neutral-500 dark:text-neutral-300',
+                    '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
                     isActive && 'text-primary-600 dark:text-primary-400',
                   )}
                 >
@@ -214,7 +214,7 @@ const FooterQuickNavigation = () => {
                     lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
                     huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
                   />
-                  <span className="text-[10px] leading-none">{item.name}</span>
+                  <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
                 </button>
               )
             }
@@ -225,7 +225,7 @@ const FooterQuickNavigation = () => {
                 href={itemHref}
                 aria-label={item.name}
                 className={clsx(
-                  'flex flex-col items-center gap-0.5 px-3 py-1.5 text-neutral-500 dark:text-neutral-300',
+                  '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
                   isActive && 'text-primary-600 dark:text-primary-400',
                 )}
               >
@@ -233,7 +233,7 @@ const FooterQuickNavigation = () => {
                   lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
                   huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
                 />
-                <span className="text-[10px] leading-none">{item.name}</span>
+                <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
               </Link>
             )
           })}
