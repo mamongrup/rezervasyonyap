@@ -110,6 +110,7 @@ modules/265_district_coords_and_listing_pois.sql
 modules/266_district_ideas_prompt_v2.sql
 modules/267_location_pages_cover_image.sql
 modules/268_location_pages_all_types.sql
+modules/269_location_pages_districts_seed.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
