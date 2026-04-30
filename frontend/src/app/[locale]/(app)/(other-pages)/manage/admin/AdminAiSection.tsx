@@ -74,8 +74,9 @@ export default function AdminAiSection() {
   const [pexelsRunning, setPexelsRunning] = useState(false)
   const [pexelsLog, setPexelsLog] = useState<string[]>([])
   const [pexelsErr, setPexelsErr] = useState<string | null>(null)
-  const [pexelsApiKey, setPexelsApiKey] = useState('')
+  const [pexelsApiKeys, setPexelsApiKeys] = useState<string[]>(['', '', '', '', ''])
   const pexelsStopRef = useRef(false)
+  const pexelsKeyIndexRef = useRef(0)
 
   const refresh = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -289,15 +290,22 @@ export default function AdminAiSection() {
   async function onStartPexelsProcessing() {
     const token = getStoredAuthToken()
     if (!token) return
-    const key = pexelsApiKey.trim()
-    if (!key) {
-      setPexelsErr('Pexels API anahtarı gerekli.')
+    const activeKeys = pexelsApiKeys.map((k) => k.trim()).filter(Boolean)
+    if (activeKeys.length === 0) {
+      setPexelsErr('En az bir Pexels API anahtarı gerekli.')
       return
     }
     setPexelsRunning(true)
     setPexelsErr(null)
     setPexelsLog([])
     pexelsStopRef.current = false
+    pexelsKeyIndexRef.current = 0
+    // Her istekte sıradaki key'i kullan (round-robin)
+    const nextKey = () => {
+      const k = activeKeys[pexelsKeyIndexRef.current % activeKeys.length]
+      pexelsKeyIndexRef.current++
+      return k
+    }
     try {
       let done = 0
       while (!pexelsStopRef.current) {
@@ -307,14 +315,12 @@ export default function AdminAiSection() {
           break
         }
         const { location_page_id, district_name, region_name } = next
-        // 1. Kapak resmi: "{ilçe} {il} Turkey"
         const coverQuery = `${district_name} ${region_name} Turkey`
         let coverUrl = ''
         try {
-          const photos = await searchPexelsImage(coverQuery, key, 1)
+          const photos = await searchPexelsImage(coverQuery, nextKey(), 1)
           if (photos.length === 0) {
-            // Fallback: sadece il adı
-            const fallback = await searchPexelsImage(`${region_name} Turkey`, key, 1)
+            const fallback = await searchPexelsImage(`${region_name} Turkey`, nextKey(), 1)
             coverUrl = fallback[0]?.src.large ?? ''
           } else {
             coverUrl = photos[0]?.src.large ?? ''
@@ -325,12 +331,13 @@ export default function AdminAiSection() {
         if (coverUrl) {
           await saveDistrictCover(token, location_page_id, coverUrl)
           done++
-          setPexelsLog((l) => [...l, `✓ [${done}] ${district_name} (${region_name}) → kapak kaydedildi`])
+          const keyNum = (pexelsKeyIndexRef.current % activeKeys.length) + 1
+          setPexelsLog((l) => [...l, `✓ [${done}] ${district_name} (${region_name}) [key ${keyNum}/${activeKeys.length}]`])
         } else {
           await saveDistrictCover(token, location_page_id, 'not_found')
-          setPexelsLog((l) => [...l, `– ${district_name}: Pexels'te resim bulunamadı, atlandı`])
+          setPexelsLog((l) => [...l, `– ${district_name}: resim bulunamadı, atlandı`])
         }
-        await new Promise((r) => setTimeout(r, 400))
+        await new Promise((r) => setTimeout(r, 350))
       }
     } catch (e) {
       setPexelsErr(e instanceof Error ? e.message : 'pexels_process_failed')
@@ -655,18 +662,23 @@ export default function AdminAiSection() {
           <p className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-950/30 dark:text-red-300">{pexelsErr}</p>
         ) : null}
 
-        <div className="mt-4">
-          <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-            Pexels API Anahtarı
+        <div className="mt-4 space-y-2">
+          <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            Pexels API Anahtarları <span className="text-neutral-400">(her key 200 istek/saat — dolu olanlar sırayla kullanılır)</span>
           </label>
-          <input
-            type="password"
-            value={pexelsApiKey}
-            onChange={(e) => setPexelsApiKey(e.target.value)}
-            placeholder="Pexels API key..."
-            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-            disabled={pexelsRunning}
-          />
+          {pexelsApiKeys.map((k, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <span className="w-14 shrink-0 text-right text-xs text-neutral-400">Key {i + 1}</span>
+              <input
+                type="password"
+                value={k}
+                onChange={(e) => setPexelsApiKeys((prev) => prev.map((v, j) => j === i ? e.target.value : v))}
+                placeholder={`Pexels API key ${i + 1}...`}
+                className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                disabled={pexelsRunning}
+              />
+            </div>
+          ))}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
