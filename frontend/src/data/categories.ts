@@ -643,6 +643,7 @@ const CATEGORY_STATS: Record<string, { listingCount: number; regionCount: number
 export async function getTravelCategories() {
   let slugOrder: string[] = normalizeTravelCategoryHomeOrder(null)
   let apiStats: Record<string, number> = {}
+  let apiSucceeded = false
 
   try {
     const [pub, stats] = await Promise.all([
@@ -655,6 +656,7 @@ export async function getTravelCategories() {
         : undefined
     slugOrder = normalizeTravelCategoryHomeOrder(raw)
     apiStats = stats
+    apiSucceeded = true
   } catch {
     /* API yok — varsayılan sıra ve sayılar */
   }
@@ -672,7 +674,10 @@ export async function getTravelCategories() {
     const coverImg = COVER_IMAGE_MAP[entry.heroImageType] ?? stayCategoryCoverImage
     const catCode = LISTING_TYPE_TO_CAT_CODE[entry.listingType] ?? entry.listingType
     const liveCount = apiStats[catCode]
-    const listingCount = typeof liveCount === 'number' && liveCount >= 0 ? liveCount : fallback.listingCount
+    // API başarılı olduysa gerçek sayıyı kullan (0 dahil); başarısız olduysa fallback
+    const listingCount = apiSucceeded
+      ? (typeof liveCount === 'number' ? liveCount : 0)
+      : fallback.listingCount
     return {
       id: `travel-cat://${entry.slug}`,
       name: entry.name,
