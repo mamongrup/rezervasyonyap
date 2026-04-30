@@ -603,7 +603,23 @@ const COVER_IMAGE_MAP = {
   flight: filghtCategoryCoverImage,
 }
 
-/** Kategori bazlı ilan ve bölge istatistikleri (API bağlandığında gerçek verilerle değiştirilecek) */
+/** Frontend listingType → backend product_categories.code eşlemesi */
+const LISTING_TYPE_TO_CAT_CODE: Record<string, string> = {
+  'hotel':        'hotel',
+  'holiday-home': 'holiday_home',
+  'yacht':        'yacht_charter',
+  'tour':         'tour',
+  'activity':     'activity',
+  'cruise':       'cruise',
+  'hajj':         'hajj',
+  'visa':         'visa',
+  'flight':       'flight',
+  'car-rental':   'car_rental',
+  'ferry':        'ferry',
+  'transfer':     'transfer',
+}
+
+/** Kategori bazlı ilan ve bölge istatistikleri — API yoksa fallback */
 const CATEGORY_STATS: Record<string, { listingCount: number; regionCount: number }> = {
   oteller:          { listingCount: 7340,  regionCount: 81  },
   'tatil-evleri':   { listingCount: 4650,  regionCount: 42  },
@@ -654,8 +670,8 @@ export async function getTravelCategories() {
   return entries.map((entry) => {
     const fallback = CATEGORY_STATS[entry.slug] ?? { listingCount: 0, regionCount: 0 }
     const coverImg = COVER_IMAGE_MAP[entry.heroImageType] ?? stayCategoryCoverImage
-    // API'den gelen sayı varsa onu kullan, yoksa fallback
-    const liveCount = apiStats[entry.slug] ?? apiStats[entry.slug.replace(/-/g, '_')]
+    const catCode = LISTING_TYPE_TO_CAT_CODE[entry.listingType] ?? entry.listingType
+    const liveCount = apiStats[catCode]
     const listingCount = typeof liveCount === 'number' && liveCount >= 0 ? liveCount : fallback.listingCount
     return {
       id: `travel-cat://${entry.slug}`,
