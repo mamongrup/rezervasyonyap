@@ -526,10 +526,6 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Ok(q) -> q
     Error(_) -> []
   }
-  let cat_raw =
-    list.key_find(qs, "category_code")
-    |> result.unwrap("")
-    |> string.trim
   let lim_str =
     list.key_find(qs, "limit")
     |> result.unwrap("12")
@@ -544,17 +540,11 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   }
   let sql =
     "select r.slug, r.name, count(distinct l.id)::int as cnt, "
-    <> "coalesce("
-    <> "  (select lp.featured_image_url from location_pages lp "
-    <> "   join districts d2 on d2.id = lp.district_id "
-    <> "   where d2.region_id = r.id "
-    <> "   and lp.featured_image_url is not null and lp.featured_image_url <> '' "
-    <> "   limit 1), "
+    <> "coalesce( "
     <> "  (select coalesce(nullif(l2.featured_image_url,''), nullif(l2.thumbnail_url,'')) "
-    <> "   from listings l2 join product_categories pc2 on pc2.id = l2.category_id "
+    <> "   from listings l2 "
     <> "   where l2.status = 'published' "
     <> "   and lower(l2.location_name) ilike '%' || lower(r.name) || '%' "
-    <> "   and ($1 = '' or pc2.code = $1) "
     <> "   and coalesce(nullif(l2.featured_image_url,''), nullif(l2.thumbnail_url,'')) is not null "
     <> "   limit 1), "
     <> "  '' "
@@ -562,14 +552,11 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     <> "from regions r "
     <> "join listings l on l.status = 'published' "
     <> "  and lower(l.location_name) ilike '%' || lower(r.name) || '%' "
-    <> "join product_categories pc on pc.id = l.category_id "
-    <> "where ($1 = '' or pc.code = $1) "
     <> "group by r.id, r.slug, r.name "
     <> "order by cnt desc "
-    <> "limit $2"
+    <> "limit $1"
   case
     pog.query(sql)
-    |> pog.parameter(pog.text(cat_raw))
     |> pog.parameter(pog.int(lim))
     |> pog.returning(region_stats_row())
     |> pog.execute(ctx.db)
