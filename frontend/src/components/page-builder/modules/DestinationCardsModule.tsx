@@ -1,5 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import { getPublicRegionStats } from '@/lib/travel-api'
+import { withDevNoStore } from '@/lib/api-fetch-dev'
 
 interface DestinationCard {
   name: string
@@ -17,6 +19,10 @@ interface DestinationCardsConfig {
   layout?: 'grid' | 'masonry'
   columns?: 2 | 3 | 4
   cards?: DestinationCard[]
+  /** Backend'den çekilecek kategori kodu (boş = tümü) */
+  categoryCode?: string
+  /** Gösterilecek maksimum bölge sayısı (varsayılan 6) */
+  limit?: number
 }
 
 const DEFAULT_CARDS: DestinationCard[] = [
@@ -101,8 +107,34 @@ function DestinationCard({ card }: { card: DestinationCard }) {
   return <div>{inner}</div>
 }
 
-export default function DestinationCardsModule({ config }: { config: DestinationCardsConfig }) {
-  const cards = config.cards?.length ? config.cards : DEFAULT_CARDS
+export default async function DestinationCardsModule({ config }: { config: DestinationCardsConfig }) {
+  // Panelde manuel kart tanımlanmışsa onları kullan
+  let cards: DestinationCard[] = config.cards?.length ? config.cards : []
+
+  // Manuel kart yok → API'den gerçek bölgeleri çek
+  if (cards.length === 0) {
+    try {
+      const limit = config.limit ?? 6
+      const apiRegions = await getPublicRegionStats(
+        config.categoryCode ?? '',
+        limit,
+        withDevNoStore({ next: { revalidate: 300 } }),
+      )
+      if (apiRegions.length > 0) {
+        cards = apiRegions.map((r) => ({
+          name: r.name,
+          imageUrl: r.thumbnail,
+          href: `/destinasyonlar/${r.slug}`,
+          listingCount: r.count,
+        }))
+      }
+    } catch {
+      // API yoksa hardcoded fallback
+    }
+  }
+
+  if (cards.length === 0) cards = DEFAULT_CARDS
+
   const cols = config.columns ?? 3
 
   const gridClass = {

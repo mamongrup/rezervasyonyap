@@ -508,6 +508,94 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
   }
 }
 
+// ─── Public Region Stats ──────────────────────────────────────────────────────
+
+fn region_stats_row() -> decode.Decoder(#(String, String, Int, String)) {
+  use slug      <- decode.field(0, decode.string)
+  use name      <- decode.field(1, decode.string)
+  use cnt       <- decode.field(2, decode.int)
+  use thumbnail <- decode.field(3, decode.string)
+  decode.success(#(slug, name, cnt, thumbnail))
+}
+
+/// GET /api/v1/catalog/public/region-stats?category_code=&limit=
+/// Yayımlanan ilanların location_name'e göre bölge sayılarını döner.
+pub fn public_region_stats(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let cat_raw =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
+  let lim_str =
+    list.key_find(qs, "limit")
+    |> result.unwrap("12")
+    |> string.trim
+  let lim = case int.parse(lim_str) {
+    Ok(n) ->
+      case n > 50 {
+        True -> 50
+        False -> case n < 1 { True -> 12  False -> n }
+      }
+    Error(_) -> 12
+  }
+  let sql =
+    "select r.slug, r.name, count(distinct l.id)::int as cnt, "
+    <> "coalesce("
+    <> "  (select lp.featured_image_url from location_pages lp "
+    <> "   join districts d2 on d2.id = lp.district_id "
+    <> "   where d2.region_id = r.id "
+    <> "   and lp.featured_image_url is not null and lp.featured_image_url <> '' "
+    <> "   limit 1), "
+    <> "  (select coalesce(nullif(l2.featured_image_url,''), nullif(l2.thumbnail_url,'')) "
+    <> "   from listings l2 join product_categories pc2 on pc2.id = l2.category_id "
+    <> "   where l2.status = 'published' "
+    <> "   and lower(l2.location_name) ilike '%' || lower(r.name) || '%' "
+    <> "   and ($1 = '' or pc2.code = $1) "
+    <> "   and coalesce(nullif(l2.featured_image_url,''), nullif(l2.thumbnail_url,'')) is not null "
+    <> "   limit 1), "
+    <> "  '' "
+    <> ") as thumbnail "
+    <> "from regions r "
+    <> "join listings l on l.status = 'published' "
+    <> "  and lower(l.location_name) ilike '%' || lower(r.name) || '%' "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "where ($1 = '' or pc.code = $1) "
+    <> "group by r.id, r.slug, r.name "
+    <> "order by cnt desc "
+    <> "limit $2"
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(cat_raw))
+    |> pog.parameter(pog.int(lim))
+    |> pog.returning(region_stats_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "region_stats_failed")
+    Ok(ret) -> {
+      let rows =
+        list.map(ret.rows, fn(row) {
+          let #(slug, name, cnt, thumbnail) = row
+          json.object([
+            #("slug", json.string(slug)),
+            #("name", json.string(name)),
+            #("count", json.int(cnt)),
+            #("thumbnail", json.string(thumbnail)),
+          ])
+        })
+      let body =
+        json.object([
+          #("regions", json.array(from: rows, of: fn(x) { x })),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
 // ─── Collections CRUD ─────────────────────────────────────────────────────────
 
 fn collection_row() -> decode.Decoder(
