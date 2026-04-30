@@ -15,12 +15,12 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 81 il için location_pages kaydı
+-- 81 il için location_pages kaydı (region_type = 'province')
 INSERT INTO location_pages (slug_path, region_id, region_type, is_published)
 SELECT
   co.iso2 || '/' || r.slug  AS slug_path,
   r.id                       AS region_id,
-  'region'                   AS region_type,
+  'province'                 AS region_type,
   false                      AS is_published
 FROM   regions   r
 JOIN   countries co ON co.id = r.country_id

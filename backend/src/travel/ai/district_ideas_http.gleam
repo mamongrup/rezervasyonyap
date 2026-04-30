@@ -489,9 +489,19 @@ pub fn next_no_cover(req: Request, ctx: Context) -> Response {
     Ok(_) -> {
       case
         pog.query(
-          "select lp.id::text, lp.slug_path, 'district'::text, lp.slug_path, ''::text
+          "select lp.id::text,
+                  lp.slug_path,
+                  coalesce(lp.region_type, 'district'),
+                  coalesce(d.name, r2.name, co2.name, lp.slug_path),
+                  coalesce(r3.name, co3.name, '')
            from   location_pages lp
-           where  lp.cover_image is null or lp.cover_image = ''
+           left join districts d   on d.id  = lp.district_id
+           left join regions   r2  on r2.id = lp.region_id
+           left join countries co2 on co2.id = lp.country_id
+           left join regions   r3  on r3.id = d.region_id
+           left join countries co3 on co3.id = r2.country_id
+           where  (lp.cover_image is null or lp.cover_image = '')
+           order  by lp.region_type, lp.slug_path
            limit  1",
         )
         |> pog.returning(no_cover_row())
