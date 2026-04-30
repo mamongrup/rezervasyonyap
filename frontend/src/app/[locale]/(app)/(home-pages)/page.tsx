@@ -6,7 +6,6 @@ import {
 } from '@/components/hero-sections/hero-link-classes'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
-import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { getAuthors } from '@/data/authors'
@@ -157,11 +156,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     return mod
   })
 
-  const searchForm = (
-    <HeroSearchDesktopOnly>
-      <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs activeSlugs={activeSlugs} />
-    </HeroSearchDesktopOnly>
-  )
+  const searchForm = <HeroSearchForm initTab="Stays" locale={locale} hideVerticalTabs activeSlugs={activeSlugs} />
 
   const heroHeadingLinked = (
     <Link href={categoryPageHref} className={heroHeadingLinkClassName}>

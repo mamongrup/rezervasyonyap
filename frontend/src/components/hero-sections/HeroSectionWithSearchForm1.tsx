@@ -438,7 +438,7 @@ function HeroSectionWithSearchForm1({
         {minimalBelowFoldSearch ? (
           <div
             className={clsx(
-              'z-30 order-2 hidden w-full min-w-0 max-w-full md:block lg:order-none lg:col-span-2 lg:row-start-2',
+              'z-30 order-2 w-full min-w-0 max-w-full lg:order-none lg:col-span-2 lg:row-start-2',
               'lg:max-w-4xl xl:max-w-6xl',
               /** Adım arttıkça arama bloğu mozaiğe doğru daha fazla yukarı (daha büyük negatif -mt). */
               minimalSearchLiftSteps === 3
