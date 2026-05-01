@@ -33,6 +33,7 @@ import travel/ical/ical_export_http
 import travel/locations/locations_http
 import travel/media/listing_images_http
 import travel/media/media_http
+import travel/operations/operations_http
 import travel/blog/blog_http
 import travel/catalog/collections_http
 import travel/cms/cms_http
@@ -1194,6 +1195,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "integrations", "whatsapp-order-intents"] ->
       integrations_http.list_whatsapp_order_intents(req, ctx)
+
+    http.Get, ["api", "v1", "operations", "overview"] ->
+      operations_http.overview(req, ctx)
 
     http.Post, ["api", "v1", "integrations", "whatsapp-order-intents"] ->
       integrations_http.create_whatsapp_order_intent(req, ctx)

@@ -52,6 +52,7 @@ const GROUPS: NavGroupDef[] = [
     Icon: LayoutDashboard,
     items: [
       { path: '/manage/admin', label: 'Gösterge & istatistikler' },
+      { path: '/manage/operations', label: 'Operasyon Merkezi' },
       { path: '/manage/admin/workspace', label: 'İş planı & duyurular' },
       { path: '/manage/admin/access', label: 'Kullanıcı & rol yönetimi' },
       { path: '/manage/admin/settings?tab=google', label: 'Analitik & takip kodları' },

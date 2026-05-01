@@ -9461,3 +9461,59 @@ export async function computeAllListingsNearbyPois(
   }
   return { processed, skipped }
 }
+
+// ─── Operations Center ────────────────────────────────────────────────────────
+
+export interface OperationsOverviewCounts {
+  pending_reservations: number
+  payment_pending: number
+  supplier_pending: number
+  overdue_provizyon: number
+  open_escalations: number
+  open_chats: number
+  pending_transfers: number
+}
+
+export interface OperationsTaskItem {
+  id: string
+  public_code?: string
+  task_type?: string
+  guest_name?: string
+  listing_title?: string
+  starts_on?: string
+  ends_on?: string
+  status?: string
+  payment_status?: string
+  due_at?: string
+  is_overdue?: boolean
+  amount?: string
+  currency_code?: string
+  reason?: string
+  note?: string
+  ai_mode?: string
+  locale?: string
+  started_at?: string
+  last_message?: string
+}
+
+export interface OperationsOverview {
+  counts: OperationsOverviewCounts
+  tasks: {
+    upcoming: OperationsTaskItem[]
+    supplier_deadlines: OperationsTaskItem[]
+    payment_transfers: OperationsTaskItem[]
+    escalations: OperationsTaskItem[]
+    chats: OperationsTaskItem[]
+  }
+  generated_at: string
+}
+
+export async function getOperationsOverview(token: string): Promise<OperationsOverview> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/operations/overview`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`operations_overview_${res.status}`)
+  return json<OperationsOverview>(res)
+}
