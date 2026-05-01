@@ -14,9 +14,11 @@ import {
   listAiProviders,
   listAgentRecommendations,
   patchAgentRecommendation,
+  processNextPlaceBlog,
   processNextRegionContent,
   processNextDistrictIdea,
   queueAllDistrictIdeas,
+  queueAllPlaceBlogs,
   queueAllRegionContent,
   resetNotFoundCovers,
   runDueAgentSupervisor,
@@ -105,7 +107,13 @@ export default function AdminAiSection() {
   const [regionContentLog, setRegionContentLog] = useState<string[]>([])
   const [regionContentErr, setRegionContentErr] = useState<string | null>(null)
   const [postsPerRegion, setPostsPerRegion] = useState(1)
+  const [placeBlogsRunning, setPlaceBlogsRunning] = useState(false)
+  const [placeBlogsErr, setPlaceBlogsErr] = useState<string | null>(null)
+  const [placeBlogsLog, setPlaceBlogsLog] = useState<string[]>([])
+  const [contentWorkerCount, setContentWorkerCount] = useState(2)
+  const [opsLog, setOpsLog] = useState<string[]>([])
   const regionContentStopRef = useRef(false)
+  const placeBlogsStopRef = useRef(false)
 
   // İlçe gezi fikirleri — Google Maps Places çekme
   const [mapsRunning, setMapsRunning] = useState(false)
@@ -325,6 +333,25 @@ export default function AdminAiSection() {
     }
   }
 
+  function appendOpsLog(line: string) {
+    setOpsLog((l) => [`${new Date().toLocaleTimeString('tr-TR')} · ${line}`, ...l].slice(0, 120))
+  }
+
+  async function runParallelWorkers(
+    workerCount: number,
+    shouldStop: () => boolean,
+    runOne: (workerIndex: number) => Promise<boolean>,
+  ) {
+    const workers = Array.from({ length: Math.max(1, Math.min(5, workerCount)) }, async (_, index) => {
+      while (!shouldStop()) {
+        const didWork = await runOne(index + 1)
+        if (!didWork) break
+        await new Promise((res) => setTimeout(res, 500))
+      }
+    })
+    await Promise.all(workers)
+  }
+
   async function onStartRegionContentProcessing() {
     const token = getStoredAuthToken()
     if (!token) return
@@ -332,25 +359,81 @@ export default function AdminAiSection() {
     setRegionContentRunning(true)
     setRegionContentErr(null)
     let processed = 0
+    appendOpsLog(`Bölge içerik işçileri başladı (${contentWorkerCount} paralel).`)
     try {
-      while (!regionContentStopRef.current) {
+      await runParallelWorkers(contentWorkerCount, () => regionContentStopRef.current, async (workerIndex) => {
         const r = await processNextRegionContent(token)
         if (r.done) {
           setRegionContentLog((l) => [...l, 'Bölge içerik kuyruğu tamamlandı.'])
-          break
+          appendOpsLog(`Bölge içerik kuyruğu tamamlandı (worker ${workerIndex}).`)
+          return false
         }
         processed++
+        const label = r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)
         setRegionContentLog((l) => [
           ...l,
-          `#${processed} ✓ ${r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)} · blog: ${r.blog_posts_created ?? 0}`,
+          `#${processed} ✓ [w${workerIndex}] ${label} · blog: ${r.blog_posts_created ?? 0}`,
         ])
+        appendOpsLog(`Bölge içerik: ${label} · blog ${r.blog_posts_created ?? 0}`)
         if (processed % 5 === 0) await loadRegionContentStats()
-        await new Promise((res) => setTimeout(res, 900))
-      }
+        return true
+      })
     } catch (e) {
       setRegionContentErr(e instanceof Error ? e.message : 'region_content_process_failed')
+      appendOpsLog(`Bölge içerik hata: ${e instanceof Error ? e.message : 'region_content_process_failed'}`)
     } finally {
       setRegionContentRunning(false)
+      await loadRegionContentStats()
+    }
+  }
+
+  async function onQueueAllPlaceBlogs() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setPlaceBlogsErr(null)
+    setPlaceBlogsLog([])
+    try {
+      const r = await queueAllPlaceBlogs(token, postsPerRegion)
+      const msg = `${r.queued} favori mekan blog işi kuyruğa alındı (${r.posts_per_location} blog/lokasyon).`
+      setPlaceBlogsLog((l) => [...l, msg])
+      appendOpsLog(msg)
+      await loadRegionContentStats()
+    } catch (e) {
+      setPlaceBlogsErr(e instanceof Error ? e.message : 'place_blogs_queue_failed')
+    }
+  }
+
+  async function onStartPlaceBlogsProcessing() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    placeBlogsStopRef.current = false
+    setPlaceBlogsRunning(true)
+    setPlaceBlogsErr(null)
+    let processed = 0
+    appendOpsLog(`Favori mekan blog işçileri başladı (${contentWorkerCount} paralel).`)
+    try {
+      await runParallelWorkers(contentWorkerCount, () => placeBlogsStopRef.current, async (workerIndex) => {
+        const r = await processNextPlaceBlog(token)
+        if (r.done) {
+          setPlaceBlogsLog((l) => [...l, 'Favori mekan blog kuyruğu tamamlandı.'])
+          appendOpsLog(`Favori mekan blog kuyruğu tamamlandı (worker ${workerIndex}).`)
+          return false
+        }
+        processed++
+        const label = r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)
+        setPlaceBlogsLog((l) => [
+          ...l,
+          `#${processed} ✓ [w${workerIndex}] ${label} · blog: ${r.blog_posts_created ?? 0}`,
+        ])
+        appendOpsLog(`Favori mekan blog: ${label} · blog ${r.blog_posts_created ?? 0}`)
+        if (processed % 5 === 0) await loadRegionContentStats()
+        return true
+      })
+    } catch (e) {
+      setPlaceBlogsErr(e instanceof Error ? e.message : 'place_blogs_process_failed')
+      appendOpsLog(`Favori mekan blog hata: ${e instanceof Error ? e.message : 'place_blogs_process_failed'}`)
+    } finally {
+      setPlaceBlogsRunning(false)
       await loadRegionContentStats()
     }
   }
@@ -1057,17 +1140,28 @@ export default function AdminAiSection() {
             <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
               AI blog: <strong>{regionContentStats.generated_blog_posts}</strong>
             </span>
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Mekan adayı: <strong>{regionContentStats.place_blog_candidates}</strong>
+            </span>
+            <span className="rounded-full bg-pink-100 px-3 py-1 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300">
+              Mekan blog: <strong>{regionContentStats.generated_place_blog_posts}</strong>
+            </span>
             {Object.entries(regionContentStats.batches).map(([status, cnt]) => (
-              <span key={status} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
-                {status}: <strong>{cnt}</strong>
+              <span key={`region-${status}`} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
+                bölge {status}: <strong>{cnt}</strong>
+              </span>
+            ))}
+            {Object.entries(regionContentStats.place_blog_batches).map(([status, cnt]) => (
+              <span key={`place-${status}`} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
+                mekan {status}: <strong>{cnt}</strong>
               </span>
             ))}
           </div>
         ) : null}
 
-        {regionContentErr ? (
+        {regionContentErr || placeBlogsErr ? (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
-            {regionContentErr}
+            {regionContentErr ?? placeBlogsErr}
           </div>
         ) : null}
 
@@ -1087,9 +1181,25 @@ export default function AdminAiSection() {
               <option value={3}>3 blog</option>
             </select>
           </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+              Paralel işçi
+            </label>
+            <select
+              value={contentWorkerCount}
+              disabled={regionContentRunning || placeBlogsRunning}
+              onChange={(e) => setContentWorkerCount(Number(e.target.value) || 1)}
+              className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+            >
+              <option value={1}>1 işçi</option>
+              <option value={2}>2 işçi</option>
+              <option value={3}>3 işçi</option>
+              <option value={5}>5 işçi</option>
+            </select>
+          </div>
           <ButtonPrimary
             type="button"
-            disabled={regionContentRunning}
+            disabled={regionContentRunning || placeBlogsRunning}
             onClick={() => void onQueueAllRegionContent()}
             className="bg-violet-600 hover:bg-violet-700"
           >
@@ -1098,6 +1208,7 @@ export default function AdminAiSection() {
           {!regionContentRunning ? (
             <ButtonPrimary
               type="button"
+              disabled={placeBlogsRunning}
               onClick={() => void onStartRegionContentProcessing()}
             >
               2. Yazmaya Başlat
@@ -1111,6 +1222,31 @@ export default function AdminAiSection() {
               Durdur
             </button>
           )}
+          <ButtonPrimary
+            type="button"
+            disabled={regionContentRunning || placeBlogsRunning}
+            onClick={() => void onQueueAllPlaceBlogs()}
+            className="bg-pink-600 hover:bg-pink-700"
+          >
+            Mekan Bloglarını Kuyruğa Al
+          </ButtonPrimary>
+          {!placeBlogsRunning ? (
+            <ButtonPrimary
+              type="button"
+              disabled={regionContentRunning}
+              onClick={() => void onStartPlaceBlogsProcessing()}
+            >
+              Mekan Bloglarını Yaz
+            </ButtonPrimary>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { placeBlogsStopRef.current = true }}
+              className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+            >
+              Mekan Bloglarını Durdur
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void loadRegionContentStats()}
@@ -1121,10 +1257,33 @@ export default function AdminAiSection() {
           </button>
         </div>
 
+        {opsLog.length > 0 ? (
+          <div className="mb-4 max-h-40 overflow-y-auto rounded-xl border border-violet-100 bg-violet-50/60 p-3 dark:border-violet-900/60 dark:bg-violet-950/20">
+            <p className="mb-2 text-xs font-semibold text-violet-900 dark:text-violet-200">Birleşik üretim logu</p>
+            <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+              {opsLog.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {regionContentLog.length > 0 ? (
           <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <p className="mb-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Bölge içerik logu</p>
             <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
               {regionContentLog.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {placeBlogsLog.length > 0 ? (
+          <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <p className="mb-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300">Favori mekan blog logu</p>
+            <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+              {placeBlogsLog.map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
             </ul>

@@ -94,6 +94,7 @@ const Header3: FC<Header3Props> = ({ className, hasBorderBottom = true, initSear
   }, [showHeroSearch])
 
   const handleHideSearchForm = useCallback(() => {
+    rafId.current = null
     if (!document.querySelector('#nc-Header-3-anchor')) {
       return
     }
@@ -106,6 +107,7 @@ const Header3: FC<Header3Props> = ({ className, hasBorderBottom = true, initSear
   }, [])
 
   const handleEventScroll = useCallback(() => {
+    if (rafId.current != null) return
     rafId.current = window.requestAnimationFrame(handleHideSearchForm)
   }, [handleHideSearchForm])
 

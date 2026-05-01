@@ -19,6 +19,16 @@ const popup_profile = "special_day_popup_agent"
 const supervisor_profile = "supervisor_agent"
 const special_day_agent = "special_day_popup"
 
+fn content_health_row() -> decode.Decoder(#(Int, Int, Int, Int, Int, Int)) {
+  use region_pending <- decode.field(0, decode.int)
+  use region_failed <- decode.field(1, decode.int)
+  use place_pending <- decode.field(2, decode.int)
+  use place_failed <- decode.field(3, decode.int)
+  use districts_missing_ideas <- decode.field(4, decode.int)
+  use locations_missing_cover <- decode.field(5, decode.int)
+  decode.success(#(region_pending, region_failed, place_pending, place_failed, districts_missing_ideas, locations_missing_cover))
+}
+
 type RecommendationRow {
   RecommendationRow(
     id: String,
@@ -512,6 +522,16 @@ pub fn run_supervisor_due(req: Request, ctx: Context) -> Response {
 }
 
 fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
+  let content_health_sql =
+    "
+    select
+      (select count(*)::int from ai_geo_blog_batches where status in ('pending','running')) as region_pending,
+      (select count(*)::int from ai_geo_blog_batches where status = 'failed') as region_failed,
+      (select count(*)::int from ai_place_blog_batches where status in ('pending','running')) as place_pending,
+      (select count(*)::int from ai_place_blog_batches where status = 'failed') as place_failed,
+      (select count(*)::int from location_pages where region_type = 'district' and jsonb_array_length(coalesce(travel_ideas_json, '[]'::jsonb)) = 0) as districts_missing_ideas,
+      (select count(*)::int from location_pages where coalesce(cover_image, '') = '') as locations_missing_cover
+    "
   let upcoming_sql =
     "
     with years as (
@@ -584,6 +604,23 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
       json_err(500, "special_days_query_failed")
     }
     Ok(ret) -> {
+      let content_health =
+        case pog.query(content_health_sql) |> pog.returning(content_health_row()) |> pog.execute(ctx.db) {
+          Ok(health_ret) ->
+            case health_ret.rows {
+              [#(region_pending, region_failed, place_pending, place_failed, districts_missing_ideas, locations_missing_cover)] ->
+                json.object([
+                  #("region_pending", json.int(region_pending)),
+                  #("region_failed", json.int(region_failed)),
+                  #("place_pending", json.int(place_pending)),
+                  #("place_failed", json.int(place_failed)),
+                  #("districts_missing_ideas", json.int(districts_missing_ideas)),
+                  #("locations_missing_cover", json.int(locations_missing_cover)),
+                ])
+              _ -> json.object([#("error", json.string("content_health_unexpected_rows"))])
+            }
+          Error(_) -> json.object([#("error", json.string("content_health_query_failed"))])
+        }
       let results = list.map(ret.rows, fn(day) { insert_recommendation(ctx, run_id, day) })
       let created = list.count(results, fn(r) { result.is_ok(r) })
       let failed = list.count(results, fn(r) { result.is_error(r) })
@@ -596,6 +633,7 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
           #("scanned", json.int(list.length(ret.rows))),
           #("created", json.int(created)),
           #("failed", json.int(failed)),
+          #("content_health", content_health),
           #("instruction", json.string("Bu agent koşusunu değerlendir. Tekrar üretim, yayın riski ve bir sonraki operasyon adımı için kısa JSON karar özeti üret.")),
         ])
         |> json.to_string
@@ -614,6 +652,7 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
           #("scanned", json.int(list.length(ret.rows))),
           #("created", json.int(created)),
           #("failed", json.int(failed)),
+          #("content_health", content_health),
           #("supervisor_ai", supervisor_ai),
         ])
         |> json.to_string
@@ -624,6 +663,7 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
           #("scanned", json.int(list.length(ret.rows))),
           #("created", json.int(created)),
           #("failed", json.int(failed)),
+          #("content_health", content_health),
         ])
         |> json.to_string
       wisp.json_response(body, 200)

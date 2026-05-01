@@ -1298,6 +1298,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "ai", "region-content", "process-next"] ->
       region_content_http.process_next(req, ctx)
 
+    http.Post, ["api", "v1", "ai", "place-blogs", "queue-all"] ->
+      region_content_http.queue_place_blogs(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "place-blogs", "process-next"] ->
+      region_content_http.process_next_place_blog(req, ctx)
+
     http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
       verticals_http.delete_hotel_room(req, ctx, lid, rid)
 

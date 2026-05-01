@@ -18,16 +18,6 @@ import { cn } from '@/lib/utils'
 import '@/styles/tailwind.css'
 import type { Metadata, Viewport } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
-import { Poppins } from 'next/font/google'
-
-const poppins = Poppins({
-  subsets: ['latin', 'latin-ext'],
-  /** tailwind @theme'te --font-sans: var(--font-sans) döngüsü yaratmamak için ayrı değişken */
-  variable: '--font-poppins',
-  weight: ['400', '500', '600', '700'],
-  display: 'swap',
-  adjustFontFallback: false,
-})
 
 const themeDirection =
   process.env.NEXT_PUBLIC_THEME_DIR === 'rtl' ? ('rtl' as const) : ('ltr' as const)
@@ -128,7 +118,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang={themeDirection === 'rtl' ? 'ar' : 'en'}
       dir={themeDirection}
       suppressHydrationWarning
-      className={cn('min-w-0 overflow-x-hidden font-sans', poppins.variable)}
+      className={cn('min-w-0 overflow-x-hidden font-sans')}
     >
       <body className="min-w-0 overflow-x-hidden bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
         <ThemeProvider>

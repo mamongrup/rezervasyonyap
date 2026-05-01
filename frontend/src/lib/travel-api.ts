@@ -9386,7 +9386,10 @@ export interface RegionContentStats {
   total_regions: number
   regions_with_description: number
   generated_blog_posts: number
+  place_blog_candidates: number
+  generated_place_blog_posts: number
   batches: Record<string, number>
+  place_blog_batches: Record<string, number>
 }
 
 export async function getRegionContentStats(token: string): Promise<RegionContentStats> {
@@ -9436,6 +9439,44 @@ export async function processNextRegionContent(token: string): Promise<RegionCon
   })
   if (!res.ok) throw new Error(`region_content_process_${res.status}`)
   return res.json() as Promise<RegionContentProcessResult>
+}
+
+export async function queueAllPlaceBlogs(
+  token: string,
+  postsPerLocation = 1,
+): Promise<{ queued: number; posts_per_location: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/place-blogs/queue-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ posts_per_region: postsPerLocation }),
+  })
+  if (!res.ok) throw new Error(`place_blogs_queue_${res.status}`)
+  return res.json() as Promise<{ queued: number; posts_per_location: number }>
+}
+
+export interface PlaceBlogProcessResult {
+  done: boolean
+  message?: string
+  batch_id?: string
+  location_page_id?: string
+  slug_path?: string
+  region_type?: string
+  name?: string
+  ideas_context_chars?: number
+  blog_posts_created?: number
+}
+
+export async function processNextPlaceBlog(token: string): Promise<PlaceBlogProcessResult> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/place-blogs/process-next`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`place_blogs_process_${res.status}`)
+  return res.json() as Promise<PlaceBlogProcessResult>
 }
 
 export interface NextEmptyDistrict {

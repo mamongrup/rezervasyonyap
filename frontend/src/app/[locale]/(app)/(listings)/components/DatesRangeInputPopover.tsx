@@ -20,6 +20,7 @@ import { Calendar04Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { FC, useCallback, useMemo, useState } from 'react'
 import DatePicker from 'react-datepicker'
+import '@/styles/react-datepicker.module.css'
 
 function initDefaultRange(): [Date, Date] {
   const s = new Date()

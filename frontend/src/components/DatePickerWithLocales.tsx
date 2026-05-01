@@ -1,6 +1,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import OriginalDatePicker from 'react-datepicker'
 import '@/lib/register-datepicker-tr'
+import '@/styles/react-datepicker.module.css'
 
 // react-datepicker'ın defaultProps generic tip çakışmasını gizler
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

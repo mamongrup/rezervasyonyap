@@ -22,6 +22,7 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DatePicker from 'react-datepicker'
+import '@/styles/react-datepicker.module.css'
 import { SectionHeading, SectionSubheading } from './SectionHeading'
 
 function startOfToday(): Date {

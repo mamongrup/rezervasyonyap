@@ -572,20 +572,44 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
           case json.parse(body_str, cover_body_decoder()) {
             Error(_) -> json_err(400, "invalid_json_body")
             Ok(#(lp_id, cover_url)) -> {
+              let clean_lp_id = string.trim(lp_id)
+              let clean_cover = string.trim(cover_url)
               case
-                pog.query(
-                  "update location_pages set cover_image = $2 where id = $1::uuid",
-                )
-                |> pog.parameter(pog.text(string.trim(lp_id)))
-                |> pog.parameter(pog.text(string.trim(cover_url)))
+                pog.query("update location_pages set cover_image = $2 where id = $1::uuid")
+                |> pog.parameter(pog.text(clean_lp_id))
+                |> pog.parameter(pog.text(clean_cover))
                 |> pog.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "cover_update_failed")
-                Ok(_) ->
+                Ok(_) -> {
+                  case clean_cover == "" || clean_cover == "not_found" {
+                    True -> Nil
+                    False -> {
+                      let _ =
+                        pog.query(
+                          "
+                          update blog_posts
+                          set featured_image_url = $2,
+                              hero_gallery_json = case
+                                when hero_gallery_json = '[]'::jsonb then jsonb_build_array($2::text)
+                                else hero_gallery_json
+                              end,
+                              updated_at = now()
+                          where tags_json ? ('location:' || $1::text)
+                            and coalesce(featured_image_url, '') = ''
+                          ",
+                        )
+                        |> pog.parameter(pog.text(clean_lp_id))
+                        |> pog.parameter(pog.text(clean_cover))
+                        |> pog.execute(ctx.db)
+                      Nil
+                    }
+                  }
                   wisp.json_response(
                     "{\"ok\":true}",
                     200,
                   )
+                }
               }
             }
           }

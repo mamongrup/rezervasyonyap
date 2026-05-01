@@ -5,11 +5,12 @@ import { getMessages } from '@/utils/getT'
 import { resolveCatalogMenuIcon } from '@/lib/catalog-menu-icons'
 import type { CatalogMenuResolvedItem } from '@/types/catalog-menu'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
-import { CloseButton, Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import clsx from 'clsx'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 
 type Props = {
   /** Sunucudan — yapı + seçilen dil için çözümlenmiş metinler */
@@ -23,25 +24,38 @@ export default function CategoriesDropdown({ items }: Props) {
   const loc = locale ?? defaultLocale
   const m = getMessages(loc)
   const nav = m.navMenus.catalogMenu
+  const [open, setOpen] = useState(false)
 
   return (
-    <Popover className="group">
-      <PopoverButton className="-m-2.5 flex items-center p-2.5 text-sm font-medium text-neutral-700 group-hover:text-neutral-950 focus:outline-hidden dark:text-neutral-300 dark:group-hover:text-neutral-100">
+    <div
+      className="group relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onFocus={() => setOpen(true)}
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget instanceof Node ? event.relatedTarget : null
+        if (!nextTarget || !event.currentTarget.contains(nextTarget)) setOpen(false)
+      }}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="-m-2.5 flex items-center p-2.5 text-sm font-medium text-neutral-700 group-hover:text-neutral-950 focus:outline-hidden dark:text-neutral-300 dark:group-hover:text-neutral-100"
+      >
         {nav.buttonLabel}
         <HugeiconsIcon
           icon={ArrowDown01Icon}
-          className="ms-1 size-4 group-data-open:rotate-180"
+          className={clsx('ms-1 size-4 transition-transform', open && 'rotate-180')}
           strokeWidth={1.75}
           aria-hidden="true"
         />
-      </PopoverButton>
-      <PopoverPanel
-        anchor={{
-          to: 'bottom start',
-          gap: 16,
-        }}
-        transition
-        className="z-40 w-[560px] rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-200 ease-in-out sm:px-0 dark:ring-white/10 data-closed:translate-y-1 data-closed:opacity-0"
+      </button>
+      <div
+        className={clsx(
+          'absolute start-0 top-full z-40 mt-4 w-[560px] overflow-hidden rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-150 ease-out sm:px-0 dark:ring-white/10',
+          open ? 'pointer-events-auto translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0',
+        )}
       >
         <div>
           <div className="relative grid grid-cols-2 gap-4 bg-white p-6 dark:bg-neutral-800">
@@ -51,10 +65,10 @@ export default function CategoriesDropdown({ items }: Props) {
               const isActive = pathName === href
               const Icon = resolveCatalogMenuIcon(item.icon)
               return (
-                <CloseButton
-                  as={Link}
+                <Link
                   key={item.id}
                   href={href}
+                  onClick={() => setOpen(false)}
                   className={`focus-visible:ring-opacity-50 -m-3 flex items-center rounded-lg p-2 focus:outline-none focus-visible:ring focus-visible:ring-orange-500 ${
                     isActive ? 'bg-neutral-50 dark:bg-neutral-700' : 'hover:bg-neutral-50 dark:hover:bg-neutral-700'
                   }`}
@@ -66,7 +80,7 @@ export default function CategoriesDropdown({ items }: Props) {
                     <p className="text-sm font-medium">{item.title}</p>
                     <p className="line-clamp-1 text-xs text-neutral-500 dark:text-neutral-300">{item.description}</p>
                   </div>
-                </CloseButton>
+                </Link>
               )
             })}
           </div>
@@ -82,7 +96,7 @@ export default function CategoriesDropdown({ items }: Props) {
             </Link>
           </div>
         </div>
-      </PopoverPanel>
-    </Popover>
+      </div>
+    </div>
   )
 }

@@ -16,7 +16,9 @@ import wisp.{type Request, type Response}
 
 const content_profile = "region_tourism_content"
 const blog_profile = "region_blog_writer"
+const place_blog_profile = "place_blog_writer"
 const category_slug = "gezi-fikirleri"
+const place_category_slug = "favori-mekanlar"
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
@@ -68,8 +70,14 @@ pub fn stats(req: Request, ctx: Context) -> Response {
         "select count(*)::int from location_pages where region_type in ('country','province','district','destination') and length(coalesce(description,'')) > 120"
       let blog_sql =
         "select count(*)::int from blog_posts where tags_json ? 'ai-region-content'"
+      let place_blog_sql =
+        "select count(*)::int from blog_posts where tags_json ? 'ai-place-blog'"
       let batches_sql =
         "select status, count(*)::int from ai_geo_blog_batches group by status"
+      let place_batches_sql =
+        "select status, count(*)::int from ai_place_blog_batches group by status"
+      let place_candidates_sql =
+        "select count(*)::int from location_pages where jsonb_array_length(coalesce(travel_ideas_json, '[]'::jsonb)) > 0"
 
       case pog.query(total_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db) {
         Error(_) -> json_err(500, "region_content_total_failed")
@@ -83,27 +91,55 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                 Error(_) -> json_err(500, "region_content_blog_failed")
                 Ok(blog_ret) -> {
                   let blog_posts = case blog_ret.rows { [n] -> n _ -> 0 }
-                  case
-                    pog.query(batches_sql)
-                    |> pog.returning(batch_count_row())
-                    |> pog.execute(ctx.db)
-                  {
-                    Error(_) -> json_err(500, "region_content_batches_failed")
-                    Ok(batch_ret) -> {
-                      let counts =
-                        list.map(batch_ret.rows, fn(row) {
-                          let #(status, cnt) = row
-                          #(status, json.int(cnt))
-                        })
-                      let body =
-                        json.object([
-                          #("total_regions", json.int(total)),
-                          #("regions_with_description", json.int(with_description)),
-                          #("generated_blog_posts", json.int(blog_posts)),
-                          #("batches", json.object(counts)),
-                        ])
-                        |> json.to_string
-                      wisp.json_response(body, 200)
+                  case pog.query(place_blog_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db) {
+                    Error(_) -> json_err(500, "region_content_place_blog_failed")
+                    Ok(place_blog_ret) -> {
+                      let place_blog_posts = case place_blog_ret.rows { [n] -> n _ -> 0 }
+                      case pog.query(place_candidates_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db) {
+                        Error(_) -> json_err(500, "region_content_place_candidates_failed")
+                        Ok(place_candidates_ret) -> {
+                          let place_candidates = case place_candidates_ret.rows { [n] -> n _ -> 0 }
+                          case
+                            pog.query(batches_sql)
+                            |> pog.returning(batch_count_row())
+                            |> pog.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "region_content_batches_failed")
+                            Ok(batch_ret) ->
+                              case
+                                pog.query(place_batches_sql)
+                                |> pog.returning(batch_count_row())
+                                |> pog.execute(ctx.db)
+                              {
+                                Error(_) -> json_err(500, "region_content_place_batches_failed")
+                                Ok(place_batch_ret) -> {
+                                  let counts =
+                                    list.map(batch_ret.rows, fn(row) {
+                                      let #(status, cnt) = row
+                                      #(status, json.int(cnt))
+                                    })
+                                  let place_counts =
+                                    list.map(place_batch_ret.rows, fn(row) {
+                                      let #(status, cnt) = row
+                                      #(status, json.int(cnt))
+                                    })
+                                  let body =
+                                    json.object([
+                                      #("total_regions", json.int(total)),
+                                      #("regions_with_description", json.int(with_description)),
+                                      #("generated_blog_posts", json.int(blog_posts)),
+                                      #("place_blog_candidates", json.int(place_candidates)),
+                                      #("generated_place_blog_posts", json.int(place_blog_posts)),
+                                      #("batches", json.object(counts)),
+                                      #("place_blog_batches", json.object(place_counts)),
+                                    ])
+                                    |> json.to_string
+                                  wisp.json_response(body, 200)
+                                }
+                              }
+                          }
+                        }
+                      }
                     }
                   }
                 }
@@ -524,15 +560,19 @@ fn upsert_blog_post(ctx: Context, category_id: String, lp_id: String, slug: Stri
     pog.query(
       "
       insert into blog_posts (
-        category_id, slug, published_at, tags_json, read_time_minutes, meta_title, meta_description
+        category_id, slug, published_at, tags_json, read_time_minutes, meta_title, meta_description, featured_image_url
       )
-      values ($1::uuid, $2, now(), $3::jsonb, 7, $4, $5)
+      values (
+        $1::uuid, $2, now(), $3::jsonb, 7, $4, $5,
+        coalesce((select nullif(cover_image, '') from location_pages where id = $6::uuid and cover_image <> 'not_found'), '')
+      )
       on conflict (slug) do update set
         category_id = excluded.category_id,
         published_at = coalesce(blog_posts.published_at, now()),
         tags_json = excluded.tags_json,
         meta_title = excluded.meta_title,
         meta_description = excluded.meta_description,
+        featured_image_url = coalesce(nullif(blog_posts.featured_image_url,''), excluded.featured_image_url),
         updated_at = now()
       returning id::text
       ",
@@ -542,6 +582,7 @@ fn upsert_blog_post(ctx: Context, category_id: String, lp_id: String, slug: Stri
     |> pog.parameter(pog.text(tags))
     |> pog.parameter(pog.text(title))
     |> pog.parameter(pog.text(string.slice(excerpt, 0, 155)))
+    |> pog.parameter(pog.text(lp_id))
     |> pog.returning(row_dec.col0_string())
     |> pog.execute(ctx.db)
   {
@@ -574,6 +615,295 @@ fn upsert_blog_post(ctx: Context, category_id: String, lp_id: String, slug: Stri
             Ok(_) -> Ok(1)
           }
         _ -> Error("region_content_blog_unexpected_rows")
+      }
+  }
+}
+
+fn place_batch_row() -> decode.Decoder(#(String, String, Int)) {
+  use id <- decode.field(0, decode.string)
+  use lp <- decode.field(1, decode.string)
+  use posts <- decode.field(2, decode.int)
+  decode.success(#(id, lp, posts))
+}
+
+pub fn queue_place_blogs(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      let posts_per_location = case read_body_string(req) {
+        Error(_) -> 1
+        Ok(body) ->
+          case string.trim(body) == "" {
+            True -> 1
+            False ->
+              case json.parse(body, posts_decoder()) {
+                Ok(n) -> clamp_posts(n)
+                Error(_) -> 1
+              }
+          }
+      }
+      let sql =
+        "
+        insert into ai_place_blog_batches (location_page_id, posts_to_create, status)
+        select lp.id, $1::int, 'pending'
+        from location_pages lp
+        where jsonb_array_length(coalesce(lp.travel_ideas_json, '[]'::jsonb)) > 0
+          and not exists (
+            select 1 from blog_posts bp
+            where bp.tags_json ? 'ai-place-blog'
+              and bp.tags_json ? ('location:' || lp.id::text)
+          )
+          and not exists (
+            select 1 from ai_place_blog_batches b
+            where b.location_page_id = lp.id
+              and b.status in ('pending','running','done')
+          )
+        order by
+          case lp.region_type when 'country' then 0 when 'province' then 1 when 'destination' then 2 else 3 end,
+          lp.slug_path
+        limit 2000
+        returning id::text
+        "
+      case
+        pog.query(sql)
+        |> pog.parameter(pog.int(posts_per_location))
+        |> pog.returning(row_dec.col0_string())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "place_blog_queue_failed")
+        Ok(ret) -> {
+          let body =
+            json.object([
+              #("queued", json.int(list.length(ret.rows))),
+              #("posts_per_location", json.int(posts_per_location)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+    }
+  }
+}
+
+pub fn process_next_place_blog(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      let pick_sql =
+        "
+        update ai_place_blog_batches
+        set status = 'running'
+        where id = (
+          select id from ai_place_blog_batches
+          where status = 'pending'
+          order by id
+          limit 1
+        )
+        returning id::text, location_page_id::text, posts_to_create
+        "
+      case pog.query(pick_sql) |> pog.returning(place_batch_row()) |> pog.execute(ctx.db) {
+        Error(_) -> json_err(500, "place_blog_pick_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [] -> wisp.json_response("{\"done\":true,\"message\":\"queue_empty\"}", 200)
+            [batch] -> run_place_blog_batch(ctx, batch)
+            _ -> json_err(500, "place_blog_unexpected_batch_rows")
+          }
+      }
+    }
+  }
+}
+
+fn run_place_blog_batch(ctx: Context, batch: #(String, String, Int)) -> Response {
+  let #(batch_id, lp_id, posts_to_create) = batch
+  case load_location(ctx, lp_id) {
+    Error(_) -> fail_place_blog_batch(ctx, batch_id, "place_blog_location_not_found")
+    Ok(loc) ->
+      case ensure_blog_category(ctx, place_category_slug) {
+        Error(_) -> fail_place_blog_batch(ctx, batch_id, "place_blog_category_failed")
+        Ok(category_id) ->
+          case generate_place_blog_posts(ctx, loc, category_id, posts_to_create, 1) {
+            Error(e) -> fail_place_blog_batch(ctx, batch_id, e)
+            Ok(created_count) -> {
+              let #(id, slug_path, region_type, name, _region_name, _country_name, _description, ideas_json) = loc
+              let _ =
+                pog.query("update ai_place_blog_batches set status = 'done' where id = $1::uuid")
+                |> pog.parameter(pog.text(batch_id))
+                |> pog.execute(ctx.db)
+              let body =
+                json.object([
+                  #("done", json.bool(False)),
+                  #("batch_id", json.string(batch_id)),
+                  #("location_page_id", json.string(id)),
+                  #("slug_path", json.string(slug_path)),
+                  #("region_type", json.string(region_type)),
+                  #("name", json.string(name)),
+                  #("ideas_context_chars", json.int(string.length(ideas_json))),
+                  #("blog_posts_created", json.int(created_count)),
+                ])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+      }
+  }
+}
+
+fn fail_place_blog_batch(ctx: Context, batch_id: String, msg: String) -> Response {
+  let _ =
+    pog.query("update ai_place_blog_batches set status = 'failed' where id = $1::uuid")
+    |> pog.parameter(pog.text(batch_id))
+    |> pog.execute(ctx.db)
+  json_err(500, msg)
+}
+
+fn generate_place_blog_posts(ctx: Context, loc: #(String, String, String, String, String, String, String, String), category_id: String, total: Int, index: Int) -> Result(Int, String) {
+  case index > total {
+    True -> Ok(0)
+    False ->
+      case generate_one_place_blog_post(ctx, loc, category_id, index) {
+        Error(e) -> Error(e)
+        Ok(created) ->
+          case generate_place_blog_posts(ctx, loc, category_id, total, index + 1) {
+            Error(e) -> Error(e)
+            Ok(rest) -> Ok(created + rest)
+          }
+      }
+  }
+}
+
+fn place_blog_title(name: String, index: Int) -> String {
+  case index {
+    1 -> name <> " Favori Mekanlar Rehberi"
+    2 -> name <> " Gezilecek Popüler Yerler"
+    _ -> name <> " Hafta Sonu Gezi Rotası"
+  }
+}
+
+fn place_blog_slug(slug_path: String, index: Int) -> String {
+  let base =
+    slug_path
+    |> string.lowercase
+    |> string.replace("/", "-")
+    |> string.replace("_", "-")
+  case index {
+    1 -> base <> "-favori-mekanlar"
+    2 -> base <> "-populer-yerler"
+    _ -> base <> "-hafta-sonu-rotasi"
+  }
+}
+
+fn generate_one_place_blog_post(ctx: Context, loc: #(String, String, String, String, String, String, String, String), category_id: String, index: Int) -> Result(Int, String) {
+  let #(lp_id, slug_path, region_type, name, region_name, country_name, description, ideas_json) = loc
+  let title = place_blog_title(name, index)
+  let slug = place_blog_slug(slug_path, index)
+  let excerpt =
+    name <> " çevresindeki favori mekanlar, gezilecek popüler yerler ve pratik rota önerileri."
+  let input =
+    json.object([
+      #("task", json.string("place_blog_post")),
+      #("locale", json.string("tr")),
+      #("location_page_id", json.string(lp_id)),
+      #("slug_path", json.string(slug_path)),
+      #("region_type", json.string(region_type)),
+      #("title", json.string(title)),
+      #("location_name", json.string(name)),
+      #("province_name", json.string(region_name)),
+      #("country_name", json.string(country_name)),
+      #("region_description_html", json.string(string.slice(description, 0, 2000))),
+      #("travel_ideas_json", json.string(string.slice(ideas_json, 0, 5500))),
+      #("instruction", json.string("Verilen travel_ideas_json içindeki gerçek mekanları temel alarak 700-1100 kelimelik Türkçe blog yazısı üret. Mekanları uydurma; varsa rating, adres, mesafe ve link bilgisini doğal kullan. HTML döndür: h2, h3, p, ul, li, strong kullan; markdown ve JSON yazma.")),
+    ])
+    |> json.to_string
+  case create_and_run_job(ctx, place_blog_profile, input) {
+    Error(e) -> Error(e)
+    Ok(body_html) -> upsert_place_blog_post(ctx, category_id, lp_id, slug, title, excerpt, body_html, ideas_json)
+  }
+}
+
+fn upsert_place_blog_post(ctx: Context, category_id: String, lp_id: String, slug: String, title: String, excerpt: String, body_html: String, ideas_json: String) -> Result(Int, String) {
+  let tags =
+    json.array(
+      from: ["ai-place-blog", "location:" <> lp_id, "favori-mekanlar"],
+      of: json.string,
+    )
+    |> json.to_string
+  case
+    pog.query(
+      "
+      insert into blog_posts (
+        category_id, slug, published_at, tags_json, read_time_minutes, meta_title, meta_description, featured_image_url, hero_gallery_json
+      )
+      values (
+        $1::uuid, $2, now(), $3::jsonb, 6, $4, $5,
+        coalesce(
+          nullif((($6::jsonb)->0->>'image'), ''),
+          (select nullif(cover_image, '') from location_pages where id = $7::uuid and cover_image <> 'not_found'),
+          ''
+        ),
+        case when coalesce((($6::jsonb)->0->>'image'), '') <> ''
+          then jsonb_build_array(coalesce((($6::jsonb)->0->>'image'), ''))
+          when coalesce((select nullif(cover_image, '') from location_pages where id = $7::uuid and cover_image <> 'not_found'), '') <> ''
+          then jsonb_build_array((select cover_image from location_pages where id = $7::uuid))
+          else '[]'::jsonb
+        end
+      )
+      on conflict (slug) do update set
+        category_id = excluded.category_id,
+        published_at = coalesce(blog_posts.published_at, now()),
+        tags_json = excluded.tags_json,
+        meta_title = excluded.meta_title,
+        meta_description = excluded.meta_description,
+        featured_image_url = coalesce(nullif(blog_posts.featured_image_url,''), excluded.featured_image_url),
+        hero_gallery_json = case
+          when blog_posts.hero_gallery_json = '[]'::jsonb then excluded.hero_gallery_json
+          else blog_posts.hero_gallery_json
+        end,
+        updated_at = now()
+      returning id::text
+      ",
+    )
+    |> pog.parameter(pog.text(category_id))
+    |> pog.parameter(pog.text(slug))
+    |> pog.parameter(pog.text(tags))
+    |> pog.parameter(pog.text(title))
+    |> pog.parameter(pog.text(string.slice(excerpt, 0, 155)))
+    |> pog.parameter(pog.text(ideas_json))
+    |> pog.parameter(pog.text(lp_id))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> Error("place_blog_upsert_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [post_id] ->
+          case
+            pog.query(
+              "
+              insert into blog_post_translations (post_id, locale_id, title, body, excerpt)
+              select $1::uuid, l.id, $2, $3, $4
+              from locales l
+              where lower(l.code) = 'tr'
+              on conflict (post_id, locale_id) do update set
+                title = excluded.title,
+                body = excluded.body,
+                excerpt = excluded.excerpt
+              returning post_id::text
+              ",
+            )
+            |> pog.parameter(pog.text(post_id))
+            |> pog.parameter(pog.text(title))
+            |> pog.parameter(pog.text(body_html))
+            |> pog.parameter(pog.text(excerpt))
+            |> pog.returning(row_dec.col0_string())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> Error("place_blog_translation_failed")
+            Ok(_) -> Ok(1)
+          }
+        _ -> Error("place_blog_unexpected_rows")
       }
   }
 }

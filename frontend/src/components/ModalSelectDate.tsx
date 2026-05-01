@@ -8,6 +8,7 @@ import { CloseButton, Dialog, DialogPanel } from '@headlessui/react'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import React, { FC, useState } from 'react'
 import DatePicker from 'react-datepicker'
+import '@/styles/react-datepicker.module.css'
 import DatePickerCustomDay from './DatePickerCustomDay'
 import DatePickerCustomHeaderTwoMonth from './DatePickerCustomHeaderTwoMonth'
 

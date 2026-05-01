@@ -11,6 +11,7 @@ import Form from 'next/form'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import DatePicker from 'react-datepicker'
+import '@/styles/react-datepicker.module.css'
 
 const PageAddListing9 = () => {
   const L = useAddListingsMessages()

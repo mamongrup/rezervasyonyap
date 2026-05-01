@@ -9,6 +9,7 @@ import clsx from 'clsx'
 import { useParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import DatePicker from 'react-datepicker'
+import '@/styles/react-datepicker.module.css'
 
 interface Props {
   className?: string
