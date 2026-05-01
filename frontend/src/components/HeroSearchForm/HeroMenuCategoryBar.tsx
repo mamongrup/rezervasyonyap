@@ -185,8 +185,8 @@ export function HeroMenuCategoryBar({
   const spread = layout === 'spread'
 
   /**
-   * Tek bir kategori linki. `extraClass` ile inline ya da overflow için
-   * gerekli responsive görünürlük class'ı verilir; spread modunda gerek yoktur.
+   * `extraClass`: `inlineVisibilityClass(i)` — mobilde ikon sayısı sınırlı kalır.
+   * Spread modunda da aynı sınıflar kullanılır; yoksa tüm kategoriler tek satırda “patlar”.
    */
   const catLink = (
     cat: typeof cats[0],
@@ -199,8 +199,8 @@ export function HeroMenuCategoryBar({
         key={cat.slug}
         href={cat.categoryRoute}
         className={clsx(
-          'group/tab cursor-pointer flex-col items-center gap-1.5 sm:gap-2',
-          spread ? 'flex min-w-0 flex-1 basis-0' : clsx('shrink-0', extraClass),
+          'group/tab cursor-pointer flex flex-col items-center gap-1.5 sm:gap-2',
+          spread ? clsx('min-w-0 flex-1 basis-0', extraClass) : clsx('shrink-0', extraClass),
         )}
       >
         <span
@@ -239,9 +239,7 @@ export function HeroMenuCategoryBar({
         className,
       )}
     >
-      {cats.map((cat, i) =>
-        catLink(cat, spread ? '' : inlineVisibilityClass(i)),
-      )}
+      {cats.map((cat, i) => catLink(cat, inlineVisibilityClass(i)))}
     </div>
   )
 }

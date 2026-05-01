@@ -137,11 +137,11 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
                     </CloseButton>
                   </div>
 
-                  <div className="shrink-0 border-b border-neutral-100 px-3 pt-10 pb-3 dark:border-neutral-800 sm:px-4 sm:pb-4">
+                  <div className="shrink-0 overflow-x-hidden border-b border-neutral-100 px-3 pt-10 pb-3 dark:border-neutral-800 sm:px-4 sm:pb-4">
                     <HeroMenuCategoryBar
                       locale={locale}
-                      layout="spread"
-                      className="mb-0"
+                      layout="default"
+                      className="mb-0 justify-center gap-x-2 gap-y-2 sm:gap-x-6 sm:gap-y-3"
                     />
                   </div>
 

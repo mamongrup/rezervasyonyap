@@ -18,11 +18,15 @@ const FieldPanelContainer = ({
   headingValue: string
 }) => {
   return (
-    <div className={clsx('w-full rounded-xl bg-white p-4 shadow-xs dark:bg-neutral-800', className)}>
+    <div className={clsx('w-full max-w-full min-w-0 rounded-xl bg-white p-4 shadow-xs dark:bg-neutral-800', className)}>
       <Transition show={!isActive}>
-        <button type="button" className="flex w-full gap-x-5 text-sm font-medium" onClick={headingOnClick}>
+        <button
+          type="button"
+          className="flex w-full min-w-0 gap-x-3 text-start text-sm font-medium sm:gap-x-5"
+          onClick={headingOnClick}
+        >
           <p className="shrink-0 text-neutral-400">{headingTitle}</p>
-          <div className="flex w-full justify-end">
+          <div className="min-w-0 flex-1 text-end">
             <span className="line-clamp-1">{headingValue}</span>
           </div>
         </button>
