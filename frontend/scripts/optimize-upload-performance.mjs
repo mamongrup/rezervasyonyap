@@ -52,15 +52,18 @@ const jobs = [
   },
   {
     relPath: 'external/04c0a91826506101d71a.avif',
-    transform: (img) => img.avif({ quality: 35, effort: 6 }),
+    transform: (img) =>
+      img.resize({ width: 560, withoutEnlargement: true }).avif({ quality: 32, effort: 6 }),
   },
   {
     relPath: 'external/4746d8f388d7ff5a67a0.avif',
-    transform: (img) => img.avif({ quality: 35, effort: 6 }),
+    transform: (img) =>
+      img.resize({ width: 560, withoutEnlargement: true }).avif({ quality: 32, effort: 6 }),
   },
   {
     relPath: 'external/f3bf43fed9e4c346d6dc.avif',
-    transform: (img) => img.avif({ quality: 35, effort: 6 }),
+    transform: (img) =>
+      img.resize({ width: 560, withoutEnlargement: true }).avif({ quality: 32, effort: 6 }),
   },
   {
     relPath: 'site/logo-light.avif',

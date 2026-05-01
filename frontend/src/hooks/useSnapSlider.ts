@@ -25,8 +25,10 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
         return
       }
 
-      const item = el.querySelector('.mySnapItem') as HTMLElement | null
-      if (item?.clientWidth) itemStridePxRef.current = item.clientWidth
+      if (itemStridePxRef.current <= 0) {
+        const item = el.querySelector('.mySnapItem') as HTMLElement | null
+        if (item?.clientWidth) itemStridePxRef.current = item.clientWidth
+      }
 
       const scrollLeft = el.scrollLeft
       const clientWidth = el.clientWidth
@@ -41,7 +43,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       }
     }
 
-    const scheduleReadFromScrollOrResize = () => {
+    const scheduleReadFromScroll = () => {
       if (rafIdRef.current != null) return
       rafIdRef.current = window.requestAnimationFrame(() => {
         rafIdRef.current = null
@@ -49,12 +51,10 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       })
     }
 
-    slider.addEventListener('scroll', scheduleReadFromScrollOrResize, { passive: true })
-    window.addEventListener('resize', scheduleReadFromScrollOrResize, { passive: true })
+    slider.addEventListener('scroll', scheduleReadFromScroll, { passive: true })
 
     return () => {
-      slider.removeEventListener('scroll', scheduleReadFromScrollOrResize)
-      window.removeEventListener('resize', scheduleReadFromScrollOrResize)
+      slider.removeEventListener('scroll', scheduleReadFromScroll)
       if (rafIdRef.current != null) {
         window.cancelAnimationFrame(rafIdRef.current)
         rafIdRef.current = null

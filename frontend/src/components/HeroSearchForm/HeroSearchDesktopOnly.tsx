@@ -1,17 +1,36 @@
 'use client'
 
-import { useLayoutEffect, useState, type ReactNode } from 'react'
+import type { ListingType } from '@/type'
+import dynamic from 'next/dynamic'
+import { useEffect, useState } from 'react'
+import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
+
+const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
+  ssr: false,
+  loading: () => <HeroSearchFormSkeleton />,
+})
 
 /**
  * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını mobilde `hidden md:block`
- * ile gizler — fakat çocuksuz bırakmadan önce bile `HeroSearchForm` mount edilirse yüzlerce KiB JS
- * mobilde parse/edilir ve LCP/TBT şişer. Bu sarmalayıcı yalnızca `md` ve üzeri görünümde formu mount eder.
+ * ile gizler. Formu child olarak geçirmek mobilde chunk'ı yine keşfettirdiği için burada
+ * yalnızca `md` ve üzeri görünümde dinamik import ediyoruz.
  */
-export default function HeroSearchDesktopOnly({ children }: { children: ReactNode }) {
-  // Render on the server too; otherwise desktop search disappears when hydration is delayed.
-  const [show, setShow] = useState(true)
+export default function HeroSearchDesktopOnly({
+  initTab = 'Stays',
+  locale = 'tr',
+  hideVerticalTabs = false,
+  categoryBarLayout = 'default',
+  activeSlugs,
+}: {
+  initTab?: ListingType
+  locale?: string
+  hideVerticalTabs?: boolean
+  categoryBarLayout?: 'default' | 'spread'
+  activeSlugs?: string[]
+}) {
+  const [show, setShow] = useState(false)
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)')
     const sync = () => setShow(mq.matches)
     sync()
@@ -20,5 +39,13 @@ export default function HeroSearchDesktopOnly({ children }: { children: ReactNod
   }, [])
 
   if (!show) return null
-  return <>{children}</>
+  return (
+    <HeroSearchForm
+      initTab={initTab}
+      locale={locale}
+      hideVerticalTabs={hideVerticalTabs}
+      categoryBarLayout={categoryBarLayout}
+      activeSlugs={activeSlugs}
+    />
+  )
 }

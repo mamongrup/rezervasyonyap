@@ -94,6 +94,9 @@ export default function FreeformBannerView({
             : layer.y * 100
           const bwPct = bounds ? (layer.w / bounds.bw) * 100 : layer.w * 100
           const bhPct = bounds ? (layer.h / bounds.bh) * 100 : layer.h * 100
+          const slotSizes = `(max-width: 768px) ${Math.ceil(bwPct)}vw, ${Math.ceil(
+            bwPct * 0.58,
+          )}vw`
           /** slotIndex küçük = üstte (0 sağ uzun); üst üste binmede yanlış kesilmesin */
           const zSlot =
             typeof si === 'number' && Number.isFinite(si) ? Math.min(2, Math.max(0, Math.round(si))) : i
@@ -116,7 +119,7 @@ export default function FreeformBannerView({
                     src={src}
                     alt={`${alt} — ${i + 1}`}
                     fill
-                    sizes="(max-width: 768px) 100vw, 58vw"
+                    sizes={slotSizes}
                     className="object-cover"
                     style={{
                       objectPosition: `${layer.focusX}% ${layer.focusY}%`,
@@ -132,7 +135,7 @@ export default function FreeformBannerView({
                     src={src}
                     alt={`${alt} — ${i + 1}`}
                     fill
-                    sizes="(max-width: 768px) 100vw, 58vw"
+                    sizes={slotSizes}
                     className="object-cover"
                     style={{
                       objectPosition: `${layer.focusX}% ${layer.focusY}%`,
