@@ -7,11 +7,14 @@ import {
   getNextEmptyDistrict,
   getNextNoCoverDistrict,
   getNotFoundCovers,
+  getRegionContentStats,
   listAiFeatureProfiles,
   listAiJobs,
   listAiProviders,
+  processNextRegionContent,
   processNextDistrictIdea,
   queueAllDistrictIdeas,
+  queueAllRegionContent,
   resetNotFoundCovers,
   saveDistrictCover,
   saveDistrictPlaces,
@@ -19,6 +22,7 @@ import {
   type CoverStats,
   type DistrictIdeasStats,
   type NotFoundCoverItem,
+  type RegionContentStats,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -67,6 +71,14 @@ export default function AdminAiSection() {
   const [districtLog, setDistrictLog] = useState<string[]>([])
   const [districtErr, setDistrictErr] = useState<string | null>(null)
   const districtStopRef = useRef(false)
+
+  // Bölge tanıtım yazısı + bölge blog yazıları
+  const [regionContentStats, setRegionContentStats] = useState<RegionContentStats | null>(null)
+  const [regionContentRunning, setRegionContentRunning] = useState(false)
+  const [regionContentLog, setRegionContentLog] = useState<string[]>([])
+  const [regionContentErr, setRegionContentErr] = useState<string | null>(null)
+  const [postsPerRegion, setPostsPerRegion] = useState(1)
+  const regionContentStopRef = useRef(false)
 
   // İlçe gezi fikirleri — Google Maps Places çekme
   const [mapsRunning, setMapsRunning] = useState(false)
@@ -121,6 +133,7 @@ export default function AdminAiSection() {
   useEffect(() => {
     void refresh()
     void loadDistrictStats()
+    void loadRegionContentStats()
   }, [refresh])
 
   async function loadDistrictStats() {
@@ -131,6 +144,64 @@ export default function AdminAiSection() {
       setDistrictStats(s)
     } catch {
       // sessizce geç
+    }
+  }
+
+  async function loadRegionContentStats() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    try {
+      const s = await getRegionContentStats(token)
+      setRegionContentStats(s)
+    } catch {
+      // sessizce geç
+    }
+  }
+
+  async function onQueueAllRegionContent() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setRegionContentErr(null)
+    setRegionContentLog([])
+    try {
+      const r = await queueAllRegionContent(token, postsPerRegion)
+      setRegionContentLog((l) => [
+        ...l,
+        `${r.queued} bölge kuyruğa alındı (${r.posts_per_region} blog/bölge).`,
+      ])
+      await loadRegionContentStats()
+    } catch (e) {
+      setRegionContentErr(e instanceof Error ? e.message : 'region_content_queue_failed')
+    }
+  }
+
+  async function onStartRegionContentProcessing() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    regionContentStopRef.current = false
+    setRegionContentRunning(true)
+    setRegionContentErr(null)
+    let processed = 0
+    try {
+      while (!regionContentStopRef.current) {
+        const r = await processNextRegionContent(token)
+        if (r.done) {
+          setRegionContentLog((l) => [...l, 'Bölge içerik kuyruğu tamamlandı.'])
+          break
+        }
+        processed++
+        setRegionContentLog((l) => [
+          ...l,
+          `#${processed} ✓ ${r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)} · blog: ${r.blog_posts_created ?? 0}`,
+        ])
+        if (processed % 5 === 0) await loadRegionContentStats()
+        await new Promise((res) => setTimeout(res, 900))
+      }
+    } catch (e) {
+      setRegionContentErr(e instanceof Error ? e.message : 'region_content_process_failed')
+    } finally {
+      setRegionContentRunning(false)
+      await loadRegionContentStats()
     }
   }
 
@@ -620,6 +691,106 @@ export default function AdminAiSection() {
           <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
             <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
               {districtLog.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Bölge Tanıtımı + Blog Yazıları */}
+      <div className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm dark:border-violet-900 dark:bg-neutral-900/40">
+        <div className="mb-4 flex flex-wrap items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-800 dark:bg-violet-950/40 dark:text-violet-200">
+            <Bot className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Bölge Tanıtımı + Blog Yazıları</h2>
+            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+              Her ülke, il, ilçe ve destinasyon sayfasına turizm açısından tanıtıcı yazı ekler; ayrıca Gezi Fikirleri kategorisine bölge blog yazısı üretir.
+            </p>
+          </div>
+        </div>
+
+        {regionContentStats ? (
+          <div className="mb-4 flex flex-wrap gap-3 text-sm">
+            <span className="rounded-full bg-neutral-100 px-3 py-1 dark:bg-neutral-800">
+              Toplam bölge: <strong>{regionContentStats.total_regions}</strong>
+            </span>
+            <span className="rounded-full bg-violet-100 px-3 py-1 text-violet-800 dark:bg-violet-950/40 dark:text-violet-300">
+              Tanıtım yazısı var: <strong>{regionContentStats.regions_with_description}</strong>
+            </span>
+            <span className="rounded-full bg-blue-100 px-3 py-1 text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+              AI blog: <strong>{regionContentStats.generated_blog_posts}</strong>
+            </span>
+            {Object.entries(regionContentStats.batches).map(([status, cnt]) => (
+              <span key={status} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
+                {status}: <strong>{cnt}</strong>
+              </span>
+            ))}
+          </div>
+        ) : null}
+
+        {regionContentErr ? (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+            {regionContentErr}
+          </div>
+        ) : null}
+
+        <div className="mb-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+              Blog / bölge
+            </label>
+            <select
+              value={postsPerRegion}
+              disabled={regionContentRunning}
+              onChange={(e) => setPostsPerRegion(Number(e.target.value) || 1)}
+              className="rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-violet-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+            >
+              <option value={1}>1 blog</option>
+              <option value={2}>2 blog</option>
+              <option value={3}>3 blog</option>
+            </select>
+          </div>
+          <ButtonPrimary
+            type="button"
+            disabled={regionContentRunning}
+            onClick={() => void onQueueAllRegionContent()}
+            className="bg-violet-600 hover:bg-violet-700"
+          >
+            1. Bölge İçeriklerini Kuyruğa Al
+          </ButtonPrimary>
+          {!regionContentRunning ? (
+            <ButtonPrimary
+              type="button"
+              onClick={() => void onStartRegionContentProcessing()}
+            >
+              2. Yazmaya Başlat
+            </ButtonPrimary>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { regionContentStopRef.current = true }}
+              className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
+            >
+              Durdur
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void loadRegionContentStats()}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+          >
+            <RefreshCw className="h-4 w-4" />
+            İstatistik Yenile
+          </button>
+        </div>
+
+        {regionContentLog.length > 0 ? (
+          <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+              {regionContentLog.map((line, i) => (
                 <li key={i}>{line}</li>
               ))}
             </ul>

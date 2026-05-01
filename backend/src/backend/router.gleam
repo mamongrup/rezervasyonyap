@@ -45,6 +45,7 @@ import travel/support/helpdesk_catalog_http
 import travel/integrations/integrations_http
 import travel/ai/ai_http
 import travel/ai/district_ideas_http
+import travel/ai/region_content_http
 import travel/verticals/verticals_http
 import travel/catalog/catalog_http
 import travel/workspace/workspace_http
@@ -1271,6 +1272,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "district-ideas", "reset-not-found"] ->
       district_ideas_http.reset_not_found(req, ctx)
+
+    http.Get, ["api", "v1", "ai", "region-content", "stats"] ->
+      region_content_http.stats(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "region-content", "queue-all"] ->
+      region_content_http.queue_all(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "region-content", "process-next"] ->
+      region_content_http.process_next(req, ctx)
 
     http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
       verticals_http.delete_hotel_room(req, ctx, lid, rid)

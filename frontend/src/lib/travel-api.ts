@@ -9242,6 +9242,66 @@ export async function processNextDistrictIdea(token: string): Promise<DistrictId
   return res.json() as Promise<DistrictIdeasProcessResult>
 }
 
+// ---------------------------------------------------------------------------
+// Bölge tanıtım yazısı + bölge blog yazıları — toplu AI üretimi
+// ---------------------------------------------------------------------------
+
+export interface RegionContentStats {
+  total_regions: number
+  regions_with_description: number
+  generated_blog_posts: number
+  batches: Record<string, number>
+}
+
+export async function getRegionContentStats(token: string): Promise<RegionContentStats> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/region-content/stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`region_content_stats_${res.status}`)
+  return res.json() as Promise<RegionContentStats>
+}
+
+export async function queueAllRegionContent(
+  token: string,
+  postsPerRegion = 1,
+): Promise<{ queued: number; posts_per_region: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/region-content/queue-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ posts_per_region: postsPerRegion }),
+  })
+  if (!res.ok) throw new Error(`region_content_queue_${res.status}`)
+  return res.json() as Promise<{ queued: number; posts_per_region: number }>
+}
+
+export interface RegionContentProcessResult {
+  done: boolean
+  message?: string
+  batch_id?: string
+  location_page_id?: string
+  slug_path?: string
+  region_type?: string
+  name?: string
+  had_description?: boolean
+  description_written?: boolean
+  blog_posts_created?: number
+}
+
+export async function processNextRegionContent(token: string): Promise<RegionContentProcessResult> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/region-content/process-next`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`region_content_process_${res.status}`)
+  return res.json() as Promise<RegionContentProcessResult>
+}
+
 export interface NextEmptyDistrict {
   done: boolean
   location_page_id?: string
