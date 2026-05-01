@@ -90,7 +90,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
           </div>
         ) : (
-          <Image src={rightImgAvif} alt="" sizes="(max-width: 1024px) 100vw, 50vw" priority />
+          <Image src={rightImgAvif} alt="" sizes="(max-width: 1024px) 100vw, 50vw" />
         )}
       </div>
 

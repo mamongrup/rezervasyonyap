@@ -105,20 +105,14 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     mosaicGrid[1],
   ]
 
-  const heroPreloadUrls = Array.from(
-    new Set(mosaicForRegionHero.filter((u) => typeof u === 'string' && u.trim() !== '')),
-  )
   /** Freeform’daki gerçek LCP URL’si dizinin ilk elemanı olmayabilir — önce onu preload et. */
   const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero)
-  const orderedPreload = lcpHeroUrl
-    ? [lcpHeroUrl, ...heroPreloadUrls.filter((u) => u !== lcpHeroUrl)]
-    : heroPreloadUrls
-  orderedPreload.forEach((url, i) => {
-    preload(url, {
+  if (lcpHeroUrl) {
+    preload(lcpHeroUrl, {
       as: 'image',
-      fetchPriority: i === 0 ? 'high' : 'auto',
+      fetchPriority: 'high',
     })
-  })
+  }
 
   const [apiListingsResult, authors, savedRegionConfig, heroTabsResult] = await Promise.all([
       fetchCategoryListings('oteller', {}, {}, locale),
