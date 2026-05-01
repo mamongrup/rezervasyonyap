@@ -1,4 +1,4 @@
-import rightImgAvif from '@/images/our-features.avif'
+import rightImgAvif from '@/images/our-features-q35.avif'
 import { en } from '../../public/locales/en'
 import { Badge } from '@/shared/Badge'
 import { Heading } from '@/shared/Heading'

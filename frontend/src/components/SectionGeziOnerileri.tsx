@@ -3,7 +3,7 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, Clock, ArrowRight, Compass, MapPin, Waves, TreePine, type LucideIcon } from 'lucide-react'
-import rightImgAvif from '@/images/our-features.avif'
+import rightImgAvif from '@/images/our-features-q35.avif'
 
 const PLACEHOLDER_ITEMS: { icon: LucideIcon; color: string; title: string; desc: string }[] = [
   {
