@@ -129,12 +129,14 @@ export default async function DestinationCardsModule({
       )
       if (apiRegions.length > 0) {
         cards = await Promise.all(
-          apiRegions.map(async (r) => ({
-            name: r.name,
-            imageUrl: r.thumbnail,
-            href: await vitrinHref(locale, `/location/${r.slug}`),
-            listingCount: r.count,
-          })),
+          apiRegions
+            .filter((r) => r.thumbnail.trim() !== '')
+            .map(async (r) => ({
+              name: r.name,
+              imageUrl: r.thumbnail,
+              href: await vitrinHref(locale, `/location/${r.slug}`),
+              listingCount: r.count,
+            })),
         )
       }
     } catch {

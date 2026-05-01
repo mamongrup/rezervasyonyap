@@ -539,8 +539,14 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     Error(_) -> 12
   }
   let sql =
-    "select r.slug, r.name, 0::int as cnt, '' as thumbnail "
+    "select "
+    <> "  coalesce(lp.slug_path, r.slug) as slug, "
+    <> "  r.name, "
+    <> "  0::int as cnt, "
+    <> "  coalesce(nullif(lp.cover_image, ''), nullif(lp.featured_image_url, ''), nullif(lp.hero_image_url, ''), nullif(lp.travel_ideas_image_url, ''), '') as thumbnail "
     <> "from regions r "
+    <> "left join countries c on c.id = r.country_id "
+    <> "left join location_pages lp on lp.region_id = r.id and coalesce(lp.region_type, 'province') = 'province' "
     <> "order by r.name "
     <> "limit $1"
   case
