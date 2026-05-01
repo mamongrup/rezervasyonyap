@@ -129,7 +129,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
                     <button
                       type="button"
                       onClick={closeModal}
-                      aria-label={msg.common.close}
+                      aria-label="Kapat"
                       className="flex size-7 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
                     >
                       <HugeiconsIcon icon={Cancel01Icon} className="size-4!" strokeWidth={1.75} />
