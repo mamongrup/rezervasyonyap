@@ -1,10 +1,14 @@
+import HIW1img from '@/images/HIW1-q30.avif'
+import HIW2img from '@/images/HIW2-q30.avif'
+import HIW3img from '@/images/HIW3-q30.avif'
 import VectorImg from '@/images/VectorHIW.svg'
 import { en } from '../../public/locales/en'
 import Heading from '@/shared/Heading'
-import Image from 'next/image'
+import Image, { StaticImageData } from 'next/image'
 import { FC } from 'react'
 
 const HIW_FALLBACK = en.homePage.howItWorks
+const STEP_IMAGES: StaticImageData[] = [HIW1img, HIW2img, HIW3img]
 
 export interface HowItWorkStep {
   id: number
@@ -44,6 +48,11 @@ const SectionHowItWork: FC<SectionHowItWorkProps> = ({
   title = HIW_FALLBACK.title,
   subheading = HIW_FALLBACK.subheading,
 }) => {
+  const data = steps.map((step, i) => ({
+    ...step,
+    img: STEP_IMAGES[i] ?? HIW1img,
+  }))
+
   return (
     <div className={`nc-SectionHowItWork ${className}`} data-nc-id="SectionHowItWork">
       <Heading isCenter subheading={subheading}>
@@ -51,14 +60,14 @@ const SectionHowItWork: FC<SectionHowItWorkProps> = ({
       </Heading>
       <div className="relative mt-20 grid gap-20 md:grid-cols-3">
         <Image className="absolute inset-x-0 top-10 hidden md:block" src={VectorImg} alt="" />
-        {steps.map((item, index) => (
+        {data.map((item) => (
           <div key={item.id} className="relative mx-auto flex max-w-xs flex-col items-center">
-            <div
-              className="relative z-10 mb-8 flex size-28 items-center justify-center rounded-[2rem] bg-gradient-to-br from-primary-50 to-secondary-50 text-primary-700 shadow-sm ring-1 ring-primary-100 dark:from-neutral-800 dark:to-neutral-900 dark:text-primary-300 dark:ring-neutral-700"
-              aria-hidden
-            >
-              <span className="text-4xl font-semibold tabular-nums">{String(index + 1).padStart(2, '0')}</span>
-            </div>
+            <Image
+              alt=""
+              className="mx-auto mb-8 h-auto w-[180px] max-w-[180px]"
+              src={item.img}
+              sizes="180px"
+            />
             <div className="mt-auto text-center">
               <h3 className="text-xl font-semibold">{item.title}</h3>
               <span className="mt-5 block text-neutral-500 dark:text-neutral-400">{item.desc}</span>
