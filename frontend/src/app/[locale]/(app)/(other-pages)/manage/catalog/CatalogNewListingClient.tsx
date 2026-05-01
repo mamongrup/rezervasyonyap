@@ -29,6 +29,7 @@ import {
   listPriceLineItems,
   putListingPriceLineSelections,
   addListingImage,
+  computeListingNearbyPois,
   type AttributeDef,
   type AttributeGroup,
   type PriceLineItem,
@@ -1047,6 +1048,9 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
       if (Object.keys(metaBody).length > 0) {
         await putListingMeta(token, lid, metaBody).catch(() => {})
+      }
+      if (lat.trim() && lng.trim()) {
+        await computeListingNearbyPois(token, lid).catch(() => {})
       }
 
       const attrPayload = Object.entries(attributeValues)

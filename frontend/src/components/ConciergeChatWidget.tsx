@@ -77,6 +77,14 @@ export default function ConciergeChatWidget() {
     }
   }, [ensureSession, refreshMessages])
 
+  const onToggle = useCallback(() => {
+    if (open) {
+      setOpen(false)
+      return
+    }
+    void onOpen()
+  }, [open, onOpen])
+
   async function onSend(e: React.FormEvent) {
     e.preventDefault()
     const text = draft.trim()
@@ -97,10 +105,10 @@ export default function ConciergeChatWidget() {
 
   // Mobile nav chat button dispatch'ini dinle
   useEffect(() => {
-    const handler = () => void onOpen()
+    const handler = () => onToggle()
     window.addEventListener('open-chat', handler)
     return () => window.removeEventListener('open-chat', handler)
-  }, [onOpen])
+  }, [onToggle])
 
   if (hideOnManage) return null
 
@@ -109,7 +117,7 @@ export default function ConciergeChatWidget() {
       {/* Floating button — sadece lg+ ekranlarda görünür (mobilde bottom nav'da yer alıyor) */}
       <button
         type="button"
-        onClick={() => void (open ? setOpen(false) : onOpen())}
+        onClick={onToggle}
         className="hidden lg:flex fixed bottom-6 end-6 z-[100] h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-[0_8px_24px_rgba(0,0,0,0.18)] ring-2 ring-white/20 transition-all duration-200 hover:scale-105 hover:shadow-[0_12px_32px_rgba(0,0,0,0.22)] active:scale-95 dark:from-primary-400 dark:to-primary-600"
         aria-label={open ? 'Sohbeti kapat' : 'AI asistan'}
       >
@@ -142,10 +150,20 @@ export default function ConciergeChatWidget() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456Z" />
                 </svg>
               </span>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-neutral-900 dark:text-white">Seyahat Asistanı</p>
                 <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Size nasıl yardımcı olabilirim?</p>
               </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Sohbeti kapat"
+                className="-me-1 flex size-8 shrink-0 items-center justify-center rounded-full text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 dark:text-neutral-400 dark:hover:bg-neutral-800 dark:hover:text-white"
+              >
+                <svg className="size-4" fill="none" viewBox="0 0 24 24" strokeWidth={2.25} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
             {/* Mod seçici gizli — arka planda concierge modunda çalışır */}
             <select

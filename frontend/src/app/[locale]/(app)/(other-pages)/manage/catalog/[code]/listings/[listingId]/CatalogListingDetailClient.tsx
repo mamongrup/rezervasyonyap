@@ -44,6 +44,7 @@ import {
   getManageCategoryAccommodationRules,
   type CategoryAccommodationRuleItem,
   listManageCatalogListings,
+  computeListingNearbyPois,
   MEAL_PLAN_LABELS,
   MEAL_OPTIONS,
   MEAL_EXTRAS_OPTIONS,
@@ -963,6 +964,9 @@ export default function CatalogListingDetailClient({
         min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
         min_short_stay_nights: minShortStayNights.trim() || undefined,
       })
+      if (lat.trim() && lng.trim()) {
+        await computeListingNearbyPois(token, listingId).catch(() => {})
+      }
       await loadListingForm()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'listing_form_save_failed')

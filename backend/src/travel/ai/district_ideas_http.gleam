@@ -385,16 +385,35 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
         pog.query(
           "
           select lp.id::text, lp.slug_path,
-                 d.name as district_name, r.name as region_name, co.name as country_name,
-                 coalesce(d.center_lat::text, r.center_lat::text, ''),
-                 coalesce(d.center_lng::text, r.center_lng::text, '')
+                 case
+                   when lp.region_type = 'destination' then coalesce(nullif(lp.title, ''), lp.slug_path)
+                   else d.name
+                 end as district_name,
+                 coalesce(r.name, '') as region_name,
+                 coalesce(co.name, '') as country_name,
+                 case
+                   when lp.region_type = 'destination' then coalesce(lp.map_lat::text, d.center_lat::text, '')
+                   else coalesce(d.center_lat::text, '')
+                 end,
+                 case
+                   when lp.region_type = 'destination' then coalesce(lp.map_lng::text, d.center_lng::text, '')
+                   else coalesce(d.center_lng::text, '')
+                 end
           from   location_pages lp
-          join   districts d  on d.id  = lp.district_id
-          join   regions   r  on r.id  = d.region_id
-          join   countries co on co.id = r.country_id
-          where  lp.region_type = 'district'
+          left join districts d  on d.id  = lp.district_id
+          left join regions   r  on r.id  = d.region_id
+          left join countries co on co.id = r.country_id
+          where  lp.region_type in ('district', 'destination')
             and  jsonb_array_length(lp.travel_ideas_json) = 0
-          order  by r.name, d.name
+            and  (
+                   (lp.region_type = 'district' and d.center_lat is not null and d.center_lng is not null)
+                   or
+                   (lp.region_type = 'destination' and coalesce(lp.map_lat, d.center_lat) is not null and coalesce(lp.map_lng, d.center_lng) is not null)
+                 )
+          order  by case lp.region_type when 'district' then 1 when 'destination' then 2 else 3 end,
+                    r.name,
+                    d.name,
+                    lp.slug_path
           limit  1
           ",
         )
@@ -501,7 +520,13 @@ pub fn next_no_cover(req: Request, ctx: Context) -> Response {
            left join regions   r3  on r3.id = d.region_id
            left join countries co3 on co3.id = r2.country_id
            where  (lp.cover_image is null or lp.cover_image = '')
-           order  by lp.region_type, lp.slug_path
+           order  by case coalesce(lp.region_type, 'district')
+                       when 'country' then 1
+                       when 'province' then 2
+                       when 'district' then 3
+                       else 4
+                     end,
+                     lp.slug_path
            limit  1",
         )
         |> pog.returning(no_cover_row())
@@ -638,7 +663,7 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
                else coalesce(d.name, '')
              end as location_name,
              case
-               when lp.region_type = 'region'  then coalesce(co3.name, '')
+               when lp.region_type = 'province' then coalesce(co3.name, '')
                else coalesce(r4.name, '')
              end as parent_name
            from   location_pages lp
@@ -648,7 +673,13 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
            left join countries co2 on co2.id = lp.country_id
            left join regions   r4  on r4.id = d.region_id
            where  lp.cover_image = 'not_found'
-           order  by lp.region_type, lp.slug_path
+           order  by case coalesce(lp.region_type, 'district')
+                       when 'country' then 1
+                       when 'province' then 2
+                       when 'district' then 3
+                       else 4
+                     end,
+                     lp.slug_path
            limit  200",
         )
         |> pog.returning({

@@ -9295,6 +9295,8 @@ export interface NearbyPoi {
   lat: number
   lng: number
   distance_km: number
+  distance_km_from_listing?: number
+  distance_km_from_district?: number
 }
 
 /** Sunucu tarafında Haversine hesabı yapar ve listings.nearby_pois_json'u günceller. */

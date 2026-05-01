@@ -71,7 +71,7 @@ fn pois_result_row() -> decode.Decoder(#(String, String)) {
 ///
 /// 1. İlanın `map_lat`, `map_lng` koordinatlarını okur.
 /// 2. Veritabanındaki tüm location_pages.travel_ideas_json POI'larını düzleştirir.
-/// 3. Her POI'ya Haversine mesafesi hesaplar (PostgreSQL trig).
+/// 3. Her POI'ya ilanın koordinatından Haversine mesafesi hesaplar (PostgreSQL trig).
 /// 4. 50 km içindeki en yakın 10 POI'yu `listings.nearby_pois_json`'a yazar.
 /// 5. Güncellenmiş JSON'u döndürür.
 pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
@@ -94,10 +94,11 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         coalesce(elem->>'link',  '')   AS link,
         coalesce(elem->>'place_id', '') AS place_id,
         (elem->>'lat')::float8         AS poi_lat,
-        (elem->>'lng')::float8         AS poi_lng
+        (elem->>'lng')::float8         AS poi_lng,
+        NULLIF(elem->>'distance_km_from_district', '')::numeric AS district_distance_km
       FROM   location_pages lp,
              jsonb_array_elements(lp.travel_ideas_json) elem
-      WHERE  lp.region_type = 'district'
+      WHERE  lp.region_type IN ('district', 'destination')
         AND  elem->>'lat'  IS NOT NULL
         AND  elem->>'lng'  IS NOT NULL
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
@@ -106,6 +107,7 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
       SELECT
         p.title, p.summary, p.image, p.link, p.place_id,
         p.poi_lat, p.poi_lng,
+        p.district_distance_km,
         ROUND(
           (6371.0 * acos(
             LEAST(1.0,
@@ -134,9 +136,11 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
             'image',       NULLIF(image, ''),
             'link',        NULLIF(link, ''),
             'place_id',    NULLIF(place_id, ''),
-            'lat',         poi_lat,
-            'lng',         poi_lng,
-            'distance_km', distance_km
+            'lat',                       poi_lat,
+            'lng',                       poi_lng,
+            'distance_km',               distance_km,
+            'distance_km_from_listing',  distance_km,
+            'distance_km_from_district', district_distance_km
           )
           ORDER BY distance_km
         ),

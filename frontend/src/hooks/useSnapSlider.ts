@@ -49,23 +49,10 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
       })
     }
 
-    /** İlk okuma: çift rAF ile commit sonrası layout otursun; iç/dış id cleanup'ta iptal */
-    let initOuter: number | null = null
-    let initInner: number | null = null
-    initOuter = window.requestAnimationFrame(() => {
-      initOuter = null
-      initInner = window.requestAnimationFrame(() => {
-        initInner = null
-        readAndSetBounds()
-      })
-    })
-
     slider.addEventListener('scroll', scheduleReadFromScrollOrResize, { passive: true })
     window.addEventListener('resize', scheduleReadFromScrollOrResize, { passive: true })
 
     return () => {
-      if (initOuter != null) window.cancelAnimationFrame(initOuter)
-      if (initInner != null) window.cancelAnimationFrame(initInner)
       slider.removeEventListener('scroll', scheduleReadFromScrollOrResize)
       window.removeEventListener('resize', scheduleReadFromScrollOrResize)
       if (rafIdRef.current != null) {

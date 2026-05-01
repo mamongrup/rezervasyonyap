@@ -339,10 +339,17 @@ export default function AdminAiSection() {
           region_type === 'country'
             ? [`${location_name} landscape travel`, `${location_name} nature`, 'Turkey landscape']
             : region_type === 'province'
-              ? [`${location_name} Turkey province`, `${location_name} Turkey`, 'Turkey landscape']
+              ? [
+                  `${location_name} Turkey`,
+                  `${location_name} city Turkey`,
+                  `${location_name} travel Turkey`,
+                  `${location_name} landscape`,
+                  'Turkey landscape',
+                ]
               : [
                   `${location_name} ${parent_name} Turkey`,
                   `${parent_name} Turkey`,
+                  `${location_name} Turkey`,
                   'Turkey nature landscape',
                 ]
         let coverUrl = ''

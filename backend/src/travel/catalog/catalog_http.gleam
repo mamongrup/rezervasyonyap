@@ -2372,7 +2372,37 @@ pub fn put_listing_meta(
                 Ok(_) ->
                   case
                     pog.query(
-                      "insert into listing_attributes (listing_id, group_code, key, value_json) values ($1::uuid, 'listing_meta', 'v1', $2::jsonb) on conflict (listing_id, group_code, key) do update set value_json = excluded.value_json",
+                      "with payload as (
+                         select $2::jsonb as body
+                       ),
+                       saved_meta as (
+                         insert into listing_attributes (listing_id, group_code, key, value_json)
+                         values ($1::uuid, 'listing_meta', 'v1', (select body from payload))
+                         on conflict (listing_id, group_code, key)
+                         do update set value_json = excluded.value_json
+                         returning listing_id
+                       )
+                       update listings l
+                       set map_lat = case
+                             when (select body from payload) ? 'lat'
+                              and coalesce((select body->>'lat' from payload), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                               then ((select body->>'lat' from payload))::numeric
+                             when (select body from payload) ? 'lat'
+                              and coalesce((select body->>'lat' from payload), '') = ''
+                               then null
+                             else l.map_lat
+                           end,
+                           map_lng = case
+                             when (select body from payload) ? 'lng'
+                              and coalesce((select body->>'lng' from payload), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
+                               then ((select body->>'lng' from payload))::numeric
+                             when (select body from payload) ? 'lng'
+                              and coalesce((select body->>'lng' from payload), '') = ''
+                               then null
+                             else l.map_lng
+                           end
+                       from saved_meta
+                       where l.id = saved_meta.listing_id",
                     )
                     |> pog.parameter(pog.text(listing_id))
                     |> pog.parameter(pog.text(body))
