@@ -14,6 +14,7 @@ import {
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
+import '@/styles/react-datepicker.module.css'
 import { getMessages } from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Calendar04Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
