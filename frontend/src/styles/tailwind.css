@@ -120,12 +120,26 @@
   }
 }
 
+/**
+ * İçerik genişliği — `pl-container` ile aynı kademeler (40→48→64→80→96 rem).
+ * Eski `max-width: 100%` tüm kırılımlarda viewport kadar uzatıyordu → masaüstü “yayılmış” görünüm.
+ */
 @utility container {
   width: 100%;
-  max-width: 100%;
   margin-inline: auto;
   padding-inline: 1rem;
+  max-width: min(100%, 40rem);
+  @media screen and (min-width: 768px) {
+    max-width: min(100%, 48rem);
+  }
+  @media screen and (min-width: 1024px) {
+    max-width: min(100%, 64rem);
+  }
+  @media screen and (min-width: 1280px) {
+    max-width: min(100%, 80rem);
+  }
   @media screen and (min-width: 1536px) {
+    max-width: min(100%, 96rem);
     padding-inline: 8rem;
   }
 }

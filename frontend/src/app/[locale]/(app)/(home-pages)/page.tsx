@@ -203,7 +203,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
       {/* Hero — PageBuilderRenderer dışında, tam genişlik — z-10: arkada gövde zemini arkasında kalmayı önler (prod stacking) */}
       <div
-        className={`relative z-10 container mb-6 min-w-0 max-w-full overflow-x-clip ${heroContainerBelowHeaderClassName}`}
+        className={`relative z-10 container mb-6 min-w-0 overflow-x-clip ${heroContainerBelowHeaderClassName}`}
       >
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}

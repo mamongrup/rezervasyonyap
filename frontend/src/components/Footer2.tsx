@@ -109,7 +109,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
   return (
     <footer className="min-w-0 overflow-x-clip border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       {/* Üstte nefes payı; altta yasal satırdan sonra gereksiz boşluk olmaması için pb daha küçük */}
-      <div className="container min-w-0 max-w-full pt-16 pb-8 sm:pt-20 sm:pb-10">
+      <div className="container min-w-0 pt-16 pb-8 sm:pt-20 sm:pb-10">
         <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
             <Logo />
