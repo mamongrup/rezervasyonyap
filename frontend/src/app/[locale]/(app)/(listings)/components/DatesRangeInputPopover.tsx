@@ -20,7 +20,7 @@ import { Calendar04Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { FC, useCallback, useMemo, useState } from 'react'
 import DatePicker from 'react-datepicker'
-import '@/styles/react-datepicker.module.css'
+import datepickerStyles from '@/styles/react-datepicker.module.css'
 
 function initDefaultRange(): [Date, Date] {
   const s = new Date()
@@ -159,24 +159,26 @@ const DatesRangeInputPopover: FC<Props> = ({
               className="absolute start-auto -end-2 top-full z-[100] mt-3 w-[calc(100%+1rem)] transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 lg:w-3xl xl:-end-10"
             >
               <div className="rounded-3xl bg-white py-5 shadow-lg ring-1 ring-black/5 sm:p-8 dark:bg-neutral-800 dark:ring-white/10">
-                <DatePicker
-                  locale={pickerLocale}
-                  openToDate={effectiveMinDate}
-                  selected={startDate}
-                  onChange={onChangeDate}
-                  startDate={startDate}
-                  endDate={endDate}
-                  selectsRange
-                  monthsShown={monthsShown}
-                  showPopperArrow={false}
-                  inline
-                  minDate={effectiveMinDate}
-                  filterDate={filterDate}
-                  renderCustomHeader={(p) => (
-                    <DatePickerCustomHeaderTwoMonth {...p} monthLocale={intlLocale} monthsShown={monthsShown} />
-                  )}
-                  renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
-                />
+                <div className={datepickerStyles.datepickerScope}>
+                  <DatePicker
+                    locale={pickerLocale}
+                    openToDate={effectiveMinDate}
+                    selected={startDate}
+                    onChange={onChangeDate}
+                    startDate={startDate}
+                    endDate={endDate}
+                    selectsRange
+                    monthsShown={monthsShown}
+                    showPopperArrow={false}
+                    inline
+                    minDate={effectiveMinDate}
+                    filterDate={filterDate}
+                    renderCustomHeader={(p) => (
+                      <DatePickerCustomHeaderTwoMonth {...p} monthLocale={intlLocale} monthsShown={monthsShown} />
+                    )}
+                    renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+                  />
+                </div>
               </div>
             </PopoverPanel>
           </>

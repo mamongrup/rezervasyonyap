@@ -9,7 +9,7 @@ import clsx from 'clsx'
 import { useParams } from 'next/navigation'
 import { FC, useState } from 'react'
 import DatePicker from 'react-datepicker'
-import '@/styles/react-datepicker.module.css'
+import datepickerStyles from '@/styles/react-datepicker.module.css'
 
 interface Props {
   className?: string
@@ -41,19 +41,21 @@ const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStar
           {m.HeroSearchForm["When's your trip?"]}
         </h3>
         <div className="relative z-10 flex shrink-0 justify-center py-5">
-          <DatePicker
-            locale={datePickerLocaleId(locale)}
-            selected={startDate}
-            onChange={onChangeDate}
-            startDate={startDate}
-            endDate={endDate}
-            selectsRange
-            monthsShown={1}
-            showPopperArrow={false}
-            inline
-            renderCustomHeader={(p) => <DatePickerCustomHeaderTwoMonth {...p} monthsShown={1} />}
-            renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
-          />
+          <div className={datepickerStyles.datepickerScope}>
+            <DatePicker
+              locale={datePickerLocaleId(locale)}
+              selected={startDate}
+              onChange={onChangeDate}
+              startDate={startDate}
+              endDate={endDate}
+              selectsRange
+              monthsShown={1}
+              showPopperArrow={false}
+              inline
+              renderCustomHeader={(p) => <DatePickerCustomHeaderTwoMonth {...p} monthsShown={1} />}
+              renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+            />
+          </div>
         </div>
       </div>
 

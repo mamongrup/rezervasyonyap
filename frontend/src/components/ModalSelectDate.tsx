@@ -8,7 +8,7 @@ import { CloseButton, Dialog, DialogPanel } from '@headlessui/react'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import React, { FC, useState } from 'react'
 import DatePicker from 'react-datepicker'
-import '@/styles/react-datepicker.module.css'
+import datepickerStyles from '@/styles/react-datepicker.module.css'
 import DatePickerCustomDay from './DatePickerCustomDay'
 import DatePickerCustomHeaderTwoMonth from './DatePickerCustomHeaderTwoMonth'
 
@@ -62,20 +62,22 @@ const ModalSelectDate: FC<Props> = ({ triggerButton, onChange }) => {
               <div className="flex flex-1 flex-col overflow-auto">
                 <div className="p-5 text-xl font-semibold sm:text-2xl">{`When's your trip?`}</div>
                 <div className="relative z-10 flex flex-1 px-2 py-5 sm:p-5">
-                  <DatePicker
-                    selected={startDate}
-                    onChange={onChangeDate}
-                    startDate={startDate}
-                    endDate={endDate}
-                    selectsRange
-                    monthsShown={monthsShown}
-                    showPopperArrow={false}
-                    inline
-                    renderCustomHeader={(p) => (
-                      <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
-                    )}
-                    renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
-                  />
+                  <div className={datepickerStyles.datepickerScope}>
+                    <DatePicker
+                      selected={startDate}
+                      onChange={onChangeDate}
+                      startDate={startDate}
+                      endDate={endDate}
+                      selectsRange
+                      monthsShown={monthsShown}
+                      showPopperArrow={false}
+                      inline
+                      renderCustomHeader={(p) => (
+                        <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
+                      )}
+                      renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,4 +1,4 @@
-:global(.react-datepicker) {
+.datepickerScope :global(.react-datepicker) {
   position: relative;
   display: grid;
   width: 100%;
@@ -7,32 +7,32 @@
 }
 
 @media (min-width: 768px) {
-  :global(.react-datepicker:has(.react-datepicker__month-container ~ .react-datepicker__month-container)) {
+  .datepickerScope :global(.react-datepicker:has(.react-datepicker__month-container ~ .react-datepicker__month-container)) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-:global(.react-datepicker__aria-live) {
+.datepickerScope :global(.react-datepicker__aria-live) {
   display: none;
 }
 
-:global(.react-datepicker__month-container) {
+.datepickerScope :global(.react-datepicker__month-container) {
   width: 100%;
   min-width: 0;
   text-align: center;
 }
 
-:global(.react-datepicker__current-month) {
+.datepickerScope :global(.react-datepicker__current-month) {
   font-size: 0.875rem;
   font-weight: 600;
   color: rgb(17 24 39);
 }
 
-:global(.dark .react-datepicker__current-month) {
+:global(.dark) .datepickerScope :global(.react-datepicker__current-month) {
   color: rgb(243 244 246);
 }
 
-:global(.react-datepicker__day-names) {
+.datepickerScope :global(.react-datepicker__day-names) {
   margin-top: 1.5rem;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -42,11 +42,11 @@
   color: rgb(107 114 128);
 }
 
-:global(.dark .react-datepicker__day-names) {
+:global(.dark) .datepickerScope :global(.react-datepicker__day-names) {
   color: rgb(156 163 175);
 }
 
-:global(.react-datepicker__sr-only) {
+.datepickerScope :global(.react-datepicker__sr-only) {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -58,21 +58,21 @@
   border-width: 0;
 }
 
-:global(.react-datepicker__day-name span[aria-hidden]) {
+.datepickerScope :global(.react-datepicker__day-name span[aria-hidden]) {
   display: initial;
 }
 
-:global(.react-datepicker__month) {
+.datepickerScope :global(.react-datepicker__month) {
   margin-top: 1.25rem;
 }
 
-:global(.react-datepicker__week) {
+.datepickerScope :global(.react-datepicker__week) {
   margin-block: 0.125rem;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
 }
 
-:global(.react-datepicker__day) {
+.datepickerScope :global(.react-datepicker__day) {
   display: flex;
   width: 100%;
   cursor: pointer;
@@ -81,44 +81,44 @@
   font-size: 0.875rem;
 }
 
-:global(.react-datepicker__day:empty) {
+.datepickerScope :global(.react-datepicker__day:empty) {
   cursor: auto;
   background-color: transparent !important;
   opacity: 0;
 }
 
-:global(.react-datepicker__day span) {
+.datepickerScope :global(.react-datepicker__day span) {
   border-radius: 9999px;
 }
 
-:global(.react-datepicker__day span:hover) {
+.datepickerScope :global(.react-datepicker__day span:hover) {
   background-color: rgb(243 244 246);
 }
 
-:global(.dark .react-datepicker__day span:hover) {
+:global(.dark) .datepickerScope :global(.react-datepicker__day span:hover) {
   background-color: rgb(55 65 81 / 0.6);
 }
 
-:global(.react-datepicker__day--in-range),
-:global(.react-datepicker__day--in-selecting-range) {
+.datepickerScope :global(.react-datepicker__day--in-range),
+.datepickerScope :global(.react-datepicker__day--in-selecting-range) {
   border-radius: 0;
   background-color: rgb(243 244 246);
 }
 
-:global(.dark .react-datepicker__day--in-range),
-:global(.dark .react-datepicker__day--in-selecting-range) {
+:global(.dark) .datepickerScope :global(.react-datepicker__day--in-range),
+:global(.dark) .datepickerScope :global(.react-datepicker__day--in-selecting-range) {
   background-color: rgb(55 65 81 / 0.5);
 }
 
-:global(.react-datepicker__day--range-start),
-:global(.react-datepicker__day--range-end) {
+.datepickerScope :global(.react-datepicker__day--range-start),
+.datepickerScope :global(.react-datepicker__day--range-end) {
   position: relative;
   z-index: 1;
   background-color: transparent;
 }
 
-:global(.react-datepicker__day--range-start::after),
-:global(.react-datepicker__day--range-end::after) {
+.datepickerScope :global(.react-datepicker__day--range-start::after),
+.datepickerScope :global(.react-datepicker__day--range-end::after) {
   content: "";
   position: absolute;
   inset-block: 0;
@@ -127,50 +127,50 @@
   background-color: rgb(243 244 246);
 }
 
-:global(.dark .react-datepicker__day--range-start::after),
-:global(.dark .react-datepicker__day--range-end::after) {
+:global(.dark) .datepickerScope :global(.react-datepicker__day--range-start::after),
+:global(.dark) .datepickerScope :global(.react-datepicker__day--range-end::after) {
   background-color: rgb(55 65 81 / 0.5);
 }
 
-:global(.react-datepicker__day--range-start::after) {
+.datepickerScope :global(.react-datepicker__day--range-start::after) {
   inset-inline-end: 0;
 }
 
-:global(.react-datepicker__day--range-end::after) {
+.datepickerScope :global(.react-datepicker__day--range-end::after) {
   inset-inline-start: 0;
 }
 
-:global(.react-datepicker__day--range-start),
-:global(.react-datepicker__day--selecting-range-start) {
+.datepickerScope :global(.react-datepicker__day--range-start),
+.datepickerScope :global(.react-datepicker__day--selecting-range-start) {
   border-start-start-radius: 9999px;
   border-end-start-radius: 9999px;
 }
 
-:global(.react-datepicker__day--range-end),
-:global(.react-datepicker__day--selecting-range-end) {
+.datepickerScope :global(.react-datepicker__day--range-end),
+.datepickerScope :global(.react-datepicker__day--selecting-range-end) {
   border-start-end-radius: 9999px;
   border-end-end-radius: 9999px;
 }
 
-:global(.react-datepicker__day--selected span),
-:global(.react-datepicker__day--range-start span),
-:global(.react-datepicker__day--range-end span),
-:global(.react-datepicker__day--selecting-range-start span),
-:global(.react-datepicker__day--selecting-range-end span) {
+.datepickerScope :global(.react-datepicker__day--selected span),
+.datepickerScope :global(.react-datepicker__day--range-start span),
+.datepickerScope :global(.react-datepicker__day--range-end span),
+.datepickerScope :global(.react-datepicker__day--selecting-range-start span),
+.datepickerScope :global(.react-datepicker__day--selecting-range-end span) {
   border-radius: 9999px;
   background-color: rgb(99 102 241);
   color: white;
 }
 
-:global(.react-datepicker__day--disabled) {
+.datepickerScope :global(.react-datepicker__day--disabled) {
   color: rgb(156 163 175);
 }
 
-:global(.dark .react-datepicker__day--disabled) {
+:global(.dark) .datepickerScope :global(.react-datepicker__day--disabled) {
   color: rgb(107 114 128);
 }
 
-:global(.react-datepicker__day_span) {
+.datepickerScope :global(.react-datepicker__day_span) {
   display: flex;
   width: 2.5rem;
   height: 2.5rem;
@@ -179,26 +179,26 @@
   border-radius: 9999px;
 }
 
-:global(.listing-datepicker-hide-outside-month .react-datepicker__day--outside-month) {
+.datepickerScope :global(.listing-datepicker-hide-outside-month .react-datepicker__day--outside-month) {
   visibility: hidden;
   pointer-events: none;
 }
 
-:global(.addListingDatePickerExclude .react-datepicker__day--disabled) {
+.datepickerScope :global(.addListingDatePickerExclude .react-datepicker__day--disabled) {
   position: relative;
   border-radius: 0;
   background-color: rgb(243 244 246);
 }
 
-:global(.dark .addListingDatePickerExclude .react-datepicker__day--disabled) {
+:global(.dark) .datepickerScope :global(.addListingDatePickerExclude .react-datepicker__day--disabled) {
   background-color: rgb(55 65 81 / 0.5);
 }
 
-:global(.addListingDatePickerExclude .react-datepicker__day--disabled:empty) {
+.datepickerScope :global(.addListingDatePickerExclude .react-datepicker__day--disabled:empty) {
   opacity: 0;
 }
 
-:global(.addListingDatePickerExclude .react-datepicker__day--disabled::after) {
+.datepickerScope :global(.addListingDatePickerExclude .react-datepicker__day--disabled::after) {
   content: "";
   position: absolute;
   display: block;
@@ -207,6 +207,6 @@
   border-left: 1px solid rgb(209 213 219);
 }
 
-:global(.dark .addListingDatePickerExclude .react-datepicker__day--disabled::after) {
+:global(.dark) .datepickerScope :global(.addListingDatePickerExclude .react-datepicker__day--disabled::after) {
   border-left-color: rgb(55 65 81);
 }

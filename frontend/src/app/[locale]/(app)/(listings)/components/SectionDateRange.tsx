@@ -22,7 +22,7 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DatePicker from 'react-datepicker'
-import '@/styles/react-datepicker.module.css'
+import datepickerStyles from '@/styles/react-datepicker.module.css'
 import { SectionHeading, SectionSubheading } from './SectionHeading'
 
 function startOfToday(): Date {
@@ -160,7 +160,8 @@ function SectionDateRangeCalendar({
 
   return (
     <>
-      <div className="listing-datepicker-hide-outside-month">
+      <div className={datepickerStyles.datepickerScope}>
+        <div className="listing-datepicker-hide-outside-month">
         <DatePicker
           locale={pickerLocale}
           openToDate={effectiveMinDate}
@@ -185,6 +186,7 @@ function SectionDateRangeCalendar({
             return <DatePickerCustomDay dayOfMonth={day} date={date} am={am} pm={pm} />
           }}
         />
+        </div>
       </div>
 
       <input type="hidden" name="startDate" value={startDate ? startDate.toISOString() : ''} />

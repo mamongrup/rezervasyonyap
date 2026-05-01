@@ -11,7 +11,7 @@ import Form from 'next/form'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import DatePicker from 'react-datepicker'
-import '@/styles/react-datepicker.module.css'
+import datepickerStyles from '@/styles/react-datepicker.module.css'
 
 const PageAddListing9 = () => {
   const L = useAddListingsMessages()
@@ -65,32 +65,34 @@ const PageAddListing9 = () => {
         </span>
       </div>
 
-      <div className="addListingDatePickerExclude">
-        <DatePicker
-          onChange={(date: Date | null) => {
-            let newDates = []
+      <div className={datepickerStyles.datepickerScope}>
+        <div className="addListingDatePickerExclude">
+          <DatePicker
+            onChange={(date: Date | null) => {
+              let newDates = []
 
-            if (!date) {
-              return
-            }
-            const newTime = date.getTime()
-            if (dates.includes(newTime)) {
-              newDates = dates.filter((item) => item !== newTime)
-            } else {
-              newDates = [...dates, newTime]
-            }
-            setDates(newDates)
-          }}
-          // selected={startDate}
-          monthsShown={monthsShown}
-          showPopperArrow={false}
-          excludeDates={dates.filter(Boolean).map((item) => new Date(item))}
-          inline
-          renderCustomHeader={(p) => (
-            <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
-          )}
-          renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
-        />
+              if (!date) {
+                return
+              }
+              const newTime = date.getTime()
+              if (dates.includes(newTime)) {
+                newDates = dates.filter((item) => item !== newTime)
+              } else {
+                newDates = [...dates, newTime]
+              }
+              setDates(newDates)
+            }}
+            // selected={startDate}
+            monthsShown={monthsShown}
+            showPopperArrow={false}
+            excludeDates={dates.filter(Boolean).map((item) => new Date(item))}
+            inline
+            renderCustomHeader={(p) => (
+              <DatePickerCustomHeaderTwoMonth {...p} monthsShown={monthsShown} />
+            )}
+            renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+          />
+        </div>
       </div>
     </>
   )
