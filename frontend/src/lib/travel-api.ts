@@ -9072,6 +9072,125 @@ export async function patchStaffWorkspaceTask(
   return json(res)
 }
 
+// ─── DeepSeek Agent Merkezi ──────────────────────────────────────────────────
+
+export type AgentCenterAgent = {
+  code: string
+  feature_profile_code: string | null
+  display_name: string
+  description: string
+  mode: string
+  status: string
+  risk_level: string
+  schedule_json: string
+  last_run_at: string | null
+}
+
+export type AgentCenterRun = {
+  id: string
+  agent_code: string
+  trigger_type: string
+  status: string
+  started_at: string
+  finished_at: string | null
+  input_json: string
+  summary_json: string
+}
+
+export type AgentRecommendation = {
+  id: string
+  agent_code: string
+  kind: string
+  target_key: string
+  title: string
+  reason: string
+  payload_json: string
+  status: string
+  ai_job_id: string | null
+  created_at: string
+  updated_at: string
+  reviewer_user_id: string | null
+  review_note: string | null
+  reviewed_at: string | null
+  applied_at: string | null
+}
+
+export type AgentOverview = {
+  agents: AgentCenterAgent[]
+  recent_runs: AgentCenterRun[]
+  recommendation_counts: Record<string, number>
+}
+
+export type RunSupervisorResult = {
+  run_id: string
+  scanned: number
+  created: number
+  failed: number
+}
+
+export async function getAgentOverview(token: string): Promise<AgentOverview> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/overview`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agent_overview_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function runAgentSupervisor(token: string): Promise<RunSupervisorResult> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/supervisor/run`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agent_supervisor_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function listAgentRecommendations(
+  token: string,
+): Promise<{ recommendations: AgentRecommendation[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/recommendations`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agent_recommendations_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchAgentRecommendation(
+  token: string,
+  recommendationId: string,
+  status: 'pending' | 'approved' | 'applied' | 'rejected' | 'expired',
+  reviewNote = '',
+): Promise<{ ok: boolean; popup_id?: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/recommendations/${encodeURIComponent(recommendationId)}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status, review_note: reviewNote }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agent_recommendation_patch_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function listSupplierAnnouncements(token: string): Promise<{ announcements: PortalAnnouncement[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')

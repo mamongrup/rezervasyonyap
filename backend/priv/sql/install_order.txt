@@ -112,6 +112,7 @@ modules/267_location_pages_cover_image.sql
 modules/268_location_pages_all_types.sql
 modules/269_location_pages_districts_seed.sql
 modules/270_region_content_ai.sql
+modules/271_ai_agent_center.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

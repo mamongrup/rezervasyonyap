@@ -44,6 +44,7 @@ import travel/support/chat_http
 import travel/support/helpdesk_catalog_http
 import travel/integrations/integrations_http
 import travel/ai/ai_http
+import travel/ai_agents/agent_center_http
 import travel/ai/district_ideas_http
 import travel/ai/region_content_http
 import travel/verticals/verticals_http
@@ -1221,6 +1222,18 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "jobs", jid, "run"] ->
       ai_http.post_run_ai_job(req, ctx, jid)
+
+    http.Get, ["api", "v1", "agents", "overview"] ->
+      agent_center_http.overview(req, ctx)
+
+    http.Post, ["api", "v1", "agents", "supervisor", "run"] ->
+      agent_center_http.run_supervisor(req, ctx)
+
+    http.Get, ["api", "v1", "agents", "recommendations"] ->
+      agent_center_http.list_recommendations(req, ctx)
+
+    http.Patch, ["api", "v1", "agents", "recommendations", rid] ->
+      agent_center_http.patch_recommendation(req, ctx, rid)
 
     http.Get, ["api", "v1", "ai", "region-tasks"] ->
       ai_http.list_region_tasks(req, ctx)

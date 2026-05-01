@@ -2,6 +2,7 @@
 
 import {
   getAiJob,
+  getAgentOverview,
   getCoverStats,
   getDistrictIdeasStats,
   getNextEmptyDistrict,
@@ -11,14 +12,19 @@ import {
   listAiFeatureProfiles,
   listAiJobs,
   listAiProviders,
+  listAgentRecommendations,
+  patchAgentRecommendation,
   processNextRegionContent,
   processNextDistrictIdea,
   queueAllDistrictIdeas,
   queueAllRegionContent,
   resetNotFoundCovers,
+  runAgentSupervisor,
   saveDistrictCover,
   saveDistrictPlaces,
   searchPexelsImage,
+  type AgentOverview,
+  type AgentRecommendation,
   type CoverStats,
   type DistrictIdeasStats,
   type NotFoundCoverItem,
@@ -64,6 +70,13 @@ export default function AdminAiSection() {
 
   const [jobStatusFilter, setJobStatusFilter] = useState('')
   const [jobIdLookup, setJobIdLookup] = useState('')
+
+  // DeepSeek Agent Merkezi — supervisor + öneri onayı
+  const [agentOverview, setAgentOverview] = useState<AgentOverview | null>(null)
+  const [agentRecommendations, setAgentRecommendations] = useState<AgentRecommendation[]>([])
+  const [agentRunning, setAgentRunning] = useState(false)
+  const [agentErr, setAgentErr] = useState<string | null>(null)
+  const [agentLog, setAgentLog] = useState<string[]>([])
 
   // İlçe gezi fikirleri — DeepSeek AI toplu üretimi
   const [districtStats, setDistrictStats] = useState<DistrictIdeasStats | null>(null)
@@ -132,9 +145,88 @@ export default function AdminAiSection() {
 
   useEffect(() => {
     void refresh()
+    void loadAgentCenter()
     void loadDistrictStats()
     void loadRegionContentStats()
   }, [refresh])
+
+  async function loadAgentCenter() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    try {
+      const [overview, recs] = await Promise.all([
+        getAgentOverview(token),
+        listAgentRecommendations(token),
+      ])
+      setAgentOverview(overview)
+      setAgentRecommendations(recs.recommendations)
+    } catch (e) {
+      setAgentErr(e instanceof Error ? e.message : 'agent_center_load_failed')
+    }
+  }
+
+  async function onRunSupervisorAgent() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setAgentRunning(true)
+    setAgentErr(null)
+    setAgentLog([])
+    try {
+      const r = await runAgentSupervisor(token)
+      setAgentLog((l) => [
+        ...l,
+        `Supervisor çalıştı: ${r.scanned} özel gün tarandı, ${r.created} öneri oluşturuldu, ${r.failed} hata.`,
+      ])
+      await loadAgentCenter()
+      await refresh()
+    } catch (e) {
+      setAgentErr(e instanceof Error ? e.message : 'agent_supervisor_failed')
+    } finally {
+      setAgentRunning(false)
+    }
+  }
+
+  async function onRejectAgentRecommendation(id: string) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    try {
+      await patchAgentRecommendation(token, id, 'rejected', 'Admin tarafından reddedildi.')
+      await loadAgentCenter()
+    } catch (e) {
+      setAgentErr(e instanceof Error ? e.message : 'agent_recommendation_reject_failed')
+    }
+  }
+
+  async function onApproveAgentRecommendation(rec: AgentRecommendation) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setAgentErr(null)
+    try {
+      await patchAgentRecommendation(token, rec.id, 'approved', 'Admin ön onayı verildi.')
+      setAgentLog((l) => [...l, `${rec.title} onaylandı; canlıya almak için “Popup’a Uygula” kullanın.`])
+      await loadAgentCenter()
+    } catch (e) {
+      setAgentErr(e instanceof Error ? e.message : 'agent_recommendation_approve_failed')
+    }
+  }
+
+  async function onApplyPopupRecommendation(rec: AgentRecommendation) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setAgentErr(null)
+    try {
+      const parsed = JSON.parse(rec.payload_json) as { popup?: unknown }
+      if (!parsed.popup || typeof parsed.popup !== 'object') {
+        throw new Error('agent_payload_popup_missing')
+      }
+
+      const result = await patchAgentRecommendation(token, rec.id, 'applied', 'Admin onayıyla site_popups kaydına uygulandı.')
+      setAgentLog((l) => [...l, `${rec.title} canlı popup kayıtlarına uygulandı${result.popup_id ? ` (#${result.popup_id.slice(0, 8)})` : ''}.`])
+      await loadAgentCenter()
+    } catch (e) {
+      setAgentErr(e instanceof Error ? e.message : 'agent_popup_apply_failed')
+    }
+  }
 
   async function loadDistrictStats() {
     const token = getStoredAuthToken()
@@ -614,6 +706,169 @@ export default function AdminAiSection() {
             ))}
           </ul>
         </AiPanel>
+      </div>
+
+      {/* DeepSeek Agent Merkezi */}
+      <div className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm dark:border-amber-900 dark:bg-neutral-900/40">
+        <div className="mb-4 flex flex-wrap items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <Bot className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">DeepSeek Agent Merkezi</h2>
+            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+              Supervisor yaklaşan özel günleri takip eder, DeepSeek ile popup önerisi üretir ve canlı yayına almadan önce onaya düşürür.
+            </p>
+          </div>
+        </div>
+
+        {agentErr ? (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+            {agentErr}
+          </div>
+        ) : null}
+
+        {agentOverview ? (
+          <div className="mb-4 grid gap-3 md:grid-cols-3">
+            {agentOverview.agents.map((agent) => (
+              <div key={agent.code} className="rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs font-semibold text-neutral-900 dark:text-white">{agent.code}</span>
+                  <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', jobStatusBadge(agent.status))}>
+                    {agent.status}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">{agent.display_name}</p>
+                <p className="mt-2 text-[11px] text-neutral-400">
+                  Mod: <strong>{agent.mode}</strong> · Risk: <strong>{agent.risk_level}</strong>
+                  {agent.last_run_at ? ` · Son çalışma: ${agent.last_run_at.slice(0, 16)}` : ''}
+                </p>
+                {agent.feature_profile_code ? (
+                  <p className="mt-1 font-mono text-[10px] text-neutral-400">
+                    profile: {agent.feature_profile_code}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mb-4 flex flex-wrap gap-3">
+          <ButtonPrimary
+            type="button"
+            disabled={agentRunning}
+            onClick={() => void onRunSupervisorAgent()}
+            className="bg-amber-500 text-neutral-950 hover:bg-amber-400"
+          >
+            {agentRunning ? 'Supervisor çalışıyor…' : 'Supervisor Agent’i Çalıştır'}
+          </ButtonPrimary>
+          <button
+            type="button"
+            onClick={() => void loadAgentCenter()}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Agent Durumunu Yenile
+          </button>
+        </div>
+
+        {agentLog.length > 0 ? (
+          <div className="mb-4 rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
+            <ul className="space-y-0.5 font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+              {agentLog.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">Agent önerileri</h3>
+            {agentOverview ? (
+              <div className="flex flex-wrap gap-1.5 text-[11px]">
+                {Object.entries(agentOverview.recommendation_counts).map(([status, count]) => (
+                  <span key={status} className={clsx('rounded-full px-2 py-0.5', jobStatusBadge(status))}>
+                    {status}: {count}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
+          {agentRecommendations.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-500 dark:border-neutral-800">
+              Henüz agent önerisi yok. Supervisor’ı çalıştırınca yaklaşan özel günleri kontrol eder.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {agentRecommendations.slice(0, 8).map((rec) => {
+                let popupTitle = ''
+                let popupBody = ''
+                try {
+                  const payload = JSON.parse(rec.payload_json) as {
+                    popup?: { title?: Record<string, string>; body?: Record<string, string> }
+                  }
+                  popupTitle = payload.popup?.title?.tr ?? ''
+                  popupBody = payload.popup?.body?.tr ?? ''
+                } catch {
+                  // payload önizlemesi opsiyonel
+                }
+                return (
+                  <div key={rec.id} className="rounded-xl border border-neutral-100 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950/40">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={clsx('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', jobStatusBadge(rec.status))}>
+                            {rec.status}
+                          </span>
+                          <span className="font-mono text-[11px] text-neutral-400">{rec.target_key}</span>
+                        </div>
+                        <h4 className="mt-2 text-sm font-semibold text-neutral-900 dark:text-white">{rec.title}</h4>
+                        <p className="mt-1 text-xs text-neutral-500">{rec.reason}</p>
+                        {popupTitle || popupBody ? (
+                          <div className="mt-3 rounded-lg bg-white p-3 text-sm dark:bg-neutral-900">
+                            {popupTitle ? <p className="font-semibold text-neutral-900 dark:text-white">{popupTitle}</p> : null}
+                            {popupBody ? <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">{popupBody}</p> : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {rec.status === 'pending' ? (
+                          <button
+                            type="button"
+                            onClick={() => void onApproveAgentRecommendation(rec)}
+                            className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:bg-neutral-900 dark:text-amber-300"
+                          >
+                            Onayla
+                          </button>
+                        ) : null}
+                        {rec.status === 'pending' || rec.status === 'approved' ? (
+                          <button
+                            type="button"
+                            onClick={() => void onApplyPopupRecommendation(rec)}
+                            className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                          >
+                            Popup’a Uygula
+                          </button>
+                        ) : null}
+                        {rec.status === 'pending' ? (
+                          <button
+                            type="button"
+                            onClick={() => void onRejectAgentRecommendation(rec.id)}
+                            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:bg-neutral-900 dark:text-red-300"
+                          >
+                            Reddet
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* İlçe Gezi Fikirleri — toplu AI üretimi */}
