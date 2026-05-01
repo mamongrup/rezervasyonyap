@@ -26,13 +26,12 @@ function FooterBarIcon({
   lucide?: LucideIcon
   huge?: IconSvgElement
 }) {
-  const iconCls = 'size-5 shrink-0 sm:size-6'
   if (lucide) {
     const Lucide = lucide
-    return <Lucide className={iconCls} />
+    return <Lucide className="size-6" />
   }
   if (huge) {
-    return <HugeiconsIcon icon={huge} className={iconCls} strokeWidth={1.75} />
+    return <HugeiconsIcon icon={huge} className="size-6" strokeWidth={1.75} />
   }
   return null
 }
@@ -133,8 +132,9 @@ const FooterQuickNavigation = () => {
     },
   ]
 
+  /** Chisfis FooterQuickNavigation: `-mx-2 … px-2` — 5 öğe için dar ekranda `px-1` */
   const navItemClass =
-    'flex min-w-0 max-w-full flex-col items-center justify-end gap-0.5 px-0 py-1 text-neutral-500 dark:text-neutral-300'
+    '-mx-2 flex min-w-0 max-w-full flex-col items-center justify-between px-1 text-neutral-500 sm:px-2 dark:text-neutral-300'
 
   function renderSideItem(item: (typeof sideItems)[0] | (typeof sideItemsRight)[0]) {
     const itemHref = 'link' in item ? href(item.link!) : ''
@@ -154,9 +154,7 @@ const FooterQuickNavigation = () => {
             lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
             huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
           />
-          <span className="block w-full max-w-[4.5rem] truncate text-center text-[9px] leading-tight sm:max-w-none sm:text-[10px]">
-            {item.name}
-          </span>
+          <p className="max-w-full truncate text-center text-xs/6">{item.name}</p>
         </button>
       )
     }
@@ -172,9 +170,7 @@ const FooterQuickNavigation = () => {
           lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
           huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
         />
-        <span className="block w-full max-w-[4.5rem] truncate text-center text-[9px] leading-tight sm:max-w-none sm:text-[10px]">
-          {item.name}
-        </span>
+        <p className="max-w-full truncate text-center text-xs/6">{item.name}</p>
       </Link>
     )
   }
@@ -183,29 +179,32 @@ const FooterQuickNavigation = () => {
     <>
       <div
         ref={containerRef}
-        className="fixed inset-x-0 bottom-0 z-30 max-w-[100dvw] min-w-0 overflow-x-clip bg-white/90 py-4 ps-[max(0.625rem,env(safe-area-inset-left,0px))] pe-[max(0.625rem,env(safe-area-inset-right,0px))] pb-[max(1rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
+        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-6 bg-white/90 px-2.5 py-4 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
       >
-        {/* flex + basis-0: grid min içerik genişliği yüzünden 400px taşmasını keser */}
+        {/*
+          Chisfis: `mx-auto flex w-full max-w-lg justify-around`.
+          Bizde 5 öğe (ortada sohbet): aynı max-w-lg + explicit minmax sütun — 400px taşmaz.
+        */}
         <nav
-          className="mx-auto flex w-full min-w-0 max-w-full items-end justify-between gap-0 sm:max-w-lg"
+          className="mx-auto grid w-full min-w-0 max-w-lg grid-cols-[repeat(5,minmax(0,1fr))] items-end justify-items-center"
           role="navigation"
         >
-          <div className="flex min-w-0 flex-1 basis-0 justify-center">{renderSideItem(sideItems[0])}</div>
-          <div className="flex min-w-0 flex-1 basis-0 justify-center">{renderSideItem(sideItems[1])}</div>
-          <div className="flex min-w-0 flex-1 basis-0 justify-center pb-0.5">
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[0])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[1])}</div>
+          <div className="flex w-full min-w-0 justify-center pb-0.5">
             <button
               type="button"
               onClick={openChat}
               aria-label={bn.assistantAria}
-              className="relative -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 sm:h-11 sm:w-11 dark:ring-neutral-950"
+              className="relative -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 dark:ring-neutral-950"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                 <path d="M12 2C6.477 2 2 6.164 2 11.299c0 2.862 1.388 5.415 3.567 7.12L4.5 22l4.29-2.123A10.854 10.854 0 0012 20.598c5.523 0 10-4.164 10-9.299S17.523 2 12 2z" />
               </svg>
             </button>
           </div>
-          <div className="flex min-w-0 flex-1 basis-0 justify-center">{renderSideItem(sideItemsRight[0])}</div>
-          <div className="flex min-w-0 flex-1 basis-0 justify-center">{renderSideItem(sideItemsRight[1])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItemsRight[0])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItemsRight[1])}</div>
         </nav>
       </div>
 
