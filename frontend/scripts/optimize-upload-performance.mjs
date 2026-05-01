@@ -44,8 +44,8 @@ const jobs = [
   {
     relPath: 'site/vitrin-kategori/homepage/slide-1.jpg',
     transform: (img) =>
-      img.resize({ width: 420, withoutEnlargement: true }).jpeg({
-        quality: 45,
+      img.resize({ width: 340, withoutEnlargement: true }).jpeg({
+        quality: 38,
         mozjpeg: true,
         progressive: true,
       }),

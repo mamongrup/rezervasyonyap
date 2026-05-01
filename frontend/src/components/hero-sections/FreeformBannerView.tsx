@@ -69,6 +69,18 @@ export default function FreeformBannerView({
     const u = (imageUrls[urlIdx] ?? layer.src ?? '').trim()
     return u !== ''
   })
+  const firstPriorityLayer =
+    firstPriorityIdx >= 0 ? layers[firstPriorityIdx] : null
+  const firstPriorityUrl = firstPriorityLayer
+    ? (() => {
+        const si = firstPriorityLayer.slotIndex
+        const urlIdx =
+          typeof si === 'number' && Number.isFinite(si)
+            ? Math.min(2, Math.max(0, Math.round(si)))
+            : firstPriorityIdx
+        return (imageUrls[urlIdx] ?? firstPriorityLayer.src ?? '').trim()
+      })()
+    : ''
 
   return (
     <div
@@ -78,7 +90,30 @@ export default function FreeformBannerView({
       )}
       style={{ aspectRatio: ar }}
     >
-      <div className="relative h-full w-full overflow-hidden rounded-xl">
+      <div className="relative h-full w-full overflow-hidden rounded-xl md:hidden">
+        {firstPriorityUrl ? (
+          <Image
+            src={firstPriorityUrl}
+            alt={`${alt} — 1`}
+            fill
+            sizes="100vw"
+            className="object-cover"
+            style={{
+              objectPosition: firstPriorityLayer
+                ? `${firstPriorityLayer.focusX}% ${firstPriorityLayer.focusY}%`
+                : '50% 50%',
+            }}
+            fetchPriority="high"
+            priority
+            loading="eager"
+            decoding="async"
+            unoptimized={slotUnopt(firstPriorityUrl)}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+        )}
+      </div>
+      <div className="relative hidden h-full w-full overflow-hidden rounded-xl md:block">
         {layers.map((layer, i) => {
           const si = layer.slotIndex
           const urlIdx =

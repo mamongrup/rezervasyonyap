@@ -49,6 +49,7 @@ function locationPreview(snap: HeroSearchSnapshot): string | undefined {
 export function HeroLastSearchRow({ locale, preferredVertical }: Props) {
   const vitrinPath = useVitrinHref()
   const [snap, setSnap] = useState<HeroSearchSnapshot | null>(null)
+  const [ready, setReady] = useState(false)
   const isEn = locale.toLowerCase().startsWith('en')
 
   const refresh = useCallback(() => {
@@ -56,6 +57,12 @@ export function HeroLastSearchRow({ locale, preferredVertical }: Props) {
   }, [preferredVertical])
 
   useEffect(() => {
+    const id = window.setTimeout(() => setReady(true), 4500)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  useEffect(() => {
+    if (!ready) return
     refresh()
     window.addEventListener('focus', refresh)
     const onStorage = (e: StorageEvent) => {
@@ -66,7 +73,7 @@ export function HeroLastSearchRow({ locale, preferredVertical }: Props) {
       window.removeEventListener('focus', refresh)
       window.removeEventListener('storage', onStorage)
     }
-  }, [refresh])
+  }, [ready, refresh])
 
   if (!snap) return null
 

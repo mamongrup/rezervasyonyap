@@ -1,20 +1,30 @@
 'use client'
 
-import ConciergeChatWidget from '@/components/ConciergeChatWidget'
-import SitePopupsRenderer from '@/components/popups/SitePopupsRenderer'
-import WhatsAppFloatButton from '@/components/WhatsAppFloatButton'
+import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
+
+const ConciergeChatWidget = dynamic(() => import('@/components/ConciergeChatWidget'), {
+  ssr: false,
+})
+const SitePopupsRenderer = dynamic(() => import('@/components/popups/SitePopupsRenderer'), {
+  ssr: false,
+})
+const WhatsAppFloatButton = dynamic(() => import('@/components/WhatsAppFloatButton'), {
+  ssr: false,
+})
 
 /**
  * Footer üstü — WhatsApp, concierge, site popup.
- * Statik import + useEffect mount: RSC manifest'e doğru yazılır (next/dynamic ssr:false
- * bazen App Router'da manifest'e girmiyor). İlk render'da null döner → TBT etkisi yok.
+ * İlk boya ve LCP sonrasına bırakılır; popup/chat kodu ana hydrate yolunu şişirmemeli.
  */
 type Props = { locale: string }
 
 export function DeferredLayoutWidgets({ locale }: Props) {
   const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    const id = window.setTimeout(() => setMounted(true), 5500)
+    return () => window.clearTimeout(id)
+  }, [])
   if (!mounted) return null
   return (
     <>
