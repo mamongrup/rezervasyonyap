@@ -113,7 +113,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
         <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
             <Logo />
-            <p className="text-sm/6 text-balance text-gray-600 dark:text-neutral-400">{tagline}</p>
+            <p className="break-words text-sm/6 text-balance text-gray-600 dark:text-neutral-400">{tagline}</p>
 
             {socialItems.length > 0 && (
               <div className="flex flex-wrap gap-x-4 gap-y-2">
@@ -142,7 +142,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
           <div className="grid min-w-0 grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
             {columns.map((col, colIdx) => (
               <div key={`footer-col-${colIdx}`} className="min-w-0">
-                <h3 className={headingCls}>{col.title}</h3>
+                <h3 className={cn(headingCls, 'break-words')}>{col.title}</h3>
                 <ul role="list" className="mt-4 space-y-3">
                   {col.links.map((item) => (
                     <li key={`${col.title}-${item.name}`} className="min-w-0">
@@ -161,11 +161,11 @@ export default function Footer2({ locale, branding }: Footer2Props) {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col items-start gap-4 border-t border-gray-900/10 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between lg:mt-24 dark:border-gray-700">
-          <p className="text-sm/6 text-gray-500 dark:text-neutral-400">
+        <div className="mt-16 flex min-w-0 flex-col items-start gap-4 border-t border-gray-900/10 pt-8 sm:mt-20 sm:flex-row sm:items-center sm:justify-between lg:mt-24 dark:border-gray-700">
+          <p className="min-w-0 max-w-full break-words text-sm/6 text-gray-500 dark:text-neutral-400">
             &copy; {year} {copyName}. {rights}
           </p>
-          <div className="flex flex-wrap gap-x-6 gap-y-2">
+          <div className="flex min-w-0 max-w-full flex-wrap gap-x-6 gap-y-2 sm:justify-end">
             {legal.map((item) => (
               <a
                 key={item.name}
