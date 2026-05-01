@@ -43,50 +43,52 @@ export default function SectionSliderRegions({
 
   return (
     <div className={`relative ${className}`}>
-      <div
-        ref={sliderRef}
-        className="hidden-scrollbar relative -mx-2 flex snap-x snap-mandatory overflow-x-auto lg:-mx-3.5"
-      >
-        {regions.map((region) => (
-          <div
-            key={region.slug}
-            className="mySnapItem w-[17rem] shrink-0 px-2 lg:w-1/4 lg:px-3.5 xl:w-1/5"
-          >
-            <div className="group relative flex flex-col">
-              <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
-                {region.thumbnail && !brokenThumbs[region.slug] ? (
-                  <Image
-                    src={region.thumbnail}
-                    alt={region.name}
-                    fill
-                    className="rounded-2xl object-cover transition-transform duration-300 group-hover:scale-105"
-                    sizes="(max-width: 400px) 100vw, 300px"
-                    onError={() =>
-                      setBrokenThumbs((prev) =>
-                        prev[region.slug] ? prev : { ...prev, [region.slug]: true },
-                      )
-                    }
-                    unoptimized
-                  />
-                ) : (
-                  <div className="h-full w-full bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-                )}
-                <span className="absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100 rounded-2xl" />
-              </div>
-              <div className="mt-4">
-                <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100">
-                  <Link href={`${categoryRoute}/${region.slug}`} className="absolute inset-0" />
-                  <span className="line-clamp-1">{region.name}</span>
-                </h2>
-                {region.count > 0 && (
-                  <span className="mt-1.5 block text-sm text-neutral-600 dark:text-neutral-400">
-                    {convertNumbThousand(region.count)}+ {unit}
-                  </span>
-                )}
+      <div className="min-w-0 max-w-full overflow-x-clip">
+        <div
+          ref={sliderRef}
+          className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain lg:-mx-3.5"
+        >
+          {regions.map((region) => (
+            <div
+              key={region.slug}
+              className="mySnapItem w-[17rem] shrink-0 px-2 lg:w-1/4 lg:px-3.5 xl:w-1/5"
+            >
+              <div className="group relative flex flex-col">
+                <div className="relative aspect-square w-full overflow-hidden rounded-2xl">
+                  {region.thumbnail && !brokenThumbs[region.slug] ? (
+                    <Image
+                      src={region.thumbnail}
+                      alt={region.name}
+                      fill
+                      className="rounded-2xl object-cover transition-transform duration-300 group-hover:scale-105"
+                      sizes="(max-width: 400px) 100vw, 300px"
+                      onError={() =>
+                        setBrokenThumbs((prev) =>
+                          prev[region.slug] ? prev : { ...prev, [region.slug]: true },
+                        )
+                      }
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+                  )}
+                  <span className="absolute inset-0 rounded-2xl bg-black/10 opacity-0 transition-opacity group-hover:opacity-100" />
+                </div>
+                <div className="mt-4">
+                  <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100">
+                    <Link href={`${categoryRoute}/${region.slug}`} className="absolute inset-0" />
+                    <span className="line-clamp-1">{region.name}</span>
+                  </h2>
+                  {region.count > 0 && (
+                    <span className="mt-1.5 block text-sm text-neutral-600 dark:text-neutral-400">
+                      {convertNumbThousand(region.count)}+ {unit}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
       <div className="absolute -start-3 top-[40%] z-1 -translate-y-1/2 sm:-start-5 xl:-start-5">

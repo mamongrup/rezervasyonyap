@@ -133,21 +133,23 @@ function RegionSlider({ listings, linkBase, priceUnit, nightLabel, locale }: Sli
 
   return (
     <div className="relative">
-      <div
-        ref={sliderRef}
-        className="hidden-scrollbar relative -mx-2 flex snap-x snap-mandatory overflow-x-auto lg:-mx-3.5"
-      >
-        {listings.map((item) => (
-          <div key={item.id} className="mySnapItem w-[17rem] shrink-0 px-2 lg:w-1/3 lg:px-3.5 xl:w-1/4">
-            <RegionListingCard
-              listing={item}
-              linkBase={linkBase}
-              priceUnit={priceUnit}
-              nightLabel={nightLabel}
-              locale={locale}
-            />
-          </div>
-        ))}
+      <div className="min-w-0 max-w-full overflow-x-clip">
+        <div
+          ref={sliderRef}
+          className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain lg:-mx-3.5"
+        >
+          {listings.map((item) => (
+            <div key={item.id} className="mySnapItem w-[17rem] shrink-0 px-2 lg:w-1/3 lg:px-3.5 xl:w-1/4">
+              <RegionListingCard
+                listing={item}
+                linkBase={linkBase}
+                priceUnit={priceUnit}
+                nightLabel={nightLabel}
+                locale={locale}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="absolute -start-3 top-[40%] z-10 -translate-y-1/2 sm:-start-5">
