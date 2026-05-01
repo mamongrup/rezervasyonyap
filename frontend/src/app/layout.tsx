@@ -128,9 +128,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang={themeDirection === 'rtl' ? 'ar' : 'en'}
       dir={themeDirection}
       suppressHydrationWarning
-      className={cn('font-sans', poppins.variable)}
+      className={cn('min-w-0 overflow-x-hidden font-sans', poppins.variable)}
     >
-      <body className="bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+      <body className="min-w-0 overflow-x-hidden bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
         <ThemeProvider>
           <DirectionProvider dir={themeDirection} direction={themeDirection}>
             <FavoritesProvider>

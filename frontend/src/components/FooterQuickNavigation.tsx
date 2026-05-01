@@ -178,7 +178,7 @@ const FooterQuickNavigation = () => {
     <>
       <div
         ref={containerRef}
-        className="fixed inset-x-0 bottom-0 z-30 bg-white/90 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
+        className="fixed inset-x-0 bottom-0 z-30 max-w-[100dvw] min-w-0 overflow-x-clip bg-white/90 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
       >
         {/* 5 eşit sütun: justify-around yerine grid — dar ekranda sağa taşma önlenir */}
         <nav

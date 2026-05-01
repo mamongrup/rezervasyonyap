@@ -91,8 +91,8 @@ function HeroImageMosaic({
     return (
       <div className={clsx('w-full min-h-0', flush ? 'mb-0' : 'mb-5', regionBleedWrap)}>
         {/* Mobil: solda [0], sağda [1] + [2] üst üste */}
-        <div className={clsx('flex min-h-0 w-full flex-row md:hidden', gap)}>
-          <div className={clsx(slot, 'aspect-[4/3] min-h-0 flex-1 shrink-0')}>
+        <div className={clsx('flex min-h-0 w-full min-w-0 flex-row md:hidden', gap)}>
+          <div className={clsx(slot, 'aspect-[4/3] min-h-0 min-w-0 flex-1 basis-0')}>
             <MosaicSlot
               src={images[0]}
               alt={`${alt} — 1`}
@@ -164,7 +164,7 @@ function HeroImageMosaic({
   return (
     <div
       className={clsx(
-        'flex min-h-0 w-full flex-row md:flex-col',
+        'flex min-h-0 w-full min-w-0 flex-row md:flex-col',
         gap,
         flush ? 'mb-0' : 'mb-5',
       )}
@@ -173,7 +173,7 @@ function HeroImageMosaic({
       <div
         className={clsx(
           slot,
-          'aspect-[4/3] min-h-0 flex-1 shrink-0 md:aspect-[2/1] md:w-full md:flex-none',
+          'aspect-[4/3] min-h-0 min-w-0 flex-1 basis-0 md:aspect-[2/1] md:w-full md:flex-none',
         )}
       >
         <MosaicSlot

@@ -3,6 +3,7 @@ import { getFooterSiteConfig } from '@/lib/footer-site-config'
 import { pickI18nWithLegacy } from '@/lib/i18n-field'
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { cn } from '@/lib/utils'
 import { getMessages } from '@/utils/getT'
 import Logo from '@/shared/Logo'
 import { use, type JSX, type SVGProps } from 'react'
@@ -106,11 +107,11 @@ export default function Footer2({ locale, branding }: Footer2Props) {
   )
 
   return (
-    <footer className="border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
+    <footer className="min-w-0 overflow-x-clip border-t border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-950">
       {/* Üstte nefes payı; altta yasal satırdan sonra gereksiz boşluk olmaması için pb daha küçük */}
-      <div className="container pt-16 pb-8 sm:pt-20 sm:pb-10">
-        <div className="grid grid-cols-1 gap-10 lg:grid-cols-[280px_1fr]">
-          <div className="space-y-6">
+      <div className="container min-w-0 max-w-full pt-16 pb-8 sm:pt-20 sm:pb-10">
+        <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-6">
             <Logo />
             <p className="text-sm/6 text-balance text-gray-600 dark:text-neutral-400">{tagline}</p>
 
@@ -138,16 +139,16 @@ export default function Footer2({ locale, branding }: Footer2Props) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid min-w-0 grid-cols-2 gap-8 sm:grid-cols-3 lg:grid-cols-5">
             {columns.map((col, colIdx) => (
-              <div key={`footer-col-${colIdx}`}>
+              <div key={`footer-col-${colIdx}`} className="min-w-0">
                 <h3 className={headingCls}>{col.title}</h3>
                 <ul role="list" className="mt-4 space-y-3">
                   {col.links.map((item) => (
-                    <li key={`${col.title}-${item.name}`}>
+                    <li key={`${col.title}-${item.name}`} className="min-w-0">
                       <a
                         href={item.href}
-                        className={linkCls}
+                        className={cn(linkCls, 'break-words')}
                         aria-label={item.href.includes('#') ? `${item.name} — ${col.title}` : undefined}
                       >
                         {item.name}
@@ -166,7 +167,11 @@ export default function Footer2({ locale, branding }: Footer2Props) {
           </p>
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             {legal.map((item) => (
-              <a key={item.name} href={item.href} className="text-xs text-gray-700 hover:text-gray-900 dark:text-neutral-300 dark:hover:text-neutral-100">
+              <a
+                key={item.name}
+                href={item.href}
+                className="break-words text-xs text-gray-700 hover:text-gray-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+              >
                 {item.name}
               </a>
             ))}
