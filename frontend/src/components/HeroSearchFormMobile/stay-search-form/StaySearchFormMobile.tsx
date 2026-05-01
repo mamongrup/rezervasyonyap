@@ -8,7 +8,7 @@ import { getMessages } from '@/utils/getT'
 import Form from 'next/form'
 import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import FieldPanelContainer from '../FieldPanelContainer'
 import GuestsInput from '../GuestsInput'
 import LocationInput from '../LocationInput'
@@ -24,6 +24,9 @@ const StaySearchFormMobile = () => {
   const staySearchHref = vitrinHref(STAY_SEARCH_INTERNAL_PATH)
   //
   const [fieldNameShow, setFieldNameShow] = useState<'location' | 'dates' | 'guests'>('location')
+  const locationPanelRef = useRef<HTMLDivElement>(null)
+  const datesPanelRef = useRef<HTMLDivElement>(null)
+  const guestsPanelRef = useRef<HTMLDivElement>(null)
   //
   const [locationInputTo, setLocationInputTo] = useState('')
   const [guestInput, setGuestInput] = useState<GuestsObject>({
@@ -37,6 +40,18 @@ const StaySearchFormMobile = () => {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const m = getMessages(locale)
+
+  useEffect(() => {
+    const activePanel =
+      fieldNameShow === 'location'
+        ? locationPanelRef.current
+        : fieldNameShow === 'dates'
+          ? datesPanelRef.current
+          : guestsPanelRef.current
+    requestAnimationFrame(() => {
+      activePanel?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+    })
+  }, [fieldNameShow])
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
@@ -77,40 +92,46 @@ const StaySearchFormMobile = () => {
       className="flex w-full min-w-0 max-w-full flex-col gap-y-3"
     >
       {/*  LOCATION */}
-      <FieldPanelContainer
-        isActive={fieldNameShow === 'location'}
-        headingOnClick={() => setFieldNameShow('location')}
-        headingTitle={m.HeroSearchForm['Where']}
-        headingValue={locationInputTo || m.HeroSearchForm['Location']}
-      >
-        <LocationInput
-          defaultValue={locationInputTo}
-          onChange={(value) => {
-            setLocationInputTo(value)
-            setFieldNameShow('dates')
-          }}
-        />
-      </FieldPanelContainer>
+      <div ref={locationPanelRef}>
+        <FieldPanelContainer
+          isActive={fieldNameShow === 'location'}
+          headingOnClick={() => setFieldNameShow('location')}
+          headingTitle={m.HeroSearchForm['Where']}
+          headingValue={locationInputTo || m.HeroSearchForm['Location']}
+        >
+          <LocationInput
+            defaultValue={locationInputTo}
+            onChange={(value) => {
+              setLocationInputTo(value)
+              setFieldNameShow('dates')
+            }}
+          />
+        </FieldPanelContainer>
+      </div>
 
       {/* DATE RANGE  */}
-      <FieldPanelContainer
-        isActive={fieldNameShow === 'dates'}
-        headingOnClick={() => setFieldNameShow('dates')}
-        headingTitle={m.HeroSearchForm['When']}
-        headingValue={startDate ? converSelectedDateToString([startDate, endDate]) : m.HeroSearchForm['Add dates']}
-      >
-        <DatesRangeInput defaultStartDate={startDate} defaultEndDate={endDate} onChange={onChangeDate} />
-      </FieldPanelContainer>
+      <div ref={datesPanelRef}>
+        <FieldPanelContainer
+          isActive={fieldNameShow === 'dates'}
+          headingOnClick={() => setFieldNameShow('dates')}
+          headingTitle={m.HeroSearchForm['When']}
+          headingValue={startDate ? converSelectedDateToString([startDate, endDate]) : m.HeroSearchForm['Add dates']}
+        >
+          <DatesRangeInput defaultStartDate={startDate} defaultEndDate={endDate} onChange={onChangeDate} />
+        </FieldPanelContainer>
+      </div>
 
       {/* GUEST NUMBER */}
-      <FieldPanelContainer
-        isActive={fieldNameShow === 'guests'}
-        headingOnClick={() => setFieldNameShow('guests')}
-        headingTitle={m.HeroSearchForm['Who']}
-        headingValue={guestStringConverted}
-      >
-        <GuestsInput defaultValue={guestInput} onChange={setGuestInput} />
-      </FieldPanelContainer>
+      <div ref={guestsPanelRef}>
+        <FieldPanelContainer
+          isActive={fieldNameShow === 'guests'}
+          headingOnClick={() => setFieldNameShow('guests')}
+          headingTitle={m.HeroSearchForm['Who']}
+          headingValue={guestStringConverted}
+        >
+          <GuestsInput defaultValue={guestInput} onChange={setGuestInput} />
+        </FieldPanelContainer>
+      </div>
     </Form>
   )
 }
