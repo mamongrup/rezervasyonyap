@@ -132,7 +132,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
                     </CloseButton>
                   </div>
 
-                  <div className="shrink-0 overflow-x-hidden border-b border-neutral-100 px-3 pt-10 pb-3 dark:border-neutral-800 sm:px-4 sm:pb-4">
+                  <div className="relative z-20 shrink-0 overflow-visible border-b border-neutral-100 px-3 pt-10 pb-3 dark:border-neutral-800 sm:px-4 sm:pb-4">
                     <HeroMenuCategoryBar
                       locale={locale}
                       layout="default"
@@ -142,7 +142,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
                   </div>
 
                   {/* Chisfis TabPanels: dış overflow-hidden, iç scroll */}
-                  <div className="flex min-h-0 flex-1 overflow-hidden px-1.5 sm:px-4">
+                  <div className="relative z-0 flex min-h-0 flex-1 overflow-hidden px-1.5 sm:px-4">
                     <div className="hidden-scrollbar min-h-0 w-full min-w-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain py-2 pb-4">
                       <StaySearchFormMobile />
                     </div>

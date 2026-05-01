@@ -8,7 +8,8 @@ import { useLayoutEffect, useState, type ReactNode } from 'react'
  * mobilde parse/edilir ve LCP/TBT şişer. Bu sarmalayıcı yalnızca `md` ve üzeri görünümde formu mount eder.
  */
 export default function HeroSearchDesktopOnly({ children }: { children: ReactNode }) {
-  const [show, setShow] = useState(false)
+  // Render on the server too; otherwise desktop search disappears when hydration is delayed.
+  const [show, setShow] = useState(true)
 
   useLayoutEffect(() => {
     const mq = window.matchMedia('(min-width: 768px)')
