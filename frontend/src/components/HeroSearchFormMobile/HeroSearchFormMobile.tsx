@@ -1,9 +1,8 @@
 'use client'
 
-import { ButtonCircle } from '@/shared/Button'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonThird from '@/shared/ButtonThird'
-import { Dialog, DialogPanel, CloseButton } from '@headlessui/react'
+import { Dialog, DialogPanel } from '@headlessui/react'
 import { Cancel01Icon, FilterVerticalIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { stripLocalePrefix } from '@/lib/i18n-config'
@@ -126,10 +125,15 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
                   key={contentKey}
                   className="relative flex h-full min-h-0 w-full min-w-0 flex-col justify-between pt-[env(safe-area-inset-top,0px)]"
                 >
-                  <div className="absolute end-3 top-[max(0.5rem,env(safe-area-inset-top))] z-10">
-                    <CloseButton color="light" as={ButtonCircle} className="size-7!">
+                  <div className="absolute end-3 top-[max(0.5rem,env(safe-area-inset-top))] z-30">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      aria-label={msg.common.close}
+                      className="flex size-7 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                    >
                       <HugeiconsIcon icon={Cancel01Icon} className="size-4!" strokeWidth={1.75} />
-                    </CloseButton>
+                    </button>
                   </div>
 
                   <div className="relative z-20 shrink-0 overflow-visible border-b border-neutral-100 px-3 pt-10 pb-3 dark:border-neutral-800 sm:px-4 sm:pb-4">
