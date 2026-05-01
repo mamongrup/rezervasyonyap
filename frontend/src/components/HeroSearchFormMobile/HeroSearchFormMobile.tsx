@@ -93,7 +93,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
     <button
       type="button"
       onClick={openModal}
-      className="relative box-border flex w-full max-w-full min-w-0 items-center rounded-full border border-neutral-200 px-4 py-2 pe-4 shadow-lg transition hover:shadow-lg sm:pe-11 dark:border-neutral-600 dark:bg-neutral-900"
+      className="relative flex w-full min-w-0 max-w-full items-center rounded-full border border-neutral-200 px-4 py-2 pe-11 shadow-lg transition hover:shadow-lg dark:border-neutral-600 dark:bg-neutral-900"
     >
       <HugeiconsIcon icon={Search01Icon} size={20} color="currentColor" strokeWidth={1.5} className="shrink-0 text-primary-600 dark:text-primary-400" />
       <div className="ms-4 min-w-0 flex-1 overflow-hidden text-start">
@@ -118,7 +118,8 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
     <div
       className={clsx(
         'min-w-0',
-        !isControlled && 'relative z-10 w-full max-w-full',
+        /** Chisfis: üst şeritte `max-w-lg` — geniş ekranda ortalanır, mobilde tam genişlik */
+        !isControlled && 'relative z-10 w-full max-w-lg',
         className,
       )}
     >

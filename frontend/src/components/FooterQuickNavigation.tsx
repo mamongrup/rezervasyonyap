@@ -178,11 +178,11 @@ const FooterQuickNavigation = () => {
     <>
       <div
         ref={containerRef}
-        className="fixed inset-x-0 bottom-0 z-30 max-w-[100dvw] min-w-0 overflow-x-clip bg-white/90 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
+        className="fixed inset-x-0 bottom-0 z-30 max-w-[100dvw] min-w-0 overflow-x-clip bg-white/90 px-2.5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
       >
-        {/* 5 eşit sütun: justify-around yerine grid — dar ekranda sağa taşma önlenir */}
+        {/* Chisfis: içerik `max-w-lg` + ortada — taşma ve aşırı yayılma azalır */}
         <nav
-          className="mx-auto grid w-full min-w-0 max-w-full grid-cols-5 items-end justify-items-center gap-x-0"
+          className="mx-auto grid w-full min-w-0 max-w-lg grid-cols-5 items-end justify-items-center gap-x-0"
           role="navigation"
         >
           <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[0])}</div>

@@ -19,12 +19,10 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
           z-50: Header kendi stacking context'i oluşturur ve içerideki dropdown panel'leri (Popover z-40)
           her zaman sayfa içeriğindeki z-30 hero/arama formu blokları üzerinde kalır. */}
       <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
-      {/* Mobil arama — sticky üst çubuk; `container`+margin bazen dar genişlikte kayma yapıyor — tam genişlik + simetrik px */}
+      {/* Mobil arama — Chisfis: `container` + `justify-center`; taşma için dışta clip + dvw sınırı */}
       <div className="sticky top-0 z-20 w-full min-w-0 max-w-[100dvw] overflow-x-clip bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
-        <div className="box-border flex h-20 w-full min-w-0 items-center ps-[max(1rem,env(safe-area-inset-left,0px))] pe-[max(1rem,env(safe-area-inset-right,0px))]">
-          <div className="min-w-0 w-full">
-            <HeroSearchFormMobile locale={locale} />
-          </div>
+        <div className="container flex h-20 w-full min-w-0 items-center justify-center">
+          <HeroSearchFormMobile locale={locale} />
         </div>
       </div>
       {children}
