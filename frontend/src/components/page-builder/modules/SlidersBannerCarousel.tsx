@@ -187,6 +187,7 @@ function Slide({
             {slide.ctaHref && ctaText && (
               <Link
                 href={slide.ctaHref}
+                tabIndex={active ? undefined : -1}
                 className="mt-2 inline-flex w-fit items-center rounded-xl bg-white px-6 py-3 text-sm font-semibold text-neutral-900 shadow-lg transition hover:bg-neutral-100 md:text-base"
               >
                 {ctaText}

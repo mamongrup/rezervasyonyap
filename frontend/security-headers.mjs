@@ -139,7 +139,7 @@ export function buildAllSecurityHeaders() {
   if (IS_PROD && process.env.SECURITY_HSTS_DISABLE !== '1') {
     headers.push({
       key: 'Strict-Transport-Security',
-      value: 'max-age=31536000; includeSubDomains; preload',
+      value: 'max-age=63072000; includeSubDomains; preload',
     })
   }
 

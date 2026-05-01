@@ -3,7 +3,6 @@
 import { FilterVerticalIcon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { stripLocalePrefix } from '@/lib/i18n-config'
-import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
 import dynamic from 'next/dynamic'
 import { useParams, usePathname } from 'next/navigation'
@@ -16,6 +15,134 @@ import { useEffect, useState } from 'react'
 const HeroSearchFormMobileDialog = dynamic(() => import('./HeroSearchFormMobileDialog'), {
   ssr: false,
 })
+
+type HeroBarMessages = {
+  defaultLocation: string
+  defaultWeek: string
+  defaultGuests: string
+  toursLocation: string
+  toursWeek: string
+  toursGuests: string
+  carLocation: string
+  carWeek: string
+  carGuests: string
+  flightLocation: string
+  flightWeek: string
+  flightGuests: string
+  stayLocation: string
+  stayWeek: string
+  stayGuests: string
+}
+
+const HERO_BAR_MESSAGES: Record<string, HeroBarMessages> = {
+  tr: {
+    defaultLocation: 'Nereye?',
+    defaultWeek: 'Tarih ekleyin',
+    defaultGuests: 'Misafir ekleyin',
+    toursLocation: 'Nereye?',
+    toursWeek: 'Tarih seçin',
+    toursGuests: 'Kişi sayısı',
+    carLocation: 'Alış noktası',
+    carWeek: 'Tarih seçin',
+    carGuests: 'Araç tipi',
+    flightLocation: 'Nereden?',
+    flightWeek: 'Tarih seçin',
+    flightGuests: 'Yolcu',
+    stayLocation: 'Nereye?',
+    stayWeek: 'Giriş – Çıkış',
+    stayGuests: 'Misafir',
+  },
+  en: {
+    defaultLocation: 'Where to?',
+    defaultWeek: 'Add dates',
+    defaultGuests: 'Add guests',
+    toursLocation: 'Where to?',
+    toursWeek: 'Select dates',
+    toursGuests: 'Party size',
+    carLocation: 'Pick-up location',
+    carWeek: 'Select dates',
+    carGuests: 'Car type',
+    flightLocation: 'From where?',
+    flightWeek: 'Select dates',
+    flightGuests: 'Passengers',
+    stayLocation: 'Where to?',
+    stayWeek: 'Check-in – Check-out',
+    stayGuests: 'Guests',
+  },
+  de: {
+    defaultLocation: 'Wohin?',
+    defaultWeek: 'Daten hinzufügen',
+    defaultGuests: 'Gäste hinzufügen',
+    toursLocation: 'Wohin?',
+    toursWeek: 'Datum wählen',
+    toursGuests: 'Personenzahl',
+    carLocation: 'Abholort',
+    carWeek: 'Datum wählen',
+    carGuests: 'Fahrzeugtyp',
+    flightLocation: 'Von wo?',
+    flightWeek: 'Datum wählen',
+    flightGuests: 'Passagiere',
+    stayLocation: 'Wohin?',
+    stayWeek: 'Anreise – Abreise',
+    stayGuests: 'Gäste',
+  },
+  ru: {
+    defaultLocation: 'Куда?',
+    defaultWeek: 'Добавить даты',
+    defaultGuests: 'Добавить гостей',
+    toursLocation: 'Куда?',
+    toursWeek: 'Выберите даты',
+    toursGuests: 'Количество человек',
+    carLocation: 'Место получения',
+    carWeek: 'Выберите даты',
+    carGuests: 'Тип авто',
+    flightLocation: 'Откуда?',
+    flightWeek: 'Выберите даты',
+    flightGuests: 'Пассажиры',
+    stayLocation: 'Куда?',
+    stayWeek: 'Заезд – Выезд',
+    stayGuests: 'Гости',
+  },
+  zh: {
+    defaultLocation: '去哪里？',
+    defaultWeek: '添加日期',
+    defaultGuests: '添加人数',
+    toursLocation: '去哪里？',
+    toursWeek: '选择日期',
+    toursGuests: '人数',
+    carLocation: '取车地点',
+    carWeek: '选择日期',
+    carGuests: '车型',
+    flightLocation: '从哪里出发？',
+    flightWeek: '选择日期',
+    flightGuests: '乘客',
+    stayLocation: '去哪里？',
+    stayWeek: '入住 – 退房',
+    stayGuests: '住客',
+  },
+  fr: {
+    defaultLocation: 'Où ?',
+    defaultWeek: 'Ajouter des dates',
+    defaultGuests: 'Ajouter des voyageurs',
+    toursLocation: 'Où ?',
+    toursWeek: 'Choisir des dates',
+    toursGuests: 'Nombre de personnes',
+    carLocation: 'Lieu de prise en charge',
+    carWeek: 'Choisir des dates',
+    carGuests: 'Type de véhicule',
+    flightLocation: 'D’où ?',
+    flightWeek: 'Choisir des dates',
+    flightGuests: 'Passagers',
+    stayLocation: 'Où ?',
+    stayWeek: 'Arrivée – Départ',
+    stayGuests: 'Voyageurs',
+  },
+}
+
+function getHeroBarMessages(locale: string): HeroBarMessages {
+  const key = locale.trim().toLowerCase()
+  return HERO_BAR_MESSAGES[key] ?? HERO_BAR_MESSAGES.en
+}
 
 interface HeroSearchFormMobileProps {
   className?: string
@@ -39,8 +166,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
   const locale = localeProp ?? (typeof params?.locale === 'string' ? params.locale : 'tr')
   const { restPath } = stripLocalePrefix(pathname)
 
-  const msg = getMessages(locale)
-  const hb = msg.mobile.heroBar
+  const hb = getHeroBarMessages(locale)
   // Trigger buton için özet metin (locale öneki sonrası yol — /en/hotels ile uyumlu)
   let locationText = hb.defaultLocation
   let weekText = hb.defaultWeek
