@@ -21,8 +21,10 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
       {/* Mobil arama — viewport’a sabit (kaydırınca üstte kalır); z-50: hero z-30’un üstünde, tıklanabilir */}
       <div className="pointer-events-auto fixed inset-x-0 top-0 z-50 bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
-        <div className="container flex h-20 max-w-full items-center justify-center">
-          <HeroSearchFormMobile locale={locale} />
+        <div className="container box-border flex h-20 w-full max-w-full items-center">
+          <div className="min-w-0 w-full shrink">
+            <HeroSearchFormMobile locale={locale} />
+          </div>
         </div>
       </div>
       <div

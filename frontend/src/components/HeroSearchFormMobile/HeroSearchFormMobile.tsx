@@ -115,7 +115,13 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
   )
 
   return (
-    <div className={clsx(className, isControlled ? '' : 'relative z-10 w-full min-w-0 max-w-lg')}>
+    <div
+      className={clsx(
+        'min-w-0',
+        !isControlled && 'relative z-10 w-full max-w-full',
+        className,
+      )}
+    >
       {!isControlled && renderButtonOpenModal()}
 
       <Dialog as="div" className="relative z-max" onClose={closeModal} open={showModal}>
