@@ -2,6 +2,7 @@
 
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { Link } from '@/shared/link'
+import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import {
   AnchorIcon,
   Building03Icon,
@@ -13,9 +14,12 @@ import {
   LegalDocument01Icon,
   Bus01Icon,
   FerryBoatIcon,
+  Menu01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import clsx from 'clsx'
+
+const MOBILE_INLINE_CATEGORY_COUNT = 5
 
 /**
  * Inline ikonun hangi viewport genişliğinden itibaren görüneceğini belirleyen
@@ -51,6 +55,8 @@ const SLUG_ICON: Record<string, IconSvgElement> = {
   'yat-kiralama': AnchorIcon,
   turlar:         Compass01Icon,
   aktiviteler:    HotAirBalloonFreeIcons,
+  kruvaziyer:      FerryBoatIcon,
+  'hac-umre':      Building03Icon,
   vize:           LegalDocument01Icon,
   'ucak-bileti':  Airplane02Icon,
   'arac-kiralama': Car05Icon,
@@ -65,6 +71,8 @@ const LABEL_TR: Record<string, string> = {
   'yat-kiralama': 'Yat',
   turlar:         'Tur',
   aktiviteler:    'Aktivite',
+  kruvaziyer:      'Kruvaziyer',
+  'hac-umre':      'Hac & Umre',
   vize:           'Vize',
   'ucak-bileti':  'Uçuş',
   'arac-kiralama': 'Araç',
@@ -78,6 +86,8 @@ const LABEL_EN: Record<string, string> = {
   'yat-kiralama': 'Yacht',
   turlar:         'Tour',
   aktiviteler:    'Activity',
+  kruvaziyer:      'Cruise',
+  'hac-umre':      'Hajj',
   vize:           'Visa',
   'ucak-bileti':  'Flight',
   'arac-kiralama': 'Car',
@@ -91,6 +101,8 @@ const LABEL_DE: Record<string, string> = {
   'yat-kiralama': 'Yacht',
   turlar:         'Tour',
   aktiviteler:    'Aktivität',
+  kruvaziyer:      'Kreuzfahrt',
+  'hac-umre':      'Hadsch',
   vize:           'Visum',
   'ucak-bileti':  'Flug',
   'arac-kiralama': 'Auto',
@@ -104,6 +116,8 @@ const LABEL_RU: Record<string, string> = {
   'yat-kiralama': 'Яхта',
   turlar:         'Тур',
   aktiviteler:    'Активность',
+  kruvaziyer:      'Круиз',
+  'hac-umre':      'Хадж',
   vize:           'Виза',
   'ucak-bileti':  'Рейс',
   'arac-kiralama': 'Авто',
@@ -117,6 +131,8 @@ const LABEL_ZH: Record<string, string> = {
   'yat-kiralama': '游艇',
   turlar:         '旅游',
   aktiviteler:    '活动',
+  kruvaziyer:      '邮轮',
+  'hac-umre':      '朝觐',
   vize:           '签证',
   'ucak-bileti':  '航班',
   'arac-kiralama': '租车',
@@ -130,6 +146,8 @@ const LABEL_FR: Record<string, string> = {
   'yat-kiralama': 'Yacht',
   turlar:         'Tour',
   aktiviteler:    'Activité',
+  kruvaziyer:      'Croisière',
+  'hac-umre':      'Hajj',
   vize:           'Visa',
   'ucak-bileti':  'Vol',
   'arac-kiralama': 'Voiture',
@@ -155,6 +173,7 @@ function pickLabel(locale: string, slug: string, fallback: string): string {
 // ─── Hero'da gösterilecek üst kategoriler — statik fallback ──────────────────
 const ALL_NAV_CATEGORIES = CATEGORY_REGISTRY.filter((c) => c.showInNav)
   .sort((a, b) => a.navOrder - b.navOrder)
+const ALL_CATEGORIES = [...CATEGORY_REGISTRY].sort((a, b) => a.navOrder - b.navOrder)
 
 export function HeroMenuCategoryBar({
   locale,
@@ -163,11 +182,14 @@ export function HeroMenuCategoryBar({
   layout = 'default',
   /** Server component'ten gelen aktif slug listesi (sıralı). Verilirse API çağrısı yapılmaz. */
   activeSlugs,
+  /** Mobil modal: ilk 5 kategori satırda, kalanı "Menü" içinde gösterilir. */
+  mobileMoreMenu = false,
 }: {
   locale: string
   className?: string
   layout?: 'default' | 'spread'
   activeSlugs?: string[]
+  mobileMoreMenu?: boolean
 }) {
   const lc = (locale || 'tr').toLowerCase().slice(0, 2)
   const slugOrder =
@@ -180,9 +202,14 @@ export function HeroMenuCategoryBar({
       ? ALL_NAV_CATEGORIES
           .filter((c) => slugOrder.has(c.slug))
           .sort((a, b) => (slugOrder.get(a.slug) ?? a.navOrder) - (slugOrder.get(b.slug) ?? b.navOrder))
-      : ALL_NAV_CATEGORIES
+      : mobileMoreMenu
+        ? ALL_CATEGORIES
+        : ALL_NAV_CATEGORIES
 
   const spread = layout === 'spread'
+  const useMoreMenu = mobileMoreMenu && !spread && cats.length > MOBILE_INLINE_CATEGORY_COUNT
+  const inlineCats = useMoreMenu ? cats.slice(0, MOBILE_INLINE_CATEGORY_COUNT) : cats
+  const menuCats = useMoreMenu ? cats.slice(MOBILE_INLINE_CATEGORY_COUNT) : []
 
   /**
    * `extraClass`: `inlineVisibilityClass(i)` — mobilde ikon sayısı sınırlı kalır.
@@ -228,6 +255,46 @@ export function HeroMenuCategoryBar({
     )
   }
 
+  const moreMenu = menuCats.length ? (
+    <Popover className="relative flex shrink-0 flex-col items-center gap-1.5 sm:gap-2">
+      <PopoverButton className="group/tab flex cursor-pointer flex-col items-center gap-1.5 sm:gap-2">
+        <span
+          className={clsx(
+            'flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11',
+            'border-neutral-200 bg-white text-neutral-400 hover:border-neutral-300 hover:text-neutral-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-500 dark:hover:border-neutral-500',
+          )}
+        >
+          <HugeiconsIcon icon={Menu01Icon} className="size-[1.15rem] sm:size-5" strokeWidth={1.5} />
+        </span>
+        <span className="max-w-[5.5rem] truncate text-center text-xs font-normal text-neutral-500 hover:text-neutral-600 sm:text-sm dark:text-neutral-400 dark:hover:text-neutral-300">
+          Menü
+        </span>
+      </PopoverButton>
+      <PopoverPanel className="absolute end-0 top-full z-50 mt-3 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="grid grid-cols-2 gap-1">
+          {menuCats.map((cat) => {
+            const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
+            const label = pickLabel(lc, cat.slug, lc === 'tr' ? cat.name : cat.namePlural)
+            return (
+              <Link
+                key={cat.slug}
+                href={cat.categoryRoute}
+                className="flex min-w-0 items-center gap-3 rounded-xl px-3 py-2.5 text-start hover:bg-neutral-100 dark:hover:bg-neutral-800"
+              >
+                <span className="flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+                  <HugeiconsIcon icon={Icon} className="size-4.5" strokeWidth={1.5} />
+                </span>
+                <span className="min-w-0 truncate text-sm font-medium text-neutral-700 dark:text-neutral-200">
+                  {label}
+                </span>
+              </Link>
+            )
+          })}
+        </div>
+      </PopoverPanel>
+    </Popover>
+  ) : null
+
   return (
     <div
       className={clsx(
@@ -239,7 +306,8 @@ export function HeroMenuCategoryBar({
         className,
       )}
     >
-      {cats.map((cat, i) => catLink(cat, inlineVisibilityClass(i)))}
+      {inlineCats.map((cat, i) => catLink(cat, useMoreMenu ? 'flex' : inlineVisibilityClass(i)))}
+      {moreMenu}
     </div>
   )
 }

@@ -6,14 +6,18 @@ import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { getMessages } from '@/utils/getT'
 import Form from 'next/form'
+import dynamic from 'next/dynamic'
 import { useParams, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import DatesRangeInput from '../DatesRangeInput'
 import FieldPanelContainer from '../FieldPanelContainer'
 import GuestsInput from '../GuestsInput'
 import LocationInput from '../LocationInput'
 
 const STAY_SEARCH_INTERNAL_PATH = '/oteller/all'
+const DatesRangeInput = dynamic(() => import('../DatesRangeInput'), {
+  ssr: false,
+  loading: () => <div className="h-72 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-700/60" />,
+})
 
 const StaySearchFormMobile = () => {
   const vitrinHref = useVitrinHref()

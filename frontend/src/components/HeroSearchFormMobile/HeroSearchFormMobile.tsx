@@ -8,27 +8,16 @@ import { Cancel01Icon, FilterVerticalIcon, Search01Icon } from '@hugeicons/core-
 import { HugeiconsIcon } from '@hugeicons/react'
 import { stripLocalePrefix } from '@/lib/i18n-config'
 import { getMessages } from '@/utils/getT'
+import { HeroMenuCategoryBar } from '@/components/HeroSearchForm/HeroMenuCategoryBar'
 import clsx from 'clsx'
-import dynamic from 'next/dynamic'
 import { useParams, usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import StaySearchFormMobile from './stay-search-form/StaySearchFormMobile'
 
 /**
- * Modal içeriği — `react-datepicker` zinciri ve kategori barı yalnızca kullanıcı
- * arama çubuğuna dokununca yüklenir. Mobil PSI: ana JS bundle'ından `react-datepicker`
- * + locale-data + ilgili CSS çıkar → TBT ve "Unused JavaScript" düşer.
+ * Modal kabuğu ve ilk "Nereye?" paneli eager yüklenir; ağır datepicker zinciri
+ * StaySearchFormMobile içinde ayrıca bölünür. İlk tıklamada boş modal hissi oluşmaz.
  */
-const StaySearchFormMobile = dynamic(
-  () => import('./stay-search-form/StaySearchFormMobile'),
-  { ssr: false, loading: () => null },
-)
-const HeroMenuCategoryBar = dynamic(
-  () =>
-    import('@/components/HeroSearchForm/HeroMenuCategoryBar').then(
-      (m) => m.HeroMenuCategoryBar,
-    ),
-  { ssr: false, loading: () => null },
-)
 
 interface HeroSearchFormMobileProps {
   className?: string
@@ -147,6 +136,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
                     <HeroMenuCategoryBar
                       locale={locale}
                       layout="default"
+                      mobileMoreMenu
                       className="mb-0 justify-center gap-x-2 gap-y-2 sm:gap-x-6 sm:gap-y-3"
                     />
                   </div>
