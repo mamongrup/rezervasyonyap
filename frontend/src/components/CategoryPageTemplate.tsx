@@ -16,7 +16,6 @@ import {
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
-import HeroSearchForm from '@/components/HeroSearchForm/HeroSearchFormLazy'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
 import type { RegionSliderItem } from '@/components/SectionSliderRegions'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
@@ -275,13 +274,11 @@ export default async function CategoryPageTemplate({
   )
 
   const searchForm = (
-    <HeroSearchDesktopOnly>
-      <HeroSearchForm
-        initTab={category.heroSearchTab ?? 'Stays'}
-        locale={locale}
-        hideVerticalTabs
-      />
-    </HeroSearchDesktopOnly>
+    <HeroSearchDesktopOnly
+      initTab={category.heroSearchTab ?? 'Stays'}
+      locale={locale}
+      hideVerticalTabs
+    />
   )
 
   const heroHeading = heroOverride?.heading ?? configHeading ?? category.heroHeading
