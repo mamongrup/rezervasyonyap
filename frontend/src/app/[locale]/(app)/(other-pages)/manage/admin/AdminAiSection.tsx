@@ -207,7 +207,7 @@ export default function AdminAiSection() {
     setAgentErr(null)
     try {
       const r = await runDueAgentSupervisor(token)
-      if ('due' in r && r.due === false) {
+      if (!('scanned' in r)) {
         setAgentLog((l) => [...l, 'Scheduled kontrol: Supervisor bugün zaten çalışmış, yeni koşu açılmadı.'])
       } else {
         setAgentLog((l) => [
