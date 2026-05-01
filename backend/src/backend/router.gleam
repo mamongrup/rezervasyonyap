@@ -1229,6 +1229,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "agents", "supervisor", "run"] ->
       agent_center_http.run_supervisor(req, ctx)
 
+    http.Post, ["api", "v1", "agents", "supervisor", "run-due"] ->
+      agent_center_http.run_supervisor_due(req, ctx)
+
     http.Get, ["api", "v1", "agents", "recommendations"] ->
       agent_center_http.list_recommendations(req, ctx)
 

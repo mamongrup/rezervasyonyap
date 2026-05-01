@@ -16,6 +16,7 @@ import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 const popup_profile = "special_day_popup_agent"
+const supervisor_profile = "supervisor_agent"
 const special_day_agent = "special_day_popup"
 
 type RecommendationRow {
@@ -226,10 +227,14 @@ fn strip_suffix(s: String, suffix: String) -> String {
   }
 }
 
-fn create_and_run_job(ctx: Context, input_json: String) -> Result(#(String, String), String) {
+fn create_and_run_job(
+  ctx: Context,
+  profile_code: String,
+  input_json: String,
+) -> Result(#(String, String), String) {
   case
     pog.query("insert into ai_jobs (profile_code, input_json, status) values ($1, $2::jsonb, 'queued') returning id::text")
-    |> pog.parameter(pog.text(popup_profile))
+    |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
     |> pog.execute(ctx.db)
@@ -358,7 +363,7 @@ fn insert_recommendation(
       #("instruction", json.string("Yaklaşan özel gün için rezervasyonyap.tr ana sayfasında kullanılacak kısa, güven veren popup metni üret.")),
     ])
     |> json.to_string
-  case create_and_run_job(ctx, input) {
+  case create_and_run_job(ctx, popup_profile, input) {
     Error(e) -> Error(e)
     Ok(#(job_id, ai_text)) -> {
       let payload = popup_payload_json(day, ai_text) |> json.to_string
@@ -379,7 +384,19 @@ fn insert_recommendation(
         Error(_) -> Error("recommendation_insert_failed")
         Ok(ret) ->
           case ret.rows {
-            [id] -> Ok(id)
+            [id] -> {
+              let _ =
+                pog.query(
+                  "insert into ai_agent_decisions (agent_code, run_id, recommendation_id, decision_key, decision_type, risk_level, requires_approval, decision_json) values ($1, $2::uuid, $3::uuid, $4, 'create_popup_recommendation', 'low', true, $5::jsonb)",
+                )
+                |> pog.parameter(pog.text(special_day_agent))
+                |> pog.parameter(pog.text(run_id))
+                |> pog.parameter(pog.text(id))
+                |> pog.parameter(pog.text(target_key))
+                |> pog.parameter(pog.text(payload))
+                |> pog.execute(ctx.db)
+              Ok(id)
+            }
             _ -> Error("recommendation_unexpected_rows")
           }
       }
@@ -404,26 +421,93 @@ fn finish_run(ctx: Context, run_id: String, status: String, summary: String, err
   Nil
 }
 
+fn supervisor_enabled(ctx: Context) -> Result(Bool, String) {
+  case
+    pog.query("select case when status = 'active' and mode <> 'disabled' then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1")
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> Error("supervisor_status_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        ["yes"] -> Ok(True)
+        [_] -> Ok(False)
+        [] -> Error("supervisor_agent_not_found")
+        _ -> Error("unexpected_supervisor_status_rows")
+      }
+  }
+}
+
+fn supervisor_due(ctx: Context) -> Result(Bool, String) {
+  case
+    pog.query("select case when status = 'active' and mode <> 'disabled' and (last_run_at is null or last_run_at < now() - interval '20 hours') then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1")
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> Error("supervisor_due_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        ["yes"] -> Ok(True)
+        [_] -> Ok(False)
+        [] -> Error("supervisor_agent_not_found")
+        _ -> Error("unexpected_supervisor_due_rows")
+      }
+  }
+}
+
+fn create_supervisor_run(ctx: Context, trigger_type: String, input_json: String) -> Result(String, String) {
+  case
+    pog.query("insert into ai_agent_runs (agent_code, trigger_type, status, input_json) values ('supervisor', $1, 'running', $2::jsonb) returning id::text")
+    |> pog.parameter(pog.text(trigger_type))
+    |> pog.parameter(pog.text(input_json))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> Error("agent_run_insert_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [run_id] -> Ok(run_id)
+        _ -> Error("agent_run_unexpected_rows")
+      }
+  }
+}
+
 /// POST /api/v1/agents/supervisor/run — yaklaşan özel günleri takip eder ve popup önerisi üretir.
 pub fn run_supervisor(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
-    Ok(_) -> {
-      case
-        pog.query("insert into ai_agent_runs (agent_code, trigger_type, status, input_json) values ('supervisor', 'manual', 'running', $1::jsonb) returning id::text")
-        |> pog.parameter(pog.text("{\"source\":\"admin_manual\"}"))
-        |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "agent_run_insert_failed")
-        Ok(rret) ->
-          case rret.rows {
-            [run_id] -> run_supervisor_for_run(ctx, run_id)
-            _ -> json_err(500, "agent_run_unexpected_rows")
+    Ok(_) ->
+      case supervisor_enabled(ctx) {
+        Error(e) -> json_err(500, e)
+        Ok(False) -> json_err(409, "supervisor_disabled")
+        Ok(True) ->
+          case create_supervisor_run(ctx, "manual", "{\"source\":\"admin_manual\"}") {
+            Error(e) -> json_err(500, e)
+            Ok(run_id) -> run_supervisor_for_run(ctx, run_id)
           }
       }
-    }
+  }
+}
+
+/// POST /api/v1/agents/supervisor/run-due — cron tarafından güvenle çağrılabilir; günde bir kez çalışır.
+pub fn run_supervisor_due(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case supervisor_due(ctx) {
+        Error(e) -> json_err(500, e)
+        Ok(False) -> {
+          let body = json.object([#("due", json.bool(False))]) |> json.to_string
+          wisp.json_response(body, 200)
+        }
+        Ok(True) ->
+          case create_supervisor_run(ctx, "scheduled", "{\"source\":\"scheduled_due\"}") {
+            Error(e) -> json_err(500, e)
+            Ok(run_id) -> run_supervisor_for_run(ctx, run_id)
+          }
+      }
   }
 }
 
@@ -503,11 +587,34 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
       let results = list.map(ret.rows, fn(day) { insert_recommendation(ctx, run_id, day) })
       let created = list.count(results, fn(r) { result.is_ok(r) })
       let failed = list.count(results, fn(r) { result.is_error(r) })
+      let supervisor_input =
+        json.object([
+          #("task", json.string("supervisor_agent_review")),
+          #("locale", json.string("tr")),
+          #("run_id", json.string(run_id)),
+          #("agent_code", json.string("supervisor")),
+          #("scanned", json.int(list.length(ret.rows))),
+          #("created", json.int(created)),
+          #("failed", json.int(failed)),
+          #("instruction", json.string("Bu agent koşusunu değerlendir. Tekrar üretim, yayın riski ve bir sonraki operasyon adımı için kısa JSON karar özeti üret.")),
+        ])
+        |> json.to_string
+      let supervisor_ai =
+        case create_and_run_job(ctx, supervisor_profile, supervisor_input) {
+          Ok(#(job_id, text)) ->
+            json.object([
+              #("job_id", json.string(job_id)),
+              #("text", json.string(text)),
+            ])
+          Error(e) ->
+            json.object([#("error", json.string(e))])
+        }
       let summary =
         json.object([
           #("scanned", json.int(list.length(ret.rows))),
           #("created", json.int(created)),
           #("failed", json.int(failed)),
+          #("supervisor_ai", supervisor_ai),
         ])
         |> json.to_string
       finish_run(ctx, run_id, "succeeded", summary, "")
@@ -612,17 +719,38 @@ fn patch_recommendation_decoder() -> decode.Decoder(#(String, String)) {
   })
 }
 
-fn apply_popup_recommendation(ctx: Context, recommendation_id: String) -> Result(String, String) {
+fn apply_popup_recommendation(
+  ctx: Context,
+  recommendation_id: String,
+  reviewer_user_id: String,
+  note: String,
+) -> Result(String, String) {
   case
     pog.query(
-      "insert into site_popups (organization_id, popup_type, rules_json, content_key, active)
-       select null, 'campaign', payload_json->'popup', 'agent:' || target_key, true
-       from ai_agent_recommendations
-       where id = $1::uuid and agent_code = $2 and kind = 'popup'
-       returning id::text",
+      "with target as (
+         select id
+         from ai_agent_recommendations
+         where id = $1::uuid
+           and agent_code = $2
+           and kind = 'popup'
+           and status = 'approved'
+           and applied_at is null
+       )
+       update ai_agent_recommendations r
+       set status = 'applied',
+           reviewer_user_id = $3::uuid,
+           review_note = nullif($4, ''),
+           reviewed_at = now(),
+           applied_at = now(),
+           updated_at = now()
+       from target
+       where r.id = target.id
+       returning r.id::text",
     )
     |> pog.parameter(pog.text(string.trim(recommendation_id)))
     |> pog.parameter(pog.text(special_day_agent))
+    |> pog.parameter(pog.text(string.trim(reviewer_user_id)))
+    |> pog.parameter(pog.text(note))
     |> pog.returning(row_dec.col0_string())
     |> pog.execute(ctx.db)
   {
@@ -639,6 +767,7 @@ fn apply_popup_recommendation(ctx: Context, recommendation_id: String) -> Result
 fn patch_recommendation_status(
   ctx: Context,
   recommendation_id: String,
+  reviewer_user_id: String,
   status: String,
   note: String,
 ) -> Result(String, String) {
@@ -647,6 +776,7 @@ fn patch_recommendation_status(
       "update ai_agent_recommendations
        set status = $2,
            review_note = nullif($3, ''),
+           reviewer_user_id = case when $2 in ('approved','rejected','expired') then $4::uuid else reviewer_user_id end,
            reviewed_at = case when $2 in ('approved','rejected','expired','applied') then now() else reviewed_at end,
            applied_at = case when $2 = 'applied' then coalesce(applied_at, now()) else applied_at end,
            updated_at = now()
@@ -656,6 +786,7 @@ fn patch_recommendation_status(
     |> pog.parameter(pog.text(string.trim(recommendation_id)))
     |> pog.parameter(pog.text(status))
     |> pog.parameter(pog.text(note))
+    |> pog.parameter(pog.text(string.trim(reviewer_user_id)))
     |> pog.returning(row_dec.col0_string())
     |> pog.execute(ctx.db)
   {
@@ -674,7 +805,7 @@ pub fn patch_recommendation(req: Request, ctx: Context, recommendation_id: Strin
   use <- wisp.require_method(req, http.Patch)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
-    Ok(_) ->
+    Ok(reviewer_user_id) ->
       case read_body_string(req) {
         Error(_) -> json_err(400, "empty_body")
         Ok(body) ->
@@ -686,26 +817,21 @@ pub fn patch_recommendation(req: Request, ctx: Context, recommendation_id: Strin
                 True ->
                   case status == "applied" {
                     True ->
-                      case apply_popup_recommendation(ctx, recommendation_id) {
+                      case apply_popup_recommendation(ctx, recommendation_id, reviewer_user_id, note) {
                         Error("agent_popup_not_applicable") -> json_err(400, "recommendation_not_applicable")
                         Error(_) -> json_err(500, "agent_popup_apply_failed")
-                        Ok(popup_id) ->
-                          case patch_recommendation_status(ctx, recommendation_id, status, note) {
-                            Error("not_found") -> json_err(404, "not_found")
-                            Error(e) -> json_err(500, e)
-                            Ok(_) -> {
-                              let out =
-                                json.object([
-                                  #("ok", json.bool(True)),
-                                  #("popup_id", json.string(popup_id)),
-                                ])
-                                |> json.to_string
-                              wisp.json_response(out, 200)
-                            }
-                          }
+                        Ok(popup_id) -> {
+                          let out =
+                            json.object([
+                              #("ok", json.bool(True)),
+                              #("popup_id", json.string(popup_id)),
+                            ])
+                            |> json.to_string
+                          wisp.json_response(out, 200)
+                        }
                       }
                     False ->
-                      case patch_recommendation_status(ctx, recommendation_id, status, note) {
+                      case patch_recommendation_status(ctx, recommendation_id, reviewer_user_id, status, note) {
                         Error("not_found") -> json_err(404, "not_found")
                         Error(e) -> json_err(500, e)
                         Ok(_) -> {

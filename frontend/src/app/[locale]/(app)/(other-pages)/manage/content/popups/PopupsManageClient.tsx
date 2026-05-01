@@ -104,6 +104,129 @@ const DEVICE_LABELS: Record<PopupItem['targeting']['device'], string> = {
 
 const DOW = ['Pzr', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt']
 
+type SpecialDayTemplate = {
+  key: string
+  month?: number
+  day?: number
+  datesByYear?: Record<number, { month: number; day: number }>
+  name: string
+  icon: string
+  accentColor: string
+  title: string
+  body: string
+  ctaText: string
+  ctaHref: string
+}
+
+const SPECIAL_DAY_TEMPLATES: SpecialDayTemplate[] = [
+  {
+    key: '23-nisan',
+    month: 4,
+    day: 23,
+    name: '23 Nisan',
+    icon: '🇹🇷',
+    accentColor: '#ef4444',
+    title: '23 Nisan Coşkusuyla Keşfe Çıkın',
+    body: 'Ailenizle birlikte çocukların neşesine yakışan kısa kaçamaklar, şehir otelleri ve keyifli rota önerileri sizi bekliyor.',
+    ctaText: 'Aile Tatillerini İncele',
+    ctaHref: '/oteller',
+  },
+  {
+    key: '1-mayis',
+    month: 5,
+    day: 1,
+    name: '1 Mayıs',
+    icon: '🌿',
+    accentColor: '#16a34a',
+    title: '1 Mayıs Tatilini Kısa Bir Kaçamağa Çevirin',
+    body: 'Baharın en güzel günlerinde dinlenmek, yeni yerler görmek ve şehirden uzaklaşmak için seçili konaklama fırsatlarını keşfedin.',
+    ctaText: 'Fırsatları Gör',
+    ctaHref: '/oteller',
+  },
+  {
+    key: 'ramazan-bayrami',
+    datesByYear: {
+      2026: { month: 3, day: 20 },
+      2027: { month: 3, day: 9 },
+      2028: { month: 2, day: 26 },
+      2029: { month: 2, day: 14 },
+      2030: { month: 2, day: 4 },
+    },
+    name: 'Ramazan Bayramı',
+    icon: '🌙',
+    accentColor: '#0f766e',
+    title: 'Bayram Tatilinde Sevdiklerinizle Güzel Bir Mola',
+    body: 'Ramazan Bayramı için aileye uygun oteller, sakin rotalar ve kısa tatil seçeneklerini erken planlayın.',
+    ctaText: 'Bayram Fırsatları',
+    ctaHref: '/oteller',
+  },
+  {
+    key: 'kurban-bayrami',
+    datesByYear: {
+      2026: { month: 5, day: 27 },
+      2027: { month: 5, day: 17 },
+      2028: { month: 5, day: 5 },
+      2029: { month: 4, day: 24 },
+      2030: { month: 4, day: 13 },
+    },
+    name: 'Kurban Bayramı',
+    icon: '🕌',
+    accentColor: '#92400e',
+    title: 'Kurban Bayramı İçin Tatil Planınızı Şimdiden Yapın',
+    body: 'Uzun bayram tatilini deniz, doğa veya kültür rotalarıyla değerlendirmek için öne çıkan seyahat seçeneklerini inceleyin.',
+    ctaText: 'Bayram Tatillerini İncele',
+    ctaHref: '/oteller',
+  },
+  {
+    key: '19-mayis',
+    month: 5,
+    day: 19,
+    name: '19 Mayıs',
+    icon: '🇹🇷',
+    accentColor: '#2563eb',
+    title: '19 Mayıs Ruhuyla Yeni Rotalara',
+    body: 'Gençlik ve enerji dolu bir tatil için deniz, doğa ve şehir kaçamaklarını bir araya getiren önerilerimize göz atın.',
+    ctaText: 'Rotaları Keşfet',
+    ctaHref: '/turlar',
+  },
+  {
+    key: '30-agustos',
+    month: 8,
+    day: 30,
+    name: '30 Ağustos',
+    icon: '🇹🇷',
+    accentColor: '#dc2626',
+    title: 'Zafer Bayramı’nda Unutulmaz Bir Mola',
+    body: 'Yazın son günlerinde sahil otelleri, kültür rotaları ve kısa tatil seçenekleriyle Zafer Bayramı’nı keyifli bir seyahate dönüştürün.',
+    ctaText: 'Tatil Seçenekleri',
+    ctaHref: '/oteller',
+  },
+  {
+    key: '29-ekim',
+    month: 10,
+    day: 29,
+    name: '29 Ekim',
+    icon: '🇹🇷',
+    accentColor: '#b91c1c',
+    title: 'Cumhuriyet Bayramı’na Özel Seyahat Fikirleri',
+    body: 'Cumhuriyet coşkusunu yeni şehirler, kültür durakları ve keyifli konaklama alternatifleriyle yaşayın.',
+    ctaText: 'Gezi Fikirlerine Bak',
+    ctaHref: '/blog',
+  },
+  {
+    key: 'yilbasi',
+    month: 12,
+    day: 31,
+    name: 'Yılbaşı',
+    icon: '✨',
+    accentColor: '#7c3aed',
+    title: 'Yeni Yıla Özel Tatil Planları',
+    body: 'Yeni yılı şehir otelleri, doğa kaçamakları ve özel kutlama rotalarıyla karşılamak için erken fırsatları inceleyin.',
+    ctaText: 'Yılbaşı Fırsatları',
+    ctaHref: '/oteller',
+  },
+]
+
 // ─── Locale text helper ─────────────────────────────────────────────────────
 
 function pick(field: LocalizedText | undefined, locale: string, primary: string): string {
@@ -145,6 +268,75 @@ function newPopup(primaryLocale: string, idx: number): PopupItem {
     },
     idx,
   )
+}
+
+function isoAtLocalNoon(year: number, month: number, day: number): string {
+  return new Date(year, month - 1, day, 12, 0, 0).toISOString()
+}
+
+function specialDayDateForYear(
+  template: SpecialDayTemplate,
+  year: number,
+): { month: number; day: number } | null {
+  const variableDate = template.datesByYear?.[year]
+  if (variableDate) return variableDate
+  if (template.month && template.day) return { month: template.month, day: template.day }
+  return null
+}
+
+function specialDayPopup(
+  template: SpecialDayTemplate,
+  primaryLocale: string,
+  idx: number,
+  year: number,
+): PopupItem {
+  const date = specialDayDateForYear(template, year) ?? { month: 1, day: 1 }
+  const startAt = isoAtLocalNoon(year, date.month, Math.max(1, date.day - 3))
+  const endAt = isoAtLocalNoon(year, date.month, date.day + 1)
+
+  return sanitizePopupItem(
+    {
+      id: `special-day-${template.key}-${year}`,
+      enabled: true,
+      name: `${template.name} ${year} - AI özel gün popup`,
+      preset: 'special_day',
+      layout: 'modal_center',
+      priority: 90,
+      eyebrow: { [primaryLocale]: template.name },
+      title: { [primaryLocale]: template.title },
+      body: { [primaryLocale]: template.body },
+      ctaText: { [primaryLocale]: template.ctaText },
+      ctaHref: template.ctaHref,
+      ctaText2: { [primaryLocale]: 'Daha Sonra' },
+      ctaHref2: '',
+      imageUrl: '',
+      mobileImageUrl: '',
+      accentColor: template.accentColor,
+      theme: 'light',
+      align: 'center',
+      overlay: 55,
+      icon: template.icon,
+      cards: [],
+      targeting: { pages: ['homepage'], locales: ['*'], device: 'all', audience: 'all' },
+      schedule: { startAt, endAt, daysOfWeek: [], hourStart: '', hourEnd: '' },
+      trigger: { type: 'delay', delayMs: 2200, scrollPercent: 40 },
+      frequency: { mode: 'once_per_visitor', everyNDays: 14 },
+      allowDismissForever: true,
+    },
+    idx,
+  )
+}
+
+function nextSpecialDayYear(template: SpecialDayTemplate, now: Date): number {
+  const currentYear = now.getFullYear()
+  const currentDate = specialDayDateForYear(template, currentYear)
+  if (!currentDate) return currentYear + 1
+
+  const end = new Date(currentYear, currentDate.month - 1, currentDate.day + 1, 23, 59, 59)
+  if (now.getTime() <= end.getTime()) return currentYear
+
+  const nextYear = currentYear + 1
+  return specialDayDateForYear(template, nextYear) ? nextYear : currentYear
 }
 
 // ─── ImageField (re-used pattern) ───────────────────────────────────────────
@@ -1265,6 +1457,7 @@ export default function PopupsManageClient() {
   // Üst toolbar — toplu AI çevirisi için hedef dil seçimi (primary hariç)
   const [bulkTargetLocale, setBulkTargetLocale] = useState<string>('')
   const [bulkTranslating, setBulkTranslating] = useState(false)
+  const [generatingSpecialDays, setGeneratingSpecialDays] = useState(false)
 
   useEffect(() => {
     setEditLocale((cur) => (allLocales.some((l) => l.code === cur) ? cur : primaryLocale))
@@ -1344,6 +1537,71 @@ export default function PopupsManageClient() {
   const addPopup = useCallback(() => {
     setConfig((c) => ({ ...c, popups: [...c.popups, newPopup(primaryLocale, c.popups.length)] }))
   }, [primaryLocale])
+
+  const generateSpecialDayPopups = useCallback(async () => {
+    setGeneratingSpecialDays(true)
+    setStatus(null)
+
+    try {
+      const now = new Date()
+      let aiUpdated = 0
+      let added = 0
+      let refreshed = 0
+      const existingIds = new Set(config.popups.map((p) => p.id))
+      const generated: PopupItem[] = []
+
+      for (const template of SPECIAL_DAY_TEMPLATES) {
+        const year = nextSpecialDayYear(template, now)
+        const draft = specialDayPopup(template, primaryLocale, config.popups.length + generated.length, year)
+
+        try {
+          const [title, body] = await Promise.all([
+            callAiTranslate({
+              text: draft.title?.[primaryLocale] ?? '',
+              context: 'title',
+              sourceLocale: primaryLocale,
+              targetLocale: primaryLocale,
+            }),
+            callAiTranslate({
+              text: draft.body?.[primaryLocale] ?? '',
+              context: 'excerpt',
+              sourceLocale: primaryLocale,
+              targetLocale: primaryLocale,
+            }),
+          ])
+          if (title) {
+            draft.title = { ...(draft.title ?? {}), [primaryLocale]: title }
+            aiUpdated += 1
+          }
+          if (body) {
+            draft.body = { ...(draft.body ?? {}), [primaryLocale]: body }
+            aiUpdated += 1
+          }
+        } catch {
+          // AI ayarı yoksa veya sağlayıcı cevap vermezse şablon metinleriyle devam eder.
+        }
+
+        if (existingIds.has(draft.id)) refreshed += 1
+        else added += 1
+        generated.push(draft)
+      }
+
+      setConfig((c) => {
+        const generatedById = new Map(generated.map((p) => [p.id, p]))
+        const kept = c.popups.filter((p) => !generatedById.has(p.id))
+        return { ...c, popups: [...generated, ...kept] }
+      })
+      setStatus({
+        type: 'success',
+        msg: `${added} özel gün popup'ı eklendi, ${refreshed} tanesi güncellendi.${aiUpdated > 0 ? ` AI ${aiUpdated} alanı iyileştirdi.` : ' AI kapalıysa hazır metinler kullanıldı.'} Kaydetmeyi unutmayın.`,
+      })
+    } catch {
+      setStatus({ type: 'error', msg: 'Özel gün popup’ları oluşturulamadı.' })
+    } finally {
+      setGeneratingSpecialDays(false)
+      setTimeout(() => setStatus(null), 7000)
+    }
+  }, [config.popups, primaryLocale])
 
   // Translate all text fields of a popup (incl. cards) primary → editLocale
   const translateAll = useCallback(
@@ -1647,13 +1905,29 @@ export default function PopupsManageClient() {
       <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'space-y-6 pt-4 sm:pt-6')}>
         {/* Yeni popup + Doluluk rozeti */}
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={addPopup}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-blue-400 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30"
-          >
-            <Plus className="h-4 w-4" /> Yeni Popup
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={addPopup}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-dashed border-blue-400 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-950/30"
+            >
+              <Plus className="h-4 w-4" /> Yeni Popup
+            </button>
+            <button
+              type="button"
+              onClick={() => void generateSpecialDayPopups()}
+              disabled={generatingSpecialDays || loading || saving}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-3 py-2 text-sm font-bold text-neutral-900 shadow-sm transition hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-amber-500 dark:hover:bg-amber-400"
+              title="23 Nisan, 1 Mayıs, milli bayramlar ve yılbaşı için tarihli popup oluşturur"
+            >
+              {generatingSpecialDays ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              AI Özel Gün Popup'ları
+            </button>
+          </div>
 
           {config.popups.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
@@ -1712,13 +1986,28 @@ export default function PopupsManageClient() {
             "Yeni Popup" düğmesi ile ilk kampanyanı oluştur — örneğin yaz kampanyası tanıtımı veya
             yılbaşı kutlaması.
           </p>
-          <button
-            type="button"
-            onClick={addPopup}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-          >
-            <Plus className="h-4 w-4" /> İlk popup'ı oluştur
-          </button>
+          <div className="mt-4 flex flex-wrap justify-center gap-2">
+            <button
+              type="button"
+              onClick={addPopup}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <Plus className="h-4 w-4" /> İlk popup'ı oluştur
+            </button>
+            <button
+              type="button"
+              onClick={() => void generateSpecialDayPopups()}
+              disabled={generatingSpecialDays || loading || saving}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-amber-400 px-4 py-2 text-sm font-bold text-neutral-900 hover:bg-amber-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {generatingSpecialDays ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
+              Özel günleri otomatik oluştur
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">

@@ -19,6 +19,7 @@ import {
   queueAllDistrictIdeas,
   queueAllRegionContent,
   resetNotFoundCovers,
+  runDueAgentSupervisor,
   runAgentSupervisor,
   saveDistrictCover,
   saveDistrictPlaces,
@@ -34,6 +35,8 @@ import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
+import PopupView from '@/components/popups/PopupView'
+import type { PopupItem } from '@/lib/popups-types'
 import clsx from 'clsx'
 import { Activity, Bot, Cpu, Info, Layers, MapPin, RefreshCw, Search } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
@@ -46,6 +49,16 @@ type AiJobListItem = {
   status: string
   error: string | null
   created_at: string
+}
+
+function popupFromAgentRecommendation(rec: AgentRecommendation): PopupItem | null {
+  try {
+    const parsed = JSON.parse(rec.payload_json) as { popup?: unknown }
+    if (!parsed.popup || typeof parsed.popup !== 'object') return null
+    return parsed.popup as PopupItem
+  } catch {
+    return null
+  }
 }
 
 function jobStatusBadge(status: string) {
@@ -77,6 +90,7 @@ export default function AdminAiSection() {
   const [agentRunning, setAgentRunning] = useState(false)
   const [agentErr, setAgentErr] = useState<string | null>(null)
   const [agentLog, setAgentLog] = useState<string[]>([])
+  const [agentPreviewPopup, setAgentPreviewPopup] = useState<PopupItem | null>(null)
 
   // İlçe gezi fikirleri — DeepSeek AI toplu üretimi
   const [districtStats, setDistrictStats] = useState<DistrictIdeasStats | null>(null)
@@ -186,6 +200,30 @@ export default function AdminAiSection() {
     }
   }
 
+  async function onRunDueSupervisorAgent() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setAgentRunning(true)
+    setAgentErr(null)
+    try {
+      const r = await runDueAgentSupervisor(token)
+      if ('due' in r && r.due === false) {
+        setAgentLog((l) => [...l, 'Scheduled kontrol: Supervisor bugün zaten çalışmış, yeni koşu açılmadı.'])
+      } else {
+        setAgentLog((l) => [
+          ...l,
+          `Scheduled kontrol çalıştı: ${r.scanned} özel gün tarandı, ${r.created} öneri oluşturuldu, ${r.failed} hata.`,
+        ])
+      }
+      await loadAgentCenter()
+      await refresh()
+    } catch (e) {
+      setAgentErr(e instanceof Error ? e.message : 'agent_supervisor_due_failed')
+    } finally {
+      setAgentRunning(false)
+    }
+  }
+
   async function onRejectAgentRecommendation(id: string) {
     const token = getStoredAuthToken()
     if (!token) return
@@ -215,13 +253,33 @@ export default function AdminAiSection() {
     if (!token) return
     setAgentErr(null)
     try {
-      const parsed = JSON.parse(rec.payload_json) as { popup?: unknown }
-      if (!parsed.popup || typeof parsed.popup !== 'object') {
+      const popup = popupFromAgentRecommendation(rec)
+      if (!popup) {
         throw new Error('agent_payload_popup_missing')
       }
 
-      const result = await patchAgentRecommendation(token, rec.id, 'applied', 'Admin onayıyla site_popups kaydına uygulandı.')
-      setAgentLog((l) => [...l, `${rec.title} canlı popup kayıtlarına uygulandı${result.popup_id ? ` (#${result.popup_id.slice(0, 8)})` : ''}.`])
+      const currentRes = await fetch('/api/popups', { credentials: 'include' })
+      const currentData = (await currentRes.json()) as {
+        ok?: boolean
+        config?: { popups?: PopupItem[]; updatedAt?: string }
+      }
+      const currentPopups = Array.isArray(currentData.config?.popups)
+        ? currentData.config.popups
+        : []
+      const nextPopups = [
+        popup,
+        ...currentPopups.filter((p) => p.id !== popup.id),
+      ]
+      const saveRes = await fetch('/api/popups', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ popups: nextPopups }),
+      })
+      if (!saveRes.ok) throw new Error(`popup_config_save_${saveRes.status}`)
+
+      await patchAgentRecommendation(token, rec.id, 'applied', 'Admin onayıyla vitrin popup config kaydına uygulandı.')
+      setAgentLog((l) => [...l, `${rec.title} vitrin popup config'e uygulandı.`])
       await loadAgentCenter()
     } catch (e) {
       setAgentErr(e instanceof Error ? e.message : 'agent_popup_apply_failed')
@@ -770,6 +828,15 @@ export default function AdminAiSection() {
             <RefreshCw className="h-4 w-4" />
             Agent Durumunu Yenile
           </button>
+          <button
+            type="button"
+            disabled={agentRunning}
+            onClick={() => void onRunDueSupervisorAgent()}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200"
+            title="Cron ile aynı mantık: son 20 saatte çalışmadıysa çalışır."
+          >
+            Scheduled Kontrolü Test Et
+          </button>
         </div>
 
         {agentLog.length > 0 ? (
@@ -805,15 +872,9 @@ export default function AdminAiSection() {
               {agentRecommendations.slice(0, 8).map((rec) => {
                 let popupTitle = ''
                 let popupBody = ''
-                try {
-                  const payload = JSON.parse(rec.payload_json) as {
-                    popup?: { title?: Record<string, string>; body?: Record<string, string> }
-                  }
-                  popupTitle = payload.popup?.title?.tr ?? ''
-                  popupBody = payload.popup?.body?.tr ?? ''
-                } catch {
-                  // payload önizlemesi opsiyonel
-                }
+                const popup = popupFromAgentRecommendation(rec)
+                popupTitle = popup?.title?.tr ?? ''
+                popupBody = popup?.body?.tr ?? ''
                 return (
                   <div key={rec.id} className="rounded-xl border border-neutral-100 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-950/40">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -834,6 +895,15 @@ export default function AdminAiSection() {
                         ) : null}
                       </div>
                       <div className="flex shrink-0 flex-wrap gap-2">
+                        {popup ? (
+                          <button
+                            type="button"
+                            onClick={() => setAgentPreviewPopup(popup)}
+                            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                          >
+                            Önizle
+                          </button>
+                        ) : null}
                         {rec.status === 'pending' ? (
                           <button
                             type="button"
@@ -843,7 +913,7 @@ export default function AdminAiSection() {
                             Onayla
                           </button>
                         ) : null}
-                        {rec.status === 'pending' || rec.status === 'approved' ? (
+                        {rec.status === 'approved' ? (
                           <button
                             type="button"
                             onClick={() => void onApplyPopupRecommendation(rec)}
@@ -870,6 +940,15 @@ export default function AdminAiSection() {
           )}
         </div>
       </div>
+
+      {agentPreviewPopup ? (
+        <PopupView
+          popup={agentPreviewPopup}
+          locale="tr"
+          onClose={() => setAgentPreviewPopup(null)}
+          onDismissForever={() => setAgentPreviewPopup(null)}
+        />
+      ) : null}
 
       {/* İlçe Gezi Fikirleri — toplu AI üretimi */}
       <div className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm dark:border-emerald-900 dark:bg-neutral-900/40">

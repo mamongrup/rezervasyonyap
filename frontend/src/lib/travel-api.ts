@@ -9156,6 +9156,23 @@ export async function runAgentSupervisor(token: string): Promise<RunSupervisorRe
   return json(res)
 }
 
+export async function runDueAgentSupervisor(
+  token: string,
+): Promise<RunSupervisorResult | { due: false }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/supervisor/run-due`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agent_supervisor_due_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function listAgentRecommendations(
   token: string,
 ): Promise<{ recommendations: AgentRecommendation[] }> {
