@@ -1,3 +1,5 @@
+@reference "./tailwind.css";
+
 :global(.react-datepicker) {
   @apply relative grid w-full grid-cols-1 gap-10;
 }
