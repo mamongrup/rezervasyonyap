@@ -9,15 +9,12 @@ import type { LucideIcon } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { RefObject, useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const DEFAULT_ACCOUNT_PATH = '/account'
 import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
-import { useIntersection } from 'react-use'
 import { useAside } from './aside'
 import HeroSearchFormMobile from './HeroSearchFormMobile/HeroSearchFormMobile'
-
-const SCROLL_THRESHOLD = 80
 
 function FooterBarIcon({
   lucide,
@@ -37,9 +34,6 @@ function FooterBarIcon({
 }
 
 const FooterQuickNavigation = () => {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const rafId = useRef<number | null>(null)
-  const lastScrollY = useRef<number>(0)
   const pathname = usePathname()
   const { locale } = stripLocalePrefix(pathname)
   const loc = locale ?? defaultLocale
@@ -64,43 +58,6 @@ const FooterQuickNavigation = () => {
       cancelled = true
     }
   }, [])
-
-  const intersection = useIntersection(containerRef as RefObject<HTMLDivElement>, {
-    root: null,
-    rootMargin: '0px',
-    threshold: 1,
-  })
-  const isInViewport = intersection && intersection.intersectionRatio >= 1
-
-  useEffect(() => {
-    lastScrollY.current = window.pageYOffset
-  }, [isInViewport])
-
-  const showHideHeaderMenu = useCallback(() => {
-    if (!containerRef?.current) return
-    const currentScrollPos = window.pageYOffset
-
-    if (currentScrollPos > lastScrollY.current) {
-      if (isInViewport && currentScrollPos - lastScrollY.current < SCROLL_THRESHOLD) return
-      containerRef.current.classList.add('translate-y-[calc(100%+1.5rem)]')
-    } else {
-      if (!isInViewport && lastScrollY.current - currentScrollPos < SCROLL_THRESHOLD) return
-      containerRef.current.classList.remove('translate-y-[calc(100%+1.5rem)]')
-    }
-    lastScrollY.current = currentScrollPos
-  }, [isInViewport])
-
-  const handleEventScroll = useCallback(() => {
-    rafId.current = window.requestAnimationFrame(showHideHeaderMenu)
-  }, [showHideHeaderMenu])
-
-  useEffect(() => {
-    window.addEventListener('scroll', handleEventScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleEventScroll)
-      if (rafId.current) window.cancelAnimationFrame(rafId.current)
-    }
-  }, [handleEventScroll])
 
   function openChat() {
     window.dispatchEvent(new CustomEvent('open-chat'))
@@ -178,7 +135,6 @@ const FooterQuickNavigation = () => {
   return (
     <>
       <div
-        ref={containerRef}
         className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-6 bg-white/90 px-2.5 py-4 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
       >
         {/*
