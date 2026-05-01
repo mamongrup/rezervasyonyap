@@ -132,112 +132,76 @@ const FooterQuickNavigation = () => {
     },
   ]
 
+  const navItemClass =
+    'flex min-w-0 max-w-full flex-col items-center justify-end gap-0.5 px-0.5 py-1 text-neutral-500 dark:text-neutral-300'
+
+  function renderSideItem(item: (typeof sideItems)[0] | (typeof sideItemsRight)[0]) {
+    const itemHref = 'link' in item ? href(item.link!) : ''
+    const isActive = 'link' in item && item.link ? pathname === itemHref : false
+    const activeCls = isActive && 'text-primary-600 dark:text-primary-400'
+
+    if ('onClick' in item && item.onClick) {
+      return (
+        <button
+          type="button"
+          key={item.name}
+          onClick={item.onClick}
+          aria-label={item.name}
+          className={clsx(navItemClass, activeCls)}
+        >
+          <FooterBarIcon
+            lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
+            huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
+          />
+          <span className="w-full truncate text-center text-[10px] leading-none">{item.name}</span>
+        </button>
+      )
+    }
+
+    return (
+      <Link
+        key={item.name}
+        href={itemHref}
+        aria-label={item.name}
+        className={clsx(navItemClass, activeCls)}
+      >
+        <FooterBarIcon
+          lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
+          huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
+        />
+        <span className="w-full truncate text-center text-[10px] leading-none">{item.name}</span>
+      </Link>
+    )
+  }
+
   return (
     <>
       <div
         ref={containerRef}
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-4 bg-white/90 px-2.5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
+        className="fixed inset-x-0 bottom-0 z-30 bg-white/90 px-2 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
       >
-        <div className="mx-auto flex w-full max-w-lg items-end justify-around text-center">
-          {/* Sol 2 ikon */}
-          {sideItems.map((item) => {
-            const itemHref = 'link' in item ? href(item.link!) : ''
-            const isActive = 'link' in item && item.link ? pathname === itemHref : false
-
-            if ('onClick' in item && item.onClick) {
-              return (
-                <button
-                  key={item.name}
-                  onClick={item.onClick}
-                  aria-label={item.name}
-                  className={clsx(
-                    '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
-                    isActive && 'text-primary-600 dark:text-primary-400',
-                  )}
-                >
-                  <FooterBarIcon
-                    lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
-                    huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
-                  />
-                  <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
-                </button>
-              )
-            }
-
-            return (
-              <Link
-                key={item.name}
-                href={itemHref}
-                aria-label={item.name}
-                className={clsx(
-                  '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
-                  isActive && 'text-primary-600 dark:text-primary-400',
-                )}
-              >
-                <FooterBarIcon
-                  lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
-                  huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
-                />
-                <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
-              </Link>
-            )
-          })}
-
-          {/* Orta: asistan — Chisfis’e yakın, daha az taşma */}
-          <button
-            onClick={openChat}
-            aria-label={bn.assistantAria}
-            className="relative -mt-3 flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white dark:ring-neutral-950 hover:bg-primary-700 transition-colors"
-          >
-            <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
-              <path d="M12 2C6.477 2 2 6.164 2 11.299c0 2.862 1.388 5.415 3.567 7.12L4.5 22l4.29-2.123A10.854 10.854 0 0012 20.598c5.523 0 10-4.164 10-9.299S17.523 2 12 2z" />
-            </svg>
-          </button>
-
-          {/* Sağ 2 ikon */}
-          {sideItemsRight.map((item) => {
-            const itemHref = 'link' in item ? href(item.link!) : ''
-            const isActive = 'link' in item && item.link ? pathname === itemHref : false
-
-            if ('onClick' in item && item.onClick) {
-              return (
-                <button
-                  key={item.name}
-                  onClick={item.onClick}
-                  aria-label={item.name}
-                  className={clsx(
-                    '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
-                    isActive && 'text-primary-600 dark:text-primary-400',
-                  )}
-                >
-                  <FooterBarIcon
-                    lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
-                    huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
-                  />
-                  <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
-                </button>
-              )
-            }
-
-            return (
-              <Link
-                key={item.name}
-                href={itemHref}
-                aria-label={item.name}
-                className={clsx(
-                  '-mx-1 flex min-w-0 flex-col items-center gap-0.5 px-2 py-1 text-neutral-500 dark:text-neutral-300',
-                  isActive && 'text-primary-600 dark:text-primary-400',
-                )}
-              >
-                <FooterBarIcon
-                  lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
-                  huge={'huge' in item ? (item as { huge?: IconSvgElement }).huge : undefined}
-                />
-                <span className="max-w-[4.5rem] truncate text-[10px] leading-none">{item.name}</span>
-              </Link>
-            )
-          })}
-        </div>
+        {/* 5 eşit sütun: justify-around yerine grid — dar ekranda sağa taşma önlenir */}
+        <nav
+          className="mx-auto grid w-full min-w-0 max-w-full grid-cols-5 items-end justify-items-center gap-x-0"
+          role="navigation"
+        >
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[0])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[1])}</div>
+          <div className="flex w-full min-w-0 justify-center pb-0.5">
+            <button
+              type="button"
+              onClick={openChat}
+              aria-label={bn.assistantAria}
+              className="relative -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 dark:ring-neutral-950"
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+                <path d="M12 2C6.477 2 2 6.164 2 11.299c0 2.862 1.388 5.415 3.567 7.12L4.5 22l4.29-2.123A10.854 10.854 0 0012 20.598c5.523 0 10-4.164 10-9.299S17.523 2 12 2z" />
+              </svg>
+            </button>
+          </div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItemsRight[0])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItemsRight[1])}</div>
+        </nav>
       </div>
 
       {/* Masaüstü ile aynı tam arama formu — mobil bottom nav'dan açılır */}
