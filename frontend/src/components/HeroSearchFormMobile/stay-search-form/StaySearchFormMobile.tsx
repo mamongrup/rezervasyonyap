@@ -67,7 +67,11 @@ const StaySearchFormMobile = () => {
     : m.HeroSearchForm['Add guests']
 
   return (
-    <Form id="form-hero-search-form-mobile" action={handleFormSubmit} className="flex w-full flex-col gap-y-3">
+    <Form
+      id="form-hero-search-form-mobile"
+      action={handleFormSubmit}
+      className="flex w-full min-w-0 max-w-full flex-col gap-y-3"
+    >
       {/*  LOCATION */}
       <FieldPanelContainer
         isActive={fieldNameShow === 'location'}
