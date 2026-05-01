@@ -116,10 +116,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
         {/* Chisfis: fixed shell → flex h-full → DialogPanel flex-1; yatay taşma yok */}
         <div className="fixed inset-0 z-max overflow-x-hidden overflow-y-hidden bg-neutral-100 dark:bg-neutral-900">
           <div className="flex h-full w-full min-w-0 max-w-[100dvw]">
-            <DialogPanel
-              transition
-              className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden transition data-closed:translate-y-6 data-closed:opacity-0 motion-reduce:data-closed:translate-y-0"
-            >
+            <DialogPanel className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
               {showModal ? (
                 <div
                   key={contentKey}
