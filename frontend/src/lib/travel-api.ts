@@ -8079,14 +8079,18 @@ export async function patchListingBasics(
   token: string,
   listingId: string,
   body: ListingBasicsPatch,
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${listingId}/basics`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/basics${catalogListingQs(params)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `listing_basics_patch_${res.status}`)
@@ -8104,12 +8108,16 @@ export interface ListingOwnerContact {
 export async function getListingOwnerContact(
   token: string,
   listingId: string,
+  params?: { organizationId?: string },
 ): Promise<ListingOwnerContact> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${listingId}/owner-contact`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/owner-contact${catalogListingQs(params)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
   if (!res.ok) throw new Error(`owner_contact_get_${res.status}`)
   return json(res)
 }
@@ -8164,12 +8172,16 @@ export interface ListingMeta {
 export async function getListingMeta(
   token: string,
   listingId: string,
+  params?: { organizationId?: string },
 ): Promise<ListingMeta> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${listingId}/meta`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/meta${catalogListingQs(params)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
   if (!res.ok) throw new Error(`listing_meta_get_${res.status}`)
   return json(res)
 }
@@ -8178,14 +8190,18 @@ export async function putListingMeta(
   token: string,
   listingId: string,
   body: ListingMeta,
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${listingId}/meta`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/meta${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `listing_meta_put_${res.status}`)

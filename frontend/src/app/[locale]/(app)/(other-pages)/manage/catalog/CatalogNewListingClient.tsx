@@ -1013,15 +1013,20 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       basicsBody.share_to_social = shareToSocial
       basicsBody.allow_ai_caption = allowAiCaption
       basicsBody.allow_sub_min_stay_gap_booking = allowSubMinStayGap
-      await patchListingBasics(token, lid, basicsBody).catch(() => {})
+      await patchListingBasics(token, lid, basicsBody, orgParam).catch(() => {})
 
       // 5. İlan sahibi
       if (ownerName.trim() || ownerPhone.trim() || ownerEmail.trim()) {
-        await putListingOwnerContact(token, lid, {
-          contact_name: ownerName.trim() || undefined,
-          contact_phone: ownerPhone.trim() || undefined,
-          contact_email: ownerEmail.trim() || undefined,
-        }).catch(() => {})
+        await putListingOwnerContact(
+          token,
+          lid,
+          {
+            contact_name: ownerName.trim() || undefined,
+            contact_phone: ownerPhone.trim() || undefined,
+            contact_email: ownerEmail.trim() || undefined,
+          },
+          orgParam,
+        ).catch(() => {})
       }
 
       // 6. Meta alanlar
@@ -1048,7 +1053,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       if (isVilla && ownerResidenceAddress.trim())
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
       if (Object.keys(metaBody).length > 0) {
-        await putListingMeta(token, lid, metaBody).catch(() => {})
+        await putListingMeta(token, lid, metaBody, orgParam).catch(() => {})
       }
       if (lat.trim() && lng.trim()) {
         await computeListingNearbyPois(token, lid).catch(() => {})

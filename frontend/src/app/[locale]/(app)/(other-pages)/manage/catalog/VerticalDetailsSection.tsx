@@ -28,7 +28,7 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -132,7 +132,11 @@ const VILLA_RULES = [
   { code: 'id_required', label: 'Kimlik Zorunlu' },
 ]
 
-function VillaSection({ listingId }: { listingId: string }) {
+function VillaSection({ listingId, organizationId }: { listingId: string; organizationId?: string }) {
+  const orgQ = useMemo(
+    () => (organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined),
+    [organizationId],
+  )
   const [themes, setThemes] = useState<string[]>([])
   const [rules, setRules] = useState<string[]>([])
   const [icalManaged, setIcalManaged] = useState(false)
@@ -155,13 +159,13 @@ function VillaSection({ listingId }: { listingId: string }) {
       .catch(() => {})
     const token = getStoredAuthToken()
     if (token) {
-      void getListingMeta(token, listingId)
+      void getListingMeta(token, listingId, orgQ)
         .then((m) => {
           if (m.property_type?.trim()) setPropertyType(m.property_type.trim())
         })
         .catch(() => {})
     }
-  }, [listingId])
+  }, [listingId, orgQ])
 
   function toggle(list: string[], setList: (v: string[]) => void, code: string) {
     setList(list.includes(code) ? list.filter((c) => c !== code) : [...list, code])
@@ -172,11 +176,11 @@ function VillaSection({ listingId }: { listingId: string }) {
     try {
       const token = getStoredAuthToken()
       if (!token) throw new Error('Oturum bulunamadı')
-      const prev = await getListingMeta(token, listingId)
+      const prev = await getListingMeta(token, listingId, orgQ)
       const next: ListingMeta = { ...prev }
       if (propertyType.trim()) next.property_type = propertyType.trim()
       else delete next.property_type
-      await putListingMeta(token, listingId, next)
+      await putListingMeta(token, listingId, next, orgQ)
       await patchVerticalHolidayHome(listingId, { theme_codes: themes, rule_codes: rules, ical_managed: icalManaged })
       setMsg({ ok: true, text: 'Villa özellikleri kaydedildi.' })
     } catch (e) {
@@ -1573,13 +1577,15 @@ function CinemaSection({ listingId }: { listingId: string }) {
 export function VerticalDetailsSection({
   categoryCode,
   listingId,
+  organizationId,
 }: {
   categoryCode: string
   listingId: string
+  organizationId?: string
 }) {
   switch (categoryCode) {
     case 'holiday_home':
-      return <VillaSection listingId={listingId} />
+      return <VillaSection listingId={listingId} organizationId={organizationId} />
     case 'yacht_charter':
       return <YachtSection listingId={listingId} />
     case 'tour':

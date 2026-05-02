@@ -870,10 +870,11 @@ export default function CatalogListingDetailClient({
   const loadListingForm = useCallback(async () => {
     const token = getStoredAuthToken()
     if (!token) return
+    if (needOrg && !orgId.trim()) return
     try {
       const [owner, meta] = await Promise.all([
-        getListingOwnerContact(token, listingId).catch(() => null),
-        getListingMeta(token, listingId).catch(() => null),
+        getListingOwnerContact(token, listingId, orgQ).catch(() => null),
+        getListingMeta(token, listingId, orgQ).catch(() => null),
       ])
       if (owner) {
         setOwnerName(owner.contact_name ?? '')
@@ -897,7 +898,7 @@ export default function CatalogListingDetailClient({
     } catch {
       /* ignore */
     }
-  }, [listingId])
+  }, [listingId, needOrg, orgId, orgQ])
 
   // ── Yükle: Takvim ──
   const loadCalendar = useCallback(async () => {
@@ -933,38 +934,53 @@ export default function CatalogListingDetailClient({
     setBusy('listing-save')
     setErr(null)
     try {
-      await patchListingBasics(token, listingId, {
-        status: listingStatus,
-        min_stay_nights: minStayNights.trim() || undefined,
-        cleaning_fee_amount: cleaningFee.trim() || undefined,
-        first_charge_amount: depositAmount.trim() || undefined,
-        prepayment_percent: prepaymentPercent.trim() || undefined,
-        commission_percent: commissionPercent.trim() || undefined,
-        cancellation_policy_text: cancellationPolicy.trim() || undefined,
-        ministry_license_ref: licenseRef.trim() || undefined,
-        share_to_social: shareToSocial,
-        allow_ai_caption: allowAiCaption,
-        allow_sub_min_stay_gap_booking: allowGapBooking,
-      })
-      await putListingOwnerContact(token, listingId, {
-        contact_name: ownerName.trim() || undefined,
-        contact_phone: ownerPhone.trim() || undefined,
-        contact_email: ownerEmail.trim() || undefined,
-      })
-      await putListingMeta(token, listingId, {
-        check_in_time: checkInTime.trim() || undefined,
-        check_out_time: checkOutTime.trim() || undefined,
-        bed_count: bedCount.trim() || undefined,
-        bath_count: bathCount.trim() || undefined,
-        square_meters: squareMeters.trim() || undefined,
-        max_guests: maxGuests.trim() || undefined,
-        address: address.trim() || undefined,
-        lat: lat.trim() || undefined,
-        lng: lng.trim() || undefined,
-        youtube_url: youtubeUrl.trim() || undefined,
-        min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
-        min_short_stay_nights: minShortStayNights.trim() || undefined,
-      })
+      await patchListingBasics(
+        token,
+        listingId,
+        {
+          status: listingStatus,
+          min_stay_nights: minStayNights.trim() || undefined,
+          cleaning_fee_amount: cleaningFee.trim() || undefined,
+          first_charge_amount: depositAmount.trim() || undefined,
+          prepayment_percent: prepaymentPercent.trim() || undefined,
+          commission_percent: commissionPercent.trim() || undefined,
+          cancellation_policy_text: cancellationPolicy.trim() || undefined,
+          ministry_license_ref: licenseRef.trim() || undefined,
+          share_to_social: shareToSocial,
+          allow_ai_caption: allowAiCaption,
+          allow_sub_min_stay_gap_booking: allowGapBooking,
+        },
+        orgQ,
+      )
+      await putListingOwnerContact(
+        token,
+        listingId,
+        {
+          contact_name: ownerName.trim() || undefined,
+          contact_phone: ownerPhone.trim() || undefined,
+          contact_email: ownerEmail.trim() || undefined,
+        },
+        orgQ,
+      )
+      await putListingMeta(
+        token,
+        listingId,
+        {
+          check_in_time: checkInTime.trim() || undefined,
+          check_out_time: checkOutTime.trim() || undefined,
+          bed_count: bedCount.trim() || undefined,
+          bath_count: bathCount.trim() || undefined,
+          square_meters: squareMeters.trim() || undefined,
+          max_guests: maxGuests.trim() || undefined,
+          address: address.trim() || undefined,
+          lat: lat.trim() || undefined,
+          lng: lng.trim() || undefined,
+          youtube_url: youtubeUrl.trim() || undefined,
+          min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
+          min_short_stay_nights: minShortStayNights.trim() || undefined,
+        },
+        orgQ,
+      )
       if (lat.trim() && lng.trim()) {
         await computeListingNearbyPois(token, listingId).catch(() => {})
       }
@@ -2232,7 +2248,11 @@ export default function CatalogListingDetailClient({
               <Settings2 className="h-5 w-5 text-primary-600" />
               {verticalSectionTitle(ui.verticalTitles, categoryCode)}
             </h2>
-            <VerticalDetailsSection categoryCode={categoryCode} listingId={listingId} />
+            <VerticalDetailsSection
+              categoryCode={categoryCode}
+              listingId={listingId}
+              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+            />
           </div>
         </div>
       )}
