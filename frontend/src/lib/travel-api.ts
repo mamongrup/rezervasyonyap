@@ -8118,7 +8118,10 @@ export async function getListingOwnerContact(
       headers: { Authorization: `Bearer ${token}` },
     },
   )
-  if (!res.ok) throw new Error(`owner_contact_get_${res.status}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `owner_contact_get_${res.status}`)
+  }
   return json(res)
 }
 

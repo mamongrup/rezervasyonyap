@@ -1,7 +1,16 @@
 'use client'
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { getStaffInvoices, getStaffReservations, listSeoNotFoundLogs, type StaffInvoiceRow, type StaffReservationRow } from '@/lib/travel-api'
+import {
+  getAdminReservations,
+  getAuthMe,
+  getStaffInvoices,
+  getStaffReservations,
+  listSeoNotFoundLogs,
+  type StaffInvoiceRow,
+  type StaffReservationRow,
+} from '@/lib/travel-api'
+import { isFullAdminUser } from '@/lib/manage-nav-access'
 import clsx from 'clsx'
 import {
   ArrowUpRight,
@@ -337,9 +346,13 @@ export default function AdminDashboardClient() {
     const token = getStoredAuthToken()
     if (!token) { setLoading(false); return }
     try {
+      const me = await getAuthMe(token)
+      const perms = Array.isArray(me.permissions) ? me.permissions : []
+      const roles = Array.isArray(me.roles) ? me.roles : []
+      const admin = isFullAdminUser(perms, roles)
       const [invRes, resRes, seoRes] = await Promise.allSettled([
         getStaffInvoices(token),
-        getStaffReservations(token),
+        admin ? getAdminReservations(token, { limit: 200 }) : getStaffReservations(token),
         listSeoNotFoundLogs(token),
       ])
       if (invRes.status === 'fulfilled') setInvoices(invRes.value.invoices)

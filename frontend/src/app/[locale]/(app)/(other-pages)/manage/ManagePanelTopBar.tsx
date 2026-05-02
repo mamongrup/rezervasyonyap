@@ -2,7 +2,8 @@
 
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { getStaffReservations } from '@/lib/travel-api'
+import { getAdminReservations, getAuthMe, getStaffReservations } from '@/lib/travel-api'
+import { isFullAdminUser } from '@/lib/manage-nav-access'
 import { useTheme } from '@/components/theme-provider'
 import clsx from 'clsx'
 import {
@@ -293,9 +294,26 @@ function NotifBell({ vitrinPath }: { vitrinPath: (internal: string) => string })
 
   useEffect(() => {
     if (!token) return
-    getStaffReservations(token)
-      .then((r) => setCount(r.reservations.filter((rv) => rv.status === 'pending').length))
-      .catch(() => {})
+    let cancelled = false
+    void (async () => {
+      try {
+        const me = await getAuthMe(token)
+        const perms = Array.isArray(me.permissions) ? me.permissions : []
+        const roles = Array.isArray(me.roles) ? me.roles : []
+        const admin = isFullAdminUser(perms, roles)
+        const r = admin
+          ? await getAdminReservations(token, { limit: 80 })
+          : await getStaffReservations(token)
+        if (!cancelled) {
+          setCount(r.reservations.filter((rv) => rv.status === 'pending').length)
+        }
+      } catch {
+        if (!cancelled) setCount(0)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [token])
 
   return (
