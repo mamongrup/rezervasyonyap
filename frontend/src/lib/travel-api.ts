@@ -8126,14 +8126,18 @@ export async function putListingOwnerContact(
   token: string,
   listingId: string,
   body: { contact_name?: string; contact_phone?: string; contact_email?: string },
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${listingId}/owner-contact`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/owner-contact${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `owner_contact_put_${res.status}`)
