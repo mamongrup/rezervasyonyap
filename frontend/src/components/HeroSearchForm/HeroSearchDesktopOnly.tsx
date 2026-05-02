@@ -2,7 +2,7 @@
 
 import type { ListingType } from '@/type'
 import dynamic from 'next/dynamic'
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useState } from 'react'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
 
 const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
@@ -11,9 +11,9 @@ const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
 })
 
 /**
- * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını mobilde `hidden md:block`
- * ile gizler. Formu child olarak geçirmek mobilde chunk'ı yine keşfettirdiği için burada
- * yalnızca `md` ve üzeri görünümde dinamik import ediyoruz.
+ * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını `hidden lg:block`
+ * ile gizler (`ApplicationLayout` üst arama çubuğu da `lg` altında).
+ * Chunk'ı yalnızca bu genişlikte yüklüyoruz.
  */
 export default function HeroSearchDesktopOnly({
   initTab = 'Stays',
@@ -30,8 +30,8 @@ export default function HeroSearchDesktopOnly({
 }) {
   const [show, setShow] = useState(false)
 
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 768px)')
+  useLayoutEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
     const sync = () => setShow(mq.matches)
     sync()
     mq.addEventListener('change', sync)
