@@ -379,7 +379,7 @@ export default function AdminIntegrationsSettingsSection() {
           </SectionCard>
 
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700 dark:border-blue-800/50 dark:bg-blue-900/10 dark:text-blue-400">
-            <strong>Domain Doğrulama:</strong> Resend ile kendi domain'inizden e-posta göndermek için{' '}
+            <strong>Domain Doğrulama:</strong> Resend ile kendi domain&apos;inizden e-posta göndermek için{' '}
             <a
               href="https://resend.com/domains"
               target="_blank"
@@ -476,7 +476,7 @@ export default function AdminIntegrationsSettingsSection() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-400 text-xs font-bold text-white">2</span>
-                <span><strong>Ortam Değişkenleri (.env)</strong> — DB'de değer yoksa env'e bakılır.</span>
+                <span><strong>Ortam Değişkenleri (.env)</strong> — DB&apos;de değer yoksa env&apos;e bakılır.</span>
               </li>
             </ol>
           </div>

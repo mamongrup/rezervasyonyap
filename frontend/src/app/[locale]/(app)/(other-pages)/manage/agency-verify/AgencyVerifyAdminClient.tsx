@@ -406,7 +406,7 @@ export default function AgencyVerifyAdminClient() {
                           className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
                         >
                           <BadgeCheck className="h-4 w-4" />
-                          TÜRSAB'da Sorgula
+                          TÜRSAB&apos;da Sorgula
                         </a>
 
                         <div className="mt-4">
@@ -512,9 +512,11 @@ export default function AgencyVerifyAdminClient() {
       <div className="mt-6 rounded-xl border border-neutral-100 bg-neutral-50 p-4 text-xs text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/30">
         <p className="mb-1 font-medium text-neutral-600 dark:text-neutral-400">Onay Akışı</p>
         <ol className="list-inside list-decimal space-y-0.5">
-          <li>Acente kuruluşu (organizations.org_type='agency') TÜRSAB belge numarasını yönetici panelinden tanımlar.</li>
+          <li>
+            {`Acente kuruluşu (organizations.org_type='agency') TÜRSAB belge numarasını yönetici panelinden tanımlar.`}
+          </li>
           <li>Admin <strong>tursab.org.tr/acente-sorgulama</strong> üzerinden belgeyi doğrular.</li>
-          <li>Eşleşiyorsa onaylanır → backend `agency_profiles.document_status = 'approved'`.</li>
+          <li>{`Eşleşiyorsa onaylanır → backend agency_profiles.document_status = 'approved'.`}</li>
           <li>Onay sonrası acente, sepet ve checkout akışlarında (booking_http) bağlı kullanıcılarla işlem yapabilir.</li>
         </ol>
       </div>

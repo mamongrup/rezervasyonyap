@@ -46,7 +46,7 @@ const VisaCard: FC<VisaCardProps> = ({ size = 'default', className = '', data })
         {/* Flag banner */}
         <div className="relative flex h-28 items-center justify-center overflow-hidden bg-gradient-to-br from-primary-50 to-primary-100 dark:from-neutral-800 dark:to-neutral-700">
           {countryCode && (
-            // eslint-disable-next-line @next/next/no-img-element
+             
             <img
               src={`${FLAG_BASE}/${countryCode.toLowerCase()}.png`}
               alt={country ?? title}

@@ -724,7 +724,7 @@ export default function BannerLayoutComposer() {
                       if (!cropMode) startMove(e, layer)
                     }}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element -- blob önizleme */}
+                    { }
                     <img
                       src={layer.src}
                       alt=""
@@ -838,7 +838,7 @@ export default function BannerLayoutComposer() {
                       )}
                     >
                       <span className="flex h-8 w-10 shrink-0 overflow-hidden rounded bg-neutral-200 dark:bg-neutral-700">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        { }
                         <img src={l.src} alt="" className="h-full w-full object-cover" />
                       </span>
                       <span className="truncate">Katman {layers.length - idx}</span>

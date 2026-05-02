@@ -90,7 +90,7 @@ function BrandingImageUploadRow({
     preview === 'favicon' ? (
       <div className="mt-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
         {url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- admin önizleme; runtime'da girilen URL
+           
           <img src={url} alt="" className="h-9 w-9 object-contain" />
         ) : (
           <span className="text-[10px] text-neutral-400">—</span>
@@ -100,7 +100,7 @@ function BrandingImageUploadRow({
       <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-900 p-3 dark:border-neutral-800">
         {url ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- admin önizleme */}
+            { }
             <img src={url} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
             <span className="text-xs text-neutral-500">Koyu tema önizleme</span>
           </>
@@ -112,7 +112,7 @@ function BrandingImageUploadRow({
       <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
         {url ? (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element -- admin önizleme */}
+            { }
             <img src={url} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
             <span className="text-xs text-neutral-400">Önizleme</span>
           </>
@@ -230,12 +230,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [currencyHint, setCurrencyHint] = useState<string | null>(null)
   const [currencyOrderSaving, setCurrencyOrderSaving] = useState(false)
 
-  type TabId = (typeof SETTINGS_TABS)[number]['id']
-  const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
-  const paramTab = searchParams?.get('tab') as TabId | null
-  /** URL tab parametresi — ayrı state + useEffect ile senkronlamak yerine doğrudan türetilir (mount uyarılarını önler). */
-  const activeTab: TabId = paramTab && validTabIds.includes(paramTab) ? paramTab : 'kimlik'
-
   // Site identity fields (stored in branding key)
   const [siteName, setSiteName] = useState('')
   const [siteDescription, setSiteDescription] = useState('')
@@ -283,6 +277,12 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     return o
   })
   const [aiSaving, setAiSaving] = useState(false)
+
+  type TabId = (typeof SETTINGS_TABS)[number]['id']
+  const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
+  const paramTab = searchParams?.get('tab') as TabId | null
+  /** URL tab parametresi — ayrı state + useEffect ile senkronlamak yerine doğrudan türetilir (mount uyarılarını önler). */
+  const activeTab: TabId = paramTab && validTabIds.includes(paramTab) ? paramTab : 'kimlik'
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1099,7 +1099,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     <p className="mb-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-300">Önizleme</p>
                     <div className="flex items-center gap-2.5 rounded-xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
                       {logoIconUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- admin önizleme; logo URL'si runtime
+                         
                         <img src={logoIconUrl} alt="" className="h-12 w-12 shrink-0 object-contain" />
                       ) : (
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-2xl dark:bg-neutral-800">🔤</div>

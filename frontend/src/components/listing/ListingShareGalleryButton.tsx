@@ -185,7 +185,7 @@ export function ListingShareGalleryButton({
                           : 'border-transparent hover:border-neutral-300 dark:hover:border-neutral-600',
                       )}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      { }
                       <img src={src} alt="" className="size-full object-cover" />
                       {isOn && (
                         <span className="absolute end-1.5 top-1.5 flex size-7 items-center justify-center rounded-full bg-primary-500 text-white shadow-md">

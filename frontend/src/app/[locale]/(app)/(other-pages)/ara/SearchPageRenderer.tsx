@@ -14,7 +14,7 @@ interface Props {
   activeCategory: string
   page: number
   buildUrl: (overrides: Record<string, string | undefined>) => string
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   messages: AppMessages
 }
 

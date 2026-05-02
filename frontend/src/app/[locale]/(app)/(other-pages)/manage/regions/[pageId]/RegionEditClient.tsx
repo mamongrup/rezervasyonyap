@@ -415,7 +415,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         setLoading(false)
       }
     })()
-  }, [pageId, primaryLocale, localeCodesKey])
+  }, [pageId, primaryLocale, localeCodesKey, localeCodes])
 
   useEffect(() => {
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
@@ -1176,7 +1176,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               <div className="mb-5 flex h-52 min-h-[13rem] w-full max-w-xl flex-col gap-2 overflow-hidden rounded-2xl sm:h-56 md:max-w-2xl">
                 <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                   {heroGallery[0] ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- admin önizleme; bilinmeyen CDN host'ları için <img> kasıtlı
+                     
                     <img src={heroGallery[0]} alt="Hero 1" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full min-h-[2.5rem] items-center justify-center text-neutral-300">
@@ -1187,7 +1187,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 <div className="grid min-h-0 flex-1 grid-cols-2 gap-2">
                   <div className="min-h-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                     {heroGallery[1] ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- admin önizleme
+                       
                       <img src={heroGallery[1]} alt="Hero 2" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full min-h-[2.5rem] items-center justify-center text-neutral-300">
@@ -1197,7 +1197,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   </div>
                   <div className="min-h-0 overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
                     {heroGallery[2] ? (
-                      // eslint-disable-next-line @next/next/no-img-element -- admin önizleme
+                       
                       <img src={heroGallery[2]} alt="Hero 3" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full min-h-[2.5rem] items-center justify-center text-neutral-300">
@@ -1482,7 +1482,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                     placeholder="+90 312 000 0000"
                     className={inputCls}
                   />
-                  <p className={hintCls}>Türkiye'nin ilgili ülkedeki konsolosluğu veya tersi</p>
+                  <p className={hintCls}>Türkiye&apos;nin ilgili ülkedeki konsolosluğu veya tersi</p>
                 </div>
 
                 {/* Acil Numaralar */}
@@ -1575,7 +1575,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             }
           >
             <p className={`${hintCls} mb-4`}>
-              İl veya ilçe için haritada konumu işaretleyin, ardından butona tıklayın. API'de çıkmayan mekanları aşağıdan manuel ekleyin.
+              İl veya ilçe için haritada konumu işaretleyin, ardından butona tıklayın. API&apos;de çıkmayan mekanları aşağıdan manuel ekleyin.
             </p>
 
             {/* Existing POIs */}
@@ -1622,7 +1622,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             {/* Add new POI */}
             <div className="rounded-xl border border-neutral-100 p-4 dark:border-neutral-800">
               <p className="mb-3 text-xs font-semibold text-neutral-500 uppercase tracking-wide">Manuel Mekan Ekle</p>
-              <p className={`${hintCls} mb-3`}>API'de çıkmayan mekanları kategori seçip ad ve mesafe girerek ekleyin. Kaydet ile birlikte saklanır.</p>
+              <p className={`${hintCls} mb-3`}>API&apos;de çıkmayan mekanları kategori seçip ad ve mesafe girerek ekleyin. Kaydet ile birlikte saklanır.</p>
               <div className="grid gap-3 sm:grid-cols-[auto_1fr_auto_auto]">
                 <div>
                   <label className={`${labelCls} text-xs`}>Kategori</label>
@@ -1688,7 +1688,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   )}>
                     <div className="flex items-start gap-3">
                       {idea.image ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- admin liste önizlemesi
+                         
                         <img src={idea.image} alt={idea.title} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
                       ) : (
                         <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-xl dark:bg-neutral-800">🗺️</div>

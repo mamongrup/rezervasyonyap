@@ -453,7 +453,7 @@ export default function AdminSocialApiSection() {
         <div>
           <h2 className="text-xl font-semibold text-[color:var(--manage-text)]">Sosyal Medya API Ayarları</h2>
           <p className="mt-1 text-sm text-[color:var(--manage-text-muted)]">
-            Platform API anahtarlarınızı girin. Ayarlar şifreli olarak veritabanında saklanır ve paylaşım worker'ı tarafından kullanılır.
+            Platform API anahtarlarınızı girin. Ayarlar şifreli olarak veritabanında saklanır ve paylaşım worker&apos;ı tarafından kullanılır.
           </p>
         </div>
         <div className="flex items-center gap-3">

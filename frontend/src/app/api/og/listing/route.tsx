@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
           }}
         >
           {bgUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element -- next/og görsel katmanı
+             
             <img
               src={bgUrl}
               alt=""
@@ -230,7 +230,7 @@ export async function GET(req: NextRequest) {
         }}
       >
         {bgUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
+           
           <img
             src={bgUrl}
             alt=""

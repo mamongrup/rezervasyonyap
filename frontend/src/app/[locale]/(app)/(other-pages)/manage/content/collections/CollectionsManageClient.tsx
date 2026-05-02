@@ -431,7 +431,7 @@ export default function CollectionsManageClient() {
               return (
                 <div key={col.id} className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-md transition-shadow">
                   {col.hero_image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- admin paneli; bilinmeyen CDN host'ları için <img> kasıtlı
+                     
                     <img src={col.hero_image_url} alt="" className="w-full h-32 object-cover" />
                   ) : (
                     <div className="w-full h-32 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 flex items-center justify-center">

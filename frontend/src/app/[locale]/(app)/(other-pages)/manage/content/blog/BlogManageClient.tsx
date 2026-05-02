@@ -597,7 +597,7 @@ export default function BlogManageClient() {
                       className="bg-white dark:bg-neutral-900 rounded-2xl border border-neutral-200 dark:border-neutral-800 overflow-hidden hover:shadow-md transition-shadow"
                     >
                       {cat.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element -- admin paneli; bilinmeyen CDN host'ları için <img> kasıtlı
+                         
                         <img src={cat.image_url} alt="" className="w-full h-28 object-cover" />
                       ) : (
                         <div className="w-full h-28 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 flex items-center justify-center">

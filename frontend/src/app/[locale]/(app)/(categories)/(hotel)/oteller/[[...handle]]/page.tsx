@@ -44,10 +44,10 @@ export default async function Page({
       category={category}
       count={total}
       listingCards={listings.map((l) => (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         <HotelCard key={l.id} data={l as any} />
       ))}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       listingCardRenderer={(l) => <HotelCard key={l.id} data={l as any} />}
       filterOptions={filterOptions}
       currentHandle={currentHandle}

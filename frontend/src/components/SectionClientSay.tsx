@@ -65,7 +65,7 @@ function FeaturedAvatar({ src, alt }: { src: StaticImageData | string; alt: stri
       />
       <div className="relative z-10 overflow-hidden rounded-full bg-white p-1 shadow-lg ring-4 ring-white dark:bg-neutral-900 dark:ring-neutral-800">
         {isRemote ? (
-          // eslint-disable-next-line @next/next/no-img-element -- harici API URL
+           
           <img src={src} alt={alt} className="size-28 rounded-full object-cover md:size-32" />
         ) : (
           <Image src={src} alt={alt} className="size-28 rounded-full object-cover md:size-32" sizes="128px" />

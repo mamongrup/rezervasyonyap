@@ -63,10 +63,10 @@ export default async function Page({
       category={category}
       count={total}
       listingCards={listings.map((l) => (
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         <HolidayHomeCard key={l.id} data={l as any} />
       ))}
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       listingCardRenderer={(l) => <HolidayHomeCard key={l.id} data={l as any} />}
       filterOptions={filterOptions}
       currentHandle={currentHandle}
@@ -87,7 +87,7 @@ export default async function Page({
       flexibleListingCards={
         flexibleListings.length > 0
           ? flexibleListings.map((l) => (
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               <HolidayHomeCard key={`flex-${l.id}`} data={l as any} />
             ))
           : undefined

@@ -42,7 +42,7 @@ export default function ListingNearbyPoisSection({ pois, title }: Props) {
             className="flex gap-3 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40"
           >
             {poi.image ? (
-              // eslint-disable-next-line @next/next/no-img-element
+               
               <img
                 src={poi.image}
                 alt={poi.title}

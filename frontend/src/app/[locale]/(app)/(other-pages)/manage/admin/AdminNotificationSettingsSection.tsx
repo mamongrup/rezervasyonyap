@@ -1,5 +1,7 @@
 'use client'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import Link from 'next/link'
 import React from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 
@@ -27,6 +29,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 }
 
 export default function AdminNotificationSettingsSection() {
+  const vitrinPath = useVitrinHref()
   const [jobs, setJobs] = React.useState<NotificationJob[]>([])
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -80,12 +83,12 @@ export default function AdminNotificationSettingsSection() {
           </p>
           <p className="text-xs text-neutral-500">SMS, e-posta ve WhatsApp kimlik bilgilerini buradan girin.</p>
         </div>
-        <a
-          href="/manage/admin/settings/integrations"
+        <Link
+          href={vitrinPath('/manage/admin/settings/integrations')}
           className="shrink-0 rounded-xl bg-primary-500 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-600"
         >
           Ayarlara Git →
-        </a>
+        </Link>
       </div>
 
       {/* Bildirim Kuyruğu */}

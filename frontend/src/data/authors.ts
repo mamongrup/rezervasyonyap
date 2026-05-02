@@ -26,7 +26,7 @@ export async function getAuthors() {
   }[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 async function _getAuthorsDemoData() {
   // Demo veriler — gerçek API entegrasyonuna geçildiğinde bu fonksiyon kullanılır
   return [

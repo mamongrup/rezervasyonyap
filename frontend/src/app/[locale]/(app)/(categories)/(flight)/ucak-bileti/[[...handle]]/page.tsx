@@ -45,7 +45,7 @@ export default async function Page({
       listingCards={
         <div className="flex w-full flex-col gap-4 sm:col-span-2 lg:col-span-3 xl:col-span-4">
           {listings.map((l) => (
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+             
             <FlightCard key={l.id} data={l as any} />
           ))}
         </div>

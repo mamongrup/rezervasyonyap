@@ -189,7 +189,7 @@ export default function ListingImagesSection({
             key={im.id}
             className="relative overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
+            { }
             <img
               src={
                 im.storage_key.startsWith('http') || im.storage_key.startsWith('/')
