@@ -1,11 +1,11 @@
-import { vitrinHref } from '@/lib/vitrin-href'
-import { getMessages } from '@/utils/getT'
 import type { CatalogMenuResolvedItem } from '@/types/catalog-menu'
+import { getMessages } from '@/utils/getT'
 import Link from 'next/link'
 
 type Props = {
-  /** Sunucudan — yapı + seçilen dil için çözümlenmiş metinler */
+  /** `href` değerleri üst bileşende `vitrinHref` ile çözümlenmiş olmalı */
   items: CatalogMenuResolvedItem[]
+  homeHref: string
   locale: string
 }
 
@@ -14,21 +14,13 @@ function itemInitial(title: string): string {
   return trimmed ? trimmed.slice(0, 1).toLocaleUpperCase('tr-TR') : '•'
 }
 
-export default async function CategoriesDropdown({ items, locale }: Props) {
+export default function CategoriesDropdown({ items, homeHref, locale }: Props) {
   const m = getMessages(locale)
-  const nav = m.navMenus.catalogMenu
-  const resolvedItems = await Promise.all(
-    items.map(async (item) => {
-      const raw = item.href.startsWith('/') ? item.href : `/${item.href}`
-      return { ...item, href: await vitrinHref(locale, raw) }
-    }),
-  )
-  const homeHref = await vitrinHref(locale, '/')
+  const nav = m.navMenus?.catalogMenu
+  if (!nav) return null
 
   return (
-    <div
-      className="group relative"
-    >
+    <div className="group relative">
       <button
         type="button"
         className="-m-2.5 flex items-center p-2.5 text-sm font-medium text-neutral-700 group-hover:text-neutral-950 focus:outline-hidden dark:text-neutral-300 dark:group-hover:text-neutral-100"
@@ -48,7 +40,8 @@ export default async function CategoriesDropdown({ items, locale }: Props) {
       >
         <div>
           <div className="relative grid grid-cols-2 gap-4 bg-white p-6 dark:bg-neutral-800">
-            {resolvedItems.map((item) => {
+            {items.map((item) => {
+              const desc = item?.description ?? ''
               return (
                 <Link
                   key={item.id}
@@ -60,7 +53,7 @@ export default async function CategoriesDropdown({ items, locale }: Props) {
                   </div>
                   <div className="ms-4 space-y-0.5">
                     <p className="text-sm font-medium">{item.title}</p>
-                    <p className="line-clamp-1 text-xs text-neutral-500 dark:text-neutral-300">{item.description}</p>
+                    <p className="line-clamp-1 text-xs text-neutral-500 dark:text-neutral-300">{desc}</p>
                   </div>
                 </Link>
               )

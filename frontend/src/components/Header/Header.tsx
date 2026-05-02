@@ -1,6 +1,7 @@
 import { getCatalogMenuForLocale } from '@/data/catalog-menu'
 import { resolveMegaMenuFeatured } from '@/data/mega-menu-sidebar'
 import { getNavMegaMenuLocalized, resolveHeaderCurrencies } from '@/data/navigation'
+import { vitrinHref } from '@/lib/vitrin-href'
 import Logo from '@/shared/Logo'
 import clsx from 'clsx'
 import { FC } from 'react'
@@ -32,6 +33,14 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
   const logoDarkSrc = typeof branding?.logo_url_dark === 'string' && branding.logo_url_dark ? branding.logo_url_dark : undefined
   const siteName = typeof branding?.site_name === 'string' ? branding.site_name : 'Logo'
 
+  const resolvedCatalogItems = await Promise.all(
+    catalogMenuItems.map(async (item) => {
+      const raw = item.href.startsWith('/') ? item.href : `/${item.href}`
+      return { ...item, href: await vitrinHref(locale, raw) }
+    }),
+  )
+  const catalogHomeHref = await vitrinHref(locale, '/')
+
   return (
     <div className={clsx('relative', className)}>
       <div className="container">
@@ -46,7 +55,7 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
             <Logo src={logoSrc} darkSrc={logoDarkSrc} alt={siteName} />
             <div className="hidden h-7 border-l border-neutral-200 md:block dark:border-neutral-700"></div>
             <div className="hidden md:block">
-              <CategoriesDropdown items={catalogMenuItems} locale={locale} />
+              <CategoriesDropdown items={resolvedCatalogItems} homeHref={catalogHomeHref} locale={locale} />
             </div>
           </div>
 
