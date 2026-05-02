@@ -1,5 +1,6 @@
 'use client'
 
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { ImageIcon, Loader2, Save, Upload, X } from 'lucide-react'
 import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -133,6 +134,7 @@ function ImageSlot({
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function HomepageBuilderClient() {
+  const vitrinPath = useVitrinHref()
   const [config, setConfig] = useState<HomepageConfig>({
     heroHeading: 'Otel, Araba, Deneyim',
     heroSubheading: 'Bizimle seyahatiniz unutulmaz deneyimlerle dolacak.',
@@ -203,8 +205,9 @@ export default function HomepageBuilderClient() {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="/"
+            href={vitrinPath('/')}
             target="_blank"
+            rel="noopener noreferrer"
             className="rounded-xl border border-neutral-200 px-4 py-2 text-sm hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
           >
             Önizle

@@ -473,6 +473,7 @@ export default function CollectionsManageClient() {
                       <Link
                         href={vitrinPath(`/kesfet/${col.slug}`)}
                         target="_blank"
+                        rel="noopener noreferrer"
                         className="flex items-center gap-1 text-xs text-neutral-400 hover:text-primary-600 dark:hover:text-primary-400"
                       >
                         <ExternalLink className="w-3.5 h-3.5" />
