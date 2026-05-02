@@ -1254,7 +1254,7 @@ function SlidersBannerConfigEditor({
         <a
           href={`/manage/content/sliders`}
           target="_blank"
-          rel="noopener"
+          rel="noopener noreferrer"
           className="font-semibold underline"
         >
           İçerik → Slider & banner
