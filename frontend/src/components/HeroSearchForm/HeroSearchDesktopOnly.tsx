@@ -38,7 +38,13 @@ export default function HeroSearchDesktopOnly({
     return () => mq.removeEventListener('change', sync)
   }, [])
 
-  if (!show) return null
+  /**
+   * `show === false` iken `null` dönmek hero’da boş alan + “form yok” algısını uzatıyor.
+   * Üst sarmalayıcı zaten `hidden lg:block`; mobilde iskelet DOM’da olsa da görünmez.
+   */
+  if (!show) {
+    return <HeroSearchFormSkeleton />
+  }
   return (
     <HeroSearchForm
       initTab={initTab}
