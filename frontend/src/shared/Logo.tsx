@@ -93,6 +93,8 @@ function TextLogoFallback({ siteName, className }: { siteName?: string; classNam
 const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
+  /** Sunucuda eksik dosya (404) — kırık görsel yerine metin logosu */
+  const [imageFailed, setImageFailed] = useState(false)
 
   /**
    * Hydration güvenliği: sunucu ve ilk istemci render AYNI başlangıç değerini
@@ -145,6 +147,10 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   const activeDarkUrl = catLogo?.logo_url_dark || catLogo?.logo_url || branding.logo_url_dark || branding.logo_url || null
   const altText = alt ?? branding.site_name ?? 'Logo'
 
+  useEffect(() => {
+    setImageFailed(false)
+  }, [activeLogoUrl, activeDarkUrl])
+
   // ── Icon + Text mode ──────────────────────────────────────────────────────
   if (!catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
@@ -184,19 +190,21 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
       href={vitrinPath('/')}
       className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
     >
-      {activeLogoUrl ? (
+      {activeLogoUrl && !imageFailed ? (
         <>
           <img
             src={activeLogoUrl}
             alt={altText}
             className="block max-h-[56px] w-auto dark:hidden"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+            onError={() => setImageFailed(true)}
           />
           <img
             src={activeDarkUrl ?? activeLogoUrl}
             alt={altText}
             className="hidden max-h-[56px] w-auto dark:block"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+            onError={() => setImageFailed(true)}
           />
         </>
       ) : (
