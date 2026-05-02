@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   addCmsBlock,
@@ -447,7 +447,7 @@ function PageEditor({
       setPage((p) => ({ ...p, slug, template_code: template, is_published: published }))
       onUpdated()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+      setError(formatManageApiCatch(e, 'Kaydedilemedi'))
     } finally {
       setSaving(false)
     }
@@ -465,7 +465,7 @@ function PageEditor({
       const newBlocks = await listCmsBlocks(token, page.id)
       setBlocks(newBlocks.blocks.sort((a, b) => a.sort_order - b.sort_order))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Blok eklenemedi')
+      setError(formatManageApiCatch(e, 'Blok eklenemedi'))
     } finally {
       setAddingBlock(false)
     }
@@ -477,7 +477,7 @@ function PageEditor({
       await deleteCmsBlock(token, page.id, blockId)
       setBlocks((prev) => prev.filter((b) => b.id !== blockId))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Silinemedi')
+      setError(formatManageApiCatch(e, 'Silinemedi'))
     }
   }, [token, page.id])
 
@@ -497,7 +497,7 @@ function PageEditor({
       setBlocks((prev) => prev.map((b) => b.id === editBlock.id ? { ...b, block_type: editType, config_json: editJson } : b))
       setEditBlock(null)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Blok kaydedilemedi')
+      setError(formatManageApiCatch(e, 'Blok kaydedilemedi'))
     } finally {
       setSaving(false)
     }
@@ -653,7 +653,7 @@ export default function CmsPagesClient() {
       const res = await listCmsPages(token)
       setPages(res.pages)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -670,7 +670,7 @@ export default function CmsPagesClient() {
       setNewSlug('')
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Oluşturulamadı')
+      setError(formatManageApiCatch(e, 'Oluşturulamadı'))
     } finally {
       setCreating(false)
     }

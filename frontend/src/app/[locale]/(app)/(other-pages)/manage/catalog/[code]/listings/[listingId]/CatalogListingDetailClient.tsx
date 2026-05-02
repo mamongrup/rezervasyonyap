@@ -4,6 +4,7 @@ import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useCatalogListingUi, type CatalogListingUi } from '@/hooks/useCatalogListingUi'
 import {
@@ -289,7 +290,7 @@ function ListingAttributeValuesSection({
       await putListingAttributeValues(token, listingId, payload)
       setMsg({ ok: true, text: ui.attrSaveOk })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally {
       setBusy(false)
     }
@@ -462,7 +463,7 @@ function ListingAccommodationRulesSection({
       ])
       setMsg({ ok: true, text: ui.rulesSaveOk })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally {
       setBusy(false)
     }
@@ -586,7 +587,7 @@ function ListingPriceLinesSection({
       await putListingPriceLineSelections(token, listingId, { item_ids: [...selected] })
       setMsg({ ok: true, text: ui.priceLinesSaveOk })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally {
       setBusy(false)
     }
@@ -909,7 +910,7 @@ export default function CatalogListingDetailClient({
       const av = await getListingAvailabilityCalendar(token, listingId, { from: calFrom, to: calTo }, orgQ)
       setCalRows(mergeCalendarRows(calFrom, calTo, av.days))
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'cal_load_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('cal_load_failed'))
     } finally {
       setBusy(null)
     }
@@ -969,7 +970,7 @@ export default function CatalogListingDetailClient({
       }
       await loadListingForm()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'listing_form_save_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('listing_form_save_failed'))
     } finally {
       setBusy(null)
     }
@@ -998,7 +999,7 @@ export default function CatalogListingDetailClient({
       )
       await loadCalendar()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'cal_save_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('cal_save_failed'))
     } finally {
       setBusy(null)
     }
@@ -1037,21 +1038,21 @@ export default function CatalogListingDetailClient({
     setErr(null)
     try {
       if (ruleFrom && ruleTo && ruleFrom > ruleTo) {
-        setErr('invalid_rule_date_range')
+        setErr(formatManageApiError('invalid_rule_date_range'))
         return
       }
       const finalJson = showRawJson
         ? ruleRaw.trim()
         : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel)
       if (!finalJson) {
-        setErr('rule_json_required')
+        setErr(formatManageApiError('rule_json_required'))
         return
       }
       if (showRawJson) {
         try {
           JSON.parse(finalJson)
         } catch {
-          setErr('rule_json_invalid')
+          setErr(formatManageApiError('rule_json_invalid'))
           return
         }
       }
@@ -1064,7 +1065,7 @@ export default function CatalogListingDetailClient({
       setRuleLabel(''); setRuleBase(''); setRuleWeekend(''); setRuleMinNights(''); setRuleFrom(''); setRuleTo(''); setRuleRaw('')
       await loadPriceRules()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'rule_add_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('rule_add_failed'))
     } finally {
       setBusy(null)
     }
@@ -1081,7 +1082,7 @@ export default function CatalogListingDetailClient({
       await deleteListingPriceRule(token, listingId, id, orgQ)
       await loadPriceRules()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'rule_del_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('rule_del_failed'))
     } finally {
       setBusy(null)
     }
@@ -1103,7 +1104,7 @@ export default function CatalogListingDetailClient({
       )
       await loadHotel()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'save_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed'))
     } finally {
       setBusy(null)
     }
@@ -1121,7 +1122,7 @@ export default function CatalogListingDetailClient({
       setRoomName(''); setRoomCap(''); setRoomBoard(''); setRoomMeta('{}')
       await loadHotel()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'room_add_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('room_add_failed'))
     } finally {
       setBusy(null)
     }
@@ -1138,7 +1139,7 @@ export default function CatalogListingDetailClient({
       await deleteManageHotelRoom(token, listingId, id, orgQ)
       await loadHotel()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'room_del_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('room_del_failed'))
     } finally {
       setBusy(null)
     }
@@ -1160,7 +1161,7 @@ export default function CatalogListingDetailClient({
       setIcalUrl(''); setIcalPlus('0'); setIcalMinus('0')
       await loadIcal()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'ical_add_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('ical_add_failed'))
     } finally {
       setBusy(null)
     }
@@ -1179,7 +1180,7 @@ export default function CatalogListingDetailClient({
       setIcalEditId(null)
       await loadIcal()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'ical_update_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('ical_update_failed'))
     } finally {
       setBusy(null)
     }
@@ -1194,7 +1195,7 @@ export default function CatalogListingDetailClient({
       await deleteIcalFeed(feedId)
       await loadIcal()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'ical_del_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('ical_del_failed'))
     } finally {
       setBusy(null)
     }
@@ -1215,7 +1216,7 @@ export default function CatalogListingDetailClient({
       await loadIcal()
       await loadCalendar()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'ical_sync_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('ical_sync_failed'))
     } finally {
       setBusy(null)
     }
@@ -1242,7 +1243,7 @@ export default function CatalogListingDetailClient({
       const r = await rotateListingIcalExportToken(listingId)
       setIcalExportUrl(r.url)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'ical_export_rotate_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('ical_export_rotate_failed'))
     } finally {
       setBusy(null)
     }
@@ -1338,7 +1339,7 @@ export default function CatalogListingDetailClient({
       mpResetForm()
       await loadMealPlans()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'meal_plan_save_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('meal_plan_save_failed'))
     } finally {
       setBusy(null)
     }
@@ -1354,7 +1355,7 @@ export default function CatalogListingDetailClient({
       await deleteManageMealPlan(token, listingId, planId, orgQ)
       await loadMealPlans()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'meal_plan_del_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('meal_plan_del_failed'))
     } finally {
       setBusy(null)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
   getImageUploadProfiles,
@@ -92,7 +92,7 @@ export default function ImageQualitySettingsClient() {
       const data = await getImageUploadProfiles()
       setRows(data.map((r) => ({ ...r, dirty: false, saving: false })))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -147,7 +147,7 @@ export default function ImageQualitySettingsClient() {
             ? {
                 ...r,
                 saving: false,
-                msg: { ok: false, text: e instanceof Error ? e.message : 'Hata' },
+                msg: { ok: false, text: formatManageApiCatch(e, 'Hata') },
               }
             : r,
         ),

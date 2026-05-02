@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   createAdminWorkspaceAnnouncement,
@@ -60,7 +60,7 @@ export default function AdminWorkspaceClient() {
       setAnnouncements(an.announcements)
       setStaffOpts(st.users)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Yükleme hatası')
+      setErr(formatManageApiCatch(e, 'Yükleme hatası'))
     } finally {
       setLoading(false)
     }
@@ -100,7 +100,7 @@ export default function AdminWorkspaceClient() {
       setTAssignee('')
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt hatası')
+      setErr(formatManageApiCatch(e, 'Kayıt hatası'))
     } finally {
       setSaving(false)
     }
@@ -132,7 +132,7 @@ export default function AdminWorkspaceClient() {
       setAOrgs(new Set())
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt hatası')
+      setErr(formatManageApiCatch(e, 'Kayıt hatası'))
     } finally {
       setSaving(false)
     }
@@ -146,7 +146,7 @@ export default function AdminWorkspaceClient() {
       await deleteAdminWorkspaceTask(token, id)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     }
   }
 
@@ -165,7 +165,7 @@ export default function AdminWorkspaceClient() {
       })
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
+      setErr(formatManageApiCatch(e, 'Güncellenemedi'))
     }
   }
 

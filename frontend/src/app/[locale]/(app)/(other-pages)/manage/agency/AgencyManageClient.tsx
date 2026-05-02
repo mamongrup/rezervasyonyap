@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   cancelAgencyInvoice,
   createAgencyApiKey,
@@ -211,7 +211,7 @@ export default function AgencyManageClient() {
           setState((prev: LoadState) => (prev.kind === 'ok' ? { ...prev, invoices: [], invoicesLoading: false } : prev))
         })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'load_failed'
+      const msg = formatManageApiCatch(e, 'load_failed')
       setState({ kind: 'err', msg })
     }
   }, [])
@@ -239,7 +239,7 @@ export default function AgencyManageClient() {
       })
       .catch((e) => {
         if (!cancelled)
-          setBrowseErr(formatAgencyBrowsePortalError(e instanceof Error ? e.message : 'browse_failed'))
+          setBrowseErr(formatAgencyBrowsePortalError(formatManageApiCatch(e, 'browse_failed')))
       })
       .finally(() => {
         if (!cancelled) setBrowseLoading(false)
@@ -267,7 +267,7 @@ export default function AgencyManageClient() {
         prev.kind === 'ok' ? { ...prev, sales, commissionAccruals, persistedAccruals } : prev,
       )
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'sales_refresh_failed')
+      alert(formatManageApiCatch(err, 'sales_refresh_failed'))
     } finally {
       setSalesRefreshing(false)
     }
@@ -287,7 +287,7 @@ export default function AgencyManageClient() {
       setLabel('')
       await load()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'create_failed')
+      alert(formatManageApiCatch(err, 'create_failed'))
     } finally {
       setCreating(false)
     }
@@ -303,7 +303,7 @@ export default function AgencyManageClient() {
       const r = await getAgencyBrowseListings(token, browseSearch.trim() || undefined)
       setBrowseListings(r.listings)
     } catch (err) {
-      setBrowseErr(formatAgencyBrowsePortalError(err instanceof Error ? err.message : 'browse_failed'))
+      setBrowseErr(formatAgencyBrowsePortalError(formatManageApiCatch(err, 'browse_failed')))
     } finally {
       setBrowseLoading(false)
     }
@@ -334,7 +334,7 @@ export default function AgencyManageClient() {
       setAgentTestResv(resv.reservations)
       setAgentTestSales(sales)
     } catch (e) {
-      setAgentTestErr(e instanceof Error ? e.message : 'agent_test_failed')
+      setAgentTestErr(formatManageApiCatch(e, 'agent_test_failed'))
     } finally {
       setAgentTestBusy(false)
     }
@@ -349,7 +349,7 @@ export default function AgencyManageClient() {
       await deleteAgencyApiKey(token, id)
       await load()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'delete_failed')
+      alert(formatManageApiCatch(err, 'delete_failed'))
     } finally {
       setDeleting(null)
     }

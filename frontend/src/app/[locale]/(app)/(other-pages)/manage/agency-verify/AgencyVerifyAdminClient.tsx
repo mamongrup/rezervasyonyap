@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useState, useEffect, useCallback } from 'react'
 import {
   Briefcase,
@@ -106,7 +106,7 @@ export default function AgencyVerifyAdminClient() {
         Object.fromEntries(data.map((r) => [r.organizationId, r.discountPercent])),
       )
     } catch (e) {
-      setLoadError(e instanceof Error ? e.message : 'list_failed')
+      setLoadError(formatManageApiCatch(e, 'list_failed'))
     } finally {
       setLoading(false)
     }
@@ -154,7 +154,7 @@ export default function AgencyVerifyAdminClient() {
       setActionMsg({
         id: orgId,
         ok: false,
-        text: e instanceof Error ? e.message : 'update_failed',
+        text: formatManageApiCatch(e, 'update_failed'),
       })
       setTimeout(() => setActionMsg(null), 6000)
     } finally {

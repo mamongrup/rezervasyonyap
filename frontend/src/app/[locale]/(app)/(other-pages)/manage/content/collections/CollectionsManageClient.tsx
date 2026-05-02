@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import ImageUpload from '@/components/editor/ImageUpload'
 import {
@@ -131,7 +131,7 @@ function CollectionModal({
       onSaved()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+      setError(formatManageApiCatch(e, 'Kaydedilemedi'))
     } finally {
       setSaving(false)
     }
@@ -153,7 +153,7 @@ function CollectionModal({
       })
       if (out) setTitle(out.slice(0, 200))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI hatası')
+      setError(formatManageApiCatch(e, 'AI hatası'))
     } finally {
       setAiPolish(null)
     }
@@ -176,7 +176,7 @@ function CollectionModal({
       })
       if (out) setDescription(out)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'AI hatası')
+      setError(formatManageApiCatch(e, 'AI hatası'))
     } finally {
       setAiPolish(null)
     }

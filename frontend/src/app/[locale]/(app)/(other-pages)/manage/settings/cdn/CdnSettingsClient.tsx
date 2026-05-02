@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
   getAllCdnProviders,
@@ -190,7 +190,7 @@ export default function CdnSettingsClient() {
       }
       setForms(next)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -209,7 +209,7 @@ export default function CdnSettingsClient() {
       await setActiveCdn(code)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Etkinleştirme başarısız')
+      setError(formatManageApiCatch(e, 'Etkinleştirme başarısız'))
     } finally {
       setActivating(null)
     }
@@ -222,7 +222,7 @@ export default function CdnSettingsClient() {
       await deactivateCdn()
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Devre dışı bırakma başarısız')
+      setError(formatManageApiCatch(e, 'Devre dışı bırakma başarısız'))
     } finally {
       setDeactivating(false)
     }
@@ -244,7 +244,7 @@ export default function CdnSettingsClient() {
     } catch (e) {
       setMsgs((prev) => ({
         ...prev,
-        [code]: { ok: false, text: e instanceof Error ? e.message : 'Kayıt başarısız' },
+        [code]: { ok: false, text: formatManageApiCatch(e, 'Kayıt başarısız') },
       }))
     } finally {
       setSaving(null)

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   createAiRegionTask,
@@ -74,7 +74,7 @@ export default function AiRegionsClient() {
       setCountries(cRes.countries)
       setTasks(tRes.tasks)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -112,7 +112,7 @@ export default function AiRegionsClient() {
       setSelectedCountryId('')
       await loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'İller oluşturulamadı')
+      setError(formatManageApiCatch(e, 'İller oluşturulamadı'))
     } finally {
       setCreatingCities(false)
     }
@@ -144,7 +144,7 @@ export default function AiRegionsClient() {
       })
       await loadData()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Görev oluşturulamadı')
+      setError(formatManageApiCatch(e, 'Görev oluşturulamadı'))
     } finally {
       setCreatingDistricts(null)
     }

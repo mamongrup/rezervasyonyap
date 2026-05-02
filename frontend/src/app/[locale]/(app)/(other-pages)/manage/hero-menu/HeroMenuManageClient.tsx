@@ -1,5 +1,6 @@
 'use client'
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useManageT } from '@/lib/manage-i18n-context'
 import {
@@ -114,7 +115,7 @@ export default function HeroMenuManageClient() {
       })
       await loadItems(menuId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('hero_menu.load_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('hero_menu.load_error'))
     } finally {
       setSavingId(null)
     }
@@ -134,7 +135,7 @@ export default function HeroMenuManageClient() {
       })
       await loadItems(menuId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('hero_menu.load_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('hero_menu.load_error'))
     }
   }
 
@@ -147,7 +148,7 @@ export default function HeroMenuManageClient() {
       await deleteNavMenuItem(token, menuId, id)
       await loadItems(menuId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('hero_menu.load_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('hero_menu.load_error'))
     }
   }
 

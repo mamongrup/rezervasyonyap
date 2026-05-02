@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
@@ -79,7 +79,7 @@ function BrandingImageUploadRow({
       const newUrl = await uploadBrandingAsset(file, purpose)
       onChange(newUrl)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Yükleme başarısız')
+      alert(formatManageApiCatch(err, 'Yükleme başarısız'))
     } finally {
       setBusy(false)
       e.target.value = ''
@@ -440,7 +440,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Yükleme başarısız',
+        text: formatManageApiCatch(e, 'Yükleme başarısız'),
       })
     } finally {
       setLoading(false)
@@ -477,7 +477,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     }
   }
@@ -517,7 +517,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     } finally {
       setAiSaving(false)
@@ -547,7 +547,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     }
   }
@@ -576,7 +576,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     } finally {
       setHomeCatOrderSaving(false)
@@ -602,7 +602,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setStatus({ kind: 'ok', text: 'Google hizmet ayarları kaydedildi. Değişiklikler bir sonraki deploy\'da yansır.' })
       await load()
     } catch (e) {
-      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Kayıt başarısız' })
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
     } finally {
       setGoogleServicesSaving(false)
     }
@@ -626,7 +626,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Geçersiz JSON veya kayıt hatası',
+        text: formatManageApiCatch(e, 'Geçersiz JSON veya kayıt hatası'),
       })
     }
   }
@@ -649,7 +649,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Geçersiz JSON veya kayıt hatası',
+        text: formatManageApiCatch(e, 'Geçersiz JSON veya kayıt hatası'),
       })
     }
   }
@@ -694,7 +694,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setBrandingJson(JSON.stringify(next, null, 2))
       setStatus({ kind: 'ok', text: 'Site kimliği kaydedildi. Logo ve favicon hemen yansır.' })
     } catch (e) {
-      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Kayıt başarısız' })
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
     }
   }
 
@@ -739,7 +739,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setBrandingJson(JSON.stringify(next, null, 2))
       setStatus({ kind: 'ok', text: 'Kategori logoları kaydedildi.' })
     } catch (e) {
-      setStatus({ kind: 'err', text: e instanceof Error ? e.message : 'Kayıt başarısız' })
+      setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
     } finally {
       setCategoryLogosSaving(false)
     }
@@ -769,7 +769,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Güncellenemedi',
+        text: formatManageApiCatch(e, 'Güncellenemedi'),
       })
     }
   }
@@ -787,7 +787,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       const cur = await listCurrencies()
       setCurrencies(cur.currencies)
     } catch (e) {
-      setCurrencyHint(e instanceof Error ? e.message : 'Güncellenemedi')
+      setCurrencyHint(formatManageApiCatch(e, 'Güncellenemedi'))
     } finally {
       setCurrencyToggleBusy(null)
     }
@@ -811,7 +811,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setCurrencies(cur.currencies)
       setCurrencyHint('Para birimi sırası kaydedildi. Ön yüz (header) birkaç dakika içinde güncellenir.')
     } catch (e) {
-      setCurrencyHint(e instanceof Error ? e.message : 'Sıra kaydedilemedi')
+      setCurrencyHint(formatManageApiCatch(e, 'Sıra kaydedilemedi'))
     } finally {
       setCurrencyOrderSaving(false)
     }
@@ -830,7 +830,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       const cur = await listCurrencies()
       setCurrencies(cur.currencies)
     } catch (e) {
-      setTcmbMsg(e instanceof Error ? e.message : 'TCMB yenileme başarısız')
+      setTcmbMsg(formatManageApiCatch(e, 'TCMB yenileme başarısız'))
     }
   }
 
@@ -859,7 +859,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       setNewDp('2')
       setCurrencyHint('Para birimi kaydedildi.')
     } catch (e) {
-      setCurrencyHint(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setCurrencyHint(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setCurrencyBusy(false)
     }

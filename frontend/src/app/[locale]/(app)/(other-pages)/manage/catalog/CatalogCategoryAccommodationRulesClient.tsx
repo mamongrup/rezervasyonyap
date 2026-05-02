@@ -4,6 +4,7 @@
  * Kategori bazında konaklama kuralları şablonları (giriş/çıkış saati hariç).
  * İlan vitrininde seçilen kurallar bu şablondan gösterilir.
  */
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
@@ -204,7 +205,7 @@ export default function CatalogCategoryAccommodationRulesClient({
       await putManageCategoryAccommodationRules(token, code, rules, orgQ)
       setMsg({ ok: true, text: 'Konaklama kuralları kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally {
       setBusy(false)
     }

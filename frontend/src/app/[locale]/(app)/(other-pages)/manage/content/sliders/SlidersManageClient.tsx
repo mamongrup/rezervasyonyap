@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   ArrowDown,
   ArrowUp,
@@ -342,7 +342,7 @@ function LocalizedField({
       })
       if (translated) onChange({ ...field, [editLocale]: translated })
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Çeviri başarısız')
+      setErr(formatManageApiCatch(e, 'Çeviri başarısız'))
     } finally {
       setTranslating(false)
     }

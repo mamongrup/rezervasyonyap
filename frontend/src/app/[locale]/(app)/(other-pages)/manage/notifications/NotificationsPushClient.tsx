@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listNotificationTriggers, type NotificationTrigger } from '@/lib/travel-api'
@@ -25,7 +25,7 @@ export default function NotificationsPushClient() {
       const t = await listNotificationTriggers(token)
       setTriggers(Array.isArray(t.triggers) ? t.triggers : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yükleme başarısız')
+      setError(formatManageApiCatch(e, 'Yükleme başarısız'))
       setTriggers([])
     } finally {
       setLoading(false)

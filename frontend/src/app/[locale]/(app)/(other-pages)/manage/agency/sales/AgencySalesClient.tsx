@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   addCartLine,
   checkoutCart,
@@ -89,7 +89,7 @@ export default function AgencySalesClient() {
       const me = await getAgencyMe(token)
       setState({ kind: 'ok', me })
     } catch (e) {
-      setState({ kind: 'err', msg: e instanceof Error ? e.message : 'load_failed' })
+      setState({ kind: 'err', msg: formatManageApiCatch(e, 'load_failed') })
     }
   }, [])
 
@@ -105,7 +105,7 @@ export default function AgencySalesClient() {
       const res = await getAgencyBrowseListings(token, search.trim() || undefined)
       setListings(res.listings)
     } catch (e) {
-      const m = e instanceof Error ? e.message : 'search_failed'
+      const m = formatManageApiCatch(e, 'search_failed')
       alert(formatAgencyFlowError(m))
     } finally {
       setListLoading(false)
@@ -191,7 +191,7 @@ export default function AgencySalesClient() {
         router.push(`${vitrinPath('/pay-done')}?code=${encodeURIComponent(out.public_code)}`)
       }
     } catch (err) {
-      const m = err instanceof Error ? err.message : 'checkout_failed'
+      const m = formatManageApiCatch(err, 'checkout_failed')
       alert(formatAgencyFlowError(m))
     } finally {
       setSubmitting(false)

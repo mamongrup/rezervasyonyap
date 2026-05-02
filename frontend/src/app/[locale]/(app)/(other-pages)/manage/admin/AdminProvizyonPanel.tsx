@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import React from 'react'
 import {
   adminListProvizyon,
@@ -88,7 +88,7 @@ function ReservationRow({ res, token, onRefresh }: { res: ProvizyonReservation; 
       window.alert('Transfer kaydedildi.')
       onRefresh()
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Hata')
+      window.alert(formatManageApiCatch(e, 'Hata'))
     } finally {
       setAddingTransfer(false)
     }
@@ -189,7 +189,7 @@ function ReservationRow({ res, token, onRefresh }: { res: ProvizyonReservation; 
                         setOpsAiText(parseAiJobOutput(r.job.output_json))
                         if (r.job.status === 'failed' && r.job.error) setOpsAiErr(r.job.error)
                       } catch (e) {
-                        setOpsAiErr(e instanceof Error ? e.message : 'ai_failed')
+                        setOpsAiErr(formatManageApiCatch(e, 'ai_failed'))
                       } finally {
                         setOpsAiBusy(false)
                       }
@@ -283,7 +283,7 @@ function EscalationRowItem({ esc, token, onRefresh }: { esc: EscalationRow; toke
       await adminResolveEscalation(token, esc.id, { status: resolveStatus, note })
       onRefresh()
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Hata')
+      window.alert(formatManageApiCatch(e, 'Hata'))
     } finally {
       setResolving(false)
     }
@@ -343,7 +343,7 @@ function EscalationRowItem({ esc, token, onRefresh }: { esc: EscalationRow; toke
                   setOpsAiText(parseAiJobOutput(r.job.output_json))
                   if (r.job.status === 'failed' && r.job.error) setOpsAiErr(r.job.error)
                 } catch (e) {
-                  setOpsAiErr(e instanceof Error ? e.message : 'ai_failed')
+                  setOpsAiErr(formatManageApiCatch(e, 'ai_failed'))
                 } finally {
                   setOpsAiBusy(false)
                 }
@@ -413,7 +413,7 @@ export default function AdminProvizyonPanel() {
       )
       loadData()
     } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Hata')
+      window.alert(formatManageApiCatch(e, 'Hata'))
     } finally {
       setCheckingDeadlines(false)
     }

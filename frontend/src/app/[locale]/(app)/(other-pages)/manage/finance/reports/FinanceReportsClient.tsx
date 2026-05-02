@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { getAdminReservations, type StaffReservationRow } from '@/lib/travel-api'
@@ -52,7 +52,7 @@ export default function FinanceReportsClient() {
       const r = await getAdminReservations(token, { limit: 500 })
       setRows(r.reservations ?? [])
     } catch (e) {
-      const raw = e instanceof Error ? e.message : 'Yüklenemedi'
+      const raw = formatManageApiCatch(e, 'Yüklenemedi')
       setError(
         raw === 'forbidden'
           ? 'Bu özet için yönetici oturumu ve kullanıcı okuma izni gerekir.'

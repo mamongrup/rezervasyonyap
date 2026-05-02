@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import React from 'react'
 import {
   getListingPerks,
@@ -45,7 +45,7 @@ export default function ListingPerksManageCard({ listingId }: Props) {
       setMsg('Kaydedildi ✓')
       setTimeout(() => setMsg(null), 1500)
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Hata')
+      setMsg(formatManageApiCatch(e, 'Hata'))
     } finally {
       setBusy(false)
     }

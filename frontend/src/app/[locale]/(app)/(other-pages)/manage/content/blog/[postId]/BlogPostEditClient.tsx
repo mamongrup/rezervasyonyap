@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { blogPostMediaSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import ImageUpload from '@/components/editor/ImageUpload'
@@ -266,7 +266,7 @@ export default function BlogPostEditClient({
       setExcerpt(tr?.excerpt ?? '')
       setBody(tr?.body ?? '')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -313,7 +313,7 @@ export default function BlogPostEditClient({
       ])
       setAiResult({ title: tTitle, excerpt: tExcerpt, body: tBody })
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : 'Çeviri hatası')
+      setAiError(formatManageApiCatch(e, 'Çeviri hatası'))
     } finally {
       setAiTranslating(false)
     }
@@ -343,7 +343,7 @@ export default function BlogPostEditClient({
       setAiResult(null)
       showSaved(`${aiTargetLocale.toUpperCase()} çevirisi kaydedildi`)
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setAiError(formatManageApiCatch(e, 'Kayıt başarısız'))
       switchLocale(prevLocale)
     } finally {
       setSaving(false)
@@ -425,7 +425,7 @@ export default function BlogPostEditClient({
       }
       showSaved(`${aiTargetLocale.toUpperCase()} çevirisi taslakta güncellendi — kaydedin.`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Çeviri başarısız')
+      setError(formatManageApiCatch(e, 'Çeviri başarısız'))
     } finally {
       setAiTranslating(false)
     }
@@ -448,7 +448,7 @@ export default function BlogPostEditClient({
       if (out) setTitle(out.slice(0, 200))
       showSaved('Başlık iyileştirildi.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'İşlem başarısız')
+      setError(formatManageApiCatch(e, 'İşlem başarısız'))
     } finally {
       setAiPolishTitle(false)
     }
@@ -471,7 +471,7 @@ export default function BlogPostEditClient({
       if (out) setExcerpt(out)
       showSaved('Özet iyileştirildi.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'İşlem başarısız')
+      setError(formatManageApiCatch(e, 'İşlem başarısız'))
     } finally {
       setAiPolishExcerpt(false)
     }
@@ -496,7 +496,7 @@ export default function BlogPostEditClient({
       if (out) setBody(out)
       showSaved('İçerik iyileştirildi.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'İşlem başarısız')
+      setError(formatManageApiCatch(e, 'İşlem başarısız'))
     } finally {
       setAiPolishBody(false)
     }
@@ -524,7 +524,7 @@ export default function BlogPostEditClient({
       if (t2) setMetaDescription(t2.slice(0, 160))
       showSaved('Meta SEO iyileştirildi — SEO sekmesinden kaydedin.')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'İşlem başarısız')
+      setError(formatManageApiCatch(e, 'İşlem başarısız'))
     } finally {
       setAiPolishMeta(false)
     }
@@ -544,7 +544,7 @@ export default function BlogPostEditClient({
       )
       showSaved(isPublished ? 'Taslağa alındı' : 'Yayınlandı!')
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Durum değiştirilemedi')
+      setError(formatManageApiCatch(e, 'Durum değiştirilemedi'))
     } finally {
       setPublishing(false)
     }
@@ -611,7 +611,7 @@ export default function BlogPostEditClient({
       }
       return true
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+      setError(formatManageApiCatch(e, 'Kaydedilemedi'))
       return false
     } finally {
       setSaving(false)

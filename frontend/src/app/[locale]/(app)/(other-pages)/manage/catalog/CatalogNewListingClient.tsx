@@ -1,5 +1,6 @@
 'use client'
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
@@ -471,7 +472,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       .catch((e) => {
         if (cancelled) return
         setContracts([])
-        setContractsErr(e instanceof Error ? e.message : 'contracts_load_failed')
+        setContractsErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('contracts_load_failed'))
       })
     return () => { cancelled = true }
   }, [categoryCode, needOrg, orgId])
@@ -655,7 +656,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     } catch (e) {
       setTranslateMsg({
         ok: false,
-        text: e instanceof Error ? e.message : 'Çeviri başarısız',
+        text: e instanceof Error ? formatManageApiError(e.message) : 'Çeviri başarısız',
       })
     } finally {
       setAiTranslating(false)
@@ -702,7 +703,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     } catch (e) {
       setTranslateMsg({
         ok: false,
-        text: e instanceof Error ? e.message : 'İşlem başarısız',
+        text: e instanceof Error ? formatManageApiError(e.message) : 'İşlem başarısız',
       })
     } finally {
       setAiPolishTitle(false)
@@ -748,7 +749,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     } catch (e) {
       setTranslateMsg({
         ok: false,
-        text: e instanceof Error ? e.message : 'İşlem başarısız',
+        text: e instanceof Error ? formatManageApiError(e.message) : 'İşlem başarısız',
       })
     } finally {
       setAiPolishBody(false)
@@ -783,7 +784,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     } catch (e) {
       setTranslateMsg({
         ok: false,
-        text: e instanceof Error ? e.message : 'İşlem başarısız',
+        text: e instanceof Error ? formatManageApiError(e.message) : 'İşlem başarısız',
       })
     } finally {
       setSeoPolishBusy(null)
@@ -813,7 +814,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     } catch (e) {
       setTranslateMsg({
         ok: false,
-        text: e instanceof Error ? e.message : 'İşlem başarısız',
+        text: e instanceof Error ? formatManageApiError(e.message) : 'İşlem başarısız',
       })
     } finally {
       setSeoPolishBusy(null)
@@ -874,7 +875,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     } catch (e) {
       setTranslateMsg({
         ok: false,
-        text: e instanceof Error ? e.message : 'İşlem başarısız',
+        text: e instanceof Error ? formatManageApiError(e.message) : 'İşlem başarısız',
       })
     } finally {
       setSeoPolishBusy(null)
@@ -906,7 +907,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       })
       setPropertyTypeOptions(nextOptions)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'property_type_options_save_failed')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('property_type_options_save_failed'))
     } finally {
       setPropertyTypeBusy(false)
     }
@@ -1165,7 +1166,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       router.push(manageUrl)
       router.refresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('catalog.create_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.create_error'))
     } finally {
       setBusy(false)
     }

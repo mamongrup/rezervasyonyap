@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import MultiLangNamePanel, {
   parseMultiLangTranslations,
@@ -136,7 +136,7 @@ export default function EarlyBookingCampaignsClient() {
       const r = await listCampaigns(token)
       setRows(r.campaigns ?? [])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Liste yüklenemedi')
+      setErr(formatManageApiCatch(e, 'Liste yüklenemedi'))
       setRows([])
     } finally {
       setLoading(false)
@@ -234,7 +234,7 @@ export default function EarlyBookingCampaignsClient() {
       resetForm()
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setErr(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }
@@ -248,7 +248,7 @@ export default function EarlyBookingCampaignsClient() {
       await patchCampaign(token, c.id, { is_active: !c.is_active })
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
+      setErr(formatManageApiCatch(e, 'Güncellenemedi'))
     }
   }
 
@@ -261,7 +261,7 @@ export default function EarlyBookingCampaignsClient() {
       await deleteCampaign(token, id)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     }
   }
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -78,7 +79,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
       })
       setRows(r.listings)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('catalog.list_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.list_error'))
       setRows([])
     } finally {
       setLoading(false)

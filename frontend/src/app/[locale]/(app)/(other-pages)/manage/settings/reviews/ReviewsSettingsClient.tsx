@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listReviewsAdmin, patchReviewModeration, type Review } from '@/lib/travel-api'
@@ -36,7 +36,7 @@ export default function ReviewsSettingsClient() {
       const r = await listReviewsAdmin(token, { status: filter, limit: 200 })
       setRows(Array.isArray(r.reviews) ? r.reviews : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Liste yüklenemedi')
+      setError(formatManageApiCatch(e, 'Liste yüklenemedi'))
       setRows([])
     } finally {
       setLoading(false)
@@ -56,7 +56,7 @@ export default function ReviewsSettingsClient() {
       await patchReviewModeration(token, id, { status })
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Güncelleme başarısız')
+      setError(formatManageApiCatch(e, 'Güncelleme başarısız'))
     } finally {
       setActingId(null)
     }

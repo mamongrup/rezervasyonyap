@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   getAdminUserRoles,
@@ -211,7 +211,7 @@ export default function MembersPageClient({ roleFilter = 'all' }: { roleFilter?:
       const res = await listAdminUsers(token, search.trim() || undefined)
       setUsers(res.users)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Üyeler yüklenemedi')
+      setError(formatManageApiCatch(e, 'Üyeler yüklenemedi'))
     } finally {
       setLoading(false)
     }

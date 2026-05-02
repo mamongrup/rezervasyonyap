@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   addStaffPosCartLine,
   checkoutStaffPosCart,
@@ -107,7 +107,7 @@ export default function StaffManageClient() {
         listings: listingsRes.listings,
       })
     } catch (e) {
-      setState({ kind: 'err', msg: e instanceof Error ? e.message : 'load_failed' })
+      setState({ kind: 'err', msg: formatManageApiCatch(e, 'load_failed') })
     }
   }, [])
 
@@ -142,7 +142,7 @@ export default function StaffManageClient() {
       const r = await listStaffListings(token, listingSearch.trim() || undefined)
       setState((prev) => (prev.kind === 'ok' ? { ...prev, listings: r.listings } : prev))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'listing_search_failed')
+      alert(formatManageApiCatch(err, 'listing_search_failed'))
     } finally {
       setListingSearchBusy(false)
     }
@@ -160,7 +160,7 @@ export default function StaffManageClient() {
       setPosCartId(r.id)
       setPosCurrency(r.currency_code || cur)
     } catch (e) {
-      setPosMsg(formatStaffPosErr(e instanceof Error ? e.message : 'pos_cart_failed'))
+      setPosMsg(formatStaffPosErr(formatManageApiCatch(e, 'pos_cart_failed')))
       setPosCartId(null)
     } finally {
       setPosBusy(false)
@@ -189,7 +189,7 @@ export default function StaffManageClient() {
       const c = await getCart(posCartId)
       setPosCart(c)
     } catch (e) {
-      setPosMsg(formatStaffPosErr(e instanceof Error ? e.message : 'pos_line_failed'))
+      setPosMsg(formatStaffPosErr(formatManageApiCatch(e, 'pos_line_failed')))
     } finally {
       setPosBusy(false)
     }
@@ -226,7 +226,7 @@ export default function StaffManageClient() {
       setPosGuestPhone('')
       await load()
     } catch (e) {
-      setPosMsg(formatStaffPosErr(e instanceof Error ? e.message : 'pos_checkout_failed'))
+      setPosMsg(formatStaffPosErr(formatManageApiCatch(e, 'pos_checkout_failed')))
     } finally {
       setPosBusy(false)
     }
@@ -248,7 +248,7 @@ export default function StaffManageClient() {
       const r = await listStaffListings(token)
       setState((prev) => (prev.kind === 'ok' ? { ...prev, listings: r.listings } : prev))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'listing_search_failed')
+      alert(formatManageApiCatch(err, 'listing_search_failed'))
     } finally {
       setListingSearchBusy(false)
     }

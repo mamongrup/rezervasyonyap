@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
 import type { FooterSiteColumn, FooterSiteConfig, FooterSiteLink, FooterTrustBadge } from '@/types/footer-site-config'
 import I18nFieldEditor from '@/components/manage/i18n/I18nFieldEditor'
@@ -184,7 +184,7 @@ export default function HeaderFooterManageClient() {
       const data = (await res.json()) as { ok?: boolean; config?: FooterSiteConfig }
       if (data.config) setCfg(data.config)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'Hata')
+      setLoadErr(formatManageApiCatch(e, 'Hata'))
     } finally {
       setLoading(false)
     }

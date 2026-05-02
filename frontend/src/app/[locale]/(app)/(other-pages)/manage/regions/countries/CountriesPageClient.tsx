@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createLocationCountry,
   createLocationDistrict,
@@ -210,7 +210,7 @@ export default function CountriesPageClient() {
       const res = await listLocationCountries()
       setCountries(res.countries)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ülkeler yüklenemedi')
+      setError(formatManageApiCatch(e, 'Ülkeler yüklenemedi'))
     } finally {
       setLoadingCountries(false)
     }
@@ -256,7 +256,7 @@ export default function CountriesPageClient() {
       setShowAddCountry(false)
       await loadCountries()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Eklenemedi')
+      setError(formatManageApiCatch(e, 'Eklenemedi'))
     } finally {
       setAddingCountry(false)
     }
@@ -278,7 +278,7 @@ export default function CountriesPageClient() {
       const res = await listLocationRegions(selectedCountry.id)
       setRegions(res.regions)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Eklenemedi')
+      setError(formatManageApiCatch(e, 'Eklenemedi'))
     } finally {
       setAddingRegion(false)
     }
@@ -300,7 +300,7 @@ export default function CountriesPageClient() {
       const res = await listLocationDistricts(selectedRegion.id)
       setDistricts(res.districts)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Eklenemedi')
+      setError(formatManageApiCatch(e, 'Eklenemedi'))
     } finally {
       setAddingDistrict(false)
     }

@@ -1,5 +1,6 @@
 'use client'
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -147,7 +148,7 @@ export default function CatalogListingTranslationsClient({
       )
       setSeoDraft(seo)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('catalog.translations_load_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.translations_load_error'))
       setRows([])
     } finally {
       setLoading(false)
@@ -206,7 +207,7 @@ export default function CatalogListingTranslationsClient({
       setOk(t('catalog.translations_saved'))
       void load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : t('catalog.create_error'))
+      setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.create_error'))
     } finally {
       setSaving(false)
     }
@@ -311,7 +312,7 @@ export default function CatalogListingTranslationsClient({
       }))
       setOk(`${aiTargetLocale.toUpperCase()} çevirisi güncellendi — kaydedin.`)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Çeviri başarısız')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Çeviri başarısız')
     } finally {
       setAiTranslating(false)
     }
@@ -326,7 +327,7 @@ export default function CatalogListingTranslationsClient({
     try {
       await fn()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'AI hatası')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'AI hatası')
     } finally {
       setAiPolish(null)
     }

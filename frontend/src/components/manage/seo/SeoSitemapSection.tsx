@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getSeoSitemapEntries, type SitemapEntry } from '@/lib/travel-api'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -37,7 +37,7 @@ export default function SeoSitemapSection() {
       const s = await getSeoSitemapEntries()
       setSmEntries(s.entries)
     } catch (e) {
-      setSmErr(e instanceof Error ? e.message : 'sitemap_preview_failed')
+      setSmErr(formatManageApiCatch(e, 'sitemap_preview_failed'))
     } finally {
       setSmLoading(false)
     }

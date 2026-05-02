@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   createCampaign,
@@ -77,7 +77,7 @@ export default function CampaignsManageClient() {
       const r = await listCampaigns(token)
       setRows(r.campaigns ?? [])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Liste yüklenemedi')
+      setErr(formatManageApiCatch(e, 'Liste yüklenemedi'))
       setRows([])
     } finally {
       setLoading(false)
@@ -118,7 +118,7 @@ export default function CampaignsManageClient() {
       setIsActive(true)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setErr(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }

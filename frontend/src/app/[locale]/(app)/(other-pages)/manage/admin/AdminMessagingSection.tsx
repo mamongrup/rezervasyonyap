@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   listEmailTemplates,
   listNotificationJobs,
@@ -65,7 +65,7 @@ export default function AdminMessagingSection() {
       setTriggers(tr.triggers)
       setJobs(j.jobs)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'messaging_load_failed')
+      setLoadErr(formatManageApiCatch(e, 'messaging_load_failed'))
     } finally {
       setRefreshing(false)
     }
@@ -106,7 +106,7 @@ export default function AdminMessagingSection() {
       setQSchedule('')
       await refresh()
     } catch (err) {
-      setLoadErr(err instanceof Error ? err.message : 'messaging_queue_failed')
+      setLoadErr(formatManageApiCatch(err, 'messaging_queue_failed'))
     } finally {
       setBusy(false)
     }

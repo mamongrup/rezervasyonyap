@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import MultiLangNamePanel, {
   parseMultiLangTranslations,
@@ -61,7 +61,7 @@ export default function CouponsManageClient() {
       const r = await listCoupons(token)
       setRows(r.coupons ?? [])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Liste yüklenemedi')
+      setErr(formatManageApiCatch(e, 'Liste yüklenemedi'))
       setRows([])
     } finally {
       setLoading(false)
@@ -126,7 +126,7 @@ export default function CouponsManageClient() {
       setAllowedCategoryCodes('')
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setErr(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }
@@ -141,7 +141,7 @@ export default function CouponsManageClient() {
       await deleteCoupon(token, id)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     }
   }
 

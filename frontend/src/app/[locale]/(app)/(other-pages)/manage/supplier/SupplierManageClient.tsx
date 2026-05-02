@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   cancelSupplierInvoice,
   createSupplierInvoice,
@@ -149,7 +149,7 @@ export default function SupplierManageClient() {
           )
         })
         .catch((err: unknown) => {
-          const msg = err instanceof Error ? err.message : 'invoices_load_failed'
+          const msg = formatManageApiCatch(err, 'invoices_load_failed')
           setState((prev: LoadState) =>
             prev.kind === 'ok'
               ? { ...prev, invoices: [], invoicesLoading: false, invoicesError: msg }
@@ -157,7 +157,7 @@ export default function SupplierManageClient() {
           )
         })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'load_failed'
+      const msg = formatManageApiCatch(e, 'load_failed')
       setState({ kind: 'err', msg })
     }
   }, [])
@@ -227,7 +227,7 @@ export default function SupplierManageClient() {
         prev.kind === 'ok' ? { ...prev, commissionAccruals, persistedAccruals } : prev,
       )
     } catch (e) {
-      setInvoiceSectionError(e instanceof Error ? e.message : 'commission_refresh_failed')
+      setInvoiceSectionError(formatManageApiCatch(e, 'commission_refresh_failed'))
     } finally {
       setCommRefreshing(false)
     }
@@ -256,7 +256,7 @@ export default function SupplierManageClient() {
       })
       await load()
     } catch (e) {
-      setListingSaveError(e instanceof Error ? e.message : 'save_failed')
+      setListingSaveError(formatManageApiCatch(e, 'save_failed'))
     } finally {
       setListingSaveBusy(null)
     }
@@ -275,7 +275,7 @@ export default function SupplierManageClient() {
       const listRes = await listSupplierListings(token, listingSearch.trim() || undefined)
       setState((prev: LoadState) => (prev.kind === 'ok' ? { ...prev, listings: listRes.listings } : prev))
     } catch (e) {
-      setListingSaveError(e instanceof Error ? e.message : 'social_patch_failed')
+      setListingSaveError(formatManageApiCatch(e, 'social_patch_failed'))
     } finally {
       setListingSocialBusy(null)
     }
@@ -307,7 +307,7 @@ export default function SupplierManageClient() {
         prev.kind === 'ok' ? { ...prev, promotionRules: pr.promotion_fee_rules } : prev,
       )
     } catch (e) {
-      setPromoError(e instanceof Error ? e.message : 'promo_save_failed')
+      setPromoError(formatManageApiCatch(e, 'promo_save_failed'))
     } finally {
       setPromoBusy(null)
     }
@@ -334,7 +334,7 @@ export default function SupplierManageClient() {
         prev.kind === 'ok' ? { ...prev, agencyCommissions: list.agency_commissions } : prev,
       )
     } catch (e) {
-      setSacError(e instanceof Error ? e.message : 'sac_save_failed')
+      setSacError(formatManageApiCatch(e, 'sac_save_failed'))
     } finally {
       setSacBusy(null)
     }
@@ -363,7 +363,7 @@ export default function SupplierManageClient() {
         prev.kind === 'ok' ? { ...prev, agencyCommissions: list.agency_commissions } : prev,
       )
     } catch (e) {
-      setSacError(e instanceof Error ? e.message : 'sac_add_failed')
+      setSacError(formatManageApiCatch(e, 'sac_add_failed'))
     } finally {
       setSacBusy(null)
     }
@@ -381,7 +381,7 @@ export default function SupplierManageClient() {
         prev.kind === 'ok' ? { ...prev, agencyCommissions: list.agency_commissions } : prev,
       )
     } catch (e) {
-      setSacError(e instanceof Error ? e.message : 'sac_delete_failed')
+      setSacError(formatManageApiCatch(e, 'sac_delete_failed'))
     } finally {
       setSacBusy(null)
     }
@@ -406,7 +406,7 @@ export default function SupplierManageClient() {
         prev.kind === 'ok' ? { ...prev, promotionRules: pr.promotion_fee_rules } : prev,
       )
     } catch (e) {
-      setPromoError(e instanceof Error ? e.message : 'promo_delete_failed')
+      setPromoError(formatManageApiCatch(e, 'promo_delete_failed'))
     } finally {
       setPromoBusy(null)
     }
@@ -421,7 +421,7 @@ export default function SupplierManageClient() {
       const r = await listSupplierListings(token, listingSearch.trim() || undefined)
       setState((prev) => (prev.kind === 'ok' ? { ...prev, listings: r.listings } : prev))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'listing_search_failed')
+      alert(formatManageApiCatch(err, 'listing_search_failed'))
     } finally {
       setListingSearchBusy(false)
     }
@@ -436,7 +436,7 @@ export default function SupplierManageClient() {
       const r = await listSupplierListings(token)
       setState((prev) => (prev.kind === 'ok' ? { ...prev, listings: r.listings } : prev))
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'listing_search_failed')
+      alert(formatManageApiCatch(err, 'listing_search_failed'))
     } finally {
       setListingSearchBusy(false)
     }

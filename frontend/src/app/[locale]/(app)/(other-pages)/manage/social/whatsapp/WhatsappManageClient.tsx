@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listWhatsappOrderIntents } from '@/lib/travel-api'
@@ -37,7 +37,7 @@ export default function WhatsappManageClient() {
       const r = await listWhatsappOrderIntents(token, 120)
       setIntents(r.intents)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Yükleme hatası')
+      setErr(formatManageApiCatch(e, 'Yükleme hatası'))
       setIntents([])
     } finally {
       setLoading(false)

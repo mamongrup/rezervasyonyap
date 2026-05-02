@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listAdminAuditLog, type AdminAuditEvent } from '@/lib/travel-api'
 import clsx from 'clsx'
@@ -50,7 +50,7 @@ export default function AuditLogClient() {
       setEvents(res.events)
       setPage(0)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Denetim günlüğü yüklenemedi')
+      setError(formatManageApiCatch(e, 'Denetim günlüğü yüklenemedi'))
     } finally {
       setLoading(false)
     }

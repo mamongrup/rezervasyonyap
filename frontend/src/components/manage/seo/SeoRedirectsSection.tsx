@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createSeoRedirect,
   deleteSeoRedirect,
@@ -31,7 +31,7 @@ export default function SeoRedirectsSection() {
       const r = await listSeoRedirects(token)
       setRows(r.redirects)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'load_failed')
+      setLoadErr(formatManageApiCatch(e, 'load_failed'))
     }
   }, [])
 
@@ -62,7 +62,7 @@ export default function SeoRedirectsSection() {
       setOrgId('')
       await reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'create_failed')
+      alert(formatManageApiCatch(err, 'create_failed'))
     } finally {
       setBusy(false)
     }
@@ -77,7 +77,7 @@ export default function SeoRedirectsSection() {
       await deleteSeoRedirect(token, id)
       await reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'delete_failed')
+      alert(formatManageApiCatch(err, 'delete_failed'))
     } finally {
       setDeletingId(null)
     }

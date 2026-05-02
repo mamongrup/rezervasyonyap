@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getCategoryByListingType, type ListingType } from '@/data/category-registry'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { listProductCategories, type ProductCategoryRow } from '@/lib/travel-api'
@@ -44,7 +44,7 @@ export default function CommissionsPageClient() {
         const r = await listProductCategories()
         if (!cancelled) setRows(r.categories ?? [])
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Yüklenemedi')
+        if (!cancelled) setError(formatManageApiCatch(e, 'Yüklenemedi'))
       } finally {
         if (!cancelled) setLoading(false)
       }

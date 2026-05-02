@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createGoogleMerchantProduct,
   createInstagramShopLink,
@@ -72,7 +72,7 @@ export default function AdminMerchantIntegrationsSection() {
       const r = await listGoogleMerchantProducts(token, lid)
       setGmpRows(r.products)
     } catch (e) {
-      setGmpErr(e instanceof Error ? e.message : 'gmp_load_failed')
+      setGmpErr(formatManageApiCatch(e, 'gmp_load_failed'))
     } finally {
       setLoadingGmp(false)
     }
@@ -88,7 +88,7 @@ export default function AdminMerchantIntegrationsSection() {
       const r = await listInstagramShopLinks(lid, token ?? undefined)
       setIgLinks(r.links)
     } catch (e) {
-      setIgErr(e instanceof Error ? e.message : 'ig_load_failed')
+      setIgErr(formatManageApiCatch(e, 'ig_load_failed'))
     } finally {
       setLoadingIg(false)
     }
@@ -110,7 +110,7 @@ export default function AdminMerchantIntegrationsSection() {
       setNewMpid('')
       await loadGmp()
     } catch (e) {
-      setGmpErr(e instanceof Error ? e.message : 'gmp_add_failed')
+      setGmpErr(formatManageApiCatch(e, 'gmp_add_failed'))
     } finally {
       setBusy(null)
     }
@@ -125,7 +125,7 @@ export default function AdminMerchantIntegrationsSection() {
       await patchGoogleMerchantProduct(token, id, { status })
       await loadGmp()
     } catch (e) {
-      setGmpErr(e instanceof Error ? e.message : 'gmp_patch_failed')
+      setGmpErr(formatManageApiCatch(e, 'gmp_patch_failed'))
     } finally {
       setBusy(null)
     }
@@ -144,7 +144,7 @@ export default function AdminMerchantIntegrationsSection() {
       setNewIgMedia('')
       await loadIg()
     } catch (e) {
-      setIgErr(e instanceof Error ? e.message : 'ig_add_failed')
+      setIgErr(formatManageApiCatch(e, 'ig_add_failed'))
     } finally {
       setBusy(null)
     }
@@ -159,7 +159,7 @@ export default function AdminMerchantIntegrationsSection() {
       await patchInstagramShopLink(token, link.id, { sync_enabled: !link.sync_enabled })
       await loadIg()
     } catch (e) {
-      setIgErr(e instanceof Error ? e.message : 'ig_patch_failed')
+      setIgErr(formatManageApiCatch(e, 'ig_patch_failed'))
     } finally {
       setBusy(null)
     }
@@ -174,7 +174,7 @@ export default function AdminMerchantIntegrationsSection() {
       const r = await listWhatsappOrderIntents(token, 100)
       setWaIntents(r.intents)
     } catch (e) {
-      setWaErr(e instanceof Error ? e.message : 'wa_intents_load_failed')
+      setWaErr(formatManageApiCatch(e, 'wa_intents_load_failed'))
     } finally {
       setLoadingWa(false)
     }
@@ -190,7 +190,7 @@ export default function AdminMerchantIntegrationsSection() {
       await deleteInstagramShopLink(token, id)
       await loadIg()
     } catch (e) {
-      setIgErr(e instanceof Error ? e.message : 'ig_delete_failed')
+      setIgErr(formatManageApiCatch(e, 'ig_delete_failed'))
     } finally {
       setBusy(null)
     }

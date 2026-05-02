@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listStaffWorkspaceTasks, patchStaffWorkspaceTask, type WorkspaceTask } from '@/lib/travel-api'
 import clsx from 'clsx'
@@ -63,7 +63,7 @@ export default function StaffWorkspaceClient() {
       const r = await listStaffWorkspaceTasks(token)
       setTasks(r.tasks)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Yükleme hatası')
+      setErr(formatManageApiCatch(e, 'Yükleme hatası'))
     } finally {
       setLoading(false)
     }
@@ -129,7 +129,7 @@ export default function StaffWorkspaceClient() {
       await patchStaffWorkspaceTask(token, t.id, next)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
+      setErr(formatManageApiCatch(e, 'Güncellenemedi'))
     } finally {
       setBusy(null)
     }

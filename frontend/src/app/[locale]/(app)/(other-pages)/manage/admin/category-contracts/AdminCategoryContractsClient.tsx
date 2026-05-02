@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { ORDERED_PRODUCT_CATEGORY_CODES, categoryLabelTr } from '@/lib/catalog-category-ui'
 import {
   createManageCategoryContract,
@@ -93,7 +93,7 @@ export default function AdminCategoryContractsClient() {
       setBodyText('')
       void loadList()
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : 'Kayıt başarısız')
+      setMsg(formatManageApiCatch(err, 'Kayıt başarısız'))
     } finally {
       setBusy(false)
     }

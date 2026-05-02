@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listSeoSchema, upsertSeoSchema, type StructuredSnippet } from '@/lib/travel-api'
@@ -38,7 +38,7 @@ export default function SeoRichSnippetsClient() {
       const r = await listSeoSchema({ entity_type: entityType, entity_id: eid })
       setSnippets(Array.isArray(r.snippets) ? r.snippets : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yükleme başarısız')
+      setError(formatManageApiCatch(e, 'Yükleme başarısız'))
     } finally {
       setLoading(false)
     }
@@ -70,7 +70,7 @@ export default function SeoRichSnippetsClient() {
       setSaveMsg('Kaydedildi.')
       await loadSnippets()
     } catch (err) {
-      setSaveMsg(err instanceof Error ? err.message : 'Kayıt başarısız')
+      setSaveMsg(formatManageApiCatch(err, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }

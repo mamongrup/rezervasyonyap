@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import MultiLangNamePanel, {
   parseMultiLangTranslations,
@@ -51,7 +51,7 @@ export default function HolidayPackagesManageClient() {
       const r = await listHolidayPackages(token)
       setRows(r.packages ?? [])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Liste yüklenemedi')
+      setErr(formatManageApiCatch(e, 'Liste yüklenemedi'))
       setRows([])
     } finally {
       setLoading(false)
@@ -126,7 +126,7 @@ export default function HolidayPackagesManageClient() {
       resetForm()
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setErr(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }
@@ -141,7 +141,7 @@ export default function HolidayPackagesManageClient() {
       await deleteHolidayPackage(token, id)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     }
   }
 

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { listNotificationJobs, sendNetgsmTestSms, type NotificationJob } from '@/lib/travel-api'
@@ -44,7 +44,7 @@ export default function NotificationsSmsClient() {
       const jobs = Array.isArray(j.jobs) ? j.jobs : []
       setSmsJobs(jobs.filter((x) => x.channel === 'sms'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kuyruk yüklenemedi')
+      setError(formatManageApiCatch(e, 'Kuyruk yüklenemedi'))
       setSmsJobs([])
     } finally {
       setLoading(false)
@@ -66,7 +66,7 @@ export default function NotificationsSmsClient() {
       setSendResult(res.provider_raw ? `Gönderildi. Yanıt: ${res.provider_raw.slice(0, 200)}` : 'Gönderildi.')
       void loadJobs()
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Gönderim başarısız'
+      const msg = formatManageApiCatch(err, 'Gönderim başarısız')
       const low = msg.toLowerCase()
       if (msg.includes('403') || low.includes('forbidden') || low.includes('netgsm_sms_403')) {
         setSendResult(

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   listAdminAgencyProfiles,
   patchAdminAgencyProfiles,
@@ -37,7 +37,7 @@ export default function AdminAgencyProfilesSection() {
       const r = await listAdminAgencyProfiles(token, oid)
       setProfiles(r.profiles)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'load_failed')
+      setLoadErr(formatManageApiCatch(e, 'load_failed'))
       setProfiles([])
     } finally {
       setBusy(false)
@@ -67,7 +67,7 @@ export default function AdminAgencyProfilesSection() {
       setPatchMsg(`Güncellendi: ${out.updated_count} satır.`)
       await load()
     } catch (err) {
-      setPatchMsg(err instanceof Error ? err.message : 'patch_failed')
+      setPatchMsg(formatManageApiCatch(err, 'patch_failed'))
     } finally {
       setBusy(false)
     }

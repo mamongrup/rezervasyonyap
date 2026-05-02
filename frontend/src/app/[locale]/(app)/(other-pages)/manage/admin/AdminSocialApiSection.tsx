@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import React, { useCallback, useEffect, useState } from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listSiteSettings, upsertSiteSetting } from '@/lib/travel-api'
@@ -403,7 +403,7 @@ export default function AdminSocialApiSection() {
         })
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'load_failed')
+      setError(formatManageApiCatch(e, 'load_failed'))
     } finally {
       setLoading(false)
     }
@@ -424,7 +424,7 @@ export default function AdminSocialApiSection() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'save_failed')
+      setError(formatManageApiCatch(e, 'save_failed'))
     } finally {
       setSaving(false)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { getAdminReservations, getAuthMe, getStaffReservations, type StaffReservationRow } from '@/lib/travel-api'
 import { isFullAdminUser } from '@/lib/manage-nav-access'
@@ -85,7 +85,7 @@ export default function ReservationsPageClient() {
         : await getStaffReservations(token)
       setReservations(res.reservations)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Rezervasyonlar yüklenemedi')
+      setError(formatManageApiCatch(e, 'Rezervasyonlar yüklenemedi'))
     } finally {
       setLoading(false)
     }

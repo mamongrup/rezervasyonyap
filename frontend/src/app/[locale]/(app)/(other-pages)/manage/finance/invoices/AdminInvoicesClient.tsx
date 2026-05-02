@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { invoiceStatusBadgeClass, invoiceStatusLabelTr } from '@/lib/invoice-ui'
 import { getStaffInvoices, type StaffInvoiceRow } from '@/lib/travel-api'
@@ -112,7 +112,7 @@ export default function AdminInvoicesClient() {
       const res = await getStaffInvoices(token)
       setInvoices(res.invoices)
     } catch (e) {
-      const raw = e instanceof Error ? e.message : 'Faturalar yüklenemedi.'
+      const raw = formatManageApiCatch(e, 'Faturalar yüklenemedi.')
       const friendly =
         raw === 'forbidden'
           ? 'Bu liste için yetkiniz yok. Yönetici (kullanıcı okuma) veya personel fatura izni gerekir.'

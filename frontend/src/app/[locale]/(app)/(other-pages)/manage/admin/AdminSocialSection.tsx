@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createSocialJob,
   createSocialTemplate,
@@ -54,7 +54,7 @@ export default function AdminSocialSection() {
       setTemplates(t.templates)
       setJobs(j.jobs)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'social_load_failed')
+      setLoadErr(formatManageApiCatch(e, 'social_load_failed'))
     }
   }, [])
 
@@ -78,7 +78,7 @@ export default function AdminSocialSection() {
       setTplBody('')
       await refresh()
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'template_create_failed')
+      setLoadErr(formatManageApiCatch(e, 'template_create_failed'))
     } finally {
       setBusy(false)
     }
@@ -111,7 +111,7 @@ export default function AdminSocialSection() {
       setJobCaption('')
       await refresh()
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'job_create_failed')
+      setLoadErr(formatManageApiCatch(e, 'job_create_failed'))
     } finally {
       setBusy(false)
     }

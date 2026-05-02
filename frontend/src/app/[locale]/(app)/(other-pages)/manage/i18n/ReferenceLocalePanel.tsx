@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
@@ -44,7 +44,7 @@ export default function ReferenceLocalePanel({ locales }: Props) {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Hedef dil paketi yüklenemedi',
+        text: formatManageApiCatch(e, 'Hedef dil paketi yüklenemedi'),
       })
       setUiBundle({})
     } finally {
@@ -122,7 +122,7 @@ export default function ReferenceLocalePanel({ locales }: Props) {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     } finally {
       setSavingKey(null)

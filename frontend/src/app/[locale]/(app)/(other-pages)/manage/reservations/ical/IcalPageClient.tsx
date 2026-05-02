@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createIcalFeed,
   deleteIcalFeed,
@@ -210,7 +210,7 @@ export default function IcalPageClient() {
       const res = await listIcalImportedBlocks({ feed_id: feed.id, limit: 500 })
       setBlocks(res.blocks)
     } catch (e) {
-      setBlocksError(e instanceof Error ? e.message : 'Bloklar yüklenemedi')
+      setBlocksError(formatManageApiCatch(e, 'Bloklar yüklenemedi'))
     } finally {
       setBlocksLoading(false)
     }
@@ -225,7 +225,7 @@ export default function IcalPageClient() {
       setFeeds(res.feeds)
       setSearched(true)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -238,7 +238,7 @@ export default function IcalPageClient() {
       await deleteIcalFeed(id)
       setFeeds((prev) => prev.filter((f) => f.id !== id))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Silinemedi')
+      setError(formatManageApiCatch(e, 'Silinemedi'))
     } finally {
       setDeletingId(null)
     }
@@ -264,7 +264,7 @@ export default function IcalPageClient() {
           ),
         )
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Güncellenemedi')
+        setError(formatManageApiCatch(e, 'Güncellenemedi'))
       }
     },
     [],
@@ -297,7 +297,7 @@ export default function IcalPageClient() {
         setFPlus(0)
         setFMinus(0)
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Eklenemedi')
+        setError(formatManageApiCatch(e, 'Eklenemedi'))
       } finally {
         setAddingBusy(false)
       }

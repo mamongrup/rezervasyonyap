@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { DEFAULT_CATALOG_MENU_STRUCTURE, KNOWN_CATALOG_ITEM_IDS, normalizeCatalogMenuIconKey } from '@/lib/catalog-menu-defaults'
 import { CATALOG_MENU_ICON_OPTIONS } from '@/lib/catalog-menu-icons'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -69,7 +69,7 @@ export default function CatalogMenuPage() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setError(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }

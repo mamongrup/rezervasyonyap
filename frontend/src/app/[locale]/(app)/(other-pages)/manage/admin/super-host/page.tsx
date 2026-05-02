@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import React from 'react'
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -65,7 +65,7 @@ function SuperHostClient() {
       const data = (await res.json()) as { organizations: OrgRow[] }
       setOrgs(data.organizations ?? [])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Liste yüklenemedi')
+      setErr(formatManageApiCatch(e, 'Liste yüklenemedi'))
     } finally {
       setLoadingList(false)
     }
@@ -94,7 +94,7 @@ function SuperHostClient() {
       setMsg(data.message)
       await loadList()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Hata')
+      setErr(formatManageApiCatch(e, 'Hata'))
     } finally {
       setBusy(false)
     }
@@ -119,7 +119,7 @@ function SuperHostClient() {
         prev.map((o) => (o.id === org.id ? { ...o, is_super_host: next } : o)),
       )
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
+      setErr(formatManageApiCatch(e, 'Güncellenemedi'))
     } finally {
       setTogglingId(null)
     }

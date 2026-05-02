@@ -33,6 +33,7 @@ import {
   type NotFoundCoverItem,
   type RegionContentStats,
 } from '@/lib/travel-api'
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
@@ -159,7 +160,7 @@ export default function AdminAiSection() {
       setProfiles(f.profiles.map((x) => ({ code: x.code, provider_id: x.provider_id })))
       setJobs(j.jobs)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'ai_load_failed')
+      setLoadErr(formatManageApiCatch(e, 'ai_load_failed'))
     } finally {
       setRefreshing(false)
     }
@@ -183,7 +184,7 @@ export default function AdminAiSection() {
       setAgentOverview(overview)
       setAgentRecommendations(recs.recommendations)
     } catch (e) {
-      setAgentErr(e instanceof Error ? e.message : 'agent_center_load_failed')
+      setAgentErr(formatManageApiCatch(e, 'agent_center_load_failed'))
     }
   }
 
@@ -202,7 +203,7 @@ export default function AdminAiSection() {
       await loadAgentCenter()
       await refresh()
     } catch (e) {
-      setAgentErr(e instanceof Error ? e.message : 'agent_supervisor_failed')
+      setAgentErr(formatManageApiCatch(e, 'agent_supervisor_failed'))
     } finally {
       setAgentRunning(false)
     }
@@ -226,7 +227,7 @@ export default function AdminAiSection() {
       await loadAgentCenter()
       await refresh()
     } catch (e) {
-      setAgentErr(e instanceof Error ? e.message : 'agent_supervisor_due_failed')
+      setAgentErr(formatManageApiCatch(e, 'agent_supervisor_due_failed'))
     } finally {
       setAgentRunning(false)
     }
@@ -239,7 +240,7 @@ export default function AdminAiSection() {
       await patchAgentRecommendation(token, id, 'rejected', 'Admin tarafından reddedildi.')
       await loadAgentCenter()
     } catch (e) {
-      setAgentErr(e instanceof Error ? e.message : 'agent_recommendation_reject_failed')
+      setAgentErr(formatManageApiCatch(e, 'agent_recommendation_reject_failed'))
     }
   }
 
@@ -252,7 +253,7 @@ export default function AdminAiSection() {
       setAgentLog((l) => [...l, `${rec.title} onaylandı; canlıya almak için “Popup’a Uygula” kullanın.`])
       await loadAgentCenter()
     } catch (e) {
-      setAgentErr(e instanceof Error ? e.message : 'agent_recommendation_approve_failed')
+      setAgentErr(formatManageApiCatch(e, 'agent_recommendation_approve_failed'))
     }
   }
 
@@ -290,7 +291,7 @@ export default function AdminAiSection() {
       setAgentLog((l) => [...l, `${rec.title} vitrin popup config'e uygulandı.`])
       await loadAgentCenter()
     } catch (e) {
-      setAgentErr(e instanceof Error ? e.message : 'agent_popup_apply_failed')
+      setAgentErr(formatManageApiCatch(e, 'agent_popup_apply_failed'))
     }
   }
 
@@ -329,7 +330,7 @@ export default function AdminAiSection() {
       ])
       await loadRegionContentStats()
     } catch (e) {
-      setRegionContentErr(e instanceof Error ? e.message : 'region_content_queue_failed')
+      setRegionContentErr(formatManageApiCatch(e, 'region_content_queue_failed'))
     }
   }
 
@@ -379,8 +380,8 @@ export default function AdminAiSection() {
         return true
       })
     } catch (e) {
-      setRegionContentErr(e instanceof Error ? e.message : 'region_content_process_failed')
-      appendOpsLog(`Bölge içerik hata: ${e instanceof Error ? e.message : 'region_content_process_failed'}`)
+      setRegionContentErr(formatManageApiCatch(e, 'region_content_process_failed'))
+      appendOpsLog(`Bölge içerik hata: ${formatManageApiCatch(e, 'region_content_process_failed')}`)
     } finally {
       setRegionContentRunning(false)
       await loadRegionContentStats()
@@ -399,7 +400,7 @@ export default function AdminAiSection() {
       appendOpsLog(msg)
       await loadRegionContentStats()
     } catch (e) {
-      setPlaceBlogsErr(e instanceof Error ? e.message : 'place_blogs_queue_failed')
+      setPlaceBlogsErr(formatManageApiCatch(e, 'place_blogs_queue_failed'))
     }
   }
 
@@ -430,8 +431,8 @@ export default function AdminAiSection() {
         return true
       })
     } catch (e) {
-      setPlaceBlogsErr(e instanceof Error ? e.message : 'place_blogs_process_failed')
-      appendOpsLog(`Favori mekan blog hata: ${e instanceof Error ? e.message : 'place_blogs_process_failed'}`)
+      setPlaceBlogsErr(formatManageApiCatch(e, 'place_blogs_process_failed'))
+      appendOpsLog(`Favori mekan blog hata: ${formatManageApiCatch(e, 'place_blogs_process_failed')}`)
     } finally {
       setPlaceBlogsRunning(false)
       await loadRegionContentStats()
@@ -448,7 +449,7 @@ export default function AdminAiSection() {
       setDistrictLog((l) => [...l, `${r.queued} ilçe kuyruğa alındı (toplam bulundu: ${r.total_found})`])
       await loadDistrictStats()
     } catch (e) {
-      setDistrictErr(e instanceof Error ? e.message : 'queue_failed')
+      setDistrictErr(formatManageApiCatch(e, 'queue_failed'))
     }
   }
 
@@ -480,7 +481,7 @@ export default function AdminAiSection() {
         await new Promise((res) => setTimeout(res, 800))
       }
     } catch (e) {
-      setDistrictErr(e instanceof Error ? e.message : 'process_failed')
+      setDistrictErr(formatManageApiCatch(e, 'process_failed'))
     } finally {
       setDistrictRunning(false)
       await loadDistrictStats()
@@ -603,7 +604,7 @@ export default function AdminAiSection() {
         await new Promise((res) => setTimeout(res, 500))
       }
     } catch (e) {
-      setMapsErr(e instanceof Error ? e.message : 'maps_process_failed')
+      setMapsErr(formatManageApiCatch(e, 'maps_process_failed'))
     } finally {
       setMapsRunning(false)
       await loadDistrictStats()
@@ -680,7 +681,7 @@ export default function AdminAiSection() {
         await new Promise((r) => setTimeout(r, 350))
       }
     } catch (e) {
-      setPexelsErr(e instanceof Error ? e.message : 'pexels_process_failed')
+      setPexelsErr(formatManageApiCatch(e, 'pexels_process_failed'))
     } finally {
       setPexelsRunning(false)
       // İstatistikleri ve bulunamayanları yükle
@@ -700,7 +701,7 @@ export default function AdminAiSection() {
       setCoverStats(stats)
       setNotFoundCovers(nf)
     } catch (e) {
-      setPexelsErr(e instanceof Error ? e.message : 'stats_load_failed')
+      setPexelsErr(formatManageApiCatch(e, 'stats_load_failed'))
     }
   }
 
@@ -715,7 +716,7 @@ export default function AdminAiSection() {
       setJobDetail(JSON.stringify(r, null, 2))
     } catch (err) {
       setJobDetail(null)
-      setLoadErr(err instanceof Error ? err.message : 'ai_job_lookup_failed')
+      setLoadErr(formatManageApiCatch(err, 'ai_job_lookup_failed'))
     } finally {
       setBusy(false)
     }
@@ -1420,7 +1421,7 @@ export default function AdminAiSection() {
                       setPexelsLog([`↺ ${r.reset_count} lokasyon sıfırlandı, yeniden deneniyor…`])
                       void onStartPexelsProcessing()
                     } catch (e) {
-                      setPexelsErr(e instanceof Error ? e.message : 'reset_failed')
+                      setPexelsErr(formatManageApiCatch(e, 'reset_failed'))
                     }
                   }}
                   className="rounded-xl border border-orange-300 bg-orange-50 px-4 py-2 text-sm font-medium text-orange-700 hover:bg-orange-100 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-300"

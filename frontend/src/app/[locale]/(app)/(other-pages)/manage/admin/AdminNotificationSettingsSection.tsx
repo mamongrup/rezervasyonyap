@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import React from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 
@@ -46,7 +46,7 @@ export default function AdminNotificationSettingsSection() {
       const data = await res.json()
       setJobs(Array.isArray(data.jobs) ? data.jobs : [])
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yükleme başarısız')
+      setError(formatManageApiCatch(e, 'Yükleme başarısız'))
     } finally {
       setLoading(false)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   createBlogCategory,
@@ -104,7 +104,7 @@ function CategoryEditModal({
       onSaved()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+      setError(formatManageApiCatch(e, 'Kaydedilemedi'))
     } finally {
       setSaving(false)
     }
@@ -295,7 +295,7 @@ export default function BlogManageClient() {
       await deleteBlogPost(token, id)
       setPosts((prev) => prev.filter((p) => p.id !== id))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Silinemedi')
+      setError(formatManageApiCatch(e, 'Silinemedi'))
     } finally {
       setDeleting(null)
     }
@@ -317,7 +317,7 @@ export default function BlogManageClient() {
       setNewPostCat('')
       window.location.href = vitrinPath(`/manage/content/blog/${res.id}`)
     } catch (e) {
-      setNewPostError(e instanceof Error ? e.message : 'Oluşturulamadı')
+      setNewPostError(formatManageApiCatch(e, 'Oluşturulamadı'))
     } finally {
       setCreatingPost(false)
     }

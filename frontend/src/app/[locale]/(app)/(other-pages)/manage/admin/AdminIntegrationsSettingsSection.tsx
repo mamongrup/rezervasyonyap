@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 /**
  * Entegrasyon API Ayarları
  *
@@ -173,7 +173,7 @@ export default function AdminIntegrationsSettingsSection() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       setMsg({ type: 'ok', text: 'Ayarlar kaydedildi.' })
     } catch (e) {
-      setMsg({ type: 'err', text: e instanceof Error ? e.message : 'Kayıt başarısız.' })
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız.') })
     } finally {
       setSaving(false)
     }
@@ -195,7 +195,7 @@ export default function AdminIntegrationsSettingsSection() {
       const data = await res.json()
       setTestResult(res.ok ? `✅ Gönderildi: ${JSON.stringify(data)}` : `❌ Hata: ${JSON.stringify(data)}`)
     } catch (e) {
-      setTestResult(`❌ ${e instanceof Error ? e.message : 'Bağlantı hatası'}`)
+      setTestResult(`❌ ${formatManageApiCatch(e, 'Bağlantı hatası')}`)
     } finally {
       setTestLoading(false)
     }

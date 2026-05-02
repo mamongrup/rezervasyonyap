@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -56,7 +56,7 @@ export default function NotificationsEmailClient() {
       const jobs = Array.isArray(j.jobs) ? j.jobs : []
       setEmailJobs(jobs.filter((x) => x.channel === 'email'))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yükleme başarısız')
+      setError(formatManageApiCatch(e, 'Yükleme başarısız'))
       setTemplates([])
       setEmailJobs([])
     } finally {

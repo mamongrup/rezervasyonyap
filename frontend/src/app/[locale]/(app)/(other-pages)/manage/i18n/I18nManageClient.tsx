@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ReferenceLocalePanel from './ReferenceLocalePanel'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
@@ -81,7 +81,7 @@ export default function I18nManageClient() {
       } catch (e) {
         setStatus({
           kind: 'err',
-          text: e instanceof Error ? e.message : 'Meta verisi yüklenemedi',
+          text: formatManageApiCatch(e, 'Meta verisi yüklenemedi'),
         })
       } finally {
         setLoading(false)
@@ -97,7 +97,7 @@ export default function I18nManageClient() {
       } catch (e) {
         setStatus({
           kind: 'err',
-          text: e instanceof Error ? e.message : 'Çeviri paketi yüklenemedi',
+          text: formatManageApiCatch(e, 'Çeviri paketi yüklenemedi'),
         })
       }
     })()
@@ -147,7 +147,7 @@ export default function I18nManageClient() {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     }
   }
@@ -180,7 +180,7 @@ export default function I18nManageClient() {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     }
   }
@@ -207,7 +207,7 @@ export default function I18nManageClient() {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Kayıt başarısız',
+        text: formatManageApiCatch(e, 'Kayıt başarısız'),
       })
     }
   }
@@ -262,7 +262,7 @@ export default function I18nManageClient() {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'İçe aktarma başarısız',
+        text: formatManageApiCatch(e, 'İçe aktarma başarısız'),
       })
     } finally {
       setImporting(false)
@@ -288,7 +288,7 @@ export default function I18nManageClient() {
     } catch (e) {
       setStatus({
         kind: 'err',
-        text: e instanceof Error ? e.message : 'Namespace kaydı başarısız',
+        text: formatManageApiCatch(e, 'Namespace kaydı başarısız'),
       })
     }
   }

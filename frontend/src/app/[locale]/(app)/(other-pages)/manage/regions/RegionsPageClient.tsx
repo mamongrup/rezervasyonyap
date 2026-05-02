@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createLocationPage,
   deleteLocationPage,
@@ -258,7 +258,7 @@ export default function RegionsPageClient() {
       setPages(pagesRes.pages)
       setCountries(countriesRes.countries)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Yüklenemedi')
+      setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -304,7 +304,7 @@ export default function RegionsPageClient() {
           router.push(`/manage/regions/${result.id}`)
         }
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Kaydedilemedi')
+        setError(formatManageApiCatch(e, 'Kaydedilemedi'))
       } finally {
         setFormBusy(false)
       }
@@ -320,7 +320,7 @@ export default function RegionsPageClient() {
         await deleteLocationPage(id)
         setPages((prev) => prev.filter((p) => p.id !== id))
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Silinemedi')
+        setError(formatManageApiCatch(e, 'Silinemedi'))
       } finally {
         setDeletingId(null)
       }

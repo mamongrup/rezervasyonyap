@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import ImageUpload from '@/components/editor/ImageUpload'
 import {
   DEFAULT_MEGA_MENU_STRUCTURE,
@@ -89,7 +89,7 @@ export default function Page() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setError(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }

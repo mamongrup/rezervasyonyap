@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { categoryLabelTr, ORDERED_PRODUCT_CATEGORY_CODES } from '@/lib/catalog-category-ui'
 import {
   listAdminAgencyCategoryGrants,
@@ -35,7 +35,7 @@ export default function AdminAgencyCategoryGrantsSection() {
       )
       setRows(r.grants)
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'load_failed')
+      setLoadErr(formatManageApiCatch(e, 'load_failed'))
       setRows([])
     }
   }, [])
@@ -61,7 +61,7 @@ export default function AdminAgencyCategoryGrantsSection() {
       setFormCategory('')
       await reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'upsert_failed')
+      alert(formatManageApiCatch(err, 'upsert_failed'))
     } finally {
       setBusy(false)
     }
@@ -80,7 +80,7 @@ export default function AdminAgencyCategoryGrantsSection() {
       })
       await reload()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'toggle_failed')
+      alert(formatManageApiCatch(err, 'toggle_failed'))
     } finally {
       setBusy(false)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -44,7 +44,7 @@ export default function InstagramManageClient() {
       const r = await listInstagramShopLinks(listingId.trim(), token)
       setLinks(r.links)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Yükleme hatası')
+      setErr(formatManageApiCatch(e, 'Yükleme hatası'))
       setLinks([])
     } finally {
       setLoading(false)
@@ -75,7 +75,7 @@ export default function InstagramManageClient() {
       setListingFilter(lid)
       await fetchLinks(lid)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt hatası')
+      setErr(formatManageApiCatch(e, 'Kayıt hatası'))
     } finally {
       setSaving(false)
     }
@@ -89,7 +89,7 @@ export default function InstagramManageClient() {
       await patchInstagramShopLink(token, link.id, { sync_enabled: !link.sync_enabled })
       await fetchLinks(activeListingId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
+      setErr(formatManageApiCatch(e, 'Güncellenemedi'))
     }
   }
 
@@ -102,7 +102,7 @@ export default function InstagramManageClient() {
       await deleteInstagramShopLink(token, link.id)
       await fetchLinks(activeListingId)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     }
   }
 

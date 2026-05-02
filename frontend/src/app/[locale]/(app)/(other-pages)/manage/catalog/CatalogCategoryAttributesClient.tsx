@@ -6,6 +6,7 @@
  * Sağ: Seçili grubun öznitelikleri (ekle / sil)
  */
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useManageT } from '@/lib/manage-i18n-context'
@@ -248,7 +249,7 @@ function GroupPanel({
       setTransGroupId(null)
       load()
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally {
       setBusy(false)
     }
@@ -290,7 +291,7 @@ function GroupPanel({
       })
       load()
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'create_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('create_failed') })
     } finally {
       setBusy(false)
     }
@@ -306,7 +307,7 @@ function GroupPanel({
       load()
       if (selectedGroup?.id === g.id) onSelect(groups[0] ?? g)
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'delete_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('delete_failed') })
     }
   }
 
@@ -587,7 +588,7 @@ function DefsPanel({
       })
       load()
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'create_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('create_failed') })
     } finally {
       setBusy(false)
     }
@@ -659,7 +660,7 @@ function DefsPanel({
       setTransDefId(null)
       load()
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally {
       setBusy(false)
     }
@@ -674,7 +675,7 @@ function DefsPanel({
       if (transDefId === d.id) setTransDefId(null)
       load()
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'delete_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('delete_failed') })
     }
   }
 

@@ -9,6 +9,7 @@
  *   event · beach_lounger · restaurant_table · visa · hajj · cinema_ticket
  */
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   getListingMeta,
@@ -179,7 +180,7 @@ function VillaSection({ listingId }: { listingId: string }) {
       await patchVerticalHolidayHome(listingId, { theme_codes: themes, rule_codes: rules, ical_managed: icalManaged })
       setMsg({ ok: true, text: 'Villa özellikleri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -291,7 +292,7 @@ function YachtSection({ listingId }: { listingId: string }) {
       }
       setMsg({ ok: true, text: 'Yat özellikleri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -494,7 +495,7 @@ function TourSection({ listingId }: { listingId: string }) {
       await save({ ...form, includes: includes.filter(Boolean), excludes: excludes.filter(Boolean), itinerary })
       setMsg({ ok: true, text: 'Tur bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -650,7 +651,7 @@ function ActivitySection({ listingId }: { listingId: string }) {
       await save({ ...form, includes: includes.filter(Boolean), excludes: excludes.filter(Boolean) })
       setMsg({ ok: true, text: 'Aktivite bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -742,7 +743,7 @@ function CarRentalSection({ listingId }: { listingId: string }) {
       await save(form)
       setMsg({ ok: true, text: 'Araç bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -852,7 +853,7 @@ function EventSection({ listingId }: { listingId: string }) {
       await save({ ...form, tickets })
       setMsg({ ok: true, text: 'Etkinlik bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -991,7 +992,7 @@ function BeachLoungerSection({ listingId }: { listingId: string }) {
       await save({ ...form, pools })
       setMsg({ ok: true, text: 'Alan bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -1140,7 +1141,7 @@ function RestaurantSection({ listingId }: { listingId: string }) {
       await save(form)
       setMsg({ ok: true, text: 'Restoran bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -1244,7 +1245,7 @@ function VisaSection({ listingId }: { listingId: string }) {
       await save(form)
       setMsg({ ok: true, text: 'Vize bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -1357,7 +1358,7 @@ function HajjSection({ listingId }: { listingId: string }) {
       await save({ ...form, includes: includes.filter(Boolean), excludes: excludes.filter(Boolean) })
       setMsg({ ok: true, text: 'Hac/Umre bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 
@@ -1472,7 +1473,7 @@ function CinemaSection({ listingId }: { listingId: string }) {
       await save({ ...form, showtimes })
       setMsg({ ok: true, text: 'Sinema bilgileri kaydedildi.' })
     } catch (e) {
-      setMsg({ ok: false, text: e instanceof Error ? e.message : 'save_failed' })
+      setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
   }
 

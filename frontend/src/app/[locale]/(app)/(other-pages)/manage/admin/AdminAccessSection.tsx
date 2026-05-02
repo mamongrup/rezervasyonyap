@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   getAdminUserRoles,
   listAdminAuditLog,
@@ -81,7 +81,7 @@ export default function AdminAccessSection() {
         rolePermEntries = rp.entries
         matrixInstalled = Boolean(rp.matrix_installed ?? p.matrix_installed)
       } catch (e) {
-        matrixLoadErr = e instanceof Error ? e.message : 'matrix_load_failed'
+        matrixLoadErr = formatManageApiCatch(e, 'matrix_load_failed')
       }
       setState({
         kind: 'ok',
@@ -98,7 +98,7 @@ export default function AdminAccessSection() {
       const first = catalogRes.roles.find((r) => r.code === 'customer')?.code ?? catalogRes.roles[0]?.code ?? 'customer'
       setGrantRole(first)
     } catch (e) {
-      setState({ kind: 'err', msg: e instanceof Error ? e.message : 'load_failed' })
+      setState({ kind: 'err', msg: formatManageApiCatch(e, 'load_failed') })
     }
   }, [])
 
@@ -112,7 +112,7 @@ export default function AdminAccessSection() {
       const usersRes = await listAdminUsers(token, search.trim() || undefined)
       setState((prev) => prev.kind === 'ok' ? { ...prev, users: usersRes.users } : prev)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'search_failed')
+      alert(formatManageApiCatch(e, 'search_failed'))
     } finally {
       setBusy(null)
     }
@@ -125,7 +125,7 @@ export default function AdminAccessSection() {
     try {
       await loadRolesForUser(token, userId)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'roles_failed')
+      alert(formatManageApiCatch(e, 'roles_failed'))
     } finally {
       setBusy(null)
     }
@@ -147,7 +147,7 @@ export default function AdminAccessSection() {
       const auditRes = await listAdminAuditLog(token)
       setState((prev) => prev.kind === 'ok' ? { ...prev, audit: auditRes.events } : prev)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'revoke_failed')
+      alert(formatManageApiCatch(e, 'revoke_failed'))
     } finally {
       setBusy(null)
     }
@@ -170,7 +170,7 @@ export default function AdminAccessSection() {
       const auditRes = await listAdminAuditLog(token)
       setState((prev) => prev.kind === 'ok' ? { ...prev, audit: auditRes.events } : prev)
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'grant_failed')
+      alert(formatManageApiCatch(err, 'grant_failed'))
     } finally {
       setBusy(null)
     }
@@ -195,7 +195,7 @@ export default function AdminAccessSection() {
           : prev,
       )
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'matrix_update_failed')
+      alert(formatManageApiCatch(e, 'matrix_update_failed'))
     } finally {
       setBusy(null)
     }

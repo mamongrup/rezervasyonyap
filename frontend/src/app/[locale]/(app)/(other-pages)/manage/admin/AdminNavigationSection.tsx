@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   addNavMenuItem,
   createNavMenu,
@@ -82,7 +82,7 @@ function MenuItemRow({
       setEditing(false)
       onRefresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kaydedilemedi')
+      setErr(formatManageApiCatch(e, 'Kaydedilemedi'))
     } finally {
       setBusy(false)
     }
@@ -94,7 +94,7 @@ function MenuItemRow({
       await patchNavMenuItem(token, menuId, item.id, { is_published: !isPublished })
       onRefresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Güncellenemedi')
+      setErr(formatManageApiCatch(e, 'Güncellenemedi'))
     } finally {
       setBusy(false)
     }
@@ -107,7 +107,7 @@ function MenuItemRow({
       await deleteNavMenuItem(token, menuId, item.id)
       onRefresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     } finally {
       setBusy(false)
     }
@@ -273,7 +273,7 @@ function PopupRow({
       setEditing(false)
       onRefresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kaydedilemedi')
+      setErr(formatManageApiCatch(e, 'Kaydedilemedi'))
     } finally {
       setBusy(false)
     }
@@ -286,7 +286,7 @@ function PopupRow({
       await deleteSitePopup(token, popup.id)
       onRefresh()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(formatManageApiCatch(e, 'Silinemedi'))
     } finally {
       setBusy(false)
     }
@@ -417,7 +417,7 @@ export default function AdminNavigationSection() {
         return (heroGlobal ?? heroAny ?? sorted[0]!).id
       })
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'Menüler yüklenemedi')
+      setLoadErr(formatManageApiCatch(e, 'Menüler yüklenemedi'))
     } finally {
       setLoadingMenus(false)
     }
@@ -462,7 +462,7 @@ export default function AdminNavigationSection() {
       setNewMenuCode('main')
       await refreshMenus()
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : 'Menü oluşturulamadı')
+      setLoadErr(formatManageApiCatch(e, 'Menü oluşturulamadı'))
     } finally {
       setBusy(false)
     }
@@ -485,7 +485,7 @@ export default function AdminNavigationSection() {
       setShowAddItem(false)
       await refreshItems()
     } catch (e) {
-      setAddItemErr(e instanceof Error ? e.message : 'Öğe eklenemedi')
+      setAddItemErr(formatManageApiCatch(e, 'Öğe eklenemedi'))
     } finally {
       setBusy(false)
     }
@@ -507,7 +507,7 @@ export default function AdminNavigationSection() {
       setNewPopKey('')
       await refreshPopups()
     } catch (e) {
-      setNewPopErr(e instanceof Error ? e.message : 'Popup oluşturulamadı')
+      setNewPopErr(formatManageApiCatch(e, 'Popup oluşturulamadı'))
     } finally {
       setBusy(false)
     }

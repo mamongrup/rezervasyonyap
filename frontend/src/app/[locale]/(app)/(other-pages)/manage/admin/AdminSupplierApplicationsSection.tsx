@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { useCallback, useEffect, useState } from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -65,7 +65,7 @@ export default function AdminSupplierApplicationsSection() {
       setMsg('Başvuru onaylandı. Tedarikçi bu kategoride ilan ekleyebilir.')
       load()
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Hata')
+      setMsg(formatManageApiCatch(e, 'Hata'))
     } finally {
       setWorking(null)
     }
@@ -80,7 +80,7 @@ export default function AdminSupplierApplicationsSection() {
       setMsg('Başvuru reddedildi.')
       load()
     } catch (e: unknown) {
-      setMsg(e instanceof Error ? e.message : 'Hata')
+      setMsg(formatManageApiCatch(e, 'Hata'))
     } finally {
       setWorking(null)
     }

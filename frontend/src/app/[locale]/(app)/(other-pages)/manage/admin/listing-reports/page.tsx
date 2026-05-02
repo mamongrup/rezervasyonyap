@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import React from 'react'
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -69,7 +69,7 @@ function ListingReportsClient() {
       }
       setRows((data.reports ?? []) as ReportRow[])
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'load_failed')
+      setErr(formatManageApiCatch(e, 'load_failed'))
     } finally {
       setLoading(false)
     }

@@ -3,6 +3,7 @@
 /**
  * Kategori bazında fiyata dahil / hariç kalem listesi — tek tanım; ilanlarda seçim için kullanılır.
  */
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import {
@@ -295,7 +296,7 @@ function PriceColumn({
       })
       onChanged()
     } catch (e) {
-      setLocalMsg({ ok: false, text: e instanceof Error ? e.message : 'Kayıt başarısız' })
+      setLocalMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : 'Kayıt başarısız' })
     } finally {
       setBusy(false)
     }
@@ -381,7 +382,7 @@ function PriceColumn({
       setEditingId(null)
       onChanged()
     } catch (e) {
-      setLocalMsg({ ok: false, text: e instanceof Error ? e.message : 'Kayıt başarısız' })
+      setLocalMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : 'Kayıt başarısız' })
     } finally {
       setBusy(false)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   getLocationPage,
   patchLocationPage,
@@ -487,7 +487,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       if (out) setTransField(activeLang, 'name', out.slice(0, 200))
       setSaveMsg({ ok: true, text: 'Başlık SEO ve yazım kurallarına göre iyileştirildi.' })
     } catch (e) {
-      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : 'İşlem başarısız' })
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'İşlem başarısız') })
     } finally {
       setAiPolishTitle(false)
     }
@@ -515,7 +515,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         text: 'Açıklama iyileştirildi (vurgu ve iç linkler). Kaydetmeyi unutmayın.',
       })
     } catch (e) {
-      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : 'İşlem başarısız' })
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'İşlem başarısız') })
     } finally {
       setAiPolishBody(false)
     }
@@ -592,7 +592,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         text: `${allLocales.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale} çevirisi hazır. Kaydetmeyi unutmayın.`,
       })
     } catch (e) {
-      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : 'Çeviri başarısız' })
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Çeviri başarısız') })
     } finally {
       setAiTranslating(false)
     }
@@ -638,7 +638,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       }))
       setSaveMsg({ ok: true, text: 'Meta alanları SEO ve yazım için iyileştirildi.' })
     } catch (e) {
-      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : 'İşlem başarısız' })
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'İşlem başarısız') })
     } finally {
       setAiPolishFooterMeta(false)
     }
@@ -704,7 +704,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       }
       setSaveMsg({ ok: true, text: 'Değişiklikler kaydedildi.' })
     } catch (e) {
-      setSaveMsg({ ok: false, text: e instanceof Error ? e.message : 'Kaydedilemedi' })
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Kaydedilemedi') })
     } finally { setSaving(false) }
   }
 

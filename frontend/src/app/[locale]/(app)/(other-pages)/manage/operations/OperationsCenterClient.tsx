@@ -1,5 +1,6 @@
 'use client'
 
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { getOperationsOverview, type OperationsOverview, type OperationsTaskItem } from '@/lib/travel-api'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -170,7 +171,7 @@ export default function OperationsCenterClient() {
     try {
       setData(await getOperationsOverview(token))
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'operations_load_failed')
+      setError(formatManageApiCatch(e, 'operations_load_failed'))
     } finally {
       setLoading(false)
     }

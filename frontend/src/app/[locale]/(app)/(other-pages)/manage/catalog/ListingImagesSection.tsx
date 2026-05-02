@@ -1,5 +1,6 @@
 'use client'
 
+import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import ImageUpload from '@/components/editor/ImageUpload'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
@@ -65,7 +66,7 @@ export default function ListingImagesSection({
       const r = await listListingImages(token, listingId, organizationId)
       setImages(r.images)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Görseller yüklenemedi')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Görseller yüklenemedi')
     } finally {
       setLoading(false)
     }
@@ -100,7 +101,7 @@ export default function ListingImagesSection({
       await load()
       setUploadKey((k) => k + 1)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Kayıt başarısız')
     } finally {
       setBusy(false)
     }
@@ -116,7 +117,7 @@ export default function ListingImagesSection({
       await deleteListingImage(token, listingId, id, organizationId)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Silinemedi')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Silinemedi')
     } finally {
       setBusy(false)
     }
@@ -137,7 +138,7 @@ export default function ListingImagesSection({
       )
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Sahne güncellenemedi')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Sahne güncellenemedi')
     } finally {
       setBusy(false)
     }
@@ -157,7 +158,7 @@ export default function ListingImagesSection({
       await reorderListingImages(token, listingId, ids, organizationId)
       await load()
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Sıra güncellenemedi')
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Sıra güncellenemedi')
     } finally {
       setBusy(false)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import clsx from 'clsx'
 import {
   AlertCircle,
@@ -128,7 +128,7 @@ export default function PaymentGatewaysClient() {
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Kaydetme hatası')
+      setError(formatManageApiCatch(e, 'Kaydetme hatası'))
     } finally {
       setSaving(false)
     }

@@ -1,5 +1,5 @@
 'use client'
-
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { getSitePublicConfig, upsertSiteSetting } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -91,7 +91,7 @@ export default function CookieSettingsAdminClient() {
       setUiRest(ui)
       setConfig(mergeCookieConsent(ui.cookie_consent))
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Yüklenemedi')
+      setMsg(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
@@ -118,7 +118,7 @@ export default function CookieSettingsAdminClient() {
       setMsg('Çerez ayarları kaydedildi. Vitrin birkaç dakika içinde güncellenir.')
       await load()
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Kayıt başarısız')
+      setMsg(formatManageApiCatch(e, 'Kayıt başarısız'))
     } finally {
       setSaving(false)
     }
