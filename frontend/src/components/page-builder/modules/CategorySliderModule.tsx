@@ -9,10 +9,11 @@ interface Config {
   cardType?: string
   /** Kategori dilimini belirtir: 'first6' | 'last6' | 'all' */
   slice?: 'first6' | 'last6' | 'all'
+  categoryThumbnails?: Record<string, string>
 }
 
 export default async function CategorySliderModule({ config }: { config: Config }) {
-  const categories = await getPageBuilderTravelCategories()
+  const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
 
   const slice = config.slice ?? 'first6'
   const displayed =

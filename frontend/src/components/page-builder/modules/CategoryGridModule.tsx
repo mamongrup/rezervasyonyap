@@ -5,10 +5,11 @@ import HeadingWithSub from '@/shared/Heading'
 interface Config {
   heading?: string
   subheading?: string
+  categoryThumbnails?: Record<string, string>
 }
 
 export default async function CategoryGridModule({ config }: { config: Config }) {
-  const categories = await getPageBuilderTravelCategories()
+  const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
 
   return (
     <div>

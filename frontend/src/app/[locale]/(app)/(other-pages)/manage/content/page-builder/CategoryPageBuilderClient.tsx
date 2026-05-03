@@ -18,8 +18,10 @@ import {
   X,
 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 import type { PageBuilderModule, PageBuilderModuleType } from '@/types/listing-types'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { CATEGORY_REGISTRY } from '@/data/category-registry'
 
 // ─── Module catalog (all available module types) ───────────────────────────────
 
@@ -193,6 +195,124 @@ function HeroImageSlot({
       />
 
       {error && <p className="text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+function CategoryCardImageSlot({
+  categoryName,
+  categorySlug,
+  value,
+  onChange,
+}: {
+  categoryName: string
+  categorySlug: string
+  value: string
+  onChange: (url: string) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleFile(file: File) {
+    setUploading(true)
+    setError(null)
+    const form = new FormData()
+    form.append('file', file)
+    form.append('folder', 'site')
+    form.append('subPath', `page-builder/kategori-kartlari/${slugifyMediaSegment(categorySlug)}`)
+    form.append('prefix', 'kart')
+
+    try {
+      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
+      const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
+      if (data.ok && data.url) {
+        onChange(data.url)
+      } else {
+        setError(data.error ?? 'Yükleme başarısız.')
+      }
+    } catch {
+      setError('Ağ hatası. Lütfen tekrar deneyin.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div>
+          <div className="text-sm font-medium text-neutral-900 dark:text-white">{categoryName}</div>
+          <div className="text-xs text-neutral-400">/{categorySlug}</div>
+        </div>
+        {value && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-xs text-red-500 hover:text-red-700"
+          >
+            Kaldır
+          </button>
+        )}
+      </div>
+
+      <button
+        type="button"
+        className={`relative flex h-28 w-full items-center justify-center overflow-hidden rounded-lg border-2 border-dashed transition-colors ${
+          value
+            ? 'border-primary-300 bg-neutral-50 dark:bg-neutral-800'
+            : 'border-neutral-200 bg-neutral-50 hover:border-primary-300 hover:bg-primary-50/30 dark:border-neutral-700 dark:bg-neutral-800'
+        }`}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={(e) => {
+          e.preventDefault()
+          const f = e.dataTransfer.files[0]
+          if (f) handleFile(f)
+        }}
+      >
+        {value ? (
+          <>
+            <Image
+              src={value}
+              alt={categoryName}
+              fill
+              className="object-cover"
+              unoptimized={value.startsWith('/uploads/')}
+            />
+            <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-medium text-white opacity-0 transition-opacity hover:opacity-100">
+              Değiştir
+            </span>
+          </>
+        ) : uploading ? (
+          <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
+        ) : (
+          <div className="flex flex-col items-center gap-1 text-neutral-400">
+            <ImageIcon className="h-6 w-6" />
+            <span className="text-xs">Kart görseli ekle</span>
+          </div>
+        )}
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) handleFile(f)
+          }}
+        />
+      </button>
+
+      <input
+        type="text"
+        placeholder="ya da /uploads/... veya https://... girin"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 placeholder-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+      />
+
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }
@@ -485,10 +605,10 @@ function FeaturedByRegionConfigEditor({
 
         <p className="text-xs text-neutral-400">
           💡 Hangi ilanların görüneceğini detaylı yapılandırmak için{' '}
-          <a href="/manage/content/featured-regions" className="text-primary-600 hover:underline">
+          <Link href="/manage/content/featured-regions" className="text-primary-600 hover:underline">
             Bölge Vitrin Editörü
-          </a>
-          'nü kullanın.
+          </Link>{' '}
+          sayfasını kullanın.
         </p>
       </div>
     </div>
@@ -556,10 +676,10 @@ function TopProvidersConfigEditor({
       <p className="text-xs text-neutral-400">
         💡 İlan sahipleri puan ortalamasına ve ilan sayısına göre otomatik sıralanır.
         İlan verilerini{' '}
-        <a href="/manage/admin" className="text-primary-600 hover:underline">
+        <Link href="/manage/admin" className="text-primary-600 hover:underline">
           Yönetim Paneli
-        </a>
-        'nden güncelleyebilirsiniz.
+        </Link>{' '}
+        üzerinden güncelleyebilirsiniz.
       </p>
     </div>
   )
@@ -809,7 +929,7 @@ function VideoGalleryConfigEditor({
 
         {videos.length === 0 && (
           <p className="rounded-lg bg-neutral-50 px-4 py-3 text-xs text-neutral-400 dark:bg-neutral-800">
-            Henüz video eklenmedi. "Video Ekle" butonuna tıklayın.
+            Henüz video eklenmedi. Video Ekle butonuna tıklayın.
           </p>
         )}
 
@@ -876,7 +996,7 @@ function VideoGalleryConfigEditor({
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-neutral-500">
                   Kapak Resmi URL{' '}
-                  <span className="text-neutral-400">(boş bırakılırsa YouTube'dan otomatik alınır)</span>
+                  <span className="text-neutral-400">(boş bırakılırsa YouTube üzerinden otomatik alınır)</span>
                 </label>
                 <input
                   type="url"
@@ -1266,6 +1386,107 @@ function SlidersBannerConfigEditor({
   )
 }
 
+function CategoryCardsConfigEditor({
+  config,
+  onChange,
+}: {
+  config: Record<string, unknown>
+  onChange: (updated: Record<string, unknown>) => void
+}) {
+  const thumbnailConfig =
+    config.categoryThumbnails && typeof config.categoryThumbnails === 'object' && !Array.isArray(config.categoryThumbnails)
+      ? (config.categoryThumbnails as Record<string, string>)
+      : {}
+
+  function updateField(key: string, value: unknown) {
+    onChange({ ...config, [key]: value })
+  }
+
+  function updateThumbnail(slug: string, url: string) {
+    const next = { ...thumbnailConfig }
+    const trimmed = url.trim()
+    if (trimmed) {
+      next[slug] = trimmed
+    } else {
+      delete next[slug]
+    }
+    onChange({ ...config, categoryThumbnails: next })
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Başlık</label>
+          <input
+            type="text"
+            value={(config.heading as string) ?? ''}
+            onChange={(e) => updateField('heading', e.target.value)}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Alt Başlık</label>
+          <input
+            type="text"
+            value={(config.subheading as string) ?? ''}
+            onChange={(e) => updateField('subheading', e.target.value)}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+          />
+        </div>
+      </div>
+
+      {'cardType' in config || 'slice' in config ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Kart Tipi</label>
+            <select
+              value={(config.cardType as string) ?? 'card3'}
+              onChange={(e) => updateField('cardType', e.target.value)}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option value="card3">Card 3</option>
+              <option value="card5">Card 5</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Gösterilecek Kategoriler</label>
+            <select
+              value={(config.slice as string) ?? 'first6'}
+              onChange={(e) => updateField('slice', e.target.value)}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option value="first6">İlk 6 kategori</option>
+              <option value="last6">Son 6 kategori</option>
+              <option value="all">Tümü</option>
+            </select>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="space-y-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Kategori Kart Görselleri</p>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Buraya eklenen görseller sadece bu Page Builder kategori grid/slider modülünde kullanılır.
+          </p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {CATEGORY_REGISTRY.map((category) => (
+            <CategoryCardImageSlot
+              key={category.slug}
+              categoryName={category.name}
+              categorySlug={category.slug}
+              value={thumbnailConfig[category.slug] ?? ''}
+              onChange={(url) => updateThumbnail(category.slug, url)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ConfigEditor({
   config,
   onChange,
@@ -1463,6 +1684,11 @@ function ModuleRow({
               defaultPageKey={categorySlug}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
+          ) : module.type === 'category_slider' || module.type === 'category_grid' ? (
+            <CategoryCardsConfigEditor
+              config={module.config as Record<string, unknown>}
+              onChange={(updated) => onConfigChange(module.id, updated)}
+            />
           ) : (
             <ConfigEditor
               config={module.config as Record<string, unknown>}
@@ -1622,12 +1848,12 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
           { id: 'v1', title: 'Tanıtım Videosu', videoUrl: '', thumbnail: '' },
         ],
       },
-      category_slider: { heading: '', subheading: '', cardType: 'card3', slice: 'first6' },
+      category_slider: { heading: '', subheading: '', cardType: 'card3', slice: 'first6', categoryThumbnails: {} },
       region_slider: { heading: '', subheading: '', categoryCode: '', categoryRoute: 'oteller', unit: 'ilan', limit: 12 },
       gezi_onerileri: {},
       featured_places: { heading: '', subHeading: '', viewAllHref: `/${selectedSlug}/all` },
       how_it_works: { title: '', subheading: '' },
-      category_grid: { heading: '', subheading: '' },
+      category_grid: { heading: '', subheading: '', categoryThumbnails: {} },
       section_videos: { heading: '', subheading: '' },
       client_say: { heading: '', subHeading: '' },
       search_results: { perPage: 24 },
@@ -1851,7 +2077,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
           <div className="space-y-3">
             {modules.length === 0 && (
               <div className="rounded-2xl border-2 border-dashed border-neutral-200 p-10 text-center text-neutral-400 dark:border-neutral-700">
-                Modül yok. "Modül Ekle" butonuna tıklayarak başlayın.
+                Modül yok. Modül Ekle butonuna tıklayarak başlayın.
               </div>
             )}
             {modules.map((module, index) => (
@@ -1877,7 +2103,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
             <li>Modülleri yukarı/aşağı oklar ile sıralayın</li>
             <li>Göz ikonu ile modülleri göster/gizle</li>
             <li>Dişli ikonu ile modül ayarlarını düzenleyin</li>
-            <li>"Kaydet" ile değişikliklerinizi yayınlayın</li>
+            <li>Kaydet ile değişikliklerinizi yayınlayın</li>
             <li>Her kategorinin kendi bağımsız sayfa düzeni vardır</li>
           </ul>
         </div>

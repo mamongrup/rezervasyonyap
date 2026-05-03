@@ -705,10 +705,13 @@ export async function getTravelCategories() {
 
 export type TTravelCategory = Awaited<ReturnType<typeof getTravelCategories>>[number]
 
-export async function getPageBuilderTravelCategories() {
+export async function getPageBuilderTravelCategories(thumbnailOverrides?: Record<string, string>) {
   const categories = await getTravelCategories()
   return categories.map((category) => ({
     ...category,
-    thumbnail: PAGE_BUILDER_CATEGORY_THUMBNAILS[category.handle] ?? category.thumbnail,
+    thumbnail:
+      thumbnailOverrides?.[category.handle]?.trim() ||
+      PAGE_BUILDER_CATEGORY_THUMBNAILS[category.handle] ||
+      category.thumbnail,
   }))
 }
