@@ -5,7 +5,7 @@ import HeadingWithSub from '@/shared/Heading'
 interface Config {
   heading?: string
   subheading?: string
-  /** 'card3' | 'card5' */
+  /** 'card3' | 'card4' | 'card5' */
   cardType?: string
   /** Kategori dilimini belirtir: 'first6' | 'last6' | 'all' */
   slice?: 'first6' | 'last6' | 'all'
@@ -32,7 +32,7 @@ export default async function CategorySliderModule({ config }: { config: Config 
       <div className="px-3 sm:px-5 xl:px-6">
         <SectionSliderNewCategories
           categories={displayed}
-          categoryCardType={(config.cardType as 'card3' | 'card5') ?? 'card3'}
+          categoryCardType={(config.cardType as 'card3' | 'card4' | 'card5') ?? 'card3'}
         />
       </div>
     </div>

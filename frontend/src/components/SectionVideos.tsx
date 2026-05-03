@@ -9,7 +9,8 @@ import { FC, useState } from 'react'
 interface VideoType {
   id: string
   title: string
-  thumbnail: string
+  thumbnail?: string
+  videoUrl?: string
 }
 
 interface SectionVideosProps {
@@ -35,8 +36,34 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
   const [isPlay, setIsPlay] = useState(false)
   const [currentVideo, setCurrentVideo] = useState(0)
 
+  function parseVideo(video: VideoType): { embedUrl: string; thumbnail: string } {
+    const raw = video.videoUrl || video.id
+    const ytMatch = raw.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/)
+    const youtubeId = ytMatch?.[1] ?? (/^[A-Za-z0-9_-]{11}$/.test(raw) ? raw : '')
+    if (youtubeId) {
+      return {
+        embedUrl: `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`,
+        thumbnail: video.thumbnail || `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+      }
+    }
+
+    const vimeoMatch = raw.match(/vimeo\.com\/(\d+)/)
+    if (vimeoMatch) {
+      return {
+        embedUrl: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1`,
+        thumbnail: video.thumbnail || '/uploads/general/hero/aktiviteler-2.avif',
+      }
+    }
+
+    return {
+      embedUrl: raw,
+      thumbnail: video.thumbnail || '/uploads/general/hero/aktiviteler-2.avif',
+    }
+  }
+
   const renderMainVideo = () => {
     const video: VideoType = videos[currentVideo]
+    const parsed = parseVideo(video)
     return (
       <div
         className="group aspect-w-16 overflow-hidden rounded-3xl border-4 border-white bg-neutral-800 aspect-h-16 sm:rounded-[50px] sm:border-[10px] sm:aspect-h-9 dark:border-neutral-900"
@@ -44,7 +71,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
       >
         {isPlay ? (
           <iframe
-            src={`https://www.youtube.com/embed/${video.id}?autoplay=1`}
+            src={parsed.embedUrl}
             title={video.title}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -54,10 +81,11 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
             <Image
               fill
               className="object-cover brightness-100 transition-[filter] group-hover:brightness-75"
-              src={video.thumbnail}
+              src={parsed.thumbnail}
               title={video.title}
               alt={video.title}
               sizes="(max-width: 1000px) 100vw, (max-width: 1200px) 75vw, 50vw"
+              unoptimized={parsed.thumbnail.startsWith('/uploads/')}
             />
 
             <div onClick={() => setIsPlay(true)} className="absolute inset-0 flex items-center justify-center">
@@ -71,6 +99,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
 
   const renderSubVideo = (video: VideoType, index: number) => {
     if (index === currentVideo) return null
+    const parsed = parseVideo(video)
     return (
       <div
         className="group aspect-w-16 relative cursor-pointer overflow-hidden rounded-2xl aspect-h-16 sm:rounded-3xl sm:aspect-h-12 lg:aspect-h-9"
@@ -84,10 +113,11 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
         <Image
           fill
           className="object-cover brightness-100 transition-[filter] group-hover:brightness-75"
-          src={video.thumbnail}
+          src={parsed.thumbnail}
           title={video.title}
           alt={video.title}
           sizes="(max-width: 300px) 100vw, (max-width: 1200px) 50vw, 25vw"
+          unoptimized={parsed.thumbnail.startsWith('/uploads/')}
         />
 
         <div className="absolute inset-0 flex items-center justify-center">

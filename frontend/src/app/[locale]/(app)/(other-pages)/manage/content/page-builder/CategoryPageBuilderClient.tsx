@@ -63,6 +63,22 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   { type: 'cross_sell_widget', label: 'Birlikte Tercih Edilenler', description: 'Cross-sell kuralları (örn. uçak → otel)', emoji: '🔁' },
 ]
 
+const CATEGORY_CARD_TYPE_OPTIONS = [
+  { value: 'card3', label: 'Kart 3 - Standart görselli kart' },
+  { value: 'card4', label: 'Kart 4 - Kompakt yuvarlak görsel' },
+  { value: 'card5', label: 'Kart 5 - Büyük görsel kart' },
+]
+
+const CATEGORY_SLICE_OPTIONS = [
+  { value: 'first6', label: 'İlk 6 kategori', count: Math.min(6, CATEGORY_REGISTRY.length) },
+  {
+    value: 'last6',
+    label: 'Son 6 kategori',
+    count: Math.max(0, Math.min(6, CATEGORY_REGISTRY.length - 6)),
+  },
+  { value: 'all', label: 'Tüm kategoriler', count: CATEGORY_REGISTRY.length },
+]
+
 interface CategoryInfo {
   slug: string
   name: string
@@ -844,15 +860,21 @@ interface VideoItemDraft {
 function VideoGalleryConfigEditor({
   config,
   onChange,
+  titleKey = 'title',
+  subtitleKey = 'subtitle',
+  titlePlaceholder = '🎬 Videolar',
 }: {
   config: Record<string, unknown>
   onChange: (updated: Record<string, unknown>) => void
+  titleKey?: 'title' | 'heading'
+  subtitleKey?: 'subtitle' | 'subheading'
+  titlePlaceholder?: string
 }) {
   const videos: VideoItemDraft[] = Array.isArray(config.videos)
     ? (config.videos as VideoItemDraft[])
     : []
 
-  function updateMeta(key: 'title' | 'subtitle', val: string) {
+  function updateMeta(key: 'title' | 'subtitle' | 'heading' | 'subheading', val: string) {
     onChange({ ...config, [key]: val })
   }
 
@@ -894,9 +916,9 @@ function VideoGalleryConfigEditor({
           <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Başlık</label>
           <input
             type="text"
-            value={(config.title as string) ?? ''}
-            onChange={(e) => updateMeta('title', e.target.value)}
-            placeholder="🎬 Videolar"
+            value={(config[titleKey] as string) ?? ''}
+            onChange={(e) => updateMeta(titleKey, e.target.value)}
+            placeholder={titlePlaceholder}
             className={inputCls}
           />
         </div>
@@ -904,8 +926,8 @@ function VideoGalleryConfigEditor({
           <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Alt Başlık</label>
           <input
             type="text"
-            value={(config.subtitle as string) ?? ''}
-            onChange={(e) => updateMeta('subtitle', e.target.value)}
+            value={(config[subtitleKey] as string) ?? ''}
+            onChange={(e) => updateMeta(subtitleKey, e.target.value)}
             placeholder="Kısa açıklama…"
             className={inputCls}
           />
@@ -1445,8 +1467,11 @@ function CategoryCardsConfigEditor({
               onChange={(e) => updateField('cardType', e.target.value)}
               className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
             >
-              <option value="card3">Card 3</option>
-              <option value="card5">Card 5</option>
+              {CATEGORY_CARD_TYPE_OPTIONS.map((option, index) => (
+                <option key={option.value} value={option.value}>
+                  {index + 1}/{CATEGORY_CARD_TYPE_OPTIONS.length} - {option.label}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -1456,9 +1481,11 @@ function CategoryCardsConfigEditor({
               onChange={(e) => updateField('slice', e.target.value)}
               className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
             >
-              <option value="first6">İlk 6 kategori</option>
-              <option value="last6">Son 6 kategori</option>
-              <option value="all">Tümü</option>
+              {CATEGORY_SLICE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label} ({option.count} kart)
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -1663,6 +1690,14 @@ function ModuleRow({
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
+          ) : module.type === 'section_videos' ? (
+            <VideoGalleryConfigEditor
+              config={module.config as Record<string, unknown>}
+              titleKey="heading"
+              subtitleKey="subheading"
+              titlePlaceholder="🎥 Seyahat Videolarımız"
+              onChange={(updated) => onConfigChange(module.id, updated)}
+            />
           ) : module.type === 'image_text' ? (
             <ImageTextConfigEditor
               config={module.config as Record<string, unknown>}
@@ -1854,7 +1889,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
       featured_places: { heading: '', subHeading: '', viewAllHref: `/${selectedSlug}/all` },
       how_it_works: { title: '', subheading: '' },
       category_grid: { heading: '', subheading: '', categoryThumbnails: {} },
-      section_videos: { heading: '', subheading: '' },
+      section_videos: { heading: '', subheading: '', videos: [] },
       client_say: { heading: '', subHeading: '' },
       search_results: { perPage: 24 },
       // Marketing modülleri — varsayılan boş başlık (modül kendi default'unu locale'e göre koyar)
