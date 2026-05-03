@@ -17,6 +17,8 @@ ls -la package.json
 
 `package.json` yoksa yanlis dizindesiniz.
 
+**Sık hata:** `travel-web` zaten `.../httpdocs/frontend` içinde çalışıyorken deploy komutunda bir kez daha `cd frontend` kullanılırsa `.next` yanlış alt dizinde oluşur; tarayıcıda `Loading chunk failed`, `text/plain`, `500` görülür. Build her zaman `WorkingDirectory` ile aynı klasörde çalışmalı.
+
 ## 2) Web servis ortam degiskenlerini dogrula
 
 `travel-web.service` icinde en az su degiskenler olmali:

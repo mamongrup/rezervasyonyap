@@ -7,6 +7,18 @@
 #   sudo systemctl daemon-reload
 #   sudo systemctl restart travel-web
 #   sudo systemctl status travel-web
+#
+# --- Manuel deploy (WorkingDirectory ile AYNI klasorde build sart) ------------
+# Asagidaki WorkingDirectory icinde ikinci kez "cd frontend" YAPMAYIN;
+# .next baska yolda kalir -> Loading chunk failed / 500 / text/plain.
+#
+#   cd /var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend
+#   git pull origin main
+#   rm -rf .next && npm run build
+#   systemctl restart travel-web
+#
+# Git kokunuz httpdocs ise once oraya cd edin, sonra:
+#   cd frontend && rm -rf .next && npm run build
 
 [Unit]
 Description=Travel Next.js (rezervasyonyap.tr)
