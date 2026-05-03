@@ -1,5 +1,6 @@
 'use client'
 
+import { getManageStaticFallback } from '@/lib/manage-panel-i18n-fallback'
 import { getTranslationBundle } from '@/lib/travel-api'
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
@@ -78,13 +79,11 @@ export function ManageI18nProvider({ children }: { children: React.ReactNode }) 
 
   const t = useCallback(
     (key: string) => {
-      const v = primary[key]
-      if (v) return v
-      const v2 = fallback[key]
-      if (v2) return v2
-      return key
+      const fromApi = primary[key] ?? fallback[key]
+      if (fromApi && fromApi !== key && fromApi.trim() !== '') return fromApi
+      return getManageStaticFallback(locale, key) ?? key
     },
-    [primary, fallback],
+    [primary, fallback, locale],
   )
 
   const value = useMemo(() => ({ t, ready }), [t, ready])

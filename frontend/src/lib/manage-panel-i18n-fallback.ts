@@ -1,6 +1,8 @@
 /**
  * `getTranslationBundle` / DB’de manage anahtarı yoksa ham anahtar yerine gösterilecek metinler.
- * Veritabanı `209_manage_admin_hub_i18n.sql` + `211_manage_portal_nav_i18n.sql` ile eşleşir.
+ * `admin.*`: `209_manage_admin_hub_i18n.sql` + `211_manage_portal_nav_i18n.sql`
+ * `catalog.*`: `197_manage_panel_i18n.sql` + `206_manage_catalog_nav_i18n.sql` + `208_catalog_listing_seo_i18n.sql`
+ * (hub notları 206’daki güncellenmiş metinler)
  */
 const FB_TR: Record<string, string> = {
   'admin.hub_nav_overview': 'Özet',
@@ -74,6 +76,180 @@ const FB_EN: Record<string, string> = {
     'A single “clear all caches” action is not available here. In production, use redeploy, API restart, or CDN purge.',
 }
 
+/** Katalog paneli — DB bundle eksik olsa bile UI bozulmasın */
+const CATALOG_FB_TR: Record<string, string> = {
+  'catalog.listings_label': 'İlanlar',
+  'catalog.org_uuid_label': 'Kurum UUID (yönetici)',
+  'catalog.org_uuid_hint':
+    'Tarayıcıda saklanır. Tedarikçi / personel / acente için gerekmez.',
+  'catalog.save_load': 'Kaydet & yükle',
+  'catalog.search_placeholder': 'Ara (slug / UUID)',
+  'catalog.refresh': 'Yenile',
+  'catalog.new_listing': 'Yeni ilan',
+  'catalog.col_title': 'Başlık',
+  'catalog.col_slug': 'Slug',
+  'catalog.col_status': 'Durum',
+  'catalog.col_currency': 'PB',
+  'catalog.col_source': 'Kaynak',
+  'catalog.col_created': 'Oluşturulma',
+  'catalog.no_rows': 'Kayıt yok',
+  'catalog.back_hub': '← Kategori menüsü',
+  'catalog.session_missing': 'Oturum yok',
+  'catalog.org_uuid_admin_error': 'Yönetici olarak kurum UUID girin (organization_id).',
+  'catalog.list_error': 'Liste alınamadı',
+  'catalog.slug_field': 'Slug (küçük harf, tire, rakam)',
+  'catalog.title_field': 'Başlık',
+  'catalog.title_panel_locale_note':
+    'Panel dilinde kaydedilir; diğer dilleri çeviriler sayfasından ekleyin.',
+  'catalog.currency_field': 'Para birimi',
+  'catalog.create_draft': 'Taslak oluştur',
+  'catalog.cancel': 'İptal',
+  'catalog.create_error': 'Oluşturulamadı',
+  'catalog.org_required': 'Kurum UUID gerekli',
+  'catalog.feature_hint': 'Katalog (admin / personel / tedarikçi / acente)',
+  'catalog.categories_heading': 'Kategoriler',
+  'catalog.overview': 'Genel bakış',
+  'catalog.closed_badge': 'kapalı',
+  'catalog.sidebar_aria': 'Katalog kategorileri',
+  'catalog.api_fallback': 'API yanıt vermedi; yerel kategori listesi gösteriliyor.',
+  'catalog.translations_link': 'Çeviriler',
+  'catalog.translations_page_title': 'İlan çevirileri',
+  'catalog.translations_save': 'Kaydet',
+  'catalog.translations_saved': 'Kaydedildi',
+  'catalog.translations_load_error': 'Çeviriler yüklenemedi',
+  'catalog.description_field': 'Açıklama',
+  'catalog.index_title': 'Katalog',
+  'catalog.index_intro':
+    'Sol menüden kategori seçin. Her kategorinin veritabanında ayrı detay tablosu vardır; ilan çekirdeği listings üzerinden birleşir. Manuel ve API kaynaklı ilanlar aynı modelde tutulur.',
+  'catalog.category_badge': 'Kategori',
+  'catalog.detail_table_prefix': 'Detay tablosu:',
+  'catalog.hub_all_listings': 'Tüm ilanlar',
+  'catalog.hub_new_listing': 'Yeni ilan',
+  'catalog.hub_attributes': 'Öznitelikler',
+  'catalog.hub_price_inclusions': 'Dahil / Hariç',
+  'catalog.hub_note_list': 'Liste, arama ve ilan durumu.',
+  'catalog.hub_note_new': 'Yeni taslak ilan formu.',
+  'catalog.hub_note_attr': 'Çekirdek + kategori tablosu alan rehberi (salt okunur).',
+  'catalog.back_catalog_summary': '← Katalog özeti',
+  'catalog.sidebar_expand': 'Alt menüyü aç',
+  'catalog.sidebar_collapse': 'Alt menüyü kapat',
+  'catalog.sidebar_sub_summary': 'Kategori özeti',
+  'catalog.attributes_intro':
+    'Bu sayfa veritabanı şemasına göre salt okunur rehberdir. Öznitelik değerleri ilan kaydı üzerinden yönetilir; aşağıdaki bağlantılarla ilan listesine gidebilirsiniz.',
+  'catalog.attributes_core_title': 'Ortak çekirdek (listings + çeviriler)',
+  'catalog.attributes_vertical_title': 'Bu kategorinin detay tablosu',
+  'catalog.attributes_vertical_fallback':
+    '(şemada ayrı detay tablosu tanımı yok — çekirdek + listing_attributes kullanın)',
+  'catalog.attributes_vertical_no_fields':
+    'Bu kategori için panelde alan listesi henüz tanımlı değil; veritabanı modülüne bakın.',
+  'catalog.attributes_eav_title': 'Esnek anahtar–değer (listing_attributes)',
+  'catalog.attributes_eav_body':
+    'group_code, key ve value_json ile ilan başına ek alanlar. API / panel formu eklendiğinde buradan düzenlenebilir.',
+  'catalog.attributes_listing_hint':
+    'Gerçek veri girişi için ilgili kategorideki ilanları açın; dikey alanlar ilan oluşturma / düzenleme akışına bağlanacaktır.',
+  'catalog.seo_section': 'SEO — arama ve paylaşım',
+  'catalog.seo_search_title': 'Arama sonucu başlığı (meta title)',
+  'catalog.seo_search_description': 'Arama sonucu özeti (meta description)',
+  'catalog.seo_keywords': 'Anahtar kelimeler (virgülle)',
+  'catalog.seo_canonical': 'Canonical yol (isteğe bağlı, / ile başlar)',
+  'catalog.seo_og_image': 'OG görseli (depolama anahtarı)',
+  'catalog.seo_robots': 'Robots (örn. index,follow veya noindex)',
+}
+
+const CATALOG_FB_EN: Record<string, string> = {
+  'catalog.listings_label': 'Listings',
+  'catalog.org_uuid_label': 'Organization UUID (admin)',
+  'catalog.org_uuid_hint':
+    'Stored in the browser. Not required for supplier / staff / agency.',
+  'catalog.save_load': 'Save & load',
+  'catalog.search_placeholder': 'Search (slug / UUID)',
+  'catalog.refresh': 'Refresh',
+  'catalog.new_listing': 'New listing',
+  'catalog.col_title': 'Title',
+  'catalog.col_slug': 'Slug',
+  'catalog.col_status': 'Status',
+  'catalog.col_currency': 'CCY',
+  'catalog.col_source': 'Source',
+  'catalog.col_created': 'Created',
+  'catalog.no_rows': 'No rows',
+  'catalog.back_hub': '← Category hub',
+  'catalog.session_missing': 'Not signed in',
+  'catalog.org_uuid_admin_error': 'As admin, enter organization UUID (organization_id).',
+  'catalog.list_error': 'Could not load list',
+  'catalog.slug_field': 'Slug (lowercase, hyphen, digits)',
+  'catalog.title_field': 'Title',
+  'catalog.title_panel_locale_note':
+    'Saved in panel locale; add other languages on the translations page.',
+  'catalog.currency_field': 'Currency',
+  'catalog.create_draft': 'Create draft',
+  'catalog.cancel': 'Cancel',
+  'catalog.create_error': 'Could not create',
+  'catalog.org_required': 'Organization UUID required',
+  'catalog.feature_hint': 'Catalog (admin / staff / supplier / agency)',
+  'catalog.categories_heading': 'Categories',
+  'catalog.overview': 'Overview',
+  'catalog.closed_badge': 'off',
+  'catalog.sidebar_aria': 'Catalog categories',
+  'catalog.api_fallback': 'API unavailable; showing local category list.',
+  'catalog.translations_link': 'Translations',
+  'catalog.translations_page_title': 'Listing translations',
+  'catalog.translations_save': 'Save',
+  'catalog.translations_saved': 'Saved',
+  'catalog.translations_load_error': 'Could not load translations',
+  'catalog.description_field': 'Description',
+  'catalog.index_title': 'Catalog',
+  'catalog.index_intro':
+    'Pick a category from the sidebar. Each category has its own detail table in the database; listing core is unified through listings. Manual and API-sourced listings share the same model.',
+  'catalog.category_badge': 'Category',
+  'catalog.detail_table_prefix': 'Detail table:',
+  'catalog.hub_all_listings': 'All listings',
+  'catalog.hub_new_listing': 'New listing',
+  'catalog.hub_attributes': 'Attributes',
+  'catalog.hub_price_inclusions': 'Included / excluded',
+  'catalog.hub_note_list': 'List, search and listing status.',
+  'catalog.hub_note_new': 'New draft listing form.',
+  'catalog.hub_note_attr': 'Core + category table field guide (read-only).',
+  'catalog.back_catalog_summary': '← Catalog overview',
+  'catalog.sidebar_expand': 'Expand submenu',
+  'catalog.sidebar_collapse': 'Collapse submenu',
+  'catalog.sidebar_sub_summary': 'Category hub',
+  'catalog.attributes_intro':
+    'This page is a read-only guide aligned with the database schema. Attribute values are managed per listing; use the links below to open listings.',
+  'catalog.attributes_core_title': 'Shared core (listings + translations)',
+  'catalog.attributes_vertical_title': 'Category detail table',
+  'catalog.attributes_vertical_fallback':
+    '(no dedicated detail table in schema — use core + listing_attributes)',
+  'catalog.attributes_vertical_no_fields':
+    'No field list in the panel for this category yet; see the database module.',
+  'catalog.attributes_eav_title': 'Flexible key–value (listing_attributes)',
+  'catalog.attributes_eav_body':
+    'Per-listing extras via group_code, key and value_json. Editable once API or panel forms are wired.',
+  'catalog.attributes_listing_hint':
+    'Open listings in this category to enter data; vertical fields will hook into create/edit flows.',
+  'catalog.seo_section': 'SEO — search & sharing',
+  'catalog.seo_search_title': 'Search result title (meta title)',
+  'catalog.seo_search_description': 'Search snippet (meta description)',
+  'catalog.seo_keywords': 'Keywords (comma-separated)',
+  'catalog.seo_canonical': 'Canonical path (optional, leading /)',
+  'catalog.seo_og_image': 'OG image (storage key)',
+  'catalog.seo_robots': 'Robots (e.g. index,follow or noindex)',
+}
+
+/**
+ * Yerel (gömülü) fallback — API bundle’da değer yoksa.
+ * TR dışındaki diller için katalog metinleri EN; admin metinleri EN (yoksa TR).
+ */
+export function getManageStaticFallback(locale: string, key: string): string | undefined {
+  const lc = (locale ?? '').trim().toLowerCase()
+  const isTr = lc === 'tr'
+  if (key.startsWith('catalog.')) {
+    if (isTr) return CATALOG_FB_TR[key]
+    return CATALOG_FB_EN[key]
+  }
+  if (isTr) return FB_TR[key]
+  return FB_EN[key]
+}
+
 /**
  * Manage panelinde DB'de henüz çevirisi olmayan anahtarlar için fallback.
  *
@@ -83,15 +259,13 @@ const FB_EN: Record<string, string> = {
  */
 export function managePanelLabel(locale: string, key: string, t: (k: string) => string): string {
   const v = t(key)
-  const lc = (locale ?? '').trim().toLowerCase()
-  const isTr = lc === 'tr'
-  const fb = isTr ? FB_TR : FB_EN
   const looksRaw =
     !v ||
     v.trim() === '' ||
     v === key ||
-    /^admin\.[a-z_]+$/.test(v) ||
-    /^nav\.[a-z_]+$/.test(v)
+    /^admin\.[a-z0-9_]+$/.test(v) ||
+    /^nav\.[a-z0-9_.]+$/.test(v) ||
+    /^catalog\.[a-z0-9_]+$/.test(v)
   if (!looksRaw) return v
-  return fb[key] ?? v
+  return getManageStaticFallback(locale, key) ?? v
 }
