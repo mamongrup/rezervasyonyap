@@ -76,6 +76,9 @@ export default function Footer2({ locale, branding }: Footer2Props) {
     cfg.taglineEn ||
     cfg.taglineTr
 
+  const logoSrc = typeof branding?.logo_url === 'string' && branding.logo_url ? branding.logo_url : undefined
+  const logoDarkSrc = typeof branding?.logo_url_dark === 'string' && branding.logo_url_dark ? branding.logo_url_dark : undefined
+  const logoAlt = typeof branding?.site_name === 'string' && branding.site_name ? branding.site_name : c.orgName
   const copyName = c.orgLegalName || c.orgName
   const year = new Date().getFullYear()
   const rights = t.site.footer.rights
@@ -112,7 +115,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
       <div className="container min-w-0 pt-16 pb-8 sm:pt-20 sm:pb-10">
         <div className="grid min-w-0 grid-cols-1 gap-10 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)]">
           <div className="min-w-0 space-y-6">
-            <Logo />
+            <Logo src={logoSrc} darkSrc={logoDarkSrc} alt={logoAlt} />
             <p className="break-words text-sm/6 text-balance text-gray-600 dark:text-neutral-400">{tagline}</p>
 
             {socialItems.length > 0 && (

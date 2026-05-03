@@ -99,11 +99,23 @@ export type HomePageLinkItem = { label: string; path: string }
 
 export const DEFAULT_HOME_PAGE_LINKS: HomePageLinkItem[] = [
   { label: 'Stays', path: '/' },
-  { label: 'Experiences', path: '/experience' },
-  { label: 'Cars', path: '/car' },
-  { label: 'Flights', path: '/flight-categories/all' },
+  { label: 'Experiences', path: '/aktiviteler/all' },
+  { label: 'Cars', path: '/arac-kiralama/all' },
+  { label: 'Flights', path: '/ucak-bileti/all' },
   { label: 'Home 2', path: '/home-2' },
 ]
+
+function normalizeHomePageLinkPath(path: string): string {
+  const p = path.startsWith('/') ? path : `/${path}`
+  const legacyMap: Record<string, string> = {
+    '/experience': '/aktiviteler/all',
+    '/experience-categories/all': '/aktiviteler/all',
+    '/car': '/arac-kiralama/all',
+    '/car-categories/all': '/arac-kiralama/all',
+    '/flight-categories/all': '/ucak-bileti/all',
+  }
+  return legacyMap[p] ?? p
+}
 
 /**
  * `branding.home_page_links`: `[{ "label": "...", "path": "/..." }]` — path locale önek içermez.
@@ -129,7 +141,7 @@ export function parseHomePageLinksFromBranding(pub: SitePublicConfig | null): Ho
           ? o.slug.trim()
           : ''
     if (!label || !pathRaw) continue
-    const path = pathRaw.startsWith('/') ? pathRaw : `/${pathRaw}`
+    const path = normalizeHomePageLinkPath(pathRaw)
     out.push({ label, path })
   }
   return out.length > 0 ? out : DEFAULT_HOME_PAGE_LINKS

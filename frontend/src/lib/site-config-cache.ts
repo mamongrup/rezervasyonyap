@@ -9,7 +9,7 @@ import { getSitePublicConfig, type SitePublicConfig } from './travel-api'
 
 export const getCachedSiteConfig = cache(async (): Promise<SitePublicConfig | null> => {
   try {
-    return await getSitePublicConfig(undefined, withDevNoStore({ next: { revalidate: 120 } }))
+    return await getSitePublicConfig(undefined, withDevNoStore({ next: { revalidate: 15 } }))
   } catch {
     return null
   }

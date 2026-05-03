@@ -151,7 +151,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   const catLogo = catCode ? categoryLogos[catCode] : null
 
   const activeLogoUrl = catLogo?.logo_url || branding.logo_url || null
-  const activeDarkUrl = catLogo?.logo_url_dark || catLogo?.logo_url || branding.logo_url_dark || branding.logo_url || null
+  const activeDarkUrl = catLogo?.logo_url_dark || branding.logo_url_dark || catLogo?.logo_url || branding.logo_url || null
   const renderedLogoUrl = imageOverride ?? activeLogoUrl
   const altText = alt ?? branding.site_name ?? 'Logo'
 
@@ -170,7 +170,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   }
 
   // ── Icon + Text mode ──────────────────────────────────────────────────────
-  if (!catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url && !imageFailed) {
+  if (!activeLogoUrl && !catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url && !imageFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
     const line2Color = branding.logo_text_line2_color || '#f97316'

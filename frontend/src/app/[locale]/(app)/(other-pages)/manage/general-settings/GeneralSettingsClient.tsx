@@ -973,10 +973,11 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             </div>
 
             <div className="mt-8 border-t border-neutral-100 pt-8 dark:border-neutral-800">
-              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Önizleme ana sayfa linkleri</h3>
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-white">Customize paneli ana sayfa linkleri</h3>
               <p className="mt-1 text-sm text-neutral-500">
-                Sağdaki «Customize» panelindeki hızlı gezinme. Yol locale öneki olmadan (ör.{' '}
-                <code className="font-mono text-xs">/home-2</code>).
+                Sağdaki «Customize» panelindeki hızlı gezinme. Yol locale öneki olmadan yazılır (ör.{' '}
+                <code className="font-mono text-xs">/home-2</code>,{' '}
+                <code className="font-mono text-xs">/arac-kiralama/all</code>).
               </p>
               <div className="mt-4 space-y-2">
                 {homePageLinks.map((row, i) => (
