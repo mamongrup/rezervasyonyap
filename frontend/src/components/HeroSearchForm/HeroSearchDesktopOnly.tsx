@@ -1,19 +1,14 @@
 'use client'
 
 import type { ListingType } from '@/type'
-import dynamic from 'next/dynamic'
 import { useLayoutEffect, useState } from 'react'
+import HeroSearchForm from './HeroSearchForm'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
-
-const HeroSearchForm = dynamic(() => import('./HeroSearchForm'), {
-  ssr: false,
-  loading: () => <HeroSearchFormSkeleton />,
-})
 
 /**
  * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını `hidden lg:block`
  * ile gizler (`ApplicationLayout` üst arama çubuğu da `lg` altında).
- * Chunk'ı yalnızca bu genişlikte yüklüyoruz.
+ * İlk dinamik katman kaldırıldı; sadece iç form panelleri lazy kalır.
  */
 export default function HeroSearchDesktopOnly({
   initTab = 'Stays',

@@ -1744,10 +1744,10 @@ export async function getAuthMe(
 ): Promise<
   AuthUser & { preferred_locale: string; roles: RoleAssignment[]; permissions: string[] }
 > {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/auth/me`, {
+  const res = await fetch(`/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
+    credentials: 'same-origin',
+    cache: 'no-store',
   })
   if (!res.ok) throw new Error(`auth_me_${res.status}`)
   return json(res)
@@ -1759,15 +1759,15 @@ export async function patchAuthMe(
 ): Promise<
   AuthUser & { preferred_locale: string; roles: RoleAssignment[]; permissions: string[] }
 > {
-  const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/auth/me`, {
+  const res = await fetch(`/api/auth/me`, {
     method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+    credentials: 'same-origin',
+    cache: 'no-store',
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
