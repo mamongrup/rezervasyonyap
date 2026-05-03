@@ -6,7 +6,11 @@
  */
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import {
@@ -20,8 +24,6 @@ import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
 import { Loader2, Plus, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 const LABEL_KEYS = [
   { code: 'tr', label: 'Türkçe' },
@@ -74,7 +76,7 @@ export default function CatalogCategoryAccommodationRulesClient({
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         setNeedOrg(admin)
         if (admin && typeof window !== 'undefined') {
-          setOrgId(window.localStorage.getItem(ORG_STORAGE_KEY) ?? '')
+          setOrgId(initCatalogManageOrganizationFromMe(me))
         }
       })
       .catch(() => {})
@@ -186,9 +188,8 @@ export default function CatalogCategoryAccommodationRulesClient({
   }
 
   function saveOrg() {
-    if (typeof window !== 'undefined' && orgId.trim()) {
-      window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
-    }
+    const email = getStoredAuthProfile()?.email ?? ''
+    writeStoredCatalogOrganizationId(email, orgId)
     load()
   }
 

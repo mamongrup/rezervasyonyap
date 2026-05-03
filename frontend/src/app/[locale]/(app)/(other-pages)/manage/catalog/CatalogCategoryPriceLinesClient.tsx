@@ -4,8 +4,12 @@
  * Kategori bazında fiyata dahil / hariç kalem listesi — tek tanım; ilanlarda seçim için kullanılır.
  */
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import {
   createPriceLineItem,
   deletePriceLineItem,
@@ -22,9 +26,6 @@ import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextBu
 import clsx from 'clsx'
 import { Loader2, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-
-/** Diğer katalog yönetim ekranlarıyla paylaşılan: admin için seçili organizasyon UUID. */
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 const LINE_LOCALES = [
   { code: 'tr', label: 'Türkçe' },
@@ -90,8 +91,7 @@ export default function CatalogCategoryPriceLinesClient({ code }: { code: string
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         setNeedOrg(admin)
         if (admin && typeof window !== 'undefined') {
-          const saved = window.localStorage.getItem(ORG_STORAGE_KEY) ?? ''
-          if (saved) setOrgId(saved)
+          setOrgId(initCatalogManageOrganizationFromMe(me))
         }
       })
       .catch(() => setNeedOrg(false))
@@ -101,9 +101,8 @@ export default function CatalogCategoryPriceLinesClient({ code }: { code: string
   const orgParam = needOrg && orgId.trim() ? orgId.trim() : undefined
 
   const saveOrg = () => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
-    }
+    const email = getStoredAuthProfile()?.email ?? ''
+    writeStoredCatalogOrganizationId(email, orgId)
   }
 
   const load = useCallback(() => {
@@ -482,7 +481,7 @@ function PriceColumn({
               ))}
             </div>
             <p className="mt-2 text-[10px] text-neutral-500">
-              AI Türkçe alanı kaynak alır. Önce TR'yi doldurun, ardından çeviri butonlarını kullanın. Sonuçları her
+              AI Türkçe alanı kaynak alır. Önce Türkçe alanını doldurun, ardından çeviri butonlarını kullanın. Sonuçları her
               zaman gözden geçirip kaydedin.
             </p>
             <StatusMsg msg={localMsg} />

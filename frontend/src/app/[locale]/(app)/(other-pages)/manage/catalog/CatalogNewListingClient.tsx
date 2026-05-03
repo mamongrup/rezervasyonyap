@@ -5,7 +5,11 @@ import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import { useManageT } from '@/lib/manage-i18n-context'
 import {
   createIcalFeed,
@@ -67,8 +71,6 @@ import {
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import clsx from 'clsx'
-
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
 type ListingSeoDraft = {
@@ -451,10 +453,9 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         if (roleWithOrg?.organization_id) {
           setOrgId(roleWithOrg.organization_id)
           setOrgIdLocked(true)
-          if (typeof window !== 'undefined')
-            window.localStorage.setItem(ORG_STORAGE_KEY, roleWithOrg.organization_id)
+          writeStoredCatalogOrganizationId(me.email, roleWithOrg.organization_id)
         } else if (typeof window !== 'undefined') {
-          setOrgId(window.localStorage.getItem(ORG_STORAGE_KEY) ?? '')
+          setOrgId(initCatalogManageOrganizationFromMe(me))
         }
       })
       .catch(() => {})
@@ -982,7 +983,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       const lid = created.id
 
       if (needOrg && typeof window !== 'undefined')
-        window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
+        writeStoredCatalogOrganizationId(getStoredAuthProfile()?.email ?? '', orgId.trim())
 
       // 2. Çeviri / açıklama
       const translationEntries = isVilla

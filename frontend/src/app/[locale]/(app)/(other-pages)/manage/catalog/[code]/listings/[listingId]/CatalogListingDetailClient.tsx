@@ -2,11 +2,15 @@
 
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useCatalogListingUi, type CatalogListingUi } from '@/hooks/useCatalogListingUi'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import {
   addManageHotelRoom,
   patchListingBasics,
@@ -90,8 +94,6 @@ import {
 import { VerticalDetailsSection } from '../../../VerticalDetailsSection'
 import ListingImagesSection from '../../../ListingImagesSection'
 import PlacesAutocompleteInput from '@/components/editor/PlacesAutocompleteInput'
-
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 function verticalSectionTitle(verticalTitles: CatalogListingUi['verticalTitles'], categoryCode: string) {
   const m = verticalTitles as Record<string, string>
@@ -822,7 +824,7 @@ export default function CatalogListingDetailClient({
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         setNeedOrg(admin)
         if (admin && typeof window !== 'undefined') {
-          setOrgId(window.localStorage.getItem(ORG_STORAGE_KEY) ?? '')
+          setOrgId(initCatalogManageOrganizationFromMe(me))
         }
       })
       .catch(() => {})
@@ -1287,9 +1289,8 @@ export default function CatalogListingDetailClient({
   useEffect(() => { void loadMealPlans() }, [loadMealPlans])
 
   const saveOrg = () => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
-    }
+    const email = getStoredAuthProfile()?.email ?? ''
+    writeStoredCatalogOrganizationId(email, orgId)
     void loadPriceRules()
     void loadHotel()
     void loadCalendar()

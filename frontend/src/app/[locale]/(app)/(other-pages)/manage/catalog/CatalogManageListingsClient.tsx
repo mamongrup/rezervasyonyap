@@ -2,7 +2,11 @@
 
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { getAuthMe, listManageCatalogListings, type ManageListingRow } from '@/lib/travel-api'
@@ -12,8 +16,6 @@ import { Field, Label } from '@/shared/fieldset'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 export default function CatalogManageListingsClient({ categoryCode }: { categoryCode: string }) {
   const t = useManageT()
@@ -45,10 +47,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         setNeedOrg(admin)
-        if (admin && typeof window !== 'undefined') {
-          const saved = window.localStorage.getItem(ORG_STORAGE_KEY) ?? ''
-          if (saved) setOrgId(saved)
-        }
+        if (admin) setOrgId(initCatalogManageOrganizationFromMe(me))
       })
       .catch(() => setNeedOrg(false))
       .finally(() => setScopeReady(true))
@@ -92,9 +91,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   }, [load, scopeReady])
 
   const saveOrg = () => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
-    }
+    writeStoredCatalogOrganizationId(getStoredAuthProfile()?.email ?? '', orgId)
     void load()
   }
 

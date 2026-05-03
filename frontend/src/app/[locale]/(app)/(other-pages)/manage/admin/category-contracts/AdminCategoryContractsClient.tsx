@@ -3,9 +3,14 @@ import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { ORDERED_PRODUCT_CATEGORY_CODES, categoryLabelTr } from '@/lib/catalog-category-ui'
 import {
   createManageCategoryContract,
+  getAuthMe,
   listManageCategoryContracts,
   type ManageCategoryContractRow,
 } from '@/lib/travel-api'
+import {
+  CATALOG_MANAGE_ORG_STORAGE_KEY,
+  initCatalogManageOrganizationFromMe,
+} from '@/lib/catalog-manage-organization'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
@@ -15,8 +20,6 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
-
-const ORG_KEY = 'catalog_manage_organization_id'
 
 type ScopeTab = 'general' | 'sales' | 'category'
 
@@ -59,6 +62,19 @@ export default function AdminCategoryContractsClient() {
   useEffect(() => {
     void loadList()
   }, [loadList])
+
+  useEffect(() => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    void getAuthMe(token)
+      .then((me) => {
+        setOrgId((prev) => {
+          if (prev.trim()) return prev
+          return initCatalogManageOrganizationFromMe(me)
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -209,7 +225,7 @@ export default function AdminCategoryContractsClient() {
           />
           <p className="mt-1 text-xs text-neutral-500">
             İlan yönetiminde kullandığınız kurum kimliği (
-            <span className="font-mono">{ORG_KEY}</span> ile aynı olabilir).
+            <span className="font-mono">{CATALOG_MANAGE_ORG_STORAGE_KEY}</span> ile aynı olabilir).
           </p>
         </Field>
         <Field>

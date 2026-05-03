@@ -7,8 +7,12 @@
  */
 
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
@@ -30,8 +34,6 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 /** Grup / öznitelik kodu: Türkçe → ascii, tire → alt çizgi */
 function slugifyAttributeCode(raw: string): string {
@@ -959,19 +961,15 @@ export default function CatalogCategoryAttributesClient({ code }: { code: string
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         setNeedOrg(admin)
-        if (admin && typeof window !== 'undefined') {
-          const saved = window.localStorage.getItem(ORG_STORAGE_KEY) ?? ''
-          if (saved) setOrgId(saved)
-        }
+        if (admin) setOrgId(initCatalogManageOrganizationFromMe(me))
       })
       .catch(() => setNeedOrg(false))
       .finally(() => setScopeReady(true))
   }, [])
 
   const saveOrg = () => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ORG_STORAGE_KEY, orgId.trim())
-    }
+    const email = getStoredAuthProfile()?.email ?? ''
+    writeStoredCatalogOrganizationId(email, orgId)
     setOrgReloadNonce((n) => n + 1)
   }
 

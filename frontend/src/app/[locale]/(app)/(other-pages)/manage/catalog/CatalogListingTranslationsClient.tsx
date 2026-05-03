@@ -3,7 +3,11 @@
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { getStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  initCatalogManageOrganizationFromMe,
+  writeStoredCatalogOrganizationId,
+} from '@/lib/catalog-manage-organization'
 import { useManageT } from '@/lib/manage-i18n-context'
 import {
   getAuthMe,
@@ -25,8 +29,6 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { Loader2, Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
-const ORG_STORAGE_KEY = 'catalog_manage_organization_id'
 
 type SeoDraftRow = {
   title: string
@@ -87,7 +89,7 @@ export default function CatalogListingTranslationsClient({
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         setNeedOrg(admin)
         if (admin && typeof window !== 'undefined') {
-          setOrgId(window.localStorage.getItem(ORG_STORAGE_KEY) ?? '')
+          setOrgId(initCatalogManageOrganizationFromMe(me))
         }
       })
       .catch(() => {})
@@ -335,6 +337,12 @@ export default function CatalogListingTranslationsClient({
 
   const listHref = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}/listings`)
 
+  function applyOrgAndLoad() {
+    const email = getStoredAuthProfile()?.email ?? ''
+    writeStoredCatalogOrganizationId(email, orgId)
+    void load()
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
@@ -367,7 +375,7 @@ export default function CatalogListingTranslationsClient({
                 onChange={(e) => setOrgId(e.target.value)}
                 className="min-w-[280px] flex-1 font-mono text-sm"
               />
-              <ButtonPrimary type="button" onClick={() => void load()}>
+              <ButtonPrimary type="button" onClick={() => applyOrgAndLoad()}>
                 {t('catalog.save_load')}
               </ButtonPrimary>
             </div>
