@@ -65,6 +65,32 @@ wait_http_status() {
   echo ""
 }
 
+check_next_static_chunk() {
+  local wd sample url status rel url_path
+  wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
+  [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks (build/run wrong directory?)"
+  sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' | head -1)"
+  [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
+  url="$WEB_ORIGIN/_next/static/chunks/$(basename "$sample")"
+  status="$(http_status "$url" || true)"
+  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status (check Apache/ModSecurity proxy)"
+  ok "Next static chunk OK (200): $(basename "$sample")"
+
+  # [locale] yolu — Plesk ModSecurity/Imunify bazen koseli parantez iceren URL'yi 500'e dusurur
+  sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | head -1 || true)"
+  if [[ -n "${sample:-}" ]]; then
+    command -v python3 >/dev/null 2>&1 || {
+      warn "python3 yok; app layout chunk URL testi atlandi"
+      return 0
+    }
+    rel="${sample#"$wd/.next/static/}"
+    url_path="$(VERIFY_REL="$rel" python3 -c "import os,urllib.parse; r=os.environ['VERIFY_REL']; print('/_next/static/'+ '/'.join(urllib.parse.quote(s, safe='') for s in r.split('/')))")"
+    status="$(http_status "$WEB_ORIGIN$url_path" || true)"
+    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status (WAF: whitelist /_next/static veya kural devre disi)"
+    ok "Next app layout chunk OK (200)"
+  fi
+}
+
 check_endpoints() {
   local auth_status hero_status
   auth_status="$(wait_http_status "$API_ORIGIN/api/v1/auth/me" 12 2)"
@@ -87,6 +113,7 @@ main() {
   check_service_active "$API_SERVICE"
   check_working_directory
   check_env
+  check_next_static_chunk
   check_endpoints
 
   ok "Deploy verification completed successfully"
