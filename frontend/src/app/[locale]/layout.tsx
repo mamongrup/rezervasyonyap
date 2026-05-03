@@ -83,7 +83,9 @@ export async function generateMetadata({
   const faviconUrl = toAbsoluteSiteUrl(base, faviconNormalized)
 
   const canonical = base ? hrefForLocale(locale) : undefined
-  const languages = Object.fromEntries(codes.map((l) => [l, l === defaultLocale ? '/' : `/${l}`]))
+  // hreflang href mutlak URL olmalı; göreli `/` veya `/en` GSC'de geçersiz sayılır.
+  const languages: Record<string, string> = Object.fromEntries(codes.map((l) => [l, hrefForLocale(l)]))
+  if (base) languages['x-default'] = hrefForLocale(defaultLocale)
 
   const openGraph: Metadata['openGraph'] = {
     type: 'website',
