@@ -140,7 +140,7 @@ function PageFormModal({
               className="w-full rounded-xl border border-neutral-200 px-3 py-2 font-mono text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
             />
             <p className="mt-1 text-xs text-neutral-400">
-              Örnek: <code>turkiye/mugla/bodrum</code> → site URL'si olur
+              Örnek: <code>turkiye/mugla/bodrum</code> → site URL adresi olur
             </p>
           </div>
 
@@ -246,6 +246,7 @@ export default function RegionsPageClient() {
   const [editPage, setEditPage] = useState<LocationPage | undefined>()
   const [formBusy, setFormBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [bulkPublishing, setBulkPublishing] = useState(false)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -283,6 +284,11 @@ export default function RegionsPageClient() {
     })
   }, [pages, search])
 
+  const filteredDrafts = useMemo(
+    () => filtered.filter((page) => !page.is_published),
+    [filtered],
+  )
+
   const handleSave = useCallback(
     async (data: { slug_path: string; district_id: string }) => {
       setFormBusy(true)
@@ -309,7 +315,7 @@ export default function RegionsPageClient() {
         setFormBusy(false)
       }
     },
-    [editPage, loadAll],
+    [editPage, loadAll, router],
   )
 
   const handleDelete = useCallback(
@@ -327,6 +333,32 @@ export default function RegionsPageClient() {
     },
     [],
   )
+
+  const handleBulkPublishFiltered = useCallback(async () => {
+    const drafts = filteredDrafts
+    if (drafts.length === 0) return
+    const scope = search.trim() ? 'filtrelenen taslak' : 'tüm taslak'
+    if (!window.confirm(`${drafts.length} ${scope} bölge sayfası yayına alınsın mı?`)) return
+
+    setBulkPublishing(true)
+    setError(null)
+    try {
+      for (const page of drafts) {
+        await patchLocationPage(page.id, { is_published: true })
+      }
+      const publishedIds = new Set(drafts.map((page) => page.id))
+      setPages((prev) =>
+        prev.map((page) =>
+          publishedIds.has(page.id) ? { ...page, is_published: true } : page,
+        ),
+      )
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'Toplu yayınlama tamamlanamadı'))
+      await loadAll()
+    } finally {
+      setBulkPublishing(false)
+    }
+  }, [filteredDrafts, loadAll, search])
 
   return (
     <div className="p-6 lg:p-8">
@@ -373,16 +405,32 @@ export default function RegionsPageClient() {
         </div>
       ) : null}
 
-      {/* Arama */}
-      <div className="relative mb-4 max-w-sm">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
-        <input
-          type="search"
-          placeholder="Başlık veya slug yoluna göre ara…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 pl-9 pr-3 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
-        />
+      {/* Arama + toplu işlemler */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="relative max-w-sm flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="search"
+            placeholder="Başlık veya slug yoluna göre ara…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 pl-9 pr-3 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
+          />
+        </div>
+        <button
+          type="button"
+          disabled={bulkPublishing || filteredDrafts.length === 0}
+          onClick={() => void handleBulkPublishFiltered()}
+          className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
+          title={search.trim() ? 'Arama sonucundaki taslakları yayına al' : 'Tüm taslak bölge sayfalarını yayına al'}
+        >
+          {bulkPublishing ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          {bulkPublishing ? 'Yayına alınıyor…' : `Taslakları yayına al (${filteredDrafts.length})`}
+        </button>
       </div>
 
       {/* Tablo */}
