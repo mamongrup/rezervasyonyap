@@ -571,18 +571,18 @@ export type TCategory = TStayCategory | TExperienceCategory | TCarCategory | TFl
 // ─── Kategori Görselleri ─────────────────────────────────────────────────────
 /** Kategori kartı — `uploads/external` prod’da sık eksik; `general/hero` ile aynı temada tutulur. */
 const CATEGORY_THUMBNAILS: Record<string, string> = {
-  oteller: '/uploads/general/hero/oteller-1.avif',
-  'tatil-evleri': '/uploads/general/hero/tatil-evleri-2.avif',
-  'yat-kiralama': '/uploads/general/hero/yat-kiralama-3.jpg',
-  turlar: '/uploads/general/hero/turlar-2.avif',
-  aktiviteler: '/uploads/general/hero/aktiviteler-3.avif',
-  kruvaziyer: '/uploads/general/hero/kruvaziyer-3.jpg',
-  'hac-umre': '/uploads/general/hero/hac-umre-2.avif',
-  vize: '/uploads/general/hero/vize-3.jpg',
-  'ucak-bileti': '/uploads/general/hero/ucak-bileti-2.jpg',
-  'arac-kiralama': '/uploads/general/hero/arac-kiralama-3.jpg',
-  feribot: '/uploads/general/hero/feribot-2.jpg',
-  transfer: '/uploads/general/hero/transfer-2.jpg',
+  oteller: '/uploads/general/hero/oteller-2.avif',
+  'tatil-evleri': '/uploads/general/hero/tatil-evleri-1.avif',
+  'yat-kiralama': '/uploads/general/hero/yat-kiralama-2.avif',
+  turlar: '/uploads/general/hero/turlar-1.avif',
+  aktiviteler: '/uploads/general/hero/aktiviteler-2.avif',
+  kruvaziyer: '/uploads/general/hero/kruvaziyer-1.avif',
+  'hac-umre': '/uploads/general/hero/hac-umre-1.avif',
+  vize: '/uploads/general/hero/vize-1.avif',
+  'ucak-bileti': '/uploads/general/hero/ucak-bileti-1.avif',
+  'arac-kiralama': '/uploads/general/hero/arac-kiralama-1.avif',
+  feribot: '/uploads/general/hero/feribot-1.avif',
+  transfer: '/uploads/general/hero/transfer-3.avif',
 }
 
 const COVER_IMAGE_MAP = {
