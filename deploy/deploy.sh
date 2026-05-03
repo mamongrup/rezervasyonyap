@@ -54,6 +54,13 @@ main() {
   ok "backend build tamam"
 
   step "Frontend install + clean build"
+  # NEXT_PUBLIC_* build sirasinda gomulur; ayni env travel-web.service ile tanimli olmali.
+  if [[ -f /etc/rezervasyonyap/frontend.env ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source /etc/rezervasyonyap/frontend.env
+    set +a
+  fi
   (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build)
   ok "frontend build tamam"
 

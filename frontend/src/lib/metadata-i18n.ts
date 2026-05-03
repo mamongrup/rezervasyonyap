@@ -1,7 +1,7 @@
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { fetchActiveLocaleCodes, fetchLocalizedRoutes } from '@/lib/i18n-server'
 import { buildLocalizedRouteIndexes, localizeAppPath } from '@/lib/localized-path-shared'
-import { getPublicSiteUrl } from '@/lib/site-branding-seo'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import type { Metadata } from 'next'
 
 /** hreflang / canonical — varsayılan dilde URL öneki yok (`/` …), diğerlerinde `/{kod}`. Mutlak URL. */
@@ -26,14 +26,10 @@ export async function buildLocaleAlternates(
   pathAfterLocale: string,
 ): Promise<Pick<Metadata, 'alternates'>> {
   const codes = await fetchActiveLocaleCodes()
-  const base = getPublicSiteUrl().replace(/\/$/, '')
+  const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
 
   if (!base) {
-    return {
-      alternates: {
-        languages: Object.fromEntries(codes.map((l) => [l, absoluteAlternateUrl('', l, pathAfterLocale)])),
-      },
-    }
+    return { alternates: {} }
   }
 
   const loc = isAppLocale(locale) && codes.includes(locale) ? locale : codes[0] ?? 'tr'
@@ -63,7 +59,7 @@ export async function buildLocaleAlternatesLocalized(
   const codes = await fetchActiveLocaleCodes()
   const rows = await fetchLocalizedRoutes()
   const idx = buildLocalizedRouteIndexes(rows)
-  const base = getPublicSiteUrl().replace(/\/$/, '')
+  const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
 
   const raw = pathAfterLocale === '/' || pathAfterLocale === '' ? '/' : pathAfterLocale
   const normalized = raw.startsWith('/') ? raw : `/${raw}`
@@ -74,16 +70,7 @@ export async function buildLocaleAlternatesLocalized(
   }
 
   if (!base) {
-    return {
-      alternates: {
-        languages: Object.fromEntries(
-          codes.map((l) => {
-            const p = pathForLang(l)
-            return [l, absoluteAlternateUrl('', l, p === '' ? '' : p)]
-          }),
-        ),
-      },
-    }
+    return { alternates: {} }
   }
 
   const loc = isAppLocale(locale) && codes.includes(locale) ? locale : codes[0] ?? 'tr'

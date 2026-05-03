@@ -19,6 +19,7 @@ import {
   toAbsoluteSiteUrl,
 } from '@/lib/site-branding-seo'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import type { Metadata } from 'next'
 import type { SitePublicConfig } from '@/lib/travel-api'
 import { getPublicCurrencyRates } from '@/lib/travel-api'
@@ -62,7 +63,7 @@ export async function generateMetadata({
 
   const rows = await fetchActiveLocales()
   const codes = rows.map((r) => r.code)
-  const base = getPublicSiteUrl()
+  const base = (await resolveCanonicalBaseUrl()).replace(/\/$/, '')
   const hrefForLocale = (l: string) =>
     l === defaultLocale ? `${base}/` : `${base}/${l}`
 
@@ -83,9 +84,13 @@ export async function generateMetadata({
   const faviconUrl = toAbsoluteSiteUrl(base, faviconNormalized)
 
   const canonical = base ? hrefForLocale(locale) : undefined
-  // hreflang href mutlak URL olmalı; göreli `/` veya `/en` GSC'de geçersiz sayılır.
-  const languages: Record<string, string> = Object.fromEntries(codes.map((l) => [l, hrefForLocale(l)]))
-  if (base) languages['x-default'] = hrefForLocale(defaultLocale)
+  // hreflang yalnızca mutlak kök biliniyorsa; aksi halde göreli `/` üretmek SEO araçlarında hataya düşer.
+  const alternateLanguages: Record<string, string> | undefined = (() => {
+    if (!base) return undefined
+    const m: Record<string, string> = Object.fromEntries(codes.map((l) => [l, hrefForLocale(l)]))
+    m['x-default'] = hrefForLocale(defaultLocale)
+    return m
+  })()
 
   const openGraph: Metadata['openGraph'] = {
     type: 'website',
@@ -128,7 +133,7 @@ export async function generateMetadata({
     icons,
     alternates: {
       canonical: canonical ?? undefined,
-      languages,
+      ...(alternateLanguages ? { languages: alternateLanguages } : {}),
     },
   }
 
