@@ -117,10 +117,17 @@ const nextConfig = {
     return config
   },
   async headers() {
+    const headers = buildAllSecurityHeaders()
     return [
+      /**
+       * `/(.*)` ile tüm yollara başlık vermek bazı proxy + Next birleşimlerinde
+       * `/_next/static/*.js` çıktısına müdahale izlenimi yaratabiliyor.
+       * Güvenlik başlıkları HTML ve uygulama yollarına uygulanır; `_next` üretim
+       * dosyaları Next’in varsayılanıyla kalır.
+       */
       {
-        source: '/(.*)',
-        headers: buildAllSecurityHeaders(),
+        source: '/((?!_next/).*)',
+        headers,
       },
     ]
   },

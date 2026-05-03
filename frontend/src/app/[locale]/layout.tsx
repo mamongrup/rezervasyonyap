@@ -1,3 +1,4 @@
+import ChunkLoadRecovery from '@/components/ChunkLoadRecovery'
 import SiteJsonLd from '@/components/seo/SiteJsonLd'
 import GoogleScripts from '@/components/seo/GoogleScripts'
 import { SiteUiFooterHtml, SiteUiHeaderHtml } from '@/components/seo/SiteUiHtmlSnippets'
@@ -167,6 +168,7 @@ export default async function LocaleLayout({
         <LocaleProvider locale={locale}>
           <PreferredCurrencyProvider initialRates={initialCurrencyRates}>
             <SiteJsonLd locale={locale} />
+            <ChunkLoadRecovery />
             <GoogleScripts />
             <SiteUiHeaderHtml />
             {children}
