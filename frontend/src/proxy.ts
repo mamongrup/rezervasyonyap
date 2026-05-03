@@ -162,10 +162,12 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * `/api` dahil (HTTPS); locale rewrite içinde `/api` erken `next()`.
-     * Statik uzantılar ve robots/sitemap hariç — eski middleware ile uyumlu.
+     * Proxy'yi tum `/_next/*` (static, data, webpack, ...) yollarinda HIC calistirma.
+     * Sadece `_next/static` / `_next/image` dislamak yetmeyebilir; gereksiz cagrı Next 16'da
+     * statik chunk servisinde sorun çıkaran edge-case riskini azaltır.
+     * `/api` matcher disinda kalsa bile icerde `/api` erken `next()`.
      */
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|txt|xml)$).*)',
+    '/((?!_next/|favicon.ico|robots.txt|sitemap|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|txt|xml)$).*)',
     '/api/upload-image',
     // /tr/api/... yanlış eşleşmesini düzeltmek için proxy bu yolları da görmeli
     '/:locale/api/:path*',
