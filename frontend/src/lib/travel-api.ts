@@ -9417,6 +9417,14 @@ export async function processNextDistrictIdea(token: string): Promise<DistrictId
 // Bölge tanıtım yazısı + bölge blog yazıları — toplu AI üretimi
 // ---------------------------------------------------------------------------
 
+/** Sunucu `{"error":"..."}` döndüğünde HTTP statü yerine gerçek kodu ilet (hreflang / AI panel). */
+async function errorCodeFromJsonOrStatus(res: Response, fallbackPrefix: string): Promise<string> {
+  const body = (await res.json().catch(() => ({}))) as { error?: unknown }
+  const e = body.error
+  if (typeof e === 'string' && e.trim()) return e.trim()
+  return `${fallbackPrefix}_${res.status}`
+}
+
 export interface RegionContentStats {
   total_regions: number
   regions_with_description: number
@@ -9433,7 +9441,7 @@ export async function getRegionContentStats(token: string): Promise<RegionConten
   const res = await fetch(`${b}/api/v1/ai/region-content/stats`, {
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`region_content_stats_${res.status}`)
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_stats'))
   return res.json() as Promise<RegionContentStats>
 }
 
@@ -9448,7 +9456,7 @@ export async function queueAllRegionContent(
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ posts_per_region: postsPerRegion }),
   })
-  if (!res.ok) throw new Error(`region_content_queue_${res.status}`)
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_queue'))
   return res.json() as Promise<{ queued: number; posts_per_region: number }>
 }
 
@@ -9472,7 +9480,7 @@ export async function processNextRegionContent(token: string): Promise<RegionCon
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`region_content_process_${res.status}`)
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_process'))
   return res.json() as Promise<RegionContentProcessResult>
 }
 
@@ -9487,7 +9495,7 @@ export async function queueAllPlaceBlogs(
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ posts_per_region: postsPerLocation }),
   })
-  if (!res.ok) throw new Error(`place_blogs_queue_${res.status}`)
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'place_blogs_queue'))
   return res.json() as Promise<{ queued: number; posts_per_location: number }>
 }
 
@@ -9510,7 +9518,7 @@ export async function processNextPlaceBlog(token: string): Promise<PlaceBlogProc
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`place_blogs_process_${res.status}`)
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'place_blogs_process'))
   return res.json() as Promise<PlaceBlogProcessResult>
 }
 
