@@ -14,8 +14,17 @@
  */
 
 export const AUTH_TOKEN_STORAGE_KEY = 'travel_auth_token'
+export const AUTH_PROFILE_STORAGE_KEY = 'travel_auth_profile'
 
 const AUTH_TOKEN_KEY = AUTH_TOKEN_STORAGE_KEY
+const AUTH_PROFILE_KEY = AUTH_PROFILE_STORAGE_KEY
+
+export type StoredAuthProfile = {
+  display_name?: string | null
+  email?: string | null
+  roles?: { role_code: string; organization_id?: string | null }[]
+  permissions?: string[]
+}
 
 export function getStoredAuthToken(): string | null {
   if (typeof window === 'undefined') return null
@@ -27,6 +36,21 @@ export function setStoredAuthToken(token: string): void {
   localStorage.setItem(AUTH_TOKEN_KEY, token)
 }
 
+export function getStoredAuthProfile(): StoredAuthProfile | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem(AUTH_PROFILE_KEY)
+    return raw ? (JSON.parse(raw) as StoredAuthProfile) : null
+  } catch {
+    return null
+  }
+}
+
+export function setStoredAuthProfile(profile: StoredAuthProfile): void {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(AUTH_PROFILE_KEY, JSON.stringify(profile))
+}
+
 /**
  * `localStorage` kopyasını siler ve sunucudaki HttpOnly cookie'yi de
  * temizlemek için `/api/auth/logout`'u tetikler. Fire-and-forget; çağıran
@@ -35,6 +59,7 @@ export function setStoredAuthToken(token: string): void {
 export function clearStoredAuthToken(): void {
   if (typeof window === 'undefined') return
   localStorage.removeItem(AUTH_TOKEN_KEY)
+  localStorage.removeItem(AUTH_PROFILE_KEY)
   // HttpOnly cookie sunucu tarafı set edildiği için yine sunucudan temizlenir.
   void fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' }).catch(
     () => undefined,

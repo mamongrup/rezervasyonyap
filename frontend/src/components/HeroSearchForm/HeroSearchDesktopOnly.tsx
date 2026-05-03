@@ -23,7 +23,9 @@ export default function HeroSearchDesktopOnly({
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
 }) {
-  const [show, setShow] = useState(false)
+  // Desktop ana sayfada formun ilk boyamada skeleton olarak kalmasını önle.
+  // Bu bileşenin üst sarmalayıcısı <lg'de zaten `hidden`, effect mobilde kapatır.
+  const [show, setShow] = useState(true)
 
   useLayoutEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)')

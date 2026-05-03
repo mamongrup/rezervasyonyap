@@ -3,6 +3,14 @@ import { DEFAULT_MEGA_MENU_SIDEBAR_STORED } from '@/lib/mega-menu-sidebar-defaul
 import type { MegaMenuSidebarStored } from '@/types/mega-menu-sidebar'
 import { getMessages } from '@/utils/getT'
 
+const DEFAULT_FEATURED_THUMBNAIL = '/uploads/general/hero/oteller-1.avif'
+
+function safeFeaturedThumbnail(src: string): string {
+  const trimmed = src.trim()
+  if (!trimmed || trimmed.startsWith('/uploads/external/')) return DEFAULT_FEATURED_THUMBNAIL
+  return trimmed
+}
+
 export type MegaMenuFeaturedCard = {
   name: string
   description: string
@@ -38,7 +46,7 @@ export async function resolveMegaMenuFeatured(locale: string): Promise<MegaMenuF
     const raw = (cfg as Record<string, unknown> | null)?.mega_menu_sidebar
     const stored = parseMegaMenuSidebarStored(raw)
     if (stored) {
-      const thumb = stored.thumbnail.trim() || DEFAULT_MEGA_MENU_SIDEBAR_STORED.thumbnail
+      const thumb = safeFeaturedThumbnail(stored.thumbnail)
       return {
         name: featured.title,
         description: featured.description,
@@ -61,7 +69,7 @@ export async function resolveMegaMenuFeatured(locale: string): Promise<MegaMenuF
       description: featured.description,
       count: c.count,
       href: c.href,
-      thumbnail: c.thumbnail,
+      thumbnail: safeFeaturedThumbnail(c.thumbnail),
       badgeLabel: featured.badge,
       ctaLabel: featured.cta,
     }
@@ -72,7 +80,7 @@ export async function resolveMegaMenuFeatured(locale: string): Promise<MegaMenuF
       description: featured.description,
       count: d.count,
       href: d.href,
-      thumbnail: d.thumbnail,
+      thumbnail: safeFeaturedThumbnail(d.thumbnail),
       badgeLabel: featured.badge,
       ctaLabel: featured.cta,
     }

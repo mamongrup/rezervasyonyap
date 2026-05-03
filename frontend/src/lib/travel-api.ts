@@ -4,6 +4,7 @@
  */
 
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { setStoredAuthProfile } from '@/lib/auth-storage'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { parseLenientJson } from '@/lib/json-parse'
 
@@ -1750,7 +1751,14 @@ export async function getAuthMe(
     cache: 'no-store',
   })
   if (!res.ok) throw new Error(`auth_me_${res.status}`)
-  return json(res)
+  const me = await json<AuthUser & { preferred_locale: string; roles: RoleAssignment[]; permissions: string[] }>(res)
+  setStoredAuthProfile({
+    display_name: me.display_name,
+    email: me.email,
+    roles: me.roles,
+    permissions: me.permissions,
+  })
+  return me
 }
 
 export async function patchAuthMe(

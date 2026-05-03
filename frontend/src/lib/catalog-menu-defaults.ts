@@ -9,6 +9,7 @@ const VALID_ICONS = new Set<string>([
   'compass',
   'airplane',
   'map_pinpoint',
+  'bus',
 ])
 
 /** Bilinmeyen ikon anahtarını güvenli varsayılanla değiştirir */
@@ -24,7 +25,7 @@ export const DEFAULT_CATALOG_MENU_STRUCTURE: CatalogMenuStoredEntry[] = [
   { id: '4', icon: 'hot_air_balloon', href: '/turlar/all' },
   { id: '5', icon: 'boat', href: '/kruvaziyer/all' },
   { id: '6', icon: 'boat', href: '/feribot/all' },
-  { id: '7', icon: 'compass', href: '/transfer/all' },
+  { id: '7', icon: 'bus', href: '/transfer/all' },
   { id: '8', icon: 'airplane', href: '/ucak-bileti/all' },
   { id: '9', icon: 'map_pinpoint', href: '/vize/all' },
   { id: '10', icon: 'map_pinpoint', href: '/hac-umre/all' },

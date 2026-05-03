@@ -1,5 +1,17 @@
 import type { CatalogMenuResolvedItem } from '@/types/catalog-menu'
 import { getMessages } from '@/utils/getT'
+import {
+  Airplane02Icon,
+  AnchorIcon,
+  Building03Icon,
+  Bus01Icon,
+  Car05Icon,
+  Compass01Icon,
+  FerryBoatIcon,
+  HotAirBalloonFreeIcons,
+  LegalDocument01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import Link from 'next/link'
 
 type Props = {
@@ -9,9 +21,16 @@ type Props = {
   locale: string
 }
 
-function itemInitial(title: string): string {
-  const trimmed = title.trim()
-  return trimmed ? trimmed.slice(0, 1).toLocaleUpperCase('tr-TR') : '•'
+const ICONS: Record<string, IconSvgElement> = {
+  house: Building03Icon,
+  anchor: AnchorIcon,
+  car: Car05Icon,
+  hot_air_balloon: HotAirBalloonFreeIcons,
+  boat: FerryBoatIcon,
+  compass: Compass01Icon,
+  airplane: Airplane02Icon,
+  map_pinpoint: LegalDocument01Icon,
+  bus: Bus01Icon,
 }
 
 export default function CategoriesDropdown({ items, homeHref, locale }: Props) {
@@ -49,7 +68,13 @@ export default function CategoriesDropdown({ items, homeHref, locale }: Props) {
                   className="focus-visible:ring-opacity-50 -m-3 flex items-center rounded-lg p-2 hover:bg-neutral-50 focus:outline-none focus-visible:ring focus-visible:ring-orange-500 dark:hover:bg-neutral-700"
                 >
                   <div className="flex size-10 flex-shrink-0 items-center justify-center rounded-md bg-neutral-50 text-primary-500 sm:h-12 sm:w-12 dark:bg-neutral-700 dark:text-primary-200">
-                    <span className="text-base font-semibold" aria-hidden="true">{itemInitial(item.title)}</span>
+                    <HugeiconsIcon
+                      icon={ICONS[item.icon] ?? Building03Icon}
+                      size={22}
+                      color="currentColor"
+                      strokeWidth={1.6}
+                      aria-hidden="true"
+                    />
                   </div>
                   <div className="ms-4 space-y-0.5">
                     <p className="text-sm font-medium">{item.title}</p>

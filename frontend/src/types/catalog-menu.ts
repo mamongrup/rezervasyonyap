@@ -9,6 +9,7 @@ export type CatalogMenuIconKey =
   | 'compass'
   | 'airplane'
   | 'map_pinpoint'
+  | 'bus'
 
 /** Site ayarında saklanan satır (çoklu dil metni yok) */
 export type CatalogMenuStoredEntry = {

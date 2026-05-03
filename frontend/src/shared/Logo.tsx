@@ -73,6 +73,12 @@ function writeCachedBranding(b: BrandingConfig) {
   } catch { /* ignore */ }
 }
 
+function logoImageFallback(src: string | null): string | null {
+  if (!src) return null
+  if (src.endsWith('.avif')) return `${src.slice(0, -'.avif'.length)}.webp`
+  return null
+}
+
 /** Metin logosu — logo URL yokken veya yüklenirken gösterilir */
 function TextLogoFallback({ siteName, className }: { siteName?: string; className?: string }) {
   const name = siteName || 'Travel'
@@ -95,6 +101,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   const vitrinPath = useVitrinHref()
   /** Sunucuda eksik dosya (404) — kırık görsel yerine metin logosu */
   const [imageFailed, setImageFailed] = useState(false)
+  const [imageOverride, setImageOverride] = useState<string | null>(null)
 
   /**
    * Hydration güvenliği: sunucu ve ilk istemci render AYNI başlangıç değerini
@@ -145,17 +152,29 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
 
   const activeLogoUrl = catLogo?.logo_url || branding.logo_url || null
   const activeDarkUrl = catLogo?.logo_url_dark || catLogo?.logo_url || branding.logo_url_dark || branding.logo_url || null
+  const renderedLogoUrl = imageOverride ?? activeLogoUrl
   const altText = alt ?? branding.site_name ?? 'Logo'
 
   useEffect(() => {
     setImageFailed(false)
+    setImageOverride(null)
   }, [activeLogoUrl, activeDarkUrl])
 
+  function handleImageError(src: string | null) {
+    const fallback = logoImageFallback(src)
+    if (fallback && fallback !== imageOverride) {
+      setImageOverride(fallback)
+      return
+    }
+    setImageFailed(true)
+  }
+
   // ── Icon + Text mode ──────────────────────────────────────────────────────
-  if (!catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url) {
+  if (!catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url && !imageFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
     const line2Color = branding.logo_text_line2_color || '#f97316'
+    const iconSrc = imageOverride ?? branding.logo_icon_url
 
     return (
       <Link
@@ -163,10 +182,11 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
         className={`inline-flex items-center gap-2.5 focus:ring-0 focus:outline-hidden ${className}`}
       >
         <img
-          src={branding.logo_icon_url}
+          src={iconSrc}
           alt={altText}
           className="h-14 w-14 shrink-0 object-contain"
           style={{ imageRendering: '-webkit-optimize-contrast' }}
+          onError={() => handleImageError(iconSrc)}
         />
         <span className="flex flex-col leading-none">
           {line1 && (
@@ -190,21 +210,21 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
       href={vitrinPath('/')}
       className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
     >
-      {activeLogoUrl && !imageFailed ? (
+      {renderedLogoUrl && !imageFailed ? (
         <>
           <img
-            src={activeLogoUrl}
+            src={renderedLogoUrl}
             alt={altText}
             className="block max-h-[56px] w-auto dark:hidden"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={() => setImageFailed(true)}
+            onError={() => handleImageError(renderedLogoUrl)}
           />
           <img
             src={activeDarkUrl ?? activeLogoUrl}
             alt={altText}
             className="hidden max-h-[56px] w-auto dark:block"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={() => setImageFailed(true)}
+            onError={() => handleImageError(activeDarkUrl ?? activeLogoUrl)}
           />
         </>
       ) : (

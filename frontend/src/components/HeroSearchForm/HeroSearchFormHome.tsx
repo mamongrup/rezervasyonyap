@@ -4,6 +4,7 @@ import { ListingType } from '@/type'
 import clsx from 'clsx'
 import { HeroMenuCategoryBar } from './HeroMenuCategoryBar'
 import { formTabs } from './HeroSearchFormTabs'
+import { StaySearchForm } from './StaySearchForm'
 
 /**
  * `hideVerticalTabs` yolu: Headless UI yok; ana sayfa / bölge / kategori hero’da
@@ -23,7 +24,7 @@ export function HeroSearchFormHome({
   activeSlugs?: string[]
 }) {
   const tab = formTabs.find((t) => t.name === initTab) ?? formTabs[0]
-  const FormComponent = tab.formComponent
+  const FormComponent = initTab === 'Stays' ? StaySearchForm : tab.formComponent
 
   return (
     <div className={clsx('hero-search-form w-full min-w-0', className)}>

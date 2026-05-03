@@ -1,6 +1,6 @@
 'use client'
 
-import { getStoredAuthToken, clearStoredAuthToken } from '@/lib/auth-storage'
+import { getStoredAuthProfile, getStoredAuthToken, clearStoredAuthToken } from '@/lib/auth-storage'
 import { clearHeroSearchUserIdCache } from '@/lib/hero-search-plan'
 import { getAuthMe, logoutUser } from '@/lib/travel-api'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
@@ -41,19 +41,32 @@ export default function AvatarDropdown({ className }: Props) {
   const [email, setEmail] = useState<string | null>(null)
   const [loginModalOpen, setLoginModalOpen] = useState(false)
 
+  function applyProfile(me: {
+    display_name?: string | null
+    email?: string | null
+    roles?: { role_code: string }[]
+    permissions?: string[]
+  }) {
+    setDisplayName(me.display_name ?? null)
+    setEmail(me.email ?? null)
+    setIsAdmin(Boolean(
+      me.roles?.some((r) => r.role_code === 'admin') ||
+      me.permissions?.some((p) => p.startsWith('admin.')),
+    ))
+  }
+
   useEffect(() => {
     const token = getStoredAuthToken()
     if (!token) { setIsLoggedIn(false); return }
     setIsLoggedIn(true)
+    const cached = getStoredAuthProfile()
+    if (cached) applyProfile(cached)
     getAuthMe(token)
-      .then((me) => {
-        setDisplayName(me.display_name ?? null)
-        setEmail(me.email ?? null)
-        if (me.roles?.some((r) => r.role_code === 'admin')) setIsAdmin(true)
-      })
+      .then(applyProfile)
       .catch(() => {
         clearStoredAuthToken()
         setIsLoggedIn(false)
+        setIsAdmin(false)
       })
   }, [])
 
@@ -75,11 +88,7 @@ export default function AvatarDropdown({ className }: Props) {
     if (!token) return
     setIsLoggedIn(true)
     getAuthMe(token)
-      .then((me) => {
-        setDisplayName(me.display_name ?? null)
-        setEmail(me.email ?? null)
-        if (me.roles?.some((r) => r.role_code === 'admin')) setIsAdmin(true)
-      })
+      .then(applyProfile)
       .catch(() => { /* ignore */ })
   }
 

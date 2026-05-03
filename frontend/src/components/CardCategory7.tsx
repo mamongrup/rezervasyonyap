@@ -21,7 +21,7 @@ interface Props {
 }
 
 const FALLBACK_THUMB =
-  '/uploads/external/b6b5f7c1d0076e468b7c.avif'
+  '/uploads/general/hero/oteller-1.avif'
 
 const CardCategory7: FC<Props> = ({ className = '', category: { name, description, count, href, thumbnail, badgeLabel, ctaLabel } }) => {
   const badge = badgeLabel?.trim() || 'Collection'
