@@ -1,5 +1,5 @@
 import SectionSliderNewCategories from '@/components/SectionSliderNewCategories'
-import { getTravelCategories } from '@/data/categories'
+import { getPageBuilderTravelCategories } from '@/data/categories'
 import HeadingWithSub from '@/shared/Heading'
 
 interface Config {
@@ -12,7 +12,7 @@ interface Config {
 }
 
 export default async function CategorySliderModule({ config }: { config: Config }) {
-  const categories = await getTravelCategories()
+  const categories = await getPageBuilderTravelCategories()
 
   const slice = config.slice ?? 'first6'
   const displayed =

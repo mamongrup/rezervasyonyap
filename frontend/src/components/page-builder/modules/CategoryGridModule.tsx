@@ -1,5 +1,5 @@
 import SectionGridCategoryBox from '@/components/SectionGridCategoryBox'
-import { getTravelCategories } from '@/data/categories'
+import { getPageBuilderTravelCategories } from '@/data/categories'
 import HeadingWithSub from '@/shared/Heading'
 
 interface Config {
@@ -8,7 +8,7 @@ interface Config {
 }
 
 export default async function CategoryGridModule({ config }: { config: Config }) {
-  const categories = await getTravelCategories()
+  const categories = await getPageBuilderTravelCategories()
 
   return (
     <div>
