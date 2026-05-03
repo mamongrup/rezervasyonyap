@@ -47,6 +47,12 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   { type: 'sliders_banner', label: 'Slider & Banner', description: 'Yönetim panelinden eklenen slaytları gösterir', emoji: '🎞️' },
   // Homepage-specific modules
   { type: 'category_slider', label: 'Kategori Slider', description: 'Kategorileri yatay kaydırmalı göster', emoji: '🎡' },
+  {
+    type: 'travel_category_images',
+    label: 'Kategori görselleri (paylaşımlı)',
+    description: 'Yalnızca Ana Sayfa: 12 kategori kart görseli: slider/grid ile birleşir (ön yüzde blok çıkmaz)',
+    emoji: '🗂️',
+  },
   { type: 'region_slider', label: 'Bölge Slider', description: 'Bölgeleri API\'den çekerek yatay kaydırmalı göster', emoji: '🗾' },
   { type: 'gezi_onerileri', label: 'Gezi Önerileri', description: 'Öne çıkan gezi önerileri bölümü', emoji: '🗺️' },
   { type: 'featured_places', label: 'Öne Çıkan Yerler', description: 'Popüler destinasyonlar vitrini', emoji: '📌' },
@@ -329,6 +335,93 @@ function CategoryCardImageSlot({
       />
 
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+    </div>
+  )
+}
+
+/** 12 seyahat kategorisi — kart görseli ızgarası (yükler + URL) */
+function CategoryThumbnailsGridSection({
+  thumbnails,
+  onThumbnailsChange,
+  description,
+}: {
+  thumbnails: Record<string, string>
+  onThumbnailsChange: (next: Record<string, string>) => void
+  description?: string
+}) {
+  function updateThumbnail(slug: string, url: string) {
+    const next = { ...thumbnails }
+    const trimmed = url.trim()
+    if (trimmed) next[slug] = trimmed
+    else delete next[slug]
+    onThumbnailsChange(next)
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Kategori kart görselleri</p>
+        {description ? (
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{description}</p>
+        ) : null}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {CATEGORY_REGISTRY.map((category) => (
+          <CategoryCardImageSlot
+            key={category.slug}
+            categoryName={category.name}
+            categorySlug={category.slug}
+            value={thumbnails[category.slug] ?? ''}
+            onChange={(url) => updateThumbnail(category.slug, url)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function TravelCategoryImagesConfigEditor({
+  config,
+  onChange,
+  pageSlug,
+}: {
+  config: Record<string, unknown>
+  onChange: (updated: Record<string, unknown>) => void
+  /** Page builder kayıt anahtarı (örn. homepage, oteller) */
+  pageSlug: string
+}) {
+  const raw = config.thumbnails
+  const thumbnails =
+    raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? (raw as Record<string, string>)
+      : {}
+
+  const wrongPage = pageSlug !== 'homepage'
+
+  return (
+    <div className="space-y-4">
+      {wrongPage ? (
+        <div className="rounded-lg border border-red-200 bg-red-50/90 px-3 py-2.5 text-xs text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
+          <p className="font-semibold">Bu kayıtta ön yüze uygulanmaz</p>
+          <p className="mt-1 text-red-900/90 dark:text-red-100/85">
+            Paylaşımlı kategori görselleri yalnızca <strong>Ana Sayfa</strong> sayfa oluşturucu kaydında (
+            <code className="rounded bg-white/80 px-1 dark:bg-neutral-900">homepage</code>) geçerlidir.
+            Canlı site bu kategori sayfasında bu modülü yok sayar; isterseniz silin veya görselleri ilgili{' '}
+            <strong>Kategori Slider</strong> / <strong>Kategori Grid</strong> modülünün kendi alanlarında tanımlayın.
+          </p>
+        </div>
+      ) : null}
+      <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/25 dark:text-amber-100">
+        <p className="font-semibold">Ziyaretçilere görünmez (yalnızca yapılandırma)</p>
+        <p className="mt-1 text-amber-900/90 dark:text-amber-100/85">
+          Tanımlar bu sayfadaki <strong>Kategori Slider</strong> ve <strong>Kategori Grid</strong> modüllerine uygulanır;
+          bir modülde ayrıca görsel varsa o önceliklidir.
+        </p>
+      </div>
+      <CategoryThumbnailsGridSection
+        thumbnails={thumbnails}
+        onThumbnailsChange={(next) => onChange({ ...config, thumbnails: next })}
+      />
     </div>
   )
 }
@@ -1424,17 +1517,6 @@ function CategoryCardsConfigEditor({
     onChange({ ...config, [key]: value })
   }
 
-  function updateThumbnail(slug: string, url: string) {
-    const next = { ...thumbnailConfig }
-    const trimmed = url.trim()
-    if (trimmed) {
-      next[slug] = trimmed
-    } else {
-      delete next[slug]
-    }
-    onChange({ ...config, categoryThumbnails: next })
-  }
-
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -1491,25 +1573,11 @@ function CategoryCardsConfigEditor({
         </div>
       ) : null}
 
-      <div className="space-y-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Kategori Kart Görselleri</p>
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Buraya eklenen görseller sadece bu Page Builder kategori grid/slider modülünde kullanılır.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {CATEGORY_REGISTRY.map((category) => (
-            <CategoryCardImageSlot
-              key={category.slug}
-              categoryName={category.name}
-              categorySlug={category.slug}
-              value={thumbnailConfig[category.slug] ?? ''}
-              onChange={(url) => updateThumbnail(category.slug, url)}
-            />
-          ))}
-        </div>
-      </div>
+      <CategoryThumbnailsGridSection
+        thumbnails={thumbnailConfig}
+        onThumbnailsChange={(next) => onChange({ ...config, categoryThumbnails: next })}
+        description="Bu modüldeki görseller yalnızca bu slider/grid için geçerlidir. «Kategori görselleri (paylaşımlı)» modülü eklediyseniz önce o uygulanır; burada doldurduğunuz alanlar onun üzerine yazar."
+      />
     </div>
   )
 }
@@ -1719,6 +1787,12 @@ function ModuleRow({
               defaultPageKey={categorySlug}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
+          ) : module.type === 'travel_category_images' ? (
+            <TravelCategoryImagesConfigEditor
+              pageSlug={categorySlug}
+              config={module.config as Record<string, unknown>}
+              onChange={(updated) => onConfigChange(module.id, updated)}
+            />
           ) : module.type === 'category_slider' || module.type === 'category_grid' ? (
             <CategoryCardsConfigEditor
               config={module.config as Record<string, unknown>}
@@ -1739,12 +1813,17 @@ function ModuleRow({
 // ─── Add Module Dialog ────────────────────────────────────────────────────────
 
 function AddModuleDialog({
+  pageSlug,
   onAdd,
   onClose,
 }: {
+  pageSlug: string
   onAdd: (type: PageBuilderModuleType) => void
   onClose: () => void
 }) {
+  const addableModules = MODULE_CATALOG.filter(
+    (m) => m.type !== 'travel_category_images' || pageSlug === 'homepage',
+  )
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-neutral-900">
@@ -1755,7 +1834,7 @@ function AddModuleDialog({
           </button>
         </div>
         <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
-          {MODULE_CATALOG.map((m) => (
+          {addableModules.map((m) => (
             <button
               key={m.type}
               onClick={() => { onAdd(m.type); onClose() }}
@@ -1884,6 +1963,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
         ],
       },
       category_slider: { heading: '', subheading: '', cardType: 'card3', slice: 'first6', categoryThumbnails: {} },
+      travel_category_images: { thumbnails: {} },
       region_slider: { heading: '', subheading: '', categoryCode: '', categoryRoute: 'oteller', unit: 'ilan', limit: 12 },
       gezi_onerileri: {},
       featured_places: { heading: '', subHeading: '', viewAllHref: `/${selectedSlug}/all` },
@@ -2139,14 +2219,21 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
             <li>Göz ikonu ile modülleri göster/gizle</li>
             <li>Dişli ikonu ile modül ayarlarını düzenleyin</li>
             <li>Kaydet ile değişikliklerinizi yayınlayın</li>
-            <li>Her kategorinin kendi bağımsız sayfa düzeni vardır</li>
+            <li>
+              <strong>Kategori görselleri (paylaşımlı)</strong> yalnızca <strong>Ana Sayfa</strong> kaydında eklenir;
+              diğer kategorilerde kart görseli için ilgili <em>Kategori Slider / Grid</em> ayarlarını kullanın
+            </li>
           </ul>
         </div>
       </div>
 
       {/* Add Module Dialog */}
       {showAddDialog && (
-        <AddModuleDialog onAdd={handleAddModule} onClose={() => setShowAddDialog(false)} />
+        <AddModuleDialog
+          pageSlug={selectedSlug}
+          onAdd={handleAddModule}
+          onClose={() => setShowAddDialog(false)}
+        />
       )}
     </div>
   )

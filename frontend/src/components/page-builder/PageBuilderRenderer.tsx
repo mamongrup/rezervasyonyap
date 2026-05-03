@@ -23,7 +23,7 @@ import VideoGalleryModule from './modules/VideoGalleryModule'
 import ImageTextModule from './modules/ImageTextModule'
 import DestinationCardsModule from './modules/DestinationCardsModule'
 import PartnersModule from './modules/PartnersModule'
-import CategorySliderModule from './modules/CategorySliderModule'
+import CategorySliderModule, { type CategorySliderModuleConfig } from './modules/CategorySliderModule'
 import RegionSliderModule from './modules/RegionSliderModule'
 import SlidersBannerModule from './modules/SlidersBannerModule'
 import GeziOnerileriModule from './modules/GeziOnerileriModule'
@@ -107,6 +107,19 @@ export default function PageBuilderRenderer({
   const defaultSliderPageKey = pageKey ?? category.slug
   const messages = getMessages(locale)
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
+
+  /** Paylaşımlı kart görselleri yalnızca ana sayfada geçerli (`page.tsx` → `pageKey="homepage"`) */
+  const sharedCategoryThumbnails =
+    pageKey === 'homepage'
+      ? enabled.reduce<Record<string, string>>((acc, m) => {
+          if (m.type !== 'travel_category_images') return acc
+          const t = m.config.thumbnails
+          if (t && typeof t === 'object' && !Array.isArray(t)) {
+            return { ...acc, ...(t as Record<string, string>) }
+          }
+          return acc
+        }, {})
+      : {}
 
   const Root = rootAs
 
@@ -319,13 +332,25 @@ export default function PageBuilderRenderer({
               />
             )
 
-          case 'category_slider':
+          case 'travel_category_images':
+            return null
+
+          case 'category_slider': {
+            const sliderCfg = cfg as CategorySliderModuleConfig
+            const merged: CategorySliderModuleConfig = {
+              ...sliderCfg,
+              categoryThumbnails: {
+                ...sharedCategoryThumbnails,
+                ...(sliderCfg.categoryThumbnails ?? {}),
+              },
+            }
             return (
               <CategorySliderModule
                 key={module.id}
-                config={cfg as Parameters<typeof CategorySliderModule>[0]['config']}
+                config={merged}
               />
             )
+          }
 
           case 'region_slider':
             return (
@@ -361,13 +386,21 @@ export default function PageBuilderRenderer({
               />
             )
 
-          case 'category_grid':
+          case 'category_grid': {
+            const gridCfg = cfg as Parameters<typeof CategoryGridModule>[0]['config']
             return (
               <CategoryGridModule
                 key={module.id}
-                config={cfg as Parameters<typeof CategoryGridModule>[0]['config']}
+                config={{
+                  ...gridCfg,
+                  categoryThumbnails: {
+                    ...sharedCategoryThumbnails,
+                    ...(gridCfg.categoryThumbnails ?? {}),
+                  },
+                }}
               />
             )
+          }
 
           case 'section_videos':
             return (

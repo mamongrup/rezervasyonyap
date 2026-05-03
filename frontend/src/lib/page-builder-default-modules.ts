@@ -298,6 +298,12 @@ export function getHomepageDefaultModules(m: AppMessages): Omit<PageBuilderModul
         images: ['', '', ''],
       },
     },
+    {
+      type: 'travel_category_images',
+      enabled: true,
+      order: 1.5,
+      config: { thumbnails: {} },
+    },
     { type: 'sliders_banner',  enabled: true,  order: 2,  config: { pageKey: 'homepage' } },
     { type: 'category_slider', enabled: true,  order: 3,  config: { heading: h.adventure.heading,        subheading: h.adventure.subheading,       cardType: 'card3', slice: 'first6' } },
     { type: 'gezi_onerileri',  enabled: true,  order: 4,  config: {} },

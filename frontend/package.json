@@ -15,7 +15,8 @@
     "lint": "eslint .",
     "ensure-images": "node scripts/ensure-placeholder-images.mjs",
     "optimize:uploads": "node scripts/optimize-upload-performance.mjs",
-    "recompress:external": "node scripts/recompress-external-avif.mjs"
+    "recompress:external": "node scripts/recompress-external-avif.mjs",
+    "page-builder:strip-shared-category-images": "node scripts/strip-non-homepage-travel-category-images.mjs"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

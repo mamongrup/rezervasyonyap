@@ -2,7 +2,7 @@ import SectionSliderNewCategories from '@/components/SectionSliderNewCategories'
 import { getPageBuilderTravelCategories } from '@/data/categories'
 import HeadingWithSub from '@/shared/Heading'
 
-interface Config {
+export interface CategorySliderModuleConfig {
   heading?: string
   subheading?: string
   /** 'card3' | 'card4' | 'card5' */
@@ -12,7 +12,7 @@ interface Config {
   categoryThumbnails?: Record<string, string>
 }
 
-export default async function CategorySliderModule({ config }: { config: Config }) {
+export default async function CategorySliderModule({ config }: { config: CategorySliderModuleConfig }) {
   const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
 
   const slice = config.slice ?? 'first6'

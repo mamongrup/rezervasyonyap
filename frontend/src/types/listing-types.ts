@@ -245,6 +245,8 @@ export type PageBuilderModuleType =
   | 'sliders_banner'
   // Anasayfa & arama sayfası modülleri
   | 'category_slider'
+  /** Ziyaretçiye görünmez; tüm seyahat kategorileri için kart görselleri — bu sayfadaki slider/grid ile birleşir */
+  | 'travel_category_images'
   | 'region_slider'
   | 'gezi_onerileri'
   | 'featured_places'
