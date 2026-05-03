@@ -18,6 +18,8 @@ import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { regionPublicHref } from '@/lib/region-public-path'
 import clsx from 'clsx'
 import {
+  ChevronDown,
+  ChevronRight,
   ExternalLink,
   Globe,
   Loader2,
@@ -33,7 +35,7 @@ import {
   X,
 } from 'lucide-react'
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
 /** Liste: çekirdek `title` boş olsa bile çevirideki ad veya meta ile gösterim başlığı */
@@ -57,6 +59,74 @@ function locationPageListTitle(page: LocationPage): string {
   const words = tail.replace(/[-_]+/g, ' ').trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return page.slug_path
   return words.map((w) => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1).toLocaleLowerCase('tr-TR')).join(' ')
+}
+
+function slugPathSegments(slugPath: string): string[] {
+  return slugPath.split('/').map((s) => s.trim()).filter(Boolean)
+}
+
+/** İl sayfası yokken başlık: TR/adana → Adana */
+function fallbackProvinceLabel(provinceKey: string): string {
+  const tail = provinceKey.split('/').filter(Boolean).pop() ?? provinceKey
+  const words = tail.replace(/[-_]+/g, ' ').trim().split(/\s+/).filter(Boolean)
+  if (words.length === 0) return provinceKey
+  return words.map((w) => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1).toLocaleLowerCase('tr-TR')).join(' ')
+}
+
+type ProvinceGroup = {
+  key: string
+  provincePage: LocationPage | null
+  districts: LocationPage[]
+}
+
+/** Ülke (tek segment), iller ve ilçeler — arama sonrası filtrelenmiş listeye göre gruplar */
+function groupLocationPagesByProvince(pages: LocationPage[]): {
+  countries: LocationPage[]
+  groups: ProvinceGroup[]
+} {
+  const countries: LocationPage[] = []
+  const map = new Map<string, { province: LocationPage | null; districts: LocationPage[] }>()
+
+  for (const page of pages) {
+    const parts = slugPathSegments(page.slug_path)
+    if (parts.length <= 1) {
+      countries.push(page)
+      continue
+    }
+    if (parts.length === 2) {
+      const key = `${parts[0]}/${parts[1]}`
+      let g = map.get(key)
+      if (!g) {
+        g = { province: null, districts: [] }
+        map.set(key, g)
+      }
+      g.province = page
+      continue
+    }
+    const key = `${parts[0]}/${parts[1]}`
+    let g = map.get(key)
+    if (!g) {
+      g = { province: null, districts: [] }
+      map.set(key, g)
+    }
+    g.districts.push(page)
+  }
+
+  const groups: ProvinceGroup[] = Array.from(map.entries()).map(([key, v]) => ({
+    key,
+    provincePage: v.province,
+    districts: [...v.districts].sort((a, b) =>
+      locationPageListTitle(a).localeCompare(locationPageListTitle(b), 'tr'),
+    ),
+  }))
+
+  groups.sort((a, b) => {
+    const na = a.provincePage ? locationPageListTitle(a.provincePage) : fallbackProvinceLabel(a.key)
+    const nb = b.provincePage ? locationPageListTitle(b.provincePage) : fallbackProvinceLabel(b.key)
+    return na.localeCompare(nb, 'tr')
+  })
+
+  return { countries, groups }
 }
 
 // ─── Add/Edit form modal ──────────────────────────────────────────────────────
@@ -247,6 +317,8 @@ export default function RegionsPageClient() {
   const [formBusy, setFormBusy] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [bulkPublishing, setBulkPublishing] = useState(false)
+  /** Tek seferde bir il açık (accordion) */
+  const [expandedProvinceKey, setExpandedProvinceKey] = useState<string | null>(null)
 
   const loadAll = useCallback(async () => {
     setLoading(true)
@@ -266,6 +338,10 @@ export default function RegionsPageClient() {
   }, [])
 
   useEffect(() => { void loadAll() }, [loadAll])
+
+  useEffect(() => {
+    setExpandedProvinceKey(null)
+  }, [search])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -288,6 +364,108 @@ export default function RegionsPageClient() {
     () => filtered.filter((page) => !page.is_published),
     [filtered],
   )
+
+  const { countries: countryPages, groups: provinceGroups } = useMemo(
+    () => groupLocationPagesByProvince(filtered),
+    [filtered],
+  )
+
+  function toggleProvinceAccordion(provinceKey: string) {
+    setExpandedProvinceKey((prev) => (prev === provinceKey ? null : provinceKey))
+  }
+
+  function renderPageRow(page: LocationPage, opts: { nested?: boolean }) {
+    const nested = opts.nested === true
+    return (
+      <tr
+        key={page.id}
+        className={clsx(
+          'transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40',
+          nested && 'bg-neutral-50/70 dark:bg-neutral-900/50',
+        )}
+      >
+        <td className={clsx('py-3', nested ? 'pl-12' : 'pl-5')}>
+          <div className="flex items-start gap-2">
+            {nested ? (
+              <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-neutral-300" aria-hidden />
+            ) : null}
+            <div>
+              <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                {locationPageListTitle(page)}
+              </p>
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <MapPin className="h-3 w-3 shrink-0 text-neutral-300" />
+                <span className="font-mono text-xs text-neutral-400" title="URL yolu (slug)">
+                  {page.slug_path}
+                </span>
+              </div>
+            </div>
+          </div>
+        </td>
+        <td className="py-3 text-xs text-neutral-400 hidden md:table-cell">
+          {page.district_id ? (
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-mono text-[10px] dark:bg-neutral-800">
+              {page.district_id.slice(0, 8)}…
+            </span>
+          ) : (
+            <span className="text-neutral-300">—</span>
+          )}
+        </td>
+        <td className="py-3 text-xs text-neutral-400 hidden sm:table-cell">
+          {new Date(page.created_at).toLocaleDateString('tr-TR')}
+        </td>
+        <td className="py-3 text-center">
+          <span className={clsx(
+            'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+            page.is_published
+              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+              : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800',
+          )}>
+            {page.is_published ? 'Yayında' : 'Taslak'}
+          </span>
+        </td>
+        <td className="py-3 pr-5" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-end gap-1">
+            <a
+              href={regionPublicHref(routeLocale, page.slug_path)}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Sayfayı aç"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+            <Link
+              href={`/manage/regions/${page.id}`}
+              title="Kapsamlı Düzenle"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-[color:var(--manage-primary)]/10 hover:text-[color:var(--manage-primary)] dark:hover:bg-neutral-800"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+            </Link>
+            <button
+              type="button"
+              title="Slug Düzenle"
+              onClick={() => { setEditPage(page); setShowForm(true) }}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              title="Sil"
+              disabled={deletingId === page.id}
+              onClick={() => void handleDelete(page.id)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/30"
+            >
+              {deletingId === page.id
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Trash2 className="h-3.5 w-3.5" />}
+            </button>
+          </div>
+        </td>
+      </tr>
+    )
+  }
 
   const handleSave = useCallback(
     async (data: { slug_path: string; district_id: string }) => {
@@ -465,87 +643,124 @@ export default function RegionsPageClient() {
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
-              {filtered.map((page) => (
-                <tr
-                  key={page.id}
-                  className="transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
-                >
-                  <td className="py-3 pl-5">
-                    <div>
-                      <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
-                        {locationPageListTitle(page)}
-                      </p>
-                      <div className="mt-0.5 flex items-center gap-1.5">
-                        <MapPin className="h-3 w-3 shrink-0 text-neutral-300" />
-                        <span className="font-mono text-xs text-neutral-400" title="URL yolu (slug)">
-                          {page.slug_path}
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-3 text-xs text-neutral-400 hidden md:table-cell">
-                    {page.district_id ? (
-                      <span className="rounded-full bg-neutral-100 px-2 py-0.5 font-mono text-[10px] dark:bg-neutral-800">
-                        {page.district_id.slice(0, 8)}…
-                      </span>
-                    ) : (
-                      <span className="text-neutral-300">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 text-xs text-neutral-400 hidden sm:table-cell">
-                    {new Date(page.created_at).toLocaleDateString('tr-TR')}
-                  </td>
-                  <td className="py-3 text-center">
-                    <span className={clsx(
-                      'rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                      page.is_published
-                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                        : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800',
-                    )}>
-                      {page.is_published ? 'Yayında' : 'Taslak'}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-5">
-                    <div className="flex items-center justify-end gap-1">
-                      <a
-                        href={regionPublicHref(routeLocale, page.slug_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Sayfayı aç"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
-                      <Link
-                        href={`/manage/regions/${page.id}`}
-                        title="Kapsamlı Düzenle"
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-[color:var(--manage-primary)]/10 hover:text-[color:var(--manage-primary)] dark:hover:bg-neutral-800"
-                      >
-                        <Settings2 className="h-3.5 w-3.5" />
-                      </Link>
-                      <button
-                        type="button"
-                        title="Slug Düzenle"
-                        onClick={() => { setEditPage(page); setShowForm(true) }}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        title="Sil"
-                        disabled={deletingId === page.id}
-                        onClick={() => void handleDelete(page.id)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/30"
-                      >
-                        {deletingId === page.id
-                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          : <Trash2 className="h-3.5 w-3.5" />}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {countryPages.map((page) => renderPageRow(page, {}))}
+              {provinceGroups.map((group) => {
+                const prov = group.provincePage
+                const provinceTitle = prov
+                  ? locationPageListTitle(prov)
+                  : fallbackProvinceLabel(group.key)
+                const expanded = expandedProvinceKey === group.key
+                return (
+                  <Fragment key={group.key}>
+                    <tr className="bg-neutral-50/60 dark:bg-neutral-800/30">
+                      <td className="py-3 pl-5">
+                        <div className="flex items-start gap-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleProvinceAccordion(group.key)}
+                            className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                            aria-expanded={expanded}
+                            title={expanded ? 'İlçeleri gizle' : 'İlçeleri göster'}
+                          >
+                            {expanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </button>
+                          <div>
+                            <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                              {provinceTitle}
+                              <span className="ms-2 align-middle text-xs font-normal text-neutral-400">
+                                ({group.districts.length} ilçe)
+                              </span>
+                            </p>
+                            <div className="mt-0.5 flex items-center gap-1.5">
+                              <MapPin className="h-3 w-3 shrink-0 text-neutral-300" />
+                              <span className="font-mono text-xs text-neutral-400" title="İl slug yolu">
+                                {group.key}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="hidden py-3 text-xs text-neutral-400 md:table-cell">—</td>
+                      <td className="hidden py-3 text-xs text-neutral-400 sm:table-cell">
+                        {prov ? new Date(prov.created_at).toLocaleDateString('tr-TR') : '—'}
+                      </td>
+                      <td className="py-3 text-center">
+                        {prov ? (
+                          <span className={clsx(
+                            'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+                            prov.is_published
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+                              : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800',
+                          )}>
+                            {prov.is_published ? 'Yayında' : 'Taslak'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-neutral-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-5">
+                        {prov ? (
+                          <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                            <a
+                              href={regionPublicHref(routeLocale, prov.slug_path)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="İl sayfasını aç"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                            <Link
+                              href={`/manage/regions/${prov.id}`}
+                              title="İl — kapsamlı düzenle"
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-[color:var(--manage-primary)]/10 hover:text-[color:var(--manage-primary)] dark:hover:bg-neutral-800"
+                            >
+                              <Settings2 className="h-3.5 w-3.5" />
+                            </Link>
+                            <button
+                              type="button"
+                              title="İl — slug düzenle"
+                              onClick={() => { setEditPage(prov); setShowForm(true) }}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 dark:hover:bg-neutral-800"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              title="İl — sil"
+                              disabled={deletingId === prov.id}
+                              onClick={() => void handleDelete(prov.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-40 dark:hover:bg-red-950/30"
+                            >
+                              {deletingId === prov.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="flex justify-end text-xs text-neutral-400">İl kaydı yok</span>
+                        )}
+                      </td>
+                    </tr>
+                    {expanded && group.districts.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-3 pl-14 text-xs text-neutral-400">
+                          Bu ile bağlı ilçe sayfası bu listede yok.
+                        </td>
+                      </tr>
+                    ) : null}
+                    {expanded
+                      ? group.districts.map((d) => renderPageRow(d, { nested: true }))
+                      : null}
+                  </Fragment>
+                )
+              })}
             </tbody>
           </table>
         )}
