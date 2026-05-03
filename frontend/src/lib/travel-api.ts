@@ -269,11 +269,12 @@ export async function patchListingPerks(
   authToken: string,
   listingId: string,
   body: Partial<{ instant_book: boolean; mobile_discount_percent: number }>,
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(
-    `${b}/api/v1/listings/${encodeURIComponent(listingId)}/perks`,
+    `${b}/api/v1/listings/${encodeURIComponent(listingId)}/perks${catalogListingQs(params)}`,
     {
       method: 'PATCH',
       headers: {
@@ -7852,10 +7853,11 @@ export async function putVerticalMeta<T = Record<string, unknown>>(
   listingId: string,
   category: string,
   data: T,
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(v(listingId, '/vertical-meta'), {
+  const res = await fetch(v(listingId, `/vertical-meta${catalogListingQs(params)}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify({ category, data }),
@@ -8552,11 +8554,12 @@ export async function putListingPriceLineSelections(
   token: string,
   listingId: string,
   body: { item_ids: string[] },
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(
-    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/price-line-selections`,
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/price-line-selections${catalogListingQs(params)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -8594,10 +8597,11 @@ export async function putListingAttributeValues(
   token: string,
   listingId: string,
   values: { group_code: string; key: string; value: string }[],
+  params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${listingId}/attribute-values`, {
+  const res = await fetch(`${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/attribute-values${catalogListingQs(params)}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
     body: JSON.stringify(values),

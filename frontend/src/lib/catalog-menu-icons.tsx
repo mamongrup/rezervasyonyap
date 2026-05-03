@@ -2,6 +2,7 @@ import {
   Airplane02Icon,
   AnchorIcon,
   BoatIcon,
+  Bus01Icon,
   Car03Icon,
   Compass01Icon,
   HotAirBalloonIcon,
@@ -19,6 +20,7 @@ export const CATALOG_MENU_ICON_MAP = {
   compass: Compass01Icon,
   airplane: Airplane02Icon,
   map_pinpoint: MapPinpoint02Icon,
+  bus: Bus01Icon,
 } as const satisfies Record<CatalogMenuIconKey, (typeof House04Icon)>
 
 export const CATALOG_MENU_ICON_OPTIONS: { key: CatalogMenuIconKey; label: string }[] = [
@@ -30,6 +32,7 @@ export const CATALOG_MENU_ICON_OPTIONS: { key: CatalogMenuIconKey; label: string
   { key: 'compass', label: 'Pusula (transfer)' },
   { key: 'airplane', label: 'Uçak' },
   { key: 'map_pinpoint', label: 'Harita / konum' },
+  { key: 'bus', label: 'Otobüs / transfer' },
 ]
 
 export function resolveCatalogMenuIcon(key: string): (typeof CATALOG_MENU_ICON_MAP)[CatalogMenuIconKey] {

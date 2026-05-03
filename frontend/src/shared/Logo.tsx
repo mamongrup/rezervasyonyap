@@ -220,11 +220,11 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
             onError={() => handleImageError(renderedLogoUrl)}
           />
           <img
-            src={activeDarkUrl ?? activeLogoUrl}
+            src={activeDarkUrl ?? renderedLogoUrl}
             alt={altText}
             className="hidden max-h-[56px] w-auto dark:block"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={() => handleImageError(activeDarkUrl ?? activeLogoUrl)}
+            onError={() => handleImageError(activeDarkUrl ?? renderedLogoUrl)}
           />
         </>
       ) : (

@@ -112,6 +112,15 @@ function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, 
   return o
 }
 
+async function saveRequiredStep<T>(label: string, step: Promise<T>): Promise<T> {
+  try {
+    return await step
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'unknown_error'
+    throw new Error(`${label}: ${msg}`)
+  }
+}
+
 /** Plaj/villa dikey formu ile uyumlu havuz satırları (Laravel sitedeki yapıya paralel) */
 interface PoolRow {
   enabled: boolean
@@ -983,7 +992,10 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             description: (listingByLocale[loc.code]?.description ?? '').trim() || undefined,
           })).filter((e) => e.title.length > 0 || (e.description?.length ?? 0) > 0)
         : [{ locale_code: locale, title: title.trim(), description: description.trim() || undefined }]
-      await putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam).catch(() => {})
+      await saveRequiredStep(
+        'Çeviri/açıklama kaydı',
+        putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam),
+      )
 
       // 3. Temel gecelik fiyat
       const price = parseFloat(basePrice.replace(',', '.'))
@@ -992,7 +1004,10 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           base_nightly: price,
           label: 'Varsayılan fiyat',
         }
-        await createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam).catch(() => {})
+        await saveRequiredStep(
+          'Fiyat kaydı',
+          createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam),
+        )
       }
 
       // 4. Temel ilan alanları
@@ -1013,20 +1028,23 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       basicsBody.share_to_social = shareToSocial
       basicsBody.allow_ai_caption = allowAiCaption
       basicsBody.allow_sub_min_stay_gap_booking = allowSubMinStayGap
-      await patchListingBasics(token, lid, basicsBody, orgParam).catch(() => {})
+      await saveRequiredStep('Temel ilan bilgileri kaydı', patchListingBasics(token, lid, basicsBody, orgParam))
 
       // 5. İlan sahibi
       if (ownerName.trim() || ownerPhone.trim() || ownerEmail.trim()) {
-        await putListingOwnerContact(
-          token,
-          lid,
-          {
-            contact_name: ownerName.trim() || undefined,
-            contact_phone: ownerPhone.trim() || undefined,
-            contact_email: ownerEmail.trim() || undefined,
-          },
-          orgParam,
-        ).catch(() => {})
+        await saveRequiredStep(
+          'İlan sahibi kaydı',
+          putListingOwnerContact(
+            token,
+            lid,
+            {
+              contact_name: ownerName.trim() || undefined,
+              contact_phone: ownerPhone.trim() || undefined,
+              contact_email: ownerEmail.trim() || undefined,
+            },
+            orgParam,
+          ),
+        )
       }
 
       // 6. Meta alanlar
@@ -1053,7 +1071,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       if (isVilla && ownerResidenceAddress.trim())
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
       if (Object.keys(metaBody).length > 0) {
-        await putListingMeta(token, lid, metaBody, orgParam).catch(() => {})
+        await saveRequiredStep('Detay alanları kaydı', putListingMeta(token, lid, metaBody, orgParam))
       }
       if (lat.trim() && lng.trim()) {
         await computeListingNearbyPois(token, lid).catch(() => {})
@@ -1066,7 +1084,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           return { group_code, key: rest.join('.'), value: v }
         })
       if (attrPayload.length > 0) {
-        await putListingAttributeValues(token, lid, attrPayload).catch(() => {})
+        await saveRequiredStep('Özellik alanları kaydı', putListingAttributeValues(token, lid, attrPayload, orgParam))
       }
 
       if (categoryCode === 'holiday_home') {
@@ -1077,7 +1095,10 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         const ef = extraFees.filter((x) => x.label.trim() && x.amount.trim())
         if (ef.length) vert.extra_fees = ef
         if (Object.keys(vert).length > 0) {
-          await putVerticalMeta(token, lid, 'holiday_home', vert).catch(() => {})
+          await saveRequiredStep(
+            'Tatil evi detayları kaydı',
+            putVerticalMeta(token, lid, 'holiday_home', vert, orgParam),
+          )
         }
       }
 
@@ -1092,25 +1113,31 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
             s.og_image_storage_key.trim() ||
             s.robots.trim()
           if (!hasAny) continue
-          await upsertSeoMetadata(
-            {
-              entity_type: 'listing',
-              entity_id: lid,
-              locale: loc.code,
-              title: s.title.trim(),
-              description: s.description.trim(),
-              keywords: s.keywords.trim(),
-              canonical_path: s.canonical_path.trim(),
-              og_image_storage_key: s.og_image_storage_key.trim(),
-              robots: s.robots.trim(),
-            },
-            token,
-          ).catch(() => {})
+          await saveRequiredStep(
+            'SEO kaydı',
+            upsertSeoMetadata(
+              {
+                entity_type: 'listing',
+                entity_id: lid,
+                locale: loc.code,
+                title: s.title.trim(),
+                description: s.description.trim(),
+                keywords: s.keywords.trim(),
+                canonical_path: s.canonical_path.trim(),
+                og_image_storage_key: s.og_image_storage_key.trim(),
+                robots: s.robots.trim(),
+              },
+              token,
+            ),
+          )
         }
       }
 
       if (isVilla) {
-        await putListingPriceLineSelections(token, lid, { item_ids: [...selectedPriceLineIds] }).catch(() => {})
+        await saveRequiredStep(
+          'Fiyat satırları kaydı',
+          putListingPriceLineSelections(token, lid, { item_ids: [...selectedPriceLineIds] }, orgParam),
+        )
       }
 
       // Tur2: Vitrin promosyon — instant book + mobil indirim (best-effort).
@@ -1122,24 +1149,28 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           perksBody.mobile_discount_percent = mdPct
         }
         if (Object.keys(perksBody).length > 0) {
-          await patchListingPerks(token, lid, perksBody).catch(() => {})
+          await saveRequiredStep('Vitrin promosyon kaydı', patchListingPerks(token, lid, perksBody, orgParam))
         }
       }
 
       // Tur2: iCal import URL (sadece holiday_home için anlamlı; backend listing scope kontrol eder).
       if (icalImportUrl.trim()) {
-        await createIcalFeed({
-          listing_id: lid,
-          url: icalImportUrl.trim(),
-        }).catch(() => {})
+        await saveRequiredStep(
+          'iCal bağlantısı kaydı',
+          createIcalFeed({
+            listing_id: lid,
+            url: icalImportUrl.trim(),
+          }),
+        )
       }
 
       // Tur2: Otel yıldızı — `listing_hotel_details.star_rating` (PATCH /hotel-details).
       if (categoryCode === 'hotel' && starRating.trim()) {
         const star = Number.parseInt(starRating.trim(), 10)
         if (Number.isFinite(star) && star >= 1 && star <= 5) {
-          await patchManageHotelDetails(token, lid, { star_rating: String(star) }, orgParam).catch(
-            () => {},
+          await saveRequiredStep(
+            'Otel detayları kaydı',
+            patchManageHotelDetails(token, lid, { star_rating: String(star) }, orgParam),
           )
         }
       }
@@ -1149,12 +1180,15 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         for (let i = 0; i < pendingGalleryKeys.length; i++) {
           const key = pendingGalleryKeys[i]
           if (!key) continue
-          await addListingImage(
-            token,
-            lid,
-            { storage_key: key, original_mime: 'image/avif', sort_order: i },
-            orgIdForImages,
-          ).catch(() => {})
+          await saveRequiredStep(
+            'Galeri görseli kaydı',
+            addListingImage(
+              token,
+              lid,
+              { storage_key: key, original_mime: 'image/avif', sort_order: i },
+              orgIdForImages,
+            ),
+          )
         }
       }
 
