@@ -152,12 +152,12 @@ function RegionSlider({ listings, linkBase, priceUnit, nightLabel, locale }: Sli
         </div>
       </div>
 
-      <div className="absolute -start-3 top-[40%] z-10 -translate-y-1/2 sm:-start-5">
+      <div className="absolute start-0 top-[40%] z-10 -translate-y-1/2">
         <ButtonCircle color="white" onClick={scrollToPrevSlide} className="xl:size-11" disabled={isAtStart} aria-label={pag.previous}>
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
       </div>
-      <div className="absolute -end-3 top-[40%] z-10 -translate-y-1/2 sm:-end-5">
+      <div className="absolute end-0 top-[40%] z-10 -translate-y-1/2">
         <ButtonCircle color="white" onClick={scrollToNextSlide} className="xl:size-11" disabled={isAtEnd} aria-label={pag.next}>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
