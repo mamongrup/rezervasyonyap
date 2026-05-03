@@ -1,3 +1,5 @@
+'use client'
+
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 import SeoLinksClient from '../SeoLinksClient'
 

@@ -1,3 +1,5 @@
+'use client'
+
 import SeoNotFoundLogsSection from '@/components/manage/seo/SeoNotFoundLogsSection'
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 

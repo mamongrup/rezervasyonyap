@@ -1,3 +1,5 @@
+'use client'
+
 import SeoRedirectsSection from '@/components/manage/seo/SeoRedirectsSection'
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 

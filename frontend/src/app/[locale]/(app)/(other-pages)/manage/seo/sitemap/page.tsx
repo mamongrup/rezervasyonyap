@@ -1,3 +1,5 @@
+'use client'
+
 import SeoSitemapSection from '@/components/manage/seo/SeoSitemapSection'
 import { ManageAccessGuard } from '@/lib/use-manage-access'
 
