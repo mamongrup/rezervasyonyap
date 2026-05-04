@@ -5,6 +5,7 @@
 #   ./deploy/verify.sh
 # Optional:
 #   API_ORIGIN=http://127.0.0.1:8080 WEB_ORIGIN=http://127.0.0.1:3000 ./deploy/verify.sh
+#   WEB_READY_ATTEMPTS=60 ./deploy/verify.sh  # travel-web yavas kalkiyorsa deneme sayisi
 
 set -euo pipefail
 
@@ -71,7 +72,7 @@ check_workdir_matches_deploy_root() {
 
 http_status() {
   local url="$1"
-  curl -sS -o /dev/null -w "%{http_code}" "$url"
+  curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 3 "$url" 2>/dev/null || echo "000"
 }
 
 wait_http_status() {
@@ -80,8 +81,8 @@ wait_http_status() {
   local sleep_seconds="${3:-2}"
   local i=1 status
   while [[ "$i" -le "$max_attempts" ]]; do
-    status="$(http_status "$url" || true)"
-    if [[ -n "$status" ]]; then
+    status="$(http_status "$url")"
+    if [[ -n "$status" ]] && [[ "$status" != "000" ]]; then
       echo "$status"
       return 0
     fi
@@ -89,6 +90,26 @@ wait_http_status() {
     sleep "$sleep_seconds"
   done
   echo ""
+}
+
+# deploy.sh restart sonrası Next bazen birkaç saniye içinde dinlemeye başlar; chunk testi önce bunu bekler.
+wait_travel_web_listening() {
+  local url="${WEB_ORIGIN}/"
+  local max_attempts="${WEB_READY_ATTEMPTS:-45}"
+  local sleep_seconds="${WEB_READY_SLEEP:-2}"
+  local i=1 status
+  echo "==> travel-web hazır ($WEB_ORIGIN, en fazla ~$((max_attempts * sleep_seconds)) sn) ..."
+  while [[ "$i" -le "$max_attempts" ]]; do
+    status="$(http_status "$url")"
+    if [[ -n "$status" ]] && [[ "$status" != "000" ]]; then
+      ok "travel-web yanıt verdi (HTTP $status): $url"
+      return 0
+    fi
+    echo "   bekleme $i/$max_attempts..."
+    i=$((i + 1))
+    sleep "$sleep_seconds"
+  done
+  fail "travel-web $WEB_ORIGIN üzerinde yanıt yok (connection refused?). Komutlar: journalctl -u travel-web.service -n 120 --no-pager; ss -tlnp | grep 3000 || true; systemctl status travel-web.service --no-pager"
 }
 
 check_next_static_chunk() {
@@ -99,7 +120,7 @@ check_next_static_chunk() {
   [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
   chunk_base="$(basename "$sample")"
   url="$WEB_ORIGIN/_next/static/chunks/$chunk_base"
-  status="$(http_status "$url" || true)"
+  status="$(http_status "$url")"
   [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status - check Apache or ModSecurity proxy"
   ok "Next static chunk OK, HTTP 200, file ${chunk_base}"
 
@@ -115,7 +136,7 @@ check_next_static_chunk() {
     # Heredoc nested in $() bazı bash sürümlerinde "syntax error near (" veriyor; -c kullan.
     export PYTHON_REL="$rel"
     url_path="$(python3 -c 'import os,urllib.parse as up; r=os.environ["PYTHON_REL"]; print("/_next/static/" + "/".join(up.quote(p, safe="") for p in r.split("/")), end="")')"
-    status="$(http_status "$WEB_ORIGIN$url_path" || true)"
+    status="$(http_status "$WEB_ORIGIN$url_path")"
     [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status - WAF: whitelist /_next/static or disable rule"
     ok "Next app layout chunk OK, HTTP 200"
   fi
@@ -146,6 +167,7 @@ main() {
   check_working_directory
   check_env
   check_workdir_matches_deploy_root
+  wait_travel_web_listening
   check_next_static_chunk
   check_endpoints
 
