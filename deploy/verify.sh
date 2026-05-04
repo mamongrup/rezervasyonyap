@@ -53,13 +53,14 @@ wait_http_status() {
   local url="$1"
   local max_attempts="${2:-10}"
   local sleep_seconds="${3:-2}"
-  local i status
-  for ((i=1; i<=max_attempts; i++)); do
+  local i=1 status
+  while [[ "$i" -le "$max_attempts" ]]; do
     status="$(http_status "$url" || true)"
     if [[ -n "$status" ]]; then
       echo "$status"
       return 0
     fi
+    i=$((i + 1))
     sleep "$sleep_seconds"
   done
   echo ""
@@ -84,7 +85,15 @@ check_next_static_chunk() {
       return 0
     }
     rel="${sample#"$wd/.next/static/}"
-    url_path="$(VERIFY_REL="$rel" python3 -c "import os,urllib.parse; r=os.environ['VERIFY_REL']; print('/_next/static/'+ '/'.join(urllib.parse.quote(s, safe='') for s in r.split('/')))")"
+    url_path="$(
+      VERIFY_REL="$rel" python3 - <<'PY'
+import os, urllib.parse
+rel = os.environ["VERIFY_REL"]
+parts = rel.split("/")
+enc = "/".join(urllib.parse.quote(p, safe="") for p in parts)
+print("/_next/static/" + enc, end="")
+PY
+    )"
     status="$(http_status "$WEB_ORIGIN$url_path" || true)"
     [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status (WAF: whitelist /_next/static veya kural devre disi)"
     ok "Next app layout chunk OK (200)"
@@ -95,9 +104,18 @@ check_endpoints() {
   local auth_status hero_status
   auth_status="$(wait_http_status "$API_ORIGIN/api/v1/auth/me" 12 2)"
   case "$auth_status" in
-    200|401) ok "auth/me reachable ($auth_status)";;
-    "") fail "auth/me unreachable after retries ($API_ORIGIN/api/v1/auth/me)";;
-    *) fail "auth/me unexpected status: $auth_status ($API_ORIGIN/api/v1/auth/me)";;
+    200)
+      ok "auth/me reachable ($auth_status)"
+      ;;
+    401)
+      ok "auth/me reachable ($auth_status)"
+      ;;
+    "")
+      fail "auth/me unreachable after retries ($API_ORIGIN/api/v1/auth/me)"
+      ;;
+    *)
+      fail "auth/me unexpected status: $auth_status ($API_ORIGIN/api/v1/auth/me)"
+      ;;
   esac
 
   hero_status="$(wait_http_status "$WEB_ORIGIN/api/hero-tabs" 8 2)"

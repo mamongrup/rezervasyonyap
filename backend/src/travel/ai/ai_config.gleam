@@ -6,6 +6,8 @@
 import envoy
 import gleam/dict
 import gleam/dynamic/decode
+import gleam/float
+import gleam/int
 import gleam/json
 import gleam/string
 import pog
@@ -38,6 +40,50 @@ pub fn profile_upstream_timeout_ms(db: pog.Connection, profile_code: String) -> 
   }
 }
 
+fn decode_sec_flexible(fallback_sec: Int) -> decode.Decoder(Int) {
+  let from_float =
+    decode.float
+    |> decode.map(float.round)
+  let from_string =
+    decode.string
+    |> decode.map(fn(s) {
+      case int.parse(string.trim(s)) {
+        Ok(n) -> n
+        Error(_) -> fallback_sec
+      }
+    })
+  decode.one_of(decode.int, [from_float, from_string])
+}
+
+fn timeout_sec_for_profile(
+  mods: dict.Dict(String, Int),
+  profile_code: String,
+  def_sec: Int,
+) -> Int {
+  case dict.get(mods, profile_code) {
+    Ok(s) -> s
+    Error(_) ->
+      case profile_code {
+        "region_tourism_content" ->
+          case dict.get(mods, "region_hierarchy") {
+            Ok(s) -> s
+            Error(_) -> def_sec
+          }
+        "region_blog_writer" ->
+          case dict.get(mods, "content_writer") {
+            Ok(s) -> s
+            Error(_) -> def_sec
+          }
+        "place_blog_writer" ->
+          case dict.get(mods, "content_writer") {
+            Ok(s) -> s
+            Error(_) -> def_sec
+          }
+        _ -> def_sec
+      }
+  }
+}
+
 fn clamp_sec_for_upstream(sec: Int) -> Int {
   case sec < 5 {
     True -> 5
@@ -58,17 +104,14 @@ fn parse_ai_json_timeouts_ms(raw: String, profile_code: String) -> Result(Int, N
     decode.optional_field(
       "request_timeout_sec",
       default_timeout_sec,
-      decode.int,
+      decode_sec_flexible(default_timeout_sec),
       fn(def_sec) {
         decode.optional_field(
           "module_timeouts_sec",
           dict.new(),
-          decode.dict(decode.string, decode.int),
+          decode.dict(decode.string, decode_sec_flexible(def_sec)),
           fn(mods) {
-            let sec = case dict.get(mods, profile_code) {
-              Ok(s) -> s
-              Error(_) -> def_sec
-            }
+            let sec = timeout_sec_for_profile(mods, profile_code, def_sec)
             decode.success(clamp_sec_to_ms(sec))
           },
         )

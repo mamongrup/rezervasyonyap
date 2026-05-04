@@ -4,6 +4,7 @@
  */
 
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { MAX_AI_UPSTREAM_MS } from '@/lib/ai-upstream-timeouts'
 import { setStoredAuthProfile } from '@/lib/auth-storage'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { parseLenientJson } from '@/lib/json-parse'
@@ -9417,6 +9418,13 @@ export async function processNextDistrictIdea(token: string): Promise<DistrictId
 // Bölge tanıtım yazısı + bölge blog yazıları — toplu AI üretimi
 // ---------------------------------------------------------------------------
 
+function initLongRunningAdminPost(): Pick<RequestInit, 'signal'> {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return { signal: AbortSignal.timeout(MAX_AI_UPSTREAM_MS) }
+  }
+  return {}
+}
+
 /** Sunucu `{"error":"..."}` döndüğünde HTTP statü yerine gerçek kodu ilet (hreflang / AI panel). */
 async function errorCodeFromJsonOrStatus(res: Response, fallbackPrefix: string): Promise<string> {
   let text = ''
@@ -9495,6 +9503,7 @@ export async function processNextRegionContent(token: string): Promise<RegionCon
   const res = await fetch(`${b}/api/v1/ai/region-content/process-next`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+    ...initLongRunningAdminPost(),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_process'))
   return res.json() as Promise<RegionContentProcessResult>
@@ -9533,6 +9542,7 @@ export async function processNextPlaceBlog(token: string): Promise<PlaceBlogProc
   const res = await fetch(`${b}/api/v1/ai/place-blogs/process-next`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+    ...initLongRunningAdminPost(),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'place_blogs_process'))
   return res.json() as Promise<PlaceBlogProcessResult>

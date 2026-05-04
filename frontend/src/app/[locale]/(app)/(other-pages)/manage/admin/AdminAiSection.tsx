@@ -35,6 +35,7 @@ import {
 } from '@/lib/travel-api'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
@@ -76,6 +77,7 @@ function jobStatusBadge(status: string) {
 }
 
 export default function AdminAiSection() {
+  const vitrinPath = useVitrinHref()
   const [providers, setProviders] = useState<{ code: string; display_name: string; is_active: boolean }[]>([])
   const [profiles, setProfiles] = useState<{ code: string; provider_id: string }[]>([])
   const [jobs, setJobs] = useState<AiJobListItem[]>([])
@@ -1126,6 +1128,16 @@ export default function AdminAiSection() {
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Bölge Tanıtımı + Blog Yazıları</h2>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
               Her ülke, il, ilçe ve destinasyon sayfasına turizm açısından tanıtıcı yazı ekler; ayrıca Gezi Fikirleri kategorisine bölge blog yazısı üretir.
+              <span className="mt-1 block text-xs text-neutral-400">
+                DeepSeek zaman aşımı için:{' '}
+                <a
+                  href={vitrinPath('/manage/ai')}
+                  className="font-medium text-violet-600 underline hover:no-underline dark:text-violet-400"
+                >
+                  Yapay zeka → süreleri
+                </a>{' '}
+                (bölge tanıtım / blog profilleri veya genel süre).
+              </span>
             </p>
           </div>
         </div>

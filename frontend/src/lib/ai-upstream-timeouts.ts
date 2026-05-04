@@ -9,6 +9,9 @@ export const DEFAULT_AI_TIMEOUT_SEC = 3600
 /** Üst sınır (sn): backend httpc + Gleam ile aynı; uzun model yanıtlarında erken kesilmesin. */
 export const MAX_AI_TIMEOUT_SEC = 21_600
 
+/** Panel maks. süresi (ms); uzun kuyruk API çağrıları için fetch üst sınırı. */
+export const MAX_AI_UPSTREAM_MS = MAX_AI_TIMEOUT_SEC * 1000
+
 /** Saniye: güvenli aralık 5 sn – 6 saat */
 export function clampTimeoutSec(raw: number): number {
   if (!Number.isFinite(raw) || raw < 5) return 5
@@ -22,6 +25,26 @@ export function secToMs(sec: number): number {
 
 const PROFILE_TRANSLATOR = 'translator'
 
+function moduleTimeoutSec(
+  mod: Record<string, unknown>,
+  profileCode: string,
+  defSec: number,
+): number {
+  const v = mod[profileCode]
+  if (typeof v === 'number' && v > 0) return clampTimeoutSec(v)
+  if (typeof v === 'string') {
+    const n = Number.parseFloat(v.trim())
+    if (Number.isFinite(n) && n > 0) return clampTimeoutSec(n)
+  }
+  if (profileCode === 'region_tourism_content') {
+    return moduleTimeoutSec(mod, 'region_hierarchy', defSec)
+  }
+  if (profileCode === 'region_blog_writer' || profileCode === 'place_blog_writer') {
+    return moduleTimeoutSec(mod, 'content_writer', defSec)
+  }
+  return defSec
+}
+
 /**
  * `site_settings` `ai` value_json nesnesinden modül veya varsayılan süreyi ms cinsinden döndürür.
  */
@@ -29,19 +52,18 @@ export function timeoutMsForProfile(
   settings: Record<string, unknown> | null | undefined,
   profileCode: string,
 ): number {
-  const defSec =
-    typeof settings?.request_timeout_sec === 'number' && settings.request_timeout_sec > 0
-      ? clampTimeoutSec(settings.request_timeout_sec)
-      : DEFAULT_AI_TIMEOUT_SEC
+  let defSec = DEFAULT_AI_TIMEOUT_SEC
+  const rt = settings?.request_timeout_sec
+  if (typeof rt === 'number' && rt > 0) defSec = clampTimeoutSec(rt)
+  else if (typeof rt === 'string') {
+    const n = Number.parseFloat(rt.trim())
+    if (Number.isFinite(n) && n > 0) defSec = clampTimeoutSec(n)
+  }
 
   const mod = settings?.module_timeouts_sec
   if (mod && typeof mod === 'object' && mod !== null) {
-    const v = (mod as Record<string, unknown>)[profileCode]
-    if (typeof v === 'number' && v > 0) return secToMs(v)
-    if (typeof v === 'string') {
-      const n = Number.parseFloat(v.trim())
-      if (Number.isFinite(n) && n > 0) return secToMs(n)
-    }
+    const sec = moduleTimeoutSec(mod as Record<string, unknown>, profileCode, defSec)
+    return secToMs(sec)
   }
   return secToMs(defSec)
 }
@@ -95,5 +117,23 @@ export const AI_PROFILE_MODULES = [
     label: 'Satış sohbeti',
     path: '/manage/ai/chatbot',
     desc: 'Chatbot davranışı — profil: chat_sales',
+  },
+  {
+    profileCode: 'region_tourism_content',
+    label: 'Bölge tanıtımı (toplu)',
+    path: '/manage/admin/marketing/ai',
+    desc: 'Pazarlama AI — bölge HTML tanıtımı — profil: region_tourism_content',
+  },
+  {
+    profileCode: 'region_blog_writer',
+    label: 'Bölge blog (toplu)',
+    path: '/manage/admin/marketing/ai',
+    desc: 'Pazarlama AI — gezi blog gövdesi — profil: region_blog_writer',
+  },
+  {
+    profileCode: 'place_blog_writer',
+    label: 'Mekan blog (toplu)',
+    path: '/manage/admin/marketing/ai',
+    desc: 'Pazarlama AI — favori mekan yazıları — profil: place_blog_writer',
   },
 ] as const
