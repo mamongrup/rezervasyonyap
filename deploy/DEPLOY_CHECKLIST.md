@@ -122,7 +122,20 @@ chmod +x deploy/verify.sh
 ./deploy/verify.sh
 ```
 
-## 8) Tarayici kontrolu
+## 8) Pazarlama AI / DeepSeek `timeout` (~45 sn)
+
+Yonetimde **DeepSeek API zaman asimi** ve logda **~45 sn** civari kesilme goruyorsaniz:
+
+- **`plesk-vitrin-deploy.sh` yalnizca Next.js** build + `travel-web` yeniden baslatir; **Gleam `travel-api` ikilisini derlemez**. Eski API ile panelde 45 sn hukmu httpc’de 45 sn olarak kalir; guncel kodda DeepSeek icin **en az 300 sn** taban var (`ai_config`).
+- Cozum: repo kokunde **`./deploy/deploy.sh`** (backend + frontend + her iki servis) veya en azindan:
+
+```bash
+cd /path/to/repo/backend && gleam build && sudo systemctl restart travel-api.service
+```
+
+- Tarayicidan API **kamuya acik URL + Apache/Nginx ters vekil** ile gidiyorsa, uzun `POST /api/v1/ai/...` icin **ProxyTimeout** / **proxy_read_timeout** degerini (or. **600 sn**) artirin; aksi halde vekil once baglanti keser.
+
+## 9) Tarayici kontrolu
 
 - Hard refresh: `Ctrl + Shift + R`
 - Ana sayfada hero kategori ikonlari gorunmeli.

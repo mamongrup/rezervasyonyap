@@ -7,12 +7,12 @@
 export const DEFAULT_AI_TIMEOUT_SEC = 3600
 
 /** Üst sınır (sn): backend httpc + Gleam ile aynı; uzun model yanıtlarında erken kesilmesin. */
-export const MAX_AI_TIMEOUT_SEC = 21_600
+export const MAX_AI_TIMEOUT_SEC = 10_000
 
 /** Panel maks. süresi (ms); uzun kuyruk API çağrıları için fetch üst sınırı. */
 export const MAX_AI_UPSTREAM_MS = MAX_AI_TIMEOUT_SEC * 1000
 
-/** Saniye: güvenli aralık 5 sn – 6 saat */
+/** Saniye: güvenli aralık 5 sn – 10000 sn */
 export function clampTimeoutSec(raw: number): number {
   if (!Number.isFinite(raw) || raw < 5) return 5
   if (raw > MAX_AI_TIMEOUT_SEC) return MAX_AI_TIMEOUT_SEC

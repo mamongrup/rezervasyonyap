@@ -268,7 +268,11 @@ export function formatManageApiError(raw: string): string {
   const mapped = TR_BY_CODE[key]
   if (mapped) return mapped
   if (key.startsWith('deepseek_http:')) {
-    return `DeepSeek API hatası: ${key.slice(key.indexOf(':') + 1).trim()}`
+    const detail = key.slice(key.indexOf(':') + 1).trim()
+    if (detail === 'timeout' || detail.toLowerCase().includes('timeout')) {
+      return 'DeepSeek API zaman aşımı. Sunucuda travel-api genelde güncel değildir: backend için gleam build + systemctl restart travel-api gerekir (yalnızca vitrin/Next deploy API ikilisini yenilemez). Kamuya açık API ters vekilde uzun POST için ProxyTimeout / proxy_read_timeout artırın.'
+    }
+    return `DeepSeek API hatası: ${detail}`
   }
   if (looksLikeApiCode(key)) {
     return `İşlem tamamlanamadı. Teknik kod: ${key}`

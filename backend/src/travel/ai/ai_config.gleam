@@ -15,8 +15,8 @@ import pog
 /// Panel ile uyumlu genel varsayılan; kayıt yoksa kullanılır.
 const default_timeout_sec: Int = 3600
 
-/// httpc üst sınırı ile aynı (6 saat); daha uzun değerler kırpılır.
-const max_timeout_sec: Int = 21_600
+/// httpc üst sınırı ile aynı (10000 sn); daha uzun değerler kırpılır.
+const max_timeout_sec: Int = 10_000
 
 /// DeepSeek tek çağrıda kısa süreler (ör. 45 sn) pratikte hep timeout; panel alt sınırı 5 sn olsa da upstream için taban.
 const min_upstream_timeout_ms: Int = 300_000
@@ -29,7 +29,7 @@ pub type AiConfig {
   )
 }
 
-/// Panel / site_settings.ai ile uyumlu: 5–21600 sn → ms (DeepSeek upstream).
+/// Panel / site_settings.ai ile uyumlu: 5–10000 sn → ms (DeepSeek upstream).
 /// Kaynak tek: `site_settings.key = ai`; ortam değişkeni ile geçersiz kılınmaz.
 pub fn profile_upstream_timeout_ms(db: pog.Connection, profile_code: String) -> Int {
   let ms = case fetch_raw(db) {
