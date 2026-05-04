@@ -268,7 +268,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [socialXUrl, setSocialXUrl] = useState('')
   const [socialYoutubeUrl, setSocialYoutubeUrl] = useState('')
 
-  /** site_settings key `ai` — DeepSeek (blog çevirisi vb.); env hâlâ önceliklidir. */
+  /** site_settings key `ai` — DeepSeek anahtarı/modeli + süreler; süre yalnız buradan (5–10000 sn). */
   const [aiRest, setAiRest] = useState<Record<string, unknown>>({})
   const [deepseekApiKey, setDeepseekApiKey] = useState('')
   const [deepseekModel, setDeepseekModel] = useState('deepseek-chat')

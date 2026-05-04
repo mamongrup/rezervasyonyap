@@ -24,39 +24,18 @@ post_urlencoded(Url, Body) when is_binary(Url), is_binary(Body) ->
 post_json(Url, Body, AuthHeader) when is_binary(Url), is_binary(Body), is_binary(AuthHeader) ->
   post_json_with_timeout(Url, Body, AuthHeader, 180000).
 
-%% Uzun süren LLM API hostları (OpenAI uyumlu). Resend vb. bu listeye girmez.
-llm_json_host_p(Url) when is_binary(Url) ->
-  Lc = string:lowercase(Url),
-  case
-    {
-      binary:match(Lc, <<"deepseek">>),
-      binary:match(Lc, <<"openai">>),
-      binary:match(Lc, <<"anthropic">>)
-    }
-  of
-    {nomatch, nomatch, nomatch} -> false;
-    _ -> true
-  end.
-
-%% TimeoutMs: toplam istek süresi (ms). Üst sınır 10000 sn.
-%% LLM URL: en az 900 sn (yavaş model / ag / kısa panel süresi / eski ikili için).
-%% Diğer: en az 5 sn (Resend 180 sn vb. olduğu gibi kalır).
+%% TimeoutMs: Gleam (panel site_settings.ai) ile gelir; teknik 5 sn – 10000 sn (ms).
 post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
   when is_binary(Url), is_binary(Body), is_binary(AuthHeader), is_integer(TimeoutMs) ->
   {ok, _} = application:ensure_all_started(inets),
   {ok, _} = application:ensure_all_started(ssl),
-  Floor =
-    case llm_json_host_p(Url) of
-      true -> 900000;
-      false -> 5000
-    end,
-  Ms = case TimeoutMs < Floor of
-    true -> Floor;
-    false -> TimeoutMs
-  end,
-  T = case Ms > 10000000 of
-    true -> 10000000;
-    false -> Ms
+  T = case TimeoutMs < 5000 of
+    true -> 5000;
+    false ->
+      case TimeoutMs > 10000000 of
+        true -> 10000000;
+        false -> TimeoutMs
+      end
   end,
   UrlStr = binary_to_list(Url),
   BodyStr = binary_to_list(Body),

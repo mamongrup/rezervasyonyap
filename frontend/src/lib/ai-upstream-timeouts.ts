@@ -1,9 +1,9 @@
 /**
- * Yapay zeka HTTP upstream süreleri — yalnızca site_settings `ai` JSON (`request_timeout_sec`, `module_timeouts_sec`).
- * Next.js `/api/ai-translate` ve paneller aynı anahtarları kullanır.
+ * Yapay zeka HTTP süreleri — tek kaynak: Ayarlar → Genel → Yapay zeka (`site_settings` `ai`).
+ * `request_timeout_sec`: genel süre (saniye); `module_timeouts_sec`: profil bazlı isteğe bağlı üzerine yazar.
  */
 
-/** Genel süre alanı boş / geçersizse (panel varsayılanıyla uyumlu). */
+/** `request_timeout_sec` / JSON yoksa kullanılan saniye (panel ilk kurulum). */
 export const DEFAULT_AI_TIMEOUT_SEC = 3600
 
 /** Üst sınır (sn): backend httpc + Gleam ile aynı; uzun model yanıtlarında erken kesilmesin. */
@@ -37,6 +37,9 @@ function moduleTimeoutSec(
     if (Number.isFinite(n) && n > 0) return clampTimeoutSec(n)
   }
   if (profileCode === 'region_tourism_content') {
+    return moduleTimeoutSec(mod, 'region_hierarchy', defSec)
+  }
+  if (profileCode === 'district_travel_ideas') {
     return moduleTimeoutSec(mod, 'region_hierarchy', defSec)
   }
   if (profileCode === 'region_blog_writer' || profileCode === 'place_blog_writer') {

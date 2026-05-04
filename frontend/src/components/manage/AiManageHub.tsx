@@ -174,8 +174,11 @@ export default function AiManageHub() {
           Modül sayfaları ve upstream süreleri
         </h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Her modül için DeepSeek (veya uyumlu API) isteğinin en fazla kaç saniye süreceği. Varsayılan boş modüller için
-          alttaki genel süre kullanılır. Ayrıntılı düzenleme: Ayarlar → Yapay zeka sekmesi.
+          Kayıt tek yerde: <strong>site_settings</strong> anahtarı <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">ai</code> —{' '}
+          <Link href={`${vitrinPath('/manage/general-settings')}?tab=ai`} className="font-medium text-violet-600 underline dark:text-violet-400">
+            Ayarlar → Genel → Yapay zeka
+          </Link>{' '}
+          ile burada aynı değerler; her yeni üretim isteğinde süre buradan yeniden okunur.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <Field>

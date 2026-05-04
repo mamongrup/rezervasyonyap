@@ -122,18 +122,14 @@ chmod +x deploy/verify.sh
 ./deploy/verify.sh
 ```
 
-## 8) Pazarlama AI / DeepSeek `timeout` (~45 sn)
+## 8) Pazarlama AI / DeepSeek `timeout`
 
-Yonetimde **DeepSeek API zaman asimi** ve logda **~45 sn** civari kesilme goruyorsaniz:
-
-- **`plesk-vitrin-deploy.sh` yalnizca Next.js** build + `travel-web` yeniden baslatir; **Gleam `travel-api` ikilisini derlemez**. Sunucu eski BEAM calistiriyorsa httpc kisa surede keser; guncel repoda **`backend_ffi_http` DeepSeek/OpenAI/Anthropic URL icin en az 900 sn** (diger JSON POST en az 5 sn); ek olarak `ai_config` tabani da 300 sn.
-- Cozum: repo kokunde **`./deploy/deploy.sh`** (backend + frontend + her iki servis) veya en azindan:
+- **Sure:** Yalniz **Ayarlar → Genel → Yapay zeka** (`site_settings.ai`). Eski `travel-api` yukluyse panel ile httpc uyusmaz — `gleam build` + `systemctl restart travel-api.service`. **`plesk-vitrin-deploy.sh`** yalnizca Next.js derler; API’yi unutmayin.
+- Kamuda **ters vekil** varsa `proxy_read_timeout` / `ProxyTimeout` degeri paneldeki saniyeden **kisa** olamaz.
 
 ```bash
 cd /path/to/repo/backend && gleam build && sudo systemctl restart travel-api.service
 ```
-
-- Tarayicidan API **kamuya acik URL + Apache/Nginx ters vekil** ile gidiyorsa, uzun `POST /api/v1/ai/...` icin **ProxyTimeout** / **proxy_read_timeout** degerini (or. **600 sn**) artirin; aksi halde vekil once baglanti keser.
 
 ## 9) Tarayici kontrolu
 

@@ -18,9 +18,6 @@ const default_timeout_sec: Int = 3600
 /// httpc üst sınırı ile aynı (10000 sn); daha uzun değerler kırpılır.
 const max_timeout_sec: Int = 10_000
 
-/// DeepSeek tek çağrıda kısa süreler (ör. 45 sn) pratikte hep timeout; panel alt sınırı 5 sn olsa da upstream için taban.
-const min_upstream_timeout_ms: Int = 300_000
-
 pub type AiConfig {
   AiConfig(
     deepseek_api_key: String,
@@ -32,17 +29,13 @@ pub type AiConfig {
 /// Panel / site_settings.ai ile uyumlu: 5–10000 sn → ms (DeepSeek upstream).
 /// Kaynak tek: `site_settings.key = ai`; ortam değişkeni ile geçersiz kılınmaz.
 pub fn profile_upstream_timeout_ms(db: pog.Connection, profile_code: String) -> Int {
-  let ms = case fetch_raw(db) {
+  case fetch_raw(db) {
     "" -> default_timeout_sec * 1000
     raw ->
       case parse_ai_json_timeouts_ms(raw, string.trim(profile_code)) {
         Ok(m) -> m
         Error(_) -> default_timeout_sec * 1000
       }
-  }
-  case ms < min_upstream_timeout_ms {
-    True -> min_upstream_timeout_ms
-    False -> ms
   }
 }
 
@@ -71,6 +64,11 @@ fn timeout_sec_for_profile(
     Error(_) ->
       case profile_code {
         "region_tourism_content" ->
+          case dict.get(mods, "region_hierarchy") {
+            Ok(s) -> s
+            Error(_) -> def_sec
+          }
+        "district_travel_ideas" ->
           case dict.get(mods, "region_hierarchy") {
             Ok(s) -> s
             Error(_) -> def_sec

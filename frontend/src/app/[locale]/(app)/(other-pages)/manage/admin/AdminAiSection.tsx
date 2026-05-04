@@ -11,6 +11,7 @@ import {
   getRegionContentStats,
   listAiFeatureProfiles,
   listAiJobs,
+  listSiteSettings,
   listAiProviders,
   listAgentRecommendations,
   patchAgentRecommendation,
@@ -33,7 +34,9 @@ import {
   type NotFoundCoverItem,
   type RegionContentStats,
 } from '@/lib/travel-api'
+import { timeoutMsForProfile } from '@/lib/ai-upstream-timeouts'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import { parseLenientJson } from '@/lib/json-parse'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -146,6 +149,22 @@ export default function AdminAiSection() {
   const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
   const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
   const [notFoundExpanded, setNotFoundExpanded] = useState(false)
+
+  /** Ayarlar → Genel → Yapay zeka (`site_settings.ai`) — her işte taze okunur; fetch süresi buradan. */
+  const fetchAiSettingsSnapshot = useCallback(async (): Promise<Record<string, unknown> | null> => {
+    const token = getStoredAuthToken()
+    if (!token) return null
+    try {
+      const r = await listSiteSettings(token, { scope: 'platform', key: 'ai' })
+      const row = r.settings[0]
+      if (row?.value_json?.trim()) {
+        return parseLenientJson(row.value_json) as Record<string, unknown>
+      }
+      return null
+    } catch {
+      return null
+    }
+  }, [])
 
   const refresh = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -365,7 +384,12 @@ export default function AdminAiSection() {
     appendOpsLog(`Bölge içerik işçileri başladı (${contentWorkerCount} paralel).`)
     try {
       await runParallelWorkers(contentWorkerCount, () => regionContentStopRef.current, async (workerIndex) => {
-        const r = await processNextRegionContent(token)
+        const snap = await fetchAiSettingsSnapshot()
+        const ms = Math.max(
+          timeoutMsForProfile(snap, 'region_tourism_content'),
+          timeoutMsForProfile(snap, 'region_blog_writer'),
+        )
+        const r = await processNextRegionContent(token, { upstreamTimeoutMs: ms })
         if (r.done) {
           setRegionContentLog((l) => [...l, 'Bölge içerik kuyruğu tamamlandı.'])
           appendOpsLog(`Bölge içerik kuyruğu tamamlandı (worker ${workerIndex}).`)
@@ -416,7 +440,9 @@ export default function AdminAiSection() {
     appendOpsLog(`Favori mekan blog işçileri başladı (${contentWorkerCount} paralel).`)
     try {
       await runParallelWorkers(contentWorkerCount, () => placeBlogsStopRef.current, async (workerIndex) => {
-        const r = await processNextPlaceBlog(token)
+        const snap = await fetchAiSettingsSnapshot()
+        const ms = timeoutMsForProfile(snap, 'place_blog_writer')
+        const r = await processNextPlaceBlog(token, { upstreamTimeoutMs: ms })
         if (r.done) {
           setPlaceBlogsLog((l) => [...l, 'Favori mekan blog kuyruğu tamamlandı.'])
           appendOpsLog(`Favori mekan blog kuyruğu tamamlandı (worker ${workerIndex}).`)
@@ -472,7 +498,9 @@ export default function AdminAiSection() {
     let processed = 0
     try {
       while (!districtStopRef.current) {
-        const r = await processNextDistrictIdea(token)
+        const snap = await fetchAiSettingsSnapshot()
+        const ms = timeoutMsForProfile(snap, 'district_travel_ideas')
+        const r = await processNextDistrictIdea(token, { upstreamTimeoutMs: ms })
         if (r.done) {
           setDistrictLog((l) => [...l, 'Kuyruk tamamlandı.'])
           break
@@ -1053,7 +1081,14 @@ export default function AdminAiSection() {
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">İlçe Gezi Fikirleri — Toplu AI Üretimi</h2>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              Tüm ilçelere DeepSeek ile otomatik &ldquo;gezilesi yerler&rdquo; içeriği üretir. Önce kuyruğa al, sonra işlemi başlat.
+              Tüm ilçelere DeepSeek ile otomatik &ldquo;gezilesi yerler&rdquo; içeriği üretir. Önce kuyruğa al, sonra işlemi başlat. Süre:{' '}
+              <a
+                href={`${vitrinPath('/manage/general-settings')}?tab=ai`}
+                className="font-medium text-emerald-700 underline hover:no-underline dark:text-emerald-400"
+              >
+                Ayarlar → Yapay zeka
+              </a>
+              .
             </p>
           </div>
         </div>
@@ -1137,14 +1172,14 @@ export default function AdminAiSection() {
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
               Her ülke, il, ilçe ve destinasyon sayfasına turizm açısından tanıtıcı yazı ekler; ayrıca Gezi Fikirleri kategorisine bölge blog yazısı üretir.
               <span className="mt-1 block text-xs text-neutral-400">
-                DeepSeek zaman aşımı için:{' '}
+                Süre tek kaynak:{' '}
                 <a
-                  href={vitrinPath('/manage/ai')}
+                  href={`${vitrinPath('/manage/general-settings')}?tab=ai`}
                   className="font-medium text-violet-600 underline hover:no-underline dark:text-violet-400"
                 >
-                  Yapay zeka → süreleri
-                </a>{' '}
-                (bölge tanıtım / blog profilleri veya genel süre).
+                  Ayarlar → Genel → Yapay zeka
+                </a>
+                . Her yeni yazı isteğinde bu süre yeniden uygulanır (tarayıcı + API).
               </span>
             </p>
           </div>

@@ -11,10 +11,15 @@ import { parseLenientJson } from '@/lib/json-parse'
 
 const base = () => apiOriginForFetch()
 
-/** Admin uzun AI işleri — bölge / ilçe işleme; fetch üst sınırı panel MAX ile uyumlu */
-function initLongRunningAdminPost(): Pick<RequestInit, 'signal'> {
+/** Uzun AI admin çağrıları — tarayıcı iptali; `upstreamTimeoutMs` yoksa panel üst sınırı. */
+function fetchInitUpstreamOptional(upstreamTimeoutMs?: number): Pick<RequestInit, 'signal'> {
+  const raw =
+    upstreamTimeoutMs != null && Number.isFinite(upstreamTimeoutMs) && upstreamTimeoutMs > 0
+      ? Math.round(Number(upstreamTimeoutMs))
+      : MAX_AI_UPSTREAM_MS
+  const clamped = Math.max(5000, Math.min(MAX_AI_UPSTREAM_MS, raw))
   if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-    return { signal: AbortSignal.timeout(MAX_AI_UPSTREAM_MS) }
+    return { signal: AbortSignal.timeout(clamped) }
   }
   return {}
 }
@@ -9413,13 +9418,16 @@ export interface DistrictIdeasProcessResult {
   skipped?: boolean
 }
 
-export async function processNextDistrictIdea(token: string): Promise<DistrictIdeasProcessResult> {
+export async function processNextDistrictIdea(
+  token: string,
+  opts?: { upstreamTimeoutMs?: number },
+): Promise<DistrictIdeasProcessResult> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
   const res = await fetch(`${b}/api/v1/ai/district-ideas/process-next`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    ...initLongRunningAdminPost(),
+    ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
   })
   if (!res.ok) throw new Error(`district_ideas_process_${res.status}`)
   return res.json() as Promise<DistrictIdeasProcessResult>
@@ -9500,13 +9508,16 @@ export interface RegionContentProcessResult {
   blog_posts_created?: number
 }
 
-export async function processNextRegionContent(token: string): Promise<RegionContentProcessResult> {
+export async function processNextRegionContent(
+  token: string,
+  opts?: { upstreamTimeoutMs?: number },
+): Promise<RegionContentProcessResult> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
   const res = await fetch(`${b}/api/v1/ai/region-content/process-next`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    ...initLongRunningAdminPost(),
+    ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_process'))
   return res.json() as Promise<RegionContentProcessResult>
@@ -9539,13 +9550,16 @@ export interface PlaceBlogProcessResult {
   blog_posts_created?: number
 }
 
-export async function processNextPlaceBlog(token: string): Promise<PlaceBlogProcessResult> {
+export async function processNextPlaceBlog(
+  token: string,
+  opts?: { upstreamTimeoutMs?: number },
+): Promise<PlaceBlogProcessResult> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
   const res = await fetch(`${b}/api/v1/ai/place-blogs/process-next`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
-    ...initLongRunningAdminPost(),
+    ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'place_blogs_process'))
   return res.json() as Promise<PlaceBlogProcessResult>
