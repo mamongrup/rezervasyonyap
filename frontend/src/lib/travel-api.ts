@@ -9419,9 +9419,25 @@ export async function processNextDistrictIdea(token: string): Promise<DistrictId
 
 /** Sunucu `{"error":"..."}` döndüğünde HTTP statü yerine gerçek kodu ilet (hreflang / AI panel). */
 async function errorCodeFromJsonOrStatus(res: Response, fallbackPrefix: string): Promise<string> {
-  const body = (await res.json().catch(() => ({}))) as { error?: unknown }
-  const e = body.error
-  if (typeof e === 'string' && e.trim()) return e.trim()
+  let text = ''
+  try {
+    text = await res.clone().text()
+  } catch {
+    return `${fallbackPrefix}_${res.status}`
+  }
+  const trimmed = text.trim()
+  if (!trimmed) return `${fallbackPrefix}_${res.status}`
+  try {
+    const body = parseLenientJson(trimmed) as { error?: unknown }
+    const e = body.error
+    if (typeof e === 'string' && e.trim()) return e.trim()
+  } catch {
+    /* JSON değil */
+  }
+  // Nginx / proxy düz metin veya kısa hata gövdeleri
+  if (trimmed.length <= 400 && !/<!DOCTYPE|<html[\s>]/i.test(trimmed)) {
+    return trimmed
+  }
   return `${fallbackPrefix}_${res.status}`
 }
 
