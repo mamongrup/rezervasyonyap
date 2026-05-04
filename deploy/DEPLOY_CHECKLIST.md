@@ -126,7 +126,7 @@ chmod +x deploy/verify.sh
 
 Yonetimde **DeepSeek API zaman asimi** ve logda **~45 sn** civari kesilme goruyorsaniz:
 
-- **`plesk-vitrin-deploy.sh` yalnizca Next.js** build + `travel-web` yeniden baslatir; **Gleam `travel-api` ikilisini derlemez**. Eski API ile panelde 45 sn hukmu httpc’de 45 sn olarak kalir; guncel kodda DeepSeek icin **en az 300 sn** taban var (`ai_config`).
+- **`plesk-vitrin-deploy.sh` yalnizca Next.js** build + `travel-web` yeniden baslatir; **Gleam `travel-api` ikilisini derlemez**. Sunucu eski BEAM calistiriyorsa httpc kisa surede keser; guncel repoda **`backend_ffi_http` tum `post_json_with_timeout` cagrilarinda en az 300 sn** uygular (panel/Gleam dusuk ms verse bile); ek olarak `ai_config` tabani da 300 sn.
 - Cozum: repo kokunde **`./deploy/deploy.sh`** (backend + frontend + her iki servis) veya en azindan:
 
 ```bash

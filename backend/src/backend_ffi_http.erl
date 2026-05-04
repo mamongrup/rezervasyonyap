@@ -24,18 +24,19 @@ post_urlencoded(Url, Body) when is_binary(Url), is_binary(Body) ->
 post_json(Url, Body, AuthHeader) when is_binary(Url), is_binary(Body), is_binary(AuthHeader) ->
   post_json_with_timeout(Url, Body, AuthHeader, 180000).
 
-%% TimeoutMs: toplam istek süresi (ms). Panel site_settings.ai ile ayarlanabilir (max 10000 sn).
+%% TimeoutMs: toplam istek süresi (ms). Üst sınır 10000 sn.
+%% DeepSeek: panelde kısa süre veya eski Gleam ikilisi düşük ms geçirse bile httpc'de en az 300 sn beklenir.
 post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
   when is_binary(Url), is_binary(Body), is_binary(AuthHeader), is_integer(TimeoutMs) ->
   {ok, _} = application:ensure_all_started(inets),
   {ok, _} = application:ensure_all_started(ssl),
-  T = case TimeoutMs < 5000 of
-    true -> 5000;
-    false ->
-      case TimeoutMs > 10000000 of
-        true -> 10000000;
-        false -> TimeoutMs
-      end
+  Ms = case TimeoutMs < 300000 of
+    true -> 300000;
+    false -> TimeoutMs
+  end,
+  T = case Ms > 10000000 of
+    true -> 10000000;
+    false -> Ms
   end,
   UrlStr = binary_to_list(Url),
   BodyStr = binary_to_list(Body),
