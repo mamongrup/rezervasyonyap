@@ -113,7 +113,7 @@ export default function AdminAiSection() {
   const [placeBlogsRunning, setPlaceBlogsRunning] = useState(false)
   const [placeBlogsErr, setPlaceBlogsErr] = useState<string | null>(null)
   const [placeBlogsLog, setPlaceBlogsLog] = useState<string[]>([])
-  const [contentWorkerCount, setContentWorkerCount] = useState(2)
+  const [contentWorkerCount, setContentWorkerCount] = useState(1)
   const [opsLog, setOpsLog] = useState<string[]>([])
   const regionContentStopRef = useRef(false)
   const placeBlogsStopRef = useRef(false)
