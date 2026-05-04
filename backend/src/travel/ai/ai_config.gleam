@@ -18,6 +18,9 @@ const default_timeout_sec: Int = 3600
 /// httpc üst sınırı ile aynı (6 saat); daha uzun değerler kırpılır.
 const max_timeout_sec: Int = 21_600
 
+/// DeepSeek tek çağrıda kısa süreler (ör. 45 sn) pratikte hep timeout; panel alt sınırı 5 sn olsa da upstream için taban.
+const min_upstream_timeout_ms: Int = 300_000
+
 pub type AiConfig {
   AiConfig(
     deepseek_api_key: String,
@@ -29,14 +32,17 @@ pub type AiConfig {
 /// Panel / site_settings.ai ile uyumlu: 5–21600 sn → ms (DeepSeek upstream).
 /// Kaynak tek: `site_settings.key = ai`; ortam değişkeni ile geçersiz kılınmaz.
 pub fn profile_upstream_timeout_ms(db: pog.Connection, profile_code: String) -> Int {
-  let pc = string.trim(profile_code)
-  case fetch_raw(db) {
+  let ms = case fetch_raw(db) {
     "" -> default_timeout_sec * 1000
     raw ->
-      case parse_ai_json_timeouts_ms(raw, pc) {
-        Ok(ms) -> ms
+      case parse_ai_json_timeouts_ms(raw, string.trim(profile_code)) {
+        Ok(m) -> m
         Error(_) -> default_timeout_sec * 1000
       }
+  }
+  case ms < min_upstream_timeout_ms {
+    True -> min_upstream_timeout_ms
+    False -> ms
   }
 }
 
@@ -146,10 +152,43 @@ fn pick(raw: String, field: String) -> String {
 }
 
 fn fetch_raw(db: pog.Connection) -> String {
+  case fetch_platform_ai_json(db) {
+    "" -> fetch_any_org_ai_json(db)
+    s -> s
+  }
+}
+
+/// `organization_id` null platform kaydı (tercih).
+fn fetch_platform_ai_json(db: pog.Connection) -> String {
   case
     pog.query(
       "select value_json::text from site_settings"
-      <> " where key = 'ai' and organization_id is null limit 1",
+      <> " where key = 'ai' and organization_id is null"
+      <> " order by id desc limit 1",
+    )
+    |> pog.returning({
+      use a <- decode.field(0, decode.string)
+      decode.success(a)
+    })
+    |> pog.execute(db)
+  {
+    Error(_) -> ""
+    Ok(ret) ->
+      case ret.rows {
+        [raw] -> raw
+        _ -> ""
+      }
+  }
+}
+
+/// Platform satırı yoksa (eski / kiracı-only kurulum): key=ai olan en güncel satır.
+fn fetch_any_org_ai_json(db: pog.Connection) -> String {
+  case
+    pog.query(
+      "select value_json::text from site_settings"
+      <> " where key = 'ai'"
+      <> " order by case when organization_id is null then 0 else 1 end, id desc"
+      <> " limit 1",
     )
     |> pog.returning({
       use a <- decode.field(0, decode.string)

@@ -46,7 +46,7 @@ post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
     end,
   Request = {UrlStr, Headers, "application/json; charset=UTF-8", BodyStr},
   HttpOptions = [
-    {connect_timeout, 20000},
+    {connect_timeout, 60000},
     {timeout, T},
     {ssl, [{verify, verify_none}]}
   ],
