@@ -40,7 +40,7 @@ check_env() {
   env="$(systemctl show "$WEB_SERVICE" -p Environment --value)"
   [[ "$env" == *"NEXT_PUBLIC_API_URL="* ]] || fail "NEXT_PUBLIC_API_URL missing in $WEB_SERVICE environment"
   [[ "$env" == *"INTERNAL_API_ORIGIN="* ]] || fail "INTERNAL_API_ORIGIN missing in $WEB_SERVICE environment"
-  [[ "$env" == *"INTERNAL_MIDDLEWARE_REWRITE_ORIGIN="* ]] || warn "INTERNAL_MIDDLEWARE_REWRITE_ORIGIN missing (recommended)"
+  [[ "$env" == *"INTERNAL_MIDDLEWARE_REWRITE_ORIGIN="* ]] || warn "INTERNAL_MIDDLEWARE_REWRITE_ORIGIN missing, recommended"
   ok "$WEB_SERVICE required env keys look present"
 }
 
@@ -69,13 +69,13 @@ wait_http_status() {
 check_next_static_chunk() {
   local wd sample url status rel url_path
   wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
-  [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks (build/run wrong directory?)"
+  [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks — build or run wrong directory"
   sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' | head -1)"
   [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
   url="$WEB_ORIGIN/_next/static/chunks/$(basename "$sample")"
   status="$(http_status "$url" || true)"
-  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status (check Apache/ModSecurity proxy)"
-  ok "Next static chunk OK (200): $(basename "$sample")"
+  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status — check Apache or ModSecurity proxy"
+  ok "Next static chunk OK, HTTP 200, file $(basename "$sample")"
 
   # [locale] yolu — Plesk ModSecurity/Imunify bazen koseli parantez iceren URL'yi 500'e dusurur
   sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | head -1 || true)"
@@ -95,8 +95,8 @@ print("/_next/static/" + enc, end="")
 PY
     )"
     status="$(http_status "$WEB_ORIGIN$url_path" || true)"
-    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status (WAF: whitelist /_next/static veya kural devre disi)"
-    ok "Next app layout chunk OK (200)"
+    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status — WAF: whitelist /_next/static or disable rule"
+    ok "Next app layout chunk OK, HTTP 200"
   fi
 }
 
@@ -113,7 +113,7 @@ check_endpoints() {
 
   hero_status="$(wait_http_status "$WEB_ORIGIN/api/hero-tabs" 8 2)"
   [[ "$hero_status" == "200" ]] || fail "hero-tabs unexpected status: ${hero_status} at ${WEB_ORIGIN}/api/hero-tabs"
-  ok "hero-tabs reachable (200)"
+  ok "hero-tabs reachable, HTTP 200"
 }
 
 main() {
