@@ -187,6 +187,13 @@ const TR_BY_CODE: Record<string, string> = {
   region_content_blog_unexpected_rows: 'Blog kaydı oluşturulamadı (beklenmedik).',
   region_content_stats_401: 'Oturum süresi dolmuş olabilir; yeniden giriş yapın.',
   region_content_stats_403: 'Bu istatistik için yetkiniz yok.',
+  district_ideas_stats_401: 'Oturum süresi dolmuş olabilir; yeniden giriş yapın.',
+  district_ideas_stats_403: 'İlçe gezi fikirleri istatistikleri için yetkiniz yok.',
+  district_ideas_stats_404: 'İlçe gezi fikirleri istatistik uç noktası bulunamadı (API sürümü / nginx).',
+  district_ideas_stats_500: 'İlçe gezi fikirleri istatistikleri alınamadı (sunucu veya veritabanı).',
+  district_stats_failed: 'İlçe gezi fikirleri istatistikleri yüklenemedi.',
+  region_content_stats_failed: 'Bölge içerik istatistikleri yüklenemedi.',
+  empty_response: 'API boş yanıt döndü; vekil veya backend loglarını kontrol edin.',
   region_content_queue_401: 'Oturum süresi dolmuş olabilir; yeniden giriş yapın.',
   region_content_queue_403: 'Kuyruğa alma için yetkiniz yok.',
   region_content_process_401: 'Oturum süresi dolmuş olabilir; yeniden giriş yapın.',
@@ -265,6 +272,12 @@ function looksLikeApiCode(s: string): boolean {
 export function formatManageApiError(raw: string): string {
   const key = raw.trim()
   if (!key) return 'Bilinmeyen hata.'
+  if (key.startsWith('invalid_json_response_')) {
+    return 'Sunucu geçersiz veya bozuk JSON döndü. API kök adresi, nginx ve travel-api güncellemesini kontrol edin.'
+  }
+  if (key.startsWith('not_found_covers_invalid_')) {
+    return 'Kapak bulunamayanlar listesi beklenmeyen formatta döndü; travel-api güncel mi kontrol edin.'
+  }
   const mapped = TR_BY_CODE[key]
   if (mapped) return mapped
   if (key.startsWith('deepseek_http:')) {

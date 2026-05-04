@@ -316,25 +316,29 @@ export default function AdminAiSection() {
     }
   }
 
-  async function loadDistrictStats() {
+  async function loadDistrictStats(opts?: { clearErrOnSuccess?: boolean }) {
     const token = getStoredAuthToken()
     if (!token) return
     try {
       const s = await getDistrictIdeasStats(token)
       setDistrictStats(s)
-    } catch {
-      // sessizce geç
+      if (opts?.clearErrOnSuccess) setDistrictErr(null)
+    } catch (e) {
+      setDistrictStats(null)
+      setDistrictErr(formatManageApiCatch(e, 'district_stats_failed'))
     }
   }
 
-  async function loadRegionContentStats() {
+  async function loadRegionContentStats(opts?: { clearErrOnSuccess?: boolean }) {
     const token = getStoredAuthToken()
     if (!token) return
     try {
       const s = await getRegionContentStats(token)
       setRegionContentStats(s)
-    } catch {
-      // sessizce geç
+      if (opts?.clearErrOnSuccess) setRegionContentErr(null)
+    } catch (e) {
+      setRegionContentStats(null)
+      setRegionContentErr(formatManageApiCatch(e, 'region_content_stats_failed'))
     }
   }
 
@@ -345,10 +349,16 @@ export default function AdminAiSection() {
     setRegionContentLog([])
     try {
       const r = await queueAllRegionContent(token, postsPerRegion)
-      setRegionContentLog((l) => [
-        ...l,
-        `${r.queued} bölge kuyruğa alındı (${r.posts_per_region} blog/bölge).`,
-      ])
+      const q = r.queued
+      const ppr = r.posts_per_region
+      if (q === 0) {
+        setRegionContentLog((l) => [
+          ...l,
+          'Kuyruğa eklenecek bölge yok (tüm uygun kayıtlar zaten işlemde veya kriterler karşılanıyor).',
+        ])
+      } else {
+        setRegionContentLog((l) => [...l, `${q} bölge kuyruğa alındı (${ppr} blog/bölge).`])
+      }
       await loadRegionContentStats()
     } catch (e) {
       setRegionContentErr(formatManageApiCatch(e, 'region_content_queue_failed'))
@@ -421,7 +431,12 @@ export default function AdminAiSection() {
     setPlaceBlogsLog([])
     try {
       const r = await queueAllPlaceBlogs(token, postsPerRegion)
-      const msg = `${r.queued} favori mekan blog işi kuyruğa alındı (${r.posts_per_location} blog/lokasyon).`
+      const q = r.queued
+      const ppl = r.posts_per_location
+      const msg =
+        q === 0
+          ? 'Kuyruğa eklenecek mekan blog işi yok (aday lokasyonda blog var veya batch bekliyor).'
+          : `${q} favori mekan blog işi kuyruğa alındı (${ppl} blog/lokasyon).`
       setPlaceBlogsLog((l) => [...l, msg])
       appendOpsLog(msg)
       await loadRegionContentStats()
@@ -1149,7 +1164,7 @@ export default function AdminAiSection() {
           )}
           <button
             type="button"
-            onClick={() => void loadDistrictStats()}
+            onClick={() => void loadDistrictStats({ clearErrOnSuccess: true })}
             className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
           >
             <RefreshCw className="h-4 w-4" />
@@ -1312,7 +1327,7 @@ export default function AdminAiSection() {
           )}
           <button
             type="button"
-            onClick={() => void loadRegionContentStats()}
+            onClick={() => void loadRegionContentStats({ clearErrOnSuccess: true })}
             className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300"
           >
             <RefreshCw className="h-4 w-4" />

@@ -36,6 +36,21 @@ async function json<T>(res: Response): Promise<T> {
   }
 }
 
+function coerceInt(v: unknown, fallback = 0): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v)
+  const n = Number.parseInt(String(v ?? '').trim(), 10)
+  return Number.isFinite(n) ? n : fallback
+}
+
+function stringRecordInts(raw: unknown): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    out[k] = coerceInt(v)
+  }
+  return out
+}
+
 /** G2.1 — sepet oluşturulurken TCMB (currency_rates) anlık kopyası */
 export type FxLockSnapshot = {
   policy: string
@@ -9393,7 +9408,12 @@ export async function getDistrictIdeasStats(token: string): Promise<DistrictIdea
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`district_ideas_stats_${res.status}`)
-  return res.json() as Promise<DistrictIdeasStats>
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    total_districts: coerceInt(raw.total_districts),
+    districts_with_content: coerceInt(raw.districts_with_content),
+    jobs: stringRecordInts(raw.jobs),
+  }
 }
 
 export async function queueAllDistrictIdeas(
@@ -9406,20 +9426,13 @@ export async function queueAllDistrictIdeas(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`district_ideas_queue_${res.status}`)
-  const text = await res.text()
-  const raw = (text ? (parseLenientJson(text) as Record<string, unknown>) : null) ?? {}
-  const queuedRaw = raw.queued
-  const totalRaw = raw.total_found
-  const queued =
-    typeof queuedRaw === 'number' && Number.isFinite(queuedRaw)
-      ? queuedRaw
-      : Number.parseInt(String(queuedRaw ?? '0'), 10) || 0
-  const total_found =
-    typeof totalRaw === 'number' && Number.isFinite(totalRaw)
-      ? totalRaw
-      : Number.parseInt(String(totalRaw ?? '0'), 10) || 0
+  const raw = await json<Record<string, unknown>>(res)
   const message = typeof raw.message === 'string' ? raw.message.trim() : undefined
-  return { queued, total_found, message }
+  return {
+    queued: coerceInt(raw.queued),
+    total_found: coerceInt(raw.total_found),
+    message,
+  }
 }
 
 export interface DistrictIdeasProcessResult {
@@ -9443,7 +9456,7 @@ export async function processNextDistrictIdea(
     ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
   })
   if (!res.ok) throw new Error(`district_ideas_process_${res.status}`)
-  return res.json() as Promise<DistrictIdeasProcessResult>
+  return json<DistrictIdeasProcessResult>(res)
 }
 
 // ---------------------------------------------------------------------------
@@ -9490,7 +9503,16 @@ export async function getRegionContentStats(token: string): Promise<RegionConten
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_stats'))
-  return res.json() as Promise<RegionContentStats>
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    total_regions: coerceInt(raw.total_regions),
+    regions_with_description: coerceInt(raw.regions_with_description),
+    generated_blog_posts: coerceInt(raw.generated_blog_posts),
+    place_blog_candidates: coerceInt(raw.place_blog_candidates),
+    generated_place_blog_posts: coerceInt(raw.generated_place_blog_posts),
+    batches: stringRecordInts(raw.batches),
+    place_blog_batches: stringRecordInts(raw.place_blog_batches),
+  }
 }
 
 export async function queueAllRegionContent(
@@ -9505,7 +9527,11 @@ export async function queueAllRegionContent(
     body: JSON.stringify({ posts_per_region: postsPerRegion }),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_queue'))
-  return res.json() as Promise<{ queued: number; posts_per_region: number }>
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    queued: coerceInt(raw.queued),
+    posts_per_region: coerceInt(raw.posts_per_region, 1),
+  }
 }
 
 export interface RegionContentProcessResult {
@@ -9533,7 +9559,7 @@ export async function processNextRegionContent(
     ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'region_content_process'))
-  return res.json() as Promise<RegionContentProcessResult>
+  return json<RegionContentProcessResult>(res)
 }
 
 export async function queueAllPlaceBlogs(
@@ -9548,7 +9574,11 @@ export async function queueAllPlaceBlogs(
     body: JSON.stringify({ posts_per_region: postsPerLocation }),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'place_blogs_queue'))
-  return res.json() as Promise<{ queued: number; posts_per_location: number }>
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    queued: coerceInt(raw.queued),
+    posts_per_location: coerceInt(raw.posts_per_location, 1),
+  }
 }
 
 export interface PlaceBlogProcessResult {
@@ -9575,7 +9605,7 @@ export async function processNextPlaceBlog(
     ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
   })
   if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'place_blogs_process'))
-  return res.json() as Promise<PlaceBlogProcessResult>
+  return json<PlaceBlogProcessResult>(res)
 }
 
 export interface NextEmptyDistrict {
@@ -9597,7 +9627,7 @@ export async function getNextEmptyDistrict(token: string): Promise<NextEmptyDist
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`next_empty_district_${res.status}`)
-  return res.json() as Promise<NextEmptyDistrict>
+  return json<NextEmptyDistrict>(res)
 }
 
 export async function saveDistrictPlaces(
@@ -9701,7 +9731,7 @@ export async function getNextNoCoverDistrict(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`next_no_cover_${res.status}`)
-  return res.json()
+  return json<{ done: true } | { done: false; location_page_id: string; slug_path: string; region_type: string; location_name: string; parent_name: string }>(res)
 }
 
 export interface CoverStats {
@@ -9726,7 +9756,13 @@ export async function getCoverStats(token: string): Promise<CoverStats> {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`cover_stats_${res.status}`)
-  return res.json()
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    total: coerceInt(raw.total),
+    has_cover: coerceInt(raw.has_cover),
+    not_found: coerceInt(raw.not_found),
+    empty: coerceInt(raw.empty),
+  }
 }
 
 export async function getNotFoundCovers(token: string): Promise<NotFoundCoverItem[]> {
@@ -9736,7 +9772,9 @@ export async function getNotFoundCovers(token: string): Promise<NotFoundCoverIte
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`not_found_covers_${res.status}`)
-  return res.json()
+  const data = await json<unknown>(res)
+  if (!Array.isArray(data)) throw new Error(`not_found_covers_invalid_${res.status}`)
+  return data as NotFoundCoverItem[]
 }
 
 /** İlçe kapak resmini kaydeder. */
@@ -9763,7 +9801,8 @@ export async function resetNotFoundCovers(token: string): Promise<{ reset_count:
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`reset_not_found_${res.status}`)
-  return res.json() as Promise<{ reset_count: number }>
+  const raw = await json<Record<string, unknown>>(res)
+  return { reset_count: coerceInt(raw.reset_count) }
 }
 
 // ─── Listing nearby POIs ──────────────────────────────────────────────────────
