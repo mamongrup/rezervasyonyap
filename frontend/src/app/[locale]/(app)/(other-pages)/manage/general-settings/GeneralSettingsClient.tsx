@@ -504,17 +504,33 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
           module_timeouts_sec[m.profileCode] = clampTimeoutSec(n)
         }
       }
-      const rt = Number.parseInt(requestTimeoutSec, 10)
+      const rtTrim = String(requestTimeoutSec).trim()
+      const rtParsed =
+        rtTrim === ''
+          ? requestTimeoutSecFromAiJson(aiRest)
+          : (() => {
+              const n = Number.parseInt(rtTrim, 10)
+              return Number.isFinite(n) && n > 0 ? clampTimeoutSec(n) : requestTimeoutSecFromAiJson(aiRest)
+            })()
       const next = {
         ...aiRest,
         deepseek_api_key: deepseekApiKey.trim(),
         deepseek_model: deepseekModel.trim() || 'deepseek-chat',
         deepseek_api_url: deepseekApiUrl.trim() || 'https://api.deepseek.com/v1/chat/completions',
-        request_timeout_sec:
-          Number.isFinite(rt) && rt > 0 ? clampTimeoutSec(rt) : DEFAULT_AI_TIMEOUT_SEC,
+        request_timeout_sec: rtParsed,
         module_timeouts_sec,
       }
       await upsertSiteSetting(token, { key: 'ai', value_json: JSON.stringify(next) })
+      setAiRest(next as Record<string, unknown>)
+      setRequestTimeoutSec(String(rtParsed))
+      setModuleTimeoutsSec(() => {
+        const o: Record<string, string> = {}
+        for (const m of AI_PROFILE_MODULES) {
+          const v = module_timeouts_sec[m.profileCode]
+          o[m.profileCode] = typeof v === 'number' && v > 0 ? String(v) : String(rtParsed)
+        }
+        return o
+      })
       setStatus({ kind: 'ok', text: 'Yapay zeka ayarları kaydedildi.' })
       await load()
     } catch (e) {
