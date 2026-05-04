@@ -4,6 +4,7 @@ import {
   AI_PROFILE_MODULES,
   clampTimeoutSec,
   DEFAULT_AI_TIMEOUT_SEC,
+  MAX_AI_TIMEOUT_SEC,
 } from '@/lib/ai-upstream-timeouts'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -182,7 +183,7 @@ export default function AiManageHub() {
             <Input
               type="number"
               min={5}
-              max={3600}
+              max={MAX_AI_TIMEOUT_SEC}
               className="mt-1 w-28 font-mono text-sm"
               value={requestTimeoutSec}
               onChange={(e) => setRequestTimeoutSec(e.target.value)}
@@ -216,7 +217,7 @@ export default function AiManageHub() {
                 <Input
                   type="number"
                   min={5}
-                  max={3600}
+                  max={MAX_AI_TIMEOUT_SEC}
                   className="mt-1 font-mono text-sm"
                   value={moduleTimeoutsSec[m.profileCode] ?? String(DEFAULT_AI_TIMEOUT_SEC)}
                   onChange={(e) =>

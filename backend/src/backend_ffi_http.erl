@@ -1,5 +1,5 @@
 -module(backend_ffi_http).
--export([post_urlencoded/2, get_url/1, post_json/3, parse_tcmb_xml/1]).
+-export([post_urlencoded/2, get_url/1, post_json/3, post_json_with_timeout/4, parse_tcmb_xml/1]).
 
 post_urlencoded(Url, Body) when is_binary(Url), is_binary(Body) ->
   {ok, _} = application:ensure_all_started(inets),
@@ -22,8 +22,21 @@ post_urlencoded(Url, Body) when is_binary(Url), is_binary(Body) ->
 
 %% Authorization: Bearer … veya boş (webhook için).
 post_json(Url, Body, AuthHeader) when is_binary(Url), is_binary(Body), is_binary(AuthHeader) ->
+  post_json_with_timeout(Url, Body, AuthHeader, 180000).
+
+%% TimeoutMs: toplam istek süresi (ms). Panel site_settings.ai ile ayarlanabilir (max 21600 sn).
+post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
+  when is_binary(Url), is_binary(Body), is_binary(AuthHeader), is_integer(TimeoutMs) ->
   {ok, _} = application:ensure_all_started(inets),
   {ok, _} = application:ensure_all_started(ssl),
+  T = case TimeoutMs < 5000 of
+    true -> 5000;
+    false ->
+      case TimeoutMs > 21600000 of
+        true -> 21600000;
+        false -> TimeoutMs
+      end
+  end,
   UrlStr = binary_to_list(Url),
   BodyStr = binary_to_list(Body),
   Headers =
@@ -32,10 +45,9 @@ post_json(Url, Body, AuthHeader) when is_binary(Url), is_binary(Body), is_binary
       A -> [{"Authorization", binary_to_list(A)}]
     end,
   Request = {UrlStr, Headers, "application/json; charset=UTF-8", BodyStr},
-  %% Uzun gövde (AI chat completion) yanıtları 25 sn'yi aşabilir; DeepSeek vb.
   HttpOptions = [
-    {connect_timeout, timer:seconds(20)},
-    {timeout, timer:seconds(180)},
+    {connect_timeout, 20000},
+    {timeout, T},
     {ssl, [{verify, verify_none}]}
   ],
   Options = [],

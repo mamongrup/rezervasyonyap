@@ -4,10 +4,17 @@
 //// Değer yoksa DEEPSEEK_API_KEY / DEEPSEEK_MODEL / DEEPSEEK_API_URL env'e bakar.
 
 import envoy
+import gleam/dict
 import gleam/dynamic/decode
 import gleam/json
 import gleam/string
 import pog
+
+/// Panel ile uyumlu genel varsayılan; kayıt yoksa kullanılır.
+const default_timeout_sec: Int = 3600
+
+/// httpc üst sınırı ile aynı (6 saat); daha uzun değerler kırpılır.
+const max_timeout_sec: Int = 21_600
 
 pub type AiConfig {
   AiConfig(
@@ -15,6 +22,62 @@ pub type AiConfig {
     deepseek_model: String,
     deepseek_api_url: String,
   )
+}
+
+/// Panel / site_settings.ai ile uyumlu: 5–21600 sn → ms (DeepSeek upstream).
+/// Kaynak tek: `site_settings.key = ai`; ortam değişkeni ile geçersiz kılınmaz.
+pub fn profile_upstream_timeout_ms(db: pog.Connection, profile_code: String) -> Int {
+  let pc = string.trim(profile_code)
+  case fetch_raw(db) {
+    "" -> default_timeout_sec * 1000
+    raw ->
+      case parse_ai_json_timeouts_ms(raw, pc) {
+        Ok(ms) -> ms
+        Error(_) -> default_timeout_sec * 1000
+      }
+  }
+}
+
+fn clamp_sec_for_upstream(sec: Int) -> Int {
+  case sec < 5 {
+    True -> 5
+    False ->
+      case sec > max_timeout_sec {
+        True -> max_timeout_sec
+        False -> sec
+      }
+  }
+}
+
+fn clamp_sec_to_ms(sec: Int) -> Int {
+  clamp_sec_for_upstream(sec) * 1000
+}
+
+fn parse_ai_json_timeouts_ms(raw: String, profile_code: String) -> Result(Int, Nil) {
+  let decoder =
+    decode.optional_field(
+      "request_timeout_sec",
+      default_timeout_sec,
+      decode.int,
+      fn(def_sec) {
+        decode.optional_field(
+          "module_timeouts_sec",
+          dict.new(),
+          decode.dict(decode.string, decode.int),
+          fn(mods) {
+            let sec = case dict.get(mods, profile_code) {
+              Ok(s) -> s
+              Error(_) -> def_sec
+            }
+            decode.success(clamp_sec_to_ms(sec))
+          },
+        )
+      },
+    )
+  case json.parse(raw, decoder) {
+    Ok(ms) -> Ok(ms)
+    Error(_) -> Error(Nil)
+  }
 }
 
 fn env_or(key: String, default: String) -> String {

@@ -22,7 +22,12 @@ import {
   type CurrencyRow,
   type ProductCategoryRow,
 } from '@/lib/travel-api'
-import { AI_PROFILE_MODULES, clampTimeoutSec } from '@/lib/ai-upstream-timeouts'
+import {
+  AI_PROFILE_MODULES,
+  clampTimeoutSec,
+  DEFAULT_AI_TIMEOUT_SEC,
+  MAX_AI_TIMEOUT_SEC,
+} from '@/lib/ai-upstream-timeouts'
 import {
   DEFAULT_HOME_PAGE_LINKS,
   type HomePageLinkItem,
@@ -403,7 +408,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             setRequestTimeoutSec(
               typeof obj.request_timeout_sec === 'number' && obj.request_timeout_sec > 0
                 ? String(clampTimeoutSec(obj.request_timeout_sec))
-                : '300',
+                : String(DEFAULT_AI_TIMEOUT_SEC),
             )
             setModuleTimeoutsSec((prev) => {
               const next = { ...prev }
@@ -508,7 +513,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         deepseek_api_key: deepseekApiKey.trim(),
         deepseek_model: deepseekModel.trim() || 'deepseek-chat',
         deepseek_api_url: deepseekApiUrl.trim() || 'https://api.deepseek.com/v1/chat/completions',
-        request_timeout_sec: Number.isFinite(rt) && rt > 0 ? clampTimeoutSec(rt) : 300,
+        request_timeout_sec:
+          Number.isFinite(rt) && rt > 0 ? clampTimeoutSec(rt) : DEFAULT_AI_TIMEOUT_SEC,
         module_timeouts_sec,
       }
       await upsertSiteSetting(token, { key: 'ai', value_json: JSON.stringify(next) })
@@ -1522,15 +1528,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 <Input
                   type="number"
                   min={5}
-                  max={3600}
+                  max={MAX_AI_TIMEOUT_SEC}
                   className="mt-1 max-w-[12rem] font-mono"
                   value={requestTimeoutSec}
                   onChange={(e) => setRequestTimeoutSec(e.target.value)}
                 />
                 <p className="mt-1 text-xs text-neutral-400">
-                  Modül bazlı süre tanımlı değilse bu değer kullanılır (varsayılan 300 = 5 dk). Üretimde{' '}
-                  <code className="font-mono text-[11px]">AI_UPSTREAM_TIMEOUT_SEC</code> tanımlıysa tümünü geçersiz
-                  kılar.
+                  Modül bazlı süre yoksa bu değer kullanılır. Tüm yapay zeka upstream çağrıları bu kayıtla sınırlanır
+                  (5–{MAX_AI_TIMEOUT_SEC} sn).
                 </p>
               </Field>
             </div>
@@ -1547,9 +1552,9 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     <Input
                       type="number"
                       min={5}
-                      max={3600}
+                      max={MAX_AI_TIMEOUT_SEC}
                       className="mt-1 font-mono text-sm"
-                      value={moduleTimeoutsSec[m.profileCode] ?? '300'}
+                      value={moduleTimeoutsSec[m.profileCode] ?? String(DEFAULT_AI_TIMEOUT_SEC)}
                       onChange={(e) =>
                         setModuleTimeoutsSec((prev) => ({
                           ...prev,

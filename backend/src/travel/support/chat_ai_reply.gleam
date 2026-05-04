@@ -125,11 +125,17 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                               #(string.lowercase(string.trim(r)), b)
                             })
                           let cfg = ai_config.load(ctx.db)
+                          let timeout_ms =
+                            ai_config.profile_upstream_timeout_ms(
+                              ctx.db,
+                              "chat_sales",
+                            )
                           case
                             deepseek_chat.chat_completion_with_config(
                               cfg,
                               sys,
                               pairs,
+                              timeout_ms,
                             )
                           {
                             Ok(reply_text) -> insert_assistant(ctx, sid, reply_text)

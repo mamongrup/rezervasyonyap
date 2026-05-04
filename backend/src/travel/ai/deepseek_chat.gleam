@@ -91,10 +91,12 @@ pub fn chat_completion(
 }
 
 /// AiConfig ile chat completion — DB'den yüklenen key/model/url kullanır.
+/// `timeout_ms`: panel `site_settings.ai` (`request_timeout_sec` / `module_timeouts_sec`).
 pub fn chat_completion_with_config(
   cfg: AiConfig,
   system_prompt: String,
   transcript: List(#(String, String)),
+  timeout_ms: Int,
 ) -> Result(String, String) {
   case string.trim(cfg.deepseek_api_key) == "" {
     True -> Error("deepseek_api_key_missing")
@@ -112,7 +114,12 @@ pub fn chat_completion_with_config(
         ])
         |> json.to_string
       let auth = "Bearer " <> cfg.deepseek_api_key
-      case http_client.post_json(cfg.deepseek_api_url, payload, auth) {
+      case http_client.post_json_with_timeout(
+        cfg.deepseek_api_url,
+        payload,
+        auth,
+        timeout_ms,
+      ) {
         Ok(raw) ->
           case json.parse(raw, choices_first_content_decoder()) {
             Ok(text) ->
@@ -134,6 +141,7 @@ pub fn chat_completion_single_with_config(
   system_prompt: String,
   user_content: String,
   temperature: Float,
+  timeout_ms: Int,
 ) -> Result(String, String) {
   case string.trim(cfg.deepseek_api_key) == "" {
     True -> Error("deepseek_api_key_missing")
@@ -151,7 +159,12 @@ pub fn chat_completion_single_with_config(
         ])
         |> json.to_string
       let auth = "Bearer " <> cfg.deepseek_api_key
-      case http_client.post_json(cfg.deepseek_api_url, payload, auth) {
+      case http_client.post_json_with_timeout(
+        cfg.deepseek_api_url,
+        payload,
+        auth,
+        timeout_ms,
+      ) {
         Ok(raw) ->
           case json.parse(raw, choices_first_content_decoder()) {
             Ok(text) ->

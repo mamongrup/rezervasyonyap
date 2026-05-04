@@ -1,14 +1,18 @@
 /**
- * Yapay zeka HTTP upstream süreleri — site_settings `ai` JSON + isteğe bağlı env.
- * `ai-translate` ve paneller aynı anahtarları kullanır.
+ * Yapay zeka HTTP upstream süreleri — yalnızca site_settings `ai` JSON (`request_timeout_sec`, `module_timeouts_sec`).
+ * Next.js `/api/ai-translate` ve paneller aynı anahtarları kullanır.
  */
 
-export const DEFAULT_AI_TIMEOUT_SEC = 300
+/** Genel süre alanı boş / geçersizse (panel varsayılanıyla uyumlu). */
+export const DEFAULT_AI_TIMEOUT_SEC = 3600
 
-/** Saniye: güvenli aralık 5 sn – 1 saat */
+/** Üst sınır (sn): backend httpc + Gleam ile aynı; uzun model yanıtlarında erken kesilmesin. */
+export const MAX_AI_TIMEOUT_SEC = 21_600
+
+/** Saniye: güvenli aralık 5 sn – 6 saat */
 export function clampTimeoutSec(raw: number): number {
   if (!Number.isFinite(raw) || raw < 5) return 5
-  if (raw > 3600) return 3600
+  if (raw > MAX_AI_TIMEOUT_SEC) return MAX_AI_TIMEOUT_SEC
   return Math.round(raw)
 }
 
@@ -47,29 +51,16 @@ export function timeoutMsForTranslator(settings: Record<string, unknown> | null 
   return timeoutMsForProfile(settings, PROFILE_TRANSLATOR)
 }
 
-/**
- * Ortam: `AI_UPSTREAM_TIMEOUT_SEC` tanımlıysa panel değerlerini geçersiz kılar (üretim sabitlemesi).
- */
-export function timeoutMsFromEnvOverride(): number | null {
-  const raw = process.env.AI_UPSTREAM_TIMEOUT_SEC?.trim()
-  if (!raw) return null
-  const n = Number.parseInt(raw, 10)
-  if (!Number.isFinite(n) || n < 5) return null
-  return secToMs(n)
-}
-
+/** Geriye dönük: `timeoutMsForProfile` ile aynı. */
 export function resolveUpstreamTimeoutMs(
   settings: Record<string, unknown> | null | undefined,
   profileCode: string,
 ): number {
-  const env = timeoutMsFromEnvOverride()
-  if (env !== null) return env
   return timeoutMsForProfile(settings, profileCode)
 }
 
+/** Geriye dönük: `timeoutMsForTranslator` ile aynı. */
 export function resolveTranslatorTimeoutMs(settings: Record<string, unknown> | null | undefined): number {
-  const env = timeoutMsFromEnvOverride()
-  if (env !== null) return env
   return timeoutMsForTranslator(settings)
 }
 

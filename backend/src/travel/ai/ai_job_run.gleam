@@ -106,12 +106,18 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
                             "The following JSON is the queued job input. Follow the profile system prompt; prefer structured output when possible. If the JSON includes a top-level string field `locale` (tr, en, de, ru, zh, fr), write the entire response in that language; otherwise use Turkish.\n\n"
                             <> input_json_text
                           let cfg = ai_config.load(ctx.db)
+                          let timeout_ms =
+                            ai_config.profile_upstream_timeout_ms(
+                              ctx.db,
+                              profile_code,
+                            )
                           case
                             deepseek_chat.chat_completion_single_with_config(
                               cfg,
                               sys_prompt,
                               user_msg,
                               temp,
+                              timeout_ms,
                             )
                           {
                             Ok(reply) -> {
