@@ -6,6 +6,18 @@
 /** `request_timeout_sec` / JSON yoksa kullanılan saniye (panel ilk kurulum). */
 export const DEFAULT_AI_TIMEOUT_SEC = 3600
 
+/** Ayarlar ekranı: DB `ai` JSON içinde süre sayı veya dizgi olabilir (PostgreSQL / eski kayıt). */
+export function requestTimeoutSecFromAiJson(obj: Record<string, unknown> | null | undefined): number {
+  if (!obj) return DEFAULT_AI_TIMEOUT_SEC
+  const v = obj.request_timeout_sec
+  if (typeof v === 'number' && Number.isFinite(v) && v > 0) return clampTimeoutSec(v)
+  if (typeof v === 'string') {
+    const n = Number.parseFloat(v.trim())
+    if (Number.isFinite(n) && n > 0) return clampTimeoutSec(n)
+  }
+  return DEFAULT_AI_TIMEOUT_SEC
+}
+
 /** Üst sınır (sn): backend httpc + Gleam ile aynı; uzun model yanıtlarında erken kesilmesin. */
 export const MAX_AI_TIMEOUT_SEC = 10_000
 
@@ -55,13 +67,7 @@ export function timeoutMsForProfile(
   settings: Record<string, unknown> | null | undefined,
   profileCode: string,
 ): number {
-  let defSec = DEFAULT_AI_TIMEOUT_SEC
-  const rt = settings?.request_timeout_sec
-  if (typeof rt === 'number' && rt > 0) defSec = clampTimeoutSec(rt)
-  else if (typeof rt === 'string') {
-    const n = Number.parseFloat(rt.trim())
-    if (Number.isFinite(n) && n > 0) defSec = clampTimeoutSec(n)
-  }
+  const defSec = requestTimeoutSecFromAiJson(settings ?? undefined)
 
   const mod = settings?.module_timeouts_sec
   if (mod && typeof mod === 'object' && mod !== null) {

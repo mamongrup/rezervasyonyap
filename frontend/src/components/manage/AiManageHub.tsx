@@ -5,6 +5,7 @@ import {
   clampTimeoutSec,
   DEFAULT_AI_TIMEOUT_SEC,
   MAX_AI_TIMEOUT_SEC,
+  requestTimeoutSecFromAiJson,
 } from '@/lib/ai-upstream-timeouts'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
@@ -60,11 +61,7 @@ export default function AiManageHub() {
       if (row?.value_json) {
         const obj = JSON.parse(row.value_json) as Record<string, unknown>
         setAiRest(obj)
-        setRequestTimeoutSec(
-          typeof obj.request_timeout_sec === 'number' && obj.request_timeout_sec > 0
-            ? String(clampTimeoutSec(obj.request_timeout_sec))
-            : String(DEFAULT_AI_TIMEOUT_SEC),
-        )
+        setRequestTimeoutSec(String(requestTimeoutSecFromAiJson(obj)))
         setModuleTimeoutsSec((prev) => {
           const next = { ...prev }
           const mod = obj.module_timeouts_sec

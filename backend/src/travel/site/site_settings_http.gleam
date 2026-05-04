@@ -93,7 +93,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
     "platform" ->
       case
         pog.query(
-          "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id is null and ($1::text is null or key = $1) order by key limit 500",
+          "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id is null and ($1::text is null or key = $1) order by key asc, id desc limit 500",
         )
         |> pog.parameter(key_filter)
         |> pog.returning(setting_row())
@@ -108,7 +108,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
         False ->
           case
             pog.query(
-              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key limit 500",
+              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key asc, id desc limit 500",
             )
             |> pog.parameter(pog.text(org_q))
             |> pog.parameter(key_filter)
@@ -124,7 +124,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
         True ->
           case
             pog.query(
-              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where ($1::text is null or key = $1) order by key limit 500",
+              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where ($1::text is null or key = $1) order by key asc, id desc limit 500",
             )
             |> pog.parameter(key_filter)
             |> pog.returning(setting_row())
@@ -136,7 +136,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
         False ->
           case
             pog.query(
-              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key limit 500",
+              "select id::text, coalesce(organization_id::text,''), key, value_json::text from site_settings where organization_id = $1::uuid and ($2::text is null or key = $2) order by key asc, id desc limit 500",
             )
             |> pog.parameter(pog.text(org_q))
             |> pog.parameter(key_filter)
@@ -147,7 +147,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
             Ok(ret) -> settings_response(ret.rows)
           }
       }
-    }
+  }
     }
   }
 }
