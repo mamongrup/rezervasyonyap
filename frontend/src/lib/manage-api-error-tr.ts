@@ -6,6 +6,8 @@
 
 const TR_BY_CODE: Record<string, string> = {
   // Kimlik / yetki
+  NEXT_PUBLIC_API_URL_missing:
+    'Tarayıcı için API adresi yok. Üretimde /etc/rezervasyonyap/frontend.env dosyasına NEXT_PUBLIC_API_URL=https://alanadiniz.com ekleyip yeniden build alın. API farklı bir sunucudaysa o adresi yazın.',
   organization_id_required: 'Kurum kimliği zorunludur. Kurum UUID alanını doldurup kaydedin.',
   organization_id_required_for_tenant_scope:
     'Bu işlem için kiracı kapsamında kurum kimliği gerekiyor.',
