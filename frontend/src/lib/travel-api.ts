@@ -9406,7 +9406,20 @@ export async function queueAllDistrictIdeas(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`district_ideas_queue_${res.status}`)
-  return res.json() as Promise<{ queued: number; total_found: number; message?: string }>
+  const text = await res.text()
+  const raw = (text ? (parseLenientJson(text) as Record<string, unknown>) : null) ?? {}
+  const queuedRaw = raw.queued
+  const totalRaw = raw.total_found
+  const queued =
+    typeof queuedRaw === 'number' && Number.isFinite(queuedRaw)
+      ? queuedRaw
+      : Number.parseInt(String(queuedRaw ?? '0'), 10) || 0
+  const total_found =
+    typeof totalRaw === 'number' && Number.isFinite(totalRaw)
+      ? totalRaw
+      : Number.parseInt(String(totalRaw ?? '0'), 10) || 0
+  const message = typeof raw.message === 'string' ? raw.message.trim() : undefined
+  return { queued, total_found, message }
 }
 
 export interface DistrictIdeasProcessResult {

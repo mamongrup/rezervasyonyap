@@ -474,14 +474,21 @@ export default function AdminAiSection() {
     setDistrictLog([])
     try {
       const r = await queueAllDistrictIdeas(token)
-      const total = r.total_found ?? 0
-      if (r.message === 'no_districts_need_content') {
+      const total = r.total_found
+      const queued = r.queued
+
+      if (r.message === 'no_districts_need_content' || (queued === 0 && total === 0)) {
         setDistrictLog((l) => [
           ...l,
-          `Kuyruğa alınacak ilçe yok (tüm ilçelerde gezi yeri listesi dolu veya zaten kuyrukta). Bulunan: ${total}.`,
+          'Kuyruğa eklenecek ilçe yok: `travel_ideas_json` boş olan ve henüz kuyrukta olmayan ilçe bulunamadı. İstatistikte tüm ilçelerde “içerik var” görünüyorsa bu normaldir; yeni ilçe veya boş kayıt ekledikten sonra tekrar deneyin.',
+        ])
+      } else if (queued === 0 && total > 0) {
+        setDistrictLog((l) => [
+          ...l,
+          `${total} uygun ilçe bulundu ancak hiçbiri kuyruğa yazılamadı. Sunucu güncel travel-api ve veritabanı izinlerini kontrol edin.`,
         ])
       } else {
-        setDistrictLog((l) => [...l, `${r.queued} ilçe kuyruğa alındı (toplam bulundu: ${total}).`])
+        setDistrictLog((l) => [...l, `${queued} ilçe kuyruğa alındı (bulunan uygun ilçe: ${total}).`])
       }
       await loadDistrictStats()
     } catch (e) {
