@@ -103,20 +103,13 @@ PY
 check_endpoints() {
   local auth_status hero_status
   auth_status="$(wait_http_status "$API_ORIGIN/api/v1/auth/me" 12 2)"
-  case "$auth_status" in
-    200)
-      ok "auth/me reachable ($auth_status)"
-      ;;
-    401)
-      ok "auth/me reachable ($auth_status)"
-      ;;
-    "")
-      fail "auth/me unreachable after retries ($API_ORIGIN/api/v1/auth/me)"
-      ;;
-    *)
-      fail "auth/me unexpected status: $auth_status ($API_ORIGIN/api/v1/auth/me)"
-      ;;
-  esac
+  if [[ -z "$auth_status" ]]; then
+    fail "auth/me unreachable after retries ($API_ORIGIN/api/v1/auth/me)"
+  elif [[ "$auth_status" == "200" ]] || [[ "$auth_status" == "401" ]]; then
+    ok "auth/me reachable: ${auth_status}"
+  else
+    fail "auth/me unexpected status: ${auth_status} ($API_ORIGIN/api/v1/auth/me)"
+  fi
 
   hero_status="$(wait_http_status "$WEB_ORIGIN/api/hero-tabs" 8 2)"
   [[ "$hero_status" == "200" ]] || fail "hero-tabs unexpected status: $hero_status ($WEB_ORIGIN/api/hero-tabs)"
