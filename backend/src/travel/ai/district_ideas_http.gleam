@@ -56,7 +56,7 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
       let jobs_sql =
         "select status, count(*)::int from ai_jobs where profile_code = 'district_travel_ideas' group by status"
       let has_ideas_sql =
-        "select count(*)::int from location_pages where region_type = 'district' and jsonb_array_length(travel_ideas_json) > 0"
+        "select count(*)::int from location_pages where region_type = 'district' and coalesce(jsonb_array_length(travel_ideas_json), 0) > 0"
 
       let int_col0 = {
         use n <- decode.field(0, decode.int)
@@ -136,7 +136,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
         join   regions   r  on r.id  = d.region_id
         join   countries co on co.id = r.country_id
         where  lp.region_type = 'district'
-          and  jsonb_array_length(lp.travel_ideas_json) = 0
+          and  coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
           and  lp.id::text not in (
                  select input_json->>'location_page_id'
                  from   ai_jobs
@@ -157,11 +157,16 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
           let districts = ret.rows
           let count = list.length(districts)
           case count {
-            0 ->
-              wisp.json_response(
-                "{\"queued\":0,\"message\":\"no_districts_need_content\"}",
-                200,
-              )
+            0 -> {
+              let body =
+                json.object([
+                  #("queued", json.int(0)),
+                  #("total_found", json.int(0)),
+                  #("message", json.string("no_districts_need_content")),
+                ])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
             _ -> {
               let enqueue_results =
                 list.map(districts, fn(d) {
@@ -404,7 +409,7 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
           left join regions   r  on r.id  = d.region_id
           left join countries co on co.id = r.country_id
           where  lp.region_type in ('district', 'destination')
-            and  jsonb_array_length(lp.travel_ideas_json) = 0
+            and  coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
             and  (
                    (lp.region_type = 'district' and d.center_lat is not null and d.center_lng is not null)
                    or

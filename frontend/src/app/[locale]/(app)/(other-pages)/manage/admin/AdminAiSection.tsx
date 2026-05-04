@@ -448,7 +448,15 @@ export default function AdminAiSection() {
     setDistrictLog([])
     try {
       const r = await queueAllDistrictIdeas(token)
-      setDistrictLog((l) => [...l, `${r.queued} ilçe kuyruğa alındı (toplam bulundu: ${r.total_found})`])
+      const total = r.total_found ?? 0
+      if (r.message === 'no_districts_need_content') {
+        setDistrictLog((l) => [
+          ...l,
+          `Kuyruğa alınacak ilçe yok (tüm ilçelerde gezi yeri listesi dolu veya zaten kuyrukta). Bulunan: ${total}.`,
+        ])
+      } else {
+        setDistrictLog((l) => [...l, `${r.queued} ilçe kuyruğa alındı (toplam bulundu: ${total}).`])
+      }
       await loadDistrictStats()
     } catch (e) {
       setDistrictErr(formatManageApiCatch(e, 'queue_failed'))

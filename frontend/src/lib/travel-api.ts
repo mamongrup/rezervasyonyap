@@ -11,6 +11,14 @@ import { parseLenientJson } from '@/lib/json-parse'
 
 const base = () => apiOriginForFetch()
 
+/** Admin uzun AI işleri — bölge / ilçe işleme; fetch üst sınırı panel MAX ile uyumlu */
+function initLongRunningAdminPost(): Pick<RequestInit, 'signal'> {
+  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+    return { signal: AbortSignal.timeout(MAX_AI_UPSTREAM_MS) }
+  }
+  return {}
+}
+
 async function json<T>(res: Response): Promise<T> {
   // Clone before reading: Next.js fetch deduplication may return the same
   // Response object to concurrent callers; cloning ensures each reads its own stream.
@@ -9383,7 +9391,9 @@ export async function getDistrictIdeasStats(token: string): Promise<DistrictIdea
   return res.json() as Promise<DistrictIdeasStats>
 }
 
-export async function queueAllDistrictIdeas(token: string): Promise<{ queued: number; total_found: number }> {
+export async function queueAllDistrictIdeas(
+  token: string,
+): Promise<{ queued: number; total_found: number; message?: string }> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
   const res = await fetch(`${b}/api/v1/ai/district-ideas/queue-all`, {
@@ -9391,7 +9401,7 @@ export async function queueAllDistrictIdeas(token: string): Promise<{ queued: nu
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`district_ideas_queue_${res.status}`)
-  return res.json() as Promise<{ queued: number; total_found: number }>
+  return res.json() as Promise<{ queued: number; total_found: number; message?: string }>
 }
 
 export interface DistrictIdeasProcessResult {
@@ -9409,6 +9419,7 @@ export async function processNextDistrictIdea(token: string): Promise<DistrictId
   const res = await fetch(`${b}/api/v1/ai/district-ideas/process-next`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
+    ...initLongRunningAdminPost(),
   })
   if (!res.ok) throw new Error(`district_ideas_process_${res.status}`)
   return res.json() as Promise<DistrictIdeasProcessResult>
@@ -9418,14 +9429,6 @@ export async function processNextDistrictIdea(token: string): Promise<DistrictId
 // Bölge tanıtım yazısı + bölge blog yazıları — toplu AI üretimi
 // ---------------------------------------------------------------------------
 
-function initLongRunningAdminPost(): Pick<RequestInit, 'signal'> {
-  if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
-    return { signal: AbortSignal.timeout(MAX_AI_UPSTREAM_MS) }
-  }
-  return {}
-}
-
-/** Sunucu `{"error":"..."}` döndüğünde HTTP statü yerine gerçek kodu ilet (hreflang / AI panel). */
 async function errorCodeFromJsonOrStatus(res: Response, fallbackPrefix: string): Promise<string> {
   let text = ''
   try {
