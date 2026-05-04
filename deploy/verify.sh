@@ -67,17 +67,18 @@ wait_http_status() {
 }
 
 check_next_static_chunk() {
-  local wd sample url status rel url_path
+  local wd sample url status rel url_path chunk_base
   wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
-  [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks — build or run wrong directory"
+  [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks - build or run wrong directory"
   sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' | head -1)"
   [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
-  url="$WEB_ORIGIN/_next/static/chunks/$(basename "$sample")"
+  chunk_base="$(basename "$sample")"
+  url="$WEB_ORIGIN/_next/static/chunks/$chunk_base"
   status="$(http_status "$url" || true)"
-  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status — check Apache or ModSecurity proxy"
-  ok "Next static chunk OK, HTTP 200, file $(basename "$sample")"
+  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status - check Apache or ModSecurity proxy"
+  ok "Next static chunk OK, HTTP 200, file ${chunk_base}"
 
-  # [locale] yolu — Plesk ModSecurity/Imunify bazen koseli parantez iceren URL'yi 500'e dusurur
+  # [locale] yolu - Plesk ModSecurity/Imunify bazen koseli parantez iceren URL'yi 500'e dusurur
   sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | head -1 || true)"
   if [[ -n "${sample:-}" ]]; then
     command -v python3 >/dev/null 2>&1 || {
@@ -95,7 +96,7 @@ print("/_next/static/" + enc, end="")
 PY
     )"
     status="$(http_status "$WEB_ORIGIN$url_path" || true)"
-    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status — WAF: whitelist /_next/static or disable rule"
+    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status - WAF: whitelist /_next/static or disable rule"
     ok "Next app layout chunk OK, HTTP 200"
   fi
 }
