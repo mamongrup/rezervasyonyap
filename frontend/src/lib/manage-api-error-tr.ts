@@ -168,6 +168,16 @@ const TR_BY_CODE: Record<string, string> = {
   region_content_job_output_failed: 'AI görev çıktısı okunamadı.',
   region_content_empty_ai_output: 'AI boş metin döndü; API anahtarı veya model yanıtını kontrol edin.',
   region_content_ai_failed: 'AI görevi başarısız (model, ağ veya kota). Ayarlar → Yapay zeka.',
+  deepseek_api_key_missing: 'DeepSeek API anahtarı yok. Ayarlar → Yapay zeka bölümünde anahtarı kaydedin veya sunucuda DEEPSEEK_API_KEY ortam değişkenini ayarlayın.',
+  deepseek_empty_content: 'AI yanıtı boş döndü. Model veya içerik filtresini kontrol edin.',
+  deepseek_json_parse_failed: 'AI yanıtı işlenemedi (beklenmeyen JSON). Bir süre sonra tekrar deneyin.',
+  profile_load_failed: 'AI profili veritabanından yüklenemedi.',
+  unknown_profile: 'Bu iş için AI profili tanımlı değil (migration / ai_feature_profiles).',
+  provider_inactive: 'AI sağlayıcı pasif. Veritabanında ai_providers tablosunda DeepSeek için is_active açılmalı.',
+  ai_provider_inactive_enable_in_ai_providers:
+    'AI sağlayıcı kapalı. ai_providers tablosunda Deepseek satırını etkinleştirin veya SQL modülü 227’yi çalıştırın.',
+  job_not_queued: 'AI işi zaten işlenmiş veya kilitli.',
+  ai_job_lock_failed: 'AI işi başlatılamadı (veritabanı).',
   region_content_unexpected_job_rows: 'AI iş kaydı beklenmedik.',
   region_content_description_update_failed: 'Bölge tanıtım metni kaydedilemedi.',
   region_content_blog_upsert_failed: 'Blog yazısı kaydedilemedi.',
@@ -255,6 +265,9 @@ export function formatManageApiError(raw: string): string {
   if (!key) return 'Bilinmeyen hata.'
   const mapped = TR_BY_CODE[key]
   if (mapped) return mapped
+  if (key.startsWith('deepseek_http:')) {
+    return `DeepSeek API hatası: ${key.slice(key.indexOf(':') + 1).trim()}`
+  }
   if (looksLikeApiCode(key)) {
     return `İşlem tamamlanamadı. Teknik kod: ${key}`
   }

@@ -355,6 +355,13 @@ fn load_location(ctx: Context, lp_id: String) -> Result(#(String, String, String
   }
 }
 
+fn ai_job_outcome_row() -> decode.Decoder(#(String, String, String)) {
+  use status <- decode.field(0, decode.string)
+  use err <- decode.field(1, decode.string)
+  use text <- decode.field(2, decode.string)
+  decode.success(#(status, err, text))
+}
+
 fn create_and_run_job(ctx: Context, profile_code: String, input_json: String) -> Result(String, String) {
   case
     pog.query("insert into ai_jobs (profile_code, input_json, status) values ($1, $2::jsonb, 'queued') returning id::text")
@@ -369,18 +376,32 @@ fn create_and_run_job(ctx: Context, profile_code: String, input_json: String) ->
         [job_id] -> {
           let _ = ai_job_run.run_ai_job(ctx, job_id)
           case
-            pog.query("select coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid and status = 'succeeded' limit 1")
+            pog.query(
+              "select status, coalesce(error,''), coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid limit 1",
+            )
             |> pog.parameter(pog.text(job_id))
-            |> pog.returning(row_dec.col0_string())
+            |> pog.returning(ai_job_outcome_row())
             |> pog.execute(ctx.db)
           {
             Error(_) -> Error("region_content_job_output_failed")
             Ok(out_ret) ->
               case out_ret.rows {
-                [text] ->
-                  case string.trim(text) == "" {
-                    True -> Error("region_content_empty_ai_output")
-                    False -> Ok(string.trim(text))
+                [#(status, err, text)] ->
+                  case status {
+                    "succeeded" ->
+                      case string.trim(text) == "" {
+                        True -> Error("region_content_empty_ai_output")
+                        False -> Ok(string.trim(text))
+                      }
+                    "failed" -> {
+                      let e = string.trim(err)
+                      case e == "" {
+                        True -> Error("region_content_ai_failed")
+                        False ->
+                          Error(string.slice(e, 0, 800))
+                      }
+                    }
+                    _ -> Error("region_content_ai_failed")
                   }
                 _ -> Error("region_content_ai_failed")
               }
