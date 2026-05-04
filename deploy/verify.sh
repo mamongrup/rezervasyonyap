@@ -87,13 +87,11 @@ check_next_static_chunk() {
     }
     _strip="${wd}/.next/static/"
     rel="${sample#${_strip}}"
+    # Heredoc nested in $() bazı bash sürümlerinde "syntax error near (" veriyor; -c kullan.
     url_path="$(
-PYTHON_REL="$rel" python3 <<'PY'
-import os, urllib.parse as up
-r = os.environ["PYTHON_REL"]
-print("/_next/static/" + "/".join(up.quote(p, safe="") for p in r.split("/")), end="")
-PY
-)"
+      export PYTHON_REL="$rel"
+      python3 -c 'import os,urllib.parse as up; r=os.environ["PYTHON_REL"]; print("/_next/static/" + "/".join(up.quote(p, safe="") for p in r.split("/")), end="")'
+    )"
     status="$(http_status "$WEB_ORIGIN$url_path" || true)"
     [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status - WAF: whitelist /_next/static or disable rule"
     ok "Next app layout chunk OK, HTTP 200"
