@@ -78,7 +78,7 @@ check_next_static_chunk() {
   [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status - check Apache or ModSecurity proxy"
   ok "Next static chunk OK, HTTP 200, file ${chunk_base}"
 
-  # [locale] yolu - Plesk ModSecurity/Imunify bazen koseli parantez iceren URL'yi 500'e dusurur
+  # [locale] yolu - Plesk ModSecurity/Imunify bazen koseli parantez iceren URL 500 donebilir
   sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | head -1 || true)"
   if [[ -n "${sample:-}" ]]; then
     command -v python3 >/dev/null 2>&1 || {
@@ -86,15 +86,7 @@ check_next_static_chunk() {
       return 0
     }
     rel="${sample#"$wd/.next/static/}"
-    url_path="$(
-      VERIFY_REL="$rel" python3 - <<'PY'
-import os, urllib.parse
-rel = os.environ["VERIFY_REL"]
-parts = rel.split("/")
-enc = "/".join(urllib.parse.quote(p, safe="") for p in parts)
-print("/_next/static/" + enc, end="")
-PY
-    )"
+    url_path="$(printf '%s\n' "$rel" | python3 -c "import sys,urllib.parse as up; r=sys.stdin.read().strip(); print('/_next/static/'+'/'.join(up.quote(p,safe='') for p in r.split('/')),end='')")"
     status="$(http_status "$WEB_ORIGIN$url_path" || true)"
     [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status - WAF: whitelist /_next/static or disable rule"
     ok "Next app layout chunk OK, HTTP 200"
