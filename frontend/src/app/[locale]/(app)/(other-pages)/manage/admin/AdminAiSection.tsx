@@ -1083,7 +1083,7 @@ export default function AdminAiSection() {
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
               Tüm ilçelere DeepSeek ile otomatik &ldquo;gezilesi yerler&rdquo; içeriği üretir. Önce kuyruğa al, sonra işlemi başlat. Süre:{' '}
               <a
-                href={`${vitrinPath('/manage/general-settings')}?tab=ai`}
+                href={`${vitrinPath('/manage/admin/settings')}?tab=ai`}
                 className="font-medium text-emerald-700 underline hover:no-underline dark:text-emerald-400"
               >
                 Ayarlar → Yapay zeka
@@ -1174,7 +1174,7 @@ export default function AdminAiSection() {
               <span className="mt-1 block text-xs text-neutral-400">
                 Süre tek kaynak:{' '}
                 <a
-                  href={`${vitrinPath('/manage/general-settings')}?tab=ai`}
+                  href={`${vitrinPath('/manage/admin/settings')}?tab=ai`}
                   className="font-medium text-violet-600 underline hover:no-underline dark:text-violet-400"
                 >
                   Ayarlar → Genel → Yapay zeka

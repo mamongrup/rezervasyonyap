@@ -11,6 +11,8 @@ import {
   createCurrency,
   getActivePaymentProvider,
   getSitePublicConfig,
+  listAiFeatureProfiles,
+  listAiProviders,
   listCurrencies,
   listProductCategories,
   listSiteSettings,
@@ -42,6 +44,8 @@ import TravelHomeCategoryOrderPanel from './TravelHomeCategoryOrderPanel'
 import { normalizeTravelCategoryHomeOrder } from '@/data/category-registry'
 import { ORDERED_PRODUCT_CATEGORY_CODES, categoryLabelTr } from '@/lib/catalog-category-ui'
 import ImageUpload from '@/components/editor/ImageUpload'
+import clsx from 'clsx'
+import { ArrowRight, Cpu, Layers, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -283,12 +287,45 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     return o
   })
   const [aiSaving, setAiSaving] = useState(false)
+  const [aiMetaLoading, setAiMetaLoading] = useState(false)
+  const [aiProvidersList, setAiProvidersList] = useState<
+    { code: string; display_name: string; is_active: boolean }[]
+  >([])
+  const [aiProfilesList, setAiProfilesList] = useState<{ code: string; temperature: string }[]>([])
 
   type TabId = (typeof SETTINGS_TABS)[number]['id']
   const validTabIds = SETTINGS_TABS.map((t) => t.id) as TabId[]
   const paramTab = searchParams?.get('tab') as TabId | null
   /** URL tab parametresi — ayrı state + useEffect ile senkronlamak yerine doğrudan türetilir (mount uyarılarını önler). */
   const activeTab: TabId = paramTab && validTabIds.includes(paramTab) ? paramTab : 'kimlik'
+
+  useEffect(() => {
+    if (activeTab !== 'ai') return
+    const token = getStoredAuthToken()
+    if (!token) return
+    let cancel = false
+    setAiMetaLoading(true)
+    void (async () => {
+      try {
+        const [p, f] = await Promise.all([listAiProviders(token), listAiFeatureProfiles(token)])
+        if (cancel) return
+        setAiProvidersList(
+          p.providers.map((x) => ({ code: x.code, display_name: x.display_name, is_active: x.is_active })),
+        )
+        setAiProfilesList(f.profiles.map((x) => ({ code: x.code, temperature: x.temperature })))
+      } catch {
+        if (!cancel) {
+          setAiProvidersList([])
+          setAiProfilesList([])
+        }
+      } finally {
+        if (!cancel) setAiMetaLoading(false)
+      }
+    })()
+    return () => {
+      cancel = true
+    }
+  }, [activeTab])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -1586,17 +1623,110 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               </ButtonPrimary>
             </div>
           </section>
-          <div className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
-            <h2 className="text-xl font-semibold">Yapay zeka</h2>
-            <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-              Sağlayıcılar, profiller ve iş kuyruğu kendi sayfasında yönetilir (okuma ağırlıklı).
+
+          <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
+            <h2 className="mb-1 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+              <Layers className="h-5 w-5" />
+              Modül çalışma sayfaları
+            </h2>
+            <p className="text-xs text-neutral-500 dark:text-neutral-400">
+              Sistem talimatı ve görevler bu sayfalardan yönetilir. Toplu pazarlama işleri için sağlayıcı / kuyruk
+              sayfasına geçin.
             </p>
-            <p className="mt-4 text-sm">
-              <a href={vitrinPath('/manage/admin/marketing/ai')} className="font-medium text-primary-600 underline dark:text-primary-400">
-                AI yönetim sayfasına git
+            <p className="mt-3 text-sm">
+              <a
+                href={vitrinPath('/manage/admin/marketing/ai')}
+                className="font-medium text-primary-600 underline dark:text-primary-400"
+              >
+                Sağlayıcılar & iş kuyruğu (pazarlama AI)
               </a>
             </p>
-          </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {AI_PROFILE_MODULES.map((m) => (
+                <Link
+                  key={m.profileCode}
+                  href={vitrinPath(m.path)}
+                  className="group flex flex-col rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-950/40"
+                >
+                  <span className="font-medium text-neutral-900 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
+                    {m.label}
+                  </span>
+                  <span className="mt-1 text-xs text-neutral-500">{m.desc}</span>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400">
+                    Aç <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-neutral-200 p-6 dark:border-neutral-700">
+            <h2 className="mb-3 text-base font-semibold text-neutral-900 dark:text-white">
+              Sağlayıcılar ve özellik profilleri
+            </h2>
+            <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+              Veritabanındaki kayıtların özeti (salt okunur). Düzenleme için veritabanı / AI yönetim akışlarını
+              kullanın.
+            </p>
+            {aiMetaLoading ? (
+              <div className="flex items-center gap-2 text-sm text-neutral-400">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Yükleniyor…
+              </div>
+            ) : (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div>
+                  <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                    <Cpu className="h-4 w-4" />
+                    Sağlayıcılar
+                  </h3>
+                  <ul className="space-y-2">
+                    {aiProvidersList.map((p) => (
+                      <li
+                        key={p.code}
+                        className="rounded-lg border border-neutral-100 px-3 py-2 text-sm dark:border-neutral-800"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-mono text-xs font-semibold text-neutral-900 dark:text-white">
+                            {p.code}
+                          </span>
+                          <span
+                            className={clsx(
+                              'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase',
+                              p.is_active
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                : 'bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300',
+                            )}
+                          >
+                            {p.is_active ? 'Aktif' : 'Pasif'}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-xs text-neutral-500" title={p.display_name}>
+                          {p.display_name}
+                        </p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                    Özellik profilleri
+                  </h3>
+                  <ul className="max-h-64 space-y-1 overflow-y-auto font-mono text-[11px] text-neutral-600 dark:text-neutral-400">
+                    {aiProfilesList.map((p) => (
+                      <li
+                        key={p.code}
+                        className="flex justify-between gap-2 rounded-md bg-neutral-50 px-2 py-1 dark:bg-neutral-950/50"
+                      >
+                        <span className="text-violet-700 dark:text-violet-400">{p.code}</span>
+                        <span className="text-neutral-400">T={p.temperature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </section>
         </div>
       )}
 

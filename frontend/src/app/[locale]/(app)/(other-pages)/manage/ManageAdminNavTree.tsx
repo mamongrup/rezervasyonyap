@@ -192,7 +192,7 @@ const GROUPS: NavGroupDef[] = [
       {
         heading: 'Operasyon & içerik araçları',
         items: [
-          { path: '/manage/ai', label: 'Yapay zeka modülleri' },
+          { path: '/manage/admin/settings?tab=ai', label: 'Yapay zeka ayarları' },
           { path: '/manage/ai/content', label: 'İçerik oluşturucu' },
           { path: '/manage/ai/regions', label: 'Bölge oluşturucu' },
           { path: '/manage/ai/seo', label: 'SEO oluşturucu' },
