@@ -85,8 +85,15 @@ check_next_static_chunk() {
       warn "python3 yok; app layout chunk URL testi atlandi"
       return 0
     }
-    rel="${sample#"$wd/.next/static/}"
-    url_path="$(printf '%s\n' "$rel" | python3 -c 'import sys,urllib.parse as up; r=sys.stdin.read().strip(); print("/_next/static/"+"/".join(up.quote(p,safe="") for p in r.split("/")), end="")')"
+    _strip="${wd}/.next/static/"
+    rel="${sample#${_strip}}"
+    url_path="$(
+PYTHON_REL="$rel" python3 <<'PY'
+import os, urllib.parse as up
+r = os.environ["PYTHON_REL"]
+print("/_next/static/" + "/".join(up.quote(p, safe="") for p in r.split("/")), end="")
+PY
+)"
     status="$(http_status "$WEB_ORIGIN$url_path" || true)"
     [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status - WAF: whitelist /_next/static or disable rule"
     ok "Next app layout chunk OK, HTTP 200"
