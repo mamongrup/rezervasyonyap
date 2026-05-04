@@ -36,12 +36,37 @@ check_working_directory() {
 }
 
 check_env() {
-  local env
-  env="$(systemctl show "$WEB_SERVICE" -p Environment --value)"
-  [[ "$env" == *"NEXT_PUBLIC_API_URL="* ]] || fail "NEXT_PUBLIC_API_URL missing in $WEB_SERVICE environment"
-  [[ "$env" == *"INTERNAL_API_ORIGIN="* ]] || fail "INTERNAL_API_ORIGIN missing in $WEB_SERVICE environment"
-  [[ "$env" == *"INTERNAL_MIDDLEWARE_REWRITE_ORIGIN="* ]] || warn "INTERNAL_MIDDLEWARE_REWRITE_ORIGIN missing, recommended"
-  ok "$WEB_SERVICE required env keys look present"
+  local f="/etc/rezervasyonyap/frontend.env"
+  [[ -f "$f" ]] || warn "$f yok — env yalnızca unit içindeyse bu denetim atlanmış olabilir"
+  if [[ -f "$f" ]]; then
+    # shellcheck disable=SC1090
+    set -a && source "$f" && set +a
+  fi
+  [[ -n "${NEXT_PUBLIC_API_URL:-}" ]] ||
+    fail "NEXT_PUBLIC_API_URL tanımlı değil ( $f içinde veya systemd Environment olmalı)"
+  [[ -n "${INTERNAL_API_ORIGIN:-}" ]] ||
+    fail "INTERNAL_API_ORIGIN tanımlı değil ( $f içinde veya systemd Environment olmalı)"
+  [[ -n "${INTERNAL_MIDDLEWARE_REWRITE_ORIGIN:-}" ]] ||
+    warn "INTERNAL_MIDDLEWARE_REWRITE_ORIGIN eksik (Next middleware önerilir)"
+  case "${NEXT_PUBLIC_API_URL:-}" in
+    *127.0.0.1*|*localhost*)
+      warn "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL — tarayıcı bu adresi kullanıcının bilgisayarında arar; uzaktan Yönetim/YZ çalışmaz. Örnek: https://rezervasyonyap.tr (INTERNAL_API_ORIGIN ayrıca 127.0.0.1:8080 kalabilir)."
+      ;;
+  esac
+  ok "$WEB_SERVICE için gerekli env anahtarları tanımlı (frontend.env)"
+}
+
+check_workdir_matches_deploy_root() {
+  local wd expected repo_root rwd eexp
+  wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
+  [[ -n "$wd" ]] || return 0
+  repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+  expected="${VERIFY_REPO_FRONTEND:-$repo_root/frontend}"
+  rwd="$(readlink -f "$wd" 2>/dev/null || realpath "$wd" 2>/dev/null || echo "$wd")"
+  eexp="$(readlink -f "$expected" 2>/dev/null || realpath "$expected" 2>/dev/null || echo "$expected")"
+  if [[ "$rwd" != "$eexp" ]]; then
+    warn "travel-web WorkingDirectory ($rwd) deploy'un beklediği frontend ($eexp) ile aynı değil. deploy.sh ile systemd aynı klasörü işaret etmeli; aksi halde yeni build servis edilmez."
+  fi
 }
 
 http_status() {
@@ -120,6 +145,7 @@ main() {
   check_service_active "$API_SERVICE"
   check_working_directory
   check_env
+  check_workdir_matches_deploy_root
   check_next_static_chunk
   check_endpoints
 

@@ -75,7 +75,7 @@ main() {
   ok "servis restart tamam"
 
   step "Deploy dogrulama"
-  bash "$APP_ROOT/deploy/verify.sh"
+  VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" bash "$APP_ROOT/deploy/verify.sh"
 }
 
 main "$@"
