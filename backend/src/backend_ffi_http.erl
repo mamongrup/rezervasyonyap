@@ -32,7 +32,12 @@ post_json(Url, Body, AuthHeader) when is_binary(Url), is_binary(Body), is_binary
       A -> [{"Authorization", binary_to_list(A)}]
     end,
   Request = {UrlStr, Headers, "application/json; charset=UTF-8", BodyStr},
-  HttpOptions = [{timeout, timer:seconds(25)}, {ssl, [{verify, verify_none}]}],
+  %% Uzun gövde (AI chat completion) yanıtları 25 sn'yi aşabilir; DeepSeek vb.
+  HttpOptions = [
+    {connect_timeout, timer:seconds(20)},
+    {timeout, timer:seconds(180)},
+    {ssl, [{verify, verify_none}]}
+  ],
   Options = [],
   case httpc:request(post, Request, HttpOptions, Options) of
     {ok, {{_, Status, _}, _Headers, RespBody}} ->
