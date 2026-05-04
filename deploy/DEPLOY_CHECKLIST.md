@@ -124,8 +124,27 @@ chmod +x deploy/verify.sh
 
 ## 8) Pazarlama AI / DeepSeek `timeout`
 
-- **Sure:** Yalniz **Ayarlar → Genel → Yapay zeka** (`site_settings.ai`). Eski `travel-api` yukluyse panel ile httpc uyusmaz — `gleam build` + `systemctl restart travel-api.service`. **`plesk-vitrin-deploy.sh`** yalnizca Next.js derler; API’yi unutmayin.
-- Kamuda **ters vekil** varsa `proxy_read_timeout` / `ProxyTimeout` degeri paneldeki saniyeden **kisa** olamaz.
+- **Sure (API):** Yalniz **Ayarlar → Genel → Yapay zeka** (`site_settings.ai`). Eski `travel-api` yukluyse panel ile httpc uyusmaz — `gleam build` + `systemctl restart travel-api.service`. **`plesk-vitrin-deploy.sh`** yalnizca Next.js derler; API’yi unutmayin.
+- **Kritik — ters vekil:** `/manage/admin/marketing/ai` tek HTTP isteginde **birden fazla** DeepSeek cagrisi siralar (tanitim + blog). Panelde 3600 sn olsa bile **Apache/nginx**, istemci–sunucu vekil zincirinde varsayilan **~60 sn** ile baglantiyi kesebilir; hata: `DeepSeek API hatası: timeout`.
+- **Cozum:** Vekil **okuma/baglanti** zaman asimini panel süresinden (or. 7200 sn) **uzun** yapin. Plesk: ilgili alan adi → **Apache ve nginx Ayarlari** → “Ek Apache direktifleri” / “Ek nginx direktifleri”.
+
+**Apache (ornek — HTTPS vhost icin):**
+
+```apache
+ProxyTimeout 7200
+Timeout 7200
+```
+
+**nginx (ornek — `location` veya sunucu blogu icinde):**
+
+```nginx
+proxy_connect_timeout 7200s;
+proxy_send_timeout 7200s;
+proxy_read_timeout 7200s;
+send_timeout 7200s;
+```
+
+Degisiklikten sonra web sunucusunu/yapilandirmayi yeniden yukleyin (Plesk’te genelde ayari kaydetmek yeterli; emin degilseniz `apachectl configtest` / nginx `test`).
 
 ```bash
 cd /path/to/repo/backend && gleam build && sudo systemctl restart travel-api.service
