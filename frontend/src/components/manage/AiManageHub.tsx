@@ -1,18 +1,9 @@
 'use client'
 
-import {
-  AI_PROFILE_MODULES,
-  clampTimeoutSec,
-  DEFAULT_AI_TIMEOUT_SEC,
-  MAX_AI_TIMEOUT_SEC,
-  requestTimeoutSecFromAiJson,
-} from '@/lib/ai-upstream-timeouts'
+import { AI_PROFILE_MODULES } from '@/lib/ai-upstream-timeouts'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import { listAiFeatureProfiles, listAiProviders, listSiteSettings, upsertSiteSetting } from '@/lib/travel-api'
-import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Field, Label } from '@/shared/fieldset'
-import Input from '@/shared/Input'
+import { listAiFeatureProfiles, listAiProviders } from '@/lib/travel-api'
 import clsx from 'clsx'
 import { ArrowRight, Bot, Cpu, ExternalLink, Layers, Loader2 } from 'lucide-react'
 import Link from 'next/link'
@@ -21,23 +12,12 @@ import { useCallback, useEffect, useState } from 'react'
 export default function AiManageHub() {
   const vitrinPath = useVitrinHref()
   const adminAiHref = vitrinPath('/manage/admin/marketing/ai')
+  const aiSettingsHref = `${vitrinPath('/manage/admin/settings')}?tab=ai`
 
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [providers, setProviders] = useState<{ code: string; display_name: string; is_active: boolean }[]>([])
   const [profiles, setProfiles] = useState<{ code: string; temperature: string }[]>([])
-
-  const [aiRest, setAiRest] = useState<Record<string, unknown>>({})
-  const [requestTimeoutSec, setRequestTimeoutSec] = useState(String(DEFAULT_AI_TIMEOUT_SEC))
-  const [moduleTimeoutsSec, setModuleTimeoutsSec] = useState<Record<string, string>>(() => {
-    const o: Record<string, string> = {}
-    for (const m of AI_PROFILE_MODULES) {
-      o[m.profileCode] = String(DEFAULT_AI_TIMEOUT_SEC)
-    }
-    return o
-  })
-  const [timeoutsSaving, setTimeoutsSaving] = useState(false)
-  const [timeoutsSaved, setTimeoutsSaved] = useState(false)
 
   const load = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -49,44 +29,9 @@ export default function AiManageHub() {
     setErr(null)
     setLoading(true)
     try {
-      const [p, f, aiRes] = await Promise.all([
-        listAiProviders(token),
-        listAiFeatureProfiles(token),
-        listSiteSettings(token, { scope: 'platform', key: 'ai' }).catch(() => ({ settings: [] as { value_json?: string }[] })),
-      ])
+      const [p, f] = await Promise.all([listAiProviders(token), listAiFeatureProfiles(token)])
       setProviders(p.providers.map((x) => ({ code: x.code, display_name: x.display_name, is_active: x.is_active })))
       setProfiles(f.profiles.map((x) => ({ code: x.code, temperature: x.temperature })))
-
-      const row = aiRes.settings[0]
-      if (row?.value_json) {
-        const obj = JSON.parse(row.value_json) as Record<string, unknown>
-        setAiRest(obj)
-        setRequestTimeoutSec(String(requestTimeoutSecFromAiJson(obj)))
-        setModuleTimeoutsSec((prev) => {
-          const next = { ...prev }
-          const mod = obj.module_timeouts_sec
-          if (mod && typeof mod === 'object' && mod !== null) {
-            for (const m of AI_PROFILE_MODULES) {
-              const v = (mod as Record<string, unknown>)[m.profileCode]
-              if (typeof v === 'number' && v > 0) {
-                next[m.profileCode] = String(clampTimeoutSec(v))
-              } else if (typeof v === 'string') {
-                const n = Number.parseFloat(v.trim())
-                if (Number.isFinite(n) && n > 0) next[m.profileCode] = String(clampTimeoutSec(n))
-              }
-            }
-          }
-          return next
-        })
-      } else {
-        setAiRest({})
-        setRequestTimeoutSec(String(DEFAULT_AI_TIMEOUT_SEC))
-        setModuleTimeoutsSec(() => {
-          const o: Record<string, string> = {}
-          for (const m of AI_PROFILE_MODULES) o[m.profileCode] = String(DEFAULT_AI_TIMEOUT_SEC)
-          return o
-        })
-      }
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Yüklenemedi')
     } finally {
@@ -97,43 +42,6 @@ export default function AiManageHub() {
   useEffect(() => {
     void load()
   }, [load])
-
-  async function saveTimeouts() {
-    const token = getStoredAuthToken()
-    if (!token) return
-    setTimeoutsSaving(true)
-    setTimeoutsSaved(false)
-    try {
-      const fresh = await listSiteSettings(token, { scope: 'platform', key: 'ai' })
-      const row = fresh.settings[0]
-      const base =
-        row?.value_json && row.value_json.trim() !== ''
-          ? (JSON.parse(row.value_json) as Record<string, unknown>)
-          : { ...aiRest }
-      const module_timeouts_sec: Record<string, number> = {}
-      for (const m of AI_PROFILE_MODULES) {
-        const raw = moduleTimeoutsSec[m.profileCode]?.trim() ?? ''
-        const n = Number.parseFloat(raw)
-        if (Number.isFinite(n) && n > 0) {
-          module_timeouts_sec[m.profileCode] = clampTimeoutSec(n)
-        }
-      }
-      const rt = Number.parseInt(requestTimeoutSec, 10)
-      const next = {
-        ...base,
-        request_timeout_sec: Number.isFinite(rt) && rt > 0 ? clampTimeoutSec(rt) : DEFAULT_AI_TIMEOUT_SEC,
-        module_timeouts_sec,
-      }
-      await upsertSiteSetting(token, { key: 'ai', value_json: JSON.stringify(next) })
-      setAiRest(next)
-      setTimeoutsSaved(true)
-      setTimeout(() => setTimeoutsSaved(false), 3000)
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Kayıt başarısız')
-    } finally {
-      setTimeoutsSaving(false)
-    }
-  }
 
   return (
     <div className="space-y-8">
@@ -168,67 +76,30 @@ export default function AiManageHub() {
       <section className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900/40">
         <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
           <Layers className="h-4 w-4" />
-          Modül sayfaları ve upstream süreleri
+          Modül sayfaları
         </h2>
         <p className="text-xs text-neutral-500 dark:text-neutral-400">
-          Kayıt tek yerde: <strong>site_settings</strong> anahtarı <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">ai</code> —{' '}
-          <Link href={`${vitrinPath('/manage/general-settings')}?tab=ai`} className="font-medium text-violet-600 underline dark:text-violet-400">
-            Ayarlar → Genel → Yapay zeka
-          </Link>{' '}
-          ile burada aynı değerler; her yeni üretim isteğinde süre buradan yeniden okunur.
+          <strong>DeepSeek anahtarı, model, API URL ve upstream süreleri</strong> tek yerde:{' '}
+          <Link href={aiSettingsHref} className="font-medium text-violet-600 underline dark:text-violet-400">
+            Ayarlar → Yapay zeka
+          </Link>
+          . Aşağıdaki kartlar ilgili çalışma sayfalarına gider.
         </p>
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <Field>
-            <Label className="text-xs">Genel süre (sn)</Label>
-            <Input
-              type="number"
-              min={5}
-              max={MAX_AI_TIMEOUT_SEC}
-              className="mt-1 w-28 font-mono text-sm"
-              value={requestTimeoutSec}
-              onChange={(e) => setRequestTimeoutSec(e.target.value)}
-            />
-          </Field>
-          <ButtonPrimary type="button" disabled={timeoutsSaving || loading} onClick={() => void saveTimeouts()}>
-            {timeoutsSaving ? 'Kaydediliyor…' : 'Süreleri kaydet'}
-          </ButtonPrimary>
-          {timeoutsSaved ? (
-            <span className="text-sm text-emerald-600 dark:text-emerald-400">Kaydedildi.</span>
-          ) : null}
-        </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           {AI_PROFILE_MODULES.map((m) => (
-            <div
-              key={m.path}
-              className="flex flex-col rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-950/40"
+            <Link
+              key={m.profileCode}
+              href={vitrinPath(m.path)}
+              className="group flex flex-col rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-950/40"
             >
-              <Link
-                href={vitrinPath(m.path)}
-                className="group font-medium text-neutral-900 hover:text-violet-600 dark:text-white dark:hover:text-violet-400"
-              >
+              <span className="font-medium text-neutral-900 group-hover:text-violet-600 dark:text-white dark:group-hover:text-violet-400">
                 {m.label}
-                <span className="mt-1 block text-xs font-normal text-neutral-500">{m.desc}</span>
-                <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400">
-                  Aç <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-                </span>
-              </Link>
-              <Field className="mt-3">
-                <Label className="text-[11px] text-neutral-500">Bu modül (sn) · {m.profileCode}</Label>
-                <Input
-                  type="number"
-                  min={5}
-                  max={MAX_AI_TIMEOUT_SEC}
-                  className="mt-1 font-mono text-sm"
-                  value={moduleTimeoutsSec[m.profileCode] ?? String(DEFAULT_AI_TIMEOUT_SEC)}
-                  onChange={(e) =>
-                    setModuleTimeoutsSec((prev) => ({
-                      ...prev,
-                      [m.profileCode]: e.target.value,
-                    }))
-                  }
-                />
-              </Field>
-            </div>
+              </span>
+              <span className="mt-1 text-xs font-normal text-neutral-500">{m.desc}</span>
+              <span className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400">
+                Aç <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </span>
+            </Link>
           ))}
         </div>
       </section>
