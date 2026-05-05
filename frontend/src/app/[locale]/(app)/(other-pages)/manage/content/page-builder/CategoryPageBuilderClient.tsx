@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
   ChevronUp,
@@ -17,7 +18,6 @@ import {
   Upload,
   X,
 } from 'lucide-react'
-import Image from 'next/image'
 import Link from 'next/link'
 import type { PageBuilderModule, PageBuilderModuleType } from '@/types/listing-types'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
@@ -110,113 +110,77 @@ function HeroImageSlot({
   categorySlug: string
   onChange: (url: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleFile(file: File) {
-    setUploading(true)
-    setError(null)
-    const form = new FormData()
-    form.append('file', file)
-    form.append('folder', 'site')
-    form.append('subPath', `vitrin-kategori/${slugifyMediaSegment(categorySlug)}`)
-    form.append('prefix', 'slide')
-    form.append('index', String(slot + 1))
-
-    try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
-      const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
-      if (data.ok && data.url) {
-        onChange(data.url)
-      } else {
-        setError(data.error ?? 'Yükleme başarısız.')
-      }
-    } catch {
-      setError('Ağ hatası. Lütfen tekrar deneyin.')
-    } finally {
-      setUploading(false)
-    }
-  }
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'site',
+        subPath: `vitrin-kategori/${slugifyMediaSegment(categorySlug)}`,
+        prefix: 'slide',
+        index: String(slot + 1),
+      }) as const,
+    [categorySlug, slot],
+  )
 
   return (
     <div className="flex flex-col gap-2">
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`${label} — görsel seç`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => onChange(url)}
+      />
       <div className="flex items-center justify-between">
         <div>
           <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">{label}</span>
           <span className="ms-1.5 text-xs text-neutral-400">{description}</span>
         </div>
-        {value && (
+        {value ? (
           <button
+            type="button"
             onClick={() => onChange('')}
             className="text-xs text-red-500 hover:text-red-700"
             title="Görseli kaldır"
           >
             Kaldır
           </button>
-        )}
+        ) : null}
       </div>
 
-      {/* Preview / Drop zone */}
-      <div
-        className={`relative flex h-36 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
+      <button
+        type="button"
+        className={`relative flex h-36 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
           value
             ? 'border-primary-300 bg-neutral-50 dark:bg-neutral-800'
             : 'border-neutral-200 bg-neutral-50 hover:border-primary-300 hover:bg-primary-50/30 dark:border-neutral-700 dark:bg-neutral-800'
         }`}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault()
-          const f = e.dataTransfer.files[0]
-          if (f) handleFile(f)
-        }}
+        onClick={() => setPickerOpen(true)}
       >
         {value ? (
           <>
-            <Image
-              src={value}
-              alt={label}
-              fill
-              className="object-cover"
-              unoptimized={value.startsWith('/uploads/')}
-            />
-            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+            <img src={value} alt={label} className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
               <Upload className="h-6 w-6 text-white" />
-              <span className="ms-2 text-sm font-medium text-white">Değiştir</span>
+              <span className="ms-2 text-sm font-medium text-white">Galeriden seç / yükle</span>
             </div>
           </>
-        ) : uploading ? (
-          <Loader2 className="h-7 w-7 animate-spin text-primary-400" />
         ) : (
           <div className="flex flex-col items-center gap-1.5 text-neutral-400">
             <ImageIcon className="h-8 w-8" />
-            <span className="text-xs">Tıkla veya sürükle</span>
-            <span className="text-[10px]">JPEG, PNG, WebP · maks 5 MB</span>
+            <span className="text-xs">Galeriden seç veya yükle</span>
+            <span className="text-[10px]">JPEG, PNG, WebP, AVIF</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) handleFile(f)
-          }}
-        />
-      </div>
+      </button>
 
-      {/* URL fallback input */}
       <input
         type="text"
-        placeholder="ya da harici URL girin…"
+        placeholder="İleri düzey: harici URL yapıştırın…"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 placeholder-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
       />
-
-      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   )
 }
@@ -232,42 +196,32 @@ function CategoryCardImageSlot({
   value: string
   onChange: (url: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleFile(file: File) {
-    setUploading(true)
-    setError(null)
-    const form = new FormData()
-    form.append('file', file)
-    form.append('folder', 'site')
-    form.append('subPath', `page-builder/kategori-kartlari/${slugifyMediaSegment(categorySlug)}`)
-    form.append('prefix', 'kart')
-
-    try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
-      const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
-      if (data.ok && data.url) {
-        onChange(data.url)
-      } else {
-        setError(data.error ?? 'Yükleme başarısız.')
-      }
-    } catch {
-      setError('Ağ hatası. Lütfen tekrar deneyin.')
-    } finally {
-      setUploading(false)
-    }
-  }
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'site',
+        subPath: `page-builder/kategori-kartlari/${slugifyMediaSegment(categorySlug)}`,
+        prefix: 'kart',
+      }) as const,
+    [categorySlug],
+  )
 
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`Kategori kartı — ${categoryName}`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => onChange(url)}
+      />
       <div className="mb-2 flex items-start justify-between gap-2">
         <div>
           <div className="text-sm font-medium text-neutral-900 dark:text-white">{categoryName}</div>
           <div className="text-xs text-neutral-400">/{categorySlug}</div>
         </div>
-        {value && (
+        {value ? (
           <button
             type="button"
             onClick={() => onChange('')}
@@ -275,7 +229,7 @@ function CategoryCardImageSlot({
           >
             Kaldır
           </button>
-        )}
+        ) : null}
       </div>
 
       <button
@@ -285,56 +239,34 @@ function CategoryCardImageSlot({
             ? 'border-primary-300 bg-neutral-50 dark:bg-neutral-800'
             : 'border-neutral-200 bg-neutral-50 hover:border-primary-300 hover:bg-primary-50/30 dark:border-neutral-700 dark:bg-neutral-800'
         }`}
-        onClick={() => inputRef.current?.click()}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault()
-          const f = e.dataTransfer.files[0]
-          if (f) handleFile(f)
-        }}
+        onClick={() => setPickerOpen(true)}
       >
         {value ? (
           <>
-            <Image
+            <img
               src={value}
               alt={categoryName}
-              fill
-              className="object-cover"
-              unoptimized={value.startsWith('/uploads/')}
+              className="absolute inset-0 h-full w-full object-cover"
             />
             <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-medium text-white opacity-0 transition-opacity hover:opacity-100">
-              Değiştir
+              Galeriden seç / yükle
             </span>
           </>
-        ) : uploading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
         ) : (
           <div className="flex flex-col items-center gap-1 text-neutral-400">
             <ImageIcon className="h-6 w-6" />
-            <span className="text-xs">Kart görseli ekle</span>
+            <span className="text-xs">Galeriden seç veya yükle</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) handleFile(f)
-          }}
-        />
       </button>
 
       <input
         type="text"
-        placeholder="ya da /uploads/... veya https://... girin"
+        placeholder="İleri düzey: /uploads/... veya https://..."
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 placeholder-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
       />
-
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
     </div>
   )
 }
@@ -1682,6 +1614,7 @@ function ModuleRow({
 
         <div className="flex items-center gap-1 shrink-0">
           <button
+            type="button"
             onClick={() => onMove(module.id, 'up')}
             disabled={index === 0}
             className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
@@ -1690,6 +1623,7 @@ function ModuleRow({
             <ChevronUp className="h-4 w-4" />
           </button>
           <button
+            type="button"
             onClick={() => onMove(module.id, 'down')}
             disabled={index === total - 1}
             className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800"
@@ -1698,6 +1632,7 @@ function ModuleRow({
             <ChevronDown className="h-4 w-4" />
           </button>
           <button
+            type="button"
             onClick={() => onToggle(module.id)}
             className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
             title={module.enabled ? 'Gizle' : 'Göster'}
@@ -1709,6 +1644,7 @@ function ModuleRow({
             )}
           </button>
           <button
+            type="button"
             onClick={() => setExpanded(!expanded)}
             className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800"
             title="Ayarlar"
@@ -1716,6 +1652,7 @@ function ModuleRow({
             <Settings className="h-4 w-4 text-neutral-500" />
           </button>
           <button
+            type="button"
             onClick={() => onDelete(module.id)}
             className="p-1 rounded hover:bg-red-50 text-red-400 hover:text-red-600 dark:hover:bg-red-900/20"
             title="Kaldır"

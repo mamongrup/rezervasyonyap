@@ -11,6 +11,7 @@ import {
   snapMoveBox1D,
   snapResizeBox,
 } from '@/lib/freeform-banner-spec'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
 import clsx from 'clsx'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
@@ -145,6 +146,31 @@ export default function BannerLayoutComposer() {
   const [copied, setCopied] = useState(false)
   const [guides, setGuides] = useState<GuideLine[]>([])
   const [selectedGuideId, setSelectedGuideId] = useState<string | null>(null)
+  const [layerPickerOpen, setLayerPickerOpen] = useState(false)
+
+  const layerUploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'general',
+        subPath: 'banner-duzen-motoru',
+        prefix: 'katman',
+        useOriginalStem: true,
+      }) as const,
+    [],
+  )
+
+  const addGalleryUrlToLayers = useCallback(
+    (url: string) => {
+      setLayers((prev) => {
+        const slot = nextGallerySlot(prev)
+        const layer = defaultLayer(url, slot, aspect)
+        const newId = layer.id
+        window.setTimeout(() => setSelectedId(newId), 0)
+        return [...prev, layer]
+      })
+    },
+    [aspect],
+  )
 
   const selected = layers.find((l) => l.id === selectedId) ?? null
 
@@ -471,6 +497,14 @@ export default function BannerLayoutComposer() {
 
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-6">
+      <ManageMediaPickerModal
+        open={layerPickerOpen}
+        title="Tuval için görsel"
+        hint="Önce medya galerisinden seçin; uygun görsel yoksa buradan yükleyin. Kalıcı `/uploads/...` adresi JSON dışa aktarıma yazılır (yerel blob yazılmaz)."
+        uploadTarget={layerUploadTarget}
+        onClose={() => setLayerPickerOpen(false)}
+        onSelect={(url) => addGalleryUrlToLayers(url)}
+      />
       <header className="flex flex-col gap-3 border-b border-[color:var(--manage-sidebar-border)] pb-6 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-neutral-900 dark:text-white">
@@ -479,16 +513,18 @@ export default function BannerLayoutComposer() {
           <p className="mt-1 max-w-2xl text-sm leading-relaxed text-[color:var(--manage-text-muted)]">
             Boş tuvale görselleri ekleyin; dikey/yatay <strong className="text-[color:var(--manage-text)]">katman çizgileri</strong> ile
             kesim bölgelerini işaretleyin. Çerçeveyi sürükleyip boyutlandırın; kırp modunda kadrajı ayarlayın. Çizgilere yaklaşınca
-            görseller hizalanır. Yerleşim ve çizgiler JSON ile dışa aktarılır.
+            görseller hizalanır. Yerleşim ve çizgiler JSON ile dışa aktarılır. Varsayılan akış:{' '}
+            <strong className="text-[color:var(--manage-text)]">önce site galerisi</strong>
+            — kalıcı URL için galeriden seçin veya aynı modal üzerinden yükleyin; yalnızca hızlı deneme için yerel blob kullanın (JSON’a yazılmaz).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
+            onClick={() => setLayerPickerOpen(true)}
             className="rounded-lg bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-95"
           >
-            Resim ekle
+            Galeriden resim ekle
           </button>
           <input
             ref={fileInputRef}
@@ -501,6 +537,13 @@ export default function BannerLayoutComposer() {
               e.target.value = ''
             }}
           />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="rounded-lg border border-[color:var(--manage-sidebar-border)] px-4 py-2 text-sm font-medium text-[color:var(--manage-text)] hover:bg-[color:var(--manage-page-bg)]"
+          >
+            Yerel dosya (blob önizleme)
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -683,19 +726,21 @@ export default function BannerLayoutComposer() {
               }}
               onDrop={(e) => {
                 e.preventDefault()
-                addFiles(e.dataTransfer.files)
+                setLayerPickerOpen(true)
               }}
             >
               {layers.length === 0 && (
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => setLayerPickerOpen(true)}
                   className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-neutral-400 transition hover:bg-neutral-50 hover:text-neutral-600"
                 >
                   <span className="rounded-full border border-dashed border-neutral-300 px-4 py-3 text-neutral-500">
-                    Resim sürükleyin veya tıklayın
+                    Galeriden seçin veya tıklayın
                   </span>
-                  <span className="text-xs">Boş tuval · {aspect.replace('/', ' : ')}</span>
+                  <span className="text-xs">
+                    Boş tuval · {aspect.replace('/', ' : ')} · Yerel blob için üstte «Yerel dosya»
+                  </span>
                 </button>
               )}
 

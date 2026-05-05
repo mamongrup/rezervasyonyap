@@ -1,9 +1,10 @@
 'use client'
 
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { ImageIcon, Loader2, Save, Upload, X } from 'lucide-react'
 import Image from 'next/image'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface HomepageConfig {
   heroHeading: string
@@ -30,43 +31,40 @@ function ImageSlot({
   index: number
   onChange: (url: string) => void
 }) {
-  const [uploading, setUploading] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const uploadFile = useCallback(
-    async (file: File) => {
-      setUploading(true)
-      try {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('folder', 'site')
-        fd.append('subPath', 'anasayfa')
-        fd.append('prefix', 'hero')
-        fd.append('slot', String(index))
-        const res = await fetch('/api/upload-image', { method: 'POST', body: fd, credentials: 'include' })
-        const json = await res.json()
-        if (json.ok) onChange(json.url as string)
-      } finally {
-        setUploading(false)
-      }
-    },
-    [index, onChange],
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'site',
+        subPath: 'anasayfa',
+        prefix: 'hero',
+        slot: String(index),
+      }) as const,
+    [index],
   )
 
   return (
     <div className="flex flex-col gap-2">
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`${label} — görsel seç`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => onChange(url)}
+      />
       <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
         {label} <span className="text-xs text-neutral-400">({description})</span>
       </span>
 
-      <div
-        className={`relative flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
+      <button
+        type="button"
+        className={`relative flex min-h-[140px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
           dragging
             ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/20'
             : 'border-neutral-300 hover:border-neutral-400 dark:border-neutral-600'
         }`}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => setPickerOpen(true)}
         onDragOver={(e) => {
           e.preventDefault()
           setDragging(true)
@@ -75,8 +73,7 @@ function ImageSlot({
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
-          const file = e.dataTransfer.files[0]
-          if (file) uploadFile(file)
+          setPickerOpen(true)
         }}
       >
         {value ? (
@@ -98,26 +95,18 @@ function ImageSlot({
             >
               <X className="h-3 w-3" />
             </button>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+              <Upload className="h-6 w-6 text-white" />
+              <span className="ms-2 text-sm font-medium text-white">Galeriden seç / yükle</span>
+            </div>
           </>
-        ) : uploading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
         ) : (
           <div className="flex flex-col items-center gap-1 text-neutral-400">
             <ImageIcon className="h-8 w-8" />
-            <span className="text-xs">Yükle veya sürükle</span>
+            <span className="text-xs">Galeriden seç veya yükle</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) uploadFile(file)
-          }}
-        />
-      </div>
+      </button>
 
       {/* URL input */}
       <input

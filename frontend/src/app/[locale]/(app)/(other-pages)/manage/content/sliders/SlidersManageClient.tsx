@@ -1,4 +1,5 @@
 'use client'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   ArrowDown,
@@ -184,40 +185,27 @@ function ImageField({
   variant: 'desktop' | 'mobile'
   onChange: (url: string) => void
 }) {
-  const [uploading, setUploading] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const upload = useCallback(
-    async (file: File) => {
-      setUploading(true)
-      setError(null)
-      try {
-        const fd = new FormData()
-        fd.append('file', file)
-        fd.append('folder', 'site')
-        fd.append('subPath', `sliders/${pageKey}`)
-        fd.append('prefix', `slide-${slideId.slice(-6)}-${variant}`)
-        const res = await fetch('/api/upload-image', {
-          method: 'POST',
-          body: fd,
-          credentials: 'include',
-        })
-        const json = await res.json()
-        if (json.ok && json.url) onChange(json.url as string)
-        else setError(json.error || 'Yüklenemedi.')
-      } catch {
-        setError('Bağlantı hatası.')
-      } finally {
-        setUploading(false)
-      }
-    },
-    [pageKey, slideId, variant, onChange],
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'site',
+        subPath: `sliders/${pageKey}`,
+        prefix: `slide-${slideId.slice(-6)}-${variant}`,
+      }) as const,
+    [pageKey, slideId, variant],
   )
 
   return (
     <div className="flex flex-col gap-1.5">
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`${label} — görsel seç`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => onChange(url)}
+      />
       <span className="text-xs font-medium text-neutral-700 dark:text-neutral-300">
         {label}
         {description && (
@@ -225,13 +213,14 @@ function ImageField({
         )}
       </span>
 
-      <div
-        className={`relative flex min-h-[140px] cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
+      <button
+        type="button"
+        className={`relative flex min-h-[140px] w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
           dragging
             ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/20'
             : 'border-neutral-300 hover:border-neutral-400 dark:border-neutral-600'
         }`}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => setPickerOpen(true)}
         onDragOver={(e) => {
           e.preventDefault()
           setDragging(true)
@@ -240,8 +229,7 @@ function ImageField({
         onDrop={(e) => {
           e.preventDefault()
           setDragging(false)
-          const f = e.dataTransfer.files[0]
-          if (f) upload(f)
+          setPickerOpen(true)
         }}
       >
         {value ? (
@@ -264,26 +252,18 @@ function ImageField({
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+              <Upload className="h-5 w-5 text-white" />
+              <span className="ms-2 text-xs font-medium text-white">Galeriden seç / yükle</span>
+            </div>
           </>
-        ) : uploading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-neutral-400" />
         ) : (
           <div className="flex flex-col items-center gap-1 text-neutral-400">
             <Upload className="h-6 w-6" />
-            <span className="text-xs">Yükle veya sürükle</span>
+            <span className="text-xs">Galeriden seç veya yükle</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const f = e.target.files?.[0]
-            if (f) upload(f)
-          }}
-        />
-      </div>
+      </button>
 
       <input
         type="url"
@@ -292,8 +272,6 @@ function ImageField({
         onChange={(e) => onChange(e.target.value)}
         className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-800"
       />
-
-      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   )
 }
@@ -1250,7 +1228,7 @@ export default function SlidersManageClient() {
                   Bu sayfa için henüz slayt yok
                 </p>
                 <p className="mt-1 text-xs text-neutral-500">
-                  Yukarıdaki "Slayt Ekle" düğmesiyle ilk slaydı oluşturun.
+                  Yukarıdaki {'\u201c'}Slayt Ekle{'\u201d'} düğmesiyle ilk slaydı oluşturun.
                 </p>
               </div>
             ) : (

@@ -1,6 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
+import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import {
   ExternalLink,
   ImageIcon,
@@ -14,8 +15,8 @@ import {
   X,
 } from 'lucide-react'
 import Image from 'next/image'
-import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 interface RegionHeroConfig {
   category: string
@@ -45,85 +46,67 @@ function ImageSlot({
   regionHandle: string
   onChange: (url: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function handleFile(file: File) {
-    setUploading(true)
-    setError(null)
-    const form = new FormData()
-    form.append('file', file)
-    form.append('folder', 'site')
-    form.append(
-      'subPath',
-      `bolgeler/${slugifyMediaSegment(categorySlug)}-${slugifyMediaSegment(regionHandle)}`,
-    )
-    form.append('prefix', 'hero')
-    form.append('slot', String(slot))
-    try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
-      const data = (await res.json()) as { ok: boolean; url?: string; error?: string }
-      if (data.ok && data.url) onChange(data.url)
-      else setError(data.error ?? 'Yükleme başarısız.')
-    } catch {
-      setError('Ağ hatası.')
-    } finally {
-      setUploading(false)
-    }
-  }
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'site',
+        subPath: `bolgeler/${slugifyMediaSegment(categorySlug)}-${slugifyMediaSegment(regionHandle)}`,
+        prefix: 'hero',
+        slot: String(slot),
+      }) as const,
+    [categorySlug, regionHandle, slot],
+  )
 
   return (
     <div className="flex flex-col gap-2">
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`${label} — görsel seç`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => onChange(url)}
+      />
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-neutral-700 dark:text-neutral-300">
           {label} <span className="font-normal text-neutral-400">{description}</span>
         </span>
         {value && (
-          <button onClick={() => onChange('')} className="text-[10px] text-red-500 hover:text-red-700">
+          <button type="button" onClick={() => onChange('')} className="text-[10px] text-red-500 hover:text-red-700">
             Kaldır
           </button>
         )}
       </div>
 
-      <div
-        className={`relative flex h-32 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
+      <button
+        type="button"
+        className={`relative flex h-32 w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
           value
             ? 'border-primary-200 bg-neutral-50 dark:bg-neutral-800'
             : 'border-neutral-200 bg-neutral-50 hover:border-primary-300 dark:border-neutral-700 dark:bg-neutral-800'
         }`}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => setPickerOpen(true)}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
-          const f = e.dataTransfer.files[0]
-          if (f) void handleFile(f)
+          setPickerOpen(true)
         }}
       >
         {value ? (
           <>
             <Image src={value} alt={label} fill className="object-cover" unoptimized={value.startsWith('/uploads/')} />
-            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity hover:opacity-100">
               <Upload className="h-5 w-5 text-white" />
-              <span className="text-xs font-medium text-white">Değiştir</span>
+              <span className="text-xs font-medium text-white">Galeriden seç / yükle</span>
             </div>
           </>
-        ) : uploading ? (
-          <Loader2 className="h-6 w-6 animate-spin text-primary-400" />
         ) : (
           <div className="flex flex-col items-center gap-1 text-neutral-400">
             <ImageIcon className="h-7 w-7" />
-            <span className="text-xs">Tıkla veya sürükle</span>
+            <span className="text-xs">Galeriden seç veya yükle</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f) }}
-        />
-      </div>
+      </button>
 
       <input
         type="text"
@@ -132,7 +115,6 @@ function ImageSlot({
         onChange={(e) => onChange(e.target.value)}
         className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-800"
       />
-      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   )
 }

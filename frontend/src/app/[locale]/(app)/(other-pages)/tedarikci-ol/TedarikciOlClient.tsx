@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { uploadFetch } from '@/lib/upload-fetch'
 import {
   upsertSupplierApplication,
   uploadSupplierDocument,
@@ -270,9 +271,8 @@ export default function TedarikciOlClient() {
     formData.append('folder', 'supplier-docs')
     formData.append('prefix', `${applicationId}_${docType}`)
 
-    const uploadRes = await fetch('/api/upload-image', { method: 'POST', body: formData })
-    if (!uploadRes.ok) throw new Error('upload_failed')
-    const data = await uploadRes.json() as { url: string; warning?: string }
+    const data = await uploadFetch(formData)
+    if (!data.ok || !data.url) throw new Error(data.error ?? 'upload_failed')
 
     await uploadSupplierDocument(token, applicationId, {
       doc_type: docType,

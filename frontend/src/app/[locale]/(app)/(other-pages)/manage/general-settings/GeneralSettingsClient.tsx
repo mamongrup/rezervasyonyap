@@ -38,16 +38,17 @@ import {
   parseMobileAccountPathFromBranding,
 } from '@/lib/site-branding-seo'
 import { parseLenientJson } from '@/lib/json-parse'
-import { uploadBrandingAsset, type BrandingUploadPurpose } from '@/lib/upload-branding-asset'
+import type { BrandingUploadPurpose } from '@/lib/upload-branding-asset'
 import CurrencyReorderTable from './CurrencyReorderTable'
 import TravelHomeCategoryOrderPanel from './TravelHomeCategoryOrderPanel'
 import { normalizeTravelCategoryHomeOrder } from '@/data/category-registry'
 import { ORDERED_PRODUCT_CATEGORY_CODES, categoryLabelTr } from '@/lib/catalog-category-ui'
 import ImageUpload from '@/components/editor/ImageUpload'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
 import clsx from 'clsx'
 import { ArrowRight, Cpu, Layers, Loader2 } from 'lucide-react'
 import Link from 'next/link'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 type Status = { kind: 'idle' | 'ok' | 'err'; text?: string }
@@ -67,7 +68,7 @@ function BrandingImageUploadRow({
   url,
   onChange,
   purpose,
-  accept,
+  accept: _accept,
   preview,
 }: {
   label: string
@@ -78,23 +79,18 @@ function BrandingImageUploadRow({
   accept: string
   preview: 'logo-light' | 'logo-dark' | 'favicon'
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [busy, setBusy] = useState(false)
-
-  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setBusy(true)
-    try {
-      const newUrl = await uploadBrandingAsset(file, purpose)
-      onChange(newUrl)
-    } catch (err) {
-      alert(formatManageApiCatch(err, 'Yükleme başarısız'))
-    } finally {
-      setBusy(false)
-      e.target.value = ''
-    }
-  }
+  void _accept // MIME filtresi — galeri modalında kullanılmıyor; çağıranlar geriye uyumluluk için iletir.
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'site',
+        subPath: '',
+        prefix: 'branding',
+        fixedStem: purpose,
+      }) as const,
+    [purpose],
+  )
 
   const previewBox =
     preview === 'favicon' ? (
@@ -134,18 +130,18 @@ function BrandingImageUploadRow({
 
   return (
     <div>
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`${label} — görsel seç`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(nextUrl) => onChange(nextUrl)}
+      />
       <Field className="block">
         <Label>{label}</Label>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <input
-            ref={inputRef}
-            type="file"
-            className="sr-only"
-            accept={accept}
-            onChange={(e) => void onPick(e)}
-          />
-          <ButtonPrimary type="button" disabled={busy} onClick={() => inputRef.current?.click()}>
-            {busy ? 'Yükleniyor…' : 'Dosya seç ve yükle'}
+          <ButtonPrimary type="button" onClick={() => setPickerOpen(true)}>
+            Galeriden seç veya yükle
           </ButtonPrimary>
           {url ? (
             <button

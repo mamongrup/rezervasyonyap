@@ -1,6 +1,8 @@
 'use client'
 
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
+import { buildManageUploadImageFormData } from '@/lib/manage-upload-image-form'
+import { uploadFetch } from '@/lib/upload-fetch'
 import clsx from 'clsx'
 import {
   File,
@@ -323,29 +325,39 @@ export default function MediaLibraryClient() {
     async (files: File[]) => {
       if (files.length === 0) return
       setUploading(true)
+      let lastWarning: string | undefined
       try {
         for (const file of files) {
-          const fd = new FormData()
-          fd.append('file', file)
-          fd.append('useOriginalStem', '1')
-          if (!folderFilter) {
-            fd.append('folder', 'general')
-          } else {
+          let folder = 'general'
+          let subPath = ''
+          if (folderFilter) {
             const parts = folderFilter.split('/')
-            fd.append('folder', parts[0] ?? 'general')
+            folder = parts[0] ?? 'general'
             if (parts.length > 1) {
-              fd.append('subPath', parts.slice(1).join('/'))
+              subPath = parts.slice(1).join('/')
             }
           }
-          const res = await fetch('/api/upload-image', { method: 'POST', body: fd, credentials: 'include' })
-          const j = await res.json().catch(() => ({}))
-          if (!res.ok || !j?.ok) {
-            const msg = typeof j?.error === 'string' ? j.error : 'Yükleme başarısız.'
-            window.alert(msg)
+          const form = buildManageUploadImageFormData(
+            file,
+            {
+              folder,
+              subPath,
+              prefix: '',
+              useOriginalStem: true,
+            },
+            null,
+          )
+          const data = await uploadFetch(form)
+          if (!data.ok || !data.url) {
+            window.alert(data.error ?? 'Yükleme başarısız.')
             break
           }
+          if (data.warning) lastWarning = data.warning
         }
         await refresh()
+        if (lastWarning) {
+          window.alert(`Yükleme tamamlandı. Uyarı: ${lastWarning}`)
+        }
       } finally {
         setUploading(false)
       }
@@ -382,7 +394,7 @@ export default function MediaLibraryClient() {
     <div className="flex h-full min-h-0 flex-col gap-4">
       <ManageFormPageHeader
         title="Medya kütüphanesi"
-        subtitle="Yüklenen görselleri klasörlere göre görüntüleyin; yeni dosya yükleyebilirsiniz."
+        subtitle="Site görsellerinin merkezi: soldan klasör seçin; vitrin ve formlarda kullanılacak dosyalar burada listelenir. Yeni görsel eklemek için «Galeriye yükle» ile bu hedef klasöre gönderin — panel genelinde önce galeri, gerekiyorsa yükleme akışı kullanılır."
       />
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -563,7 +575,7 @@ export default function MediaLibraryClient() {
               className="flex items-center gap-2 rounded-lg bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Yükle
+              Galeriye yükle
             </button>
             <input
               ref={fileInputRef}

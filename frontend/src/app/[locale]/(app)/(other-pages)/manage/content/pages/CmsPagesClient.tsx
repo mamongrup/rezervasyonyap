@@ -1,4 +1,5 @@
 'use client'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -34,7 +35,7 @@ import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 import { defaultLocale } from '@/lib/i18n-config'
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import StructuredCmsBlockEditor, { STRUCTURED_BLOCK_TYPES } from './StructuredCmsBlockEditor'
 import { cmsPageMediaSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 
@@ -147,71 +148,61 @@ function CmsImageSlot({
   pageSlug: string
   onChange: (url: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
-
-  async function handleFile(file: File) {
-    setUploading(true)
-    const form = new FormData()
-    form.append('file', file)
-    form.append('folder', 'icerik')
-    form.append('subPath', cmsPageMediaSubPath(pageSlug))
-    form.append('prefix', `${slugifyMediaSegment(pageSlug)}-hero`)
-    form.append('index', String(index + 1))
-    try {
-      const res = await fetch('/api/upload-image', { method: 'POST', body: form, credentials: 'include' })
-      const data = (await res.json()) as { ok: boolean; url?: string }
-      if (data.ok && data.url) onChange(data.url)
-    } finally {
-      setUploading(false)
-    }
-  }
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const uploadTarget = useMemo(
+    () =>
+      ({
+        folder: 'icerik',
+        subPath: cmsPageMediaSubPath(pageSlug),
+        prefix: `${slugifyMediaSegment(pageSlug)}-hero`,
+        index: String(index + 1),
+      }) as const,
+    [pageSlug, index],
+  )
 
   const labels = ['Sol üst', 'Sol alt', 'Sağ (tall)']
 
   return (
     <div className="flex flex-col gap-1.5">
+      <ManageMediaPickerModal
+        open={pickerOpen}
+        title={`Hero görsel ${index + 1} — ${labels[index]}`}
+        uploadTarget={uploadTarget}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(url) => onChange(url)}
+      />
       <span className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
         Görsel {index + 1} — {labels[index]}
       </span>
-      <div
-        className={`relative flex h-28 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
+      <button
+        type="button"
+        className={`relative flex h-28 w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
           value
             ? 'border-emerald-200 bg-neutral-50 dark:bg-neutral-800'
             : 'border-neutral-200 bg-neutral-50 hover:border-blue-300 dark:border-neutral-700 dark:bg-neutral-800'
         }`}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => setPickerOpen(true)}
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => {
           e.preventDefault()
-          const f = e.dataTransfer.files[0]
-          if (f) void handleFile(f)
+          setPickerOpen(true)
         }}
       >
         {value ? (
           <>
             <Image src={value} alt="" fill className="object-cover" unoptimized={value.startsWith('/uploads/')} />
-            <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/40 opacity-0 hover:opacity-100 transition-opacity">
+            <div className="absolute inset-0 flex items-center justify-center gap-1.5 bg-black/40 opacity-0 transition-opacity hover:opacity-100">
               <Upload className="h-4 w-4 text-white" />
-              <span className="text-xs text-white">Değiştir</span>
+              <span className="text-xs text-white">Galeriden seç / yükle</span>
             </div>
           </>
-        ) : uploading ? (
-          <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
         ) : (
           <div className="flex flex-col items-center gap-1 text-neutral-400">
             <ImageIcon className="h-6 w-6" />
-            <span className="text-[10px]">Yükle / URL</span>
+            <span className="text-[10px]">Galeri / URL</span>
           </div>
         )}
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/avif"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f) }}
-        />
-      </div>
+      </button>
       <input
         type="text"
         placeholder="URL girin…"
@@ -220,7 +211,7 @@ function CmsImageSlot({
         className="rounded-lg border border-neutral-200 px-2 py-1 text-[11px] dark:border-neutral-700 dark:bg-neutral-800"
       />
       {value && (
-        <button onClick={() => onChange('')} className="text-[10px] text-red-500 hover:text-red-700 text-left">
+        <button onClick={() => onChange('')} className="text-left text-[10px] text-red-500 hover:text-red-700">
           Kaldır
         </button>
       )}
