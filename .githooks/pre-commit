@@ -6,6 +6,7 @@
 #   1. Migration drift (install_order.txt ile diski senkronize tut)
 #   2. Backend gleam değişikliği varsa: gleam build
 #   3. Frontend ts/tsx değişikliği varsa: pnpm lint (yoksa npm run lint)
+#   3b) site-upload-browser-href*.ts stage'lendiyse: vitest (URL sözleşmesi)
 
 set -e
 
@@ -43,6 +44,24 @@ if [ -n "$CHANGED_TS" ]; then
     ( cd frontend && echo "$CHANGED_TS" | sed 's|^frontend/||' | xargs npx eslint --max-warnings=50 ) || exit 1
   else
     echo "! pnpm/npm bulunamadı; lint atlandı."
+  fi
+
+  # 3b) Panel/site-upload URL sözleşmesi — ilgili dosya stage'lendiğinde hızlı vitest
+  if echo "$CHANGED_TS" | grep -qE '^frontend/src/lib/site-upload-browser-href(\.test)?\.ts$'; then
+    echo "→ site-upload-browser-href sözleşme testleri çalıştırılıyor..."
+    if command -v npm >/dev/null 2>&1; then
+      ( cd frontend && npm run test:contracts ) || {
+        echo "✖ vitest (site-upload-browser-href) başarısız. Commit iptal."
+        exit 1
+      }
+    elif command -v pnpm >/dev/null 2>&1; then
+      ( cd frontend && pnpm run test:contracts ) || {
+        echo "✖ vitest (site-upload-browser-href) başarısız. Commit iptal."
+        exit 1
+      }
+    else
+      echo "! npm/pnpm bulunamadı; vitest atlandı."
+    fi
   fi
 fi
 

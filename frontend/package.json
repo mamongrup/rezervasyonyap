@@ -13,6 +13,7 @@
     "build:turbo": "node ./scripts/next-with-heap.mjs build",
     "start": "next start",
     "lint": "eslint .",
+    "test:contracts": "vitest run src/lib/site-upload-browser-href.test.ts",
     "ensure-images": "node scripts/ensure-placeholder-images.mjs",
     "optimize:uploads": "node scripts/optimize-upload-performance.mjs",
     "recompress:external": "node scripts/recompress-external-avif.mjs",
@@ -78,7 +79,8 @@
     "pg": "^8.13.1",
     "prettier": "^3.3.2",
     "prettier-plugin-organize-imports": "^4.0.0",
-    "prettier-plugin-tailwindcss": "^0.6.11"
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "vitest": "^3.2.4"
   },
   "overrides": {
     "@types/react": "19.2.14",

@@ -137,7 +137,7 @@ const SimilarListings = ({
               )}
               aria-hidden
             />
-            <div className="absolute start-0 top-[38%] z-[2] -translate-y-1/2 sm:-start-1">
+            <div className="absolute start-0 top-[38%] z-[2] -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2">
               <ButtonCircle
                 type="button"
                 color="white"
@@ -149,7 +149,7 @@ const SimilarListings = ({
                 <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
               </ButtonCircle>
             </div>
-            <div className="absolute end-0 top-[38%] z-[2] -translate-y-1/2 sm:-end-1">
+            <div className="absolute end-0 top-[38%] z-[2] -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2">
               <ButtonCircle
                 type="button"
                 color="white"

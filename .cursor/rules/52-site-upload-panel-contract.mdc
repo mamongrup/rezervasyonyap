@@ -1,0 +1,18 @@
+---
+description: Panel `/uploads/site/` önizlemesi ve `/api/site-upload` — regresyon yapma
+alwaysApply: false
+globs: frontend/src/lib/site-upload-browser-href.ts,frontend/src/lib/site-upload-browser-href.test.ts,frontend/src/app/api/site-upload/**/*,frontend/src/components/manage/**/*MediaPicker*.tsx
+---
+
+# Site uploads ve panel önizleme sözleşmesi
+
+## Davranış
+
+- **Vitrin:** `/uploads/site/**` görselleri nginx köküyle çakışabildiği için tarayıcıda **`siteUploadBrowserHref`** ile **`/api/site-upload/...`** üzerinden istenmeli (disk: `frontend/public/uploads/site/**`).
+- **Yönetim paneli `<img>` önizlemesi:** ham `/uploads/site/` veya tam URL path’i `/uploads/site/` olan adresler için **`managePanelUploadPreviewSrc`** kullanılmalı — apex/www ve env farkında kırılmayı önler.
+
+## Regresyon koruması
+
+- **`frontend/src/lib/site-upload-browser-href.test.ts`** — Vitest sözleşme testleri; bu yardımcıları değiştirmeden önce güncelle veya testleri genişlet.
+- **`frontend`** içinde: `npm run test:contracts` veya `npx vitest run src/lib/site-upload-browser-href.test.ts`
+- Hook aktifse (`.githooks`): `site-upload-browser-href*.ts` stage’lendiğinde pre-commit vitest çalıştırır.
