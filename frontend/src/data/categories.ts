@@ -5,6 +5,7 @@ import filghtCategoryCoverImage from '@/images/hero-right-flight.png'
 import { CATEGORY_REGISTRY, normalizeTravelCategoryHomeOrder } from '@/data/category-registry'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { normalizeSiteRelativeUploadSrc } from '@/lib/normalize-site-upload-src'
+import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getPublicCategoryStats } from '@/lib/travel-api'
 
@@ -715,7 +716,7 @@ export async function getPageBuilderTravelCategories(thumbnailOverrides?: Record
       category.thumbnail
     return {
       ...category,
-      thumbnail: normalizeSiteRelativeUploadSrc(merged ?? ''),
+      thumbnail: siteUploadBrowserHref(normalizeSiteRelativeUploadSrc(merged ?? '')),
     }
   })
 }
