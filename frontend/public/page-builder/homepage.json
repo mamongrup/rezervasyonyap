@@ -129,7 +129,11 @@
         "heading": "Seyahat Türüne Göre Keşfet",
         "subheading": "12 farklı kategori ile seyahat planla",
         "cardType": "card5",
-        "slice": "last6"
+        "slice": "last6",
+        "categoryThumbnails": {
+          "oteller": "/uploads/site/page-builder/kategori-kartlari/oteller/kart-1.avif",
+          "tatil-evleri": "/uploads/site/page-builder/kategori-kartlari/tatil-evleri/kart-2.avif"
+        }
       },
       "id": "homepage-module-10"
     },
@@ -154,5 +158,5 @@
       "id": "homepage-module-12"
     }
   ],
-  "updatedAt": "2026-04-15T03:57:35.576Z"
+  "updatedAt": "2026-05-05T07:28:01.021Z"
 }

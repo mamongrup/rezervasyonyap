@@ -40,6 +40,51 @@ import CouponsStripModule from './modules/CouponsStripModule'
 import HolidayPackagesModule from './modules/HolidayPackagesModule'
 import CrossSellWidgetModule from './modules/CrossSellWidgetModule'
 
+/** Modül config içinden categoryThumbnails — yalnızca dolu string değerler */
+function categoryThumbnailsFromModuleConfig(config: unknown): Record<string, string> {
+  const raw = (config as Record<string, unknown> | undefined)?.categoryThumbnails
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+  const out: Record<string, string> = {}
+  for (const [k, v] of Object.entries(raw)) {
+    if (typeof v !== 'string') continue
+    const t = v.trim()
+    if (t) out[k] = t
+  }
+  return out
+}
+
+/** travel_category_images katmanı — boş stringler atlanır */
+function thumbnailsFromTravelCategoryImagesModules(enabled: PageBuilderModule[]): Record<string, string> {
+  return enabled.reduce<Record<string, string>>((acc, m) => {
+    if (m.type !== 'travel_category_images') return acc
+    const t = (m.config as Record<string, unknown> | undefined)?.thumbnails
+    if (!t || typeof t !== 'object' || Array.isArray(t)) return acc
+    for (const [k, v] of Object.entries(t as Record<string, string>)) {
+      if (typeof v !== 'string') continue
+      const trimmed = v.trim()
+      if (trimmed) acc[k] = trimmed
+    }
+    return acc
+  }, {})
+}
+
+/**
+ * Ana sayfada slider/grid modüllerinde tanımlı `categoryThumbnails` anahtarlarının birleşimi
+ * (modül sırasına göre ilk tanımlanan değer kalır). `travel_category_images` ile çakışan slug’larda
+ * paylaşımlı modül üstte yazılır (`PageBuilderRenderer` içinde spread sırası).
+ */
+function implicitSharedThumbnailsFromSliderGridModules(enabled: PageBuilderModule[]): Record<string, string> {
+  const acc: Record<string, string> = {}
+  for (const m of enabled) {
+    if (m.type !== 'category_slider' && m.type !== 'category_grid') continue
+    const next = categoryThumbnailsFromModuleConfig(m.config)
+    for (const [k, v] of Object.entries(next)) {
+      if (!(k in acc)) acc[k] = v
+    }
+  }
+  return acc
+}
+
 interface PageBuilderRendererProps {
   modules: PageBuilderModule[]
   category: CategoryRegistryEntry
@@ -108,17 +153,17 @@ export default function PageBuilderRenderer({
   const messages = getMessages(locale)
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
-  /** Paylaşımlı kart görselleri yalnızca ana sayfada geçerli (`page.tsx` → `pageKey="homepage"`) */
+  /**
+   * Paylaşımlı kart görselleri (yalnızca ana sayfa):
+   * - Slider/grid modüllerinde tanımlı thumb’ların birleşimi (ilk modül öncelikli),
+   * - Üzerine `travel_category_images` ile aynı slug için yazılanlar (paylaşımlı modül kazanır).
+   */
   const sharedCategoryThumbnails =
     pageKey === 'homepage'
-      ? enabled.reduce<Record<string, string>>((acc, m) => {
-          if (m.type !== 'travel_category_images') return acc
-          const t = m.config.thumbnails
-          if (t && typeof t === 'object' && !Array.isArray(t)) {
-            return { ...acc, ...(t as Record<string, string>) }
-          }
-          return acc
-        }, {})
+      ? {
+          ...implicitSharedThumbnailsFromSliderGridModules(enabled),
+          ...thumbnailsFromTravelCategoryImagesModules(enabled),
+        }
       : {}
 
   const Root = rootAs
