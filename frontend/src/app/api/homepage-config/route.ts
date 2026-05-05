@@ -2,6 +2,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminCookie } from '@/lib/api-require-admin'
+import { revalidateHomepageLocales } from '@/lib/revalidate-page-builder'
 import type { PageBuilderModule } from '@/types/listing-types'
 
 const FILE_PATH = path.join(process.cwd(), 'public', 'page-builder', 'homepage.json')
@@ -68,6 +69,8 @@ export async function POST(req: NextRequest) {
 
   await fs.mkdir(path.dirname(FILE_PATH), { recursive: true })
   await fs.writeFile(FILE_PATH, JSON.stringify(config, null, 2), 'utf-8')
+
+  revalidateHomepageLocales()
 
   return NextResponse.json({ ok: true, savedAt: config.updatedAt })
 }

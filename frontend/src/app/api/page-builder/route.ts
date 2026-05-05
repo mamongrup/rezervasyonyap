@@ -5,6 +5,7 @@ import type { CategoryPageBuilderConfig, PageBuilderModule } from '@/types/listi
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { requireAdminCookie } from '@/lib/api-require-admin'
 import { getLocalizedDefaultModules, getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
+import { revalidateAfterPageBuilderSave } from '@/lib/revalidate-page-builder'
 import { getMessages } from '@/utils/getT'
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'page-builder')
@@ -131,6 +132,8 @@ export async function POST(req: NextRequest) {
   const filePath = path.join(DATA_DIR, `${safeSlug(slug)}.json`)
   await fs.writeFile(filePath, JSON.stringify(config, null, 2), 'utf-8')
 
+  revalidateAfterPageBuilderSave(safeSlug(slug))
+
   return NextResponse.json({ ok: true, savedAt: config.updatedAt })
 }
 
@@ -143,7 +146,9 @@ export async function DELETE(req: NextRequest) {
   const slug = searchParams.get('slug')
   if (!slug) return NextResponse.json({ ok: false, error: 'slug required' }, { status: 400 })
 
-  const filePath = path.join(DATA_DIR, `${safeSlug(slug)}.json`)
+  const safe = safeSlug(slug)
+  const filePath = path.join(DATA_DIR, `${safe}.json`)
   await fs.unlink(filePath).catch(() => null)
+  revalidateAfterPageBuilderSave(safe)
   return NextResponse.json({ ok: true })
 }
