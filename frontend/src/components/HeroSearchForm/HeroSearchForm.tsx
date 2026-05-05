@@ -16,6 +16,7 @@ const HeroSearchForm = ({
   categoryBarLayout = 'default',
   /** Server component'ten pre-fetch edilen aktif hero slug listesi */
   activeSlugs,
+  collapseOverflowAfterSlug,
 }: {
   className?: string
   initTab: ListingType
@@ -24,6 +25,7 @@ const HeroSearchForm = ({
   hideVerticalTabs?: boolean
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
+  collapseOverflowAfterSlug?: string
 }) => {
   if (hideVerticalTabs) {
     return (
@@ -33,6 +35,7 @@ const HeroSearchForm = ({
         locale={locale}
         categoryBarLayout={categoryBarLayout}
         activeSlugs={activeSlugs}
+        collapseOverflowAfterSlug={collapseOverflowAfterSlug}
       />
     )
   }

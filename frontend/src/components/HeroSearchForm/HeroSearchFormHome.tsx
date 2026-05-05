@@ -16,19 +16,27 @@ export function HeroSearchFormHome({
   locale = 'tr',
   categoryBarLayout = 'default',
   activeSlugs,
+  collapseOverflowAfterSlug,
 }: {
   className?: string
   initTab: ListingType
   locale?: string
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
+  /** Örn. ana sayfa: `arac-kiralama` sonrası kalan kayıtlı kategoriler hamburger menüde */
+  collapseOverflowAfterSlug?: string
 }) {
   const tab = formTabs.find((t) => t.name === initTab) ?? formTabs[0]
   const FormComponent = initTab === 'Stays' ? StaySearchForm : tab.formComponent
 
   return (
     <div className={clsx('hero-search-form w-full min-w-0', className)}>
-      <HeroMenuCategoryBar locale={locale} layout={categoryBarLayout} activeSlugs={activeSlugs} />
+      <HeroMenuCategoryBar
+        locale={locale}
+        layout={categoryBarLayout}
+        activeSlugs={activeSlugs}
+        collapseOverflowAfterSlug={collapseOverflowAfterSlug}
+      />
       <FormComponent formStyle="default" />
     </div>
   )

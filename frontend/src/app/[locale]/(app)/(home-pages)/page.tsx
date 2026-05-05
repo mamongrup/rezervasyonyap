@@ -153,7 +153,12 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   })
 
   const searchForm = (
-    <HeroSearchDesktopOnly initTab="Stays" locale={locale} hideVerticalTabs />
+    <HeroSearchDesktopOnly
+      initTab="Stays"
+      locale={locale}
+      hideVerticalTabs
+      collapseOverflowAfterSlug="arac-kiralama"
+    />
   )
 
   const heroHeadingLinked = (

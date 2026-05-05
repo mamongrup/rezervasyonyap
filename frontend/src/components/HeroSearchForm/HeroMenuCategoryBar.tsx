@@ -1,6 +1,6 @@
 'use client'
 
-import { CATEGORY_REGISTRY } from '@/data/category-registry'
+import { CATEGORY_REGISTRY, type CategoryRegistryEntry } from '@/data/category-registry'
 import { Link } from '@/shared/link'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import {
@@ -164,6 +164,16 @@ const LABEL_BY_LOCALE: Record<string, Record<string, string>> = {
   fr: LABEL_FR,
 }
 
+/** Hamburger tetikleyici — masaüstü hero “diğer kategoriler” */
+const OVERFLOW_TRIGGER_LABEL: Record<string, string> = {
+  tr: 'Diğer',
+  en: 'More',
+  de: 'Mehr',
+  ru: 'Ещё',
+  zh: '更多',
+  fr: 'Plus',
+}
+
 function pickLabel(locale: string, slug: string, fallback: string): string {
   const lc = (locale || 'tr').toLowerCase().slice(0, 2)
   const map = LABEL_BY_LOCALE[lc] ?? LABEL_EN
@@ -184,12 +194,18 @@ export function HeroMenuCategoryBar({
   activeSlugs,
   /** Mobil modal: ilk 5 kategori satırda, kalanı "Menü" içinde gösterilir. */
   mobileMoreMenu = false,
+  /**
+   * Ana sayfa masaüstü: bu slug’a kadar (dahil) vitrin satırında kalır; kayıtta olup satırda olmayan
+   * tüm kategoriler hamburger menüde listelenir (`showInNav` dışındakiler dahil).
+   */
+  collapseOverflowAfterSlug,
 }: {
   locale: string
   className?: string
   layout?: 'default' | 'spread'
   activeSlugs?: string[]
   mobileMoreMenu?: boolean
+  collapseOverflowAfterSlug?: string
 }) {
   const lc = (locale || 'tr').toLowerCase().slice(0, 2)
   const slugOrder =
@@ -207,16 +223,35 @@ export function HeroMenuCategoryBar({
         : ALL_NAV_CATEGORIES
 
   const spread = layout === 'spread'
-  const useMoreMenu = mobileMoreMenu && !spread && cats.length > MOBILE_INLINE_CATEGORY_COUNT
-  const inlineCats = useMoreMenu ? cats.slice(0, MOBILE_INLINE_CATEGORY_COUNT) : cats
-  const menuCats = useMoreMenu ? cats.slice(MOBILE_INLINE_CATEGORY_COUNT) : []
+
+  const useCollapseDesktop =
+    Boolean(collapseOverflowAfterSlug?.trim()) && !spread && !mobileMoreMenu
+
+  let inlineCats = cats
+  let menuCats: CategoryRegistryEntry[] = []
+  let useResponsiveBreakpoints = !mobileMoreMenu && !spread
+
+  if (useCollapseDesktop && collapseOverflowAfterSlug) {
+    const cut = collapseOverflowAfterSlug.trim()
+    const idx = cats.findIndex((c) => c.slug === cut)
+    if (idx >= 0) {
+      inlineCats = cats.slice(0, idx + 1)
+      const shown = new Set(inlineCats.map((c) => c.slug))
+      menuCats = ALL_CATEGORIES.filter((c) => !shown.has(c.slug))
+      useResponsiveBreakpoints = false
+    }
+  } else if (mobileMoreMenu && !spread && cats.length > MOBILE_INLINE_CATEGORY_COUNT) {
+    inlineCats = cats.slice(0, MOBILE_INLINE_CATEGORY_COUNT)
+    menuCats = cats.slice(MOBILE_INLINE_CATEGORY_COUNT)
+    useResponsiveBreakpoints = false
+  }
 
   /**
    * `extraClass`: `inlineVisibilityClass(i)` — mobilde ikon sayısı sınırlı kalır.
    * Spread modunda da aynı sınıflar kullanılır; yoksa tüm kategoriler tek satırda “patlar”.
    */
   const catLink = (
-    cat: typeof cats[0],
+    cat: CategoryRegistryEntry,
     extraClass: string,
   ) => {
     const Icon = SLUG_ICON[cat.slug] ?? Home01Icon
@@ -255,9 +290,15 @@ export function HeroMenuCategoryBar({
     )
   }
 
+  const overflowTriggerText =
+    OVERFLOW_TRIGGER_LABEL[lc] ?? OVERFLOW_TRIGGER_LABEL.en
+
   const moreMenu = menuCats.length ? (
     <Popover className="relative flex shrink-0 flex-col items-center gap-1.5 sm:gap-2">
-      <PopoverButton className="group/tab flex cursor-pointer flex-col items-center gap-1.5 sm:gap-2">
+      <PopoverButton
+        className="group/tab flex cursor-pointer flex-col items-center gap-1.5 sm:gap-2"
+        aria-label={useCollapseDesktop ? overflowTriggerText : 'Menü'}
+      >
         <span
           className={clsx(
             'flex size-10 items-center justify-center rounded-full border transition-colors sm:size-11',
@@ -267,7 +308,7 @@ export function HeroMenuCategoryBar({
           <HugeiconsIcon icon={Menu01Icon} className="size-[1.15rem] sm:size-5" strokeWidth={1.5} />
         </span>
         <span className="max-w-[5.5rem] truncate text-center text-xs font-normal text-neutral-500 hover:text-neutral-600 sm:text-sm dark:text-neutral-400 dark:hover:text-neutral-300">
-          Menü
+          {useCollapseDesktop ? overflowTriggerText : 'Menü'}
         </span>
       </PopoverButton>
       <PopoverPanel className="absolute end-0 top-full z-[80] mt-3 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
@@ -306,7 +347,9 @@ export function HeroMenuCategoryBar({
         className,
       )}
     >
-      {inlineCats.map((cat, i) => catLink(cat, useMoreMenu ? 'flex' : inlineVisibilityClass(i)))}
+      {inlineCats.map((cat, i) =>
+        catLink(cat, useResponsiveBreakpoints ? inlineVisibilityClass(i) : 'flex'),
+      )}
       {moreMenu}
     </div>
   )

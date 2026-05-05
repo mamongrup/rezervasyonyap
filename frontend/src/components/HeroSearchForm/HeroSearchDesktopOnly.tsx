@@ -16,12 +16,14 @@ export default function HeroSearchDesktopOnly({
   hideVerticalTabs = false,
   categoryBarLayout = 'default',
   activeSlugs,
+  collapseOverflowAfterSlug,
 }: {
   initTab?: ListingType
   locale?: string
   hideVerticalTabs?: boolean
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
+  collapseOverflowAfterSlug?: string
 }) {
   // Desktop ana sayfada formun ilk boyamada skeleton olarak kalmasını önle.
   // Bu bileşenin üst sarmalayıcısı <lg'de zaten `hidden`, effect mobilde kapatır.
@@ -49,6 +51,7 @@ export default function HeroSearchDesktopOnly({
       hideVerticalTabs={hideVerticalTabs}
       categoryBarLayout={categoryBarLayout}
       activeSlugs={activeSlugs}
+      collapseOverflowAfterSlug={collapseOverflowAfterSlug}
     />
   )
 }
