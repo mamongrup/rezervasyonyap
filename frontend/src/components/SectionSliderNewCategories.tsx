@@ -11,9 +11,15 @@ import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import { FC, useCallback, useLayoutEffect, useRef, useState } from 'react'
+import { type CSSProperties, FC, useCallback, useLayoutEffect, useRef, useState } from 'react'
 
 const CATEGORY_CARD_MEDIA_SELECTOR = '[data-category-card-media]'
+
+type ArrowLayout = {
+  top: number
+  prevLeft: number
+  nextLeft: number
+}
 
 interface Props {
   className?: string
@@ -29,36 +35,80 @@ const SectionSliderNewCategories: FC<Props> = ({
   categoryCardType = 'card3',
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
+  const clipRef = useRef<HTMLDivElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
-  const [arrowMidYpx, setArrowMidYpx] = useState<number | null>(null)
+  const [arrowLayout, setArrowLayout] = useState<ArrowLayout | null>(null)
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
   const locale = useLocaleSegment()
   const pag = getMessages(locale).common.pagination
 
-  const syncArrowMidY = useCallback(() => {
+  const syncArrowLayout = useCallback(() => {
     const root = containerRef.current
+    const clip = clipRef.current
     const track = sliderRef.current
-    if (!root || !track) return
-    const media = track.querySelector(CATEGORY_CARD_MEDIA_SELECTOR)
-    if (!(media instanceof HTMLElement)) return
+    if (!root || !clip || !track) return
+
     const rootRect = root.getBoundingClientRect()
-    const mediaRect = media.getBoundingClientRect()
-    setArrowMidYpx(mediaRect.top - rootRect.top + mediaRect.height / 2)
+    const clipRect = clip.getBoundingClientRect()
+
+    const medias = [...track.querySelectorAll(CATEGORY_CARD_MEDIA_SELECTOR)].filter(
+      (n): n is HTMLElement => n instanceof HTMLElement,
+    )
+
+    const visible = medias.filter((m) => {
+      const r = m.getBoundingClientRect()
+      return r.right > clipRect.left && r.left < clipRect.right
+    })
+
+    if (visible.length === 0) {
+      setArrowLayout(null)
+      return
+    }
+
+    let leftmostEl = visible[0]
+    let rightmostEl = visible[0]
+    let minLeft = Infinity
+    let maxRight = -Infinity
+
+    for (const m of visible) {
+      const r = m.getBoundingClientRect()
+      if (r.left < minLeft) {
+        minLeft = r.left
+        leftmostEl = m
+      }
+      if (r.right > maxRight) {
+        maxRight = r.right
+        rightmostEl = m
+      }
+    }
+
+    const lr = leftmostEl.getBoundingClientRect()
+    const rr = rightmostEl.getBoundingClientRect()
+
+    setArrowLayout({
+      top: lr.top - rootRect.top + lr.height / 2,
+      prevLeft: lr.left - rootRect.left,
+      nextLeft: rr.right - rootRect.left,
+    })
   }, [])
 
   useLayoutEffect(() => {
-    syncArrowMidY()
-    const ro = new ResizeObserver(() => syncArrowMidY())
+    syncArrowLayout()
+    const ro = new ResizeObserver(() => syncArrowLayout())
     const root = containerRef.current
+    const clip = clipRef.current
     const track = sliderRef.current
     if (root) ro.observe(root)
+    if (clip) ro.observe(clip)
     if (track) ro.observe(track)
-    window.addEventListener('resize', syncArrowMidY)
+    track?.addEventListener('scroll', syncArrowLayout, { passive: true })
+    window.addEventListener('resize', syncArrowLayout)
     return () => {
       ro.disconnect()
-      window.removeEventListener('resize', syncArrowMidY)
+      track?.removeEventListener('scroll', syncArrowLayout)
+      window.removeEventListener('resize', syncArrowLayout)
     }
-  }, [categories, categoryCardType, syncArrowMidY])
+  }, [categories, categoryCardType, syncArrowLayout])
 
   const renderCard = (item: TCategory) => {
     switch (categoryCardType) {
@@ -71,12 +121,19 @@ const SectionSliderNewCategories: FC<Props> = ({
     }
   }
 
-  const arrowTopPxStyle = arrowMidYpx != null ? ({ top: arrowMidYpx } as const) : undefined
-  const arrowTopFallback = arrowMidYpx == null ? 'top-[40%]' : ''
+  const measured = arrowLayout != null
+  const measuredStyle = (axis: 'prev' | 'next'): CSSProperties | undefined =>
+    arrowLayout
+      ? {
+          left: axis === 'prev' ? arrowLayout.prevLeft : arrowLayout.nextLeft,
+          top: arrowLayout.top,
+          transform: 'translate(-50%, -50%)',
+        }
+      : undefined
 
   return (
     <div ref={containerRef} className={clsx('relative', className)}>
-      <div className="min-w-0 max-w-full overflow-x-clip">
+      <div ref={clipRef} className="min-w-0 max-w-full overflow-x-clip">
         <div
           ref={sliderRef}
           className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain lg:-mx-3.5"
@@ -91,10 +148,10 @@ const SectionSliderNewCategories: FC<Props> = ({
 
       <div
         className={clsx(
-          'absolute start-0 z-1 -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2',
-          arrowTopFallback,
+          'absolute z-1',
+          !measured && 'start-0 top-[40%] -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2',
         )}
-        style={arrowTopPxStyle}
+        style={measuredStyle('prev')}
       >
         <ButtonCircle color="white" onClick={scrollToPrevSlide} className={'xl:size-11'} disabled={isAtStart} aria-label={pag.previous}>
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
@@ -103,10 +160,10 @@ const SectionSliderNewCategories: FC<Props> = ({
 
       <div
         className={clsx(
-          'absolute end-0 z-1 -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2',
-          arrowTopFallback,
+          'absolute z-1',
+          !measured && 'end-0 top-[40%] -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2',
         )}
-        style={arrowTopPxStyle}
+        style={measuredStyle('next')}
       >
         <ButtonCircle color="white" onClick={scrollToNextSlide} className={'xl:size-11'} disabled={isAtEnd} aria-label={pag.next}>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
