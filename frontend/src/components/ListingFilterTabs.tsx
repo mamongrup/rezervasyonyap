@@ -1,7 +1,6 @@
 'use client'
 
 import NcInputNumber from '@/components/NcInputNumber'
-import { Button } from '@/shared/Button'
 import ButtonClose from '@/shared/ButtonClose'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonThird from '@/shared/ButtonThird'
@@ -54,6 +53,16 @@ type SelectNumberFilter = {
   }[]
 }
 
+/** Chisfis tarzı: beyaz hap, ince gri kenarlık; seçili/açık → kalın siyah kenarlık */
+const filterPillBase =
+  'relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-[border-color,box-shadow,color] focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950/25 dark:bg-neutral-900 dark:focus-visible:ring-white/25'
+
+const filterPillIdle =
+  'border-2 border-neutral-200 text-neutral-800 shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:text-neutral-100 dark:hover:border-neutral-500'
+
+const filterPillEmphasis =
+  'border-2 border-neutral-950 text-neutral-950 shadow-sm dark:border-white dark:text-white'
+
 const CheckboxPanel = ({ filterOption, className }: { filterOption: CheckboxFilter; className?: string }) => {
   return (
     <Fieldset>
@@ -99,19 +108,19 @@ const ListingFilterTabs = ({
   const renderTabAllFilters = () => {
     return (
       <div className="shrink-0 grow md:grow-0">
-        <Button
-          outline
+        <button
+          type="button"
           onClick={() => setShowAllFilter(true)}
-          className="w-full border-black! ring-1 ring-black ring-inset md:w-auto dark:border-neutral-200! dark:ring-neutral-200"
+          className={clsx(filterPillBase, filterPillEmphasis, 'w-full md:w-auto')}
         >
           <HugeiconsIcon icon={FilterVerticalIcon} size={16} color="currentColor" strokeWidth={1.5} />
           <span>{T['common']['All filters']}</span>
           {filterOptions.length > 0 ? (
-            <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
+            <span className="absolute -top-1.5 -right-1 flex size-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-neutral-950 px-0.5 text-[0.625rem] leading-none font-semibold text-white ring-2 ring-white dark:bg-white dark:text-neutral-950 dark:ring-neutral-900">
               {Math.min(filterOptions.length, 99)}
             </span>
           ) : null}
-        </Button>
+        </button>
 
         <Dialog
           open={showAllFilter}
@@ -181,10 +190,9 @@ const ListingFilterTabs = ({
   }
 
   return (
-    <div className="flex flex-wrap md:gap-x-4 md:gap-y-2">
+    <div className="flex flex-wrap items-center gap-2 md:gap-3">
       {renderTabAllFilters()}
-      <PopoverGroup className="hidden flex-wrap gap-x-4 gap-y-2 md:flex" as={Form} action={handleFormSubmit}>
-        <div className="h-auto w-px bg-neutral-200 dark:bg-neutral-700" />
+      <PopoverGroup className="hidden flex-wrap items-center gap-2 md:flex md:gap-3" as={Form} action={handleFormSubmit}>
         {filterOptions.map((filterOption, index) => {
           // only show 3 filters in the tab. Other filters will be shown in the All-filters-popover
           if (index > 2 || !filterOption) {
@@ -197,18 +205,16 @@ const ListingFilterTabs = ({
           return (
             <Popover className="relative" key={index}>
               <PopoverButton
-                as={Button}
-                outline
                 className={clsx(
-                  'md:px-4',
-                  checkedNumber &&
-                    'border-black! ring-1 ring-black ring-inset dark:border-neutral-200! dark:ring-neutral-200',
+                  filterPillBase,
+                  checkedNumber > 0 ? filterPillEmphasis : filterPillIdle,
+                  'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
                 )}
               >
                 <span>{filterOption.label}</span>
-                <HugeiconsIcon icon={ArrowDown01Icon} className="size-4" strokeWidth={1.75} />
+                <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
                 {checkedNumber ? (
-                  <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
+                  <span className="absolute -top-1.5 -right-1 flex size-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-neutral-950 px-0.5 text-[0.625rem] leading-none font-semibold text-white ring-2 ring-white dark:bg-white dark:text-neutral-950 dark:ring-neutral-900">
                     {checkedNumber}
                   </span>
                 ) : null}

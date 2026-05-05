@@ -335,6 +335,7 @@ export function getRegionDetailDefaultModules(_m: AppMessages): Omit<PageBuilder
     { type: 'region_detail_nearby', enabled: true, order: 9, config: {} },
     { type: 'region_detail_map', enabled: true, order: 10, config: {} },
     { type: 'region_detail_empty_hint', enabled: true, order: 11, config: {} },
-    { type: 'region_detail_subdivisions', enabled: true, order: 12, config: {} },
+    /** İçerik `region_detail_explore_hotels` ile birleştirildi (yinelenmesin diye kapalı). */
+    { type: 'region_detail_subdivisions', enabled: false, order: 12, config: {} },
   ]
 }

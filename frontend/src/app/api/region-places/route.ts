@@ -90,6 +90,9 @@ export async function GET(req: NextRequest) {
 // ─── POST ────────────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   try {
+    const authErr = await requireAdminCookie()
+    if (authErr) return authErr
+
     const body = await req.json() as RegionPlaceData
 
     if (!body.regionSlug) {

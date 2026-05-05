@@ -786,7 +786,13 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       const res = await fetch('/api/places-nearby', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat: parseFloat(mapLat), lng: parseFloat(mapLng), type: 'airport', radius: 150000, maxResults: 3 }),
+        body: JSON.stringify({
+          lat: parseFloat(mapLat),
+          lng: parseFloat(mapLng),
+          googleType: 'airport',
+          radiusM: 150_000,
+          maxCount: 3,
+        }),
       })
       if (res.ok) {
         const data = await res.json() as { places?: { name: string; distanceKm: number }[] }

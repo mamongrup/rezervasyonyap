@@ -36,7 +36,12 @@ import {
 } from '@/lib/travel-api'
 import { timeoutMsForProfile } from '@/lib/ai-upstream-timeouts'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import {
+  buildRegionPlaceDataFromGoogleDefaults,
+  postRegionPlacesJson,
+} from '@/lib/build-region-places-from-google'
 import { parseLenientJson } from '@/lib/json-parse'
+import { regionPlacesSlugFromSlugPath } from '@/lib/region-places-slug'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -130,6 +135,8 @@ export default function AdminAiSection() {
     return ''
   })
   const mapsStopRef = useRef(false)
+  /** Maps iş akışı: gezi fikirleri kaydından sonra region-places JSON (vitrin + mesafeler) */
+  const [mapsAlsoWriteRegionPlaces, setMapsAlsoWriteRegionPlaces] = useState(true)
 
   // Pexels kapak + fikir resimleri
   const [pexelsRunning, setPexelsRunning] = useState(false)
@@ -568,11 +575,16 @@ export default function AdminAiSection() {
           setMapsLog((l) => [...l, 'Tüm ilçeler tamamlandı.'])
           break
         }
-        const { location_page_id, district_name, region_name, center_lat, center_lng } = next
+        const { location_page_id, district_name, region_name, center_lat, center_lng, slug_path } =
+          next
         if (!location_page_id || !district_name) continue
 
         // İlçe koordinatı varsa kullan; yoksa Türkiye merkezi ile text search
-        const hasCoords = !!center_lat && !!center_lng && center_lat !== '' && center_lng !== ''
+        const hasCoords =
+          center_lat != null &&
+          center_lng != null &&
+          String(center_lat).trim() !== '' &&
+          String(center_lng).trim() !== ''
         const lat = hasCoords ? parseFloat(center_lat!) : 39.0
         const lng = hasCoords ? parseFloat(center_lng!) : 35.0
         // Popüler turistik mekan araması: ören yeri, tarihi yer, doğa vb.
@@ -638,6 +650,15 @@ export default function AdminAiSection() {
               place_id: p.placeId,
               distance_km_from_district: Math.round(p.distanceKm * 10) / 10,
             }))
+          } else {
+            let detail = `${placesRes.status}`
+            try {
+              const errJson = (await placesRes.json()) as { error?: string }
+              if (errJson?.error) detail = errJson.error
+            } catch {
+              /* ignore */
+            }
+            setMapsLog((l) => [...l, `⚠ Maps yanıtı (${district_name}): ${detail}`])
           }
         } catch {
           setMapsLog((l) => [...l, `⚠ Maps hatası: ${district_name}, atlandı`])
@@ -658,6 +679,33 @@ export default function AdminAiSection() {
           )
           setMapsLog((l) => [...l, `#${processed + 1} ~ ${district_name} — Maps sonucu yok, yer tutucu eklendi`])
           processed++
+        }
+
+        if (mapsAlsoWriteRegionPlaces && hasCoords && slug_path) {
+          const regionSlug = regionPlacesSlugFromSlugPath(slug_path)
+          if (regionSlug && !mapsStopRef.current) {
+            try {
+              const payload = await buildRegionPlaceDataFromGoogleDefaults({
+                regionName: [district_name, region_name].filter(Boolean).join(', '),
+                regionSlug,
+                lat,
+                lng,
+                apiKey: key,
+                locale: 'tr',
+              })
+              const pr = await postRegionPlacesJson(payload)
+              if (pr.ok) {
+                setMapsLog((l) => [...l, `   ↳ vitrin JSON kaydedildi (${regionSlug})`])
+              } else {
+                setMapsLog((l) => [...l, `   ↳ vitrin kayıt hatası: ${pr.error ?? '?'}`])
+              }
+            } catch (ve) {
+              setMapsLog((l) => [
+                ...l,
+                `   ↳ vitrin üretim hatası: ${ve instanceof Error ? ve.message : String(ve)}`,
+              ])
+            }
+          }
         }
 
         if (processed % 20 === 0) await loadDistrictStats()
@@ -1112,6 +1160,11 @@ export default function AdminAiSection() {
               </a>
               .
             </p>
+            <p className="mt-2 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+              Önerilen sıra: (1) burada metin üret → (2) Google Maps ile gerçek mekan + mesafe ve vitrin JSON → (3) aşağıda &ldquo;Mekan blogları&rdquo; ile favori mekan yazıları (kaynak:{' '}
+              <code className="rounded bg-neutral-100 px-1 font-mono dark:bg-neutral-800">travel_ideas_json</code>
+              ).
+            </p>
           </div>
         </div>
 
@@ -1193,6 +1246,11 @@ export default function AdminAiSection() {
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Bölge Tanıtımı + Blog Yazıları</h2>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
               Her ülke, il, ilçe ve destinasyon sayfasına turizm açısından tanıtıcı yazı ekler; ayrıca Gezi Fikirleri kategorisine bölge blog yazısı üretir.
+              <span className="mt-1 block text-xs text-neutral-400">
+                <strong>Favori mekan blogları</strong> (`place_blog_writer`), lokasyonun{' '}
+                <code className="rounded bg-violet-50 px-1 font-mono dark:bg-violet-950/40">travel_ideas_json</code>{' '}
+                içindeki mekanları kaynak alır; önce gezi fikirleri + mümkünse Google Maps adımını tamamlayın.
+              </span>
               <span className="mt-1 block text-xs text-neutral-400">
                 Süre tek kaynak:{' '}
                 <a
@@ -1378,7 +1436,12 @@ export default function AdminAiSection() {
           <div className="min-w-0 flex-1">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Google Maps Places — İlçe Mekan Çekme</h2>
             <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              Google Places API ile her ilçe için gerçek turistik mekan verisi çeker. API anahtarınızı girin ve başlatın.
+              Google Places API ile her ilçe için gerçek turistik mekan verisi çeker ve{' '}
+              <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">travel_ideas_json</code>{' '}
+              alanına yazar. İsteğe bağlı olarak aynı koordinatlarla gezi fikirleri altındaki{' '}
+              <strong>yakın mekan vitrin</strong> için{' '}
+              <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">region-places</code>{' '}
+              dosyası da güncellenir (plaj, ulaşım, market… + kuş uçuşu mesafe).
               İçeriği olmayan ilçeleri sırayla işler.
             </p>
           </div>
@@ -1405,6 +1468,21 @@ export default function AdminAiSection() {
             />
           </div>
         </div>
+
+        <label className="mb-4 flex cursor-pointer items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+          <input
+            type="checkbox"
+            className="mt-1 rounded border-neutral-300 text-blue-600 focus:ring-blue-500 dark:border-neutral-600 dark:bg-neutral-900"
+            checked={mapsAlsoWriteRegionPlaces}
+            onChange={(e) => setMapsAlsoWriteRegionPlaces(e.target.checked)}
+            disabled={mapsRunning}
+          />
+          <span>
+            Koordinat bilinen ilçelerde vitrin dosyasını da yaz:{' '}
+            <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">public/region-places/</code>{' '}
+            (varsayılan şablon satırları; Google türleri ile mekan + mesafe).
+          </span>
+        </label>
 
         <div className="flex flex-wrap gap-3">
           {!mapsRunning ? (

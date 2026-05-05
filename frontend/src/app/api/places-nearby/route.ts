@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
 
     const { lat, lng, googleType, radiusM, maxCount, language = 'tr', apiKey } = body
 
-    if (!lat || !lng || !googleType) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !googleType?.trim()) {
       return NextResponse.json({ error: 'lat, lng ve googleType zorunludur.' }, { status: 400 })
     }
 

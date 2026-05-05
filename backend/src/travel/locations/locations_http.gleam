@@ -413,8 +413,7 @@ const page_json_sql = "json_build_object(
   'travel_ideas_json', coalesce(travel_ideas_json, '[]'::jsonb),
   'translations_json', coalesce(translations_json, '{}'::jsonb),
   'poi_manual_json', coalesce(poi_manual_json, '[]'::jsonb),
-  'country_info_json', coalesce(country_info_json, '{}'::jsonb),
-  'nearby_vitrin_columns_json', nearby_vitrin_columns_json
+  'country_info_json', coalesce(country_info_json, '{}'::jsonb)
 )::text"
 
 fn page_row() -> decode.Decoder(String) {
@@ -854,7 +853,6 @@ type PagePatch {
     translations_json: Option(String),
     poi_manual_json: Option(String),
     country_info_json: Option(String),
-    nearby_vitrin_columns_json: Option(String),
   )
 }
 
@@ -878,10 +876,8 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
                                   decode.optional_field("translations_json", None, decode.optional(decode.string), fn(trj) {
                                     decode.optional_field("poi_manual_json", None, decode.optional(decode.string), fn(pmj) {
                                       decode.optional_field("country_info_json", None, decode.optional(decode.string), fn(cij) {
-                                        decode.optional_field("nearby_vitrin_columns_json", None, decode.optional(decode.string), fn(nvj) {
-                                          decode.success(PagePatch(did, sp, hk, title, desc, mt, md, gallery, lat, lng, is_pub, rt, fi, hi, tii, tij, trj, pmj, cij, nvj))
-                                        })
-                                      })
+                                      decode.success(PagePatch(did, sp, hk, title, desc, mt, md, gallery, lat, lng, is_pub, rt, fi, hi, tii, tij, trj, pmj, cij))
+                                    })
                                     })
                                   })
                                 })
@@ -944,7 +940,6 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
                 translations_json      = coalesce($18::jsonb, translations_json),
                 poi_manual_json        = coalesce($19::jsonb, poi_manual_json),
                 country_info_json      = coalesce($20::jsonb, country_info_json),
-                nearby_vitrin_columns_json = coalesce($21::jsonb, nearby_vitrin_columns_json),
                 updated_at             = now()
               where id = $1::uuid returning id::text",
             )
@@ -968,7 +963,6 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
             |> pog.parameter(opt_text(p.translations_json))
             |> pog.parameter(opt_text(p.poi_manual_json))
             |> pog.parameter(opt_text(p.country_info_json))
-            |> pog.parameter(opt_text(p.nearby_vitrin_columns_json))
             |> pog.returning(row_dec.col0_string())
             |> pog.execute(ctx.db)
           {

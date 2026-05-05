@@ -359,7 +359,11 @@ export default async function CategoryPageTemplate({
         </div>
 
         {mapOnMapHref && (
-          <Button color="white" href={mapOnMapHref}>
+          <Button
+            outline
+            className="shrink-0 border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:hover:border-neutral-500"
+            href={mapOnMapHref}
+          >
             <span className="me-1.5">{cat.viewOnMap}</span>
             <HugeiconsIcon icon={MapsLocation01Icon} size={18} color="currentColor" strokeWidth={1.5} />
           </Button>

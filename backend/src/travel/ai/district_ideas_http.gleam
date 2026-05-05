@@ -11,10 +11,13 @@
 
 import backend/context.{type Context}
 import gleam/bit_array
+import gleam/dict.{type Dict}
+import gleam/dynamic as dyn
 import gleam/dynamic/decode
 import gleam/json
 import gleam/http
 import gleam/list
+import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
@@ -318,20 +321,138 @@ fn strip_suffix(s: String, suffix: String) -> String {
   }
 }
 
+/// İlk `[` ile son `]` arası (gevşek): önündeki/sonrasındaki metni veya hatalı kapanışları tolere etmek için.
+fn slice_json_array_loose(s: String) -> Result(String, Nil) {
+  let t = string.trim(s)
+  case string.split_once(t, "[") {
+    Error(_) -> Error(Nil)
+    Ok(#(_, after_first)) -> {
+      let closing_opt =
+        list.index_fold(string.to_graphemes(after_first), None, fn(acc, g, idx) {
+          case g == "]" {
+            True -> Some(idx)
+            False -> acc
+          }
+        })
+      case closing_opt {
+        None -> Error(Nil)
+        Some(end_idx) ->
+          Ok("[" <> string.slice(from: after_first, at_index: 0, length: end_idx + 1))
+      }
+    }
+  }
+}
+
+fn dict_to_object_entries(d: Dict(String, dyn.Dynamic)) -> Result(List(#(String, json.Json)), Nil) {
+  dict.fold(d, Ok([]), fn(acc, k, v) {
+    case acc {
+      Ok(entries) ->
+        case dynamic_to_json(v) {
+          Ok(jv) -> Ok([#(k, jv), ..entries])
+          Error(_) -> Error(Nil)
+        }
+      Error(_) -> Error(Nil)
+    }
+  })
+}
+
+fn dynamic_to_json(data: dyn.Dynamic) -> Result(json.Json, Nil) {
+  case dyn.classify(data) {
+    "Nil" -> Ok(json.null())
+    "Bool" ->
+      decode.run(data, decode.bool)
+      |> result.replace_error(Nil)
+      |> result.map(json.bool)
+    "Int" ->
+      decode.run(data, decode.int)
+      |> result.replace_error(Nil)
+      |> result.map(json.int)
+    "Float" ->
+      decode.run(data, decode.float)
+      |> result.replace_error(Nil)
+      |> result.map(json.float)
+    "String" ->
+      decode.run(data, decode.string)
+      |> result.replace_error(Nil)
+      |> result.map(json.string)
+    "BitArray" ->
+      decode.run(data, decode.bit_array)
+      |> result.replace_error(Nil)
+      |> result.map(fn(bits) {
+        case bit_array.to_string(bits) {
+          Ok(s) -> json.string(s)
+          Error(_) -> json.string("")
+        }
+      })
+    "List" ->
+      case decode.run(data, decode.list(decode.dynamic)) {
+        Ok(items) ->
+          list.try_map(items, dynamic_to_json)
+          |> result.map(json.preprocessed_array)
+        Error(_) -> Error(Nil)
+      }
+    "Dict" ->
+      case decode.run(data, decode.dict(decode.string, decode.dynamic)) {
+        Ok(d) ->
+          case dict_to_object_entries(d) {
+            Ok(entries) -> Ok(json.object(entries))
+            Error(_) -> Error(Nil)
+          }
+        Error(_) -> Error(Nil)
+      }
+    _ -> Error(Nil)
+  }
+}
+
+fn attempt_normalize_ideas(text: String) -> Result(String, Nil) {
+  case json.parse(text, decode.list(decode.dynamic)) {
+    Ok(items) ->
+      case list.try_map(items, dynamic_to_json) {
+        Ok(parts) -> Ok(json.to_string(json.preprocessed_array(parts)))
+        Error(_) -> Error(Nil)
+      }
+    Error(_) ->
+      case json.parse(text, decode.dict(decode.string, decode.dynamic)) {
+        Ok(d) ->
+          case dict.size(d) > 0 {
+            False -> Error(Nil)
+            True ->
+              case dict_to_object_entries(d) {
+                Ok(entries) ->
+                  Ok(
+                    json.to_string(json.preprocessed_array([json.object(entries)])),
+                  )
+                Error(_) -> Error(Nil)
+              }
+          }
+        Error(_) -> Error(Nil)
+      }
+  }
+}
+
+fn normalize_travel_ideas_json(raw: String) -> #(String, Bool) {
+  let cleaned = string.trim(clean_json_text(raw))
+  case attempt_normalize_ideas(cleaned) {
+    Ok(json_str) -> #(json_str, True)
+    Error(_) ->
+      case slice_json_array_loose(cleaned) {
+        Ok(slice) ->
+          case attempt_normalize_ideas(string.trim(slice)) {
+            Ok(json_str) -> #(json_str, True)
+            Error(_) -> #("[]", False)
+          }
+        Error(_) -> #("[]", False)
+      }
+  }
+}
+
 fn apply_ideas(
   ctx: Context,
   job_id: String,
   lp_id: String,
   ideas_json: String,
 ) -> Response {
-  let is_array =
-    string.starts_with(string.trim(ideas_json), "[")
-    && string.ends_with(string.trim(ideas_json), "]")
-
-  let json_to_store = case is_array && string.trim(ideas_json) != "" {
-    True -> ideas_json
-    False -> "[]"
-  }
+  let #(json_to_store, ideas_stored) = normalize_travel_ideas_json(ideas_json)
 
   case
     pog.query(
@@ -348,7 +469,7 @@ fn apply_ideas(
           #("done", json.bool(False)),
           #("job_id", json.string(job_id)),
           #("location_page_id", json.string(lp_id)),
-          #("ideas_stored", json.bool(is_array)),
+          #("ideas_stored", json.bool(ideas_stored)),
         ])
         |> json.to_string
       wisp.json_response(body, 200)

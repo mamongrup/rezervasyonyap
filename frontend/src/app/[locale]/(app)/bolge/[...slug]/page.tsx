@@ -38,7 +38,6 @@ import { parseTravelIdeas } from '@/lib/travel-ideas-parse'
 import type { LocationPage } from '@/lib/travel-api'
 import {
   getLocationPageBySlug,
-  getPublicRegionStats,
   listLocationCountries,
   listLocationDestinationChildren,
   listLocationDistricts,
@@ -130,14 +129,20 @@ function bolgeSubdivisionLevel(
   slug: string[],
   pageData: LocationPage | null,
 ): 'country' | 'province' | 'district' | null {
+  const depth = slug.filter((s) => s.trim() !== '').length
+
+  /** Kanonik URL: `/bolge/{ülke}`, `/…/{il}`, `/…/{il}/{ilçe}`, `/…/{belde}` — önce slug derinliği */
+  if (depth === 1) return 'country'
+  if (depth === 2) return 'province'
+  if (depth === 3) return 'district'
+  if (depth >= 4) return null
+
   const rt = pageData?.region_type
   if (rt === 'country') return 'country'
   if (rt === 'province') return 'province'
   if (rt === 'district') return 'district'
   if (rt === 'destination') return null
-  if (slug.length === 1) return 'country'
-  if (slug.length === 2) return 'province'
-  if (slug.length === 3) return 'district'
+
   return null
 }
 
@@ -293,11 +298,10 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   const cat = m.categoryPage
   const regionCategoryTabs = regionListingCategoryTabs(locale)
 
-  const [pageData, placesData, filterOptions, regionStats, heroPack] = await Promise.all([
+  const [pageData, placesData, filterOptions, heroPack] = await Promise.all([
     getLocationPageBySlug(slugPath),
     getRegionPlaces(regionSlug),
     getStayListingFilterOptions(),
-    getPublicRegionStats('hotel', 12, { next: { revalidate: 300 } } as RequestInit).catch(() => []),
     loadHomepageHeroPack(locale, m),
   ])
 
@@ -488,7 +492,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       <div className="mb-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
         <div className="min-w-0 flex-1 overflow-x-auto [-webkit-overflow-scrolling:touch] sm:overflow-visible">
           <div
-            className="flex w-full min-w-max gap-0.5 rounded-full bg-neutral-900 p-1 shadow-inner ring-1 ring-black/15 dark:bg-neutral-950 dark:ring-white/10"
+            className="flex w-full min-w-max flex-wrap items-center gap-2 sm:gap-3"
             role="tablist"
           >
             {regionCategoryTabs.map((tab) => {
@@ -503,13 +507,13 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
                   role="tab"
                   aria-current={active ? 'page' : undefined}
                   className={clsx(
-                    'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors sm:min-w-0 sm:flex-1 sm:px-4',
+                    'relative inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-[border-color,box-shadow,color]',
                     active
-                      ? 'bg-white/15 text-white shadow-sm ring-1 ring-inset ring-white/25'
-                      : 'text-white/85 hover:bg-white/10 hover:text-white',
+                      ? 'border-2 border-neutral-950 bg-white text-neutral-950 shadow-sm dark:border-white dark:bg-neutral-900 dark:text-white'
+                      : 'border-2 border-neutral-200 bg-white text-neutral-800 shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:border-neutral-500',
                   )}
                 >
-                  <HugeiconsIcon icon={Icon} className="size-[18px] shrink-0 text-current" strokeWidth={1.5} />
+                  <HugeiconsIcon icon={Icon} className="size-[18px] shrink-0 text-current opacity-90" strokeWidth={1.5} />
                   <span className="truncate">{tab.label}</span>
                 </Link>
               )
@@ -518,8 +522,8 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
         </div>
         {regionViewOnMapHref ? (
           <Button
-            color="white"
-            className="shrink-0"
+            outline
+            className="shrink-0 border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:hover:border-neutral-500"
             href={regionViewOnMapHref}
             {...(regionViewOnMapExternal ? ({ target: '_blank', rel: 'noopener noreferrer' } as const) : {})}
           >
@@ -560,13 +564,19 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     </div>
   )
 
+  /** Bölgeye Göre Keşfet: ülke→iller, il→ilçeler, ilçe→beldeler (`loadBolgeSubdivisionSlider`) */
   const exploreHotelsSlot =
-    regionStats.length > 0 ? (
+    subdivisionSlider && subdivisionSlider.items.length > 0 ? (
       <div className="container mt-16">
         <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
           {cat.exploreByRegion}
         </h2>
-        <SectionSliderRegions regions={regionStats} categoryRoute={otellerVitrin} unit="otel" />
+        <SectionSliderRegions
+          regions={subdivisionSlider.items}
+          categoryRoute={otellerVitrin}
+          resolveHref={(r) => regionPublicHref(locale, r.slug)}
+          unit={m.site.region.listingsSuffix}
+        />
       </div>
     ) : null
 
@@ -671,19 +681,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       </div>
     ) : null
 
-  const subdivisionsSlot = subdivisionSlider ? (
-    <div className="container mt-16 border-t border-neutral-200 pt-14 dark:border-neutral-800">
-      <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {subdivisionSlider.heading}
-      </h2>
-      <SectionSliderRegions
-        regions={subdivisionSlider.items}
-        categoryRoute={otellerVitrin}
-        resolveHref={(r) => regionPublicHref(locale, r.slug)}
-        unit={m.site.region.listingsSuffix}
-      />
-    </div>
-  ) : null
+  const subdivisionsSlot = null
 
   return (
     <main className="relative isolate min-w-0 overflow-x-hidden min-h-screen pb-28">
