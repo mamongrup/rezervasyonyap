@@ -4,6 +4,7 @@ import experienceCategoryCoverImage from '@/images/hero-right-experience.png'
 import filghtCategoryCoverImage from '@/images/hero-right-flight.png'
 import { CATEGORY_REGISTRY, normalizeTravelCategoryHomeOrder } from '@/data/category-registry'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
+import { normalizeSiteRelativeUploadSrc } from '@/lib/normalize-site-upload-src'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getPublicCategoryStats } from '@/lib/travel-api'
 
@@ -691,7 +692,7 @@ export async function getTravelCategories() {
       href: `${entry.categoryRoute}/all`,
       count: listingCount,
       regionCount: regionCount,
-      thumbnail: CATEGORY_THUMBNAILS[entry.slug] ?? '',
+      thumbnail: normalizeSiteRelativeUploadSrc(CATEGORY_THUMBNAILS[entry.slug] ?? ''),
       coverImage: {
         src: coverImg.src,
         width: coverImg.width,
@@ -707,11 +708,14 @@ export type TTravelCategory = Awaited<ReturnType<typeof getTravelCategories>>[nu
 
 export async function getPageBuilderTravelCategories(thumbnailOverrides?: Record<string, string>) {
   const categories = await getTravelCategories()
-  return categories.map((category) => ({
-    ...category,
-    thumbnail:
+  return categories.map((category) => {
+    const merged =
       thumbnailOverrides?.[category.handle]?.trim() ||
       PAGE_BUILDER_CATEGORY_THUMBNAILS[category.handle] ||
-      category.thumbnail,
-  }))
+      category.thumbnail
+    return {
+      ...category,
+      thumbnail: normalizeSiteRelativeUploadSrc(merged ?? ''),
+    }
+  })
 }

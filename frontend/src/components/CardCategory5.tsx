@@ -14,13 +14,15 @@ const CardCategory5: FC<CardCategory5Props> = ({ className = '', category }) => 
   return (
     <div className={`group relative flex flex-col ${className}`}>
       <div className={`aspect-w-4 relative h-0 w-full shrink-0 overflow-hidden rounded-2xl aspect-h-3`}>
-        <Image
-          fill
-          alt={name}
-          src={thumbnail || ''}
-          className="rounded-2xl object-cover"
-          sizes="(max-width: 400px) 100vw, 400px"
-        />
+        {thumbnail ? (
+          <Image
+            fill
+            alt={name}
+            src={thumbnail}
+            className="rounded-2xl object-cover"
+            sizes="(max-width: 400px) 100vw, 400px"
+          />
+        ) : null}
         <span className="absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100"></span>
       </div>
       <div className="mt-3.5 px-2">

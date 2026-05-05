@@ -24,8 +24,10 @@ const CardCategoryBox1: FC<CardCategoryBox1Props> = ({ className = '', category 
       href={href}
       className={`relative flex items-start gap-4 nc-box-has-hover p-3 sm:gap-5 sm:p-6 ${className}`}
     >
-      <div className="relative size-24 shrink-0 overflow-hidden rounded-full">
-        <Image src={thumbSrc} fill alt="" sizes="96px" className="object-cover" />
+      <div className="relative size-24 shrink-0 overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+        {thumbSrc ? (
+          <Image src={thumbSrc} fill alt="" sizes="96px" className="object-cover" />
+        ) : null}
       </div>
 
       <div className="min-w-0 flex-1">
