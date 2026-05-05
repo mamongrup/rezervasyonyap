@@ -9,17 +9,51 @@ export interface CategorySliderModuleConfig {
   cardType?: string
   /** Kategori dilimini belirtir: 'first6' | 'last6' | 'all' */
   slice?: 'first6' | 'last6' | 'all'
+  /**
+   * Gösterilecek kategori sayısı (üst sınır).
+   * - İlk / Son: boş veya geçersizse eski davranış **6**.
+   * - Tümü: boş veya geçersizse listenin tamamı.
+   */
+  categoryLimit?: number
   categoryThumbnails?: Record<string, string>
+}
+
+function resolveSliderCategories(
+  categories: Awaited<ReturnType<typeof getPageBuilderTravelCategories>>,
+  slice: string,
+  limitRaw: unknown,
+) {
+  const n = categories.length
+  if (n === 0) return []
+
+  const parsed =
+    typeof limitRaw === 'number' && Number.isFinite(limitRaw) && limitRaw > 0
+      ? Math.min(Math.floor(limitRaw), n)
+      : null
+
+  if (slice === 'last6') {
+    if (parsed != null) {
+      return categories.slice(Math.max(0, n - parsed))
+    }
+    /* Eski sabit pencere: 7–12. sıradaki kategoriler (registry 12+ iken anlamı “ikinci yarı”) */
+    return categories.slice(6, Math.min(12, n))
+  }
+
+  if (slice === 'all') {
+    const take = parsed ?? n
+    return categories.slice(0, take)
+  }
+
+  /* first6 */
+  const take = parsed ?? Math.min(6, n)
+  return categories.slice(0, take)
 }
 
 export default async function CategorySliderModule({ config }: { config: CategorySliderModuleConfig }) {
   const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
 
   const slice = config.slice ?? 'first6'
-  const displayed =
-    slice === 'first6' ? categories.slice(0, 6)
-    : slice === 'last6' ? categories.slice(6, 12)
-    : categories
+  const displayed = resolveSliderCategories(categories, slice, config.categoryLimit)
 
   if (displayed.length === 0) return null
 

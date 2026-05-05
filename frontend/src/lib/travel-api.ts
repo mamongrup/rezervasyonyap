@@ -6340,6 +6340,31 @@ export async function listLocationDistricts(regionId: string): Promise<{ distric
   return json(res)
 }
 
+/** İlçe altında yayınlanmış belde / destination `location_pages` (boş olabilir). */
+export type LocationDestinationChild = {
+  slug_path: string
+  title: string | null
+  featured_image_url: string | null
+  hero_image_url: string | null
+}
+
+export async function listLocationDestinationChildren(
+  parentSlugPath: string,
+): Promise<{ items: LocationDestinationChild[] }> {
+  const b = base()
+  if (!b) return { items: [] }
+  const q = new URLSearchParams({ parent_slug_path: parentSlugPath })
+  try {
+    const res = await fetch(`${b}/api/v1/locations/pages/destination-children?${q}`, {
+      next: { revalidate: 120 },
+    })
+    if (!res.ok) return { items: [] }
+    return json(res)
+  } catch {
+    return { items: [] }
+  }
+}
+
 export async function createLocationDistrict(body: {
   region_id: string
   name: string
@@ -6398,6 +6423,8 @@ export type TravelIdea = {
   place_id?: string
   /** İlçe merkezinden mesafe (Google Maps çekme sırasında hesaplanır) */
   distance_km_from_district?: number
+  /** Bazı kayıtlarda tek mesafe alanı (km) */
+  distance_km?: number
   /** İlandan mesafe (ilana koordinat girilince hesaplanır) */
   distance_km_from_listing?: number
 }
@@ -6438,11 +6465,26 @@ export type LocationPagePatch = {
   country_info_json?: string
 }
 
-export async function listLocationPages(districtId?: string): Promise<{ pages: LocationPage[] }> {
+export type ListLocationPagesResult = {
+  pages: LocationPage[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export async function listLocationPages(opts?: {
+  districtId?: string
+  limit?: number
+  offset?: number
+  q?: string
+}): Promise<ListLocationPagesResult> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams()
-  if (districtId != null && districtId !== '') q.set('district_id', districtId)
+  if (opts?.districtId != null && opts.districtId !== '') q.set('district_id', opts.districtId)
+  if (opts?.limit != null) q.set('limit', String(opts.limit))
+  if (opts?.offset != null && opts.offset !== 0) q.set('offset', String(opts.offset))
+  if (opts?.q != null && opts.q.trim() !== '') q.set('q', opts.q.trim())
   const res = await fetch(`${b}/api/v1/locations/pages${q.toString() ? `?${q}` : ''}`)
   if (!res.ok) throw new Error(`locations_pages_${res.status}`)
   return json(res)

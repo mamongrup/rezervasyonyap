@@ -9,36 +9,57 @@
  */
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import BgGlassmorphism from '@/components/BgGlassmorphism'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
 import ListingFilterTabs from '@/components/ListingFilterTabs'
-import SectionSliderRegions from '@/components/SectionSliderRegions'
+import SectionSliderRegions, { type RegionSliderItem } from '@/components/SectionSliderRegions'
 import SectionSubscribe2 from '@/components/SectionSubscribe2'
 import StayCard2 from '@/components/StayCard2'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import RegionTravelIdeasSection from '@/components/travel/RegionTravelIdeasSection'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
+import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
 import heroRightStay from '@/images/hero-right.png'
+import { heroCategoryInlineLabel } from '@/lib/hero-category-inline-labels'
 import { normalizeHrefForLocale, prefixLocale } from '@/lib/i18n-config'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
 import { resolveGalleryBundleForSlug } from '@/lib/hero-gallery-slots'
 import { regionPublicHref } from '@/lib/region-public-path'
 import { parseTravelIdeas } from '@/lib/travel-ideas-parse'
+import type { LocationPage } from '@/lib/travel-api'
 import {
   getLocationPageBySlug,
   getPublicRegionStats,
+  listLocationCountries,
+  listLocationDestinationChildren,
+  listLocationDistricts,
+  listLocationRegions,
   searchPublicListings,
 } from '@/lib/travel-api'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { Divider } from '@/shared/divider'
+import { Button } from '@/shared/Button'
 import convertNumbThousand from '@/utils/convertNumbThousand'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
+import {
+  Airplane02Icon,
+  AnchorIcon,
+  Building03Icon,
+  Car05Icon,
+  Compass01Icon,
+  Home01Icon,
+  HotAirBalloonFreeIcons,
+  MapsLocation01Icon,
+} from '@hugeicons/core-free-icons'
+import type { IconSvgElement } from '@hugeicons/react'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Suspense } from 'react'
 
 interface Props {
@@ -46,23 +67,58 @@ interface Props {
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }
 
-/** Kategori sekmesi → API `category_code` */
+/** `cat` → kategori kaydı `slug` — vitrin harita rotası için */
+const REGION_TAB_CAT_TO_REGISTRY_SLUG: Record<string, string> = {
+  hotel: 'oteller',
+  'holiday-home': 'tatil-evleri',
+  yacht: 'yat-kiralama',
+  tour: 'turlar',
+  activity: 'aktiviteler',
+  flight: 'ucak-bileti',
+  'car-rental': 'arac-kiralama',
+}
+
+/** Kayıt `slug` → hero ile aynı ikonlar (`HeroMenuCategoryBar`) */
+const REGION_REGISTRY_SLUG_ICON: Record<string, IconSvgElement> = {
+  oteller: Building03Icon,
+  'tatil-evleri': Home01Icon,
+  'yat-kiralama': AnchorIcon,
+  turlar: Compass01Icon,
+  aktiviteler: HotAirBalloonFreeIcons,
+  'ucak-bileti': Airplane02Icon,
+  'arac-kiralama': Car05Icon,
+}
+
+/** `cat` sorgu parametresi → API `category_code` */
 const REGION_CAT_TO_API: Record<string, string> = {
   'holiday-home': 'holiday_home',
   hotel: 'hotel',
   tour: 'tour',
   yacht: 'yacht_charter',
   activity: 'activity',
+  flight: 'flight',
+  'car-rental': 'car_rental',
 }
 
-const CATEGORY_TABS = [
-  { code: '', label: 'Tümü' },
-  { code: 'holiday-home', label: 'Villa & Kiralık' },
-  { code: 'hotel', label: 'Otel' },
-  { code: 'tour', label: 'Tur' },
-  { code: 'yacht', label: 'Tekne' },
-  { code: 'activity', label: 'Aktivite' },
-]
+/** Kayıt `slug` → bölge liste URL `cat` kodu — hero `navOrder` ile sıralanır */
+const REGION_SLUG_TO_TAB_CAT: Partial<Record<string, string>> = {
+  oteller: 'hotel',
+  'tatil-evleri': 'holiday-home',
+  'yat-kiralama': 'yacht',
+  turlar: 'tour',
+  aktiviteler: 'activity',
+  'ucak-bileti': 'flight',
+  'arac-kiralama': 'car-rental',
+}
+
+function regionListingCategoryTabs(locale: string): { code: string; label: string }[] {
+  return CATEGORY_REGISTRY.filter((c) => REGION_SLUG_TO_TAB_CAT[c.slug])
+    .sort((a, b) => a.navOrder - b.navOrder)
+    .map((c) => ({
+      code: REGION_SLUG_TO_TAB_CAT[c.slug]!,
+      label: heroCategoryInlineLabel(locale, c.slug, c.name),
+    }))
+}
 
 function escapeHtml(s: string): string {
   return s
@@ -70,6 +126,114 @@ function escapeHtml(s: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
+}
+
+function bolgeSubdivisionLevel(
+  slug: string[],
+  pageData: LocationPage | null,
+): 'country' | 'province' | 'district' | null {
+  const rt = pageData?.region_type
+  if (rt === 'country') return 'country'
+  if (rt === 'province') return 'province'
+  if (rt === 'district') return 'district'
+  if (rt === 'destination') return null
+  if (slug.length === 1) return 'country'
+  if (slug.length === 2) return 'province'
+  if (slug.length === 3) return 'district'
+  return null
+}
+
+/** Gezi fikirleri yalnız il / ilçe / belde (destination); ülke vitrininde gösterilmez */
+function showBolgeTravelIdeasSection(slug: string[], pageData: LocationPage | null): boolean {
+  const rt = pageData?.region_type
+  if (rt === 'country') return false
+  if (rt === 'province' || rt === 'district' || rt === 'destination') return true
+  return slug.length >= 2
+}
+
+function bolgeTravelIdeasDistanceTemplate(
+  locale: string,
+  slug: string[],
+  pageData: LocationPage | null,
+): string {
+  const r = getMessages(locale).site.region
+  const rt = pageData?.region_type
+  if (rt === 'province') return r.travelIdeaDistanceFromProvinceCenter
+  if (rt === 'district') return r.travelIdeaDistanceFromDistrictCenter
+  if (rt === 'destination') return r.travelIdeaDistanceFromDestinationCenter
+  if (slug.length >= 4) return r.travelIdeaDistanceFromDestinationCenter
+  if (slug.length === 3) return r.travelIdeaDistanceFromDistrictCenter
+  return r.travelIdeaDistanceFromProvinceCenter
+}
+
+function titleFromDestinationSlugPath(slugPath: string): string {
+  const last = slugPath.split('/').pop() ?? slugPath
+  return last
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(' ')
+}
+
+/** Ülke → iller, il → ilçeler, ilçe → (varsa) yayındaki belde/destination sayfaları */
+async function loadBolgeSubdivisionSlider(
+  locale: string,
+  slug: string[],
+  slugPath: string,
+  pageData: LocationPage | null,
+): Promise<{ heading: string; items: RegionSliderItem[] } | null> {
+  const copy = getMessages(locale).site.region
+  const level = bolgeSubdivisionLevel(slug, pageData)
+  if (!level) return null
+
+  try {
+    const iso = slug[0]?.trim().toUpperCase() ?? ''
+    if (!iso) return null
+
+    if (level === 'country') {
+      const { countries } = await listLocationCountries()
+      const country = countries.find((c) => c.iso2.trim().toUpperCase() === iso)
+      if (!country) return null
+      const { regions } = await listLocationRegions(country.id)
+      const items: RegionSliderItem[] = regions.map((r) => ({
+        name: r.name,
+        slug: `${iso}/${r.slug}`,
+        count: 0,
+        thumbnail: '',
+      }))
+      return { heading: copy.subdivProvinces, items }
+    }
+
+    if (level === 'province') {
+      const { countries } = await listLocationCountries()
+      const country = countries.find((c) => c.iso2.trim().toUpperCase() === iso)
+      if (!country) return null
+      const { regions } = await listLocationRegions(country.id)
+      const ps = slug[1]?.toLowerCase() ?? ''
+      const region = regions.find((r) => r.slug.toLowerCase() === ps)
+      if (!region) return null
+      const { districts } = await listLocationDistricts(region.id)
+      const items: RegionSliderItem[] = districts.map((d) => ({
+        name: d.name,
+        slug: `${iso}/${region.slug}/${d.slug}`,
+        count: 0,
+        thumbnail: '',
+      }))
+      return { heading: copy.subdivDistricts, items }
+    }
+
+    const { items: destItems } = await listLocationDestinationChildren(slugPath)
+    if (destItems.length === 0) return null
+    const items: RegionSliderItem[] = destItems.map((it) => ({
+      name: (it.title && it.title.trim()) || titleFromDestinationSlugPath(it.slug_path),
+      slug: it.slug_path,
+      count: 0,
+      thumbnail: (it.featured_image_url?.trim() || it.hero_image_url?.trim()) ?? '',
+    }))
+    return { heading: copy.subdivDestinations, items }
+  } catch {
+    return null
+  }
 }
 
 // ─── Data fetchers ────────────────────────────────────────────────────────────
@@ -129,6 +293,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
 
   const m = getMessages(locale)
   const cat = m.categoryPage
+  const regionCategoryTabs = regionListingCategoryTabs(locale)
 
   const [pageData, placesData, filterOptions, regionStats] = await Promise.all([
     getLocationPageBySlug(slugPath),
@@ -148,13 +313,16 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   const hasAnyMosaicSlot = !!(g0 || g1 || g2)
   const mosaicTuple: [string, string, string] | undefined = hasAnyMosaicSlot ? [g0, g1, g2] : undefined
 
-  const listingsResult = await searchPublicListings({
-    location: regionName,
-    perPage: 12,
-    locale,
-    categoryCode,
-    page: pageNum > 1 ? pageNum : undefined,
-  })
+  const [listingsResult, subdivisionSlider] = await Promise.all([
+    searchPublicListings({
+      location: regionName,
+      perPage: 12,
+      locale,
+      categoryCode,
+      page: pageNum > 1 ? pageNum : undefined,
+    }),
+    loadBolgeSubdivisionSlider(locale, slug, slugPath, pageData),
+  ])
 
   const listings = listingsResult?.listings ?? []
   const totalListings = listingsResult?.total ?? 0
@@ -191,45 +359,55 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     otellerVitrin = prefixLocale(locale, '/oteller')
   }
 
+  const mapListingHandle =
+    slug.length > 0 ? slug.map((segment) => segment.toLowerCase()).join('-') : 'all'
+
+  const registrySlugForMap =
+    catParam && REGION_TAB_CAT_TO_REGISTRY_SLUG[catParam]
+      ? REGION_TAB_CAT_TO_REGISTRY_SLUG[catParam]
+      : 'oteller'
+  const categoryRegistryForMap = CATEGORY_REGISTRY.find((c) => c.slug === registrySlugForMap)
+
+  let regionViewOnMapHref: string | null = null
+  let regionViewOnMapExternal = false
+  if (categoryRegistryForMap?.mapRoute) {
+    const mapPath = `${categoryRegistryForMap.mapRoute}/${mapListingHandle}`
+    try {
+      regionViewOnMapHref = await vitrinHref(locale, mapPath)
+    } catch {
+      regionViewOnMapHref = prefixLocale(locale, mapPath)
+    }
+  }
+  if (!regionViewOnMapHref && pageData?.map_lat && pageData?.map_lng) {
+    regionViewOnMapHref = `https://www.google.com/maps?q=${pageData.map_lat},${pageData.map_lng}`
+    regionViewOnMapExternal = true
+  }
+
   const descriptionHtml = pageData?.description?.trim() ?? ''
   const looksLikeHtml = /<[a-z][\s\S]*>/i.test(descriptionHtml)
 
   return (
-    <div className="min-h-screen pb-28">
-      <div className={`relative container mb-6 ${heroContainerBelowHeaderClassName}`}>
-        <nav className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
-          <Link href={normalizeHrefForLocale(locale, '/')} className="hover:text-primary-600">
-            {m.site.region.breadcrumbHome}
-          </Link>
-          <span>/</span>
-          {slug.length > 1
-            ? slug.slice(0, -1).map((s, i) => (
-                <span key={i} className="flex items-center gap-1.5">
-                  <Link
-                    href={regionBase(slug.slice(0, i + 1).join('/'))}
-                    className="hover:text-primary-600 capitalize"
-                  >
-                    {s}
-                  </Link>
-                  <span>/</span>
-                </span>
-              ))
-            : null}
-          <span className="font-medium text-neutral-700 capitalize dark:text-neutral-300">
-            {slug[slug.length - 1]}
-          </span>
-        </nav>
+    <main className="relative isolate min-w-0 overflow-x-hidden min-h-screen pb-28">
+      <BgGlassmorphism />
 
+      {/* Anasayfa ile aynı hero sarmalayıcısı (başlık + mozaik + arama konumu) */}
+      <div
+        className={`relative z-10 container mb-6 min-w-0 overflow-x-clip ${heroContainerBelowHeaderClassName}`}
+      >
         <HeroSectionWithSearchForm1
           heading={`<span>${escapeHtml(regionName)}</span>`}
           description={heroDescription}
           image={heroRightStay}
           imageAlt={regionName}
           searchForm={
-            <HeroSearchDesktopOnly initTab="Stays" locale={locale} hideVerticalTabs />
+            <HeroSearchDesktopOnly
+              initTab="Stays"
+              locale={locale}
+              hideVerticalTabs
+              collapseOverflowAfterSlug="arac-kiralama"
+            />
           }
           topSpacing="minimal"
-          searchFormOffsetYPx={-30}
           heroMosaicBleed
           freeformBannerLayout={heroFreeformLayout ?? undefined}
           mosaicImages={mosaicTuple}
@@ -242,6 +420,32 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           }
         />
       </div>
+
+      <nav
+        className="container mb-6 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-neutral-500"
+        aria-label="Breadcrumb"
+      >
+        <Link href={normalizeHrefForLocale(locale, '/')} className="hover:text-primary-600">
+          {m.site.region.breadcrumbHome}
+        </Link>
+        <span>/</span>
+        {slug.length > 1
+          ? slug.slice(0, -1).map((s, i) => (
+              <span key={i} className="flex items-center gap-1.5">
+                <Link
+                  href={regionBase(slug.slice(0, i + 1).join('/'))}
+                  className="hover:text-primary-600 capitalize"
+                >
+                  {s}
+                </Link>
+                <span>/</span>
+              </span>
+            ))
+          : null}
+        <span className="font-medium text-neutral-700 capitalize dark:text-neutral-300">
+          {slug[slug.length - 1]}
+        </span>
+      </nav>
 
       {/* İlanlar — kategori şablonu ile aynı yapı */}
       <div className="container mt-10 lg:mt-16">
@@ -259,43 +463,53 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
               })}
             </p>
           </div>
-          {pageData?.map_lat && pageData?.map_lng ? (
-            <a
-              href={`https://www.google.com/maps?q=${pageData.map_lat},${pageData.map_lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-primary-600 hover:underline dark:text-sky-400"
-            >
-              🗺️ {m.site.region.viewOnMap}
-            </a>
-          ) : null}
         </div>
 
         <Divider className="my-7 md:my-10" />
 
-        {/* Kategori hızlı sekmeleri */}
-        <div className="mb-8 flex flex-wrap gap-2">
-          {CATEGORY_TABS.map((tab) => {
-            const active = catParam === tab.code || (!catParam && tab.code === '')
-            const href =
-              tab.code === ''
-                ? regionBase(slugPath)
-                : `${regionBase(slugPath)}?cat=${encodeURIComponent(tab.code)}`
-            return (
-              <Link
-                key={tab.code || 'all'}
-                href={href}
-                className={clsx(
-                  'rounded-full border px-4 py-1.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'border-primary-500 bg-primary-50 text-primary-800 dark:border-primary-400/50 dark:bg-primary-950/40 dark:text-primary-200'
-                    : 'border-neutral-200 bg-white text-neutral-700 hover:border-primary-400 hover:text-primary-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300',
-                )}
-              >
-                {tab.label}
-              </Link>
-            )
-          })}
+        {/* Kategori segmentleri (Chisfis koyu pill) + harita */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
+          <div className="min-w-0 flex-1 overflow-x-auto [-webkit-overflow-scrolling:touch] sm:overflow-visible">
+            <div
+              className="inline-flex gap-1 rounded-full bg-neutral-900 p-1 shadow-inner ring-1 ring-black/15 dark:bg-neutral-950 dark:ring-white/10"
+              role="tablist"
+            >
+              {regionCategoryTabs.map((tab) => {
+                const active = catParam === tab.code
+                const href = `${regionBase(slugPath)}?cat=${encodeURIComponent(tab.code)}`
+                const regSlug = REGION_TAB_CAT_TO_REGISTRY_SLUG[tab.code]
+                const Icon = REGION_REGISTRY_SLUG_ICON[regSlug] ?? Home01Icon
+                return (
+                  <Link
+                    key={tab.code}
+                    href={href}
+                    role="tab"
+                    aria-current={active ? 'page' : undefined}
+                    className={clsx(
+                      'inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors sm:px-4',
+                      active
+                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-100 dark:text-neutral-950'
+                        : 'text-neutral-300 hover:bg-white/10 hover:text-white dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-white',
+                    )}
+                  >
+                    <HugeiconsIcon icon={Icon} className="size-[18px] shrink-0" strokeWidth={1.5} />
+                    <span className="whitespace-nowrap">{tab.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+          {regionViewOnMapHref ? (
+            <Button
+              color="white"
+              className="shrink-0"
+              href={regionViewOnMapHref}
+              {...(regionViewOnMapExternal ? ({ target: '_blank', rel: 'noopener noreferrer' } as const) : {})}
+            >
+              <span className="me-1.5">{cat.viewOnMap}</span>
+              <HugeiconsIcon icon={MapsLocation01Icon} size={18} color="currentColor" strokeWidth={1.5} />
+            </Button>
+          ) : null}
         </div>
 
         {filterOptions.length > 0 ? <ListingFilterTabs filterOptions={filterOptions} /> : null}
@@ -354,11 +568,11 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
             </h2>
             {looksLikeHtml ? (
               <div
-                className="prose prose-neutral max-w-3xl dark:prose-invert"
+                className="prose prose-neutral max-w-none dark:prose-invert"
                 dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(descriptionHtml) }}
               />
             ) : (
-              <div className="prose prose-neutral max-w-3xl dark:prose-invert">
+              <div className="prose prose-neutral max-w-none dark:prose-invert">
                 {descriptionHtml.split('\n\n').map((para, i) => (
                   <p key={i} className="mb-4 leading-relaxed text-neutral-600 dark:text-neutral-400">
                     {para}
@@ -370,7 +584,13 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
         </section>
       ) : null}
 
-      <RegionTravelIdeasSection ideas={travelIdeas} locale={locale} />
+      {showBolgeTravelIdeasSection(slug, pageData) ? (
+        <RegionTravelIdeasSection
+          ideas={travelIdeas}
+          locale={locale}
+          distanceTemplate={bolgeTravelIdeasDistanceTemplate(locale, slug, pageData)}
+        />
+      ) : null}
 
       {totalPois > 0 && placesData ? (
         <div className="bg-neutral-50 py-12 dark:bg-neutral-950">
@@ -419,6 +639,21 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
           </Link>
         </div>
       ) : null}
-    </div>
+
+      {/* Ülke / il / ilçe altı bölgeler — footer üstü */}
+      {subdivisionSlider ? (
+        <div className="container mt-16 border-t border-neutral-200 pt-14 dark:border-neutral-800">
+          <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+            {subdivisionSlider.heading}
+          </h2>
+          <SectionSliderRegions
+            regions={subdivisionSlider.items}
+            categoryRoute={otellerVitrin}
+            resolveHref={(r) => regionPublicHref(locale, r.slug)}
+            unit={m.site.region.listingsSuffix}
+          />
+        </div>
+      ) : null}
+    </main>
   )
 }

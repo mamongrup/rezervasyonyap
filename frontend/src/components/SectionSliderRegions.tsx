@@ -22,6 +22,8 @@ interface Props {
   regions: RegionSliderItem[]
   /** Hangi kategori sayfasına link verilecek, ör. "oteller" */
   categoryRoute: string
+  /** Varsayılan `${categoryRoute}/${region.slug}` yerine (ör. bölge vitrinı `regionPublicHref`) */
+  resolveHref?: (region: RegionSliderItem) => string
   /** Bölgedeki ilan sayısının birimi, ör. "otel" */
   unit?: string
   className?: string
@@ -30,6 +32,7 @@ interface Props {
 export default function SectionSliderRegions({
   regions,
   categoryRoute,
+  resolveHref,
   unit = 'ilan',
   className = '',
 }: Props) {
@@ -76,7 +79,10 @@ export default function SectionSliderRegions({
                 </div>
                 <div className="mt-4">
                   <h2 className="text-base font-medium text-neutral-900 dark:text-neutral-100">
-                    <Link href={`${categoryRoute}/${region.slug}`} className="absolute inset-0" />
+                    <Link
+                      href={resolveHref ? resolveHref(region) : `${categoryRoute}/${region.slug}`}
+                      className="absolute inset-0"
+                    />
                     <span className="line-clamp-1">{region.name}</span>
                   </h2>
                   {region.count > 0 && (

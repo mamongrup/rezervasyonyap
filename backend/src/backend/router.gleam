@@ -1111,6 +1111,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "locations", "pages", "by-slug"] ->
       locations_http.get_location_page_by_slug(req, ctx)
 
+    http.Get, ["api", "v1", "locations", "pages", "destination-children"] ->
+      locations_http.list_destination_children_pages(req, ctx)
+
     http.Get, ["api", "v1", "locations", "pages", "by-name"] ->
       locations_http.get_location_page_by_name(req, ctx)
 

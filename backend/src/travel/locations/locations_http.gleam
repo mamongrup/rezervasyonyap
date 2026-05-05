@@ -421,7 +421,50 @@ fn page_row() -> decode.Decoder(String) {
   decode.success(s)
 }
 
-/// GET /api/v1/locations/pages?district_id=
+fn location_pages_count_row() -> decode.Decoder(String) {
+  use s <- decode.field(0, decode.string)
+  decode.success(s)
+}
+
+fn parse_location_pages_limit(raw: String) -> Int {
+  case int.parse(string.trim(raw)) {
+    Ok(n) ->
+      case n < 1 {
+        True -> 200
+        False ->
+          case n > 500 {
+            True -> 500
+            False -> n
+          }
+      }
+    Error(_) -> 200
+  }
+}
+
+fn parse_location_pages_offset(raw: String) -> Int {
+  case int.parse(string.trim(raw)) {
+    Ok(n) ->
+      case n < 0 {
+        True -> 0
+        False -> n
+      }
+    Error(_) -> 0
+  }
+}
+
+fn location_pages_search_predicate(placeholder: String) -> String {
+  "(lower(slug_path) like "
+  <> placeholder
+  <> " or lower(coalesce(title,'')) like "
+  <> placeholder
+  <> " or lower(coalesce(meta_title,'')) like "
+  <> placeholder
+  <> " or lower(translations_json::text) like "
+  <> placeholder
+  <> ")"
+}
+
+/// GET /api/v1/locations/pages?district_id=&limit=&offset=&q=
 pub fn list_location_pages(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
@@ -432,25 +475,130 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
     list.key_find(qs, "district_id")
     |> result.unwrap("")
     |> string.trim
-  let base_sql = "select " <> page_json_sql <> " from location_pages"
-  let exec = case df == "" {
-    True ->
-      pog.query(base_sql <> " order by slug_path limit 200")
-      |> pog.returning(page_row())
-      |> pog.execute(ctx.db)
-    False ->
-      pog.query(base_sql <> " where district_id = $1::int order by slug_path limit 200")
-      |> pog.parameter(pog.text(df))
-      |> pog.returning(page_row())
-      |> pog.execute(ctx.db)
+  let limit_n =
+    list.key_find(qs, "limit")
+    |> result.unwrap("200")
+    |> parse_location_pages_limit
+  let offset_n =
+    list.key_find(qs, "offset")
+    |> result.unwrap("0")
+    |> parse_location_pages_offset
+  let q_raw =
+    list.key_find(qs, "q")
+    |> result.unwrap("")
+    |> string.trim
+  let search_pat = case q_raw == "" {
+    True -> ""
+    False -> "%" <> string.lowercase(q_raw) <> "%"
   }
-  case exec {
-    Error(_) -> json_err(500, "location_pages_query_failed")
-    Ok(ret) -> {
-      let rows_json = "[" <> string.join(ret.rows, ",") <> "]"
-      let body = "{\"pages\":" <> rows_json <> "}"
-      wisp.json_response(body, 200)
-    }
+  let has_q = search_pat != ""
+  let has_d = df != ""
+
+  let base_sql = "select " <> page_json_sql <> " from location_pages"
+
+  let #(count_exec, list_exec) = case has_d, has_q {
+    False, False -> #(
+      pog.query("select count(*)::text from location_pages")
+        |> pog.returning(location_pages_count_row())
+        |> pog.execute(ctx.db),
+      pog.query(
+        base_sql <> " order by slug_path limit $1::int offset $2::int",
+      )
+        |> pog.parameter(pog.int(limit_n))
+        |> pog.parameter(pog.int(offset_n))
+        |> pog.returning(page_row())
+        |> pog.execute(ctx.db),
+    )
+    False, True -> #(
+      pog.query(
+        "select count(*)::text from location_pages where "
+        <> location_pages_search_predicate("$1"),
+      )
+        |> pog.parameter(pog.text(search_pat))
+        |> pog.returning(location_pages_count_row())
+        |> pog.execute(ctx.db),
+      pog.query(
+        base_sql
+        <> " where "
+        <> location_pages_search_predicate("$1")
+        <> " order by slug_path limit $2::int offset $3::int",
+      )
+        |> pog.parameter(pog.text(search_pat))
+        |> pog.parameter(pog.int(limit_n))
+        |> pog.parameter(pog.int(offset_n))
+        |> pog.returning(page_row())
+        |> pog.execute(ctx.db),
+    )
+    True, False -> #(
+      pog.query(
+        "select count(*)::text from location_pages where district_id = $1::int",
+      )
+        |> pog.parameter(pog.text(df))
+        |> pog.returning(location_pages_count_row())
+        |> pog.execute(ctx.db),
+      pog.query(
+        base_sql
+        <> " where district_id = $1::int order by slug_path limit $2::int offset $3::int",
+      )
+        |> pog.parameter(pog.text(df))
+        |> pog.parameter(pog.int(limit_n))
+        |> pog.parameter(pog.int(offset_n))
+        |> pog.returning(page_row())
+        |> pog.execute(ctx.db),
+    )
+    True, True -> #(
+      pog.query(
+        "select count(*)::text from location_pages where district_id = $1::int and "
+        <> location_pages_search_predicate("$2"),
+      )
+        |> pog.parameter(pog.text(df))
+        |> pog.parameter(pog.text(search_pat))
+        |> pog.returning(location_pages_count_row())
+        |> pog.execute(ctx.db),
+      pog.query(
+        base_sql
+        <> " where district_id = $1::int and "
+        <> location_pages_search_predicate("$2")
+        <> " order by slug_path limit $3::int offset $4::int",
+      )
+        |> pog.parameter(pog.text(df))
+        |> pog.parameter(pog.text(search_pat))
+        |> pog.parameter(pog.int(limit_n))
+        |> pog.parameter(pog.int(offset_n))
+        |> pog.returning(page_row())
+        |> pog.execute(ctx.db),
+    )
+  }
+
+  case count_exec {
+    Error(_) -> json_err(500, "location_pages_count_failed")
+    Ok(count_ret) ->
+      case count_ret.rows {
+        [] -> json_err(500, "location_pages_count_failed")
+        [total_row, ..] -> {
+          let total_n = case int.parse(total_row) {
+            Ok(n) -> n
+            Error(_) -> 0
+          }
+          case list_exec {
+            Error(_) -> json_err(500, "location_pages_query_failed")
+            Ok(ret) -> {
+              let rows_json = "[" <> string.join(ret.rows, ",") <> "]"
+              let body =
+                "{\"pages\":"
+                <> rows_json
+                <> ",\"total\":"
+                <> int.to_string(total_n)
+                <> ",\"limit\":"
+                <> int.to_string(limit_n)
+                <> ",\"offset\":"
+                <> int.to_string(offset_n)
+                <> "}"
+              wisp.json_response(body, 200)
+            }
+          }
+        }
+      }
   }
 }
 
@@ -481,6 +629,82 @@ pub fn get_location_page_by_slug(req: Request, ctx: Context) -> Response {
             [row] -> wisp.json_response(row, 200)
             _ -> json_err(500, "unexpected")
           }
+      }
+  }
+}
+
+fn destination_child_row() -> decode.Decoder(#(String, String, String, String)) {
+  use slug_path <- decode.field(0, decode.string)
+  use title <- decode.field(1, decode.string)
+  use featured <- decode.field(2, decode.string)
+  use hero <- decode.field(3, decode.string)
+  decode.success(#(slug_path, title, featured, hero))
+}
+
+fn destination_child_json(row: #(String, String, String, String)) -> json.Json {
+  let #(slug_path, title, featured, hero) = row
+  let title_j = case title == "" {
+    True -> json.null()
+    False -> json.string(title)
+  }
+  let feat_j = case featured == "" {
+    True -> json.null()
+    False -> json.string(featured)
+  }
+  let hero_j = case hero == "" {
+    True -> json.null()
+    False -> json.string(hero)
+  }
+  json.object([
+    #("slug_path", json.string(slug_path)),
+    #("title", title_j),
+    #("featured_image_url", feat_j),
+    #("hero_image_url", hero_j),
+  ])
+}
+
+/// GET /api/v1/locations/pages/destination-children?parent_slug_path=
+/// Bir ilçe (`slug_path` ≥ 3 segment) altında yayında olan `destination` (belde) sayfaları.
+pub fn list_destination_children_pages(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let parent =
+    list.key_find(qs, "parent_slug_path")
+    |> result.unwrap("")
+    |> string.trim
+  case parent == "" {
+    True -> json_err(400, "parent_slug_path_required")
+    False ->
+      case
+        pog.query(
+          "select lp.slug_path::text,
+                  coalesce(nullif(trim(lp.title), ''), '')::text,
+                  coalesce(nullif(trim(lp.featured_image_url), ''), '')::text,
+                  coalesce(nullif(trim(lp.hero_image_url), ''), '')::text
+           from location_pages lp
+           where lp.slug_path like $1 || '/%'
+             and cardinality(regexp_split_to_array(trim(lp.slug_path), '/'))
+               = cardinality(regexp_split_to_array(trim($1::text), '/')) + 1
+             and lp.region_type = 'destination'
+             and coalesce(lp.is_published, false) = true
+           order by lower(trim(lp.title)), lp.slug_path
+           limit 300",
+        )
+        |> pog.parameter(pog.text(parent))
+        |> pog.returning(destination_child_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "destination_children_query_failed")
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, destination_child_json)
+          let body =
+            json.object([#("items", json.array(from: arr, of: fn(x) { x }))])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
       }
   }
 }

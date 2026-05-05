@@ -34,7 +34,10 @@ git_sync_ref() {
     git checkout --detach "$ref"
   fi
   # Sunucuda yanlislikla kalan lokal dosyalar pull/build bloklamasin.
-  git clean -fd
+  # Panel yüklemeleri `frontend/public/uploads/` genelde .gitignore'da; `git clean -fd`
+  # normalde ignored içeriği silmez. Yanlislikla `clean -x` veya farkli bir kurulumda
+  # veri kaybini önlemek için uploads kökünü acikça disliyoruz.
+  git clean -fd --exclude=frontend/public/uploads/
 }
 
 main() {

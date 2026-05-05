@@ -80,13 +80,12 @@ const CATEGORY_CARD_TYPE_OPTIONS = [
 ]
 
 const CATEGORY_SLICE_OPTIONS = [
-  { value: 'first6', label: 'İlk 6 kategori', count: Math.min(6, CATEGORY_REGISTRY.length) },
+  { value: 'first6', label: 'Baştaki kategoriler (sıra başı)' },
   {
     value: 'last6',
-    label: 'Son 6 kategori',
-    count: Math.max(0, Math.min(6, CATEGORY_REGISTRY.length - 6)),
+    label: 'Varsayılan: 7–12. sıra · Sayı girilirse: listenin sonundan N adet',
   },
-  { value: 'all', label: 'Tüm kategoriler', count: CATEGORY_REGISTRY.length },
+  { value: 'all', label: 'Tüm liste · İsterseniz aşağıdan üst sınır' },
 ]
 
 interface CategoryInfo {
@@ -1465,7 +1464,7 @@ function CategoryCardsConfigEditor({
             </select>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Gösterilecek Kategoriler</label>
+            <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Kategori aralığı</label>
             <select
               value={(config.slice as string) ?? 'first6'}
               onChange={(e) => updateField('slice', e.target.value)}
@@ -1473,10 +1472,52 @@ function CategoryCardsConfigEditor({
             >
               {CATEGORY_SLICE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
-                  {option.label} ({option.count} kart)
+                  {option.label}
                 </option>
               ))}
             </select>
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">
+              Yayınlanacak kategori sayısı
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={CATEGORY_REGISTRY.length}
+              value={
+                typeof config.categoryLimit === 'number' && Number.isFinite(config.categoryLimit)
+                  ? config.categoryLimit
+                  : ''
+              }
+              placeholder={
+                (config.slice as string) === 'all'
+                  ? `Boş = tümü (${CATEGORY_REGISTRY.length})`
+                  : (config.slice as string) === 'last6'
+                    ? 'Boş = 7–12. sıra (eski davranış)'
+                    : 'Boş = 6'
+              }
+              onChange={(e) => {
+                const t = e.target.value.trim()
+                if (t === '') {
+                  updateField('categoryLimit', undefined)
+                  return
+                }
+                const num = parseInt(t, 10)
+                if (!Number.isFinite(num) || num < 1) {
+                  updateField('categoryLimit', undefined)
+                  return
+                }
+                updateField('categoryLimit', Math.min(num, CATEGORY_REGISTRY.length))
+              }}
+              className="max-w-xs rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+            />
+            <p className="text-[11px] leading-snug text-neutral-500 dark:text-neutral-400">
+              <strong>Baştan:</strong> boş bırakırsanız 6 kart.{' '}
+              <strong>Sondan / 7–12:</strong> boş bırakırsanız eski düzen (yalnızca 7–12. sıradakiler); bir sayı
+              girerseniz listenin <em>sonundan</em> o kadar gösterilir. <strong>Tümü:</strong> boşta kayıttaki bütün
+              kategoriler; sayı girilirse en fazla o kadar.
+            </p>
           </div>
         </div>
       ) : null}

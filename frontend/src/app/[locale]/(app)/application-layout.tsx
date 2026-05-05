@@ -1,7 +1,7 @@
 import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
 import { DeferredFooterWidgets } from '@/components/DeferredFooterWidgets'
 import Header from '@/components/Header/Header'
-import HeroSearchFormMobile from '@/components/HeroSearchFormMobile/HeroSearchFormMobile'
+import MobileSiteTopBar from '@/components/MobileSiteTopBar'
 import Aside from '@/components/aside'
 import type { ReactNode } from 'react'
 
@@ -21,10 +21,8 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
       {/* Mobil arama — viewport’ta sabit. html/body `overflow-x-hidden` sticky’nin kaydırma atasını bozar → fixed + spacer. */}
       <div className="pointer-events-auto fixed inset-x-0 top-0 z-50 bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
-        <div className="container box-border flex h-20 w-full max-w-full items-center justify-center">
-          <div className="min-w-0 w-full max-w-full shrink">
-            <HeroSearchFormMobile locale={locale} />
-          </div>
+        <div className="container box-border flex h-20 w-full max-w-full items-center px-2 sm:px-4">
+          <MobileSiteTopBar locale={locale} />
         </div>
       </div>
       <div

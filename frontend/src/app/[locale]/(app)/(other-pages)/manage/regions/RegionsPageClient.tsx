@@ -19,6 +19,7 @@ import { regionPublicHref } from '@/lib/region-public-path'
 import clsx from 'clsx'
 import {
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ExternalLink,
   Globe,
@@ -37,6 +38,8 @@ import {
 import Link from 'next/link'
 import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+
+const REGION_LIST_PAGE_SIZE = 200
 
 /** Liste: çekirdek `title` boş olsa bile çevirideki ad veya meta ile gösterim başlığı */
 function locationPageListTitle(page: LocationPage): string {
@@ -308,10 +311,13 @@ export default function RegionsPageClient() {
       : defaultLocale
 
   const [pages, setPages] = useState<LocationPage[]>([])
+  const [totalCount, setTotalCount] = useState(0)
   const [countries, setCountries] = useState<LocationCountry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [pageIndex, setPageIndex] = useState(0)
   const [showForm, setShowForm] = useState(false)
   const [editPage, setEditPage] = useState<LocationPage | undefined>()
   const [formBusy, setFormBusy] = useState(false)
@@ -320,54 +326,62 @@ export default function RegionsPageClient() {
   /** Tek seferde bir il açık (accordion) */
   const [expandedProvinceKey, setExpandedProvinceKey] = useState<string | null>(null)
 
-  const loadAll = useCallback(async () => {
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 350)
+    return () => window.clearTimeout(t)
+  }, [searchInput])
+
+  useEffect(() => {
+    setPageIndex(0)
+  }, [debouncedSearch])
+
+  const loadCountries = useCallback(async () => {
+    try {
+      const countriesRes = await listLocationCountries()
+      setCountries(countriesRes.countries)
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'Ülkeler yüklenemedi'))
+    }
+  }, [])
+
+  const loadPages = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const [pagesRes, countriesRes] = await Promise.all([
-        listLocationPages(),
-        listLocationCountries(),
-      ])
+      const pagesRes = await listLocationPages({
+        limit: REGION_LIST_PAGE_SIZE,
+        offset: pageIndex * REGION_LIST_PAGE_SIZE,
+        q: debouncedSearch || undefined,
+      })
       setPages(pagesRes.pages)
-      setCountries(countriesRes.countries)
+      setTotalCount(pagesRes.total)
     } catch (e) {
       setError(formatManageApiCatch(e, 'Yüklenemedi'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [debouncedSearch, pageIndex])
 
-  useEffect(() => { void loadAll() }, [loadAll])
+  useEffect(() => { void loadCountries() }, [loadCountries])
+
+  useEffect(() => { void loadPages() }, [loadPages])
 
   useEffect(() => {
     setExpandedProvinceKey(null)
-  }, [search])
+  }, [debouncedSearch, pageIndex])
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return pages
-    return pages.filter((p) => {
-      if (p.slug_path.toLowerCase().includes(q)) return true
-      if (locationPageListTitle(p).toLowerCase().includes(q)) return true
-      if (p.title?.toLowerCase().includes(q)) return true
-      if (p.meta_title?.toLowerCase().includes(q)) return true
-      try {
-        const raw = JSON.parse(p.translations_json || '{}') as LocationTranslations
-        return Object.values(raw).some((v) => v?.name?.toLowerCase().includes(q))
-      } catch {
-        return false
-      }
-    })
-  }, [pages, search])
+  const totalPages = Math.max(1, Math.ceil(totalCount / REGION_LIST_PAGE_SIZE))
+  const rangeStart = totalCount === 0 ? 0 : pageIndex * REGION_LIST_PAGE_SIZE + 1
+  const rangeEnd = totalCount === 0 ? 0 : pageIndex * REGION_LIST_PAGE_SIZE + pages.length
 
   const filteredDrafts = useMemo(
-    () => filtered.filter((page) => !page.is_published),
-    [filtered],
+    () => pages.filter((page) => !page.is_published),
+    [pages],
   )
 
   const { countries: countryPages, groups: provinceGroups } = useMemo(
-    () => groupLocationPagesByProvince(filtered),
-    [filtered],
+    () => groupLocationPagesByProvince(pages),
+    [pages],
   )
 
   function toggleProvinceAccordion(provinceKey: string) {
@@ -478,7 +492,7 @@ export default function RegionsPageClient() {
           })
           setShowForm(false)
           setEditPage(undefined)
-          await loadAll()
+          await loadPages()
         } else {
           const result = await createLocationPage({
             slug_path: data.slug_path,
@@ -493,7 +507,7 @@ export default function RegionsPageClient() {
         setFormBusy(false)
       }
     },
-    [editPage, loadAll, router],
+    [editPage, loadPages, router],
   )
 
   const handleDelete = useCallback(
@@ -515,7 +529,9 @@ export default function RegionsPageClient() {
   const handleBulkPublishFiltered = useCallback(async () => {
     const drafts = filteredDrafts
     if (drafts.length === 0) return
-    const scope = search.trim() ? 'filtrelenen taslak' : 'tüm taslak'
+    const scope = debouncedSearch
+      ? 'bu sayfadaki arama sonucundaki taslak'
+      : 'bu sayfadaki taslak'
     if (!window.confirm(`${drafts.length} ${scope} bölge sayfası yayına alınsın mı?`)) return
 
     setBulkPublishing(true)
@@ -532,11 +548,11 @@ export default function RegionsPageClient() {
       )
     } catch (e) {
       setError(formatManageApiCatch(e, 'Toplu yayınlama tamamlanamadı'))
-      await loadAll()
+      await loadPages()
     } finally {
       setBulkPublishing(false)
     }
-  }, [filteredDrafts, loadAll, search])
+  }, [filteredDrafts, loadPages, debouncedSearch])
 
   return (
     <div className="p-6 lg:p-8">
@@ -551,7 +567,7 @@ export default function RegionsPageClient() {
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => void loadAll()}
+            onClick={() => void loadPages()}
             className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
           >
             <RefreshCw className={clsx('h-4 w-4', loading && 'animate-spin')} />
@@ -590,8 +606,8 @@ export default function RegionsPageClient() {
           <input
             type="search"
             placeholder="Başlık veya slug yoluna göre ara…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2 pl-9 pr-3 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
           />
         </div>
@@ -600,7 +616,11 @@ export default function RegionsPageClient() {
           disabled={bulkPublishing || filteredDrafts.length === 0}
           onClick={() => void handleBulkPublishFiltered()}
           className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-300"
-          title={search.trim() ? 'Arama sonucundaki taslakları yayına al' : 'Tüm taslak bölge sayfalarını yayına al'}
+          title={
+            debouncedSearch.trim()
+              ? 'Bu sayfadaki arama eşleşmelerinden taslak olanları yayına al'
+              : 'Bu sayfada listelenen taslakları yayına al'
+          }
         >
           {bulkPublishing ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -618,7 +638,7 @@ export default function RegionsPageClient() {
             <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             Yükleniyor…
           </div>
-        ) : filtered.length === 0 ? (
+        ) : pages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-neutral-400">
             <Globe className="mb-3 h-10 w-10 opacity-40" />
             <p className="text-sm">Bölge sayfası bulunamadı.</p>
@@ -766,9 +786,46 @@ export default function RegionsPageClient() {
         )}
       </div>
 
+      {!loading && totalCount > 0 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-100 bg-neutral-50/80 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+              {rangeStart}–{rangeEnd}
+            </span>
+            {' · '}
+            Toplam {totalCount} kayıt
+            {debouncedSearch ? (
+              <span className="text-neutral-400">{` (arama: "${debouncedSearch}")`}</span>
+            ) : null}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-neutral-500">
+              Sayfa {pageIndex + 1} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={pageIndex === 0 || loading}
+              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Önceki
+            </button>
+            <button
+              type="button"
+              disabled={(pageIndex + 1) * REGION_LIST_PAGE_SIZE >= totalCount || loading}
+              onClick={() => setPageIndex((p) => p + 1)}
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              Sonraki
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <p className="mt-3 text-xs text-neutral-400">
-        {filtered.length} bölge sayfası gösteriliyor
-        {filtered.length !== pages.length ? ` (toplam ${pages.length})` : ''}
+        Arama kutusu sunucuda başlık, slug ve çeviriler üzerinde çalışır (sayfa başına {REGION_LIST_PAGE_SIZE} kayıt).
       </p>
 
       {/* Modal */}
