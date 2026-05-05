@@ -13,7 +13,10 @@ const CardCategory4: FC<CardCategory4Props> = ({ className = '', category }) => 
   const { count, name, href, thumbnail } = category
   return (
     <Link href={href} className={`group flex flex-col ${className}`}>
-      <div className={`aspect-w-5 relative h-0 w-full shrink-0 overflow-hidden rounded-2xl aspect-h-5`}>
+      <div
+        className={`aspect-w-5 relative h-0 w-full shrink-0 overflow-hidden rounded-2xl aspect-h-5`}
+        data-category-card-media
+      >
         {thumbnail ? (
           <Image
             src={thumbnail}

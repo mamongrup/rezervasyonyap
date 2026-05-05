@@ -11,7 +11,9 @@ import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import { FC, useRef } from 'react'
+import { FC, useCallback, useLayoutEffect, useRef, useState } from 'react'
+
+const CATEGORY_CARD_MEDIA_SELECTOR = '[data-category-card-media]'
 
 interface Props {
   className?: string
@@ -26,10 +28,37 @@ const SectionSliderNewCategories: FC<Props> = ({
   categories = [],
   categoryCardType = 'card3',
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null)
   const sliderRef = useRef<HTMLDivElement>(null)
+  const [arrowMidYpx, setArrowMidYpx] = useState<number | null>(null)
   const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
   const locale = useLocaleSegment()
   const pag = getMessages(locale).common.pagination
+
+  const syncArrowMidY = useCallback(() => {
+    const root = containerRef.current
+    const track = sliderRef.current
+    if (!root || !track) return
+    const media = track.querySelector(CATEGORY_CARD_MEDIA_SELECTOR)
+    if (!(media instanceof HTMLElement)) return
+    const rootRect = root.getBoundingClientRect()
+    const mediaRect = media.getBoundingClientRect()
+    setArrowMidYpx(mediaRect.top - rootRect.top + mediaRect.height / 2)
+  }, [])
+
+  useLayoutEffect(() => {
+    syncArrowMidY()
+    const ro = new ResizeObserver(() => syncArrowMidY())
+    const root = containerRef.current
+    const track = sliderRef.current
+    if (root) ro.observe(root)
+    if (track) ro.observe(track)
+    window.addEventListener('resize', syncArrowMidY)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', syncArrowMidY)
+    }
+  }, [categories, categoryCardType, syncArrowMidY])
 
   const renderCard = (item: TCategory) => {
     switch (categoryCardType) {
@@ -42,8 +71,11 @@ const SectionSliderNewCategories: FC<Props> = ({
     }
   }
 
+  const arrowTopPxStyle = arrowMidYpx != null ? ({ top: arrowMidYpx } as const) : undefined
+  const arrowTopFallback = arrowMidYpx == null ? 'top-[40%]' : ''
+
   return (
-    <div className={clsx('relative', className)}>
+    <div ref={containerRef} className={clsx('relative', className)}>
       <div className="min-w-0 max-w-full overflow-x-clip">
         <div
           ref={sliderRef}
@@ -57,13 +89,25 @@ const SectionSliderNewCategories: FC<Props> = ({
         </div>
       </div>
 
-      <div className="absolute start-0 top-[40%] z-1 -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2">
+      <div
+        className={clsx(
+          'absolute start-0 z-1 -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2',
+          arrowTopFallback,
+        )}
+        style={arrowTopPxStyle}
+      >
         <ButtonCircle color="white" onClick={scrollToPrevSlide} className={'xl:size-11'} disabled={isAtStart} aria-label={pag.previous}>
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
       </div>
 
-      <div className="absolute end-0 top-[40%] z-1 -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2">
+      <div
+        className={clsx(
+          'absolute end-0 z-1 -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2',
+          arrowTopFallback,
+        )}
+        style={arrowTopPxStyle}
+      >
         <ButtonCircle color="white" onClick={scrollToNextSlide} className={'xl:size-11'} disabled={isAtEnd} aria-label={pag.next}>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
