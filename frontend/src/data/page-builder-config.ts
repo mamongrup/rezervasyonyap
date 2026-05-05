@@ -24,6 +24,37 @@ export interface HomepageConfig {
 
 const HOMEPAGE_CONFIG_PATH = path.join(process.cwd(), 'public', 'page-builder', 'homepage.json')
 
+/** İçerik → Kategori Resimleri — tüm vitrin sayfalarındaki kategori slider/grid için ortak havuz */
+const SHARED_TRAVEL_CATEGORY_THUMBNAILS_PATH = path.join(
+  process.cwd(),
+  'public',
+  'page-builder',
+  'shared-travel-category-thumbnails.json',
+)
+
+export interface SharedTravelCategoryThumbnailsFile {
+  thumbnails: Record<string, string>
+  updatedAt: string
+}
+
+export async function getSharedTravelCategoryThumbnails(): Promise<Record<string, string>> {
+  try {
+    const raw = await fs.readFile(SHARED_TRAVEL_CATEGORY_THUMBNAILS_PATH, 'utf-8')
+    const p = JSON.parse(raw) as SharedTravelCategoryThumbnailsFile
+    const t = p.thumbnails
+    if (!t || typeof t !== 'object' || Array.isArray(t)) return {}
+    const out: Record<string, string> = {}
+    for (const [k, v] of Object.entries(t)) {
+      if (typeof v !== 'string') continue
+      const s = v.trim()
+      if (s) out[k] = s
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
 export async function getHomepageConfig(): Promise<HomepageConfig | null> {
   try {
     const raw = await fs.readFile(HOMEPAGE_CONFIG_PATH, 'utf-8')

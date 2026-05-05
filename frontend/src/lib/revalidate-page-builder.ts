@@ -23,3 +23,10 @@ export function revalidateHomepageLocales(): void {
     revalidatePath(`/${loc}`, 'page')
   }
 }
+
+/** İçerik → Kategori Resimleri kaydı — tüm locale ağaçları (slider/grid thumb havuzu) */
+export function revalidateAfterSharedTravelCategoryThumbnailsSave(): void {
+  for (const loc of fallbackLocaleCodes) {
+    revalidatePath(`/${loc}`, 'layout')
+  }
+}

@@ -5,6 +5,7 @@ import {
   resolveBatchStartIndex,
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
+import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
 import { uploadFetch } from '@/lib/upload-fetch'
 import {
   ChevronRight,
@@ -916,7 +917,7 @@ export function ManageMediaPickerModal({
                     ) : null}
                     <div className="relative aspect-[4/3] w-full bg-neutral-200 dark:bg-neutral-950">
                       <img
-                        src={it.url}
+                        src={managePanelUploadPreviewSrc(it.url)}
                         alt=""
                         className="absolute inset-0 h-full w-full object-cover"
                         loading="lazy"
@@ -1020,7 +1021,7 @@ export function ManageMediaPickerModal({
                       />
                     ) : null}
                     <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-md bg-neutral-200 dark:bg-neutral-950">
-                      <img src={it.url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      <img src={managePanelUploadPreviewSrc(it.url)} alt="" className="h-full w-full object-cover" loading="lazy" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">

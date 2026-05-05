@@ -111,6 +111,7 @@ const GROUPS: NavGroupDef[] = [
       { path: '/manage/content/popups', label: 'Popup yönetimi' },
       { path: '/manage/admin/content/seo-redirects', label: 'SEO yönlendirmeleri' },
       { path: '/manage/content/page-builder', label: 'Kategori & arama sayfaları' },
+      { path: '/manage/content/category-images', label: 'Kategori Resimleri' },
       { path: '/manage/content/pages', label: 'Sayfalar (CMS)' },
     ],
   },

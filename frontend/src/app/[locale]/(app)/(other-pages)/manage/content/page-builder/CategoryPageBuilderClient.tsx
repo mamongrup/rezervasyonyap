@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import type { PageBuilderModule, PageBuilderModuleType } from '@/types/listing-types'
+import { CategoryThumbnailsGridSection } from '@/components/manage/TravelCategoryThumbnailsGrid'
+import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 
@@ -51,7 +53,8 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   {
     type: 'travel_category_images',
     label: 'Kategori görselleri (paylaşımlı)',
-    description: 'Yalnızca Ana Sayfa: 12 kategori kart görseli: slider/grid ile birleşir (ön yüzde blok çıkmaz)',
+    description:
+      'İsteğe bağlı — yalnızca ana sayfa kaydında: genel havuzu İçerik → Kategori Resimleri ile yönetin; bu modül aynı slug için ana sayfada üzerine yazar (ön yüzde blok çıkmaz)',
     emoji: '🗂️',
   },
   { type: 'region_slider', label: 'Bölge Slider', description: 'Bölgeleri API\'den çekerek yatay kaydırmalı göster', emoji: '🗾' },
@@ -160,7 +163,7 @@ function HeroImageSlot({
       >
         {value ? (
           <>
-            <img src={value} alt={label} className="absolute inset-0 h-full w-full object-cover" />
+            <img src={managePanelUploadPreviewSrc(value)} alt={label} className="absolute inset-0 h-full w-full object-cover" />
             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
               <Upload className="h-6 w-6 text-white" />
               <span className="ms-2 text-sm font-medium text-white">Galeriden seç / yükle</span>
@@ -182,133 +185,6 @@ function HeroImageSlot({
         onChange={(e) => onChange(e.target.value)}
         className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 placeholder-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
       />
-    </div>
-  )
-}
-
-function CategoryCardImageSlot({
-  categoryName,
-  categorySlug,
-  value,
-  onChange,
-}: {
-  categoryName: string
-  categorySlug: string
-  value: string
-  onChange: (url: string) => void
-}) {
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const uploadTarget = useMemo(
-    () =>
-      ({
-        folder: 'site',
-        subPath: `page-builder/kategori-kartlari/${slugifyMediaSegment(categorySlug)}`,
-        prefix: 'kart',
-      }) as const,
-    [categorySlug],
-  )
-
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-      <ManageMediaPickerModal
-        open={pickerOpen}
-        title={`Kategori kartı — ${categoryName}`}
-        uploadTarget={uploadTarget}
-        onClose={() => setPickerOpen(false)}
-        onSelect={(url) => onChange(url)}
-      />
-      <div className="mb-2 flex items-start justify-between gap-2">
-        <div>
-          <div className="text-sm font-medium text-neutral-900 dark:text-white">{categoryName}</div>
-          <div className="text-xs text-neutral-400">/{categorySlug}</div>
-        </div>
-        {value ? (
-          <button
-            type="button"
-            onClick={() => onChange('')}
-            className="text-xs text-red-500 hover:text-red-700"
-          >
-            Kaldır
-          </button>
-        ) : null}
-      </div>
-
-      <button
-        type="button"
-        className={`relative flex h-28 w-full items-center justify-center overflow-hidden rounded-lg border-2 border-dashed transition-colors ${
-          value
-            ? 'border-primary-300 bg-neutral-50 dark:bg-neutral-800'
-            : 'border-neutral-200 bg-neutral-50 hover:border-primary-300 hover:bg-primary-50/30 dark:border-neutral-700 dark:bg-neutral-800'
-        }`}
-        onClick={() => setPickerOpen(true)}
-      >
-        {value ? (
-          <>
-            <img
-              src={value}
-              alt={categoryName}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-            <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-xs font-medium text-white opacity-0 transition-opacity hover:opacity-100">
-              Galeriden seç / yükle
-            </span>
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-1 text-neutral-400">
-            <ImageIcon className="h-6 w-6" />
-            <span className="text-xs">Galeriden seç veya yükle</span>
-          </div>
-        )}
-      </button>
-
-      <input
-        type="text"
-        placeholder="İleri düzey: /uploads/... veya https://..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 placeholder-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
-      />
-    </div>
-  )
-}
-
-/** 12 seyahat kategorisi — kart görseli ızgarası (yükler + URL) */
-function CategoryThumbnailsGridSection({
-  thumbnails,
-  onThumbnailsChange,
-  description,
-}: {
-  thumbnails: Record<string, string>
-  onThumbnailsChange: (next: Record<string, string>) => void
-  description?: string
-}) {
-  function updateThumbnail(slug: string, url: string) {
-    const next = { ...thumbnails }
-    const trimmed = url.trim()
-    if (trimmed) next[slug] = trimmed
-    else delete next[slug]
-    onThumbnailsChange(next)
-  }
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-neutral-400">Kategori kart görselleri</p>
-        {description ? (
-          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{description}</p>
-        ) : null}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {CATEGORY_REGISTRY.map((category) => (
-          <CategoryCardImageSlot
-            key={category.slug}
-            categoryName={category.name}
-            categorySlug={category.slug}
-            value={thumbnails[category.slug] ?? ''}
-            onChange={(url) => updateThumbnail(category.slug, url)}
-          />
-        ))}
-      </div>
     </div>
   )
 }
@@ -337,18 +213,26 @@ function TravelCategoryImagesConfigEditor({
         <div className="rounded-lg border border-red-200 bg-red-50/90 px-3 py-2.5 text-xs text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
           <p className="font-semibold">Bu kayıtta ön yüze uygulanmaz</p>
           <p className="mt-1 text-red-900/90 dark:text-red-100/85">
-            Paylaşımlı kategori görselleri yalnızca <strong>Ana Sayfa</strong> sayfa oluşturucu kaydında (
-            <code className="rounded bg-white/80 px-1 dark:bg-neutral-900">homepage</code>) geçerlidir.
-            Canlı site bu kategori sayfasında bu modülü yok sayar; isterseniz silin veya görselleri ilgili{' '}
-            <strong>Kategori Slider</strong> / <strong>Kategori Grid</strong> modülünün kendi alanlarında tanımlayın.
+            Bu modül yalnızca <strong>Ana Sayfa</strong> sayfa oluşturucu kaydında (
+            <code className="rounded bg-white/80 px-1 dark:bg-neutral-900">homepage</code>) kullanılabilir ve ana
+            sayfadaki slider/grid ile birleşir. <strong>Tüm site için</strong> varsayılan görselleri{' '}
+            <Link href="/manage/content/category-images" className="font-semibold underline">
+              İçerik → Kategori Resimleri
+            </Link>{' '}
+            sayfasından yönetin; bu kategori sayfasında modülü silin veya görselleri ilgili{' '}
+            <strong>Kategori Slider</strong> / <strong>Kategori Grid</strong> modülünde tanımlayın.
           </p>
         </div>
       ) : null}
       <div className="rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2.5 text-xs text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/25 dark:text-amber-100">
         <p className="font-semibold">Ziyaretçilere görünmez (yalnızca yapılandırma)</p>
         <p className="mt-1 text-amber-900/90 dark:text-amber-100/85">
-          Tanımlar bu sayfadaki <strong>Kategori Slider</strong> ve <strong>Kategori Grid</strong> modüllerine uygulanır;
-          bir modülde ayrıca görsel varsa o önceliklidir.
+          Önce{' '}
+          <Link href="/manage/content/category-images" className="font-semibold underline">
+            Kategori Resimleri
+          </Link>{' '}
+          tanımlayın; burada doldurduğunuz slug’lar ana sayfada onların üzerine yazılır. Bir{' '}
+          <strong>Kategori Slider</strong> satırında ayrı görsel varsa o en üstte kalır.
         </p>
       </div>
       <CategoryThumbnailsGridSection
@@ -1600,7 +1484,7 @@ function CategoryCardsConfigEditor({
       <CategoryThumbnailsGridSection
         thumbnails={thumbnailConfig}
         onThumbnailsChange={(next) => onChange({ ...config, categoryThumbnails: next })}
-        description="Bu modüldeki görseller yalnızca bu slider/grid için geçerlidir. «Kategori görselleri (paylaşımlı)» modülü eklediyseniz önce o uygulanır; burada doldurduğunuz alanlar onun üzerine yazar."
+        description="Bu modülde doldurduğunuz görsel bu slider/grid için önceliklidir; boş slug’larda İçerik → Kategori Resimleri, sayfadaki diğer slider/grid birleşimi ve (ana sayfada) «Kategori görselleri (paylaşımlı)» katmanları uygulanır."
       />
     </div>
   )

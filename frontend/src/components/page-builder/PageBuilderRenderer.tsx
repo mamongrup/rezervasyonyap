@@ -39,6 +39,7 @@ import LastMinutePromoModule from './modules/LastMinutePromoModule'
 import CouponsStripModule from './modules/CouponsStripModule'
 import HolidayPackagesModule from './modules/HolidayPackagesModule'
 import CrossSellWidgetModule from './modules/CrossSellWidgetModule'
+import { getSharedTravelCategoryThumbnails } from '@/data/page-builder-config'
 
 /** Modül config içinden categoryThumbnails — yalnızca dolu string değerler */
 function categoryThumbnailsFromModuleConfig(config: unknown): Record<string, string> {
@@ -69,9 +70,8 @@ function thumbnailsFromTravelCategoryImagesModules(enabled: PageBuilderModule[])
 }
 
 /**
- * Ana sayfada slider/grid modüllerinde tanımlı `categoryThumbnails` anahtarlarının birleşimi
- * (modül sırasına göre ilk tanımlanan değer kalır). `travel_category_images` ile çakışan slug’larda
- * paylaşımlı modül üstte yazılır (`PageBuilderRenderer` içinde spread sırası).
+ * Bu sayfadaki slider/grid modüllerinde tanımlı `categoryThumbnails` birleşimi
+ * (modül sırasına göre ilk tanımlanan slug kalır).
  */
 function implicitSharedThumbnailsFromSliderGridModules(enabled: PageBuilderModule[]): Record<string, string> {
   const acc: Record<string, string> = {}
@@ -132,7 +132,7 @@ interface PageBuilderRendererProps {
  * The `hero`, `listings_grid`, `listings_slider`, and `categories_grid` modules
  * receive real data via injected nodes from the parent server component.
  */
-export default function PageBuilderRenderer({
+export default async function PageBuilderRenderer({
   modules,
   category,
   searchFormNode,
@@ -154,17 +154,18 @@ export default function PageBuilderRenderer({
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
   /**
-   * Paylaşımlı kart görselleri (yalnızca ana sayfa):
-   * - Slider/grid modüllerinde tanımlı thumb’ların birleşimi (ilk modül öncelikli),
-   * - Üzerine `travel_category_images` ile aynı slug için yazılanlar (paylaşımlı modül kazanır).
+   * Kategori kart thumb birleşim sırası (sonrakiler öncekini ezer):
+   * 1) İçerik → Kategori Resimleri (`shared-travel-category-thumbnails.json`)
+   * 2) Bu sayfadaki slider/grid modüllerinde tanımlı `categoryThumbnails` (ilk modül öncelikli)
+   * 3) `travel_category_images` modülü (çoğunlukla ana sayfa)
+   * Modül satırındaki `categoryThumbnails` en son yayına girer (slider/grid özel alanı).
    */
-  const sharedCategoryThumbnails =
-    pageKey === 'homepage'
-      ? {
-          ...implicitSharedThumbnailsFromSliderGridModules(enabled),
-          ...thumbnailsFromTravelCategoryImagesModules(enabled),
-        }
-      : {}
+  const globalShared = await getSharedTravelCategoryThumbnails()
+  const sharedCategoryThumbnails = {
+    ...globalShared,
+    ...implicitSharedThumbnailsFromSliderGridModules(enabled),
+    ...thumbnailsFromTravelCategoryImagesModules(enabled),
+  }
 
   const Root = rootAs
 
