@@ -1,11 +1,16 @@
 'use client'
 
 import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
-import type { ManageMediaPickerUploadTarget } from '@/lib/manage-upload-image-form'
+import {
+  buildManageUploadImageFormData,
+  resolveBatchStartIndex,
+  type ManageMediaPickerUploadTarget,
+} from '@/lib/manage-upload-image-form'
+import { uploadFetch } from '@/lib/upload-fetch'
 import clsx from 'clsx'
-import { AlertTriangle, ImagePlus, Pencil, Trash2, X } from 'lucide-react'
+import { AlertTriangle, ImagePlus, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import NextImage from 'next/image'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 interface ImageUploadProps {
   /** Mevcut resim URL'si */
@@ -65,6 +70,7 @@ export default function ImageUpload({
   const [warning, setWarning] = useState<string | null>(null)
   const [drag, setDrag] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [dropUploading, setDropUploading] = useState(false)
 
   const pickerUploadTarget = useMemo((): ManageMediaPickerUploadTarget => {
     const idx =
@@ -102,10 +108,70 @@ export default function ImageUpload({
     }
   }
 
+  const uploadDroppedFiles = useCallback(
+    async (files: File[]): Promise<boolean> => {
+      const imageFiles = files.filter((f) => f.size > 0 && f.type.startsWith('image/'))
+      if (imageFiles.length === 0) return false
+
+      const t = pickerUploadTarget
+      const take =
+        allowMultiPick && !t.fixedStem?.trim() && (t.slot == null || t.slot === '')
+          ? imageFiles
+          : imageFiles.slice(0, 1)
+
+      if (t.fixedStem?.trim() && take.length > 1) return false
+
+      setDropUploading(true)
+      setWarning(null)
+      const urls: string[] = []
+      let lastWarn: string | undefined
+      const multi = take.length > 1
+
+      try {
+        const start = resolveBatchStartIndex(t, imageIndex)
+        for (let i = 0; i < take.length; i++) {
+          const explicitIdx = multi ? start + i : null
+          const form = buildManageUploadImageFormData(take[i]!, t, explicitIdx)
+          const data = await uploadFetch(form)
+          if (!data.ok || !data.url) {
+            setWarning(data.error ?? 'Sürüklenen dosya yüklenemedi.')
+            return true
+          }
+          urls.push(data.url)
+          if (data.warning) lastWarn = data.warning
+        }
+        const meta = lastWarn ? { warning: lastWarn } : undefined
+        if (urls.length === 1) {
+          setWarning(meta?.warning ?? null)
+          onChange(urls[0]!)
+        } else {
+          setWarning(meta?.warning ?? null)
+          if (onBatchComplete) {
+            onBatchComplete(urls)
+          } else {
+            for (const u of urls) {
+              onChange(u)
+            }
+          }
+        }
+        return true
+      } catch {
+        setWarning('Yükleme sırasında ağ hatası.')
+        return true
+      } finally {
+        setDropUploading(false)
+      }
+    },
+    [pickerUploadTarget, allowMultiPick, imageIndex, onChange, onBatchComplete],
+  )
+
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
     setDrag(false)
-    openPicker()
+    const files = Array.from(e.dataTransfer.files)
+    void uploadDroppedFiles(files).then((handled) => {
+      if (!handled) openPicker()
+    })
   }
 
   const pickerModal = (
@@ -173,10 +239,23 @@ export default function ImageUpload({
           <button
             type="button"
             onClick={openPicker}
-            disabled={disabled}
-            className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-neutral-400 transition hover:border-primary-400 hover:text-primary-500 dark:border-neutral-700"
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDrag(true)
+            }}
+            onDragLeave={() => setDrag(false)}
+            onDrop={handleDrop}
+            disabled={disabled || dropUploading}
+            className={clsx(
+              'relative flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-neutral-400 transition hover:border-primary-400 hover:text-primary-500 dark:border-neutral-700',
+              drag && 'border-primary-400 bg-primary-50 dark:bg-primary-950/20',
+            )}
           >
-            <ImagePlus className="h-5 w-5" />
+            {dropUploading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-primary-500" />
+            ) : (
+              <ImagePlus className="h-5 w-5" />
+            )}
           </button>
         )}
       </div>
@@ -231,16 +310,21 @@ export default function ImageUpload({
           }}
           onDragLeave={() => setDrag(false)}
           onDrop={handleDrop}
-          disabled={disabled}
+          disabled={disabled || dropUploading}
           style={{ aspectRatio }}
           className={clsx(
-            'flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition',
+            'relative flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed transition',
             drag
               ? 'border-primary-400 bg-primary-50 dark:bg-primary-950/20'
               : 'border-neutral-200 bg-neutral-50 hover:border-primary-300 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800/40 dark:hover:border-primary-700',
             disabled && 'pointer-events-none opacity-50',
           )}
         >
+          {dropUploading ? (
+            <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-white/90 dark:bg-neutral-900/90">
+              <Loader2 className="h-8 w-8 animate-spin text-primary-500" />
+            </div>
+          ) : null}
           <div
             className={clsx(
               'flex h-12 w-12 items-center justify-center rounded-2xl transition',
@@ -253,11 +337,11 @@ export default function ImageUpload({
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-              {drag ? 'Bırakın — galeri açılacak' : placeholder}
+              {dropUploading ? 'Yükleniyor…' : drag ? 'Bırakın — dosya yüklenecek' : placeholder}
             </p>
             <p className="mt-0.5 text-xs text-neutral-400">
-              JPEG, PNG, WebP, AVIF · Maks 8 MB
-              {allowMultiPick ? ' · Galeride birden fazla dosya seçebilirsiniz' : ''}
+              Tıklayınca tam galeri · JPEG, PNG, WebP, AVIF · Sürükleyip bırakarak doğrudan yükleme
+              {allowMultiPick ? ' · Çoklu dosya (galeri veya sürükleme)' : ''}
             </p>
           </div>
         </button>

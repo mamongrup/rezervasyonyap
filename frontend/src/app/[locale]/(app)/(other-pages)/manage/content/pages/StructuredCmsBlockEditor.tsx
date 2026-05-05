@@ -1,5 +1,7 @@
 'use client'
 
+import ImageUpload from '@/components/editor/ImageUpload'
+import { cmsPageMediaSubPath } from '@/lib/upload-media-paths'
 import { useEffect, useState } from 'react'
 
 function parse(json: string): Record<string, unknown> {
@@ -14,9 +16,16 @@ type Props = {
   blockType: string
   configJson: string
   onChange: (json: string) => void
+  /** Doluysa «Görsel + metin» bloğunda ortak medya galerisi (`ManageMediaPickerModal`) kullanılır */
+  cmsPageSlug?: string
 }
 
-export default function StructuredCmsBlockEditor({ blockType, configJson, onChange }: Props) {
+export default function StructuredCmsBlockEditor({
+  blockType,
+  configJson,
+  onChange,
+  cmsPageSlug,
+}: Props) {
   const p = parse(configJson)
   const merge = (patch: Record<string, unknown>) => {
     onChange(JSON.stringify({ ...p, ...patch }))
@@ -90,14 +99,47 @@ export default function StructuredCmsBlockEditor({ blockType, configJson, onChan
             className="w-full rounded-xl border border-neutral-200 px-3 py-2 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-800"
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs text-neutral-500">Görsel URL</label>
-          <input
-            type="url"
-            value={(p.imageUrl as string) ?? ''}
-            onChange={(e) => merge({ imageUrl: e.target.value })}
-            className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-800"
-          />
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs text-neutral-500">Görsel</label>
+          {cmsPageSlug ? (
+            <>
+              <ImageUpload
+                value={(p.imageUrl as string) ?? ''}
+                onChange={(url) => merge({ imageUrl: url })}
+                folder="icerik"
+                subPath={cmsPageMediaSubPath(cmsPageSlug)}
+                prefix="cms-image-text"
+                useOriginalStem
+                aspectRatio="16/9"
+                placeholder="Galeriden seçin veya sürükleyip yükleyin"
+              />
+              <details className="mt-2 rounded-lg border border-neutral-100 p-2 dark:border-neutral-800">
+                <summary className="cursor-pointer text-xs font-medium text-neutral-500">
+                  Harici görsel URL (isteğe bağlı)
+                </summary>
+                <input
+                  type="url"
+                  value={(p.imageUrl as string) ?? ''}
+                  onChange={(e) => merge({ imageUrl: e.target.value })}
+                  className="mt-2 w-full rounded-xl border border-neutral-200 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+                  placeholder="https://..."
+                />
+              </details>
+            </>
+          ) : (
+            <>
+              <input
+                type="url"
+                value={(p.imageUrl as string) ?? ''}
+                onChange={(e) => merge({ imageUrl: e.target.value })}
+                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-xs dark:border-neutral-700 dark:bg-neutral-800"
+                placeholder="https://..."
+              />
+              <p className="mt-1 text-[10px] text-neutral-400">
+                Sayfa düzenleyicide slug bilinmediği için yalnızca URL alanı gösteriliyor.
+              </p>
+            </>
+          )}
         </div>
         <div>
           <label className="mb-1 block text-xs text-neutral-500">Görsel konumu</label>

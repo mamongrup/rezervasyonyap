@@ -605,6 +605,7 @@ function PageEditor({
                   blockType={editType}
                   configJson={editJson}
                   onChange={setEditJson}
+                  cmsPageSlug={page.slug}
                 />
               ) : (
                 <>

@@ -203,6 +203,81 @@ export async function DELETE(req: NextRequest) {
   })
 }
 
+/**
+ * POST:
+ * - `{ "action": "mkdir", "path": "site/page-builder/yeni-klasor" }` — `recursive` oluşturur
+ * - `{ "action": "rmdir", "path": "site/page-builder/bos" }` — yalnızca boş klasörü siler
+ */
+export async function POST(req: NextRequest) {
+  const cookieStore = await cookies()
+  if (!cookieStore.get('travel_auth_token')?.value) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
+
+  let body: { action?: unknown; path?: unknown } | null = null
+  try {
+    body = (await req.json()) as { action?: unknown; path?: unknown }
+  } catch {
+    return NextResponse.json({ ok: false, error: 'Geçersiz istek.' }, { status: 400 })
+  }
+
+  if (!body || typeof body.action !== 'string' || typeof body.path !== 'string') {
+    return NextResponse.json({ ok: false, error: 'Geçersiz istek.' }, { status: 400 })
+  }
+
+  const resolved = resolveSafeFolderPath(body.path)
+  if (!resolved) {
+    return NextResponse.json({ ok: false, error: 'Geçersiz klasör yolu.' }, { status: 400 })
+  }
+
+  if (body.action === 'mkdir') {
+    try {
+      await fs.mkdir(resolved.abs, { recursive: true })
+      const res = NextResponse.json({ ok: true, path: resolved.norm })
+      res.headers.set('Cache-Control', 'no-store')
+      return res
+    } catch (err) {
+      console.error('[media-library:mkdir]', err)
+      return NextResponse.json({ ok: false, error: 'Klasör oluşturulamadı.' }, { status: 500 })
+    }
+  }
+
+  if (body.action === 'rmdir') {
+    const depthParts = resolved.norm.split('/').filter(Boolean)
+    if (depthParts.length < 2) {
+      return NextResponse.json({ ok: false, error: 'Kök yükleme klasörü silinemez.' }, { status: 400 })
+    }
+    try {
+      let st
+      try {
+        st = await fs.stat(resolved.abs)
+      } catch (err) {
+        const code = (err as NodeJS.ErrnoException | null)?.code ?? ''
+        if (code === 'ENOENT') {
+          return NextResponse.json({ ok: false, error: 'Klasör bulunamadı.' }, { status: 404 })
+        }
+        throw err
+      }
+      if (!st.isDirectory()) {
+        return NextResponse.json({ ok: false, error: 'Yol bir klasör değil.' }, { status: 400 })
+      }
+      const entries = await fs.readdir(resolved.abs)
+      if (entries.length > 0) {
+        return NextResponse.json({ ok: false, error: 'Klasör boş değil.' }, { status: 409 })
+      }
+      await fs.rmdir(resolved.abs)
+      const res = NextResponse.json({ ok: true, path: resolved.norm })
+      res.headers.set('Cache-Control', 'no-store')
+      return res
+    } catch (err) {
+      console.error('[media-library:rmdir]', err)
+      return NextResponse.json({ ok: false, error: 'Klasör silinemedi.' }, { status: 500 })
+    }
+  }
+
+  return NextResponse.json({ ok: false, error: 'Desteklenmeyen işlem.' }, { status: 400 })
+}
+
 /** Yol parçalarını temizler (sadece a-z0-9_- ve `-` tireleri). */
 function sanitizePathSegment(s: string): string {
   return s

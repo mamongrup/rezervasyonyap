@@ -1,6 +1,7 @@
 'use client'
 
 import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
+import ImageUpload from '@/components/editor/ImageUpload'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ChevronDown,
@@ -885,12 +886,14 @@ interface VideoItemDraft {
 function VideoGalleryConfigEditor({
   config,
   onChange,
+  pageSlug,
   titleKey = 'title',
   subtitleKey = 'subtitle',
   titlePlaceholder = '🎬 Videolar',
 }: {
   config: Record<string, unknown>
   onChange: (updated: Record<string, unknown>) => void
+  pageSlug: string
   titleKey?: 'title' | 'heading'
   subtitleKey?: 'subtitle' | 'subheading'
   titlePlaceholder?: string
@@ -1042,16 +1045,30 @@ function VideoGalleryConfigEditor({
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs text-neutral-500">
-                  Kapak Resmi URL{' '}
-                  <span className="text-neutral-400">(boş bırakılırsa YouTube üzerinden otomatik alınır)</span>
+                  Kapak görseli{' '}
+                  <span className="text-neutral-400">(boşsa YouTube otomatik kapak kullanılır)</span>
                 </label>
-                <input
-                  type="url"
+                <ImageUpload
                   value={v.thumbnail}
-                  onChange={(e) => updateVideo(i, 'thumbnail', e.target.value)}
-                  placeholder="https://… (opsiyonel)"
-                  className={inputCls}
+                  onChange={(url) => updateVideo(i, 'thumbnail', url)}
+                  folder="site"
+                  subPath={`page-builder/video-gallery/${slugifyMediaSegment(pageSlug)}`}
+                  prefix="thumb"
+                  useOriginalStem
+                  aspectRatio="16/9"
+                  compact
+                  placeholder="Kapak — galeri"
                 />
+                <details className="rounded border border-neutral-200 px-2 py-1 dark:border-neutral-700">
+                  <summary className="cursor-pointer text-[10px] text-neutral-500">Harici kapak URL</summary>
+                  <input
+                    type="url"
+                    value={v.thumbnail}
+                    onChange={(e) => updateVideo(i, 'thumbnail', e.target.value)}
+                    placeholder="https://…"
+                    className={`${inputCls} mt-1`}
+                  />
+                </details>
               </div>
             </div>
           </div>
@@ -1070,9 +1087,11 @@ function VideoGalleryConfigEditor({
 function ImageTextConfigEditor({
   config,
   onChange,
+  pageSlug,
 }: {
   config: Record<string, unknown>
   onChange: (updated: Record<string, unknown>) => void
+  pageSlug: string
 }) {
   const inputCls = 'rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800 w-full'
 
@@ -1081,7 +1100,6 @@ function ImageTextConfigEditor({
     { key: 'subtitle', label: 'Alt Başlık', placeholder: 'Öne çıkan avantajlarımız' },
     { key: 'content', label: 'Açıklama Metni', placeholder: 'Detaylı açıklama buraya gelecek...' },
     { key: 'badge', label: 'Rozet (isteğe bağlı)', placeholder: 'ÖNERİLEN' },
-    { key: 'imageUrl', label: 'Görsel URL', placeholder: 'https://...' },
     { key: 'imageAlt', label: 'Görsel Alt Metni', placeholder: 'Görsel açıklaması' },
     { key: 'ctaText', label: 'Ana Buton Metni', placeholder: 'Keşfet' },
     { key: 'ctaHref', label: 'Ana Buton Linki', placeholder: '/kategori' },
@@ -1105,6 +1123,29 @@ function ImageTextConfigEditor({
             />
           </div>
         ))}
+        <div className="flex flex-col gap-1">
+          <label className="text-xs font-medium text-neutral-600 dark:text-neutral-400">Görsel</label>
+          <ImageUpload
+            value={(config.imageUrl as string) ?? ''}
+            onChange={(url) => onChange({ ...config, imageUrl: url })}
+            folder="site"
+            subPath={`page-builder/image-text/${slugifyMediaSegment(pageSlug)}`}
+            prefix="block"
+            useOriginalStem
+            aspectRatio="16/9"
+            placeholder="Görsel — galeri veya sürükle-bırak"
+          />
+          <details className="rounded-lg border border-neutral-200 bg-neutral-50/80 px-2 py-1.5 dark:border-neutral-700 dark:bg-neutral-900/40">
+            <summary className="cursor-pointer text-[11px] font-medium text-neutral-500">Harici görsel URL</summary>
+            <input
+              type="url"
+              placeholder="https://..."
+              value={(config.imageUrl as string) ?? ''}
+              onChange={(e) => onChange({ ...config, imageUrl: e.target.value })}
+              className={`${inputCls} mt-2`}
+            />
+          </details>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -1141,9 +1182,11 @@ function ImageTextConfigEditor({
 function DestinationCardsConfigEditor({
   config,
   onChange,
+  pageSlug,
 }: {
   config: Record<string, unknown>
   onChange: (updated: Record<string, unknown>) => void
+  pageSlug: string
 }) {
   const inputCls = 'rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800 w-full'
   const cards = Array.isArray(config.cards) ? (config.cards as Array<Record<string, string>>) : []
@@ -1226,7 +1269,6 @@ function DestinationCardsConfigEditor({
             {[
               { key: 'name', placeholder: 'İstanbul' },
               { key: 'description', placeholder: 'Tarihin ve modernliğin buluştuğu şehir' },
-              { key: 'imageUrl', placeholder: 'Tam görsel URL (Pexels/Unsplash vb.)' },
               { key: 'href', placeholder: '/destinasyonlar/istanbul' },
               { key: 'listingCount', placeholder: '248' },
             ].map(({ key, placeholder }) => (
@@ -1239,6 +1281,29 @@ function DestinationCardsConfigEditor({
                 className={inputCls}
               />
             ))}
+            <div className="flex flex-col gap-1">
+              <label className="text-[11px] font-medium text-neutral-500">Görsel</label>
+              <ImageUpload
+                value={card.imageUrl ?? ''}
+                onChange={(url) => updateCard(i, 'imageUrl', url)}
+                folder="site"
+                subPath={`page-builder/dest-cards/${slugifyMediaSegment(pageSlug)}`}
+                prefix="dest"
+                useOriginalStem
+                aspectRatio="16/9"
+                placeholder="Kart görseli"
+              />
+              <details className="rounded border border-neutral-200 px-2 py-1 dark:border-neutral-600">
+                <summary className="cursor-pointer text-[10px] text-neutral-500">Harici görsel URL</summary>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={card.imageUrl ?? ''}
+                  onChange={(e) => updateCard(i, 'imageUrl', e.target.value)}
+                  className={`${inputCls} mt-1`}
+                />
+              </details>
+            </div>
           </div>
         ))}
       </div>
@@ -1255,9 +1320,11 @@ function DestinationCardsConfigEditor({
 function PartnersConfigEditor({
   config,
   onChange,
+  pageSlug,
 }: {
   config: Record<string, unknown>
   onChange: (updated: Record<string, unknown>) => void
+  pageSlug: string
 }) {
   const inputCls = 'rounded-lg border border-neutral-200 px-3 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-800 w-full'
   const items = Array.isArray(config.items) ? (config.items as Array<Record<string, string>>) : []
@@ -1360,20 +1427,45 @@ function PartnersConfigEditor({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
-            {[
-              { key: 'name', placeholder: 'Şirket Adı' },
-              { key: 'logoUrl', placeholder: 'https://... logo URL' },
-              { key: 'href', placeholder: 'https://partner-site.com (isteğe bağlı)' },
-            ].map(({ key, placeholder }) => (
-              <input
-                key={key}
-                type="text"
-                placeholder={placeholder}
-                value={item[key] ?? ''}
-                onChange={(e) => updateItem(i, key, e.target.value)}
-                className={inputCls}
+            <input
+              key="name"
+              type="text"
+              placeholder="Şirket Adı"
+              value={item.name ?? ''}
+              onChange={(e) => updateItem(i, 'name', e.target.value)}
+              className={inputCls}
+            />
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium text-neutral-500">Logo</span>
+              <ImageUpload
+                value={item.logoUrl ?? ''}
+                onChange={(url) => updateItem(i, 'logoUrl', url)}
+                folder="site"
+                subPath={`page-builder/partners/${slugifyMediaSegment(pageSlug)}`}
+                prefix="logo"
+                useOriginalStem
+                compact
+                placeholder="Logo — galeri"
               />
-            ))}
+              <details className="rounded border border-neutral-200 px-2 py-1 dark:border-neutral-600">
+                <summary className="cursor-pointer text-[10px] text-neutral-500">Harici logo URL</summary>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={item.logoUrl ?? ''}
+                  onChange={(e) => updateItem(i, 'logoUrl', e.target.value)}
+                  className={`${inputCls} mt-1`}
+                />
+              </details>
+            </div>
+            <input
+              key="href"
+              type="text"
+              placeholder="https://partner-site.com (isteğe bağlı)"
+              value={item.href ?? ''}
+              onChange={(e) => updateItem(i, 'href', e.target.value)}
+              className={inputCls}
+            />
           </div>
         ))}
       </div>
@@ -1692,11 +1784,13 @@ function ModuleRow({
             />
           ) : module.type === 'video_gallery' ? (
             <VideoGalleryConfigEditor
+              pageSlug={categorySlug}
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
           ) : module.type === 'section_videos' ? (
             <VideoGalleryConfigEditor
+              pageSlug={categorySlug}
               config={module.config as Record<string, unknown>}
               titleKey="heading"
               subtitleKey="subheading"
@@ -1705,16 +1799,19 @@ function ModuleRow({
             />
           ) : module.type === 'image_text' ? (
             <ImageTextConfigEditor
+              pageSlug={categorySlug}
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
           ) : module.type === 'destination_cards' ? (
             <DestinationCardsConfigEditor
+              pageSlug={categorySlug}
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
           ) : module.type === 'partners' ? (
             <PartnersConfigEditor
+              pageSlug={categorySlug}
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
