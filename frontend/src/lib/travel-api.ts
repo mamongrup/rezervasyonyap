@@ -6409,11 +6409,15 @@ export type LocationPage = {
   translations_json: string
   poi_manual_json: string
   country_info_json: string
+  /** Gezi fikirleri altı 3 sütun mekan/mesafe — JSON veya API nesnesi */
+  nearby_vitrin_columns_json?: unknown
 }
 
 export type TravelIdea = {
   id: string | number
   image?: string
+  /** Kısa rozet (ör. AI çıktısı — vitrinde soldaki renkli etiket) */
+  tag?: string
   title: string
   link?: string
   summary: string
@@ -6463,6 +6467,7 @@ export type LocationPagePatch = {
   translations_json?: string
   poi_manual_json?: string
   country_info_json?: string
+  nearby_vitrin_columns_json?: string
 }
 
 export type ListLocationPagesResult = {

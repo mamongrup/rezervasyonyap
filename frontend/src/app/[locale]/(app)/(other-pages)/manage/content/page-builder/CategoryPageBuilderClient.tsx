@@ -71,7 +71,62 @@ const MODULE_CATALOG: { type: PageBuilderModuleType; label: string; description:
   { type: 'coupons_strip', label: 'Kupon Şeridi', description: 'Aktif & herkese açık kuponlar (kopyala butonu)', emoji: '🎟️' },
   { type: 'holiday_packages', label: 'Hazır Tatil Paketleri', description: 'Yönetimden tanımlı paket tatil grid', emoji: '🧳' },
   { type: 'cross_sell_widget', label: 'Birlikte Tercih Edilenler', description: 'Cross-sell kuralları (örn. uçak → otel)', emoji: '🔁' },
+  // Bölge detay vitrinı (`Sayfa düzeni → Bölge detay`)
+  {
+    type: 'region_detail_hero',
+    label: 'Bölge: Hero',
+    description: 'Başlık (H1), görseller ve arama — `/bolge/…` üzerinde otomatik',
+    emoji: '🎯',
+  },
+  {
+    type: 'region_detail_breadcrumb',
+    label: 'Bölge: Breadcrumb',
+    description: 'Konum yolu (ana sayfa → alt bölgeler) — erişilebilir liste',
+    emoji: '🧭',
+  },
+  { type: 'region_detail_listings', label: 'Bölge: İlan listesi', description: 'Kategori sekmeleri, kartlar ve sayfalama', emoji: '🏷️' },
+  {
+    type: 'region_detail_explore_hotels',
+    label: 'Bölge: Keşfet (otel istatistikleri)',
+    description: '«Bölgeye göre keşfet» yatay slider — otel vitrinine gider',
+    emoji: '🗾',
+  },
+  { type: 'region_detail_newsletter', label: 'Bölge: Bülten', description: 'SectionSubscribe2 bülten bloğu', emoji: '📧' },
+  { type: 'region_detail_about', label: 'Bölge: Tanıtım metni', description: 'CMS açıklama / «Bölge tanıtımı»', emoji: '📝' },
+  { type: 'region_detail_travel_ideas', label: 'Bölge: Gezi fikirleri', description: 'travel_ideas_json ile beslenir', emoji: '🗺️' },
+  {
+    type: 'region_detail_places_vitrin',
+    label: 'Bölge: 3 sütun mekan/mesafe',
+    description: 'Gezi fikirleri altı — yakın mekanlar ve kuş uçuşu mesafe (region-places + JSON)',
+    emoji: '📐',
+  },
+  { type: 'region_detail_nearby', label: 'Bölge: Yakındaki mekanlar', description: 'POI haritası / yakın yerler', emoji: '📍' },
+  { type: 'region_detail_map', label: 'Bölge: Harita gömme', description: 'Google Maps iframe', emoji: '🗺️' },
+  {
+    type: 'region_detail_empty_hint',
+    label: 'Bölge: İçerik yok uyarısı',
+    description: 'Kayıt + ilan + POI yoksa «henüz içerik yok» kutusu',
+    emoji: '💬',
+  },
+  {
+    type: 'region_detail_subdivisions',
+    label: 'Bölge: Alt bölgeler',
+    description: 'İller / ilçeler / beldeler slider — footer üstü',
+    emoji: '🔗',
+  },
 ]
+
+/** «Bölge detay» şablonunda eklenmemeli — slot/kategori uyumsuz */
+const EXCLUDED_ON_BOLGE_DETAIL_PAGE_BUILDER = new Set<PageBuilderModuleType>([
+  'hero',
+  'featured_by_region',
+  'listings_grid',
+  'listings_slider',
+  'categories_grid',
+  'search_results',
+  'travel_category_images',
+  'cross_sell_widget',
+])
 
 const CATEGORY_CARD_TYPE_OPTIONS = [
   { value: 'card3', label: 'Kart 3 - Standart görselli kart' },
@@ -1757,6 +1812,12 @@ function ModuleRow({
               config={module.config as Record<string, unknown>}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
+          ) : String(module.type).startsWith('region_detail_') ? (
+            <p className="text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
+              Bölge vitrin modülleri (<span className="font-mono text-[11px]">region_detail_*</span>): içerik bölge
+              sayfasından gelir; sıra ve görünürlük buradan yönetilir. Hero ve breadcrumb otomatik dolar; ek JSON ayarı
+              yoktur.
+            </p>
           ) : (
             <ConfigEditor
               config={module.config as Record<string, unknown>}
@@ -1780,9 +1841,15 @@ function AddModuleDialog({
   onAdd: (type: PageBuilderModuleType) => void
   onClose: () => void
 }) {
-  const addableModules = MODULE_CATALOG.filter(
-    (m) => m.type !== 'travel_category_images' || pageSlug === 'homepage',
-  )
+  const addableModules = MODULE_CATALOG.filter((m) => {
+    if (pageSlug === 'bolge-detay') {
+      if (m.type.startsWith('region_detail_')) return true
+      if (EXCLUDED_ON_BOLGE_DETAIL_PAGE_BUILDER.has(m.type)) return false
+      return true
+    }
+    if (m.type.startsWith('region_detail_')) return false
+    return !(m.type === 'travel_category_images' && pageSlug !== 'homepage')
+  })
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-neutral-900">
@@ -1938,6 +2005,18 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
       coupons_strip: { title: {}, subheading: {}, limit: 6 },
       holiday_packages: { title: {}, subheading: {}, limit: 6, viewAllHref: '/tr/paketler', viewAllLabel: {} },
       cross_sell_widget: { title: {}, subheading: {}, triggerCategory: selectedSlug, limit: 4 },
+      region_detail_hero: {},
+      region_detail_breadcrumb: {},
+      region_detail_listings: {},
+      region_detail_explore_hotels: {},
+      region_detail_newsletter: {},
+      region_detail_about: {},
+      region_detail_travel_ideas: {},
+      region_detail_places_vitrin: {},
+      region_detail_nearby: {},
+      region_detail_map: {},
+      region_detail_empty_hint: {},
+      region_detail_subdivisions: {},
     }
 
     const newModule: PageBuilderModule = {
@@ -1962,7 +2041,13 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
       })
       const data = (await res.json()) as { ok: boolean; error?: string }
       if (data.ok) {
-        setMsg({ ok: true, text: '✓ Kaydedildi. Değişiklikler kategori sayfasına yansıtıldı.' })
+        setMsg({
+          ok: true,
+          text:
+            selectedSlug === 'bolge-detay'
+              ? '✓ Kaydedildi. Bölge vitrin sayfalarına (`/bolge/…`) sıra yansıtıldı.'
+              : '✓ Kaydedildi. Değişiklikler kategori sayfasına yansıtıldı.',
+        })
         setCategories((prev) =>
           prev.map((c) => (c.slug === selectedSlug ? { ...c, hasCustomConfig: true } : c)),
         )

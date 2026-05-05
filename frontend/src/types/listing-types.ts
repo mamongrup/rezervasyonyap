@@ -262,6 +262,19 @@ export type PageBuilderModuleType =
   | 'coupons_strip'
   | 'holiday_packages'
   | 'cross_sell_widget'
+  // Bölge vitrinı (`/bolge/...`) — içerik slot’ları sayfa tarafından beslenir
+  | 'region_detail_hero'
+  | 'region_detail_breadcrumb'
+  | 'region_detail_listings'
+  | 'region_detail_explore_hotels'
+  | 'region_detail_newsletter'
+  | 'region_detail_about'
+  | 'region_detail_travel_ideas'
+  | 'region_detail_places_vitrin'
+  | 'region_detail_nearby'
+  | 'region_detail_map'
+  | 'region_detail_subdivisions'
+  | 'region_detail_empty_hint'
 
 /** Bölgeye göre öne çıkarma modülü config tipi */
 export interface FeaturedRegionEntry {

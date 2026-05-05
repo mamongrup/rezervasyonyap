@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from 'react'
+import { Fragment, type CSSProperties, type ReactNode } from 'react'
 import type { FeaturedByRegionConfig, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
@@ -40,6 +40,22 @@ import CouponsStripModule from './modules/CouponsStripModule'
 import HolidayPackagesModule from './modules/HolidayPackagesModule'
 import CrossSellWidgetModule from './modules/CrossSellWidgetModule'
 import { getSharedTravelCategoryThumbnails } from '@/data/page-builder-config'
+
+/** `/bolge/…` vitrinında page builder slot’ları */
+export interface RegionDetailPageSlots {
+  hero: ReactNode
+  breadcrumb: ReactNode
+  listings: ReactNode
+  exploreHotels: ReactNode | null
+  newsletter: ReactNode
+  about: ReactNode | null
+  travelIdeas: ReactNode | null
+  placesVitrin: ReactNode | null
+  nearby: ReactNode | null
+  map: ReactNode | null
+  subdivisions: ReactNode | null
+  emptyHint: ReactNode | null
+}
 
 /** Modül config içinden categoryThumbnails — yalnızca dolu string değerler */
 function categoryThumbnailsFromModuleConfig(config: unknown): Record<string, string> {
@@ -125,6 +141,10 @@ interface PageBuilderRendererProps {
   rootAs?: 'div' | 'section'
   /** Kök öğeye (örn. `contentVisibility` — PSI DOM/style maliyeti) */
   rootStyle?: CSSProperties
+  /** Kategori vitrinı | bölge detay vitrinı */
+  layoutVariant?: 'category' | 'region_detail'
+  /** Yalnız `layoutVariant === 'region_detail'` iken kullanılır */
+  regionSlots?: RegionDetailPageSlots
 }
 
 /**
@@ -148,8 +168,11 @@ export default async function PageBuilderRenderer({
   pageKey,
   rootAs = 'div',
   rootStyle,
+  layoutVariant = 'category',
+  regionSlots,
 }: PageBuilderRendererProps) {
-  const defaultSliderPageKey = pageKey ?? category.slug
+  const isRegionDetailLayout = layoutVariant === 'region_detail'
+  const defaultSliderPageKey = pageKey ?? (isRegionDetailLayout ? 'bolge-detay' : category.slug)
   const messages = getMessages(locale)
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
@@ -169,12 +192,64 @@ export default async function PageBuilderRenderer({
 
   const Root = rootAs
 
+  const rootLayoutClass = isRegionDetailLayout
+    ? 'flex flex-col gap-0 min-w-0'
+    : 'flex flex-col gap-16 py-12 container'
+
   return (
-    <Root className="flex flex-col gap-16 py-12 container" style={rootStyle}>
+    <Root className={rootLayoutClass} style={rootStyle}>
       {enabled.map((module) => {
         const cfg = module.config as Record<string, unknown>
 
         switch (module.type) {
+          case 'region_detail_hero':
+            if (!isRegionDetailLayout || !regionSlots?.hero) return null
+            return <Fragment key={module.id}>{regionSlots.hero}</Fragment>
+
+          case 'region_detail_breadcrumb':
+            if (!isRegionDetailLayout || !regionSlots?.breadcrumb) return null
+            return <Fragment key={module.id}>{regionSlots.breadcrumb}</Fragment>
+
+          case 'region_detail_listings':
+            if (!isRegionDetailLayout || !regionSlots?.listings) return null
+            return <Fragment key={module.id}>{regionSlots.listings}</Fragment>
+
+          case 'region_detail_explore_hotels':
+            if (!isRegionDetailLayout || !regionSlots?.exploreHotels) return null
+            return <Fragment key={module.id}>{regionSlots.exploreHotels}</Fragment>
+
+          case 'region_detail_newsletter':
+            if (!isRegionDetailLayout || !regionSlots?.newsletter) return null
+            return <Fragment key={module.id}>{regionSlots.newsletter}</Fragment>
+
+          case 'region_detail_about':
+            if (!isRegionDetailLayout || !regionSlots?.about) return null
+            return <Fragment key={module.id}>{regionSlots.about}</Fragment>
+
+          case 'region_detail_travel_ideas':
+            if (!isRegionDetailLayout || !regionSlots?.travelIdeas) return null
+            return <Fragment key={module.id}>{regionSlots.travelIdeas}</Fragment>
+
+          case 'region_detail_places_vitrin':
+            if (!isRegionDetailLayout || !regionSlots?.placesVitrin) return null
+            return <Fragment key={module.id}>{regionSlots.placesVitrin}</Fragment>
+
+          case 'region_detail_nearby':
+            if (!isRegionDetailLayout || !regionSlots?.nearby) return null
+            return <Fragment key={module.id}>{regionSlots.nearby}</Fragment>
+
+          case 'region_detail_map':
+            if (!isRegionDetailLayout || !regionSlots?.map) return null
+            return <Fragment key={module.id}>{regionSlots.map}</Fragment>
+
+          case 'region_detail_subdivisions':
+            if (!isRegionDetailLayout || !regionSlots?.subdivisions) return null
+            return <Fragment key={module.id}>{regionSlots.subdivisions}</Fragment>
+
+          case 'region_detail_empty_hint':
+            if (!isRegionDetailLayout || !regionSlots?.emptyHint) return null
+            return <Fragment key={module.id}>{regionSlots.emptyHint}</Fragment>
+
           case 'hero':
             // Hero is rendered OUTSIDE the container by CategoryPageTemplate
             return null

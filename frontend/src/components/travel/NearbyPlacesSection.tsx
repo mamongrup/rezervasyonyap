@@ -3,6 +3,8 @@
 import { MapPin } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
+import { interpolate } from '@/utils/interpolate'
+import { getMessages } from '@/utils/getT'
 
 // ─── Haversine (kuş uçuşu km) ─────────────────────────────────────────────────
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -16,8 +18,10 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 }
 
 // ─── Mesafe badge ─────────────────────────────────────────────────────────────
-function distanceLabel(km: number): string {
-  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`
+function distanceLabel(km: number, metersTpl: string, kmTpl: string): string {
+  return km < 1
+    ? interpolate(metersTpl, { distance: String(Math.round(km * 1000)) })
+    : interpolate(kmTpl, { distance: km.toFixed(1) })
 }
 
 function distanceColor(km: number): string {
@@ -52,8 +56,42 @@ interface CategoryData {
   types: PlaceTypeData[]
 }
 
+function formatSavedDate(iso: string, locale: string): string {
+  try {
+    const d = new Date(iso)
+    const lang = locale.split('-')[0]?.toLowerCase() ?? 'en'
+    const tag =
+      lang === 'tr'
+        ? 'tr-TR'
+        : lang === 'de'
+          ? 'de-DE'
+          : lang === 'fr'
+            ? 'fr-FR'
+            : lang === 'ru'
+              ? 'ru-RU'
+              : lang === 'zh'
+                ? 'zh-CN'
+                : 'en-GB'
+    return d.toLocaleDateString(tag)
+  } catch {
+    return iso
+  }
+}
+
 // ─── Tek mekan satırı ─────────────────────────────────────────────────────────
-function PlaceRow({ place }: { place: Place }) {
+function PlaceRow({
+  place,
+  openLabel,
+  closedLabel,
+  metersTpl,
+  kmTpl,
+}: {
+  place: Place
+  openLabel: string
+  closedLabel: string
+  metersTpl: string
+  kmTpl: string
+}) {
   return (
     <a
       href={`https://www.google.com/maps/place/?q=place_id:${place.placeId}`}
@@ -77,11 +115,11 @@ function PlaceRow({ place }: { place: Place }) {
         ) : null}
         {place.openNow !== undefined ? (
           <span className={`text-[10px] font-medium ${place.openNow ? 'text-emerald-600' : 'text-red-500'}`}>
-            {place.openNow ? 'Açık' : 'Kapalı'}
+            {place.openNow ? openLabel : closedLabel}
           </span>
         ) : null}
         <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${distanceColor(place.distanceKm)}`}>
-          {distanceLabel(place.distanceKm)}
+          {distanceLabel(place.distanceKm, metersTpl, kmTpl)}
         </span>
       </div>
     </a>
@@ -89,7 +127,21 @@ function PlaceRow({ place }: { place: Place }) {
 }
 
 // ─── Tek kategori bloğu ───────────────────────────────────────────────────────
-function CategoryBlock({ category }: { category: CategoryData }) {
+function CategoryBlock({
+  category,
+  placesCountTemplate,
+  openLabel,
+  closedLabel,
+  metersTpl,
+  kmTpl,
+}: {
+  category: CategoryData
+  placesCountTemplate: string
+  openLabel: string
+  closedLabel: string
+  metersTpl: string
+  kmTpl: string
+}) {
   const [openTypes, setOpenTypes] = useState<Set<string>>(
     new Set(category.types.slice(0, 2).map((t) => t.id)),
   )
@@ -111,7 +163,9 @@ function CategoryBlock({ category }: { category: CategoryData }) {
         <span className="text-2xl">{category.icon}</span>
         <div>
           <h3 className="text-base font-semibold text-neutral-900 dark:text-white">{category.name}</h3>
-          <p className="text-xs text-neutral-500">{allPlaces.length} mekan</p>
+          <p className="text-xs text-neutral-500">
+            {interpolate(placesCountTemplate, { count: String(allPlaces.length) })}
+          </p>
         </div>
       </div>
 
@@ -149,7 +203,14 @@ function CategoryBlock({ category }: { category: CategoryData }) {
               {isOpen ? (
                 <div className="border-t border-neutral-50 dark:border-neutral-800">
                   {tp.places.map((place) => (
-                    <PlaceRow key={place.placeId} place={place} />
+                    <PlaceRow
+                      key={place.placeId}
+                      place={place}
+                      openLabel={openLabel}
+                      closedLabel={closedLabel}
+                      metersTpl={metersTpl}
+                      kmTpl={kmTpl}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -166,10 +227,14 @@ function FlatPlaceRow({
   place,
   typeEmoji,
   typeName,
+  metersTpl,
+  kmTpl,
 }: {
   place: Place
   typeEmoji: string
   typeName: string
+  metersTpl: string
+  kmTpl: string
 }) {
   return (
     <a
@@ -197,7 +262,7 @@ function FlatPlaceRow({
         <span
           className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${distanceColor(place.distanceKm)}`}
         >
-          {distanceLabel(place.distanceKm)}
+          {distanceLabel(place.distanceKm, metersTpl, kmTpl)}
         </span>
       </div>
     </a>
@@ -206,6 +271,8 @@ function FlatPlaceRow({
 
 // ─── Ana bileşen ──────────────────────────────────────────────────────────────
 interface NearbyPlacesSectionProps {
+  /** Vitrin dili — metinler `site.region` çevirilerinden gelir */
+  locale?: string
   /** Bölgenin URL slug'ı — /api/region-places?slug={regionSlug} üzerinden veri çekilir */
   regionSlug?: string
   /** Sunucu tarafından önceden yüklenmiş veri (varsa fetch atlanır) */
@@ -229,6 +296,7 @@ interface NearbyPlacesSectionProps {
 }
 
 export default function NearbyPlacesSection({
+  locale = 'tr',
   regionSlug,
   initialData,
   title,
@@ -238,6 +306,8 @@ export default function NearbyPlacesSection({
   overrideLat,
   overrideLng,
 }: NearbyPlacesSectionProps) {
+  const copy = useMemo(() => getMessages(locale).site.region, [locale])
+
   const [rawData, setRawData] = useState<RegionPlaceData | null>(initialData ?? null)
   const [loading, setLoading] = useState(initialData === undefined && !!regionSlug)
   const [error, setError] = useState<string | null>(null)
@@ -265,13 +335,13 @@ export default function NearbyPlacesSection({
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Yüklenemedi')
+          setError(err instanceof Error ? err.message : copy.nearbyPlacesLoadFailed)
           setLoading(false)
         }
       })
 
     return () => { cancelled = true }
-  }, [regionSlug, initialData])
+  }, [regionSlug, initialData, copy.nearbyPlacesLoadFailed])
 
   // ─── Mesafe yeniden hesaplama (ilan koordinatından) ───────────────────────
   const data = useMemo<RegionPlaceData | null>(() => {
@@ -320,7 +390,7 @@ export default function NearbyPlacesSection({
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        <span className="ml-2 text-sm">Yakın mekanlar yükleniyor…</span>
+        <span className="ml-2 text-sm">{copy.nearbyPlacesLoading}</span>
       </div>
     )
   }
@@ -337,7 +407,8 @@ export default function NearbyPlacesSection({
 
   if (variant === 'flat') {
     if (flatItems.length === 0) return null
-    const heading = title ?? 'Yakındaki mekanlar'
+    const heading = title ?? copy.nearbyPlacesFlatHeadingFallback
+    const savedFmt = data.savedAt ? formatSavedDate(data.savedAt, locale) : ''
     return (
       <section className="listingSection__wrap">
         <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm ring-1 ring-black/[0.03] dark:border-neutral-700 dark:bg-neutral-900 dark:ring-white/5">
@@ -350,8 +421,8 @@ export default function NearbyPlacesSection({
                 <h2 className="text-lg font-semibold tracking-tight text-neutral-900 dark:text-white">{heading}</h2>
                 <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
                   {data.regionName}
-                  {hasOverride ? ' · Tesise göre mesafe (kuş uçuşu)' : ''}
-                  {data.savedAt ? ` · ${new Date(data.savedAt).toLocaleDateString('tr-TR')}` : ''}
+                  {hasOverride ? copy.nearbyPlacesFlatListingDistanceSuffix : ''}
+                  {data.savedAt ? interpolate(copy.nearbyPlacesFlatDateSuffix, { date: savedFmt }) : ''}
                 </p>
               </div>
             </div>
@@ -363,6 +434,8 @@ export default function NearbyPlacesSection({
                 place={p}
                 typeEmoji={p.typeEmoji}
                 typeName={p.typeName}
+                metersTpl={copy.nearbyPlacesDistanceMeters}
+                kmTpl={copy.nearbyPlacesDistanceKm}
               />
             ))}
           </div>
@@ -371,30 +444,42 @@ export default function NearbyPlacesSection({
     )
   }
 
+  const coordsStr = `${data.coordinates.lat.toFixed(4)}, ${data.coordinates.lng.toFixed(4)}`
+  const savedFmtGrid = data.savedAt ? formatSavedDate(data.savedAt, locale) : ''
+
   return (
     <section className="listingSection__wrap">
       {/* Başlık */}
       <div>
         <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">
-          {title ?? `${data.regionName} Çevresinde Ne Var?`}
+          {title ?? interpolate(copy.nearbyPlacesGridAroundHeading, { regionName: data.regionName })}
         </h2>
         <p className="mt-1 text-sm text-neutral-500">
           {hasOverride
-            ? `Tesise mesafe · ${totalPlaces} mekan`
-            : `${data.coordinates.lat.toFixed(4)}, ${data.coordinates.lng.toFixed(4)} · ${totalPlaces} mekan`}
-          {data.savedAt ? ` · ${new Date(data.savedAt).toLocaleDateString('tr-TR')} güncellendi` : ''}
+            ? interpolate(copy.nearbyPlacesGridSubtitleListing, { count: String(totalPlaces) })
+            : interpolate(copy.nearbyPlacesGridSubtitleCoords, {
+                coords: coordsStr,
+                count: String(totalPlaces),
+              })}
+          {data.savedAt ? interpolate(copy.nearbyPlacesGridUpdatedSuffix, { date: savedFmtGrid }) : ''}
         </p>
-        {hasOverride && (
-          <p className="mt-0.5 text-xs text-neutral-400">
-            ⓘ Mesafeler tesisin konumuna göre hesaplanmıştır (kuş uçuşu)
-          </p>
-        )}
+        {hasOverride ? (
+          <p className="mt-0.5 text-xs text-neutral-400">{copy.nearbyPlacesFootnoteCrowFlight}</p>
+        ) : null}
       </div>
 
       {/* Kategori grid */}
       <div className="grid gap-4 lg:grid-cols-2">
         {categories.map((cat) => (
-          <CategoryBlock key={cat.id} category={cat as CategoryData} />
+          <CategoryBlock
+            key={cat.id}
+            category={cat as CategoryData}
+            placesCountTemplate={copy.nearbyPlacesPlacesCount}
+            openLabel={copy.nearbyPlacesOpenNow}
+            closedLabel={copy.nearbyPlacesClosedNow}
+            metersTpl={copy.nearbyPlacesDistanceMeters}
+            kmTpl={copy.nearbyPlacesDistanceKm}
+          />
         ))}
       </div>
     </section>

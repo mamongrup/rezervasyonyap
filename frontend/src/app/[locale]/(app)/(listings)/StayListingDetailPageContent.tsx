@@ -885,6 +885,7 @@ export default async function StayListingDetailPageContent({
             heading={dp.location}
           />
           <NearbyPlacesSection
+            locale={locale}
             regionSlug={regionPlacesSlugFromCity(listing.city)}
             title={dp.nearbyPlaces}
             variant="flat"

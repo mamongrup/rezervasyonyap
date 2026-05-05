@@ -5,10 +5,16 @@
 
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import type { CategoryPageBuilderConfig, FeaturedByRegionConfig, FeaturedRegionEntry, PageBuilderModule } from '@/types/listing-types'
+import type {
+  CategoryPageBuilderConfig,
+  FeaturedByRegionConfig,
+  FeaturedRegionEntry,
+  PageBuilderModule,
+  PageBuilderModuleType,
+} from '@/types/listing-types'
 export type { FeaturedByRegionConfig, FeaturedRegionEntry }
 import { getCategoryBySlug } from './category-registry'
-import { getLocalizedDefaultModules } from '@/lib/page-builder-default-modules'
+import { getLocalizedDefaultModules, getRegionDetailDefaultModules } from '@/lib/page-builder-default-modules'
 import { getMessages } from '@/utils/getT'
 
 export interface HomepageConfig {
@@ -180,6 +186,77 @@ export async function getCategoryPageBuilderConfig(
     return getLocalizedDefaultModules(categorySlug, m).map((mod, i) => ({
       ...mod,
       id: `${categorySlug}-default-${i}`,
+    }))
+  }
+}
+
+/** Eski kayıtlarda yoksa hero + breadcrumb eklenir (sıra korunur). */
+const REGION_DETAIL_CORE_CHAIN: PageBuilderModuleType[] = ['region_detail_hero', 'region_detail_breadcrumb']
+
+function ensureRegionDetailCoreModules(modules: PageBuilderModule[], locale: string): PageBuilderModule[] {
+  const missing = REGION_DETAIL_CORE_CHAIN.filter((t) => !modules.some((m) => m.type === t))
+  if (missing.length === 0) return modules
+
+  const m = getMessages(locale)
+  const defaults = getRegionDetailDefaultModules(m)
+  const injected: PageBuilderModule[] = missing.map((t, idx) => {
+    const def = defaults.find((d) => d.type === t)
+    if (!def) return null
+    return {
+      ...def,
+      id: `bolge-detay-core-${t}`,
+      order: idx + 1,
+    }
+  }).filter((x): x is PageBuilderModule => x != null)
+
+  if (injected.length === 0) return modules
+
+  const shift = injected.length
+  const shifted = modules.map((mod) => ({ ...mod, order: mod.order + shift }))
+  return [...injected, ...shifted].sort((a, b) => a.order - b.order)
+}
+
+function ensureRegionDetailPlacesVitrinModule(modules: PageBuilderModule[], locale: string): PageBuilderModule[] {
+  const t: PageBuilderModuleType = 'region_detail_places_vitrin'
+  if (modules.some((m) => m.type === t)) return modules
+
+  const m = getMessages(locale)
+  const defaults = getRegionDetailDefaultModules(m)
+  const stub = defaults.find((d) => d.type === t)
+  if (!stub) return modules
+
+  const travel = modules.find((x) => x.type === 'region_detail_travel_ideas')
+  const insertAfterOrder = travel?.order ?? 7
+  const newOrder = insertAfterOrder + 1
+
+  const shifted = modules.map((mod) =>
+    mod.order > insertAfterOrder ? { ...mod, order: mod.order + 1 } : mod,
+  )
+
+  return [
+    ...shifted,
+    {
+      ...stub,
+      id: 'bolge-detay-injected-places-vitrin',
+      order: newOrder,
+    },
+  ].sort((a, b) => a.order - b.order)
+}
+
+/** `/bolge/…` vitrinı için tek şablon (`public/page-builder/bolge-detay.json`). */
+export async function getRegionDetailPageBuilderConfig(locale = 'tr'): Promise<PageBuilderModule[]> {
+  const slug = 'bolge-detay'
+  const filePath = path.join(DATA_DIR, `${slug}.json`)
+  try {
+    const raw = await fs.readFile(filePath, 'utf-8')
+    const config = JSON.parse(raw) as CategoryPageBuilderConfig
+    const withCore = ensureRegionDetailCoreModules(config.modules, locale)
+    return ensureRegionDetailPlacesVitrinModule(withCore, locale)
+  } catch {
+    const m = getMessages(locale)
+    return getRegionDetailDefaultModules(m).map((mod, i) => ({
+      ...mod,
+      id: `${slug}-default-${i}`,
     }))
   }
 }

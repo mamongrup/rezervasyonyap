@@ -210,6 +210,10 @@ function HeroImageMosaic({
 export type HeroSectionWithSearchForm1Props = {
   className?: string
   heading: string | ReactNode
+  /** Varsayılan `h2`; bölge vitrinında tek sayfa başlığı için `h1` kullanın */
+  headingLevel?: 'h1' | 'h2'
+  /** Başlık etiketine `id` (örn. `aria-labelledby` için) */
+  headingDomId?: string
   description: string | React.ReactNode
   /** Static fallback image (statik import veya `{ src, width, height }`). */
   image: HeroImageDims
@@ -253,6 +257,8 @@ function HeroSectionWithSearchForm1({
   searchForm,
   description,
   heading,
+  headingLevel = 'h2',
+  headingDomId,
   imageAlt,
   image,
   overrideImage,
@@ -269,6 +275,7 @@ function HeroSectionWithSearchForm1({
     topSpacing ?? (compactTop ? 'compact' : 'default')
   const inlineSearch = spacing === 'minimal' || spacing === 'compact'
   const minimalBelowFoldSearch = spacing === 'minimal'
+  const HeadingTag = headingLevel === 'h1' ? 'h1' : 'h2'
   // ── Right column content ──────────────────────────────────────────────────
   let rightCol: React.ReactNode
 
@@ -395,13 +402,16 @@ function HeroSectionWithSearchForm1({
             spacing === 'default' && 'lg:pt-2',
           )}
         >
-          <h2 className="w-full min-w-0 max-w-full break-words text-4xl/[1.15] font-medium tracking-tight text-pretty sm:text-5xl/[1.15] xl:text-7xl/[1.1]">
+          <HeadingTag
+            id={headingDomId}
+            className="w-full min-w-0 max-w-full break-words text-4xl/[1.15] font-medium tracking-tight text-pretty sm:text-5xl/[1.15] xl:text-7xl/[1.1]"
+          >
             {typeof heading === 'string' ? (
               <span dangerouslySetInnerHTML={{ __html: sanitizeHeroInlineHtml(heading || '') }} />
             ) : (
               heading
             )}
-          </h2>
+          </HeadingTag>
           {description}
           {!minimalBelowFoldSearch ? (
             <div

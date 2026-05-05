@@ -1,8 +1,8 @@
 /**
  * Bölge vitrin sayfası (kanonik TR URL: `/bolge/[...slug]`).
  *
- * - Yönetim panelinde kayıtlı **3 hero görseli** `gallery_json` üzerinden gelir; `resolveGalleryBundleForSlug`
- *   ile mozaik veya (varsa) freeform banner düzeni uygulanır.
+ * - Üst hero görünümü anasayfa ile **aynı kaynak**: `loadHomepageHeroPack` (CMS ana sayfa hero görselleri / metinleri).
+ * - `gallery_json` ilk görseli vb. gezi fikirleri yedeği ve OG görseli için kullanılmaya devam eder.
  * - Harici linkler için `regionPublicHref(locale, slugPath)` kullanın (`@/lib/region-public-path`).
  *
  * Eski `/location/...` rotası bu dosyayı yeniden dışa aktarır.
@@ -11,7 +11,6 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import BgGlassmorphism from '@/components/BgGlassmorphism'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
-import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
 import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
 import ListingFilterTabs from '@/components/ListingFilterTabs'
@@ -19,16 +18,22 @@ import SectionSliderRegions, { type RegionSliderItem } from '@/components/Sectio
 import SectionSubscribe2 from '@/components/SectionSubscribe2'
 import StayCard2 from '@/components/StayCard2'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
+import RegionNearbyPlacesVitrin from '@/components/travel/RegionNearbyPlacesVitrin'
 import RegionTravelIdeasSection from '@/components/travel/RegionTravelIdeasSection'
+import { resolveNearbyVitrinConfig } from '@/lib/nearby-vitrin-columns'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
+import { getRegionDetailPageBuilderConfig } from '@/data/page-builder-config'
 import { getStayListingFilterOptions } from '@/data/listings'
-import heroRightStay from '@/images/hero-right.png'
 import { heroCategoryInlineLabel } from '@/lib/hero-category-inline-labels'
+import { loadHomepageHeroPack } from '@/lib/homepage-hero-pack'
 import { normalizeHrefForLocale, prefixLocale } from '@/lib/i18n-config'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
 import { resolveGalleryBundleForSlug } from '@/lib/hero-gallery-slots'
+import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { regionPublicHref } from '@/lib/region-public-path'
+import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
+import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { parseTravelIdeas } from '@/lib/travel-ideas-parse'
 import type { LocationPage } from '@/lib/travel-api'
 import {
@@ -48,6 +53,7 @@ import convertNumbThousand from '@/utils/convertNumbThousand'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
+import { preload } from 'react-dom'
 import {
   Airplane02Icon,
   AnchorIcon,
@@ -118,14 +124,6 @@ function regionListingCategoryTabs(locale: string): { code: string; label: strin
       code: REGION_SLUG_TO_TAB_CAT[c.slug]!,
       label: heroCategoryInlineLabel(locale, c.slug, c.name),
     }))
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
 }
 
 function bolgeSubdivisionLevel(
@@ -295,25 +293,31 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   const cat = m.categoryPage
   const regionCategoryTabs = regionListingCategoryTabs(locale)
 
-  const [pageData, placesData, filterOptions, regionStats] = await Promise.all([
+  const [pageData, placesData, filterOptions, regionStats, heroPack] = await Promise.all([
     getLocationPageBySlug(slugPath),
     getRegionPlaces(regionSlug),
     getStayListingFilterOptions(),
     getPublicRegionStats('hotel', 12, { next: { revalidate: 300 } } as RequestInit).catch(() => []),
+    loadHomepageHeroPack(locale, m),
   ])
+
+  if (heroPack.lcpHeroUrl) {
+    preload(heroPack.lcpHeroUrl, {
+      as: 'image',
+      fetchPriority: 'high',
+    })
+  }
 
   const regionName =
     pageData?.title ?? slug.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
 
-  /** Galeri URL’leri [1., 2., 3. görsel]; `layout` varsa serbest yerleşim + `slotIndex` eşlemesi */
-  const { urls: galleryUrls, layout: heroFreeformLayout } = pageData
-    ? resolveGalleryBundleForSlug(slugPath, pageData.gallery_json as unknown)
-    : { urls: ['', '', ''] as [string, string, string], layout: null }
-  const [g0, g1, g2] = galleryUrls
-  const hasAnyMosaicSlot = !!(g0 || g1 || g2)
-  const mosaicTuple: [string, string, string] | undefined = hasAnyMosaicSlot ? [g0, g1, g2] : undefined
+  /** Galeri URL’leri (gezi fikirleri yedeği vb.) — hero görseli anasayfa ile aynı paketten gelir */
+  const galleryUrls = pageData
+    ? resolveGalleryBundleForSlug(slugPath, pageData.gallery_json as unknown).urls
+    : (['', '', ''] as [string, string, string])
+  const [g0] = galleryUrls
 
-  const [listingsResult, subdivisionSlider] = await Promise.all([
+  const [listingsResult, subdivisionSlider, pbModules] = await Promise.all([
     searchPublicListings({
       location: regionName,
       perPage: 12,
@@ -322,6 +326,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       page: pageNum > 1 ? pageNum : undefined,
     }),
     loadBolgeSubdivisionSlider(locale, slug, slugPath, pageData),
+    getRegionDetailPageBuilderConfig(locale),
   ])
 
   const listings = listingsResult?.listings ?? []
@@ -334,23 +339,6 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     placesData?.categories.flatMap((c) => c.types).flatMap((t) => t.places).length ?? 0
 
   const travelIdeas = pageData ? parseTravelIdeas(pageData.travel_ideas_json) : []
-
-  const heroDescription = (
-    <div className="flex flex-wrap items-center gap-x-2 text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
-      <i className="las la-map-marked text-2xl" />
-      <span>
-        <span className="text-neutral-500 dark:text-neutral-400">{regionName} — </span>
-        <span className="text-neutral-900 dark:text-neutral-100">
-          {convertNumbThousand(totalListings)}+ {m.site.region.listingsSuffix}
-        </span>
-      </span>
-      {totalPois > 0 ? (
-        <span className="ms-1 text-sm text-neutral-400">
-          · {totalPois} {m.site.region.nearbyPlaces}
-        </span>
-      ) : null}
-    </div>
-  )
 
   let otellerVitrin: string
   try {
@@ -386,273 +374,350 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   const descriptionHtml = pageData?.description?.trim() ?? ''
   const looksLikeHtml = /<[a-z][\s\S]*>/i.test(descriptionHtml)
 
+  const categoryForPb = CATEGORY_REGISTRY.find((c) => c.slug === 'oteller')
+
+  const canonicalBase = await resolveCanonicalBaseUrl()
+  const origin = canonicalBase.replace(/\/$/, '')
+  const breadcrumbJsonLd =
+    origin && slug.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'BreadcrumbList',
+          itemListElement: [
+            {
+              '@type': 'ListItem',
+              position: 1,
+              name: m.site.region.breadcrumbHome,
+              item: `${origin}${normalizeHrefForLocale(locale, '/')}`,
+            },
+            ...slug.map((_, i) => {
+              const subPath = slug.slice(0, i + 1).join('/')
+              const name = i === slug.length - 1 ? regionName : titleFromDestinationSlugPath(subPath)
+              const path = regionBase(subPath)
+              return {
+                '@type': 'ListItem' as const,
+                position: i + 2,
+                name,
+                item: `${origin}${path.startsWith('/') ? path : `/${path}`}`,
+              }
+            }),
+          ],
+        }
+      : null
+
+  const heroSlot = (
+    <section className="relative z-10 isolate">
+      <div className={`container mb-6 min-w-0 overflow-x-clip ${heroContainerBelowHeaderClassName}`}>
+        <HeroSectionWithSearchForm1
+          heading={heroPack.heroHeadingLinked}
+          image={heroPack.heroImage}
+          imageAlt={heroPack.imageAlt}
+          freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}
+          mosaicImages={heroPack.mosaicForRegionHero}
+          searchForm={heroPack.searchForm}
+          description={heroPack.heroDescription}
+          topSpacing="minimal"
+          heroMosaicBleed
+        />
+      </div>
+    </section>
+  )
+
+  const breadcrumbSlot = (
+    <nav className="container mb-6 min-w-0" aria-label={m.site.region.breadcrumbAriaLabel}>
+      <ol className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-1 p-0 text-xs text-neutral-500 dark:text-neutral-400">
+        <li className="flex min-w-0 items-center">
+          <Link
+            href={normalizeHrefForLocale(locale, '/')}
+            className="hover:text-primary-600 dark:hover:text-primary-400"
+          >
+            {m.site.region.breadcrumbHome}
+          </Link>
+        </li>
+        {slug.map((_, i) => {
+          const isLast = i === slug.length - 1
+          const segmentPath = slug.slice(0, i + 1).join('/')
+          const label = isLast ? regionName : titleFromDestinationSlugPath(segmentPath)
+          return (
+            <li key={segmentPath} className="flex min-w-0 items-center gap-1.5">
+              <span aria-hidden className="text-neutral-300 dark:text-neutral-600">
+                /
+              </span>
+              {isLast ? (
+                <span
+                  className="min-w-0 font-medium text-neutral-700 dark:text-neutral-300"
+                  aria-current="page"
+                >
+                  {label}
+                </span>
+              ) : (
+                <Link
+                  href={regionBase(segmentPath)}
+                  className="min-w-0 truncate hover:text-primary-600 dark:hover:text-primary-400"
+                >
+                  {label}
+                </Link>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    </nav>
+  )
+
+  const listingsSlot = (
+    <div className="container mt-10 lg:mt-16">
+      <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
+        <div>
+          <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
+            {interpolate(cat.listingsHeadingFiltered, {
+              count: convertNumbThousand(totalListings),
+              handle: regionName,
+            })}
+          </h2>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            {interpolate(cat.pricesDisclaimer, {
+              unit: 'gece',
+            })}
+          </p>
+        </div>
+      </div>
+
+      <Divider className="my-7 md:my-10" />
+
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
+        <div className="min-w-0 flex-1 overflow-x-auto [-webkit-overflow-scrolling:touch] sm:overflow-visible">
+          <div
+            className="flex w-full min-w-max gap-0.5 rounded-full bg-neutral-900 p-1 shadow-inner ring-1 ring-black/15 dark:bg-neutral-950 dark:ring-white/10"
+            role="tablist"
+          >
+            {regionCategoryTabs.map((tab) => {
+              const active = catParam === tab.code
+              const href = `${regionBase(slugPath)}?cat=${encodeURIComponent(tab.code)}`
+              const regSlug = REGION_TAB_CAT_TO_REGISTRY_SLUG[tab.code]
+              const Icon = REGION_REGISTRY_SLUG_ICON[regSlug] ?? Home01Icon
+              return (
+                <Link
+                  key={tab.code}
+                  href={href}
+                  role="tab"
+                  aria-current={active ? 'page' : undefined}
+                  className={clsx(
+                    'inline-flex shrink-0 items-center justify-center gap-2 rounded-full px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors sm:min-w-0 sm:flex-1 sm:px-4',
+                    active
+                      ? 'bg-white/15 text-white shadow-sm ring-1 ring-inset ring-white/25'
+                      : 'text-white/85 hover:bg-white/10 hover:text-white',
+                  )}
+                >
+                  <HugeiconsIcon icon={Icon} className="size-[18px] shrink-0 text-current" strokeWidth={1.5} />
+                  <span className="truncate">{tab.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+        {regionViewOnMapHref ? (
+          <Button
+            color="white"
+            className="shrink-0"
+            href={regionViewOnMapHref}
+            {...(regionViewOnMapExternal ? ({ target: '_blank', rel: 'noopener noreferrer' } as const) : {})}
+          >
+            <span className="me-1.5">{cat.viewOnMap}</span>
+            <HugeiconsIcon icon={MapsLocation01Icon} size={18} color="currentColor" strokeWidth={1.5} />
+          </Button>
+        ) : null}
+      </div>
+
+      {filterOptions.length > 0 ? <ListingFilterTabs filterOptions={filterOptions} /> : null}
+
+      {listingCardsData.length > 0 ? (
+        <>
+          <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:mt-10 lg:grid-cols-3 xl:grid-cols-4">
+            {listingCardsData.map((data) => (
+              <StayCard2 key={data.id} data={data} />
+            ))}
+          </div>
+          <div className="mt-16 flex items-center justify-center">
+            <Suspense
+              fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}
+            >
+              <CategoryListingPagination
+                locale={locale}
+                page={pageNum}
+                total={totalListings}
+                perPage={perPage}
+              />
+            </Suspense>
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-col items-center py-14 text-center">
+          <div className="text-5xl">🏡</div>
+          <p className="mt-3 text-sm text-neutral-500">{m.site.region.noListings}</p>
+        </div>
+      )}
+    </div>
+  )
+
+  const exploreHotelsSlot =
+    regionStats.length > 0 ? (
+      <div className="container mt-16">
+        <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+          {cat.exploreByRegion}
+        </h2>
+        <SectionSliderRegions regions={regionStats} categoryRoute={otellerVitrin} unit="otel" />
+      </div>
+    ) : null
+
+  const newsletterSlot = (
+    <div className="container mt-16">
+      <SectionSubscribe2 />
+    </div>
+  )
+
+  const aboutSlot = descriptionHtml ? (
+    <section className="mt-14 border-t border-neutral-200 bg-white py-14 dark:border-neutral-800 dark:bg-neutral-900">
+      <div className="container">
+        <h2 className="mb-6 text-2xl font-bold text-neutral-900 dark:text-white">{m.site.region.aboutHeading}</h2>
+        {looksLikeHtml ? (
+          <div
+            className="prose prose-neutral max-w-none dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(descriptionHtml) }}
+          />
+        ) : (
+          <div className="prose prose-neutral max-w-none dark:prose-invert">
+            {descriptionHtml.split('\n\n').map((para, i) => (
+              <p key={i} className="mb-4 leading-relaxed text-neutral-600 dark:text-neutral-400">
+                {para}
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  ) : null
+
+  const travelIdeasSlot =
+    showBolgeTravelIdeasSection(slug, pageData) ? (
+      <RegionTravelIdeasSection
+        ideas={travelIdeas}
+        locale={locale}
+        distanceTemplate={bolgeTravelIdeasDistanceTemplate(locale, slug, pageData)}
+        regionName={regionName}
+        regionImageUrl={
+          pageData?.travel_ideas_image_url?.trim() ||
+          pageData?.featured_image_url?.trim() ||
+          pageData?.hero_image_url?.trim() ||
+          (g0.trim() ? g0 : null)
+        }
+      />
+    ) : null
+
+  const nearbyVitrinCfg = resolveNearbyVitrinConfig(locale, pageData?.nearby_vitrin_columns_json)
+
+  const placesVitrinSlot =
+    placesData ? (
+      <RegionNearbyPlacesVitrin placesData={placesData} config={nearbyVitrinCfg} locale={locale} />
+    ) : null
+
+  const nearbySlot =
+    totalPois > 0 && placesData ? (
+      <div className="bg-neutral-50 py-12 dark:bg-neutral-950">
+        <div className="container">
+          <NearbyPlacesSection
+            locale={locale}
+            initialData={placesData}
+            title={`${regionName} — ${m.site.region.nearbySectionTitle}`}
+          />
+        </div>
+      </div>
+    ) : null
+
+  const mapSlot =
+    (pageData?.map_lat && pageData?.map_lng) || placesData?.coordinates ? (
+      <div className="bg-white py-10 dark:bg-neutral-900">
+        <div className="container">
+          <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
+            {m.site.region.locationHeading}
+          </h2>
+          <div className="overflow-hidden rounded-2xl border border-neutral-100 shadow-sm dark:border-neutral-700">
+            <iframe
+              title={`${regionName} map`}
+              width="100%"
+              height="360"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''}&center=${pageData?.map_lat ?? String(placesData?.coordinates.lat)},${pageData?.map_lng ?? String(placesData?.coordinates.lng)}&zoom=${pageData?.map_zoom ?? 12}`}
+            />
+          </div>
+        </div>
+      </div>
+    ) : null
+
+  const emptyHintSlot =
+    !pageData && listings.length === 0 && totalPois === 0 ? (
+      <div className="container flex flex-col items-center py-20 text-center">
+        <div className="text-5xl">📍</div>
+        <h2 className="mt-4 text-xl font-semibold text-neutral-900 dark:text-white">{regionName}</h2>
+        <p className="mt-2 max-w-md text-sm text-neutral-500">{m.site.region.noContentYet}</p>
+        <Link
+          href={normalizeHrefForLocale(locale, '/manage/regions')}
+          className="mt-6 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
+        >
+          {m.site.region.goToRegionAdmin}
+        </Link>
+      </div>
+    ) : null
+
+  const subdivisionsSlot = subdivisionSlider ? (
+    <div className="container mt-16 border-t border-neutral-200 pt-14 dark:border-neutral-800">
+      <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
+        {subdivisionSlider.heading}
+      </h2>
+      <SectionSliderRegions
+        regions={subdivisionSlider.items}
+        categoryRoute={otellerVitrin}
+        resolveHref={(r) => regionPublicHref(locale, r.slug)}
+        unit={m.site.region.listingsSuffix}
+      />
+    </div>
+  ) : null
+
   return (
     <main className="relative isolate min-w-0 overflow-x-hidden min-h-screen pb-28">
       <BgGlassmorphism />
 
-      {/* Anasayfa ile aynı hero sarmalayıcısı (başlık + mozaik + arama konumu) */}
-      <div
-        className={`relative z-10 container mb-6 min-w-0 overflow-x-clip ${heroContainerBelowHeaderClassName}`}
-      >
-        <HeroSectionWithSearchForm1
-          heading={`<span>${escapeHtml(regionName)}</span>`}
-          description={heroDescription}
-          image={heroRightStay}
-          imageAlt={regionName}
-          searchForm={
-            <HeroSearchDesktopOnly
-              initTab="Stays"
-              locale={locale}
-              hideVerticalTabs
-              collapseOverflowAfterSlug="arac-kiralama"
-            />
-          }
-          topSpacing="minimal"
-          heroMosaicBleed
-          freeformBannerLayout={heroFreeformLayout ?? undefined}
-          mosaicImages={mosaicTuple}
-          overrideImage={
-            !mosaicTuple && g0.trim()
-              ? { src: g0, width: 1200, height: 900 }
-              : !mosaicTuple && pageData?.hero_image_url
-                ? { src: pageData.hero_image_url, width: 1200, height: 900 }
-                : undefined
-          }
+      {breadcrumbJsonLd ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
         />
-      </div>
-
-      <nav
-        className="container mb-6 flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-neutral-500"
-        aria-label="Breadcrumb"
-      >
-        <Link href={normalizeHrefForLocale(locale, '/')} className="hover:text-primary-600">
-          {m.site.region.breadcrumbHome}
-        </Link>
-        <span>/</span>
-        {slug.length > 1
-          ? slug.slice(0, -1).map((s, i) => (
-              <span key={i} className="flex items-center gap-1.5">
-                <Link
-                  href={regionBase(slug.slice(0, i + 1).join('/'))}
-                  className="hover:text-primary-600 capitalize"
-                >
-                  {s}
-                </Link>
-                <span>/</span>
-              </span>
-            ))
-          : null}
-        <span className="font-medium text-neutral-700 capitalize dark:text-neutral-300">
-          {slug[slug.length - 1]}
-        </span>
-      </nav>
-
-      {/* İlanlar — kategori şablonu ile aynı yapı */}
-      <div className="container mt-10 lg:mt-16">
-        <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
-          <div>
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-              {interpolate(cat.listingsHeadingFiltered, {
-                count: convertNumbThousand(totalListings),
-                handle: regionName,
-              })}
-            </h2>
-            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-              {interpolate(cat.pricesDisclaimer, {
-                unit: 'gece',
-              })}
-            </p>
-          </div>
-        </div>
-
-        <Divider className="my-7 md:my-10" />
-
-        {/* Kategori segmentleri (Chisfis koyu pill) + harita */}
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-x-3 gap-y-3">
-          <div className="min-w-0 flex-1 overflow-x-auto [-webkit-overflow-scrolling:touch] sm:overflow-visible">
-            <div
-              className="inline-flex gap-1 rounded-full bg-neutral-900 p-1 shadow-inner ring-1 ring-black/15 dark:bg-neutral-950 dark:ring-white/10"
-              role="tablist"
-            >
-              {regionCategoryTabs.map((tab) => {
-                const active = catParam === tab.code
-                const href = `${regionBase(slugPath)}?cat=${encodeURIComponent(tab.code)}`
-                const regSlug = REGION_TAB_CAT_TO_REGISTRY_SLUG[tab.code]
-                const Icon = REGION_REGISTRY_SLUG_ICON[regSlug] ?? Home01Icon
-                return (
-                  <Link
-                    key={tab.code}
-                    href={href}
-                    role="tab"
-                    aria-current={active ? 'page' : undefined}
-                    className={clsx(
-                      'inline-flex shrink-0 items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium transition-colors sm:px-4',
-                      active
-                        ? 'bg-white text-neutral-900 shadow-sm dark:bg-neutral-100 dark:text-neutral-950'
-                        : 'text-neutral-300 hover:bg-white/10 hover:text-white dark:text-neutral-400 dark:hover:bg-white/10 dark:hover:text-white',
-                    )}
-                  >
-                    <HugeiconsIcon icon={Icon} className="size-[18px] shrink-0" strokeWidth={1.5} />
-                    <span className="whitespace-nowrap">{tab.label}</span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-          {regionViewOnMapHref ? (
-            <Button
-              color="white"
-              className="shrink-0"
-              href={regionViewOnMapHref}
-              {...(regionViewOnMapExternal ? ({ target: '_blank', rel: 'noopener noreferrer' } as const) : {})}
-            >
-              <span className="me-1.5">{cat.viewOnMap}</span>
-              <HugeiconsIcon icon={MapsLocation01Icon} size={18} color="currentColor" strokeWidth={1.5} />
-            </Button>
-          ) : null}
-        </div>
-
-        {filterOptions.length > 0 ? <ListingFilterTabs filterOptions={filterOptions} /> : null}
-
-        {listingCardsData.length > 0 ? (
-          <>
-            <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:mt-10 lg:grid-cols-3 xl:grid-cols-4">
-              {listingCardsData.map((data) => (
-                <StayCard2 key={data.id} data={data} />
-              ))}
-            </div>
-            <div className="mt-16 flex items-center justify-center">
-              <Suspense
-                fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}
-              >
-                <CategoryListingPagination
-                  locale={locale}
-                  page={pageNum}
-                  total={totalListings}
-                  perPage={perPage}
-                />
-              </Suspense>
-            </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center py-14 text-center">
-            <div className="text-5xl">🏡</div>
-            <p className="mt-3 text-sm text-neutral-500">
-              {m.site.region.noListings}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Keşfet — kategori sayfasındaki bölge slider */}
-      {regionStats.length > 0 ? (
-        <div className="container mt-16">
-          <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            {cat.exploreByRegion}
-          </h2>
-          <SectionSliderRegions regions={regionStats} categoryRoute={otellerVitrin} unit="otel" />
-        </div>
       ) : null}
 
-      {/* Bülten — kategori vitrinindeki blok */}
-      <div className="container mt-16">
-        <SectionSubscribe2 />
-      </div>
-
-      {/* Bölge tanıtımı */}
-      {descriptionHtml ? (
-        <section className="mt-14 border-t border-neutral-200 bg-white py-14 dark:border-neutral-800 dark:bg-neutral-900">
-          <div className="container">
-            <h2 className="mb-6 text-2xl font-bold text-neutral-900 dark:text-white">
-              {m.site.region.aboutHeading}
-            </h2>
-            {looksLikeHtml ? (
-              <div
-                className="prose prose-neutral max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(descriptionHtml) }}
-              />
-            ) : (
-              <div className="prose prose-neutral max-w-none dark:prose-invert">
-                {descriptionHtml.split('\n\n').map((para, i) => (
-                  <p key={i} className="mb-4 leading-relaxed text-neutral-600 dark:text-neutral-400">
-                    {para}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      ) : null}
-
-      {showBolgeTravelIdeasSection(slug, pageData) ? (
-        <RegionTravelIdeasSection
-          ideas={travelIdeas}
+      {categoryForPb ? (
+        <PageBuilderRenderer
+          modules={pbModules}
+          category={categoryForPb}
           locale={locale}
-          distanceTemplate={bolgeTravelIdeasDistanceTemplate(locale, slug, pageData)}
+          layoutVariant="region_detail"
+          pageKey="bolge-detay"
+          regionSlots={{
+            hero: heroSlot,
+            breadcrumb: breadcrumbSlot,
+            listings: listingsSlot,
+            exploreHotels: exploreHotelsSlot,
+            newsletter: newsletterSlot,
+            about: aboutSlot,
+            travelIdeas: travelIdeasSlot,
+            placesVitrin: placesVitrinSlot,
+            nearby: nearbySlot,
+            map: mapSlot,
+            emptyHint: emptyHintSlot,
+            subdivisions: subdivisionsSlot,
+          }}
         />
-      ) : null}
-
-      {totalPois > 0 && placesData ? (
-        <div className="bg-neutral-50 py-12 dark:bg-neutral-950">
-          <div className="container">
-            <NearbyPlacesSection
-              initialData={placesData}
-              title={`${regionName} — ${m.site.region.nearbySectionTitle}`}
-            />
-          </div>
-        </div>
-      ) : null}
-
-      {(pageData?.map_lat && pageData?.map_lng) || placesData?.coordinates ? (
-        <div className="bg-white py-10 dark:bg-neutral-900">
-          <div className="container">
-            <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
-              {m.site.region.locationHeading}
-            </h2>
-            <div className="overflow-hidden rounded-2xl border border-neutral-100 shadow-sm dark:border-neutral-700">
-              <iframe
-                title={`${regionName} map`}
-                width="100%"
-                height="360"
-                style={{ border: 0 }}
-                loading="lazy"
-                allowFullScreen
-                src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''}&center=${pageData?.map_lat ?? String(placesData?.coordinates.lat)},${pageData?.map_lng ?? String(placesData?.coordinates.lng)}&zoom=${pageData?.map_zoom ?? 12}`}
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {!pageData && listings.length === 0 && totalPois === 0 ? (
-        <div className="container flex flex-col items-center py-20 text-center">
-          <div className="text-5xl">📍</div>
-          <h2 className="mt-4 text-xl font-semibold text-neutral-900 dark:text-white">{regionName}</h2>
-          <p className="mt-2 max-w-md text-sm text-neutral-500">
-            {m.site.region.noContentYet}
-          </p>
-          <Link
-            href={normalizeHrefForLocale(locale, '/manage/regions')}
-            className="mt-6 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-700"
-          >
-            {m.site.region.goToRegionAdmin}
-          </Link>
-        </div>
-      ) : null}
-
-      {/* Ülke / il / ilçe altı bölgeler — footer üstü */}
-      {subdivisionSlider ? (
-        <div className="container mt-16 border-t border-neutral-200 pt-14 dark:border-neutral-800">
-          <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            {subdivisionSlider.heading}
-          </h2>
-          <SectionSliderRegions
-            regions={subdivisionSlider.items}
-            categoryRoute={otellerVitrin}
-            resolveHref={(r) => regionPublicHref(locale, r.slug)}
-            unit={m.site.region.listingsSuffix}
-          />
-        </div>
       ) : null}
     </main>
   )

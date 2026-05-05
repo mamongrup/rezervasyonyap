@@ -319,3 +319,22 @@ export function getHomepageDefaultModules(m: AppMessages): Omit<PageBuilderModul
     { type: 'client_say',      enabled: true,  order: 14, config: { heading: h.clientSay.heading,        subHeading: h.clientSay.subHeading } },
   ]
 }
+
+/** `/bolge/…` (ve diğer dillerde eşdeğer segment) bölge vitrinı — slot modülleri sayfa tarafından dolar. */
+export function getRegionDetailDefaultModules(_m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
+  void _m
+  return [
+    { type: 'region_detail_hero', enabled: true, order: 1, config: {} },
+    { type: 'region_detail_breadcrumb', enabled: true, order: 2, config: {} },
+    { type: 'region_detail_listings', enabled: true, order: 3, config: {} },
+    { type: 'region_detail_explore_hotels', enabled: true, order: 4, config: {} },
+    { type: 'region_detail_newsletter', enabled: true, order: 5, config: {} },
+    { type: 'region_detail_about', enabled: true, order: 6, config: {} },
+    { type: 'region_detail_travel_ideas', enabled: true, order: 7, config: {} },
+    { type: 'region_detail_places_vitrin', enabled: true, order: 8, config: {} },
+    { type: 'region_detail_nearby', enabled: true, order: 9, config: {} },
+    { type: 'region_detail_map', enabled: true, order: 10, config: {} },
+    { type: 'region_detail_empty_hint', enabled: true, order: 11, config: {} },
+    { type: 'region_detail_subdivisions', enabled: true, order: 12, config: {} },
+  ]
+}

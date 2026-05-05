@@ -265,6 +265,7 @@ export default async function ExperienceListingDetailPage({
         <SectionMap />
 
         <NearbyPlacesSection
+          locale={locale}
           regionSlug={regionPlacesSlugFromCity(city)}
           title={dp.nearbyPlaces}
           maxCategories={3}

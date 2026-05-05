@@ -16,6 +16,7 @@ import {
 } from '@/lib/travel-api'
 import { parseFreeformDoc } from '@/lib/freeform-banner-spec'
 import { parseGalleryBundle } from '@/lib/hero-gallery-slots'
+import { formatNearbyVitrinTemplateJson } from '@/lib/nearby-vitrin-columns'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { regionPublicHref } from '@/lib/region-public-path'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
@@ -291,6 +292,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
   // ─── Travel ideas ─────────────────────────────────────────────────────────
   const [travelIdeas, setTravelIdeas] = useState<TravelIdea[]>([])
+  /** Gezi fikirleri altı vitrin — boş = site varsayılanı; {"columns":[]} kayıtta site varsayılanına döner */
+  const [nearbyVitrinJson, setNearbyVitrinJson] = useState('')
   const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null)
 
   // ─── SEO ──────────────────────────────────────────────────────────────────
@@ -390,6 +393,30 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         try { setManualPois(JSON.parse(p.poi_manual_json) as ManualPoi[]) } catch { setManualPois([]) }
         // Parse travel ideas
         try { setTravelIdeas(JSON.parse(p.travel_ideas_json) as TravelIdea[]) } catch { setTravelIdeas([]) }
+        try {
+          const nv = (p as { nearby_vitrin_columns_json?: unknown }).nearby_vitrin_columns_json
+          if (nv == null || nv === '') {
+            setNearbyVitrinJson('')
+          } else if (typeof nv === 'string') {
+            const s = nv.trim()
+            if (!s) setNearbyVitrinJson('')
+            else {
+              try {
+                const o = JSON.parse(s) as { columns?: unknown[] }
+                setNearbyVitrinJson(Array.isArray(o.columns) && o.columns.length === 0 ? '' : JSON.stringify(o, null, 2))
+              } catch {
+                setNearbyVitrinJson(s)
+              }
+            }
+          } else if (typeof nv === 'object') {
+            const o = nv as { columns?: unknown[] }
+            setNearbyVitrinJson(Array.isArray(o.columns) && o.columns.length === 0 ? '' : JSON.stringify(nv, null, 2))
+          } else {
+            setNearbyVitrinJson('')
+          }
+        } catch {
+          setNearbyVitrinJson('')
+        }
         // Parse country info
         try {
           const ci = JSON.parse(p.country_info_json ?? '{}') as {
@@ -649,6 +676,19 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     setSaving(true); setSaveMsg(null)
     try {
       const trLang = translations[primaryLocale] ?? {}
+      let nearbyVitrinPayload: string
+      try {
+        const t = nearbyVitrinJson.trim()
+        if (!t) nearbyVitrinPayload = '{"columns":[]}'
+        else {
+          JSON.parse(t)
+          nearbyVitrinPayload = t
+        }
+      } catch {
+        setSaveMsg({ ok: false, text: '«Gezi fikirleri altı 3 sütun» JSON geçersiz.' })
+        setSaving(false)
+        return
+      }
       await patchLocationPage(pageId, {
         slug_path: slugPath || undefined,
         district_id: districtId || undefined,
@@ -691,6 +731,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           flag_emoji: ciFlagEmoji,
           flag_url: ciFlagUrl,
         }),
+        nearby_vitrin_columns_json: nearbyVitrinPayload,
       })
       try {
         const p = await getLocationPage(pageId)
@@ -763,7 +804,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const addTravelIdea = () => {
     setTravelIdeas((prev) => [
       ...prev,
-      { id: uid(), image: '', title: '', link: '', summary: '' },
+      { id: uid(), image: '', tag: '', title: '', link: '', summary: '' },
     ])
     setEditingIdeaId(travelIdeas.length > 0 ? null : null)
   }
@@ -1704,6 +1745,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                               aspectRatio="16/9"
                               placeholder="Gezi fikri resmi"
                             />
+                            <input type="text" value={idea.tag ?? ''} onChange={(e) => updateTravelIdea(String(idea.id), 'tag', e.target.value)} placeholder="Rozet (kısa etiket, örn. Keşif)" className={inputCls} />
                             <input type="text" value={idea.title} onChange={(e) => updateTravelIdea(String(idea.id), 'title', e.target.value)} placeholder="Başlık / Blog Bağlantısı" className={inputCls} />
                             <input type="url" value={idea.link} onChange={(e) => updateTravelIdea(String(idea.id), 'link', e.target.value)} placeholder="https://…" className={inputCls} />
                             <textarea value={idea.summary} onChange={(e) => updateTravelIdea(String(idea.id), 'summary', e.target.value)} placeholder="İçindekiler Özeti" className={`${inputCls} min-h-[60px]`} rows={2} />
@@ -1739,6 +1781,43 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             >
               <Plus className="h-4 w-4" /> Öğe Ekle
             </button>
+          </Card>
+
+          <Card plain title="Gezi fikirleri altı — 3 sütun mekan / mesafe">
+            <p className={`${hintCls} mb-3`}>
+              Vitrin, kayıtlı bölge mekanlarından (
+              <Link href={`/${routeLocale}/manage/regions/places`} className="underline">
+                Mekanlar
+              </Link>
+              ) en yakın noktayı ve kuş uçuşu mesafeyi gösterir. Alan boşsa site varsayılanı kullanılır. Satırda{' '}
+              <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">googleTypes</code> veya{' '}
+              <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">typeIds</code> (region-places JSON
+              içindeki <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">types[].id</code>) ile eşleme
+              yapılır.
+            </p>
+            <div className="mb-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setNearbyVitrinJson(formatNearbyVitrinTemplateJson(routeLocale))}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+              >
+                Varsayılan şablonu yaz
+              </button>
+              <button
+                type="button"
+                onClick={() => setNearbyVitrinJson('')}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-semibold hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+              >
+                Temizle (site varsayılanı)
+              </button>
+            </div>
+            <textarea
+              value={nearbyVitrinJson}
+              onChange={(e) => setNearbyVitrinJson(e.target.value)}
+              spellCheck={false}
+              placeholder={'Örn. {"columns":[{"title":"Gezilecek yerler","rows":[{"label":"Plajlar","googleTypes":["beach"]}]}]}'}
+              className={`${inputCls} min-h-[220px] font-mono text-xs`}
+            />
           </Card>
 
           {/* SEO */}

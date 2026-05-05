@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { CategoryPageBuilderConfig, PageBuilderModule } from '@/types/listing-types'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { requireAdminCookie } from '@/lib/api-require-admin'
-import { getLocalizedDefaultModules, getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
+import { getLocalizedDefaultModules, getHomepageDefaultModules, getRegionDetailDefaultModules } from '@/lib/page-builder-default-modules'
 import { revalidateAfterPageBuilderSave } from '@/lib/revalidate-page-builder'
 import { getMessages } from '@/utils/getT'
 
@@ -18,10 +18,11 @@ async function ensureDir() {
   await fs.mkdir(DATA_DIR, { recursive: true })
 }
 
-// Special pages that appear in the page builder alongside category pages
+// Özel sayfalar (kategori dışı) — ana sayfa, arama, bölge vitrin şablonu
 const SPECIAL_PAGES = [
   { slug: 'homepage', name: 'Ana Sayfa', emoji: '🏠' },
   { slug: 'ara', name: 'Arama Sonuçları', emoji: '🔍' },
+  { slug: 'bolge-detay', name: 'Bölge detay (vitrin)', emoji: '📍' },
 ]
 
 /** GET /api/page-builder?slug=oteller — fetch config for a category */
@@ -82,6 +83,19 @@ export async function GET(req: NextRequest) {
         modules: getSearchPageDefaultModules().map((m, i) => ({
           ...m,
           id: `ara-module-${i}`,
+        })),
+        updatedAt: new Date().toISOString(),
+      }
+      return NextResponse.json({ ok: true, config: defaultConfig })
+    }
+
+    // Bölge vitrinı (`/bolge/...` vb.) — tek şablon, tüm location slug’larında kullanılır
+    if (slug === 'bolge-detay') {
+      const defaultConfig: CategoryPageBuilderConfig = {
+        categorySlug: 'bolge-detay',
+        modules: getRegionDetailDefaultModules(messages).map((m, i) => ({
+          ...m,
+          id: `bolge-detay-module-${i}`,
         })),
         updatedAt: new Date().toISOString(),
       }
