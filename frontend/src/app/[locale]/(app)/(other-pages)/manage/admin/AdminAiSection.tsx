@@ -111,6 +111,8 @@ export default function AdminAiSection() {
   const [districtLog, setDistrictLog] = useState<string[]>([])
   const [districtErr, setDistrictErr] = useState<string | null>(null)
   const districtStopRef = useRef(false)
+  /** DeepSeek kuyruğu: tek öğeli Maps yer tutucularını da hedefle (?include_weak=1) */
+  const [districtQueueIncludeWeak, setDistrictQueueIncludeWeak] = useState(false)
 
   // Bölge tanıtım yazısı + bölge blog yazıları
   const [regionContentStats, setRegionContentStats] = useState<RegionContentStats | null>(null)
@@ -495,14 +497,16 @@ export default function AdminAiSection() {
     setDistrictErr(null)
     setDistrictLog([])
     try {
-      const r = await queueAllDistrictIdeas(token)
+      const r = await queueAllDistrictIdeas(token, { includeWeak: districtQueueIncludeWeak })
       const total = r.total_found
       const queued = r.queued
 
       if (r.message === 'no_districts_need_content' || (queued === 0 && total === 0)) {
         setDistrictLog((l) => [
           ...l,
-          'Kuyruğa eklenecek ilçe yok: `travel_ideas_json` boş olan ve henüz kuyrukta olmayan ilçe bulunamadı. İstatistikte tüm ilçelerde “içerik var” görünüyorsa bu normaldir; yeni ilçe veya boş kayıt ekledikten sonra tekrar deneyin.',
+          districtQueueIncludeWeak
+            ? 'Kuyruğa eklenecek ilçe yok (boş / yer tutucu kriteri ile eşleşen ve kuyrukta beklemeyen kayıt yok). Yer tutucu tahmini sıfırsa çoğu ilçede zaten dolu liste var — sıradaki adım: aşağıda “Mekan bloglarını kuyruğa al”.'
+            : 'Bu modda yalnızca `travel_ideas_json` tamamen boş olan ilçeler kuyruğa girer. Ekranda tüm ilçelerde “içerik var” ise DeepSeek için yapılacak iş kalmamış demektir. Tek satırlık Maps özetlerini DeepSeek ile değiştirmek için “Yer tutucuları da kuyruğa al” kutusunu işleyip tekrar deneyin.',
         ])
       } else if (queued === 0 && total > 0) {
         setDistrictLog((l) => [
@@ -510,7 +514,10 @@ export default function AdminAiSection() {
           `${total} uygun ilçe bulundu ancak hiçbiri kuyruğa yazılamadı. Sunucu güncel travel-api ve veritabanı izinlerini kontrol edin.`,
         ])
       } else {
-        setDistrictLog((l) => [...l, `${queued} ilçe kuyruğa alındı (bulunan uygun ilçe: ${total}).`])
+        setDistrictLog((l) => [
+          ...l,
+          `${queued} ilçe kuyruğa alındı (aday ilçe: ${total}${r.include_weak ? '; yer tutucu dahil modu' : ''}).`,
+        ])
       }
       await loadDistrictStats()
     } catch (e) {
@@ -1176,6 +1183,16 @@ export default function AdminAiSection() {
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
               İçerik var: <strong>{districtStats.districts_with_content}</strong>
             </span>
+            {districtStats.districts_travel_ideas_empty != null ? (
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                Liste boş: <strong>{districtStats.districts_travel_ideas_empty}</strong>
+              </span>
+            ) : null}
+            {districtStats.districts_placeholder_guess != null ? (
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-orange-900 dark:bg-orange-950/35 dark:text-orange-100">
+                Yer tutucu (tahmini): <strong>{districtStats.districts_placeholder_guess}</strong>
+              </span>
+            ) : null}
             {Object.entries(districtStats.jobs).map(([status, cnt]) => (
               <span key={status} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
                 {status}: <strong>{cnt}</strong>
@@ -1189,6 +1206,19 @@ export default function AdminAiSection() {
             {districtErr}
           </div>
         ) : null}
+
+        <label className="mb-3 flex cursor-pointer items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+          <input
+            type="checkbox"
+            className="mt-1 rounded border-neutral-300 text-emerald-600 focus:ring-emerald-500 dark:border-neutral-600 dark:bg-neutral-900"
+            checked={districtQueueIncludeWeak}
+            onChange={(e) => setDistrictQueueIncludeWeak(e.target.checked)}
+            disabled={districtRunning}
+          />
+          <span>
+            Yer tutucuları da kuyruğa al (tek öğeli “… iline bağlı … ilçesi” özeti). DeepSeek ile gerçek gezi listesi üretmek için işaretleyin.
+          </span>
+        </label>
 
         <div className="flex flex-wrap gap-3">
           <ButtonPrimary

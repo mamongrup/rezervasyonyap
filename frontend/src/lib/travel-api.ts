@@ -42,6 +42,13 @@ function coerceInt(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback
 }
 
+function coerceOptionalInt(v: unknown): number | undefined {
+  if (v === undefined || v === null) return undefined
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.trunc(v)
+  const n = Number.parseInt(String(v).trim(), 10)
+  return Number.isFinite(n) ? n : undefined
+}
+
 function stringRecordInts(raw: unknown): Record<string, number> {
   const out: Record<string, number> = {}
   if (!raw || typeof raw !== 'object') return out
@@ -9445,6 +9452,10 @@ export function pickCouponDescription(coupon: Coupon, locale: string): string {
 export interface DistrictIdeasStats {
   total_districts: number
   districts_with_content: number
+  /** travel_ideas_json tamamen boş ([]) ilçe sayısı */
+  districts_travel_ideas_empty?: number
+  /** Tek öğeli Maps yer tutucu özeti (tahmini) — include_weak ile kuyruğa alınabilir */
+  districts_placeholder_guess?: number
   jobs: Record<string, number>
 }
 
@@ -9459,26 +9470,36 @@ export async function getDistrictIdeasStats(token: string): Promise<DistrictIdea
   return {
     total_districts: coerceInt(raw.total_districts),
     districts_with_content: coerceInt(raw.districts_with_content),
+    districts_travel_ideas_empty: coerceOptionalInt(raw.districts_travel_ideas_empty),
+    districts_placeholder_guess: coerceOptionalInt(raw.districts_placeholder_guess),
     jobs: stringRecordInts(raw.jobs),
   }
 }
 
 export async function queueAllDistrictIdeas(
   token: string,
-): Promise<{ queued: number; total_found: number; message?: string }> {
+  opts?: { includeWeak?: boolean },
+): Promise<{ queued: number; total_found: number; message?: string; include_weak?: boolean }> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
-  const res = await fetch(`${b}/api/v1/ai/district-ideas/queue-all`, {
+  const qs =
+    opts?.includeWeak === true ? '?include_weak=1' : ''
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/queue-all${qs}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`district_ideas_queue_${res.status}`)
   const raw = await json<Record<string, unknown>>(res)
   const message = typeof raw.message === 'string' ? raw.message.trim() : undefined
+  const include_weak =
+    raw.include_weak === true ||
+    raw.include_weak === 'true' ||
+    coerceInt(raw.include_weak) === 1
   return {
     queued: coerceInt(raw.queued),
     total_found: coerceInt(raw.total_found),
     message,
+    include_weak,
   }
 }
 

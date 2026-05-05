@@ -49,6 +49,9 @@ fn stats_row() -> decode.Decoder(#(String, Int)) {
 }
 
 /// GET /api/v1/ai/district-ideas/stats — `admin.users.read`
+///
+/// `districts_travel_ideas_empty`: `travel_ideas_json` boş dizisi olan ilçe sayısı.
+/// `districts_placeholder_guess`: Maps tek satırlık yer tutucu özeti (tahmini).
 pub fn get_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case admin_gate.require_admin_users_read(req, ctx) {
@@ -60,6 +63,16 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
         "select status, count(*)::int from ai_jobs where profile_code = 'district_travel_ideas' group by status"
       let has_ideas_sql =
         "select count(*)::int from location_pages where region_type = 'district' and coalesce(jsonb_array_length(travel_ideas_json), 0) > 0"
+      let empty_sql =
+        "select count(*)::int from location_pages where region_type = 'district' and coalesce(jsonb_array_length(travel_ideas_json), 0) = 0"
+      let placeholder_sql =
+        "
+        select count(*)::int from location_pages lp
+        where  lp.region_type = 'district'
+          and  jsonb_array_length(lp.travel_ideas_json) = 1
+          and  coalesce(lp.travel_ideas_json->0->>'summary','') ilike '%iline bağlı%'
+          and  coalesce(lp.travel_ideas_json->0->>'summary','') ilike '%ilçesi%'
+        "
 
       let int_col0 = {
         use n <- decode.field(0, decode.int)
@@ -99,14 +112,44 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
                     [n] -> n
                     _ -> 0
                   }
-                  let body =
-                    json.object([
-                      #("total_districts", json.int(total)),
-                      #("districts_with_content", json.int(has_content)),
-                      #("jobs", json.object(job_counts)),
-                    ])
-                    |> json.to_string
-                  wisp.json_response(body, 200)
+                  case pog.query(empty_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db) {
+                    Error(_) -> json_err(500, "stats_empty_failed")
+                    Ok(er) ->
+                      case er.rows {
+                        [] -> json_err(500, "stats_empty_rows")
+                        [empty_n] ->
+                          case
+                            pog.query(placeholder_sql)
+                            |> pog.returning(int_col0)
+                            |> pog.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "stats_placeholder_failed")
+                            Ok(pr) -> {
+                              let placeholder_guess = case pr.rows {
+                                [n] -> n
+                                _ -> 0
+                              }
+                              let body =
+                                json.object([
+                                  #("total_districts", json.int(total)),
+                                  #("districts_with_content", json.int(has_content)),
+                                  #(
+                                    "districts_travel_ideas_empty",
+                                    json.int(empty_n),
+                                  ),
+                                  #(
+                                    "districts_placeholder_guess",
+                                    json.int(placeholder_guess),
+                                  ),
+                                  #("jobs", json.object(job_counts)),
+                                ])
+                                |> json.to_string
+                              wisp.json_response(body, 200)
+                            }
+                          }
+                        _ -> json_err(500, "stats_empty_unexpected")
+                      }
+                  }
                 }
               }
             }
@@ -123,14 +166,41 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
 
 /// POST /api/v1/ai/district-ideas/queue-all — `admin.users.read`
 ///
-/// İçeriği olmayan (travel_ideas_json boş dizi) ve henüz kuyruğa alınmamış
-/// ilçeler için `ai_jobs` kaydı oluşturur. Zaten kuyruğa alınmış olanları atlar.
+/// İçeriği olmayan (`travel_ideas_json` boş dizi) ilçeler için `ai_jobs` oluşturur.
+///
+/// **Opsiyonel query:** `?include_weak=1` — boşa ek olarak, tek öğeli Maps yer tutucu
+/// özeti (`… iline bağlı … ilçesi`) yakalayabilecek ilçeleri de kuyruğa alır (DeepSeek
+/// ile gerçek liste üretmek için).
+///
+/// Aynı ilçe yalnızca halihazırda **queued** veya **running** iş varsa atlanır; geçmişte
+/// başarılı iş (`succeeded`) tek başına yeniden kuyruğu engellemez (alan sıfırlandıysa).
 pub fn queue_all(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> {
-      // İçeriği olmayan ilçe location_pages'leri bul
+      let include_weak =
+        case list.key_find(wisp.get_query(req), "include_weak") {
+          Error(_) -> False
+          Ok(v) -> {
+            let lv = string.lowercase(string.trim(v))
+            lv == "1" || lv == "true" || lv == "yes"
+          }
+        }
+
+      let travel_condition = case include_weak {
+        False -> "coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0"
+        True ->
+          "(
+      coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
+      or (
+        jsonb_array_length(lp.travel_ideas_json) = 1
+        and coalesce(lp.travel_ideas_json->0->>'summary','') ilike '%iline bağlı%'
+        and coalesce(lp.travel_ideas_json->0->>'summary','') ilike '%ilçesi%'
+      )
+    )"
+      }
+
       let find_sql =
         "
         select lp.id::text, d.name as district_name, r.name as region_name, co.name as country_name
@@ -139,12 +209,14 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
         join   regions   r  on r.id  = d.region_id
         join   countries co on co.id = r.country_id
         where  lp.region_type = 'district'
-          and  coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
+          and  ("
+        <> travel_condition
+        <> ")
           and  lp.id::text not in (
                  select input_json->>'location_page_id'
                  from   ai_jobs
                  where  profile_code = 'district_travel_ideas'
-                   and  status in ('queued','running','succeeded')
+                   and  status in ('queued','running')
                )
         order  by r.name, d.name
         limit  2000
@@ -166,6 +238,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                   #("queued", json.int(0)),
                   #("total_found", json.int(0)),
                   #("message", json.string("no_districts_need_content")),
+                  #("include_weak", json.bool(include_weak)),
                 ])
                 |> json.to_string
               wisp.json_response(body, 200)
@@ -197,6 +270,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                 json.object([
                   #("queued", json.int(ok_count)),
                   #("total_found", json.int(count)),
+                  #("include_weak", json.bool(include_weak)),
                 ])
                 |> json.to_string
               wisp.json_response(body, 200)
