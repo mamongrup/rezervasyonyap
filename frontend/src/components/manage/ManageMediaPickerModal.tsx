@@ -21,6 +21,8 @@ type Props = {
   title: string
   /** Varsayılan yardım metninin yerine geçer */
   hint?: string
+  /** `true` ise «Tam medya kütüphanesini…» bağlantısı gösterilmez (örn. medya sayfasının kendisi). */
+  hideFullLibraryLink?: boolean
   onClose: () => void
   /** Galeri seçimi veya tek dosya yükleme sonrası */
   onSelect: (url: string, meta?: ManageMediaPickMeta) => void
@@ -45,6 +47,7 @@ export function ManageMediaPickerModal({
   open,
   title,
   hint,
+  hideFullLibraryLink = false,
   onClose,
   onSelect,
   uploadTarget,
@@ -183,17 +186,19 @@ export function ManageMediaPickerModal({
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
               {hint ??
-                'Önce galeriden seçin. Uygun görsel yoksa aşağıdan yükleyin; yükleme tamamlanınca otomatik seçilir.'}
+                'Önce alttaki listede arayın ve bir görsele tıklayın. Uygun görsel yoksa pencerenin en altındaki «Bilgisayardan seç…» ile ekleyin.'}
             </p>
-            <Link
-              href="/manage/media"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
-            >
-              <FolderOpen className="h-3.5 w-3.5" />
-              Tam medya kütüphanesini yeni sekmede aç
-            </Link>
+            {!hideFullLibraryLink ? (
+              <Link
+                href="/manage/media"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+              >
+                <FolderOpen className="h-3.5 w-3.5" />
+                Tam medya kütüphanesini yeni sekmede aç
+              </Link>
+            ) : null}
           </div>
           <button
             type="button"
@@ -205,37 +210,17 @@ export function ManageMediaPickerModal({
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-neutral-100 px-4 py-2 dark:border-neutral-800">
-          <div className="relative min-w-[12rem] flex-1">
+        <div className="border-b border-neutral-100 px-4 py-2 dark:border-neutral-800">
+          <div className="relative w-full">
             <Search className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Dosya veya yol ara…"
+              placeholder="Önce galeride ara… (dosya adı veya yol)"
               className="w-full rounded-lg border border-neutral-200 py-1.5 ps-8 pe-3 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
             />
           </div>
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => fileRef.current?.click()}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            Galeriye yükle
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
-            multiple={fileInputMultiple}
-            className="hidden"
-            onChange={(e) => {
-              const fl = e.target.files
-              if (fl?.length) void handleUploadFiles(fl)
-            }}
-          />
         </div>
 
         {error ? (
@@ -252,7 +237,7 @@ export function ManageMediaPickerModal({
           ) : filtered.length === 0 ? (
             <p className="py-12 text-center text-sm text-neutral-500 dark:text-neutral-400">
               {items.length === 0
-                ? 'Henüz görsel yok. «Galeriye yükle» ile ekleyin.'
+                ? 'Henüz görsel yok. Pencerenin altındaki «Bilgisayardan seç…» ile kütüphaneye ekleyebilirsiniz.'
                 : 'Aramanızla eşleşen görsel yok.'}
             </p>
           ) : (
@@ -291,6 +276,32 @@ export function ManageMediaPickerModal({
               ))}
             </div>
           )}
+        </div>
+
+        <div className="shrink-0 border-t border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-950">
+          <p className="mb-2 text-[11px] leading-snug text-neutral-500 dark:text-neutral-400">
+            Listede aradığınız görsel yoksa yalnızca buradan bilgisayarınızdan seçin — önce mevcut kütüphaneye göz atılmış olur.
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/avif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+            multiple={fileInputMultiple}
+            className="hidden"
+            onChange={(e) => {
+              const fl = e.target.files
+              if (fl?.length) void handleUploadFiles(fl)
+            }}
+          />
+          <button
+            type="button"
+            disabled={uploading}
+            onClick={() => fileRef.current?.click()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm font-medium text-neutral-800 shadow-sm hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          >
+            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            Bilgisayardan seç…
+          </button>
         </div>
       </div>
     </div>

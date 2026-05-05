@@ -1,8 +1,8 @@
 'use client'
 
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
-import { buildManageUploadImageFormData } from '@/lib/manage-upload-image-form'
-import { uploadFetch } from '@/lib/upload-fetch'
+import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
+import type { ManageMediaPickerUploadTarget } from '@/lib/manage-upload-image-form'
 import clsx from 'clsx'
 import {
   File,
@@ -23,7 +23,7 @@ import {
   X,
 } from 'lucide-react'
 import Image from 'next/image'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type MediaSource = 'server' | 'local'
 
@@ -126,10 +126,20 @@ export default function MediaLibraryClient() {
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
   const [folderFilter, setFolderFilter] = useState<string | ''>('')
+  const [libraryPickerOpen, setLibraryPickerOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [dragging, setDragging] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const libraryPickerUploadTarget = useMemo((): ManageMediaPickerUploadTarget => {
+    let folder = 'general'
+    let subPath = ''
+    if (folderFilter) {
+      const parts = folderFilter.split('/')
+      folder = parts[0] ?? 'general'
+      if (parts.length > 1) subPath = parts.slice(1).join('/')
+    }
+    return { folder, subPath, prefix: '', useOriginalStem: true }
+  }, [folderFilter])
 
   const refresh = useCallback(async () => {
     setLoadState('loading')
@@ -321,80 +331,48 @@ export default function MediaLibraryClient() {
     }
   }, [items, refresh, selected])
 
-  const uploadWithTarget = useCallback(
-    async (files: File[]) => {
-      if (files.length === 0) return
-      setUploading(true)
-      let lastWarning: string | undefined
-      try {
-        for (const file of files) {
-          let folder = 'general'
-          let subPath = ''
-          if (folderFilter) {
-            const parts = folderFilter.split('/')
-            folder = parts[0] ?? 'general'
-            if (parts.length > 1) {
-              subPath = parts.slice(1).join('/')
-            }
-          }
-          const form = buildManageUploadImageFormData(
-            file,
-            {
-              folder,
-              subPath,
-              prefix: '',
-              useOriginalStem: true,
-            },
-            null,
-          )
-          const data = await uploadFetch(form)
-          if (!data.ok || !data.url) {
-            window.alert(data.error ?? 'Yükleme başarısız.')
-            break
-          }
-          if (data.warning) lastWarning = data.warning
-        }
-        await refresh()
-        if (lastWarning) {
-          window.alert(`Yükleme tamamlandı. Uyarı: ${lastWarning}`)
-        }
-      } finally {
-        setUploading(false)
-      }
-    },
-    [folderFilter, refresh],
-  )
-
-  const handleDrop = useCallback(
-    async (e: React.DragEvent) => {
-      e.preventDefault()
-      setDragging(false)
-      const files = Array.from(e.dataTransfer.files)
-      const images = files.filter((f) => f.type.startsWith('image/'))
-      if (images.length === 0) {
-        const newItems: MediaItem[] = files.map((f, i) => ({
-          id: `new-${Date.now()}-${i}`,
-          name: f.name,
-          url: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
-          type: f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : 'document',
-          size: formatBytes(f.size),
-          createdAt: 'Az önce',
-          source: 'local',
-        }))
-        setItems((prev) => [...newItems, ...prev])
-        return
-      }
-      await uploadWithTarget(images)
-    },
-    [uploadWithTarget],
-  )
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragging(false)
+    const files = Array.from(e.dataTransfer.files)
+    const images = files.filter((f) => f.type.startsWith('image/'))
+    if (images.length > 0) {
+      setLibraryPickerOpen(true)
+      return
+    }
+    const newItems: MediaItem[] = files.map((f, i) => ({
+      id: `new-${Date.now()}-${i}`,
+      name: f.name,
+      url: f.type.startsWith('image/') ? URL.createObjectURL(f) : '',
+      type: f.type.startsWith('image/') ? 'image' : f.type.startsWith('video/') ? 'video' : 'document',
+      size: formatBytes(f.size),
+      createdAt: 'Az önce',
+      source: 'local',
+    }))
+    setItems((prev) => [...newItems, ...prev])
+  }, [])
 
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
+      <ManageMediaPickerModal
+        open={libraryPickerOpen}
+        title="Kütüphaneye görsel ekle"
+        hint={
+          folderFilter
+            ? `Liste ve yükleme şu klasör kuralına uygun: ${folderFilter}`
+            : 'Klasör seçili değil; yükleme varsayılan olarak «general» köküne gider. Önce soldan klasör seçmeniz önerilir.'
+        }
+        hideFullLibraryLink
+        uploadTarget={libraryPickerUploadTarget}
+        onClose={() => setLibraryPickerOpen(false)}
+        onSelect={() => void refresh()}
+        allowMultipleUpload
+        onSelectBatch={() => void refresh()}
+      />
       <ManageFormPageHeader
         title="Medya kütüphanesi"
-        subtitle="Site görsellerinin merkezi: soldan klasör seçin; vitrin ve formlarda kullanılacak dosyalar burada listelenir. Yeni görsel eklemek için «Galeriye yükle» ile bu hedef klasöre gönderin — panel genelinde önce galeri, gerekiyorsa yükleme akışı kullanılır."
+        subtitle="Soldan klasör seçin; mevcut görselleri listede görün. Yeni görsel için «Önce galeri — görsel ekle» ile önce kütüphaneyi tarayıp gerekirse en alttan bilgisayardan ekleyin. Görsel sürükleyip bırakınca da aynı galeri penceresi açılır."
       />
 
       <div className="flex min-h-0 flex-1 gap-4">
@@ -570,25 +548,12 @@ export default function MediaLibraryClient() {
 
             <button
               type="button"
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-2 rounded-lg bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              onClick={() => setLibraryPickerOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90"
             >
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              Galeriye yükle
+              <Upload className="h-4 w-4" />
+              Önce galeri — görsel ekle
             </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const list = e.target.files
-                if (list?.length) void uploadWithTarget(Array.from(list))
-                e.target.value = ''
-              }}
-            />
           </div>
 
           {/* İçerik */}
@@ -623,11 +588,10 @@ export default function MediaLibraryClient() {
             ) : dragging ? (
               <div className="flex h-64 flex-col items-center justify-center gap-3 text-[color:var(--manage-primary)]">
                 <Upload className="h-12 w-12" />
-                <p className="text-lg font-semibold">Görselleri buraya bırakın</p>
+                <p className="text-lg font-semibold">Görsel bırakın</p>
                 <p className="text-xs text-neutral-500">
-                  {folderFilter
-                    ? `Hedef klasör: ${folderFilter}`
-                    : 'Klasör seçili değil; dosyalar “general” altına gider.'}
+                  Önce galeri listesi açılacak; uygun görsel yoksa oradan bilgisayardan seçebilirsiniz.
+                  {folderFilter ? ` · Klasör: ${folderFilter}` : ''}
                 </p>
               </div>
             ) : filtered.length === 0 ? (
