@@ -1760,7 +1760,7 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
             False ->
               case
                 pog.query(
-                  "select day::text, (coalesce(am_available, is_available) or coalesce(pm_available, is_available)), coalesce(price_override::text,''), coalesce(am_available, is_available), coalesce(pm_available, is_available) from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
+                  "select day::text, coalesce((coalesce(am_available, is_available, false) or coalesce(pm_available, is_available, false)), false), coalesce(price_override::text,''), coalesce(am_available, is_available, false), coalesce(pm_available, is_available, false) from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
                 )
                 |> pog.parameter(pog.text(listing_id))
                 |> pog.parameter(pog.text(from_d))
@@ -3238,7 +3238,7 @@ pub fn list_public_listing_availability_calendar(
     False ->
       case
         pog.query(
-          "select c.day::text, (coalesce(c.am_available, c.is_available) or coalesce(c.pm_available, c.is_available)), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available), coalesce(c.pm_available, c.is_available) "
+          "select c.day::text, coalesce((coalesce(c.am_available, c.is_available, false) or coalesce(c.pm_available, c.is_available, false)), false), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available, false), coalesce(c.pm_available, c.is_available, false) "
           <> "from listing_availability_calendar c "
           <> "inner join listings l on l.id = c.listing_id and l.status = 'published' "
           <> "where c.listing_id = $1::uuid and c.day >= $2::date and c.day <= $3::date "

@@ -684,6 +684,8 @@ export default function CatalogListingDetailClient({
 
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
+  /** Yönetici `needOrg`/kurum UUID hydrate olmadan API çağrısı yapılmasın (scope query kaçağı). */
+  const [manageIdentityReady, setManageIdentityReady] = useState(() => !getStoredAuthToken())
   const orgQ = useMemo(
     () => (needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined),
     [needOrg, orgId],
@@ -808,7 +810,10 @@ export default function CatalogListingDetailClient({
 
   useEffect(() => {
     const token = getStoredAuthToken()
-    if (!token) return
+    if (!token) {
+      setManageIdentityReady(true)
+      return
+    }
     void getAuthMe(token)
       .then((me) => {
         const perms = Array.isArray(me.permissions) ? me.permissions : []
@@ -822,6 +827,9 @@ export default function CatalogListingDetailClient({
         }
       })
       .catch(() => {})
+      .finally(() => {
+        setManageIdentityReady(true)
+      })
   }, [])
 
   // ── Yükle: Fiyat kuralları ──
@@ -931,8 +939,9 @@ export default function CatalogListingDetailClient({
     }
   }, [listingId, needOrg, orgId, orgQ, calFrom, calTo])
 
-  // İlk yükleme
+  // İlk yükleme — kimlik/kurum UUID belliyken çalış (admin için organization_id kaçırılmasın)
   useEffect(() => {
+    if (!manageIdentityReady) return
     if (needOrg && !orgId.trim()) return
     void loadPriceRules()
     void loadHotel()
@@ -940,7 +949,7 @@ export default function CatalogListingDetailClient({
     void loadCalendar()
     void loadListingForm()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needOrg, orgId])
+  }, [manageIdentityReady, needOrg, orgId])
 
   async function saveListingForm() {
     const token = getStoredAuthToken()
