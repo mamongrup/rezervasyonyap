@@ -56,8 +56,37 @@ main() {
     chmod +x "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" || true
   fi
 
-  step "Backend build"
-  (cd "$APP_ROOT/backend" && gleam build)
+  step "Backend build + Erlang shipment"
+  # travel-api.service genelde httpdocs DIŞINDA bir WorkingDirectory kullanır (ör. /opt/.../erlang-shipment).
+  # Yalnızca `gleam build` yapılırsa servis ESKİ beam dosyalarıyla çalışmaya devam eder — deploy bomboş kalır.
+  (
+    cd "$APP_ROOT/backend"
+    gleam build
+    gleam export erlang-shipment
+  )
+  SHIP="$APP_ROOT/backend/build/erlang-shipment"
+  [[ -d "$SHIP" ]] || fail "Erlang shipment yok: $SHIP — gleam export erlang-shipment başarısız (gleam sürümü, Hex/Rebar)."
+  UNIT_WD="$(systemctl show travel-api.service -p WorkingDirectory --value 2>/dev/null || true)"
+  if [[ -n "${TRAVEL_API_SHIP_DEST_OVERRIDE:-}" ]]; then
+    UNIT_WD="$TRAVEL_API_SHIP_DEST_OVERRIDE"
+  fi
+  if [[ "${SKIP_TRAVEL_API_SHIP_SYNC:-0}" == "1" ]]; then
+    warn "SKIP_TRAVEL_API_SHIP_SYNC=1 — shipment systemd hedefine kopyalanmadı."
+  elif [[ -z "$UNIT_WD" ]]; then
+    warn "travel-api WorkingDirectory okunamadı — shipment senkronu atlandı. systemd birimini kontrol edin."
+  elif [[ "$SHIP" == "$UNIT_WD" ]]; then
+    ok "travel-api WorkingDirectory zaten httpdocs shipment ile aynı"
+  else
+    step "travel-api shipment senkronu → $UNIT_WD"
+    mkdir -p "$UNIT_WD"
+    if command -v rsync >/dev/null 2>&1; then
+      rsync -a --delete "${SHIP}/" "${UNIT_WD}/"
+    else
+      find "$UNIT_WD" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
+      cp -a "${SHIP}/." "${UNIT_WD}/"
+    fi
+    ok "shipment senkronu tamam"
+  fi
   ok "backend build tamam"
 
   step "Frontend install + clean build"
