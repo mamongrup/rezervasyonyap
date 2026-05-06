@@ -1,4 +1,5 @@
 import CatalogListingDetailClient from './CatalogListingDetailClient'
+import CatalogNewListingClient from '../../../CatalogNewListingClient'
 
 export default async function CatalogListingDetailPage({
   params,
@@ -6,5 +7,10 @@ export default async function CatalogListingDetailPage({
   params: Promise<{ code: string; listingId: string }>
 }) {
   const { code, listingId } = await params
-  return <CatalogListingDetailClient categoryCode={decodeURIComponent(code)} listingId={decodeURIComponent(listingId)} />
+  const cat = decodeURIComponent(code)
+  const id = decodeURIComponent(listingId)
+  if (cat === 'holiday_home') {
+    return <CatalogNewListingClient categoryCode={cat} editListingId={id} />
+  }
+  return <CatalogListingDetailClient categoryCode={cat} listingId={id} />
 }

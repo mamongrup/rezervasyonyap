@@ -12,31 +12,45 @@ import {
 } from '@/lib/catalog-manage-organization'
 import { useManageT } from '@/lib/manage-i18n-context'
 import {
-  createIcalFeed,
-  createManageCatalogListing,
-  createListingPriceRule,
-  listAttributeDefs,
-  listAttributeGroups,
-  listSiteSettings,
-  getAuthMe,
-  getPublicCurrencies,
-  listManageCategoryContracts,
-  patchListingPerks,
-  putManageListingTranslations,
-  patchListingBasics,
-  patchManageHotelDetails,
-  putListingAttributeValues,
-  putListingOwnerContact,
-  putListingMeta,
-  putVerticalMeta,
-  upsertSiteSetting,
-  upsertSeoMetadata,
-  listPriceLineItems,
-  putListingPriceLineSelections,
   addListingImage,
   computeListingNearbyPois,
+  createIcalFeed,
+  createListingPriceRule,
+  createManageCatalogListing,
+  getAuthMe,
+  getListingAttributeValues,
+  getListingBasics,
+  getListingMeta,
+  getListingOwnerContact,
+  getListingPerks,
+  getListingPriceLineSelections,
+  getManageListingTranslations,
+  getPublicCurrencies,
+  getSeoMetadata,
+  getVerticalMeta,
+  listAttributeDefs,
+  listAttributeGroups,
+  listIcalFeeds,
+  listListingImages,
+  listListingPriceRules,
+  listManageCatalogListings,
+  listManageCategoryContracts,
+  listPriceLineItems,
+  listSiteSettings,
+  patchListingBasics,
+  patchListingPerks,
+  patchManageHotelDetails,
+  putListingAttributeValues,
+  putListingMeta,
+  putListingOwnerContact,
+  putManageListingTranslations,
+  putVerticalMeta,
+  putListingPriceLineSelections,
+  upsertSeoMetadata,
+  upsertSiteSetting,
   type AttributeDef,
   type AttributeGroup,
+  type ManageListingRow,
   type PriceLineItem,
 } from '@/lib/travel-api'
 import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
@@ -141,6 +155,33 @@ const emptyPool = (): PoolRow => ({
   heating_fee_per_day: '',
 })
 
+function mergePoolRow(src: unknown): PoolRow {
+  const e = emptyPool()
+  if (!src || typeof src !== 'object') return e
+  const o = src as Record<string, unknown>
+  return {
+    enabled: Boolean(o.enabled),
+    width: String(o.width ?? ''),
+    length: String(o.length ?? ''),
+    depth: String(o.depth ?? ''),
+    description: String(o.description ?? ''),
+    heating_fee_per_day: String(o.heating_fee_per_day ?? ''),
+  }
+}
+
+function parseAttrValueJson(raw: string): string {
+  const t = raw.trim()
+  if (!t) return ''
+  try {
+    const p = JSON.parse(t) as unknown
+    if (typeof p === 'string') return p
+    if (typeof p === 'number' || typeof p === 'boolean') return String(p)
+    return t
+  } catch {
+    return t
+  }
+}
+
 /** Ek ücret satırı birimi (villa dikey meta `extra_fees`) */
 type ExtraFeeUnit =
   | 'per_stay'
@@ -207,7 +248,14 @@ function HintText({ children }: { children: React.ReactNode }) {
   return <p className="mt-1 text-xs text-neutral-400">{children}</p>
 }
 
-export default function CatalogNewListingClient({ categoryCode }: { categoryCode: string }) {
+export default function CatalogNewListingClient({
+  categoryCode,
+  editListingId,
+}: {
+  categoryCode: string
+  /** Tatil evi: mevcut ilanı «yeni ilan» formuyla düzenle */
+  editListingId?: string
+}) {
   const t = useManageT()
   const params = useParams()
   const router = useRouter()
@@ -380,6 +428,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const slugRef = useRef<HTMLInputElement>(null)
+  const galleryKeysAtHydrateRef = useRef<Set<string>>(new Set())
+  const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
 
@@ -476,7 +526,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         if (cancelled) return
         const rows = r.contracts.filter((c) => c.is_active === 'true' || c.is_active === 't')
         setContracts(rows.map((c) => ({ id: c.id, code: c.code })))
-        setContractsErr(null); setContractId('')
+        setContractsErr(null)
+        if (!editListingId) setContractId('')
       })
       .catch((e) => {
         if (cancelled) return
@@ -484,7 +535,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         setContractsErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('contracts_load_failed'))
       })
     return () => { cancelled = true }
-  }, [categoryCode, needOrg, orgId])
+  }, [categoryCode, needOrg, orgId, editListingId])
 
   useEffect(() => {
     if (!isVilla) return
@@ -537,6 +588,280 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       cancelled = true
     }
   }, [categoryCode, locale])
+
+  useEffect(() => {
+    if (!editListingId || categoryCode !== 'holiday_home') {
+      setEditListingReady(true)
+      galleryKeysAtHydrateRef.current = new Set()
+      return
+    }
+
+    const token = getStoredAuthToken()
+    if (!token) {
+      setEditListingReady(true)
+      return
+    }
+    if (needOrg && !orgId.trim()) return
+
+    let cancelled = false
+    const lid = editListingId
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    const orgForImg = needOrg && orgId.trim() ? orgId.trim() : undefined
+
+    setEditListingReady(false)
+
+    void (async () => {
+      try {
+        const [
+          rowsRes,
+          trans,
+          basics,
+          owner,
+          meta,
+          vertRaw,
+          attrRes,
+          priceSel,
+          imgsRes,
+          rulesRes,
+          feedsRes,
+          perks,
+        ] = await Promise.all([
+          listManageCatalogListings(token, {
+            categoryCode,
+            search: lid,
+            organizationId: orgParam?.organizationId,
+            titleLocale: locale,
+          }).catch(() => ({ listings: [] as ManageListingRow[] })),
+          getManageListingTranslations(token, lid, orgParam).catch(() => ({ translations: [] })),
+          getListingBasics(token, lid, orgParam).catch(() => null),
+          getListingOwnerContact(token, lid, orgParam).catch(() => null),
+          getListingMeta(token, lid, orgParam).catch(() => null),
+          getVerticalMeta<Record<string, unknown>>(lid, 'holiday_home').catch(() =>
+            ({} as Record<string, unknown>),
+          ),
+          getListingAttributeValues(token, lid).catch(() => ({ values: [] })),
+          getListingPriceLineSelections(token, lid).catch(() => ({ item_ids: [] as string[] })),
+          listListingImages(token, lid, orgForImg).catch(() => ({ images: [] })),
+          listListingPriceRules(token, lid, orgParam).catch(() => ({ rules: [] })),
+          listIcalFeeds(lid).catch(() => ({ feeds: [] })),
+          getListingPerks(lid).catch(() => null),
+        ])
+
+        if (cancelled) return
+
+        const verticalMeta: Record<string, unknown> =
+          typeof vertRaw === 'object' && vertRaw !== null && !Array.isArray(vertRaw)
+            ? vertRaw
+            : {}
+
+        const row = rowsRes.listings.find((x) => x.id === lid)
+        if (row?.slug) {
+          setSlug(row.slug)
+          setSlugManual(true)
+        }
+        if (row?.currency_code?.trim()) setCurrency(row.currency_code.trim().toUpperCase())
+        if (row?.category_contract_id?.trim()) setContractId(row.category_contract_id.trim())
+
+        setListingByLocale((prev) => {
+          const next = { ...prev }
+          for (const tr of trans.translations) {
+            next[tr.locale_code] = {
+              title: tr.title ?? '',
+              description: tr.description ?? '',
+            }
+          }
+          return next
+        })
+
+        if (basics) {
+          setStatus(basics.status === 'published' ? 'published' : 'draft')
+          setMinStayNights(basics.min_stay_nights ?? '')
+          setCleaningFee(basics.cleaning_fee_amount ?? '')
+          setDepositAmount(basics.first_charge_amount ?? '')
+          setPrepaymentPercent(basics.prepayment_percent ?? '')
+          setCommissionPercent(basics.commission_percent ?? '')
+          setCancellationPolicyText(basics.cancellation_policy_text ?? '')
+          setMinistryLicenseRef(basics.ministry_license_ref ?? '')
+          setShareToSocial(Boolean(basics.share_to_social))
+          setAllowAiCaption(Boolean(basics.allow_ai_caption))
+          setAllowSubMinStayGap(Boolean(basics.allow_sub_min_stay_gap_booking))
+          const bx = basics as unknown as Record<string, unknown>
+          const gs = bx.pool_size_label
+          if (typeof gs === 'string') setPoolSizeLabel(gs)
+          const cn = bx.confirm_deadline_normal_h
+          if (typeof cn === 'string' && cn.trim()) setConfirmDeadlineNormal(cn.trim())
+          const ch = bx.confirm_deadline_high_h
+          if (typeof ch === 'string' && ch.trim()) setConfirmDeadlineHigh(ch.trim())
+          const sn = bx.supplier_payment_note
+          if (typeof sn === 'string') setSupplierPaymentNote(sn)
+          const ac = bx.avg_ad_cost_percent
+          if (typeof ac === 'string') setAvgAdCostPercent(ac)
+          const hs = bx.high_season_dates_json
+          if (typeof hs === 'string' && hs.trim()) {
+            try {
+              const parsed = JSON.parse(hs) as unknown
+              if (Array.isArray(parsed)) {
+                const ranges = parsed
+                  .map((x) => {
+                    if (!x || typeof x !== 'object') return null
+                    const o = x as Record<string, unknown>
+                    const from = String(o.from ?? '').trim()
+                    const to = String(o.to ?? '').trim()
+                    if (!from || !to) return null
+                    return { from, to }
+                  })
+                  .filter((x): x is { from: string; to: string } => x != null)
+                if (ranges.length > 0) setHighSeasonDates(ranges)
+              }
+            } catch {
+              /* ignore */
+            }
+          }
+        }
+
+        if (owner) {
+          setOwnerName(owner.contact_name ?? '')
+          setOwnerPhone(owner.contact_phone ?? '')
+          setOwnerEmail(owner.contact_email ?? '')
+        }
+
+        if (meta) {
+          setCheckInTime(meta.check_in_time ?? '')
+          setCheckOutTime(meta.check_out_time ?? '')
+          setBedCount(meta.bed_count ?? '')
+          setBathCount(meta.bath_count ?? '')
+          setMaxGuests(meta.max_guests ?? '')
+          setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
+          setRoomCount(meta.room_count ?? '')
+          setPropertyType(meta.property_type ?? '')
+          setYoutubeUrl(meta.youtube_url ?? '')
+          setMinistryLicenseRef((prev) => (prev.trim() ? prev : (meta.tourism_cert_no ?? '')))
+          setAddress(meta.address ?? '')
+          const lt = meta.lat == null ? '' : String(meta.lat).trim()
+          const lg = meta.lng == null ? '' : String(meta.lng).trim()
+          setLat(lt)
+          setLng(lg)
+          setShortStayMinNights(meta.min_short_stay_nights ?? '')
+          setOwnerTcNo(meta.owner_tc_no ?? '')
+          setOwnerBankName(meta.owner_bank_name ?? '')
+          setOwnerIban(meta.owner_iban ?? '')
+          setOwnerAccountType(meta.owner_account_type ?? '')
+          setOwnerResidenceAddress(meta.owner_residence_address ?? '')
+        }
+
+        const vp = verticalMeta.pools
+        if (vp && typeof vp === 'object') {
+          const po = vp as Record<string, unknown>
+          setPools({
+            open_pool: mergePoolRow(po.open_pool),
+            heated_pool: mergePoolRow(po.heated_pool),
+            children_pool: mergePoolRow(po.children_pool),
+          })
+        }
+
+        const efRaw = verticalMeta.extra_fees
+        if (Array.isArray(efRaw) && efRaw.length > 0) {
+          const allowedUnits: ExtraFeeUnit[] = [
+            'per_stay',
+            'per_night',
+            'per_person',
+            'per_person_per_night',
+          ]
+          setExtraFees(
+            efRaw.map((x) => {
+              if (!x || typeof x !== 'object')
+                return { label: '', amount: '', unit: 'per_stay' as ExtraFeeUnit }
+              const o = x as Record<string, unknown>
+              const u = String(o.unit ?? '')
+              const unit = allowedUnits.includes(u as ExtraFeeUnit)
+                ? (u as ExtraFeeUnit)
+                : ('per_stay' as ExtraFeeUnit)
+              return {
+                label: String(o.label ?? ''),
+                amount: String(o.amount ?? ''),
+                unit,
+              }
+            }),
+          )
+        }
+
+        const nextAttr: Record<string, string> = {}
+        for (const v of attrRes.values) {
+          nextAttr[`${v.group_code}.${v.key}`] = parseAttrValueJson(v.value_json)
+        }
+        if (Object.keys(nextAttr).length > 0) {
+          setAttributeValues((prev) => ({ ...prev, ...nextAttr }))
+        }
+
+        setSelectedPriceLineIds(new Set(priceSel.item_ids ?? []))
+
+        const sortedImgs = [...imgsRes.images].sort((a, b) => a.sort_order - b.sort_order)
+        const imgKeys = sortedImgs.map((im) => im.storage_key).filter(Boolean)
+        galleryKeysAtHydrateRef.current = new Set(imgKeys)
+        setPendingGalleryKeys(imgKeys)
+
+        for (const r of rulesRes.rules) {
+          try {
+            const j = JSON.parse(r.rule_json) as { base_nightly?: number }
+            if (typeof j.base_nightly === 'number' && Number.isFinite(j.base_nightly) && j.base_nightly > 0) {
+              setBasePrice(String(j.base_nightly))
+              break
+            }
+          } catch {
+            /* next rule */
+          }
+        }
+
+        const feedUrl = feedsRes.feeds[0]?.url
+        if (feedUrl?.trim()) setIcalImportUrl(feedUrl.trim())
+
+        if (perks) {
+          setInstantBook(Boolean(perks.instant_book))
+          const md = perks.mobile_discount_percent
+          if (typeof md === 'number' && md > 0 && md <= 90) setMobileDiscountPercent(String(md))
+        }
+
+        const seoPairs = await Promise.all(
+          localeCodes.map(async (code) => {
+            try {
+              const r = await getSeoMetadata({
+                entity_type: 'listing',
+                entity_id: lid,
+                locale: code,
+              })
+              return [code, r.metadata] as const
+            } catch {
+              return [code, null] as const
+            }
+          }),
+        )
+        if (cancelled) return
+        setSeoByLocale((prev) => {
+          const next = { ...prev }
+          for (const [code, md] of seoPairs) {
+            if (!md) continue
+            next[code] = {
+              title: md.title ?? '',
+              description: md.description ?? '',
+              keywords: md.keywords ?? '',
+              canonical_path: md.canonical_path ?? '',
+              og_image_storage_key: md.og_image_storage_key ?? '',
+              robots: md.robots ?? '',
+            }
+          }
+          return next
+        })
+      } catch {
+        /* kısmi yükleme — form yine açılır */
+      } finally {
+        if (!cancelled) setEditListingReady(true)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [editListingId, categoryCode, needOrg, orgId, locale, localeCodes])
 
   function handleTitleChange(v: string) {
     if (isVilla) {
@@ -946,6 +1271,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     const token = getStoredAuthToken()
     if (!token) { setErr(t('catalog.session_missing')); return }
     if (needOrg && !orgId.trim()) { setErr(t('catalog.org_required')); return }
+    if (editListingId && !editListingReady) return
     if (contracts.length > 0 && !contractId.trim()) {
       setErr('Bu kategori için sözleşme havuzundan bir şablon seçin.'); return
     }
@@ -968,21 +1294,26 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
     try {
       const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
 
-      // 1. İlanı oluştur
-      const body: Parameters<typeof createManageCatalogListing>[1] = {
-        category_code: categoryCode,
-        slug: slug.trim().toLowerCase(),
-        currency_code: currency.trim().toUpperCase(),
-        title: trTitle,
-        title_locale: isVilla ? primaryLocale : locale,
-      }
-      if (needOrg) body.organization_id = orgId.trim()
-      if (contractId.trim()) body.category_contract_id = contractId.trim()
-      const created = await createManageCatalogListing(token, body)
-      const lid = created.id
+      // 1. İlanı oluştur (yalnızca yeni kayıt)
+      let lid: string
+      if (editListingId) {
+        lid = editListingId
+      } else {
+        const body: Parameters<typeof createManageCatalogListing>[1] = {
+          category_code: categoryCode,
+          slug: slug.trim().toLowerCase(),
+          currency_code: currency.trim().toUpperCase(),
+          title: trTitle,
+          title_locale: isVilla ? primaryLocale : locale,
+        }
+        if (needOrg) body.organization_id = orgId.trim()
+        if (contractId.trim()) body.category_contract_id = contractId.trim()
+        const created = await createManageCatalogListing(token, body)
+        lid = created.id
 
-      if (needOrg && typeof window !== 'undefined')
-        writeStoredCatalogOrganizationId(getStoredAuthProfile()?.email ?? '', orgId.trim())
+        if (needOrg && typeof window !== 'undefined')
+          writeStoredCatalogOrganizationId(getStoredAuthProfile()?.email ?? '', orgId.trim())
+      }
 
       // 2. Çeviri / açıklama
       const translationEntries = isVilla
@@ -997,17 +1328,19 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam),
       )
 
-      // 3. Temel gecelik fiyat
-      const price = parseFloat(basePrice.replace(',', '.'))
-      if (Number.isFinite(price) && price > 0) {
-        const ruleObj: Record<string, unknown> = {
-          base_nightly: price,
-          label: 'Varsayılan fiyat',
+      // 3. Temel gecelik fiyat — yalnızca yeni ilan akışında (mevcut kayıtta takvim/kural paneline dokunma)
+      if (!editListingId) {
+        const price = parseFloat(basePrice.replace(',', '.'))
+        if (Number.isFinite(price) && price > 0) {
+          const ruleObj: Record<string, unknown> = {
+            base_nightly: price,
+            label: 'Varsayılan fiyat',
+          }
+          await saveRequiredStep(
+            'Fiyat kaydı',
+            createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam),
+          )
         }
-        await saveRequiredStep(
-          'Fiyat kaydı',
-          createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam),
-        )
       }
 
       // 4. Temel ilan alanları
@@ -1152,8 +1485,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
         }
       }
 
-      // Tur2: iCal import URL (sadece holiday_home için anlamlı; backend listing scope kontrol eder).
-      if (icalImportUrl.trim()) {
+      // Tur2: iCal — yeni ilanda oluştur; düzenlemede mevcut beslemeler gelişmiş panelden yönetilir.
+      if (!editListingId && icalImportUrl.trim()) {
         await saveRequiredStep(
           'iCal bağlantısı kaydı',
           createIcalFeed({
@@ -1176,18 +1509,25 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
       const orgIdForImages = needOrg && orgId.trim() ? orgId.trim() : undefined
       if (pendingGalleryKeys.length > 0) {
+        let newImgIdx = 0
+        const existingHydrated = galleryKeysAtHydrateRef.current
         for (let i = 0; i < pendingGalleryKeys.length; i++) {
           const key = pendingGalleryKeys[i]
-          if (!key) continue
+          if (!key || existingHydrated.has(key)) continue
           await saveRequiredStep(
             'Galeri görseli kaydı',
             addListingImage(
               token,
               lid,
-              { storage_key: key, original_mime: 'image/avif', sort_order: i },
+              {
+                storage_key: key,
+                original_mime: 'image/avif',
+                sort_order: existingHydrated.size + newImgIdx,
+              },
               orgIdForImages,
             ),
           )
+          newImgIdx++
         }
       }
 
@@ -1201,7 +1541,9 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       if (intent === 'save-show') {
         window.open(publicStayUrl, '_blank', 'noopener,noreferrer')
       }
-      router.push(manageUrl)
+      if (!editListingId) {
+        router.push(manageUrl)
+      }
       router.refresh()
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.create_error'))
@@ -1211,6 +1553,18 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   }
 
   const listHref = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}/listings`)
+
+  const listingTranslationsHref = editListingId
+    ? vitrinPath(
+        `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/translations`,
+      )
+    : ''
+  const advancedPanelHref =
+    editListingId && categoryCode === 'holiday_home'
+      ? vitrinPath(
+          `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/advanced`,
+        )
+      : ''
 
   const inputCls =
     'block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 disabled:opacity-50'
@@ -1292,6 +1646,8 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
 
   const formId = 'catalog-new-listing-form'
 
+  const saveLocked = busy || (Boolean(editListingId) && !editListingReady)
+
   return (
     <div
       className={
@@ -1300,6 +1656,11 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
           : 'pb-20'
       }
     >
+      {isVilla && editListingId && !editListingReady ? (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/85 backdrop-blur-sm dark:bg-neutral-950/85">
+          <Loader2 className="h-8 w-8 animate-spin text-[color:var(--manage-primary)]" />
+        </div>
+      ) : null}
       {!isVilla ? (
         <div className="mb-8 flex flex-wrap items-start gap-3">
           <Link
@@ -1376,6 +1737,24 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   onTranslate={() => void handleAiTranslateTrToTarget()}
                   translating={aiTranslating}
                 />
+                {listingTranslationsHref ? (
+                  <Link
+                    href={listingTranslationsHref}
+                    prefetch={false}
+                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-primary-300 dark:hover:bg-neutral-800"
+                  >
+                    Çeviriler
+                  </Link>
+                ) : null}
+                {advancedPanelHref ? (
+                  <Link
+                    href={advancedPanelHref}
+                    prefetch={false}
+                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    Takvim & ek araçlar
+                  </Link>
+                ) : null}
               </div>
             </div>
 
@@ -1405,6 +1784,28 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                 onTranslate={() => void handleAiTranslateTrToTarget()}
                 translating={aiTranslating}
               />
+              {(listingTranslationsHref || advancedPanelHref) ? (
+                <div className="flex flex-wrap gap-2">
+                  {listingTranslationsHref ? (
+                    <Link
+                      href={listingTranslationsHref}
+                      prefetch={false}
+                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-primary-700 dark:border-neutral-700 dark:text-primary-300"
+                    >
+                      Çeviriler
+                    </Link>
+                  ) : null}
+                  {advancedPanelHref ? (
+                    <Link
+                      href={advancedPanelHref}
+                      prefetch={false}
+                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
+                    >
+                      Takvim & ek araçlar
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </>
@@ -1424,7 +1825,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   {categoryLabelTr(categoryCode)} kategorisi
                 </p>
                 <h1 className="shrink-0 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-                  Yeni ilan ekle
+                  {editListingId ? 'İlan bilgileri' : 'Yeni ilan ekle'}
                 </h1>
               </div>
               <div className="mt-4 border-b border-neutral-200 dark:border-neutral-700" />
@@ -1536,8 +1937,13 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   placeholder="bodrum-deniz-manzarali-villa"
                   className="mt-1 font-mono text-sm"
                   required
+                  disabled={Boolean(editListingId)}
                 />
-                <HintText>Yalnız küçük harf, tire ve rakam. Başlıktan otomatik üretilir.</HintText>
+                <HintText>
+                  {editListingId
+                    ? 'Yayın adresi (slug) güvenlik nedeniyle buradan değiştirilemez.'
+                    : 'Yalnız küçük harf, tire ve rakam. Başlıktan otomatik üretilir.'}
+                </HintText>
               </Field>
 
               <Field className="block">
@@ -1616,7 +2022,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                           type="button"
                           className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
                           onClick={() => removePendingGallery(idx)}
-                          disabled={busy}
+                          disabled={saveLocked}
                           title="Listeden çıkar"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -2937,7 +3343,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                 <ButtonPrimary
                   type="submit"
                   form={formId}
-                  disabled={busy}
+                  disabled={saveLocked}
                   className="w-full justify-center"
                 >
                   {busy ? 'Kaydediliyor…' : 'Değişiklikleri Kaydet'}
@@ -3057,7 +3463,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               <button
                 type="submit"
                 form={formId}
-                disabled={busy}
+                disabled={saveLocked}
                 onClick={() => {
                   submitIntentRef.current = 'save'
                 }}
@@ -3069,7 +3475,7 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
               <button
                 type="submit"
                 form={formId}
-                disabled={busy}
+                disabled={saveLocked}
                 onClick={() => {
                   submitIntentRef.current = 'save-show'
                 }}
