@@ -5,6 +5,7 @@ import gleam/bit_array
 import gleam/http
 import gleam/http/request
 import gleam/int
+import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -12,6 +13,7 @@ import gleam/result
 import gleam/string
 import gleam/dynamic/decode
 import pog
+import travel/db/pog_errors
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -1758,7 +1760,7 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
             False ->
               case
                 pog.query(
-                  "select day::text, (am_available or pm_available), coalesce(price_override::text,''), am_available, pm_available from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
+                  "select day::text, (coalesce(am_available, is_available) or coalesce(pm_available, is_available)), coalesce(price_override::text,''), coalesce(am_available, is_available), coalesce(pm_available, is_available) from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
                 )
                 |> pog.parameter(pog.text(listing_id))
                 |> pog.parameter(pog.text(from_d))
@@ -1766,7 +1768,14 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
                 |> pog.returning(avail_day_row())
                 |> pog.execute(ctx.db)
               {
-                Error(_) -> json_err(500, "availability_query_failed")
+                Error(e) -> {
+                  let _ =
+                    io.println(
+                      "[catalog.availability_calendar] "
+                      <> pog_errors.query_error_to_string(e),
+                    )
+                  json_err(500, "availability_query_failed")
+                }
                 Ok(ret) -> {
                   let arr =
                     list.map(ret.rows, fn(row) {
@@ -3114,7 +3123,7 @@ pub fn list_public_listing_availability_calendar(
     False ->
       case
         pog.query(
-          "select c.day::text, (c.am_available or c.pm_available), coalesce(c.price_override::text,''), c.am_available, c.pm_available "
+          "select c.day::text, (coalesce(c.am_available, c.is_available) or coalesce(c.pm_available, c.is_available)), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available), coalesce(c.pm_available, c.is_available) "
           <> "from listing_availability_calendar c "
           <> "inner join listings l on l.id = c.listing_id and l.status = 'published' "
           <> "where c.listing_id = $1::uuid and c.day >= $2::date and c.day <= $3::date "
@@ -3126,7 +3135,14 @@ pub fn list_public_listing_availability_calendar(
         |> pog.returning(avail_day_row())
         |> pog.execute(ctx.db)
       {
-        Error(_) -> json_err(500, "public_availability_query_failed")
+        Error(e) -> {
+          let _ =
+            io.println(
+              "[catalog.public_availability_calendar] "
+              <> pog_errors.query_error_to_string(e),
+            )
+          json_err(500, "public_availability_query_failed")
+        }
         Ok(ret) -> {
           let arr =
             list.map(ret.rows, fn(row) {
