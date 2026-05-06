@@ -139,7 +139,6 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
   )
   const [themes, setThemes] = useState<string[]>([])
   const [rules, setRules] = useState<string[]>([])
-  const [icalManaged, setIcalManaged] = useState(false)
   const [propertyType, setPropertyType] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -154,7 +153,6 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
       .then((d) => {
         setThemes(d.theme_codes ? d.theme_codes.split(',').filter(Boolean) : [])
         setRules(d.rule_codes ? d.rule_codes.split(',').filter(Boolean) : [])
-        setIcalManaged(Boolean(d.ical_managed))
       })
       .catch(() => {})
     const token = getStoredAuthToken()
@@ -181,7 +179,7 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
       if (propertyType.trim()) next.property_type = propertyType.trim()
       else delete next.property_type
       await putListingMeta(token, listingId, next, orgQ)
-      await patchVerticalHolidayHome(listingId, { theme_codes: themes, rule_codes: rules, ical_managed: icalManaged })
+      await patchVerticalHolidayHome(listingId, { theme_codes: themes, rule_codes: rules })
       setMsg({ ok: true, text: 'Villa özellikleri kaydedildi.' })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
@@ -226,10 +224,10 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
           ))}
         </div>
       </div>
-      <label className="flex cursor-pointer items-center gap-2">
-        <input type="checkbox" className="h-4 w-4 accent-primary-600" checked={icalManaged} onChange={(e) => setIcalManaged(e.target.checked)} />
-        <span className="text-sm text-neutral-700 dark:text-neutral-300">iCal ile yönetiliyor (dış takvim kaynağı aktif)</span>
-      </label>
+      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+        Dış takvim (Airbnb / Booking iCal) ve bu ilanın dışa aktarım bağlantısı için üst menüdeki{' '}
+        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Medya ve iCal</strong> sekmesini kullanın.
+      </p>
       <StatusMsg msg={msg} />
       <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
         {busy ? '…' : 'Villa Özelliklerini Kaydet'}

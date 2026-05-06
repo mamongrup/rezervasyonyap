@@ -2456,7 +2456,21 @@ pub fn get_listing_meta(
         Ok(True) ->
           case
             pog.query(
-              "select value_json::text from listing_attributes where listing_id=$1::uuid and group_code='listing_meta' and key='v1'",
+              "select (
+                coalesce(la.value_json::jsonb, '{}'::jsonb)
+                || jsonb_strip_nulls(
+                     jsonb_build_object(
+                       'lat', to_jsonb(l.map_lat),
+                       'lng', to_jsonb(l.map_lng)
+                     )
+                   )
+               )::text
+               from listings l
+               left join listing_attributes la
+                 on la.listing_id = l.id
+                 and la.group_code = 'listing_meta'
+                 and la.key = 'v1'
+               where l.id = $1::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(one_string_row())

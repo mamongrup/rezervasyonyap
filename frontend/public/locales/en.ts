@@ -1201,8 +1201,7 @@ export const en = {
       listing: 'Listing info',
       calendar: 'Availability',
       price: 'Seasonal pricing',
-      ical: 'iCal sync',
-      photos: 'Photos',
+      media: 'Media & iCal',
       vertical: 'Features',
       attributes: 'Attributes',
       price_lines: 'Inclusions & exclusions',
@@ -1266,6 +1265,10 @@ export const en = {
       default: 'Category fields',
     },
     photosTitle: 'Listing images',
+    photosVideoHint:
+      'YouTube or embed-friendly promo URL (stored as listing meta — same value as in Listing info).',
+    photosVideoSaveBtn: 'Save video URL',
+    photosVideoSaved: 'Video URL saved.',
     accommodationRulesTitle: 'Stay rules',
     calendar: {
       title: 'Daily availability & price',
@@ -1373,6 +1376,8 @@ export const en = {
         'The current URL becomes invalid immediately and any external calendar using it will get 404. Continue?',
       rotateNote:
         'After regenerating, you must update the link in Airbnb / Booking and similar platforms with the new URL.',
+      holidayHomeManagedFlag:
+        'Treat external iCal feeds as the primary availability source for this villa.',
     },
     attrSaveOk: 'Attribute values saved.',
     attrSaveBtn: 'Save attribute values',

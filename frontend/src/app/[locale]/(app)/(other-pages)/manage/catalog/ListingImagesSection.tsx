@@ -1,18 +1,23 @@
 'use client'
 
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
+import { useCatalogListingUi } from '@/hooks/useCatalogListingUi'
 import ImageUpload from '@/components/editor/ImageUpload'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import {
   addListingImage,
   deleteListingImage,
+  getListingMeta,
   listListingImages,
   patchListingImageScene,
+  putListingMeta,
   reorderListingImages,
   type ListingImage,
 } from '@/lib/travel-api'
+import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
+import Input from '@/shared/Input'
 import { ChevronDown, ChevronUp, Loader2, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -43,11 +48,15 @@ export default function ListingImagesSection({
   listingSlug,
   organizationId,
 }: Props) {
+  const ui = useCatalogListingUi()
   const [images, setImages] = useState<ListingImage[]>([])
   const [loading, setLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [uploadKey, setUploadKey] = useState(0)
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [videoBusy, setVideoBusy] = useState(false)
+  const [videoMsg, setVideoMsg] = useState<string | null>(null)
 
   const slugBase = listingSlug.trim()
     ? slugifyMediaSegment(listingSlug)
@@ -63,8 +72,15 @@ export default function ListingImagesSection({
         setErr('Oturum gerekli')
         return
       }
+      const orgParam = organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined
       const r = await listListingImages(token, listingId, organizationId)
       setImages(r.images)
+      try {
+        const meta = await getListingMeta(token, listingId, orgParam)
+        setYoutubeUrl(typeof meta.youtube_url === 'string' ? meta.youtube_url.trim() : '')
+      } catch {
+        /* meta opsiyonel */
+      }
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : 'Görseller yüklenemedi')
     } finally {
@@ -104,6 +120,23 @@ export default function ListingImagesSection({
       setErr(e instanceof Error ? formatManageApiError(e.message) : 'Kayıt başarısız')
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function saveYoutubeUrl() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    const orgParam = organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined
+    setVideoBusy(true)
+    setVideoMsg(null)
+    try {
+      const prev = await getListingMeta(token, listingId, orgParam)
+      await putListingMeta(token, listingId, { ...prev, youtube_url: youtubeUrl.trim() || undefined }, orgParam)
+      setVideoMsg(ui.photosVideoSaved)
+    } catch (e) {
+      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('listing_meta_save_failed'))
+    } finally {
+      setVideoBusy(false)
     }
   }
 
@@ -176,6 +209,26 @@ export default function ListingImagesSection({
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         <strong className="font-medium text-neutral-700 dark:text-neutral-300">Ön vitrin sırası:</strong> Her sahneden (deniz, havuz, salon…) en az bir fotoğraf seçilir; etiket yoksa yükleme sırası kullanılır.
       </p>
+
+      <Field className="block max-w-2xl">
+        <Label>{ui.listingForm.youtubeUrl}</Label>
+        <Input
+          type="url"
+          className="mt-1 font-mono text-sm"
+          value={youtubeUrl}
+          onChange={(e) => {
+            setYoutubeUrl(e.target.value)
+            setVideoMsg(null)
+          }}
+          placeholder="https://www.youtube.com/watch?v=… veya kısa bağlantı"
+        />
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.photosVideoHint}</p>
+        <ButtonPrimary type="button" className="mt-3" disabled={videoBusy} onClick={() => void saveYoutubeUrl()}>
+          {videoBusy ? ui.common.ellipsis : ui.photosVideoSaveBtn}
+        </ButtonPrimary>
+        {videoMsg ? <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-400">{videoMsg}</p> : null}
+      </Field>
+
       {loading ? (
         <div className="flex items-center gap-2 text-neutral-400">
           <Loader2 className="h-5 w-5 animate-spin" /> Yükleniyor…

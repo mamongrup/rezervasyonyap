@@ -48,6 +48,8 @@ import {
   getListingPriceLineSelections,
   putListingPriceLineSelections,
   getManageCategoryAccommodationRules,
+  getVerticalHolidayHome,
+  patchVerticalHolidayHome,
   type CategoryAccommodationRuleItem,
   listManageCatalogListings,
   computeListingNearbyPois,
@@ -71,7 +73,7 @@ import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   CalendarDays,
   Tag,
@@ -402,6 +404,48 @@ function ListingAttributeValuesSection({
   )
 }
 
+// ─── Villa / iCal birincil kaynak bayrağı (Özellikler sekmesinden taşındı) ───────
+function HolidayHomeIcalManagedRow({ listingId }: { listingId: string }) {
+  const ui = useCatalogListingUi()
+  const [icalManaged, setIcalManaged] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    void getVerticalHolidayHome(listingId)
+      .then((d) => setIcalManaged(Boolean(d.ical_managed)))
+      .catch(() => {})
+      .finally(() => setLoaded(true))
+  }, [listingId])
+
+  async function onToggle(next: boolean) {
+    setBusy(true)
+    try {
+      await patchVerticalHolidayHome(listingId, { ical_managed: next })
+      setIcalManaged(next)
+    } catch {
+      /* sessiz */
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!loaded) return null
+
+  return (
+    <label className="mb-4 flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/80 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/40">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-primary-600"
+        checked={icalManaged}
+        disabled={busy}
+        onChange={(e) => void onToggle(e.target.checked)}
+      />
+      <span className="text-sm text-neutral-700 dark:text-neutral-300">{ui.ical.holidayHomeManagedFlag}</span>
+    </label>
+  )
+}
+
 // ─── Konaklama kuralları (kategori şablonu — giriş/çıkış hariç) ───────────────
 function ListingAccommodationRulesSection({
   listingId,
@@ -424,13 +468,14 @@ function ListingAccommodationRulesSection({
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
-  const orgQ = organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined
+  const orgIdForRules = organizationId?.trim() ?? ''
+  const orgParamRules = orgIdForRules ? { organizationId: orgIdForRules } : undefined
 
   useEffect(() => {
     if (!token) return
     setLoading(true)
     void Promise.all([
-      getManageCategoryAccommodationRules(token, categoryCode, orgQ),
+      getManageCategoryAccommodationRules(token, categoryCode, orgParamRules),
       getListingAttributeValues(token, listingId),
     ])
       .then(([r, av]) => {
@@ -443,7 +488,7 @@ function ListingAccommodationRulesSection({
         setSelected(new Set())
       })
       .finally(() => setLoading(false))
-  }, [listingId, categoryCode, token, orgQ])
+  }, [listingId, categoryCode, token, orgIdForRules])
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -733,6 +778,7 @@ export default function CatalogListingDetailClient({
   // Token yoksa ical-tab açıldığında lazy-load ile üretilir.
   const [icalExportUrl, setIcalExportUrl] = useState<string | null>(null)
   const [icalExportLoading, setIcalExportLoading] = useState(false)
+  const icalExportFetchStartedRef = useRef(false)
 
   // ── Yemek Planları ──
   const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([])
@@ -782,9 +828,8 @@ export default function CatalogListingDetailClient({
     | 'listing'
     | 'calendar'
     | 'price'
-    | 'ical'
+    | 'media'
     | 'vertical'
-    | 'photos'
     | 'hotel'
     | 'meal_plans'
   >('listing')
@@ -901,6 +946,8 @@ export default function CatalogListingDetailClient({
         setOwnerEmail(owner.contact_email ?? '')
       }
       if (meta) {
+        const metaTxt = (v: unknown) =>
+          v == null || v === '' ? '' : String(v).trim()
         setCheckInTime(meta.check_in_time ?? '')
         setCheckOutTime(meta.check_out_time ?? '')
         setBedCount(meta.bed_count ?? '')
@@ -908,8 +955,8 @@ export default function CatalogListingDetailClient({
         setSquareMeters(meta.square_meters ?? '')
         setMaxGuests(meta.max_guests ?? '')
         setAddress(meta.address ?? '')
-        setLat(meta.lat ?? '')
-        setLng(meta.lng ?? '')
+        setLat(metaTxt(meta.lat))
+        setLng(metaTxt(meta.lng))
         setYoutubeUrl(meta.youtube_url ?? '')
         setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
         setMinShortStayNights(meta.min_short_stay_nights ?? '')
@@ -993,15 +1040,15 @@ export default function CatalogListingDetailClient({
           square_meters: squareMeters.trim() || undefined,
           max_guests: maxGuests.trim() || undefined,
           address: address.trim() || undefined,
-          lat: lat.trim() || undefined,
-          lng: lng.trim() || undefined,
+          lat: String(lat ?? '').trim() || undefined,
+          lng: String(lng ?? '').trim() || undefined,
           youtube_url: youtubeUrl.trim() || undefined,
           min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
           min_short_stay_nights: minShortStayNights.trim() || undefined,
         },
         orgQ,
       )
-      if (lat.trim() && lng.trim()) {
+      if (String(lat ?? '').trim() && String(lng ?? '').trim()) {
         await computeListingNearbyPois(token, listingId).catch(() => {})
       }
       await loadListingForm()
@@ -1316,11 +1363,16 @@ export default function CatalogListingDetailClient({
     void loadMealPlans()
   }
 
-  // iCal tab açıldığında export URL'i tek seferlik yükle
+  // iCal export URL: sekme başına tek otomatik yükleme (401/500 döngüsünü önler)
   useEffect(() => {
-    if (activeTab === 'ical' && icalExportUrl === null && !icalExportLoading) {
-      void loadExportUrl()
+    if (activeTab !== 'media') {
+      icalExportFetchStartedRef.current = false
+      return
     }
+    if (icalExportUrl !== null || icalExportLoading) return
+    if (icalExportFetchStartedRef.current) return
+    icalExportFetchStartedRef.current = true
+    void loadExportUrl()
   }, [activeTab, icalExportUrl, icalExportLoading, loadExportUrl])
 
   function mpResetForm() {
@@ -1434,8 +1486,7 @@ export default function CatalogListingDetailClient({
     { id: 'listing' as const, label: ui.tabs.listing, Icon: Settings2 },
     ...(hasCalendar ? [{ id: 'calendar' as const, label: ui.tabs.calendar, Icon: CalendarDays }] : []),
     { id: 'price' as const, label: ui.tabs.price, Icon: Tag },
-    { id: 'ical' as const, label: ui.tabs.ical, Icon: Link2 },
-    { id: 'photos' as const, label: ui.tabs.photos, Icon: Images },
+    { id: 'media' as const, label: ui.tabs.media, Icon: Images },
     { id: 'vertical' as const, label: ui.tabs.vertical, Icon: Settings2 },
     ...(categoryCode === 'hotel' ? [{ id: 'hotel' as const, label: ui.tabs.hotel, Icon: Hotel }] : []),
     ...(MEAL_PLAN_CATS.has(categoryCode) ? [{ id: 'meal_plans' as const, label: ui.tabs.meal_plans, Icon: UtensilsCrossed }] : []),
@@ -2030,9 +2081,23 @@ export default function CatalogListingDetailClient({
         </div>
       )}
 
-      {/* ═══ SEKME: iCAL SENKRONU ════════════════════════════════════════════ */}
-      {activeTab === 'ical' && (
-        <div className="mt-6 space-y-5">
+      {/* ═══ SEKME: MEDYA & iCAL ════════════════════════════════════════════ */}
+      {activeTab === 'media' && (
+        <div className="mt-6 space-y-10">
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+              <Images className="h-5 w-5 text-primary-600" />
+              {ui.photosTitle}
+            </h2>
+            <ListingImagesSection
+              listingId={listingId}
+              categoryCode={categoryCode}
+              listingSlug={listingSlug}
+              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+            />
+          </div>
+
+          <div className="space-y-5">
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
               <Link2 className="h-5 w-5 text-primary-600" />
@@ -2041,6 +2106,7 @@ export default function CatalogListingDetailClient({
             <p className="mt-1 text-sm text-neutral-500">
               {ui.ical.intro}
             </p>
+            {categoryCode === 'holiday_home' ? <HolidayHomeIcalManagedRow listingId={listingId} /> : null}
 
             {/* Mevcut beslemeler */}
             {icalFeeds.length > 0 ? (
@@ -2248,23 +2314,6 @@ export default function CatalogListingDetailClient({
 
             <p className="mt-3 text-xs text-neutral-400">{ui.ical.rotateNote}</p>
           </div>
-        </div>
-      )}
-
-      {/* ═══ SEKME: GÖRSELLER ═══════════════════════════════════════════════ */}
-      {activeTab === 'photos' && (
-        <div className="mt-6">
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white mb-4">
-              <Images className="h-5 w-5 text-primary-600" />
-              {ui.photosTitle}
-            </h2>
-            <ListingImagesSection
-              listingId={listingId}
-              categoryCode={categoryCode}
-              listingSlug={listingSlug}
-              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-            />
           </div>
         </div>
       )}

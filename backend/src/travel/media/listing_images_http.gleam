@@ -74,28 +74,73 @@ fn img_json(row: #(String, Int, String, String, String, String, String)) -> json
   ])
 }
 
+fn listing_images_json_response(
+  rows: List(#(String, Int, String, String, String, String, String)),
+) -> Response {
+  let arr = list.map(rows, img_json)
+  let body =
+    json.object([#("images", json.array(from: arr, of: fn(x) { x }))])
+    |> json.to_string
+  wisp.json_response(body, 200)
+}
+
+fn fetch_manage_listing_image_rows(
+  conn: pog.Connection,
+  listing_id: String,
+  with_scene_column: Bool,
+) -> Result(List(#(String, Int, String, String, String, String, String)), pog.QueryError) {
+  let sql = case with_scene_column {
+    True ->
+      "select id::text, sort_order, storage_key, coalesce(original_mime, ''), coalesce(alt_text_key, ''), created_at::text, coalesce(scene_code, '') from listing_images where listing_id = $1::uuid order by sort_order asc, created_at asc"
+    False ->
+      "select id::text, sort_order, storage_key, coalesce(original_mime, ''), coalesce(alt_text_key, ''), created_at::text, ''::text from listing_images where listing_id = $1::uuid order by sort_order asc, created_at asc"
+  }
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(string.trim(listing_id)))
+    |> pog.returning(img_row())
+    |> pog.execute(conn)
+  {
+    Ok(ret) -> Ok(ret.rows)
+    Error(e) -> Error(e)
+  }
+}
+
+fn fetch_public_listing_image_rows(
+  conn: pog.Connection,
+  listing_id: String,
+  with_scene_column: Bool,
+) -> Result(List(#(String, Int, String, String, String, String, String)), pog.QueryError) {
+  let sql = case with_scene_column {
+    True ->
+      "select li.id::text, li.sort_order, li.storage_key, coalesce(li.original_mime, ''), coalesce(li.alt_text_key, ''), li.created_at::text, coalesce(li.scene_code, '') from listing_images li inner join listings l on l.id = li.listing_id where li.listing_id = $1::uuid and l.status = 'published' order by li.sort_order asc, li.created_at asc"
+    False ->
+      "select li.id::text, li.sort_order, li.storage_key, coalesce(li.original_mime, ''), coalesce(li.alt_text_key, ''), li.created_at::text, ''::text from listing_images li inner join listings l on l.id = li.listing_id where li.listing_id = $1::uuid and l.status = 'published' order by li.sort_order asc, li.created_at asc"
+  }
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(string.trim(listing_id)))
+    |> pog.returning(img_row())
+    |> pog.execute(conn)
+  {
+    Ok(ret) -> Ok(ret.rows)
+    Error(e) -> Error(e)
+  }
+}
+
 /// GET /api/v1/listings/:id/images
 pub fn list_images(req: Request, ctx: Context, listing_id: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   case require_listing_manage_access(req, ctx, listing_id) {
     Error(r) -> r
     Ok(Nil) ->
-      case
-        pog.query(
-          "select id::text, sort_order, storage_key, coalesce(original_mime, ''), coalesce(alt_text_key, ''), created_at::text, coalesce(scene_code, '') from listing_images where listing_id = $1::uuid order by sort_order asc, created_at asc",
-        )
-        |> pog.parameter(pog.text(string.trim(listing_id)))
-        |> pog.returning(img_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "images_query_failed")
-        Ok(ret) -> {
-          let arr = list.map(ret.rows, img_json)
-          let body =
-            json.object([#("images", json.array(from: arr, of: fn(x) { x }))])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
+      case fetch_manage_listing_image_rows(ctx.db, listing_id, True) {
+        Ok(rows) -> listing_images_json_response(rows)
+        Error(_) ->
+          case fetch_manage_listing_image_rows(ctx.db, listing_id, False) {
+            Ok(rows) -> listing_images_json_response(rows)
+            Error(_) -> json_err(500, "images_query_failed")
+          }
       }
   }
 }
@@ -362,22 +407,13 @@ pub fn list_public_images(req: Request, ctx: Context, listing_id: String) -> Res
       case pub_row.rows {
         [] -> json_err(404, "listing_not_public")
         _ ->
-          case
-            pog.query(
-              "select li.id::text, li.sort_order, li.storage_key, coalesce(li.original_mime, ''), coalesce(li.alt_text_key, ''), li.created_at::text, coalesce(li.scene_code, '') from listing_images li inner join listings l on l.id = li.listing_id where li.listing_id = $1::uuid and l.status = 'published' order by li.sort_order asc, li.created_at asc",
-            )
-            |> pog.parameter(pog.text(string.trim(listing_id)))
-            |> pog.returning(img_row())
-            |> pog.execute(ctx.db)
-          {
-            Error(_) -> json_err(500, "images_query_failed")
-            Ok(ret) -> {
-              let arr = list.map(ret.rows, img_json)
-              let body =
-                json.object([#("images", json.array(from: arr, of: fn(x) { x }))])
-                |> json.to_string
-              wisp.json_response(body, 200)
-            }
+          case fetch_public_listing_image_rows(ctx.db, listing_id, True) {
+            Ok(rows) -> listing_images_json_response(rows)
+            Error(_) ->
+              case fetch_public_listing_image_rows(ctx.db, listing_id, False) {
+                Ok(rows) -> listing_images_json_response(rows)
+                Error(_) -> json_err(500, "images_query_failed")
+              }
           }
       }
   }

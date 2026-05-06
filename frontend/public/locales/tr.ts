@@ -1138,8 +1138,7 @@ export const tr = {
       listing: 'İlan Bilgileri',
       calendar: 'Müsaitlik Takvimi',
       price: 'Dönemsel Fiyat',
-      ical: 'iCal Senkronu',
-      photos: 'Görseller',
+      media: 'Medya & iCal',
       vertical: 'Özellikler',
       attributes: 'Öznitelikler',
       price_lines: 'Dahil & Hariç',
@@ -1205,6 +1204,10 @@ export const tr = {
       default: 'Kategori Özellikleri',
     },
     photosTitle: 'İlan görselleri',
+    photosVideoHint:
+      'YouTube veya vitrine uygun tanıtım bağlantısı (İlan bilgileri ile aynı meta alanına yazılır).',
+    photosVideoSaveBtn: 'Video URL kaydet',
+    photosVideoSaved: 'Video adresi kaydedildi.',
     accommodationRulesTitle: 'Konaklama kuralları',
     calendar: {
       ...en.manageCatalogListing.calendar,
@@ -1313,6 +1316,8 @@ export const tr = {
         'Mevcut URL anında geçersiz olur ve onu kullanan harici takvimler 404 alır. Devam edilsin mi?',
       rotateNote:
         'Güvenlik gerekçesiyle URL\'yi yenilediğinizde Airbnb/Booking gibi platformlardaki bağlantıyı yeni URL ile güncellemeniz gerekir.',
+      holidayHomeManagedFlag:
+        'Müsaitlik esas olarak dış iCal beslemeleriyle (Airbnb / Booking vb.) yönetiliyor.',
     },
     attrSaveOk: 'Öznitelik değerleri kaydedildi.',
     attrSaveBtn: 'Öznitelik Değerlerini Kaydet',
