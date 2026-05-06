@@ -17,6 +17,7 @@ RESTART_API="${RESTART_API:-1}"
 
 ok() { echo "[OK] $*"; }
 step() { echo; echo "==> $*"; }
+warn() { echo "[WARN] $*" >&2; }
 fail() { echo "[FAIL] $*" >&2; exit 1; }
 
 require_cmd() {
@@ -77,14 +78,20 @@ main() {
   elif [[ "$SHIP" == "$UNIT_WD" ]]; then
     ok "travel-api WorkingDirectory zaten httpdocs shipment ile aynı"
   else
+    # rsync doğrudan SHIP üzerinden çalışırsa "file has vanished" (exit 24) görülebilir; önce sabit staging kopyası.
+    SHIP_STAGE="$APP_ROOT/backend/build/.erlang-shipment-sync-staging"
+    rm -rf "$SHIP_STAGE"
+    mkdir -p "$SHIP_STAGE"
+    cp -a "${SHIP}/." "${SHIP_STAGE}/"
     step "travel-api shipment senkronu → $UNIT_WD"
     mkdir -p "$UNIT_WD"
     if command -v rsync >/dev/null 2>&1; then
-      rsync -a --delete "${SHIP}/" "${UNIT_WD}/"
+      rsync -a --delete "${SHIP_STAGE}/" "${UNIT_WD}/"
     else
       find "$UNIT_WD" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-      cp -a "${SHIP}/." "${UNIT_WD}/"
+      cp -a "${SHIP_STAGE}/." "${UNIT_WD}/"
     fi
+    rm -rf "$SHIP_STAGE"
     ok "shipment senkronu tamam"
   fi
   ok "backend build tamam"
