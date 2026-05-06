@@ -211,6 +211,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "catalog", "listings", lid, "price-rules", rid] ->
       catalog_http.delete_listing_price_rule(req, ctx, lid, rid)
 
+    http.Get, ["api", "v1", "catalog", "listings", lid, "basics"] ->
+      catalog_http.get_listing_basics(req, ctx, lid)
+
     http.Patch, ["api", "v1", "catalog", "listings", lid, "basics"] ->
       catalog_http.patch_listing_basics(req, ctx, lid)
 

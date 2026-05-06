@@ -1242,6 +1242,9 @@ export const en = {
       minShortStayNights: 'Min short-stay nights',
       youtubeUrl: 'YouTube URL',
       address: 'Address',
+      mapPickerTitle: 'Location map',
+      mapPickerHint:
+        'Click the map or use the search box to set coordinates; press Save listing info below to persist.',
       saveBtn: 'Save listing info',
     },
     verticalTitles: {

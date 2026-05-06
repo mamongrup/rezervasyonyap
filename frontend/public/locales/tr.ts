@@ -1180,6 +1180,9 @@ export const tr = {
       minShortStayNights: 'Kısa konaklama min gece',
       youtubeUrl: 'YouTube URL',
       address: 'Adres',
+      mapPickerTitle: 'Konum haritası',
+      mapPickerHint:
+        'Haritaya tıklayın veya arama kutusunu kullanın; koordinatları kaydetmek için alttaki «İlan bilgilerini kaydet» düğmesine basın.',
       saveBtn: 'İlan bilgilerini kaydet',
     },
     verticalTitles: {

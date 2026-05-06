@@ -8168,6 +8168,41 @@ export interface ListingBasicsPatch {
   allow_sub_min_stay_gap_booking?: boolean
 }
 
+/** GET /catalog/listings/:id/basics — panel «Temel ilan ayarları» (`listings` tablosu). */
+export interface ListingBasicsSnapshot {
+  status: string
+  min_stay_nights: string
+  cleaning_fee_amount: string
+  first_charge_amount: string
+  prepayment_percent: string
+  commission_percent: string
+  cancellation_policy_text: string
+  ministry_license_ref: string
+  share_to_social: boolean
+  allow_ai_caption: boolean
+  allow_sub_min_stay_gap_booking: boolean
+}
+
+export async function getListingBasics(
+  token: string,
+  listingId: string,
+  params?: { organizationId?: string },
+): Promise<ListingBasicsSnapshot> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/basics${catalogListingQs(params)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `listing_basics_get_${res.status}`)
+  }
+  return json<ListingBasicsSnapshot>(res)
+}
+
 export async function patchListingBasics(
   token: string,
   listingId: string,

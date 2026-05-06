@@ -14,6 +14,7 @@ import {
 import {
   addManageHotelRoom,
   patchListingBasics,
+  getListingBasics,
   deleteListingPriceRule,
   deleteManageHotelRoom,
   getAuthMe,
@@ -94,6 +95,7 @@ import {
 import { VerticalDetailsSection } from '../../../VerticalDetailsSection'
 import ListingImagesSection from '../../../ListingImagesSection'
 import PlacesAutocompleteInput from '@/components/editor/PlacesAutocompleteInput'
+import MapPicker from '@/components/editor/MapPicker'
 
 function verticalSectionTitle(verticalTitles: CatalogListingUi['verticalTitles'], categoryCode: string) {
   const m = verticalTitles as Record<string, string>
@@ -799,15 +801,7 @@ export default function CatalogListingDetailClient({
     })
       .then((r) => {
         const row = r.listings.find((l) => l.id === listingId)
-        if (row) {
-          if (row.slug) setListingSlug(row.slug)
-          if (row.status === 'published' || row.status === 'archived') setListingStatus(row.status)
-          else setListingStatus('draft')
-          setCommissionPercent(row.commission_percent ?? '')
-          setPrepaymentPercent(row.prepayment_percent ?? '')
-          setShareToSocial(Boolean(row.share_to_social))
-          setAllowAiCaption(Boolean(row.allow_ai_caption))
-        }
+        if (row?.slug) setListingSlug(row.slug)
       })
       .catch(() => {})
   }, [categoryCode, listingId, needOrg, orgId])
@@ -874,10 +868,28 @@ export default function CatalogListingDetailClient({
     if (!token) return
     if (needOrg && !orgId.trim()) return
     try {
-      const [owner, meta] = await Promise.all([
+      const [basics, owner, meta] = await Promise.all([
+        getListingBasics(token, listingId, orgQ).catch(() => null),
         getListingOwnerContact(token, listingId, orgQ).catch(() => null),
         getListingMeta(token, listingId, orgQ).catch(() => null),
       ])
+      if (basics) {
+        if (basics.status === 'published' || basics.status === 'archived') {
+          setListingStatus(basics.status as 'published' | 'archived')
+        } else {
+          setListingStatus('draft')
+        }
+        setMinStayNights(basics.min_stay_nights ?? '')
+        setCleaningFee(basics.cleaning_fee_amount ?? '')
+        setDepositAmount(basics.first_charge_amount ?? '')
+        setPrepaymentPercent(basics.prepayment_percent ?? '')
+        setCommissionPercent(basics.commission_percent ?? '')
+        setCancellationPolicy(basics.cancellation_policy_text ?? '')
+        setLicenseRef(basics.ministry_license_ref ?? '')
+        setShareToSocial(Boolean(basics.share_to_social))
+        setAllowAiCaption(Boolean(basics.allow_ai_caption))
+        setAllowGapBooking(Boolean(basics.allow_sub_min_stay_gap_booking))
+      }
       if (owner) {
         setOwnerName(owner.contact_name ?? '')
         setOwnerPhone(owner.contact_phone ?? '')
@@ -1604,10 +1616,6 @@ export default function CatalogListingDetailClient({
                 <Input className="mt-1" value={bathCount} onChange={(e) => setBathCount(e.target.value)} />
               </Field>
               <Field className="block">
-                <Label>{ui.listingForm.squareMeters}</Label>
-                <Input className="mt-1" value={squareMeters} onChange={(e) => setSquareMeters(e.target.value)} />
-              </Field>
-              <Field className="block">
                 <Label>{ui.listingForm.maxGuests}</Label>
                 <Input className="mt-1" value={maxGuests} onChange={(e) => setMaxGuests(e.target.value)} />
               </Field>
@@ -1646,6 +1654,22 @@ export default function CatalogListingDetailClient({
                   }}
                 />
               </div>
+            </Field>
+            <Field className="mt-4 block">
+              <Label>{ui.listingForm.mapPickerTitle}</Label>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                {ui.listingForm.mapPickerHint}
+              </p>
+              <MapPicker
+                className="mt-2"
+                lat={lat}
+                lng={lng}
+                zoom={13}
+                onChange={(la, lo) => {
+                  setLat(la)
+                  setLng(lo)
+                }}
+              />
             </Field>
             <div className="mt-4">
               <ButtonPrimary type="button" onClick={() => void saveListingForm()} disabled={busy === 'listing-save'}>

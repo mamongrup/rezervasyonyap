@@ -2023,6 +2023,119 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
   }
 }
 
+fn listing_basics_manage_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    Bool,
+    Bool,
+    Bool,
+  ),
+) {
+  use status <- decode.field(0, decode.string)
+  use msn <- decode.field(1, decode.string)
+  use cfa <- decode.field(2, decode.string)
+  use fca <- decode.field(3, decode.string)
+  use pp <- decode.field(4, decode.string)
+  use comm <- decode.field(5, decode.string)
+  use cpt <- decode.field(6, decode.string)
+  use mlr <- decode.field(7, decode.string)
+  use sts <- decode.field(8, decode.bool)
+  use aai <- decode.field(9, decode.bool)
+  use asg <- decode.field(10, decode.bool)
+  decode.success(#(status, msn, cfa, fca, pp, comm, cpt, mlr, sts, aai, asg))
+}
+
+fn basics_patch_bool_param(opt: Option(Bool)) -> String {
+  case opt {
+    None -> ""
+    Some(True) -> "true"
+    Some(False) -> "false"
+  }
+}
+
+/// GET /api/v1/catalog/listings/:id/basics — panel temel ilan alanları (listings tablosu).
+pub fn get_listing_basics(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), share_to_social, allow_ai_caption, allow_sub_min_stay_gap_booking from listings where id = $1::uuid and organization_id = $2::uuid",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.parameter(pog.text(org_id))
+            |> pog.returning(listing_basics_manage_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(e) -> {
+              let _ =
+                io.println(
+                  "[catalog.get_listing_basics] "
+                  <> pog_errors.query_error_to_string(e),
+                )
+              json_err(500, "basics_query_failed")
+            }
+            Ok(ret) ->
+              case ret.rows {
+                [] -> json_err(404, "listing_not_found")
+                [
+                  #(
+                    status,
+                    msn,
+                    cfa,
+                    fca,
+                    pp,
+                    comm,
+                    cpt,
+                    mlr,
+                    sts,
+                    aai,
+                    asg,
+                  ),
+                ] -> {
+                  let body =
+                    json.object([
+                      #("status", json.string(status)),
+                      #("min_stay_nights", json.string(msn)),
+                      #("cleaning_fee_amount", json.string(cfa)),
+                      #("first_charge_amount", json.string(fca)),
+                      #("prepayment_percent", json.string(pp)),
+                      #("commission_percent", json.string(comm)),
+                      #("cancellation_policy_text", json.string(cpt)),
+                      #("ministry_license_ref", json.string(mlr)),
+                      #("share_to_social", json.bool(sts)),
+                      #("allow_ai_caption", json.bool(aai)),
+                      #(
+                        "allow_sub_min_stay_gap_booking",
+                        json.bool(asg),
+                      ),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
+                }
+                _ -> json_err(500, "unexpected")
+              }
+          }
+      }
+  }
+}
+
 // ─── Listing Basics (PATCH) ──────────────────────────────────────────────────
 
 type BasicsPatch {
@@ -2041,9 +2154,9 @@ type BasicsPatch {
     avg_ad_cost_percent: String,
     cancellation_policy_text: String,
     ministry_license_ref: String,
-    share_to_social: String,
-    allow_ai_caption: String,
-    allow_sub_min_stay_gap_booking: String,
+    share_to_social: Option(Bool),
+    allow_ai_caption: Option(Bool),
+    allow_sub_min_stay_gap_booking: Option(Bool),
   )
 }
 
@@ -2062,9 +2175,9 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
                         decode.optional_field("avg_ad_cost_percent", "", decode.string, fn(aac) {
                           decode.optional_field("cancellation_policy_text", "", decode.string, fn(cpt) {
                             decode.optional_field("ministry_license_ref", "", decode.string, fn(mlr) {
-                              decode.optional_field("share_to_social", False, decode.bool, fn(sts) {
-                                decode.optional_field("allow_ai_caption", False, decode.bool, fn(aai) {
-                                  decode.optional_field("allow_sub_min_stay_gap_booking", False, decode.bool, fn(asg) {
+                              decode.optional_field("share_to_social", None, decode.optional(decode.bool), fn(sts_opt) {
+                                decode.optional_field("allow_ai_caption", None, decode.optional(decode.bool), fn(aai_opt) {
+                                  decode.optional_field("allow_sub_min_stay_gap_booking", None, decode.optional(decode.bool), fn(asg_opt) {
                                     decode.success(BasicsPatch(
                                       status: status,
                                       min_stay_nights: msn,
@@ -2080,9 +2193,9 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
                                       avg_ad_cost_percent: aac,
                                       cancellation_policy_text: cpt,
                                       ministry_license_ref: mlr,
-                                      share_to_social: case sts { True -> "true" False -> "" },
-                                      allow_ai_caption: case aai { True -> "true" False -> "" },
-                                      allow_sub_min_stay_gap_booking: case asg { True -> "true" False -> "" },
+                                      share_to_social: sts_opt,
+                                      allow_ai_caption: aai_opt,
+                                      allow_sub_min_stay_gap_booking: asg_opt,
                                     ))
                                   })
                                 })
@@ -2167,9 +2280,11 @@ pub fn patch_listing_basics(
                         |> pog.parameter(pog.text(string.trim(p.avg_ad_cost_percent)))
                         |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
                         |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
-                        |> pog.parameter(pog.text(p.share_to_social))
-                        |> pog.parameter(pog.text(p.allow_ai_caption))
-                        |> pog.parameter(pog.text(p.allow_sub_min_stay_gap_booking))
+                        |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
+                        |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
+                        |> pog.parameter(pog.text(basics_patch_bool_param(
+                          p.allow_sub_min_stay_gap_booking,
+                        )))
                         |> pog.returning(one_string_row())
                         |> pog.execute(ctx.db)
                       {

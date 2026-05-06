@@ -305,7 +305,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
   // ── Mülk bilgileri ──
   const [bedCount, setBedCount] = useState('')
   const [bathCount, setBathCount] = useState('')
-  const [squareMeters, setSquareMeters] = useState('')
   const [maxGuests, setMaxGuests] = useState('')
   /** Villa: en az kaç gün önceden rezervasyon + oda sayısı */
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
@@ -1054,7 +1053,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
       if (checkOutTime.trim()) metaBody.check_out_time = checkOutTime.trim()
       if (bedCount.trim()) metaBody.bed_count = bedCount.trim()
       if (bathCount.trim()) metaBody.bath_count = bathCount.trim()
-      if (squareMeters.trim()) metaBody.square_meters = squareMeters.trim()
       if (maxGuests.trim()) metaBody.max_guests = maxGuests.trim()
       if (minAdvanceBookingDays.trim()) metaBody.min_advance_booking_days = minAdvanceBookingDays.trim()
       if (roomCount.trim()) metaBody.room_count = roomCount.trim()
@@ -1780,17 +1778,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <Field className="block">
-                      <Label>Alan (m²)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        className="mt-1"
-                        value={squareMeters}
-                        onChange={(e) => setSquareMeters(e.target.value)}
-                        placeholder="ör: 120"
-                      />
-                    </Field>
-                    <Field className="block">
                       <Label>En az kaç gün önceden rezervasyon</Label>
                       <Input
                         type="number"
@@ -1832,14 +1819,6 @@ export default function CatalogNewListingClient({ categoryCode }: { categoryCode
                       type="number" min="0" className="mt-1"
                       value={bathCount} onChange={(e) => setBathCount(e.target.value)}
                       placeholder="ör: 2"
-                    />
-                  </Field>
-                  <Field className="block">
-                    <Label>Alan (m²)</Label>
-                    <Input
-                      type="number" min="0" className="mt-1"
-                      value={squareMeters} onChange={(e) => setSquareMeters(e.target.value)}
-                      placeholder="ör: 120"
                     />
                   </Field>
                   <Field className="block">
