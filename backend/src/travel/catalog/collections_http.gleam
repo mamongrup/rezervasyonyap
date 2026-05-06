@@ -328,7 +328,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(l.featured_image_url, l.thumbnail_url, ''), "
-    <> "coalesce((select cc.price_from_amount::text from category_contracts cc where cc.listing_id = l.id and cc.is_default = true limit 1), ''), "
+    <> "coalesce(l.first_charge_amount::text, ''), "
     <> "coalesce(l.location_name, ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
