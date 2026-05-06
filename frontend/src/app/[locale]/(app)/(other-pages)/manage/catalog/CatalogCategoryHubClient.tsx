@@ -5,34 +5,42 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useManageT } from '@/lib/manage-i18n-context'
 import Link from 'next/link'
 
+type CatalogHubManagedCard = {
+  href: string
+  labelKey:
+    | 'catalog.hub_all_listings'
+    | 'catalog.hub_new_listing'
+    | 'catalog.hub_attributes'
+    | 'catalog.hub_holiday_home_property_types'
+    | 'catalog.hub_holiday_home_theme_presets'
+  noteKey:
+    | 'catalog.hub_note_list'
+    | 'catalog.hub_note_new'
+    | 'catalog.hub_note_attr'
+    | 'catalog.hub_note_holiday_home_property_types'
+    | 'catalog.hub_note_holiday_home_theme_presets'
+}
+
+type CatalogHubFreeformCard = {
+  href: string
+  label: string
+  note: string
+}
+
+type CatalogHubLink = CatalogHubManagedCard | CatalogHubFreeformCard
+
 export default function CatalogCategoryHubClient({ code }: { code: string }) {
   const t = useManageT()
   const vitrinPath = useVitrinHref()
   const prefix = vitrinPath(`/manage/catalog/${encodeURIComponent(code)}`)
   const vertical = verticalTableLabelTr(code)
 
-  const links: {
-    href: string
-    labelKey?:
-      | 'catalog.hub_all_listings'
-      | 'catalog.hub_new_listing'
-      | 'catalog.hub_attributes'
-      | 'catalog.hub_holiday_home_property_types'
-      | 'catalog.hub_holiday_home_theme_presets'
-    noteKey?:
-      | 'catalog.hub_note_list'
-      | 'catalog.hub_note_new'
-      | 'catalog.hub_note_attr'
-      | 'catalog.hub_note_holiday_home_property_types'
-      | 'catalog.hub_note_holiday_home_theme_presets'
-    label?: string
-    note?: string
-  }[] = [
+  const links: CatalogHubLink[] = [
     { href: `${prefix}/listings`, labelKey: 'catalog.hub_all_listings', noteKey: 'catalog.hub_note_list' },
     { href: `${prefix}/listings/new`, labelKey: 'catalog.hub_new_listing', noteKey: 'catalog.hub_note_new' },
     { href: `${prefix}/attributes`, labelKey: 'catalog.hub_attributes', noteKey: 'catalog.hub_note_attr' },
     ...(code === 'holiday_home'
-      ? [
+      ? ([
           {
             href: `${prefix}/property-types`,
             labelKey: 'catalog.hub_holiday_home_property_types',
@@ -43,7 +51,7 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
             labelKey: 'catalog.hub_holiday_home_theme_presets',
             noteKey: 'catalog.hub_note_holiday_home_theme_presets',
           },
-        ]
+        ] satisfies CatalogHubManagedCard[])
       : []),
     ...(code === 'hotel'
       ? [
