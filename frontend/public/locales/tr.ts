@@ -1140,7 +1140,7 @@ export const tr = {
       price: 'Dönemsel Fiyat',
       ical: 'iCal Senkronu',
       photos: 'Görseller',
-      vertical: 'Kategori Özellikleri',
+      vertical: 'Özellikler',
       attributes: 'Öznitelikler',
       price_lines: 'Dahil & Hariç',
       accommodation_rules: 'Kurallar',

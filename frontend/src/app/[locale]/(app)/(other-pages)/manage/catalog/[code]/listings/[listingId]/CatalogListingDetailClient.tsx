@@ -784,9 +784,6 @@ export default function CatalogListingDetailClient({
     | 'price'
     | 'ical'
     | 'vertical'
-    | 'attributes'
-    | 'price_lines'
-    | 'accommodation_rules'
     | 'photos'
     | 'hotel'
     | 'meal_plans'
@@ -1440,11 +1437,6 @@ export default function CatalogListingDetailClient({
     { id: 'ical' as const, label: ui.tabs.ical, Icon: Link2 },
     { id: 'photos' as const, label: ui.tabs.photos, Icon: Images },
     { id: 'vertical' as const, label: ui.tabs.vertical, Icon: Settings2 },
-    { id: 'attributes' as const, label: ui.tabs.attributes, Icon: Settings2 },
-    { id: 'price_lines' as const, label: ui.tabs.price_lines, Icon: ListChecks },
-    ...(STAY_ACCOMMODATION_RULE_CATS.has(categoryCode)
-      ? [{ id: 'accommodation_rules' as const, label: ui.tabs.accommodation_rules, Icon: ScrollText }]
-      : []),
     ...(categoryCode === 'hotel' ? [{ id: 'hotel' as const, label: ui.tabs.hotel, Icon: Hotel }] : []),
     ...(MEAL_PLAN_CATS.has(categoryCode) ? [{ id: 'meal_plans' as const, label: ui.tabs.meal_plans, Icon: UtensilsCrossed }] : []),
   ]
@@ -2277,11 +2269,11 @@ export default function CatalogListingDetailClient({
         </div>
       )}
 
-      {/* ═══ SEKME: KATEGORİ ÖZELLİKLERİ ════════════════════════════════════ */}
+      {/* ═══ SEKME: ÖZELLİKLER (kategori alanları + öznitelik + dahil/hariç + kurallar) ═══ */}
       {activeTab === 'vertical' && (
-        <div className="mt-6">
+        <div className="mt-6 space-y-10">
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white mb-4">
+            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
               <Settings2 className="h-5 w-5 text-primary-600" />
               {verticalSectionTitle(ui.verticalTitles, categoryCode)}
             </h2>
@@ -2291,46 +2283,57 @@ export default function CatalogListingDetailClient({
               organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
             />
           </div>
-        </div>
-      )}
 
-      {/* ═══ SEKME: ÖZNİTELİKLER ══════════════════════════════════════════════ */}
-      {activeTab === 'attributes' && (
-        <div className="mt-6">
-          <ListingAttributeValuesSection
-            listingId={listingId}
-            categoryCode={categoryCode}
-            token={getStoredAuthToken() ?? ''}
-            organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-          />
-        </div>
-      )}
-
-      {/* ═══ SEKME: DAHİL / HARİÇ ══════════════════════════════════════════════ */}
-      {activeTab === 'price_lines' && (
-        <div className="mt-6">
-          <ListingPriceLinesSection
-            listingId={listingId}
-            categoryCode={categoryCode}
-            token={getStoredAuthToken() ?? ''}
-          />
-        </div>
-      )}
-
-      {activeTab === 'accommodation_rules' && STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) && (
-        <div className="mt-6">
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
-              <ScrollText className="h-5 w-5 text-primary-600" />
-              {ui.accommodationRulesTitle}
-            </h2>
-            <ListingAccommodationRulesSection
+          <section aria-labelledby="listing-attrs-heading">
+            <h3
+              id="listing-attrs-heading"
+              className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+            >
+              <Layers className="h-5 w-5 shrink-0 text-primary-600" />
+              {ui.tabs.attributes}
+            </h3>
+            <ListingAttributeValuesSection
               listingId={listingId}
               categoryCode={categoryCode}
               token={getStoredAuthToken() ?? ''}
               organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
             />
-          </div>
+          </section>
+
+          <section aria-labelledby="listing-price-lines-heading">
+            <h3
+              id="listing-price-lines-heading"
+              className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+            >
+              <ListChecks className="h-5 w-5 shrink-0 text-primary-600" />
+              {ui.tabs.price_lines}
+            </h3>
+            <ListingPriceLinesSection
+              listingId={listingId}
+              categoryCode={categoryCode}
+              token={getStoredAuthToken() ?? ''}
+            />
+          </section>
+
+          {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) ? (
+            <section aria-labelledby="listing-acc-rules-heading">
+              <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+                <h3
+                  id="listing-acc-rules-heading"
+                  className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                >
+                  <ScrollText className="h-5 w-5 shrink-0 text-primary-600" />
+                  {ui.tabs.accommodation_rules}
+                </h3>
+                <ListingAccommodationRulesSection
+                  listingId={listingId}
+                  categoryCode={categoryCode}
+                  token={getStoredAuthToken() ?? ''}
+                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                />
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
 

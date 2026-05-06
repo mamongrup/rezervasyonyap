@@ -1203,7 +1203,7 @@ export const en = {
       price: 'Seasonal pricing',
       ical: 'iCal sync',
       photos: 'Photos',
-      vertical: 'Category fields',
+      vertical: 'Features',
       attributes: 'Attributes',
       price_lines: 'Inclusions & exclusions',
       accommodation_rules: 'Rules',
