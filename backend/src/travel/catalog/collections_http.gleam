@@ -6,6 +6,7 @@ import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
 import gleam/int
+import gleam/io
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -396,7 +397,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.execute(ctx.db)
   {
     Error(e) -> {
-      let _ = e
+      io.debug(#("catalog.public.listings.query_failed", e))
       json_err(500, "search_failed")
     }
     Ok(ret) -> {
