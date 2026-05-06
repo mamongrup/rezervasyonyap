@@ -21,6 +21,7 @@ Type=simple
 User=root
 # Erlang/inet_gethost "emfile" (çok açık dosya) döngülerinde yardımcı olur
 LimitNOFILE=65535
+# WorkingDirectory mutlaka erlang-shipment kok klasoru olmalidir; .../backend (gleam kaynak kok) kullanmayin — deploy senkronu build/shipment'i siler.
 WorkingDirectory=/opt/rezervasyonyap/backend/build/erlang-shipment
 EnvironmentFile=/etc/rezervasyonyap/backend.env
 ExecStart=/opt/rezervasyonyap/backend/build/erlang-shipment/entrypoint.sh run

@@ -25,6 +25,23 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Eksik komut: $1"
 }
 
+# travel-api WorkingDirectory yanlis ayarlanmissa (ornekle .../backend), find -delete tum kaynak agaci siler.
+refuse_unsafe_shipment_dest() {
+  local ship="$1"
+  local dest="$2"
+  local ship_abs dest_abs
+  ship_abs="$(cd "$ship" && pwd -P)"
+  mkdir -p "$dest"
+  dest_abs="$(cd "$dest" && pwd -P)"
+  if [[ "$ship_abs" == "$dest_abs/"* ]]; then
+    fail "travel-api WorkingDirectory ($dest_abs), Erlang shipment dizininin ($ship_abs) UST klasoru — senkron once kaynak tree'yi siler.
+
+Dogru ornek: WorkingDirectory=.../backend/build/erlang-shipment (entrypoint.sh ayni kok).
+Sunucuda: systemctl cat travel-api.service | grep WorkingDirectory
+Gecici: TRAVEL_API_SHIP_DEST_OVERRIDE=/tam/yol/backend/build/erlang-shipment ./deploy/deploy.sh"
+  fi
+}
+
 sync_erlang_shipment_dir() {
   # rsync bazen kaynak agaci okurken dosya silinirse "vanished" (24) verir; tar tek akista kopyalar.
   # Paralel iki deploy hedefi/yarım kalmış kopyayi bozmasin diye flock ile seri hale getirilir.
@@ -89,6 +106,7 @@ main() {
   )
   SHIP="$APP_ROOT/backend/build/erlang-shipment"
   [[ -d "$SHIP" ]] || fail "Erlang shipment yok: $SHIP — gleam export erlang-shipment başarısız (gleam sürümü, Hex/Rebar)."
+  SHIP_ABS="$(cd "$SHIP" && pwd -P)"
   UNIT_WD="$(systemctl show travel-api.service -p WorkingDirectory --value 2>/dev/null || true)"
   if [[ -n "${TRAVEL_API_SHIP_DEST_OVERRIDE:-}" ]]; then
     UNIT_WD="$TRAVEL_API_SHIP_DEST_OVERRIDE"
@@ -97,12 +115,17 @@ main() {
     warn "SKIP_TRAVEL_API_SHIP_SYNC=1 — shipment systemd hedefine kopyalanmadı."
   elif [[ -z "$UNIT_WD" ]]; then
     warn "travel-api WorkingDirectory okunamadı — shipment senkronu atlandı. systemd birimini kontrol edin."
-  elif [[ "$SHIP" == "$UNIT_WD" ]]; then
-    ok "travel-api WorkingDirectory zaten httpdocs shipment ile aynı"
   else
-    step "travel-api shipment senkronu → $UNIT_WD"
-    sync_erlang_shipment_dir "$SHIP" "$UNIT_WD"
-    ok "shipment senkronu tamam"
+    mkdir -p "$UNIT_WD"
+    UNIT_ABS="$(cd "$UNIT_WD" && pwd -P)"
+    if [[ "$SHIP_ABS" == "$UNIT_ABS" ]]; then
+      ok "travel-api WorkingDirectory zaten httpdocs shipment ile aynı ($SHIP_ABS)"
+    else
+      refuse_unsafe_shipment_dest "$SHIP" "$UNIT_WD"
+      step "travel-api shipment senkronu → $UNIT_ABS"
+      sync_erlang_shipment_dir "$SHIP" "$UNIT_WD"
+      ok "shipment senkronu tamam"
+    fi
   fi
   ok "backend build tamam"
 
