@@ -11,6 +11,7 @@ import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/float
 import gleam/http
+import gleam/int
 import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -70,12 +71,18 @@ pub fn get_perks(req: Request, ctx: Context, listing_id: String) -> Response {
   }
 }
 
+/// JSON sayısı tarayıcıda `5` (tamsayı) veya `5.5` olabilir; `decode.float` tamsayıda başarısız olur.
+fn mobile_discount_percent_json_decoder() -> decode.Decoder(Float) {
+  let from_int = decode.int |> decode.map(int.to_float)
+  decode.one_of(from_int, [decode.float])
+}
+
 fn patch_decoder() -> decode.Decoder(#(Option(Bool), Option(Float))) {
   decode.optional_field("instant_book", None, decode.optional(decode.bool), fn(ib) {
     decode.optional_field(
       "mobile_discount_percent",
       None,
-      decode.optional(decode.float),
+      decode.optional(mobile_discount_percent_json_decoder()),
       fn(md) { decode.success(#(ib, md)) },
     )
   })
