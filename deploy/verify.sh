@@ -5,7 +5,8 @@
 #   ./deploy/verify.sh
 # Optional:
 #   API_ORIGIN=http://127.0.0.1:8080 WEB_ORIGIN=http://127.0.0.1:3000 ./deploy/verify.sh
-#   WEB_READY_ATTEMPTS=60 ./deploy/verify.sh  # travel-web yavas kalkiyorsa deneme sayisi
+#   WEB_READY_ATTEMPTS=60 WEB_READY_SLEEP=3 ./deploy/verify.sh  # travel-web yavas kalkiyorsa
+#   CHUNK_VERIFY_ATTEMPTS=30 CHUNK_VERIFY_SLEEP=2 ./deploy/verify.sh  # _next/static bazen restart sonrasi gecikmeli
 
 set -euo pipefail
 
@@ -72,7 +73,13 @@ check_workdir_matches_deploy_root() {
 
 http_status() {
   local url="$1"
-  curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 3 "$url" 2>/dev/null || echo "000"
+  curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 25 "$url" 2>/dev/null || echo ""
+}
+
+# Yanlis pozitifleri engelle: yalnizca RFC benzeri 3 basamak kod (100-599).
+is_valid_http_status() {
+  local s="$1"
+  [[ "$s" =~ ^[1-5][0-9]{2}$ ]]
 }
 
 wait_http_status() {
@@ -82,7 +89,7 @@ wait_http_status() {
   local i=1 status
   while [[ "$i" -le "$max_attempts" ]]; do
     status="$(http_status "$url")"
-    if [[ -n "$status" ]] && [[ "$status" != "000" ]]; then
+    if is_valid_http_status "$status"; then
       echo "$status"
       return 0
     fi
@@ -101,7 +108,7 @@ wait_travel_web_listening() {
   echo "==> travel-web hazır ($WEB_ORIGIN, en fazla ~$((max_attempts * sleep_seconds)) sn) ..."
   while [[ "$i" -le "$max_attempts" ]]; do
     status="$(http_status "$url")"
-    if [[ -n "$status" ]] && [[ "$status" != "000" ]]; then
+    if is_valid_http_status "$status"; then
       ok "travel-web yanıt verdi (HTTP $status): $url"
       return 0
     fi
@@ -113,19 +120,29 @@ wait_travel_web_listening() {
 }
 
 check_next_static_chunk() {
-  local wd sample url status rel url_path chunk_base
+  local wd sample url status rel url_path chunk_base attempts si j
   wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
   [[ -d "$wd/.next/static/chunks" ]] || fail "Missing $wd/.next/static/chunks - build or run wrong directory"
-  sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' | head -1)"
+  sample="$(find "$wd/.next/static/chunks" -maxdepth 1 -type f -name '*.js' | sort | head -1)"
   [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
   chunk_base="$(basename "$sample")"
   url="$WEB_ORIGIN/_next/static/chunks/$chunk_base"
-  status="$(http_status "$url")"
-  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> $status - check Apache or ModSecurity proxy"
+  attempts="${CHUNK_VERIFY_ATTEMPTS:-25}"
+  si="${CHUNK_VERIFY_SLEEP:-2}"
+  j=1
+  status=""
+  while [[ "$j" -le "$attempts" ]]; do
+    status="$(http_status "$url")"
+    [[ "$status" == "200" ]] && break
+    echo "   chunk bekleniyor $j/$attempts (${chunk_base}) HTTP=${status:-bos} ..."
+    j=$((j + 1))
+    sleep "$si"
+  done
+  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> ${status:-bos} - Next henuz hazir degil (beklemeyi artirin: CHUNK_VERIFY_ATTEMPTS) veya cerceve/WAF"
   ok "Next static chunk OK, HTTP 200, file ${chunk_base}"
 
   # [locale] yolu - Plesk ModSecurity/Imunify bazen koseli parantez iceren URL 500 donebilir
-  sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | head -1 || true)"
+  sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | sort | head -1 || true)"
   if [[ -n "${sample:-}" ]]; then
     command -v python3 >/dev/null 2>&1 || {
       warn "python3 yok; app layout chunk URL testi atlandi"
@@ -136,8 +153,16 @@ check_next_static_chunk() {
     # Heredoc nested in $() bazı bash sürümlerinde "syntax error near (" veriyor; -c kullan.
     export PYTHON_REL="$rel"
     url_path="$(python3 -c 'import os,urllib.parse as up; r=os.environ["PYTHON_REL"]; print("/_next/static/" + "/".join(up.quote(p, safe="") for p in r.split("/")), end="")')"
-    status="$(http_status "$WEB_ORIGIN$url_path")"
-    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> $status - WAF: whitelist /_next/static or disable rule"
+    j=1
+    status=""
+    while [[ "$j" -le "$attempts" ]]; do
+      status="$(http_status "$WEB_ORIGIN$url_path")"
+      [[ "$status" == "200" ]] && break
+      echo "   app chunk bekleniyor $j/$attempts HTTP=${status:-bos} ..."
+      j=$((j + 1))
+      sleep "$si"
+    done
+    [[ "$status" == "200" ]] || fail "Next app chunk must be 200: $WEB_ORIGIN$url_path -> ${status:-bos} - WAF: whitelist /_next/static or disable rule"
     ok "Next app layout chunk OK, HTTP 200"
   fi
 }
