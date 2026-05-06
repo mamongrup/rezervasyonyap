@@ -7,6 +7,7 @@
 # Opsiyonel:
 #   DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh
 #   DEPLOY_REF=main RESTART_API=0 ./deploy/deploy.sh
+#   TRAVEL_API_DEPLOY_LOCK=/run/travel-shipment.lock (flock dosyasi; varsayilan: APP_ROOT/.travel-deploy-shipment.lock)
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -22,6 +23,27 @@ fail() { echo "[FAIL] $*" >&2; exit 1; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Eksik komut: $1"
+}
+
+sync_erlang_shipment_dir() {
+  # rsync bazen kaynak agaci okurken dosya silinirse "vanished" (24) verir; tar tek akista kopyalar.
+  # Paralel iki deploy hedefi/yarım kalmış kopyayi bozmasin diye flock ile seri hale getirilir.
+  local ship="$1"
+  local dest="$2"
+  local lock="${TRAVEL_API_DEPLOY_LOCK:-$APP_ROOT/.travel-deploy-shipment.lock}"
+  require_cmd tar
+  mkdir -p "$dest"
+  if command -v flock >/dev/null 2>&1; then
+    (
+      flock -w 7200 200 || exit 1
+      find "$dest" -mindepth 1 -delete 2>/dev/null || find "$dest" -mindepth 1 -exec rm -rf -- {} +
+      (cd "$ship" && tar -cf - .) | (cd "$dest" && tar -xpf -)
+    ) 200>"$lock" || fail "shipment flock/kopya basarisiz"
+  else
+    warn "flock yok — paralel deploy sirasinda shipment bozulabilir; util-linux kurun."
+    find "$dest" -mindepth 1 -delete 2>/dev/null || find "$dest" -mindepth 1 -exec rm -rf -- {} +
+    (cd "$ship" && tar -cf - .) | (cd "$dest" && tar -xpf -)
+  fi
 }
 
 git_sync_ref() {
@@ -78,20 +100,8 @@ main() {
   elif [[ "$SHIP" == "$UNIT_WD" ]]; then
     ok "travel-api WorkingDirectory zaten httpdocs shipment ile aynı"
   else
-    # rsync doğrudan SHIP üzerinden çalışırsa "file has vanished" (exit 24) görülebilir; önce sabit staging kopyası.
-    SHIP_STAGE="$APP_ROOT/backend/build/.erlang-shipment-sync-staging"
-    rm -rf "$SHIP_STAGE"
-    mkdir -p "$SHIP_STAGE"
-    cp -a "${SHIP}/." "${SHIP_STAGE}/"
     step "travel-api shipment senkronu → $UNIT_WD"
-    mkdir -p "$UNIT_WD"
-    if command -v rsync >/dev/null 2>&1; then
-      rsync -a --delete "${SHIP_STAGE}/" "${UNIT_WD}/"
-    else
-      find "$UNIT_WD" -mindepth 1 -maxdepth 1 -exec rm -rf {} +
-      cp -a "${SHIP_STAGE}/." "${UNIT_WD}/"
-    fi
-    rm -rf "$SHIP_STAGE"
+    sync_erlang_shipment_dir "$SHIP" "$UNIT_WD"
     ok "shipment senkronu tamam"
   fi
   ok "backend build tamam"
