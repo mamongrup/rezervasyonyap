@@ -121,16 +121,6 @@ const VILLA_THEMES = [
   { code: 'gym', label: 'Fitness Salonu' },
   { code: 'tennis', label: 'Tenis Kortu' },
 ]
-const VILLA_RULES = [
-  { code: 'no_smoking', label: 'Sigara İçme' },
-  { code: 'no_pets', label: 'Evcil Hayvan Yok' },
-  { code: 'no_parties', label: 'Parti/Eğlence Yok' },
-  { code: 'quiet_hours', label: 'Gece Sessizliği' },
-  { code: 'checkin_15', label: 'Giriş 15:00 sonrası' },
-  { code: 'checkout_12', label: 'Çıkış 12:00 öncesi' },
-  { code: 'no_children', label: 'Çocuk Kabul Yok' },
-  { code: 'id_required', label: 'Kimlik Zorunlu' },
-]
 
 function VillaSection({ listingId, organizationId }: { listingId: string; organizationId?: string }) {
   const orgQ = useMemo(
@@ -138,13 +128,12 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
     [organizationId],
   )
   const [themes, setThemes] = useState<string[]>([])
-  const [rules, setRules] = useState<string[]>([])
   const [propertyType, setPropertyType] = useState('')
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const save = useSave('holiday_home', listingId)
 
-  const loading = useLoadMeta<{ theme_codes?: string; rule_codes?: string; ical_managed?: boolean }>(
+  const loading = useLoadMeta<{ theme_codes?: string; rule_codes?: string }>(
     listingId, 'holiday_home', () => {},
   )
 
@@ -152,7 +141,6 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
     void getVerticalHolidayHome(listingId)
       .then((d) => {
         setThemes(d.theme_codes ? d.theme_codes.split(',').filter(Boolean) : [])
-        setRules(d.rule_codes ? d.rule_codes.split(',').filter(Boolean) : [])
       })
       .catch(() => {})
     const token = getStoredAuthToken()
@@ -179,7 +167,7 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
       if (propertyType.trim()) next.property_type = propertyType.trim()
       else delete next.property_type
       await putListingMeta(token, listingId, next, orgQ)
-      await patchVerticalHolidayHome(listingId, { theme_codes: themes, rule_codes: rules })
+      await patchVerticalHolidayHome(listingId, { theme_codes: themes })
       setMsg({ ok: true, text: 'Villa özellikleri kaydedildi.' })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
@@ -213,14 +201,6 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
         <div className="flex flex-wrap gap-2">
           {VILLA_THEMES.map(({ code, label }) => (
             <ChipToggle key={code} label={label} active={themes.includes(code)} onClick={() => toggle(themes, setThemes, code)} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <SectionTitle>Ev Kuralları</SectionTitle>
-        <div className="flex flex-wrap gap-2">
-          {VILLA_RULES.map(({ code, label }) => (
-            <ChipToggle key={code} label={label} active={rules.includes(code)} color="red" onClick={() => toggle(rules, setRules, code)} />
           ))}
         </div>
       </div>

@@ -11,6 +11,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
+import gleam/time/calendar
 import gleam/dynamic/decode
 import pog
 import travel/db/pog_errors
@@ -1724,6 +1725,24 @@ pub fn patch_manage_hotel_details(req: Request, ctx: Context, listing_id: String
   }
 }
 
+/// Query `from` / `to` (YYYY-MM-DD) → `pog.calendar_date` için.
+fn parse_iso_date_ymd(raw: String) -> Result(calendar.Date, Nil) {
+  case string.split(string.trim(raw), "-") {
+    [ys, ms, ds] -> {
+      use y <- result.try(int.parse(ys))
+      use mo <- result.try(int.parse(ms))
+      use d <- result.try(int.parse(ds))
+      use month <- result.try(calendar.month_from_int(mo))
+      let cd = calendar.Date(y, month, d)
+      case calendar.is_valid_date(cd) {
+        True -> Ok(cd)
+        False -> Error(Nil)
+      }
+    }
+    _ -> Error(Nil)
+  }
+}
+
 fn avail_day_row() -> decode.Decoder(#(String, Bool, String, Bool, Bool)) {
   use d <- decode.field(0, decode.string)
   use av <- decode.field(1, decode.bool)
@@ -1758,45 +1777,49 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
           case from_d == "" || to_d == "" {
             True -> json_err(400, "from_to_required")
             False ->
-              case
-                pog.query(
-                  "select day::text, coalesce((coalesce(am_available, is_available, false) or coalesce(pm_available, is_available, false)), false), coalesce(price_override::text,''), coalesce(am_available, is_available, false), coalesce(pm_available, is_available, false) from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
-                )
-                |> pog.parameter(pog.text(listing_id))
-                |> pog.parameter(pog.text(from_d))
-                |> pog.parameter(pog.text(to_d))
-                |> pog.returning(avail_day_row())
-                |> pog.execute(ctx.db)
-              {
-                Error(e) -> {
-                  let _ =
-                    io.println(
-                      "[catalog.availability_calendar] "
-                      <> pog_errors.query_error_to_string(e),
+              case parse_iso_date_ymd(from_d), parse_iso_date_ymd(to_d) {
+                Ok(from_date), Ok(to_date) ->
+                  case
+                    pog.query(
+                      "select day::text, coalesce((coalesce(am_available, is_available, false) or coalesce(pm_available, is_available, false)), false), coalesce(price_override::text,''), coalesce(am_available, is_available, false), coalesce(pm_available, is_available, false) from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
                     )
-                  json_err(500, "availability_query_failed")
-                }
-                Ok(ret) -> {
-                  let arr =
-                    list.map(ret.rows, fn(row) {
-                      let #(d, av, po, am, pm) = row
-                      let poj = case po == "" {
-                        True -> json.null()
-                        False -> json.string(po)
-                      }
-                      json.object([
-                        #("day", json.string(d)),
-                        #("is_available", json.bool(av)),
-                        #("price_override", poj),
-                        #("am_available", json.bool(am)),
-                        #("pm_available", json.bool(pm)),
-                      ])
-                    })
-                  let body =
-                    json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
-                    |> json.to_string
-                  wisp.json_response(body, 200)
-                }
+                    |> pog.parameter(pog.text(listing_id))
+                    |> pog.parameter(pog.calendar_date(from_date))
+                    |> pog.parameter(pog.calendar_date(to_date))
+                    |> pog.returning(avail_day_row())
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(e) -> {
+                      let _ =
+                        io.println(
+                          "[catalog.availability_calendar] "
+                          <> pog_errors.query_error_to_string(e),
+                        )
+                      json_err(500, "availability_query_failed")
+                    }
+                    Ok(ret) -> {
+                      let arr =
+                        list.map(ret.rows, fn(row) {
+                          let #(d, av, po, am, pm) = row
+                          let poj = case po == "" {
+                            True -> json.null()
+                            False -> json.string(po)
+                          }
+                          json.object([
+                            #("day", json.string(d)),
+                            #("is_available", json.bool(av)),
+                            #("price_override", poj),
+                            #("am_available", json.bool(am)),
+                            #("pm_available", json.bool(pm)),
+                          ])
+                        })
+                      let body =
+                        json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
+                        |> json.to_string
+                      wisp.json_response(body, 200)
+                    }
+                  }
+                _, _ -> json_err(400, "invalid_date_format")
               }
           }
         }
@@ -1844,20 +1867,24 @@ fn upsert_availability_days(
         True -> pog.null()
         False -> pog.text(po_raw)
       }
-      case
-        pog.query(
-          "insert into listing_availability_calendar (listing_id, day, is_available, am_available, pm_available, price_override) values ($1::uuid, $2::date, $3, $4, $5, case when $6::text is null or btrim($6::text) = '' then null else $6::numeric end) on conflict (listing_id, day) do update set is_available = excluded.is_available, am_available = excluded.am_available, pm_available = excluded.pm_available, price_override = excluded.price_override",
-        )
-        |> pog.parameter(pog.text(listing_id))
-        |> pog.parameter(pog.text(day))
-        |> pog.parameter(pog.bool(combined))
-        |> pog.parameter(pog.bool(am))
-        |> pog.parameter(pog.bool(pm))
-        |> pog.parameter(po_p)
-        |> pog.execute(conn)
-      {
-        Error(_) -> Error("availability_upsert_failed")
-        Ok(_) -> upsert_availability_days(conn, listing_id, rest)
+      case parse_iso_date_ymd(day) {
+        Error(_) -> Error("invalid_day_format")
+        Ok(day_cal) ->
+          case
+            pog.query(
+              "insert into listing_availability_calendar (listing_id, day, is_available, am_available, pm_available, price_override) values ($1::uuid, $2::date, $3, $4, $5, case when $6::text is null or btrim($6::text) = '' then null else $6::numeric end) on conflict (listing_id, day) do update set is_available = excluded.is_available, am_available = excluded.am_available, pm_available = excluded.pm_available, price_override = excluded.price_override",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.parameter(pog.calendar_date(day_cal))
+            |> pog.parameter(pog.bool(combined))
+            |> pog.parameter(pog.bool(am))
+            |> pog.parameter(pog.bool(pm))
+            |> pog.parameter(po_p)
+            |> pog.execute(conn)
+          {
+            Error(_) -> Error("availability_upsert_failed")
+            Ok(_) -> upsert_availability_days(conn, listing_id, rest)
+          }
       }
     }
   }
@@ -1986,15 +2013,23 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
                   case rj == "" {
                     True -> json_err(400, "rule_json_required")
                     False -> {
-                      let vf_p = case vf_opt {
-                        None -> pog.null()
-                        Some(s) -> pog.text(s)
+                      let vf_res = case vf_opt {
+                        None -> Ok(pog.null())
+                        Some(s) ->
+                          result.map(parse_iso_date_ymd(s), fn(d) {
+                            pog.calendar_date(d)
+                          })
                       }
-                      let vt_p = case vt_opt {
-                        None -> pog.null()
-                        Some(s) -> pog.text(s)
+                      let vt_res = case vt_opt {
+                        None -> Ok(pog.null())
+                        Some(s) ->
+                          result.map(parse_iso_date_ymd(s), fn(d) {
+                            pog.calendar_date(d)
+                          })
                       }
-                      case
+                      case vf_res, vt_res {
+                        Ok(vf_p), Ok(vt_p) ->
+                          case
                         pog.query(
                           "insert into listing_price_rules (listing_id, rule_json, valid_from, valid_to) values ($1::uuid, $2::jsonb, $3::date, $4::date) returning id::text",
                         )
@@ -2005,15 +2040,19 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
                         |> pog.returning(one_string_row())
                         |> pog.execute(ctx.db)
                       {
-                        Error(_) -> json_err(500, "price_rule_insert_failed")
-                        Ok(r) ->
-                          case r.rows {
-                            [id] -> {
-                              let out = json.object([#("id", json.string(id))]) |> json.to_string
-                              wisp.json_response(out, 201)
-                            }
-                            _ -> json_err(500, "unexpected")
+                            Error(_) -> json_err(500, "price_rule_insert_failed")
+                            Ok(r) ->
+                              case r.rows {
+                                [id] -> {
+                                  let out =
+                                    json.object([#("id", json.string(id))])
+                                    |> json.to_string
+                                  wisp.json_response(out, 201)
+                                }
+                                _ -> json_err(500, "unexpected")
+                              }
                           }
+                        _, _ -> json_err(400, "invalid_date_format")
                       }
                     }
                   }
@@ -2076,7 +2115,7 @@ pub fn get_listing_basics(
         Ok(True) ->
           case
             pog.query(
-              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), share_to_social, allow_ai_caption, allow_sub_min_stay_gap_booking from listings where id = $1::uuid and organization_id = $2::uuid",
+              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false) from listings where id = $1::uuid and organization_id = $2::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
@@ -3250,49 +3289,53 @@ pub fn list_public_listing_availability_calendar(
   case from_d == "" || to_d == "" {
     True -> json_err(400, "from_to_required")
     False ->
-      case
-        pog.query(
-          "select c.day::text, coalesce((coalesce(c.am_available, c.is_available, false) or coalesce(c.pm_available, c.is_available, false)), false), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available, false), coalesce(c.pm_available, c.is_available, false) "
-          <> "from listing_availability_calendar c "
-          <> "inner join listings l on l.id = c.listing_id and l.status = 'published' "
-          <> "where c.listing_id = $1::uuid and c.day >= $2::date and c.day <= $3::date "
-          <> "order by c.day",
-        )
-        |> pog.parameter(pog.text(listing_id))
-        |> pog.parameter(pog.text(from_d))
-        |> pog.parameter(pog.text(to_d))
-        |> pog.returning(avail_day_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(e) -> {
-          let _ =
-            io.println(
-              "[catalog.public_availability_calendar] "
-              <> pog_errors.query_error_to_string(e),
+      case parse_iso_date_ymd(from_d), parse_iso_date_ymd(to_d) {
+        Ok(from_date), Ok(to_date) ->
+          case
+            pog.query(
+              "select c.day::text, coalesce((coalesce(c.am_available, c.is_available, false) or coalesce(c.pm_available, c.is_available, false)), false), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available, false), coalesce(c.pm_available, c.is_available, false) "
+              <> "from listing_availability_calendar c "
+              <> "inner join listings l on l.id = c.listing_id and l.status = 'published' "
+              <> "where c.listing_id = $1::uuid and c.day >= $2::date and c.day <= $3::date "
+              <> "order by c.day",
             )
-          json_err(500, "public_availability_query_failed")
-        }
-        Ok(ret) -> {
-          let arr =
-            list.map(ret.rows, fn(row) {
-              let #(d, av, po, am, pm) = row
-              let poj = case po == "" {
-                True -> json.null()
-                False -> json.string(po)
-              }
-              json.object([
-                #("day", json.string(d)),
-                #("is_available", json.bool(av)),
-                #("price_override", poj),
-                #("am_available", json.bool(am)),
-                #("pm_available", json.bool(pm)),
-              ])
-            })
-          let body =
-            json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.parameter(pog.calendar_date(from_date))
+            |> pog.parameter(pog.calendar_date(to_date))
+            |> pog.returning(avail_day_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(e) -> {
+              let _ =
+                io.println(
+                  "[catalog.public_availability_calendar] "
+                  <> pog_errors.query_error_to_string(e),
+                )
+              json_err(500, "public_availability_query_failed")
+            }
+            Ok(ret) -> {
+              let arr =
+                list.map(ret.rows, fn(row) {
+                  let #(d, av, po, am, pm) = row
+                  let poj = case po == "" {
+                    True -> json.null()
+                    False -> json.string(po)
+                  }
+                  json.object([
+                    #("day", json.string(d)),
+                    #("is_available", json.bool(av)),
+                    #("price_override", poj),
+                    #("am_available", json.bool(am)),
+                    #("pm_available", json.bool(pm)),
+                  ])
+                })
+              let body =
+                json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+        _, _ -> json_err(400, "invalid_date_format")
       }
   }
 }

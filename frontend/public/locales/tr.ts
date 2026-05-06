@@ -1186,7 +1186,7 @@ export const tr = {
     },
     verticalTitles: {
       ...en.manageCatalogListing.verticalTitles,
-      holiday_home: 'Villa Özellikleri & Kuralları',
+      holiday_home: 'Villa — ilan tipi ve temalar',
       yacht_charter: 'Yat Teknik Özellikleri',
       transfer: 'Transfer Bölgeleri & Fiyatlar',
       tour: 'Tur Programı & Detaylar',
@@ -1205,10 +1205,13 @@ export const tr = {
     },
     photosTitle: 'İlan görselleri',
     photosVideoHint:
-      'YouTube veya vitrine uygun tanıtım bağlantısı (İlan bilgileri ile aynı meta alanına yazılır).',
+      'YouTube veya vitrine uygun tanıtım bağlantısı; meta alanına yazılır — yalnızca buradan düzenleyin (İlan bilgilerinde tekrar yok).',
     photosVideoSaveBtn: 'Video URL kaydet',
     photosVideoSaved: 'Video adresi kaydedildi.',
     accommodationRulesTitle: 'Konaklama kuralları',
+    villaHouseRulesHeading: 'Ev kuralları',
+    villaHouseRulesIntro:
+      'Katalog → Kurallar sayfasındaki şablonlardan seçin (otel ve yat ilanlarıyla aynı havuz). Eski sabit villa çipleri kaldırıldı.',
     calendar: {
       ...en.manageCatalogListing.calendar,
       title: 'Günlük Müsaitlik ve Fiyat',

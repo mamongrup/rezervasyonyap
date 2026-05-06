@@ -452,11 +452,14 @@ function ListingAccommodationRulesSection({
   categoryCode,
   token,
   organizationId,
+  embedded,
 }: {
   listingId: string
   categoryCode: string
   token: string
   organizationId?: string
+  /** Üst kart başlık/giriş dışarıdaysa iç iç başlığı gösterme */
+  embedded?: boolean
 }) {
   const ui = useCatalogListingUi()
   const params = useParams()
@@ -525,13 +528,69 @@ function ListingAccommodationRulesSection({
   if (loading) return <p className="text-sm text-neutral-400">{ui.common.loading}</p>
   if (rules.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-neutral-300 p-10 text-center dark:border-neutral-700">
+      <div
+        className={
+          embedded
+            ? 'rounded-xl border border-dashed border-neutral-300 px-4 py-8 text-center dark:border-neutral-700'
+            : 'rounded-2xl border border-dashed border-neutral-300 p-10 text-center dark:border-neutral-700'
+        }
+      >
         <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
           {ui.accommodationRules.emptyTitle}
         </p>
-        <p className="mt-1 text-xs text-neutral-400">
-          {ui.accommodationRules.emptyHint}
-        </p>
+        <p className="mt-1 text-xs text-neutral-400">{ui.accommodationRules.emptyHint}</p>
+      </div>
+    )
+  }
+
+  const ruleChecks = (
+    <div className={`flex flex-wrap gap-3 ${embedded ? '' : 'mt-3'}`}>
+      {rules.map((r) => (
+        <label
+          key={r.id}
+          className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+        >
+          <input
+            type="checkbox"
+            checked={selected.has(r.id)}
+            onChange={() => toggle(r.id)}
+            className="h-4 w-4 accent-primary-600"
+          />
+          <span>
+            {ruleLabel(r)}{' '}
+            <span className="text-neutral-400">
+              ({r.severity === 'warn' ? ui.rulesSeverityWarn : ui.rulesSeverityOk})
+            </span>
+          </span>
+        </label>
+      ))}
+    </div>
+  )
+
+  const feedback = msg ? (
+    <p
+      className={`rounded-xl px-4 py-3 text-sm ${
+        msg.ok
+          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300'
+          : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300'
+      }`}
+    >
+      {msg.text}
+    </p>
+  ) : null
+
+  const saveBtn = (
+    <ButtonPrimary type="button" disabled={busy} onClick={() => void save()}>
+      {busy ? ui.common.ellipsis : ui.rulesSaveBtn}
+    </ButtonPrimary>
+  )
+
+  if (embedded) {
+    return (
+      <div className="space-y-4">
+        {ruleChecks}
+        {feedback}
+        {saveBtn}
       </div>
     )
   }
@@ -540,45 +599,11 @@ function ListingAccommodationRulesSection({
     <div className="space-y-6">
       <div className="rounded-2xl border border-neutral-200 bg-neutral-50/50 p-5 dark:border-neutral-700 dark:bg-neutral-900/40">
         <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{ui.accommodationRules.panelTitle}</h3>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          {ui.accommodationRules.panelIntro}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-3">
-          {rules.map((r) => (
-            <label
-              key={r.id}
-              className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-            >
-              <input
-                type="checkbox"
-                checked={selected.has(r.id)}
-                onChange={() => toggle(r.id)}
-                className="h-4 w-4 accent-primary-600"
-              />
-              <span>
-                {ruleLabel(r)}{' '}
-                <span className="text-neutral-400">
-                  ({r.severity === 'warn' ? ui.rulesSeverityWarn : ui.rulesSeverityOk})
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.accommodationRules.panelIntro}</p>
+        {ruleChecks}
       </div>
-      {msg ? (
-        <p
-          className={`rounded-xl px-4 py-3 text-sm ${
-            msg.ok
-              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-300'
-              : 'bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-300'
-          }`}
-        >
-          {msg.text}
-        </p>
-      ) : null}
-      <ButtonPrimary type="button" disabled={busy} onClick={() => void save()}>
-        {busy ? ui.common.ellipsis : ui.rulesSaveBtn}
-      </ButtonPrimary>
+      {feedback}
+      {saveBtn}
     </div>
   )
 }
@@ -819,7 +844,6 @@ export default function CatalogListingDetailClient({
   const [address, setAddress] = useState('')
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
-  const [youtubeUrl, setYoutubeUrl] = useState('')
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
   const [minShortStayNights, setMinShortStayNights] = useState('')
   const MEAL_PLAN_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
@@ -957,7 +981,6 @@ export default function CatalogListingDetailClient({
         setAddress(meta.address ?? '')
         setLat(metaTxt(meta.lat))
         setLng(metaTxt(meta.lng))
-        setYoutubeUrl(meta.youtube_url ?? '')
         setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
         setMinShortStayNights(meta.min_short_stay_nights ?? '')
       }
@@ -1029,6 +1052,11 @@ export default function CatalogListingDetailClient({
         },
         orgQ,
       )
+      const metaSnap = await getListingMeta(token, listingId, orgQ).catch(() => null)
+      const youtubePreserve =
+        metaSnap && typeof metaSnap.youtube_url === 'string'
+          ? metaSnap.youtube_url.trim()
+          : ''
       await putListingMeta(
         token,
         listingId,
@@ -1042,7 +1070,7 @@ export default function CatalogListingDetailClient({
           address: address.trim() || undefined,
           lat: String(lat ?? '').trim() || undefined,
           lng: String(lng ?? '').trim() || undefined,
-          youtube_url: youtubeUrl.trim() || undefined,
+          youtube_url: youtubePreserve || undefined,
           min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
           min_short_stay_nights: minShortStayNights.trim() || undefined,
         },
@@ -1683,10 +1711,6 @@ export default function CatalogListingDetailClient({
                 <Input className="mt-1" value={minShortStayNights} onChange={(e) => setMinShortStayNights(e.target.value)} />
               </Field>
               <Field className="block">
-                <Label>{ui.listingForm.youtubeUrl}</Label>
-                <Input className="mt-1" value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} />
-              </Field>
-              <Field className="block">
                 <Label>Lat</Label>
                 <Input className="mt-1" value={lat} onChange={(e) => setLat(e.target.value)} />
               </Field>
@@ -2318,21 +2342,9 @@ export default function CatalogListingDetailClient({
         </div>
       )}
 
-      {/* ═══ SEKME: ÖZELLİKLER (kategori alanları + öznitelik + dahil/hariç + kurallar) ═══ */}
+      {/* ═══ SEKME: ÖZELLİKLER (öznitelik → konaklama kuralları → kategori alanları → dahil/hariç) ═══ */}
       {activeTab === 'vertical' && (
         <div className="mt-6 space-y-10">
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
-              <Settings2 className="h-5 w-5 text-primary-600" />
-              {verticalSectionTitle(ui.verticalTitles, categoryCode)}
-            </h2>
-            <VerticalDetailsSection
-              categoryCode={categoryCode}
-              listingId={listingId}
-              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-            />
-          </div>
-
           <section aria-labelledby="listing-attrs-heading">
             <h3
               id="listing-attrs-heading"
@@ -2349,6 +2361,42 @@ export default function CatalogListingDetailClient({
             />
           </section>
 
+          {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) ? (
+            <section aria-labelledby="listing-acc-rules-heading">
+              <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+                <h3
+                  id="listing-acc-rules-heading"
+                  className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                >
+                  <ScrollText className="h-5 w-5 shrink-0 text-primary-600" />
+                  {categoryCode === 'holiday_home' ? ui.villaHouseRulesHeading : ui.tabs.accommodation_rules}
+                </h3>
+                <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+                  {categoryCode === 'holiday_home' ? ui.villaHouseRulesIntro : ui.accommodationRules.panelIntro}
+                </p>
+                <ListingAccommodationRulesSection
+                  listingId={listingId}
+                  categoryCode={categoryCode}
+                  token={getStoredAuthToken() ?? ''}
+                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                  embedded
+                />
+              </div>
+            </section>
+          ) : null}
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+              <Settings2 className="h-5 w-5 text-primary-600" />
+              {verticalSectionTitle(ui.verticalTitles, categoryCode)}
+            </h2>
+            <VerticalDetailsSection
+              categoryCode={categoryCode}
+              listingId={listingId}
+              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+            />
+          </div>
+
           <section aria-labelledby="listing-price-lines-heading">
             <h3
               id="listing-price-lines-heading"
@@ -2363,26 +2411,6 @@ export default function CatalogListingDetailClient({
               token={getStoredAuthToken() ?? ''}
             />
           </section>
-
-          {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) ? (
-            <section aria-labelledby="listing-acc-rules-heading">
-              <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-                <h3
-                  id="listing-acc-rules-heading"
-                  className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
-                >
-                  <ScrollText className="h-5 w-5 shrink-0 text-primary-600" />
-                  {ui.tabs.accommodation_rules}
-                </h3>
-                <ListingAccommodationRulesSection
-                  listingId={listingId}
-                  categoryCode={categoryCode}
-                  token={getStoredAuthToken() ?? ''}
-                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-                />
-              </div>
-            </section>
-          ) : null}
         </div>
       )}
 

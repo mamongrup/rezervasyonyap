@@ -1247,7 +1247,7 @@ export const en = {
       saveBtn: 'Save listing info',
     },
     verticalTitles: {
-      holiday_home: 'Villa features & rules',
+      holiday_home: 'Villa — listing type & themes',
       yacht_charter: 'Yacht technical details',
       transfer: 'Transfer zones & pricing',
       tour: 'Tour program & details',
@@ -1266,10 +1266,13 @@ export const en = {
     },
     photosTitle: 'Listing images',
     photosVideoHint:
-      'YouTube or embed-friendly promo URL (stored as listing meta — same value as in Listing info).',
+      'YouTube or embed-friendly promo URL (stored as listing meta — edit only here; Listing info no longer duplicates this field).',
     photosVideoSaveBtn: 'Save video URL',
     photosVideoSaved: 'Video URL saved.',
     accommodationRulesTitle: 'Stay rules',
+    villaHouseRulesHeading: 'House rules',
+    villaHouseRulesIntro:
+      'Select templates from Catalog → Rules (same pool as hotel / yacht listings). These replace the old fixed villa chips.',
     calendar: {
       title: 'Daily availability & price',
       intro:
