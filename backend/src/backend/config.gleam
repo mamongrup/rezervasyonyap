@@ -39,11 +39,20 @@ pub fn load() -> AppConfig {
   let pool_name = process.new_name(prefix: "travel_db")
 
   let database = case envoy.get("DATABASE_URL") {
-    Ok(url) ->
-      case pog.url_config(pool_name, url) {
-        Ok(cfg) -> pog.pool_size(cfg, 10)
-        Error(_) -> default_database(pool_name)
+    Ok(raw_url) -> {
+      let url = string.trim(raw_url)
+      case url {
+        "" -> default_database(pool_name)
+        _ ->
+          case pog.url_config(pool_name, url) {
+            Ok(cfg) -> pog.pool_size(cfg, 10)
+            Error(_) ->
+              panic as {
+                "DATABASE_URL ayarli ama gecersiz (baglanti URL'si cozulemedi). URL'i duzeltin veya kaldirarak PGHOST/PGUSER/PGPASSWORD kullanin."
+              }
+          }
       }
+    }
     Error(_) -> default_database(pool_name)
   }
 
