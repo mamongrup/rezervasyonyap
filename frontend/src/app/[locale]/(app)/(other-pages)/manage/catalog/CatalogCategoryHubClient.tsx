@@ -29,6 +29,14 @@ type CatalogHubFreeformCard = {
 
 type CatalogHubLink = CatalogHubManagedCard | CatalogHubFreeformCard
 
+function hubLinkTitle(t: (key: string) => string, l: CatalogHubLink): string {
+  return 'labelKey' in l ? t(l.labelKey) : l.label
+}
+
+function hubLinkNote(t: (key: string) => string, l: CatalogHubLink): string {
+  return 'noteKey' in l ? t(l.noteKey) : l.note
+}
+
 export default function CatalogCategoryHubClient({ code }: { code: string }) {
   const t = useManageT()
   const vitrinPath = useVitrinHref()
@@ -116,10 +124,10 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
               className="block rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xs dark:border-neutral-700 dark:bg-neutral-900"
             >
               <span className="font-medium text-primary-700 dark:text-primary-300">
-                {l.labelKey ? t(l.labelKey) : l.label}
+                {hubLinkTitle(t, l)}
               </span>
               <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
-                {l.noteKey ? t(l.noteKey) : l.note}
+                {hubLinkNote(t, l)}
               </span>
             </Link>
           </li>
@@ -163,10 +171,10 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
               className="block rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-xs dark:border-neutral-700 dark:bg-neutral-900"
             >
               <span className="font-medium text-primary-700 dark:text-primary-300">
-                {l.labelKey ? t(l.labelKey) : l.label}
+                {hubLinkTitle(t, l)}
               </span>
               <span className="mt-0.5 block text-xs text-neutral-500 dark:text-neutral-400">
-                {l.noteKey ? t(l.noteKey) : l.note}
+                {hubLinkNote(t, l)}
               </span>
             </Link>
           </li>
