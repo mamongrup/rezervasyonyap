@@ -526,18 +526,9 @@ fn apply_ideas(
   lp_id: String,
   ideas_json: String,
 ) -> Response {
-  let #(json_to_store, ideas_stored) = normalize_travel_ideas_json(ideas_json)
-
-  case
-    pog.query(
-      "update location_pages set travel_ideas_json = $2::jsonb where id = $1::uuid",
-    )
-    |> pog.parameter(pog.text(string.trim(lp_id)))
-    |> pog.parameter(pog.text(json_to_store))
-    |> pog.execute(ctx.db)
-  {
-    Error(_) -> json_err(500, "location_page_update_failed")
-    Ok(_) -> {
+  case apply_ideas_to_db(ctx, lp_id, ideas_json) {
+    Error(msg) -> json_err(500, msg)
+    Ok(ideas_stored) -> {
       let body =
         json.object([
           #("done", json.bool(False)),
@@ -548,6 +539,70 @@ fn apply_ideas(
         |> json.to_string
       wisp.json_response(body, 200)
     }
+  }
+}
+
+fn apply_ideas_to_db(ctx: Context, lp_id: String, ideas_json: String) -> Result(Bool, String) {
+  let trimmed_lp = string.trim(lp_id)
+  let #(json_to_store, ideas_stored) = normalize_travel_ideas_json(ideas_json)
+  case
+    pog.query(
+      "update location_pages set travel_ideas_json = $2::jsonb where id = $1::uuid",
+    )
+    |> pog.parameter(pog.text(trimmed_lp))
+    |> pog.parameter(pog.text(json_to_store))
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> Error("location_page_update_failed")
+    Ok(_) -> Ok(ideas_stored)
+  }
+}
+
+/// Sunucu worker (`ai_worker_http`): sıradaki ilçe gezi fikirleri işini tek adımda çalıştırır.
+pub fn worker_try_district_travel_ideas(ctx: Context) -> Result(Bool, String) {
+  case
+    pog.query(
+      "select id::text from ai_jobs where profile_code = 'district_travel_ideas' and status = 'queued' order by created_at limit 1",
+    )
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> Error("district_queue_poll_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> Ok(False)
+        [job_id] ->
+          case ai_job_run.run_ai_job(ctx, job_id) {
+            Error(e) -> Error("district_job_run_failed: " <> e)
+            Ok(_) ->
+              case
+                pog.query(
+                  "select id::text, input_json->>'location_page_id', coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid and status = 'succeeded'",
+                )
+                |> pog.parameter(pog.text(job_id))
+                |> pog.returning(job_output_row())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> Error("district_output_fetch_failed")
+                Ok(or) ->
+                  case or.rows {
+                    [] -> Ok(False)
+                    [#(jid, lp_id, raw_text)] -> {
+                      let cleaned = clean_json_text(raw_text)
+                      case apply_ideas_to_db(ctx, lp_id, cleaned) {
+                        Error(msg) -> Error(msg)
+                        Ok(_) -> {
+                          let _ = jid
+                          Ok(True)
+                        }
+                      }
+                    }
+                    _ -> Error("district_output_unexpected_rows")
+                  }
+              }
+          }
+        _ -> Error("district_queue_unexpected_rows")
+      }
   }
 }
 

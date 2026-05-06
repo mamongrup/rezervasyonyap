@@ -1,0 +1,26 @@
+# Opsiyonel: sunucuda AI kuyruklarını tarayıcıdan bağımsız işler.
+#
+# Kurulum (yolları kendi repo kökünüze göre düzenleyin):
+#   sudo cp deploy/systemd/travel-ai-worker.service /etc/systemd/system/
+#   sudo cp deploy/systemd/travel-ai-worker.timer /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/ai-worker-run-steps.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-ai-worker.timer
+#
+# Önkoşul: /etc/rezervasyonyap/backend.env içinde TRAVEL_AI_WORKER_SECRET.
+
+[Unit]
+Description=Travel AI worker — POST run-steps (oneshot)
+After=network-online.target travel-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/rezervasyonyap/backend.env
+Environment=API_ORIGIN=http://127.0.0.1:8080
+Environment=WORKER_LOOPS=3
+# Repo kökündeki script — DEPLOY kökünüze göre düzenleyin:
+ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/ai-worker-run-steps.sh
+
+[Install]
+WantedBy=multi-user.target

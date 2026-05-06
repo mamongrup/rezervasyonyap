@@ -1,0 +1,14 @@
+# travel-ai-worker.service ile birlikte kullanın (bkz. travel-ai-worker.service başlığı).
+
+[Unit]
+Description=Travel AI worker zamanlayıcısı
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=1min
+AccuracySec=30s
+RandomizedDelaySec=45s
+Unit=travel-ai-worker.service
+
+[Install]
+WantedBy=timers.target

@@ -45,6 +45,7 @@ import travel/support/helpdesk_catalog_http
 import travel/integrations/integrations_http
 import travel/ai/ai_http
 import travel/ai_agents/agent_center_http
+import travel/ai/ai_worker_http
 import travel/ai/district_ideas_http
 import travel/ai/region_content_http
 import travel/verticals/verticals_http
@@ -1306,6 +1307,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "place-blogs", "process-next"] ->
       region_content_http.process_next_place_blog(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "worker", "run-steps"] ->
+      ai_worker_http.post_run_steps(req, ctx)
 
     http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
       verticals_http.delete_hotel_room(req, ctx, lid, rid)

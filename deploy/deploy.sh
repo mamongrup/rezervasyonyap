@@ -52,6 +52,10 @@ main() {
   git_sync_ref "$DEPLOY_REF"
   ok "HEAD: $(git rev-parse --short HEAD)"
 
+  if [[ -f "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" ]]; then
+    chmod +x "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" || true
+  fi
+
   step "Backend build"
   (cd "$APP_ROOT/backend" && gleam build)
   ok "backend build tamam"

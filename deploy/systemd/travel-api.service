@@ -1,6 +1,10 @@
 # Travel backend (Gleam/Erlang). Kurulum: /etc/systemd/system/travel-api.service
 # entrypoint.sh yalnızca "run" | "shell" kabul eder; "daemon" geçersizdir.
 #
+# Sunucu tarafı AI işçisi (tarayıcı kapalı): `/etc/rezervasyonyap/backend.env` içine
+# uzun rastgele bir TRAVEL_AI_WORKER_SECRET ekleyin. Cron yerine önerilen:
+# `deploy/scripts/ai-worker-run-steps.sh` + isteğe bağlı `deploy/systemd/travel-ai-worker.timer`.
+#
 # Sunucuda:
 #   sudo cp deploy/systemd/travel-api.service /etc/systemd/system/travel-api.service
 #   sudo systemctl daemon-reload

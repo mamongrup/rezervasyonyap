@@ -380,10 +380,20 @@ export default function AdminAiSection() {
 
   async function runParallelWorkers(
     workerCount: number,
+    mode: { untilDone: boolean },
     shouldStop: () => boolean,
     runOne: (workerIndex: number) => Promise<boolean>,
   ) {
-    const workers = Array.from({ length: Math.max(1, Math.min(5, workerCount)) }, async (_, index) => {
+    const n = Math.max(1, Math.min(5, workerCount))
+    if (!mode.untilDone) {
+      await Promise.all(
+        Array.from({ length: n }, async (_, index) => {
+          await runOne(index + 1)
+        }),
+      )
+      return
+    }
+    const workers = Array.from({ length: n }, async (_, index) => {
       while (!shouldStop()) {
         const didWork = await runOne(index + 1)
         if (!didWork) break
@@ -393,16 +403,21 @@ export default function AdminAiSection() {
     await Promise.all(workers)
   }
 
-  async function onStartRegionContentProcessing() {
+  async function onStartRegionContentProcessing(opts: { untilDone: boolean }) {
     const token = getStoredAuthToken()
     if (!token) return
     regionContentStopRef.current = false
     setRegionContentRunning(true)
     setRegionContentErr(null)
     let processed = 0
-    appendOpsLog(`Bölge içerik işçileri başladı (${contentWorkerCount} paralel).`)
+    appendOpsLog(
+      `Bölge içerik işçileri başladı (${opts.untilDone ? 'kuyruk bitene kadar' : 'tek dalga'}, ${contentWorkerCount} paralel).`,
+    )
     try {
-      await runParallelWorkers(contentWorkerCount, () => regionContentStopRef.current, async (workerIndex) => {
+      await runParallelWorkers(
+        contentWorkerCount,
+        { untilDone: opts.untilDone },
+        () => regionContentStopRef.current, async (workerIndex) => {
         const snap = await fetchAiSettingsSnapshot()
         const ms = Math.max(
           timeoutMsForProfile(snap, 'region_tourism_content'),
@@ -454,16 +469,21 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartPlaceBlogsProcessing() {
+  async function onStartPlaceBlogsProcessing(opts: { untilDone: boolean }) {
     const token = getStoredAuthToken()
     if (!token) return
     placeBlogsStopRef.current = false
     setPlaceBlogsRunning(true)
     setPlaceBlogsErr(null)
     let processed = 0
-    appendOpsLog(`Favori mekan blog işçileri başladı (${contentWorkerCount} paralel).`)
+    appendOpsLog(
+      `Favori mekan blog işçileri başladı (${opts.untilDone ? 'kuyruk bitene kadar' : 'tek dalga'}, ${contentWorkerCount} paralel).`,
+    )
     try {
-      await runParallelWorkers(contentWorkerCount, () => placeBlogsStopRef.current, async (workerIndex) => {
+      await runParallelWorkers(
+        contentWorkerCount,
+        { untilDone: opts.untilDone },
+        () => placeBlogsStopRef.current, async (workerIndex) => {
         const snap = await fetchAiSettingsSnapshot()
         const ms = timeoutMsForProfile(snap, 'place_blog_writer')
         const r = await processNextPlaceBlog(token, { upstreamTimeoutMs: ms })
@@ -525,34 +545,49 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartProcessing() {
+  async function onStartProcessing(opts: { untilDone: boolean }) {
     const token = getStoredAuthToken()
     if (!token) return
     districtStopRef.current = false
     setDistrictRunning(true)
     setDistrictErr(null)
     let processed = 0
+    setDistrictLog((l) => [
+      ...l,
+      opts.untilDone
+        ? 'Onaylı mod: kuyruk boşalana veya «Durdur»a basana kadar devam eder.'
+        : 'Tek adım: bir kuyruk işlemi denendikten sonra durur.',
+    ])
+    const processDistrictIteration = async (): Promise<boolean> => {
+      const snap = await fetchAiSettingsSnapshot()
+      const ms = timeoutMsForProfile(snap, 'district_travel_ideas')
+      const r = await processNextDistrictIdea(token, { upstreamTimeoutMs: ms })
+      if (r.done) {
+        setDistrictLog((l) => [...l, 'Kuyruk tamamlandı.'])
+        return false
+      }
+      if (r.skipped) {
+        setDistrictLog((l) => [...l, `Atlandı (provider pasif?): ${r.job_id ?? ''}`])
+        return true
+      }
+      processed++
+      setDistrictLog((l) => [
+        ...l,
+        `#${processed} – ${r.ideas_stored ? '✓' : '⚠'} ${r.location_page_id?.slice(0, 8)}…`,
+      ])
+      if (processed % 10 === 0) await loadDistrictStats()
+      await new Promise((res) => setTimeout(res, 800))
+      return true
+    }
     try {
-      while (!districtStopRef.current) {
-        const snap = await fetchAiSettingsSnapshot()
-        const ms = timeoutMsForProfile(snap, 'district_travel_ideas')
-        const r = await processNextDistrictIdea(token, { upstreamTimeoutMs: ms })
-        if (r.done) {
-          setDistrictLog((l) => [...l, 'Kuyruk tamamlandı.'])
-          break
+      if (!opts.untilDone) {
+        await processDistrictIteration()
+        setDistrictLog((l) => [...l, 'Tek adım bitti.'])
+      } else {
+        while (!districtStopRef.current) {
+          const more = await processDistrictIteration()
+          if (!more) break
         }
-        if (r.skipped) {
-          setDistrictLog((l) => [...l, `Atlandı (provider pasif?): ${r.job_id ?? ''}`])
-          continue
-        }
-        processed++
-        setDistrictLog((l) => [
-          ...l,
-          `#${processed} – ${r.ideas_stored ? '✓' : '⚠'} ${r.location_page_id?.slice(0, 8)}…`,
-        ])
-        if (processed % 10 === 0) await loadDistrictStats()
-        // API'yi bunaltmamak için kısa bekleme
-        await new Promise((res) => setTimeout(res, 800))
       }
     } catch (e) {
       setDistrictErr(formatManageApiCatch(e, 'process_failed'))
@@ -562,7 +597,7 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartMapsProcessing() {
+  async function onStartMapsProcessing(opts: { untilDone: boolean }) {
     const token = getStoredAuthToken()
     if (!token) return
     const key = mapsApiKey.trim()
@@ -574,149 +609,159 @@ export default function AdminAiSection() {
     setMapsRunning(true)
     setMapsErr(null)
     let processed = 0
-    try {
-      while (!mapsStopRef.current) {
-        // 1. Sıradaki içeriksiz ilçeyi al
-        const next = await getNextEmptyDistrict(token)
-        if (next.done) {
-          setMapsLog((l) => [...l, 'Tüm ilçeler tamamlandı.'])
-          break
-        }
-        const { location_page_id, district_name, region_name, center_lat, center_lng, slug_path } =
-          next
-        if (!location_page_id || !district_name) continue
+    setMapsLog((l) => [
+      ...l,
+      opts.untilDone
+        ? 'Onaylı mod: içeriksiz ilçe kalmayıncaya veya «Durdur»a basana kadar devam.'
+        : 'Tek adım: sıradaki bir ilçe için Places işlenir.',
+    ])
+    const runMapsOnce = async (): Promise<boolean> => {
+      const next = await getNextEmptyDistrict(token)
+      if (next.done) {
+        setMapsLog((l) => [...l, 'Tüm ilçeler tamamlandı.'])
+        return false
+      }
+      const { location_page_id, district_name, region_name, center_lat, center_lng, slug_path } =
+        next
+      if (!location_page_id || !district_name) return true
 
-        // İlçe koordinatı varsa kullan; yoksa Türkiye merkezi ile text search
-        const hasCoords =
-          center_lat != null &&
-          center_lng != null &&
-          String(center_lat).trim() !== '' &&
-          String(center_lng).trim() !== ''
-        const lat = hasCoords ? parseFloat(center_lat!) : 39.0
-        const lng = hasCoords ? parseFloat(center_lng!) : 35.0
-        // Popüler turistik mekan araması: ören yeri, tarihi yer, doğa vb.
-        // Koordinat varsa Nearby Search; yoksa ilçe + bölge adıyla Text Search
-        const query = hasCoords
-          ? 'tourist_attraction'
-          : `${district_name} ${region_name ?? ''} en popüler turistik yer görülecek gezilecek`
-        const radiusM = hasCoords ? 25_000 : 60_000
+      const hasCoords =
+        center_lat != null &&
+        center_lng != null &&
+        String(center_lat).trim() !== '' &&
+        String(center_lng).trim() !== ''
+      const lat = hasCoords ? parseFloat(center_lat!) : 39.0
+      const lng = hasCoords ? parseFloat(center_lng!) : 35.0
+      const query = hasCoords
+        ? 'tourist_attraction'
+        : `${district_name} ${region_name ?? ''} en popüler turistik yer görülecek gezilecek`
+      const radiusM = hasCoords ? 25_000 : 60_000
 
-        type PlaceRow = {
-          name: string
-          address: string
-          types: string[]
-          rating?: number
-          placeId: string
-          photoRef?: string
-          lat: number
-          lng: number
-          distanceKm: number
+      type PlaceRow = {
+        name: string
+        address: string
+        types: string[]
+        rating?: number
+        placeId: string
+        photoRef?: string
+        lat: number
+        lng: number
+        distanceKm: number
+      }
+      let ideas: Array<{
+        id: number; title: string; summary: string
+        image?: string; link?: string
+        lat: number; lng: number; place_id: string
+        distance_km_from_district: number
+      }> = []
+      try {
+        const placesRes = await fetch('/api/places-nearby', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat,
+            lng,
+            googleType: query,
+            radiusM,
+            maxCount: 10,
+            language: 'tr',
+            apiKey: key,
+          }),
+        })
+        if (placesRes.ok) {
+          const pd = await placesRes.json() as { places: PlaceRow[] }
+          ideas = (pd.places ?? []).map((p, i) => ({
+            id: i + 1,
+            title: p.name,
+            summary: [
+              p.address,
+              p.rating ? `Puan: ${p.rating}/5` : '',
+              (p.types ?? [])
+                .filter((t) => !['point_of_interest', 'establishment'].includes(t))
+                .slice(0, 2)
+                .map((t) => t.replace(/_/g, ' '))
+                .join(', '),
+            ]
+              .filter(Boolean)
+              .join(' — '),
+            image: p.photoRef
+              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${key}`
+              : undefined,
+            link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
+            lat: p.lat,
+            lng: p.lng,
+            place_id: p.placeId,
+            distance_km_from_district: Math.round(p.distanceKm * 10) / 10,
+          }))
+        } else {
+          let detail = `${placesRes.status}`
+          try {
+            const errJson = (await placesRes.json()) as { error?: string }
+            if (errJson?.error) detail = errJson.error
+          } catch {
+            /* ignore */
+          }
+          setMapsLog((l) => [...l, `⚠ Maps yanıtı (${district_name}): ${detail}`])
         }
-        let ideas: Array<{
-          id: number; title: string; summary: string
-          image?: string; link?: string
-          lat: number; lng: number; place_id: string
-          distance_km_from_district: number
-        }> = []
-        try {
-          const placesRes = await fetch('/api/places-nearby', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+      } catch {
+        setMapsLog((l) => [...l, `⚠ Maps hatası: ${district_name}, atlandı`])
+        return true
+      }
+
+      if (ideas.length > 0) {
+        await saveDistrictPlaces(token, location_page_id, JSON.stringify(ideas))
+        processed++
+        setMapsLog((l) => [...l, `#${processed} ✓ ${district_name} (${region_name}) — ${ideas.length} yer`])
+      } else {
+        await saveDistrictPlaces(
+          token,
+          location_page_id,
+          JSON.stringify([{ id: 1, title: district_name, summary: `${region_name} iline bağlı ${district_name} ilçesi.` }]),
+        )
+        setMapsLog((l) => [...l, `#${processed + 1} ~ ${district_name} — Maps sonucu yok, yer tutucu eklendi`])
+        processed++
+      }
+
+      if (mapsAlsoWriteRegionPlaces && hasCoords && slug_path) {
+        const regionSlug = regionPlacesSlugFromSlugPath(slug_path)
+        if (regionSlug && !mapsStopRef.current) {
+          try {
+            const payload = await buildRegionPlaceDataFromGoogleDefaults({
+              regionName: [district_name, region_name].filter(Boolean).join(', '),
+              regionSlug,
               lat,
               lng,
-              googleType: query,
-              radiusM,
-              maxCount: 10,
-              language: 'tr',
               apiKey: key,
-            }),
-          })
-          if (placesRes.ok) {
-            const pd = await placesRes.json() as { places: PlaceRow[] }
-            ideas = (pd.places ?? []).map((p, i) => ({
-              id: i + 1,
-              title: p.name,
-              summary: [
-                p.address,
-                p.rating ? `Puan: ${p.rating}/5` : '',
-                (p.types ?? [])
-                  .filter((t) => !['point_of_interest', 'establishment'].includes(t))
-                  .slice(0, 2)
-                  .map((t) => t.replace(/_/g, ' '))
-                  .join(', '),
-              ]
-                .filter(Boolean)
-                .join(' — '),
-              image: p.photoRef
-                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${key}`
-                : undefined,
-              link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
-              lat: p.lat,
-              lng: p.lng,
-              place_id: p.placeId,
-              distance_km_from_district: Math.round(p.distanceKm * 10) / 10,
-            }))
-          } else {
-            let detail = `${placesRes.status}`
-            try {
-              const errJson = (await placesRes.json()) as { error?: string }
-              if (errJson?.error) detail = errJson.error
-            } catch {
-              /* ignore */
+              locale: 'tr',
+            })
+            const pr = await postRegionPlacesJson(payload)
+            if (pr.ok) {
+              setMapsLog((l) => [...l, `   ↳ vitrin JSON kaydedildi (${regionSlug})`])
+            } else {
+              setMapsLog((l) => [...l, `   ↳ vitrin kayıt hatası: ${pr.error ?? '?'}`])
             }
-            setMapsLog((l) => [...l, `⚠ Maps yanıtı (${district_name}): ${detail}`])
-          }
-        } catch {
-          setMapsLog((l) => [...l, `⚠ Maps hatası: ${district_name}, atlandı`])
-          continue
-        }
-
-        // 3. Kaydet (boş bile olsa '[]' kaydedilmez; en az 1 yer varsa kaydet)
-        if (ideas.length > 0) {
-          await saveDistrictPlaces(token, location_page_id, JSON.stringify(ideas))
-          processed++
-          setMapsLog((l) => [...l, `#${processed} ✓ ${district_name} (${region_name}) — ${ideas.length} yer`])
-        } else {
-          // İçerik bulunamadı: sonsuz döngüye girmemek için '[]' yerine placeholder kaydet
-          await saveDistrictPlaces(
-            token,
-            location_page_id,
-            JSON.stringify([{ id: 1, title: district_name, summary: `${region_name} iline bağlı ${district_name} ilçesi.` }]),
-          )
-          setMapsLog((l) => [...l, `#${processed + 1} ~ ${district_name} — Maps sonucu yok, yer tutucu eklendi`])
-          processed++
-        }
-
-        if (mapsAlsoWriteRegionPlaces && hasCoords && slug_path) {
-          const regionSlug = regionPlacesSlugFromSlugPath(slug_path)
-          if (regionSlug && !mapsStopRef.current) {
-            try {
-              const payload = await buildRegionPlaceDataFromGoogleDefaults({
-                regionName: [district_name, region_name].filter(Boolean).join(', '),
-                regionSlug,
-                lat,
-                lng,
-                apiKey: key,
-                locale: 'tr',
-              })
-              const pr = await postRegionPlacesJson(payload)
-              if (pr.ok) {
-                setMapsLog((l) => [...l, `   ↳ vitrin JSON kaydedildi (${regionSlug})`])
-              } else {
-                setMapsLog((l) => [...l, `   ↳ vitrin kayıt hatası: ${pr.error ?? '?'}`])
-              }
-            } catch (ve) {
-              setMapsLog((l) => [
-                ...l,
-                `   ↳ vitrin üretim hatası: ${ve instanceof Error ? ve.message : String(ve)}`,
-              ])
-            }
+          } catch (ve) {
+            setMapsLog((l) => [
+              ...l,
+              `   ↳ vitrin üretim hatası: ${ve instanceof Error ? ve.message : String(ve)}`,
+            ])
           }
         }
+      }
 
-        if (processed % 20 === 0) await loadDistrictStats()
-        await new Promise((res) => setTimeout(res, 500))
+      if (processed % 20 === 0) await loadDistrictStats()
+      await new Promise((res) => setTimeout(res, 500))
+      return true
+    }
+    try {
+      if (!opts.untilDone) {
+        await runMapsOnce()
+        setMapsLog((l) => [...l, 'Tek adım bitti.'])
+      } else {
+        while (!mapsStopRef.current) {
+          const more = await runMapsOnce()
+          if (!more) break
+        }
       }
     } catch (e) {
       setMapsErr(formatManageApiCatch(e, 'maps_process_failed'))
@@ -726,7 +771,8 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartPexelsProcessing() {
+  async function onStartPexelsProcessing(opts?: { untilDone?: boolean }) {
+    const untilDone = opts?.untilDone ?? true
     const token = getStoredAuthToken()
     if (!token) return
     const activeKeys = pexelsApiKeys.map((k) => k.trim()).filter(Boolean)
@@ -739,7 +785,6 @@ export default function AdminAiSection() {
     setPexelsLog([])
     pexelsStopRef.current = false
     pexelsKeyIndexRef.current = 0
-    // Her istekte sıradaki key'i kullan (round-robin)
     const nextKey = () => {
       const k = activeKeys[pexelsKeyIndexRef.current % activeKeys.length]
       pexelsKeyIndexRef.current++
@@ -747,14 +792,19 @@ export default function AdminAiSection() {
     }
     try {
       let done = 0
-      while (!pexelsStopRef.current) {
+      setPexelsLog((l) => [
+        ...l,
+        untilDone
+          ? 'Onaylı mod: kapaksız lokasyon kalmayıncaya veya «Durdur»a basana kadar devam.'
+          : 'Tek adım: sıradaki bir lokasyon için kapak denemesi.',
+      ])
+      const runPexelsOnce = async (): Promise<boolean> => {
         const next = await getNextNoCoverDistrict(token)
         if (next.done) {
           setPexelsLog((l) => [...l, 'Tüm lokasyon kapak resimleri tamamlandı.'])
-          break
+          return false
         }
         const { location_page_id, location_name, parent_name, region_type } = next
-        // Arama sorgusunu lokasyon tipine göre oluştur (3 kademeli fallback)
         const queries =
           region_type === 'country'
             ? [`${location_name} landscape travel`, `${location_name} nature`, 'Turkey landscape']
@@ -794,6 +844,17 @@ export default function AdminAiSection() {
           setPexelsLog((l) => [...l, `– ${location_name}: resim bulunamadı, atlandı`])
         }
         await new Promise((r) => setTimeout(r, 350))
+        return true
+      }
+
+      if (!untilDone) {
+        await runPexelsOnce()
+        setPexelsLog((l) => [...l, 'Tek adım bitti.'])
+      } else {
+        while (!pexelsStopRef.current) {
+          const more = await runPexelsOnce()
+          if (!more) break
+        }
       }
     } catch (e) {
       setPexelsErr(formatManageApiCatch(e, 'pexels_process_failed'))
@@ -1230,12 +1291,22 @@ export default function AdminAiSection() {
             1. Kuyruğa Al
           </ButtonPrimary>
           {!districtRunning ? (
-            <ButtonPrimary
-              type="button"
-              onClick={() => void onStartProcessing()}
-            >
-              2. İşlemi Başlat
-            </ButtonPrimary>
+            <>
+              <button
+                type="button"
+                onClick={() => void onStartProcessing({ untilDone: false })}
+                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                2a. Tek adım
+              </button>
+              <ButtonPrimary
+                type="button"
+                onClick={() => void onStartProcessing({ untilDone: true })}
+                className="bg-emerald-700 hover:bg-emerald-800"
+              >
+                2b. Bitene kadar sürdür
+              </ButtonPrimary>
+            </>
           ) : (
             <button
               type="button"
@@ -1254,6 +1325,9 @@ export default function AdminAiSection() {
             İstatistik Yenile
           </button>
         </div>
+        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          Tek adım: yalnızca bir kuyruk işlemi dener. Bitene kadar sürdür: kuyruk boşalana veya «Durdur»a basana dek otomatik devam eder (uzun sürebilir; maliyet ve kota için bilinçli seçim).
+        </p>
 
         {districtLog.length > 0 ? (
           <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
@@ -1372,13 +1446,23 @@ export default function AdminAiSection() {
             1. Bölge İçeriklerini Kuyruğa Al
           </ButtonPrimary>
           {!regionContentRunning ? (
-            <ButtonPrimary
-              type="button"
-              disabled={placeBlogsRunning}
-              onClick={() => void onStartRegionContentProcessing()}
-            >
-              2. Yazmaya Başlat
-            </ButtonPrimary>
+            <>
+              <button
+                type="button"
+                disabled={placeBlogsRunning}
+                onClick={() => void onStartRegionContentProcessing({ untilDone: false })}
+                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                2a. Tek dalga
+              </button>
+              <ButtonPrimary
+                type="button"
+                disabled={placeBlogsRunning}
+                onClick={() => void onStartRegionContentProcessing({ untilDone: true })}
+              >
+                2b. Bitene kadar sürdür
+              </ButtonPrimary>
+            </>
           ) : (
             <button
               type="button"
@@ -1397,13 +1481,23 @@ export default function AdminAiSection() {
             Mekan Bloglarını Kuyruğa Al
           </ButtonPrimary>
           {!placeBlogsRunning ? (
-            <ButtonPrimary
-              type="button"
-              disabled={regionContentRunning}
-              onClick={() => void onStartPlaceBlogsProcessing()}
-            >
-              Mekan Bloglarını Yaz
-            </ButtonPrimary>
+            <>
+              <button
+                type="button"
+                disabled={regionContentRunning}
+                onClick={() => void onStartPlaceBlogsProcessing({ untilDone: false })}
+                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                Tek dalga
+              </button>
+              <ButtonPrimary
+                type="button"
+                disabled={regionContentRunning}
+                onClick={() => void onStartPlaceBlogsProcessing({ untilDone: true })}
+              >
+                Bitene kadar sürdür
+              </ButtonPrimary>
+            </>
           ) : (
             <button
               type="button"
@@ -1422,6 +1516,9 @@ export default function AdminAiSection() {
             İstatistik Yenile
           </button>
         </div>
+        <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+          Paralel işçi sayısına göre «Tek dalga»: her işçi bir kez iş alır; «Bitene kadar sürdür»: kuyruk boşalana dek döner.
+        </p>
 
         {opsLog.length > 0 ? (
           <div className="mb-4 max-h-40 overflow-y-auto rounded-xl border border-violet-100 bg-violet-50/60 p-3 dark:border-violet-900/60 dark:bg-violet-950/20">
@@ -1516,13 +1613,22 @@ export default function AdminAiSection() {
 
         <div className="flex flex-wrap gap-3">
           {!mapsRunning ? (
-            <ButtonPrimary
-              type="button"
-              onClick={() => void onStartMapsProcessing()}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Google Maps&apos;ten Çek
-            </ButtonPrimary>
+            <>
+              <button
+                type="button"
+                onClick={() => void onStartMapsProcessing({ untilDone: false })}
+                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                Tek ilçe
+              </button>
+              <ButtonPrimary
+                type="button"
+                onClick={() => void onStartMapsProcessing({ untilDone: true })}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                Bitene kadar sürdür
+              </ButtonPrimary>
+            </>
           ) : (
             <button
               type="button"
@@ -1539,6 +1645,9 @@ export default function AdminAiSection() {
             </span>
           ) : null}
         </div>
+        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          Tek ilçe: sıradaki kaydı bir kez işler. Bitene kadar sürdür: içeriksiz ilçe kalmayıncaya veya «Durdur»a basana dek Google kota kullanımına devam eder.
+        </p>
 
         {mapsLog.length > 0 ? (
           <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">
@@ -1588,12 +1697,19 @@ export default function AdminAiSection() {
         <div className="mt-4 flex flex-wrap gap-3">
           {!pexelsRunning ? (
             <>
+              <button
+                type="button"
+                onClick={() => void onStartPexelsProcessing({ untilDone: false })}
+                className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                Tek lokasyon
+              </button>
               <ButtonPrimary
                 type="button"
-                onClick={() => void onStartPexelsProcessing()}
+                onClick={() => void onStartPexelsProcessing({ untilDone: true })}
                 className="bg-pink-600 hover:bg-pink-700"
               >
-                Pexels&apos;ten Resim Çek
+                Bitene kadar sürdür
               </ButtonPrimary>
               {coverStats && coverStats.not_found > 0 && (
                 <button
@@ -1604,7 +1720,7 @@ export default function AdminAiSection() {
                     try {
                       const r = await resetNotFoundCovers(token)
                       setPexelsLog([`↺ ${r.reset_count} lokasyon sıfırlandı, yeniden deneniyor…`])
-                      void onStartPexelsProcessing()
+                      void onStartPexelsProcessing({ untilDone: true })
                     } catch (e) {
                       setPexelsErr(formatManageApiCatch(e, 'reset_failed'))
                     }
@@ -1631,6 +1747,9 @@ export default function AdminAiSection() {
             </span>
           )}
         </div>
+        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          Tek lokasyon: sıradaki kapaksız kayıt için bir deneme. Bitene kadar sürdür: tüm sıra işlenene veya «Durdur»a basılana dek devam eder (saatlik Pexels kota).
+        </p>
 
         {pexelsLog.length > 0 && (
           <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">

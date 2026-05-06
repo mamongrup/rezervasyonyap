@@ -269,12 +269,95 @@ pub fn process_next(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn fail_batch(ctx: Context, batch_id: String, msg: String) -> Response {
+fn mark_geo_batch_failed(ctx: Context, batch_id: String) -> Nil {
   let _ =
     pog.query("update ai_geo_blog_batches set status = 'failed' where id = $1::uuid")
     |> pog.parameter(pog.text(batch_id))
     |> pog.execute(ctx.db)
+  Nil
+}
+
+fn fail_batch(ctx: Context, batch_id: String, msg: String) -> Response {
+  mark_geo_batch_failed(ctx, batch_id)
   json_err(500, msg)
+}
+
+/// Sunucu worker (`ai_worker_http`): tek bir `ai_geo_blog_batches` öğesini çalıştırır.
+pub fn worker_try_region_geo_batch(ctx: Context) -> Result(Bool, String) {
+  let pick_sql =
+    "
+    update ai_geo_blog_batches
+    set status = 'running'
+    where id = (
+      select id from ai_geo_blog_batches
+      where status = 'pending'
+      order by id
+      limit 1
+    )
+    returning id::text, location_page_id::text, category_slug, posts_to_create
+    "
+  case pog.query(pick_sql) |> pog.returning(batch_row()) |> pog.execute(ctx.db) {
+    Error(_) -> Error("region_content_pick_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> Ok(False)
+        [batch] ->
+          case run_geo_batch_core(ctx, batch) {
+            Ok(_) -> Ok(True)
+            Error(e) -> Error(e)
+          }
+        _ -> Error("region_content_unexpected_batch_rows")
+      }
+  }
+}
+
+fn run_geo_batch_core(ctx: Context, batch: #(String, String, String, Int)) -> Result(#(Int, Bool), String) {
+  let #(batch_id, lp_id, cat_slug, posts_to_create) = batch
+  case load_location(ctx, lp_id) {
+    Error(_) -> {
+      mark_geo_batch_failed(ctx, batch_id)
+      Error("region_content_location_not_found")
+    }
+    Ok(loc) -> run_geo_batch_from_loc(ctx, batch_id, cat_slug, posts_to_create, loc)
+  }
+}
+
+fn run_geo_batch_from_loc(
+  ctx: Context,
+  batch_id: String,
+  cat_slug: String,
+  posts_to_create: Int,
+  loc: #(String, String, String, String, String, String, String, String),
+) -> Result(#(Int, Bool), String) {
+  case ensure_region_description(ctx, loc) {
+    Error(e) -> {
+      mark_geo_batch_failed(ctx, batch_id)
+      Error(e)
+    }
+    Ok(description_text) -> {
+      let description_written = string.length(string.trim(description_text)) > 0
+      case ensure_blog_category(ctx, cat_slug) {
+        Error(_) -> {
+          mark_geo_batch_failed(ctx, batch_id)
+          Error("region_content_category_failed")
+        }
+        Ok(category_id) ->
+          case generate_blog_posts(ctx, loc, category_id, posts_to_create, 1) {
+            Error(e) -> {
+              mark_geo_batch_failed(ctx, batch_id)
+              Error(e)
+            }
+            Ok(created_count) -> {
+              let _ =
+                pog.query("update ai_geo_blog_batches set status = 'done' where id = $1::uuid")
+                |> pog.parameter(pog.text(batch_id))
+                |> pog.execute(ctx.db)
+              Ok(#(created_count, description_written))
+            }
+          }
+      }
+    }
+  }
 }
 
 fn run_batch(ctx: Context, batch: #(String, String, String, Int)) -> Response {
@@ -282,40 +365,32 @@ fn run_batch(ctx: Context, batch: #(String, String, String, Int)) -> Response {
   case load_location(ctx, lp_id) {
     Error(_) -> fail_batch(ctx, batch_id, "region_content_location_not_found")
     Ok(loc) -> {
-      let #(id, slug_path, region_type, name, region_name, country_name, old_description, ideas_json) = loc
-      case ensure_region_description(ctx, loc) {
-        Error(e) -> fail_batch(ctx, batch_id, e)
-        Ok(description_text) ->
-          case ensure_blog_category(ctx, cat_slug) {
-            Error(_) -> fail_batch(ctx, batch_id, "region_content_category_failed")
-            Ok(category_id) ->
-              case generate_blog_posts(ctx, loc, category_id, posts_to_create, 1) {
-                Error(e) -> fail_batch(ctx, batch_id, e)
-                Ok(created_count) -> {
-                  let _ =
-                    pog.query("update ai_geo_blog_batches set status = 'done' where id = $1::uuid")
-                    |> pog.parameter(pog.text(batch_id))
-                    |> pog.execute(ctx.db)
-                  let body =
-                    json.object([
-                      #("done", json.bool(False)),
-                      #("batch_id", json.string(batch_id)),
-                      #("location_page_id", json.string(id)),
-                      #("slug_path", json.string(slug_path)),
-                      #("region_type", json.string(region_type)),
-                      #("name", json.string(name)),
-                      #("region_name", json.string(region_name)),
-                      #("country_name", json.string(country_name)),
-                      #("had_description", json.bool(string.length(string.trim(old_description)) > 120)),
-                      #("description_written", json.bool(string.length(string.trim(description_text)) > 0)),
-                      #("ideas_context_chars", json.int(string.length(ideas_json))),
-                      #("blog_posts_created", json.int(created_count)),
-                    ])
-                    |> json.to_string
-                  wisp.json_response(body, 200)
-                }
-              }
-          }
+      let #(id, slug_path, region_type, name, region_name, country_name, old_description, ideas_json) =
+        loc
+      case run_geo_batch_from_loc(ctx, batch_id, cat_slug, posts_to_create, loc) {
+        Error(msg) -> json_err(500, msg)
+        Ok(#(created_count, description_written)) -> {
+          let body =
+            json.object([
+              #("done", json.bool(False)),
+              #("batch_id", json.string(batch_id)),
+              #("location_page_id", json.string(id)),
+              #("slug_path", json.string(slug_path)),
+              #("region_type", json.string(region_type)),
+              #("name", json.string(name)),
+              #("region_name", json.string(region_name)),
+              #("country_name", json.string(country_name)),
+              #(
+                "had_description",
+                json.bool(string.length(string.trim(old_description)) > 120),
+              ),
+              #("description_written", json.bool(description_written)),
+              #("ideas_context_chars", json.int(string.length(ideas_json))),
+              #("blog_posts_created", json.int(created_count)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
       }
     }
   }
@@ -737,47 +812,114 @@ pub fn process_next_place_blog(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn run_place_blog_batch(ctx: Context, batch: #(String, String, Int)) -> Response {
-  let #(batch_id, lp_id, posts_to_create) = batch
-  case load_location(ctx, lp_id) {
-    Error(_) -> fail_place_blog_batch(ctx, batch_id, "place_blog_location_not_found")
-    Ok(loc) ->
-      case ensure_blog_category(ctx, place_category_slug) {
-        Error(_) -> fail_place_blog_batch(ctx, batch_id, "place_blog_category_failed")
-        Ok(category_id) ->
-          case generate_place_blog_posts(ctx, loc, category_id, posts_to_create, 1) {
-            Error(e) -> fail_place_blog_batch(ctx, batch_id, e)
-            Ok(created_count) -> {
-              let #(id, slug_path, region_type, name, _region_name, _country_name, _description, ideas_json) = loc
-              let _ =
-                pog.query("update ai_place_blog_batches set status = 'done' where id = $1::uuid")
-                |> pog.parameter(pog.text(batch_id))
-                |> pog.execute(ctx.db)
-              let body =
-                json.object([
-                  #("done", json.bool(False)),
-                  #("batch_id", json.string(batch_id)),
-                  #("location_page_id", json.string(id)),
-                  #("slug_path", json.string(slug_path)),
-                  #("region_type", json.string(region_type)),
-                  #("name", json.string(name)),
-                  #("ideas_context_chars", json.int(string.length(ideas_json))),
-                  #("blog_posts_created", json.int(created_count)),
-                ])
-                |> json.to_string
-              wisp.json_response(body, 200)
-            }
-          }
-      }
-  }
+fn fail_place_blog_batch(ctx: Context, batch_id: String, msg: String) -> Response {
+  mark_place_blog_failed(ctx, batch_id)
+  json_err(500, msg)
 }
 
-fn fail_place_blog_batch(ctx: Context, batch_id: String, msg: String) -> Response {
+fn mark_place_blog_failed(ctx: Context, batch_id: String) -> Nil {
   let _ =
     pog.query("update ai_place_blog_batches set status = 'failed' where id = $1::uuid")
     |> pog.parameter(pog.text(batch_id))
     |> pog.execute(ctx.db)
-  json_err(500, msg)
+  Nil
+}
+
+/// Sunucu worker (`ai_worker_http`): tek bir `ai_place_blog_batches` öğesini çalıştırır.
+pub fn worker_try_place_blog_batch(ctx: Context) -> Result(Bool, String) {
+  let pick_sql =
+    "
+    update ai_place_blog_batches
+    set status = 'running'
+    where id = (
+      select id from ai_place_blog_batches
+      where status = 'pending'
+      order by id
+      limit 1
+    )
+    returning id::text, location_page_id::text, posts_to_create
+    "
+  case pog.query(pick_sql) |> pog.returning(place_batch_row()) |> pog.execute(ctx.db) {
+    Error(_) -> Error("place_blog_pick_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> Ok(False)
+        [batch] ->
+          case run_place_blog_core(ctx, batch) {
+            Ok(_) -> Ok(True)
+            Error(e) -> Error(e)
+          }
+        _ -> Error("place_blog_unexpected_batch_rows")
+      }
+  }
+}
+
+fn run_place_blog_core(ctx: Context, batch: #(String, String, Int)) -> Result(Int, String) {
+  let #(batch_id, lp_id, posts_to_create) = batch
+  case load_location(ctx, lp_id) {
+    Error(_) -> {
+      mark_place_blog_failed(ctx, batch_id)
+      Error("place_blog_location_not_found")
+    }
+    Ok(loc) -> run_place_blog_from_loc(ctx, batch_id, posts_to_create, loc)
+  }
+}
+
+fn run_place_blog_from_loc(
+  ctx: Context,
+  batch_id: String,
+  posts_to_create: Int,
+  loc: #(String, String, String, String, String, String, String, String),
+) -> Result(Int, String) {
+  case ensure_blog_category(ctx, place_category_slug) {
+    Error(_) -> {
+      mark_place_blog_failed(ctx, batch_id)
+      Error("place_blog_category_failed")
+    }
+    Ok(category_id) ->
+      case generate_place_blog_posts(ctx, loc, category_id, posts_to_create, 1) {
+        Error(e) -> {
+          mark_place_blog_failed(ctx, batch_id)
+          Error(e)
+        }
+        Ok(created_count) -> {
+          let _ =
+            pog.query("update ai_place_blog_batches set status = 'done' where id = $1::uuid")
+            |> pog.parameter(pog.text(batch_id))
+            |> pog.execute(ctx.db)
+          Ok(created_count)
+        }
+      }
+  }
+}
+
+fn run_place_blog_batch(ctx: Context, batch: #(String, String, Int)) -> Response {
+  let #(batch_id, lp_id, posts_to_create) = batch
+  case load_location(ctx, lp_id) {
+    Error(_) -> fail_place_blog_batch(ctx, batch_id, "place_blog_location_not_found")
+    Ok(loc) -> {
+      let #(id, slug_path, region_type, name, _region_name, _country_name, _description, ideas_json) =
+        loc
+      case run_place_blog_from_loc(ctx, batch_id, posts_to_create, loc) {
+        Error(e) -> json_err(500, e)
+        Ok(created_count) -> {
+          let body =
+            json.object([
+              #("done", json.bool(False)),
+              #("batch_id", json.string(batch_id)),
+              #("location_page_id", json.string(id)),
+              #("slug_path", json.string(slug_path)),
+              #("region_type", json.string(region_type)),
+              #("name", json.string(name)),
+              #("ideas_context_chars", json.int(string.length(ideas_json))),
+              #("blog_posts_created", json.int(created_count)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+    }
+  }
 }
 
 fn generate_place_blog_posts(ctx: Context, loc: #(String, String, String, String, String, String, String, String), category_id: String, total: Int, index: Int) -> Result(Int, String) {
