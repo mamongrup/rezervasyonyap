@@ -19,25 +19,10 @@ import gleam/result
 import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
+import travel/db/pog_errors
 import wisp.{type Request, type Response}
 
 const platform_org_id: String = "a0000000-0000-4000-8000-000000000001"
-
-fn query_error_debug(e: pog.QueryError) -> String {
-  case e {
-    pog.PostgresqlError(code, name, message) -> code <> " " <> name <> ": " <> message
-    pog.ConstraintViolated(m, c, d) -> "constraint " <> m <> " " <> c <> " " <> d
-    pog.UnexpectedArgumentCount(expected, got) ->
-      "unexpected_arg_count "
-      <> int.to_string(expected)
-      <> " "
-      <> int.to_string(got)
-    pog.UnexpectedArgumentType(exp, got) -> "unexpected_arg_type " <> exp <> " " <> got
-    pog.UnexpectedResultType(_) -> "unexpected_result_type_decode"
-    pog.QueryTimeout -> "query_timeout"
-    pog.ConnectionUnavailable -> "connection_unavailable"
-  }
-}
 
 fn json_err(status: Int, msg: String) -> Response {
   let body =
@@ -252,7 +237,9 @@ fn new_session_response(
     |> pog.execute(ctx.db)
   {
     Error(e) -> {
-      io.println("user_sessions insert failed: " <> query_error_debug(e))
+      io.println(
+        "user_sessions insert failed: " <> pog_errors.query_error_to_string(e),
+      )
       case e {
         pog.ConnectionUnavailable -> json_err(500, "db_connection_failed")
         _ -> json_err(500, "session_create_failed")
@@ -393,7 +380,11 @@ pub fn forgot_password(req: Request, ctx: Context) -> Response {
             |> pog.execute(ctx.db)
           {
             Error(e) -> {
-              let _ = io.println("forgot_password users select: " <> query_error_debug(e))
+              let _ =
+                io.println(
+                  "forgot_password users select: "
+                  <> pog_errors.query_error_to_string(e),
+                )
               json_err(500, "db_error")
             }
             Ok(ret) ->
@@ -519,7 +510,10 @@ fn do_login(ctx: Context, email: String, password: String) -> Response {
     |> pog.execute(ctx.db)
   {
     Error(e) -> {
-      let _ = io.println("login users select: " <> query_error_debug(e))
+      let _ =
+                io.println(
+                  "login users select: " <> pog_errors.query_error_to_string(e),
+                )
       json_err(500, "login_query_failed")
     }
     Ok(qr) ->

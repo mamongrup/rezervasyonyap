@@ -14,6 +14,7 @@ import gleam/result
 import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
+import travel/db/pog_errors
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -397,7 +398,10 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.execute(ctx.db)
   {
     Error(e) -> {
-      io.debug(#("catalog.public.listings.query_failed", e))
+      let _ =
+        io.println(
+          "[catalog.public.listings] " <> pog_errors.query_error_to_string(e),
+        )
       json_err(500, "search_failed")
     }
     Ok(ret) -> {
