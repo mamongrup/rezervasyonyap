@@ -23,6 +23,8 @@ interface MapPickerProps {
   zoom?: number
   onChange: (lat: string, lng: string) => void
   className?: string
+  /** Places otomatik tamamlama için ülke kodu (örn. `tr`). Boş string = kısıt yok. */
+  placesCountry?: string
 }
 
 // ─── Suppress Google Maps billing console errors in dev overlay ───────────────
@@ -36,11 +38,19 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function MapPicker({ lat, lng, zoom = 12, onChange, className }: MapPickerProps) {
+export default function MapPicker({
+  lat,
+  lng,
+  zoom = 12,
+  onChange,
+  className,
+  placesCountry = 'tr',
+}: MapPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstance = useRef<any>(null)
   const markerRef = useRef<any>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const onChangeRef = useRef(onChange)
   const [ready, setReady] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -57,6 +67,10 @@ export default function MapPicker({ lat, lng, zoom = 12, onChange, className }: 
       .then((d: { apiKey?: string }) => { if (d.apiKey) setApiKey(d.apiKey) })
       .catch(() => undefined)
   }, [apiKey])
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google) return
@@ -139,6 +153,50 @@ export default function MapPicker({ lat, lng, zoom = 12, onChange, className }: 
       mapInstance.current.panTo(pos)
     }
   }, [lat, lng, ready])
+
+  // Google Places Autocomplete — harita üstündeki arama kutusunda yazarken öneriler
+  useEffect(() => {
+    if (!ready || mapError || typeof window === 'undefined') return
+    const places = window.google?.maps?.places
+    if (!places || !searchRef.current) return
+
+    const input = searchRef.current
+    const acOpts: {
+      types: string[]
+      fields: string[]
+      componentRestrictions?: { country: string }
+    } = {
+      types: ['geocode', 'establishment'],
+      fields: ['geometry', 'formatted_address', 'name'],
+    }
+    if (placesCountry.trim()) {
+      acOpts.componentRestrictions = { country: placesCountry.trim().toLowerCase() }
+    }
+
+    const ac = new window.google.maps.places.Autocomplete(input, acOpts)
+    const lid = ac.addListener('place_changed', () => {
+      const place = ac.getPlace()
+      if (!place.geometry?.location) return
+      const la = place.geometry.location.lat()
+      const lo = place.geometry.location.lng()
+      const addr = place.formatted_address ?? place.name ?? ''
+      setSearchQuery(addr)
+      const map = mapInstance.current
+      const marker = markerRef.current
+      if (map && marker) {
+        map.setCenter({ lat: la, lng: lo })
+        map.setZoom(15)
+        marker.setPosition({ lat: la, lng: lo })
+        marker.setVisible(true)
+      }
+      onChangeRef.current(la.toFixed(6), lo.toFixed(6))
+    })
+
+    return () => {
+      window.google.maps.event.removeListener(lid)
+      window.google.maps.event.clearInstanceListeners(ac)
+    }
+  }, [ready, mapError, placesCountry])
 
   const handleSearch = async () => {
     if (!searchQuery.trim() || !window.google || !mapInstance.current) return
@@ -231,7 +289,7 @@ export default function MapPicker({ lat, lng, zoom = 12, onChange, className }: 
               rel="noopener noreferrer"
               className="text-xs text-[color:var(--manage-primary)] hover:underline"
             >
-              Google Maps'te aç ↗
+              Google Maps&apos;te aç ↗
             </a>
           )}
         </div>
@@ -331,7 +389,7 @@ export default function MapPicker({ lat, lng, zoom = 12, onChange, className }: 
             rel="noopener noreferrer"
             className="text-xs text-[color:var(--manage-primary)] hover:underline"
           >
-            Google Maps'te aç ↗
+            Google Maps&apos;te aç ↗
           </a>
         </div>
       )}
