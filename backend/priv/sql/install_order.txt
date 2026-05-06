@@ -118,6 +118,7 @@ modules/273_fix_turkey_region_district_names.sql
 modules/274_site_settings_platform_key_dedupe.sql
 modules/275_location_pages_nearby_vitrin_columns.sql
 modules/276_listings_vitrin_columns.sql
+modules/277_manage_catalog_holiday_home_hub_i18n.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

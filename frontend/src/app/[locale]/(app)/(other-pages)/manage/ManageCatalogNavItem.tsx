@@ -42,6 +42,18 @@ function subItems(base: string, code: string, t: (k: string) => string) {
     { href: `${p}/listings`, label: t('catalog.hub_all_listings') || 'İlanlar' },
     { href: `${p}/listings/new`, label: t('catalog.hub_new_listing') || 'Yeni ilan' },
     { href: `${p}/attributes`, label: t('catalog.hub_attributes') || 'Öznitelikler' },
+    ...(code === 'holiday_home'
+      ? [
+          {
+            href: `${p}/property-types`,
+            label: manageTOr(t, 'catalog.hub_holiday_home_property_types', 'Tatil evi tipi'),
+          },
+          {
+            href: `${p}/theme-presets`,
+            label: manageTOr(t, 'catalog.hub_holiday_home_theme_presets', 'Tatil evi teması'),
+          },
+        ]
+      : []),
     {
       href: `${p}/price-inclusions`,
       label: manageTOr(t, 'catalog.hub_price_inclusions', 'Dahil / Hariç'),

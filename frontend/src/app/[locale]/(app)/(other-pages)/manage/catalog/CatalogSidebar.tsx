@@ -87,6 +87,12 @@ export default function CatalogSidebar() {
         { href: `${p}/listings`, label: t('catalog.hub_all_listings') },
         { href: `${p}/listings/new`, label: t('catalog.hub_new_listing') },
         { href: `${p}/attributes`, label: t('catalog.hub_attributes') },
+        ...(code === 'holiday_home'
+          ? [
+              { href: `${p}/property-types`, label: t('catalog.hub_holiday_home_property_types') },
+              { href: `${p}/theme-presets`, label: t('catalog.hub_holiday_home_theme_presets') },
+            ]
+          : []),
         { href: `${p}/price-inclusions`, label: 'Dahil / Hariç' },
         { href: `${p}/accommodation-rules`, label: 'Kurallar' },
       ]

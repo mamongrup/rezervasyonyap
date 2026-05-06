@@ -50,6 +50,28 @@ function filterByFacet(
   return items.filter((i) => allow.has(i.code))
 }
 
+/** Vitrin — auth gerekmez; facet filtresi yok (tatil evi vb. tüm aktif kodlar). */
+export async function listPublicCategoryThemeItems(params: {
+  categoryCode: string
+  locale: string
+}): Promise<{ items: { code: string; label: string }[] }> {
+  const q = new URLSearchParams({
+    category_code: params.categoryCode,
+    locale: params.locale,
+  })
+  try {
+    const res = await fetch(apiV1(`/catalog/public/theme-items?${q}`), {
+      method: 'GET',
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+    })
+    const data = await readJson<{ items?: { code: string; label: string }[] }>(res)
+    return { items: Array.isArray(data?.items) ? data!.items! : [] }
+  } catch {
+    return { items: [] }
+  }
+}
+
 /** Vitrin — auth gerekmez */
 export async function listPublicThemeItems(params: {
   categoryCode: string

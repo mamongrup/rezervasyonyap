@@ -13,14 +13,38 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
 
   const links: {
     href: string
-    labelKey?: 'catalog.hub_all_listings' | 'catalog.hub_new_listing' | 'catalog.hub_attributes'
-    noteKey?: 'catalog.hub_note_list' | 'catalog.hub_note_new' | 'catalog.hub_note_attr'
+    labelKey?:
+      | 'catalog.hub_all_listings'
+      | 'catalog.hub_new_listing'
+      | 'catalog.hub_attributes'
+      | 'catalog.hub_holiday_home_property_types'
+      | 'catalog.hub_holiday_home_theme_presets'
+    noteKey?:
+      | 'catalog.hub_note_list'
+      | 'catalog.hub_note_new'
+      | 'catalog.hub_note_attr'
+      | 'catalog.hub_note_holiday_home_property_types'
+      | 'catalog.hub_note_holiday_home_theme_presets'
     label?: string
     note?: string
   }[] = [
     { href: `${prefix}/listings`, labelKey: 'catalog.hub_all_listings', noteKey: 'catalog.hub_note_list' },
     { href: `${prefix}/listings/new`, labelKey: 'catalog.hub_new_listing', noteKey: 'catalog.hub_note_new' },
     { href: `${prefix}/attributes`, labelKey: 'catalog.hub_attributes', noteKey: 'catalog.hub_note_attr' },
+    ...(code === 'holiday_home'
+      ? [
+          {
+            href: `${prefix}/property-types`,
+            labelKey: 'catalog.hub_holiday_home_property_types',
+            noteKey: 'catalog.hub_note_holiday_home_property_types',
+          },
+          {
+            href: `${prefix}/theme-presets`,
+            labelKey: 'catalog.hub_holiday_home_theme_presets',
+            noteKey: 'catalog.hub_note_holiday_home_theme_presets',
+          },
+        ]
+      : []),
     ...(code === 'hotel'
       ? [
           {

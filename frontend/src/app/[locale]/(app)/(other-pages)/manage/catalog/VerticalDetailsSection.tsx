@@ -23,6 +23,7 @@ import {
   type ListingMeta,
 } from '@/lib/travel-api'
 import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
+import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import MapPicker from '@/components/editor/MapPicker'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
@@ -98,30 +99,6 @@ function useLoadMeta<T>(
 }
 
 // ─── Villa (holiday_home) ──────────────────────────────────────────────────────
-const VILLA_THEMES = [
-  { code: 'pool', label: 'Özel Havuz' },
-  { code: 'sea_view', label: 'Deniz Manzarası' },
-  { code: 'mountain_view', label: 'Dağ Manzarası' },
-  { code: 'beachfront', label: 'Sahilde / denize sıfır' },
-  { code: 'conservative', label: 'Muhafazakar' },
-  { code: 'garden', label: 'Bahçeli' },
-  { code: 'jacuzzi', label: 'Jakuzi' },
-  { code: 'sauna', label: 'Sauna' },
-  { code: 'bbq', label: 'Barbekü' },
-  { code: 'fireplace', label: 'Şömine' },
-  { code: 'pet_friendly', label: 'Evcil Hayvan Kabul' },
-  { code: 'child_friendly', label: 'Çocuk Dostu' },
-  { code: 'wheelchair', label: 'Engelli Erişim' },
-  { code: 'wifi', label: 'Wi-Fi' },
-  { code: 'ac', label: 'Klima' },
-  { code: 'parking', label: 'Ücretsiz Otopark' },
-  { code: 'dishwasher', label: 'Bulaşık Makinesi' },
-  { code: 'washing_machine', label: 'Çamaşır Makinesi' },
-  { code: 'tv', label: 'TV' },
-  { code: 'gym', label: 'Fitness Salonu' },
-  { code: 'tennis', label: 'Tenis Kortu' },
-]
-
 function VillaSection({ listingId, organizationId }: { listingId: string; organizationId?: string }) {
   const orgQ = useMemo(
     () => (organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined),
@@ -199,7 +176,7 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
       <div>
         <SectionTitle>Özellikler / Temalar</SectionTitle>
         <div className="flex flex-wrap gap-2">
-          {VILLA_THEMES.map(({ code, label }) => (
+          {VILLA_THEME_CHIP_PRESETS.map(({ code, label }) => (
             <ChipToggle key={code} label={label} active={themes.includes(code)} onClick={() => toggle(themes, setThemes, code)} />
           ))}
         </div>

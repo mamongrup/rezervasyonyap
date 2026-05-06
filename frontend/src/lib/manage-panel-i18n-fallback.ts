@@ -130,6 +130,11 @@ const CATALOG_FB_TR: Record<string, string> = {
   'catalog.hub_note_list': 'Liste, arama ve ilan durumu.',
   'catalog.hub_note_new': 'Yeni taslak ilan formu.',
   'catalog.hub_note_attr': 'Çekirdek + kategori tablosu alan rehberi (salt okunur).',
+  'catalog.hub_holiday_home_property_types': 'Tatil evi tipi',
+  'catalog.hub_holiday_home_theme_presets': 'Tatil evi teması',
+  'catalog.hub_note_holiday_home_property_types':
+    'İlan formunda «tip» açılır listesi — site ayarı JSON.',
+  'catalog.hub_note_holiday_home_theme_presets': 'Çip kodları ve vitrin tema kayıtları özeti.',
   'catalog.back_catalog_summary': '← Katalog özeti',
   'catalog.sidebar_expand': 'Alt menüyü aç',
   'catalog.sidebar_collapse': 'Alt menüyü kapat',
@@ -209,6 +214,12 @@ const CATALOG_FB_EN: Record<string, string> = {
   'catalog.hub_note_list': 'List, search and listing status.',
   'catalog.hub_note_new': 'New draft listing form.',
   'catalog.hub_note_attr': 'Core + category table field guide (read-only).',
+  'catalog.hub_holiday_home_property_types': 'Holiday home type',
+  'catalog.hub_holiday_home_theme_presets': 'Holiday home theme',
+  'catalog.hub_note_holiday_home_property_types':
+    'Listing form «type» dropdown — site setting JSON.',
+  'catalog.hub_note_holiday_home_theme_presets':
+    'Chip codes and public theme records summary.',
   'catalog.back_catalog_summary': '← Catalog overview',
   'catalog.sidebar_expand': 'Expand submenu',
   'catalog.sidebar_collapse': 'Collapse submenu',
