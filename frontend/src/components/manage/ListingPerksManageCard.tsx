@@ -10,9 +10,11 @@ import { getStoredAuthToken } from '@/lib/auth-storage'
 
 type Props = {
   listingId: string
+  /** Yönetici (`admin.users.read`): PATCH için zorunlu — üst sayfadaki kurum UUID ile aynı */
+  organizationId?: string
 }
 
-export default function ListingPerksManageCard({ listingId }: Props) {
+export default function ListingPerksManageCard({ listingId, organizationId }: Props) {
   const [perks, setPerks] = React.useState<ListingPerks | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [msg, setMsg] = React.useState<string | null>(null)
@@ -40,7 +42,12 @@ export default function ListingPerksManageCard({ listingId }: Props) {
     setBusy(true)
     setMsg(null)
     try {
-      await patchListingPerks(token, listingId, body)
+      await patchListingPerks(
+        token,
+        listingId,
+        body,
+        organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined,
+      )
       setPerks((cur) => (cur ? { ...cur, ...body } : cur))
       setMsg('Kaydedildi ✓')
       setTimeout(() => setMsg(null), 1500)
@@ -95,7 +102,7 @@ export default function ListingPerksManageCard({ listingId }: Props) {
         </div>
         <div className="mt-0.5 text-xs text-fuchsia-800/80 dark:text-fuchsia-300/80">
           Yalnızca mobil cihazdan görüntüleyenlere uygulanan ek indirim (0-50).
-          Booking & Etstur'un mobil indirim stratejisi.
+          Booking ve Etstur&apos;un mobil indirim stratejisi.
         </div>
         <div className="mt-2 flex items-center gap-2">
           <input

@@ -1508,7 +1508,10 @@ export default function CatalogListingDetailClient({
 
       {/* Vitrin özellikleri (her sekmede görünür kısa kart) */}
       <div className="mt-6">
-        <ListingPerksManageCard listingId={listingId} />
+        <ListingPerksManageCard
+          listingId={listingId}
+          organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+        />
       </div>
 
       {/* ═══ SEKME: İLAN BİLGİLERİ ═══════════════════════════════════════════ */}
