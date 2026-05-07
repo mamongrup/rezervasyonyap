@@ -5,7 +5,7 @@ import HeadingWithSub from '@/shared/Heading'
 interface Config {
   heading?: string
   subheading?: string
-  categoryThumbnails?: Record<string, string>
+  categoryThumbnails?: Record<string, unknown>
 }
 
 export default async function CategoryGridModule({ config }: { config: Config }) {

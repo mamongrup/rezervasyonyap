@@ -11,6 +11,10 @@ export interface CardCategory3Props {
 
 const CardCategory3: FC<CardCategory3Props> = ({ className = '', category }) => {
   const { count, name, href, thumbnail } = category
+  const thumbPos =
+    'thumbnailObjectPosition' in category && typeof (category as { thumbnailObjectPosition?: string }).thumbnailObjectPosition === 'string'
+      ? (category as { thumbnailObjectPosition: string }).thumbnailObjectPosition
+      : undefined
 
   return (
     <div className={`group relative flex flex-col ${className}`}>
@@ -25,6 +29,7 @@ const CardCategory3: FC<CardCategory3Props> = ({ className = '', category }) => 
             alt={name}
             fill
             sizes="(max-width: 400px) 100vw, 300px"
+            style={thumbPos ? { objectPosition: thumbPos } : undefined}
           />
         ) : null}
         <span className="absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100"></span>

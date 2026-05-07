@@ -8,6 +8,7 @@ import { normalizeSiteRelativeUploadSrc } from '@/lib/normalize-site-upload-src'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getPublicCategoryStats } from '@/lib/travel-api'
+import { recordToNormalizedThumbnails } from '@/lib/category-thumbnail-entry'
 
 // stay categories --------
 export async function getStayCategories() {
@@ -707,16 +708,21 @@ export async function getTravelCategories() {
 
 export type TTravelCategory = Awaited<ReturnType<typeof getTravelCategories>>[number]
 
-export async function getPageBuilderTravelCategories(thumbnailOverrides?: Record<string, string>) {
+export async function getPageBuilderTravelCategories(thumbnailOverrides?: Record<string, unknown>) {
   const categories = await getTravelCategories()
+  const ov = thumbnailOverrides ? recordToNormalizedThumbnails(thumbnailOverrides) : {}
   return categories.map((category) => {
-    const merged =
-      thumbnailOverrides?.[category.handle]?.trim() ||
-      PAGE_BUILDER_CATEGORY_THUMBNAILS[category.handle] ||
+    const handle = category.handle
+    const fromOv = ov[handle]
+    const mergedSrc =
+      fromOv?.src?.trim() ||
+      PAGE_BUILDER_CATEGORY_THUMBNAILS[handle] ||
       category.thumbnail
+    const thumb = siteUploadBrowserHref(normalizeSiteRelativeUploadSrc(mergedSrc ?? ''))
     return {
       ...category,
-      thumbnail: siteUploadBrowserHref(normalizeSiteRelativeUploadSrc(merged ?? '')),
+      thumbnail: thumb,
+      ...(fromOv ? { thumbnailObjectPosition: fromOv.objectPosition } : {}),
     }
   })
 }

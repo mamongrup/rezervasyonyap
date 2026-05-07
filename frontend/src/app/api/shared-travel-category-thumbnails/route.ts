@@ -3,6 +3,7 @@ import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 import type { SharedTravelCategoryThumbnailsFile } from '@/data/page-builder-config'
 import { requireAdminCookie } from '@/lib/api-require-admin'
+import { parseCategoryThumbnailEntry, serializeThumbnailForStorage } from '@/lib/category-thumbnail-entry'
 import { revalidateAfterSharedTravelCategoryThumbnailsSave } from '@/lib/revalidate-page-builder'
 
 const FILE_PATH = path.join(process.cwd(), 'public', 'page-builder', 'shared-travel-category-thumbnails.json')
@@ -40,13 +41,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'thumbnails_required' }, { status: 400 })
   }
 
-  const cleaned: Record<string, string> = {}
+  const cleaned: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(raw)) {
     const key = k.trim()
     if (!key) continue
-    if (typeof v !== 'string') continue
-    const val = v.trim()
-    if (val) cleaned[key] = val
+    const parsed = parseCategoryThumbnailEntry(v)
+    if (parsed) cleaned[key] = serializeThumbnailForStorage(parsed)
   }
 
   const payload: SharedTravelCategoryThumbnailsFile = {

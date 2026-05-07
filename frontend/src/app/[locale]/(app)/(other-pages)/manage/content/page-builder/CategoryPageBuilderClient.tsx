@@ -256,7 +256,7 @@ function TravelCategoryImagesConfigEditor({
   const raw = config.thumbnails
   const thumbnails =
     raw && typeof raw === 'object' && !Array.isArray(raw)
-      ? (raw as Record<string, string>)
+      ? (raw as Record<string, unknown>)
       : {}
 
   const wrongPage = pageSlug !== 'homepage'
@@ -1472,7 +1472,7 @@ function CategoryCardsConfigEditor({
 }) {
   const thumbnailConfig =
     config.categoryThumbnails && typeof config.categoryThumbnails === 'object' && !Array.isArray(config.categoryThumbnails)
-      ? (config.categoryThumbnails as Record<string, string>)
+      ? (config.categoryThumbnails as Record<string, unknown>)
       : {}
 
   function updateField(key: string, value: unknown) {

@@ -11,6 +11,10 @@ interface CardCategory5Props {
 
 const CardCategory5: FC<CardCategory5Props> = ({ className = '', category }) => {
   const { count, name, href, thumbnail } = category
+  const thumbPos =
+    'thumbnailObjectPosition' in category && typeof (category as { thumbnailObjectPosition?: string }).thumbnailObjectPosition === 'string'
+      ? (category as { thumbnailObjectPosition: string }).thumbnailObjectPosition
+      : undefined
   return (
     <div className={`group relative flex flex-col ${className}`}>
       <div
@@ -24,6 +28,7 @@ const CardCategory5: FC<CardCategory5Props> = ({ className = '', category }) => 
             src={thumbnail}
             className="rounded-2xl object-cover"
             sizes="(max-width: 400px) 100vw, 400px"
+            style={thumbPos ? { objectPosition: thumbPos } : undefined}
           />
         ) : null}
         <span className="absolute inset-0 bg-black/10 opacity-0 transition-opacity group-hover:opacity-100"></span>

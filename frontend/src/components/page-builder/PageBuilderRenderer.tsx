@@ -39,7 +39,8 @@ import LastMinutePromoModule from './modules/LastMinutePromoModule'
 import CouponsStripModule from './modules/CouponsStripModule'
 import HolidayPackagesModule from './modules/HolidayPackagesModule'
 import CrossSellWidgetModule from './modules/CrossSellWidgetModule'
-import { getSharedTravelCategoryThumbnails } from '@/data/page-builder-config'
+import { getSharedTravelCategoryThumbnailsRaw } from '@/data/page-builder-config'
+import { mergeRawThumbnailMaps } from '@/lib/category-thumbnail-entry'
 
 /** `/bolge/…` vitrinında page builder slot’ları */
 export interface RegionDetailPageSlots {
@@ -57,29 +58,39 @@ export interface RegionDetailPageSlots {
   emptyHint: ReactNode | null
 }
 
-/** Modül config içinden categoryThumbnails — yalnızca dolu string değerler */
-function categoryThumbnailsFromModuleConfig(config: unknown): Record<string, string> {
+/** Modül config içinden categoryThumbnails (string veya `{ src, objectPosition }`). */
+function categoryThumbnailsRawFromModuleConfig(config: unknown): Record<string, unknown> {
   const raw = (config as Record<string, unknown> | undefined)?.categoryThumbnails
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-  const out: Record<string, string> = {}
+  const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(raw)) {
-    if (typeof v !== 'string') continue
-    const t = v.trim()
-    if (t) out[k] = t
+    const key = k.trim()
+    if (!key) continue
+    if (typeof v === 'string') {
+      const t = v.trim()
+      if (t) out[key] = t
+    } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+      out[key] = v
+    }
   }
   return out
 }
 
-/** travel_category_images katmanı — boş stringler atlanır */
-function thumbnailsFromTravelCategoryImagesModules(enabled: PageBuilderModule[]): Record<string, string> {
-  return enabled.reduce<Record<string, string>>((acc, m) => {
+/** travel_category_images katmanı */
+function thumbnailsFromTravelCategoryImagesModulesRaw(enabled: PageBuilderModule[]): Record<string, unknown> {
+  return enabled.reduce<Record<string, unknown>>((acc, m) => {
     if (m.type !== 'travel_category_images') return acc
     const t = (m.config as Record<string, unknown> | undefined)?.thumbnails
     if (!t || typeof t !== 'object' || Array.isArray(t)) return acc
-    for (const [k, v] of Object.entries(t as Record<string, string>)) {
-      if (typeof v !== 'string') continue
-      const trimmed = v.trim()
-      if (trimmed) acc[k] = trimmed
+    for (const [k, v] of Object.entries(t as Record<string, unknown>)) {
+      const key = k.trim()
+      if (!key) continue
+      if (typeof v === 'string') {
+        const trimmed = v.trim()
+        if (trimmed) acc[key] = trimmed
+      } else if (v && typeof v === 'object' && !Array.isArray(v)) {
+        acc[key] = v
+      }
     }
     return acc
   }, {})
@@ -89,11 +100,11 @@ function thumbnailsFromTravelCategoryImagesModules(enabled: PageBuilderModule[])
  * Bu sayfadaki slider/grid modüllerinde tanımlı `categoryThumbnails` birleşimi
  * (modül sırasına göre ilk tanımlanan slug kalır).
  */
-function implicitSharedThumbnailsFromSliderGridModules(enabled: PageBuilderModule[]): Record<string, string> {
-  const acc: Record<string, string> = {}
+function implicitSharedThumbnailsRawFirstWins(enabled: PageBuilderModule[]): Record<string, unknown> {
+  const acc: Record<string, unknown> = {}
   for (const m of enabled) {
     if (m.type !== 'category_slider' && m.type !== 'category_grid') continue
-    const next = categoryThumbnailsFromModuleConfig(m.config)
+    const next = categoryThumbnailsRawFromModuleConfig(m.config)
     for (const [k, v] of Object.entries(next)) {
       if (!(k in acc)) acc[k] = v
     }
@@ -183,12 +194,11 @@ export default async function PageBuilderRenderer({
    * 3) `travel_category_images` modülü (çoğunlukla ana sayfa)
    * Modül satırındaki `categoryThumbnails` en son yayına girer (slider/grid özel alanı).
    */
-  const globalShared = await getSharedTravelCategoryThumbnails()
-  const sharedCategoryThumbnails = {
-    ...globalShared,
-    ...implicitSharedThumbnailsFromSliderGridModules(enabled),
-    ...thumbnailsFromTravelCategoryImagesModules(enabled),
-  }
+  const sharedCategoryThumbnails = mergeRawThumbnailMaps(
+    await getSharedTravelCategoryThumbnailsRaw(),
+    implicitSharedThumbnailsRawFirstWins(enabled),
+    thumbnailsFromTravelCategoryImagesModulesRaw(enabled),
+  )
 
   const Root = rootAs
 
@@ -460,10 +470,7 @@ export default async function PageBuilderRenderer({
             const sliderCfg = cfg as CategorySliderModuleConfig
             const merged: CategorySliderModuleConfig = {
               ...sliderCfg,
-              categoryThumbnails: {
-                ...sharedCategoryThumbnails,
-                ...(sliderCfg.categoryThumbnails ?? {}),
-              },
+              categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, sliderCfg.categoryThumbnails ?? {}),
             }
             return (
               <CategorySliderModule
@@ -514,10 +521,7 @@ export default async function PageBuilderRenderer({
                 key={module.id}
                 config={{
                   ...gridCfg,
-                  categoryThumbnails: {
-                    ...sharedCategoryThumbnails,
-                    ...(gridCfg.categoryThumbnails ?? {}),
-                  },
+                  categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, gridCfg.categoryThumbnails ?? {}),
                 }}
               />
             )

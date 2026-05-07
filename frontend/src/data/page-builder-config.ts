@@ -16,6 +16,10 @@ export type { FeaturedByRegionConfig, FeaturedRegionEntry }
 import { getCategoryBySlug } from './category-registry'
 import { getLocalizedDefaultModules, getRegionDetailDefaultModules } from '@/lib/page-builder-default-modules'
 import { getMessages } from '@/utils/getT'
+import {
+  recordToNormalizedThumbnails,
+  type CategoryThumbnailNormalized,
+} from '@/lib/category-thumbnail-entry'
 
 export interface HomepageConfig {
   heroHeading: string
@@ -39,26 +43,30 @@ const SHARED_TRAVEL_CATEGORY_THUMBNAILS_PATH = path.join(
 )
 
 export interface SharedTravelCategoryThumbnailsFile {
-  thumbnails: Record<string, string>
+  /** Slug → görsel URL veya `{ src, objectPosition }` */
+  thumbnails: Record<string, unknown>
   updatedAt: string
 }
 
-export async function getSharedTravelCategoryThumbnails(): Promise<Record<string, string>> {
+/** Dosyadan ham thumbnail kaydı (birleştirme için). */
+export async function getSharedTravelCategoryThumbnailsRaw(): Promise<Record<string, unknown>> {
   try {
     const raw = await fs.readFile(SHARED_TRAVEL_CATEGORY_THUMBNAILS_PATH, 'utf-8')
     const p = JSON.parse(raw) as SharedTravelCategoryThumbnailsFile
     const t = p.thumbnails
     if (!t || typeof t !== 'object' || Array.isArray(t)) return {}
-    const out: Record<string, string> = {}
-    for (const [k, v] of Object.entries(t)) {
-      if (typeof v !== 'string') continue
-      const s = v.trim()
-      if (s) out[k] = s
-    }
-    return out
+    return { ...t }
   } catch {
     return {}
   }
+}
+
+/** Normalize edilmiş ortak havuz (salt okunur yardımcılar için). */
+export async function getSharedTravelCategoryThumbnails(): Promise<
+  Record<string, CategoryThumbnailNormalized>
+> {
+  const raw = await getSharedTravelCategoryThumbnailsRaw()
+  return recordToNormalizedThumbnails(raw)
 }
 
 export async function getHomepageConfig(): Promise<HomepageConfig | null> {

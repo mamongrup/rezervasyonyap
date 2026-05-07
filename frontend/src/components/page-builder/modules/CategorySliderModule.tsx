@@ -15,7 +15,7 @@ export interface CategorySliderModuleConfig {
    * - Tümü: boş veya geçersizse listenin tamamı.
    */
   categoryLimit?: number
-  categoryThumbnails?: Record<string, string>
+  categoryThumbnails?: Record<string, unknown>
 }
 
 function resolveSliderCategories(

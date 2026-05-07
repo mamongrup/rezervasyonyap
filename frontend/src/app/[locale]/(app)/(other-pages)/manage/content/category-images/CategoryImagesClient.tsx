@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
 export default function CategoryImagesClient() {
-  const [thumbnails, setThumbnails] = useState<Record<string, string>>({})
+  const [thumbnails, setThumbnails] = useState<Record<string, unknown>>({})
   const [updatedAt, setUpdatedAt] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -19,7 +19,7 @@ export default function CategoryImagesClient() {
       const res = await fetch('/api/shared-travel-category-thumbnails', { credentials: 'include' })
       const data = (await res.json()) as {
         ok?: boolean
-        thumbnails?: Record<string, string>
+        thumbnails?: Record<string, unknown>
         updatedAt?: string
         error?: string
       }
@@ -27,7 +27,7 @@ export default function CategoryImagesClient() {
         setMsg({ ok: false, text: data.error ?? 'Yüklenemedi.' })
         return
       }
-      setThumbnails(data.thumbnails && typeof data.thumbnails === 'object' ? data.thumbnails : {})
+      setThumbnails(data.thumbnails && typeof data.thumbnails === 'object' && !Array.isArray(data.thumbnails) ? data.thumbnails : {})
       setUpdatedAt(typeof data.updatedAt === 'string' ? data.updatedAt : '')
     } catch {
       setMsg({ ok: false, text: 'Ağ hatası.' })
