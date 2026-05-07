@@ -59,33 +59,6 @@ const extraImageHost =
       ]
     : []
 
-/** `NEXT_PUBLIC_SITE_URL` ile aynı kökte barındırılan görseller — tam URL yapıştırınca next/image izin versin */
-function siteSelfRemotePatterns() {
-  /** @type {import('next/dist/shared/lib/image-config').RemotePattern[]} */
-  const patterns = []
-  const raw = (process.env.NEXT_PUBLIC_SITE_URL || '').trim()
-  if (raw) {
-    try {
-      const u = new URL(raw)
-      const protocol = u.protocol === 'http:' ? 'http' : 'https'
-      const host = u.hostname
-      const push = (hostname) => {
-        patterns.push({ protocol, hostname, port: '', pathname: '/**' })
-      }
-      push(host)
-      if (host.startsWith('www.')) push(host.slice(4))
-      else if (!host.startsWith('127.') && host !== 'localhost') push(`www.${host}`)
-    } catch {
-      /* ignore */
-    }
-  }
-  if (process.env.NODE_ENV !== 'production') {
-    patterns.push({ protocol: 'http', hostname: 'localhost', port: '', pathname: '/**' })
-    patterns.push({ protocol: 'http', hostname: '127.0.0.1', port: '', pathname: '/**' })
-  }
-  return patterns
-}
-
 const nextConfig = {
   /** Düşük kaynaklı VPS / uzak API: SSG sayfa üretimi 60 sn’de kesilmesin (manage çok dillı rotalar). */
   staticPageGenerationTimeout: 300,
@@ -217,20 +190,6 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
-      /** YouTube kapakları (`next/image` optimize açıkken / uzaktan CMS URL’leri) */
-      {
-        protocol: 'https',
-        hostname: 'img.youtube.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.ytimg.com',
-        port: '',
-        pathname: '/**',
-      },
-      ...siteSelfRemotePatterns(),
       ...extraImageHost,
     ],
   },
