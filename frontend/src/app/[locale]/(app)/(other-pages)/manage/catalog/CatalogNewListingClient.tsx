@@ -446,6 +446,8 @@ export default function CatalogNewListingClient({
   const [busy, setBusy] = useState(false)
   const slugRef = useRef<HTMLInputElement>(null)
   const galleryKeysAtHydrateRef = useRef<Set<string>>(new Set())
+  /** Tatil evi düzenlemede yeni iCal URL’si yalnızca hydrate’de olmayan adres için eklenir (çift kayıt önlenir). */
+  const icalUrlsAtHydrateRef = useRef<Set<string>>(new Set())
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
@@ -482,6 +484,14 @@ export default function CatalogNewListingClient({
     if (categoryCode !== 'holiday_home') return
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
   }, [categoryCode])
+
+  useEffect(() => {
+    if (!editListingId) {
+      icalUrlsAtHydrateRef.current = new Set()
+      return
+    }
+    icalUrlsAtHydrateRef.current = new Set()
+  }, [editListingId])
 
   useEffect(() => {
     if (!isVilla) return
@@ -948,6 +958,9 @@ export default function CatalogNewListingClient({
 
         const feedUrl = feedsRes.feeds[0]?.url
         if (feedUrl?.trim()) setIcalImportUrl(feedUrl.trim())
+        icalUrlsAtHydrateRef.current = new Set(
+          feedsRes.feeds.map((f) => (typeof f.url === 'string' ? f.url.trim() : '')).filter(Boolean),
+        )
 
         if (perks) {
           setInstantBook(Boolean(perks.instant_book))
@@ -1652,15 +1665,29 @@ export default function CatalogNewListingClient({
         }
       }
 
-      // Tur2: iCal — yeni ilanda oluştur; düzenlemede mevcut beslemeler gelişmiş panelden yönetilir.
-      if (!editListingId && icalImportUrl.trim()) {
-        await saveRequiredStep(
-          'iCal bağlantısı kaydı',
-          createIcalFeed({
-            listing_id: lid,
-            url: icalImportUrl.trim(),
-          }),
-        )
+      // Tur2: iCal — tatil evi ana formda; otelde yeni ilanda tek kayıt; düzenlemede otel beslemeleri gelişmiş panelden.
+      const icalUrlTrim = icalImportUrl.trim()
+      if (icalUrlTrim) {
+        if (categoryCode === 'holiday_home') {
+          if (!editListingId || !icalUrlsAtHydrateRef.current.has(icalUrlTrim)) {
+            await saveRequiredStep(
+              'iCal bağlantısı kaydı',
+              createIcalFeed({
+                listing_id: lid,
+                url: icalUrlTrim,
+              }),
+            )
+            icalUrlsAtHydrateRef.current.add(icalUrlTrim)
+          }
+        } else if (!editListingId) {
+          await saveRequiredStep(
+            'iCal bağlantısı kaydı',
+            createIcalFeed({
+              listing_id: lid,
+              url: icalUrlTrim,
+            }),
+          )
+        }
       }
 
       // Tur2: Otel yıldızı — `listing_hotel_details.star_rating` (PATCH /hotel-details).

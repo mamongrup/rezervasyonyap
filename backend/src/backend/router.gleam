@@ -211,6 +211,18 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "catalog", "listings", lid, "price-rules", rid] ->
       catalog_http.delete_listing_price_rule(req, ctx, lid, rid)
 
+    http.Get, ["api", "v1", "catalog", "listings", lid, "external-bookings"] ->
+      catalog_http.list_listing_external_bookings(req, ctx, lid)
+
+    http.Post, ["api", "v1", "catalog", "listings", lid, "external-bookings"] ->
+      catalog_http.create_listing_external_booking(req, ctx, lid)
+
+    http.Patch, ["api", "v1", "catalog", "listings", lid, "external-bookings", bid] ->
+      catalog_http.patch_listing_external_booking(req, ctx, lid, bid)
+
+    http.Delete, ["api", "v1", "catalog", "listings", lid, "external-bookings", bid] ->
+      catalog_http.delete_listing_external_booking(req, ctx, lid, bid)
+
     http.Get, ["api", "v1", "catalog", "listings", lid, "basics"] ->
       catalog_http.get_listing_basics(req, ctx, lid)
 

@@ -48,17 +48,20 @@ import {
   getListingPriceLineSelections,
   putListingPriceLineSelections,
   getManageCategoryAccommodationRules,
-  getVerticalHolidayHome,
-  patchVerticalHolidayHome,
   type CategoryAccommodationRuleItem,
   listManageCatalogListings,
   computeListingNearbyPois,
+  listListingExternalBookings,
+  createListingExternalBooking,
+  patchListingExternalBooking,
+  deleteListingExternalBooking,
   MEAL_PLAN_LABELS,
   MEAL_OPTIONS,
   MEAL_EXTRAS_OPTIONS,
   type AttributeGroup,
   type AttributeDef,
   type IcalFeed,
+  type ListingExternalBookingRow,
   type ListingAvailabilityDay,
   type ListingPriceRuleRow,
   type ManageHotelRoomRow,
@@ -67,13 +70,14 @@ import {
   type PriceLineItem,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
+import { HolidayHomeIcalManagedRow } from '@/components/manage/HolidayHomeIcalManagedRow'
 import ListingPerksManageCard from '@/components/manage/ListingPerksManageCard'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import {
   CalendarDays,
   Tag,
@@ -93,6 +97,7 @@ import {
   Images,
   ListChecks,
   ScrollText,
+  ClipboardList,
 } from 'lucide-react'
 import { VerticalDetailsSection } from '../../../VerticalDetailsSection'
 import ListingImagesSection from '../../../ListingImagesSection'
@@ -185,7 +190,13 @@ function mergeCalendarRows(
 }
 
 // Ham rule_json'dan okunabilir alan çıkar
-function parseRuleJson(json: string): { base: string; weekend: string; minNights: string; label: string } {
+function parseRuleJson(json: string): {
+  base: string
+  weekend: string
+  minNights: string
+  label: string
+  weekly: string
+} {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>
     return {
@@ -193,19 +204,212 @@ function parseRuleJson(json: string): { base: string; weekend: string; minNights
       weekend: String(obj.weekend_nightly ?? obj.weekend_price ?? ''),
       minNights: String(obj.min_nights ?? obj.minimum_nights ?? ''),
       label: String(obj.label ?? obj.season_name ?? ''),
+      weekly: String(obj.weekly_total ?? ''),
     }
   } catch {
-    return { base: '', weekend: '', minNights: '', label: '' }
+    return { base: '', weekend: '', minNights: '', label: '', weekly: '' }
   }
 }
 
-function buildRuleJson(base: string, weekend: string, minNights: string, label: string): string {
+function buildRuleJson(
+  base: string,
+  weekend: string,
+  minNights: string,
+  label: string,
+  weeklyTotal: string,
+): string {
   const obj: Record<string, string | number> = {}
   if (label.trim()) obj.label = label.trim()
   if (base.trim()) obj.base_nightly = base.trim()
   if (weekend.trim()) obj.weekend_nightly = weekend.trim()
+  if (weeklyTotal.trim()) obj.weekly_total = weeklyTotal.trim()
   if (minNights.trim()) obj.min_nights = parseInt(minNights.trim(), 10)
   return JSON.stringify(obj)
+}
+
+function parseMoneyAmount(raw: string): number | null {
+  const s = String(raw ?? '').trim()
+  if (!s) return null
+  const n = Number.parseFloat(s.replace(',', '.'))
+  return Number.isFinite(n) ? n : null
+}
+
+/** rule_json içinden haftalık tutar — vitrin / özel import için opsiyonel alanlar */
+function parseWeeklyFromRuleObject(obj: Record<string, unknown>): number | null {
+  const keys = ['weekly_total', 'weekly_nightly', 'weekly_amount', 'weekly_price', 'weekly'] as const
+  for (const k of keys) {
+    const v = obj[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'string' && v.trim()) {
+      const n = Number.parseFloat(v.trim().replace(',', '.'))
+      if (Number.isFinite(n)) return n
+    }
+  }
+  return null
+}
+
+function formatManageListingMoney(amount: number, currencyCode: string, locale: string): string {
+  const tag = locale === 'tr' ? 'tr-TR' : 'en-US'
+  const cur = currencyCode.trim() || 'TRY'
+  try {
+    return new Intl.NumberFormat(tag, {
+      style: 'currency',
+      currency: cur,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  } catch {
+    return `${Math.round(amount)} ${cur}`
+  }
+}
+
+function formatSeasonalPeriodLabel(
+  from: string | null,
+  to: string | null,
+  locale: string,
+  fallback: string,
+): string {
+  const f = from?.trim()
+  const t = to?.trim()
+  if (!f || !t) return fallback
+  const ds = new Date(`${f}T12:00:00`)
+  const de = new Date(`${t}T12:00:00`)
+  if (Number.isNaN(ds.getTime()) || Number.isNaN(de.getTime())) return fallback
+  const fmt = new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
+  return `${fmt.format(ds)} – ${fmt.format(de)}`
+}
+
+/** Tatil evi — Müsaitlik sekmesinin altında dönemsel fiyat özet tablosu */
+function HolidayHomeSeasonalPricingCalendarSummary({
+  rules,
+  locale,
+  currencyCode,
+  seasonalUi,
+  onGoToSeasonalTab,
+}: {
+  rules: ListingPriceRuleRow[]
+  locale: string
+  currencyCode: string
+  seasonalUi: CatalogListingUi['seasonalPrice']
+  onGoToSeasonalTab: () => void
+}) {
+  const sorted = useMemo(
+    () =>
+      [...rules].sort((a, b) => {
+        const af = a.valid_from ?? ''
+        const bf = b.valid_from ?? ''
+        return af.localeCompare(bf)
+      }),
+    [rules],
+  )
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700/80 dark:bg-slate-900/40">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-5 py-4 dark:border-slate-700 dark:bg-slate-800/50">
+        <div>
+          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">{seasonalUi.calendarSummaryTitle}</h3>
+          <p className="mt-1 max-w-2xl text-xs text-slate-600 dark:text-slate-400">{seasonalUi.calendarSummaryIntro}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onGoToSeasonalTab}
+          className="shrink-0 rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-800 dark:bg-slate-900 dark:text-primary-300 dark:hover:bg-primary-950/40"
+        >
+          {seasonalUi.calendarSummaryEditTab} →
+        </button>
+      </div>
+      {sorted.length === 0 ? (
+        <p className="px-5 py-6 text-sm text-slate-500 dark:text-slate-400">{seasonalUi.calendarSummaryEmpty}</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-100/80 text-slate-800 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide">{seasonalUi.calendarSummaryColPeriod}</th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-right">{seasonalUi.calendarSummaryColNightly}</th>
+                <th className="px-5 py-3 text-xs font-semibold uppercase tracking-wide text-right">{seasonalUi.calendarSummaryColWeekly}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, idx) => {
+                let obj: Record<string, unknown> = {}
+                try {
+                  obj = JSON.parse(r.rule_json) as Record<string, unknown>
+                } catch {
+                  obj = {}
+                }
+                const parsed = parseRuleJson(r.rule_json)
+                const baseNum = parseMoneyAmount(parsed.base)
+                const weekendNum = parseMoneyAmount(parsed.weekend)
+                const weeklyStored = parseWeeklyFromRuleObject(obj)
+                const weeklyNum = weeklyStored ?? (baseNum != null ? baseNum * 7 : null)
+
+                const periodLabel = formatSeasonalPeriodLabel(
+                  r.valid_from,
+                  r.valid_to,
+                  locale,
+                  seasonalUi.calendarSummaryDefaultPeriod,
+                )
+
+                let nightlyCell: ReactNode
+                if (baseNum != null) {
+                  const main = formatManageListingMoney(baseNum, currencyCode, locale)
+                  if (weekendNum != null && weekendNum !== baseNum) {
+                    nightlyCell = (
+                      <div className="text-right">
+                        <div className="font-medium text-slate-900 dark:text-slate-100">{main}</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {seasonalUi.calendarSummaryWeekendNote}: {formatManageListingMoney(weekendNum, currencyCode, locale)}
+                        </div>
+                      </div>
+                    )
+                  } else {
+                    nightlyCell = <span className="font-medium text-slate-900 dark:text-slate-100">{main}</span>
+                  }
+                } else if (weeklyStored != null) {
+                  const perNight = weeklyStored / 7
+                  nightlyCell = (
+                    <div className="text-right">
+                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                        {formatManageListingMoney(perNight, currencyCode, locale)}
+                      </span>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{seasonalUi.calendarSummaryDerivedNightlyNote}</div>
+                    </div>
+                  )
+                } else {
+                  nightlyCell = <span className="text-slate-400">—</span>
+                }
+
+                const weeklyCell =
+                  weeklyNum != null ? (
+                    <span className="font-medium text-slate-900 dark:text-slate-100">
+                      {formatManageListingMoney(weeklyNum, currencyCode, locale)}
+                    </span>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )
+
+                return (
+                  <tr
+                    key={r.id}
+                    className={idx % 2 === 1 ? 'bg-slate-50/90 dark:bg-slate-800/30' : 'bg-white dark:bg-transparent'}
+                  >
+                    <td className="px-5 py-3.5 text-slate-800 dark:text-slate-200">{periodLabel}</td>
+                    <td className="px-5 py-3.5 text-right align-top">{nightlyCell}</td>
+                    <td className="px-5 py-3.5 text-right align-top">{weeklyCell}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ─── Öznitelik Değerleri Bölümü ───────────────────────────────────────────────
@@ -404,49 +608,6 @@ function ListingAttributeValuesSection({
   )
 }
 
-// ─── Villa / iCal birincil kaynak bayrağı (Özellikler sekmesinden taşındı) ───────
-function HolidayHomeIcalManagedRow({ listingId }: { listingId: string }) {
-  const ui = useCatalogListingUi()
-  const [icalManaged, setIcalManaged] = useState(false)
-  const [loaded, setLoaded] = useState(false)
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    void getVerticalHolidayHome(listingId)
-      .then((d) => setIcalManaged(Boolean(d.ical_managed)))
-      .catch(() => {})
-      .finally(() => setLoaded(true))
-  }, [listingId])
-
-  async function onToggle(next: boolean) {
-    setBusy(true)
-    try {
-      await patchVerticalHolidayHome(listingId, { ical_managed: next })
-      setIcalManaged(next)
-    } catch {
-      /* sessiz */
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (!loaded) return null
-
-  return (
-    <label className="mb-4 flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50/80 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900/40">
-      <input
-        type="checkbox"
-        className="h-4 w-4 accent-primary-600"
-        checked={icalManaged}
-        disabled={busy}
-        onChange={(e) => void onToggle(e.target.checked)}
-      />
-      <span className="text-sm text-neutral-700 dark:text-neutral-300">{ui.ical.holidayHomeManagedFlag}</span>
-    </label>
-  )
-}
-
-// ─── Konaklama kuralları (kategori şablonu — giriş/çıkış hariç) ───────────────
 function ListingAccommodationRulesSection({
   listingId,
   categoryCode,
@@ -752,6 +913,20 @@ function ListingPriceLinesSection({
   )
 }
 
+function formatListingMoney(amount: number | null, currencyCode: string): string {
+  if (amount === null) return '—'
+  const cc = currencyCode.trim().toUpperCase() || 'TRY'
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: cc,
+      maximumFractionDigits: 2,
+    }).format(amount)
+  } catch {
+    return `${amount} ${cc}`
+  }
+}
+
 // ─── Ana bileşen ──────────────────────────────────────────────────────────────
 export default function CatalogListingDetailClient({
   categoryCode,
@@ -767,6 +942,9 @@ export default function CatalogListingDetailClient({
   const vitrinPath = useVitrinHref()
   const base = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)
   const transHref = `${base}/listings/${encodeURIComponent(listingId)}/translations`
+  /** Tatil evi: ilan görselleri tam formda; çoklu iCal gelişmiş panelde kalır. */
+  const showListingGalleryInMediaTab = categoryCode !== 'holiday_home'
+  const holidayHomeFormHref = `${base}/listings/${encodeURIComponent(listingId)}`
 
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
@@ -793,6 +971,7 @@ export default function CatalogListingDetailClient({
   const [ruleLabel, setRuleLabel] = useState('')
   const [ruleBase, setRuleBase] = useState('')
   const [ruleWeekend, setRuleWeekend] = useState('')
+  const [ruleWeeklyTotal, setRuleWeeklyTotal] = useState('')
   const [ruleMinNights, setRuleMinNights] = useState('')
   const [ruleFrom, setRuleFrom] = useState('')
   const [ruleTo, setRuleTo] = useState('')
@@ -804,6 +983,19 @@ export default function CatalogListingDetailClient({
   const [calTo, setCalTo] = useState(() => addDaysIso(new Date().toISOString().slice(0, 10), 90))
   const [calRows, setCalRows] = useState<ReturnType<typeof mergeCalendarRows>>([])
   const [bulkPrice, setBulkPrice] = useState('')
+
+  // ── Dış kaynaklı rezervasyon kayıtları ──
+  const [externalBookings, setExternalBookings] = useState<ListingExternalBookingRow[]>([])
+  const [extBusy, setExtBusy] = useState<string | null>(null)
+  const [ebStayFrom, setEbStayFrom] = useState(() => new Date().toISOString().slice(0, 10))
+  const [ebStayTo, setEbStayTo] = useState(() => addDaysIso(new Date().toISOString().slice(0, 10), 7))
+  const [ebSource, setEbSource] = useState('')
+  const [ebSold, setEbSold] = useState('')
+  const [ebReceived, setEbReceived] = useState('')
+  const [ebRemaining, setEbRemaining] = useState('')
+  const [ebFirstPayment, setEbFirstPayment] = useState('')
+  const [ebNotes, setEbNotes] = useState('')
+  const [ebEditingId, setEbEditingId] = useState<string | null>(null)
 
   // ── iCal ──
   const [icalFeeds, setIcalFeeds] = useState<IcalFeed[]>([])
@@ -837,6 +1029,7 @@ export default function CatalogListingDetailClient({
 
   const [busy, setBusy] = useState<string | null>(null)
   const [listingSlug, setListingSlug] = useState('')
+  const [listingCurrencyCode, setListingCurrencyCode] = useState('TRY')
   const [listingStatus, setListingStatus] = useState<'draft' | 'published' | 'archived'>('draft')
   const [minStayNights, setMinStayNights] = useState('')
   const [cleaningFee, setCleaningFee] = useState('')
@@ -886,6 +1079,7 @@ export default function CatalogListingDetailClient({
       .then((r) => {
         const row = r.listings.find((l) => l.id === listingId)
         if (row?.slug) setListingSlug(row.slug)
+        if (row?.currency_code?.trim()) setListingCurrencyCode(row.currency_code.trim().toUpperCase())
       })
       .catch(() => {})
   }, [categoryCode, listingId, needOrg, orgId])
@@ -1022,6 +1216,104 @@ export default function CatalogListingDetailClient({
     }
   }, [listingId, needOrg, orgId, orgQ, calFrom, calTo])
 
+  const loadExternalBookings = useCallback(async () => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    if (needOrg && !orgId.trim()) return
+    setExtBusy('load')
+    try {
+      const r = await listListingExternalBookings(token, listingId, orgQ)
+      setExternalBookings(r.bookings)
+    } catch (e) {
+      setErr(
+        e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('external_bookings_query_failed'),
+      )
+    } finally {
+      setExtBusy(null)
+    }
+  }, [listingId, needOrg, orgId, orgQ])
+
+  function resetExternalBookingForm() {
+    const today = new Date().toISOString().slice(0, 10)
+    setEbEditingId(null)
+    setEbStayFrom(today)
+    setEbStayTo(addDaysIso(today, 7))
+    setEbSource('')
+    setEbSold('')
+    setEbReceived('')
+    setEbRemaining('')
+    setEbFirstPayment('')
+    setEbNotes('')
+  }
+
+  function beginEditExternalBooking(row: ListingExternalBookingRow) {
+    setEbEditingId(row.id)
+    setEbStayFrom(row.stay_from)
+    setEbStayTo(row.stay_to)
+    setEbSource(row.source_label)
+    setEbSold(row.sold_total != null ? String(row.sold_total) : '')
+    setEbReceived(row.amount_received != null ? String(row.amount_received) : '')
+    setEbRemaining(row.amount_remaining != null ? String(row.amount_remaining) : '')
+    setEbFirstPayment(row.first_payment_note)
+    setEbNotes(row.notes)
+  }
+
+  async function saveExternalBooking() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    if (needOrg && !orgId.trim()) return
+    setExtBusy('save')
+    setErr(null)
+    const body = {
+      stay_from: ebStayFrom.trim(),
+      stay_to: ebStayTo.trim(),
+      source_label: ebSource.trim() || undefined,
+      sold_total: ebSold.trim() || undefined,
+      amount_received: ebReceived.trim() || undefined,
+      amount_remaining: ebRemaining.trim() || undefined,
+      first_payment_note: ebFirstPayment.trim() || undefined,
+      notes: ebNotes.trim() || undefined,
+    }
+    try {
+      if (ebEditingId) {
+        await patchListingExternalBooking(token, listingId, ebEditingId, body, orgQ)
+      } else {
+        await createListingExternalBooking(token, listingId, body, orgQ)
+      }
+      resetExternalBookingForm()
+      await loadExternalBookings()
+    } catch (e) {
+      setErr(
+        e instanceof Error
+          ? formatManageApiError(e.message)
+          : formatManageApiError(ebEditingId ? 'external_booking_update_failed' : 'external_booking_insert_failed'),
+      )
+    } finally {
+      setExtBusy(null)
+    }
+  }
+
+  async function removeExternalBooking(id: string) {
+    const uiEb = ui.calendar.externalBookings
+    if (!window.confirm(uiEb.deleteConfirm)) return
+    const token = getStoredAuthToken()
+    if (!token) return
+    if (needOrg && !orgId.trim()) return
+    setExtBusy(`del-${id}`)
+    setErr(null)
+    try {
+      await deleteListingExternalBooking(token, listingId, id, orgQ)
+      if (ebEditingId === id) resetExternalBookingForm()
+      await loadExternalBookings()
+    } catch (e) {
+      setErr(
+        e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('external_booking_delete_failed'),
+      )
+    } finally {
+      setExtBusy(null)
+    }
+  }
+
   // İlk yükleme — kimlik/kurum UUID belliyken çalış (admin için organization_id kaçırılmasın)
   useEffect(() => {
     if (!manageIdentityReady) return
@@ -1030,6 +1322,7 @@ export default function CatalogListingDetailClient({
     void loadHotel()
     void loadIcal()
     void loadCalendar()
+    void loadExternalBookings()
     void loadListingForm()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manageIdentityReady, needOrg, orgId])
@@ -1170,7 +1463,13 @@ export default function CatalogListingDetailClient({
       }
       const finalJson = showRawJson
         ? ruleRaw.trim()
-        : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel)
+        : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal)
+      if (!showRawJson) {
+        if (!ruleBase.trim() && !ruleWeeklyTotal.trim() && !ruleWeekend.trim()) {
+          setErr(formatManageApiError('seasonal_price_base_or_weekly_required'))
+          return
+        }
+      }
       if (!finalJson) {
         setErr(formatManageApiError('rule_json_required'))
         return
@@ -1189,7 +1488,14 @@ export default function CatalogListingDetailClient({
         { rule_json: finalJson, valid_from: ruleFrom.trim() || undefined, valid_to: ruleTo.trim() || undefined },
         orgQ,
       )
-      setRuleLabel(''); setRuleBase(''); setRuleWeekend(''); setRuleMinNights(''); setRuleFrom(''); setRuleTo(''); setRuleRaw('')
+      setRuleLabel('')
+      setRuleBase('')
+      setRuleWeekend('')
+      setRuleWeeklyTotal('')
+      setRuleMinNights('')
+      setRuleFrom('')
+      setRuleTo('')
+      setRuleRaw('')
       await loadPriceRules()
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('rule_add_failed'))
@@ -1535,7 +1841,11 @@ export default function CatalogListingDetailClient({
     { id: 'listing' as const, label: ui.tabs.listing, Icon: Settings2 },
     ...(hasCalendar ? [{ id: 'calendar' as const, label: ui.tabs.calendar, Icon: CalendarDays }] : []),
     { id: 'price' as const, label: ui.tabs.price, Icon: Tag },
-    { id: 'media' as const, label: ui.tabs.media, Icon: Images },
+    {
+      id: 'media' as const,
+      label: categoryCode === 'holiday_home' ? ui.ical.title : ui.tabs.media,
+      Icon: categoryCode === 'holiday_home' ? Link2 : Images,
+    },
     { id: 'vertical' as const, label: ui.tabs.vertical, Icon: Settings2 },
     ...(categoryCode === 'hotel' ? [{ id: 'hotel' as const, label: ui.tabs.hotel, Icon: Hotel }] : []),
     ...(MEAL_PLAN_CATS.has(categoryCode) ? [{ id: 'meal_plans' as const, label: ui.tabs.meal_plans, Icon: UtensilsCrossed }] : []),
@@ -1606,6 +1916,24 @@ export default function CatalogListingDetailClient({
           </button>
         ))}
       </div>
+
+      {categoryCode === 'holiday_home' ? (
+        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2 text-xs text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
+          İlan görselleri bu gelişmiş panelde yok;{' '}
+          <Link href={holidayHomeFormHref} className="font-semibold text-primary-700 underline dark:text-primary-300">
+            tam ilan düzenleme formunda
+          </Link>{' '}
+          yüklenir ve sıralanır. Çoklu iCal beslemeleri için{' '}
+          <button
+            type="button"
+            onClick={() => setActiveTab('media')}
+            className="font-semibold text-primary-700 underline dark:text-primary-300"
+          >
+            {ui.ical.title}
+          </button>{' '}
+          sekmesini kullanın.
+        </div>
+      ) : null}
 
       {/* Vitrin özellikleri (her sekmede görünür kısa kart) */}
       <div className="mt-6">
@@ -1951,6 +2279,217 @@ export default function CatalogListingDetailClient({
               <p className="mt-4 text-sm text-neutral-400">{ui.calendar.emptyHint}</p>
             )}
           </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+                  <ClipboardList className="h-5 w-5 shrink-0 text-primary-600" />
+                  {ui.calendar.externalBookings.title}
+                </h2>
+                <p className="mt-1 max-w-3xl text-sm text-neutral-500 dark:text-neutral-400">
+                  {ui.calendar.externalBookings.intro}
+                </p>
+              </div>
+              <button
+                type="button"
+                title={ui.calendar.externalBookings.reloadRecords}
+                onClick={() => void loadExternalBookings()}
+                disabled={extBusy === 'load'}
+                className="inline-flex items-center justify-center rounded-lg border border-neutral-200 bg-white p-2 text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+              >
+                <RefreshCw className={`h-4 w-4 ${extBusy === 'load' ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Field className="block">
+                <Label>{ui.calendar.externalBookings.stayFrom}</Label>
+                <Input type="date" className="mt-1" value={ebStayFrom} onChange={(e) => setEbStayFrom(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.calendar.externalBookings.stayTo}</Label>
+                <Input type="date" className="mt-1" value={ebStayTo} onChange={(e) => setEbStayTo(e.target.value)} />
+              </Field>
+              <Field className="block sm:col-span-2">
+                <Label>{ui.calendar.externalBookings.colSource}</Label>
+                <Input
+                  className="mt-1"
+                  value={ebSource}
+                  onChange={(e) => setEbSource(e.target.value)}
+                  placeholder={ui.calendar.externalBookings.sourcePlaceholder}
+                />
+              </Field>
+            </div>
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
+              <Field className="block">
+                <Label>{ui.calendar.externalBookings.colSold}</Label>
+                <Input
+                  inputMode="decimal"
+                  className="mt-1 font-mono text-sm"
+                  value={ebSold}
+                  onChange={(e) => setEbSold(e.target.value)}
+                  placeholder={ui.calendar.externalBookings.soldPlaceholder}
+                />
+              </Field>
+              <Field className="block">
+                <Label>{ui.calendar.externalBookings.colReceived}</Label>
+                <Input
+                  inputMode="decimal"
+                  className="mt-1 font-mono text-sm"
+                  value={ebReceived}
+                  onChange={(e) => setEbReceived(e.target.value)}
+                  placeholder={ui.calendar.externalBookings.receivedPlaceholder}
+                />
+              </Field>
+              <Field className="block">
+                <Label>{ui.calendar.externalBookings.colRemaining}</Label>
+                <Input
+                  inputMode="decimal"
+                  className="mt-1 font-mono text-sm"
+                  value={ebRemaining}
+                  onChange={(e) => setEbRemaining(e.target.value)}
+                  placeholder={ui.calendar.externalBookings.remainingPlaceholder}
+                />
+              </Field>
+            </div>
+            <Field className="mt-3 block">
+              <Label>{ui.calendar.externalBookings.colFirstPayment}</Label>
+              <Input
+                className="mt-1"
+                value={ebFirstPayment}
+                onChange={(e) => setEbFirstPayment(e.target.value)}
+                placeholder={ui.calendar.externalBookings.firstPaymentPlaceholder}
+              />
+            </Field>
+            <Field className="mt-3 block">
+              <Label>{ui.calendar.externalBookings.colNotes}</Label>
+              <Textarea
+                className="mt-1"
+                rows={2}
+                value={ebNotes}
+                onChange={(e) => setEbNotes(e.target.value)}
+                placeholder={ui.calendar.externalBookings.notesPlaceholder}
+              />
+            </Field>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ButtonPrimary
+                type="button"
+                onClick={() => void saveExternalBooking()}
+                disabled={extBusy === 'save' || (needOrg && !orgId.trim())}
+              >
+                {extBusy === 'save'
+                  ? ui.common.ellipsis
+                  : ebEditingId
+                    ? ui.calendar.externalBookings.saveBtn
+                    : ui.calendar.externalBookings.addBtn}
+              </ButtonPrimary>
+              {ebEditingId ? (
+                <button
+                  type="button"
+                  onClick={() => resetExternalBookingForm()}
+                  disabled={extBusy === 'save'}
+                  className="rounded-xl border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                >
+                  {ui.calendar.externalBookings.cancelEdit}
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-6 overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+              {externalBookings.length === 0 ? (
+                <p className="p-4 text-sm text-neutral-400">{ui.calendar.externalBookings.empty}</p>
+              ) : (
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-neutral-50 dark:bg-neutral-800/90">
+                    <tr>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colPeriod}
+                      </th>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colSource}
+                      </th>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colSold}
+                      </th>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colReceived}
+                      </th>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colRemaining}
+                      </th>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colFirstPayment}
+                      </th>
+                      <th className="min-w-[8rem] px-3 py-2 text-xs font-medium text-neutral-500">
+                        {ui.calendar.externalBookings.colNotes}
+                      </th>
+                      <th className="px-3 py-2 text-xs font-medium text-neutral-500"> </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {externalBookings.map((row) => (
+                      <tr key={row.id} className="border-t border-neutral-100 dark:border-neutral-800">
+                        <td className="px-3 py-2 align-top font-mono text-xs whitespace-nowrap">
+                          {row.stay_from} → {row.stay_to}
+                        </td>
+                        <td className="px-3 py-2 align-top text-xs">{row.source_label || '—'}</td>
+                        <td className="px-3 py-2 align-top font-mono text-xs whitespace-nowrap">
+                          {formatListingMoney(row.sold_total, listingCurrencyCode)}
+                        </td>
+                        <td className="px-3 py-2 align-top font-mono text-xs whitespace-nowrap">
+                          {formatListingMoney(row.amount_received, listingCurrencyCode)}
+                        </td>
+                        <td className="px-3 py-2 align-top font-mono text-xs whitespace-nowrap">
+                          {formatListingMoney(row.amount_remaining, listingCurrencyCode)}
+                        </td>
+                        <td className="max-w-[12rem] px-3 py-2 align-top text-xs text-neutral-700 dark:text-neutral-300">
+                          {row.first_payment_note || '—'}
+                        </td>
+                        <td className="max-w-[14rem] px-3 py-2 align-top text-xs text-neutral-600 dark:text-neutral-400">
+                          <span className="line-clamp-2" title={row.notes}>
+                            {row.notes || '—'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 align-top whitespace-nowrap">
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              type="button"
+                              onClick={() => beginEditExternalBooking(row)}
+                              disabled={Boolean(extBusy)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                              title={ui.calendar.externalBookings.editBtn}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => void removeExternalBooking(row.id)}
+                              disabled={Boolean(extBusy)}
+                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-neutral-900 dark:text-red-400 dark:hover:bg-red-950/30"
+                              title={ui.calendar.externalBookings.deleteBtn}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {categoryCode === 'holiday_home' ? (
+            <HolidayHomeSeasonalPricingCalendarSummary
+              rules={rules}
+              locale={locale}
+              currencyCode={listingCurrencyCode}
+              seasonalUi={ui.seasonalPrice}
+              onGoToSeasonalTab={() => setActiveTab('price')}
+            />
+          ) : null}
         </div>
       )}
 
@@ -1984,6 +2523,11 @@ export default function CatalogListingDetailClient({
                       {parsed.base && (
                         <span className="text-sm font-medium text-neutral-900 dark:text-white">
                           {ui.seasonalPrice.badgeBase} <span className="font-mono">{parsed.base}</span>
+                        </span>
+                      )}
+                      {parsed.weekly && (
+                        <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
+                          {ui.seasonalPrice.badgeWeekly} <span className="font-mono">{parsed.weekly}</span>
                         </span>
                       )}
                       {parsed.weekend && (
@@ -2071,6 +2615,19 @@ export default function CatalogListingDetailClient({
                           placeholder="3200"
                         />
                       </Field>
+                      <Field className="block sm:col-span-2">
+                        <Label>{ui.seasonalPrice.weeklyTotalLabel}</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          className="mt-1 font-mono"
+                          value={ruleWeeklyTotal}
+                          onChange={(e) => setRuleWeeklyTotal(e.target.value)}
+                          placeholder="70000"
+                        />
+                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.seasonalPrice.weeklyTotalHint}</p>
+                      </Field>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400 sm:col-span-2">{ui.seasonalPrice.priceEitherHint}</p>
                       <Field className="block">
                         <Label>{ui.seasonalPrice.validFrom}</Label>
                         <Input type="date" className="mt-1" value={ruleFrom} onChange={(e) => setRuleFrom(e.target.value)} />
@@ -2081,7 +2638,8 @@ export default function CatalogListingDetailClient({
                       </Field>
                     </div>
                     <div className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500 font-mono dark:bg-neutral-800">
-                      {ui.seasonalPrice.preview} {buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel) || '—'}
+                      {ui.seasonalPrice.preview}{' '}
+                      {buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal) || '—'}
                     </div>
                   </>
                 ) : (
@@ -2126,21 +2684,23 @@ export default function CatalogListingDetailClient({
         </div>
       )}
 
-      {/* ═══ SEKME: MEDYA & iCAL ════════════════════════════════════════════ */}
+      {/* ═══ SEKME: MEDYA & iCAL (tatil evinde yalnızca çoklu iCal — görseller tam formda) ═══ */}
       {activeTab === 'media' && (
         <div className="mt-6 space-y-10">
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
-              <Images className="h-5 w-5 text-primary-600" />
-              {ui.photosTitle}
-            </h2>
-            <ListingImagesSection
-              listingId={listingId}
-              categoryCode={categoryCode}
-              listingSlug={listingSlug}
-              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-            />
-          </div>
+          {showListingGalleryInMediaTab ? (
+            <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+              <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+                <Images className="h-5 w-5 text-primary-600" />
+                {ui.photosTitle}
+              </h2>
+              <ListingImagesSection
+                listingId={listingId}
+                categoryCode={categoryCode}
+                listingSlug={listingSlug}
+                organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+              />
+            </div>
+          ) : null}
 
           <div className="space-y-5">
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">

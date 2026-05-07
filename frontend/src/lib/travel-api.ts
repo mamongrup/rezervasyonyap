@@ -1490,6 +1490,149 @@ export async function deleteListingPriceRule(
   return json(res)
 }
 
+export type ListingExternalBookingRow = {
+  id: string
+  stay_from: string
+  stay_to: string
+  source_label: string
+  sold_total: number | null
+  amount_received: number | null
+  amount_remaining: number | null
+  first_payment_note: string
+  notes: string
+  created_at: string
+}
+
+function parseExternalBookingRow(raw: Record<string, unknown>): ListingExternalBookingRow | null {
+  const id = typeof raw.id === 'string' ? raw.id : ''
+  if (!id) return null
+  const numOrNull = (v: unknown): number | null =>
+    typeof v === 'number' && Number.isFinite(v) ? v : null
+  return {
+    id,
+    stay_from: typeof raw.stay_from === 'string' ? raw.stay_from : '',
+    stay_to: typeof raw.stay_to === 'string' ? raw.stay_to : '',
+    source_label: typeof raw.source_label === 'string' ? raw.source_label : '',
+    sold_total: numOrNull(raw.sold_total),
+    amount_received: numOrNull(raw.amount_received),
+    amount_remaining: numOrNull(raw.amount_remaining),
+    first_payment_note: typeof raw.first_payment_note === 'string' ? raw.first_payment_note : '',
+    notes: typeof raw.notes === 'string' ? raw.notes : '',
+    created_at: typeof raw.created_at === 'string' ? raw.created_at : '',
+  }
+}
+
+export async function listListingExternalBookings(
+  token: string,
+  listingId: string,
+  params?: { organizationId?: string },
+): Promise<{ bookings: ListingExternalBookingRow[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/external-bookings${catalogListingQs(params)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `external_bookings_${res.status}`)
+  }
+  const data = (await json<{ bookings?: unknown[] }>(res)) ?? {}
+  const bookings: ListingExternalBookingRow[] = []
+  if (Array.isArray(data.bookings)) {
+    for (const x of data.bookings) {
+      if (!x || typeof x !== 'object') continue
+      const row = parseExternalBookingRow(x as Record<string, unknown>)
+      if (row) bookings.push(row)
+    }
+  }
+  return { bookings }
+}
+
+export async function createListingExternalBooking(
+  token: string,
+  listingId: string,
+  body: {
+    stay_from: string
+    stay_to: string
+    source_label?: string
+    sold_total?: string
+    amount_received?: string
+    amount_remaining?: string
+    first_payment_note?: string
+    notes?: string
+  },
+  params?: { organizationId?: string },
+): Promise<{ id: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/external-bookings${catalogListingQs(params)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `external_booking_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchListingExternalBooking(
+  token: string,
+  listingId: string,
+  bookingId: string,
+  body: {
+    stay_from: string
+    stay_to: string
+    source_label?: string
+    sold_total?: string
+    amount_received?: string
+    amount_remaining?: string
+    first_payment_note?: string
+    notes?: string
+  },
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/external-bookings/${encodeURIComponent(bookingId)}${catalogListingQs(params)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `external_booking_patch_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function deleteListingExternalBooking(
+  token: string,
+  listingId: string,
+  bookingId: string,
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/external-bookings/${encodeURIComponent(bookingId)}${catalogListingQs(params)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `external_booking_delete_${res.status}`)
+  }
+  return json(res)
+}
+
 /** Vitrin — yayında ilanın dönemsel fiyat kuralları (kimlik doğrulama gerekmez) */
 export async function getPublicListingPriceRules(listingId: string): Promise<ListingPriceRuleRow[]> {
   const b = base()

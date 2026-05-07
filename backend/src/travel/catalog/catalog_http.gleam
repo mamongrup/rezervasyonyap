@@ -2,12 +2,14 @@
 
 import backend/context.{type Context}
 import gleam/bit_array
+import gleam/float
 import gleam/http
 import gleam/http/request
 import gleam/int
 import gleam/io
 import gleam/json
 import gleam/list
+import gleam/order
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
@@ -2862,6 +2864,343 @@ pub fn delete_listing_price_rule(
             |> pog.execute(ctx.db)
           {
             Error(_) -> json_err(500, "price_rule_delete_failed")
+            Ok(ret) ->
+              case ret.count {
+                0 -> json_err(404, "not_found")
+                _ -> wisp.json_response("{\"ok\":true}", 200)
+              }
+          }
+      }
+  }
+}
+
+// ─── Platform dışı / manuel rezervasyon kayıtları ─────────────────────────────
+
+fn external_booking_db_row() -> decode.Decoder(
+  #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) {
+  use id <- decode.field(0, decode.string)
+  use sf <- decode.field(1, decode.string)
+  use st <- decode.field(2, decode.string)
+  use sl <- decode.field(3, decode.string)
+  use sold <- decode.field(4, decode.string)
+  use recv <- decode.field(5, decode.string)
+  use rem <- decode.field(6, decode.string)
+  use fp <- decode.field(7, decode.string)
+  use n <- decode.field(8, decode.string)
+  use ca <- decode.field(9, decode.string)
+  decode.success(#(id, sf, st, sl, sold, recv, rem, fp, n, ca))
+}
+
+fn json_money_text_field(text: String) -> json.Json {
+  let t = string.trim(text)
+  case t == "" {
+    True -> json.null()
+    False ->
+      case float.parse(t) {
+        Ok(f) -> json.float(f)
+        Error(_) -> json.null()
+      }
+  }
+}
+
+fn external_booking_create_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String),
+) {
+  decode.field("stay_from", decode.string, fn(sf) {
+    decode.field("stay_to", decode.string, fn(st) {
+      decode.optional_field("source_label", "", decode.string, fn(sl) {
+        decode.optional_field("sold_total", "", decode.string, fn(sold) {
+          decode.optional_field("amount_received", "", decode.string, fn(recv) {
+            decode.optional_field("amount_remaining", "", decode.string, fn(rem) {
+              decode.optional_field("first_payment_note", "", decode.string, fn(fp) {
+                decode.optional_field("notes", "", decode.string, fn(notes) {
+                  decode.success(#(
+                    string.trim(sf),
+                    string.trim(st),
+                    string.trim(sl),
+                    string.trim(sold),
+                    string.trim(recv),
+                    string.trim(rem),
+                    string.trim(fp),
+                    string.trim(notes),
+                  ))
+                })
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+fn parse_optional_money_sql(raw: String) -> Result(Option(Float), Nil) {
+  let t = string.trim(raw)
+  case t == "" {
+    True -> Ok(None)
+    False ->
+      case float.parse(t) {
+        Ok(f) -> Ok(Some(f))
+        Error(_) -> Error(Nil)
+      }
+  }
+}
+
+fn money_param_opt(opt: Option(Float)) {
+  case opt {
+    None -> pog.null()
+    Some(f) -> pog.float(f)
+  }
+}
+
+/// GET /api/v1/catalog/listings/:id/external-bookings
+pub fn list_listing_external_bookings(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "select b.id::text, to_char(b.stay_from, 'YYYY-MM-DD'), to_char(b.stay_to, 'YYYY-MM-DD'), coalesce(b.source_label,''), "
+              <> "coalesce(b.sold_total::text,''), coalesce(b.amount_received::text,''), coalesce(b.amount_remaining::text,''), "
+              <> "coalesce(b.first_payment_note,''), coalesce(b.notes,''), coalesce(to_char(b.created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"'), '') "
+              <> "from listing_external_bookings b where b.listing_id = $1::uuid "
+              <> "order by b.stay_from desc, b.created_at desc",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.returning(external_booking_db_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "external_bookings_query_failed")
+            Ok(ret) -> {
+              let arr =
+                list.map(ret.rows, fn(row) {
+                  let #(
+                    id,
+                    sf,
+                    st,
+                    sl,
+                    sold,
+                    recv,
+                    rem,
+                    fp,
+                    n,
+                    ca,
+                  ) = row
+                  json.object([
+                    #("id", json.string(id)),
+                    #("stay_from", json.string(sf)),
+                    #("stay_to", json.string(st)),
+                    #("source_label", json.string(sl)),
+                    #("sold_total", json_money_text_field(sold)),
+                    #("amount_received", json_money_text_field(recv)),
+                    #("amount_remaining", json_money_text_field(rem)),
+                    #("first_payment_note", json.string(fp)),
+                    #("notes", json.string(n)),
+                    #("created_at", json.string(ca)),
+                  ])
+                })
+              let body =
+                json.object([
+                  #("bookings", json.array(from: arr, of: fn(x) { x })),
+                ])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+      }
+  }
+}
+
+/// POST /api/v1/catalog/listings/:id/external-bookings
+pub fn create_listing_external_booking(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, external_booking_create_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(sf, st, sl, sold_s, recv_s, rem_s, fp, notes)) ->
+                  case string.compare(sf, st) {
+                    order.Gt -> json_err(400, "external_booking_date_order")
+                    _ ->
+                      case parse_iso_date_ymd(sf), parse_iso_date_ymd(st) {
+                        Ok(df), Ok(dt) -> {
+                          case
+                            parse_optional_money_sql(sold_s),
+                            parse_optional_money_sql(recv_s),
+                            parse_optional_money_sql(rem_s)
+                          {
+                            Ok(sold_o), Ok(recv_o), Ok(rem_o) ->
+                              case
+                                pog.query(
+                                  "insert into listing_external_bookings (listing_id, stay_from, stay_to, source_label, sold_total, amount_received, amount_remaining, first_payment_note, notes) "
+                                  <> "values ($1::uuid, $2::date, $3::date, $4::text, $5::numeric, $6::numeric, $7::numeric, nullif(trim($8::text),''), nullif(trim($9::text),'')) returning id::text",
+                                )
+                                |> pog.parameter(pog.text(listing_id))
+                                |> pog.parameter(pog.calendar_date(df))
+                                |> pog.parameter(pog.calendar_date(dt))
+                                |> pog.parameter(pog.text(sl))
+                                |> pog.parameter(money_param_opt(sold_o))
+                                |> pog.parameter(money_param_opt(recv_o))
+                                |> pog.parameter(money_param_opt(rem_o))
+                                |> pog.parameter(pog.text(fp))
+                                |> pog.parameter(pog.text(notes))
+                                |> pog.returning(one_string_row())
+                                |> pog.execute(ctx.db)
+                              {
+                                Error(_) ->
+                                  json_err(500, "external_booking_insert_failed")
+                                Ok(r) ->
+                                  case r.rows {
+                                    [bid] -> {
+                                      let out =
+                                        json.object([#("id", json.string(bid))])
+                                        |> json.to_string
+                                      wisp.json_response(out, 201)
+                                    }
+                                    _ -> json_err(500, "unexpected")
+                                  }
+                              }
+                            _, _, _ -> json_err(400, "external_booking_invalid_money")
+                          }
+                        }
+                        _, _ -> json_err(400, "external_booking_invalid_dates")
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// PATCH /api/v1/catalog/listings/:listing_id/external-bookings/:booking_id
+pub fn patch_listing_external_booking(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  booking_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, external_booking_create_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(sf, st, sl, sold_s, recv_s, rem_s, fp, notes)) ->
+                  case string.compare(sf, st) {
+                    order.Gt -> json_err(400, "external_booking_date_order")
+                    _ ->
+                      case parse_iso_date_ymd(sf), parse_iso_date_ymd(st) {
+                        Ok(df), Ok(dt) -> {
+                          case
+                            parse_optional_money_sql(sold_s),
+                            parse_optional_money_sql(recv_s),
+                            parse_optional_money_sql(rem_s)
+                          {
+                            Ok(sold_o), Ok(recv_o), Ok(rem_o) ->
+                              case
+                                pog.query(
+                                  "update listing_external_bookings set stay_from = $3::date, stay_to = $4::date, source_label = coalesce(nullif(trim($5::text),''), ''), "
+                                  <> "sold_total = $6::numeric, amount_received = $7::numeric, amount_remaining = $8::numeric, "
+                                  <> "first_payment_note = nullif(trim($9::text),''), notes = nullif(trim($10::text),''), updated_at = now() "
+                                  <> "where id = $1::uuid and listing_id = $2::uuid",
+                                )
+                                |> pog.parameter(pog.text(string.trim(booking_id)))
+                                |> pog.parameter(pog.text(listing_id))
+                                |> pog.parameter(pog.calendar_date(df))
+                                |> pog.parameter(pog.calendar_date(dt))
+                                |> pog.parameter(pog.text(sl))
+                                |> pog.parameter(money_param_opt(sold_o))
+                                |> pog.parameter(money_param_opt(recv_o))
+                                |> pog.parameter(money_param_opt(rem_o))
+                                |> pog.parameter(pog.text(fp))
+                                |> pog.parameter(pog.text(notes))
+                                |> pog.execute(ctx.db)
+                              {
+                                Error(_) ->
+                                  json_err(500, "external_booking_update_failed")
+                                Ok(ret) ->
+                                  case ret.count {
+                                    0 -> json_err(404, "not_found")
+                                    _ ->
+                                      wisp.json_response("{\"ok\":true}", 200)
+                                  }
+                              }
+                            _, _, _ -> json_err(400, "external_booking_invalid_money")
+                          }
+                        }
+                        _, _ -> json_err(400, "external_booking_invalid_dates")
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/catalog/listings/:listing_id/external-bookings/:booking_id
+pub fn delete_listing_external_booking(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  booking_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "delete from listing_external_bookings where id = $1::uuid and listing_id = $2::uuid",
+            )
+            |> pog.parameter(pog.text(string.trim(booking_id)))
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "external_booking_delete_failed")
             Ok(ret) ->
               case ret.count {
                 0 -> json_err(404, "not_found")

@@ -28,6 +28,8 @@ import MapPicker from '@/components/editor/MapPicker'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import Link from 'next/link'
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -100,6 +102,10 @@ function useLoadMeta<T>(
 
 // ─── Villa (holiday_home) ──────────────────────────────────────────────────────
 function VillaSection({ listingId, organizationId }: { listingId: string; organizationId?: string }) {
+  const vitrinPath = useVitrinHref()
+  const holidayHomeFormHref = vitrinPath(
+    `/manage/catalog/holiday_home/listings/${encodeURIComponent(listingId)}`,
+  )
   const orgQ = useMemo(
     () => (organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined),
     [organizationId],
@@ -182,8 +188,14 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
         </div>
       </div>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
-        Dış takvim (Airbnb / Booking iCal) ve bu ilanın dışa aktarım bağlantısı için üst menüdeki{' '}
-        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Medya ve iCal</strong> sekmesini kullanın.
+        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Görseller</strong> için{' '}
+        <Link
+          href={holidayHomeFormHref}
+          className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+        >
+          tatil evi ilan düzenleme formuna
+        </Link>{' '}
+        gidin. <strong className="font-medium text-neutral-700 dark:text-neutral-300">Çoklu iCal</strong> beslemeleri ve bu ilanın dışa aktarım (.ics) bağlantısı gelişmiş panelde takvim senkron / iCal sekmesindedir.
       </p>
       <StatusMsg msg={msg} />
       <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
