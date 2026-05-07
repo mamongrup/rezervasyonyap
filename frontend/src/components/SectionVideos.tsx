@@ -193,21 +193,17 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
       </Heading>
 
       <div
-        className={`relative flex flex-col gap-3 py-2 pe-2 sm:gap-4 sm:py-3 sm:pe-3 md:py-4 md:pe-4 xl:py-6 xl:pe-6 ${
-          showSidebar ? 'lg:flex-row lg:items-start' : ''
+        className={`relative grid grid-cols-1 gap-3 py-2 pe-2 sm:gap-4 sm:py-3 sm:pe-3 md:py-4 md:pe-4 xl:py-6 xl:pe-6 ${
+          showSidebar ? 'lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-x-4 xl:gap-x-5' : ''
         }`}
       >
         <div className="absolute -end-3 -top-3 bottom-3 z-0 w-[65%] rounded-3xl bg-primary-100/40 sm:rounded-[40px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
-        <div
-          className={`relative z-[1] w-full max-w-full pb-1 sm:pb-2 lg:pb-0 lg:pe-4 xl:pe-5 ${
-            showSidebar ? 'min-w-0 flex-[1_1_0%]' : 'w-full'
-          }`}
-        >
+        <div className="relative z-[1] min-w-0 w-full max-w-full pb-1 sm:pb-2 lg:pb-0 lg:pe-0 xl:pe-0">
           {renderMainVideo()}
         </div>
 
         {showSidebar ? (
-        <div className="relative z-[1] flex min-w-0 shrink-0 flex-col gap-2 lg:w-36 xl:w-40">
+        <div className="relative z-[1] flex min-w-0 w-full shrink-0 flex-col gap-2 lg:w-36 xl:w-40">
           {showThumbNav ? (
             <button
               type="button"
