@@ -217,6 +217,19 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      /** YouTube kapakları (`next/image` optimize açıkken / uzaktan CMS URL’leri) */
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+        port: '',
+        pathname: '/**',
+      },
       ...siteSelfRemotePatterns(),
       ...extraImageHost,
     ],

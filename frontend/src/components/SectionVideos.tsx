@@ -114,7 +114,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               title={video.title}
               alt={video.title}
               sizes="(max-width: 1000px) 100vw, (max-width: 1200px) 75vw, 50vw"
-              unoptimized={parsed.thumbnail.startsWith('/uploads/')}
+              unoptimized
             />
 
             <div onClick={() => setIsPlay(true)} className="absolute inset-0 flex items-center justify-center">
@@ -145,7 +145,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
           title={video.title}
           alt={video.title}
           sizes="(max-width: 300px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          unoptimized={parsed.thumbnail.startsWith('/uploads/')}
+          unoptimized
         />
 
         <div className="absolute inset-0 flex items-center justify-center">

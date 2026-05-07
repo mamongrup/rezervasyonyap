@@ -164,7 +164,7 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
                 fill
                 className="object-cover"
                 sizes="(max-width: 1024px) 100vw, 60vw"
-                unoptimized={activeThumbnail.startsWith('/uploads/')}
+                unoptimized
               />
               {/* Overlay gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -238,7 +238,7 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
                         fill
                         className="object-cover transition group-hover:scale-105"
                         sizes="(max-width: 1024px) 33vw, 240px"
-                        unoptimized={thumb.startsWith('/uploads/')}
+                        unoptimized
                       />
                       <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/20" />
 
