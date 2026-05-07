@@ -36,7 +36,7 @@ import Input from '@/shared/Input'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react'
+import { Home, MinusCircle, Palette, PlusCircle, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -90,8 +90,18 @@ function useLoadMeta<T>(
   return loading
 }
 
+export type HolidayHomeVerticalLayout = 'stacked' | 'split_cards'
+
 // ─── Villa (holiday_home) ──────────────────────────────────────────────────────
-function VillaSection({ listingId, organizationId }: { listingId: string; organizationId?: string }) {
+function VillaSection({
+  listingId,
+  organizationId,
+  layout = 'stacked',
+}: {
+  listingId: string
+  organizationId?: string
+  layout?: HolidayHomeVerticalLayout
+}) {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
@@ -112,7 +122,6 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
   const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>(() => [...HOLIDAY_PROPERTY_TYPE_OPTIONS])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const save = useSave('holiday_home', listingId)
 
   const propertyTypeSelectOptions = useMemo(() => {
     const cur = propertyType.trim()
@@ -213,91 +222,171 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
 
   if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
 
-  return (
-    <div className="space-y-6">
-      <div>
-        <SectionTitle>İlan tipi</SectionTitle>
-        <Field className="block max-w-md">
-          <Label>Listelerde görünen tip</Label>
-          <select
-            className={SELECT_CLS}
-            value={propertyType}
-            onChange={(e) => setPropertyType(e.target.value)}
-          >
-            <option value="">— Seçin —</option>
-            {propertyTypeSelectOptions.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
-        </Field>
-        <p className="mt-2 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
-          Tip listesi{' '}
-          <Link
-            href={holidayHomeTypesHref}
-            className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-          >
-            Katalog → Tatil Evi → Tatil evi tipi
-          </Link>{' '}
-          sayfasındaki sırayı kullanır (site ayarı <span className="font-mono">{HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY}</span>).
-        </p>
-      </div>
-      <div>
-        <SectionTitle>Özellikler / Temalar</SectionTitle>
-        {themesCatalogLoading ? (
-          <p className="text-sm text-neutral-400">Temalar yükleniyor…</p>
-        ) : themeCheckboxRows.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Tanımlı tema bulunamadı. Katalogda tema kaydı ekleyin.
-          </p>
-        ) : (
-          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 dark:border-neutral-700 dark:bg-neutral-900/50">
-            <div className="flex flex-wrap gap-3">
-              {themeCheckboxRows.map(({ code, label }) => (
-                <label
-                  key={code}
-                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-                >
-                  <input
-                    type="checkbox"
-                    checked={themes.includes(code)}
-                    onChange={() => toggle(themes, setThemes, code)}
-                    className="h-4 w-4 accent-primary-600"
-                  />
-                  <span>{label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-        <p className="mt-2 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
-          Seçenekler{' '}
-          <Link
-            href={holidayHomeThemeHref}
-            className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
-          >
-            Katalog → Tatil Evi → Tatil evi teması
-          </Link>{' '}
-          ile aynı kaynaktan gelir (vitrin{' '}
-          <span className="font-mono text-[10px]">category_theme_items</span>
-          ).
-        </p>
-      </div>
-      <p className="text-xs text-neutral-500 dark:text-neutral-400">
-        <strong className="font-medium text-neutral-700 dark:text-neutral-300">Görseller</strong> için{' '}
+  const typeBlock = (
+    <>
+      <SectionTitle>İlan tipi</SectionTitle>
+      <Field className="block max-w-md">
+        <Label>Listelerde görünen tip</Label>
+        <select
+          className={SELECT_CLS}
+          value={propertyType}
+          onChange={(e) => setPropertyType(e.target.value)}
+        >
+          <option value="">— Seçin —</option>
+          {propertyTypeSelectOptions.map((opt) => (
+            <option key={opt} value={opt}>
+              {opt}
+            </option>
+          ))}
+        </select>
+      </Field>
+      <p className="mt-2 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
+        Tip listesi{' '}
         <Link
-          href={holidayHomeFormHref}
+          href={holidayHomeTypesHref}
           className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
         >
-          tatil evi ilan düzenleme formuna
+          Katalog → Tatil Evi → Tatil evi tipi
         </Link>{' '}
-        gidin. <strong className="font-medium text-neutral-700 dark:text-neutral-300">Çoklu iCal</strong> beslemeleri ve bu ilanın dışa aktarım (.ics) bağlantısı gelişmiş panelde takvim senkron / iCal sekmesindedir.
+        sayfasındaki sırayı kullanır (site ayarı <span className="font-mono">{HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY}</span>).
       </p>
+    </>
+  )
+
+  const themesBlockNeutral = (
+    <>
+      {themesCatalogLoading ? (
+        <p className="text-sm text-neutral-400">Temalar yükleniyor…</p>
+      ) : themeCheckboxRows.length === 0 ? (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          Tanımlı tema bulunamadı. Katalogda tema kaydı ekleyin.
+        </p>
+      ) : (
+        <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 dark:border-neutral-700 dark:bg-neutral-900/50">
+          <div className="flex flex-wrap gap-3">
+            {themeCheckboxRows.map(({ code, label }) => (
+              <label
+                key={code}
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={themes.includes(code)}
+                  onChange={() => toggle(themes, setThemes, code)}
+                  className="h-4 w-4 accent-primary-600"
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  const themesBlockEmerald = (
+    <>
+      {themesCatalogLoading ? (
+        <p className="text-sm text-neutral-400">Temalar yükleniyor…</p>
+      ) : themeCheckboxRows.length === 0 ? (
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          Tanımlı tema bulunamadı. Katalogda tema kaydı ekleyin.
+        </p>
+      ) : (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/30 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <h4 className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Tema seçimi</h4>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {themeCheckboxRows.map(({ code, label }) => (
+              <label
+                key={code}
+                className="flex cursor-pointer items-center gap-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-sm dark:border-emerald-900/50 dark:bg-neutral-900"
+              >
+                <input
+                  type="checkbox"
+                  checked={themes.includes(code)}
+                  onChange={() => toggle(themes, setThemes, code)}
+                  className="h-4 w-4 accent-emerald-600"
+                />
+                <span>{label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  )
+
+  const themesFooter = (
+    <p className="mt-2 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
+      Seçenekler{' '}
+      <Link
+        href={holidayHomeThemeHref}
+        className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+      >
+        Katalog → Tatil Evi → Tatil evi teması
+      </Link>{' '}
+      ile aynı kaynaktan gelir (vitrin{' '}
+      <span className="font-mono text-[10px]">category_theme_items</span>
+      ).
+    </p>
+  )
+
+  const galleryNote = (
+    <p className="text-xs text-neutral-500 dark:text-neutral-400">
+      <strong className="font-medium text-neutral-700 dark:text-neutral-300">Görseller</strong> için{' '}
+      <Link
+        href={holidayHomeFormHref}
+        className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+      >
+        tatil evi ilan düzenleme formuna
+      </Link>{' '}
+      gidin. <strong className="font-medium text-neutral-700 dark:text-neutral-300">Çoklu iCal</strong> beslemeleri ve bu ilanın dışa aktarım (.ics) bağlantısı gelişmiş panelde takvim senkron / iCal sekmesindedir.
+    </p>
+  )
+
+  const saveFooter = (
+    <>
       <StatusMsg msg={msg} />
       <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
         {busy ? '…' : 'Villa Özelliklerini Kaydet'}
       </ButtonPrimary>
+    </>
+  )
+
+  if (layout === 'split_cards') {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+            <Home className="h-5 w-5 shrink-0 text-primary-600" />
+            Tatil evi tipi
+          </h2>
+          {typeBlock}
+        </div>
+        <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+          <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+            <Palette className="h-5 w-5 shrink-0 text-primary-600" />
+            Tatil evi teması
+          </h2>
+          {themesBlockEmerald}
+          {themesFooter}
+        </div>
+        {galleryNote}
+        {saveFooter}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>{typeBlock}</div>
+      <div>
+        <SectionTitle>Özellikler / Temalar</SectionTitle>
+        {themesBlockNeutral}
+        {themesFooter}
+      </div>
+      {galleryNote}
+      {saveFooter}
     </div>
   )
 }
@@ -1642,14 +1731,22 @@ export function VerticalDetailsSection({
   categoryCode,
   listingId,
   organizationId,
+  holidayHomeLayout,
 }: {
   categoryCode: string
   listingId: string
   organizationId?: string
+  holidayHomeLayout?: HolidayHomeVerticalLayout
 }) {
   switch (categoryCode) {
     case 'holiday_home':
-      return <VillaSection listingId={listingId} organizationId={organizationId} />
+      return (
+        <VillaSection
+          listingId={listingId}
+          organizationId={organizationId}
+          layout={holidayHomeLayout ?? 'stacked'}
+        />
+      )
     case 'yacht_charter':
       return <YachtSection listingId={listingId} />
     case 'tour':

@@ -2923,9 +2923,18 @@ export default function CatalogListingDetailClient({
         </div>
       )}
 
-      {/* ═══ SEKME: ÖZELLİKLER (öznitelik → konaklama kuralları → kategori alanları → dahil/hariç) ═══ */}
+      {/* ═══ SEKME: ÖZELLİKLER (tatil evde: tip/tema → öznitelik → kurallar → dahil/hariç; diğer: öznitelik → kurallar → kategori alanları → dahil/hariç) ═══ */}
       {activeTab === 'vertical' && (
         <div className="mt-6 space-y-10">
+          {categoryCode === 'holiday_home' ? (
+            <VerticalDetailsSection
+              categoryCode={categoryCode}
+              listingId={listingId}
+              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+              holidayHomeLayout="split_cards"
+            />
+          ) : null}
+
           <section aria-labelledby="listing-attrs-heading">
             <h3
               id="listing-attrs-heading"
@@ -2966,17 +2975,19 @@ export default function CatalogListingDetailClient({
             </section>
           ) : null}
 
-          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
-              <Settings2 className="h-5 w-5 text-primary-600" />
-              {verticalSectionTitle(ui.verticalTitles, categoryCode)}
-            </h2>
-            <VerticalDetailsSection
-              categoryCode={categoryCode}
-              listingId={listingId}
-              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-            />
-          </div>
+          {categoryCode !== 'holiday_home' ? (
+            <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+              <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+                <Settings2 className="h-5 w-5 text-primary-600" />
+                {verticalSectionTitle(ui.verticalTitles, categoryCode)}
+              </h2>
+              <VerticalDetailsSection
+                categoryCode={categoryCode}
+                listingId={listingId}
+                organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+              />
+            </div>
+          ) : null}
 
           <section aria-labelledby="listing-price-lines-heading">
             <h3
