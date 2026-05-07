@@ -1,4 +1,5 @@
 import CatalogModuleSectionClient from '../../CatalogModuleSectionClient'
+import HolidayHomeAvailabilityHub from '@/components/manage/HolidayHomeAvailabilityHub'
 import { parseCatalogCategoryCodeParam } from '@/lib/catalog-category-ui'
 import { notFound } from 'next/navigation'
 
@@ -6,5 +7,6 @@ export default async function ManageCatalogAvailabilityPage({ params }: { params
   const { code } = await params
   const c = parseCatalogCategoryCodeParam(code)
   if (!c) return notFound()
+  if (c === 'holiday_home') return <HolidayHomeAvailabilityHub />
   return <CatalogModuleSectionClient categoryCode={c} section="availability" />
 }

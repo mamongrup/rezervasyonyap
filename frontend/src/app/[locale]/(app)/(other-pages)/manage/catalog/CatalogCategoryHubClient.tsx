@@ -95,7 +95,10 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
     {
       href: `${prefix}/availability`,
       label: 'Kullanılabilirlik',
-      note: 'Müsaitlik ilan bazında; otelde takvim ilan detayında',
+      note:
+        code === 'holiday_home'
+          ? 'İlan seçerek aylık takvim özeti; toplu / override düzenleme ilan detayı → Takvim'
+          : 'Müsaitlik ilan bazında; otelde takvim ilan detayında',
     },
     { href: `${prefix}/recovery`, label: 'Kurtarma', note: 'Çöp kutusu — yakında / planlı' },
     {

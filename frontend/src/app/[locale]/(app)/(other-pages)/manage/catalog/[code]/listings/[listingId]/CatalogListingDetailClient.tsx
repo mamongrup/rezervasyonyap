@@ -11,6 +11,7 @@ import {
   initCatalogManageOrganizationFromMe,
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
+import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 import {
   addManageHotelRoom,
   patchListingBasics,
@@ -62,7 +63,6 @@ import {
   type AttributeDef,
   type IcalFeed,
   type ListingExternalBookingRow,
-  type ListingAvailabilityDay,
   type ListingPriceRuleRow,
   type ManageHotelRoomRow,
   type MealPlanItem,
@@ -145,48 +145,6 @@ function addDaysIso(isoDate: string, delta: number): string {
   const d = new Date(isoDate + 'T12:00:00')
   d.setDate(d.getDate() + delta)
   return d.toISOString().slice(0, 10)
-}
-
-function mergeCalendarRows(
-  from: string,
-  to: string,
-  apiDays: ListingAvailabilityDay[],
-): {
-  day: string
-  is_available: boolean
-  am_available: boolean
-  pm_available: boolean
-  price_override: string
-  weekday: number
-}[] {
-  const map = new Map(apiDays.map((x) => [x.day, x]))
-  const out: {
-    day: string
-    is_available: boolean
-    am_available: boolean
-    pm_available: boolean
-    price_override: string
-    weekday: number
-  }[] = []
-  let cur = new Date(from + 'T12:00:00')
-  const end = new Date(to + 'T12:00:00')
-  while (cur <= end) {
-    const key = cur.toISOString().slice(0, 10)
-    const ex = map.get(key)
-    const am = ex?.am_available ?? ex?.is_available ?? true
-    const pm = ex?.pm_available ?? ex?.is_available ?? true
-    const ia = ex?.is_available ?? (am || pm)
-    out.push({
-      day: key,
-      weekday: cur.getDay(), // 0=Paz, 6=Cmt
-      is_available: ia,
-      am_available: am,
-      pm_available: pm,
-      price_override: ex?.price_override ?? '',
-    })
-    cur.setDate(cur.getDate() + 1)
-  }
-  return out
 }
 
 // Ham rule_json'dan okunabilir alan çıkar
@@ -981,7 +939,7 @@ export default function CatalogListingDetailClient({
   // ── Müsaitlik takvimi ──
   const [calFrom, setCalFrom] = useState(() => new Date().toISOString().slice(0, 10))
   const [calTo, setCalTo] = useState(() => addDaysIso(new Date().toISOString().slice(0, 10), 90))
-  const [calRows, setCalRows] = useState<ReturnType<typeof mergeCalendarRows>>([])
+  const [calRows, setCalRows] = useState<MergedCalendarRow[]>([])
   const [bulkPrice, setBulkPrice] = useState('')
 
   // ── Dış kaynaklı rezervasyon kayıtları ──
