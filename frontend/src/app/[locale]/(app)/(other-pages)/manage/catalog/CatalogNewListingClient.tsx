@@ -2,6 +2,7 @@
 
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
+import { extractHolidayHomePoolsFromVerticalMeta, unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -54,6 +55,7 @@ import {
   type AttributeGroup,
   type ManageListingRow,
   type PriceLineItem,
+  type ListingMeta,
 } from '@/lib/travel-api'
 import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
@@ -477,10 +479,12 @@ export default function CatalogNewListingClient({
     if (!isVilla) return
     const token = getStoredAuthToken()
     if (!token) return
-    void listPriceLineItems(token, { categoryCode: 'holiday_home', locale })
+    if (needOrg && !orgId.trim()) return
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    void listPriceLineItems(token, { categoryCode: 'holiday_home', locale, ...orgParam })
       .then((r) => setPriceLineCatalog(r.items.filter((i) => i.is_active)))
       .catch(() => setPriceLineCatalog([]))
-  }, [isVilla, locale])
+  }, [isVilla, locale, needOrg, orgId])
 
   useEffect(() => {
     getPublicCurrencies()
@@ -606,10 +610,22 @@ export default function CatalogNewListingClient({
       setIcalExportLoading(false)
       return
     }
+    const token = getStoredAuthToken()
+    if (!token) {
+      setIcalExportUrl(null)
+      setIcalExportLoading(false)
+      return
+    }
+    if (needOrg && !orgId.trim()) {
+      setIcalExportUrl(null)
+      setIcalExportLoading(false)
+      return
+    }
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
     let cancelled = false
     setIcalExportLoading(true)
     setIcalExportUrl(null)
-    void getListingIcalExportToken(editListingId)
+    void getListingIcalExportToken(token, editListingId, orgParam)
       .then((r) => {
         if (!cancelled) setIcalExportUrl(r.url)
       })
@@ -622,7 +638,7 @@ export default function CatalogNewListingClient({
     return () => {
       cancelled = true
     }
-  }, [editListingId, categoryCode])
+  }, [editListingId, categoryCode, needOrg, orgId])
 
   useEffect(() => {
     if (!editListingId || categoryCode !== 'holiday_home') {
@@ -675,7 +691,7 @@ export default function CatalogNewListingClient({
             ({} as Record<string, unknown>),
           ),
           getListingAttributeValues(token, lid).catch(() => ({ values: [] })),
-          getListingPriceLineSelections(token, lid).catch(() => ({ item_ids: [] as string[] })),
+          getListingPriceLineSelections(token, lid, orgParam).catch(() => ({ item_ids: [] as string[] })),
           listListingImages(token, lid, orgForImg).catch(() => ({ images: [] })),
           listListingPriceRules(token, lid, orgParam).catch(() => ({ rules: [] })),
           listIcalFeeds(lid).catch(() => ({ feeds: [] })),
@@ -720,9 +736,9 @@ export default function CatalogNewListingClient({
           setShareToSocial(Boolean(basics.share_to_social))
           setAllowAiCaption(Boolean(basics.allow_ai_caption))
           setAllowSubMinStayGap(Boolean(basics.allow_sub_min_stay_gap_booking))
+          if (typeof basics.pool_size_label === 'string')
+            setPoolSizeLabel(basics.pool_size_label)
           const bx = basics as unknown as Record<string, unknown>
-          const gs = bx.pool_size_label
-          if (typeof gs === 'string') setPoolSizeLabel(gs)
           const cn = bx.confirm_deadline_normal_h
           if (typeof cn === 'string' && cn.trim()) setConfirmDeadlineNormal(cn.trim())
           const ch = bx.confirm_deadline_high_h
@@ -784,17 +800,16 @@ export default function CatalogNewListingClient({
           setOwnerResidenceAddress(meta.owner_residence_address ?? '')
         }
 
-        const vp = verticalMeta.pools
-        if (vp && typeof vp === 'object') {
-          const po = vp as Record<string, unknown>
+        const poolsParsed = extractHolidayHomePoolsFromVerticalMeta(verticalMeta)
+        if (poolsParsed) {
           setPools({
-            open_pool: mergePoolRow(po.open_pool),
-            heated_pool: mergePoolRow(po.heated_pool),
-            children_pool: mergePoolRow(po.children_pool),
+            open_pool: mergePoolRow(poolsParsed.open_pool),
+            heated_pool: mergePoolRow(poolsParsed.heated_pool),
+            children_pool: mergePoolRow(poolsParsed.children_pool),
           })
         }
 
-        const efRaw = verticalMeta.extra_fees
+        const efRaw = unwrapVerticalMetaPayload(verticalMeta).extra_fees
         if (Array.isArray(efRaw) && efRaw.length > 0) {
           const allowedUnits: ExtraFeeUnit[] = [
             'per_stay',
@@ -1438,7 +1453,14 @@ export default function CatalogNewListingClient({
       if (isVilla && ownerResidenceAddress.trim())
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
       if (Object.keys(metaBody).length > 0) {
-        await saveRequiredStep('Detay alanları kaydı', putListingMeta(token, lid, metaBody, orgParam))
+        let existingMeta: ListingMeta = {}
+        try {
+          existingMeta = await getListingMeta(token, lid, orgParam)
+        } catch {
+          existingMeta = {}
+        }
+        const nextMeta: ListingMeta = { ...existingMeta, ...metaBody }
+        await saveRequiredStep('Detay alanları kaydı', putListingMeta(token, lid, nextMeta, orgParam))
       }
       if (lat.trim() && lng.trim()) {
         await computeListingNearbyPois(token, lid).catch(() => {})
@@ -1570,7 +1592,7 @@ export default function CatalogNewListingClient({
         lid &&
         (categoryCode === 'holiday_home' || categoryCode === 'hotel')
       ) {
-        void getListingIcalExportToken(lid)
+        void getListingIcalExportToken(token, lid, orgParam)
           .then((r) => setIcalExportUrl(r.url))
           .catch(() => {})
       }
@@ -1598,6 +1620,8 @@ export default function CatalogNewListingClient({
 
   async function onRotateIcalExport() {
     if (!editListingId) return
+    const token = getStoredAuthToken()
+    if (!token) return
     if (
       !confirm(
         'Bu işlem eski .ics bağlantısını geçersiz kılar. Airbnb / Booking’de takvim adresini yeni URL ile güncellemeniz gerekir. Devam edilsin mi?',
@@ -1605,9 +1629,10 @@ export default function CatalogNewListingClient({
     ) {
       return
     }
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
     setIcalExportRotateBusy(true)
     try {
-      const r = await rotateListingIcalExportToken(editListingId)
+      const r = await rotateListingIcalExportToken(token, editListingId, orgParam)
       setIcalExportUrl(r.url)
     } catch {
       setErr('iCal dışa aktarım bağlantısı yenilenemedi.')

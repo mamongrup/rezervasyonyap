@@ -41,14 +41,19 @@ function normalizePoolRow(raw: unknown): HolidayHomePoolRow {
   }
 }
 
+/** PUT vertical-meta ile saklanan JSON bazen `{ category, data }` zarfıdır; asıl alanlar `data` içinde olabilir. */
+export function unwrapVerticalMetaPayload(meta: unknown): Record<string, unknown> {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return {}
+  const root = meta as Record<string, unknown>
+  const inner = root.data
+  if (inner != null && typeof inner === 'object' && !Array.isArray(inner))
+    return inner as Record<string, unknown>
+  return root
+}
+
 /** Backend `listing_attributes.value_json` — bazen `{ category, data }`, bazen doğrudan `data` */
 export function extractHolidayHomePoolsFromVerticalMeta(meta: unknown): HolidayHomePools | null {
-  if (!meta || typeof meta !== 'object') return null
-  const root = meta as Record<string, unknown>
-  const data =
-    root.data != null && typeof root.data === 'object'
-      ? (root.data as Record<string, unknown>)
-      : root
+  const data = unwrapVerticalMetaPayload(meta)
   const rawPools = data.pools
   if (!rawPools || typeof rawPools !== 'object') return null
   const p = rawPools as Record<string, unknown>

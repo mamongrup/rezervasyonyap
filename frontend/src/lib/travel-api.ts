@@ -6774,12 +6774,18 @@ export async function listIcalImportedBlocks(params: {
  * Aynı listing için her çağrıda aynı sonucu verir (idempotent).
  */
 export async function getListingIcalExportToken(
+  token: string,
   listingId: string,
+  params?: { organizationId?: string },
 ): Promise<{ token: string; url: string }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const qs = catalogListingQs(params)
   const res = await fetch(
-    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/ical-export-token`,
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/ical-export-token${qs}`,
+    {
+      headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    },
   )
   if (!res.ok) throw new Error(`ical_export_token_get_${res.status}`)
   return json(res)
@@ -6790,13 +6796,19 @@ export async function getListingIcalExportToken(
  * Eski URL'i kullanan harici takvimler 404 alır → admin bilinçli rotation.
  */
 export async function rotateListingIcalExportToken(
+  token: string,
   listingId: string,
+  params?: { organizationId?: string },
 ): Promise<{ token: string; url: string }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const qs = catalogListingQs(params)
   const res = await fetch(
-    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/ical-export-token`,
-    { method: 'POST', headers: locJson() },
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/ical-export-token${qs}`,
+    {
+      method: 'POST',
+      headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    },
   )
   if (!res.ok) throw new Error(`ical_export_token_rotate_${res.status}`)
   return json(res)
@@ -8178,6 +8190,12 @@ export interface ListingBasicsSnapshot {
   commission_percent: string
   cancellation_policy_text: string
   ministry_license_ref: string
+  pool_size_label?: string
+  high_season_dates_json?: string
+  confirm_deadline_normal_h?: string
+  confirm_deadline_high_h?: string
+  supplier_payment_note?: string
+  avg_ad_cost_percent?: string
   share_to_social: boolean
   allow_ai_caption: boolean
   allow_sub_min_stay_gap_booking: boolean
@@ -8658,12 +8676,16 @@ export async function putPriceLineItemTranslations(
 export async function getListingPriceLineSelections(
   token: string,
   listingId: string,
+  params?: { organizationId?: string },
 ): Promise<{ item_ids: string[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/price-line-selections`, {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/price-line-selections${catalogListingQs(params)}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  )
   if (!res.ok) throw new Error(`price_line_sel_get_${res.status}`)
   return json(res)
 }

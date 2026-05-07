@@ -24,7 +24,7 @@ export const ORDERED_PRODUCT_CATEGORY_CODES = [
  */
 export const CATEGORY_LABEL_TR: Record<string, string> = {
   hotel: 'Otel',
-  holiday_home: 'Villa',
+  holiday_home: 'Tatil Evi',
   yacht_charter: 'Yat',
   tour: 'Tur',
   flight: 'Uçak / otobüs',
@@ -67,7 +67,7 @@ export const CATEGORY_VERTICAL_TABLE: Record<string, string> = {
 /** Panelde gösterilecek kısa açıklama — ham tablo adı yerine. */
 export const CATEGORY_VERTICAL_TABLE_LABEL_TR: Record<string, string> = {
   hotel: 'Otel bilgileri ve oda tipleri (yıldız, bağlantılar, odalar)',
-  holiday_home: 'Villa / tatil evi özellikleri (tema, kurallar, takvim)',
+  holiday_home: 'Tatil evi özellikleri (tema, kurallar, takvim)',
   yacht_charter: 'Yat bilgileri (boy, kabin, liman)',
   tour: 'Tur paketi ve program detayları',
   flight: 'Uçuş veya otobüs hatları ve segmentler',

@@ -1247,7 +1247,7 @@ export const en = {
       saveBtn: 'Save listing info',
     },
     verticalTitles: {
-      holiday_home: 'Villa — listing type & themes',
+      holiday_home: 'Holiday home — listing type & themes',
       yacht_charter: 'Yacht technical details',
       transfer: 'Transfer zones & pricing',
       tour: 'Tour program & details',

@@ -2072,6 +2072,12 @@ fn listing_basics_manage_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
     Bool,
     Bool,
     Bool,
@@ -2085,10 +2091,34 @@ fn listing_basics_manage_row() -> decode.Decoder(
   use comm <- decode.field(5, decode.string)
   use cpt <- decode.field(6, decode.string)
   use mlr <- decode.field(7, decode.string)
-  use sts <- decode.field(8, decode.bool)
-  use aai <- decode.field(9, decode.bool)
-  use asg <- decode.field(10, decode.bool)
-  decode.success(#(status, msn, cfa, fca, pp, comm, cpt, mlr, sts, aai, asg))
+  use psl <- decode.field(8, decode.string)
+  use hsd <- decode.field(9, decode.string)
+  use cdn <- decode.field(10, decode.string)
+  use cdh <- decode.field(11, decode.string)
+  use spn <- decode.field(12, decode.string)
+  use aac <- decode.field(13, decode.string)
+  use sts <- decode.field(14, decode.bool)
+  use aai <- decode.field(15, decode.bool)
+  use asg <- decode.field(16, decode.bool)
+  decode.success(#(
+    status,
+    msn,
+    cfa,
+    fca,
+    pp,
+    comm,
+    cpt,
+    mlr,
+    psl,
+    hsd,
+    cdn,
+    cdh,
+    spn,
+    aac,
+    sts,
+    aai,
+    asg,
+  ))
 }
 
 fn basics_patch_bool_param(opt: Option(Bool)) -> String {
@@ -2115,7 +2145,7 @@ pub fn get_listing_basics(
         Ok(True) ->
           case
             pog.query(
-              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false) from listings where id = $1::uuid and organization_id = $2::uuid",
+              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false) from listings where id = $1::uuid and organization_id = $2::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
@@ -2143,6 +2173,12 @@ pub fn get_listing_basics(
                     comm,
                     cpt,
                     mlr,
+                    psl,
+                    hsd,
+                    cdn,
+                    cdh,
+                    spn,
+                    aac,
                     sts,
                     aai,
                     asg,
@@ -2158,6 +2194,18 @@ pub fn get_listing_basics(
                       #("commission_percent", json.string(comm)),
                       #("cancellation_policy_text", json.string(cpt)),
                       #("ministry_license_ref", json.string(mlr)),
+                      #("pool_size_label", json.string(psl)),
+                      #("high_season_dates_json", json.string(hsd)),
+                      #(
+                        "confirm_deadline_normal_h",
+                        json.string(cdn),
+                      ),
+                      #(
+                        "confirm_deadline_high_h",
+                        json.string(cdh),
+                      ),
+                      #("supplier_payment_note", json.string(spn)),
+                      #("avg_ad_cost_percent", json.string(aac)),
                       #("share_to_social", json.bool(sts)),
                       #("allow_ai_caption", json.bool(aai)),
                       #(

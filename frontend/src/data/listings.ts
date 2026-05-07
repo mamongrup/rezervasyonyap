@@ -3,6 +3,7 @@ import { orderGalleryUrlsForHero } from '@/lib/listing-gallery-hero-order'
 import {
   extractHolidayHomePoolsFromVerticalMeta,
   hasAnyEnabledPool,
+  unwrapVerticalMetaPayload,
   type HolidayHomePools,
 } from '@/lib/listing-pools'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
@@ -185,7 +186,7 @@ export const getStayListingByHandle = async (
       const meta = await getVerticalMeta<Record<string, unknown>>(catalogId, 'holiday_home')
       const p = extractHolidayHomePoolsFromVerticalMeta(meta)
       if (p && hasAnyEnabledPool(p)) pools = p
-      const rawEf = meta.extra_fees
+      const rawEf = unwrapVerticalMetaPayload(meta).extra_fees
       if (Array.isArray(rawEf)) {
         const cleaned = rawEf
           .filter(

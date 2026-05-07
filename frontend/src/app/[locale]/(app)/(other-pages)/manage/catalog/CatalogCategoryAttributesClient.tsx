@@ -345,7 +345,6 @@ function GroupPanel({
                   }`}
                 >
                   <p className="truncate font-medium">{g.name}</p>
-                  <p className="mt-0.5 font-mono text-xs text-neutral-400">{g.code}</p>
                 </button>
                 <div
                   className={`flex shrink-0 flex-col justify-center gap-1 pr-2 ${
@@ -694,13 +693,12 @@ function DefsPanel({
           <h2 className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">
             {group.name}
           </h2>
-          <p className="mt-0.5 font-mono text-xs text-neutral-400">{group.code}</p>
         </div>
         <div className="flex items-center gap-2">
           {group.category_codes.length > 0 && (
             <div className="flex gap-1">
               {group.category_codes.map((c) => (
-                <Badge key={c} color="blue">{c}</Badge>
+                <Badge key={c} color="blue">{categoryLabelTr(c)}</Badge>
               ))}
             </div>
           )}
@@ -744,7 +742,6 @@ function DefsPanel({
                   <tr key={d.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
                     <td className="px-4 py-3">
                       <p className="font-medium text-neutral-800 dark:text-neutral-200">{d.label}</p>
-                      <p className="mt-0.5 font-mono text-xs text-neutral-400">{d.code}</p>
                     </td>
                     <td className="px-4 py-3">
                       <Badge color={d.field_type === 'boolean' ? 'green' : d.field_type.includes('select') ? 'blue' : 'neutral'}>
@@ -793,7 +790,7 @@ function DefsPanel({
           <div className="mt-4 rounded-xl border border-primary-200 bg-primary-50/40 p-4 dark:border-primary-900/40 dark:bg-primary-950/20">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-medium text-neutral-700 dark:text-neutral-200">
-                Öznitelik etiketi — tüm diller ({defs.find((x) => x.id === transDefId)?.code ?? ''})
+                Öznitelik etiketi — tüm diller ({defs.find((x) => x.id === transDefId)?.label ?? ''})
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
                 <ManageAiMagicTextButton

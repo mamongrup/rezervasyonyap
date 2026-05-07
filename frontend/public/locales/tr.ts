@@ -920,7 +920,7 @@ export const tr = {
         { value: 'Apartment', label: 'Daire' },
         { value: 'Hotel', label: 'Otel' },
         { value: 'Cottage', label: 'Köy evi' },
-        { value: 'Villa', label: 'Villa' },
+        { value: 'Villa', label: 'Tatil evi' },
         { value: 'Cabin', label: 'Kulübe' },
         { value: 'Farm stay', label: 'Çiftlik konaklaması' },
         { value: 'Houseboat', label: 'Yüzen ev' },
@@ -1186,7 +1186,7 @@ export const tr = {
     },
     verticalTitles: {
       ...en.manageCatalogListing.verticalTitles,
-      holiday_home: 'Villa — ilan tipi ve temalar',
+      holiday_home: 'Tatil evi — ilan tipi ve temalar',
       yacht_charter: 'Yat Teknik Özellikleri',
       transfer: 'Transfer Bölgeleri & Fiyatlar',
       tour: 'Tur Programı & Detaylar',

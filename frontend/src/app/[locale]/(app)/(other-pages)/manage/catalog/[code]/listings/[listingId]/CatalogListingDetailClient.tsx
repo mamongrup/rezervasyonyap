@@ -613,10 +613,15 @@ function ListingPriceLinesSection({
   listingId,
   categoryCode,
   token,
+  requireOrganizationId,
+  organizationId,
 }: {
   listingId: string
   categoryCode: string
   token: string
+  /** Yönetici: kurum UUID gelmeden çağrı yapılmaz (`organization_id_required` önlenir). */
+  requireOrganizationId?: boolean
+  organizationId?: string
 }) {
   const ui = useCatalogListingUi()
   const params = useParams()
@@ -627,12 +632,23 @@ function ListingPriceLinesSection({
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
+  const orgParam = organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined
+
   useEffect(() => {
-    if (!token) return
+    if (!token) {
+      setLoading(false)
+      return
+    }
+    if (requireOrganizationId && !organizationId?.trim()) {
+      setLoading(false)
+      setItems([])
+      setSelected(new Set())
+      return
+    }
     setLoading(true)
     void Promise.all([
-      listPriceLineItems(token, { categoryCode, locale: loc }),
-      getListingPriceLineSelections(token, listingId),
+      listPriceLineItems(token, { categoryCode, locale: loc, ...orgParam }),
+      getListingPriceLineSelections(token, listingId, orgParam),
     ])
       .then(([r, s]) => {
         setItems(r.items.filter((i) => i.is_active))
@@ -643,7 +659,7 @@ function ListingPriceLinesSection({
         setSelected(new Set())
       })
       .finally(() => setLoading(false))
-  }, [listingId, categoryCode, token, loc])
+  }, [listingId, categoryCode, token, loc, requireOrganizationId, organizationId])
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -658,7 +674,7 @@ function ListingPriceLinesSection({
     setBusy(true)
     setMsg(null)
     try {
-      await putListingPriceLineSelections(token, listingId, { item_ids: [...selected] })
+      await putListingPriceLineSelections(token, listingId, { item_ids: [...selected] }, orgParam)
       setMsg({ ok: true, text: ui.priceLinesSaveOk })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
@@ -1335,23 +1351,28 @@ export default function CatalogListingDetailClient({
 
   // ── Export URL: lazy load + rotate ──
   const loadExportUrl = useCallback(async () => {
+    const t = getStoredAuthToken()
+    if (!t) return
+    if (needOrg && !orgId.trim()) return
     setIcalExportLoading(true)
     try {
-      const r = await getListingIcalExportToken(listingId)
+      const r = await getListingIcalExportToken(t, listingId, orgQ)
       setIcalExportUrl(r.url)
     } catch {
       setIcalExportUrl(null)
     } finally {
       setIcalExportLoading(false)
     }
-  }, [listingId])
+  }, [listingId, needOrg, orgId, orgQ])
 
   async function onRotateExport() {
     if (!confirm(ui.ical.rotateConfirm)) return
+    const t = getStoredAuthToken()
+    if (!t) return
     setBusy('ical-rotate')
     setErr(null)
     try {
-      const r = await rotateListingIcalExportToken(listingId)
+      const r = await rotateListingIcalExportToken(t, listingId, orgQ)
       setIcalExportUrl(r.url)
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('ical_export_rotate_failed'))
@@ -2409,6 +2430,8 @@ export default function CatalogListingDetailClient({
               listingId={listingId}
               categoryCode={categoryCode}
               token={getStoredAuthToken() ?? ''}
+              requireOrganizationId={needOrg}
+              organizationId={orgId.trim() || undefined}
             />
           </section>
         </div>
