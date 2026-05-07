@@ -59,7 +59,12 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
             labelKey: 'catalog.hub_holiday_home_theme_presets',
             noteKey: 'catalog.hub_note_holiday_home_theme_presets',
           },
-        ] satisfies CatalogHubManagedCard[])
+          {
+            href: `${prefix}/faq`,
+            label: t('catalog.hub_holiday_home_faq'),
+            note: t('catalog.hub_note_holiday_home_faq'),
+          },
+        ] satisfies CatalogHubLink[])
       : []),
     ...(code === 'hotel'
       ? [

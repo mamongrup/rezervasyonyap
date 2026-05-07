@@ -279,6 +279,7 @@ export const zh: AppMessages = {
     faq: {
       title: '常见问题',
       subtitle: '住客最常询问的关于本酒店的问题。',
+      subtitleHolidayHome: '度假民宿通用模板问题与本房源专属补充。',
       qCheckInOut: '入住和退房时间是几点？',
       qBreakfast: '本酒店提供早餐吗？',
       aBreakfast: '是的，本酒店提供早餐。详情请见用餐计划部分。',

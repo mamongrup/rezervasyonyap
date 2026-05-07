@@ -827,6 +827,27 @@ fn manage_contract_row() -> decode.Decoder(
   decode.success(#(a, b, c, d, e, f, g))
 }
 
+/// GET /api/v1/catalog/public/holiday-home-faq-template — vitrin tatil evi SSS şablonu (`site_settings`).
+pub fn get_public_holiday_home_faq_template(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let empty_items = "{\"items\":[]}"
+  case
+    pog.query(
+      "select coalesce(value_json::text, '{\"items\":[]}') from site_settings where organization_id is null and key = 'catalog.holiday_home_default_faq' order by id desc limit 1",
+    )
+    |> pog.returning(one_string_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> wisp.json_response(empty_items, 200)
+    Ok(ret) ->
+      case ret.rows {
+        [] -> wisp.json_response(empty_items, 200)
+        [txt] -> wisp.json_response(txt, 200)
+        _ -> wisp.json_response(empty_items, 200)
+      }
+  }
+}
+
 /// GET /api/v1/catalog/public/listings/:id/contract?locale=tr — yayında ilanın seçili sözleşmesi (vitrin).
 pub fn get_public_listing_contract(
   req: Request,
@@ -2380,6 +2401,121 @@ pub fn patch_listing_basics(
                           case ret.rows {
                             [] -> json_err(404, "listing_not_found")
                             _ -> wisp.json_response("{\"ok\":true}", 200)
+                          }
+                      }
+                  }
+                }
+              }
+          }
+      }
+  }
+}
+
+fn patch_slug_body_decoder() -> decode.Decoder(String) {
+  decode.field("slug", decode.string, fn(s) { decode.success(s) })
+}
+
+/// PATCH /api/v1/catalog/listings/:id/slug — yayın adresi (`listings.slug`, kurum içinde benzersiz).
+pub fn patch_listing_slug(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, patch_slug_body_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(slug_raw) -> {
+                  let slug = string.lowercase(string.trim(slug_raw))
+                  case slug_ok(slug) {
+                    False -> json_err(400, "invalid_slug")
+                    True ->
+                      case
+                        pog.query(
+                          "select slug from listings where id = $1::uuid and organization_id = $2::uuid",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(org_id))
+                        |> pog.returning(one_string_row())
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "slug_query_failed")
+                        Ok(ret) ->
+                          case ret.rows {
+                            [] -> json_err(404, "listing_not_found")
+                            [current] ->
+                              case current == slug {
+                                True -> {
+                                  let out =
+                                    json.object([#("slug", json.string(slug))])
+                                    |> json.to_string
+                                  wisp.json_response(out, 200)
+                                }
+                                False ->
+                                  case
+                                    pog.query(
+                                      "select exists(select 1 from listings where organization_id = $1::uuid and slug = $2 and id <> $3::uuid) as taken",
+                                    )
+                                    |> pog.parameter(pog.text(org_id))
+                                    |> pog.parameter(pog.text(slug))
+                                    |> pog.parameter(pog.text(listing_id))
+                                    |> pog.returning(pg_bool_row())
+                                    |> pog.execute(ctx.db)
+                                  {
+                                    Error(_) ->
+                                      json_err(500, "slug_conflict_check_failed")
+                                    Ok(ret2) ->
+                                      case ret2.rows {
+                                        [True] ->
+                                          json_err(409, "slug_taken")
+                                        _ ->
+                                          case
+                                            pog.query(
+                                              "update listings set slug = $3, updated_at = now() where id = $1::uuid and organization_id = $2::uuid returning slug",
+                                            )
+                                            |> pog.parameter(pog.text(listing_id))
+                                            |> pog.parameter(pog.text(org_id))
+                                            |> pog.parameter(pog.text(slug))
+                                            |> pog.returning(one_string_row())
+                                            |> pog.execute(ctx.db)
+                                          {
+                                            Error(_) ->
+                                              json_err(500, "slug_update_failed")
+                                            Ok(ret3) ->
+                                              case ret3.rows {
+                                                [] ->
+                                                  json_err(
+                                                    404,
+                                                    "listing_not_found",
+                                                  )
+                                                [saved] -> {
+                                                  let out =
+                                                    json.object([
+                                                      #(
+                                                        "slug",
+                                                        json.string(saved),
+                                                      ),
+                                                    ])
+                                                    |> json.to_string
+                                                  wisp.json_response(out, 200)
+                                                }
+                                                _ ->
+                                                  json_err(500, "slug_update_unexpected")
+                                              }
+                                          }
+                                      }
+                                  }
+                              }
+                            _ -> json_err(500, "slug_query_unexpected")
                           }
                       }
                   }

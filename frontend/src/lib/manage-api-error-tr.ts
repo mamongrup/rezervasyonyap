@@ -21,6 +21,7 @@ const TR_BY_CODE: Record<string, string> = {
   empty_body: 'İstek gövdesi boş.',
   invalid_json: 'Geçersiz JSON.',
   invalid_slug: 'Geçersiz URL kodu (slug).',
+  slug_taken: 'Bu URL kodu bu kurumda başka bir ilan tarafından kullanılıyor.',
   database_error: 'Veritabanı hatası.',
 
   // İlan / liste

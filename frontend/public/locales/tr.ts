@@ -452,6 +452,8 @@ export const tr = {
     faq: {
       title: 'Sıkça sorulan sorular',
       subtitle: 'Bu otel hakkında misafirlerin en çok sorduğu sorular.',
+      subtitleHolidayHome:
+        'Genel tatil evi şablonundan gelen sorular ve bu ilana özel ekledikleriniz.',
       qCheckInOut: 'Check-in ve check-out saatleri nedir?',
       qBreakfast: 'Bu otelde kahvaltı sunuluyor mu?',
       aBreakfast: 'Evet, otelde kahvaltı sunulmaktadır. Detaylar yemek planı bölümünde yer alır.',

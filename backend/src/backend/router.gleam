@@ -217,6 +217,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "catalog", "listings", lid, "basics"] ->
       catalog_http.patch_listing_basics(req, ctx, lid)
 
+    http.Patch, ["api", "v1", "catalog", "listings", lid, "slug"] ->
+      catalog_http.patch_listing_slug(req, ctx, lid)
+
     http.Get, ["api", "v1", "catalog", "listings", lid, "owner-contact"] ->
       catalog_http.get_listing_owner_contact(req, ctx, lid)
 
@@ -863,6 +866,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "catalog", "public", "theme-items"] ->
       collections_http.list_public_theme_items(req, ctx)
+
+    http.Get, ["api", "v1", "catalog", "public", "holiday-home-faq-template"] ->
+      catalog_http.get_public_holiday_home_faq_template(req, ctx)
 
     http.Get, ["api", "v1", "catalog", "public", "category-stats"] ->
       collections_http.public_category_stats(req, ctx)

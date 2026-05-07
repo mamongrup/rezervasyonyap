@@ -940,6 +940,7 @@ export const en = {
     faq: {
       title: 'Frequently asked questions',
       subtitle: 'The most common questions guests ask about this hotel.',
+      subtitleHolidayHome: 'General holiday-home template questions plus ones you add for this listing.',
       qCheckInOut: 'What are the check-in and check-out times?',
       qBreakfast: 'Is breakfast served at this hotel?',
       aBreakfast: 'Yes, breakfast is served. Details are listed in the meal plan section.',

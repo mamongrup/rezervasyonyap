@@ -231,7 +231,7 @@ function PriceColumn({
   previewLocale: string
   organizationId?: string
 }) {
-  const [form, setForm] = useState({ code: '', label: '', sort: '0', codeManual: false })
+  const [form, setForm] = useState({ label: '', sort: '0' })
   const [busy, setBusy] = useState(false)
   const [aiBusy, setAiBusy] = useState(false)
   const [localMsg, setLocalMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -266,9 +266,12 @@ function PriceColumn({
     e.preventDefault()
     const token = getStoredAuthToken()
     if (!token) return
-    const cd = form.code.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
-    if (!cd || !form.label.trim()) {
-      setLocalMsg({ ok: false, text: 'Kod ve Türkçe etiket gerekli.' })
+    const cd = labelToCode(form.label.trim())
+    if (!form.label.trim() || !cd) {
+      setLocalMsg({
+        ok: false,
+        text: 'Geçerli bir Türkçe etiket girin (sistem kodunu otomatik üretir).',
+      })
       return
     }
     setBusy(true)
@@ -286,7 +289,7 @@ function PriceColumn({
         { organizationId },
       )
       const trLabel = form.label.trim()
-      setForm({ code: '', label: '', sort: '0', codeManual: false })
+      setForm({ label: '', sort: '0' })
       setTrans({ tr: trLabel })
       setEditingId(created.id)
       setLocalMsg({
@@ -411,8 +414,9 @@ function PriceColumn({
                 className="flex items-center justify-between gap-2 rounded-xl border border-neutral-100 px-3 py-2 dark:border-neutral-600"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{r.label || r.code}</p>
-                  <p className="font-mono text-[11px] text-neutral-400">{r.code}</p>
+                  <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                    {r.label.trim() ? r.label : '—'}
+                  </p>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <button
@@ -440,7 +444,7 @@ function PriceColumn({
           <div className="mb-4 rounded-xl border border-primary-200 bg-primary-50/50 p-3 dark:border-primary-900/40 dark:bg-primary-950/20">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                Etiketler — {editItem.code}
+                Çok dilli etiketler
               </p>
               <div className="flex flex-wrap items-center gap-1.5">
                 <ManageAiMagicTextButton
@@ -499,40 +503,17 @@ function PriceColumn({
         <form onSubmit={(e) => void onAdd(e)} className="space-y-3 border-t border-neutral-100 pt-4 dark:border-neutral-700">
           <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Yeni kalem</p>
           <div className="grid gap-2 sm:grid-cols-2">
-            <Field className="block">
+            <Field className="block sm:col-span-2">
               <Label className="text-[11px]">Türkçe etiket (zorunlu)</Label>
               <Input
                 value={form.label}
-                onChange={(e) => {
-                  const newLabel = e.target.value
-                  setForm((p) => ({
-                    ...p,
-                    label: newLabel,
-                    code: p.codeManual ? p.code : labelToCode(newLabel),
-                  }))
-                }}
+                onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
                 placeholder="Havuz ısıtma"
                 className="text-sm"
               />
-            </Field>
-            <Field className="block">
-              <Label className="text-[11px]">Kod</Label>
-              <Input
-                value={form.code}
-                onChange={(e) => {
-                  const cleaned = e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')
-                  setForm((p) => ({
-                    ...p,
-                    code: cleaned,
-                    codeManual: cleaned.length > 0,
-                  }))
-                }}
-                placeholder="havuz_isitma"
-                className="font-mono text-xs"
-              />
-              {!form.codeManual && form.code ? (
-                <p className="mt-0.5 text-[10px] text-neutral-400">Etiketten otomatik üretildi.</p>
-              ) : null}
+              <p className="mt-0.5 text-[10px] text-neutral-400">
+                Kayıt kodu etiketten otomatik oluşturulur; listede yalnızca etiketler görünür.
+              </p>
             </Field>
             <Field className="block sm:col-span-2">
               <Label className="text-[11px]">Sıra</Label>

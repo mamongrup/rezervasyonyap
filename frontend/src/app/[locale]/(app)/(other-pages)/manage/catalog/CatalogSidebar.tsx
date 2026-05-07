@@ -91,6 +91,7 @@ export default function CatalogSidebar() {
           ? [
               { href: `${p}/property-types`, label: t('catalog.hub_holiday_home_property_types') },
               { href: `${p}/theme-presets`, label: t('catalog.hub_holiday_home_theme_presets') },
+              { href: `${p}/faq`, label: t('catalog.hub_holiday_home_faq') },
             ]
           : []),
         { href: `${p}/price-inclusions`, label: 'Dahil / Hariç' },

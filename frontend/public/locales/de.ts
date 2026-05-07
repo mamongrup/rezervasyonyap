@@ -285,6 +285,8 @@ export const de: AppMessages = {
     faq: {
       title: 'Häufig gestellte Fragen',
       subtitle: 'Die häufigsten Fragen unserer Gäste zu diesem Hotel.',
+      subtitleHolidayHome:
+        'Fragen aus der Ferienunterkunft-Vorlage plus eigene Einträge für dieses Inserat.',
       qCheckInOut: 'Wann sind Check-in und Check-out?',
       qBreakfast: 'Wird in diesem Hotel Frühstück serviert?',
       aBreakfast: 'Ja, Frühstück wird serviert. Details finden Sie im Abschnitt Verpflegung.',

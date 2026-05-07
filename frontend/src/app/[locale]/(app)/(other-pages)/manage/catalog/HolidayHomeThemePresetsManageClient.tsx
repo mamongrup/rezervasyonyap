@@ -39,26 +39,24 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
           {t('catalog.hub_holiday_home_theme_presets')}
         </h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          İlan düzenlemede «Özellikler / Temalar» çipleri aşağıdaki <strong>kodlarla</strong> kaydedilir (
-          <span className="font-mono text-xs">theme_codes</span>). Veritabanında çeviri satırı olan kodlar vitrin
-          listelerinde etiket olarak da kullanılabilir.
+          İlan düzenlemede «Özellikler / Temalar» seçimleri vitrin temalarıyla eşlenir. Veritabanında çevirisi olan
+          kayıtlar liste ve filtrelerde etiket olarak kullanılır.
         </p>
       </div>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
         <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Panel çipleri (ilan formu)</h2>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Bu liste kod ile sabittir; yeni çip eklemek için geliştirici ekibinin{' '}
-          <span className="font-mono">villa-theme-chip-presets.ts</span> dosyasını güncellemesi gerekir.
+          Bu liste sabittir; yeni seçenek eklemek için geliştirici ekibinin villa-theme-chip-presets dosyasını
+          güncellemesi gerekir.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {VILLA_THEME_CHIP_PRESETS.map((t) => (
+          {VILLA_THEME_CHIP_PRESETS.map((chip) => (
             <li
-              key={t.code}
+              key={chip.code}
               className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
             >
-              <span className="font-mono text-xs text-primary-700 dark:text-primary-400">{t.code}</span>
-              <span className="ms-2 text-neutral-800 dark:text-neutral-100">{t.label}</span>
+              <span className="text-neutral-800 dark:text-neutral-100">{chip.label}</span>
             </li>
           ))}
         </ul>
@@ -78,11 +76,12 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
         ) : (
           <ul className="mt-4 divide-y divide-neutral-200 dark:divide-neutral-700">
             {dbItems.map((row) => (
-              <li key={row.code} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
-                <span className="font-mono text-xs text-primary-700 dark:text-primary-400">{row.code}</span>
+              <li key={row.code} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span className="text-sm text-neutral-800 dark:text-neutral-100">{row.label}</span>
                 {chipCodes.has(row.code) ? (
-                  <span className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400">panel çipiyle uyumlu</span>
+                  <span className="text-[10px] uppercase text-emerald-700 dark:text-emerald-400">
+                    panel çipiyle uyumlu
+                  </span>
                 ) : (
                   <span className="text-[10px] uppercase text-neutral-400">yalnız vitrin / filtre</span>
                 )}

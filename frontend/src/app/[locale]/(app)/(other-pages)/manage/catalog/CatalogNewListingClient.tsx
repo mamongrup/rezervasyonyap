@@ -3,6 +3,11 @@
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { extractHolidayHomePoolsFromVerticalMeta, unwrapVerticalMetaPayload } from '@/lib/listing-pools'
+import {
+  parseHolidayHomeFaqListingOverlay,
+  parseHolidayHomeFaqTemplatePayload,
+  pickHolidayHomeFaqText,
+} from '@/lib/holiday-home-faq-merge'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -41,6 +46,7 @@ import {
   listPriceLineItems,
   listSiteSettings,
   patchListingBasics,
+  patchListingSlug,
   patchListingPerks,
   patchManageHotelDetails,
   putListingAttributeValues,
@@ -50,7 +56,6 @@ import {
   putVerticalMeta,
   putListingPriceLineSelections,
   upsertSeoMetadata,
-  upsertSiteSetting,
   type AttributeDef,
   type AttributeGroup,
   type ManageListingRow,
@@ -77,15 +82,18 @@ import { Field, Label } from '@/shared/fieldset'
 import Link from 'next/link'
 import {
   ArrowLeft,
+  Check,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   Link2,
   Loader2,
   Lock,
+  Pencil,
   Save,
   Sparkles,
   Trash2,
+  X,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
@@ -206,6 +214,8 @@ function toSlug(s: string): string {
     .slice(0, 120)
 }
 
+const HOLIDAY_HOME_FAQ_SITE_KEY = 'catalog.holiday_home_default_faq'
+
 function parseOptionsJsonSafe(raw: string | null | undefined): string[] {
   if (!raw) return []
   try {
@@ -273,6 +283,17 @@ export default function CatalogNewListingClient({
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [slugManual, setSlugManual] = useState(false)
+  const [headerSlugEdit, setHeaderSlugEdit] = useState(false)
+  const [headerSlugDraft, setHeaderSlugDraft] = useState('')
+  const [headerSlugBusy, setHeaderSlugBusy] = useState(false)
+  const [headerSlugErr, setHeaderSlugErr] = useState<string | null>(null)
+
+  /** Tatil evi SSS — şablon satırları (TR önizleme), gizlenen şablon id'leri, ilana özel ekler */
+  type FaqTplUi = { id: string; q_tr: string; a_tr: string }
+  type FaqExtraUi = { id: string; q_tr: string; a_tr: string }
+  const [faqTemplateRows, setFaqTemplateRows] = useState<FaqTplUi[]>([])
+  const [faqExcludedTemplateIds, setFaqExcludedTemplateIds] = useState<Set<string>>(() => new Set())
+  const [faqExtraRows, setFaqExtraRows] = useState<FaqExtraUi[]>([])
   const [description, setDescription] = useState('')
   const [currency, setCurrency] = useState('TRY')
   const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>([])
@@ -364,8 +385,6 @@ export default function CatalogNewListingClient({
   const [roomCount, setRoomCount] = useState('')
   const [propertyType, setPropertyType] = useState('')
   const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>([...HOLIDAY_PROPERTY_TYPE_OPTIONS])
-  const [newPropertyType, setNewPropertyType] = useState('')
-  const [propertyTypeBusy, setPropertyTypeBusy] = useState(false)
   const [poolSizeLabel, setPoolSizeLabel] = useState('')
   const [pools, setPools] = useState<{
     open_pool: PoolRow
@@ -549,6 +568,44 @@ export default function CatalogNewListingClient({
   }, [categoryCode, needOrg, orgId, editListingId])
 
   useEffect(() => {
+    setHeaderSlugEdit(false)
+    setHeaderSlugErr(null)
+    setHeaderSlugDraft('')
+  }, [editListingId])
+
+  useEffect(() => {
+    if (!isVilla || editListingId) return
+    const token = getStoredAuthToken()
+    if (!token) return
+    let cancelled = false
+    void listSiteSettings(token, { scope: 'platform', key: HOLIDAY_HOME_FAQ_SITE_KEY })
+      .then((res) => {
+        if (cancelled) return
+        const rrow = res.settings[0]
+        if (!rrow?.value_json?.trim()) {
+          setFaqTemplateRows([])
+          return
+        }
+        try {
+          const payload = parseHolidayHomeFaqTemplatePayload(JSON.parse(rrow.value_json) as unknown)
+          setFaqTemplateRows(
+            payload.items.map((it) => ({
+              id: it.id,
+              q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+              a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+            })),
+          )
+        } catch {
+          setFaqTemplateRows([])
+        }
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isVilla, editListingId])
+
+  useEffect(() => {
     if (!isVilla) return
     const token = getStoredAuthToken()
     if (!token) return
@@ -676,6 +733,7 @@ export default function CatalogNewListingClient({
           rulesRes,
           feedsRes,
           perks,
+          faqTplRes,
         ] = await Promise.all([
           listManageCatalogListings(token, {
             categoryCode,
@@ -696,6 +754,9 @@ export default function CatalogNewListingClient({
           listListingPriceRules(token, lid, orgParam).catch(() => ({ rules: [] })),
           listIcalFeeds(lid).catch(() => ({ feeds: [] })),
           getListingPerks(lid).catch(() => null),
+          listSiteSettings(token, { scope: 'platform', key: HOLIDAY_HOME_FAQ_SITE_KEY }).catch(() => ({
+            settings: [] as { value_json?: string }[],
+          })),
         ])
 
         if (cancelled) return
@@ -704,6 +765,26 @@ export default function CatalogNewListingClient({
           typeof vertRaw === 'object' && vertRaw !== null && !Array.isArray(vertRaw)
             ? vertRaw
             : {}
+
+        const faqSiteRow = faqTplRes.settings[0]
+        if (faqSiteRow?.value_json?.trim()) {
+          try {
+            const payload = parseHolidayHomeFaqTemplatePayload(
+              JSON.parse(faqSiteRow.value_json) as unknown,
+            )
+            setFaqTemplateRows(
+              payload.items.map((it) => ({
+                id: it.id,
+                q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+                a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+              })),
+            )
+          } catch {
+            setFaqTemplateRows([])
+          }
+        } else {
+          setFaqTemplateRows([])
+        }
 
         const row = rowsRes.listings.find((x) => x.id === lid)
         if (row?.slug) {
@@ -834,6 +915,20 @@ export default function CatalogNewListingClient({
             }),
           )
         }
+
+        const faqOv = parseHolidayHomeFaqListingOverlay(
+          unwrapVerticalMetaPayload(verticalMeta).faq,
+        )
+        setFaqExcludedTemplateIds(
+          faqOv.hidden_template_ids?.length ? new Set(faqOv.hidden_template_ids) : new Set(),
+        )
+        setFaqExtraRows(
+          (faqOv.extra_items ?? []).map((it) => ({
+            id: it.id,
+            q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+            a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+          })),
+        )
 
         const nextAttr: Record<string, string> = {}
         for (const v of attrRes.values) {
@@ -1266,9 +1361,63 @@ export default function CatalogNewListingClient({
     }
   }
 
+  function toggleFaqTemplateIncluded(templateId: string) {
+    setFaqExcludedTemplateIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(templateId)) next.delete(templateId)
+      else next.add(templateId)
+      return next
+    })
+  }
+
+  function addFaqExtraRow() {
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `extra_${Date.now()}`
+    setFaqExtraRows((rows) => [...rows, { id, q_tr: '', a_tr: '' }])
+  }
+
+  function removeFaqExtraRow(rowId: string) {
+    setFaqExtraRows((rows) => rows.filter((r) => r.id !== rowId))
+  }
+
+  function patchFaqExtraRow(rowId: string, patch: Partial<{ q_tr: string; a_tr: string }>) {
+    setFaqExtraRows((rows) => rows.map((r) => (r.id === rowId ? { ...r, ...patch } : r)))
+  }
+
   function handleSlugChange(v: string) {
     setSlugManual(true)
     setSlug(v.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+  }
+
+  async function persistHeaderSlug() {
+    if (!editListingId) return
+    const token = getStoredAuthToken()
+    if (!token) {
+      setErr(t('catalog.session_missing'))
+      return
+    }
+    const next = toSlug(headerSlugDraft.trim())
+    if (!next) {
+      setHeaderSlugErr('Geçerli bir adres kodu (slug) girin.')
+      return
+    }
+    setHeaderSlugErr(null)
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    setHeaderSlugBusy(true)
+    try {
+      const r = await patchListingSlug(token, editListingId, { slug: next }, orgParam)
+      setSlug(r.slug)
+      setSlugManual(true)
+      setHeaderSlugEdit(false)
+    } catch (e) {
+      setHeaderSlugErr(
+        formatManageApiError(e instanceof Error ? e.message : 'İşlem başarısız'),
+      )
+    } finally {
+      setHeaderSlugBusy(false)
+    }
   }
 
   function setPool(key: keyof typeof pools, field: keyof PoolRow, val: string | boolean) {
@@ -1277,42 +1426,6 @@ export default function CatalogNewListingClient({
 
   function setAttributeValue(groupCode: string, key: string, value: string) {
     setAttributeValues((prev) => ({ ...prev, [`${groupCode}.${key}`]: value }))
-  }
-
-  async function persistPropertyTypeOptions(nextOptions: string[]) {
-    const token = getStoredAuthToken()
-    if (!token) return
-    setPropertyTypeBusy(true)
-    setErr(null)
-    try {
-      await upsertSiteSetting(token, {
-        key: 'catalog.holiday_home_property_types',
-        value_json: JSON.stringify(nextOptions),
-      })
-      setPropertyTypeOptions(nextOptions)
-    } catch (e) {
-      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('property_type_options_save_failed'))
-    } finally {
-      setPropertyTypeBusy(false)
-    }
-  }
-
-  async function addPropertyTypeOption() {
-    const candidate = newPropertyType.trim()
-    if (!candidate) return
-    if (propertyTypeOptions.some((x) => x.toLocaleLowerCase('tr-TR') === candidate.toLocaleLowerCase('tr-TR'))) {
-      setNewPropertyType('')
-      return
-    }
-    const next = [...propertyTypeOptions, candidate]
-    await persistPropertyTypeOptions(next)
-    setNewPropertyType('')
-  }
-
-  async function removePropertyTypeOption(opt: string) {
-    const next = propertyTypeOptions.filter((x) => x !== opt)
-    await persistPropertyTypeOptions(next)
-    if (propertyType === opt) setPropertyType('')
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -1483,12 +1596,20 @@ export default function CatalogNewListingClient({
         }
         const ef = extraFees.filter((x) => x.label.trim() && x.amount.trim())
         if (ef.length) vert.extra_fees = ef
-        if (Object.keys(vert).length > 0) {
-          await saveRequiredStep(
-            'Tatil evi detayları kaydı',
-            putVerticalMeta(token, lid, 'holiday_home', vert, orgParam),
-          )
+        vert.faq = {
+          hidden_template_ids: [...faqExcludedTemplateIds],
+          extra_items: faqExtraRows
+            .filter((r) => r.q_tr.trim() && r.a_tr.trim())
+            .map((r) => ({
+              id: r.id,
+              question: { tr: r.q_tr.trim() },
+              answer: { tr: r.a_tr.trim() },
+            })),
         }
+        await saveRequiredStep(
+          'Tatil evi detayları kaydı',
+          putVerticalMeta(token, lid, 'holiday_home', vert, orgParam),
+        )
       }
 
       if (isVilla) {
@@ -1806,9 +1927,81 @@ export default function CatalogNewListingClient({
                     {listingByLocale[primaryLocale]?.title?.trim() ||
                       `Yeni ilan — ${categoryLabelTr(categoryCode)}`}
                   </p>
-                  {slug.trim() ? (
-                    <p className="mt-0.5 break-all font-mono text-xs text-neutral-400">/{slug.trim()}</p>
-                  ) : null}
+                  {(slug.trim() || editListingId) && (
+                    <div className="mt-0.5 flex min-w-0 flex-col gap-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                        {editListingId && headerSlugEdit ? (
+                          <>
+                            <span className="shrink-0 font-mono text-xs text-neutral-400">/</span>
+                            <Input
+                              value={headerSlugDraft}
+                              onChange={(e) => {
+                                setHeaderSlugErr(null)
+                                setHeaderSlugDraft(toSlug(e.target.value))
+                              }}
+                              className="h-8 min-w-[10rem] flex-1 font-mono text-xs"
+                              disabled={headerSlugBusy || saveLocked}
+                              aria-label="Slug"
+                            />
+                            <button
+                              type="button"
+                              disabled={headerSlugBusy || saveLocked}
+                              onClick={() => void persistHeaderSlug()}
+                              title="Kaydet"
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70"
+                            >
+                              {headerSlugBusy ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Check className="h-4 w-4" />
+                              )}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={headerSlugBusy}
+                              onClick={() => {
+                                setHeaderSlugEdit(false)
+                                setHeaderSlugErr(null)
+                                setHeaderSlugDraft(slug.trim())
+                              }}
+                              title="İptal"
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {slug.trim() ? (
+                              <p className="min-w-0 flex-1 break-all font-mono text-xs text-neutral-400">
+                                /{slug.trim()}
+                              </p>
+                            ) : (
+                              <p className="flex-1 text-xs text-neutral-400">Slug</p>
+                            )}
+                            {editListingId ? (
+                              <button
+                                type="button"
+                                disabled={saveLocked || headerSlugBusy}
+                                onClick={() => {
+                                  setHeaderSlugDraft(slug.trim() ? slug.trim() : '')
+                                  setHeaderSlugErr(null)
+                                  setHeaderSlugEdit(true)
+                                }}
+                                title="Slug düzenle"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-600 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                      {headerSlugErr ? (
+                        <p className="text-xs text-red-600 dark:text-red-400">{headerSlugErr}</p>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1981,25 +2174,27 @@ export default function CatalogNewListingClient({
                 )}
               </Field>
 
-              <Field className="block">
-                <Label>
-                  Slug (URL) <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  ref={slugRef}
-                  value={slug}
-                  onChange={(e) => handleSlugChange(e.target.value)}
-                  placeholder="bodrum-deniz-manzarali-villa"
-                  className="mt-1 font-mono text-sm"
-                  required
-                  disabled={Boolean(editListingId)}
-                />
-                <HintText>
-                  {editListingId
-                    ? 'Yayın adresi (slug) güvenlik nedeniyle buradan değiştirilemez.'
-                    : 'Yalnız küçük harf, tire ve rakam. Başlıktan otomatik üretilir.'}
-                </HintText>
-              </Field>
+              {!(isVilla && editListingId) ? (
+                <Field className="block">
+                  <Label>
+                    Slug (URL) <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    ref={slugRef}
+                    value={slug}
+                    onChange={(e) => handleSlugChange(e.target.value)}
+                    placeholder="bodrum-deniz-manzarali-villa"
+                    className="mt-1 font-mono text-sm"
+                    required
+                    disabled={Boolean(editListingId)}
+                  />
+                  <HintText>
+                    {editListingId
+                      ? 'Yayın adresi (slug) güvenlik nedeniyle buradan değiştirilemez.'
+                      : 'Yalnız küçük harf, tire ve rakam. Başlıktan otomatik üretilir.'}
+                  </HintText>
+                </Field>
+              ) : null}
 
               <Field className="block">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2030,6 +2225,104 @@ export default function CatalogNewListingClient({
                 />
               </Field>
             </Section>
+
+            {isVilla ? (
+              <Section
+                title="Sıkça sorulan sorular (SSS)"
+                subtitle="Katalogdaki genel şablondan gelir; bu ilana uymayanları kapatın veya soru ekleyin."
+              >
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Genel şablonu{' '}
+                  <Link
+                    href={vitrinPath('/manage/catalog/holiday_home/faq')}
+                    className="font-medium text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                  >
+                    Katalog → Tatil Evi → SSS
+                  </Link>{' '}
+                  üzerinden düzenleyebilirsiniz.
+                </p>
+                {faqTemplateRows.length === 0 ? (
+                  <p className="mt-2 text-sm text-neutral-500">
+                    Henüz genel SSS tanımlı değil; yukarıdaki bağlantıdan ekleyebilirsiniz.
+                  </p>
+                ) : (
+                  <ul className="mt-4 space-y-3">
+                    {faqTemplateRows.map((row) => (
+                      <li
+                        key={row.id}
+                        className="flex gap-3 rounded-xl border border-neutral-200 bg-neutral-50/80 px-3 py-2.5 dark:border-neutral-700 dark:bg-neutral-900/40"
+                      >
+                        <label className="flex shrink-0 cursor-pointer items-start gap-2 pt-0.5">
+                          <input
+                            type="checkbox"
+                            className="mt-1 rounded border-neutral-300"
+                            checked={!faqExcludedTemplateIds.has(row.id)}
+                            onChange={() => toggleFaqTemplateIncluded(row.id)}
+                            disabled={saveLocked}
+                          />
+                          <span className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                            Göster
+                          </span>
+                        </label>
+                        <div className="min-w-0 flex-1 text-sm">
+                          <p className="font-medium text-neutral-900 dark:text-neutral-100">{row.q_tr}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">
+                            {row.a_tr}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="mt-6 border-t border-neutral-200 pt-4 dark:border-neutral-700">
+                  <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">
+                    Bu ilana özel sorular
+                  </p>
+                  <div className="mt-3 space-y-4">
+                    {faqExtraRows.map((row) => (
+                      <div key={row.id} className="rounded-xl border border-neutral-200 p-3 dark:border-neutral-700">
+                        <div className="mb-2 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={saveLocked}
+                            onClick={() => removeFaqExtraRow(row.id)}
+                            className="text-xs text-red-600 hover:underline dark:text-red-400"
+                          >
+                            Kaldır
+                          </button>
+                        </div>
+                        <Field className="block">
+                          <Label>Soru (TR)</Label>
+                          <Input
+                            className="mt-1"
+                            value={row.q_tr}
+                            onChange={(e) => patchFaqExtraRow(row.id, { q_tr: e.target.value })}
+                            disabled={saveLocked}
+                          />
+                        </Field>
+                        <Field className="mt-2 block">
+                          <Label>Yanıt (TR)</Label>
+                          <Textarea
+                            className="mt-1 min-h-[72px]"
+                            value={row.a_tr}
+                            onChange={(e) => patchFaqExtraRow(row.id, { a_tr: e.target.value })}
+                            disabled={saveLocked}
+                          />
+                        </Field>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={saveLocked}
+                    onClick={addFaqExtraRow}
+                    className="mt-3 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                  >
+                    + Soru ekle
+                  </button>
+                </div>
+              </Section>
+            ) : null}
 
             <Section title="Galeri" subtitle="Görseller önce depoya yüklenir; ilanı kaydedince ilana bağlanır. Sırayı ok ile değiştirebilirsiniz.">
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -2138,45 +2431,16 @@ export default function CatalogNewListingClient({
                         ))}
                       </select>
                       <HintText>Listelerde alt kategori yerine bu tip satırı gösterilir.</HintText>
-                      {needOrg && (
-                        <div className="mt-3 rounded-xl border border-neutral-200 p-3 dark:border-neutral-700">
-                          <p className="text-xs font-medium text-neutral-600 dark:text-neutral-300">
-                            İlan tipi yönetimi (yalnızca yönetici)
-                          </p>
-                          <div className="mt-2 flex gap-2">
-                            <Input
-                              className="flex-1"
-                              value={newPropertyType}
-                              onChange={(e) => setNewPropertyType(e.target.value)}
-                              placeholder="Yeni ilan tipi ekle"
-                            />
-                            <ButtonPrimary
-                              type="button"
-                              onClick={() => void addPropertyTypeOption()}
-                              disabled={propertyTypeBusy}
-                              className="px-3 py-2 text-xs"
-                            >
-                              Ekle
-                            </ButtonPrimary>
-                          </div>
-                          {propertyTypeOptions.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {propertyTypeOptions.map((opt) => (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  onClick={() => void removePropertyTypeOption(opt)}
-                                  disabled={propertyTypeBusy}
-                                  className="rounded-full border border-neutral-300 px-2 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                                  title="Listeden çıkar"
-                                >
-                                  {opt} ×
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      <HintText>
+                        Tip listesini düzenlemek için{' '}
+                        <Link
+                          href={vitrinPath('/manage/catalog/holiday_home/property-types')}
+                          className="font-medium text-primary-700 underline-offset-2 hover:underline dark:text-primary-300"
+                        >
+                          Katalog → Tatil Evi → Tatil evi tipi
+                        </Link>{' '}
+                        sayfasını kullanın.
+                      </HintText>
                     </Field>
                     <Field className="block">
                       <Label>Kategori sözleşmesi</Label>

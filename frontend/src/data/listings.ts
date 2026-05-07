@@ -6,6 +6,11 @@ import {
   unwrapVerticalMetaPayload,
   type HolidayHomePools,
 } from '@/lib/listing-pools'
+import {
+  mergeHolidayHomeListingFaqs,
+  parseHolidayHomeFaqListingOverlay,
+  type HolidayHomeFaqTemplatePayload,
+} from '@/lib/holiday-home-faq-merge'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { stripHtml } from '@/lib/social-share/strip-html'
@@ -13,6 +18,7 @@ import {
   getPublicListingImages,
   getPublicListingVitrine,
   getVerticalMeta,
+  fetchPublicHolidayHomeFaqTemplate,
   resolvePublishedListingIdForStayPage,
   searchPublicListings,
 } from '@/lib/travel-api'
@@ -114,6 +120,8 @@ export type TStayListingResolved = TStayListing & {
   /** `vertical_holiday_home` meta — yalnızca tatil evi dikeyinde */
   pools?: HolidayHomePools
   poolsDemo?: boolean
+  /** Tatil evi şablon + ilan SSS birleşimi (vitrin) */
+  holidayHomeFaqItems?: { q: string; a: string }[]
 }
 
 export const getStayListingByHandle = async (
@@ -181,9 +189,14 @@ export const getStayListingByHandle = async (
   let pools: HolidayHomePools | undefined
   let poolsDemo = false
   let listingExtraFees: Array<{ label: string; amount: string; unit: string }> | undefined
+  let holidayHomeFaqItems: { q: string; a: string }[] | undefined
   if (catalogId && normalizeCatalogVertical(listing.listingVertical) === 'holiday_home') {
     try {
-      const meta = await getVerticalMeta<Record<string, unknown>>(catalogId, 'holiday_home')
+      const emptyFaqTemplate: HolidayHomeFaqTemplatePayload = { items: [] }
+      const [meta, faqTemplate] = await Promise.all([
+        getVerticalMeta<Record<string, unknown>>(catalogId, 'holiday_home'),
+        fetchPublicHolidayHomeFaqTemplate().catch(() => emptyFaqTemplate),
+      ])
       const p = extractHolidayHomePoolsFromVerticalMeta(meta)
       if (p && hasAnyEnabledPool(p)) pools = p
       const rawEf = unwrapVerticalMetaPayload(meta).extra_fees
@@ -205,6 +218,9 @@ export const getStayListingByHandle = async (
           }))
         if (cleaned.length > 0) listingExtraFees = cleaned
       }
+      const overlay = parseHolidayHomeFaqListingOverlay(unwrapVerticalMetaPayload(meta).faq)
+      const mergedFaq = mergeHolidayHomeListingFaqs(faqTemplate, overlay, locale ?? 'tr')
+      if (mergedFaq.length > 0) holidayHomeFaqItems = mergedFaq
     } catch {
       pools = undefined
     }
@@ -218,6 +234,7 @@ export const getStayListingByHandle = async (
     ...(cancellationPolicyText ? { cancellationPolicyText } : {}),
     ...(pools ? { pools, ...(poolsDemo ? { poolsDemo: true } : {}) } : {}),
     ...(listingExtraFees?.length ? { listingExtraFees } : {}),
+    ...(holidayHomeFaqItems?.length ? { holidayHomeFaqItems } : {}),
     host: {
       displayName: contactName?.trim() || listing.title?.trim() || 'Host',
       avatarUrl: avatars1.src,

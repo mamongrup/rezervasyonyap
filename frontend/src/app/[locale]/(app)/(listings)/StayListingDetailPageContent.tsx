@@ -55,7 +55,7 @@ import { redirect } from 'next/navigation'
 import { Fragment } from 'react'
 import clsx from 'clsx'
 import HeaderGallery from './components/HeaderGallery'
-import HotelFAQSection from './HotelFAQSection'
+import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
@@ -838,6 +838,18 @@ export default async function StayListingDetailPageContent({
           />
           {renderSectionRules()}
           {renderSectionPolicies()}
+          {isHolidayHome &&
+            Array.isArray(listing.holidayHomeFaqItems) &&
+            listing.holidayHomeFaqItems.length > 0 && (
+              <AccordionFaqSection
+                locale={locale}
+                items={listing.holidayHomeFaqItems}
+                title={messages.listing.faq.title}
+                subtitle={
+                  messages.listing.faq.subtitleHolidayHome ?? messages.listing.faq.subtitle
+                }
+              />
+            )}
           {!isHolidayHome && (() => {
             // Booking/ETStur tarzı FAQ — mevcut listing alanlarından otomatik
             // üretilir, içerik yoksa bölüm gizlenir.

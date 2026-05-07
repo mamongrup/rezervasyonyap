@@ -8,6 +8,10 @@ import { MAX_AI_UPSTREAM_MS } from '@/lib/ai-upstream-timeouts'
 import { setStoredAuthProfile } from '@/lib/auth-storage'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { parseLenientJson } from '@/lib/json-parse'
+import {
+  parseHolidayHomeFaqTemplatePayload,
+  type HolidayHomeFaqTemplatePayload,
+} from '@/lib/holiday-home-faq-merge'
 
 const base = () => apiOriginForFetch()
 
@@ -5510,6 +5514,18 @@ export async function getSitePublicConfig(
   return json(res)
 }
 
+/** Tatil evi vitrin SSS şablonu — kimlik doğrulama gerekmez. */
+export async function fetchPublicHolidayHomeFaqTemplate(
+  init?: RequestInit,
+): Promise<HolidayHomeFaqTemplatePayload> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/catalog/public/holiday-home-faq-template`, init)
+  if (!res.ok) throw new Error(`holiday_home_faq_template_${res.status}`)
+  const raw: unknown = await json(res)
+  return parseHolidayHomeFaqTemplatePayload(raw)
+}
+
 // --- Navigasyon (menü, anasayfa bölümleri, popup) — 130_navigation_ui ---
 
 export type NavMenu = {
@@ -8242,6 +8258,29 @@ export async function patchListingBasics(
     throw new Error((err as { error?: string }).error ?? `listing_basics_patch_${res.status}`)
   }
   return json(res)
+}
+
+export async function patchListingSlug(
+  token: string,
+  listingId: string,
+  body: { slug: string },
+  params?: { organizationId?: string },
+): Promise<{ slug: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${listingId}/slug${catalogListingQs(params)}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `listing_slug_patch_${res.status}`)
+  }
+  return json<{ slug: string }>(res)
 }
 
 // ─── Owner Contact GET / PUT ──────────────────────────────────────────────────

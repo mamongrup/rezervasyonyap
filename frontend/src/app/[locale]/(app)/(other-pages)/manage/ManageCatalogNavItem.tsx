@@ -52,6 +52,10 @@ function subItems(base: string, code: string, t: (k: string) => string) {
             href: `${p}/theme-presets`,
             label: manageTOr(t, 'catalog.hub_holiday_home_theme_presets', 'Tatil evi teması'),
           },
+          {
+            href: `${p}/faq`,
+            label: manageTOr(t, 'catalog.hub_holiday_home_faq', 'SSS'),
+          },
         ]
       : []),
     {

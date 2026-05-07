@@ -284,6 +284,8 @@ export const fr: AppMessages = {
     faq: {
       title: 'Questions fréquentes',
       subtitle: 'Les questions les plus posées par les voyageurs sur cet hôtel.',
+      subtitleHolidayHome:
+        'Questions du modèle « maison de vacances » et entrées propres à cette annonce.',
       qCheckInOut: 'Quels sont les horaires d’arrivée et de départ ?',
       qBreakfast: 'Le petit-déjeuner est-il servi dans cet hôtel ?',
       aBreakfast: 'Oui, le petit-déjeuner est servi. Détails dans la section formules de repas.',
