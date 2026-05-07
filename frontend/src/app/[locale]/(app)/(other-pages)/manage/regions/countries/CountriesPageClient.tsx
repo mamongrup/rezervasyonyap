@@ -21,14 +21,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 
-// ─── slugify ─────────────────────────────────────────────────────────────────
-function toSlug(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
-    .replace(/İ/g, 'i').replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
+import { slugifyAsciiHyphenSlug } from '@/lib/slug-latin-tr'
 
 // ─── Small form modal / inline panel ─────────────────────────────────────────
 type AddCountryForm = { iso2: string; name: string }
@@ -146,7 +139,7 @@ function InlineAddForm({
                   const next = { ...prev, [f.key]: e.target.value }
                   // auto-slug
                   if (f.key === 'name' && 'slug' in prev) {
-                    next.slug = toSlug(e.target.value)
+                    next.slug = slugifyAsciiHyphenSlug(e.target.value)
                   }
                   return next
                 })
@@ -317,7 +310,7 @@ export default function CountriesPageClient() {
           <a href="../ai/regions" className="text-[color:var(--manage-primary)] underline">
             AI Bölge Oluşturucu
           </a>
-          'yu kullanın.
+          &apos;yu kullanın.
         </p>
       </div>
 

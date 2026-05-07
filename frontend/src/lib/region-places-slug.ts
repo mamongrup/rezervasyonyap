@@ -3,6 +3,8 @@
  * Sokak adresi kullanmayın — şehir / bölge adı kullanın.
  */
 
+import { slugifyAsciiHyphenSlug } from '@/lib/slug-latin-tr'
+
 /** `location_pages.slug_path` (`tr/mugla/fethiye`) → bölge sayfası `slug.join('-')` ile aynı dosya anahtarı */
 export function regionPlacesSlugFromSlugPath(slugPath: string | undefined | null): string {
   const t = String(slugPath ?? '')
@@ -18,15 +20,6 @@ export function regionPlacesSlugFromSlugPath(slugPath: string | undefined | null
 
 export function regionPlacesSlugFromCity(city: string | undefined | null): string | undefined {
   if (!city?.trim()) return undefined
-  const t = city
-    .trim()
-    .replace(/İ/g, 'i')
-    .replace(/I/g, 'i')
-    .replace(/ı/g, 'i')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
+  const t = slugifyAsciiHyphenSlug(city.trim(), 120)
   return t.length ? t : undefined
 }

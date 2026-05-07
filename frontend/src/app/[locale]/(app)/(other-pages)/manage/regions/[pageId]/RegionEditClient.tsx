@@ -45,6 +45,8 @@ import { useCallback, useEffect, useState } from 'react'
 import RichEditor from '@/components/editor/RichEditor'
 import MapPicker from '@/components/editor/MapPicker'
 import ImageUpload from '@/components/editor/ImageUpload'
+import { slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { slugifyRegionSlugPathInput, slugifyRegionSlugTail } from '@/lib/slug-latin-tr'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
   ManageFormListingSection,
@@ -56,22 +58,6 @@ import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
-
-/** Başlıktan SEO-uyumlu slug oluşturur (Türkçe karakter dönüşümü dahil) */
-function toSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/İ/g, 'i').replace(/ı/g, 'i')
-    .replace(/ş/g, 's').replace(/Ş/g, 's')
-    .replace(/ğ/g, 'g').replace(/Ğ/g, 'g')
-    .replace(/ü/g, 'u').replace(/Ü/g, 'u')
-    .replace(/ö/g, 'o').replace(/Ö/g, 'o')
-    .replace(/ç/g, 'c').replace(/Ç/g, 'c')
-    .replace(/[^a-z0-9/\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-}
 
 const REGION_TYPES = [
   { value: 'country',     label: 'Ülke — tek başına ülke kaydı' },
@@ -214,7 +200,7 @@ function ImageUploader({ label, hint, value, onChange, aspectRatio = '4/3' }: {
         value={value}
         onChange={onChange}
         folder="regions"
-        prefix={label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}
+        prefix={slugifyMediaSegment(label)}
         aspectRatio={aspectRatio}
         placeholder={`${label} yükleyin`}
       />
@@ -470,7 +456,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       const base = slugPath.includes('/')
         ? slugPath.slice(0, slugPath.lastIndexOf('/') + 1)
         : ''
-      setSlugPath(base + toSlug(value))
+      setSlugPath(base + slugifyRegionSlugTail(value))
     }
   }
 
@@ -1054,7 +1040,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                         const base = slugPath.includes('/')
                           ? slugPath.slice(0, slugPath.lastIndexOf('/') + 1)
                           : ''
-                        setSlugPath(base + toSlug(name))
+                        setSlugPath(base + slugifyRegionSlugTail(name))
                         setSlugLocked(true)
                       }
                     }}
@@ -1091,7 +1077,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                       type="text"
                       autoFocus
                       value={slugPath}
-                      onChange={(e) => setSlugPath(e.target.value.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9/-]/g, ''))}
+                      onChange={(e) => setSlugPath(slugifyRegionSlugPathInput(e.target.value))}
                       placeholder="turkiye/mugla/bodrum"
                       className="flex-1 bg-transparent px-3 py-2 font-mono text-sm text-neutral-800 outline-none dark:text-neutral-200"
                     />

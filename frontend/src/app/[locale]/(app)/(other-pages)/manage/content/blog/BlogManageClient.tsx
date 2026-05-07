@@ -37,19 +37,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import ImageUpload from '@/components/editor/ImageUpload'
 import { blogCategoryMediaSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 
-function toSlug(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/ç/g, 'c')
-    .replace(/ğ/g, 'g')
-    .replace(/ı/g, 'i')
-    .replace(/İ/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ş/g, 's')
-    .replace(/ü/g, 'u')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
+import { slugifyAsciiHyphenSlug } from '@/lib/slug-latin-tr'
 
 function fmtDate(iso: string | null) {
   if (!iso) return null
@@ -131,7 +119,7 @@ function CategoryEditModal({
               value={name}
               onChange={(e) => {
                 setName(e.target.value)
-                if (isNew) setSlug(toSlug(e.target.value))
+                if (isNew) setSlug(slugifyAsciiHyphenSlug(e.target.value))
               }}
               placeholder="Seyahat İpuçları"
               className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -671,7 +659,7 @@ export default function BlogManageClient() {
                 value={newPostTitle}
                 onChange={(e) => {
                   setNewPostTitle(e.target.value)
-                  if (!newPostSlugEdited) setNewPostSlug(toSlug(e.target.value))
+                  if (!newPostSlugEdited) setNewPostSlug(slugifyAsciiHyphenSlug(e.target.value))
                 }}
                 placeholder="Blog yazısının başlığı"
                 className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary-500"

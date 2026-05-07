@@ -64,6 +64,7 @@ import {
 } from '@/lib/travel-api'
 import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { slugifyListingSlug } from '@/lib/slug-latin-tr'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
   ManageFormPageHeader,
@@ -201,18 +202,6 @@ type ExtraFeeUnit =
   | 'per_night'
   | 'per_person'
   | 'per_person_per_night'
-
-function toSlug(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
-    .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/[\s]+/g, '-')
-    .replace(/-+/g, '-')
-    .slice(0, 120)
-}
 
 const HOLIDAY_HOME_FAQ_SITE_KEY = 'catalog.holiday_home_default_faq'
 
@@ -1014,11 +1003,11 @@ export default function CatalogNewListingClient({
         ...prev,
         [activeLang]: { ...(prev[activeLang] ?? { title: '', description: '' }), title: v },
       }))
-      if (activeLang === primaryLocale && !slugManual) setSlug(toSlug(v))
+      if (activeLang === primaryLocale && !slugManual) setSlug(slugifyListingSlug(v))
       return
     }
     setTitle(v)
-    if (!slugManual) setSlug(toSlug(v))
+    if (!slugManual) setSlug(slugifyListingSlug(v))
   }
 
   function handleDescriptionChange(v: string) {
@@ -1058,7 +1047,7 @@ export default function CatalogNewListingClient({
     setAiTranslating(true)
     setTranslateMsg(null)
     try {
-      const slugRefVal = slug.trim().toLowerCase()
+      const slugRefVal = slugifyListingSlug(slug.trim())
       const [tTitle, tDescOut] = await Promise.all([
         tTit
           ? callAiTranslate({
@@ -1172,10 +1161,10 @@ export default function CatalogNewListingClient({
               title: v,
             },
           }))
-          if (activeLang === primaryLocale && !slugManual) setSlug(toSlug(v))
+          if (activeLang === primaryLocale && !slugManual) setSlug(slugifyListingSlug(v))
         } else {
           setTitle(v)
-          if (!slugManual) setSlug(toSlug(v))
+          if (!slugManual) setSlug(slugifyListingSlug(v))
         }
       }
       setTranslateMsg({ ok: true, text: 'Başlık SEO ve yazım kurallarına göre iyileştirildi.' })
@@ -1200,7 +1189,7 @@ export default function CatalogNewListingClient({
     setAiPolishBody(true)
     setTranslateMsg(null)
     try {
-      const slugRefVal = slug.trim().toLowerCase()
+      const slugRefVal = slugifyListingSlug(slug.trim())
       const out = await callAiTranslate({
         text: raw,
         context: 'body',
@@ -1280,7 +1269,7 @@ export default function CatalogNewListingClient({
     setSeoPolishBusy('desc')
     setTranslateMsg(null)
     try {
-      const slugRefVal = slug.trim().toLowerCase()
+      const slugRefVal = slugifyListingSlug(slug.trim())
       const out = await callAiTranslate({
         text: raw.slice(0, 2000),
         context: 'seo',
@@ -1319,7 +1308,7 @@ export default function CatalogNewListingClient({
     setSeoPolishBusy('suggest')
     setTranslateMsg(null)
     try {
-      const slugRefVal = slug.trim().toLowerCase()
+      const slugRefVal = slugifyListingSlug(slug.trim())
       const [metaTitle, metaDesc] = await Promise.all([
         tit
           ? callAiTranslate({
@@ -1388,7 +1377,7 @@ export default function CatalogNewListingClient({
 
   function handleSlugChange(v: string) {
     setSlugManual(true)
-    setSlug(v.toLowerCase().replace(/[^a-z0-9-]/g, ''))
+    setSlug(slugifyListingSlug(v))
   }
 
   async function persistHeaderSlug() {
@@ -1398,7 +1387,7 @@ export default function CatalogNewListingClient({
       setErr(t('catalog.session_missing'))
       return
     }
-    const next = toSlug(headerSlugDraft.trim())
+    const next = slugifyListingSlug(headerSlugDraft.trim())
     if (!next) {
       setHeaderSlugErr('Geçerli bir adres kodu (slug) girin.')
       return
@@ -1464,7 +1453,7 @@ export default function CatalogNewListingClient({
       } else {
         const body: Parameters<typeof createManageCatalogListing>[1] = {
           category_code: categoryCode,
-          slug: slug.trim().toLowerCase(),
+          slug: slugifyListingSlug(slug.trim()),
           currency_code: currency.trim().toUpperCase(),
           title: trTitle,
           title_locale: isVilla ? primaryLocale : locale,
@@ -1722,7 +1711,7 @@ export default function CatalogNewListingClient({
         `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(lid)}`,
       )
       const publicPath = stayDetailPathForVertical(categoryCode as CatalogListingVerticalCode)
-      const publicStayUrl = vitrinPath(`${publicPath}/${encodeURIComponent(slug.trim().toLowerCase())}`)
+      const publicStayUrl = vitrinPath(`${publicPath}/${encodeURIComponent(slugifyListingSlug(slug.trim()))}`)
       const intent = submitIntentRef.current
       submitIntentRef.current = 'save'
       if (intent === 'save-show') {
@@ -1937,7 +1926,7 @@ export default function CatalogNewListingClient({
                               value={headerSlugDraft}
                               onChange={(e) => {
                                 setHeaderSlugErr(null)
-                                setHeaderSlugDraft(toSlug(e.target.value))
+                                setHeaderSlugDraft(slugifyListingSlug(e.target.value))
                               }}
                               className="h-8 min-w-[10rem] flex-1 font-mono text-xs"
                               disabled={headerSlugBusy || saveLocked}
@@ -3790,7 +3779,7 @@ export default function CatalogNewListingClient({
             <a
               href={
                 slug.trim()
-                  ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slug.trim().toLowerCase()}`)
+                  ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slugifyListingSlug(slug.trim())}`)
                   : '#'
               }
               target="_blank"

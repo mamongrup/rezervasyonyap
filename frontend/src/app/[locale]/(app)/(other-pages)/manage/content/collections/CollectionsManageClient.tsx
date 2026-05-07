@@ -32,6 +32,7 @@ import { callAiTranslate } from '@/lib/manage-content-ai'
 import { defaultLocale } from '@/lib/i18n-config'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { slugifyAsciiHyphenSlug } from '@/lib/slug-latin-tr'
 
 const CATEGORY_OPTIONS = [
   { code: 'hotel', label: 'Otel' },
@@ -44,13 +45,6 @@ const CATEGORY_OPTIONS = [
   { code: 'visa', label: 'Vize' },
   { code: 'event', label: 'Etkinlik' },
 ]
-
-function toSlug(s: string) {
-  return s.toLowerCase()
-    .replace(/ç/g, 'c').replace(/ğ/g, 'g').replace(/ı/g, 'i')
-    .replace(/İ/g, 'i').replace(/ö/g, 'o').replace(/ş/g, 's').replace(/ü/g, 'u')
-    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-}
 
 function parseRules(json: string): CollectionFilterRules {
   try { return JSON.parse(json) } catch { return {} }
@@ -206,7 +200,7 @@ function CollectionModal({
                 value={title}
                 onChange={(e) => {
                   setTitle(e.target.value)
-                  if (isNew) setSlug(toSlug(e.target.value))
+                  if (isNew) setSlug(slugifyAsciiHyphenSlug(e.target.value))
                 }}
                 placeholder="Balayı Villaları"
                 className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-3 py-2 text-sm bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"

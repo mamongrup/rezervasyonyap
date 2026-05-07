@@ -489,6 +489,66 @@ fn create_listing_body_decoder() -> decode.Decoder(
   })
 }
 
+fn transliterate_tr_slug_ascii(s: String) -> String {
+  s
+  |> string.replace("İ", "i")
+  |> string.replace("I", "i")
+  |> string.replace("ı", "i")
+  |> string.replace("Ğ", "g")
+  |> string.replace("ğ", "g")
+  |> string.replace("Ü", "u")
+  |> string.replace("ü", "u")
+  |> string.replace("Ş", "s")
+  |> string.replace("ş", "s")
+  |> string.replace("Ö", "o")
+  |> string.replace("ö", "o")
+  |> string.replace("Ç", "c")
+  |> string.replace("ç", "c")
+  |> string.lowercase
+}
+
+fn slug_allowed_graphemes() -> List(String) {
+  string.to_graphemes("abcdefghijklmnopqrstuvwxyz0123456789-")
+}
+
+fn filter_to_slug_chars(s: String) -> String {
+  let allowed = slug_allowed_graphemes()
+  string.to_graphemes(s)
+  |> list.filter(fn(ch) { list.contains(allowed, ch) })
+  |> string.concat
+}
+
+fn collapse_double_hyphens(s: String) -> String {
+  let next = string.replace(s, "--", "-")
+  case next == s {
+    True -> s
+    False -> collapse_double_hyphens(next)
+  }
+}
+
+fn trim_slug_hyphens(s: String) -> String {
+  case string.starts_with(s, "-") {
+    True -> trim_slug_hyphens(string.drop_start(s, 1))
+    False ->
+      case string.ends_with(s, "-") {
+        True -> trim_slug_hyphens(string.drop_end(s, 1))
+        False -> s
+      }
+  }
+}
+
+/// Türkçe karakterleri Latin'e çevirip `slug_ok` ile uyumlu tek parça slug üretir.
+fn normalize_catalog_listing_slug(raw: String) -> String {
+  let base =
+    transliterate_tr_slug_ascii(string.trim(raw))
+    |> string.replace(" ", "-")
+    |> string.replace("_", "-")
+  filter_to_slug_chars(base)
+  |> collapse_double_hyphens
+  |> trim_slug_hyphens
+  |> string.slice(0, 200)
+}
+
 fn slug_ok(s: String) -> Bool {
   let t = string.trim(s)
   let allowed = string.to_graphemes("abcdefghijklmnopqrstuvwxyz0123456789-")
@@ -522,7 +582,7 @@ pub fn create_manage_listing(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(400, "invalid_json")
         Ok(#(org_body, cat_raw, slug_raw, cur_raw, title_raw, tloc_raw, cc_opt)) -> {
           let cat = string.lowercase(string.trim(cat_raw))
-          let slug = string.lowercase(string.trim(slug_raw))
+          let slug = normalize_catalog_listing_slug(slug_raw)
           let cur = string.uppercase(string.trim(cur_raw))
           let title = string.trim(title_raw)
           let tloc = string.lowercase(string.trim(tloc_raw))
@@ -2435,7 +2495,7 @@ pub fn patch_listing_slug(
               case json.parse(body, patch_slug_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(slug_raw) -> {
-                  let slug = string.lowercase(string.trim(slug_raw))
+                  let slug = normalize_catalog_listing_slug(slug_raw)
                   case slug_ok(slug) {
                     False -> json_err(400, "invalid_slug")
                     True ->

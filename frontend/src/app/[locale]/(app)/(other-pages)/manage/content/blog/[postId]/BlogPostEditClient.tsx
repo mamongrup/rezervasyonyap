@@ -50,20 +50,7 @@ import { localeFlagEmoji } from '@/lib/manage-ai-locale-rows'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { use, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-
-function toSlug(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/ç/g, 'c')
-    .replace(/ğ/g, 'g')
-    .replace(/ı/g, 'i')
-    .replace(/İ/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ş/g, 's')
-    .replace(/ü/g, 'u')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
+import { slugifyAsciiHyphenSlug } from '@/lib/slug-latin-tr'
 
 // ─── Hero Gallery (3 images) ──────────────────────────────────────────────────
 function HeroGallery({
@@ -759,7 +746,7 @@ export default function BlogPostEditClient({
                       value={title}
                       onChange={(e) => {
                         setTitle(e.target.value)
-                        if (!slug || slug === toSlug(title)) setSlug(toSlug(e.target.value))
+                        if (!slug || slug === slugifyAsciiHyphenSlug(title)) setSlug(slugifyAsciiHyphenSlug(e.target.value))
                       }}
                       placeholder="Blog yazısı başlığı"
                       className="w-full border border-neutral-300 dark:border-neutral-600 rounded-xl px-4 py-3 text-lg font-medium bg-transparent focus:outline-none focus:ring-2 focus:ring-primary-500"
@@ -1001,7 +988,7 @@ export default function BlogPostEditClient({
                   <p className="text-xs font-medium text-neutral-500 mb-2">Nasıl çalışır?</p>
                   <ul className="text-xs text-neutral-500 space-y-1 list-disc list-inside">
                     <li>Aktif sekmedeki başlık, özet ve içerik çevrilir</li>
-                    <li>"Uygula ve Kaydet" ile hedef dil sekmesine otomatik yazılır</li>
+                    <li>&quot;Uygula ve Kaydet&quot; ile hedef dil sekmesine otomatik yazılır</li>
                     <li>HTML formatı korunur; sonucu İçerik sekmesinden düzenleyebilirsiniz</li>
                     <li>Çeviri için <code className="bg-neutral-200 dark:bg-neutral-700 px-1 rounded">DEEPSEEK_API_KEY</code> gereklidir</li>
                   </ul>

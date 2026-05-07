@@ -2,6 +2,8 @@
  * Medya yükleme alt yolları — /api/upload-image ile uyumlu güvenli segmentler.
  */
 
+import { transliterateTurkishForSlug } from '@/lib/slug-latin-tr'
+
 /** Ürün kategorisi kodu → `ilanlar/{klasör}/…` içindeki klasör adı */
 export function listingCategoryFolder(code: string): string {
   const k = code.trim().toLowerCase()
@@ -29,19 +31,13 @@ export function categoryCodeToMediaFolder(code: string): string {
 }
 
 export function slugifyMediaSegment(s: string): string {
-  return s
-    .toLowerCase()
-    .trim()
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ş/g, 's')
-    .replace(/ı/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c')
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 96) || 'item'
+  return (
+    transliterateTurkishForSlug(s.trim())
+      .replace(/[^a-z0-9_-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 96) || 'item'
+  )
 }
 
 /**
