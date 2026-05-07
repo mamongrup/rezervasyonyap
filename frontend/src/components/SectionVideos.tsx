@@ -4,7 +4,8 @@ import Heading from '@/shared/Heading'
 import { PlayIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
-import { FC, useState } from 'react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
+import { FC, useEffect, useMemo, useState } from 'react'
 
 interface VideoType {
   id: string
@@ -26,6 +27,9 @@ const SectionVideos: FC<SectionVideosProps> = (props) => {
   return <SectionVideosInner {...props} videos={list} />
 }
 
+/** Yan şeritte aynı anda gösterilecek küçük video sayısı — fazlası için oklar */
+const THUMB_PAGE_SIZE = 5
+
 const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
   videos,
   className = '',
@@ -35,6 +39,29 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
 }) => {
   const [isPlay, setIsPlay] = useState(false)
   const [currentVideo, setCurrentVideo] = useState(0)
+  const [thumbStart, setThumbStart] = useState(0)
+
+  const others = useMemo(
+    () => videos.map((video, index) => ({ video, index })).filter(({ index }) => index !== currentVideo),
+    [videos, currentVideo],
+  )
+
+  const maxThumbStart = Math.max(0, others.length - THUMB_PAGE_SIZE)
+  const showThumbNav = others.length > THUMB_PAGE_SIZE
+
+  useEffect(() => {
+    setThumbStart((s) => Math.min(s, maxThumbStart))
+  }, [maxThumbStart, currentVideo])
+
+  const visibleOthers = others.slice(thumbStart, thumbStart + THUMB_PAGE_SIZE)
+
+  function thumbPrev() {
+    setThumbStart((s) => Math.max(0, s - 1))
+  }
+
+  function thumbNext() {
+    setThumbStart((s) => Math.min(maxThumbStart, s + 1))
+  }
 
   function parseVideo(video: VideoType): { embedUrl: string; thumbnail: string } {
     const raw = video.videoUrl || video.id
@@ -66,13 +93,14 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     const parsed = parseVideo(video)
     return (
       <div
-        className="group aspect-w-16 overflow-hidden rounded-3xl border-4 border-white bg-neutral-800 aspect-h-16 sm:rounded-[50px] sm:border-[10px] sm:aspect-h-9 dark:border-neutral-900"
+        className="group relative aspect-video w-full overflow-hidden rounded-3xl border-4 border-white bg-neutral-800 sm:rounded-[40px] sm:border-[8px] dark:border-neutral-900"
         title={video.title}
       >
         {isPlay ? (
           <iframe
             src={parsed.embedUrl}
             title={video.title}
+            className="absolute inset-0 h-full w-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           ></iframe>
@@ -98,11 +126,10 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
   }
 
   const renderSubVideo = (video: VideoType, index: number) => {
-    if (index === currentVideo) return null
     const parsed = parseVideo(video)
     return (
       <div
-        className="group aspect-w-16 relative cursor-pointer overflow-hidden rounded-2xl aspect-h-16 sm:rounded-3xl sm:aspect-h-12 lg:aspect-h-9"
+        className="group relative aspect-video min-h-0 w-full min-w-0 cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl"
         onClick={() => {
           setCurrentVideo(index)
           !isPlay && setIsPlay(true)
@@ -127,15 +154,75 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     )
   }
 
+  const navBtnClass =
+    'flex size-9 shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-800 shadow-sm transition hover:bg-neutral-50 disabled:pointer-events-none disabled:opacity-35 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-100 dark:hover:bg-neutral-700 lg:size-8'
+
   return (
     <div className={`nc-SectionVideos ${className}`}>
-      <Heading subheading={subheading}>{heading}</Heading>
+      <Heading subheading={subheading} className="mb-6 md:mb-8">
+        {heading}
+      </Heading>
 
-      <div className="relative flex flex-col sm:py-4 sm:pe-4 md:py-6 md:pe-6 lg:flex-row xl:py-14 xl:pe-14">
-        <div className="absolute -end-4 -top-4 -bottom-4 z-0 w-2/3 rounded-3xl bg-primary-100/40 sm:rounded-[50px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
-        <div className="relative grow pb-2 sm:pb-4 lg:pe-5 lg:pb-0 xl:pe-6">{renderMainVideo()}</div>
-        <div className="grid shrink-0 grid-cols-4 gap-2 sm:gap-6 lg:w-36 lg:grid-cols-1 xl:w-40">
-          {videos.map(renderSubVideo)}
+      <div className="relative flex flex-col gap-3 py-2 pe-2 sm:gap-4 sm:py-3 sm:pe-3 md:py-4 md:pe-4 lg:flex-row lg:items-start xl:py-6 xl:pe-6">
+        <div className="absolute -end-3 -top-3 bottom-3 z-0 w-[65%] rounded-3xl bg-primary-100/40 sm:rounded-[40px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
+        <div className="relative min-w-0 grow pb-1 sm:pb-2 lg:flex-1 lg:pb-0 lg:pe-4 xl:pe-5">
+          {renderMainVideo()}
+        </div>
+
+        <div className="relative flex min-w-0 shrink-0 flex-col gap-2 lg:w-36 xl:w-40">
+          {showThumbNav ? (
+            <button
+              type="button"
+              aria-label="Önceki videolar"
+              className={`${navBtnClass} mx-auto hidden lg:flex`}
+              disabled={thumbStart <= 0}
+              onClick={() => thumbPrev()}
+            >
+              <ChevronUp className="size-4" aria-hidden />
+            </button>
+          ) : null}
+
+          <div className="flex items-stretch gap-2">
+            {showThumbNav ? (
+              <button
+                type="button"
+                aria-label="Önceki videolar"
+                className={`${navBtnClass} lg:hidden`}
+                disabled={thumbStart <= 0}
+                onClick={() => thumbPrev()}
+              >
+                <ChevronLeft className="size-4" aria-hidden />
+              </button>
+            ) : null}
+
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-1 lg:gap-3">
+              {visibleOthers.map(({ video: v, index: i }) => renderSubVideo(v, i))}
+            </div>
+
+            {showThumbNav ? (
+              <button
+                type="button"
+                aria-label="Sonraki videolar"
+                className={`${navBtnClass} lg:hidden`}
+                disabled={thumbStart >= maxThumbStart}
+                onClick={() => thumbNext()}
+              >
+                <ChevronRight className="size-4" aria-hidden />
+              </button>
+            ) : null}
+          </div>
+
+          {showThumbNav ? (
+            <button
+              type="button"
+              aria-label="Sonraki videolar"
+              className={`${navBtnClass} mx-auto hidden lg:flex`}
+              disabled={thumbStart >= maxThumbStart}
+              onClick={() => thumbNext()}
+            >
+              <ChevronDown className="size-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
