@@ -20,6 +20,7 @@ import {
   getAuthMe,
   getListingAttributeValues,
   getListingBasics,
+  getListingIcalExportToken,
   getListingMeta,
   getListingOwnerContact,
   getListingPerks,
@@ -35,6 +36,7 @@ import {
   listListingPriceRules,
   listManageCatalogListings,
   listManageCategoryContracts,
+  rotateListingIcalExportToken,
   listPriceLineItems,
   listSiteSettings,
   patchListingBasics,
@@ -76,6 +78,7 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Link2,
   Loader2,
   Lock,
   Save,
@@ -393,8 +396,12 @@ export default function CatalogNewListingClient({
   const [instantBook, setInstantBook] = useState(false)
   /** Mobil cihazlardan rezervasyonda ek indirim (%) — boş = yok */
   const [mobileDiscountPercent, setMobileDiscountPercent] = useState('')
-  /** Tatil evi için takvim senkronu (Airbnb/Booking iCal export URL) */
+  /** Harici platformdan içe aktarma: Airbnb / Booking iCal besleme URL’si */
   const [icalImportUrl, setIcalImportUrl] = useState('')
+  /** Bu ilanın vitrin takviminden üretilen herkese açık .ics adresi (dışa aktarım) */
+  const [icalExportUrl, setIcalExportUrl] = useState<string | null>(null)
+  const [icalExportLoading, setIcalExportLoading] = useState(false)
+  const [icalExportRotateBusy, setIcalExportRotateBusy] = useState(false)
   /** Otel yıldızı (1–5) — sadece hotel kategorisinde */
   const [starRating, setStarRating] = useState('')
 
@@ -588,6 +595,34 @@ export default function CatalogNewListingClient({
       cancelled = true
     }
   }, [categoryCode, locale])
+
+  /** Kayıtlı ilan: sistem üretimi .ics dışa aktarım URL’si (herkese açık takvim akışı) */
+  useEffect(() => {
+    if (
+      !editListingId ||
+      (categoryCode !== 'holiday_home' && categoryCode !== 'hotel')
+    ) {
+      setIcalExportUrl(null)
+      setIcalExportLoading(false)
+      return
+    }
+    let cancelled = false
+    setIcalExportLoading(true)
+    setIcalExportUrl(null)
+    void getListingIcalExportToken(editListingId)
+      .then((r) => {
+        if (!cancelled) setIcalExportUrl(r.url)
+      })
+      .catch(() => {
+        if (!cancelled) setIcalExportUrl(null)
+      })
+      .finally(() => {
+        if (!cancelled) setIcalExportLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [editListingId, categoryCode])
 
   useEffect(() => {
     if (!editListingId || categoryCode !== 'holiday_home') {
@@ -1531,6 +1566,15 @@ export default function CatalogNewListingClient({
         }
       }
 
+      if (
+        lid &&
+        (categoryCode === 'holiday_home' || categoryCode === 'hotel')
+      ) {
+        void getListingIcalExportToken(lid)
+          .then((r) => setIcalExportUrl(r.url))
+          .catch(() => {})
+      }
+
       const manageUrl = vitrinPath(
         `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(lid)}`,
       )
@@ -1549,6 +1593,35 @@ export default function CatalogNewListingClient({
       setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.create_error'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function onRotateIcalExport() {
+    if (!editListingId) return
+    if (
+      !confirm(
+        'Bu işlem eski .ics bağlantısını geçersiz kılar. Airbnb / Booking’de takvim adresini yeni URL ile güncellemeniz gerekir. Devam edilsin mi?',
+      )
+    ) {
+      return
+    }
+    setIcalExportRotateBusy(true)
+    try {
+      const r = await rotateListingIcalExportToken(editListingId)
+      setIcalExportUrl(r.url)
+    } catch {
+      setErr('iCal dışa aktarım bağlantısı yenilenemedi.')
+    } finally {
+      setIcalExportRotateBusy(false)
+    }
+  }
+
+  async function onCopyIcalExport() {
+    if (!icalExportUrl) return
+    try {
+      await navigator.clipboard.writeText(icalExportUrl)
+    } catch {
+      /* sessiz */
     }
   }
 
@@ -3154,18 +3227,75 @@ export default function CatalogNewListingClient({
               </Grid2>
 
               {(categoryCode === 'holiday_home' || categoryCode === 'hotel') ? (
-                <Field className="block">
-                  <Label>Takvim senkronu — iCal export URL</Label>
-                  <Input
-                    value={icalImportUrl}
-                    onChange={(e) => setIcalImportUrl(e.target.value)}
-                    placeholder="https://airbnb.com/calendar/ical/...."
-                    className="mt-1 font-mono text-sm"
-                  />
-                  <HintText>
-                    Airbnb / Booking.com vb. platformların ical export adresini yapıştırın. Çift rezervasyon engellenir.
-                  </HintText>
-                </Field>
+                <div className="mt-2 space-y-4 rounded-xl border border-neutral-200 bg-neutral-50/60 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
+                  <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">iCal</h3>
+
+                  <Field className="block">
+                    <Label>İçe aktarma URL’si</Label>
+                    <Input
+                      value={icalImportUrl}
+                      onChange={(e) => setIcalImportUrl(e.target.value)}
+                      placeholder="https://airbnb.com/calendar/ical/...."
+                      className="mt-1 font-mono text-sm"
+                    />
+                    <HintText>
+                      Airbnb / Booking vb. platformların verdiği iCal beslemesini yapıştırın; rezervasyonlar buraya
+                      işlenir. Çift rezervasyon riskini azaltır.
+                    </HintText>
+                  </Field>
+
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                        Dışa aktarma URL’si (.ics)
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-neutral-600 dark:text-neutral-400">
+                      Bu adresi diğer platformlarda «takvim içe aktar / abonelik» olarak ekleyin — müsaitlik ve bloklar
+                      bu siteden yayınlanır.
+                    </p>
+                  {editListingId ? (
+                    <>
+                      <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          readOnly
+                          aria-label="İlan iCal dışa aktarma URL’si"
+                          className="w-full flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-xs text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+                          value={icalExportLoading ? 'Yükleniyor…' : (icalExportUrl ?? '')}
+                          onFocus={(e) => e.currentTarget.select()}
+                        />
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void onCopyIcalExport()}
+                            disabled={!icalExportUrl || icalExportLoading}
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-white disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                          >
+                            Kopyala
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void onRotateIcalExport()}
+                            disabled={icalExportRotateBusy || icalExportLoading}
+                            className="inline-flex items-center gap-1 rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700/50 dark:bg-amber-900/25 dark:text-amber-200 dark:hover:bg-amber-900/40"
+                          >
+                            {icalExportRotateBusy ? '…' : 'Bağlantıyı yenile'}
+                          </button>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                        «Bağlantıyı yenile» eski URL’yi kullanılamaz yapar; harici platformlarda adresi güncellemeniz
+                        gerekir.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="mt-3 text-sm text-neutral-600 dark:text-neutral-400">
+                      İlan kaydedildikten sonra burada kalıcı bir .ics adresi oluşturulur.
+                    </p>
+                  )}
+                  </div>
+                </div>
               ) : null}
 
               {categoryCode === 'hotel' ? (
