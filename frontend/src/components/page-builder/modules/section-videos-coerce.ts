@@ -14,7 +14,9 @@ export function coerceSectionVideosConfig(raw: unknown): SectionVideosCoerced[] 
     const row = raw[i]
     if (!row || typeof row !== 'object') continue
     const o = row as Record<string, unknown>
-    const videoUrl = String(o.videoUrl ?? o.video_url ?? o.url ?? '').trim()
+    const videoUrl = String(
+      o.videoUrl ?? o.video_url ?? o.url ?? o.link ?? o.href ?? o.embedUrl ?? o.embed ?? '',
+    ).trim()
     if (!videoUrl) continue
     const title = String(o.title ?? o.label ?? '').trim() || `Video ${out.length + 1}`
     const id = String(o.id ?? '').trim() || `video-${i}`

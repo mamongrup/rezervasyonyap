@@ -3,7 +3,6 @@
 import Heading from '@/shared/Heading'
 import { PlayIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import Image from 'next/image'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { FC, useEffect, useMemo, useState } from 'react'
 
@@ -107,14 +106,14 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
           ></iframe>
         ) : (
           <>
-            <Image
-              fill
-              className="object-cover brightness-100 transition-[filter] group-hover:brightness-75"
+            <img
               src={parsed.thumbnail}
               title={video.title}
               alt={video.title}
-              sizes="(max-width: 1000px) 100vw, (max-width: 1200px) 75vw, 50vw"
-              unoptimized
+              loading="lazy"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 h-full w-full object-cover brightness-100 transition-[filter] group-hover:brightness-75"
             />
 
             <div onClick={() => setIsPlay(true)} className="absolute inset-0 flex items-center justify-center">
@@ -138,14 +137,14 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
         title={video.title}
         key={String(index)}
       >
-        <Image
-          fill
-          className="object-cover brightness-100 transition-[filter] group-hover:brightness-75"
+        <img
           src={parsed.thumbnail}
           title={video.title}
           alt={video.title}
-          sizes="(max-width: 300px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          unoptimized
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 h-full w-full object-cover brightness-100 transition-[filter] group-hover:brightness-75"
         />
 
         <div className="absolute inset-0 flex items-center justify-center">

@@ -2,7 +2,6 @@
 
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import Image from 'next/image'
 import { PlayCircleIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 
@@ -158,13 +157,13 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
             />
           ) : (
             <>
-              <Image
+              <img
                 src={activeThumbnail}
                 alt={activeVideo.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 1024px) 100vw, 60vw"
-                unoptimized
+                loading="lazy"
+                decoding="async"
+                referrerPolicy="no-referrer"
+                className="absolute inset-0 h-full w-full object-cover"
               />
               {/* Overlay gradient */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
@@ -232,13 +231,13 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
                         isActive ? 'ring-2 ring-primary-500' : 'hover:ring-2 hover:ring-primary-400/60'
                       }`}
                     >
-                      <Image
+                      <img
                         src={thumb}
                         alt={v.title}
-                        fill
-                        className="object-cover transition group-hover:scale-105"
-                        sizes="(max-width: 1024px) 33vw, 240px"
-                        unoptimized
+                        loading="lazy"
+                        decoding="async"
+                        referrerPolicy="no-referrer"
+                        className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/20" />
 

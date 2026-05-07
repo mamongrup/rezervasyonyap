@@ -90,7 +90,17 @@ export function buildContentSecurityPolicy(mode = 'enforce') {
     `font-src 'self' data: https://fonts.gstatic.com https://embed.tawk.to${cspC}`,
     // API (NEXT_PUBLIC_API_URL), harita stilleri, analytics, tawk.to websocket
     "connect-src 'self' https: wss: http://127.0.0.1:* http://localhost:* ws://127.0.0.1:* ws://localhost:*",
-    "frame-src 'self' https://www.google.com https://www.googletagmanager.com https://www.google.com/recaptcha/ https://embed.tawk.to",
+    [
+      'frame-src',
+      "'self'",
+      'https://www.google.com',
+      'https://www.googletagmanager.com',
+      'https://www.google.com/recaptcha/',
+      'https://embed.tawk.to',
+      'https://www.youtube.com',
+      'https://www.youtube-nocookie.com',
+      'https://player.vimeo.com',
+    ].join(' '),
     "worker-src 'self' blob:",
     "child-src 'self' blob:",
     "object-src 'none'",
