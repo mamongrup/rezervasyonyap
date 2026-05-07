@@ -161,7 +161,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     const parsed = parseVideo(video)
     return (
       <div
-        className="group relative aspect-video min-h-0 w-full min-w-0 cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl"
+        className="group relative aspect-video w-full min-w-0 cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl"
         onClick={() => {
           setCurrentVideo(index)
           !isPlay && setIsPlay(true)
@@ -200,7 +200,8 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
         </div>
 
         {showSidebar ? (
-          <div className="relative z-[1] flex w-full min-w-0 items-stretch gap-2 sm:gap-3">
+          <div className="relative z-[1] flex w-full min-w-0 flex-row items-center gap-2 sm:gap-3">
+            {/* Önceki: flex varsayılan stretch grid'i ok düğmesi yüksekliğine sıkıştırıyordu */}
             {showThumbNav ? (
               <button
                 type="button"
@@ -213,7 +214,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               </button>
             ) : null}
 
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5 lg:items-start">
               {visibleOthers.map(({ video: v, index: i }) => renderSubVideo(v, i))}
             </div>
 
