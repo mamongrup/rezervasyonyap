@@ -66,6 +66,12 @@ sync_erlang_shipment_dir() {
 git_sync_ref() {
   local ref="$1"
   git fetch origin "$ref"
+  # Izlenen dosyadaki commitlenmemis degisiklikler checkout'u durdurur (ornek:
+  # `frontend/public/page-builder/homepage.json`). `git clean` bunlari silmez.
+  # GIT_SYNC_KEEP_LOCAL=1 ile bu adimi atlayip elle stash/commit yapabilirsiniz.
+  if [[ "${GIT_SYNC_KEEP_LOCAL:-0}" != "1" ]]; then
+    git reset --hard HEAD
+  fi
   if git show-ref --verify --quiet "refs/remotes/origin/$ref"; then
     git checkout -B "$ref" "origin/$ref"
     git reset --hard "origin/$ref"
