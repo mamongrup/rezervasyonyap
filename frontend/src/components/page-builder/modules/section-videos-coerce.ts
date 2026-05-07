@@ -7,6 +7,15 @@ export type SectionVideosCoerced = {
   thumbnail?: string
 }
 
+/** `video_gallery` / eski kayıtlarda liste bazen `items` altında saklanır. */
+export function rawVideosArrayFromSectionConfig(config: unknown): unknown[] | undefined {
+  if (!config || typeof config !== 'object') return undefined
+  const c = config as Record<string, unknown>
+  if (Array.isArray(c.videos)) return c.videos
+  if (Array.isArray(c.items)) return c.items
+  return undefined
+}
+
 export function coerceSectionVideosConfig(raw: unknown): SectionVideosCoerced[] {
   if (!Array.isArray(raw)) return []
   const out: SectionVideosCoerced[] = []

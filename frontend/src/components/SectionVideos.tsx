@@ -6,6 +6,40 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
 import { FC, useEffect, useMemo, useState } from 'react'
 
+/** Kapak yüklenemezse (CDN / referrer / ağ) görünür placeholder */
+const FALLBACK_POSTER = '/uploads/general/hero/aktiviteler-2.avif'
+
+function youtubeDefaultPoster(youtubeId: string) {
+  return `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`
+}
+
+const VideoPoster: FC<{
+  src: string
+  alt: string
+  title?: string
+  className: string
+  fetchPriority?: 'high' | 'auto' | 'low'
+}> = ({ src, alt, title, className, fetchPriority }) => {
+  const [resolved, setResolved] = useState(src)
+  useEffect(() => {
+    setResolved(src)
+  }, [src])
+  return (
+    <img
+      src={resolved}
+      alt={alt}
+      title={title}
+      loading="eager"
+      decoding="async"
+      {...(fetchPriority ? { fetchPriority } : {})}
+      className={className}
+      onError={() => {
+        if (resolved !== FALLBACK_POSTER) setResolved(FALLBACK_POSTER)
+      }}
+    />
+  )
+}
+
 interface VideoType {
   id: string
   title: string
@@ -70,7 +104,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     if (youtubeId) {
       return {
         embedUrl: `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`,
-        thumbnail: video.thumbnail || `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+        thumbnail: video.thumbnail || youtubeDefaultPoster(youtubeId),
       }
     }
 
@@ -106,14 +140,11 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
           ></iframe>
         ) : (
           <>
-            <img
+            <VideoPoster
               src={parsed.thumbnail}
               title={video.title}
               alt={video.title}
-              loading="eager"
               fetchPriority="high"
-              decoding="async"
-              referrerPolicy="no-referrer"
               className="absolute inset-0 h-full w-full object-cover brightness-100 transition-[filter] group-hover:brightness-75"
             />
 
@@ -138,13 +169,10 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
         title={video.title}
         key={String(index)}
       >
-        <img
+        <VideoPoster
           src={parsed.thumbnail}
           title={video.title}
           alt={video.title}
-          loading="eager"
-          decoding="async"
-          referrerPolicy="no-referrer"
           className="absolute inset-0 h-full w-full object-cover brightness-100 transition-[filter] group-hover:brightness-75"
         />
 
@@ -171,8 +199,8 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
       >
         <div className="absolute -end-3 -top-3 bottom-3 z-0 w-[65%] rounded-3xl bg-primary-100/40 sm:rounded-[40px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
         <div
-          className={`relative z-[1] min-w-0 pb-1 sm:pb-2 lg:pb-0 lg:pe-4 xl:pe-5 ${
-            showSidebar ? 'grow lg:flex-1' : 'w-full'
+          className={`relative z-[1] w-full max-w-full pb-1 sm:pb-2 lg:pb-0 lg:pe-4 xl:pe-5 ${
+            showSidebar ? 'min-w-0 flex-[1_1_0%]' : 'w-full'
           }`}
         >
           {renderMainVideo()}

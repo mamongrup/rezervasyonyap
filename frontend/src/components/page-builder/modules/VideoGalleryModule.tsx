@@ -30,7 +30,7 @@ function parseVideo(url: string): { embedUrl: string; thumbnail: string } {
     const id = ytMatch[1]
     return {
       embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`,
-      thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+      thumbnail: `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
     }
   }
   // Vimeo
@@ -162,7 +162,6 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
                 alt={activeVideo.title}
                 loading="lazy"
                 decoding="async"
-                referrerPolicy="no-referrer"
                 className="absolute inset-0 h-full w-full object-cover"
               />
               {/* Overlay gradient */}
@@ -236,7 +235,6 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
                         alt={v.title}
                         loading="lazy"
                         decoding="async"
-                        referrerPolicy="no-referrer"
                         className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-105"
                       />
                       <div className="absolute inset-0 bg-black/30 transition group-hover:bg-black/20" />

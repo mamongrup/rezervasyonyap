@@ -1,5 +1,5 @@
 import SectionVideos from '@/components/SectionVideos'
-import { coerceSectionVideosConfig } from './section-videos-coerce'
+import { coerceSectionVideosConfig, rawVideosArrayFromSectionConfig } from './section-videos-coerce'
 
 interface Config {
   heading?: string
@@ -8,7 +8,8 @@ interface Config {
 }
 
 export default function SectionVideosModule({ config }: { config: Config }) {
-  const videos = coerceSectionVideosConfig(config.videos)
+  const rawList = rawVideosArrayFromSectionConfig(config)
+  const videos = coerceSectionVideosConfig(rawList ?? config.videos)
 
   return (
     <SectionVideos
