@@ -3,7 +3,7 @@
 import Heading from '@/shared/Heading'
 import { PlayIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { FC, useEffect, useMemo, useState } from 'react'
 
 /** Kapak yüklenemezse (CDN / referrer / ağ) görünür placeholder */
@@ -192,36 +192,20 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
         {heading}
       </Heading>
 
-      <div
-        className={`relative grid grid-cols-1 gap-3 py-2 pe-2 sm:gap-4 sm:py-3 sm:pe-3 md:py-4 md:pe-4 xl:py-6 xl:pe-6 ${
-          showSidebar ? 'lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start lg:gap-x-4 xl:gap-x-5' : ''
-        }`}
-      >
-        <div className="absolute -end-3 -top-3 bottom-3 z-0 w-[65%] rounded-3xl bg-primary-100/40 sm:rounded-[40px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
-        <div className="relative z-[1] min-w-0 w-full max-w-full pb-1 sm:pb-2 lg:pb-0 lg:pe-0 xl:pe-0">
-          {renderMainVideo()}
+      <div className="relative flex flex-col gap-4 py-2 pe-2 sm:gap-5 sm:py-3 sm:pe-3 md:py-4 md:pe-4 xl:py-6 xl:pe-6">
+        {/* Ana oynatıcı: blok akışında tam genişlik — yan sütun flex/grid çökme riski yok */}
+        <div className="relative w-full">
+          <div className="pointer-events-none absolute -end-3 -top-3 bottom-3 z-0 w-[65%] rounded-3xl bg-primary-100/40 sm:rounded-[40px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
+          <div className="relative z-[1] w-full">{renderMainVideo()}</div>
         </div>
 
         {showSidebar ? (
-        <div className="relative z-[1] flex min-w-0 w-full shrink-0 flex-col gap-2 lg:w-36 xl:w-40">
-          {showThumbNav ? (
-            <button
-              type="button"
-              aria-label="Önceki videolar"
-              className={`${navBtnClass} mx-auto hidden lg:flex`}
-              disabled={thumbStart <= 0}
-              onClick={() => thumbPrev()}
-            >
-              <ChevronUp className="size-4" aria-hidden />
-            </button>
-          ) : null}
-
-          <div className="flex items-stretch gap-2">
+          <div className="relative z-[1] flex w-full min-w-0 items-stretch gap-2 sm:gap-3">
             {showThumbNav ? (
               <button
                 type="button"
                 aria-label="Önceki videolar"
-                className={`${navBtnClass} lg:hidden`}
+                className={`${navBtnClass} shrink-0 self-center`}
                 disabled={thumbStart <= 0}
                 onClick={() => thumbPrev()}
               >
@@ -229,7 +213,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               </button>
             ) : null}
 
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-1 lg:gap-3">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-5">
               {visibleOthers.map(({ video: v, index: i }) => renderSubVideo(v, i))}
             </div>
 
@@ -237,7 +221,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               <button
                 type="button"
                 aria-label="Sonraki videolar"
-                className={`${navBtnClass} lg:hidden`}
+                className={`${navBtnClass} shrink-0 self-center`}
                 disabled={thumbStart >= maxThumbStart}
                 onClick={() => thumbNext()}
               >
@@ -245,19 +229,6 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
               </button>
             ) : null}
           </div>
-
-          {showThumbNav ? (
-            <button
-              type="button"
-              aria-label="Sonraki videolar"
-              className={`${navBtnClass} mx-auto hidden lg:flex`}
-              disabled={thumbStart >= maxThumbStart}
-              onClick={() => thumbNext()}
-            >
-              <ChevronDown className="size-4" aria-hidden />
-            </button>
-          ) : null}
-        </div>
         ) : null}
       </div>
     </div>
