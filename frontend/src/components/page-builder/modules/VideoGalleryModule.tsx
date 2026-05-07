@@ -112,17 +112,17 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
         )}
       </div>
 
-      {/* Ana layout: büyük video sol + liste sağ */}
-      <div className="flex flex-col gap-4 lg:flex-row">
+      {/* Ana layout: büyük video sol + liste sağ — üst hizada tutup featured’ı 16:9’a sabitle (stretch ile oluşan üst/alt boşlukları önler) */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* ── Büyük featured video ── */}
-        <div className="relative min-h-64 w-full overflow-hidden rounded-2xl bg-neutral-900 lg:flex-1">
+        <div className="relative aspect-video w-full min-h-0 overflow-hidden rounded-2xl bg-black lg:flex-1 lg:min-w-0">
           {playing ? (
             <iframe
               src={embedUrl}
               title={activeVideo.title}
               allow="autoplay; fullscreen; picture-in-picture"
               allowFullScreen
-              className="absolute inset-0 h-full w-full"
+              className="absolute inset-0 block h-full w-full border-0"
             />
           ) : (
             <>
