@@ -3,14 +3,17 @@
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
-import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
-import { listSiteSettings, upsertSiteSetting } from '@/lib/travel-api'
+import {
+  HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY,
+  HOLIDAY_PROPERTY_TYPE_OPTIONS,
+} from '@/lib/holiday-property-type-options'
+import { fetchPublicHolidayHomePropertyTypes, upsertSiteSetting } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-const SETTING_KEY = 'catalog.holiday_home_property_types'
+const SETTING_KEY = HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY
 
 export default function HolidayHomePropertyTypesManageClient() {
   const t = useManageT()
@@ -24,32 +27,14 @@ export default function HolidayHomePropertyTypesManageClient() {
   const [editDraft, setEditDraft] = useState('')
 
   useEffect(() => {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setLoaded(true)
-      return
-    }
     let cancelled = false
-    void listSiteSettings(token, { scope: 'platform', key: SETTING_KEY })
-      .then((res) => {
+    void fetchPublicHolidayHomePropertyTypes()
+      .then((vals) => {
         if (cancelled) return
-        const row = res.settings[0]
-        if (!row?.value_json) {
-          setLoaded(true)
-          return
-        }
-        try {
-          const parsed = JSON.parse(row.value_json) as unknown
-          if (Array.isArray(parsed)) {
-            const vals = parsed.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-            if (vals.length > 0) setOptions(vals)
-          }
-        } catch {
-          /* keep defaults */
-        }
-        setLoaded(true)
+        if (vals.length > 0) setOptions(vals)
       })
-      .catch(() => {
+      .catch(() => {})
+      .finally(() => {
         if (!cancelled) setLoaded(true)
       })
     return () => {

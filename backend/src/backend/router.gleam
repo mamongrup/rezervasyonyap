@@ -882,6 +882,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "holiday-home-faq-template"] ->
       catalog_http.get_public_holiday_home_faq_template(req, ctx)
 
+    http.Get, ["api", "v1", "catalog", "public", "holiday-home-property-types"] ->
+      catalog_http.get_public_holiday_home_property_types(req, ctx)
+
     http.Get, ["api", "v1", "catalog", "public", "category-stats"] ->
       collections_http.public_category_stats(req, ctx)
 

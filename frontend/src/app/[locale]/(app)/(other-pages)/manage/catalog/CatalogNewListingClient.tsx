@@ -35,6 +35,7 @@ import {
   getPublicCurrencies,
   getSeoMetadata,
   getVerticalMeta,
+  fetchPublicHolidayHomePropertyTypes,
   listAttributeDefs,
   listAttributeGroups,
   listIcalFeeds,
@@ -62,7 +63,9 @@ import {
   type PriceLineItem,
   type ListingMeta,
 } from '@/lib/travel-api'
-import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
+import {
+  HOLIDAY_PROPERTY_TYPE_OPTIONS,
+} from '@/lib/holiday-property-type-options'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { slugifyListingSlug } from '@/lib/slug-latin-tr'
 import {
@@ -606,21 +609,11 @@ export default function CatalogNewListingClient({
 
   useEffect(() => {
     if (!isVilla) return
-    const token = getStoredAuthToken()
-    if (!token) return
-    void listSiteSettings(token, { scope: 'platform', key: 'catalog.holiday_home_property_types' })
-      .then((res) => {
-        const row = res.settings[0]
-        if (!row?.value_json) return
-        const parsed = JSON.parse(row.value_json) as unknown
-        if (Array.isArray(parsed)) {
-          const vals = parsed.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
-          if (vals.length > 0) setPropertyTypeOptions(vals)
-        }
+    void fetchPublicHolidayHomePropertyTypes()
+      .then((vals) => {
+        if (vals.length > 0) setPropertyTypeOptions(vals)
       })
-      .catch(() => {
-        /* fallback: static list */
-      })
+      .catch(() => {})
   }, [isVilla])
 
   useEffect(() => {

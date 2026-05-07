@@ -20,9 +20,13 @@ import {
   patchVerticalYacht,
   putListingMeta,
   putVerticalMeta,
+  fetchPublicHolidayHomePropertyTypes,
   type ListingMeta,
 } from '@/lib/travel-api'
-import { HOLIDAY_PROPERTY_TYPE_OPTIONS } from '@/lib/holiday-property-type-options'
+import {
+  HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY,
+  HOLIDAY_PROPERTY_TYPE_OPTIONS,
+} from '@/lib/holiday-property-type-options'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import MapPicker from '@/components/editor/MapPicker'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -106,19 +110,41 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
   const holidayHomeFormHref = vitrinPath(
     `/manage/catalog/holiday_home/listings/${encodeURIComponent(listingId)}`,
   )
+  const holidayHomeTypesHref = vitrinPath('/manage/catalog/holiday_home/property-types')
   const orgQ = useMemo(
     () => (organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined),
     [organizationId],
   )
   const [themes, setThemes] = useState<string[]>([])
   const [propertyType, setPropertyType] = useState('')
+  const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>(() => [...HOLIDAY_PROPERTY_TYPE_OPTIONS])
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const save = useSave('holiday_home', listingId)
 
+  const propertyTypeSelectOptions = useMemo(() => {
+    const cur = propertyType.trim()
+    if (!cur) return propertyTypeOptions
+    if (propertyTypeOptions.includes(cur)) return propertyTypeOptions
+    return [cur, ...propertyTypeOptions]
+  }, [propertyTypeOptions, propertyType])
+
   const loading = useLoadMeta<{ theme_codes?: string; rule_codes?: string }>(
     listingId, 'holiday_home', () => {},
   )
+
+  useEffect(() => {
+    let cancelled = false
+    void fetchPublicHolidayHomePropertyTypes()
+      .then((vals) => {
+        if (cancelled) return
+        if (vals.length > 0) setPropertyTypeOptions(vals)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     void getVerticalHolidayHome(listingId)
@@ -171,13 +197,23 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
             onChange={(e) => setPropertyType(e.target.value)}
           >
             <option value="">— Seçin —</option>
-            {HOLIDAY_PROPERTY_TYPE_OPTIONS.map((opt) => (
+            {propertyTypeSelectOptions.map((opt) => (
               <option key={opt} value={opt}>
                 {opt}
               </option>
             ))}
           </select>
         </Field>
+        <p className="mt-2 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
+          Tip listesi{' '}
+          <Link
+            href={holidayHomeTypesHref}
+            className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          >
+            Katalog → Tatil Evi → Tatil evi tipi
+          </Link>{' '}
+          sayfasındaki sırayı kullanır (site ayarı <span className="font-mono">{HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY}</span>).
+        </p>
       </div>
       <div>
         <SectionTitle>Özellikler / Temalar</SectionTitle>
