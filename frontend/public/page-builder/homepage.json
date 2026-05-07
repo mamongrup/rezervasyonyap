@@ -143,7 +143,44 @@
       "order": 12,
       "config": {
         "heading": "🎬 Videolar",
-        "subheading": "En son destinasyon videolarımızı izleyin, harika deneyimler keşfedin."
+        "subheading": "En son destinasyon videolarımızı izleyin, harika deneyimler keşfedin.",
+        "videos": [
+          {
+            "id": "sv-1",
+            "title": "Örnek tanıtım (YouTube test)",
+            "videoUrl": "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+          },
+          {
+            "id": "sv-2",
+            "title": "Kısa içerik örneği",
+            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+          },
+          {
+            "id": "sv-3",
+            "title": "Destinasyon vitrin 1",
+            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+          },
+          {
+            "id": "sv-4",
+            "title": "Destinasyon vitrin 2",
+            "videoUrl": "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+          },
+          {
+            "id": "sv-5",
+            "title": "Destinasyon vitrin 3",
+            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+          },
+          {
+            "id": "sv-6",
+            "title": "Destinasyon vitrin 4",
+            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+          },
+          {
+            "id": "sv-7",
+            "title": "Destinasyon vitrin 5",
+            "videoUrl": "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+          }
+        ]
       },
       "id": "homepage-module-11"
     },
@@ -158,5 +195,5 @@
       "id": "homepage-module-12"
     }
   ],
-  "updatedAt": "2026-05-05T07:28:01.021Z"
+  "updatedAt": "2026-05-08T12:00:00.000Z"
 }

@@ -1,20 +1,14 @@
 import SectionVideos from '@/components/SectionVideos'
+import { coerceSectionVideosConfig } from './section-videos-coerce'
 
 interface Config {
   heading?: string
   subheading?: string
-  videos?: {
-    id: string
-    title: string
-    videoUrl: string
-    thumbnail?: string
-  }[]
+  videos?: unknown
 }
 
 export default function SectionVideosModule({ config }: { config: Config }) {
-  const videos = Array.isArray(config.videos)
-    ? config.videos.filter((video) => video.videoUrl?.trim())
-    : []
+  const videos = coerceSectionVideosConfig(config.videos)
 
   return (
     <SectionVideos
