@@ -1767,103 +1767,60 @@ export default function CatalogNewListingClient({
       ) : (
         <>
           <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
-            <div className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-6">
-              <Link
-                href={listHref}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
-              >
-                <ArrowLeft className="h-4 w-4" />
-              </Link>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                  {listingByLocale[primaryLocale]?.title?.trim() ||
-                    `Yeni ilan — ${categoryLabelTr(categoryCode)}`}
-                </p>
-                <p className="font-mono text-xs text-neutral-400">
-                  {slug.trim() ? `/${slug.trim()}` : ''}
-                </p>
+            <div className="space-y-3 px-4 py-3 sm:px-6">
+              {/* Üst satır: geri + başlık (dillerle aynı satırda sıkışmasın) */}
+              <div className="flex items-start gap-3">
+                <Link
+                  href={listHref}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-semibold leading-snug text-neutral-900 dark:text-neutral-100">
+                    {listingByLocale[primaryLocale]?.title?.trim() ||
+                      `Yeni ilan — ${categoryLabelTr(categoryCode)}`}
+                  </p>
+                  {slug.trim() ? (
+                    <p className="mt-0.5 break-all font-mono text-xs text-neutral-400">/{slug.trim()}</p>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="hidden items-center gap-2 md:flex">
-                <div className="flex items-center gap-1 rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
+              {/* Alt satır: dil seçimi + AI / bağlantılar (geri + gap hizası: w-8 + gap-3 = pl-11) */}
+              <div className="flex flex-col gap-2 border-t border-neutral-100 pt-3 dark:border-neutral-800 sm:pl-11">
+                <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 dark:border-neutral-700 dark:bg-neutral-800">
                   {allLocales.map((loc) => (
                     <button
                       key={loc.code}
                       type="button"
                       onClick={() => setActiveLang(loc.code)}
                       className={clsx(
-                        'flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
+                        'flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors',
                         activeLang === loc.code
                           ? 'bg-white text-[color:var(--manage-primary)] shadow-sm dark:bg-neutral-900'
                           : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300',
                       )}
                     >
                       <span>{loc.flag}</span>
-                      <span className="hidden lg:inline">{loc.label}</span>
+                      <span className="hidden sm:inline">{loc.label}</span>
                     </button>
                   ))}
                 </div>
-                <ManageAiTranslateToolbar
-                  locales={translateTargets}
-                  targetLocale={aiTargetLocale}
-                  onTargetLocaleChange={setAiTargetFromToolbar}
-                  onTranslate={() => void handleAiTranslateTrToTarget()}
-                  translating={aiTranslating}
-                />
-                {listingTranslationsHref ? (
-                  <Link
-                    href={listingTranslationsHref}
-                    prefetch={false}
-                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-primary-300 dark:hover:bg-neutral-800"
-                  >
-                    Çeviriler
-                  </Link>
-                ) : null}
-                {advancedPanelHref ? (
-                  <Link
-                    href={advancedPanelHref}
-                    prefetch={false}
-                    className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                  >
-                    Takvim & ek araçlar
-                  </Link>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2 border-t border-neutral-100 px-4 py-2 dark:border-neutral-800 md:hidden">
-              <div className="flex gap-1 overflow-x-auto">
-                {allLocales.map((loc) => (
-                  <button
-                    key={loc.code}
-                    type="button"
-                    onClick={() => setActiveLang(loc.code)}
-                    className={clsx(
-                      'flex shrink-0 items-center gap-1 rounded-lg px-3 py-1 text-xs font-medium transition-colors',
-                      activeLang === loc.code
-                        ? 'bg-[color:var(--manage-primary)]/10 text-[color:var(--manage-primary)]'
-                        : 'text-neutral-500',
-                    )}
-                  >
-                    {loc.flag} {loc.label}
-                  </button>
-                ))}
-              </div>
-              <ManageAiTranslateToolbar
-                className="w-full min-w-0 flex-1 [&_select]:max-w-none"
-                locales={translateTargets}
-                targetLocale={aiTargetLocale}
-                onTargetLocaleChange={setAiTargetFromToolbar}
-                onTranslate={() => void handleAiTranslateTrToTarget()}
-                translating={aiTranslating}
-              />
-              {(listingTranslationsHref || advancedPanelHref) ? (
-                <div className="flex flex-wrap gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <ManageAiTranslateToolbar
+                    className="min-w-0 flex-1 basis-[min(100%,16rem)] sm:flex-initial [&_select]:max-w-none"
+                    locales={translateTargets}
+                    targetLocale={aiTargetLocale}
+                    onTargetLocaleChange={setAiTargetFromToolbar}
+                    onTranslate={() => void handleAiTranslateTrToTarget()}
+                    translating={aiTranslating}
+                  />
                   {listingTranslationsHref ? (
                     <Link
                       href={listingTranslationsHref}
                       prefetch={false}
-                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-primary-700 dark:border-neutral-700 dark:text-primary-300"
+                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-primary-300 dark:hover:bg-neutral-800"
                     >
                       Çeviriler
                     </Link>
@@ -1872,13 +1829,13 @@ export default function CatalogNewListingClient({
                     <Link
                       href={advancedPanelHref}
                       prefetch={false}
-                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 dark:border-neutral-700 dark:text-neutral-200"
+                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
                     >
                       Takvim & ek araçlar
                     </Link>
                   ) : null}
                 </div>
-              ) : null}
+              </div>
             </div>
           </div>
         </>
