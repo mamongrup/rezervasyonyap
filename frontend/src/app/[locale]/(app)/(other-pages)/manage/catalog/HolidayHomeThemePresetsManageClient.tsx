@@ -45,10 +45,13 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
       </div>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Panel çipleri (ilan formu)</h2>
+        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+          İlan düzenleme (gelişmiş panel)
+        </h2>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Bu liste sabittir; yeni seçenek eklemek için geliştirici ekibinin villa-theme-chip-presets dosyasını
-          güncellemesi gerekir.
+          «Özellikler / Temalar» bölümü aşağıdaki vitrin tema listesiyle aynı kaynaktan gelir (kimlik gerektirmez).
+          API boş dönerse yedek olarak kod içindeki sabit çip listesi kullanılır; seçim Dahil/Hariç bölümündeki gibi onay
+          kutusu olarak yapılır.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {VILLA_THEME_CHIP_PRESETS.map((chip) => (

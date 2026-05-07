@@ -27,6 +27,7 @@ import {
   HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY,
   HOLIDAY_PROPERTY_TYPE_OPTIONS,
 } from '@/lib/holiday-property-type-options'
+import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import MapPicker from '@/components/editor/MapPicker'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -34,6 +35,7 @@ import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import Link from 'next/link'
+import { useParams } from 'next/navigation'
 import { MinusCircle, PlusCircle, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -65,22 +67,6 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ChipToggle({
-  label, active, color = 'primary', onClick,
-}: { label: string; active: boolean; color?: 'primary' | 'red'; onClick: () => void }) {
-  const base = 'rounded-full border px-3 py-1 text-xs font-medium transition cursor-pointer'
-  const on =
-    color === 'red'
-      ? 'border-red-400 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-950/40 dark:text-red-400'
-      : 'border-primary-600 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-950/40 dark:text-primary-300'
-  const off = 'border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-400'
-  return (
-    <button type="button" className={`${base} ${active ? on : off}`} onClick={onClick}>
-      {active ? '✓ ' : ''}{label}
-    </button>
-  )
-}
-
 function useSave(category: string, listingId: string) {
   return async (data: Record<string, unknown>) => {
     const token = getStoredAuthToken()
@@ -106,16 +92,22 @@ function useLoadMeta<T>(
 
 // ─── Villa (holiday_home) ──────────────────────────────────────────────────────
 function VillaSection({ listingId, organizationId }: { listingId: string; organizationId?: string }) {
+  const params = useParams()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const holidayHomeFormHref = vitrinPath(
     `/manage/catalog/holiday_home/listings/${encodeURIComponent(listingId)}`,
   )
   const holidayHomeTypesHref = vitrinPath('/manage/catalog/holiday_home/property-types')
+  const holidayHomeThemeHref = vitrinPath('/manage/catalog/holiday_home/theme-presets')
   const orgQ = useMemo(
     () => (organizationId?.trim() ? { organizationId: organizationId.trim() } : undefined),
     [organizationId],
   )
   const [themes, setThemes] = useState<string[]>([])
+  /** Katalog `category_theme_items` (+ API boşsa panel yedek sabitleri). */
+  const [themeCatalogRows, setThemeCatalogRows] = useState<{ code: string; label: string }[]>([])
+  const [themesCatalogLoading, setThemesCatalogLoading] = useState(true)
   const [propertyType, setPropertyType] = useState('')
   const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>(() => [...HOLIDAY_PROPERTY_TYPE_OPTIONS])
   const [busy, setBusy] = useState(false)
@@ -128,6 +120,42 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
     if (propertyTypeOptions.includes(cur)) return propertyTypeOptions
     return [cur, ...propertyTypeOptions]
   }, [propertyTypeOptions, propertyType])
+
+  const themeCheckboxRows = useMemo(() => {
+    const seen = new Set<string>()
+    const out: { code: string; label: string }[] = []
+    for (const r of themeCatalogRows) {
+      if (seen.has(r.code)) continue
+      seen.add(r.code)
+      out.push(r)
+    }
+    for (const code of themes) {
+      if (seen.has(code)) continue
+      seen.add(code)
+      out.push({ code, label: `${code} · kayıtlı` })
+    }
+    return out
+  }, [themeCatalogRows, themes])
+
+  useEffect(() => {
+    let cancelled = false
+    setThemesCatalogLoading(true)
+    void listPublicCategoryThemeItems({ categoryCode: 'holiday_home', locale })
+      .then((r) => {
+        if (cancelled) return
+        const rows = r.items.length > 0 ? r.items : [...VILLA_THEME_CHIP_PRESETS]
+        setThemeCatalogRows(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setThemeCatalogRows([...VILLA_THEME_CHIP_PRESETS])
+      })
+      .finally(() => {
+        if (!cancelled) setThemesCatalogLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
 
   const loading = useLoadMeta<{ theme_codes?: string; rule_codes?: string }>(
     listingId, 'holiday_home', () => {},
@@ -217,11 +245,44 @@ function VillaSection({ listingId, organizationId }: { listingId: string; organi
       </div>
       <div>
         <SectionTitle>Özellikler / Temalar</SectionTitle>
-        <div className="flex flex-wrap gap-2">
-          {VILLA_THEME_CHIP_PRESETS.map(({ code, label }) => (
-            <ChipToggle key={code} label={label} active={themes.includes(code)} onClick={() => toggle(themes, setThemes, code)} />
-          ))}
-        </div>
+        {themesCatalogLoading ? (
+          <p className="text-sm text-neutral-400">Temalar yükleniyor…</p>
+        ) : themeCheckboxRows.length === 0 ? (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Tanımlı tema bulunamadı. Katalogda tema kaydı ekleyin.
+          </p>
+        ) : (
+          <div className="rounded-2xl border border-neutral-200 bg-neutral-50/40 p-4 dark:border-neutral-700 dark:bg-neutral-900/50">
+            <div className="flex flex-wrap gap-3">
+              {themeCheckboxRows.map(({ code, label }) => (
+                <label
+                  key={code}
+                  className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                >
+                  <input
+                    type="checkbox"
+                    checked={themes.includes(code)}
+                    onChange={() => toggle(themes, setThemes, code)}
+                    className="h-4 w-4 accent-primary-600"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className="mt-2 max-w-xl text-xs text-neutral-500 dark:text-neutral-400">
+          Seçenekler{' '}
+          <Link
+            href={holidayHomeThemeHref}
+            className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          >
+            Katalog → Tatil Evi → Tatil evi teması
+          </Link>{' '}
+          ile aynı kaynaktan gelir (vitrin{' '}
+          <span className="font-mono text-[10px]">category_theme_items</span>
+          ).
+        </p>
       </div>
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         <strong className="font-medium text-neutral-700 dark:text-neutral-300">Görseller</strong> için{' '}
