@@ -52,6 +52,7 @@ export default function useSnapSlider({ sliderRef }: { sliderRef: React.RefObjec
     }
 
     slider.addEventListener('scroll', scheduleReadFromScroll, { passive: true })
+    readAndSetBounds()
 
     return () => {
       slider.removeEventListener('scroll', scheduleReadFromScroll)
