@@ -212,10 +212,6 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
 
         <PageBuilderRenderer
           rootAs="section"
-          rootStyle={{
-            contentVisibility: 'auto',
-            containIntrinsicSize: '1px 2200px',
-          }}
           modules={modulesWithRegion.filter((m) => m.type !== 'hero')}
           category={HOME_CATEGORY}
           locale={locale}
