@@ -1,10 +1,14 @@
 'use client'
 
+import { useLocaleSegment } from '@/contexts/locale-context'
+import useSnapSlider from '@/hooks/useSnapSlider'
 import Heading from '@/shared/Heading'
-import { PlayIcon } from '@hugeicons/core-free-icons'
+import { ButtonCircle } from '@/shared/Button'
+import { getMessages } from '@/utils/getT'
+import { ArrowLeft02Icon, ArrowRight02Icon, PlayIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
-import { FC, useState } from 'react'
+import { FC, useMemo, useRef, useState } from 'react'
 
 interface VideoType {
   id: string
@@ -35,6 +39,15 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
 }) => {
   const [isPlay, setIsPlay] = useState(false)
   const [currentVideo, setCurrentVideo] = useState(0)
+  const sliderRef = useRef<HTMLDivElement>(null)
+  const { scrollToNextSlide, scrollToPrevSlide, isAtEnd, isAtStart } = useSnapSlider({ sliderRef })
+  const locale = useLocaleSegment()
+  const pag = getMessages(locale).common.pagination
+
+  const otherVideos = useMemo(
+    () => videos.map((video, index) => ({ video, index })).filter(({ index }) => index !== currentVideo),
+    [videos, currentVideo],
+  )
 
   function parseVideo(video: VideoType): { embedUrl: string; thumbnail: string } {
     const raw = video.videoUrl || video.id
@@ -66,7 +79,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     const parsed = parseVideo(video)
     return (
       <div
-        className="group relative aspect-w-16 overflow-hidden rounded-3xl border-4 border-white bg-neutral-800 aspect-h-16 sm:rounded-[50px] sm:border-[10px] sm:aspect-h-9 dark:border-neutral-900"
+        className="group relative aspect-w-16 aspect-h-9 w-full overflow-hidden rounded-3xl border-4 border-white bg-neutral-800 sm:rounded-[50px] sm:border-[10px] dark:border-neutral-900"
         title={video.title}
       >
         {isPlay ? (
@@ -98,18 +111,25 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     )
   }
 
-  const renderSubVideo = (video: VideoType, index: number) => {
-    if (index === currentVideo) return null
+  const renderThumbCard = (video: VideoType, index: number) => {
     const parsed = parseVideo(video)
     return (
       <div
-        className="group aspect-w-16 relative cursor-pointer overflow-hidden rounded-2xl aspect-h-16 sm:rounded-3xl sm:aspect-h-12 lg:aspect-h-9"
+        className="group relative aspect-w-16 aspect-h-9 w-full cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl"
         onClick={() => {
           setCurrentVideo(index)
-          !isPlay && setIsPlay(true)
+          if (!isPlay) setIsPlay(true)
         }}
         title={video.title}
-        key={String(index)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setCurrentVideo(index)
+            if (!isPlay) setIsPlay(true)
+          }
+        }}
       >
         <Image
           fill
@@ -117,7 +137,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
           src={parsed.thumbnail}
           title={video.title}
           alt={video.title}
-          sizes="(max-width: 300px) 100vw, (max-width: 1200px) 50vw, 25vw"
+          sizes="(max-width: 640px) 45vw, 200px"
           unoptimized={parsed.thumbnail.startsWith('/uploads/')}
         />
 
@@ -132,12 +152,56 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     <div className={`nc-SectionVideos ${className}`}>
       <Heading subheading={subheading}>{heading}</Heading>
 
-      <div className="relative flex flex-col sm:py-4 sm:pe-4 md:py-6 md:pe-6 lg:flex-row xl:py-14 xl:pe-14">
+      <div className="relative flex flex-col sm:py-3 sm:pe-3 md:py-4 md:pe-4 xl:py-8 xl:pe-10">
         <div className="absolute -end-4 -top-4 -bottom-4 z-0 w-2/3 rounded-3xl bg-primary-100/40 sm:rounded-[50px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
-        <div className="relative grow pb-2 sm:pb-4 lg:pe-5 lg:pb-0 xl:pe-6">{renderMainVideo()}</div>
-        <div className="grid shrink-0 grid-cols-4 gap-2 sm:gap-6 lg:w-36 lg:grid-cols-1 xl:w-40">
-          {videos.map(renderSubVideo)}
-        </div>
+        <div className="relative z-[1] w-full min-w-0">{renderMainVideo()}</div>
+
+        {otherVideos.length > 0 && (
+          <div className="relative z-[1] mt-3 min-w-0 sm:mt-4">
+            <div className="min-w-0 max-w-full overflow-x-clip">
+              <div
+                ref={sliderRef}
+                className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain sm:-mx-2.5 lg:-mx-3"
+              >
+                {otherVideos.map(({ video, index }) => (
+                  <div
+                    key={video.id ? `${video.id}-${index}` : String(index)}
+                    className="mySnapItem w-[46%] shrink-0 snap-start px-2 sm:w-[38%] sm:px-2.5 md:w-[32%] lg:w-44 lg:px-3 xl:w-48"
+                  >
+                    {renderThumbCard(video, index)}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {otherVideos.length > 1 && (
+              <>
+                <div className="absolute start-0 top-1/2 z-[2] -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2">
+                  <ButtonCircle
+                    color="white"
+                    onClick={scrollToPrevSlide}
+                    className="size-9 xl:size-11"
+                    disabled={isAtStart}
+                    aria-label={pag.previous}
+                  >
+                    <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
+                  </ButtonCircle>
+                </div>
+                <div className="absolute end-0 top-1/2 z-[2] -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2">
+                  <ButtonCircle
+                    color="white"
+                    onClick={scrollToNextSlide}
+                    className="size-9 xl:size-11"
+                    disabled={isAtEnd}
+                    aria-label={pag.next}
+                  >
+                    <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
+                  </ButtonCircle>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
