@@ -30,7 +30,7 @@ function parseVideo(url: string): { embedUrl: string; thumbnail: string } {
     const id = ytMatch[1]
     return {
       embedUrl: `https://www.youtube.com/embed/${id}?autoplay=1&rel=0`,
-      thumbnail: `https://img.youtube.com/vi/${id}/hqdefault.jpg`,
+      thumbnail: `https://img.youtube.com/vi/${id}/sddefault.jpg`,
     }
   }
   // Vimeo
@@ -115,7 +115,7 @@ export default function VideoGalleryModule({ config }: { config: VideoGalleryCon
       {/* Ana layout: büyük video sol + liste sağ */}
       <div className="flex flex-col gap-4 lg:flex-row">
         {/* ── Büyük featured video ── */}
-        <div className="relative min-h-64 w-full overflow-hidden rounded-2xl bg-neutral-900 lg:flex-1">
+        <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-neutral-900 shadow-xl ring-1 ring-black/5 lg:flex-1 dark:ring-white/10">
           {playing ? (
             <iframe
               src={embedUrl}

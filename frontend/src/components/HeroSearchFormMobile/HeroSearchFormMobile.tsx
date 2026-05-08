@@ -203,7 +203,7 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
     <button
       type="button"
       onClick={openModal}
-      className="relative flex w-full items-center rounded-full border border-neutral-200 px-4 py-2 pe-11 shadow-lg dark:border-neutral-600 dark:bg-neutral-900"
+      className="relative flex w-full items-center rounded-full border border-neutral-200 bg-white px-4 py-2 pe-11 shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
     >
       <HugeiconsIcon icon={Search01Icon} size={20} color="currentColor" strokeWidth={1.5} className="shrink-0 text-primary-600 dark:text-primary-400" />
       <div className="ms-4 min-w-0 flex-1 overflow-hidden text-start">

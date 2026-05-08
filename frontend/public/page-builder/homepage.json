@@ -185,9 +185,23 @@
       "id": "homepage-module-11"
     },
     {
-      "type": "client_say",
+      "type": "region_slider",
       "enabled": true,
       "order": 13,
+      "config": {
+        "heading": "Keşfedilecek bölgeler",
+        "subheading": "Popüler destinasyonlarda konaklama ve deneyimlere göz atın",
+        "categoryCode": "hotel",
+        "categoryRoute": "oteller",
+        "unit": "ilan",
+        "limit": 12
+      },
+      "id": "homepage-module-region-slider"
+    },
+    {
+      "type": "client_say",
+      "enabled": true,
+      "order": 14,
       "config": {
         "heading": "Misafirlerimiz Ne Diyor? 🥇",
         "subHeading": "Bizimle seyahat eden gezginlerin gerçek yorumları."

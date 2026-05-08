@@ -21,13 +21,13 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       <div className="relative z-50 hidden lg:block bg-white dark:bg-neutral-900">{header ? header : <Header locale={locale} />}</div>
       {/* Mobil arama — viewport’ta sabit. html/body `overflow-x-hidden` sticky’nin kaydırma atasını bozar → fixed + spacer. */}
       <div className="pointer-events-auto fixed inset-x-0 top-0 z-50 bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
-        <div className="container box-border flex h-20 w-full max-w-full items-center px-2 sm:px-4">
+        <div className="container box-border flex h-auto min-h-0 w-full max-w-full items-center px-2 py-3 sm:px-4">
           <MobileSiteTopBar locale={locale} />
         </div>
       </div>
       <div
         className="shrink-0 lg:hidden"
-        style={{ height: 'calc(5rem + env(safe-area-inset-top, 0px))' }}
+        style={{ height: 'calc(5.5rem + env(safe-area-inset-top, 0px))' }}
         aria-hidden
       />
       {children}

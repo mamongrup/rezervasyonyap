@@ -56,7 +56,8 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     if (youtubeId) {
       return {
         embedUrl: `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`,
-        thumbnail: video.thumbnail || `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
+        /** sddefault (640×480) tek kareye yakın; hqdefault bazen “bölünmüş” önizleme verir */
+        thumbnail: video.thumbnail || `https://img.youtube.com/vi/${youtubeId}/sddefault.jpg`,
       }
     }
 
@@ -78,36 +79,51 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     const video: VideoType = videos[currentVideo]
     const parsed = parseVideo(video)
     return (
-      <div
-        className="group relative aspect-w-16 aspect-h-9 w-full overflow-hidden rounded-3xl border-4 border-white bg-neutral-800 sm:rounded-[50px] sm:border-[10px] dark:border-neutral-900"
-        title={video.title}
-      >
-        {isPlay ? (
-          <iframe
-            src={parsed.embedUrl}
-            title={video.title}
-            className="absolute inset-0 h-full w-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          ></iframe>
-        ) : (
-          <>
-            <Image
-              fill
-              className="object-cover brightness-100 transition-[filter] group-hover:brightness-75"
-              src={parsed.thumbnail}
+      <figure className="mx-auto w-full max-w-5xl">
+        <div
+          className="group relative aspect-video w-full overflow-hidden rounded-2xl bg-neutral-900 shadow-2xl ring-1 ring-black/5 md:rounded-3xl dark:ring-white/10"
+        >
+          {isPlay ? (
+            <iframe
+              src={parsed.embedUrl}
               title={video.title}
-              alt={video.title}
-              sizes="(max-width: 1000px) 100vw, (max-width: 1200px) 75vw, 50vw"
-              unoptimized={parsed.thumbnail.startsWith('/uploads/')}
+              className="absolute inset-0 h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
             />
+          ) : (
+            <>
+              <Image
+                fill
+                className="object-cover brightness-100 transition-[filter] group-hover:brightness-90"
+                src={parsed.thumbnail}
+                alt={video.title}
+                sizes="(max-width: 1024px) 100vw, 896px"
+                unoptimized={parsed.thumbnail.startsWith('/uploads/')}
+              />
 
-            <div onClick={() => setIsPlay(true)} className="absolute inset-0 flex items-center justify-center">
-              <PlayIconBtn />
-            </div>
-          </>
-        )}
-      </div>
+              <div
+                onClick={() => setIsPlay(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    setIsPlay(true)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={video.title}
+                className="absolute inset-0 flex cursor-pointer items-center justify-center"
+              >
+                <PlayIconBtn />
+              </div>
+            </>
+          )}
+        </div>
+        <figcaption className="mt-4 px-1 text-center text-base font-medium text-neutral-800 md:text-lg dark:text-neutral-100">
+          {video.title}
+        </figcaption>
+      </figure>
     )
   }
 
@@ -115,12 +131,12 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     const parsed = parseVideo(video)
     return (
       <div
-        className="group relative aspect-w-16 aspect-h-9 w-full cursor-pointer overflow-hidden rounded-2xl sm:rounded-3xl"
+        className="group relative aspect-video w-full cursor-pointer overflow-hidden rounded-xl ring-1 ring-black/5 transition-shadow hover:shadow-lg sm:rounded-2xl dark:ring-white/10"
         onClick={() => {
           setCurrentVideo(index)
           if (!isPlay) setIsPlay(true)
         }}
-        title={video.title}
+        aria-label={video.title}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
@@ -135,7 +151,6 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
           fill
           className="object-cover brightness-100 transition-[filter] group-hover:brightness-75"
           src={parsed.thumbnail}
-          title={video.title}
           alt={video.title}
           sizes="(max-width: 640px) 45vw, 200px"
           unoptimized={parsed.thumbnail.startsWith('/uploads/')}
@@ -152,21 +167,21 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
     <div className={`nc-SectionVideos ${className}`}>
       <Heading subheading={subheading}>{heading}</Heading>
 
-      <div className="relative flex flex-col sm:py-3 sm:pe-3 md:py-4 md:pe-4 xl:py-8 xl:pe-10">
-        <div className="absolute -end-4 -top-4 -bottom-4 z-0 w-2/3 rounded-3xl bg-primary-100/40 sm:rounded-[50px] md:end-0 md:top-0 md:bottom-0 xl:w-1/2 dark:bg-neutral-800/40" />
+      <div className="relative flex flex-col md:py-2 md:pe-2 lg:py-4 lg:pe-6 xl:py-6 xl:pe-8">
+        <div className="pointer-events-none absolute -end-2 -top-2 bottom-8 z-0 hidden w-[min(100%,42rem)] rounded-[2rem] bg-primary-100/50 md:block md:end-0 md:top-0 lg:bottom-12 xl:w-1/2 dark:bg-neutral-800/35" />
         <div className="relative z-[1] w-full min-w-0">{renderMainVideo()}</div>
 
         {otherVideos.length > 0 && (
-          <div className="relative z-[1] mt-3 min-w-0 sm:mt-4">
+          <div className="relative z-[1] mt-6 min-w-0 sm:mt-8">
             <div className="min-w-0 max-w-full overflow-x-clip">
               <div
                 ref={sliderRef}
-                className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain sm:-mx-2.5 lg:-mx-3"
+                className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain sm:-mx-2.5 lg:mx-0"
               >
                 {otherVideos.map(({ video, index }) => (
                   <div
                     key={video.id ? `${video.id}-${index}` : String(index)}
-                    className="mySnapItem w-[46%] shrink-0 snap-start px-2 sm:w-[38%] sm:px-2.5 md:w-[32%] lg:w-44 lg:px-3 xl:w-48"
+                    className="mySnapItem w-[42%] shrink-0 snap-start px-2 sm:w-[32%] sm:px-2.5 md:w-[26%] lg:w-36 lg:px-2 xl:w-40"
                   >
                     {renderThumbCard(video, index)}
                   </div>
@@ -209,12 +224,10 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
 
 const PlayIconBtn = () => {
   return (
-    <div
-      className={`size-20 cursor-pointer rounded-full bg-white/30 p-3 backdrop-blur-xs backdrop-filter lg:h-52 lg:w-52 lg:p-12`}
-    >
-      <div className="relative h-full w-full rounded-full bg-white text-primary-500">
+    <div className="size-16 cursor-pointer rounded-full bg-white/35 p-2 backdrop-blur-xs backdrop-filter sm:size-20 sm:p-2.5 md:size-[5.25rem] md:p-3">
+      <div className="relative h-full w-full rounded-full bg-white text-primary-600 shadow-lg dark:text-primary-500">
         <span className="absolute inset-0 flex items-center justify-center">
-          <HugeiconsIcon icon={PlayIcon} className="size-8 md:size-12 rtl:rotate-180" strokeWidth={1.75} />
+          <HugeiconsIcon icon={PlayIcon} className="size-7 sm:size-9 md:size-11 rtl:rotate-180" strokeWidth={1.75} />
         </span>
       </div>
     </div>
