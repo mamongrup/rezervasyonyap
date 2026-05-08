@@ -340,8 +340,17 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Patch, ["api", "v1", "auth", "me"] -> identity_http.patch_me(req, ctx)
 
+    http.Post, ["api", "v1", "auth", "me", "tc-verification"] ->
+      identity_http.submit_tc_verification(req, ctx)
+
     http.Get, ["api", "v1", "admin", "users"] ->
       identity_http.admin_list_users(req, ctx)
+
+    http.Get, ["api", "v1", "admin", "tc-verifications"] ->
+      identity_http.admin_list_tc_verifications(req, ctx)
+
+    http.Post, ["api", "v1", "admin", "tc-verifications", tc_req_id, "review"] ->
+      identity_http.admin_review_tc_verification(req, ctx, tc_req_id)
 
     http.Get, ["api", "v1", "admin", "workspace", "tasks"] ->
       workspace_http.admin_list_tasks(req, ctx)

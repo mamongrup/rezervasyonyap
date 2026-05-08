@@ -336,7 +336,15 @@ export default function AccountProfile({ locale }: { locale: string }) {
       {/* ── TC Kimlik Doğrulama ──────────────────────────────────────────── */}
       <section id="tc-kimlik" className="mb-12 max-w-3xl">
         <h2 className="mb-4 text-2xl font-semibold">{T['identityVerification']}</h2>
-        <TcKimlikWidget />
+        <TcKimlikWidget
+          token={token}
+          me={me}
+          onRefreshMe={async () => {
+            const t = getStoredAuthToken()
+            if (!t) return
+            setMe(await getAuthMe(t))
+          }}
+        />
       </section>
 
       <Divider className="my-12" />

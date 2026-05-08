@@ -4,6 +4,7 @@ import backend/context.{type Context}
 import travel/identity/password
 import travel/identity/permissions
 import travel/identity/rate_limit
+import travel/identity/tc_kimlik_format as tc_fmt
 import travel/messaging/notification_runtime
 import gleam/bit_array
 import gleam/crypto
@@ -580,12 +581,18 @@ fn auth_header_token(req: Request) -> String {
   }
 }
 
-fn me_row() -> decode.Decoder(#(String, String, String, String)) {
+fn me_row_full() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String),
+) {
   use id <- decode.field(0, decode.string)
   use email <- decode.field(1, decode.string)
   use dn <- decode.field(2, decode.string)
   use loc <- decode.field(3, decode.string)
-  decode.success(#(id, email, dn, loc))
+  use verified_at <- decode.field(4, decode.string)
+  use pending_id <- decode.field(5, decode.string)
+  use pending_since <- decode.field(6, decode.string)
+  use reject_note <- decode.field(7, decode.string)
+  decode.success(#(id, email, dn, loc, verified_at, pending_id, pending_since, reject_note))
 }
 
 fn role_assignment_row() -> decode.Decoder(#(String, String)) {
@@ -724,29 +731,57 @@ pub fn me(req: Request, ctx: Context) -> Response {
     False ->
       case
         pog.query(
-          "select u.id::text, coalesce(u.email, ''), coalesce(u.display_name, ''), coalesce(u.preferred_locale, '') from users u join user_sessions s on s.user_id = u.id where lower(s.token) = lower($1) and s.expires_at > now() limit 1",
+          "select u.id::text, coalesce(u.email, ''), coalesce(u.display_name, ''), coalesce(u.preferred_locale, ''),
+          coalesce(u.identity_verified_at::text, ''),
+          coalesce(p.id::text, ''),
+          coalesce(p.submitted_at::text, ''),
+          coalesce(
+            (select coalesce(r.admin_note, '') from user_tc_verification_requests r
+             where r.user_id = u.id and r.status = 'rejected'
+             order by coalesce(r.reviewed_at, r.submitted_at) desc nulls last limit 1),
+            '')
+          from users u join user_sessions s on s.user_id = u.id
+          left join user_tc_verification_requests p on p.user_id = u.id and p.status = 'pending'
+          where lower(s.token) = lower($1) and s.expires_at > now() limit 1",
         )
         |> pog.parameter(pog.text(token))
-        |> pog.returning(me_row())
+        |> pog.returning(me_row_full())
         |> pog.execute(ctx.db)
       {
         Error(_) -> json_err(500, "me_query_failed")
         Ok(ret) ->
           case ret.rows {
             [] -> json_err(401, "invalid_session")
-            [#(id, email, dn, loc)] -> {
+            [#(id, email, dn, loc, verified_at, pending_id, pending_since, reject_note)] -> {
               let roles_j = user_roles_json(ctx.db, id)
               let perms_j =
                 permissions.permissions_json(permissions.user_permission_codes(
                   ctx.db,
                   id,
                 ))
+              let verified_j = case verified_at == "" {
+                True -> json.null()
+                False -> json.string(verified_at)
+              }
+              let pending_j = json.bool(pending_id != "")
+              let pending_since_j = case pending_since == "" {
+                True -> json.null()
+                False -> json.string(pending_since)
+              }
+              let reject_j = case reject_note == "" {
+                True -> json.null()
+                False -> json.string(reject_note)
+              }
               let body =
                 json.object([
                   #("id", json.string(id)),
                   #("email", json.string(email)),
                   #("display_name", json.string(dn)),
                   #("preferred_locale", json.string(loc)),
+                  #("identity_verified_at", verified_j),
+                  #("tc_verification_pending", pending_j),
+                  #("tc_verification_pending_since", pending_since_j),
+                  #("tc_verification_rejection_note", reject_j),
                   #("roles", roles_j),
                   #("permissions", perms_j),
                 ])
@@ -755,6 +790,166 @@ pub fn me(req: Request, ctx: Context) -> Response {
             }
             _ -> json_err(500, "unexpected_me")
           }
+      }
+  }
+}
+
+fn tc_submit_decoder() -> decode.Decoder(#(String, String, String, Int)) {
+  use tc <- decode.field("tc_kimlik_no", decode.string)
+  use fn_ <- decode.field("first_name", decode.string)
+  use ln <- decode.field("last_name", decode.string)
+  use y <- decode.field("birth_year", decode.int)
+  decode.success(#(tc, fn_, ln, y))
+}
+
+/// POST /api/v1/auth/me/tc-verification — başvuru oluşturur veya bekleyen başvuruyu günceller.
+pub fn submit_tc_verification(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case permissions.session_user_from_request(req, ctx.db) {
+    Error(r) -> r
+    Ok(uid) ->
+      case read_body_string(req) {
+        Error(Nil) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, tc_submit_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(tc_raw, fn_raw, ln_raw, year)) -> {
+              let tc = string.trim(tc_raw)
+              let fn_trim = string.trim(fn_raw)
+              let ln_trim = string.trim(ln_raw)
+              case fn_trim == "" || ln_trim == "" {
+                True -> json_err(400, "invalid_name")
+                False ->
+                  case year < 1900 || year > 2100 {
+                    True -> json_err(400, "invalid_birth_year")
+                    False ->
+                      case tc_fmt.validate(tc) {
+                        Error(_) -> json_err(400, "invalid_tc")
+                        Ok(Nil) ->
+                          case
+                            pog.query(
+                              "select coalesce(identity_verified_at::text, '') from users where id = $1::uuid limit 1",
+                            )
+                            |> pog.parameter(pog.text(uid))
+                            |> pog.returning(row_dec.col0_string())
+                            |> pog.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "verified_lookup_failed")
+                            Ok(vr) ->
+                              case vr.rows {
+                                [] -> json_err(401, "invalid_session")
+                                [va] ->
+                                  case va == "" {
+                                    False -> json_err(409, "already_verified")
+                                    True ->
+                                      case
+                                        pog.query(
+                                          "insert into user_tc_verification_requests (user_id, tc_kimlik_no, first_name, last_name, birth_year, status) values ($1::uuid, $2, $3, $4, $5, 'pending') on conflict (user_id) where (status = 'pending') do update set tc_kimlik_no = excluded.tc_kimlik_no, first_name = excluded.first_name, last_name = excluded.last_name, birth_year = excluded.birth_year, submitted_at = now()",
+                                        )
+                                        |> pog.parameter(pog.text(uid))
+                                        |> pog.parameter(pog.text(tc))
+                                        |> pog.parameter(pog.text(fn_trim))
+                                        |> pog.parameter(pog.text(ln_trim))
+                                        |> pog.parameter(pog.int(year))
+                                        |> pog.execute(ctx.db)
+                                      {
+                                        Error(_) ->
+                                          json_err(500, "tc_request_upsert_failed")
+                                        Ok(_) -> {
+                                          let ok_body =
+                                            json.object([#("ok", json.bool(True))])
+                                            |> json.to_string
+                                          wisp.json_response(ok_body, 200)
+                                        }
+                                      }
+                                  }
+                                _ -> json_err(500, "unexpected_verified_row")
+                              }
+                          }
+                      }
+                  }
+              }
+            }
+          }
+      }
+  }
+}
+
+fn tc_admin_pending_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, String, String),
+) {
+  use id <- decode.field(0, decode.string)
+  use user_id <- decode.field(1, decode.string)
+  use email <- decode.field(2, decode.string)
+  use display_name <- decode.field(3, decode.string)
+  use tc_no <- decode.field(4, decode.string)
+  use first_name <- decode.field(5, decode.string)
+  use last_name <- decode.field(6, decode.string)
+  use birth_year <- decode.field(7, decode.string)
+  use submitted_at <- decode.field(8, decode.string)
+  decode.success(#(
+    id,
+    user_id,
+    email,
+    display_name,
+    tc_no,
+    first_name,
+    last_name,
+    birth_year,
+    submitted_at,
+  ))
+}
+
+/// GET /api/v1/admin/tc-verifications
+pub fn admin_list_tc_verifications(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case require_session_permission(req, ctx, "admin.tc_verification.review") {
+    Error(r) -> r
+    Ok(_) ->
+      case
+        pog.query(
+          "select r.id::text, r.user_id::text, coalesce(u.email, ''), coalesce(u.display_name, ''),
+          r.tc_kimlik_no, r.first_name, r.last_name, r.birth_year::text, r.submitted_at::text
+          from user_tc_verification_requests r
+          join users u on u.id = r.user_id
+          where r.status = 'pending'
+          order by r.submitted_at asc",
+        )
+        |> pog.returning(tc_admin_pending_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "tc_verif_list_failed")
+        Ok(ret) -> {
+          let items =
+            list.map(ret.rows, fn(row) {
+              let #(
+                id,
+                user_id,
+                email,
+                display_name,
+                tc_no,
+                first_name,
+                last_name,
+                birth_year,
+                submitted_at,
+              ) = row
+              json.object([
+                #("id", json.string(id)),
+                #("user_id", json.string(user_id)),
+                #("email", json.string(email)),
+                #("display_name", json.string(display_name)),
+                #("tc_kimlik_no", json.string(tc_no)),
+                #("first_name", json.string(first_name)),
+                #("last_name", json.string(last_name)),
+                #("birth_year", json.string(birth_year)),
+                #("submitted_at", json.string(submitted_at)),
+              ])
+            })
+          let body =
+            json.object([#("requests", json.preprocessed_array(items))])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
       }
   }
 }
@@ -804,6 +999,191 @@ fn audit_log_insert(
     |> pog.parameter(pog.text(details_s))
     |> pog.execute(ctx.db)
   Nil
+}
+
+fn tc_review_decoder() -> decode.Decoder(#(String, String)) {
+  use decision <- decode.field("decision", decode.string)
+  decode.optional_field("admin_note", "", decode.string, fn(note) {
+    decode.success(#(decision, string.trim(note)))
+  })
+}
+
+fn tc_request_pending_row() -> decode.Decoder(#(String, String, String)) {
+  use uid <- decode.field(0, decode.string)
+  use status <- decode.field(1, decode.string)
+  use tc <- decode.field(2, decode.string)
+  decode.success(#(uid, status, tc))
+}
+
+fn admin_tc_review_apply_reject(
+  ctx: Context,
+  admin_id: String,
+  rid: String,
+  user_id: String,
+  admin_note: String,
+) -> Response {
+  case
+    pog.query(
+      "update user_tc_verification_requests set status = 'rejected', reviewed_at = now(), reviewed_by = $1::uuid, admin_note = case when $2 = '' then null else $2 end where id = $3::uuid and status = 'pending'",
+    )
+    |> pog.parameter(pog.text(admin_id))
+    |> pog.parameter(pog.text(admin_note))
+    |> pog.parameter(pog.text(rid))
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "tc_review_update_failed")
+    Ok(_) -> {
+      audit_log_insert(
+        ctx,
+        admin_id,
+        "",
+        "tc_verification.reject",
+        "user_tc_verification_request",
+        rid,
+        json.object([#("user_id", json.string(user_id))]),
+      )
+      let ok_body =
+        json.object([#("ok", json.bool(True))])
+        |> json.to_string
+      wisp.json_response(ok_body, 200)
+    }
+  }
+}
+
+fn admin_tc_review_apply_approve(
+  ctx: Context,
+  admin_id: String,
+  rid: String,
+  user_id: String,
+  tc_no: String,
+) -> Response {
+  case
+    pog.query(
+      "select id::text from users where tc_kimlik_no = $1 and id <> $2::uuid limit 1",
+    )
+    |> pog.parameter(pog.text(tc_no))
+    |> pog.parameter(pog.text(user_id))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "tc_conflict_lookup_failed")
+    Ok(cr) ->
+      case cr.rows {
+        [_] -> json_err(409, "tc_in_use")
+        [] ->
+          case
+            pog.query(
+              "update users set tc_kimlik_no = $1, identity_verified_at = now(), updated_at = now() where id = $2::uuid and identity_verified_at is null",
+            )
+            |> pog.parameter(pog.text(tc_no))
+            |> pog.parameter(pog.text(user_id))
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "user_tc_update_failed")
+            Ok(ur) ->
+              case ur.count {
+                0 -> json_err(409, "user_already_verified")
+                _ ->
+                  case
+                    pog.query(
+                      "update user_tc_verification_requests set status = 'approved', reviewed_at = now(), reviewed_by = $1::uuid where id = $2::uuid and status = 'pending'",
+                    )
+                    |> pog.parameter(pog.text(admin_id))
+                    |> pog.parameter(pog.text(rid))
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "tc_request_finalize_failed")
+                    Ok(_) -> {
+                      audit_log_insert(
+                        ctx,
+                        admin_id,
+                        "",
+                        "tc_verification.approve",
+                        "user_tc_verification_request",
+                        rid,
+                        json.object([#("user_id", json.string(user_id))]),
+                      )
+                      let ok_body =
+                        json.object([#("ok", json.bool(True))])
+                        |> json.to_string
+                      wisp.json_response(ok_body, 200)
+                    }
+                  }
+              }
+          }
+        _ -> json_err(500, "unexpected_tc_conflict_rows")
+      }
+  }
+}
+
+/// POST /api/v1/admin/tc-verifications/:id/review — `{ "decision": "approve"|"reject", "admin_note"?: string }`
+pub fn admin_review_tc_verification(
+  req: Request,
+  ctx: Context,
+  request_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  let rid = string.trim(request_id)
+  case rid == "" {
+    True -> json_err(400, "invalid_request_id")
+    False ->
+      case require_session_permission(req, ctx, "admin.tc_verification.review") {
+        Error(r) -> r
+        Ok(admin_id) ->
+          case read_body_string(req) {
+            Error(Nil) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, tc_review_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(decision_raw, admin_note)) -> {
+                  let decision = string.lowercase(string.trim(decision_raw))
+                  case decision == "approve" || decision == "reject" {
+                    False -> json_err(400, "invalid_decision")
+                    True ->
+                      case
+                        pog.query(
+                          "select user_id::text, status::text, tc_kimlik_no from user_tc_verification_requests where id = $1::uuid limit 1",
+                        )
+                        |> pog.parameter(pog.text(rid))
+                        |> pog.returning(tc_request_pending_row())
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "tc_request_lookup_failed")
+                        Ok(qr) ->
+                          case qr.rows {
+                            [] -> json_err(404, "request_not_found")
+                            [#(user_id, st, tc_no)] ->
+                              case st != "pending" {
+                                True -> json_err(409, "not_pending")
+                                False ->
+                                  case decision == "reject" {
+                                    True ->
+                                      admin_tc_review_apply_reject(
+                                        ctx,
+                                        admin_id,
+                                        rid,
+                                        user_id,
+                                        admin_note,
+                                      )
+                                    False ->
+                                      admin_tc_review_apply_approve(
+                                        ctx,
+                                        admin_id,
+                                        rid,
+                                        user_id,
+                                        tc_no,
+                                      )
+                                  }
+                              }
+                            _ -> json_err(500, "unexpected_request_row")
+                          }
+                      }
+                  }
+                }
+              }
+          }
+      }
+  }
 }
 
 fn admin_users_row() -> decode.Decoder(#(String, String, String, String)) {

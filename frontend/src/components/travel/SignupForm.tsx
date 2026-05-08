@@ -1,8 +1,8 @@
 'use client'
 
 import { formatAuthApiError } from '@/lib/auth-error-messages'
-import { registerUser } from '@/lib/travel-api'
-import { setStoredAuthToken } from '@/lib/auth-storage'
+import { getAuthMe, registerUser } from '@/lib/travel-api'
+import { getStoredAuthToken, setStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
 import { TcKimlikWidget } from '@/components/travel/TcKimlikWidget'
@@ -13,7 +13,7 @@ import T from '@/utils/getT'
 import { ArrowRight, SkipForward } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type Step = 'register' | 'tc-verify'
 
@@ -23,6 +23,26 @@ export default function SignupForm({ locale }: { locale: string }) {
   const [step, setStep] = useState<Step>('register')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [meAfterSignup, setMeAfterSignup] = useState<Awaited<ReturnType<typeof getAuthMe>> | null>(
+    null,
+  )
+
+  useEffect(() => {
+    if (step !== 'tc-verify') return
+    const t = getStoredAuthToken()
+    if (!t) return
+    let cancelled = false
+    void getAuthMe(t)
+      .then((u) => {
+        if (!cancelled) setMeAfterSignup(u)
+      })
+      .catch(() => {
+        if (!cancelled) setMeAfterSignup(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [step])
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -67,7 +87,15 @@ export default function SignupForm({ locale }: { locale: string }) {
           ✅ Hesabınız oluşturuldu! Şimdi kimliğinizi doğrulayabilirsiniz.
         </div>
 
-        <TcKimlikWidget onVerified={goToAccount} />
+        <TcKimlikWidget
+          token={getStoredAuthToken()}
+          me={meAfterSignup}
+          onRefreshMe={async () => {
+            const t = getStoredAuthToken()
+            if (t) setMeAfterSignup(await getAuthMe(t))
+          }}
+          onVerified={goToAccount}
+        />
 
         {/* TC vatandaşı değil veya sonra yapmak istiyorum */}
         <div className="text-center">

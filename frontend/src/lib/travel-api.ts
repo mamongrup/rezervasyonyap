@@ -1871,7 +1871,16 @@ export async function sendNetgsmTestSms(
   return json(res)
 }
 
-export type AuthUser = { id: string; email: string; display_name: string | null }
+export type AuthUser = {
+  id: string
+  email: string
+  display_name: string | null
+  /** ISO timestamp veya null — kimlik yönetici onayıyla doğrulanmış */
+  identity_verified_at?: string | null
+  tc_verification_pending?: boolean
+  tc_verification_pending_since?: string | null
+  tc_verification_rejection_note?: string | null
+}
 
 /** G3.0 — kullanıcıya atanmış roller (organization_id boşsa null) */
 export type RoleAssignment = { role_code: string; organization_id: string | null }
@@ -1922,6 +1931,88 @@ export async function loginUser(body: {
   }
   const data = (await res.json()) as { token: string; user: AuthUser }
   return data
+}
+
+export type TcVerificationAdminRequestRow = {
+  id: string
+  user_id: string
+  email: string
+  display_name: string
+  tc_kimlik_no: string
+  first_name: string
+  last_name: string
+  birth_year: string
+  submitted_at: string
+}
+
+/** Oturumlu kullanıcı — TC kimlik doğrulama başvurusu (yönetici onayı kuyruğu). */
+export async function submitTcVerificationRequest(
+  token: string,
+  body: {
+    tc_kimlik_no: string
+    first_name: string
+    last_name: string
+    birth_year: number
+  },
+): Promise<{ ok: boolean }> {
+  const res = await fetch(`/api/auth/tc-verification`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    credentials: 'same-origin',
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `tc_verify_submit_${res.status}`)
+  }
+  return json(res)
+}
+
+/** Yönetici: bekleyen TC başvuruları (`admin.tc_verification.review`). */
+export async function listAdminTcVerificationRequests(
+  token: string,
+): Promise<{ requests: TcVerificationAdminRequestRow[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/admin/tc-verifications`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `admin_tc_list_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function reviewAdminTcVerificationRequest(
+  token: string,
+  requestId: string,
+  body: { decision: 'approve' | 'reject'; admin_note?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/admin/tc-verifications/${encodeURIComponent(requestId)}/review`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `admin_tc_review_${res.status}`)
+  }
+  return json(res)
 }
 
 export async function getAuthMe(

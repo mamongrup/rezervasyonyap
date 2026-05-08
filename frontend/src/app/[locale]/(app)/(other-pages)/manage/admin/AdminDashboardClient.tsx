@@ -24,6 +24,7 @@ import {
   MessageSquare,
   PenSquare,
   RefreshCw,
+  ShieldCheck,
   ShoppingBag,
   Star,
   TrendingUp,
@@ -322,6 +323,7 @@ const EMPTY_SPARKLINE_6 = [0, 0, 0, 0, 0, 0]
 // ─── Quick Actions ────────────────────────────────────────────────────────────
 
 const QUICK_ACTIONS = [
+  { label: 'TC kimlik başvuruları', icon: ShieldCheck, href: '/manage/admin/tc-verifications', color: '#0d9488' },
   { label: 'Blog Yazıları', icon: PenSquare, href: '/manage/admin/content/blog', color: '#3b82f6' },
   { label: 'Provizyon', icon: Zap, href: '/manage/admin/payments/provizyon', color: '#f59e0b' },
   { label: 'Bildirimler', icon: MessageSquare, href: '/manage/admin/settings/notifications', color: '#10b981' },

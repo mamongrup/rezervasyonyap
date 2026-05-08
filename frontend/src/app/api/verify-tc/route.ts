@@ -30,6 +30,47 @@ function trUpperCase(str: string): string {
     .toUpperCase()
 }
 
+// NVI kökü — 302/301 ile alt path’e inebilir; fetch varsayılanında POST bazen GET’e
+// dönüşür ve SOAP bozulur. `redirect: 'manual'` + aynı gövdeyle yeniden POST güvenli.
+const NVI_SOAP_URL = 'https://tckimlik.nvi.gov.tr/Service/KPSPublic.asmx'
+
+async function postNviSoap(soapBody: string, signal: AbortSignal): Promise<Response> {
+  const headers: HeadersInit = {
+    'Content-Type': 'text/xml; charset=utf-8',
+    SOAPAction: 'http://tckimlik.nvi.gov.tr/WS/TCKimlikNoDogrula',
+    'User-Agent': 'Mozilla/5.0 (compatible; RezervasyonYap/1.0)',
+  }
+  let url = NVI_SOAP_URL
+  for (let hop = 0; hop < 8; hop++) {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: soapBody,
+      signal,
+      redirect: 'manual',
+    })
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('Location')
+      if (!loc) {
+        throw new Error(`NVI HTTP ${res.status} no Location`)
+      }
+      const nextUrl = new URL(loc, url).href
+      // NVİ hatada /Pages/Error/... veya aspxerrorpath ile SOAP uçunu kapatıyor; POST'u error sayfasına taşımak 405 üretir.
+      if (
+        loc.includes('/Pages/Error') ||
+        loc.includes('Error.html') ||
+        nextUrl.includes('/Pages/Error')
+      ) {
+        throw new Error('nvi_public_soap_rejected')
+      }
+      url = nextUrl
+      continue
+    }
+    return res
+  }
+  throw new Error('nvi_too_many_redirects')
+}
+
 // ─── NVI SOAP çağrısı ─────────────────────────────────────────────────────────
 async function callNviSoap(
   tcNo: string,
@@ -59,16 +100,7 @@ async function callNviSoap(
   const timeout = setTimeout(() => controller.abort(), 10_000)
 
   try {
-    const res = await fetch('https://tckimlik.nvi.gov.tr/Service/KPSPublic.asmx', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/xml; charset=utf-8',
-        SOAPAction: 'http://tckimlik.nvi.gov.tr/WS/TCKimlikNoDogrula',
-        'User-Agent': 'Mozilla/5.0',
-      },
-      body: soapBody,
-      signal: controller.signal,
-    })
+    const res = await postNviSoap(soapBody, controller.signal)
 
     if (!res.ok) {
       throw new Error(`NVI HTTP ${res.status}`)
@@ -134,12 +166,25 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Sunucu hatası'
 
+    if (msg === 'nvi_public_soap_rejected') {
+      return NextResponse.json(
+        {
+          verified: false,
+          error:
+            'Nüfus ve Vatandaşlık İşleri (NVİ) herkese açık TC doğrulama web servisi bu adresten artık yanıt vermiyor veya yalnızca kurumsal (KPS) erişime bırakılmış olabilir. Teknik olarak istek NVİ sunucusuna gidiyor; SOAP uç noktası hata sayfasına yönlendiriliyor. Kurumsal KPS entegrasyonu ya da manuel doğrulama süreci düşünülmelidir.',
+          service_unavailable: true,
+        },
+        { status: 503 },
+      )
+    }
+
     // NVI servisine ulaşılamadığında (timeout, ağ sorunu, bakım, HTML yanıt)
     const isServiceDown =
       msg.includes('abort') ||
       msg.includes('fetch') ||
       msg.includes('nvi_service_html_response') ||
       msg.includes('nvi_unexpected_response') ||
+      msg.includes('nvi_too_many_redirects') ||
       msg.includes('NVI HTTP')
 
     if (isServiceDown) {
