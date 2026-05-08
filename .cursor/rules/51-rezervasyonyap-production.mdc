@@ -27,6 +27,12 @@ Bu repoyla birlikte kurulan canlı ortam için **tek kaynaklı** bağlam; panel/
 - **`INTERNAL_API_ORIGIN`:** Sunucu tarafı (RSC/Node) → API; genelde `http://127.0.0.1:8080`.
 - Env’deki `NEXT_PUBLIC_*` değiştiyse: **mutlaka** `frontend` içinde yeniden `npm run build` + `travel-web` restart.
 
+## Veritabanı SQL (migration / seed)
+
+- **Uygulama bağlantısı:** `travel-api` → `EnvironmentFile` genelde **`/etc/rezervasyonyap/backend.env`** (`DATABASE_URL` veya `PG*` — `backend/src/backend/config.gleam`).
+- **Elle `psql -U postgres` kullanmayın**; Plesk’te süper kullanıcı şifresi farklı olur, uygulama kullanıcısı ile uyumsuzluk çıkar.
+- **Standart komut (sunucuda, repo kökü):** `chmod +x deploy/apply-sql.sh` sonra `./deploy/apply-sql.sh backend/priv/sql/modules/NNN_....sql` — script aynı `backend.env` dosyasını yükler.
+
 ## Tek komut deploy
 
 ```bash

@@ -122,7 +122,25 @@ chmod +x deploy/verify.sh
 ./deploy/verify.sh
 ```
 
-## 8) Pazarlama AI / DeepSeek `timeout`
+## 8) Veritabanı SQL (tek standart — `psql` ile elle migration)
+
+**Yapmayın:** `psql -U postgres` ile tahmin yürütmek. Plesk kurulumlarında süper kullanıcı şifresi, uygulamanın kullandığı bağlantıdan farklıdır; “password authentication failed” buradan gelir.
+
+**Yapın:** API ile **aynı** kimlik bilgisini kullanın — `travel-api.service` içindeki `EnvironmentFile` (genelde **`/etc/rezervasyonyap/backend.env`**). Script repo içinde:
+
+```bash
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+chmod +x deploy/apply-sql.sh
+./deploy/apply-sql.sh backend/priv/sql/modules/NNN_yeni_migration.sql
+```
+
+Bağlantı sırası `backend/src/backend/config.gleam` ile aynıdır: önce **`DATABASE_URL`**, yoksa **`PGHOST` / `PGPORT` / `PGUSER` / `PGPASSWORD` / `PGDATABASE`**.
+
+Ortam dosyası yolunu değiştirmek için: `TRAVEL_DB_ENV=/yol/backend.env ./deploy/apply-sql.sh ...`
+
+**Yerel Windows (Laragon):** Bu script Linux/bash içindir; PowerShell’de Laragon `psql` yolunu kullanın (bkz. `00-project-overview.mdc`).
+
+## 9) Pazarlama AI / DeepSeek `timeout`
 
 - **Sure (API):** Yalniz **Ayarlar → Genel → Yapay zeka** (`site_settings.ai`). Eski `travel-api` yukluyse panel ile httpc uyusmaz — `gleam build` + `systemctl restart travel-api.service`. **`plesk-vitrin-deploy.sh`** yalnizca Next.js derler; API’yi unutmayin.
 - **Kritik — ters vekil:** `/manage/admin/marketing/ai` tek HTTP isteginde **birden fazla** DeepSeek cagrisi siralar (tanitim + blog). Panelde 3600 sn olsa bile **Apache/nginx**, istemci–sunucu vekil zincirinde varsayilan **~60 sn** ile baglantiyi kesebilir; hata: `DeepSeek API hatası: timeout`.
@@ -150,7 +168,7 @@ Degisiklikten sonra web sunucusunu/yapilandirmayi yeniden yukleyin (Plesk’te g
 cd /path/to/repo/backend && gleam build && sudo systemctl restart travel-api.service
 ```
 
-## 9) Tarayici kontrolu
+## 10) Tarayici kontrolu
 
 - Hard refresh: `Ctrl + Shift + R`
 - Ana sayfada hero kategori ikonlari gorunmeli.
