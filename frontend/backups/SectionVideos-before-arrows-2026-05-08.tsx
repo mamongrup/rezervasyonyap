@@ -1,3 +1,8 @@
+/**
+ * YEDEK — Önceki/sonraki okları eklenmeden önceki SectionVideos.tsx birebir kopyası (2026-05-08).
+ * Geri yüklemek: bu dosyanın içeriğini `src/components/SectionVideos.tsx` dosyasının üzerine yazın.
+ * Bu dosya projede import edilmez (src dışında).
+ */
 'use client'
 
 import Heading from '@/shared/Heading'

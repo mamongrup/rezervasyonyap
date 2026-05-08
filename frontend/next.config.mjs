@@ -133,11 +133,12 @@ const nextConfig = {
   },
   experimental: {
     /**
-     * `optimizeCss` (beasties) — Next 15 + beasties 0.4 ile critical CSS inline + non-critical
-     * defer. PSI mobil "Render-blocking requests 1190 ms" uyarısının ana kaynağı bu;
-     * açtığımızda CSS dosyası async hale gelir, FCP/LCP düşer. Sorun çıkarsa `CSS_OPTIMIZE=0` ile kapatılır.
+     * `optimizeCss` (beasties) — kritik CSS inline + geri kalanı defer; üretimde FCP/LCP için.
+     * Geliştirmede (`next dev`) tam `layout.css` preload + kullanılmama uyarısı (Chrome) üretir;
+     * bu yüzden yalnızca production build'de açılır. Kapatmak için: `CSS_OPTIMIZE=0`.
      */
-    optimizeCss: process.env.CSS_OPTIMIZE !== '0',
+    optimizeCss:
+      process.env.NODE_ENV === 'production' && process.env.CSS_OPTIMIZE !== '0',
     optimizePackageImports: [
       'lucide-react',
       'lodash',

@@ -1,6 +1,7 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -77,6 +78,12 @@ function logoImageFallback(src: string | null): string | null {
   if (!src) return null
   if (src.endsWith('.avif')) return `${src.slice(0, -'.avif'.length)}.webp`
   return null
+}
+
+/** Vitrin: panel dosyaları `/uploads/site/**` → `/api/site-upload/**` (bkz. site-upload-browser-href) */
+function vitrinImgSrc(raw: string | null | undefined): string {
+  if (!raw?.trim()) return ''
+  return siteUploadBrowserHref(raw.trim())
 }
 
 /** Metin logosu — logo URL yokken veya yüklenirken gösterilir */
@@ -182,7 +189,7 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
         className={`inline-flex items-center gap-2.5 focus:ring-0 focus:outline-hidden ${className}`}
       >
         <img
-          src={iconSrc}
+          src={vitrinImgSrc(iconSrc)}
           alt={altText}
           className="h-14 w-14 shrink-0 object-contain"
           style={{ imageRendering: '-webkit-optimize-contrast' }}
@@ -213,14 +220,14 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
       {renderedLogoUrl && !imageFailed ? (
         <>
           <img
-            src={renderedLogoUrl}
+            src={vitrinImgSrc(renderedLogoUrl)}
             alt={altText}
             className="block max-h-[56px] w-auto dark:hidden"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
             onError={() => handleImageError(renderedLogoUrl)}
           />
           <img
-            src={activeDarkUrl ?? renderedLogoUrl}
+            src={vitrinImgSrc(activeDarkUrl ?? renderedLogoUrl)}
             alt={altText}
             className="hidden max-h-[56px] w-auto dark:block"
             style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}

@@ -17,7 +17,7 @@ const CardCategory3: FC<CardCategory3Props> = ({ className = '', category }) => 
       : undefined
 
   return (
-    <div className={`group relative flex flex-col ${className}`}>
+    <div className={`group card-category-3 relative flex flex-col ${className}`}>
       <div
         className={`aspect-w-5 relative h-0 w-full shrink-0 overflow-hidden rounded-2xl aspect-h-5 sm:aspect-h-6`}
         data-category-card-media

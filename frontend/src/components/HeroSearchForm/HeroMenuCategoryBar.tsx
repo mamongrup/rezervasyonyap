@@ -191,7 +191,7 @@ export function HeroMenuCategoryBar({
   const moreMenu = menuCats.length ? (
     <Popover className="relative flex shrink-0 flex-col items-center gap-1.5 sm:gap-2">
       <PopoverButton
-        className="group/tab flex cursor-pointer flex-col items-center gap-1.5 sm:gap-2"
+        className="group/tab flex cursor-pointer flex-col items-center gap-1.5 rounded-lg outline-none focus:outline-hidden sm:gap-2"
         aria-label={useCollapseDesktop ? overflowTriggerText : 'Menü'}
       >
         <span

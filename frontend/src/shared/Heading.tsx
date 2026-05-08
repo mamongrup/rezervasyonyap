@@ -1,10 +1,11 @@
 import clsx from 'clsx'
+import type { ComponentPropsWithoutRef } from 'react'
 
 type HeadingProps = { level?: 1 | 2 | 3 | 4 | 5 | 6 } & React.ComponentPropsWithoutRef<
   'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6'
 >
 
-export function Heading({ className, level = 1, ...props }: HeadingProps) {
+export function Heading({ className, level = 2, ...props }: HeadingProps) {
   let Element: `h${typeof level}` = `h${level}`
 
   return (
@@ -15,17 +16,13 @@ export function Heading({ className, level = 1, ...props }: HeadingProps) {
   )
 }
 
-export function Subheading({ className, level = 2, ...props }: HeadingProps) {
-  let Element: `h${typeof level}` = `h${level}`
-
-  return (
-    <Element {...props} className={clsx(className, 'text-lg font-normal text-neutral-500 dark:text-neutral-400')} />
-  )
+export function Subheading({ className, ...props }: ComponentPropsWithoutRef<'p'>) {
+  return <p {...props} className={clsx(className, 'text-lg font-normal text-neutral-500 dark:text-neutral-400')} />
 }
 
 export default function HeadingWithSub({
   className,
-  level = 1,
+  level = 2,
   subheading,
   children,
   isCenter,

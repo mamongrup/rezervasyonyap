@@ -44,26 +44,24 @@ const SectionSliderCards: FC<Props> = ({
 
   return (
     <div className={clsx('relative', className)}>
-      <div className="min-w-0 max-w-full overflow-x-clip">
-        <div
-          ref={sliderRef}
-          className="hidden-scrollbar relative -mx-2 flex max-w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain lg:-mx-3.5"
-        >
-          {listings.map((item) => (
-            <div className={`mySnapItem px-2 lg:px-3.5 ${itemClassName}`} key={item.id}>
-              {renderCard(item)}
-            </div>
-          ))}
-        </div>
+      <div
+        ref={sliderRef}
+        className="hidden-scrollbar relative -mx-2 flex snap-x snap-mandatory overflow-x-auto lg:-mx-3.5"
+      >
+        {listings.map((item) => (
+          <div className={`mySnapItem px-2 lg:px-3.5 ${itemClassName}`} key={item.id}>
+            {renderCard(item)}
+          </div>
+        ))}
       </div>
 
-      <div className="absolute start-2 top-[40%] z-[2] -translate-y-1/2 sm:start-4">
+      <div className="absolute -start-3 top-[40%] z-[1] -translate-y-1/2 sm:-start-5 xl:-start-5">
         <ButtonCircle color="white" onClick={scrollToPrevSlide} className={'xl:size-11'} disabled={isAtStart} aria-label={pag.previous}>
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
       </div>
 
-      <div className="absolute end-2 top-[40%] z-[2] -translate-y-1/2 sm:end-4">
+      <div className="absolute -end-3 top-[40%] z-[1] -translate-y-1/2 sm:-end-5 xl:-end-6">
         <ButtonCircle color="white" onClick={scrollToNextSlide} className={'xl:size-11'} disabled={isAtEnd} aria-label={pag.next}>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
