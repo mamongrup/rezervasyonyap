@@ -311,7 +311,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
 
             {otherVideos.length > 1 && (
               <>
-                <div className="absolute start-0 top-1/2 z-[2] -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2">
+                <div className="absolute start-2 top-1/2 z-[2] -translate-y-1/2 sm:start-3">
                   <ButtonCircle
                     color="white"
                     onClick={scrollToPrevSlide}
@@ -322,7 +322,7 @@ const SectionVideosInner: FC<SectionVideosProps & { videos: VideoType[] }> = ({
                     <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
                   </ButtonCircle>
                 </div>
-                <div className="absolute end-0 top-1/2 z-[2] -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2">
+                <div className="absolute end-2 top-1/2 z-[2] -translate-y-1/2 sm:end-3">
                   <ButtonCircle
                     color="white"
                     onClick={scrollToNextSlide}

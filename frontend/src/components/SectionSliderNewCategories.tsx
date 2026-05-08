@@ -127,7 +127,8 @@ const SectionSliderNewCategories: FC<Props> = ({
       ? {
           left: axis === 'prev' ? arrowLayout.prevLeft : arrowLayout.nextLeft,
           top: arrowLayout.top,
-          transform: 'translate(-50%, -50%)',
+          /** Taşıyıcı overflow-x-hidden/clip — oka yarısı dışarı taşmasın */
+          transform: axis === 'prev' ? 'translate(0, -50%)' : 'translate(-100%, -50%)',
         }
       : undefined
 
@@ -148,8 +149,8 @@ const SectionSliderNewCategories: FC<Props> = ({
 
       <div
         className={clsx(
-          'absolute z-1',
-          !measured && 'start-0 top-[40%] -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2',
+          'absolute z-[2]',
+          !measured && 'start-2 top-[40%] -translate-y-1/2 sm:start-4',
         )}
         style={measuredStyle('prev')}
       >
@@ -160,8 +161,8 @@ const SectionSliderNewCategories: FC<Props> = ({
 
       <div
         className={clsx(
-          'absolute z-1',
-          !measured && 'end-0 top-[40%] -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2',
+          'absolute z-[2]',
+          !measured && 'end-2 top-[40%] -translate-y-1/2 sm:end-4',
         )}
         style={measuredStyle('next')}
       >

@@ -278,6 +278,7 @@ export default async function CategoryPageTemplate({
       initTab={category.heroSearchTab ?? 'Stays'}
       locale={locale}
       hideVerticalTabs
+      collapseOverflowAfterSlug="arac-kiralama"
     />
   )
 

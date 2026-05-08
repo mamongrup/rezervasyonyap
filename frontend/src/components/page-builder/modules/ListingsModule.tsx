@@ -126,13 +126,13 @@ function ListingsSliderRow({
         ))}
       </div>
 
-      <div className="pointer-events-none absolute inset-y-0 start-0 end-0 flex items-center justify-between">
-        <div className="pointer-events-auto -ms-1 sm:-ms-3 xl:-ms-4">
+      <div className="pointer-events-none absolute inset-y-0 start-2 end-2 z-10 flex items-center justify-between">
+        <div className="pointer-events-auto">
           <ButtonCircle color="white" onClick={scrollToPrevSlide} className="shadow-md xl:size-11" disabled={isAtStart} aria-label={pag.previous}>
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
           </ButtonCircle>
         </div>
-        <div className="pointer-events-auto -me-1 sm:-me-3 xl:-me-4">
+        <div className="pointer-events-auto">
           <ButtonCircle color="white" onClick={scrollToNextSlide} className="shadow-md xl:size-11" disabled={isAtEnd} aria-label={pag.next}>
             <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
           </ButtonCircle>

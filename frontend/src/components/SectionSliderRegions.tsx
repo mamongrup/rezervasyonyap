@@ -97,13 +97,13 @@ export default function SectionSliderRegions({
         </div>
       </div>
 
-      <div className="absolute start-0 top-[40%] z-1 -translate-y-1/2 ltr:-translate-x-1/2 rtl:translate-x-1/2">
+      <div className="absolute start-2 top-[40%] z-[2] -translate-y-1/2 sm:start-4">
         <ButtonCircle color="white" onClick={scrollToPrevSlide} className="xl:size-11" disabled={isAtStart} aria-label={pag.previous}>
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>
       </div>
 
-      <div className="absolute end-0 top-[40%] z-1 -translate-y-1/2 ltr:translate-x-1/2 rtl:-translate-x-1/2">
+      <div className="absolute end-2 top-[40%] z-[2] -translate-y-1/2 sm:end-4">
         <ButtonCircle color="white" onClick={scrollToNextSlide} className="xl:size-11" disabled={isAtEnd} aria-label={pag.next}>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonCircle>

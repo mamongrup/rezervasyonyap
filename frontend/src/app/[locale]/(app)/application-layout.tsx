@@ -27,7 +27,7 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       </div>
       <div
         className="shrink-0 lg:hidden"
-        style={{ height: 'calc(5.5rem + env(safe-area-inset-top, 0px))' }}
+        style={{ height: 'calc(5.25rem + env(safe-area-inset-top, 0px))' }}
         aria-hidden
       />
       {children}
