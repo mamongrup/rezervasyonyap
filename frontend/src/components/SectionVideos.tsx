@@ -97,7 +97,6 @@ function PosterImg({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- YouTube: Next/Image + dış host güvenilir değil; onError zinciri gerekli
     <img
       src={src}
       alt={alt}
