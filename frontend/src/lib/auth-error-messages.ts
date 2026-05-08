@@ -10,6 +10,11 @@ export function formatAuthApiError(code: string): string {
     db_error: 'İşlem tamamlanamadı. Lütfen daha sonra tekrar deneyin.',
     token_create_failed: 'Şifre sıfırlama isteği gönderilemedi. Lütfen daha sonra tekrar deneyin.',
     NEXT_PUBLIC_API_URL_missing: 'Ön yüz yapılandırması eksik. Yöneticiye başvurun.',
+    api_origin_missing: 'Sunucu API adresi tanımlı değil (INTERNAL_API_ORIGIN / NEXT_PUBLIC_API_URL).',
+    upstream_unreachable: 'API şu an yanıt vermiyor. travel-api servisini kontrol edin.',
+    me_query_failed: 'Oturum bilgisi alınamadı (veritabanı). API günlüğüne bakın.',
+    unexpected_me: 'Oturum yanıtı beklenmedik. API günlüğüne bakın.',
+    update_failed: 'Profil güncellenemedi. Lütfen tekrar deneyin.',
   }
   return m[code] ?? code
 }

@@ -2025,7 +2025,10 @@ export async function getAuthMe(
     credentials: 'same-origin',
     cache: 'no-store',
   })
-  if (!res.ok) throw new Error(`auth_me_${res.status}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `auth_me_${res.status}`)
+  }
   const me = await json<AuthUser & { preferred_locale: string; roles: RoleAssignment[]; permissions: string[] }>(res)
   setStoredAuthProfile({
     display_name: me.display_name,

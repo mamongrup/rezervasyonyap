@@ -2782,6 +2782,55 @@ export default function CatalogNewListingClient({
 
                   <div className="mt-8 border-t border-neutral-100 pt-6 dark:border-neutral-700">
                     <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                      Kısa konaklama ücreti
+                    </h3>
+                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      Minimum gecenin altında kalınırsa bu tutar alınır
+                    </p>
+                    <Grid2 className="mt-4">
+                      <Field className="block">
+                        <Label>Minimum Gece Sayısı</Label>
+                        <Input
+                          type="number" min="1" className="mt-1"
+                          value={shortStayMinNights} onChange={(e) => setShortStayMinNights(e.target.value)}
+                          placeholder="ör: 5"
+                        />
+                        <HintText>Bu geceden az kalınırsa kısa konaklama ücreti uygulanır.</HintText>
+                      </Field>
+                      <Field className="block">
+                        <Label>Kısa konaklama ücreti ({currency})</Label>
+                        <Input
+                          type="number" min="0" step="0.01" className="mt-1"
+                          value={shortStayFee} onChange={(e) => setShortStayFee(e.target.value)}
+                          placeholder="ör: 500"
+                        />
+                        <HintText>
+                          Yalnızca yukarıdaki minimum geceden <strong>kısa</strong> konaklamalarda tek sefer uygulanır. Boş bırakılırsa yok.
+                        </HintText>
+                      </Field>
+                    </Grid2>
+                  </div>
+
+                  <div className="mt-8 border-t border-neutral-100 pt-6 dark:border-neutral-700">
+                    <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                      Temizlik ücreti
+                    </h3>
+                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      İsteğe bağlı; konaklama başına tek sefer — minimum gece kuralından bağımsız
+                    </p>
+                    <Field className="mt-4 block max-w-md">
+                      <Label>Temizlik ücreti ({currency})</Label>
+                      <Input
+                        type="number" min="0" step="0.01" className="mt-1"
+                        value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
+                        placeholder="ör: 750"
+                      />
+                      <HintText>Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.</HintText>
+                    </Field>
+                  </div>
+
+                  <div className="mt-8 border-t border-neutral-100 pt-6 dark:border-neutral-700">
+                    <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
                       Ek ücretler
                     </h3>
                     <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
@@ -2865,43 +2914,6 @@ export default function CatalogNewListingClient({
                       </button>
                     </div>
                   </div>
-                </Section>
-
-                <Section title="Kısa Konaklama Ücreti" subtitle="Minimum gecenin altında kalınırsa bu tutar alınır">
-                  <Grid2>
-                    <Field className="block">
-                      <Label>Minimum Gece Sayısı</Label>
-                      <Input
-                        type="number" min="1" className="mt-1"
-                        value={shortStayMinNights} onChange={(e) => setShortStayMinNights(e.target.value)}
-                        placeholder="ör: 5"
-                      />
-                      <HintText>Bu geceden az kalınırsa kısa konaklama ücreti uygulanır.</HintText>
-                    </Field>
-                    <Field className="block">
-                      <Label>Kısa konaklama ücreti ({currency})</Label>
-                      <Input
-                        type="number" min="0" step="0.01" className="mt-1"
-                        value={shortStayFee} onChange={(e) => setShortStayFee(e.target.value)}
-                        placeholder="ör: 500"
-                      />
-                      <HintText>
-                        Yalnızca yukarıdaki minimum geceden <strong>kısa</strong> konaklamalarda tek sefer uygulanır. Boş bırakılırsa yok.
-                      </HintText>
-                    </Field>
-                  </Grid2>
-                </Section>
-
-                <Section title="Temizlik ücreti" subtitle="İsteğe bağlı; konaklama başına tek sefer — minimum gece kuralından bağımsız">
-                  <Field className="block max-w-md">
-                    <Label>Temizlik ücreti ({currency})</Label>
-                    <Input
-                      type="number" min="0" step="0.01" className="mt-1"
-                      value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
-                      placeholder="ör: 750"
-                    />
-                    <HintText>Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.</HintText>
-                  </Field>
                 </Section>
               </>
             ) : null}
@@ -3073,45 +3085,7 @@ export default function CatalogNewListingClient({
                   </Grid2>
                 </Section>
 
-                {/* Kısa Konaklama Ücreti */}
-                <Section title="Kısa Konaklama Ücreti" subtitle="Minimum gecenin altında kalınırsa bu tutar alınır">
-                  <Grid2>
-                    <Field className="block">
-                      <Label>Minimum Gece Sayısı</Label>
-                      <Input
-                        type="number" min="1" className="mt-1"
-                        value={shortStayMinNights} onChange={(e) => setShortStayMinNights(e.target.value)}
-                        placeholder="ör: 5"
-                      />
-                      <HintText>Bu geceden az kalınırsa kısa konaklama ücreti uygulanır.</HintText>
-                    </Field>
-                    <Field className="block">
-                      <Label>Kısa konaklama ücreti ({currency})</Label>
-                      <Input
-                        type="number" min="0" step="0.01" className="mt-1"
-                        value={shortStayFee} onChange={(e) => setShortStayFee(e.target.value)}
-                        placeholder="ör: 500"
-                      />
-                      <HintText>
-                        Yalnızca yukarıdaki minimum geceden <strong>kısa</strong> konaklamalarda tek sefer uygulanır. Boş bırakılırsa yok.
-                      </HintText>
-                    </Field>
-                  </Grid2>
-                </Section>
-
-                <Section title="Temizlik ücreti" subtitle="İsteğe bağlı; konaklama başına tek sefer — minimum gece kuralından bağımsız">
-                  <Field className="block max-w-md">
-                    <Label>Temizlik ücreti ({currency})</Label>
-                    <Input
-                      type="number" min="0" step="0.01" className="mt-1"
-                      value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
-                      placeholder="ör: 750"
-                    />
-                    <HintText>Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.</HintText>
-                  </Field>
-                </Section>
-
-                {/* Fiyatlandırma */}
+                {/* Fiyatlandırma — kısa konaklama + temizlik aynı kartta */}
                 <Section title="Fiyatlandırma">
                   <Grid2>
                     <Field className="block">
@@ -3134,7 +3108,7 @@ export default function CatalogNewListingClient({
                     </Field>
                   </Grid2>
 
-                  <Grid3>
+                  <Grid3 className="mt-4">
                     <Field className="block">
                       <Label>Gecelik Ücret ({currency})</Label>
                       <Input
@@ -3163,6 +3137,55 @@ export default function CatalogNewListingClient({
                       <HintText>Komisyon oranından küçük olamaz (ikisi de girildiyse). Boşsa varsayılan uygulanır.</HintText>
                     </Field>
                   </Grid3>
+
+                  <div className="mt-8 border-t border-neutral-100 pt-6 dark:border-neutral-700">
+                    <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                      Kısa konaklama ücreti
+                    </h3>
+                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      Minimum gecenin altında kalınırsa bu tutar alınır
+                    </p>
+                    <Grid2 className="mt-4">
+                      <Field className="block">
+                        <Label>Minimum Gece Sayısı</Label>
+                        <Input
+                          type="number" min="1" className="mt-1"
+                          value={shortStayMinNights} onChange={(e) => setShortStayMinNights(e.target.value)}
+                          placeholder="ör: 5"
+                        />
+                        <HintText>Bu geceden az kalınırsa kısa konaklama ücreti uygulanır.</HintText>
+                      </Field>
+                      <Field className="block">
+                        <Label>Kısa konaklama ücreti ({currency})</Label>
+                        <Input
+                          type="number" min="0" step="0.01" className="mt-1"
+                          value={shortStayFee} onChange={(e) => setShortStayFee(e.target.value)}
+                          placeholder="ör: 500"
+                        />
+                        <HintText>
+                          Yalnızca yukarıdaki minimum geceden <strong>kısa</strong> konaklamalarda tek sefer uygulanır. Boş bırakılırsa yok.
+                        </HintText>
+                      </Field>
+                    </Grid2>
+                  </div>
+
+                  <div className="mt-8 border-t border-neutral-100 pt-6 dark:border-neutral-700">
+                    <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                      Temizlik ücreti
+                    </h3>
+                    <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                      İsteğe bağlı; konaklama başına tek sefer — minimum gece kuralından bağımsız
+                    </p>
+                    <Field className="mt-4 block max-w-md">
+                      <Label>Temizlik ücreti ({currency})</Label>
+                      <Input
+                        type="number" min="0" step="0.01" className="mt-1"
+                        value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
+                        placeholder="ör: 750"
+                      />
+                      <HintText>Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.</HintText>
+                    </Field>
+                  </div>
                 </Section>
               </>
             ) : null}

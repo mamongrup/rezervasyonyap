@@ -1931,18 +1931,6 @@ export default function CatalogListingDetailClient({
                 <Input className="mt-1" value={minStayNights} onChange={(e) => setMinStayNights(e.target.value)} />
               </Field>
               <Field className="block">
-                <Label>{ui.listingForm.cleaningFee}</Label>
-                <Input className="mt-1" value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.depositAmount}</Label>
-                <Input className="mt-1" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.prepaymentPercent}</Label>
-                <Input className="mt-1" value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)} />
-              </Field>
-              <Field className="block">
                 <Label>{ui.listingForm.commissionPercent}</Label>
                 <Input className="mt-1" value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} />
               </Field>
@@ -1968,6 +1956,56 @@ export default function CatalogListingDetailClient({
                 <input type="checkbox" checked={allowGapBooking} onChange={(e) => setAllowGapBooking(e.target.checked)} />
                 {ui.listingForm.allowGapBooking}
               </label>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
+              {ui.listingForm.pricingCardTitle}
+            </h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <Field className="block">
+                <Label>{ui.listingForm.depositAmount}</Label>
+                <Input className="mt-1" value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.prepaymentPercent}</Label>
+                <Input className="mt-1" value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.cleaningFee}</Label>
+                <Input className="mt-1" value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)} />
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.listingForm.pricingCleaningHint}</p>
+              </Field>
+            </div>
+            <div className="mt-8 border-t border-neutral-100 pt-6 dark:border-neutral-700">
+              <h3 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+                {ui.listingForm.pricingShortStayHeading}
+              </h3>
+              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                {ui.listingForm.pricingShortStayIntro}
+              </p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field className="block">
+                  <Label>{ui.listingForm.minShortStayNights}</Label>
+                  <Input className="mt-1" value={minShortStayNights} onChange={(e) => setMinShortStayNights(e.target.value)} />
+                </Field>
+                <Field className="block">
+                  <Label>
+                    {ui.listingForm.shortStayFee} ({listingCurrencyCode})
+                  </Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className="mt-1"
+                    value={shortStayFee}
+                    onChange={(e) => setShortStayFee(e.target.value)}
+                    placeholder="500"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{ui.listingForm.shortStayFeeHint}</p>
+                </Field>
+              </div>
             </div>
           </div>
 
@@ -2015,25 +2053,6 @@ export default function CatalogListingDetailClient({
               <Field className="block">
                 <Label>{ui.listingForm.minAdvanceBookingDays}</Label>
                 <Input className="mt-1" value={minAdvanceBookingDays} onChange={(e) => setMinAdvanceBookingDays(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>{ui.listingForm.minShortStayNights}</Label>
-                <Input className="mt-1" value={minShortStayNights} onChange={(e) => setMinShortStayNights(e.target.value)} />
-              </Field>
-              <Field className="block">
-                <Label>Kısa konaklama ücreti ({listingCurrencyCode})</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  className="mt-1"
-                  value={shortStayFee}
-                  onChange={(e) => setShortStayFee(e.target.value)}
-                  placeholder="Min. gecenin altında tek sefer"
-                />
-                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-                  Yalnızca minimum geceden kısa konaklamalarda uygulanır; boş bırakılırsa ücret yok.
-                </p>
               </Field>
               <Field className="block">
                 <Label>Lat</Label>

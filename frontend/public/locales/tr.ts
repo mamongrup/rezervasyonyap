@@ -1181,6 +1181,14 @@ export const tr = {
       maxGuests: 'Maks misafir',
       minAdvanceBookingDays: 'En erken rezervasyon (gün)',
       minShortStayNights: 'Kısa konaklama min gece',
+      shortStayFee: 'Kısa konaklama ücreti',
+      pricingCardTitle: 'Fiyatlandırma ve ücretler',
+      pricingShortStayHeading: 'Kısa konaklama ücreti',
+      pricingShortStayIntro: 'Minimum gecenin altında kalınırsa bu tutar alınır.',
+      shortStayFeeHint:
+        'Yalnızca yukarıdaki minimum geceden kısa konaklamalarda uygulanır; boş bırakılırsa ücret yok.',
+      pricingCleaningHint:
+        'Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.',
       youtubeUrl: 'YouTube URL',
       address: 'Adres',
       mapPickerTitle: 'Konum haritası',
