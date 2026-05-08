@@ -4,6 +4,9 @@ import { constants as fsConstants, promises as fs } from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
 
+/** Sharp + `node:fs`; Edge’de çalışmaz. */
+export const runtime = 'nodejs'
+
 function sanitizePathSegment(s: string): string {
   return s
     .toLowerCase()
@@ -343,11 +346,24 @@ export async function POST(req: NextRequest) {
       ext = originalExt === 'ico' ? 'ico' : 'svg'
     } else {
       const profile = await getProfile(folder)
-      const result = await processImage(rawBuffer, profile)
-      outputBuffer = result.output
-      thumbBuffer = result.thumb
-      warning = result.warning
-      ext = warning ? originalExt : 'avif'
+      try {
+        const result = await processImage(rawBuffer, profile)
+        outputBuffer = result.output
+        thumbBuffer = result.thumb
+        warning = result.warning
+        ext = warning ? originalExt : 'avif'
+      } catch (sharpErr) {
+        /**
+         * Bazı AVIF varyantları / bozuk dosyalar libvips’te patlayabiliyor; bu durumda
+         * Next genelde HTML 500 döndürüyor ve istemci `res.json()` ile okuyamıyor.
+         */
+        console.error('[upload-image] sharp', sharpErr)
+        outputBuffer = rawBuffer
+        thumbBuffer = undefined
+        warning =
+          'Görsel dönüştürülemedi; orijinal dosya kaydedildi. (Özel AVIF, çözünürlük veya dosya bütünlüğü sorunu olabilir.)'
+        ext = originalExt && originalExt !== 'bin' ? originalExt : 'jpg'
+      }
     }
 
     let seq: number | null = null

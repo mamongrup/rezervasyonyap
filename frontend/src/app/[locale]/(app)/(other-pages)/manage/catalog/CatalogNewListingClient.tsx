@@ -352,6 +352,7 @@ export default function CatalogNewListingClient({
   const [basePrice, setBasePrice] = useState('')
   const [minStayNights, setMinStayNights] = useState('')
   const [cleaningFee, setCleaningFee] = useState('')
+  const [shortStayFee, setShortStayFee] = useState('')
   const [shortStayMinNights, setShortStayMinNights] = useState('')
   const [depositAmount, setDepositAmount] = useState('')
   const [prepaymentPercent, setPrepaymentPercent] = useState('')
@@ -866,6 +867,7 @@ export default function CatalogNewListingClient({
           setLat(lt)
           setLng(lg)
           setShortStayMinNights(meta.min_short_stay_nights ?? '')
+          setShortStayFee(meta.short_stay_fee ?? '')
           setOwnerTcNo(meta.owner_tc_no ?? '')
           setOwnerBankName(meta.owner_bank_name ?? '')
           setOwnerIban(meta.owner_iban ?? '')
@@ -1027,6 +1029,82 @@ export default function CatalogNewListingClient({
     setDescription(v)
   }
 
+  async function runAiTranslateToLocale(targetCode: string) {
+    const src = listingByLocale[primaryLocale]
+    const tTit = (src?.title ?? '').trim()
+    const tDesc = (src?.description ?? '').trim()
+    const srcSeo = isVilla ? seoByLocale[primaryLocale] ?? emptyListingSeo() : emptyListingSeo()
+    const slugRefVal = slugifyListingSlug(slug.trim())
+    const [tTitle, tDescOut] = await Promise.all([
+      tTit
+        ? callAiTranslate({
+            text: tTit,
+            context: 'title',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      tDesc
+        ? callAiTranslate({
+            text: tDesc,
+            context: 'body',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+            ...(slugRefVal ? { pageSlug: slugRefVal } : {}),
+          })
+        : Promise.resolve(''),
+    ])
+    setListingByLocale((prev) => ({
+      ...prev,
+      [targetCode]: {
+        ...prev[targetCode],
+        title: tTitle || prev[targetCode]?.title || '',
+        description: tDescOut || prev[targetCode]?.description || '',
+      },
+    }))
+    if (isVilla) {
+      const prevSeo = seoByLocale[primaryLocale] ?? emptyListingSeo()
+      const sTit = prevSeo.title.trim()
+      const sDesc = prevSeo.description.trim()
+      const sKw = prevSeo.keywords.trim()
+      const [seoTitle, seoDesc, seoKw] = await Promise.all([
+        sTit
+          ? callAiTranslate({
+              text: sTit,
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: targetCode,
+            })
+          : Promise.resolve(''),
+        sDesc
+          ? callAiTranslate({
+              text: sDesc.slice(0, 1200),
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: targetCode,
+            })
+          : Promise.resolve(''),
+        sKw
+          ? callAiTranslate({
+              text: sKw,
+              context: 'seo',
+              sourceLocale: primaryLocale,
+              targetLocale: targetCode,
+            })
+          : Promise.resolve(''),
+      ])
+      setSeoByLocale((prev) => ({
+        ...prev,
+        [targetCode]: {
+          ...(prev[targetCode] ?? emptyListingSeo()),
+          title: seoTitle || prev[targetCode]?.title || '',
+          description: seoDesc || prev[targetCode]?.description || '',
+          keywords: seoKw || prev[targetCode]?.keywords || '',
+        },
+      }))
+    }
+  }
+
   async function handleAiTranslateTrToTarget() {
     if (aiTargetLocale === primaryLocale) {
       setTranslateMsg({
@@ -1053,79 +1131,59 @@ export default function CatalogNewListingClient({
     setAiTranslating(true)
     setTranslateMsg(null)
     try {
-      const slugRefVal = slugifyListingSlug(slug.trim())
-      const [tTitle, tDescOut] = await Promise.all([
-        tTit
-          ? callAiTranslate({
-              text: tTit,
-              context: 'title',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        tDesc
-          ? callAiTranslate({
-              text: tDesc,
-              context: 'body',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-              ...(slugRefVal ? { pageSlug: slugRefVal } : {}),
-            })
-          : Promise.resolve(''),
-      ])
-      setListingByLocale((prev) => ({
-        ...prev,
-        [aiTargetLocale]: {
-          ...prev[aiTargetLocale],
-          title: tTitle || prev[aiTargetLocale]?.title || '',
-          description: tDescOut || prev[aiTargetLocale]?.description || '',
-        },
-      }))
-      if (isVilla) {
-        const prevSeo = seoByLocale[primaryLocale] ?? emptyListingSeo()
-        const sTit = prevSeo.title.trim()
-        const sDesc = prevSeo.description.trim()
-        const sKw = prevSeo.keywords.trim()
-        const [seoTitle, seoDesc, seoKw] = await Promise.all([
-          sTit
-            ? callAiTranslate({
-                text: sTit,
-                context: 'seo',
-                sourceLocale: primaryLocale,
-                targetLocale: aiTargetLocale,
-              })
-            : Promise.resolve(''),
-          sDesc
-            ? callAiTranslate({
-                text: sDesc.slice(0, 1200),
-                context: 'seo',
-                sourceLocale: primaryLocale,
-                targetLocale: aiTargetLocale,
-              })
-            : Promise.resolve(''),
-          sKw
-            ? callAiTranslate({
-                text: sKw,
-                context: 'seo',
-                sourceLocale: primaryLocale,
-                targetLocale: aiTargetLocale,
-              })
-            : Promise.resolve(''),
-        ])
-        setSeoByLocale((prev) => ({
-          ...prev,
-          [aiTargetLocale]: {
-            ...(prev[aiTargetLocale] ?? emptyListingSeo()),
-            title: seoTitle || prev[aiTargetLocale]?.title || '',
-            description: seoDesc || prev[aiTargetLocale]?.description || '',
-            keywords: seoKw || prev[aiTargetLocale]?.keywords || '',
-          },
-        }))
-      }
+      await runAiTranslateToLocale(aiTargetLocale)
       const label = allLocales.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale
       setTranslateMsg({
         ok: true,
         text: `${label} çevirisi hazır. Kaydetmeyi unutmayın.`,
+      })
+    } catch (e) {
+      setTranslateMsg({
+        ok: false,
+        text: e instanceof Error ? formatManageApiError(e.message) : 'Çeviri başarısız',
+      })
+    } finally {
+      setAiTranslating(false)
+    }
+  }
+
+  async function handleAiTranslateAllTargets() {
+    const src = listingByLocale[primaryLocale]
+    const tTit = (src?.title ?? '').trim()
+    const tDesc = (src?.description ?? '').trim()
+    const srcSeo = isVilla ? seoByLocale[primaryLocale] ?? emptyListingSeo() : emptyListingSeo()
+    const hasPrimarySeo =
+      isVilla &&
+      (srcSeo.title.trim() || srcSeo.description.trim() || srcSeo.keywords.trim())
+    if (!tTit && !tDesc && !hasPrimarySeo) {
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setTranslateMsg({
+        ok: false,
+        text: `Önce ${plabel} dilinde başlık, açıklama veya SEO alanlarından en az birini doldurun.`,
+      })
+      return
+    }
+    if (translateTargets.length === 0) {
+      setTranslateMsg({ ok: false, text: 'Çevrilecek başka dil yok.' })
+      return
+    }
+    setAiTranslating(true)
+    setTranslateMsg(null)
+    const failed: string[] = []
+    try {
+      for (const { code } of translateTargets) {
+        try {
+          await runAiTranslateToLocale(code)
+        } catch {
+          failed.push(code)
+        }
+      }
+      const okAll = failed.length === 0
+      setTranslateMsg({
+        ok: okAll,
+        text: okAll
+          ? `Tüm dillere çeviri tamamlandı (${translateTargets.length}). Kaydetmeyi unutmayın.`
+          : `Kısmen tamamlandı. Başarısız: ${failed.map((c) => c.toUpperCase()).join(', ')}. Diğer diller güncellendi; kaydedin.`,
       })
     } catch (e) {
       setTranslateMsg({
@@ -1554,6 +1612,7 @@ export default function CatalogNewListingClient({
       if (lat.trim()) metaBody.lat = lat.trim()
       if (lng.trim()) metaBody.lng = lng.trim()
       if (shortStayMinNights.trim()) metaBody.min_short_stay_nights = shortStayMinNights.trim()
+      if (shortStayFee.trim()) metaBody.short_stay_fee = shortStayFee.trim()
       if (isVilla && ownerTcNo.trim()) metaBody.owner_tc_no = ownerTcNo.trim()
       if (isVilla && ownerBankName.trim()) metaBody.owner_bank_name = ownerBankName.trim()
       if (isVilla && ownerIban.trim()) metaBody.owner_iban = ownerIban.replace(/\s/g, '').trim()
@@ -2041,6 +2100,7 @@ export default function CatalogNewListingClient({
                     targetLocale={aiTargetLocale}
                     onTargetLocaleChange={setAiTargetFromToolbar}
                     onTranslate={() => void handleAiTranslateTrToTarget()}
+                    onTranslateAll={() => void handleAiTranslateAllTargets()}
                     translating={aiTranslating}
                   />
                   {listingTranslationsHref ? (
@@ -2819,15 +2879,29 @@ export default function CatalogNewListingClient({
                       <HintText>Bu geceden az kalınırsa kısa konaklama ücreti uygulanır.</HintText>
                     </Field>
                     <Field className="block">
-                      <Label>Kısa Konaklama Ücreti ({currency})</Label>
+                      <Label>Kısa konaklama ücreti ({currency})</Label>
                       <Input
                         type="number" min="0" step="0.01" className="mt-1"
-                        value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
+                        value={shortStayFee} onChange={(e) => setShortStayFee(e.target.value)}
                         placeholder="ör: 500"
                       />
-                      <HintText>Boş bırakılırsa ücret uygulanmaz.</HintText>
+                      <HintText>
+                        Yalnızca yukarıdaki minimum geceden <strong>kısa</strong> konaklamalarda tek sefer uygulanır. Boş bırakılırsa yok.
+                      </HintText>
                     </Field>
                   </Grid2>
+                </Section>
+
+                <Section title="Temizlik ücreti" subtitle="İsteğe bağlı; konaklama başına tek sefer — minimum gece kuralından bağımsız">
+                  <Field className="block max-w-md">
+                    <Label>Temizlik ücreti ({currency})</Label>
+                    <Input
+                      type="number" min="0" step="0.01" className="mt-1"
+                      value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
+                      placeholder="ör: 750"
+                    />
+                    <HintText>Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.</HintText>
+                  </Field>
                 </Section>
               </>
             ) : null}
@@ -3012,15 +3086,29 @@ export default function CatalogNewListingClient({
                       <HintText>Bu geceden az kalınırsa kısa konaklama ücreti uygulanır.</HintText>
                     </Field>
                     <Field className="block">
-                      <Label>Kısa Konaklama Ücreti ({currency})</Label>
+                      <Label>Kısa konaklama ücreti ({currency})</Label>
                       <Input
                         type="number" min="0" step="0.01" className="mt-1"
-                        value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
+                        value={shortStayFee} onChange={(e) => setShortStayFee(e.target.value)}
                         placeholder="ör: 500"
                       />
-                      <HintText>Boş bırakılırsa ücret uygulanmaz.</HintText>
+                      <HintText>
+                        Yalnızca yukarıdaki minimum geceden <strong>kısa</strong> konaklamalarda tek sefer uygulanır. Boş bırakılırsa yok.
+                      </HintText>
                     </Field>
                   </Grid2>
+                </Section>
+
+                <Section title="Temizlik ücreti" subtitle="İsteğe bağlı; konaklama başına tek sefer — minimum gece kuralından bağımsız">
+                  <Field className="block max-w-md">
+                    <Label>Temizlik ücreti ({currency})</Label>
+                    <Input
+                      type="number" min="0" step="0.01" className="mt-1"
+                      value={cleaningFee} onChange={(e) => setCleaningFee(e.target.value)}
+                      placeholder="ör: 750"
+                    />
+                    <HintText>Boş bırakılırsa tahsil edilmez. Vitrinde ek ücretler bölümünde gösterilir.</HintText>
+                  </Field>
                 </Section>
 
                 {/* Fiyatlandırma */}

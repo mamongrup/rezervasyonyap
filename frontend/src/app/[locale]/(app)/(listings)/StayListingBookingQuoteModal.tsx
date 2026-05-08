@@ -29,6 +29,7 @@ export default function StayListingBookingQuoteModal({
   poolHeating,
   stayBookingRules,
   isHolidayHome = false,
+  cleaningFeeAmount,
 }: {
   locale: string
   open: boolean
@@ -45,6 +46,7 @@ export default function StayListingBookingQuoteModal({
   stayBookingRules?: StayBookingRules
   /** Tatil evi — depozito / ek ücret ödeme notları */
   isHolidayHome?: boolean
+  cleaningFeeAmount?: number
 }) {
   const router = useRouter()
   const vitrinHref = useVitrinHref()
@@ -64,6 +66,7 @@ export default function StayListingBookingQuoteModal({
     currencyCode,
     poolHeatingCurrency,
     shortStayFeeApplied,
+    cleaningFeeApplied,
   } = useStayListingQuote({
     mealPlans,
     price,
@@ -77,6 +80,7 @@ export default function StayListingBookingQuoteModal({
     poolHeatingSelected,
     minShortStayNights: stayBookingRules?.minShortStayNights,
     shortStayFeeAmount: stayBookingRules?.shortStayFeeAmount,
+    cleaningFeeAmount,
   })
 
   const goCheckout = () => {
@@ -155,6 +159,16 @@ export default function StayListingBookingQuoteModal({
                     </DescriptionTerm>
                     <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
                       {formatConverted(shortStayFeeApplied, currencyCode)}
+                    </DescriptionDetails>
+                  </>
+                ) : null}
+                {cleaningFeeApplied > 0 ? (
+                  <>
+                    <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {messages.listing.sidebar.cleaningFee}
+                    </DescriptionTerm>
+                    <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                      {formatConverted(cleaningFeeApplied, currencyCode)}
                     </DescriptionDetails>
                   </>
                 ) : null}

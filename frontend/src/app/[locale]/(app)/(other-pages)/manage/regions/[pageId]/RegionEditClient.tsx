@@ -534,6 +534,59 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     }
   }
 
+  const runAiTranslateRegionToLocale = async (targetCode: string) => {
+    const src = translations[primaryLocale]
+    const name = (src?.name ?? '').trim()
+    const desc = (src?.description ?? '').trim()
+    const mtSrc = (metaTitle || src?.meta_title || '').trim()
+    const mdSrc = (metaDesc || src?.meta_description || '').trim()
+    const [tName, tDesc, tMetaTitle, tMetaDesc] = await Promise.all([
+      name
+        ? callAiTranslate({
+            text: name,
+            context: 'title',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      desc
+        ? callAiTranslate({
+            text: desc,
+            context: 'body',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+            pageSlug: slugPath,
+          })
+        : Promise.resolve(''),
+      mtSrc
+        ? callAiTranslate({
+            text: mtSrc,
+            context: 'seo',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      mdSrc
+        ? callAiTranslate({
+            text: mdSrc,
+            context: 'seo',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+    ])
+    setTranslations((prev) => ({
+      ...prev,
+      [targetCode]: {
+        ...prev[targetCode],
+        name: tName || prev[targetCode]?.name || '',
+        description: tDesc || prev[targetCode]?.description || '',
+        meta_title: tMetaTitle || prev[targetCode]?.meta_title || '',
+        meta_description: tMetaDesc || prev[targetCode]?.meta_description || '',
+      },
+    }))
+  }
+
   const handleAiTranslateTrToTarget = async () => {
     if (aiTargetLocale === primaryLocale) {
       setSaveMsg({
@@ -553,56 +606,48 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     setAiTranslating(true)
     setSaveMsg(null)
     try {
-      const mtSrc = (metaTitle || src?.meta_title || '').trim()
-      const mdSrc = (metaDesc || src?.meta_description || '').trim()
-      const [tName, tDesc, tMetaTitle, tMetaDesc] = await Promise.all([
-        name
-          ? callAiTranslate({
-              text: name,
-              context: 'title',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        desc
-          ? callAiTranslate({
-              text: desc,
-              context: 'body',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-              pageSlug: slugPath,
-            })
-          : Promise.resolve(''),
-        mtSrc
-          ? callAiTranslate({
-              text: mtSrc,
-              context: 'seo',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        mdSrc
-          ? callAiTranslate({
-              text: mdSrc,
-              context: 'seo',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-      ])
-      setTranslations((prev) => ({
-        ...prev,
-        [aiTargetLocale]: {
-          ...prev[aiTargetLocale],
-          name: tName || prev[aiTargetLocale]?.name || '',
-          description: tDesc || prev[aiTargetLocale]?.description || '',
-          meta_title: tMetaTitle || prev[aiTargetLocale]?.meta_title || '',
-          meta_description: tMetaDesc || prev[aiTargetLocale]?.meta_description || '',
-        },
-      }))
+      await runAiTranslateRegionToLocale(aiTargetLocale)
       setSaveMsg({
         ok: true,
         text: `${allLocales.find((l) => l.code === aiTargetLocale)?.label ?? aiTargetLocale} çevirisi hazır. Kaydetmeyi unutmayın.`,
+      })
+    } catch (e) {
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Çeviri başarısız') })
+    } finally {
+      setAiTranslating(false)
+    }
+  }
+
+  const handleAiTranslateAllRegionTargets = async () => {
+    const src = translations[primaryLocale]
+    const name = (src?.name ?? '').trim()
+    const desc = (src?.description ?? '').trim()
+    if (!name && !desc) {
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setSaveMsg({ ok: false, text: `Önce ${plabel} dilinde isim veya açıklama girin.` })
+      return
+    }
+    if (translateTargets.length === 0) {
+      setSaveMsg({ ok: false, text: 'Çevrilecek başka dil yok.' })
+      return
+    }
+    setAiTranslating(true)
+    setSaveMsg(null)
+    const failed: string[] = []
+    try {
+      for (const { code } of translateTargets) {
+        try {
+          await runAiTranslateRegionToLocale(code)
+        } catch {
+          failed.push(code)
+        }
+      }
+      setSaveMsg({
+        ok: failed.length === 0,
+        text:
+          failed.length === 0
+            ? `Tüm dillere çeviri tamamlandı (${translateTargets.length}). Kaydetmeyi unutmayın.`
+            : `Kısmen tamamlandı. Başarısız: ${failed.map((c) => c.toUpperCase()).join(', ')}.`,
       })
     } catch (e) {
       setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Çeviri başarısız') })
@@ -870,6 +915,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               targetLocale={aiTargetLocale}
               onTargetLocaleChange={setAiTargetLocale}
               onTranslate={() => void handleAiTranslateTrToTarget()}
+              onTranslateAll={() => void handleAiTranslateAllRegionTargets()}
               translating={aiTranslating}
             />
           </div>
@@ -900,6 +946,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             targetLocale={aiTargetLocale}
             onTargetLocaleChange={setAiTargetLocale}
             onTranslate={() => void handleAiTranslateTrToTarget()}
+            onTranslateAll={() => void handleAiTranslateAllRegionTargets()}
             translating={aiTranslating}
           />
         </div>

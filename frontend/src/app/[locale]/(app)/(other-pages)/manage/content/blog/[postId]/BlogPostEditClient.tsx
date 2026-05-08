@@ -340,9 +340,61 @@ export default function BlogPostEditClient({
   const primarySourceStrings = () => {
     const primaryT = translations.find((t) => t.locale === primaryLocale)
     return {
-      title: (activeLocale === primaryLocale ? title : primaryT?.title ?? '').trim(),
-      excerpt: (activeLocale === primaryLocale ? excerpt : primaryT?.excerpt ?? '').trim(),
-      body: (activeLocale === primaryLocale ? body : primaryT?.body ?? '').trim(),
+      title: (primaryT?.title ?? (activeLocale === primaryLocale ? title : '')).trim(),
+      excerpt: (primaryT?.excerpt ?? (activeLocale === primaryLocale ? excerpt : '')).trim(),
+      body: (primaryT?.body ?? (activeLocale === primaryLocale ? body : '')).trim(),
+    }
+  }
+
+  async function runAiTranslateBlogToLocale(targetCode: string) {
+    const src = primarySourceStrings()
+    const pageSlug = slug.trim() || 'blog'
+    const [tTitle, tExcerpt, tBody] = await Promise.all([
+      src.title
+        ? callAiTranslate({
+            text: src.title,
+            context: 'title',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      src.excerpt
+        ? callAiTranslate({
+            text: src.excerpt,
+            context: 'excerpt',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      src.body
+        ? callAiTranslate({
+            text: src.body,
+            context: 'body',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+            pageSlug,
+          })
+        : Promise.resolve(''),
+    ])
+    setTranslations((prev) => {
+      const idx = prev.findIndex((t) => t.locale === targetCode)
+      const entry: BlogTranslation = {
+        locale: targetCode,
+        title: tTitle || prev[idx]?.title || '',
+        body: tBody || prev[idx]?.body || '',
+        excerpt: tExcerpt || prev[idx]?.excerpt || '',
+      }
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = entry
+        return next
+      }
+      return [...prev, entry]
+    })
+    if (activeLocale === targetCode) {
+      setTitle(tTitle || '')
+      setExcerpt(tExcerpt)
+      setBody(tBody)
     }
   }
 
@@ -362,55 +414,44 @@ export default function BlogPostEditClient({
     setAiTranslating(true)
     setError(null)
     try {
-      const pageSlug = slug.trim() || 'blog'
-      const [tTitle, tExcerpt, tBody] = await Promise.all([
-        src.title
-          ? callAiTranslate({
-              text: src.title,
-              context: 'title',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        src.excerpt
-          ? callAiTranslate({
-              text: src.excerpt,
-              context: 'excerpt',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        src.body
-          ? callAiTranslate({
-              text: src.body,
-              context: 'body',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-              pageSlug,
-            })
-          : Promise.resolve(''),
-      ])
-      setTranslations((prev) => {
-        const idx = prev.findIndex((t) => t.locale === aiTargetLocale)
-        const entry: BlogTranslation = {
-          locale: aiTargetLocale,
-          title: tTitle || prev[idx]?.title || '',
-          body: tBody || prev[idx]?.body || '',
-          excerpt: tExcerpt || prev[idx]?.excerpt || '',
-        }
-        if (idx >= 0) {
-          const next = [...prev]
-          next[idx] = entry
-          return next
-        }
-        return [...prev, entry]
-      })
-      if (activeLocale === aiTargetLocale) {
-        setTitle(tTitle || '')
-        setExcerpt(tExcerpt)
-        setBody(tBody)
-      }
+      await runAiTranslateBlogToLocale(aiTargetLocale)
       showSaved(`${aiTargetLocale.toUpperCase()} çevirisi taslakta güncellendi — kaydedin.`)
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'Çeviri başarısız'))
+    } finally {
+      setAiTranslating(false)
+    }
+  }
+
+  const handleAiTranslateAllBlogTargets = async () => {
+    const src = primarySourceStrings()
+    if (!src.title && !src.body) {
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setError(`Önce ${plabel} başlık veya içerik girin.`)
+      return
+    }
+    if (translateTargets.length === 0) {
+      setError('Çevrilecek başka dil yok.')
+      return
+    }
+    setAiTranslating(true)
+    setError(null)
+    const failed: string[] = []
+    try {
+      for (const { code } of translateTargets) {
+        try {
+          await runAiTranslateBlogToLocale(code)
+        } catch {
+          failed.push(code)
+        }
+      }
+      if (failed.length === 0) {
+        showSaved(`Tüm dillere çeviri tamamlandı (${translateTargets.length}) — kaydedin.`)
+      } else {
+        setError(
+          `Kısmen tamamlandı. Başarısız: ${failed.map((c) => c.toUpperCase()).join(', ')}. Diğerleri güncellendi.`,
+        )
+      }
     } catch (e) {
       setError(formatManageApiCatch(e, 'Çeviri başarısız'))
     } finally {
@@ -660,6 +701,7 @@ export default function BlogPostEditClient({
               targetLocale={aiTargetLocale}
               onTargetLocaleChange={setAiTargetLocale}
               onTranslate={() => void handleAiTranslateTrToTarget()}
+              onTranslateAll={() => void handleAiTranslateAllBlogTargets()}
               translating={aiTranslating}
             />
           ) : null

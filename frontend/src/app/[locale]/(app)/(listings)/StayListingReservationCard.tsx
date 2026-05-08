@@ -12,7 +12,7 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 
 export type StayListingReservationCardProps = {
   locale: string
@@ -29,6 +29,8 @@ export type StayListingReservationCardProps = {
   /** Tatil evi — ısıtmalı havuz günlük ücreti (havuz bilgisinden); tutar ilan para birimindedir */
   poolHeating?: { dailyAmount: number; feeSummary: string; currencyCode: string } | null
   stayBookingRules?: StayBookingRules
+  /** `listings.cleaning_fee_amount` — konaklama başına tek sefer */
+  cleaningFeeAmount?: number
 }
 
 export default function StayListingReservationCard({
@@ -45,12 +47,16 @@ export default function StayListingReservationCard({
   title,
   poolHeating = null,
   stayBookingRules,
+  cleaningFeeAmount,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
 
-  const initialRangeRef = useRef(defaultStayDateRange(stayBookingRules))
-  const [rangeStart, setRangeStart] = useState<Date | null>(() => initialRangeRef.current[0])
-  const [rangeEnd, setRangeEnd] = useState<Date | null>(() => initialRangeRef.current[1])
+  const [rangeStart, setRangeStart] = useState<Date | null>(() =>
+    defaultStayDateRange(stayBookingRules)[0],
+  )
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(() =>
+    defaultStayDateRange(stayBookingRules)[1],
+  )
   const [poolHeatingSelected, setPoolHeatingSelected] = useState(false)
 
   const onRangeChange = (dates: [Date | null, Date | null]) => {
@@ -77,6 +83,7 @@ export default function StayListingReservationCard({
     unitForBreakdownLine,
     formatConverted,
     shortStayFeeApplied,
+    cleaningFeeApplied,
   } = useStayListingQuote({
     mealPlans,
     price,
@@ -90,6 +97,7 @@ export default function StayListingReservationCard({
     poolHeatingSelected,
     minShortStayNights: stayBookingRules?.minShortStayNights,
     shortStayFeeAmount: stayBookingRules?.shortStayFeeAmount,
+    cleaningFeeAmount,
   })
 
   const hasMultiplePlans = activePlans.length > 1
@@ -225,6 +233,16 @@ export default function StayListingReservationCard({
               </DescriptionTerm>
               <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
                 {formatConverted(shortStayFeeApplied, currencyCode)}
+              </DescriptionDetails>
+            </>
+          ) : null}
+          {cleaningFeeApplied > 0 ? (
+            <>
+              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                {messages.listing.sidebar.cleaningFee}
+              </DescriptionTerm>
+              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                {formatConverted(cleaningFeeApplied, currencyCode)}
               </DescriptionDetails>
             </>
           ) : null}

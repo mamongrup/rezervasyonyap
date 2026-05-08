@@ -60,6 +60,8 @@ export interface TListingBase {
   stayBookingRules?: StayBookingRules
   /** Hasar depozitosu — `listings.first_charge_amount` (vitrin arama) */
   firstChargeAmount?: number
+  /** Temizlik ücreti (konaklama başına, tek sefer) — `listings.cleaning_fee_amount` */
+  cleaningFeeAmount?: number
   /** Tatil evi dikey meta `extra_fees` (etiket + tutar + birim) */
   listingExtraFees?: Array<{ label: string; amount: string; unit: string }>
   featuredImage?: string

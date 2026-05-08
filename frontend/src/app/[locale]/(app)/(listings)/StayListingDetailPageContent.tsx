@@ -327,6 +327,10 @@ export default async function StayListingDetailPageContent({
                 feeAmount: listing.stayBookingRules.shortStayFeeAmount,
               }
             : undefined,
+        cleaningFee:
+          listing.cleaningFeeAmount != null && listing.cleaningFeeAmount > 0
+            ? { amount: listing.cleaningFeeAmount }
+            : undefined,
         damageDeposit:
           listing.firstChargeAmount != null && listing.firstChargeAmount > 0
             ? { amount: listing.firstChargeAmount }
@@ -712,6 +716,7 @@ export default async function StayListingDetailPageContent({
       title={title}
       poolHeating={poolHeatingOption}
       stayBookingRules={listing.stayBookingRules}
+      cleaningFeeAmount={listing.cleaningFeeAmount}
     />
   )
 
@@ -835,6 +840,7 @@ export default async function StayListingDetailPageContent({
             discountPercent={discountPercent}
             poolHeating={poolHeatingOption}
             isHolidayHome={isHolidayHome}
+            cleaningFeeAmount={listing.cleaningFeeAmount}
           />
           {renderSectionRules()}
           {renderSectionPolicies()}

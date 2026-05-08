@@ -16,6 +16,8 @@ const VISIBLE_COUNT = 7
 export type ListingExtraChargesModel = {
   listingCurrency: string
   shortStay?: { minNights: number; feeAmount: number } | null
+  /** Konaklama başına tek sefer — minimum gece kuralından bağımsız */
+  cleaningFee?: { amount: number } | null
   damageDeposit?: { amount: number } | null
   customFees?: Array<{ label: string; amount: string; unit: string }>
   /** Ön ödeme yüzdesi açıklaması — ek ücretler listesinin en altında */
@@ -25,6 +27,7 @@ export type ListingExtraChargesModel = {
 function extraChargesHasContent(e?: ListingExtraChargesModel): boolean {
   if (!e) return false
   if (e.shortStay != null && e.shortStay.minNights > 0 && e.shortStay.feeAmount > 0) return true
+  if (e.cleaningFee != null && e.cleaningFee.amount > 0) return true
   if (e.damageDeposit != null && e.damageDeposit.amount > 0) return true
   if (e.customFees?.some((x) => x.label.trim() && x.amount.trim())) return true
   if (e.prepaymentLine?.trim()) return true
@@ -289,6 +292,14 @@ export default function ListingSeasonalPricingSection({
                 <span>{sp.shortStayExtraLine.replace('{n}', String(extraCharges.shortStay.minNights))}</span>
                 <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
                   {formatConverted(extraCharges.shortStay.feeAmount, listingCur)}
+                </span>
+              </li>
+            ) : null}
+            {extraCharges.cleaningFee != null && extraCharges.cleaningFee.amount > 0 ? (
+              <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
+                <span>{sp.cleaningFeeLine}</span>
+                <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                  {formatConverted(extraCharges.cleaningFee.amount, listingCur)}
                 </span>
               </li>
             ) : null}

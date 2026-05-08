@@ -150,6 +150,7 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
   }
 
   const firstChargeAmount = parseFirstChargeAmount(item.first_charge_amount ?? undefined)
+  const cleaningFeeAmount = parseFirstChargeAmount(item.cleaning_fee_amount ?? undefined)
 
   const base: TListingBase = {
     id: item.id,
@@ -176,6 +177,7 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
     ...(map != null ? { map } : {}),
     ...(stayBookingRules != null ? { stayBookingRules } : {}),
     ...(firstChargeAmount != null ? { firstChargeAmount } : {}),
+    ...(cleaningFeeAmount != null ? { cleaningFeeAmount } : {}),
   }
 
   if (!isHoliday) {

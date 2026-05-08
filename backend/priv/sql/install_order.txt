@@ -122,6 +122,7 @@ modules/277_manage_catalog_holiday_home_hub_i18n.sql
 modules/278_listing_ical_export_token_default.sql
 modules/279_listing_external_bookings.sql
 modules/280_user_tc_verification_requests.sql
+modules/281_holiday_home_default_faq_tuscany_seed.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

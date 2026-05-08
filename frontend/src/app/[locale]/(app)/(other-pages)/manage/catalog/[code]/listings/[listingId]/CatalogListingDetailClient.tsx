@@ -1013,6 +1013,7 @@ export default function CatalogListingDetailClient({
   const [lng, setLng] = useState('')
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
   const [minShortStayNights, setMinShortStayNights] = useState('')
+  const [shortStayFee, setShortStayFee] = useState('')
   const MEAL_PLAN_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
   const CALENDAR_INIT_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
   const [activeTab, setActiveTab] = useState<
@@ -1151,6 +1152,7 @@ export default function CatalogListingDetailClient({
         setLng(metaTxt(meta.lng))
         setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
         setMinShortStayNights(meta.min_short_stay_nights ?? '')
+        setShortStayFee(meta.short_stay_fee ?? '')
       }
     } catch {
       /* ignore */
@@ -1340,6 +1342,7 @@ export default function CatalogListingDetailClient({
           youtube_url: youtubePreserve || undefined,
           min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
           min_short_stay_nights: minShortStayNights.trim() || undefined,
+          short_stay_fee: shortStayFee.trim() || undefined,
         },
         orgQ,
       )
@@ -2016,6 +2019,21 @@ export default function CatalogListingDetailClient({
               <Field className="block">
                 <Label>{ui.listingForm.minShortStayNights}</Label>
                 <Input className="mt-1" value={minShortStayNights} onChange={(e) => setMinShortStayNights(e.target.value)} />
+              </Field>
+              <Field className="block">
+                <Label>Kısa konaklama ücreti ({listingCurrencyCode})</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className="mt-1"
+                  value={shortStayFee}
+                  onChange={(e) => setShortStayFee(e.target.value)}
+                  placeholder="Min. gecenin altında tek sefer"
+                />
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  Yalnızca minimum geceden kısa konaklamalarda uygulanır; boş bırakılırsa ücret yok.
+                </p>
               </Field>
               <Field className="block">
                 <Label>Lat</Label>

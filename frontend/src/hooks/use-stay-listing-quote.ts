@@ -36,6 +36,7 @@ export function useStayListingQuote({
   poolHeatingSelected,
   minShortStayNights,
   shortStayFeeAmount,
+  cleaningFeeAmount,
 }: {
   mealPlans: MealPlanItem[]
   price: string
@@ -50,6 +51,8 @@ export function useStayListingQuote({
   /** Bu geceden kısa konaklamada bir kerelik ek ücret */
   minShortStayNights?: number
   shortStayFeeAmount?: number
+  /** Konaklama başına tek seferlik temizlik — gece seçiliyken uygulanır */
+  cleaningFeeAmount?: number
 }) {
   const ctx = usePreferredCurrencyContext()
   const convertedListingLabel = useConvertedListingPrice(price, priceAmount, priceCurrency)
@@ -117,7 +120,13 @@ export function useStayListingQuote({
     nights < minShortStayNights
       ? shortStayFeeAmount
       : 0
-  const subtotalBeforeFee = lodgingSubtotal + heatingSubtotal + shortStayFeeApplied
+  const cleaningFeeApplied =
+    cleaningFeeAmount != null &&
+    cleaningFeeAmount > 0 &&
+    nights > 0
+      ? cleaningFeeAmount
+      : 0
+  const subtotalBeforeFee = lodgingSubtotal + heatingSubtotal + shortStayFeeApplied + cleaningFeeApplied
   const serviceFee = subtotalBeforeFee > 0 ? Math.round(subtotalBeforeFee * 0.1) : 0
   const grandTotal = subtotalBeforeFee + serviceFee
 
@@ -147,5 +156,6 @@ export function useStayListingQuote({
     unitForBreakdownLine,
     formatConverted,
     shortStayFeeApplied,
+    cleaningFeeApplied,
   }
 }

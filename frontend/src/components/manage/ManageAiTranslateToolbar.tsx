@@ -10,10 +10,13 @@ type Props = {
   targetLocale: string
   onTargetLocaleChange: (code: string) => void
   onTranslate: () => void
+  /** Birincil dilden tüm `locales` öğelerine sırayla çeviri (isteğe bağlı) */
+  onTranslateAll?: () => void
   translating?: boolean
   disabled?: boolean
   className?: string
   buttonLabel?: string
+  allButtonLabel?: string
 }
 
 export function ManageAiTranslateToolbar({
@@ -21,10 +24,12 @@ export function ManageAiTranslateToolbar({
   targetLocale,
   onTargetLocaleChange,
   onTranslate,
+  onTranslateAll,
   translating,
   disabled,
   className = '',
   buttonLabel = 'AI Çevir',
+  allButtonLabel = 'Tüm dillere',
 }: Props) {
   return (
     <div
@@ -53,6 +58,18 @@ export function ManageAiTranslateToolbar({
         {translating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
         {buttonLabel}
       </button>
+      {onTranslateAll ? (
+        <button
+          type="button"
+          disabled={disabled || translating || locales.length === 0}
+          onClick={onTranslateAll}
+          className="flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-950 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/70"
+          title="Birincil kaynak dilden bu listedeki tüm dillere sırayla çevirir"
+        >
+          {translating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Globe className="h-3.5 w-3.5" />}
+          {allButtonLabel}
+        </button>
+      ) : null}
     </div>
   )
 }

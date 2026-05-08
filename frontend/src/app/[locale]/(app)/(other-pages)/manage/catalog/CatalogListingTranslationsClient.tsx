@@ -243,6 +243,64 @@ export default function CatalogListingTranslationsClient({
     })
   }, [nonPrimaryRowCodesKey, primaryLocale, rows])
 
+  async function runListingTranslationsToLocale(targetCode: string) {
+    const src = draft[primaryLocale] ?? { title: '', description: '' }
+    const name = src.title.trim()
+    const desc = src.description.trim()
+    const srcSeo = seoDraft[primaryLocale] ?? emptySeoDraft()
+    const listingPath = `listing/${listingId.slice(0, 8)}`
+    const [tTitle, tDesc, st, sd] = await Promise.all([
+      name
+        ? callAiTranslate({
+            text: name,
+            context: 'title',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      desc
+        ? callAiTranslate({
+            text: desc,
+            context: 'body',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+            pageSlug: listingPath,
+          })
+        : Promise.resolve(''),
+      (srcSeo.title || '').trim()
+        ? callAiTranslate({
+            text: srcSeo.title.trim(),
+            context: 'seo',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+      (srcSeo.description || '').trim()
+        ? callAiTranslate({
+            text: srcSeo.description.trim(),
+            context: 'seo',
+            sourceLocale: primaryLocale,
+            targetLocale: targetCode,
+          })
+        : Promise.resolve(''),
+    ])
+    setDraft((prev) => ({
+      ...prev,
+      [targetCode]: {
+        title: tTitle || prev[targetCode]?.title || '',
+        description: tDesc || prev[targetCode]?.description || '',
+      },
+    }))
+    setSeoDraft((prev) => ({
+      ...prev,
+      [targetCode]: {
+        ...(prev[targetCode] ?? emptySeoDraft()),
+        title: st || prev[targetCode]?.title || '',
+        description: sd || prev[targetCode]?.description || '',
+      },
+    }))
+  }
+
   const handleAiTranslateTrToTarget = async () => {
     if (aiTargetLocale === primaryLocale) {
       setErr(`Hedef dil, birincil kaynak dilden (${primaryLocale.toUpperCase()}) farklı olmalı.`)
@@ -256,63 +314,52 @@ export default function CatalogListingTranslationsClient({
       setErr(`Önce ${plabel} başlık veya açıklama girin.`)
       return
     }
-    const srcSeo = seoDraft[primaryLocale] ?? emptySeoDraft()
     setAiTranslating(true)
     setErr(null)
     setOk(null)
     try {
-      const listingPath = `listing/${listingId.slice(0, 8)}`
-      const [tTitle, tDesc, st, sd] = await Promise.all([
-        name
-          ? callAiTranslate({
-              text: name,
-              context: 'title',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        desc
-          ? callAiTranslate({
-              text: desc,
-              context: 'body',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-              pageSlug: listingPath,
-            })
-          : Promise.resolve(''),
-        (srcSeo.title || '').trim()
-          ? callAiTranslate({
-              text: srcSeo.title.trim(),
-              context: 'seo',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-        (srcSeo.description || '').trim()
-          ? callAiTranslate({
-              text: srcSeo.description.trim(),
-              context: 'seo',
-              sourceLocale: primaryLocale,
-              targetLocale: aiTargetLocale,
-            })
-          : Promise.resolve(''),
-      ])
-      setDraft((prev) => ({
-        ...prev,
-        [aiTargetLocale]: {
-          title: tTitle || prev[aiTargetLocale]?.title || '',
-          description: tDesc || prev[aiTargetLocale]?.description || '',
-        },
-      }))
-      setSeoDraft((prev) => ({
-        ...prev,
-        [aiTargetLocale]: {
-          ...(prev[aiTargetLocale] ?? emptySeoDraft()),
-          title: st || prev[aiTargetLocale]?.title || '',
-          description: sd || prev[aiTargetLocale]?.description || '',
-        },
-      }))
+      await runListingTranslationsToLocale(aiTargetLocale)
       setOk(`${aiTargetLocale.toUpperCase()} çevirisi güncellendi — kaydedin.`)
+    } catch (e) {
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Çeviri başarısız')
+    } finally {
+      setAiTranslating(false)
+    }
+  }
+
+  const handleAiTranslateAllListingLocales = async () => {
+    const src = draft[primaryLocale] ?? { title: '', description: '' }
+    const name = src.title.trim()
+    const desc = src.description.trim()
+    if (!name && !desc) {
+      const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
+      setErr(`Önce ${plabel} başlık veya açıklama girin.`)
+      return
+    }
+    if (localeToolbarOptions.length === 0) {
+      setErr('Çevrilecek başka dil yok.')
+      return
+    }
+    setAiTranslating(true)
+    setErr(null)
+    setOk(null)
+    const failed: string[] = []
+    try {
+      for (const { code } of localeToolbarOptions) {
+        try {
+          await runListingTranslationsToLocale(code)
+        } catch {
+          failed.push(code)
+        }
+      }
+      setOk(
+        failed.length === 0
+          ? `Tüm dillere çeviri tamamlandı (${localeToolbarOptions.length}) — kaydedin.`
+          : null,
+      )
+      if (failed.length > 0) {
+        setErr(`Kısmen tamamlandı. Başarısız: ${failed.map((c) => c.toUpperCase()).join(', ')}.`)
+      }
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : 'Çeviri başarısız')
     } finally {
@@ -357,6 +404,7 @@ export default function CatalogListingTranslationsClient({
             targetLocale={aiTargetLocale}
             onTargetLocaleChange={setAiTargetLocale}
             onTranslate={() => void handleAiTranslateTrToTarget()}
+            onTranslateAll={() => void handleAiTranslateAllListingLocales()}
             translating={aiTranslating}
           />
           <p className="mt-1 text-xs text-neutral-500">

@@ -60,6 +60,7 @@ fn pub_listing_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
   ),
 ) {
   use id <- decode.field(0, decode.string)
@@ -87,7 +88,8 @@ fn pub_listing_row() -> decode.Decoder(
   use min_short_stay_nights <- decode.field(22, decode.string)
   use short_stay_fee <- decode.field(23, decode.string)
   use currency_code <- decode.field(24, decode.string)
-  use first_charge_amount <- decode.field(25, decode.string)
+  use cleaning_fee_amount <- decode.field(25, decode.string)
+  use first_charge_amount <- decode.field(26, decode.string)
   decode.success(#(
     id,
     slug,
@@ -114,6 +116,7 @@ fn pub_listing_row() -> decode.Decoder(
     min_short_stay_nights,
     short_stay_fee,
     currency_code,
+    cleaning_fee_amount,
     first_charge_amount,
   ))
 }
@@ -127,6 +130,7 @@ fn json_opt_str(s: String) -> json.Json {
 
 fn pub_listing_json(
   row: #(
+    String,
     String,
     String,
     String,
@@ -181,6 +185,7 @@ fn pub_listing_json(
     min_short_stay_nights,
     short_stay_fee,
     currency_code,
+    cleaning_fee_amount,
     first_charge_amount,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
@@ -224,6 +229,7 @@ fn pub_listing_json(
     #("min_short_stay_nights", json_opt_str(min_short_stay_nights)),
     #("short_stay_fee", json_opt_str(short_stay_fee)),
     #("currency_code", json_opt_str(currency_code)),
+    #("cleaning_fee_amount", json_opt_str(cleaning_fee_amount)),
     #("first_charge_amount", json_opt_str(first_charge_amount)),
   ])
 }
@@ -354,6 +360,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> ", coalesce((select value_json->>'min_short_stay_nights' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
     <> ", coalesce((select value_json->>'short_stay_fee' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
     <> ", coalesce(l.currency_code::text, '') "
+    <> ", coalesce(l.cleaning_fee_amount::text, '') "
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "

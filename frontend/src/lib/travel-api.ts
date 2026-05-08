@@ -8319,6 +8319,8 @@ export interface PublicListingItem {
   /** `listing_meta` — bu geceden kısa konaklamada kısa konaklama ücreti */
   min_short_stay_nights?: string | null
   short_stay_fee?: string | null
+  /** Tek seferlik temizlik — `listings.cleaning_fee_amount` */
+  cleaning_fee_amount?: string | null
   /** Hasar depozitosu — `listings.first_charge_amount` */
   first_charge_amount?: string | null
 }

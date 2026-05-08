@@ -1055,6 +1055,7 @@ export const en = {
       rangeUntil: 'Until',
       extraChargesTitle: 'Additional fees',
       shortStayExtraLine: 'Short-stay fee (stays under {n} nights)',
+      cleaningFeeLine: 'Cleaning fee (once per stay)',
       damageDeposit: 'Security / damage deposit',
       unitPerStay: 'per stay',
       unitPerNight: 'per night',
@@ -1089,10 +1090,11 @@ export const en = {
       mealPlanRoomOnly: '🛏️ Room only',
       poolHeatingAddOn: 'Pool heating',
       shortStayFee: 'Short-stay fee',
+      cleaningFee: 'Cleaning fee (per stay)',
       reservationPaymentNoteDeposit:
         'The security / damage deposit is payable in cash at check-in at the property.',
       reservationPaymentNoteExtras:
-        'The short-stay fee and any other extra fees listed on the listing are collected when you complete your reservation.',
+        'The short-stay fee, cleaning fee, and any other extra fees listed on the listing are collected when you complete your reservation.',
     },
     meal_only: 'Meals Incl.',
     meal_only_long: 'Meals Included',
