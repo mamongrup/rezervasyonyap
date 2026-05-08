@@ -1939,7 +1939,7 @@ export default function CatalogNewListingClient({
     <div
       className={
         isVilla
-          ? 'min-h-screen bg-neutral-50 pb-[5.5rem] dark:bg-neutral-950 sm:pb-20'
+          ? 'bg-neutral-50 pb-24 dark:bg-neutral-950 sm:pb-28'
           : 'pb-20'
       }
     >
@@ -2169,7 +2169,7 @@ export default function CatalogNewListingClient({
             </div>
           </div>
         ) : null}
-        <div className={clsx(isVilla && MANAGE_FORM_CONTAINER_CLASS, isVilla && 'pb-28')}>
+        <div className={clsx(isVilla && MANAGE_FORM_CONTAINER_CLASS, isVilla && 'pb-20 sm:pb-24')}>
         <div className={clsx(!isVilla && 'flex flex-wrap gap-6 items-start')}>
 
           {/* ────────── Ana İçerik ────────── */}

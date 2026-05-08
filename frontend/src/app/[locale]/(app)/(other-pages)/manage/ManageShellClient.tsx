@@ -74,7 +74,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
   const menuLabel = en ? 'Panel menu' : 'Panel menüsü'
 
   return (
-    <div className="manage-shell flex min-h-[min(100vh,100dvh)] bg-[color:var(--manage-page-bg)] text-[color:var(--manage-text)] transition-colors duration-200">
+    <div className="manage-shell flex items-start bg-[color:var(--manage-page-bg)] text-[color:var(--manage-text)] transition-colors duration-200">
       {mobileOpen ? (
         <button
           type="button"
@@ -86,7 +86,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
 
       <aside
         className={[
-          'fixed left-0 z-50 flex w-[min(100%,16.5rem)] shrink-0 flex-col border-r border-[color:var(--manage-sidebar-border)] pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-xl transition-transform duration-200 ease-out lg:static lg:z-0 lg:h-auto lg:min-h-[min(100vh,100dvh)] lg:w-64 lg:translate-x-0 lg:pb-0 lg:shadow-none',
+          'fixed left-0 z-50 flex w-[min(100%,16.5rem)] shrink-0 flex-col border-r border-[color:var(--manage-sidebar-border)] pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-xl transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-0 lg:h-auto lg:max-h-[min(100vh,100dvh)] lg:w-64 lg:translate-x-0 lg:pb-0 lg:shadow-none',
           'bg-[color:var(--manage-sidebar-bg)]',
           /* Mobil: ApplicationLayout üst şeridinin (h-20) altında — site header ile çakışmasın */
           'top-20 h-[calc(100dvh-5rem)] lg:top-0 lg:h-auto',
@@ -108,7 +108,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         </div>
       </aside>
 
-      <div className="relative flex min-w-0 flex-1 flex-col lg:pl-0">
+      <div className="relative flex min-w-0 flex-1 flex-col self-start lg:h-auto lg:pl-0">
         {/* Mobil: site header’ının altında küçük FAB — ikinci bir tam genişlik header yok */}
         <button
           type="button"
@@ -127,7 +127,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         </button>
 
         <ManagePanelTopBar />
-        <main className="flex-1">{children}</main>
+        <main className="w-full shrink-0">{children}</main>
       </div>
     </div>
   )
