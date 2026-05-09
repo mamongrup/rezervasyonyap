@@ -9,7 +9,6 @@ import { PriceRangeSlider } from '@/components/PriceRangeSlider'
 import type { SubcategoryEntry } from '@/data/subcategory-registry'
 import { subcategoryLabelForLocale } from '@/data/subcategory-registry'
 import type { AppMessages } from '@/utils/getT'
-import { Button } from '@/shared/Button'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonThird from '@/shared/ButtonThird'
 import { Field, Label } from '@/shared/fieldset'
@@ -35,6 +34,25 @@ import { getCategoryByMapRoute } from '@/data/category-registry'
 import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+
+/** ListingFilterTabs ile aynı hap görünümü (kategori vitrininde tutarlılık) */
+const filterPillBase =
+  'relative inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-[border-color,box-shadow,color] focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950/25 dark:bg-neutral-900 dark:focus-visible:ring-white/25'
+
+const filterPillIdle =
+  'border-2 border-neutral-200 text-neutral-800 shadow-sm hover:border-neutral-300 dark:border-neutral-600 dark:text-neutral-100 dark:hover:border-neutral-500'
+
+const filterPillEmphasis =
+  'border-2 border-neutral-950 text-neutral-950 shadow-sm dark:border-white dark:text-white'
+
+function filterCountBadge(n: number) {
+  const shown = Math.min(Math.max(0, n), 99)
+  return (
+    <span className="absolute -top-1.5 -right-1 flex size-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-neutral-950 px-0.5 text-[0.625rem] leading-none font-semibold text-white ring-2 ring-white dark:bg-white dark:text-neutral-950 dark:ring-neutral-900">
+      {shown}
+    </span>
+  )
+}
 
 export type HolidayListingFilterMessages = NonNullable<AppMessages['categoryPage']>['listingFilters']
 
@@ -172,6 +190,8 @@ export default function HolidayListingFilters({
     const joined = [...next].join(',')
     setQuery({ theme: joined || null })
   }
+
+  const themeOrSubBadgeCount = useThemeFilter ? selectedThemeCodes.size : subActive ? 1 : 0
 
   const allFiltersDialog = (
     <Dialog open={showAll} onClose={() => setShowAll(false)} className="relative z-50">
@@ -394,46 +414,36 @@ export default function HolidayListingFilters({
   )
 
   return (
-    <div className="flex flex-wrap gap-x-2 gap-y-2 md:gap-x-4">
-      <div className="relative shrink-0 grow md:grow-0">
-        <Button
-          outline
+    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+      <div className="relative min-w-0 shrink-0 grow md:grow-0">
+        <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="w-full border-black! ring-1 ring-black ring-inset md:w-auto dark:border-neutral-200! dark:ring-neutral-200"
+          className={clsx(filterPillBase, filterPillEmphasis, 'relative w-full md:w-auto')}
         >
           <HugeiconsIcon icon={FilterVerticalIcon} size={16} color="currentColor" strokeWidth={1.5} />
           <span>{l.allFilters}</span>
-          {activeCount > 0 ? (
-            <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
-              {activeCount}
-            </span>
-          ) : null}
-        </Button>
+          {activeCount > 0 ? filterCountBadge(activeCount) : null}
+        </button>
         {allFiltersDialog}
       </div>
 
-      <div className="hidden h-auto w-px bg-neutral-200 md:block dark:bg-neutral-700" />
+      <div className="hidden h-8 w-px shrink-0 self-stretch bg-neutral-200 md:block dark:bg-neutral-700" />
 
-      <PopoverGroup className="hidden flex-wrap gap-x-4 gap-y-2 md:flex">
+      <PopoverGroup className="hidden min-w-0 flex-wrap items-center gap-2 md:flex md:gap-3">
         <Popover className="relative">
           <PopoverButton
-            as={Button}
-            outline
             type="button"
             className={clsx(
-              'md:px-4',
-              pricePanelCount > 0 &&
-                'border-black! ring-1 ring-black ring-inset dark:border-neutral-200! dark:ring-neutral-200',
+              filterPillBase,
+              pricePanelCount > 0 ? filterPillEmphasis : filterPillIdle,
+              'relative',
+              'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
             )}
           >
             <span>{l.byPrice}</span>
-            <HugeiconsIcon icon={ArrowDown01Icon} className="size-4" strokeWidth={1.75} />
-            {pricePanelCount > 0 ? (
-              <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
-                {pricePanelCount}
-              </span>
-            ) : null}
+            <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+            {pricePanelCount > 0 ? filterCountBadge(pricePanelCount) : null}
           </PopoverButton>
           <PopoverPanel
             transition
@@ -446,22 +456,17 @@ export default function HolidayListingFilters({
 
         <Popover className="relative">
           <PopoverButton
-            as={Button}
-            outline
             type="button"
             className={clsx(
-              'md:px-4',
-              (themeActive || subActive) &&
-                'border-black! ring-1 ring-black ring-inset dark:border-neutral-200! dark:ring-neutral-200',
+              filterPillBase,
+              themeActive || subActive ? filterPillEmphasis : filterPillIdle,
+              'relative max-w-[min(100%,14rem)] sm:max-w-none',
+              'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
             )}
           >
             <span>{useThemeFilter ? l.theme : l.subcategories}</span>
-            <HugeiconsIcon icon={ArrowDown01Icon} className="size-4" strokeWidth={1.75} />
-            {themeActive || subActive ? (
-              <span className="absolute top-0 -right-0.5 flex size-5 items-center justify-center rounded-full bg-black text-[0.65rem] font-semibold text-white ring-2 ring-white dark:bg-neutral-200 dark:text-neutral-900 dark:ring-neutral-900">
-                1
-              </span>
-            ) : null}
+            <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+            {themeOrSubBadgeCount > 0 ? filterCountBadge(themeOrSubBadgeCount) : null}
           </PopoverButton>
           <PopoverPanel
             transition
@@ -527,17 +532,16 @@ export default function HolidayListingFilters({
 
         <Popover className="relative">
           <PopoverButton
-            as={Button}
-            outline
             type="button"
             className={clsx(
-              'max-w-[14rem] md:px-4',
-              !!sort &&
-                'border-black! ring-1 ring-black ring-inset dark:border-neutral-200! dark:ring-neutral-200',
+              filterPillBase,
+              sort ? filterPillEmphasis : filterPillIdle,
+              'relative max-w-[min(100%,14rem)] sm:max-w-none',
+              'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
             )}
           >
-            <span className="truncate">{sort ? sortShortLabel : l.sortLabel}</span>
-            <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0" strokeWidth={1.75} />
+            <span className="min-w-0 truncate">{sort ? sortShortLabel : l.sortLabel}</span>
+            <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
           </PopoverButton>
           <PopoverPanel
             transition

@@ -902,7 +902,6 @@ export default function CatalogListingDetailClient({
   const transHref = `${base}/listings/${encodeURIComponent(listingId)}/translations`
   /** Tatil evi: ilan görselleri tam formda; çoklu iCal gelişmiş panelde kalır. */
   const showListingGalleryInMediaTab = categoryCode !== 'holiday_home'
-  const holidayHomeFormHref = `${base}/listings/${encodeURIComponent(listingId)}`
 
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
@@ -1024,7 +1023,7 @@ export default function CatalogListingDetailClient({
     | 'vertical'
     | 'hotel'
     | 'meal_plans'
-  >('listing')
+  >(() => (categoryCode === 'holiday_home' ? 'calendar' : 'listing'))
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -1799,7 +1798,9 @@ export default function CatalogListingDetailClient({
   const hasCalendar = CALENDAR_CATEGORIES.has(categoryCode)
 
   const tabs = [
-    { id: 'listing' as const, label: ui.tabs.listing, Icon: Settings2 },
+    ...(categoryCode !== 'holiday_home'
+      ? [{ id: 'listing' as const, label: ui.tabs.listing, Icon: Settings2 }]
+      : []),
     ...(hasCalendar ? [{ id: 'calendar' as const, label: ui.tabs.calendar, Icon: CalendarDays }] : []),
     { id: 'price' as const, label: ui.tabs.price, Icon: Tag },
     {
@@ -1878,34 +1879,18 @@ export default function CatalogListingDetailClient({
         ))}
       </div>
 
-      {categoryCode === 'holiday_home' ? (
-        <div className="mt-4 rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2 text-xs text-sky-950 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100">
-          İlan görselleri bu gelişmiş panelde yok;{' '}
-          <Link href={holidayHomeFormHref} className="font-semibold text-primary-700 underline dark:text-primary-300">
-            tam ilan düzenleme formunda
-          </Link>{' '}
-          yüklenir ve sıralanır. Çoklu iCal beslemeleri için{' '}
-          <button
-            type="button"
-            onClick={() => setActiveTab('media')}
-            className="font-semibold text-primary-700 underline dark:text-primary-300"
-          >
-            {ui.ical.title}
-          </button>{' '}
-          sekmesini kullanın.
+      {/* Tatil evi: vitrin özellikleri tam ilan formunda; diğer kategorilerde özet kart kalsın. */}
+      {categoryCode !== 'holiday_home' ? (
+        <div className="mt-6">
+          <ListingPerksManageCard
+            listingId={listingId}
+            organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+          />
         </div>
       ) : null}
 
-      {/* Vitrin özellikleri (her sekmede görünür kısa kart) */}
-      <div className="mt-6">
-        <ListingPerksManageCard
-          listingId={listingId}
-          organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-        />
-      </div>
-
-      {/* ═══ SEKME: İLAN BİLGİLERİ ═══════════════════════════════════════════ */}
-      {activeTab === 'listing' && (
+      {/* ═══ SEKME: İLAN BİLGİLERİ (tatil evinde sekme yok — tam ilan formunda) ═════════════════ */}
+      {activeTab === 'listing' && categoryCode !== 'holiday_home' && (
         <div className="mt-6 space-y-5">
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.mainTitle}</h2>

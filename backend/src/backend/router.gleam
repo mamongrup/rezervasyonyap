@@ -888,6 +888,18 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "theme-items"] ->
       collections_http.list_public_theme_items(req, ctx)
 
+    http.Get, ["api", "v1", "catalog", "manage", "theme-items"] ->
+      collections_http.list_manage_theme_items(req, ctx)
+
+    http.Post, ["api", "v1", "catalog", "manage", "theme-items"] ->
+      collections_http.create_manage_theme_item(req, ctx)
+
+    http.Patch, ["api", "v1", "catalog", "manage", "theme-items", tid] ->
+      collections_http.patch_manage_theme_item(req, ctx, tid)
+
+    http.Delete, ["api", "v1", "catalog", "manage", "theme-items", tid] ->
+      collections_http.delete_manage_theme_item(req, ctx, tid)
+
     http.Get, ["api", "v1", "catalog", "public", "holiday-home-faq-template"] ->
       catalog_http.get_public_holiday_home_faq_template(req, ctx)
 

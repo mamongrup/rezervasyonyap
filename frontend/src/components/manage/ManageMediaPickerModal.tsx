@@ -337,6 +337,21 @@ export function ManageMediaPickerModal({
     })
   }, [])
 
+  /** Set yinelemesi ekleme sırasını korur; ilk işaretlenen galeride ilk (en önde) sırada gider. */
+  const applyOrderedSelectionToGallery = useCallback(() => {
+    if (!onSelectBatch || selectedPaths.size === 0) return
+    const orderPaths = [...selectedPaths]
+    const byRel = new Map(items.map((it) => [it.relPath, it.url]))
+    const urls = orderPaths.map((p) => byRel.get(p)).filter((u): u is string => Boolean(u))
+    if (urls.length === 0) {
+      setError('Seçilen dosyaların adresi bulunamadı; listeyi yenileyip tekrar deneyin.')
+      return
+    }
+    onSelectBatch(urls)
+    setSelectedPaths(new Set())
+    onClose()
+  }, [onSelectBatch, selectedPaths, items, onClose])
+
   const selectAllInFolder = useCallback(() => {
     setSelectedPaths(new Set(filteredFiles.map((f) => f.relPath)))
   }, [filteredFiles])
@@ -646,7 +661,7 @@ export function ManageMediaPickerModal({
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
               {hint ??
-                'Önce altta arayın; «Seç» ile kullanın. Çoklu seçimde taşıma/silme; görseli sürükleyip bırakarak yükleme. Silmeden önce page-builder ve sliders JSON’larında `/uploads/…` araması yapılır (tam garanti değil).'}
+                'Önce altta arayın; «Seç» ile tek görsel. «Çoklu seçim» ile kutucukları işaretleyin — ilk işaretlediğiniz galeride en önde olur; ara çubuğunda «Galeriye ekle» ile hepsini bir seferde ekleyin. Taşıma/silme de çoklu seçimdedir. Silmeden önce page-builder ve sliders JSON’larında `/uploads/…` araması yapılır (tam garanti değil).'}
             </p>
             {!hideFullLibraryLink ? (
               <Link
@@ -808,6 +823,17 @@ export function ManageMediaPickerModal({
             >
               Bu klasördeki tümünü seç
             </button>
+            {onSelectBatch ? (
+              <button
+                type="button"
+                disabled={selectedCount === 0 || uploading}
+                onClick={() => applyOrderedSelectionToGallery()}
+                className="inline-flex items-center gap-1 rounded border border-primary-400 bg-primary-600 px-2 py-1 font-semibold text-white hover:bg-primary-700 disabled:opacity-50 dark:border-primary-500 dark:hover:bg-primary-600"
+                title="Sıra: kutucukları işaretlediğiniz sıra (ilk işaretlenen galeride ilk sırada)."
+              >
+                Galeriye ekle ({selectedCount})
+              </button>
+            ) : null}
             <button
               type="button"
               disabled={selectedCount === 0}

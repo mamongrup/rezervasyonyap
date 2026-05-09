@@ -86,7 +86,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
 
       <aside
         className={[
-          'fixed left-0 z-50 flex w-[min(100%,16.5rem)] shrink-0 flex-col border-r border-[color:var(--manage-sidebar-border)] pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-xl transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-0 lg:h-auto lg:max-h-[min(100vh,100dvh)] lg:w-64 lg:translate-x-0 lg:pb-0 lg:shadow-none',
+          'fixed left-0 z-50 flex w-[min(100%,16.5rem)] shrink-0 flex-col border-r border-[color:var(--manage-sidebar-border)] pb-[env(safe-area-inset-bottom)] shadow-lg backdrop-blur-xl transition-transform duration-200 ease-out lg:sticky lg:top-0 lg:z-0 lg:h-auto lg:w-64 lg:translate-x-0 lg:pb-0 lg:shadow-none',
           'bg-[color:var(--manage-sidebar-bg)]',
           /* Mobil: ApplicationLayout üst şeridinin (h-20) altında — site header ile çakışmasın */
           'top-20 h-[calc(100dvh-5rem)] lg:top-0 lg:h-auto',
@@ -103,7 +103,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
           </div>
           <span className="text-sm font-semibold text-[color:var(--manage-text)]">Yönetim Paneli</span>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-4 pt-2 lg:pt-3">
+        <div className="min-h-0 flex-1 overflow-y-auto px-1 pb-4 pt-2 lg:flex-none lg:overflow-visible lg:pt-3">
           <ManageSubnav onNavLinkClick={() => setMobileOpen(false)} />
         </div>
       </aside>

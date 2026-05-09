@@ -100,7 +100,7 @@ type FolderProfile = {
   fit: 'cover' | 'inside'
   /** Seyahat fotoğrafları için saturation/brightness boost */
   vivid: boolean
-  /** AVIF quality (PSI/dosya boyutu dengesi: fotoğraf 60, logo/belge 80–85) */
+  /** AVIF quality (PSI/dosya dengesi; ilan galerisi yükseltildi — logo/belge 80+) */
   quality: number
   /** AVIF effort 0–9 (yüksek = daha küçük dosya, daha yavaş encode) */
   effort: number
@@ -116,7 +116,7 @@ type FolderProfile = {
 const FALLBACK_PROFILES: Record<string, FolderProfile> = {
   hero:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   regions:        { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
-  listings:       { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
+  listings:       { width: 1600, height: 1200, fit: 'cover',  vivid: true,  quality: 90, effort: 6, thumb: 384 },
   tours:          { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   events:         { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   travel_ideas:   { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
@@ -195,17 +195,17 @@ async function processImage(
   const w = meta.width ?? 0
   const h = meta.height ?? 0
 
-  if (w < profile.width * MIN_RATIO || h < profile.height * MIN_RATIO) {
-    return {
-      output: buffer,
-      warning: `Resim çok küçük (${w}×${h}px). En az ${Math.ceil(profile.width * MIN_RATIO)}×${Math.ceil(profile.height * MIN_RATIO)}px yükleyin. İşlem uygulanmadı.`,
-    }
-  }
+  const undersized =
+    w < profile.width * MIN_RATIO || h < profile.height * MIN_RATIO
+  const warning = undersized
+    ? `Resim çok küçük (${w}×${h}px). Önerilen minimum ${Math.ceil(profile.width * MIN_RATIO)}×${Math.ceil(profile.height * MIN_RATIO)}px; büyütülmedi, yalnızca AVIF olarak kaydedildi.`
+    : undefined
 
   let pipeline = sharp(buffer).resize(profile.width, profile.height, {
     fit: profile.fit,
     position: profile.fit === 'cover' ? 'attention' : undefined,
-    withoutEnlargement: profile.fit === 'inside',
+    /** Küçük görseller bulanık büyütülmesin; yine de çıktı her zaman AVIF. */
+    withoutEnlargement: profile.fit === 'inside' || undersized,
   })
 
   if (profile.vivid) {
@@ -234,7 +234,7 @@ async function processImage(
       .toBuffer()
   }
 
-  return { output, thumb }
+  return { output, thumb, warning }
 }
 
 export async function POST(req: NextRequest) {
@@ -351,18 +351,32 @@ export async function POST(req: NextRequest) {
         outputBuffer = result.output
         thumbBuffer = result.thumb
         warning = result.warning
-        ext = warning ? originalExt : 'avif'
+        ext = 'avif'
       } catch (sharpErr) {
         /**
-         * Bazı AVIF varyantları / bozuk dosyalar libvips’te patlayabiliyor; bu durumda
-         * Next genelde HTML 500 döndürüyor ve istemci `res.json()` ile okuyamıyor.
+         * Profil pipeline başarısız olursa önce minimal AVIF denenir; raster için çıktı her zaman .avif olmalı.
          */
         console.error('[upload-image] sharp', sharpErr)
-        outputBuffer = rawBuffer
-        thumbBuffer = undefined
-        warning =
-          'Görsel dönüştürülemedi; orijinal dosya kaydedildi. (Özel AVIF, çözünürlük veya dosya bütünlüğü sorunu olabilir.)'
-        ext = originalExt && originalExt !== 'bin' ? originalExt : 'jpg'
+        try {
+          outputBuffer = await sharp(rawBuffer)
+            .rotate()
+            .avif({ quality: profile.quality, effort: profile.effort })
+            .toBuffer()
+          thumbBuffer = undefined
+          warning =
+            'Görsel profil ile işlenemedi; basit AVIF dönüşümü uygulandı. (Özel format veya dosya bütünlüğü sorunu olabilir.)'
+          ext = 'avif'
+        } catch (fallbackErr) {
+          console.error('[upload-image] sharp fallback avif', fallbackErr)
+          return NextResponse.json(
+            {
+              ok: false,
+              error:
+                'Görsel AVIF formatına dönüştürülemedi. Dosyayı JPEG veya PNG olarak kaydedip tekrar deneyin.',
+            },
+            { status: 400 },
+          )
+        }
       }
     }
 

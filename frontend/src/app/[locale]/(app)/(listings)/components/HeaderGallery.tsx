@@ -50,18 +50,24 @@ const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOpti
   }, [emblaMainApi, onSelect])
 
   return (
-    <div className="relative size-full embla">
-      <div className="embla__viewport relative mx-auto size-full overflow-hidden" ref={emblaMainRef}>
-        <div className="embla__container size-full">
+    <div className="relative flex min-h-0 w-full flex-1 flex-col embla">
+      <div className="embla__viewport relative mx-auto h-full min-h-0 w-full flex-1 overflow-hidden" ref={emblaMainRef}>
+        <div className="embla__container flex h-full">
           {images.map((image, index) => (
-            <div className="relative z-50 flex embla__slide basis-full items-center justify-center" key={index}>
-              <Image
-                alt="Slide image"
-                src={image}
-                width={1280}
-                height={853}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 50vw"
-              />
+            <div
+              className="relative flex min-h-0 flex-[0_0_100%] embla__slide items-center justify-center"
+              key={index}
+            >
+              <div className="relative h-[min(91vh,960px)] w-full max-w-[1920px] px-1">
+                <Image
+                  alt=""
+                  src={image}
+                  fill
+                  sizes="100vw"
+                  className="object-contain"
+                  priority={index === 0}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -107,8 +113,18 @@ const HeaderGallery = ({ images, gridType = 'grid1' }: Props) => {
   let [isOpen, setIsOpen] = useState(false)
   let [startIndex, setStartIndex] = useState(0)
 
-  const handleOpenDialog = (index = 0) => {
-    setStartIndex(index)
+  const carouselSlides = images.filter((u) => u.trim())
+
+  const handleOpenDialog = (gridIndex?: number) => {
+    let carouselIdx = 0
+    if (gridIndex !== undefined && gridIndex >= 0) {
+      const url = images[gridIndex]?.trim()
+      if (url) {
+        const pos = carouselSlides.indexOf(url)
+        carouselIdx = pos >= 0 ? pos : 0
+      }
+    }
+    setStartIndex(carouselIdx)
     setIsOpen(true)
   }
 
@@ -126,11 +142,11 @@ const HeaderGallery = ({ images, gridType = 'grid1' }: Props) => {
 
         {/* Full-screen container to center the panel */}
         <div className="fixed inset-0 flex w-screen items-center justify-center">
-          <DialogPanel
+            <DialogPanel
             transition
-            className="relative mx-auto aspect-[3/2] max-h-full w-full max-w-7xl flex-1 transition data-closed:opacity-0"
+            className="relative mx-auto flex h-[min(94vh,1020px)] min-h-0 w-full max-w-[min(98vw,1760px)] flex-col transition data-closed:opacity-0"
           >
-            <EmblaCarousel images={images} option={{ startIndex, slidesToScroll: 1 }} />
+            <EmblaCarousel images={carouselSlides} option={{ startIndex, slidesToScroll: 1 }} />
           </DialogPanel>
         </div>
       </Dialog>
@@ -160,18 +176,23 @@ const HeaderGalleryGrid1 = ({
         )}
       </div>
       <div className="hidden md:col-span-2 md:grid md:grid-cols-2 md:gap-2">
-        {images.slice(1, 5).map((item, index) => (
-          <div className="relative aspect-2/2 size-full" key={index} onClick={() => handleOpenDialog(index + 1)}>
-            <Image
-              fill
-              className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-              src={item || ''}
-              alt="others"
-              sizes="(max-width: 768px) 33vw, 33vw"
-              priority
-            />
-          </div>
-        ))}
+        {images.slice(1, 5).map((item, index) => {
+          const url = item?.trim()
+          if (!url) return null
+          const idx = index + 1
+          return (
+            <div className="relative aspect-2/2 size-full" key={`${idx}-${url}`} onClick={() => handleOpenDialog(idx)}>
+              <Image
+                fill
+                className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
+                src={url}
+                alt="others"
+                sizes="(max-width: 768px) 33vw, 33vw"
+                priority
+              />
+            </div>
+          )
+        })}
       </div>
 
       <div className="absolute bottom-3 left-3">
@@ -206,18 +227,23 @@ const HeaderGalleryGrid2 = ({
       </div>
 
       <div className="hidden md:grid md:grid-cols-1 md:gap-y-2 md:ps-2">
-        {images.slice(1, 4).map((item, index) => (
-          <div className="relative aspect-3/2 size-full" key={index} onClick={() => handleOpenDialog(index + 1)}>
-            <Image
-              alt=""
-              src={item}
-              fill
-              className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-              sizes="(max-width: 768px) 33vw, 33vw"
-              priority
-            />
-          </div>
-        ))}
+        {images.slice(1, 4).map((item, index) => {
+          const url = item?.trim()
+          if (!url) return null
+          const idx = index + 1
+          return (
+            <div className="relative aspect-3/2 size-full" key={`${idx}-${url}`} onClick={() => handleOpenDialog(idx)}>
+              <Image
+                alt=""
+                src={url}
+                fill
+                className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
+                sizes="(max-width: 768px) 33vw, 33vw"
+                priority
+              />
+            </div>
+          )
+        })}
       </div>
 
       <div className="absolute bottom-3 left-3">

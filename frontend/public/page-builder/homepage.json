@@ -147,38 +147,38 @@
         "videos": [
           {
             "id": "sv-1",
-            "title": "Örnek tanıtım (YouTube test)",
-            "videoUrl": "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+            "title": "Dünyanın En Güzel 28 Köyü: Mutlaka Görmelisiniz! 🌍",
+            "videoUrl": "https://www.youtube.com/watch?v=j-kGyqW99Vo"
           },
           {
             "id": "sv-2",
-            "title": "Kısa içerik örneği",
-            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+            "title": "Dünya'da Görülmesi Gereken Yerler",
+            "videoUrl": "https://www.youtube.com/watch?v=scaZbxdoDpk"
           },
           {
             "id": "sv-3",
-            "title": "Destinasyon vitrin 1",
-            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+            "title": "Zengin Ülke İSVİÇRE'de Fiyatlar ve Masalsı Köyler",
+            "videoUrl": "https://www.youtube.com/watch?v=3_gmUSiFhVw"
           },
           {
             "id": "sv-4",
-            "title": "Destinasyon vitrin 2",
-            "videoUrl": "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+            "title": "Zamanın Unuttuğu Coğrafya: Balkanlar",
+            "videoUrl": "https://www.youtube.com/watch?v=x5QS_JLyom4"
           },
           {
             "id": "sv-5",
-            "title": "Destinasyon vitrin 3",
-            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+            "title": "Dağların ve Hükümdarların Ülkesi - AVUSTURYA",
+            "videoUrl": "https://www.youtube.com/watch?v=irQjMHQsb6A"
           },
           {
             "id": "sv-6",
-            "title": "Destinasyon vitrin 4",
-            "videoUrl": "https://www.youtube.com/watch?v=jNQXAC9IVRw"
+            "title": "Alaska'nın Vahşi Güzelliği",
+            "videoUrl": "https://www.youtube.com/watch?v=KW8vZY9pW7k"
           },
           {
             "id": "sv-7",
-            "title": "Destinasyon vitrin 5",
-            "videoUrl": "https://www.youtube.com/watch?v=M7lc1UVf-VE"
+            "title": "Phi Phi Adaları, İkonik Kayalıklar, Tertemiz Plajlar",
+            "videoUrl": "https://www.youtube.com/watch?v=7oD_GDXkUWQ&list=RD7oD_GDXkUWQ&start_radio=1"
           }
         ]
       },
@@ -209,5 +209,5 @@
       "id": "homepage-module-12"
     }
   ],
-  "updatedAt": "2026-05-08T12:00:00.000Z"
+  "updatedAt": "2026-05-08T16:00:23.430Z"
 }

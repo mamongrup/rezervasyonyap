@@ -1,5 +1,10 @@
 import avatars1 from '@/images/avatars/Image-1.png'
-import { orderGalleryUrlsForHero } from '@/lib/listing-gallery-hero-order'
+import { dedupeGalleryUrlsPreserveOrder, orderGalleryUrlsBySortOrder } from '@/lib/listing-gallery-hero-order'
+import {
+  galleryUrlsWithHolidayHeroPreview,
+  parseHeroPreviewKeysFromVertical,
+} from '@/lib/holiday-listing-hero-preview'
+import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import {
   extractHolidayHomePoolsFromVerticalMeta,
   hasAnyEnabledPool,
@@ -135,11 +140,15 @@ export const getStayListingByHandle = async (
   const item = pub?.listings?.[0]
   if (!item) return null
 
-  const vitrine = await getPublicListingVitrine(catalogId, locale)
+  const vitrine = await getPublicListingVitrine(catalogId, locale, { cache: 'no-store' })
 
   const api = mapPublicListingItemToListingBase(item)
+  const pinFromSearch = (api.city ?? api.address ?? '').trim()
+  const pinFromVitrine = vitrine?.location_label?.trim() ?? ''
+  const displayPin = pinFromSearch || pinFromVitrine
   let listing: TStayListing = {
     ...api,
+    ...(displayPin ? { city: displayPin, address: displayPin } : {}),
     title: vitrine?.title?.trim() || api.title,
     description: vitrine?.description?.trim() || '',
     galleryImgs: api.galleryImgs,
@@ -157,46 +166,25 @@ export const getStayListingByHandle = async (
   let prepaymentPercent: string | undefined = listingExtras.prepaymentPercent
   let cancellationPolicyText: string | undefined = listingExtras.cancellationPolicyText
 
-  const remote = await getPublicListingImages(catalogId)
-  if (remote?.images?.length) {
-    galleryImgs = orderGalleryUrlsForHero(
-      remote.images.map((im) => ({
-        storage_key: im.storage_key,
-        sort_order: im.sort_order,
-        scene_code: im.scene_code ?? null,
-      })),
-    )
-  }
-
-  if (item) {
-    if (item.theme_codes?.trim()) {
-      themeCodes = item.theme_codes
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    }
-    if (item.ministry_license_ref?.trim()) {
-      ministryLicenseRef = item.ministry_license_ref.trim()
-    }
-    const pp = item.prepayment_percent?.trim()
-    if (pp) prepaymentPercent = pp
-    const cpt = item.cancellation_policy_text?.trim()
-    if (cpt) cancellationPolicyText = cpt
-  }
-
-  const contactName = vitrine?.contact_name?.trim()
-
   let pools: HolidayHomePools | undefined
   let poolsDemo = false
   let listingExtraFees: Array<{ label: string; amount: string; unit: string }> | undefined
   let holidayHomeFaqItems: { q: string; a: string }[] | undefined
-  if (catalogId && normalizeCatalogVertical(listing.listingVertical) === 'holiday_home') {
+
+  const isHolidayHome = Boolean(catalogId && normalizeCatalogVertical(listing.listingVertical) === 'holiday_home')
+
+  if (isHolidayHome) {
     try {
       const emptyFaqTemplate: HolidayHomeFaqTemplatePayload = { items: [] }
-      const [meta, faqTemplate] = await Promise.all([
-        getVerticalMeta<Record<string, unknown>>(catalogId, 'holiday_home'),
+      const [remote, meta, faqTemplate] = await Promise.all([
+        getPublicListingImages(catalogId),
+        getVerticalMeta<Record<string, unknown>>(catalogId, 'holiday_home').catch(() => ({})),
         fetchPublicHolidayHomeFaqTemplate().catch(() => emptyFaqTemplate),
       ])
+      if (remote?.images?.length) {
+        const previewKeys = parseHeroPreviewKeysFromVertical(unwrapVerticalMetaPayload(meta))
+        galleryImgs = galleryUrlsWithHolidayHeroPreview(previewKeys ?? undefined, remote.images)
+      }
       const p = extractHolidayHomePoolsFromVerticalMeta(meta)
       if (p && hasAnyEnabledPool(p)) pools = p
       const rawEf = unwrapVerticalMetaPayload(meta).extra_fees
@@ -224,10 +212,49 @@ export const getStayListingByHandle = async (
     } catch {
       pools = undefined
     }
+  } else {
+    const remote = await getPublicListingImages(catalogId)
+    if (remote?.images?.length) {
+      galleryImgs = dedupeGalleryUrlsPreserveOrder(
+        orderGalleryUrlsBySortOrder(
+          remote.images.map((im) => ({
+            storage_key: im.storage_key,
+            sort_order: im.sort_order,
+            scene_code: im.scene_code ?? null,
+            created_at: im.created_at,
+          })),
+        ),
+      )
+    }
   }
+
+  if (item) {
+    if (item.theme_codes?.trim()) {
+      themeCodes = item.theme_codes
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+    }
+    if (item.ministry_license_ref?.trim()) {
+      ministryLicenseRef = item.ministry_license_ref.trim()
+    }
+    const pp = item.prepayment_percent?.trim()
+    if (pp) prepaymentPercent = pp
+    const cpt = item.cancellation_policy_text?.trim()
+    if (cpt) cancellationPolicyText = cpt
+  }
+
+  const contactName = vitrine?.contact_name?.trim()
+
+  const featuredNorm = listing.featuredImage?.trim()
+    ? preferListingGalleryFullAsset(listing.featuredImage.trim())
+    : listing.featuredImage
+  const galleryNorm = galleryImgs.map(preferListingGalleryFullAsset)
+
   const merged = {
     ...listing,
-    galleryImgs,
+    ...(featuredNorm !== listing.featuredImage ? { featuredImage: featuredNorm } : {}),
+    galleryImgs: galleryNorm,
     ...(themeCodes?.length ? { themeCodes } : {}),
     ...(ministryLicenseRef ? { ministryLicenseRef } : {}),
     ...(prepaymentPercent ? { prepaymentPercent } : {}),

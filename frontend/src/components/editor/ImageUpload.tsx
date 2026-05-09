@@ -94,7 +94,11 @@ export default function ImageUpload({
 
   function applyPick(url: string, meta?: { warning?: string }) {
     setWarning(meta?.warning ?? null)
-    onChange(url)
+    if (onBatchComplete) {
+      onBatchComplete([url])
+    } else {
+      onChange(url)
+    }
   }
 
   function applyPickBatch(urls: string[], meta?: { warning?: string }) {
@@ -141,17 +145,14 @@ export default function ImageUpload({
           if (data.warning) lastWarn = data.warning
         }
         const meta = lastWarn ? { warning: lastWarn } : undefined
-        if (urls.length === 1) {
-          setWarning(meta?.warning ?? null)
+        setWarning(meta?.warning ?? null)
+        if (onBatchComplete) {
+          onBatchComplete(urls)
+        } else if (urls.length === 1) {
           onChange(urls[0]!)
         } else {
-          setWarning(meta?.warning ?? null)
-          if (onBatchComplete) {
-            onBatchComplete(urls)
-          } else {
-            for (const u of urls) {
-              onChange(u)
-            }
+          for (const u of urls) {
+            onChange(u)
           }
         }
         return true

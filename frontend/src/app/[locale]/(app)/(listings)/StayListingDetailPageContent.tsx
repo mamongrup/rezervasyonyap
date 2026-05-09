@@ -20,6 +20,7 @@ import {
 } from '@/lib/listing-detail-routes'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { resolveHolidayThemeLabels } from '@/lib/holiday-theme-labels'
+import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
 import { buildStayListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
 import { vitrinHref } from '@/lib/vitrin-href'
 import {
@@ -369,11 +370,10 @@ export default async function StayListingDetailPageContent({
       prepaymentNoteText?.trim() ||
       listingContractHref,
   )
-  const regionName = isHolidayHome ? listing.city?.trim() || null : null
+  const regionName =
+    isHolidayHome ? (listing.city ?? listing.address)?.trim() || null : null
 
-  const galleryImages = Array.from(
-    new Set([featuredImage, ...(galleryImgs ?? [])].filter((u): u is string => Boolean(u))),
-  )
+  const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
 
   const reviews = (await getListingReviews(handle)).slice(0, 3)
   const categorySlug =
@@ -477,9 +477,7 @@ export default async function StayListingDetailPageContent({
     </nav>
   )
 
-  const galleryForShare = Array.from(
-    new Set([featuredImage, ...(galleryImgs ?? [])].filter((u): u is string => Boolean(u))),
-  )
+  const galleryForShare = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs).filter((u) => u.trim())
 
   const renderSectionHeader = () => (
     <SectionHeader
@@ -736,7 +734,7 @@ export default async function StayListingDetailPageContent({
           isHolidayHome && 'overflow-hidden rounded-2xl sm:rounded-3xl ring-1 ring-black/5 dark:ring-white/10',
         )}
       >
-        <HeaderGallery images={galleryImages.length > 0 ? galleryImages : galleryImgs ?? []} gridType="grid1" />
+        <HeaderGallery images={galleryImages} gridType="grid1" />
       </div>
 
       {/* BREADCRUMB */}

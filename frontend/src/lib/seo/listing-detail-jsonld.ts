@@ -6,6 +6,7 @@
 
 import type { ListingType } from '@/data/category-registry'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
+import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { vitrinHref } from '@/lib/vitrin-href'
 
@@ -150,7 +151,7 @@ function postalAddress(listing: ListingDetailFields): Record<string, unknown> | 
 }
 
 function imagesForSchema(base: string, listing: ListingDetailFields): string[] {
-  const raw = [listing.featuredImage, ...(listing.galleryImgs || [])].filter(Boolean) as string[]
+  const raw = galleryUrlsForStayDetailHeader(listing.featuredImage, listing.galleryImgs ?? []).filter(Boolean)
   const uniq = [...new Set(raw)]
   return uniq
     .slice(0, 12)

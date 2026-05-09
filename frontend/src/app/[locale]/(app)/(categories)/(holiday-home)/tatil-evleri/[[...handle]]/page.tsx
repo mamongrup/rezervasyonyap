@@ -4,10 +4,15 @@ import { getCategoryBySlug } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
 import {
+  getHolidayThemeLabelMap,
+  resolveHolidayThemeLabelsFromMap,
+} from '@/lib/holiday-theme-labels'
+import {
   fetchCategoryListings,
   fetchFlexibleHolidayListings,
   parseSearchParamsFromUrl,
 } from '@/lib/listings-fetcher'
+import type { TListingBase } from '@/types/listing-types'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
@@ -58,11 +63,22 @@ export default async function Page({
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
 
+  const themeLabelMap = await getHolidayThemeLabelMap(locale)
+  function withHolidayThemeChips<L extends TListingBase>(l: L): L {
+    const codes = l.themeCodes
+    if (!codes?.length) return l
+    const themeChipLabels = resolveHolidayThemeLabelsFromMap(codes, themeLabelMap)
+    if (!themeChipLabels.length) return l
+    return { ...l, themeChipLabels }
+  }
+  const listingsForUi = listings.map(withHolidayThemeChips)
+  const flexibleForUi = flexibleListings.map(withHolidayThemeChips)
+
   return (
     <CategoryPageTemplate
       category={category}
       count={total}
-      listingCards={listings.map((l) => (
+      listingCards={listingsForUi.map((l) => (
          
         <HolidayHomeCard key={l.id} data={l as any} />
       ))}
@@ -73,7 +89,7 @@ export default async function Page({
       locale={locale}
       heroOverride={heroOverride}
       isSearchResults={!!currentHandle && currentHandle !== 'all'}
-      allListings={listings}
+      allListings={listingsForUi}
       listingLinkBase={category.detailRoute}
       priceUnit={category.priceUnit}
       activeSearch={{
@@ -85,8 +101,8 @@ export default async function Page({
         fromApi,
       }}
       flexibleListingCards={
-        flexibleListings.length > 0
-          ? flexibleListings.map((l) => (
+        flexibleForUi.length > 0
+          ? flexibleForUi.map((l) => (
                
               <HolidayHomeCard key={`flex-${l.id}`} data={l as any} />
             ))

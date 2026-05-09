@@ -8,6 +8,13 @@ import {
   parseHolidayHomeFaqTemplatePayload,
   pickHolidayHomeFaqText,
 } from '@/lib/holiday-home-faq-merge'
+import {
+  defaultHeroKeysFromSort,
+  imageHasMeaningfulScene,
+  MANAGE_HERO_PREVIEW_META_KEY,
+  parseHeroPreviewKeysFromVertical,
+  pickHeroKeysFromTaggedImages,
+} from '@/lib/holiday-listing-hero-preview'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -59,6 +66,7 @@ import {
   upsertSeoMetadata,
   type AttributeDef,
   type AttributeGroup,
+  type ListingImage,
   type ManageListingRow,
   type PriceLineItem,
   type ListingMeta,
@@ -72,6 +80,8 @@ import {
   MANAGE_FORM_CONTAINER_CLASS,
   ManageFormPageHeader,
 } from '@/components/manage/ManageFormShell'
+import { HeroSlotPickerModal } from '@/components/manage/HeroSlotPickerModal'
+import { ManageListingGalleryHeroPreview } from '@/components/manage/ManageListingGalleryHeroPreview'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
@@ -87,8 +97,6 @@ import Link from 'next/link'
 import {
   ArrowLeft,
   Check,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   Link2,
   Loader2,
@@ -100,7 +108,7 @@ import {
   X,
 } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
@@ -143,6 +151,20 @@ function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, 
   const o: Record<string, { title: string; description: string }> = {}
   for (const c of codes) o[c] = { title: '', description: '' }
   return o
+}
+
+const HERO_SLOT_LABELS = ['Manzara', 'Havuz', 'Salon & mutfak', 'Yatak odası', 'Banyo'] as const
+
+function listingImagesFromPendingKeys(keys: readonly string[]): ListingImage[] {
+  return keys.map((storage_key, idx) => ({
+    id: `pending:${storage_key}:${idx}`,
+    sort_order: idx,
+    storage_key,
+    original_mime: 'image/avif',
+    alt_text_key: null,
+    created_at: '',
+    scene_code: null,
+  }))
 }
 
 async function saveRequiredStep<T>(label: string, step: Promise<T>): Promise<T> {
@@ -398,6 +420,13 @@ export default function CatalogNewListingClient({
   const [youtubeUrl, setYoutubeUrl] = useState('')
   /** İlan oluşmadan önce yüklenen galeri anahtarları; kayıtta `addListingImage` ile bağlanır */
   const [pendingGalleryKeys, setPendingGalleryKeys] = useState<string[]>([])
+  /** Tatil evi düzenle: sunucudaki sıralı görseller (önizleme); yükleme ayrı galeri sayfasında */
+  const [listingGalleryUrls, setListingGalleryUrls] = useState<string[]>([])
+  /** Sahne kodları + sıra — vitrin özet kutuları için */
+  const [listingGalleryImages, setListingGalleryImages] = useState<ListingImage[]>([])
+  /** Etiketsiz modda 5 kutu için saklanan depolama anahtarları */
+  const [heroManualStorageKeys, setHeroManualStorageKeys] = useState<string[]>(['', '', '', '', ''])
+  const [heroPickerSlot, setHeroPickerSlot] = useState<number | null>(null)
   const [galleryUploadKey, setGalleryUploadKey] = useState(0)
 
   // ── Konum ──
@@ -459,6 +488,37 @@ export default function CatalogNewListingClient({
   const gallerySlugBase = slug.trim() ? slugifyMediaSegment(slug) : 'yeni-ilan'
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
 
+  const isHolidayHomeEdit = categoryCode === 'holiday_home' && Boolean(editListingId)
+  const galleryTotalCount = isHolidayHomeEdit ? listingGalleryUrls.length : pendingGalleryKeys.length
+
+  const galleryImagesForHero = useMemo((): ListingImage[] => {
+    if (categoryCode !== 'holiday_home') return []
+    if (isHolidayHomeEdit) return listingGalleryImages
+    return listingImagesFromPendingKeys(pendingGalleryKeys)
+  }, [categoryCode, isHolidayHomeEdit, listingGalleryImages, pendingGalleryKeys])
+
+  const galleryHasSceneTags = useMemo(
+    () => galleryImagesForHero.some((im) => imageHasMeaningfulScene(im.scene_code)),
+    [galleryImagesForHero],
+  )
+
+  const heroPreviewFiveKeys = useMemo(() => {
+    if (categoryCode !== 'holiday_home') return []
+    if (galleryHasSceneTags) return pickHeroKeysFromTaggedImages(galleryImagesForHero)
+    const valid = new Set(galleryImagesForHero.map((im) => im.storage_key))
+    return heroManualStorageKeys.map((k) => {
+      const t = k.trim()
+      return t && valid.has(t) ? t : ''
+    })
+  }, [categoryCode, galleryHasSceneTags, galleryImagesForHero, heroManualStorageKeys])
+
+  const galleryManageHref =
+    isHolidayHomeEdit && editListingId
+      ? vitrinPath(
+          `/manage/catalog/holiday_home/listings/${encodeURIComponent(editListingId)}/gallery`,
+        )
+      : null
+
   function onPendingGalleryBatchUploaded(urls: string[]) {
     const keys = urls.map((u) => u.trim()).filter(Boolean)
     if (keys.length === 0) return
@@ -468,20 +528,6 @@ export default function CatalogNewListingClient({
 
   function removePendingGallery(idx: number) {
     setPendingGalleryKeys((prev) => prev.filter((_, j) => j !== idx))
-  }
-
-  function movePendingGallery(idx: number, dir: -1 | 1) {
-    const j = idx + dir
-    setPendingGalleryKeys((prev) => {
-      if (j < 0 || j >= prev.length) return prev
-      const next = [...prev]
-      const a = next[idx]
-      const b = next[j]
-      if (a === undefined || b === undefined) return prev
-      next[idx] = b
-      next[j] = a
-      return next
-    })
   }
 
   useEffect(() => {
@@ -694,6 +740,9 @@ export default function CatalogNewListingClient({
     if (!editListingId || categoryCode !== 'holiday_home') {
       setEditListingReady(true)
       galleryKeysAtHydrateRef.current = new Set()
+      setListingGalleryUrls([])
+      setListingGalleryImages([])
+      setHeroManualStorageKeys(['', '', '', '', ''])
       return
     }
 
@@ -937,7 +986,13 @@ export default function CatalogNewListingClient({
         const sortedImgs = [...imgsRes.images].sort((a, b) => a.sort_order - b.sort_order)
         const imgKeys = sortedImgs.map((im) => im.storage_key).filter(Boolean)
         galleryKeysAtHydrateRef.current = new Set(imgKeys)
-        setPendingGalleryKeys(imgKeys)
+        setListingGalleryUrls(imgKeys)
+        setListingGalleryImages(sortedImgs)
+        setPendingGalleryKeys([])
+
+        const vmInner = unwrapVerticalMetaPayload(verticalMeta)
+        const savedHero = parseHeroPreviewKeysFromVertical(vmInner)
+        setHeroManualStorageKeys(savedHero ?? defaultHeroKeysFromSort(sortedImgs))
 
         for (const r of rulesRes.rules) {
           try {
@@ -1004,6 +1059,54 @@ export default function CatalogNewListingClient({
       cancelled = true
     }
   }, [editListingId, categoryCode, needOrg, orgId, locale, localeCodes])
+
+  /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
+  useEffect(() => {
+    if (categoryCode !== 'holiday_home' || !editListingId) return
+    const reloadPreview = () => {
+      const token = getStoredAuthToken()
+      if (!token) return
+      if (needOrg && !orgId.trim()) return
+      const orgForImg = needOrg && orgId.trim() ? orgId.trim() : undefined
+      void listListingImages(token, editListingId, orgForImg)
+        .then((r) => {
+          const sorted = [...r.images].sort((a, b) => a.sort_order - b.sort_order)
+          const keys = sorted.map((im) => im.storage_key).filter(Boolean)
+          setListingGalleryUrls(keys)
+          setListingGalleryImages(sorted)
+          galleryKeysAtHydrateRef.current = new Set(keys)
+        })
+        .catch(() => {})
+    }
+    const onVis = () => {
+      if (document.visibilityState === 'visible') reloadPreview()
+    }
+    window.addEventListener('focus', reloadPreview)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('focus', reloadPreview)
+      document.removeEventListener('visibilitychange', onVis)
+    }
+  }, [categoryCode, editListingId, needOrg, orgId])
+
+  /** Etiketsiz galeri: boş slotları sırayla doldur; geçersiz anahtarları temizle */
+  useEffect(() => {
+    if (categoryCode !== 'holiday_home') return
+    if (galleryHasSceneTags) return
+    if (galleryImagesForHero.length === 0) {
+      setHeroManualStorageKeys(['', '', '', '', ''])
+      return
+    }
+    setHeroManualStorageKeys((prev) => {
+      const valid = new Set(galleryImagesForHero.map((im) => im.storage_key))
+      const sanitized = prev.map((k) => {
+        const t = k.trim()
+        return t && valid.has(t) ? t : ''
+      })
+      if (sanitized.every((k) => !k.trim())) return defaultHeroKeysFromSort(galleryImagesForHero)
+      return sanitized
+    })
+  }, [categoryCode, galleryHasSceneTags, galleryImagesForHero])
 
   function handleTitleChange(v: string) {
     if (isVilla) {
@@ -1660,6 +1763,16 @@ export default function CatalogNewListingClient({
               answer: { tr: r.a_tr.trim() },
             })),
         }
+        const imgsForHeroSave =
+          editListingId ? listingGalleryImages : listingImagesFromPendingKeys(pendingGalleryKeys)
+        const taggedForSave = imgsForHeroSave.some((im) => imageHasMeaningfulScene(im.scene_code))
+        let heroPad = heroManualStorageKeys.map((k) => k.trim())
+        while (heroPad.length < 5) heroPad.push('')
+        heroPad = heroPad.slice(0, 5)
+        if (!taggedForSave && imgsForHeroSave.length > 0 && heroPad.every((k) => !k)) {
+          heroPad = defaultHeroKeysFromSort(imgsForHeroSave)
+        }
+        vert[MANAGE_HERO_PREVIEW_META_KEY] = heroPad
         await saveRequiredStep(
           'Tatil evi detayları kaydı',
           putVerticalMeta(token, lid, 'holiday_home', vert, orgParam),
@@ -1939,8 +2052,8 @@ export default function CatalogNewListingClient({
     <div
       className={
         isVilla
-          ? 'bg-neutral-50 pb-24 dark:bg-neutral-950 sm:pb-28'
-          : 'pb-20'
+          ? 'bg-neutral-50 pb-20 dark:bg-neutral-950 sm:pb-24'
+          : 'pb-16'
       }
     >
       {isVilla && editListingId && !editListingReady ? (
@@ -2169,7 +2282,7 @@ export default function CatalogNewListingClient({
             </div>
           </div>
         ) : null}
-        <div className={clsx(isVilla && MANAGE_FORM_CONTAINER_CLASS, isVilla && 'pb-20 sm:pb-24')}>
+        <div className={clsx(isVilla && MANAGE_FORM_CONTAINER_CLASS)}>
         <div className={clsx(!isVilla && 'flex flex-wrap gap-6 items-start')}>
 
           {/* ────────── Ana İçerik ────────── */}
@@ -2393,7 +2506,16 @@ export default function CatalogNewListingClient({
               </Section>
             ) : null}
 
-            <Section title="Galeri" subtitle="Görseller önce depoya yüklenir; ilanı kaydedince ilana bağlanır. Sırayı ok ile değiştirebilirsiniz.">
+            <Section
+              title="Galeri"
+              subtitle={
+                isHolidayHomeEdit
+                  ? 'Özet görünüm: sahne etiketli görseller varsa sıra otomatik belirlenir; etiket yoksa kutucuklara tıklayarak seçim yapılır (Kaydet ile saklanır). Tam yükleme ve sıralama galeri sayfasında.'
+                  : categoryCode === 'holiday_home'
+                    ? 'Yeni ilanda görseller önce depoya yüklenir; kayıttan sonra düzenleme için galeri sayfasına gidilir. Özet kutuları etiketsizken tıklanarak seçilir.'
+                    : 'Görseller önce depoya yüklenir; ilanı kaydedince ilana bağlanır.'
+              }
+            >
               <p className="text-sm text-neutral-600 dark:text-neutral-400">
                 Dosya yolu:{' '}
                 <code className="rounded bg-neutral-100 px-1 font-mono text-xs dark:bg-neutral-800">
@@ -2401,76 +2523,150 @@ export default function CatalogNewListingClient({
                 </code>
                 — slug boşsa <code className="font-mono text-xs">yeni-ilan</code> kullanılır; mümkünse önce slug&apos;ı netleştirin.
               </p>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {pendingGalleryKeys.map((im, idx) => (
-                  <div
-                    key={`${im}-${idx}`}
-                    className="relative overflow-hidden rounded-xl border border-neutral-200 dark:border-neutral-700"
-                  >
-                    <img
-                      src={im.startsWith('http') || im.startsWith('/') ? im : `/${im}`}
-                      alt=""
-                      className="aspect-[4/3] w-full object-cover"
-                    />
-                    <div className="flex items-center justify-between gap-2 border-t border-neutral-100 bg-neutral-50 px-2 py-1.5 dark:border-neutral-700 dark:bg-neutral-900">
-                      <span className="truncate font-mono text-[10px] text-neutral-500">
-                        {im.split('/').pop()}
-                      </span>
-                      <div className="flex shrink-0 gap-1">
-                        <button
-                          type="button"
-                          className="rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
-                          onClick={() => movePendingGallery(idx, -1)}
-                          disabled={busy || idx === 0}
-                          title="Yukarı"
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded p-1 text-neutral-500 hover:bg-neutral-200 dark:hover:bg-neutral-800"
-                          onClick={() => movePendingGallery(idx, 1)}
-                          disabled={busy || idx === pendingGalleryKeys.length - 1}
-                          title="Aşağı"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-                          onClick={() => removePendingGallery(idx)}
-                          disabled={saveLocked}
-                          title="Listeden çıkar"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+
+              <div className="mt-4 max-w-4xl">
+                <ManageListingGalleryHeroPreview
+                  urls={categoryCode === 'holiday_home' ? heroPreviewFiveKeys : pendingGalleryKeys}
+                  totalCount={categoryCode === 'holiday_home' ? galleryTotalCount : pendingGalleryKeys.length}
+                  manageHref={galleryManageHref}
+                  manageLabel="Galeriyi düzenle"
+                  emptyHint={
+                    isHolidayHomeEdit
+                      ? 'Henüz görsel yok — galeri sayfasından ekleyin.'
+                      : 'Henüz görsel yok — aşağıdan yükleyin.'
+                  }
+                  interactiveSlots={
+                    categoryCode === 'holiday_home' &&
+                    !galleryHasSceneTags &&
+                    galleryImagesForHero.length > 0
+                  }
+                  onSlotClick={
+                    categoryCode === 'holiday_home' &&
+                    !galleryHasSceneTags &&
+                    galleryImagesForHero.length > 0
+                      ? (i) => setHeroPickerSlot(i)
+                      : undefined
+                  }
+                  slotHints={HERO_SLOT_LABELS}
+                  footerHint={
+                    categoryCode === 'holiday_home' ? (
+                      <>
+                        <p>
+                          {galleryHasSceneTags ? (
+                            <>
+                              Sahne etiketleri vitrin özetine göre kullanılır (deniz manzarası, havuz, yaşam
+                              alanı, yatak, banyo). Deniz manzarası yoksa ilk iki kutu havuz görselleriyle
+                              doldurulabilir.
+                            </>
+                          ) : (
+                            <>
+                              Sahne etiketi atanmamış görseller için kutucuklara tıklayıp kapak sırasını seçin.
+                              Kayıtta bu sıra tatil evi ek verisinde saklanır.
+                            </>
+                          )}
+                        </p>
+                        <p className="mt-1 text-neutral-500 dark:text-neutral-500">
+                          Toplu sahne için{' '}
+                          <strong className="font-medium text-neutral-600 dark:text-neutral-400">
+                            Galeri
+                          </strong>{' '}
+                          sayfasında &quot;Etiketsizlere AI öner&quot; veya kart üzerindeki yıldız ikonunu
+                          kullanın (sunucuda{' '}
+                          <code className="font-mono text-[11px]">DEEPSEEK_API_KEY</code>
+                          ; yoksa <code className="font-mono text-[11px]">OPENAI_API_KEY</code>
+                          ).
+                        </p>
+                        {galleryTotalCount > 5 ? (
+                          <p className="mt-2 border-t border-neutral-200 pt-2 dark:border-neutral-700">
+                            Önizlemede ilk 5 görsel gösteriliyor · toplam {galleryTotalCount} görsel
+                          </p>
+                        ) : null}
+                      </>
+                    ) : undefined
+                  }
+                />
               </div>
-              <Field>
-                <Label>Yeni görsel ekle</Label>
-                <div className="mt-2 max-w-md">
-                  <ImageUpload
-                    key={`gallery-${galleryUploadKey}`}
-                    value=""
-                    onChange={() => {}}
-                    folder="listings"
-                    subPath={gallerySubPath}
-                    prefix={gallerySlugBase}
-                    imageIndex={pendingGalleryKeys.length + 1}
-                    aspectRatio="4/3"
-                    multiple
-                    onBatchComplete={onPendingGalleryBatchUploaded}
-                    placeholder={`${gallerySlugBase}-${pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
-                  />
-                </div>
-                <p className="mt-1 text-xs text-neutral-400">
-                  Toplu yüklemede dosya adları sırayla {gallerySlugBase}-{pendingGalleryKeys.length + 1},{' '}
-                  {gallerySlugBase}-{pendingGalleryKeys.length + 2}, … olarak atanır.
+
+              {categoryCode === 'holiday_home' ? (
+                <HeroSlotPickerModal
+                  open={heroPickerSlot !== null}
+                  title={
+                    heroPickerSlot !== null ? `${HERO_SLOT_LABELS[heroPickerSlot]} — görsel seç` : ''
+                  }
+                  images={galleryImagesForHero}
+                  selectedKey={
+                    heroPickerSlot !== null ? heroManualStorageKeys[heroPickerSlot]?.trim() : undefined
+                  }
+                  onPick={(key) => {
+                    if (heroPickerSlot === null) return
+                    const idx = heroPickerSlot
+                    setHeroManualStorageKeys((prev) => {
+                      const next = [...prev]
+                      while (next.length < 5) next.push('')
+                      next[idx] = key
+                      return next
+                    })
+                  }}
+                  onClose={() => setHeroPickerSlot(null)}
+                />
+              ) : null}
+
+              {!isHolidayHomeEdit && pendingGalleryKeys.length > 5 ? (
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  Aşağıda yer kaplamadan küçük özet ({pendingGalleryKeys.length} görsel). Çıkarmak için × kullanın.
                 </p>
-              </Field>
+              ) : null}
+
+              {!isHolidayHomeEdit && pendingGalleryKeys.length > 0 ? (
+                <div className="mt-3 flex max-w-4xl gap-2 overflow-x-auto pb-1 pt-1">
+                  {pendingGalleryKeys.map((im, idx) => (
+                    <div
+                      key={`${im}-${idx}`}
+                      className="relative h-14 w-[5.25rem] shrink-0 overflow-hidden rounded-lg border border-neutral-200 bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-800"
+                    >
+                      <img
+                        src={im.startsWith('http') || im.startsWith('/') ? im : `/${im}`}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute end-0 top-0 rounded-bl-md bg-red-600 px-1 py-0.5 text-[10px] font-bold leading-none text-white hover:bg-red-700 disabled:opacity-50"
+                        onClick={() => removePendingGallery(idx)}
+                        disabled={saveLocked}
+                        title="Listeden çıkar"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {!isHolidayHomeEdit ? (
+                <Field className="mt-6">
+                  <Label>Yeni görsel ekle</Label>
+                  <div className="mt-2 max-w-md">
+                    <ImageUpload
+                      key={`gallery-${galleryUploadKey}`}
+                      value=""
+                      onChange={() => {}}
+                      folder="listings"
+                      subPath={gallerySubPath}
+                      prefix={gallerySlugBase}
+                      imageIndex={pendingGalleryKeys.length + 1}
+                      aspectRatio="4/3"
+                      multiple
+                      onBatchComplete={onPendingGalleryBatchUploaded}
+                      placeholder={`${gallerySlugBase}-${pendingGalleryKeys.length + 1}.avif — çoklu seçim veya sürükleyip bırakın`}
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-neutral-400">
+                    Toplu yüklemede dosya adları sırayla {gallerySlugBase}-{pendingGalleryKeys.length + 1},{' '}
+                    {gallerySlugBase}-{pendingGalleryKeys.length + 2}, … olarak atanır.
+                  </p>
+                </Field>
+              ) : null}
             </Section>
 
             {/* Fazladan Bilgi — villa: önceden rezervasyon, kişi/oda/banyo; diğer: yatak, alan… */}
@@ -2761,7 +2957,7 @@ export default function CatalogNewListingClient({
                       <HintText>Temel gecelik fiyat. İndirim ve kampanyalar ayrı modüllerden yönetilir.</HintText>
                     </Field>
                     <Field className="block">
-                      <Label>Hasar Depositu ({currency})</Label>
+                      <Label>Hasar Depozitosu ({currency})</Label>
                       <Input
                         type="number" min="0" step="0.01" className="mt-1"
                         value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)}
@@ -3119,7 +3315,7 @@ export default function CatalogNewListingClient({
                       <HintText>Temel gecelik fiyat. İndirim ve kampanyalar ayrı kampanya modüllerinden yönetilir.</HintText>
                     </Field>
                     <Field className="block">
-                      <Label>Hasar Depositu ({currency})</Label>
+                      <Label>Hasar Depozitosu ({currency})</Label>
                       <Input
                         type="number" min="0" step="0.01" className="mt-1"
                         value={depositAmount} onChange={(e) => setDepositAmount(e.target.value)}

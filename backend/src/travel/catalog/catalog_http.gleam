@@ -2849,6 +2849,18 @@ pub fn put_listing_meta(
                               and coalesce((select body->>'lng' from payload), '') = ''
                                then null
                              else l.map_lng
+                           end,
+                           location_name = case
+                             when (select body from payload) ? 'address'
+                              and nullif(
+                                trim(coalesce((select body->>'address' from payload), '')),
+                                '',
+                              ) is not null
+                               then trim((select body->>'address' from payload))
+                             when (select body from payload) ? 'address'
+                              and trim(coalesce((select body->>'address' from payload), '')) = ''
+                               then null
+                             else l.location_name
                            end
                        from saved_meta
                        where l.id = saved_meta.listing_id",
@@ -3949,11 +3961,12 @@ pub fn list_public_listing_availability_calendar(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String)) {
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
-  decode.success(#(title, description, contact_name))
+  use location_label <- decode.field(3, decode.string)
+  decode.success(#(title, description, contact_name, location_label))
 }
 
 /// GET /api/v1/catalog/public/listings/:id/vitrine?locale=tr — yayında ilan başlığı, açıklaması, iletişim adı (vitrin)
@@ -3986,7 +3999,8 @@ pub fn get_public_listing_vitrine(
       <> "coalesce((select lt.description from listing_translations lt "
       <> "join locales lo on lo.id = lt.locale_id "
       <> "where lt.listing_id = l.id and lower(lo.code) = lower($2) limit 1), ''), "
-      <> "coalesce((select c.contact_name from listing_owner_contacts c where c.listing_id = l.id limit 1), '') "
+      <> "coalesce((select c.contact_name from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
+      <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), '') "
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -3999,16 +4013,21 @@ pub fn get_public_listing_vitrine(
       case ret.rows {
         [] -> json_err(404, "listing_not_found")
         [first, ..] -> {
-          let #(title, description, contact_name) = first
+          let #(title, description, contact_name, location_label) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
             False -> json.string(string.trim(contact_name))
+          }
+          let loc_j = case string.trim(location_label) == "" {
+            True -> json.null()
+            False -> json.string(string.trim(location_label))
           }
           let body =
             json.object([
               #("title", json.string(title)),
               #("description", json.string(description)),
               #("contact_name", cnj),
+              #("location_label", loc_j),
             ])
             |> json.to_string
           wisp.json_response(body, 200)

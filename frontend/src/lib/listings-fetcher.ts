@@ -383,6 +383,7 @@ export async function fetchCategoryListings(
     to: query.to,
     drop_off: query.drop_off,
     theme: query.theme,
+    sort: query.sort?.trim() || undefined,
   })
 
   if (apiResult) {

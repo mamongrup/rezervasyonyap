@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { apiOriginForFetch } from '@/lib/api-origin'
-import { resolveTranslatorTimeoutMs } from '@/lib/ai-upstream-timeouts'
+import { resolveDeepseekConfigForManage } from '@/lib/manage-deepseek-config'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
 import { NextRequest, NextResponse } from 'next/server'
@@ -119,61 +119,6 @@ async function userHasAdminTranslate(token: string): Promise<boolean> {
   }
 }
 
-async function resolveDeepseekConfig(
-  token: string,
-): Promise<{ apiKey: string; model: string; url: string; timeoutMs: number } | null> {
-  const apiBase = apiOriginForFetch()
-  let settings: Record<string, unknown> | null = null
-  if (apiBase) {
-    try {
-      const r = await fetch(`${apiBase}/api/v1/site/settings?scope=platform&key=ai`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      })
-      if (r.ok) {
-        const data = (await r.json()) as { settings?: Array<{ value_json?: string }> }
-        const row = data.settings?.[0]
-        if (row?.value_json) {
-          settings = JSON.parse(row.value_json) as Record<string, unknown>
-        }
-      }
-    } catch {
-      settings = null
-    }
-  }
-
-  const timeoutMs = resolveTranslatorTimeoutMs(settings)
-
-  const envKey = process.env.DEEPSEEK_API_KEY?.trim()
-  if (envKey) {
-    return {
-      apiKey: envKey,
-      model: process.env.DEEPSEEK_MODEL?.trim() || 'deepseek-chat',
-      url:
-        process.env.DEEPSEEK_API_URL?.trim() ||
-        'https://api.deepseek.com/v1/chat/completions',
-      timeoutMs,
-    }
-  }
-
-  if (!apiBase || !settings) return null
-  const j = settings
-  const k = typeof j.deepseek_api_key === 'string' ? j.deepseek_api_key.trim() : ''
-  if (!k) return null
-  return {
-    apiKey: k,
-    model:
-      typeof j.deepseek_model === 'string' && j.deepseek_model.trim()
-        ? j.deepseek_model.trim()
-        : 'deepseek-chat',
-    url:
-      typeof j.deepseek_api_url === 'string' && j.deepseek_api_url.trim()
-        ? j.deepseek_api_url.trim()
-        : 'https://api.deepseek.com/v1/chat/completions',
-    timeoutMs,
-  }
-}
-
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
   const token = cookieStore.get('travel_auth_token')?.value
@@ -209,7 +154,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const cfg = await resolveDeepseekConfig(token)
+  const cfg = await resolveDeepseekConfigForManage(token)
   if (!cfg) {
     return NextResponse.json(
       {

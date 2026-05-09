@@ -296,6 +296,19 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     False -> pog.text(theme_raw)
   }
 
+  let sort_raw =
+    list.key_find(qs, "sort")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  // Varsayılan: `created_at` — yorum/puanı olmayan yeni ilanlar sayfa sonuna itilmesin.
+  // Eski davranış (önce yüksek puan): `?sort=recommended` veya `sort=rating`.
+  let order_sql = case sort_raw {
+    "recommended" | "rating" ->
+      "order by l.review_avg desc nulls last, l.created_at desc "
+    _ -> "order by l.created_at desc "
+  }
+
   // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
   // flex_days (0|3|7) verilirse aralık her iki uçtan o kadar genişler — daha çok sonuç.
   let start_raw =
@@ -337,7 +350,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(l.featured_image_url, l.thumbnail_url, ''), "
     <> "coalesce(l.first_charge_amount::text, ''), "
-    <> "coalesce(l.location_name, ''), "
+    <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
     <> "  when sum(case when plan_code != 'room_only' then 1 else 0 end) > 0 "
@@ -368,7 +381,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "where l.status = 'published' "
     <> "and ($1::text is null or lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug)) ilike $1 or lower(l.slug) ilike $1) "
     <> "and ($2::text is null or pc.code = $2) "
-    <> "and ($3::text is null or lower(coalesce(l.location_name,'')) ilike $3) "
+    <> "and ($3::text is null or (lower(coalesce(l.location_name, '')) ilike $3 or lower(coalesce((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1), '')) ilike $3)) "
     <> "and ($6::text is null or l.id = ANY(string_to_array($6, ',')::uuid[])) "
     <> "and ($7::text is null or $7 = '' or pc.code != 'holiday_home' or ( "
     <> "  coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[] "
@@ -386,7 +399,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
     <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
     <> ")) "
-    <> "order by l.review_avg desc nulls last, l.created_at desc "
+    <> order_sql
     <> "limit $5"
 
   case
@@ -479,6 +492,253 @@ pub fn list_public_theme_items(req: Request, ctx: Context) -> Response {
         }
       }
     }
+  }
+}
+
+// ─── Manage category_theme_items (admin / catalog) ───────────────────────────
+
+fn manage_theme_item_manage_row() -> decode.Decoder(#(String, String, String)) {
+  use id <- decode.field(0, decode.string)
+  use code <- decode.field(1, decode.string)
+  use label <- decode.field(2, decode.string)
+  decode.success(#(id, code, label))
+}
+
+fn theme_manage_ok_len(s: String, max: Int) -> Bool {
+  let t = string.trim(s)
+  case string.length(t) {
+    0 -> False
+    n ->
+      case n > max {
+        True -> False
+        False -> True
+      }
+  }
+}
+
+fn create_manage_theme_item_decoder() -> decode.Decoder(#(String, String, String, String)) {
+  decode.field("category_code", decode.string, fn(cat) {
+    decode.field("code", decode.string, fn(code) {
+      decode.field("label", decode.string, fn(label) {
+        decode.field("locale_code", decode.string, fn(loc) {
+          decode.success(#(
+            string.trim(cat),
+            string.trim(code),
+            string.trim(label),
+            string.trim(loc),
+          ))
+        })
+      })
+    })
+  })
+}
+
+fn patch_manage_theme_item_decoder() -> decode.Decoder(#(String, String)) {
+  decode.field("label", decode.string, fn(label) {
+    decode.field("locale_code", decode.string, fn(loc) {
+      decode.success(#(string.trim(label), string.trim(loc)))
+    })
+  })
+}
+
+/// GET /api/v1/catalog/manage/theme-items?category_code=holiday_home&locale=tr
+pub fn list_manage_theme_items(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      let qs = case request.get_query(req) {
+        Ok(q) -> q
+        Error(_) -> []
+      }
+      let cat =
+        list.key_find(qs, "category_code")
+        |> result.unwrap("")
+        |> string.trim
+      let loc_raw =
+        list.key_find(qs, "locale")
+        |> result.unwrap("tr")
+        |> string.trim
+      case cat == "" {
+        True -> json_err(400, "category_code_required")
+        False -> {
+          case
+            pog.query(
+              "select i.id::text, i.code::text, coalesce(nullif(trim(t.label), ''), i.code) "
+              <> "from category_theme_items i "
+              <> "left join category_theme_item_translations t on t.item_id = i.id "
+              <> "and t.locale_id = (select id from locales where lower(code) = lower($2) limit 1) "
+              <> "where i.category_code = $1 and i.is_active = true "
+              <> "order by i.sort_order, i.code",
+            )
+            |> pog.parameter(pog.text(cat))
+            |> pog.parameter(pog.text(loc_raw))
+            |> pog.returning(manage_theme_item_manage_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "manage_theme_items_failed")
+            Ok(ret) -> {
+              let rows =
+                list.map(ret.rows, fn(r) {
+                  let #(id, code, label) = r
+                  json.object([
+                    #("id", json.string(id)),
+                    #("code", json.string(code)),
+                    #("label", json.string(label)),
+                  ])
+                })
+              let body =
+                json.object([#("items", json.array(from: rows, of: fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+/// POST /api/v1/catalog/manage/theme-items
+pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, create_manage_theme_item_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(cat, code_raw, label_raw, loc_raw)) -> {
+              case
+                theme_manage_ok_len(cat, 64)
+                && theme_manage_ok_len(code_raw, 64)
+                && theme_manage_ok_len(label_raw, 500)
+                && theme_manage_ok_len(loc_raw, 16)
+              {
+                False -> json_err(400, "invalid_fields")
+                True -> {
+                  let code = string.lowercase(code_raw)
+                  case
+                    pog.query(
+                      "insert into category_theme_items (category_code, code, sort_order) "
+                      <> "values ($1, $2, coalesce((select max(sort_order) + 10 from category_theme_items i2 where i2.category_code = $1), 10)) "
+                      <> "on conflict (category_code, code) do nothing returning id::text",
+                    )
+                    |> pog.parameter(pog.text(cat))
+                    |> pog.parameter(pog.text(code))
+                    |> pog.returning(row_dec.col0_string())
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "theme_item_insert_failed")
+                    Ok(ins) ->
+                      case ins.rows {
+                        [] -> json_err(409, "theme_item_duplicate_code")
+                        [new_id] -> {
+                          case
+                            pog.query(
+                              "insert into category_theme_item_translations (item_id, locale_id, label) "
+                              <> "select $1::uuid, lo.id, $3 from locales lo where lower(lo.code) = lower($2) limit 1 "
+                              <> "on conflict (item_id, locale_id) do update set label = excluded.label",
+                            )
+                            |> pog.parameter(pog.text(new_id))
+                            |> pog.parameter(pog.text(loc_raw))
+                            |> pog.parameter(pog.text(label_raw))
+                            |> pog.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "theme_item_translation_failed")
+                            Ok(_) ->
+                              wisp.json_response(
+                                json.object([
+                                  #("id", json.string(new_id)),
+                                  #("code", json.string(code)),
+                                  #("ok", json.bool(True)),
+                                ])
+                                |> json.to_string,
+                                201,
+                              )
+                          }
+                        }
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+                }
+              }
+            }
+          }
+      }
+  }
+}
+
+/// PATCH /api/v1/catalog/manage/theme-items/:id
+pub fn patch_manage_theme_item(req: Request, ctx: Context, item_id: String) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, patch_manage_theme_item_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(label_raw, loc_raw)) ->
+              case
+                theme_manage_ok_len(label_raw, 500)
+                && theme_manage_ok_len(loc_raw, 16)
+              {
+                False -> json_err(400, "invalid_fields")
+                True ->
+                  case
+                    pog.query(
+                      "insert into category_theme_item_translations (item_id, locale_id, label) "
+                      <> "select $1::uuid, lo.id, $3 from locales lo where lower(lo.code) = lower($2) limit 1 "
+                      <> "on conflict (item_id, locale_id) do update set label = excluded.label",
+                    )
+                    |> pog.parameter(pog.text(string.trim(item_id)))
+                    |> pog.parameter(pog.text(loc_raw))
+                    |> pog.parameter(pog.text(label_raw))
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "theme_item_translation_failed")
+                    Ok(_) -> {
+                      let body =
+                        json.object([#("ok", json.bool(True))])
+                        |> json.to_string
+                      wisp.json_response(body, 200)
+                    }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/catalog/manage/theme-items/:id
+pub fn delete_manage_theme_item(req: Request, ctx: Context, item_id: String) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case
+        pog.query("delete from category_theme_items where id = $1::uuid returning id::text")
+        |> pog.parameter(pog.text(string.trim(item_id)))
+        |> pog.returning(row_dec.col0_string())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "theme_item_delete_failed")
+        Ok(r) ->
+          case r.rows {
+            [] -> json_err(404, "theme_item_not_found")
+            [_] -> {
+              let body =
+                json.object([#("ok", json.bool(True))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+            _ -> json_err(500, "unexpected")
+          }
+      }
   }
 }
 

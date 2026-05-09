@@ -1,8 +1,8 @@
 /**
- * Otel kategori tema öğeleri (tip / tema / konaklama facet).
+ * Katalog tema öğeleri (`category_theme_items`) — vitrin + yönetim uçları.
  *
- * Vitrin: `GET /api/v1/catalog/public/theme-items` (Gleam `collections_http.list_public_theme_items`).
- * Yönetim uçları backend’e eklendiğinde aşağıdaki path’ler güncellenir; şimdilik 404’te boş liste.
+ * Vitrin: `GET /api/v1/catalog/public/theme-items`
+ * Yönetim: `GET|POST|PATCH|DELETE /api/v1/catalog/manage/theme-items` (admin)
  */
 
 import { HOTEL_ACCOMMODATION_FILTER_FALLBACK } from '@/lib/hotel-accommodation-fallback'
@@ -98,29 +98,60 @@ export async function listPublicThemeItems(params: {
 
 export type ManageThemeItemRow = { id: string; code: string; label: string }
 
-/** Yönetim listesi — Bearer token (backend route yoksa boş). */
+/** Yönetim listesi — Bearer token; `facet` yalnızca `hotel` satır alt kümesi için istemci filtresi. */
 export async function listManageThemeItems(
   token: string,
-  params: { categoryCode: string; facet: ThemeFacet; locale: string },
+  params: { categoryCode: string; locale: string; facet?: ThemeFacet },
 ): Promise<{ items: ManageThemeItemRow[] }> {
   const q = new URLSearchParams({
     category_code: params.categoryCode,
-    facet: params.facet,
     locale: params.locale,
   })
+  const res = await fetch(apiV1(`/catalog/manage/theme-items?${q}`), {
+    method: 'GET',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  })
+  let data: { items?: ManageThemeItemRow[]; error?: string } | null = null
   try {
-    const res = await fetch(apiV1(`/catalog/manage/theme-items?${q}`), {
-      method: 'GET',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-    })
-    const data = await readJson<{ items?: ManageThemeItemRow[] }>(res)
-    return { items: Array.isArray(data?.items) ? data!.items! : [] }
+    data = (await res.json()) as { items?: ManageThemeItemRow[]; error?: string }
   } catch {
-    return { items: [] }
+    data = null
+  }
+  if (!res.ok) {
+    const msg = typeof data?.error === 'string' ? data.error : `http_${res.status}`
+    throw new Error(msg)
+  }
+  let items = Array.isArray(data?.items) ? data!.items! : []
+  const facet = params.facet
+  if (params.categoryCode === 'hotel' && facet != null) {
+    items = items.filter((i) => facetCodeSet(facet).has(i.code))
+  }
+  return { items }
+}
+
+export async function patchManageThemeItem(
+  token: string,
+  id: string,
+  body: { label: string; locale_code: string },
+): Promise<void> {
+  const enc = encodeURIComponent(id)
+  const res = await fetch(apiV1(`/catalog/manage/theme-items/${enc}`), {
+    method: 'PATCH',
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(t || `patch_theme_item_${res.status}`)
   }
 }
 
@@ -128,7 +159,7 @@ export async function createManageThemeItem(
   token: string,
   body: {
     category_code: string
-    facet: ThemeFacet
+    facet?: ThemeFacet
     code: string
     label: string
     locale_code: string
@@ -142,7 +173,12 @@ export async function createManageThemeItem(
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      category_code: body.category_code,
+      code: body.code,
+      label: body.label,
+      locale_code: body.locale_code,
+    }),
   })
   if (!res.ok) {
     const t = await res.text().catch(() => '')

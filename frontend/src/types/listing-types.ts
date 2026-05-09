@@ -56,6 +56,8 @@ export interface TListingBase {
   hotelTypeCode?: string
   /** Tatil evi tema kodları (API / mock) */
   themeCodes?: string[]
+  /** Sunucuda çözümlenmiş tema etiketleri — kategori kartlarında gösterim */
+  themeChipLabels?: string[]
   /** Konaklama rezervasyon kuralları (API) */
   stayBookingRules?: StayBookingRules
   /** Hasar depozitosu — `listings.first_charge_amount` (vitrin arama) */

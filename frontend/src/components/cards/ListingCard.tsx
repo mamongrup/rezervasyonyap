@@ -52,7 +52,15 @@ const ListingCard: FC<ListingCardProps> = ({
     reviewStart,
     reviewCount,
     mealPlanSummary,
+    themeChipLabels,
   } = data
+
+  const maxThemeChips = 4
+  const themeChipsVisible = themeChipLabels?.slice(0, maxThemeChips) ?? []
+  const themeChipsOverflow =
+    themeChipLabels && themeChipLabels.length > maxThemeChips
+      ? themeChipLabels.length - maxThemeChips
+      : 0
 
   const listingHref = vitrinHref(`${config.linkBase}/${handle}`)
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
@@ -115,6 +123,23 @@ const ListingCard: FC<ListingCardProps> = ({
                   <HugeiconsIcon icon={Location06Icon} size={14} color="currentColor" strokeWidth={1.5} />
                 )}
                 <span className="line-clamp-1">{address}</span>
+              </div>
+            )}
+            {themeChipsVisible.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {themeChipsVisible.map((label) => (
+                  <span
+                    key={label}
+                    className="inline-flex items-center rounded-full border border-primary-200/90 bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-950 shadow-sm dark:border-primary-800/70 dark:bg-primary-950/35 dark:text-primary-100"
+                  >
+                    {label}
+                  </span>
+                ))}
+                {themeChipsOverflow > 0 && (
+                  <span className="inline-flex items-center rounded-full border border-neutral-200 bg-neutral-50 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                    +{themeChipsOverflow}
+                  </span>
+                )}
               </div>
             )}
             {extraInfo && (

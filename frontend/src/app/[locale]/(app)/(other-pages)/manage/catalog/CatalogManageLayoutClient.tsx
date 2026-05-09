@@ -21,7 +21,8 @@ export default function CatalogManageLayoutClient({ children }: { children: Reac
       }}
       featureHint={t('catalog.feature_hint')}
     >
-      <div className="container mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      {/* Üst boşluk aynı; alt tarafı sıkı tut — site footer’ına fazla beyaz boşluk olmasın (sol menüye dokunmaz). */}
+      <div className="container mx-auto max-w-7xl px-4 pt-6 pb-3 sm:px-6 sm:pb-4">
         {children}
       </div>
     </ManageAccessGuard>

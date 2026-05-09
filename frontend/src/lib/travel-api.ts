@@ -1290,20 +1290,30 @@ export type PublicListingVitrine = {
   title: string
   description: string
   contact_name: string | null
+  /** `location_name` veya panel `listing_meta.address` birleşimi — başlık altı konum satırı */
+  location_label?: string | null
 }
 
 export async function getPublicListingVitrine(
   listingId: string,
   locale?: string,
+  fetchOpts?: { cache?: RequestCache },
 ): Promise<PublicListingVitrine | null> {
   const b = base()
   if (!b) return null
   const u = new URLSearchParams()
   if (locale?.trim()) u.set('locale', locale.trim())
   try {
+    const cacheOpt = fetchOpts?.cache
+    const init: RequestInit =
+      cacheOpt != null
+        ? { cache: cacheOpt }
+        : typeof window === 'undefined'
+          ? { next: { revalidate: 60 } }
+          : {}
     const res = await fetch(
       `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/vitrine${u.toString() ? `?${u}` : ''}`,
-      { next: { revalidate: 60 } },
+      init,
     )
     if (!res.ok) return null
     return json<PublicListingVitrine>(res)
@@ -8263,6 +8273,8 @@ export interface PublicListingSearchParams {
   listingIds?: string[]
   /** Tatil evi: tema kodları (virgülle, ör. sea_view,beachfront) — backend `theme_codes` ile kesişir */
   theme?: string
+  /** Vitrin sırası: boş → en yeni; `recommended` \| `rating` → puana göre (önce yüksek yıldız) */
+  sort?: string
 }
 
 export type MealPlanSummary = 'room_only' | 'meal_only' | 'both'
@@ -8361,6 +8373,7 @@ export async function searchPublicListings(
   if (params.drop_off?.trim())     u.set('drop_off', params.drop_off.trim())
   if (params.listingIds?.length)   u.set('listing_ids', params.listingIds.join(','))
   if (params.theme?.trim())        u.set('theme', params.theme.trim())
+  if (params.sort?.trim())         u.set('sort', params.sort.trim())
 
   try {
     const res = await fetch(

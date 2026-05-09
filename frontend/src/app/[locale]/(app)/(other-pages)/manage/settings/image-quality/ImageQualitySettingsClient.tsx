@@ -18,15 +18,14 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 /**
- * Klasör başına tasarım defaults — backend seed (260_image_upload_profiles.sql)
- * ile birebir aynı tutulmalıdır. "Varsayılana döndür" butonu bu değerlerle
- * PATCH atar; backend'de yeniden seed çalıştırmaya gerek kalmaz.
+ * Klasör başına tasarım defaults — backend seed (260) + ilan yükseltmesi (282).
+ * "Varsayılana döndür" bu değerlerle PATCH atar.
  */
 const DEFAULTS: Record<string, Partial<ImageUploadProfile>> = {
   hero:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 256 },
   site:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 0 },
   regions:        { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 256 },
-  listings:       { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 256 },
+  listings:       { width: 1600, height: 1200, fit: 'cover',  vivid: true,  quality: 90, effort: 6, thumb_size: 384 },
   tours:          { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 256 },
   events:         { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 256 },
   travel_ideas:   { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb_size: 256 },
@@ -189,9 +188,12 @@ export default function ImageQualitySettingsClient() {
           <ul className="list-inside list-disc text-blue-900/90 dark:text-blue-200/90">
             <li><strong>Genişlik/Yükseklik:</strong> hedef boyut. Daha büyük yüklenen görseller buna küçültülür.</li>
             <li><strong>Fit:</strong> <code>cover</code> tam doldur (fotoğraf), <code>inside</code> oranı koru (logo/belge).</li>
-            <li><strong>Kalite:</strong> 60 önerilir. 70+ büyür, 50 altı bozulur.</li>
+            <li>
+              <strong>Kalite (AVIF):</strong> Çoğu vitrin için 60–70 dengeli; <strong>ilan galerisi</strong> için 75–85
+              daha net (dosya büyür). 50 altı bloklanma riski.
+            </li>
             <li><strong>Effort:</strong> AVIF encode eforu (6 = küçük dosya, biraz yavaş encode).</li>
-            <li><strong>Thumb:</strong> &gt;0 ise kart/grid önizleme için kare küçük dosya üretilir (ör. 256px).</li>
+            <li><strong>Thumb:</strong> &gt;0 ise kart/grid önizleme için kare küçük dosya üretilir (ör. 384px ilanlar).</li>
           </ul>
         </div>
       </aside>
@@ -314,7 +316,7 @@ export default function ImageQualitySettingsClient() {
                     min={30}
                     max={95}
                     onChange={(v) => patchRow(row.folder, { quality: v })}
-                    hint="60 önerilir · 70+ dosya büyür · 50 altı bozulabilir"
+                    hint="Genelde 60–70; ilanlar için 75–85 netlik · 50 altı bozulabilir"
                   />
 
                   {/* Effort */}

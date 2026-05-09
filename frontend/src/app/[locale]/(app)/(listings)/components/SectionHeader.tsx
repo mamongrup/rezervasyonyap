@@ -44,21 +44,20 @@ const SectionHeader = ({
     <div className="relative listingSection__wrap">
       <div className="flex flex-col items-stretch gap-y-6">
         <div className="flex w-full min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 space-y-2">
+            <Badge>{listingCategory}</Badge>
             {themePills && themePills.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {themePills.map((label) => (
+                {themePills.map((label, idx) => (
                   <span
-                    key={label}
-                    className="rounded-full bg-neutral-100 px-3 py-1 text-sm text-neutral-800 dark:bg-neutral-800 dark:text-neutral-200"
+                    key={`${label}-${idx}`}
+                    className="inline-flex items-center rounded-full border border-primary-200/90 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-950 shadow-sm dark:border-primary-800/70 dark:bg-primary-950/35 dark:text-primary-100"
                   >
                     {label}
                   </span>
                 ))}
               </div>
-            ) : (
-              <Badge>{listingCategory}</Badge>
-            )}
+            ) : null}
           </div>
           <LikeSaveBtns className="shrink-0 pt-0.5" galleryShare={shareGallery} shareTitle={shareTitle ?? title} />
         </div>

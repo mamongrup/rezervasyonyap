@@ -224,7 +224,7 @@ export function ManageSubnav({ onNavLinkClick }: ManageSubnavProps) {
   const showPortalSelect = availablePortals.length > 1
 
   return (
-    <nav className="overflow-y-auto" aria-label="Yönetim">
+    <nav className="overflow-y-auto lg:overflow-visible" aria-label="Yönetim">
       {showEmptyHint ? (
         <p className="px-5 py-2 text-sm text-[color:var(--manage-text-muted)]">
           {navLabel(locale, 'nav.no_access', t)}

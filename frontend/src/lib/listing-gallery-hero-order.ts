@@ -1,6 +1,6 @@
 /**
- * Vitrin (ilk hücreler): her sahneden en az bir görsel, sonra kalanlar yüklenme sırasına göre.
- * Tema bileşenlerine dokunmadan sadece `images[]` sırasını üretmek için.
+ * İlan görselleri sırası: panel `sort_order` (`orderGalleryUrlsBySortOrder`) ve isteğe bağlı
+ * sahne kolajı (`orderGalleryUrlsForHero`). Detay hero/share için `galleryUrlsForStayDetailHeader`.
  */
 
 export const LISTING_IMAGE_SCENE_ORDER = [
@@ -31,14 +31,63 @@ export function storageKeyToPublicUrl(storageKey: string): string {
   return `/${k}`
 }
 
+/** Aynı URL tekrarlarını kaldırır; ilk görünüm sırasını korur (hero grid çift slot önler). */
+export function dedupeGalleryUrlsPreserveOrder(urls: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of urls) {
+    const u = raw.trim()
+    if (!u || seen.has(u)) continue
+    seen.add(u)
+    out.push(u)
+  }
+  return out
+}
+
 export type ImageRowForHero = {
   storage_key: string
   sort_order: number
   scene_code: string | null
+  /** Backend `order by sort_order, created_at` ile uyumlu beraberlik kırılımı */
+  created_at?: string
 }
 
 /**
- * Önce her kategoriden (sıra önceliğine göre) bir görsel; kalanlar sort_order ile.
+ * Panel sırası (`sort_order`, beraberlikte `created_at`) — önyüz ilan detay galerisi.
+ */
+export function orderGalleryUrlsBySortOrder(rows: ImageRowForHero[]): string[] {
+  if (rows.length === 0) return []
+  const sorted = [...rows].sort((a, b) => {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+    const ca = a.created_at ?? ''
+    const cb = b.created_at ?? ''
+    if (ca !== cb) return ca.localeCompare(cb)
+    return a.storage_key.localeCompare(b.storage_key)
+  })
+  return sorted.map((r) => storageKeyToPublicUrl(r.storage_key)).filter((u) => u.trim() !== '')
+}
+
+/**
+ * İlan detay hero: önce `galleryImgs` (panel sırası); galeri boşsa kapak (`featuredImage`).
+ * Kapak URL'si galeride zaten varsa tekrar başa alınmaz.
+ */
+export function galleryUrlsForStayDetailHeader(
+  featuredImage: string | undefined | null,
+  galleryImgs: string[] | undefined | null,
+): string[] {
+  const trimmed = (galleryImgs ?? []).map((u) => (typeof u === 'string' ? u.trim() : ''))
+  const hasAny = trimmed.some(Boolean)
+  if (!hasAny) {
+    const f = featuredImage?.trim()
+    return f ? [f] : []
+  }
+  /** Boş string'ler korunur (tatil evi hero önizlemesi 5 hücre hizası). */
+  return trimmed
+}
+
+/**
+ * Sahne öncelikli kolaj (deniz → havuz → …); vitrin **detay** sayfasında kullanılmıyor —
+ * panel sırası için `orderGalleryUrlsBySortOrder` kullanılır.
  */
 export function orderGalleryUrlsForHero(rows: ImageRowForHero[]): string[] {
   if (rows.length === 0) return []
