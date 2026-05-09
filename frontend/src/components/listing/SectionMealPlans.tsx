@@ -1,4 +1,17 @@
-import { type MealPlanItem, MEAL_PLAN_LABELS, MEAL_PLAN_LABELS_I18N, MEAL_OPTIONS, MEAL_EXTRAS_OPTIONS } from '@/lib/travel-api'
+import {
+  type MealPlanItem,
+  MEAL_PLAN_LABELS,
+  MEAL_OPTIONS,
+  MEAL_EXTRAS_OPTIONS,
+} from '@/lib/travel-api'
+import {
+  badgeLabelForPlan,
+  capacityGuestsPhraseHoliday,
+  holidayMealPlanCopy,
+  mealFormulaMiddleHoliday,
+  mealPlansIntroSubheading,
+  planLabelHolidayMeal,
+} from '@/lib/holiday-home-meal-plan-formulas'
 import { pickI18n } from '@/lib/i18n-field'
 import { Divider } from '@/shared/divider'
 import clsx from 'clsx'
@@ -7,9 +20,10 @@ interface Props {
   mealPlans: MealPlanItem[]
   locale?: string
   currency?: string
+  holidayHome?: boolean
+  maxGuests?: number | null
 }
 
-/** Locale ➜ Intl format kodu eşlemesi (TR/EN/DE/RU/ZH/FR). */
 function intlLocale(locale: string): string {
   const lc = locale.toLowerCase()
   if (lc === 'tr') return 'tr-TR'
@@ -50,97 +64,21 @@ function ExtraTag({ label }: { label: string }) {
   )
 }
 
-/** 6 dilli etiket seçimi: önce DB'den gelen `*_i18n` map, yoksa global katalog. */
-function planLabel(plan: MealPlanItem, locale: string): string {
-  const i18n = (plan as MealPlanItem & { label_i18n?: Record<string, string> }).label_i18n
-  if (i18n) {
-    const v = pickI18n(i18n, locale, '')
-    if (v) return v
-  }
-  if (locale === 'tr' && plan.label) return plan.label
-  if (locale === 'en' && plan.label_en) return plan.label_en
-  const cat = MEAL_PLAN_LABELS_I18N[plan.plan_code]
-  if (cat) return pickI18n(cat, locale, plan.label_en || plan.label)
-  return plan.label_en || plan.label
-}
-
-const COPY = {
-  heading: {
-    tr: 'Gecelik ücret seçenekleri',
-    en: 'Nightly rate options',
-    de: 'Übernachtungspreise',
-    ru: 'Ночные тарифы',
-    zh: '每晚价格选项',
-    fr: 'Options de tarif à la nuit',
-  },
-  bothSub: {
-    tr: 'Yemekli ve yemeksiz planlar — tutarlar seçeneğe göre değişir',
-    en: 'With-meals and room-only plans — amounts vary by option',
-    de: 'Mit und ohne Verpflegung — Beträge je nach Option',
-    ru: 'С питанием и без — суммы зависят от варианта',
-    zh: '含餐与不含餐方案 — 金额因选项而异',
-    fr: 'Formules avec ou sans repas — les montants varient',
-  },
-  mealsSub: {
-    tr: 'Gösterilen tutarlara yemek dahildir',
-    en: 'Rates shown include meals',
-    de: 'Die angezeigten Beträge enthalten Mahlzeiten',
-    ru: 'Указанные суммы включают питание',
-    zh: '所示金额含餐',
-    fr: 'Les montants affichés incluent les repas',
-  },
-  roomOnlySub: {
-    tr: 'Yalnızca konaklama — tabloda gösterilen tutarlara yemek dahil değildir',
-    en: 'Lodging only — meals are not included in the amounts shown',
-    de: 'Nur Übernachtung — Mahlzeiten sind in den Beträgen nicht enthalten',
-    ru: 'Только проживание — питание в указанные суммы не входит',
-    zh: '仅住宿 — 所示金额不含餐',
-    fr: 'Hébergement seul — les repas ne sont pas inclus dans les montants affichés',
-  },
-  badgeYemeksiz: {
-    tr: 'Yemeksiz',
-    en: 'Room only',
-    de: 'Ohne Verpflegung',
-    ru: 'Без питания',
-    zh: '不含餐',
-    fr: 'Sans repas',
-  },
-  badgeYemekli: {
-    tr: 'Yemekli',
-    en: 'With meals',
-    de: 'Mit Verpflegung',
-    ru: 'С питанием',
-    zh: '含餐',
-    fr: 'Avec repas',
-  },
-  perNight:   { tr: '/gece',                         en: '/night',                  de: '/Nacht',                       ru: '/ночь',                       zh: '/晚',           fr: '/nuit' },
-  includes:   { tr: 'Dahil:',                        en: 'Includes:',               de: 'Enthält:',                     ru: 'Включает:',                   zh: '包含:',         fr: 'Inclut :' },
-  noMealsTip: { tr: 'Yemek dahil değildir.',         en: 'Meals not included.',     de: 'Mahlzeiten nicht enthalten.',  ru: 'Питание не включено.',        zh: '不含餐。',     fr: 'Repas non inclus.' },
-  perNightNote: {
-    tr: 'Gösterilen fiyatlar gecelik olup seçilen seçeneğe ve tarihlere göre değişebilir.',
-    en: 'Prices shown are per night. Final price depends on selected option and dates.',
-    de: 'Die Preise verstehen sich pro Nacht; der Endpreis hängt von der Auswahl und den Daten ab.',
-    ru: 'Указанные цены за ночь; итоговая стоимость зависит от выбора и дат.',
-    zh: '显示的价格为每晚价格，最终价格取决于所选方案与日期。',
-    fr: 'Prix affichés par nuit ; le prix final dépend de l\'option et des dates.',
-  },
-}
-
-function copy(key: keyof typeof COPY, locale: string): string {
-  return pickI18n(COPY[key], locale, COPY[key].en)
-}
-
 function MealPlanCard({
   plan,
   locale,
   isOnly,
+  useVillaFormula,
+  guestCapacity,
 }: {
   plan: MealPlanItem
   locale: string
   isOnly: boolean
+  useVillaFormula: boolean
+  guestCapacity: number | null | undefined
 }) {
   const info = MEAL_PLAN_LABELS[plan.plan_code] ?? { tr: plan.label, en: plan.label_en || plan.label, emoji: '🍽️' }
-  const displayLabel = planLabel(plan, locale)
+  const displayLabel = planLabelHolidayMeal(plan, locale)
   const isRoomOnly = plan.plan_code === 'room_only'
 
   const mealLabels = plan.included_meals.map((m) => {
@@ -153,6 +91,77 @@ function MealPlanCard({
     if (opt?.label_i18n) return pickI18n(opt.label_i18n, locale, opt.labelEn || e)
     return locale === 'en' ? (opt?.labelEn ?? e) : (opt?.labelTr ?? e)
   })
+
+  const mealBadge = (
+    <span
+      className={clsx(
+        'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none tracking-wide',
+        isRoomOnly
+          ? 'bg-neutral-200/90 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100'
+          : 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200',
+      )}
+    >
+      {badgeLabelForPlan(plan, locale)}
+    </span>
+  )
+
+  const hideMealTagsRow =
+    useVillaFormula &&
+    ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(plan.plan_code)
+
+  if (useVillaFormula) {
+    const cap =
+      guestCapacity != null && Number.isFinite(guestCapacity) && guestCapacity > 0
+        ? capacityGuestsPhraseHoliday(Math.floor(guestCapacity), locale)
+        : null
+    const middle = !isRoomOnly ? mealFormulaMiddleHoliday(plan, locale) : null
+
+    return (
+      <div
+        className={clsx(
+          'relative flex flex-col gap-3 rounded-2xl border p-5 transition-shadow',
+          isRoomOnly
+            ? 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'
+            : 'border-primary-200 bg-primary-50/50 dark:border-primary-800 dark:bg-primary-900/10',
+        )}
+      >
+        <p className="text-sm font-semibold leading-relaxed text-neutral-900 dark:text-neutral-100 sm:text-base">
+          <span>{holidayMealPlanCopy('lodging', locale)}</span>
+          {middle != null ? (
+            <>
+              <span className="text-neutral-400 dark:text-neutral-500"> + </span>
+              <span>{middle}</span>
+            </>
+          ) : null}
+          {cap != null ? (
+            <span className="font-medium text-neutral-600 dark:text-neutral-400">
+              {' '}
+              ({cap})
+            </span>
+          ) : null}
+          <span className="font-normal text-neutral-400 dark:text-neutral-500"> = </span>
+          <span className="text-xl font-bold tabular-nums text-primary-600 dark:text-primary-400">
+            {formatPrice(plan.price_per_night, plan.currency_code, locale)}
+          </span>
+          <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
+            {holidayMealPlanCopy('perNight', locale)}
+          </span>
+          <span className="ms-2 inline-flex align-middle">{mealBadge}</span>
+        </p>
+
+        {!hideMealTagsRow && !isRoomOnly && (mealLabels.length > 0 || extraLabels.length > 0) && (
+          <div className="flex flex-wrap gap-1.5">
+            {mealLabels.map((ml) => (
+              <MealTag key={ml} label={ml} />
+            ))}
+            {extraLabels.map((el) => (
+              <ExtraTag key={el} label={el} />
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div
@@ -170,7 +179,7 @@ function MealPlanCard({
             <p className="font-semibold text-neutral-900 dark:text-neutral-100">{displayLabel}</p>
             {!isRoomOnly && mealLabels.length > 0 && (
               <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                {copy('includes', locale)}{' '}
+                {holidayMealPlanCopy('includes', locale)}{' '}
                 {mealLabels.join(', ')}
               </p>
             )}
@@ -181,19 +190,10 @@ function MealPlanCard({
             <span className="text-xl font-bold tabular-nums text-primary-600 dark:text-primary-400">
               {formatPrice(plan.price_per_night, plan.currency_code, locale)}
               <span className="ms-1 text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                {copy('perNight', locale)}
+                {holidayMealPlanCopy('perNight', locale)}
               </span>
             </span>
-            <span
-              className={clsx(
-                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none tracking-wide',
-                isRoomOnly
-                  ? 'bg-neutral-200/90 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100'
-                  : 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200',
-              )}
-            >
-              {copy(isRoomOnly ? 'badgeYemeksiz' : 'badgeYemekli', locale)}
-            </span>
+            {mealBadge}
           </div>
         </div>
       </div>
@@ -211,17 +211,19 @@ function MealPlanCard({
 
       {isOnly && isRoomOnly && (
         <p className="text-xs text-neutral-400 dark:text-neutral-500">
-          {copy('noMealsTip', locale)}
+          {holidayMealPlanCopy('noMealsTip', locale)}
         </p>
       )}
     </div>
   )
 }
 
-/**
- * Listing detail sayfasında yemek planı seçeneklerini gösterir — 6 dilde tam destek.
- */
-export default function SectionMealPlans({ mealPlans, locale = 'tr' }: Props) {
+export default function SectionMealPlans({
+  mealPlans,
+  locale = 'tr',
+  holidayHome = false,
+  maxGuests,
+}: Props) {
   if (!mealPlans || mealPlans.length === 0) return null
 
   const active = mealPlans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order)
@@ -230,12 +232,10 @@ export default function SectionMealPlans({ mealPlans, locale = 'tr' }: Props) {
   const hasRoomOnly = active.some((p) => p.plan_code === 'room_only')
   const hasMeals = active.some((p) => p.plan_code !== 'room_only')
   const isOnly = active.length === 1
+  const useVillaFormula = Boolean(holidayHome)
 
-  const heading = copy('heading', locale)
-  const subheading =
-    hasRoomOnly && hasMeals ? copy('bothSub', locale)
-    : hasMeals ? copy('mealsSub', locale)
-    : copy('roomOnlySub', locale)
+  const heading = holidayMealPlanCopy('heading', locale)
+  const subheading = mealPlansIntroSubheading(locale, hasRoomOnly, hasMeals)
 
   return (
     <div className="listingSection__wrap">
@@ -247,16 +247,25 @@ export default function SectionMealPlans({ mealPlans, locale = 'tr' }: Props) {
       <div
         className={clsx(
           'grid gap-4',
-          active.length === 1 ? 'grid-cols-1 max-w-sm' : 'grid-cols-1 sm:grid-cols-2',
+          active.length === 1
+            ? clsx('grid-cols-1', holidayHome ? 'max-w-3xl' : 'max-w-sm')
+            : 'grid-cols-1 sm:grid-cols-2',
         )}
       >
         {active.map((plan) => (
-          <MealPlanCard key={plan.id} plan={plan} locale={locale} isOnly={isOnly} />
+          <MealPlanCard
+            key={plan.id}
+            plan={plan}
+            locale={locale}
+            isOnly={isOnly}
+            useVillaFormula={useVillaFormula}
+            guestCapacity={maxGuests}
+          />
         ))}
       </div>
       {hasRoomOnly && hasMeals && (
         <p className="text-xs text-neutral-400 dark:text-neutral-500">
-          * {copy('perNightNote', locale)}
+          * {holidayMealPlanCopy('perNightNote', locale)}
         </p>
       )}
     </div>

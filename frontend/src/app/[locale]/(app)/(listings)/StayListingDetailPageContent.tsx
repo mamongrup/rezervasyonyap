@@ -70,6 +70,7 @@ import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowca
 import ListingAmenitiesSection from './ListingAmenitiesSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
 import ListingSeasonalPricingSection, {
+  extraChargesHasContent,
   type ListingExtraChargesModel,
 } from './ListingSeasonalPricingSection'
 import StayListingReservationCard from './StayListingReservationCard'
@@ -383,6 +384,12 @@ export default async function StayListingDetailPageContent({
         prepaymentLine: null,
       }
     : undefined
+
+  const holidayHomePricingVisible =
+    isHolidayHome &&
+    (seasonalPricingRows.length > 0 || extraChargesHasContent(seasonalExtraCharges))
+
+  const mergeHolidayMealsIntoPricing = mealPlans.length > 0 && holidayHomePricingVisible
 
   const themePillLabels = isHolidayHome
     ? await resolveHolidayThemeLabels(listing.themeCodes ?? [], locale)
@@ -872,13 +879,22 @@ export default async function StayListingDetailPageContent({
               demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
             />
           )}
-          {isHolidayHome && seasonalPricingRows.length > 0 && (
+          {holidayHomePricingVisible && (
             <ListingSeasonalPricingSection
               locale={locale}
               rows={seasonalPricingRows}
               demo={false}
               extraCharges={seasonalExtraCharges}
               dualMealPricing={dualMealPricing}
+              holidayMeals={
+                mergeHolidayMealsIntoPricing
+                  ? {
+                      plans: mealPlans,
+                      maxGuests: maxGuests ?? null,
+                      summary: listing.mealPlanSummary ?? null,
+                    }
+                  : undefined
+              }
             />
           )}
           {/* Oteller için Booking/ETStur tarzı oda kartı gösterimi; yat için
@@ -895,8 +911,13 @@ export default async function StayListingDetailPageContent({
           ) : (
             !isHolidayHome && vertical !== 'hotel' && renderSectionRoomTypes()
           )}
-          {mealPlans.length > 0 && (
-            <SectionMealPlans mealPlans={mealPlans} locale={locale} />
+          {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && (
+            <SectionMealPlans
+              mealPlans={mealPlans}
+              locale={locale}
+              holidayHome={isHolidayHome}
+              maxGuests={maxGuests}
+            />
           )}
           <StayListingCalendarBookingBlock
             locale={locale}
