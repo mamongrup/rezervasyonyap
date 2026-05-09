@@ -31,6 +31,7 @@ import {
   createListingPriceRule,
   createManageCatalogListing,
   createManageMealPlan,
+  deleteListingPriceRule,
   getAuthMe,
   getListingAttributeValues,
   getListingBasics,
@@ -202,6 +203,87 @@ async function ensureHolidayHomeMealPlanNightly(
       orgParam,
     )
   }
+}
+
+/** İlan düzenlemede vitrin `price_from` önce kurala bakıyor — «Gecelik Ücret» ile `listing_price_rules.base_nightly` senkron kalmalı */
+async function syncHolidayHomeDefaultPriceRule(
+  token: string,
+  listingId: string,
+  pricePerNight: number,
+  orgParam?: { organizationId?: string },
+): Promise<void> {
+  const { rules } = await listListingPriceRules(token, listingId, orgParam)
+  const ruleHasBase = (raw: string): boolean => {
+    try {
+      const j = JSON.parse(raw) as Record<string, unknown>
+      return j.base_nightly != null && String(j.base_nightly).trim() !== ''
+    } catch {
+      return false
+    }
+  }
+  const target =
+    rules.find((r) => {
+      try {
+        const j = JSON.parse(r.rule_json) as { label?: unknown }
+        return j.label === 'Varsayılan fiyat'
+      } catch {
+        return false
+      }
+    }) ??
+    rules.find((r) => ruleHasBase(r.rule_json)) ??
+    null
+
+  if (rules.length === 0) {
+    await createListingPriceRule(
+      token,
+      listingId,
+      {
+        rule_json: JSON.stringify({
+          base_nightly: pricePerNight,
+          label: 'Varsayılan fiyat',
+        }),
+      },
+      orgParam,
+    )
+    return
+  }
+
+  if (!target) {
+    await createListingPriceRule(
+      token,
+      listingId,
+      {
+        rule_json: JSON.stringify({
+          base_nightly: pricePerNight,
+          label: 'Varsayılan fiyat',
+        }),
+      },
+      orgParam,
+    )
+    return
+  }
+
+  let obj: Record<string, unknown>
+  try {
+    obj = JSON.parse(target.rule_json) as Record<string, unknown>
+  } catch {
+    obj = {}
+  }
+  obj.base_nightly = pricePerNight
+  if (obj.label == null || String(obj.label).trim() === '') {
+    obj.label = 'Varsayılan fiyat'
+  }
+  await deleteListingPriceRule(token, listingId, target.id, orgParam)
+  await createListingPriceRule(
+    token,
+    listingId,
+    {
+      rule_json: JSON.stringify(obj),
+      valid_from: target.valid_from ?? undefined,
+      valid_to: target.valid_to ?? undefined,
+    },
+    orgParam,
+  )
 }
 
 function parseBaseNightlyFromRuleJson(ruleJson: string): number | undefined {
@@ -1725,7 +1807,7 @@ export default function CatalogNewListingClient({
         putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam),
       )
 
-      // 3. Temel gecelik — vitrin `price_from` listing_meal_plans’tan gelir; düzenlemede de güncellenmeli
+      // 3. Temel gecelik — vitrin API önce `listing_price_rules.base_nightly`, sonra yemek planlarını okur
       if (!editListingId) {
         const price = parseFloat(basePrice.replace(',', '.'))
         if (Number.isFinite(price) && price > 0) {
@@ -1750,6 +1832,10 @@ export default function CatalogNewListingClient({
           await saveRequiredStep(
             'Gecelik ücret (yemek planı) kaydı',
             ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam),
+          )
+          await saveRequiredStep(
+            'Temel gecelik (fiyat kuralı) kaydı',
+            syncHolidayHomeDefaultPriceRule(token, lid, price, orgParam),
           )
         }
       }

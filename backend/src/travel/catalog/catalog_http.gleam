@@ -17,6 +17,7 @@ import gleam/time/calendar
 import gleam/dynamic/decode
 import pog
 import travel/db/pog_errors
+import travel/identity/admin_gate
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -5038,6 +5039,38 @@ pub fn get_public_listing_accommodation_rules(
           wisp.json_response(body, 200)
         }
         _ -> json_err(500, "accommodation_rules_public_unexpected")
+      }
+  }
+}
+
+/// GET /api/v1/admin/catalog/dashboard-stats — yayında ilan sayısı (dashboard KPI; `admin.users.read`).
+pub fn admin_dashboard_catalog_stats(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case
+        pog.query(
+          "select count(*)::text from listings where status = 'published'",
+        )
+        |> pog.returning(one_string_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "dashboard_stats_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [] -> json_err(500, "dashboard_stats_failed")
+            [cnt_txt] -> {
+              let n =
+                int.parse(string.trim(cnt_txt))
+                |> result.unwrap(0)
+              let body =
+                json.object([#("published_listings", json.int(n))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+            _ -> json_err(500, "dashboard_stats_failed")
+          }
       }
   }
 }

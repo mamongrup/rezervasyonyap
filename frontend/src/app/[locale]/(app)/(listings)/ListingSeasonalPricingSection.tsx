@@ -15,30 +15,10 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
 import { useCallback, useMemo, useState } from 'react'
+import { extraChargesHasContent, type ListingExtraChargesModel } from '@/lib/listing-extra-charges-model'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 const VISIBLE_COUNT = 7
-
-export type ListingExtraChargesModel = {
-  listingCurrency: string
-  shortStay?: { minNights: number; feeAmount: number } | null
-  /** Konaklama başına tek sefer — minimum gece kuralından bağımsız */
-  cleaningFee?: { amount: number } | null
-  damageDeposit?: { amount: number } | null
-  customFees?: Array<{ label: string; amount: string; unit: string }>
-  /** Ön ödeme yüzdesi açıklaması — ek ücretler listesinin en altında */
-  prepaymentLine?: string | null
-}
-
-export function extraChargesHasContent(e?: ListingExtraChargesModel): boolean {
-  if (!e) return false
-  if (e.shortStay != null && e.shortStay.minNights > 0 && e.shortStay.feeAmount > 0) return true
-  if (e.cleaningFee != null && e.cleaningFee.amount > 0) return true
-  if (e.damageDeposit != null && e.damageDeposit.amount > 0) return true
-  if (e.customFees?.some((x) => x.label.trim() && x.amount.trim())) return true
-  if (e.prepaymentLine?.trim()) return true
-  return false
-}
 
 function parseFeeAmountString(raw: string): number | null {
   const n = parseFloat(String(raw).replace(/\s/g, '').replace(',', '.'))

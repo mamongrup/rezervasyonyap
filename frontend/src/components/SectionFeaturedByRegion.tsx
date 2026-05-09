@@ -47,8 +47,7 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
 
   const [brokenImage, setBrokenImage] = useState(false)
   const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
-  const uploadsBlocked = trimmed.startsWith('/uploads/')
-  const showRemoteImage = Boolean(trimmed) && !uploadsBlocked && !brokenImage
+  const showRemoteImage = Boolean(trimmed) && !brokenImage
 
   return (
     <div className="group relative">
@@ -63,7 +62,11 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
                 alt={title ?? 'listing'}
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)}
+                unoptimized={
+                  trimmed.startsWith('data:') ||
+                  trimmed.startsWith('/uploads/') ||
+                  /^https?:\/\//i.test(trimmed)
+                }
                 onError={() => setBrokenImage(true)}
               />
             ) : (

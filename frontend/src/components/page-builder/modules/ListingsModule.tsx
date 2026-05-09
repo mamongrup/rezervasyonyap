@@ -59,7 +59,7 @@ const TABS: Tab[] = [
     id: 'campaign',
     label: 'Kampanyalı',
     icon: <HugeiconsIcon icon={Megaphone01Icon} className={tabIconClass} strokeWidth={1.75} />,
-    filter: (l) => Boolean(l.isCampaign),
+    filter: (l) => Boolean(l.isCampaign) || Boolean(l.instantBook),
   },
 ]
 

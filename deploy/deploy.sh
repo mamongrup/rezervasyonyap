@@ -71,6 +71,14 @@ git_sync_ref() {
   # GIT_SYNC_KEEP_LOCAL=1 ile bu adimi atlayip elle stash/commit yapabilirsiniz.
   if [[ "${GIT_SYNC_KEEP_LOCAL:-0}" != "1" ]]; then
     git reset --hard HEAD
+    # Sunucuda `npm audit fix` vb. ile kirlenen kilidi checkout bloklamasin (skip-worktree ise coz).
+    git update-index --no-skip-worktree frontend/package-lock.json 2>/dev/null || true
+    git update-index --no-skip-worktree frontend/package.json 2>/dev/null || true
+    git checkout HEAD -- frontend/package-lock.json frontend/package.json 2>/dev/null \
+      || git restore --source=HEAD --staged --worktree frontend/package-lock.json frontend/package.json 2>/dev/null \
+      || true
+  else
+    warn "GIT_SYNC_KEEP_LOCAL=1 — yerel degisiklikler korunuyor; checkout takilirsa stash/commit yapin."
   fi
   if git show-ref --verify --quiet "refs/remotes/origin/$ref"; then
     git checkout -B "$ref" "origin/$ref"

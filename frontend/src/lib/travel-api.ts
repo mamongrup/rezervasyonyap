@@ -3560,6 +3560,22 @@ export async function getAdminReservations(
   return json(res)
 }
 
+/** Admin dashboard — `listings.status = published` toplamı (`admin.users.read`). */
+export async function getAdminCatalogDashboardStats(
+  token: string,
+): Promise<{ published_listings: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/admin/catalog/dashboard-stats`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `admin_catalog_dashboard_stats_${res.status}`)
+  }
+  return json(res)
+}
+
 /** Personel — kurum ilanları (salt okuma; tedarikçi paneli ile aynı alanlar). */
 export type StaffListingRow = SupplierListingRow
 
@@ -8300,6 +8316,8 @@ export interface PublicListingItem {
   review_count?: number
   is_new?: boolean
   discount_percent: number | null
+  /** Panel «anında onay» — kampanya öne çıkarma filtresi */
+  instant_book?: boolean
   is_campaign?: boolean
   created_at?: string
   /**
@@ -8340,6 +8358,8 @@ export interface PublicListingItem {
   cleaning_fee_amount?: string | null
   /** Hasar depozitosu — `listings.first_charge_amount` */
   first_charge_amount?: string | null
+  /** Kategori kartı galeri — `listing_images` (en fazla 12, sıralı) */
+  gallery_urls?: string[] | null
 }
 
 export interface PublicListingSearchResult {

@@ -69,10 +69,8 @@ import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
 import ListingAmenitiesSection from './ListingAmenitiesSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
-import ListingSeasonalPricingSection, {
-  extraChargesHasContent,
-  type ListingExtraChargesModel,
-} from './ListingSeasonalPricingSection'
+import { extraChargesHasContent, type ListingExtraChargesModel } from '@/lib/listing-extra-charges-model'
+import ListingSeasonalPricingSection from './ListingSeasonalPricingSection'
 import StayListingReservationCard from './StayListingReservationCard'
 import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
 import SectionHeader from './components/SectionHeader'
@@ -793,17 +791,17 @@ export default async function StayListingDetailPageContent({
     />
   )
 
-  const perksStrip = (
-    <div className="flex flex-col gap-2 px-1">
-      <ListingPerksBadges
-        listingId={listing.id}
-        basePrice={typeof reservationPriceAmount === 'number' ? reservationPriceAmount : undefined}
-        currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
-        hideInstantBook
-      />
-      <SocialProofBadge listingId={listing.id} />
-    </div>
+  const perksBadges = (
+    <ListingPerksBadges
+      listingId={listing.id}
+      basePrice={typeof reservationPriceAmount === 'number' ? reservationPriceAmount : undefined}
+      currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
+      hideInstantBook
+      className="px-1"
+    />
   )
+
+  const socialProof = <SocialProofBadge listingId={listing.id} className="px-1" />
 
   // ── Render ───────────────────────────────────────────────────────────────────
 
@@ -834,7 +832,8 @@ export default async function StayListingDetailPageContent({
         {/* LEFT COLUMN */}
         <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
-          {perksStrip}
+          {perksBadges}
+          {socialProof}
           {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
               tatil evinde havuz/tema bölümleri zaten benzer işlevi görüyor. */}
           {!isHolidayHome ? (

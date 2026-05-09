@@ -38,6 +38,7 @@ export const tr = {
   },
   common: {
     ...en.common,
+    'Show all photos': 'Tüm fotoğrafları göster',
     'View all': 'Tümünü gör',
     'Show me more': 'Daha fazla göster',
     night: 'gece',

@@ -4,6 +4,8 @@ import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
+import { ArrowLeft02Icon, ArrowRight02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 interface GallerySliderProps {
   className?: string
   uniqueID?: string
@@ -45,20 +47,14 @@ export default function GallerySlider({
   navigation = true,
 }: GallerySliderProps) {
   const [index, setIndex] = useState(0)
-  const images = galleryToUrlStrings(galleryImgs ?? []).filter(
-    (u) => u.trim() !== '' && !u.trim().startsWith('/uploads/'),
-  )
-
-  function changePhotoId(newVal: number) {
-    setIndex(newVal)
-  }
+  const images = galleryToUrlStrings(galleryImgs ?? []).filter((u) => u.trim() !== '')
 
   const currentSrc = images.length > 0 ? (images[index] ?? images[0]) : ''
 
   return (
     <div className={clsx(`group/cardGallerySlider group relative`, className)}>
       {/* Main image */}
-      <div className={clsx(`w-full overflow-hidden rounded-xl`, galleryClass)}>
+      <div className={clsx(`relative w-full overflow-hidden rounded-xl`, galleryClass)}>
         <Link href={href} className={clsx(`relative flex items-center justify-center`, ratioClass)}>
           <div className="absolute inset-0">
             {currentSrc ? (
@@ -68,20 +64,51 @@ export default function GallerySlider({
                 alt="listing card gallery"
                 className={clsx(`rounded-xl object-cover`, imageClass)}
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={currentSrc.startsWith('data:') || /^https?:\/\//i.test(currentSrc)}
+                unoptimized={
+                  currentSrc.startsWith('data:') ||
+                  currentSrc.startsWith('/uploads/') ||
+                  /^https?:\/\//i.test(currentSrc)
+                }
               />
             ) : (
               <div className="absolute inset-0 rounded-xl bg-neutral-200 dark:bg-neutral-700" aria-hidden />
             )}
           </div>
         </Link>
+        {navigation && images.length > 1 && (
+          <>
+            <button
+              type="button"
+              className="absolute start-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-900 opacity-100 shadow-md transition-opacity hover:bg-white sm:opacity-0 sm:hover:bg-white sm:group-hover/cardGallerySlider:opacity-100 dark:bg-neutral-900/90 dark:text-white dark:hover:bg-neutral-900 rtl:flex-row-reverse"
+              aria-label="Previous photo"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (images.length < 2) return
+                setIndex((i) => (i - 1 + images.length) % images.length)
+              }}
+            >
+              <HugeiconsIcon icon={ArrowLeft02Icon} size={18} strokeWidth={2} />
+            </button>
+            <button
+              type="button"
+              className="absolute end-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-neutral-900 opacity-100 shadow-md transition-opacity hover:bg-white sm:opacity-0 sm:hover:bg-white sm:group-hover/cardGallerySlider:opacity-100 dark:bg-neutral-900/90 dark:text-white dark:hover:bg-neutral-900 rtl:flex-row-reverse"
+              aria-label="Next photo"
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                if (images.length < 2) return
+                setIndex((i) => (i + 1) % images.length)
+              }}
+            >
+              <HugeiconsIcon icon={ArrowRight02Icon} size={18} strokeWidth={2} />
+            </button>
+          </>
+        )}
       </div>
 
       {/* Buttons + bottom nav bar */}
       <>
-        {/* DOM/TBT optimizasyonu: kartlarda yüzlerce tekrar eden ok butonunu kaldırıyoruz.
-            Kaydırma noktaları (dot) ile gezinme korunur, ilk yükte node sayısı düşer. */}
-
         {/* Bottom Nav bar */}
         <div
           className={clsx(
@@ -93,8 +120,9 @@ export default function GallerySlider({
           <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center justify-center gap-x-1.5">
             {images.map((_, i) => (
               <button
+                type="button"
                 className={`h-1.5 w-1.5 rounded-full ${i === index ? 'bg-white' : 'bg-white/60'}`}
-                onClick={() => changePhotoId(i)}
+                onClick={() => setIndex(i)}
                 key={uniqueID ? `${uniqueID}-dot-${i}` : i}
                 aria-label={`Go to image ${i + 1}`}
               />

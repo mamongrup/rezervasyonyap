@@ -62,6 +62,8 @@ export interface TListingBase {
   stayBookingRules?: StayBookingRules
   /** Hasar depozitosu — `listings.first_charge_amount` (vitrin arama) */
   firstChargeAmount?: number
+  /** Panel — Anında onay / vitrin kampanya modülü filtresi */
+  instantBook?: boolean
   /** Temizlik ücreti (konaklama başına, tek sefer) — `listings.cleaning_fee_amount` */
   cleaningFeeAmount?: number
   /** Tatil evi dikey meta `extra_fees` (etiket + tutar + birim) */

@@ -6,6 +6,8 @@
  * Tüm kategori sayfaları bu helper'ı kullanmalı.
  */
 
+import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
+import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { searchPublicListings, type PublicListingItem } from '@/lib/travel-api'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -113,6 +115,37 @@ function parseFirstChargeAmount(raw: string | null | undefined): number | undefi
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+function coercePositiveDiscountPercent(v: unknown): number | undefined {
+  if (v == null) return undefined
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/\s/g, '').replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+function normalizeListingCoverUrl(raw: string | null | undefined): string {
+  const url = storageKeyToPublicUrl(String(raw ?? '').trim())
+  return url ? preferListingGalleryFullAsset(url) : ''
+}
+
+function normalizePublicListingGallery(paths: string[] | null | undefined): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const p of paths ?? []) {
+    const u = normalizeListingCoverUrl(p)
+    if (u === '' || seen.has(u)) continue
+    seen.add(u)
+    out.push(u)
+  }
+  return out
+}
+
+function listingCreatedWithinDays(createdAt: string | undefined | null, days: number): boolean {
+  const s = createdAt?.trim()
+  if (!s) return false
+  const t = Date.parse(s)
+  if (Number.isNaN(t)) return false
+  return (Date.now() - t) / 86_400_000 <= days
+}
+
 export function mapPublicListingItemToListingBase(item: PublicListingItem): TListingBase {
   const stayBookingRules = parseStayBookingRulesFromPublicItem(item)
   const cur = (item.currency_code?.trim() || 'TRY').toUpperCase()
@@ -121,8 +154,8 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
     raw != null && String(raw).trim() !== ''
       ? parseFloat(String(raw).replace(/\s/g, '').replace(/,/g, '.'))
       : NaN
-  const priceAmount = Number.isFinite(num) ? num : undefined
-  const price =
+  let priceAmount = Number.isFinite(num) ? num : undefined
+  let price =
     priceAmount != null ? formatMoneyIntl(priceAmount, cur) : undefined
 
   const mealPlanSummary = item.meal_plan_summary ?? undefined
@@ -160,6 +193,15 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
   const firstChargeAmount = parseFirstChargeAmount(item.first_charge_amount ?? undefined)
   const cleaningFeeAmount = parseFirstChargeAmount(item.cleaning_fee_amount ?? undefined)
 
+  const coverRaw = normalizeListingCoverUrl(item.featured_image_url ?? item.thumbnail_url)
+  let imgs = normalizePublicListingGallery(
+    Array.isArray(item.gallery_urls) ? item.gallery_urls : undefined,
+  )
+  if (coverRaw !== '' && !imgs.includes(coverRaw)) imgs.unshift(coverRaw)
+  const galleryImgs = imgs.length > 0 ? imgs : undefined
+
+  const discountPct = coercePositiveDiscountPercent(item.discount_percent)
+
   const base: TListingBase = {
     id: item.id,
     handle: item.slug,
@@ -173,13 +215,15 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
     priceCurrency: cur,
     reviewStart,
     reviewCount: item.review_count ?? 0,
-    featuredImage: item.featured_image_url ?? item.thumbnail_url ?? undefined,
-    isNew: item.is_new ?? false,
-    discountPercent: item.discount_percent ?? undefined,
+    featuredImage: imgs[0] ?? (coverRaw !== '' ? coverRaw : undefined),
+    ...(galleryImgs ? { galleryImgs } : {}),
+    isNew: Boolean(item.is_new) || listingCreatedWithinDays(item.created_at, 30),
+    discountPercent: discountPct,
     isCampaign: item.is_campaign ?? false,
-    createdAt: item.created_at ?? '',
+    createdAt: item.created_at?.trim() ? item.created_at.trim() : '',
     like: false,
-    saleOff: item.discount_percent != null ? `%${item.discount_percent}` : null,
+    saleOff: discountPct != null ? `%${discountPct}` : null,
+    ...(item.instant_book === true ? { instantBook: true } : {}),
     isAds: null,
     mealPlanSummary,
     ...(map != null ? { map } : {}),
@@ -336,19 +380,22 @@ export async function fetchFlexibleHolidayListings(
     region && region !== 'all' ? region.replace(/-/g, ' ') : undefined
   const apiLocation = query.location?.trim() || regionAsLocation || undefined
 
-  const apiResult = await searchPublicListings({
-    categoryCode: 'holiday_home',
-    location: apiLocation,
-    checkin: relaxed.checkin,
-    checkout: relaxed.checkout,
-    guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
-    page: 1,
-    perPage: 36,
-    locale: locale || 'tr',
-    from: relaxed.from,
-    to: relaxed.to,
-    drop_off: relaxed.drop_off,
-  })
+  const apiResult = await searchPublicListings(
+    {
+      categoryCode: 'holiday_home',
+      location: apiLocation,
+      checkin: relaxed.checkin,
+      checkout: relaxed.checkout,
+      guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
+      page: 1,
+      perPage: 36,
+      locale: locale || 'tr',
+      from: relaxed.from,
+      to: relaxed.to,
+      drop_off: relaxed.drop_off,
+    },
+    { cache: 'no-store' },
+  )
 
   if (apiResult) {
     let rows = apiResult.listings.map(mapPublicListingItemToListingBase)
@@ -378,21 +425,24 @@ export async function fetchCategoryListings(
   const apiLocation =
     query.location?.trim() || regionAsLocation || undefined
 
-  const apiResult = await searchPublicListings({
-    categoryCode,
-    location: apiLocation,
-    checkin: query.checkin,
-    checkout: query.checkout,
-    guests: query.guests ? parseInt(query.guests, 10) : undefined,
-    page,
-    perPage,
-    locale: locale || 'tr',
-    from: query.from,
-    to: query.to,
-    drop_off: query.drop_off,
-    theme: query.theme,
-    sort: query.sort?.trim() || undefined,
-  })
+  const apiResult = await searchPublicListings(
+    {
+      categoryCode,
+      location: apiLocation,
+      checkin: query.checkin,
+      checkout: query.checkout,
+      guests: query.guests ? parseInt(query.guests, 10) : undefined,
+      page,
+      perPage,
+      locale: locale || 'tr',
+      from: query.from,
+      to: query.to,
+      drop_off: query.drop_off,
+      theme: query.theme,
+      sort: query.sort?.trim() || undefined,
+    },
+    { cache: 'no-store' },
+  )
 
   if (apiResult) {
     let rows = apiResult.listings.map(mapPublicListingItemToListingBase)

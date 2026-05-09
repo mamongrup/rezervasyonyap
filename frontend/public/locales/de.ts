@@ -35,6 +35,7 @@ export const de: AppMessages = {
   },
   common: {
     ...en.common,
+    'Show all photos': 'Alle Fotos anzeigen',
     pagination: {
       previous: 'Zurück',
       next: 'Weiter',

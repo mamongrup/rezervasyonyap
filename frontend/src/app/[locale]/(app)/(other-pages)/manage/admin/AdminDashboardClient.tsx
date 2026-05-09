@@ -2,6 +2,7 @@
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
+  getAdminCatalogDashboardStats,
   getAdminReservations,
   getAuthMe,
   getStaffInvoices,
@@ -338,6 +339,7 @@ export default function AdminDashboardClient() {
   const [invoices, setInvoices] = useState<StaffInvoiceRow[]>([])
   const [reservations, setReservations] = useState<StaffReservationRow[]>([])
   const [notFoundCount, setNotFoundCount] = useState(0)
+  const [publishedListings, setPublishedListings] = useState(0)
   const [loading, setLoading] = useState(true)
   const monthLabels = useMemo(() => buildMonthLabels(6), [])
   const params = useParams()
@@ -352,14 +354,17 @@ export default function AdminDashboardClient() {
       const perms = Array.isArray(me.permissions) ? me.permissions : []
       const roles = Array.isArray(me.roles) ? me.roles : []
       const admin = isFullAdminUser(perms, roles)
-      const [invRes, resRes, seoRes] = await Promise.allSettled([
+      const [invRes, resRes, seoRes, statsRes] = await Promise.allSettled([
         getStaffInvoices(token),
         admin ? getAdminReservations(token, { limit: 200 }) : getStaffReservations(token),
         listSeoNotFoundLogs(token),
+        admin ? getAdminCatalogDashboardStats(token) : Promise.resolve({ published_listings: 0 }),
       ])
       if (invRes.status === 'fulfilled') setInvoices(invRes.value.invoices)
       if (resRes.status === 'fulfilled') setReservations(resRes.value.reservations)
       if (seoRes.status === 'fulfilled') setNotFoundCount(seoRes.value.logs.length)
+      if (statsRes.status === 'fulfilled')
+        setPublishedListings(Math.max(0, Number(statsRes.value.published_listings ?? 0)))
     } catch {
       /* ignore */
     } finally {
@@ -487,7 +492,7 @@ export default function AdminDashboardClient() {
       <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
         <KpiCard
           label="Toplam ilan"
-          value={fmtCount(0)}
+          value={fmtCount(publishedListings)}
           sub="yayında"
           icon={Layers}
           iconColor="#00a76f"

@@ -34,7 +34,7 @@ export type StayListingReservationCardProps = {
   damageDepositAmount?: number
   /** `listing_price_rules` içinden minimum gecelik — depozito ile çakışan plan yerine */
   ruleFallbackNightly?: number
-  /** Anında Onay rozeti — fiyat satırıyla aynı hizada sağda */
+  /** Anında onay + yemek planı rozeti — sağ üst sütun (kart başlığı) */
   listingId?: string
 }
 
@@ -119,66 +119,62 @@ export default function StayListingReservationCard({
           'rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6',
       )}
     >
-      <div className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <div
-            className={clsx(
-              'flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-1',
-              showDiscountRow &&
-                originalPriceNum != null &&
-                Number.isFinite(originalPriceNum) &&
-                originalPriceNum > basePriceNum
-                ? 'items-end'
-                : 'items-baseline',
-            )}
-          >
-            {showDiscountRow &&
-            originalPriceNum != null &&
-            Number.isFinite(originalPriceNum) &&
-            originalPriceNum > basePriceNum ? (
-              <div className="flex min-w-0 flex-col gap-1">
-                {discountPct != null ? (
-                  <span className="inline-flex w-fit items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold leading-none text-red-700 dark:bg-red-950/50 dark:text-red-300">
-                    {messages.listing.sidebar.discountBadge.replace('{percent}', String(discountPct))}
-                  </span>
-                ) : null}
-                <span className="text-sm font-medium tabular-nums leading-none line-through text-neutral-400 sm:text-base dark:text-neutral-500">
-                  {formatConverted(originalPriceNum, currencyCode)}
+      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
+        <div
+          className={clsx(
+            'flex min-w-0 flex-1 flex-wrap gap-x-3 gap-y-1',
+            showDiscountRow &&
+              originalPriceNum != null &&
+              Number.isFinite(originalPriceNum) &&
+              originalPriceNum > basePriceNum
+              ? 'items-end'
+              : 'items-baseline',
+          )}
+        >
+          {showDiscountRow &&
+          originalPriceNum != null &&
+          Number.isFinite(originalPriceNum) &&
+          originalPriceNum > basePriceNum ? (
+            <div className="flex min-w-0 flex-col gap-1">
+              {discountPct != null ? (
+                <span className="inline-flex w-fit items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold leading-none text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                  {messages.listing.sidebar.discountBadge.replace('{percent}', String(discountPct))}
                 </span>
-              </div>
-            ) : null}
-            <span className="text-2xl font-semibold leading-none text-neutral-900 sm:text-3xl dark:text-neutral-100">
-              {displayMainPrice}
-            </span>
-            <span className="text-base font-normal leading-none text-neutral-500 dark:text-neutral-400">
-              {messages.listing.sidebar.perNight}
-            </span>
-          </div>
-          {listingId ? (
-            <div className="ml-auto shrink-0 self-center">
-              <ListingInstantApprovalTitleBadge listingId={listingId} />
+              ) : null}
+              <span className="text-sm font-medium tabular-nums leading-none line-through text-neutral-400 sm:text-base dark:text-neutral-500">
+                {formatConverted(originalPriceNum, currencyCode)}
+              </span>
+            </div>
+          ) : null}
+          <span className="text-2xl font-semibold leading-none text-neutral-900 sm:text-3xl dark:text-neutral-100">
+            {displayMainPrice}
+          </span>
+          <span className="text-base font-normal leading-none text-neutral-500 dark:text-neutral-400">
+            {messages.listing.sidebar.perNight}
+          </span>
+        </div>
+        <div className="ml-auto flex shrink-0 flex-col items-end gap-1.5">
+          {listingId ? <ListingInstantApprovalTitleBadge listingId={listingId} /> : null}
+          {cheapestPlan ? (
+            <div className="flex max-w-[min(100%,14rem)] flex-wrap justify-end gap-1.5 sm:max-w-none">
+              {hasMultiplePlans && (
+                <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                  {messages.listing.sidebar.mealPlanFromMany.replace('{count}', String(activePlans.length))}
+                </span>
+              )}
+              {!hasMultiplePlans && hasMealPlan && (
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                  {messages.listing.sidebar.mealPlanMealsIncluded}
+                </span>
+              )}
+              {!hasMultiplePlans && !hasMealPlan && (
+                <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+                  {messages.listing.sidebar.mealPlanRoomOnly}
+                </span>
+              )}
             </div>
           ) : null}
         </div>
-        {cheapestPlan && (
-          <div className="flex flex-wrap gap-1.5">
-            {hasMultiplePlans && (
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                {messages.listing.sidebar.mealPlanFromMany.replace('{count}', String(activePlans.length))}
-              </span>
-            )}
-            {!hasMultiplePlans && hasMealPlan && (
-              <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
-                {messages.listing.sidebar.mealPlanMealsIncluded}
-              </span>
-            )}
-            {!hasMultiplePlans && !hasMealPlan && (
-              <span className="inline-flex items-center rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
-                {messages.listing.sidebar.mealPlanRoomOnly}
-              </span>
-            )}
-          </div>
-        )}
       </div>
 
       <Form

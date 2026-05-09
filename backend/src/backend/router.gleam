@@ -637,6 +637,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "admin", "reservations"] ->
       booking_http.list_admin_reservations(req, ctx)
 
+    http.Get, ["api", "v1", "admin", "catalog", "dashboard-stats"] ->
+      catalog_http.admin_dashboard_catalog_stats(req, ctx)
+
     // ── Provizyon — Admin ──────────────────────────────────────────────
     http.Get, ["api", "v1", "admin", "provizyon"] ->
       provizyon_http.admin_list(req, ctx)

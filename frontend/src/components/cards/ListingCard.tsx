@@ -88,6 +88,7 @@ const ListingCard: FC<ListingCardProps> = ({
       {/* Gallery */}
       <div className="relative w-full">
         <GallerySlider
+          uniqueID={String(data.id)}
           ratioClass={ratioClass}
           galleryImgs={galleryImgs}
           href={listingHref}

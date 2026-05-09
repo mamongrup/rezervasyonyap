@@ -63,8 +63,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
       : (galleryImgs?.[0] as { src: string } | undefined)?.src) || featuredImage
   const [brokenImage, setBrokenImage] = useState(false)
   const trimmed = typeof imgSrcRaw === 'string' ? imgSrcRaw.trim() : ''
-  const uploadsBlocked = trimmed.startsWith('/uploads/')
-  const showRemoteImage = Boolean(trimmed) && !uploadsBlocked && !brokenImage
+  const showRemoteImage = Boolean(trimmed) && !brokenImage
 
   const renderSliderGallery = () => {
     return (
@@ -78,7 +77,11 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
                 alt={title ?? 'listing'}
                 className="object-cover transition-transform duration-300 group-hover:scale-105"
                 sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, (max-width: 1280px) 31vw, 24vw"
-                unoptimized={trimmed.startsWith('data:') || /^https?:\/\//i.test(trimmed)}
+                unoptimized={
+                  trimmed.startsWith('data:') ||
+                  trimmed.startsWith('/uploads/') ||
+                  /^https?:\/\//i.test(trimmed)
+                }
                 onError={() => setBrokenImage(true)}
               />
             ) : (

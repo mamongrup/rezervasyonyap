@@ -3,6 +3,7 @@
 import backend/context.{type Context}
 import gleam/bit_array
 import gleam/dynamic/decode
+import gleam/float
 import gleam/http
 import gleam/http/request
 import gleam/int
@@ -62,6 +63,10 @@ fn pub_listing_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
+    String,
+    String,
+    String,
   ),
 ) {
   use id <- decode.field(0, decode.string)
@@ -92,6 +97,10 @@ fn pub_listing_row() -> decode.Decoder(
   use cleaning_fee_amount <- decode.field(25, decode.string)
   use first_charge_amount <- decode.field(26, decode.string)
   use meta_bed_count <- decode.field(27, decode.string)
+  use created_at_raw <- decode.field(28, decode.string)
+  use mobile_discount_raw <- decode.field(29, decode.string)
+  use instant_book_raw <- decode.field(30, decode.string)
+  use gallery_paths_agg <- decode.field(31, decode.string)
   decode.success(#(
     id,
     slug,
@@ -121,6 +130,10 @@ fn pub_listing_row() -> decode.Decoder(
     cleaning_fee_amount,
     first_charge_amount,
     meta_bed_count,
+    created_at_raw,
+    mobile_discount_raw,
+    instant_book_raw,
+    gallery_paths_agg,
   ))
 }
 
@@ -131,8 +144,39 @@ fn json_opt_str(s: String) -> json.Json {
   }
 }
 
+/// Mobil indirim % — vitrin liste kartı / page-builder «indirimli» filtresi
+fn json_opt_discount_percent(raw: String) -> json.Json {
+  let t = string.trim(raw)
+  case t == "" {
+    True -> json.null()
+    False ->
+      case float.parse(t) {
+        Ok(f) ->
+          case f >. 0.0 {
+            True -> json.float(f)
+            False -> json.null()
+          }
+        Error(_) -> json.null()
+      }
+  }
+}
+
+/// Public liste kartı — `listing_images` birleşimi (PG `string_agg`, ayraç ASCII unit separator)
+fn gallery_urls_json(raw: String) -> json.Json {
+  let parts =
+    string.trim(raw)
+    |> string.split("\u{001F}")
+    |> list.map(string.trim)
+    |> list.filter(fn(s) { s != "" })
+  json.array(from: parts, of: json.string)
+}
+
 fn pub_listing_json(
   row: #(
+    String,
+    String,
+    String,
+    String,
     String,
     String,
     String,
@@ -192,6 +236,10 @@ fn pub_listing_json(
     cleaning_fee_amount,
     first_charge_amount,
     meta_bed_count,
+    created_at_raw,
+    mobile_discount_raw,
+    instant_book_raw,
+    gallery_paths_agg,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -206,6 +254,8 @@ fn pub_listing_json(
     True -> json.null()
     False -> json.string(map_lng_s)
   }
+  let discount_j = json_opt_discount_percent(mobile_discount_raw)
+  let instant_j = json.bool(instant_book_raw == "true")
   json.object([
     #("id", json.string(id)),
     #("slug", json.string(slug)),
@@ -237,6 +287,10 @@ fn pub_listing_json(
     #("currency_code", json_opt_str(currency_code)),
     #("cleaning_fee_amount", json_opt_str(cleaning_fee_amount)),
     #("first_charge_amount", json_opt_str(first_charge_amount)),
+    #("created_at", json_opt_str(created_at_raw)),
+    #("discount_percent", discount_j),
+    #("instant_book", instant_j),
+    #("gallery_urls", gallery_urls_json(gallery_paths_agg)),
   ])
 }
 
@@ -354,9 +408,12 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     "select l.id::text, l.slug, "
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
-    <> "coalesce(l.featured_image_url, l.thumbnail_url, ''), "
-    <> "coalesce((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true), ''), "
-    <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
+    <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
+    // Vitrin gecelik: önce listing_price_rules (panel «Varsayılan fiyat» / base_nightly);
+    // sonra aktif `room_only` yemek planı (depozito ile aynı rakam vitrine düşmesin diye önceki davranışta kayboluyordu);
+    // sonra depozitodan farklı planların minimumu; en sonda depozito null ise tüm planların minimumu.
+    <> "coalesce(nullif((select min(u.v)::text from listing_price_rules r cross join lateral (values (case when replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.')::numeric end)) as u(v) where r.listing_id = l.id and u.v is not null), ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
+    <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'district_label'), ''), nullif(trim(lm.meta->>'city'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
     <> "  when sum(case when plan_code != 'room_only' then 1 else 0 end) > 0 "
@@ -366,29 +423,31 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "  else null end "
     <> "from listing_meal_plans where listing_id = l.id and is_active = true), '') "
     <> ", coalesce(l.map_lat::text, ''), coalesce(l.map_lng::text, '') "
-    <> ", coalesce((select value_json->>'max_guests' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
-    <> ", coalesce((select value_json->>'room_count' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
-    <> ", coalesce((select value_json->>'bath_count' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
-    <> ", coalesce((select value_json->>'property_type' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'max_guests'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'room_count'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'bath_count'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'property_type'), ''), '') "
     <> ", coalesce(array_to_string(h.theme_codes, ','), '') "
     <> ", coalesce(l.ministry_license_ref::text, ''), coalesce(l.prepayment_percent::text, '') "
     <> ", coalesce(l.cancellation_policy_text::text, '') "
     <> ", coalesce(l.min_stay_nights::text, '') "
     <> ", case when coalesce(l.allow_sub_min_stay_gap_booking, false) then 'true' else 'false' end "
-    <> ", coalesce((select value_json->>'min_advance_booking_days' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
-    <> ", coalesce((select value_json->>'min_short_stay_nights' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
-    <> ", coalesce((select value_json->>'short_stay_fee' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'min_advance_booking_days'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'min_short_stay_nights'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'short_stay_fee'), ''), '') "
     <> ", coalesce(l.currency_code::text, '') "
     <> ", coalesce(l.cleaning_fee_amount::text, '') "
     <> ", coalesce(l.first_charge_amount::text, '') "
-    <> ", coalesce((select value_json->>'bed_count' from listing_attributes la where la.listing_id = l.id and la.group_code='listing_meta' and la.key='v1' limit 1), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
+    <> ", coalesce(l.created_at::text, ''), coalesce(nullif(trim(l.mobile_discount_percent::text), ''), '0'), case when coalesce(l.instant_book, false) then 'true' else 'false' end, coalesce(nullif(trim((select string_agg(s.path::text, E'\\x1f') from (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null::text when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end as path from listing_images li where li.listing_id = l.id and trim(coalesce(li.storage_key, '')) <> '' order by li.sort_order asc, li.created_at asc limit 12) s where s.path is not null)), ''), '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+    <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
     <> "and ($1::text is null or lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug)) ilike $1 or lower(l.slug) ilike $1) "
     <> "and ($2::text is null or pc.code = $2) "
-    <> "and ($3::text is null or (lower(coalesce(l.location_name, '')) ilike $3 or lower(coalesce((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1), '')) ilike $3)) "
+    <> "and ($3::text is null or (lower(coalesce(l.location_name, '')) ilike $3 or lower(coalesce(lm.meta->>'address', '')) ilike $3 or lower(coalesce(lm.meta->>'province_city', '')) ilike $3 or lower(coalesce(lm.meta->>'city', '')) ilike $3 or lower(coalesce(lm.meta->>'district_label', '')) ilike $3 or lower(coalesce(lm.meta->>'region_display', '')) ilike $3)) "
     <> "and ($6::text is null or l.id = ANY(string_to_array($6, ',')::uuid[])) "
     <> "and ($7::text is null or $7 = '' or pc.code != 'holiday_home' or ( "
     <> "  coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[] "
