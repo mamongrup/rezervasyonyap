@@ -217,7 +217,7 @@ pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Resp
           }
           case
             pog.query(
-              "update listings set nearby_pois_json = $2::jsonb where id = $1::uuid returning id::text",
+              "update listings set nearby_pois_json = ($2::text)::jsonb where id = $1::uuid returning id::text",
             )
             |> pog.parameter(pog.text(lid))
             |> pog.parameter(pog.text(safe_json))

@@ -1052,7 +1052,7 @@ pub fn create_collection(req: Request, ctx: Context) -> Response {
               }
               case
                 pog.query(
-                  "insert into listing_collections (slug, title, description, hero_image_url, filter_rules) values ($1, $2, $3, $4, $5::jsonb) returning id::text",
+                  "insert into listing_collections (slug, title, description, hero_image_url, filter_rules) values ($1, $2, $3, $4, ($5::text)::jsonb) returning id::text",
                 )
                 |> pog.parameter(pog.text(slug))
                 |> pog.parameter(pog.text(title))
@@ -1137,7 +1137,7 @@ pub fn patch_collection(req: Request, ctx: Context, col_id: String) -> Response 
           }
           case
             pog.query(
-              "update listing_collections set slug = coalesce($2::text, slug), title = coalesce($3::text, title), description = coalesce($4::text, description), hero_image_url = coalesce($5::text, hero_image_url), filter_rules = coalesce($6::jsonb, filter_rules), sort_order = coalesce($7::int, sort_order), is_active = coalesce($8::boolean, is_active), updated_at = now() where id = $1::uuid returning id::text",
+              "update listing_collections set slug = coalesce($2::text, slug), title = coalesce($3::text, title), description = coalesce($4::text, description), hero_image_url = coalesce($5::text, hero_image_url), filter_rules = coalesce(($6::text)::jsonb, filter_rules), sort_order = coalesce($7::int, sort_order), is_active = coalesce($8::boolean, is_active), updated_at = now() where id = $1::uuid returning id::text",
             )
             |> pog.parameter(pog.text(string.trim(col_id)))
             |> pog.parameter(p_slug)

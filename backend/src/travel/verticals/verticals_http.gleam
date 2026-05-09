@@ -355,7 +355,7 @@ pub fn add_hotel_room(req: Request, ctx: Context, listing_id: String) -> Respons
               }
               case
                 pog.query(
-                  "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json) values ($1::uuid, $2, $3::smallint, $4, $5::jsonb) returning id::text",
+                  "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json) values ($1::uuid, $2, $3::smallint, $4, ($5::text)::jsonb) returning id::text",
                 )
                 |> pog.parameter(pog.text(lid_param(listing_id)))
                 |> pog.parameter(pog.text(string.trim(nm)))
@@ -650,7 +650,7 @@ pub fn add_transfer_zone(req: Request, ctx: Context, listing_id: String) -> Resp
                   }
                   case
                     pog.query(
-                      "insert into transfer_zones (listing_id, zone_role, location_label, center_lat, center_lng, price_per_vehicle_class) values ($1::uuid, $2, $3, $4::numeric, $5::numeric, $6::jsonb) returning id::text",
+                      "insert into transfer_zones (listing_id, zone_role, location_label, center_lat, center_lng, price_per_vehicle_class) values ($1::uuid, $2, $3, $4::numeric, $5::numeric, ($6::text)::jsonb) returning id::text",
                     )
                     |> pog.parameter(pog.text(lid_param(listing_id)))
                     |> pog.parameter(pog.text(zr_t))

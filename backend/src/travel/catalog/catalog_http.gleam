@@ -1625,7 +1625,7 @@ pub fn add_manage_hotel_room(req: Request, ctx: Context, listing_id: String) -> 
                       }
                       case
                         pog.query(
-                          "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json) values ($1::uuid, $2, $3::smallint, $4, $5::jsonb) returning id::text",
+                          "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json) values ($1::uuid, $2, $3::smallint, $4, ($5::text)::jsonb) returning id::text",
                         )
                         |> pog.parameter(pog.text(listing_id))
                         |> pog.parameter(pog.text(string.trim(nm)))
@@ -1835,7 +1835,8 @@ pub fn patch_manage_hotel_details(req: Request, ctx: Context, listing_id: String
   }
 }
 
-/// Query `from` / `to` (YYYY-MM-DD) → `pog.calendar_date` için.
+/// Query `from` / `to` (YYYY-MM-DD) → `parse_iso_date_ymd` sonrası `pog.calendar_date` (`$n::date` ile uyumlu Erlang `{Y,M,D}`).
+/// `pog.text` ile ISO string göndermek `$n::date` altında `badarg_encoding` üretir (`unexpected_arg_type date`).
 fn parse_iso_date_ymd(raw: String) -> Result(calendar.Date, Nil) {
   case string.split(string.trim(raw), "-") {
     [ys, ms, ds] -> {
@@ -2141,7 +2142,7 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
                         Ok(vf_p), Ok(vt_p) ->
                           case
                         pog.query(
-                          "insert into listing_price_rules (listing_id, rule_json, valid_from, valid_to) values ($1::uuid, $2::jsonb, $3::date, $4::date) returning id::text",
+                          "insert into listing_price_rules (listing_id, rule_json, valid_from, valid_to) values ($1::uuid, ($2::text)::jsonb, $3::date, $4::date) returning id::text",
                         )
                         |> pog.parameter(pog.text(listing_id))
                         |> pog.parameter(pog.text(rj))
@@ -2448,7 +2449,7 @@ pub fn patch_listing_basics(
                           <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
                           <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
                           <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
-                          <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else $10::jsonb end, "
+                          <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
                           <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
                           <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
                           <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
@@ -2823,7 +2824,7 @@ pub fn put_listing_meta(
                   case
                     pog.query(
                       "with payload as (
-                         select $2::jsonb as body
+                         select ($2::text)::jsonb as body
                        ),
                        saved_meta as (
                          insert into listing_attributes (listing_id, group_code, key, value_json)
@@ -3605,7 +3606,7 @@ pub fn create_attribute_def(
                       case
                         pog.query(
                           "insert into listing_attribute_defs (group_id, code, label, field_type, options_json, sort_order) "
-                          <> "values ($1::uuid, $2, $3, $4, $5::jsonb, $6) returning id::text",
+                          <> "values ($1::uuid, $2, $3, $4, ($5::text)::jsonb, $6) returning id::text",
                         )
                         |> pog.parameter(pog.text(gid))
                         |> pog.parameter(pog.text(code_t))
@@ -4087,7 +4088,7 @@ pub fn create_manage_meal_plan(
                     False ->
                       case
                         pog.query(
-                          "insert into listing_meal_plans (listing_id, plan_code, label, label_en, included_meals, included_extras, price_per_night, currency_code) values ($1::uuid, $2, $3, $4, $5::jsonb, $6::jsonb, $7::numeric, $8) returning id::text",
+                          "insert into listing_meal_plans (listing_id, plan_code, label, label_en, included_meals, included_extras, price_per_night, currency_code) values ($1::uuid, $2, $3, $4, ($5::text)::jsonb, ($6::text)::jsonb, $7::numeric, $8) returning id::text",
                         )
                         |> pog.parameter(pog.text(listing_id))
                         |> pog.parameter(pog.text(string.trim(code)))
@@ -4159,7 +4160,7 @@ pub fn update_manage_meal_plan(
                 Ok(#(label, label_en, meals, extras, price, currency, active, sort_str, notes)) ->
                   case
                     pog.query(
-                      "update listing_meal_plans set label=$3, label_en=$4, included_meals=$5::jsonb, included_extras=$6::jsonb, price_per_night=$7::numeric, currency_code=$8, is_active=$9::boolean, sort_order=$10::int, notes=$11 where id=$1::uuid and listing_id=$2::uuid",
+                      "update listing_meal_plans set label=$3, label_en=$4, included_meals=($5::text)::jsonb, included_extras=($6::text)::jsonb, price_per_night=$7::numeric, currency_code=$8, is_active=$9::boolean, sort_order=$10::int, notes=$11 where id=$1::uuid and listing_id=$2::uuid",
                     )
                     |> pog.parameter(pog.text(string.trim(plan_id)))
                     |> pog.parameter(pog.text(listing_id))
@@ -4248,7 +4249,7 @@ pub fn put_listing_attribute_values(
                       <> "select $1::uuid, v->>'group_code', v->>'key', "
                       <> "case when v->>'value' is null then 'null'::jsonb "
                       <> "else to_jsonb(v->>'value') end "
-                      <> "from jsonb_array_elements($2::jsonb) as v "
+                      <> "from jsonb_array_elements(($2::text)::jsonb) as v "
                       <> "where (v->>'group_code') is not null and (v->>'key') is not null "
                       <> "on conflict (listing_id, group_code, key) do update set value_json = excluded.value_json",
                     )
@@ -4986,7 +4987,7 @@ pub fn put_manage_category_accommodation_rules(req: Request, ctx: Context) -> Re
               case
                 pog.query(
                   "insert into category_accommodation_rule_sets (organization_id, category_code, rules_json, updated_at) "
-                  <> "values ($1::uuid, $2::text, $3::jsonb, now()) "
+                  <> "values ($1::uuid, $2::text, ($3::text)::jsonb, now()) "
                   <> "on conflict (organization_id, category_code) do update set rules_json = excluded.rules_json, updated_at = now()",
                 )
                 |> pog.parameter(pog.text(org_id))
