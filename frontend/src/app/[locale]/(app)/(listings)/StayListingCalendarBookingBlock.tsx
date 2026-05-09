@@ -23,6 +23,7 @@ export default function StayListingCalendarBookingBlock({
   cleaningFeeAmount,
   damageDepositAmount,
   ruleFallbackNightly,
+  ruleNightlyRange,
 }: {
   locale: string
   initialDays: ListingAvailabilityDay[]
@@ -40,6 +41,7 @@ export default function StayListingCalendarBookingBlock({
   cleaningFeeAmount?: number
   damageDepositAmount?: number
   ruleFallbackNightly?: number
+  ruleNightlyRange?: { min: number; max: number }
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null)
@@ -75,6 +77,7 @@ export default function StayListingCalendarBookingBlock({
           cleaningFeeAmount={cleaningFeeAmount}
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackNightly}
+          ruleNightlyRange={ruleNightlyRange}
         />
       ) : null}
     </>

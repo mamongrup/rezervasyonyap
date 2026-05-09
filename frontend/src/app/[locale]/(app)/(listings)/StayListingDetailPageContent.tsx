@@ -10,8 +10,10 @@ import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import {
   buildSeasonalPricingTableRows,
+  maxNightlyFromListingPriceRules,
   minNightlyFromListingPriceRules,
 } from '@/lib/listing-price-rules-public'
+import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
 import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
 import {
   regionBrowseSlugFromLocationPin,
@@ -324,6 +326,18 @@ export default async function StayListingDetailPageContent({
   }
 
   const minNightlyFromRules = minNightlyFromListingPriceRules(holidayHomePriceRules)
+  const maxNightlyFromRules = isHolidayHome
+    ? maxNightlyFromListingPriceRules(holidayHomePriceRules)
+    : undefined
+
+  const ruleNightlyRangeForQuote =
+    isHolidayHome &&
+    holidayHomeRulePriceRangeEnabled() &&
+    minNightlyFromRules != null &&
+    maxNightlyFromRules != null &&
+    maxNightlyFromRules > minNightlyFromRules
+      ? { min: minNightlyFromRules, max: maxNightlyFromRules }
+      : undefined
 
   const damageDepositAmount =
     listing.firstChargeAmount != null &&
@@ -787,6 +801,7 @@ export default async function StayListingDetailPageContent({
       cleaningFeeAmount={listing.cleaningFeeAmount}
       damageDepositAmount={damageDepositAmount}
       ruleFallbackNightly={ruleFallbackForQuote}
+      ruleNightlyRange={ruleNightlyRangeForQuote}
       listingId={listing.id}
     />
   )
@@ -934,6 +949,7 @@ export default async function StayListingDetailPageContent({
             cleaningFeeAmount={listing.cleaningFeeAmount}
             damageDepositAmount={damageDepositAmount}
             ruleFallbackNightly={ruleFallbackForQuote}
+            ruleNightlyRange={ruleNightlyRangeForQuote}
           />
           {renderSectionRules()}
           {renderSectionPolicies()}

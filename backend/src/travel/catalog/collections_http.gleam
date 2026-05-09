@@ -31,10 +31,17 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
+/// `listing_price_rules.rule_json` içindeki olası gecelik alanları — min/max alt sorgularında paylaşılır.
+fn listing_price_rule_nightly_lateral_values_sql() -> String {
+  "(values (case when replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.')::numeric end))"
+}
+
 // ─── Public Listing Search ────────────────────────────────────────────────────
 
 fn pub_listing_row() -> decode.Decoder(
   #(
+    String,
+    String,
     String,
     String,
     String,
@@ -101,6 +108,8 @@ fn pub_listing_row() -> decode.Decoder(
   use mobile_discount_raw <- decode.field(29, decode.string)
   use instant_book_raw <- decode.field(30, decode.string)
   use gallery_paths_agg <- decode.field(31, decode.string)
+  use price_rules_nightly_min <- decode.field(32, decode.string)
+  use price_rules_nightly_max <- decode.field(33, decode.string)
   decode.success(#(
     id,
     slug,
@@ -134,6 +143,8 @@ fn pub_listing_row() -> decode.Decoder(
     mobile_discount_raw,
     instant_book_raw,
     gallery_paths_agg,
+    price_rules_nightly_min,
+    price_rules_nightly_max,
   ))
 }
 
@@ -205,6 +216,8 @@ fn pub_listing_json(
     String,
     String,
     String,
+    String,
+    String,
   ),
 ) -> json.Json {
   let #(
@@ -240,6 +253,8 @@ fn pub_listing_json(
     mobile_discount_raw,
     instant_book_raw,
     gallery_paths_agg,
+    pr_min_s,
+    pr_max_s,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -256,6 +271,8 @@ fn pub_listing_json(
   }
   let discount_j = json_opt_discount_percent(mobile_discount_raw)
   let instant_j = json.bool(instant_book_raw == "true")
+  let pr_min_j = json_opt_str(pr_min_s)
+  let pr_max_j = json_opt_str(pr_max_s)
   json.object([
     #("id", json.string(id)),
     #("slug", json.string(slug)),
@@ -291,6 +308,8 @@ fn pub_listing_json(
     #("discount_percent", discount_j),
     #("instant_book", instant_j),
     #("gallery_urls", gallery_urls_json(gallery_paths_agg)),
+    #("price_rules_nightly_min", pr_min_j),
+    #("price_rules_nightly_max", pr_max_j),
   ])
 }
 
@@ -412,7 +431,9 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     // Vitrin gecelik: önce listing_price_rules (panel «Varsayılan fiyat» / base_nightly);
     // sonra aktif `room_only` yemek planı (depozito ile aynı rakam vitrine düşmesin diye önceki davranışta kayboluyordu);
     // sonra depozitodan farklı planların minimumu; en sonda depozito null ise tüm planların minimumu.
-    <> "coalesce(nullif((select min(u.v)::text from listing_price_rules r cross join lateral (values (case when replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'base_price', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'room_only_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'yemeksiz_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'meals_included_nightly', '')), ',', '.')::numeric end), (case when replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' then replace(trim(coalesce(r.rule_json->>'weekend_nightly', '')), ',', '.')::numeric end)) as u(v) where r.listing_id = l.id and u.v is not null), ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
+    <> "coalesce(nullif((select min(u.v)::text from listing_price_rules r cross join lateral "
+    <> listing_price_rule_nightly_lateral_values_sql()
+    <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
     <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'district_label'), ''), nullif(trim(lm.meta->>'city'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
@@ -440,6 +461,12 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
     <> ", coalesce(l.created_at::text, ''), coalesce(nullif(trim(l.mobile_discount_percent::text), ''), '0'), case when coalesce(l.instant_book, false) then 'true' else 'false' end, coalesce(nullif(trim((select string_agg(s.path::text, E'\\x1f') from (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null::text when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end as path from listing_images li where li.listing_id = l.id and trim(coalesce(li.storage_key, '')) <> '' order by li.sort_order asc, li.created_at asc limit 12) s where s.path is not null)), ''), '') "
+    <> ", coalesce(nullif((select min(u.v)::text from listing_price_rules r cross join lateral "
+    <> listing_price_rule_nightly_lateral_values_sql()
+    <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), '') "
+    <> ", coalesce(nullif((select max(u.v)::text from listing_price_rules r cross join lateral "
+    <> listing_price_rule_nightly_lateral_values_sql()
+    <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "

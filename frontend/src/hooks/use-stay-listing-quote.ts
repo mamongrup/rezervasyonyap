@@ -49,6 +49,7 @@ export function useStayListingQuote({
   cleaningFeeAmount,
   damageDepositAmount,
   ruleFallbackNightly,
+  ruleNightlyRange,
 }: {
   mealPlans: MealPlanItem[]
   price: string
@@ -69,9 +70,10 @@ export function useStayListingQuote({
   damageDepositAmount?: number
   /** Dönemsel kural JSON’undan minimum gecelik (panel «Varsayılan fiyat») */
   ruleFallbackNightly?: number
+  /** Aktif yemek planı fiyatı kullanılmıyorken vitrin «gecelik» başlığında min–max */
+  ruleNightlyRange?: { min: number; max: number }
 }) {
   const ctx = usePreferredCurrencyContext()
-  const convertedListingLabel = useConvertedListingPrice(price, priceAmount, priceCurrency)
 
   const formatConverted = useCallback(
     (amount: number, fromCurrency: string): string => {
@@ -118,14 +120,30 @@ export function useStayListingQuote({
     return { ...cheapestPlan, price_per_night: replacement }
   }, [cheapestPlan, damageDepositAmount, ruleFallbackNightly, priceAmount])
 
+  const useRangeForListingLabel =
+    ruleNightlyRange != null &&
+    Number.isFinite(ruleNightlyRange.min) &&
+    Number.isFinite(ruleNightlyRange.max) &&
+    ruleNightlyRange.max > ruleNightlyRange.min &&
+    cheapestPlanForPricing == null
+
+  const convertedListingLabel = useConvertedListingPrice(
+    price,
+    useRangeForListingLabel ? ruleNightlyRange.min : priceAmount,
+    priceCurrency,
+    useRangeForListingLabel ? ruleNightlyRange.max : undefined,
+  )
+
   const currencyCode = (cheapestPlanForPricing?.currency_code ?? priceCurrency ?? 'TRY').trim().toUpperCase()
   const poolHeatingCurrency = poolHeating?.currencyCode.trim().toUpperCase() || currencyCode
 
   const basePriceNum = cheapestPlanForPricing
     ? cheapestPlanForPricing.price_per_night
-    : priceAmount != null && Number.isFinite(priceAmount)
-      ? priceAmount
-      : parseInt((price ?? '').replace(/\D/g, '') || '0', 10) || 0
+    : useRangeForListingLabel
+      ? ruleNightlyRange.min
+      : priceAmount != null && Number.isFinite(priceAmount)
+        ? priceAmount
+        : parseInt((price ?? '').replace(/\D/g, '') || '0', 10) || 0
 
   const discountPct = parseDiscountPercent(saleOff, discountPercent ?? undefined)
   const showDiscountRow =

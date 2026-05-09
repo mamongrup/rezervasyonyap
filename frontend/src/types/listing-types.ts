@@ -31,6 +31,8 @@ export interface TListingBase {
   price?: string
   /** API / sayısal fiyat — seçilen para birimine çevrilebilir */
   priceAmount?: number
+  /** Tatil evi dönemsel kurallardan üst gecelik — kartta min–max gösterimi */
+  priceAmountMax?: number
   /** ISO para kodu (örn. TRY, EUR) */
   priceCurrency?: string
   reviewStart?: number

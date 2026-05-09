@@ -103,27 +103,51 @@ export function usePreferredCurrencyContext(): Ctx | null {
 
 /**
  * İlan tutarını seçilen para biriminde biçimlendirir (kur yoksa ilanın kendi para biriminde gösterir).
+ * `priceAmountMax`: tatil evi dönemsel kurallardan gelen üst gecelik — min–max gösterimi.
  */
 export function useConvertedListingPrice(
   priceLabel: string | undefined,
   priceAmount: number | undefined,
   priceCurrency: string | undefined,
+  priceAmountMax?: number,
 ): string {
   const ctx = usePreferredCurrencyContext()
 
   return useMemo(() => {
     const amount =
       typeof priceAmount === 'number' && Number.isFinite(priceAmount) ? priceAmount : undefined
+    const amountMax =
+      typeof priceAmountMax === 'number' && Number.isFinite(priceAmountMax)
+        ? priceAmountMax
+        : undefined
     const cur = priceCurrency?.trim().toUpperCase()
 
+    const hasRange =
+      amount != null && amountMax != null && cur && amountMax > amount + 0.004
+
     const native =
-      amount != null && cur
-        ? formatMoneyIntl(amount, cur)
-        : (priceLabel?.trim() || '—')
+      hasRange
+        ? `${formatMoneyIntl(amount, cur)} – ${formatMoneyIntl(amountMax, cur)}`
+        : amount != null && cur
+          ? formatMoneyIntl(amount, cur)
+          : (priceLabel?.trim() || '—')
 
     if (!ctx) return native
 
     const target = ctx.preferredCode
+
+    if (hasRange && target) {
+      if (cur === target || ctx.rates.length === 0) {
+        return `${formatMoneyIntl(amount, cur)} – ${formatMoneyIntl(amountMax, cur)}`
+      }
+      const cMin = convertAmountWithRates(amount, cur, target, ctx.rates)
+      const cMax = convertAmountWithRates(amountMax, cur, target, ctx.rates)
+      if (cMin != null && cMax != null && cMax > cMin + 0.004) {
+        return `${formatMoneyIntl(cMin, target)} – ${formatMoneyIntl(cMax, target)}`
+      }
+      return `${formatMoneyIntl(amount, cur)} – ${formatMoneyIntl(amountMax, cur)}`
+    }
+
     let from = cur
     let val = amount
 
@@ -143,5 +167,5 @@ export function useConvertedListingPrice(
     const converted = convertAmountWithRates(val, from, target, ctx.rates)
     if (converted == null) return native
     return formatMoneyIntl(converted, target)
-  }, [priceLabel, priceAmount, priceCurrency, ctx])
+  }, [priceLabel, priceAmount, priceCurrency, priceAmountMax, ctx])
 }

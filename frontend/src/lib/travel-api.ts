@@ -8307,6 +8307,10 @@ export interface PublicListingItem {
   featured_image_url: string | null
   thumbnail_url: string | null
   price_from: string | null
+  /** Tatil evi — `listing_price_rules` geceliklerinden min (katalog arama JSON) */
+  price_rules_nightly_min?: string | null
+  /** Tatil evi — aynı kümeden max */
+  price_rules_nightly_max?: string | null
   /** Bölge / şehir */
   location: string | null
   /** Harita — API’den (Gleam public search); yoksa mock koordinat veya pinsız */

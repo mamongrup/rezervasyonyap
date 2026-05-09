@@ -34,6 +34,8 @@ export type StayListingReservationCardProps = {
   damageDepositAmount?: number
   /** `listing_price_rules` içinden minimum gecelik — depozito ile çakışan plan yerine */
   ruleFallbackNightly?: number
+  /** Dönemsel kurallardan min–max gecelik — aktif plan yokken başlık aralığı */
+  ruleNightlyRange?: { min: number; max: number }
   /** Anında onay + yemek planı rozeti — sağ üst sütun (kart başlığı) */
   listingId?: string
 }
@@ -53,6 +55,7 @@ export default function StayListingReservationCard({
   cleaningFeeAmount,
   damageDepositAmount,
   ruleFallbackNightly,
+  ruleNightlyRange,
   listingId,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
@@ -106,6 +109,7 @@ export default function StayListingReservationCard({
     cleaningFeeAmount,
     damageDepositAmount,
     ruleFallbackNightly,
+    ruleNightlyRange,
   })
 
   const hasMultiplePlans = activePlans.length > 1

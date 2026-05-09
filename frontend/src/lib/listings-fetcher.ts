@@ -8,6 +8,7 @@
 
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
+import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
 import { searchPublicListings, type PublicListingItem } from '@/lib/travel-api'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -115,6 +116,12 @@ function parseFirstChargeAmount(raw: string | null | undefined): number | undefi
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
+function parsePubListingRuleNightly(raw: string | null | undefined): number | undefined {
+  if (raw == null || String(raw).trim() === '') return undefined
+  const n = parseFloat(String(raw).replace(/\s/g, '').replace(/,/g, '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
 function coercePositiveDiscountPercent(v: unknown): number | undefined {
   if (v == null) return undefined
   const n = typeof v === 'number' ? v : parseFloat(String(v).replace(/\s/g, '').replace(',', '.'))
@@ -155,6 +162,7 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
       ? parseFloat(String(raw).replace(/\s/g, '').replace(/,/g, '.'))
       : NaN
   let priceAmount = Number.isFinite(num) ? num : undefined
+  let priceAmountMax: number | undefined
   let price =
     priceAmount != null ? formatMoneyIntl(priceAmount, cur) : undefined
 
@@ -174,6 +182,16 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
   const cat = item.category_code ?? ''
   const vertical = normalizeCatalogVertical(item.listing_vertical ?? cat)
   const isHoliday = cat === 'holiday_home' || vertical === 'holiday_home'
+
+  if (holidayHomeRulePriceRangeEnabled() && isHoliday) {
+    const rMin = parsePubListingRuleNightly(item.price_rules_nightly_min)
+    const rMax = parsePubListingRuleNightly(item.price_rules_nightly_max)
+    if (rMin != null && rMax != null && rMax > rMin) {
+      priceAmount = rMin
+      priceAmountMax = rMax
+      price = formatMoneyIntl(rMin, cur)
+    }
+  }
 
   const typeLine =
     isHoliday && item.property_type?.trim()
@@ -212,6 +230,7 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
     city: item.location ?? undefined,
     price,
     priceAmount,
+    ...(priceAmountMax != null ? { priceAmountMax } : {}),
     priceCurrency: cur,
     reviewStart,
     reviewCount: item.review_count ?? 0,

@@ -32,6 +32,7 @@ export default function StayListingBookingQuoteModal({
   cleaningFeeAmount,
   damageDepositAmount,
   ruleFallbackNightly,
+  ruleNightlyRange,
 }: {
   locale: string
   open: boolean
@@ -51,6 +52,7 @@ export default function StayListingBookingQuoteModal({
   cleaningFeeAmount?: number
   damageDepositAmount?: number
   ruleFallbackNightly?: number
+  ruleNightlyRange?: { min: number; max: number }
 }) {
   const router = useRouter()
   const vitrinHref = useVitrinHref()
@@ -87,6 +89,7 @@ export default function StayListingBookingQuoteModal({
     cleaningFeeAmount,
     damageDepositAmount,
     ruleFallbackNightly,
+    ruleNightlyRange,
   })
 
   const goCheckout = () => {

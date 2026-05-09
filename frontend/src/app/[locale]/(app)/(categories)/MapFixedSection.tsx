@@ -19,6 +19,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 type ListingPriceFields = {
   price?: string
   priceAmount?: number
+  priceAmountMax?: number
   priceCurrency?: string
 }
 
@@ -29,7 +30,12 @@ function MapMarkerPriceLabel({
   isHovered: boolean
   listing: ListingPriceFields
 }) {
-  const label = useConvertedListingPrice(listing.price, listing.priceAmount, listing.priceCurrency)
+  const label = useConvertedListingPrice(
+    listing.price,
+    listing.priceAmount,
+    listing.priceCurrency,
+    listing.priceAmountMax,
+  )
   return (
     <p
       className={`flex min-w-max cursor-pointer items-center justify-center rounded-full px-3 py-1.5 text-sm font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] transition-all duration-150 dark:ring-white/10 ${
@@ -99,7 +105,10 @@ function MapFitListingBounds({ listings }: { listings: ListingWithMap[] }) {
 function MapHoverEaseToListing({ hoverId, listings }: { hoverId: string; listings: ListingWithMap[] }) {
   const { map, isLoaded } = useMap()
   const listingsRef = useRef(listings)
-  listingsRef.current = listings
+
+  useEffect(() => {
+    listingsRef.current = listings
+  }, [listings])
 
   useEffect(() => {
     if (!isLoaded || !map || !hoverId) return

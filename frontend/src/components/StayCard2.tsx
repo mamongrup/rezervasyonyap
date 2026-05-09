@@ -44,6 +44,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
     isAds,
     price,
     priceAmount,
+    priceAmountMax,
     priceCurrency,
     reviewStart,
     reviewCount,
@@ -131,6 +132,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
               className="shrink-0 text-base font-semibold"
               price={price}
               priceAmount={priceAmount}
+              priceAmountMax={priceAmountMax}
               priceCurrency={priceCurrency}
             />
             {size === 'default' && (

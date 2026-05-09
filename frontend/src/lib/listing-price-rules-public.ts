@@ -210,3 +210,19 @@ export function minNightlyFromListingPriceRules(rules: ListingPriceRuleRow[]): n
   }
   return min
 }
+
+/** `minNightlyFromListingPriceRules` ile aynı alan kümesinden en yüksek gecelik (vitrin aralığı üst sınırı). */
+export function maxNightlyFromListingPriceRules(rules: ListingPriceRuleRow[]): number | undefined {
+  let max: number | undefined
+  const bumpParsed = (parsed: ParsedPriceRuleJson) => {
+    for (const raw of [parsed.base, parsed.weekend, parsed.roomOnly, parsed.mealsIncluded]) {
+      const n = parseAmount(raw)
+      if (n == null || !Number.isFinite(n) || n <= 0) continue
+      max = max === undefined ? n : Math.max(max, n)
+    }
+  }
+  for (const r of rules) {
+    bumpParsed(parseListingPriceRuleJson(r.rule_json))
+  }
+  return max
+}

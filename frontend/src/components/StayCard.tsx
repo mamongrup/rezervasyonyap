@@ -34,6 +34,7 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
     isAds,
     price,
     priceAmount,
+    priceAmountMax,
     priceCurrency,
     reviewStart,
     reviewCount,
@@ -104,7 +105,12 @@ const StayCard: FC<StayCardProps> = ({ size = 'default', className = '', data })
         <div className="w-14 border-b border-neutral-100 dark:border-neutral-800"></div>
         <div className="flex items-center justify-between">
           <span className="text-base font-semibold">
-            <ListingPrice price={price} priceAmount={priceAmount} priceCurrency={priceCurrency} />
+            <ListingPrice
+              price={price}
+              priceAmount={priceAmount}
+              priceAmountMax={priceAmountMax}
+              priceCurrency={priceCurrency}
+            />
             {size === 'default' && (
               <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400"> /night</span>
             )}

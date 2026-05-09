@@ -33,7 +33,23 @@ interface ListingCardProps {
 
 function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }: ListingCardProps) {
   const vitrinHref = useVitrinHref()
-  const { title, address, city, price, priceAmount, priceCurrency, reviewStart, reviewCount, saleOff, isAds, featuredImage, galleryImgs, like, handle } = listing
+  const {
+    title,
+    address,
+    city,
+    price,
+    priceAmount,
+    priceAmountMax,
+    priceCurrency,
+    reviewStart,
+    reviewCount,
+    saleOff,
+    isAds,
+    featuredImage,
+    galleryImgs,
+    like,
+    handle,
+  } = listing
   const categoryLine = displayListingCategoryLine(listing, locale)
   const unitFromProp = priceUnit?.replace(/^\//, '').trim()
   const unitLabel = unitFromProp || nightLabel || 'gece'
@@ -106,6 +122,7 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
                 className="text-base font-semibold text-neutral-900 dark:text-neutral-100"
                 price={price}
                 priceAmount={priceAmount}
+                priceAmountMax={priceAmountMax}
                 priceCurrency={priceCurrency}
               />
               <span className="mx-1 text-sm font-normal text-neutral-400 dark:text-neutral-500">/</span>

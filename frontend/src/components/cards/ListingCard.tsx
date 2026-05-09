@@ -48,6 +48,7 @@ const ListingCard: FC<ListingCardProps> = ({
     isAds,
     price,
     priceAmount,
+    priceAmountMax,
     priceCurrency,
     reviewStart,
     reviewCount,
@@ -154,6 +155,7 @@ const ListingCard: FC<ListingCardProps> = ({
                 className="text-base font-semibold"
                 price={price}
                 priceAmount={priceAmount}
+                priceAmountMax={priceAmountMax}
                 priceCurrency={priceCurrency}
               />
               {priceUnit && size === 'default' && (
