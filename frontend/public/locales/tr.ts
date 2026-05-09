@@ -389,6 +389,8 @@ export const tr = {
       notFoundTitle: 'İlan bulunamadı',
       aboutVacationHome: 'Tatil evi hakkında',
       aboutStay: 'Konaklama hakkında',
+      descriptionShowMore: 'Devamını göster',
+      descriptionShowLess: 'Daha az göster',
       location: 'Konum',
       nearbyPlaces: 'Yakındaki mekanlar',
       similarListings: 'Benzer ilanlar',

@@ -370,6 +370,8 @@ export const ru: AppMessages = {
       notFoundTitle: 'Объявление не найдено',
       aboutVacationHome: 'Об этом доме для отдыха',
       aboutStay: 'Об этом размещении',
+      descriptionShowMore: 'Показать полностью',
+      descriptionShowLess: 'Свернуть',
       location: 'Расположение',
       nearbyPlaces: 'Рядом',
       similarListings: 'Похожие объявления',

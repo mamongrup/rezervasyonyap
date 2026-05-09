@@ -126,6 +126,7 @@ modules/281_holiday_home_default_faq_tuscany_seed.sql
 modules/282_listings_image_upload_high_quality.sql
 modules/283_listings_image_avif_quality_90.sql
 modules/284_listings_location_name_backfill_from_meta.sql
+modules/285_listings_image_avif_effort_faster.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

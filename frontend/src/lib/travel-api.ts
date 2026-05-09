@@ -8353,6 +8353,7 @@ export interface PublicListingSearchResult {
  */
 export async function searchPublicListings(
   params: PublicListingSearchParams,
+  fetchInit?: RequestInit,
 ): Promise<PublicListingSearchResult | null> {
   const b = base()
   if (!b) return null
@@ -8376,11 +8377,16 @@ export async function searchPublicListings(
   if (params.sort?.trim())         u.set('sort', params.sort.trim())
 
   try {
+    const init: RequestInit =
+      typeof window === 'undefined'
+        ? fetchInit?.cache === 'no-store'
+          ? fetchInit
+          : ({ next: { revalidate: 60 }, ...(fetchInit ?? {}) } as RequestInit)
+        : fetchInit ?? {}
+
     const res = await fetch(
       `${b}/api/v1/catalog/public/listings${u.toString() ? `?${u.toString()}` : ''}`,
-      typeof window === 'undefined'
-        ? ({ next: { revalidate: 60 } } as Parameters<typeof fetch>[1])
-        : {},
+      init,
     )
     if (!res.ok) return null
     return json<PublicListingSearchResult>(res)
@@ -8628,6 +8634,22 @@ export interface ListingMeta {
   min_short_stay_nights?: string
 }
 
+/** PostgreSQL jsonb, string değerlerde U+0000 kabul etmez; kayıt öncesi tüm düğümlerde çıkarılır. */
+const META_JSON_SKIP_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+function stripNullBytesDeep(value: unknown): unknown {
+  if (typeof value === 'string') return value.replace(/\0/g, '')
+  if (value === null || typeof value !== 'object') return value
+  if (Array.isArray(value)) return value.map(stripNullBytesDeep)
+  const o = value as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const k of Object.keys(o)) {
+    if (META_JSON_SKIP_KEYS.has(k)) continue
+    out[k] = stripNullBytesDeep(o[k])
+  }
+  return out
+}
+
 export async function getListingMeta(
   token: string,
   listingId: string,
@@ -8648,17 +8670,18 @@ export async function getListingMeta(
 export async function putListingMeta(
   token: string,
   listingId: string,
-  body: ListingMeta,
+  body: ListingMeta | Record<string, unknown>,
   params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const sanitized = stripNullBytesDeep(body)
   const res = await fetch(
     `${b}/api/v1/catalog/listings/${listingId}/meta${catalogListingQs(params)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
+      body: JSON.stringify(sanitized),
     },
   )
   if (!res.ok) {

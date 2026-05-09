@@ -10,7 +10,11 @@ import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { buildSeasonalPricingTableRows } from '@/lib/listing-price-rules-public'
 import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
-import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
+import {
+  regionBrowseSlugFromLocationPin,
+  regionPlacesSlugFromCity,
+  shortRegionLabelFromLocationPin,
+} from '@/lib/region-places-slug'
 import {
   HOLIDAY_HOME_DETAIL_PATH,
   STAY_DETAIL_HOTEL_PATH,
@@ -53,7 +57,6 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import { Fragment } from 'react'
 import clsx from 'clsx'
 import HeaderGallery from './components/HeaderGallery'
 import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
@@ -70,9 +73,10 @@ import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
 import SectionHeader from './components/SectionHeader'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 import SocialProofBadge from '@/components/listing/SocialProofBadge'
+import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
 import ListingPerksBadges from '@/components/listing/ListingPerksBadges'
-import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
 import ReportListingButton from '@/components/listing/ReportListingButton'
+import WhatsAppListingCTA from '@/components/WhatsAppListingCTA'
 import SectionHost from './components/SectionHost'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
@@ -372,6 +376,13 @@ export default async function StayListingDetailPageContent({
   )
   const regionName =
     isHolidayHome ? (listing.city ?? listing.address)?.trim() || null : null
+  const holidayHomeLocationPin = regionName?.trim() ?? ''
+  const breadcrumbRegionLabel = holidayHomeLocationPin
+    ? shortRegionLabelFromLocationPin(holidayHomeLocationPin)
+    : ''
+  const breadcrumbRegionSlug = holidayHomeLocationPin
+    ? regionBrowseSlugFromLocationPin(holidayHomeLocationPin)
+    : undefined
 
   const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
 
@@ -407,7 +418,6 @@ export default async function StayListingDetailPageContent({
   const nearbyListings = isHolidayHome ? otherStays.slice(4, 8).map(mapSimilar) : []
 
   const siteConfig = mergeBrandingIntoEnvContact(getSitePublicConfigSync(), sitePubApi?.branding ?? null)
-  const whatsappNumber = siteConfig.whatsappE164
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
 
   const detailJsonLd = await buildStayListingDetailJsonLd({
@@ -453,6 +463,10 @@ export default async function StayListingDetailPageContent({
         : '/oteller/all',
   )
   const homeHref = await vitrinHref(locale, '/')
+  const breadcrumbRegionHref =
+    isHolidayHome && breadcrumbRegionSlug && breadcrumbRegionLabel
+      ? await vitrinHref(locale, `/tatil-evleri/${breadcrumbRegionSlug}`)
+      : null
 
   const breadcrumbCategoryLabel =
     vertical === 'hotel'
@@ -464,7 +478,7 @@ export default async function StayListingDetailPageContent({
           : listingCategory
 
   const renderBreadcrumb = () => (
-    <nav className="mb-6 flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+    <nav className="mb-4 flex items-center gap-1.5 text-sm text-neutral-500 dark:text-neutral-400">
       <Link href={homeHref} className="transition-colors hover:text-primary-500">
         {messages.listing.breadcrumb.home}
       </Link>
@@ -472,6 +486,23 @@ export default async function StayListingDetailPageContent({
       <Link href={categoryBrowseHref} className="transition-colors hover:text-primary-500">
         {breadcrumbCategoryLabel}
       </Link>
+      {breadcrumbRegionLabel ? (
+        <>
+          <HugeiconsIcon icon={ArrowRight02Icon} className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+          {breadcrumbRegionHref ? (
+            <Link
+              href={breadcrumbRegionHref}
+              className="line-clamp-2 min-w-0 max-w-[min(100%,14rem)] transition-colors hover:text-primary-500 sm:max-w-[18rem]"
+            >
+              {breadcrumbRegionLabel}
+            </Link>
+          ) : (
+            <span className="line-clamp-2 min-w-0 max-w-[min(100%,14rem)] text-neutral-600 dark:text-neutral-400 sm:max-w-[18rem]">
+              {breadcrumbRegionLabel}
+            </span>
+          )}
+        </>
+      ) : null}
       <HugeiconsIcon icon={ArrowRight02Icon} className="h-4 w-4 shrink-0" strokeWidth={1.75} />
       <span className="line-clamp-1 font-medium text-neutral-900 dark:text-neutral-200">{title}</span>
     </nav>
@@ -543,12 +574,12 @@ export default async function StayListingDetailPageContent({
   )
 
   const renderSectionDescription = () => (
-    <div className={clsx('listingSection__wrap', isHolidayHome && 'border-0 sm:rounded-3xl sm:bg-neutral-50/80 sm:px-8 sm:py-10 dark:sm:bg-neutral-800/30')}>
+    <div className="listingSection__wrap">
       <SectionHeading>{isHolidayHome ? dp.aboutVacationHome : dp.aboutStay}</SectionHeading>
       <Divider className="w-14!" />
-      <div
-        className="prose prose-sm max-w-none leading-relaxed text-neutral-700 dark:text-neutral-300 dark:prose-invert"
-        dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description ?? '') }}
+      <ListingDescriptionExpandable
+        locale={locale}
+        html={sanitizeRichCmsHtml(description ?? '')}
       />
     </div>
   )
@@ -710,12 +741,23 @@ export default async function StayListingDetailPageContent({
       saleOff={saleOff}
       discountPercent={discountPercent}
       handleSubmitForm={handleSubmitForm}
-      whatsappNumber={whatsappNumber}
-      title={title}
       poolHeating={poolHeatingOption}
       stayBookingRules={listing.stayBookingRules}
       cleaningFeeAmount={listing.cleaningFeeAmount}
+      listingId={listing.id}
     />
+  )
+
+  const perksStrip = (
+    <div className="flex flex-col gap-2 px-1">
+      <ListingPerksBadges
+        listingId={listing.id}
+        basePrice={typeof priceAmount === 'number' ? priceAmount : undefined}
+        currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
+        hideInstantBook
+      />
+      <SocialProofBadge listingId={listing.id} />
+    </div>
   )
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -737,32 +779,25 @@ export default async function StayListingDetailPageContent({
         <HeaderGallery images={galleryImages} gridType="grid1" />
       </div>
 
-      {/* BREADCRUMB */}
-      <div className="mt-6">
+      {/* BREADCRUMB — galeri altı ile ana içerik arası tek ritim */}
+      <div className="mt-4">
         {renderBreadcrumb()}
       </div>
 
       {/* MAIN */}
-      <main className="relative z-[1] flex flex-col gap-8 lg:flex-row lg:items-start xl:gap-10">
+      <main className="relative z-[1] flex flex-col gap-6 lg:flex-row lg:items-start xl:gap-8">
         {/* LEFT COLUMN */}
-        <div className="flex min-w-0 w-full flex-col gap-y-8 lg:w-3/5 xl:w-[62%] xl:gap-y-10">
+        <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
-          <div className="flex flex-col gap-2 px-1">
-            <ListingPerksBadges
-              listingId={listing.id}
-              basePrice={typeof priceAmount === 'number' ? priceAmount : undefined}
-              currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
-            />
-            <SocialProofBadge listingId={listing.id} />
-          </div>
+          {perksStrip}
           {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
               tatil evinde havuz/tema bölümleri zaten benzer işlevi görüyor. */}
-          {!isHolidayHome && (
+          {!isHolidayHome ? (
             <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
-          )}
+          ) : null}
           {/* Booking "Property info at a glance" tarzı hızlı bilgi kutusu —
               yalnızca otel; yat ve villa gösterimi korunur. */}
-          {vertical === 'hotel' && (
+          {vertical === 'hotel' ? (
             <HotelPropertyInfoGrid
               locale={locale}
               source={{
@@ -783,7 +818,7 @@ export default async function StayListingDetailPageContent({
                 regionLabel: null,
               }}
             />
-          )}
+          ) : null}
           {renderSectionDescription()}
           {amenityKeys.length > 0 && (
             <ListingAmenitiesSection
@@ -902,7 +937,9 @@ export default async function StayListingDetailPageContent({
           />
           <NearbyPlacesSection
             locale={locale}
-            regionSlug={regionPlacesSlugFromCity(listing.city)}
+            regionSlug={
+              regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
+            }
             title={dp.nearbyPlaces}
             variant="flat"
             maxPlaces={12}
@@ -942,13 +979,15 @@ export default async function StayListingDetailPageContent({
         </div>
       </main>
 
-      <ListingDetailOurFeatures locale={locale} city={listing.city} />
+      <div className="mt-8">
+        <ListingDetailOurFeatures locale={locale} city={listing.city} />
+      </div>
 
-      <Divider className="my-16" />
+      <Divider className="my-12" />
 
       {/* HOST + REVIEWS */}
-      <div className="flex flex-col gap-y-10">
-        <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+      <div className="flex flex-col gap-y-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:gap-8">
           <div className="w-full lg:w-4/9 xl:w-1/3">
             <SectionHost {...host} locale={locale} />
           </div>
@@ -958,7 +997,7 @@ export default async function StayListingDetailPageContent({
               reviewCount={reviewCount ?? 0}
               reviewStart={reviewStart ?? 0}
             />
-            <div className="mt-8 flex justify-center lg:justify-start">
+            <div className="mt-6 flex justify-center lg:justify-start">
               <ReportListingButton listingId={listing.id} />
             </div>
           </div>

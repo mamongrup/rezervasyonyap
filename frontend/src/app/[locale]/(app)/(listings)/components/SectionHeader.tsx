@@ -1,6 +1,5 @@
 import LikeSaveBtns from '@/components/LikeSaveBtns'
 import StartRating from '@/components/StartRating'
-import { Badge } from '@/shared/Badge'
 import { Divider } from '@/shared/divider'
 import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -39,54 +38,61 @@ const SectionHeader = ({
   const addr = address?.trim() ?? ''
   /** Pin satırı: tatil evinde şehir/bölge; aksi halde adres (sokak üst başlıkta tekrarlanmaz) */
   const pinPrimary = region || addr
+  const categorySr = listingCategory?.trim() ?? ''
 
   return (
     <div className="relative listingSection__wrap">
-      <div className="flex flex-col items-stretch gap-y-6">
-        <div className="flex w-full min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 space-y-2">
-            <Badge>{listingCategory}</Badge>
-            {themePills && themePills.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {themePills.map((label, idx) => (
-                  <span
-                    key={`${label}-${idx}`}
-                    className="inline-flex items-center rounded-full border border-primary-200/90 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-950 shadow-sm dark:border-primary-800/70 dark:bg-primary-950/35 dark:text-primary-100"
-                  >
-                    {label}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <LikeSaveBtns className="shrink-0 pt-0.5" galleryShare={shareGallery} shareTitle={shareTitle ?? title} />
+      <div className="flex flex-col items-stretch gap-y-4">
+        {categorySr ? <span className="sr-only">{categorySr}</span> : null}
+
+        <div className="flex min-w-0 items-start justify-between gap-3">
+          <h1 className="min-w-0 flex-1 text-2xl font-semibold sm:text-3xl">{title}</h1>
+          <LikeSaveBtns
+            className="shrink-0 pt-1 sm:pt-0.5"
+            galleryShare={shareGallery}
+            shareTitle={shareTitle ?? title}
+          />
         </div>
-        <h1 className="text-2xl font-semibold sm:text-3xl">{title}</h1>
+
+        {themePills && themePills.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {themePills.map((label, idx) => (
+              <span
+                key={`${label}-${idx}`}
+                className="inline-flex items-center rounded-full border border-primary-200/90 bg-primary-50 px-3 py-1 text-sm font-medium text-primary-950 shadow-sm dark:border-primary-800/70 dark:bg-primary-950/35 dark:text-primary-100"
+              >
+                {label}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} />
           {pinPrimary ? (
             <>
-              <span>·</span>
-              <div className="flex items-center">
+              <span className="text-neutral-400 dark:text-neutral-500">·</span>
+              <div className="flex min-w-0 items-center">
                 <HugeiconsIcon
                   icon={Location06Icon}
                   size={20}
                   color="currentColor"
-                  className="mb-0.5"
+                  className="mb-0.5 shrink-0"
                   strokeWidth={1.5}
                 />
-                <span className="ms-1.5 text-neutral-700 dark:text-neutral-300">{pinPrimary}</span>
+                <span className="ms-1.5 line-clamp-2 text-neutral-700 dark:text-neutral-300">
+                  {pinPrimary}
+                </span>
               </div>
             </>
           ) : null}
         </div>
-      </div>
 
-      <Divider className="w-14!" />
+        <Divider className="w-14" />
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-neutral-700 sm:gap-x-8 xl:justify-start xl:gap-x-12 dark:text-neutral-300">
-        {children}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+          {children}
+        </div>
       </div>
     </div>
   )

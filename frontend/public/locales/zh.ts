@@ -362,6 +362,8 @@ export const zh: AppMessages = {
       notFoundTitle: '未找到房源',
       aboutVacationHome: '关于此度假屋',
       aboutStay: '关于此住宿',
+      descriptionShowMore: '展开全文',
+      descriptionShowLess: '收起',
       location: '位置',
       nearbyPlaces: '周边地点',
       similarListings: '相似房源',

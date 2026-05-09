@@ -136,7 +136,10 @@ export const getStayListingByHandle = async (
   const catalogId = await resolvePublishedListingIdForStayPage(handle, locale)
   if (!catalogId) return null
 
-  const pub = await searchPublicListings({ listingIds: [catalogId], perPage: 1, locale })
+  const pub = await searchPublicListings(
+    { listingIds: [catalogId], perPage: 1, locale },
+    { cache: 'no-store' },
+  )
   const item = pub?.listings?.[0]
   if (!item) return null
 

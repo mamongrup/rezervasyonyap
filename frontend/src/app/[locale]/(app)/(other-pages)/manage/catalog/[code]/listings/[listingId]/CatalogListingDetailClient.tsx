@@ -68,6 +68,7 @@ import {
   type MealPlanItem,
   type MealPlanCode,
   type PriceLineItem,
+  type ListingMeta,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { HolidayHomeIcalManagedRow } from '@/components/manage/HolidayHomeIcalManagedRow'
@@ -1321,30 +1322,31 @@ export default function CatalogListingDetailClient({
         orgQ,
       )
       const metaSnap = await getListingMeta(token, listingId, orgQ).catch(() => null)
-      const youtubePreserve =
-        metaSnap && typeof metaSnap.youtube_url === 'string'
-          ? metaSnap.youtube_url.trim()
-          : ''
-      await putListingMeta(
-        token,
-        listingId,
-        {
-          check_in_time: checkInTime.trim() || undefined,
-          check_out_time: checkOutTime.trim() || undefined,
-          bed_count: bedCount.trim() || undefined,
-          bath_count: bathCount.trim() || undefined,
-          square_meters: squareMeters.trim() || undefined,
-          max_guests: maxGuests.trim() || undefined,
-          address: address.trim() || undefined,
-          lat: String(lat ?? '').trim() || undefined,
-          lng: String(lng ?? '').trim() || undefined,
-          youtube_url: youtubePreserve || undefined,
-          min_advance_booking_days: minAdvanceBookingDays.trim() || undefined,
-          min_short_stay_nights: minShortStayNights.trim() || undefined,
-          short_stay_fee: shortStayFee.trim() || undefined,
-        },
-        orgQ,
-      )
+      const prev: ListingMeta = metaSnap ?? {}
+      const next: ListingMeta = { ...prev }
+      const assignTrim = (key: keyof ListingMeta, raw: string) => {
+        const t = raw.trim()
+        if (t) (next as Record<string, string>)[key as string] = t
+        else delete (next as Record<string, unknown>)[key as string]
+      }
+      assignTrim('check_in_time', checkInTime)
+      assignTrim('check_out_time', checkOutTime)
+      assignTrim('bed_count', bedCount)
+      assignTrim('bath_count', bathCount)
+      assignTrim('square_meters', squareMeters)
+      assignTrim('max_guests', maxGuests)
+      assignTrim('address', address)
+      assignTrim('lat', String(lat ?? ''))
+      assignTrim('lng', String(lng ?? ''))
+      assignTrim('min_advance_booking_days', minAdvanceBookingDays)
+      assignTrim('min_short_stay_nights', minShortStayNights)
+      assignTrim('short_stay_fee', shortStayFee)
+      if (typeof prev.youtube_url === 'string' && prev.youtube_url.trim()) {
+        next.youtube_url = prev.youtube_url.trim()
+      } else {
+        delete next.youtube_url
+      }
+      await putListingMeta(token, listingId, next, orgQ)
       if (String(lat ?? '').trim() && String(lng ?? '').trim()) {
         await computeListingNearbyPois(token, listingId).catch(() => {})
       }

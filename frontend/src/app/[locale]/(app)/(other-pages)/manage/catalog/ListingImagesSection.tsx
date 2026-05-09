@@ -92,20 +92,21 @@ export default function ListingImagesSection({
     setBusy(true)
     setErr(null)
     try {
-      let order = images.length
-      for (const storage_key of cleaned) {
-        await addListingImage(
-          token,
-          listingId,
-          {
-            storage_key,
-            original_mime: 'image/avif',
-            sort_order: order,
-          },
-          organizationId,
-        )
-        order += 1
-      }
+      const baseOrder = images.length
+      await Promise.all(
+        cleaned.map((storage_key, i) =>
+          addListingImage(
+            token,
+            listingId,
+            {
+              storage_key,
+              original_mime: 'image/avif',
+              sort_order: baseOrder + i,
+            },
+            organizationId,
+          ),
+        ),
+      )
       await load()
       setUploadKey((k) => k + 1)
     } catch (e) {

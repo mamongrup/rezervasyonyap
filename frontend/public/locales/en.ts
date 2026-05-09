@@ -1106,6 +1106,8 @@ export const en = {
       notFoundTitle: 'Listing not found',
       aboutVacationHome: 'About this vacation home',
       aboutStay: 'About this stay',
+      descriptionShowMore: 'Show more',
+      descriptionShowLess: 'Show less',
       location: 'Location',
       nearbyPlaces: 'Nearby places',
       similarListings: 'Similar listings',

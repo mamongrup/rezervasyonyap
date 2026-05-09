@@ -116,7 +116,7 @@ type FolderProfile = {
 const FALLBACK_PROFILES: Record<string, FolderProfile> = {
   hero:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   regions:        { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
-  listings:       { width: 1600, height: 1200, fit: 'cover',  vivid: true,  quality: 90, effort: 6, thumb: 384 },
+  listings:       { width: 1600, height: 1200, fit: 'cover',  vivid: true,  quality: 90, effort: 4, thumb: 384 },
   tours:          { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   events:         { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   travel_ideas:   { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },

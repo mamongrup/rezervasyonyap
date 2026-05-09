@@ -371,6 +371,8 @@ export const fr: AppMessages = {
       notFoundTitle: 'Annonce introuvable',
       aboutVacationHome: 'À propos de cette location',
       aboutStay: 'À propos de ce logement',
+      descriptionShowMore: 'Afficher la suite',
+      descriptionShowLess: 'Réduire',
       location: 'Emplacement',
       nearbyPlaces: 'À proximité',
       similarListings: 'Annonces similaires',

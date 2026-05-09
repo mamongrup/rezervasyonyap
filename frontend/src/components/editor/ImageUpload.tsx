@@ -2,11 +2,9 @@
 
 import { ManageMediaPickerModal } from '@/components/manage/ManageMediaPickerModal'
 import {
-  buildManageUploadImageFormData,
-  resolveBatchStartIndex,
+  uploadManageImagesWithConcurrency,
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
-import { uploadFetch } from '@/lib/upload-fetch'
 import clsx from 'clsx'
 import { AlertTriangle, ImagePlus, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import NextImage from 'next/image'
@@ -127,25 +125,17 @@ export default function ImageUpload({
 
       setDropUploading(true)
       setWarning(null)
-      const urls: string[] = []
-      let lastWarn: string | undefined
       const multi = take.length > 1
 
       try {
-        const start = resolveBatchStartIndex(t, imageIndex)
-        for (let i = 0; i < take.length; i++) {
-          const explicitIdx = multi ? start + i : null
-          const form = buildManageUploadImageFormData(take[i]!, t, explicitIdx)
-          const data = await uploadFetch(form)
-          if (!data.ok || !data.url) {
-            setWarning(data.error ?? 'Sürüklenen dosya yüklenemedi.')
-            return true
-          }
-          urls.push(data.url)
-          if (data.warning) lastWarn = data.warning
+        const batch = await uploadManageImagesWithConcurrency(take, t, imageIndex, multi)
+        if (!batch.ok) {
+          setWarning(batch.error ?? 'Sürüklenen dosya yüklenemedi.')
+          return true
         }
-        const meta = lastWarn ? { warning: lastWarn } : undefined
-        setWarning(meta?.warning ?? null)
+        const urls = batch.urls
+        const lastWarn = batch.warning
+        setWarning(lastWarn ?? null)
         if (onBatchComplete) {
           onBatchComplete(urls)
         } else if (urls.length === 1) {

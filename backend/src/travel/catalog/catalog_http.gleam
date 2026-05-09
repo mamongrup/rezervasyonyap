@@ -2869,7 +2869,14 @@ pub fn put_listing_meta(
                     |> pog.parameter(pog.text(body))
                     |> pog.execute(ctx.db)
                   {
-                    Error(_) -> json_err(500, "listing_meta_save_failed")
+                    Error(e) -> {
+                      let _ =
+                        io.println(
+                          "[catalog.put_listing_meta] "
+                          <> pog_errors.query_error_to_string(e),
+                        )
+                      json_err(500, "listing_meta_save_failed")
+                    }
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
                   }
               }

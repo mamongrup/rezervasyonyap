@@ -15,6 +15,8 @@ type Props = {
   /** Para birimi simgesi (örn. "₺", "$"). */
   currencySymbol?: string
   className?: string
+  /** Başlık satırında ayrı gösterildiğinde burada tekrarlamayı önle */
+  hideInstantBook?: boolean
 }
 
 function isMobileDevice(): boolean {
@@ -28,6 +30,7 @@ export default function ListingPerksBadges({
   basePrice,
   currencySymbol = '₺',
   className,
+  hideInstantBook = false,
 }: Props) {
   const [perks, setPerks] = React.useState<Perks | null>(null)
   const [isMobile, setIsMobile] = React.useState(false)
@@ -59,7 +62,7 @@ export default function ListingPerksBadges({
       : 0
 
   const items: { icon: string; label: string; tone: 'sky' | 'amber' | 'violet' }[] = []
-  if (perks.instant_book) {
+  if (perks.instant_book && !hideInstantBook) {
     items.push({ icon: '⚡', label: 'Anında Onay', tone: 'sky' })
   }
   if (perks.super_host) {

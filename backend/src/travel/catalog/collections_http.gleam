@@ -349,7 +349,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(l.featured_image_url, l.thumbnail_url, ''), "
-    <> "coalesce(l.first_charge_amount::text, ''), "
+    <> "coalesce((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true), ''), "
     <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "

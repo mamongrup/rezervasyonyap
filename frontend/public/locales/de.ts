@@ -371,6 +371,8 @@ export const de: AppMessages = {
       notFoundTitle: 'Inserat nicht gefunden',
       aboutVacationHome: 'Über dieses Ferienhaus',
       aboutStay: 'Über diese Unterkunft',
+      descriptionShowMore: 'Mehr anzeigen',
+      descriptionShowLess: 'Weniger anzeigen',
       location: 'Lage',
       nearbyPlaces: 'Orte in der Nähe',
       similarListings: 'Ähnliche Inserate',

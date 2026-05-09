@@ -1,12 +1,10 @@
 'use client'
 
 import {
-  buildManageUploadImageFormData,
-  resolveBatchStartIndex,
+  uploadManageImagesWithConcurrency,
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
 import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
-import { uploadFetch } from '@/lib/upload-fetch'
 import {
   ChevronRight,
   Folder,
@@ -558,25 +556,18 @@ export function ManageMediaPickerModal({
 
       setUploading(true)
       setError(null)
-      const urls: string[] = []
-      let lastWarning: string | undefined
       const multi = files.length > 1
 
       try {
-        const start = resolveBatchStartIndex(t, batchStartIndex)
-        for (let i = 0; i < files.length; i++) {
-          const explicitIdx = multi ? start + i : null
-          const form = buildManageUploadImageFormData(files[i], t, explicitIdx)
-          const data = await uploadFetch(form)
-          if (!data.ok || !data.url) {
-            setError(data.error ?? 'Yükleme başarısız.')
-            setUploading(false)
-            if (fileRef.current) fileRef.current.value = ''
-            return
-          }
-          urls.push(data.url)
-          if (data.warning) lastWarning = data.warning
+        const batch = await uploadManageImagesWithConcurrency(files, t, batchStartIndex, multi)
+        if (!batch.ok) {
+          setError(batch.error ?? 'Yükleme başarısız.')
+          setUploading(false)
+          if (fileRef.current) fileRef.current.value = ''
+          return
         }
+        const urls = batch.urls
+        const lastWarning = batch.warning
 
         await load()
 

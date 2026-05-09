@@ -13,8 +13,7 @@ type Props = {
 }
 
 /**
- * İlan detay sayfasındaki bağlamsal WhatsApp butonu.
- * Tıklanınca önceden doldurulmuş mesajla wa.me açar.
+ * Rezervasyon kartının dışında — form ile aynı kutuda değil; WhatsApp CTA.
  */
 export default function WhatsAppListingCTA({ listingTitle, listingUrl, className }: Props) {
   const [wa, setWa] = useState(() => getSitePublicConfig().whatsappE164)
