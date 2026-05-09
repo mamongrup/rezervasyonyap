@@ -140,6 +140,28 @@ Ortam dosyası yolunu değiştirmek için: `TRAVEL_DB_ENV=/yol/backend.env ./dep
 
 **Yerel Windows (Laragon):** Bu script Linux/bash içindir; PowerShell’de Laragon `psql` yolunu kullanın (bkz. `00-project-overview.mdc`).
 
+### İlan görselleri + konum vitrin paketi (282 → 283 → 284)
+
+Bazı ortamlarda yalnızca **284** çalıştırılırsa konum backfill tamamlanır; **282** ve **283** ise görsel yükleme kalitesi / AVIF ile ilgilidir — üçünü de sırayla uygulayın ki kod ile ayarlar uyumlu kalsın.
+
+**Üretim** (repo kökü, `apply-sql.sh` ile — `backend.env` otomatik):
+
+```bash
+./deploy/apply-sql.sh backend/priv/sql/modules/282_listings_image_upload_high_quality.sql
+./deploy/apply-sql.sh backend/priv/sql/modules/283_listings_image_avif_quality_90.sql
+./deploy/apply-sql.sh backend/priv/sql/modules/284_listings_location_name_backfill_from_meta.sql
+```
+
+**Yerel Laragon** (PowerShell, repo kökü; sıra aynı):
+
+```powershell
+& "C:\laragon\bin\postgresql\postgresql\bin\psql.exe" -h 127.0.0.1 -p 5432 -U postgres -d travel -f backend\priv\sql\modules\282_listings_image_upload_high_quality.sql
+& "C:\laragon\bin\postgresql\postgresql\bin\psql.exe" -h 127.0.0.1 -p 5432 -U postgres -d travel -f backend\priv\sql\modules\283_listings_image_avif_quality_90.sql
+& "C:\laragon\bin\postgresql\postgresql\bin\psql.exe" -h 127.0.0.1 -p 5432 -U postgres -d travel -f backend\priv\sql\modules\284_listings_location_name_backfill_from_meta.sql
+```
+
+**284 notu:** Yalnızca `location_name` boş ve `listing_meta` içinde `address` dolu olan yayın ilanları güncellenir; tekrar çalıştırmak genelde zararsızdır (satır sayısı 0 olabilir).
+
 ## 9) Pazarlama AI / DeepSeek `timeout`
 
 - **Sure (API):** Yalniz **Ayarlar → Genel → Yapay zeka** (`site_settings.ai`). Eski `travel-api` yukluyse panel ile httpc uyusmaz — `gleam build` + `systemctl restart travel-api.service`. **`plesk-vitrin-deploy.sh`** yalnizca Next.js derler; API’yi unutmayin.

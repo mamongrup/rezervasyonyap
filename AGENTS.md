@@ -37,7 +37,7 @@ DEPLOY_REF=main ./deploy/deploy.sh
 
 Dal veya tag için `DEPLOY_REF=` değerini değiştirin (ör. `cursor/some-branch`). İsteğe bağlı doğrulama: `./deploy/verify.sh` — yavaş kalkıyorsa `deploy/verify.sh` başındaki `WEB_READY_*` değişkenlerine bakın.
 
-**SQL migration (üretim):** `deploy/apply-sql.sh` — `travel-api` ile aynı `/etc/rezervasyonyap/backend.env` üzerinden `psql` çalıştırır; `psql -U postgres` ile şifre uyuşmazlığından kaçının (`deploy/DEPLOY_CHECKLIST.md` §8).
+**SQL migration (üretim):** `deploy/apply-sql.sh` — `travel-api` ile aynı `/etc/rezervasyonyap/backend.env` üzerinden `psql` çalıştırır; `psql -U postgres` ile şifre uyuşmazlığından kaçının (`deploy/DEPLOY_CHECKLIST.md` §8). **282→283→284 paketi** (görsel kalite + konum backfill) için aynı dosyada §8 altındaki blok.
 
 ---
 

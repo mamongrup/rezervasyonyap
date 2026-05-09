@@ -31,7 +31,7 @@ Bu repoyla birlikte kurulan canlı ortam için **tek kaynaklı** bağlam; panel/
 
 - **Uygulama bağlantısı:** `travel-api` → `EnvironmentFile` genelde **`/etc/rezervasyonyap/backend.env`** (`DATABASE_URL` veya `PG*` — `backend/src/backend/config.gleam`).
 - **Elle `psql -U postgres` kullanmayın**; Plesk’te süper kullanıcı şifresi farklı olur, uygulama kullanıcısı ile uyumsuzluk çıkar.
-- **Standart komut (sunucuda, repo kökü):** `chmod +x deploy/apply-sql.sh` sonra `./deploy/apply-sql.sh backend/priv/sql/modules/NNN_....sql` — script aynı `backend.env` dosyasını yükler.
+- **Standart komut (sunucuda, repo kökü):** `chmod +x deploy/apply-sql.sh` sonra `./deploy/apply-sql.sh backend/priv/sql/modules/NNN_....sql` — script aynı `backend.env` dosyasını yükler. Çoklu modül örneği (282→283→284): `deploy/DEPLOY_CHECKLIST.md` §8 alt başlığı.
 
 ## Tek komut deploy
 
