@@ -30,6 +30,10 @@ export type StayListingReservationCardProps = {
   stayBookingRules?: StayBookingRules
   /** `listings.cleaning_fee_amount` — konaklama başına tek sefer */
   cleaningFeeAmount?: number
+  /** Hasar depozitosu — yemek planı geceliği ile karışırsa vitrin düzeltmesi */
+  damageDepositAmount?: number
+  /** `listing_price_rules` içinden minimum gecelik — depozito ile çakışan plan yerine */
+  ruleFallbackNightly?: number
   /** Anında Onay rozeti — fiyat satırıyla aynı hizada sağda */
   listingId?: string
 }
@@ -47,6 +51,8 @@ export default function StayListingReservationCard({
   poolHeating = null,
   stayBookingRules,
   cleaningFeeAmount,
+  damageDepositAmount,
+  ruleFallbackNightly,
   listingId,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
@@ -98,6 +104,8 @@ export default function StayListingReservationCard({
     minShortStayNights: stayBookingRules?.minShortStayNights,
     shortStayFeeAmount: stayBookingRules?.shortStayFeeAmount,
     cleaningFeeAmount,
+    damageDepositAmount,
+    ruleFallbackNightly,
   })
 
   const hasMultiplePlans = activePlans.length > 1

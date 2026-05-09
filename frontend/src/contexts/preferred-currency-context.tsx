@@ -119,7 +119,7 @@ export function useConvertedListingPrice(
     const native =
       amount != null && cur
         ? formatMoneyIntl(amount, cur)
-        : (priceLabel?.trim() ?? '—')
+        : (priceLabel?.trim() || '—')
 
     if (!ctx) return native
 

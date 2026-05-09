@@ -30,6 +30,7 @@ import {
   createIcalFeed,
   createListingPriceRule,
   createManageCatalogListing,
+  createManageMealPlan,
   getAuthMe,
   getListingAttributeValues,
   getListingBasics,
@@ -49,6 +50,7 @@ import {
   listListingImages,
   listListingPriceRules,
   listManageCatalogListings,
+  listManageMealPlans,
   listManageCategoryContracts,
   rotateListingIcalExportToken,
   listPriceLineItems,
@@ -64,6 +66,7 @@ import {
   putVerticalMeta,
   putListingPriceLineSelections,
   upsertSeoMetadata,
+  updateManageMealPlan,
   type AttributeDef,
   type AttributeGroup,
   type ListingImage,
@@ -151,6 +154,69 @@ function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, 
   const o: Record<string, { title: string; description: string }> = {}
   for (const c of codes) o[c] = { title: '', description: '' }
   return o
+}
+
+/** Arama `price_from` ve rezervasyon kotası `listing_meal_plans` ile aynı kaynak — vitrin senkronu */
+async function ensureHolidayHomeMealPlanNightly(
+  token: string,
+  listingId: string,
+  pricePerNight: number,
+  currencyCode: string,
+  orgParam?: { organizationId?: string },
+): Promise<void> {
+  const { meal_plans } = await listManageMealPlans(token, listingId, orgParam)
+  const active = meal_plans.filter((p) => p.is_active)
+  const priceStr = String(pricePerNight)
+  const cur = currencyCode.trim().toUpperCase() || 'TRY'
+  if (active.length === 0) {
+    await createManageMealPlan(
+      token,
+      listingId,
+      {
+        plan_code: 'room_only',
+        label: 'Konaklama',
+        price_per_night: priceStr,
+        currency_code: cur,
+      },
+      orgParam,
+    )
+    return
+  }
+  const roomOnly = active.filter((p) => p.plan_code === 'room_only')
+  const targets = roomOnly.length > 0 ? roomOnly : active
+  for (const p of targets) {
+    await updateManageMealPlan(
+      token,
+      listingId,
+      p.id,
+      {
+        label: p.label,
+        label_en: p.label_en,
+        included_meals: p.included_meals,
+        included_extras: p.included_extras,
+        price_per_night: priceStr,
+        currency_code: (cur || p.currency_code).trim().toUpperCase() || 'TRY',
+        is_active: true,
+        sort_order: p.sort_order,
+      },
+      orgParam,
+    )
+  }
+}
+
+function parseBaseNightlyFromRuleJson(ruleJson: string): number | undefined {
+  try {
+    const j = JSON.parse(ruleJson) as { base_nightly?: unknown }
+    const raw = j.base_nightly
+    if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw
+    if (typeof raw === 'string') {
+      const n = parseFloat(raw.replace(/\s/g, '').replace(',', '.'))
+      return Number.isFinite(n) && n > 0 ? n : undefined
+    }
+  } catch {
+    /* ignore */
+  }
+  return undefined
 }
 
 const HERO_SLOT_LABELS = ['Manzara', 'Havuz', 'Salon & mutfak', 'Yatak odası', 'Banyo'] as const
@@ -773,6 +839,7 @@ export default function CatalogNewListingClient({
           priceSel,
           imgsRes,
           rulesRes,
+          mealPlansRes,
           feedsRes,
           perks,
           faqTplRes,
@@ -794,6 +861,7 @@ export default function CatalogNewListingClient({
           getListingPriceLineSelections(token, lid, orgParam).catch(() => ({ item_ids: [] as string[] })),
           listListingImages(token, lid, orgForImg).catch(() => ({ images: [] })),
           listListingPriceRules(token, lid, orgParam).catch(() => ({ rules: [] })),
+          listManageMealPlans(token, lid, orgParam).catch(() => ({ meal_plans: [] })),
           listIcalFeeds(lid).catch(() => ({ feeds: [] })),
           getListingPerks(lid).catch(() => null),
           listSiteSettings(token, { scope: 'platform', key: HOLIDAY_HOME_FAQ_SITE_KEY }).catch(() => ({
@@ -994,17 +1062,27 @@ export default function CatalogNewListingClient({
         const savedHero = parseHeroPreviewKeysFromVertical(vmInner)
         setHeroManualStorageKeys(savedHero ?? defaultHeroKeysFromSort(sortedImgs))
 
-        for (const r of rulesRes.rules) {
-          try {
-            const j = JSON.parse(r.rule_json) as { base_nightly?: number }
-            if (typeof j.base_nightly === 'number' && Number.isFinite(j.base_nightly) && j.base_nightly > 0) {
-              setBasePrice(String(j.base_nightly))
+        const mpList = mealPlansRes.meal_plans ?? []
+        const activeMp = mpList.filter((p) => p.is_active && p.price_per_night > 0)
+        const roomOnlyMp = activeMp.filter((p) => p.plan_code === 'room_only')
+        const planPickPool = roomOnlyMp.length > 0 ? roomOnlyMp : activeMp
+        let hydratedNightly = ''
+        if (planPickPool.length > 0) {
+          const minPlan = planPickPool.reduce((a, b) =>
+            a.price_per_night <= b.price_per_night ? a : b,
+          )
+          hydratedNightly = String(minPlan.price_per_night)
+        }
+        if (!hydratedNightly) {
+          for (const r of rulesRes.rules) {
+            const bn = parseBaseNightlyFromRuleJson(r.rule_json)
+            if (bn != null) {
+              hydratedNightly = String(bn)
               break
             }
-          } catch {
-            /* next rule */
           }
         }
+        if (hydratedNightly) setBasePrice(hydratedNightly)
 
         const feedUrl = feedsRes.feeds[0]?.url
         if (feedUrl?.trim()) setIcalImportUrl(feedUrl.trim())
@@ -1647,7 +1725,7 @@ export default function CatalogNewListingClient({
         putManageListingTranslations(token, lid, { entries: translationEntries }, orgParam),
       )
 
-      // 3. Temel gecelik fiyat — yalnızca yeni ilan akışında (mevcut kayıtta takvim/kural paneline dokunma)
+      // 3. Temel gecelik — vitrin `price_from` listing_meal_plans’tan gelir; düzenlemede de güncellenmeli
       if (!editListingId) {
         const price = parseFloat(basePrice.replace(',', '.'))
         if (Number.isFinite(price) && price > 0) {
@@ -1659,6 +1737,20 @@ export default function CatalogNewListingClient({
             'Fiyat kaydı',
             createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam),
           )
+          if (categoryCode === 'holiday_home') {
+            await saveRequiredStep(
+              'Gecelik ücret (yemek planı) kaydı',
+              ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam),
+            )
+          }
+        }
+      } else if (editListingId && categoryCode === 'holiday_home') {
+        const price = parseFloat(basePrice.replace(',', '.'))
+        if (Number.isFinite(price) && price > 0) {
+          await saveRequiredStep(
+            'Gecelik ücret (yemek planı) kaydı',
+            ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam),
+          )
         }
       }
 
@@ -1666,6 +1758,7 @@ export default function CatalogNewListingClient({
       const basicsBody: Parameters<typeof patchListingBasics>[2] = { status }
       if (minStayNights.trim()) basicsBody.min_stay_nights = minStayNights.trim()
       if (cleaningFee.trim()) basicsBody.cleaning_fee_amount = cleaningFee.trim()
+      else if (editListingId) basicsBody.cleaning_fee_amount = '__null__'
       if (depositAmount.trim()) basicsBody.first_charge_amount = depositAmount.trim()
       if (prepaymentPercent.trim()) basicsBody.prepayment_percent = prepaymentPercent.trim()
       if (commissionPercent.trim()) basicsBody.commission_percent = commissionPercent.trim()

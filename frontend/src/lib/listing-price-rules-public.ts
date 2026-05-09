@@ -194,3 +194,19 @@ export function buildSeasonalPricingTableRows(
   }
   return out
 }
+
+/** `price_from` boş kaldığında vitrin rezervasyon kutusu için dönemsel kurallardan minimum gecelik. */
+export function minNightlyFromListingPriceRules(rules: ListingPriceRuleRow[]): number | undefined {
+  let min: number | undefined
+  const bumpParsed = (parsed: ParsedPriceRuleJson) => {
+    for (const raw of [parsed.base, parsed.weekend, parsed.roomOnly, parsed.mealsIncluded]) {
+      const n = parseAmount(raw)
+      if (n == null || !Number.isFinite(n) || n <= 0) continue
+      min = min === undefined ? n : Math.min(min, n)
+    }
+  }
+  for (const r of rules) {
+    bumpParsed(parseListingPriceRuleJson(r.rule_json))
+  }
+  return min
+}

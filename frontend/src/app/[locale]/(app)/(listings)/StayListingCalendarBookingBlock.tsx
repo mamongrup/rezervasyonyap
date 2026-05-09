@@ -21,6 +21,8 @@ export default function StayListingCalendarBookingBlock({
   initialMonthsShown = 1,
   isHolidayHome = false,
   cleaningFeeAmount,
+  damageDepositAmount,
+  ruleFallbackNightly,
 }: {
   locale: string
   initialDays: ListingAvailabilityDay[]
@@ -36,6 +38,8 @@ export default function StayListingCalendarBookingBlock({
   poolHeating: PoolHeatingOption
   isHolidayHome?: boolean
   cleaningFeeAmount?: number
+  damageDepositAmount?: number
+  ruleFallbackNightly?: number
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null)
@@ -69,6 +73,8 @@ export default function StayListingCalendarBookingBlock({
           stayBookingRules={stayBookingRules}
           isHolidayHome={isHolidayHome}
           cleaningFeeAmount={cleaningFeeAmount}
+          damageDepositAmount={damageDepositAmount}
+          ruleFallbackNightly={ruleFallbackNightly}
         />
       ) : null}
     </>

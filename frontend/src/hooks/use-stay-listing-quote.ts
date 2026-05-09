@@ -23,6 +23,16 @@ export function diffStayNights(start: Date | null, end: Date | null): number {
 
 export type PoolHeatingOption = { dailyAmount: number; feeSummary: string; currencyCode: string } | null
 
+/** Hasar depozitosu ile aynı tutar yemek planına yanlış yazılmışsa vitrin geceliği için ele */
+export function nightlyDiffersFromDeposit(
+  nightly: number | null | undefined,
+  depositAmount: number | undefined,
+): boolean {
+  if (nightly == null || !Number.isFinite(nightly) || nightly <= 0) return false
+  if (depositAmount == null || !Number.isFinite(depositAmount) || depositAmount <= 0) return true
+  return Math.abs(nightly - depositAmount) >= 0.01
+}
+
 export function useStayListingQuote({
   mealPlans,
   price,
@@ -37,6 +47,8 @@ export function useStayListingQuote({
   minShortStayNights,
   shortStayFeeAmount,
   cleaningFeeAmount,
+  damageDepositAmount,
+  ruleFallbackNightly,
 }: {
   mealPlans: MealPlanItem[]
   price: string
@@ -53,6 +65,10 @@ export function useStayListingQuote({
   shortStayFeeAmount?: number
   /** Konaklama başına tek seferlik temizlik — gece seçiliyken uygulanır */
   cleaningFeeAmount?: number
+  /** `listings.first_charge_amount` — yemek planı geceliği buna eşitse şüpheli kabul edilir */
+  damageDepositAmount?: number
+  /** Dönemsel kural JSON’undan minimum gecelik (panel «Varsayılan fiyat») */
+  ruleFallbackNightly?: number
 }) {
   const ctx = usePreferredCurrencyContext()
   const convertedListingLabel = useConvertedListingPrice(price, priceAmount, priceCurrency)
@@ -84,29 +100,59 @@ export function useStayListingQuote({
     [activePlans],
   )
 
-  const currencyCode = (cheapestPlan?.currency_code ?? priceCurrency ?? 'TRY').trim().toUpperCase()
+  /** Yemek planı tutarı depozito ile aynıysa kurallar / arama fiyatına güven */
+  const cheapestPlanForPricing = useMemo(() => {
+    if (!cheapestPlan) return null
+    if (nightlyDiffersFromDeposit(cheapestPlan.price_per_night, damageDepositAmount)) {
+      return cheapestPlan
+    }
+    const candidates: number[] = []
+    if (nightlyDiffersFromDeposit(ruleFallbackNightly, damageDepositAmount)) {
+      candidates.push(ruleFallbackNightly!)
+    }
+    if (nightlyDiffersFromDeposit(priceAmount, damageDepositAmount)) {
+      candidates.push(priceAmount!)
+    }
+    if (candidates.length === 0) return cheapestPlan
+    const replacement = Math.min(...candidates)
+    return { ...cheapestPlan, price_per_night: replacement }
+  }, [cheapestPlan, damageDepositAmount, ruleFallbackNightly, priceAmount])
+
+  const currencyCode = (cheapestPlanForPricing?.currency_code ?? priceCurrency ?? 'TRY').trim().toUpperCase()
   const poolHeatingCurrency = poolHeating?.currencyCode.trim().toUpperCase() || currencyCode
 
-  const basePriceNum = cheapestPlan
-    ? cheapestPlan.price_per_night
+  const basePriceNum = cheapestPlanForPricing
+    ? cheapestPlanForPricing.price_per_night
     : priceAmount != null && Number.isFinite(priceAmount)
       ? priceAmount
       : parseInt((price ?? '').replace(/\D/g, '') || '0', 10) || 0
 
   const discountPct = parseDiscountPercent(saleOff, discountPercent ?? undefined)
   const showDiscountRow =
-    !cheapestPlan && discountPct != null && discountPct > 0 && basePriceNum > 0
+    !cheapestPlanForPricing && discountPct != null && discountPct > 0 && basePriceNum > 0
 
   const originalPriceNum =
     showDiscountRow && discountPct != null ? basePriceNum / (1 - discountPct / 100) : null
 
   const displayMainPrice = useMemo(() => {
-    if (cheapestPlan) return formatConverted(cheapestPlan.price_per_night, cheapestPlan.currency_code)
+    if (cheapestPlanForPricing) {
+      return formatConverted(
+        cheapestPlanForPricing.price_per_night,
+        cheapestPlanForPricing.currency_code,
+      )
+    }
     if (showDiscountRow && basePriceNum > 0) return formatConverted(basePriceNum, currencyCode)
     return convertedListingLabel
-  }, [cheapestPlan, showDiscountRow, basePriceNum, currencyCode, formatConverted, convertedListingLabel])
+  }, [
+    cheapestPlanForPricing,
+    showDiscountRow,
+    basePriceNum,
+    currencyCode,
+    formatConverted,
+    convertedListingLabel,
+  ])
 
-  const priceNum = cheapestPlan ? cheapestPlan.price_per_night : basePriceNum
+  const priceNum = cheapestPlanForPricing ? cheapestPlanForPricing.price_per_night : basePriceNum
 
   const lodgingSubtotal = priceNum > 0 ? priceNum * nights : 0
   const heatingSubtotal =
@@ -131,8 +177,8 @@ export function useStayListingQuote({
   const grandTotal = subtotalBeforeFee + serviceFee
 
   const unitForBreakdownLine =
-    cheapestPlan != null
-      ? formatConverted(cheapestPlan.price_per_night, cheapestPlan.currency_code)
+    cheapestPlanForPricing != null
+      ? formatConverted(cheapestPlanForPricing.price_per_night, cheapestPlanForPricing.currency_code)
       : showDiscountRow && basePriceNum > 0
         ? formatConverted(basePriceNum, currencyCode)
         : convertedListingLabel

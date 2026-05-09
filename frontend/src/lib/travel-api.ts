@@ -8313,6 +8313,8 @@ export interface PublicListingItem {
   /** listing_meta — tatil evi vitrin */
   max_guests?: string | null
   room_count?: string | null
+  /** listing_meta — yatak sayısı; vitrin «oda» özeti `room_count` boşsa buradan doldurulur */
+  bed_count?: string | null
   bath_count?: string | null
   /** Görünen ilan tipi (ör. Villa, Dubleks) */
   property_type?: string | null
@@ -8449,6 +8451,7 @@ export async function resolvePublishedListingIdForStayPage(
 export interface ListingBasicsPatch {
   status?: '' | 'draft' | 'published' | 'archived'
   min_stay_nights?: string   // number string or '__null__'
+  /** Tutar metni veya kolonu temizlemek için tam olarak `'__null__'` */
   cleaning_fee_amount?: string
   first_charge_amount?: string
   prepayment_percent?: string
@@ -8650,6 +8653,54 @@ function stripNullBytesDeep(value: unknown): unknown {
   return out
 }
 
+/** GET birleşimi sayısal lat/lng veya kirli jsonb anahtarları gönderebilir; PG güncellemesi yalnızca düz metin bekler. */
+const LISTING_META_PUT_KEYS = new Set([
+  'address',
+  'lat',
+  'lng',
+  'check_in_time',
+  'check_out_time',
+  'bed_count',
+  'bath_count',
+  'square_meters',
+  'max_guests',
+  'min_advance_booking_days',
+  'room_count',
+  'property_type',
+  'owner_tc_no',
+  'owner_bank_name',
+  'owner_iban',
+  'owner_account_type',
+  'owner_residence_address',
+  'youtube_url',
+  'tourism_cert_no',
+  'short_stay_fee',
+  'min_short_stay_nights',
+])
+
+function flattenListingMetaForPut(meta: Record<string, unknown>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const key of Object.keys(meta)) {
+    if (!LISTING_META_PUT_KEYS.has(key)) continue
+    const v = meta[key]
+    if (v === null || v === undefined) continue
+    if (typeof v === 'boolean') {
+      out[key] = v ? 'true' : 'false'
+      continue
+    }
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      out[key] = String(v)
+      continue
+    }
+    if (typeof v === 'string') {
+      const t = v.replace(/\0/g, '').trim()
+      if (t !== '') out[key] = t
+      continue
+    }
+  }
+  return out
+}
+
 export async function getListingMeta(
   token: string,
   listingId: string,
@@ -8675,13 +8726,14 @@ export async function putListingMeta(
 ): Promise<{ ok: boolean }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const sanitized = stripNullBytesDeep(body)
+  const sanitized = stripNullBytesDeep(body) as Record<string, unknown>
+  const flattened = flattenListingMetaForPut(sanitized)
   const res = await fetch(
     `${b}/api/v1/catalog/listings/${listingId}/meta${catalogListingQs(params)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(sanitized),
+      body: JSON.stringify(flattened),
     },
   )
   if (!res.ok) {

@@ -8,7 +8,10 @@ import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { buildSeasonalPricingTableRows } from '@/lib/listing-price-rules-public'
+import {
+  buildSeasonalPricingTableRows,
+  minNightlyFromListingPriceRules,
+} from '@/lib/listing-price-rules-public'
 import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
 import {
   regionBrowseSlugFromLocationPin,
@@ -39,6 +42,7 @@ import {
   isAttributeValueTrue,
   listPublicThemeItems,
   resolvePublishedListingIdForStayPage,
+  type ListingPriceRuleRow,
 } from '@/lib/travel-api'
 import type { TListingHolidayHome } from '@/types/listing-types'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -301,6 +305,7 @@ export default async function StayListingDetailPageContent({
     : null
   /** API `meal_plan_summary === 'both'` — ücret tablosunda yemekli / yemeksiz sütunları */
   const dualMealPricing = isHolidayHome && listing.mealPlanSummary === 'both'
+  let holidayHomePriceRules: ListingPriceRuleRow[] = []
   let seasonalPricingRows: ReturnType<typeof buildSeasonalPricingTableRows> = []
   if (isHolidayHome) {
     const seasonalMsg = {
@@ -309,15 +314,46 @@ export default async function StayListingDetailPageContent({
       rangeFromOpen: messages.listing.seasonalPricing.rangeFromOpen,
       rangeUntil: messages.listing.seasonalPricing.rangeUntil,
     }
-    const rules = catalogListingId ? await getPublicListingPriceRules(catalogListingId) : []
+    holidayHomePriceRules = catalogListingId ? await getPublicListingPriceRules(catalogListingId) : []
     seasonalPricingRows = buildSeasonalPricingTableRows(
-      rules,
+      holidayHomePriceRules,
       locale,
       listingCurrencyUpper,
       seasonalMsg,
       { preferDualMealColumns: dualMealPricing },
     )
   }
+
+  const minNightlyFromRules = minNightlyFromListingPriceRules(holidayHomePriceRules)
+
+  const damageDepositAmount =
+    listing.firstChargeAmount != null &&
+    Number.isFinite(listing.firstChargeAmount) &&
+    listing.firstChargeAmount > 0
+      ? listing.firstChargeAmount
+      : undefined
+
+  const rulesNightlyCandidate =
+    minNightlyFromRules != null && Number.isFinite(minNightlyFromRules) && minNightlyFromRules > 0
+      ? minNightlyFromRules
+      : undefined
+
+  /** Arama `price_from` yemek planı minimumu bazen depozito ile aynı yanlış kayıtla gelir — kuralları önceliklendir */
+  const nightlyEscapesDeposit = (n: number | undefined): n is number =>
+    n != null &&
+    Number.isFinite(n) &&
+    n > 0 &&
+    !(damageDepositAmount != null && Math.abs(n - damageDepositAmount) < 0.01)
+
+  const reservationPriceAmount = nightlyEscapesDeposit(priceAmount)
+    ? priceAmount
+    : nightlyEscapesDeposit(rulesNightlyCandidate)
+      ? rulesNightlyCandidate
+      : priceAmount != null && Number.isFinite(priceAmount) && priceAmount > 0
+        ? priceAmount
+        : rulesNightlyCandidate
+
+  const ruleFallbackForQuote = isHolidayHome ? rulesNightlyCandidate : undefined
 
   const seasonalExtraCharges: ListingExtraChargesModel | undefined = isHolidayHome
     ? {
@@ -736,7 +772,7 @@ export default async function StayListingDetailPageContent({
       isHolidayHome={isHolidayHome}
       mealPlans={mealPlans}
       price={price ?? ''}
-      priceAmount={priceAmount}
+      priceAmount={reservationPriceAmount}
       priceCurrency={priceCurrency}
       saleOff={saleOff}
       discountPercent={discountPercent}
@@ -744,6 +780,8 @@ export default async function StayListingDetailPageContent({
       poolHeating={poolHeatingOption}
       stayBookingRules={listing.stayBookingRules}
       cleaningFeeAmount={listing.cleaningFeeAmount}
+      damageDepositAmount={damageDepositAmount}
+      ruleFallbackNightly={ruleFallbackForQuote}
       listingId={listing.id}
     />
   )
@@ -752,7 +790,7 @@ export default async function StayListingDetailPageContent({
     <div className="flex flex-col gap-2 px-1">
       <ListingPerksBadges
         listingId={listing.id}
-        basePrice={typeof priceAmount === 'number' ? priceAmount : undefined}
+        basePrice={typeof reservationPriceAmount === 'number' ? reservationPriceAmount : undefined}
         currencySymbol={priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'}
         hideInstantBook
       />
@@ -867,13 +905,15 @@ export default async function StayListingDetailPageContent({
             stayBookingRules={listing.stayBookingRules}
             mealPlans={mealPlans}
             price={price ?? ''}
-            priceAmount={priceAmount}
+            priceAmount={reservationPriceAmount}
             priceCurrency={priceCurrency}
             saleOff={saleOff}
             discountPercent={discountPercent}
             poolHeating={poolHeatingOption}
             isHolidayHome={isHolidayHome}
             cleaningFeeAmount={listing.cleaningFeeAmount}
+            damageDepositAmount={damageDepositAmount}
+            ruleFallbackNightly={ruleFallbackForQuote}
           />
           {renderSectionRules()}
           {renderSectionPolicies()}

@@ -65,10 +65,54 @@ function planLabel(plan: MealPlanItem, locale: string): string {
 }
 
 const COPY = {
-  heading:    { tr: 'Pansiyon Seçenekleri',         en: 'Accommodation Options',   de: 'Verpflegungsoptionen',         ru: 'Варианты питания',            zh: '餐饮方案',       fr: 'Options de repas' },
-  bothSub:    { tr: 'Yemekli veya yemeksiz seçin — fiyatlar seçeneğe göre değişir', en: 'Choose with or without meals — prices vary by option', de: 'Mit oder ohne Verpflegung wählen — Preise variieren', ru: 'Выберите с питанием или без — цены различаются', zh: '可选含餐或不含餐 — 价格会有所不同', fr: 'Avec ou sans repas — les prix varient' },
-  mealsSub:   { tr: 'Fiyata yemek dahildir',         en: 'Meals included in the price', de: 'Mahlzeiten im Preis enthalten', ru: 'Питание включено в цену', zh: '价格包含餐饮', fr: 'Repas inclus dans le prix' },
-  roomOnlySub:{ tr: 'Oda fiyatı — yemek dahil değil', en: 'Room only — meals not included', de: 'Nur Übernachtung — Verpflegung nicht enthalten', ru: 'Только номер — без питания', zh: '仅住宿 — 不含餐', fr: 'Logement seul — sans repas' },
+  heading: {
+    tr: 'Gecelik ücret seçenekleri',
+    en: 'Nightly rate options',
+    de: 'Übernachtungspreise',
+    ru: 'Ночные тарифы',
+    zh: '每晚价格选项',
+    fr: 'Options de tarif à la nuit',
+  },
+  bothSub: {
+    tr: 'Yemekli ve yemeksiz planlar — tutarlar seçeneğe göre değişir',
+    en: 'With-meals and room-only plans — amounts vary by option',
+    de: 'Mit und ohne Verpflegung — Beträge je nach Option',
+    ru: 'С питанием и без — суммы зависят от варианта',
+    zh: '含餐与不含餐方案 — 金额因选项而异',
+    fr: 'Formules avec ou sans repas — les montants varient',
+  },
+  mealsSub: {
+    tr: 'Gösterilen tutarlara yemek dahildir',
+    en: 'Rates shown include meals',
+    de: 'Die angezeigten Beträge enthalten Mahlzeiten',
+    ru: 'Указанные суммы включают питание',
+    zh: '所示金额含餐',
+    fr: 'Les montants affichés incluent les repas',
+  },
+  roomOnlySub: {
+    tr: 'Yalnızca konaklama — tabloda gösterilen tutarlara yemek dahil değildir',
+    en: 'Lodging only — meals are not included in the amounts shown',
+    de: 'Nur Übernachtung — Mahlzeiten sind in den Beträgen nicht enthalten',
+    ru: 'Только проживание — питание в указанные суммы не входит',
+    zh: '仅住宿 — 所示金额不含餐',
+    fr: 'Hébergement seul — les repas ne sont pas inclus dans les montants affichés',
+  },
+  badgeYemeksiz: {
+    tr: 'Yemeksiz',
+    en: 'Room only',
+    de: 'Ohne Verpflegung',
+    ru: 'Без питания',
+    zh: '不含餐',
+    fr: 'Sans repas',
+  },
+  badgeYemekli: {
+    tr: 'Yemekli',
+    en: 'With meals',
+    de: 'Mit Verpflegung',
+    ru: 'С питанием',
+    zh: '含餐',
+    fr: 'Avec repas',
+  },
   perNight:   { tr: '/gece',                         en: '/night',                  de: '/Nacht',                       ru: '/ночь',                       zh: '/晚',           fr: '/nuit' },
   includes:   { tr: 'Dahil:',                        en: 'Includes:',               de: 'Enthält:',                     ru: 'Включает:',                   zh: '包含:',         fr: 'Inclut :' },
   noMealsTip: { tr: 'Yemek dahil değildir.',         en: 'Meals not included.',     de: 'Mahlzeiten nicht enthalten.',  ru: 'Питание не включено.',        zh: '不含餐。',     fr: 'Repas non inclus.' },
@@ -133,10 +177,24 @@ function MealPlanCard({
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xl font-bold text-primary-600 dark:text-primary-400">
-            {formatPrice(plan.price_per_night, plan.currency_code, locale)}
-          </p>
-          <p className="text-xs text-neutral-500">{copy('perNight', locale)}</p>
+          <div className="flex flex-wrap items-baseline justify-end gap-x-2 gap-y-1">
+            <span className="text-xl font-bold tabular-nums text-primary-600 dark:text-primary-400">
+              {formatPrice(plan.price_per_night, plan.currency_code, locale)}
+              <span className="ms-1 text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                {copy('perNight', locale)}
+              </span>
+            </span>
+            <span
+              className={clsx(
+                'shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none tracking-wide',
+                isRoomOnly
+                  ? 'bg-neutral-200/90 text-neutral-800 dark:bg-neutral-700 dark:text-neutral-100'
+                  : 'bg-primary-100 text-primary-800 dark:bg-primary-900/40 dark:text-primary-200',
+              )}
+            >
+              {copy(isRoomOnly ? 'badgeYemeksiz' : 'badgeYemekli', locale)}
+            </span>
+          </div>
         </div>
       </div>
 

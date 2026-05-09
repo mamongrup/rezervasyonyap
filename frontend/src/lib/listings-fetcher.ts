@@ -99,6 +99,14 @@ function parseMetaInt(v: string | null | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
+/** «Oda» kutusu: önce `room_count`, boşsa `bed_count` (eski / eksik meta uyumu). */
+function metaRoomCountForDisplay(item: PublicListingItem): string | undefined {
+  const rc = item.room_count != null ? String(item.room_count).trim() : ''
+  const bc = item.bed_count != null ? String(item.bed_count).trim() : ''
+  const pick = rc || bc
+  return pick !== '' ? pick : undefined
+}
+
 function parseFirstChargeAmount(raw: string | null | undefined): number | undefined {
   if (raw == null || String(raw).trim() === '') return undefined
   const n = parseFloat(String(raw).replace(/\s/g, '').replace(',', '.'))
@@ -185,9 +193,9 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
     return {
       ...base,
       maxGuests: parseMetaInt(item.max_guests ?? undefined),
-      bedrooms: parseMetaInt(item.room_count ?? undefined),
+      bedrooms: parseMetaInt(metaRoomCountForDisplay(item)),
       bathrooms: parseMetaInt(item.bath_count ?? undefined),
-      beds: parseMetaInt(item.room_count ?? undefined),
+      beds: parseMetaInt(metaRoomCountForDisplay(item)),
       ...(vertical === 'hotel' && hotelTypeTrim ? { hotelTypeCode: hotelTypeTrim } : {}),
     } as TListingBase
   }
@@ -206,7 +214,7 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
     ...base,
     listingVertical: 'holiday_home',
     maxGuests: parseMetaInt(item.max_guests ?? undefined),
-    bedrooms: parseMetaInt(item.room_count ?? undefined),
+    bedrooms: parseMetaInt(metaRoomCountForDisplay(item)),
     bathrooms: parseMetaInt(item.bath_count ?? undefined),
     themeCodes: themeCodes.length ? themeCodes : undefined,
     ...(cpt ? { cancellationPolicyText: cpt } : {}),

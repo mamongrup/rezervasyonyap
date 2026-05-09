@@ -1299,7 +1299,7 @@ export default function CatalogListingDetailClient({
         {
           status: listingStatus,
           min_stay_nights: minStayNights.trim() || undefined,
-          cleaning_fee_amount: cleaningFee.trim() || undefined,
+          cleaning_fee_amount: cleaningFee.trim() ? cleaningFee.trim() : '__null__',
           first_charge_amount: depositAmount.trim() || undefined,
           prepayment_percent: prepaymentPercent.trim() || undefined,
           commission_percent: commissionPercent.trim() || undefined,

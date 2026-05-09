@@ -30,6 +30,8 @@ export default function StayListingBookingQuoteModal({
   stayBookingRules,
   isHolidayHome = false,
   cleaningFeeAmount,
+  damageDepositAmount,
+  ruleFallbackNightly,
 }: {
   locale: string
   open: boolean
@@ -47,6 +49,8 @@ export default function StayListingBookingQuoteModal({
   /** Tatil evi — depozito / ek ücret ödeme notları */
   isHolidayHome?: boolean
   cleaningFeeAmount?: number
+  damageDepositAmount?: number
+  ruleFallbackNightly?: number
 }) {
   const router = useRouter()
   const vitrinHref = useVitrinHref()
@@ -81,6 +85,8 @@ export default function StayListingBookingQuoteModal({
     minShortStayNights: stayBookingRules?.minShortStayNights,
     shortStayFeeAmount: stayBookingRules?.shortStayFeeAmount,
     cleaningFeeAmount,
+    damageDepositAmount,
+    ruleFallbackNightly,
   })
 
   const goCheckout = () => {
