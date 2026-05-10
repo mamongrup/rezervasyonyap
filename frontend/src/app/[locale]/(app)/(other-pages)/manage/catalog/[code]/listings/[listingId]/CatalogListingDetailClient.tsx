@@ -1321,8 +1321,7 @@ export default function CatalogListingDetailClient({
         },
         orgQ,
       )
-      const metaSnap = await getListingMeta(token, listingId, orgQ).catch(() => null)
-      const prev: ListingMeta = metaSnap ?? {}
+      const prev = await getListingMeta(token, listingId, orgQ)
       const next: ListingMeta = { ...prev }
       const assignTrim = (key: keyof ListingMeta, raw: string) => {
         const t = raw.trim()

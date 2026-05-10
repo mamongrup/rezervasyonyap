@@ -157,6 +157,17 @@ function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, 
   return o
 }
 
+/** `listing_meal_plans` güncellemesi için güvenli JSON dizi (PG jsonb + decode uyumu) */
+function coerceMealPlanCodeArray(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return []
+  const out: string[] = []
+  for (const x of raw) {
+    if (typeof x === 'string' && x.trim()) out.push(x.trim())
+    else if (typeof x === 'number' && Number.isFinite(x)) out.push(String(x))
+  }
+  return out
+}
+
 /** Arama `price_from` ve rezervasyon kotası `listing_meal_plans` ile aynı kaynak — vitrin senkronu */
 async function ensureHolidayHomeMealPlanNightly(
   token: string,
@@ -193,8 +204,8 @@ async function ensureHolidayHomeMealPlanNightly(
       {
         label: p.label,
         label_en: p.label_en,
-        included_meals: p.included_meals,
-        included_extras: p.included_extras,
+        included_meals: coerceMealPlanCodeArray(p.included_meals),
+        included_extras: coerceMealPlanCodeArray(p.included_extras),
         price_per_night: priceStr,
         currency_code: (cur || p.currency_code).trim().toUpperCase() || 'TRY',
         is_active: true,
@@ -1056,7 +1067,10 @@ export default function CatalogNewListingClient({
           setBathCount(meta.bath_count ?? '')
           setMaxGuests(meta.max_guests ?? '')
           setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
-          setRoomCount(meta.room_count ?? '')
+          {
+            const rc = String(meta.room_count ?? '').trim()
+            setRoomCount(rc || String(meta.bed_count ?? '').trim())
+          }
           setPropertyType(meta.property_type ?? '')
           setYoutubeUrl(meta.youtube_url ?? '')
           setMinistryLicenseRef((prev) => (prev.trim() ? prev : (meta.tourism_cert_no ?? '')))
@@ -1902,12 +1916,7 @@ export default function CatalogNewListingClient({
       if (isVilla && ownerResidenceAddress.trim())
         metaBody.owner_residence_address = ownerResidenceAddress.trim()
       if (Object.keys(metaBody).length > 0) {
-        let existingMeta: ListingMeta = {}
-        try {
-          existingMeta = await getListingMeta(token, lid, orgParam)
-        } catch {
-          existingMeta = {}
-        }
+        const existingMeta = await getListingMeta(token, lid, orgParam)
         const nextMeta: ListingMeta = { ...existingMeta, ...metaBody }
         await saveRequiredStep('Detay alanları kaydı', putListingMeta(token, lid, nextMeta, orgParam))
       }

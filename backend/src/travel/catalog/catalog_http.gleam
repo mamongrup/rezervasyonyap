@@ -4175,7 +4175,14 @@ pub fn update_manage_meal_plan(
                     |> pog.parameter(pog.text(notes))
                     |> pog.execute(ctx.db)
                   {
-                    Error(_) -> json_err(500, "meal_plan_update_failed")
+                    Error(e) -> {
+                      let _ =
+                        io.println(
+                          "[catalog.update_manage_meal_plan] "
+                          <> pog_errors.query_error_to_string(e),
+                        )
+                      json_err(500, "meal_plan_update_failed")
+                    }
                     Ok(ret) ->
                       case ret.count {
                         0 -> json_err(404, "not_found")
