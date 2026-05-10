@@ -16,6 +16,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 const emblaThemeDirection =
   process.env.NEXT_PUBLIC_THEME_DIR === 'rtl' ? ('rtl' as const) : ('ltr' as const)
 
+/** Grid düzenine göre gerçek görüntülenen genişlik ipucu (`images.unoptimized` kapalıysa srcset için). */
+const SZ_GRID1_HERO = '(max-width: 768px) 100vw, 50vw'
+const SZ_GRID1_QUAD = '(max-width: 768px) 50vw, 25vw'
+const SZ_GRID2_MAIN = '(max-width: 768px) 100vw, 75vw'
+const SZ_GRID2_SIDE = '(max-width: 768px) 33vw, 25vw'
+const SZ_GRID3_LARGE = '(max-width: 768px) 100vw, 34vw'
+const SZ_GRID3_SMALL = '(max-width: 768px) 50vw, 34vw'
+const SZ_LIGHTBOX_MAIN = '(max-width: 768px) 100vw, min(1920px, 100vw)'
+
 const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOptionsType }) => {
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [emblaMainRef, emblaMainApi] = useEmblaCarousel({
@@ -64,9 +73,10 @@ const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOpti
                   alt=""
                   src={image}
                   fill
-                  sizes="100vw"
+                  sizes={SZ_LIGHTBOX_MAIN}
                   className="object-contain"
                   priority={index === 0}
+                  fetchPriority={index === 0 ? 'high' : 'low'}
                 />
               </div>
             </div>
@@ -219,11 +229,12 @@ const HeaderGalleryGrid1 = ({
         {images[0] && (
           <Image
             fill
-            className="rounded-xl object-cover transition-[filter] hover:brightness-75"
+            className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
             src={images[0]}
             alt="bigger"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 80vw"
+            sizes={SZ_GRID1_HERO}
             priority
+            fetchPriority="high"
           />
         )}
       </div>
@@ -239,7 +250,7 @@ const HeaderGalleryGrid1 = ({
                 className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
                 src={url}
                 alt="others"
-                sizes="(max-width: 768px) 33vw, 33vw"
+                sizes={SZ_GRID1_QUAD}
                 priority
               />
             </div>
@@ -269,8 +280,9 @@ const HeaderGalleryGrid2 = ({
             src={images[0]}
             fill
             className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 80vw"
+            sizes={SZ_GRID2_MAIN}
             priority
+            fetchPriority="high"
           />
         )}
       </div>
@@ -287,7 +299,7 @@ const HeaderGalleryGrid2 = ({
                 src={url}
                 fill
                 className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-                sizes="(max-width: 768px) 33vw, 33vw"
+                sizes={SZ_GRID2_SIDE}
                 priority
               />
             </div>
@@ -317,8 +329,9 @@ const HeaderGalleryGrid3 = ({
             src={images[0]}
             fill
             className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 80vw"
+            sizes={SZ_GRID3_LARGE}
             priority
+            fetchPriority="high"
           />
         )}
       </div>
@@ -331,7 +344,7 @@ const HeaderGalleryGrid3 = ({
               src={images[1]}
               fill
               className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-              sizes="(max-width: 768px) 33vw, 33vw"
+              sizes={SZ_GRID3_SMALL}
               priority
             />
           )}
@@ -343,7 +356,7 @@ const HeaderGalleryGrid3 = ({
               src={images[2]}
               fill
               className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-              sizes="(max-width: 768px) 33vw, 33vw"
+              sizes={SZ_GRID3_SMALL}
               priority
             />
           )}
@@ -357,7 +370,7 @@ const HeaderGalleryGrid3 = ({
             src={images[3]}
             fill
             className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 80vw"
+            sizes={SZ_GRID3_LARGE}
             priority
           />
         )}
@@ -385,8 +398,9 @@ const HeaderGalleryGrid4 = ({
             src={images[0]}
             fill
             className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 80vw"
+            sizes={SZ_GRID3_LARGE}
             priority
+            fetchPriority="high"
           />
         )}
       </div>
@@ -398,7 +412,7 @@ const HeaderGalleryGrid4 = ({
             src={images[3]}
             fill
             className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 80vw"
+            sizes={SZ_GRID3_LARGE}
             priority
           />
         )}
@@ -412,7 +426,7 @@ const HeaderGalleryGrid4 = ({
               src={images[1]}
               fill
               className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-              sizes="(max-width: 768px) 33vw, 33vw"
+              sizes={SZ_GRID3_SMALL}
               priority
             />
           )}
@@ -424,7 +438,7 @@ const HeaderGalleryGrid4 = ({
               src={images[2]}
               fill
               className="rounded-xl object-cover brightness-100 transition-[filter] hover:brightness-75"
-              sizes="(max-width: 768px) 33vw, 33vw"
+              sizes={SZ_GRID3_SMALL}
               priority
             />
           )}
