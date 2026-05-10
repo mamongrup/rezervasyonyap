@@ -37,6 +37,7 @@ import {
   getListingBasics,
   getListingIcalExportToken,
   getListingMeta,
+  getListingNearbyPois,
   getListingOwnerContact,
   getListingPerks,
   getListingPriceLineSelections,
@@ -72,6 +73,7 @@ import {
   type AttributeGroup,
   type ListingImage,
   type ManageListingRow,
+  type NearbyPoi,
   type PriceLineItem,
   type ListingMeta,
 } from '@/lib/travel-api'
@@ -86,6 +88,7 @@ import {
 } from '@/components/manage/ManageFormShell'
 import { HeroSlotPickerModal } from '@/components/manage/HeroSlotPickerModal'
 import { ManageListingGalleryHeroPreview } from '@/components/manage/ManageListingGalleryHeroPreview'
+import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
@@ -592,6 +595,9 @@ export default function CatalogNewListingClient({
   const [address, setAddress] = useState('')
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
+  const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([])
+  const [nearbyPoisLoading, setNearbyPoisLoading] = useState(false)
+  const [nearbyPoisBusy, setNearbyPoisBusy] = useState(false)
 
   // ── Vitrin promosyon (Tur2 yeni alanlar) ──
   /** Anında rezervasyon (tedarikçi onayı beklemeden) */
@@ -902,6 +908,9 @@ export default function CatalogNewListingClient({
       setListingGalleryUrls([])
       setListingGalleryImages([])
       setHeroManualStorageKeys(['', '', '', '', ''])
+      setNearbyPois([])
+      setNearbyPoisLoading(false)
+      setNearbyPoisBusy(false)
       return
     }
 
@@ -918,6 +927,7 @@ export default function CatalogNewListingClient({
     const orgForImg = needOrg && orgId.trim() ? orgId.trim() : undefined
 
     setEditListingReady(false)
+    setNearbyPoisLoading(true)
 
     void (async () => {
       try {
@@ -936,6 +946,7 @@ export default function CatalogNewListingClient({
           feedsRes,
           perks,
           faqTplRes,
+          nearbyPoisRes,
         ] = await Promise.all([
           listManageCatalogListings(token, {
             categoryCode,
@@ -960,6 +971,7 @@ export default function CatalogNewListingClient({
           listSiteSettings(token, { scope: 'platform', key: HOLIDAY_HOME_FAQ_SITE_KEY }).catch(() => ({
             settings: [] as { value_json?: string }[],
           })),
+          getListingNearbyPois(lid).catch(() => [] as NearbyPoi[]),
         ])
 
         if (cancelled) return
@@ -1157,6 +1169,7 @@ export default function CatalogNewListingClient({
         const vmInner = unwrapVerticalMetaPayload(verticalMeta)
         const savedHero = parseHeroPreviewKeysFromVertical(vmInner)
         setHeroManualStorageKeys(savedHero ?? defaultHeroKeysFromSort(sortedImgs))
+        setNearbyPois(Array.isArray(nearbyPoisRes) ? nearbyPoisRes : [])
 
         const mpList = mealPlansRes.meal_plans ?? []
         const activeMp = mpList.filter((p) => p.is_active && p.price_per_night > 0)
@@ -1225,7 +1238,10 @@ export default function CatalogNewListingClient({
       } catch {
         /* kısmi yükleme — form yine açılır */
       } finally {
-        if (!cancelled) setEditListingReady(true)
+        if (!cancelled) {
+          setEditListingReady(true)
+          setNearbyPoisLoading(false)
+        }
       }
     })()
 
@@ -1233,6 +1249,20 @@ export default function CatalogNewListingClient({
       cancelled = true
     }
   }, [editListingId, categoryCode, needOrg, orgId, locale, localeCodes])
+
+  async function refreshNearbyPoisFromServer() {
+    if (!editListingId) return
+    const token = getStoredAuthToken()
+    if (!token) return
+    setNearbyPoisBusy(true)
+    try {
+      await computeListingNearbyPois(token, editListingId).catch(() => {})
+      const next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
+      setNearbyPois(next)
+    } finally {
+      setNearbyPoisBusy(false)
+    }
+  }
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
   useEffect(() => {
@@ -1922,6 +1952,10 @@ export default function CatalogNewListingClient({
       }
       if (lat.trim() && lng.trim()) {
         await computeListingNearbyPois(token, lid).catch(() => {})
+        const nextNearby = await getListingNearbyPois(lid).catch(() => [] as NearbyPoi[])
+        setNearbyPois(nextNearby)
+      } else {
+        setNearbyPois([])
       }
 
       const attrPayload = Object.entries(attributeValues)
@@ -2229,6 +2263,46 @@ export default function CatalogNewListingClient({
           />
         </Field>
       </Grid2>
+      {editListingId ? (
+        <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900/60">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+              Çevredeki mekanlar ve mesafeler
+            </p>
+            <button
+              type="button"
+              onClick={() => void refreshNearbyPoisFromServer()}
+              disabled={nearbyPoisBusy || !lat.trim() || !lng.trim()}
+              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              {nearbyPoisBusy ? 'Hesaplanıyor…' : 'Yakın mekanları güncelle'}
+            </button>
+          </div>
+          {!lat.trim() || !lng.trim() ? (
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              Mesafe hesaplamak için enlem/boylam girin.
+            </p>
+          ) : null}
+          {nearbyPoisLoading ? (
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              Yakın mekanlar yükleniyor…
+            </p>
+          ) : null}
+          {nearbyPois.length > 0 ? (
+            <div className="mt-4">
+              <ListingNearbyPoisSection pois={nearbyPois} title="Çevredeki mekanlar" />
+            </div>
+          ) : !nearbyPoisLoading && lat.trim() && lng.trim() ? (
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+              Bu konum için yakın mekan bulunamadı. Haritadan konumu güncelleyip tekrar deneyin.
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
+          Yakın mekanlar, ilan ilk kez kaydedildikten sonra otomatik hesaplanıp burada gösterilir.
+        </p>
+      )}
     </Section>
   )
 
