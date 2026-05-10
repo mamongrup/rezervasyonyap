@@ -1,7 +1,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-interface ImageTextConfig {
+export interface ImageTextModuleConfig {
   title?: string
   subtitle?: string
   content?: string
@@ -19,7 +19,7 @@ interface ImageTextConfig {
 
 const DEFAULT_IMAGE = '/uploads/external/844320702b7f31d298cb.avif'
 
-export default function ImageTextModule({ config }: { config: ImageTextConfig }) {
+export default function ImageTextModule({ config }: { config: ImageTextModuleConfig }) {
   const imageOnRight = (config.imagePosition ?? 'left') === 'right'
   const bg = config.backgroundStyle ?? 'white'
   const imageUrl = config.imageUrl || DEFAULT_IMAGE

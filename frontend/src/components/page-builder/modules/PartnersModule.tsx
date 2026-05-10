@@ -1,24 +1,24 @@
 import Image from 'next/image'
 import Link from 'next/link'
 
-interface PartnerItem {
+export interface PartnersModuleItem {
   name: string
   logoUrl: string
   href?: string
   description?: string
 }
 
-interface PartnersConfig {
+export interface PartnersModuleConfig {
   title?: string
   subtitle?: string
   layout?: 'strip' | 'grid'
   columns?: 3 | 4 | 5 | 6
   showNames?: boolean
   backgroundStyle?: 'white' | 'light' | 'bordered'
-  items?: PartnerItem[]
+  items?: PartnersModuleItem[]
 }
 
-function PartnerLogo({ item, showName }: { item: PartnerItem; showName?: boolean }) {
+function PartnerLogo({ item, showName }: { item: PartnersModuleItem; showName?: boolean }) {
   const inner = (
     <div className="flex flex-col items-center gap-2">
       <div className="relative h-12 w-full">
@@ -47,7 +47,7 @@ function PartnerLogo({ item, showName }: { item: PartnerItem; showName?: boolean
   return <div className="px-4 py-3">{inner}</div>
 }
 
-export default function PartnersModule({ config }: { config: PartnersConfig }) {
+export default function PartnersModule({ config }: { config: PartnersModuleConfig }) {
   const raw = config.items?.filter((i) => typeof i.logoUrl === 'string' && i.logoUrl.trim().length > 0) ?? []
   if (raw.length === 0) return null
   const items = raw

@@ -2,13 +2,13 @@ import SectionGridCategoryBox from '@/components/SectionGridCategoryBox'
 import { getPageBuilderTravelCategories } from '@/data/categories'
 import HeadingWithSub from '@/shared/Heading'
 
-interface Config {
+export interface CategoryGridModuleConfig {
   heading?: string
   subheading?: string
   categoryThumbnails?: Record<string, unknown>
 }
 
-export default async function CategoryGridModule({ config }: { config: Config }) {
+export default async function CategoryGridModule({ config }: { config: CategoryGridModuleConfig }) {
   const categories = await getPageBuilderTravelCategories(config.categoryThumbnails)
 
   return (

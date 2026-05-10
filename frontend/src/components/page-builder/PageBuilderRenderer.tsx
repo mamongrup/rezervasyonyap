@@ -33,12 +33,7 @@ import CategoryGridModule from './modules/CategoryGridModule'
 import SectionVideosModule from './modules/SectionVideosModule'
 import ClientSayModule from './modules/ClientSayModule'
 import SearchResultsModule from './modules/SearchResultsModule'
-import ActiveCampaignsModule from './modules/ActiveCampaignsModule'
-import EarlyBookingPromoModule from './modules/EarlyBookingPromoModule'
-import LastMinutePromoModule from './modules/LastMinutePromoModule'
-import CouponsStripModule from './modules/CouponsStripModule'
-import HolidayPackagesModule from './modules/HolidayPackagesModule'
-import CrossSellWidgetModule from './modules/CrossSellWidgetModule'
+import { renderMarketingModuleChunk } from './MarketingModulesDynamic'
 import { getSharedTravelCategoryThumbnailsRaw } from '@/data/page-builder-config'
 import { mergeRawThumbnailMaps } from '@/lib/category-thumbnail-entry'
 
@@ -208,9 +203,8 @@ export default async function PageBuilderRenderer({
 
   return (
     <Root className={rootLayoutClass} style={rootStyle}>
-      {enabled.map((module) => {
-        const cfg = module.config as Record<string, unknown>
-
+      {await Promise.all(
+        enabled.map(async (module) => {
         switch (module.type) {
           case 'region_detail_hero':
             if (!isRegionDetailLayout || !regionSlots?.hero) return null
@@ -266,17 +260,18 @@ export default async function PageBuilderRenderer({
 
           case 'listings_grid':
           case 'listings_slider': {
+            const cfg = module.config
             // listingCardsById + allListings — kartlar sunucuda üretildi (client’a fonksiyon yok)
             if (listingCardsById && allListings?.length) {
               const listingsCfg: ListingsModuleConfig = {
-                title: cfg.title as string | undefined,
-                subheading: cfg.subheading as string | undefined,
-                filterMode: (cfg.filterMode as ListingsModuleConfig['filterMode']) ?? 'all',
-                showTabs: (cfg.showTabs as boolean) ?? false,
+                title: cfg.title,
+                subheading: cfg.subheading,
+                filterMode: cfg.filterMode ?? 'all',
+                showTabs: cfg.showTabs ?? false,
                 layout: module.type === 'listings_slider' ? 'slider' : 'grid',
-                count: (cfg.count as number) ?? 8,
-                viewAllHref: (cfg.viewAllHref as string) ?? `${category.categoryRoute}/all`,
-                viewAllLabel: (cfg.viewAllLabel as string) ?? messages.common['View all'],
+                count: cfg.count ?? 8,
+                viewAllHref: cfg.viewAllHref ?? `${category.categoryRoute}/all`,
+                viewAllLabel: cfg.viewAllLabel ?? messages.common['View all'],
               }
               return (
                 <ListingsModule
@@ -301,7 +296,8 @@ export default async function PageBuilderRenderer({
             )
           }
 
-          case 'categories_grid':
+          case 'categories_grid': {
+            const cfg = module.config
             if (!categoriesNode) return null
             return (
               <section key={module.id}>
@@ -313,93 +309,110 @@ export default async function PageBuilderRenderer({
                 {categoriesNode}
               </section>
             )
+          }
 
-          case 'promo_banner':
+          case 'promo_banner': {
+            const cfg = module.config
             return (
               <PromoBannerModule
                 key={module.id}
-                config={cfg as Parameters<typeof PromoBannerModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'sliders_banner':
+          case 'sliders_banner': {
+            const cfg = module.config
             return (
               <SlidersBannerModule
                 key={module.id}
-                config={cfg as { pageKey?: string }}
+                config={cfg}
                 fallbackPageKey={defaultSliderPageKey}
                 locale={locale}
               />
             )
+          }
 
-          case 'why_us':
+          case 'why_us': {
+            const cfg = module.config
             return (
               <WhyUsModule
                 key={module.id}
-                config={cfg as Parameters<typeof WhyUsModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'testimonials':
+          case 'testimonials': {
+            const cfg = module.config
             return (
               <TestimonialsModule
                 key={module.id}
                 config={{
-                  ...(cfg as Parameters<typeof TestimonialsModule>[0]['config']),
+                  ...cfg,
                   categorySlug: category.slug,
                 }}
               />
             )
+          }
 
-          case 'newsletter':
+          case 'newsletter': {
+            const cfg = module.config
             return (
               <NewsletterModule
                 key={module.id}
-                config={cfg as Parameters<typeof NewsletterModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'stats':
+          case 'stats': {
+            const cfg = module.config
             return (
               <StatsModule
                 key={module.id}
-                config={cfg as Parameters<typeof StatsModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'text_block':
+          case 'text_block': {
+            const cfg = module.config
             return (
               <TextBlockModule
                 key={module.id}
-                config={cfg as Parameters<typeof TextBlockModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'faq':
+          case 'faq': {
+            const cfg = module.config
             return (
               <FAQModule
                 key={module.id}
-                config={cfg as Parameters<typeof FAQModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
           case 'featured_by_region': {
+            const cfg = module.config
             if (!allListings?.length) return null
             const regionCfg: FeaturedByRegionConfig =
-              cfg.regions && Array.isArray(cfg.regions) && (cfg.regions as unknown[]).length > 0
+              cfg.regions && Array.isArray(cfg.regions) && cfg.regions.length > 0
                 ? {
-                    heading: (cfg.heading as string) || messages.homePage.featuredStay.heading,
-                    subheading: (cfg.subheading as string) || '',
-                    viewAllHref: (cfg.viewAllHref as string) || `${category.categoryRoute}/all`,
-                    regions: cfg.regions as FeaturedByRegionConfig['regions'],
+                    heading: cfg.heading || messages.homePage.featuredStay.heading,
+                    subheading: cfg.subheading || '',
+                    viewAllHref: cfg.viewAllHref || `${category.categoryRoute}/all`,
+                    regions: cfg.regions,
                   }
                 : buildDefaultFeaturedRegionConfig(allListings, {
                     heading:
-                      (cfg.heading as string) ||
+                      cfg.heading ||
                       interpolate(messages.categoryPage.featuredDefaultHeading, { category: category.name }),
-                    subheading:
-                      (cfg.subheading as string) || messages.categoryPage.featuredDefaultSubheading,
-                    viewAllHref: (cfg.viewAllHref as string) || `${category.categoryRoute}/all`,
+                    subheading: cfg.subheading || messages.categoryPage.featuredDefaultSubheading,
+                    viewAllHref: cfg.viewAllHref || `${category.categoryRoute}/all`,
                   })
             return (
               <SectionFeaturedByRegion
@@ -412,62 +425,74 @@ export default async function PageBuilderRenderer({
             )
           }
 
-          case 'top_providers':
+          case 'top_providers': {
+            const cfg = module.config
             return (
               <TopProvidersModule
                 key={module.id}
-                config={cfg as Parameters<typeof TopProvidersModule>[0]['config']}
+                config={cfg}
                 authors={authors}
                 categorySlug={category.slug}
               />
             )
+          }
 
-          case 'become_provider':
+          case 'become_provider': {
+            const cfg = module.config
             return (
               <BecomeProviderModule
                 key={module.id}
-                config={cfg as Parameters<typeof BecomeProviderModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'video_gallery':
+          case 'video_gallery': {
+            const cfg = module.config
             return (
               <VideoGalleryModule
                 key={module.id}
-                config={cfg as Parameters<typeof VideoGalleryModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'image_text':
+          case 'image_text': {
+            const cfg = module.config
             return (
               <ImageTextModule
                 key={module.id}
-                config={cfg as Parameters<typeof ImageTextModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'destination_cards':
+          case 'destination_cards': {
+            const cfg = module.config
             return (
               <DestinationCardsModule
                 key={module.id}
-                config={cfg as Parameters<typeof DestinationCardsModule>[0]['config']}
+                config={cfg}
                 locale={locale}
               />
             )
+          }
 
-          case 'partners':
+          case 'partners': {
+            const cfg = module.config
             return (
               <PartnersModule
                 key={module.id}
-                config={cfg as Parameters<typeof PartnersModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
           case 'travel_category_images':
             return null
 
           case 'category_slider': {
-            const sliderCfg = cfg as CategorySliderModuleConfig
+            const sliderCfg = module.config
             const merged: CategorySliderModuleConfig = {
               ...sliderCfg,
               categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, sliderCfg.categoryThumbnails ?? {}),
@@ -480,42 +505,50 @@ export default async function PageBuilderRenderer({
             )
           }
 
-          case 'region_slider':
+          case 'region_slider': {
+            const cfg = module.config
             return (
               <RegionSliderModule
                 key={module.id}
-                config={cfg as Parameters<typeof RegionSliderModule>[0]['config']}
+                config={cfg}
                 locale={locale}
               />
             )
+          }
 
-          case 'gezi_onerileri':
+          case 'gezi_onerileri': {
+            const cfg = module.config
             return (
               <GeziOnerileriModule
                 key={module.id}
-                config={{ ...(cfg as Parameters<typeof GeziOnerileriModule>[0]['config']), locale }}
+                config={{ ...cfg, locale }}
               />
             )
+          }
 
-          case 'featured_places':
+          case 'featured_places': {
+            const cfg = module.config
             return (
               <FeaturedPlacesModule
                 key={module.id}
-                config={cfg as Parameters<typeof FeaturedPlacesModule>[0]['config']}
+                config={cfg}
                 locale={locale}
               />
             )
+          }
 
-          case 'how_it_works':
+          case 'how_it_works': {
+            const cfg = module.config
             return (
               <HowItWorksModule
                 key={module.id}
-                config={cfg as Parameters<typeof HowItWorksModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
           case 'category_grid': {
-            const gridCfg = cfg as Parameters<typeof CategoryGridModule>[0]['config']
+            const gridCfg = module.config
             return (
               <CategoryGridModule
                 key={module.id}
@@ -527,93 +560,65 @@ export default async function PageBuilderRenderer({
             )
           }
 
-          case 'section_videos':
+          case 'section_videos': {
+            const cfg = module.config
             return (
               <SectionVideosModule
                 key={module.id}
-                config={cfg as Parameters<typeof SectionVideosModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'client_say':
+          case 'client_say': {
+            const cfg = module.config
             return (
               <ClientSayModule
                 key={module.id}
-                config={cfg as Parameters<typeof ClientSayModule>[0]['config']}
+                config={cfg}
               />
             )
+          }
 
-          case 'search_results':
+          case 'search_results': {
+            const cfg = module.config
             return (
               <SearchResultsModule
                 key={module.id}
-                config={cfg as Parameters<typeof SearchResultsModule>[0]['config']}
+                config={cfg}
                 query={searchContext?.query ?? ''}
                 categoryFilter={searchContext?.categoryFilter}
                 locale={locale}
                 page={searchContext?.page ?? 1}
               />
             )
+          }
 
-          // ─── Marketing modülleri (admin içerikleri vitrinde) ────────────────
+          // ─── Marketing modülleri (dinamik chunk — admin içerikleri vitrinde) ─────────
           case 'active_campaigns':
-            return (
-              <ActiveCampaignsModule
-                key={module.id}
-                config={cfg as Parameters<typeof ActiveCampaignsModule>[0]['config']}
-                locale={locale}
-              />
-            )
+            return await renderMarketingModuleChunk('active_campaigns', module.id, module.config, locale)
 
           case 'early_booking_promo':
-            return (
-              <EarlyBookingPromoModule
-                key={module.id}
-                config={cfg as Parameters<typeof EarlyBookingPromoModule>[0]['config']}
-                locale={locale}
-              />
-            )
+            return await renderMarketingModuleChunk('early_booking_promo', module.id, module.config, locale)
 
           case 'last_minute_promo':
-            return (
-              <LastMinutePromoModule
-                key={module.id}
-                config={cfg as Parameters<typeof LastMinutePromoModule>[0]['config']}
-                locale={locale}
-              />
-            )
+            return await renderMarketingModuleChunk('last_minute_promo', module.id, module.config, locale)
 
           case 'coupons_strip':
-            return (
-              <CouponsStripModule
-                key={module.id}
-                config={cfg as Parameters<typeof CouponsStripModule>[0]['config']}
-                locale={locale}
-              />
-            )
+            return await renderMarketingModuleChunk('coupons_strip', module.id, module.config, locale)
 
           case 'holiday_packages':
-            return (
-              <HolidayPackagesModule
-                key={module.id}
-                config={cfg as Parameters<typeof HolidayPackagesModule>[0]['config']}
-                locale={locale}
-              />
-            )
+            return await renderMarketingModuleChunk('holiday_packages', module.id, module.config, locale)
 
           case 'cross_sell_widget':
-            return (
-              <CrossSellWidgetModule
-                key={module.id}
-                config={cfg as Parameters<typeof CrossSellWidgetModule>[0]['config']}
-                locale={locale}
-              />
-            )
+            return await renderMarketingModuleChunk('cross_sell_widget', module.id, module.config, locale)
 
           default:
             return null
         }
-      })}
+      }
+      )
+    )}
     </Root>
   )
 }

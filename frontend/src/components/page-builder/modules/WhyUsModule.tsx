@@ -23,7 +23,7 @@ const ICON_COLORS: Record<IconKey, string> = {
   'globe':         'bg-sky-50 text-sky-500 dark:bg-sky-900/30 dark:text-sky-400',
 }
 
-interface WhyUsItem {
+export interface WhyUsModuleItem {
   /** CMS'ten gelen emoji (geriye dönük uyumluluk) */
   emoji?: string
   /** Lucide icon anahtarı */
@@ -32,13 +32,13 @@ interface WhyUsItem {
   description: string
 }
 
-interface WhyUsConfig {
+export interface WhyUsModuleConfig {
   title?: string
   subtitle?: string
-  items?: WhyUsItem[]
+  items?: WhyUsModuleItem[]
 }
 
-const DEFAULT_ITEMS: WhyUsItem[] = [
+const DEFAULT_ITEMS: WhyUsModuleItem[] = [
   { icon: 'shield-check',  title: 'Güvenli Rezervasyon',     description: 'SSL şifreleme ve 3D Secure ödeme altyapısıyla güvenle rezervasyon yapın.' },
   { icon: 'badge-percent', title: 'En İyi Fiyat Garantisi',  description: 'Daha ucuz bulsanız fark iade ediyoruz. Fiyat garantisi ile içiniz rahat olsun.' },
   { icon: 'headphones',    title: 'Uzman Destek',            description: 'Alanında uzman seyahat danışmanlarımız 7/24 hizmetinizde.' },
@@ -47,7 +47,7 @@ const DEFAULT_ITEMS: WhyUsItem[] = [
   { icon: 'globe',         title: 'Geniş Seçenek',           description: 'Türkiye geneli ve dünyaya açılan kapsamlı ürün portföyümüz.' },
 ]
 
-function ItemIcon({ item }: { item: WhyUsItem }) {
+function ItemIcon({ item }: { item: WhyUsModuleItem }) {
   const iconKey = item.icon as IconKey | undefined
   const Icon = iconKey ? ICON_MAP[iconKey] : undefined
   const colorClass = iconKey ? ICON_COLORS[iconKey] : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400'
@@ -71,7 +71,7 @@ function ItemIcon({ item }: { item: WhyUsItem }) {
   return null
 }
 
-export default function WhyUsModule({ config }: { config: WhyUsConfig }) {
+export default function WhyUsModule({ config }: { config: WhyUsModuleConfig }) {
   const items = config.items ?? DEFAULT_ITEMS
   return (
     <section>

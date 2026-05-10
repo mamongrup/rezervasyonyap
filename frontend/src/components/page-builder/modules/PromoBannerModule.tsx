@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-interface PromoBannerConfig {
+export interface PromoBannerModuleConfig {
   title?: string
   description?: string
   ctaText?: string
@@ -9,7 +9,7 @@ interface PromoBannerConfig {
   gradient?: string
 }
 
-export default function PromoBannerModule({ config }: { config: PromoBannerConfig }) {
+export default function PromoBannerModule({ config }: { config: PromoBannerModuleConfig }) {
   const gradient = config.gradient ?? 'from-secondary-600 to-secondary-800'
   return (
     <section

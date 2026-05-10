@@ -110,7 +110,7 @@ function stayModules(slug: string, m: AppMessages, categoryName: string): Omit<P
         videos: [],
       },
     },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 function experienceModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
@@ -142,7 +142,7 @@ function experienceModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
       order: 6,
       config: { title: '🎬 Videolar', subtitle: 'En iyi deneyim videolarını izleyin.', videos: [] },
     },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 function transportModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
@@ -163,7 +163,7 @@ function transportModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
       order: 5,
       config: { title: '🎬 Videolar', subtitle: 'Ulaşım hizmetlerimiz hakkında videolar.', videos: [] },
     },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 function hajjModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
@@ -184,7 +184,7 @@ function hajjModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
       order: 5,
       config: { title: '🎬 Hac & Umre Videoları', subtitle: 'Kutsal topraklara yolculuk videoları.', videos: [] },
     },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 function visaModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
@@ -204,7 +204,7 @@ function visaModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
       order: 4,
       config: { title: '🎬 Vize Videoları', subtitle: 'Vize başvurusu hakkında bilgi videoları.', videos: [] },
     },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 function flightModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
@@ -229,7 +229,7 @@ function flightModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
       order: 4,
       config: { title: '🎬 Uçuş Videoları', subtitle: 'En iyi destinasyonlara uçuş videoları.', videos: [] },
     },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 /** Kategori slug’ına göre yerelleştirilmiş varsayılan page builder modülleri */
@@ -261,8 +261,8 @@ export function getSearchPageDefaultModules(): Omit<PageBuilderModule, 'id'>[] {
       enabled: true,
       order: 2,
       config: {
-        heading: 'Popüler Destinasyonlar',
-        subheading: 'En çok tercih edilen tatil bölgelerini keşfedin',
+        title: 'Popüler Destinasyonlar',
+        subtitle: 'En çok tercih edilen tatil bölgelerini keşfedin',
       },
     },
     {
@@ -278,7 +278,7 @@ export function getSearchPageDefaultModules(): Omit<PageBuilderModule, 'id'>[] {
       },
     },
     { type: 'newsletter', enabled: true, order: 4, config: {} },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 /** Anasayfa için varsayılan page builder modülleri */
@@ -317,7 +317,7 @@ export function getHomepageDefaultModules(m: AppMessages): Omit<PageBuilderModul
     { type: 'category_slider', enabled: true,  order: 12, config: { heading: h.discoverByType.heading,   subheading: h.discoverByType.subheading,   cardType: 'card5', slice: 'last6' } },
     { type: 'section_videos',  enabled: true,  order: 13, config: { heading: h.videoSection.heading,     subheading: h.videoSection.subheading } },
     { type: 'client_say',      enabled: true,  order: 14, config: { heading: h.clientSay.heading,        subHeading: h.clientSay.subHeading } },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
 /** `/bolge/…` (ve diğer dillerde eşdeğer segment) bölge vitrinı — slot modülleri sayfa tarafından dolar. */
@@ -337,5 +337,5 @@ export function getRegionDetailDefaultModules(_m: AppMessages): Omit<PageBuilder
     { type: 'region_detail_empty_hint', enabled: true, order: 11, config: {} },
     /** İçerik `region_detail_explore_hotels` ile birleştirildi (yinelenmesin diye kapalı). */
     { type: 'region_detail_subdivisions', enabled: false, order: 12, config: {} },
-  ]
+  ] satisfies Omit<PageBuilderModule, 'id'>[]
 }

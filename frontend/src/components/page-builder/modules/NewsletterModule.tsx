@@ -6,7 +6,7 @@ import subscribeImg from '@/images/svg-subcribe-2.png'
 import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 
-interface NewsletterConfig {
+export interface NewsletterModuleConfig {
   title?: string
   description?: string
   buttonText?: string
@@ -22,7 +22,7 @@ const DEFAULT_BULLETS: { label: string; color: string }[] = [
   { label: 'Sonsuz seyahat ilhamı al',                  color: 'bg-teal-100 text-teal-800' },
 ]
 
-export default function NewsletterModule({ config }: { config: NewsletterConfig }) {
+export default function NewsletterModule({ config }: { config: NewsletterModuleConfig }) {
   const [email, setEmail]   = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')

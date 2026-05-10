@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 
-interface BecomeProviderConfig {
+export interface BecomeProviderModuleConfig {
   heading?: string
   subheading?: string
   ctaText?: string
@@ -22,7 +22,7 @@ interface BecomeProviderConfig {
   stats?: unknown[]
 }
 
-export default function BecomeProviderModule({ config }: { config: BecomeProviderConfig }) {
+export default function BecomeProviderModule({ config }: { config: BecomeProviderModuleConfig }) {
   const {
     heading        = 'İlanınızı Ekleyin, Kazanmaya Başlayın',
     subheading     = 'Otel, tur, tatil evi, tekne, araç kiralama — ne sunarsanız sunun, milyonlarca gezgine ulaşmanın en kolay yolu burada. Hemen ücretsiz ilan oluşturun.',

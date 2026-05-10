@@ -10,12 +10,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Search, Star, MapPin, Tag, Layers, ArrowRight } from 'lucide-react'
 
-interface Config {
+export interface SearchResultsModuleConfig {
   perPage?: number
 }
 
 interface Props {
-  config: Config
+  config: SearchResultsModuleConfig
   query: string
   categoryFilter?: string
   locale?: string

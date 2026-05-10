@@ -1,15 +1,7 @@
 import SectionClientSay, { type ClientSaySlideItem } from '@/components/SectionClientSay'
 import { getPublicReviewsByCategory, type PublicReview } from '@/lib/travel-api'
 
-interface TestimonialsConfig {
-  title?: string
-  subheading?: string
-  categorySlug?: string
-  /** Statik items — API verisi yokken fallback */
-  items?: StaticTestimonialItem[]
-}
-
-type StaticTestimonialItem = {
+export interface TestimonialsStaticItem {
   name: string
   rating: number
   text: string
@@ -17,7 +9,15 @@ type StaticTestimonialItem = {
   avatar?: string
 }
 
-const DEFAULT_ITEMS: StaticTestimonialItem[] = [
+export interface TestimonialsModuleConfig {
+  title?: string
+  subheading?: string
+  categorySlug?: string
+  /** Statik items — API verisi yokken fallback */
+  items?: TestimonialsStaticItem[]
+}
+
+const DEFAULT_ITEMS: TestimonialsStaticItem[] = [
   {
     name: 'Ayşe K.',
     rating: 5,
@@ -38,7 +38,7 @@ const DEFAULT_ITEMS: StaticTestimonialItem[] = [
   },
 ]
 
-export default async function TestimonialsModule({ config }: { config: TestimonialsConfig }) {
+export default async function TestimonialsModule({ config }: { config: TestimonialsModuleConfig }) {
   const title = config.title ?? 'Misafirlerimiz Ne Diyor? 🥇'
   const subheading = config.subheading ?? 'Bizimle seyahat eden gezginlerin gerçek yorumları.'
 

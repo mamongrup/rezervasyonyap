@@ -6,6 +6,7 @@ import { getMessages } from '@/utils/getT'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getSearchPageDefaultModules } from '@/lib/page-builder-default-modules'
 import { getCategoryPageBuilderConfig } from '@/data/page-builder-config'
+import type { PageBuilderModule } from '@/types/listing-types'
 import SearchPageRenderer from './SearchPageRenderer'
 
 interface Props {
@@ -43,9 +44,11 @@ export default async function SearchPage({ params, searchParams }: Props) {
 
   // Arama sayfası config: kaydedilmiş page builder config varsa kullan, yoksa default
   const savedModules = await getCategoryPageBuilderConfig('ara', locale).catch(() => [])
-  const modules = savedModules.length
-    ? savedModules
-    : getSearchPageDefaultModules().map((m, i) => ({ ...m, id: `search-default-${i}` }))
+  const modules = (
+    savedModules.length
+      ? savedModules
+      : getSearchPageDefaultModules().map((m, i) => ({ ...m, id: `search-default-${i}` }))
+  ) as PageBuilderModule[]
 
   const buildUrl = (overrides: Record<string, string | undefined>) => {
     const sp = new URLSearchParams()

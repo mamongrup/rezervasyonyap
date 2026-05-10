@@ -298,16 +298,14 @@ export interface FeaturedByRegionConfig {
   regions: FeaturedRegionEntry[]
 }
 
-export interface PageBuilderModule {
-  id: string
-  type: PageBuilderModuleType
-  enabled: boolean
-  order: number
-  config: Record<string, unknown>
-}
+import type { PageBuilderJsonConfig, PageBuilderModule } from './page-builder-module'
+
+export type { PageBuilderJsonConfig, PageBuilderModule } from './page-builder-module'
 
 export interface CategoryPageBuilderConfig {
   categorySlug: string
   modules: PageBuilderModule[]
   updatedAt: string
+  /** Sunucunun bilinen şema sürümü — kayıtta yoksa okumada migrate edilir. */
+  schemaVersion?: number
 }

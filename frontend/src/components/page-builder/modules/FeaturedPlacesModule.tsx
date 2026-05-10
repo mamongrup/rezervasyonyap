@@ -4,14 +4,14 @@ import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import type { TListingBase } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
 
-interface Config {
+export interface FeaturedPlacesModuleConfig {
   heading?: string
   subHeading?: string
   cardType?: string
   viewAllHref?: string
 }
 
-export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { config: Config; locale?: string }) {
+export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { config: FeaturedPlacesModuleConfig; locale?: string }) {
   const apiResult = await fetchCategoryListings('oteller', {}, {}, locale)
   const raw = apiResult.listings
   const listings: TListingBase[] = raw.map((l) => ({

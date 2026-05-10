@@ -1,6 +1,6 @@
 import SectionClientSay, { type ClientSaySlideItem } from '@/components/SectionClientSay'
 
-type StaticItem = {
+export type ClientSayStaticItem = {
   name: string
   rating: number
   text: string
@@ -8,7 +8,7 @@ type StaticItem = {
 }
 
 /** `TestimonialsModule` ile aynı vitrin varsayılanı — CMS `items` boşsa kullanılır */
-const DEFAULT_ITEMS: StaticItem[] = [
+const DEFAULT_ITEMS: ClientSayStaticItem[] = [
   {
     name: 'Ayşe K.',
     rating: 5,
@@ -26,13 +26,13 @@ const DEFAULT_ITEMS: StaticItem[] = [
   },
 ]
 
-interface Config {
+export interface ClientSayModuleConfig {
   heading?: string
   subHeading?: string
-  items?: StaticItem[]
+  items?: ClientSayStaticItem[]
 }
 
-function toSlides(raw: StaticItem[]): ClientSaySlideItem[] {
+function toSlides(raw: ClientSayStaticItem[]): ClientSaySlideItem[] {
   return raw.map((t, i) => {
     const slide: ClientSaySlideItem = {
       id: `client-say-${i}`,
@@ -45,7 +45,7 @@ function toSlides(raw: StaticItem[]): ClientSaySlideItem[] {
   })
 }
 
-export default function ClientSayModule({ config }: { config: Config }) {
+export default function ClientSayModule({ config }: { config: ClientSayModuleConfig }) {
   const raw = Array.isArray(config.items) && config.items.length > 0 ? config.items : DEFAULT_ITEMS
   const items = toSlides(raw)
   if (!items.length) return null

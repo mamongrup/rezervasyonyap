@@ -2,17 +2,7 @@
 
 import Link from 'next/link'
 import { CategoryRegistryEntry } from '@/data/category-registry'
-
-interface HeroModuleConfig {
-  heading?: string
-  subheading?: string
-  backgroundUrl?: string
-  style?: 'full' | 'compact' | 'minimal'
-  showSearchForm?: boolean
-  overlayOpacity?: number
-  ctaText?: string
-  ctaHref?: string
-}
+import type { HeroModuleConfig } from '@/types/page-builder-module'
 
 interface HeroModuleProps {
   config: HeroModuleConfig

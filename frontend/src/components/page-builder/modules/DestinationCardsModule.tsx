@@ -4,7 +4,7 @@ import { getPublicRegionStats } from '@/lib/travel-api'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { vitrinHref } from '@/lib/vitrin-href'
 
-interface DestinationCard {
+export interface DestinationCard {
   name: string
   description?: string
   imageUrl: string
@@ -12,7 +12,7 @@ interface DestinationCard {
   listingCount?: number
 }
 
-interface DestinationCardsConfig {
+export interface DestinationCardsModuleConfig {
   title?: string
   subtitle?: string
   viewAllHref?: string
@@ -112,7 +112,7 @@ export default async function DestinationCardsModule({
   config,
   locale = 'tr',
 }: {
-  config: DestinationCardsConfig
+  config: DestinationCardsModuleConfig
   locale?: string
 }) {
   // Panelde manuel kart tanımlanmışsa onları kullan
@@ -148,6 +148,10 @@ export default async function DestinationCardsModule({
 
   const cols = config.columns ?? 3
 
+  const legacy = config as DestinationCardsModuleConfig & { heading?: string; subheading?: string }
+  const displayTitle = config.title ?? legacy.heading
+  const displaySubtitle = config.subtitle ?? legacy.subheading
+
   const gridClass = {
     2: 'grid-cols-1 sm:grid-cols-2',
     3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
@@ -160,11 +164,11 @@ export default async function DestinationCardsModule({
       <div className="mb-8 flex items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-neutral-900 dark:text-white md:text-3xl">
-            {config.title ?? 'Popüler Destinasyonlar'}
+            {displayTitle ?? 'Popüler Destinasyonlar'}
           </h2>
-          {config.subtitle && (
-            <p className="mt-2 text-neutral-500 dark:text-neutral-400">{config.subtitle}</p>
-          )}
+          {displaySubtitle ? (
+            <p className="mt-2 text-neutral-500 dark:text-neutral-400">{displaySubtitle}</p>
+          ) : null}
         </div>
         {config.viewAllHref && (
           <Link

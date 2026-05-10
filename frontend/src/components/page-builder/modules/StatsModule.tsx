@@ -1,18 +1,18 @@
 import { Users, LayoutGrid, Globe, Star } from 'lucide-react'
 
-interface StatItem {
+export interface StatsModuleItem {
   value: string
   label: string
   /** Geriye dönük uyumluluk için */
   emoji?: string
 }
 
-interface StatsConfig {
+export interface StatsModuleConfig {
   title?: string
-  items?: StatItem[]
+  items?: StatsModuleItem[]
 }
 
-const DEFAULT_STATS: StatItem[] = [
+const DEFAULT_STATS: StatsModuleItem[] = [
   { value: '50.000+', label: 'Mutlu Müşteri' },
   { value: '5.000+',  label: 'Aktif İlan'    },
   { value: '300+',    label: 'Destinasyon'   },
@@ -26,7 +26,7 @@ const DEFAULT_ICONS = [
   { Icon: Star,       color: 'bg-amber-50 text-amber-500 dark:bg-amber-900/30 dark:text-amber-400'         },
 ]
 
-export default function StatsModule({ config }: { config: StatsConfig }) {
+export default function StatsModule({ config }: { config: StatsModuleConfig }) {
   const items = config.items ?? DEFAULT_STATS
   const isDefault = !config.items
 

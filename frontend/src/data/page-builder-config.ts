@@ -6,7 +6,6 @@
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import type {
-  CategoryPageBuilderConfig,
   FeaturedByRegionConfig,
   FeaturedRegionEntry,
   PageBuilderModule,
@@ -20,6 +19,7 @@ import {
   recordToNormalizedThumbnails,
   type CategoryThumbnailNormalized,
 } from '@/lib/category-thumbnail-entry'
+import { finalizePageBuilderConfigFromUnknown } from '@/lib/page-builder/config-pipeline'
 
 export interface HomepageConfig {
   heroHeading: string
@@ -181,21 +181,25 @@ export async function getCategoryPageBuilderConfig(
   categorySlug: string,
   locale = 'tr',
 ): Promise<PageBuilderModule[]> {
-  const filePath = path.join(DATA_DIR, `${categorySlug.replace(/[^a-z0-9-]/g, '')}.json`)
+  const slugSafe = categorySlug.replace(/[^a-z0-9-]/g, '')
+  const filePath = path.join(DATA_DIR, `${slugSafe}.json`)
 
   try {
-    const raw = await fs.readFile(filePath, 'utf-8')
-    const config = JSON.parse(raw) as CategoryPageBuilderConfig
-    return config.modules
+    const rawText = await fs.readFile(filePath, 'utf-8')
+    const parsed = JSON.parse(rawText) as unknown
+    const finalized = finalizePageBuilderConfigFromUnknown(parsed, slugSafe)
+    if (finalized.ok) return finalized.config.modules
   } catch {
-    const cat = getCategoryBySlug(categorySlug)
-    if (!cat) return []
-    const m = getMessages(locale)
-    return getLocalizedDefaultModules(categorySlug, m).map((mod, i) => ({
-      ...mod,
-      id: `${categorySlug}-default-${i}`,
-    }))
+    /* fall through */
   }
+
+  const cat = getCategoryBySlug(categorySlug)
+  if (!cat) return []
+  const m = getMessages(locale)
+  return getLocalizedDefaultModules(categorySlug, m).map((mod, i) => ({
+    ...mod,
+    id: `${categorySlug}-default-${i}`,
+  })) as PageBuilderModule[]
 }
 
 /** Eski kayıtlarda yoksa hero + breadcrumb eklenir (sıra korunur). */
@@ -221,7 +225,7 @@ function ensureRegionDetailCoreModules(modules: PageBuilderModule[], locale: str
 
   const shift = injected.length
   const shifted = modules.map((mod) => ({ ...mod, order: mod.order + shift }))
-  return [...injected, ...shifted].sort((a, b) => a.order - b.order)
+  return [...injected, ...shifted].sort((a, b) => a.order - b.order) as PageBuilderModule[]
 }
 
 function ensureRegionDetailPlacesVitrinModule(modules: PageBuilderModule[], locale: string): PageBuilderModule[] {
@@ -248,7 +252,7 @@ function ensureRegionDetailPlacesVitrinModule(modules: PageBuilderModule[], loca
       id: 'bolge-detay-injected-places-vitrin',
       order: newOrder,
     },
-  ].sort((a, b) => a.order - b.order)
+  ].sort((a, b) => a.order - b.order) as PageBuilderModule[]
 }
 
 /** `/bolge/…` vitrinı için tek şablon (`public/page-builder/bolge-detay.json`). */
@@ -256,15 +260,25 @@ export async function getRegionDetailPageBuilderConfig(locale = 'tr'): Promise<P
   const slug = 'bolge-detay'
   const filePath = path.join(DATA_DIR, `${slug}.json`)
   try {
-    const raw = await fs.readFile(filePath, 'utf-8')
-    const config = JSON.parse(raw) as CategoryPageBuilderConfig
-    const withCore = ensureRegionDetailCoreModules(config.modules, locale)
-    return ensureRegionDetailPlacesVitrinModule(withCore, locale)
+    const rawText = await fs.readFile(filePath, 'utf-8')
+    const parsed = JSON.parse(rawText) as unknown
+    const finalized = finalizePageBuilderConfigFromUnknown(parsed, slug)
+    const m = getMessages(locale)
+    const baseModules = (
+      finalized.ok
+        ? finalized.config.modules
+        : (getRegionDetailDefaultModules(m).map((mod, i) => ({
+            ...mod,
+            id: `${slug}-default-${i}`,
+          })) as PageBuilderModule[])
+    ) as PageBuilderModule[]
+    const withCore = ensureRegionDetailCoreModules(baseModules, locale)
+    return ensureRegionDetailPlacesVitrinModule(withCore, locale) as PageBuilderModule[]
   } catch {
     const m = getMessages(locale)
     return getRegionDetailDefaultModules(m).map((mod, i) => ({
       ...mod,
       id: `${slug}-default-${i}`,
-    }))
+    })) as PageBuilderModule[]
   }
 }

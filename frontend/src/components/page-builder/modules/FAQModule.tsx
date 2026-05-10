@@ -4,17 +4,17 @@ import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useState } from 'react'
 
-interface FAQItem {
+export interface FAQModuleItem {
   question: string
   answer: string
 }
 
-interface FAQConfig {
+export interface FAQModuleConfig {
   title?: string
-  items?: FAQItem[]
+  items?: FAQModuleItem[]
 }
 
-function FAQRow({ item }: { item: FAQItem }) {
+function FAQRow({ item }: { item: FAQModuleItem }) {
   const [open, setOpen] = useState(false)
   return (
     <div className="border-b border-neutral-100 dark:border-neutral-800">
@@ -38,13 +38,13 @@ function FAQRow({ item }: { item: FAQItem }) {
   )
 }
 
-const DEFAULT_FAQS: FAQItem[] = [
+const DEFAULT_FAQS: FAQModuleItem[] = [
   { question: 'Rezervasyonumu nasıl iptal edebilirim?', answer: 'Hesabınızdaki "Rezervasyonlarım" bölümünden ilgili rezervasyonu seçerek iptal işlemi yapabilirsiniz. İptal koşulları ürüne göre değişmektedir.' },
   { question: 'Ödeme yöntemleri nelerdir?', answer: 'Kredi kartı, banka kartı ve havale/EFT yöntemleriyle ödeme yapabilirsiniz. Taksitli ödeme seçeneği de mevcuttur.' },
   { question: 'Rezervasyonumda değişiklik yapabilir miyim?', answer: 'Ürüne bağlı olarak tarih ve misafir sayısı değişikliği yapabilirsiniz. Detaylar için müşteri hizmetlerimizle iletişime geçin.' },
 ]
 
-export default function FAQModule({ config }: { config: FAQConfig }) {
+export default function FAQModule({ config }: { config: FAQModuleConfig }) {
   const items = config.items ?? DEFAULT_FAQS
   return (
     <section>

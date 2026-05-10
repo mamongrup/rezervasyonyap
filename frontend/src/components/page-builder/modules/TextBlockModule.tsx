@@ -1,13 +1,13 @@
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 
-interface TextBlockConfig {
+export interface TextBlockModuleConfig {
   title?: string
   content?: string
   align?: 'left' | 'center' | 'right'
   maxWidth?: string
 }
 
-export default function TextBlockModule({ config }: { config: TextBlockConfig }) {
+export default function TextBlockModule({ config }: { config: TextBlockModuleConfig }) {
   const align = config.align ?? 'left'
   const alignClass = align === 'center' ? 'text-center mx-auto' : align === 'right' ? 'text-right ms-auto' : ''
   const maxW = config.maxWidth ?? 'max-w-3xl'

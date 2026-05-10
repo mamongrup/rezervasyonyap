@@ -1,9 +1,9 @@
 import SectionGeziOnerileri from '@/components/SectionGeziOnerileri'
 
-interface Config {
+export interface GeziOnerileriModuleConfig {
   locale?: string
 }
 
-export default function GeziOnerileriModule({ config }: { config: Config }) {
+export default function GeziOnerileriModule({ config }: { config: GeziOnerileriModuleConfig }) {
   return <SectionGeziOnerileri locale={config.locale ?? 'tr'} />
 }

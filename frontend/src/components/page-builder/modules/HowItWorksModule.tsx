@@ -1,24 +1,24 @@
 import SectionHowItWork from '@/components/SectionHowItWork'
 
-interface Step {
+export interface HowItWorksStep {
   id: number
   title: string
   desc: string
 }
 
-interface Config {
+export interface HowItWorksModuleConfig {
   title?: string
   subheading?: string
-  steps?: Step[]
+  steps?: HowItWorksStep[]
 }
 
-const DEFAULT_STEPS_TR: Step[] = [
+const DEFAULT_STEPS_TR: HowItWorksStep[] = [
   { id: 1, title: 'Ara & Keşfet', desc: 'İstediğin kategoriyi ve bölgeyi seç, binlerce ilan arasından filtrele.' },
   { id: 2, title: 'Rezervasyon Yap', desc: 'Güvenli ödeme altyapısıyla anında rezervasyon veya teklif al.' },
   { id: 3, title: 'Yola Çık', desc: 'Onaylanan rezervasyonunla keyifli bir seyahate hazır ol.' },
 ]
 
-export default function HowItWorksModule({ config }: { config: Config }) {
+export default function HowItWorksModule({ config }: { config: HowItWorksModuleConfig }) {
   const steps = config.steps ?? DEFAULT_STEPS_TR
 
   return (

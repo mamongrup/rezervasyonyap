@@ -4,15 +4,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import type { CategoryPageBuilderConfig, PageBuilderModule } from '@/types/listing-types'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { requireAdminCookie } from '@/lib/api-require-admin'
-import { getLocalizedDefaultModules, getHomepageDefaultModules, getRegionDetailDefaultModules } from '@/lib/page-builder-default-modules'
+import {
+  finalizePageBuilderConfigFromUnknown,
+  finalizePageBuilderPostBody,
+  MAX_PAGE_BUILDER_BODY_BYTES,
+  sanitizePageSlugForFilesystem,
+} from '@/lib/page-builder/config-pipeline'
+import {
+  getLocalizedDefaultModules,
+  getHomepageDefaultModules,
+  getRegionDetailDefaultModules,
+} from '@/lib/page-builder-default-modules'
 import { revalidateAfterPageBuilderSave } from '@/lib/revalidate-page-builder'
 import { getMessages } from '@/utils/getT'
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'page-builder')
-
-function safeSlug(slug: string): string {
-  return slug.replace(/[^a-z0-9-]/g, '')
-}
 
 async function ensureDir() {
   await fs.mkdir(DATA_DIR, { recursive: true })
@@ -25,16 +31,28 @@ const SPECIAL_PAGES = [
   { slug: 'bolge-detay', name: 'Bölge detay (vitrin)', emoji: '📍' },
 ]
 
+function buildAllowedSlugSet(): Set<string> {
+  const s = new Set<string>()
+  for (const p of SPECIAL_PAGES) {
+    s.add(sanitizePageSlugForFilesystem(p.slug))
+  }
+  for (const c of CATEGORY_REGISTRY) {
+    s.add(sanitizePageSlugForFilesystem(c.slug))
+  }
+  return s
+}
+
+const ALLOWED_PAGE_BUILDER_SLUGS = buildAllowedSlugSet()
+
 /** GET /api/page-builder?slug=oteller — fetch config for a category */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
-  const slug = searchParams.get('slug')
+  const slugParam = searchParams.get('slug')
   const locale = searchParams.get('locale')?.trim() || 'tr'
 
   await ensureDir()
 
-  if (!slug) {
-    // Return list of all pages (special + category) with whether they have a custom config
+  if (!slugParam) {
     const files = await fs.readdir(DATA_DIR).catch(() => [] as string[])
     const configured = files.map((f) => f.replace('.json', ''))
     const specialList = SPECIAL_PAGES.map((p) => ({
@@ -54,68 +72,88 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, categories: [...specialList, ...categoryList] })
   }
 
-  const filePath = path.join(DATA_DIR, `${safeSlug(slug)}.json`)
+  const slugSafe = sanitizePageSlugForFilesystem(slugParam)
+  if (!slugSafe || !ALLOWED_PAGE_BUILDER_SLUGS.has(slugSafe)) {
+    return NextResponse.json({ ok: false, error: 'invalid_slug' }, { status: 404 })
+  }
+
+  const filePath = path.join(DATA_DIR, `${slugSafe}.json`)
+
+  const tryFinalize = (raw: unknown): CategoryPageBuilderConfig | null => {
+    const fin = finalizePageBuilderConfigFromUnknown(raw, slugSafe)
+    return fin.ok ? fin.config : null
+  }
+
   try {
     const raw = await fs.readFile(filePath, 'utf-8')
-    const config = JSON.parse(raw) as CategoryPageBuilderConfig
-    return NextResponse.json({ ok: true, config })
+    const parsed = JSON.parse(raw) as unknown
+    const fin = tryFinalize(parsed)
+    if (fin) return NextResponse.json({ ok: true, config: fin })
   } catch {
-    const messages = getMessages(locale)
+    // fallthrough to defaults
+  }
 
-    // Special case: homepage
-    if (slug === 'homepage') {
-      const defaultConfig: CategoryPageBuilderConfig = {
-        categorySlug: 'homepage',
-        modules: getHomepageDefaultModules(messages).map((m, i) => ({
-          ...m,
-          id: `homepage-module-${i}`,
-        })),
-        updatedAt: new Date().toISOString(),
-      }
-      return NextResponse.json({ ok: true, config: defaultConfig })
-    }
+  const messages = getMessages(locale)
 
-    // Special case: search page
-    if (slug === 'ara') {
-      const { getSearchPageDefaultModules } = await import('@/lib/page-builder-default-modules')
-      const defaultConfig: CategoryPageBuilderConfig = {
-        categorySlug: 'ara',
-        modules: getSearchPageDefaultModules().map((m, i) => ({
-          ...m,
-          id: `ara-module-${i}`,
-        })),
-        updatedAt: new Date().toISOString(),
-      }
-      return NextResponse.json({ ok: true, config: defaultConfig })
-    }
-
-    // Bölge vitrinı (`/bolge/...` vb.) — tek şablon, tüm location slug’larında kullanılır
-    if (slug === 'bolge-detay') {
-      const defaultConfig: CategoryPageBuilderConfig = {
-        categorySlug: 'bolge-detay',
-        modules: getRegionDetailDefaultModules(messages).map((m, i) => ({
-          ...m,
-          id: `bolge-detay-module-${i}`,
-        })),
-        updatedAt: new Date().toISOString(),
-      }
-      return NextResponse.json({ ok: true, config: defaultConfig })
-    }
-
-    // Return default config from registry
-    const cat = CATEGORY_REGISTRY.find((c) => c.slug === slug)
-    if (!cat) return NextResponse.json({ ok: false, error: 'Category not found' }, { status: 404 })
-
-    const defaultConfig: CategoryPageBuilderConfig = {
-      categorySlug: slug,
-      modules: getLocalizedDefaultModules(slug, messages).map((m, i) => ({
+  // Special case: homepage
+  if (slugSafe === 'homepage') {
+    const base: CategoryPageBuilderConfig = {
+      categorySlug: 'homepage',
+      modules: getHomepageDefaultModules(messages).map((m, i) => ({
         ...m,
-        id: `${slug}-module-${i}`,
-      })),
+        id: `homepage-module-${i}`,
+      })) as PageBuilderModule[],
       updatedAt: new Date().toISOString(),
     }
-    return NextResponse.json({ ok: true, config: defaultConfig })
+    const fin = finalizePageBuilderConfigFromUnknown(base, slugSafe)
+    const config = fin.ok ? fin.config : base
+    return NextResponse.json({ ok: true, config })
   }
+
+  // Special case: search page
+  if (slugSafe === 'ara') {
+    const { getSearchPageDefaultModules } = await import('@/lib/page-builder-default-modules')
+    const base: CategoryPageBuilderConfig = {
+      categorySlug: 'ara',
+      modules: getSearchPageDefaultModules().map((m, i) => ({
+        ...m,
+        id: `ara-module-${i}`,
+      })) as PageBuilderModule[],
+      updatedAt: new Date().toISOString(),
+    }
+    const fin = finalizePageBuilderConfigFromUnknown(base, slugSafe)
+    const config = fin.ok ? fin.config : base
+    return NextResponse.json({ ok: true, config })
+  }
+
+  if (slugSafe === 'bolge-detay') {
+    const base: CategoryPageBuilderConfig = {
+      categorySlug: 'bolge-detay',
+      modules: getRegionDetailDefaultModules(messages).map((m, i) => ({
+        ...m,
+        id: `bolge-detay-module-${i}`,
+      })) as PageBuilderModule[],
+      updatedAt: new Date().toISOString(),
+    }
+    const fin = finalizePageBuilderConfigFromUnknown(base, slugSafe)
+    const config = fin.ok ? fin.config : base
+    return NextResponse.json({ ok: true, config })
+  }
+
+  const cat = CATEGORY_REGISTRY.find((c) => sanitizePageSlugForFilesystem(c.slug) === slugSafe)
+  if (!cat) return NextResponse.json({ ok: false, error: 'Category not found' }, { status: 404 })
+
+  const base: CategoryPageBuilderConfig = {
+    categorySlug: cat.slug,
+    modules: getLocalizedDefaultModules(cat.slug, messages).map((m, i) => ({
+      ...m,
+      id: `${cat.slug}-module-${i}`,
+    })) as PageBuilderModule[],
+    updatedAt: new Date().toISOString(),
+  }
+  const fin = finalizePageBuilderConfigFromUnknown(base, slugSafe)
+  const config = fin.ok ? fin.config : base
+  return NextResponse.json({ ok: true, config })
 }
 
 /** POST /api/page-builder — save config for a category */
@@ -123,32 +161,44 @@ export async function POST(req: NextRequest) {
   const authErr = await requireAdminCookie()
   if (authErr) return authErr
 
-  let body: { slug: string; modules: PageBuilderModule[] }
+  const rawText = await req.text().catch(() => '')
+  if (rawText.length > MAX_PAGE_BUILDER_BODY_BYTES) {
+    return NextResponse.json({ ok: false, error: 'payload_too_large' }, { status: 413 })
+  }
+
+  let body: unknown
   try {
-    body = (await req.json()) as { slug: string; modules: PageBuilderModule[] }
+    body = JSON.parse(rawText || 'null')
   } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json_body' }, { status: 400 })
   }
-  const { slug, modules } = body
 
-  if (!slug || !modules) {
-    return NextResponse.json({ ok: false, error: 'slug and modules are required' }, { status: 400 })
+  const slugPeek = sanitizePageSlugForFilesystem(
+    (body && typeof body === 'object' && 'slug' in body && typeof (body as { slug?: unknown }).slug === 'string')
+      ? (body as { slug: string }).slug
+      : '',
+  )
+  if (!slugPeek || !ALLOWED_PAGE_BUILDER_SLUGS.has(slugPeek)) {
+    return NextResponse.json({ ok: false, error: 'invalid_slug' }, { status: 400 })
+  }
+
+  const finalized = finalizePageBuilderPostBody(body, slugPeek)
+  if (!finalized.ok) {
+    return NextResponse.json({ ok: false, error: finalized.error }, { status: 400 })
   }
 
   await ensureDir()
 
-  const config: CategoryPageBuilderConfig = {
-    categorySlug: slug,
-    modules,
-    updatedAt: new Date().toISOString(),
-  }
+  const filePath = path.join(DATA_DIR, `${slugPeek}.json`)
+  await fs.writeFile(filePath, JSON.stringify(finalized.config, null, 2), 'utf-8')
 
-  const filePath = path.join(DATA_DIR, `${safeSlug(slug)}.json`)
-  await fs.writeFile(filePath, JSON.stringify(config, null, 2), 'utf-8')
+  revalidateAfterPageBuilderSave(slugPeek)
 
-  revalidateAfterPageBuilderSave(safeSlug(slug))
-
-  return NextResponse.json({ ok: true, savedAt: config.updatedAt })
+  return NextResponse.json({
+    ok: true,
+    savedAt: finalized.config.updatedAt,
+    config: finalized.config,
+  })
 }
 
 /** DELETE /api/page-builder?slug=oteller — reset to defaults */
@@ -160,7 +210,11 @@ export async function DELETE(req: NextRequest) {
   const slug = searchParams.get('slug')
   if (!slug) return NextResponse.json({ ok: false, error: 'slug required' }, { status: 400 })
 
-  const safe = safeSlug(slug)
+  const safe = sanitizePageSlugForFilesystem(slug)
+  if (!safe || !ALLOWED_PAGE_BUILDER_SLUGS.has(safe)) {
+    return NextResponse.json({ ok: false, error: 'invalid_slug' }, { status: 400 })
+  }
+
   const filePath = path.join(DATA_DIR, `${safe}.json`)
   await fs.unlink(filePath).catch(() => null)
   revalidateAfterPageBuilderSave(safe)

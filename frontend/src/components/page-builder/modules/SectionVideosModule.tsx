@@ -1,6 +1,6 @@
 import SectionVideos from '@/components/SectionVideos'
 
-interface Config {
+export interface SectionVideosModuleConfig {
   heading?: string
   subheading?: string
   videos?: {
@@ -11,7 +11,7 @@ interface Config {
   }[]
 }
 
-export default function SectionVideosModule({ config }: { config: Config }) {
+export default function SectionVideosModule({ config }: { config: SectionVideosModuleConfig }) {
   const videos = Array.isArray(config.videos)
     ? config.videos.filter((video) => video.videoUrl?.trim())
     : []

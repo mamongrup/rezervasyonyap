@@ -4,13 +4,15 @@ import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { vitrinHref } from '@/lib/vitrin-href'
 import HeadingWithSub from '@/shared/Heading'
 
-interface Config {
+export interface RegionSliderModuleConfig {
   heading?: string
   subheading?: string
   /** Backend kategori kodu — boş bırakılırsa tüm kategoriler */
   categoryCode?: string
   /** Kategori sayfası link prefix'i, ör. "oteller" → /oteller/istanbul (boş = bölge sayfası) */
   categoryRoute?: string
+  /** 'card3' | 'card4' | 'card5' */
+  cardType?: 'card3' | 'card4' | 'card5'
   /** Bölge başına gösterilen birim etiketi, ör. "otel" */
   unit?: string
   /** Gösterilecek maksimum bölge sayısı (varsayılan 12) */
@@ -21,7 +23,7 @@ export default async function RegionSliderModule({
   config,
   locale = 'tr',
 }: {
-  config: Config
+  config: RegionSliderModuleConfig
   locale?: string
 }) {
   const limit = config.limit ?? 12
@@ -58,6 +60,7 @@ export default async function RegionSliderModule({
           regions={regions}
           categoryRoute={resolvedRoute}
           unit={config.unit ?? 'ilan'}
+          cardType={config.cardType ?? 'card3'}
         />
       </div>
     </div>

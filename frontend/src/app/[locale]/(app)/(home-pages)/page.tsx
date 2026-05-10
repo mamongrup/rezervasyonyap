@@ -59,10 +59,10 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   const defaultModules = getHomepageDefaultModules(m)
   const savedModules = homepageConfig?.modules
   const rawModules: Omit<PageBuilderModule, 'id'>[] = savedModules?.length ? savedModules : defaultModules
-  const modules: PageBuilderModule[] = rawModules.map((mod, i) => ({
+  const modules = rawModules.map((mod, i) => ({
     ...mod,
     id: (mod as PageBuilderModule).id ?? `home-module-${i}`,
-  }))
+  })) as PageBuilderModule[]
 
   const defaultHeroSrc =
     typeof heroRightStay.src === 'string' ? heroRightStay.src : String(heroRightStay.src)

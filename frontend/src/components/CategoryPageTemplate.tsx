@@ -170,14 +170,14 @@ export default async function CategoryPageTemplate({
       : null
 
   // modules geçirilmemişse önce kaydedilmiş page builder config'e bak, yoksa kod varsayılanlarını kullan
-  const resolvedModules: PageBuilderModule[] =
-    modules ??
-    await getCategoryPageBuilderConfig(category.slug, locale).catch(() =>
-      getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
-        ...mod,
-        id: `default-${category.slug}-${i}`,
-      }))
-    )
+  const resolvedModules =
+    (modules ??
+      (await getCategoryPageBuilderConfig(category.slug, locale).catch(() =>
+        getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
+          ...mod,
+          id: `default-${category.slug}-${i}`,
+        })),
+      ))) as PageBuilderModule[]
 
   // Bölge istatistiklerini dışarıdan geçilmemişse çek (sadece "all" görünümünde)
   const categoryCode = SLUG_TO_CODE[category.slug] ?? category.slug

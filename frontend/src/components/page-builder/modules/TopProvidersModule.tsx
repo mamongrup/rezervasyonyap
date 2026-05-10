@@ -1,16 +1,18 @@
 import type { TAuthor } from '@/data/authors'
 import SectionTopProviders from '@/components/SectionTopProviders'
 
-interface Config {
+export interface TopProvidersModuleConfig {
   heading?: string
   subheading?: string
   ctaText?: string
   ctaHref?: string
   maxCount?: number
+  /** Vitrayda kategori filtresini etkinleştir (persist edilir; gelecek davranışlar için saklanır) */
+  showCategoryFilter?: boolean
 }
 
 interface Props {
-  config: Config
+  config: TopProvidersModuleConfig
   authors: TAuthor[]
   /** Mevcut kategori slug'ı — verilirse URL'den değil buradan filtreler */
   categorySlug?: string
