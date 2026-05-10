@@ -255,7 +255,12 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                       #("country_name", json.string(country_name)),
                       #("locale", json.string("tr")),
                       #("count", json.string("5-10")),
-                      #("instruction", json.string("Bu ilçenin en popüler ve en çok aranan turistik mekanlarını, tarihi ve doğal güzelliklerini listele.")),
+                      #(
+                        "instruction",
+                        json.string(
+                          "Görev: Verilen ilçe/belde için en az 5 adet gezi fikri ve popüler mekan üret.\n\nKurallar:\n1) Sadece gerçek ve bölgede bilinen mekanlar yaz; uydurma yer yazma.\n2) Her mekan için kısa, özgün ve anlaşılır Türkçe açıklama yaz (1-2 cümle).\n3) Çıktı en az 5, en fazla 8 mekan içersin.\n4) Mümkünse farklı türleri karıştır: doğal güzellik, tarihi yer, plaj/koy, seyir noktası, müze/antik kent vb.\n5) Aynı mekanı farklı adla tekrar etme.\n6) Mekan adları, Google Maps'te kolay bulunabilecek netlikte olsun.\n7) JSON dışında hiçbir metin yazma.\n\nÇıktı formatı (JSON array):\n[\n  {\n    \"title\": \"Mekan adı\",\n    \"summary\": \"Kısa açıklama\",\n    \"place_query\": \"Google Maps arama için net sorgu (ör: Kayaköy Örenyeri, Fethiye, Muğla)\"\n  }\n]\n",
+                        ),
+                      ),
                     ])
                     |> json.to_string
                   pog.query(
