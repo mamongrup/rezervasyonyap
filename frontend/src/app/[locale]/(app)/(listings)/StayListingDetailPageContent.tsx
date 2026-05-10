@@ -18,7 +18,6 @@ import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
 import {
   regionBrowseSlugFromLocationPin,
   regionPlacesSlugFromCity,
-  shortRegionLabelFromLocationPin,
 } from '@/lib/region-places-slug'
 import {
   HOLIDAY_HOME_DETAIL_PATH,
@@ -95,6 +94,25 @@ function formatPrepaymentPercentForDisplay(raw: string): string {
   const n = parseFloat(raw.replace(',', '.'))
   if (Number.isNaN(n)) return raw.trim()
   return Number.isInteger(n) ? String(Math.round(n)) : String(n)
+}
+
+function normalizeHolidayHomeLocationPin(raw: string | null | undefined): string | null {
+  const text = String(raw ?? '').trim()
+  if (!text) return null
+  const parts = text
+    .split(',')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => segment.replace(/\b\d{4,6}\b/g, '').replace(/\s{2,}/g, ' ').trim())
+    .flatMap((segment) => segment.split('/').map((piece) => piece.trim()).filter(Boolean))
+  if (!parts.length) return null
+  const deduped: string[] = []
+  for (const part of parts) {
+    if (!deduped.some((x) => x.toLocaleLowerCase('tr') === part.toLocaleLowerCase('tr'))) {
+      deduped.push(part)
+    }
+  }
+  return deduped.join(', ')
 }
 
 export async function generateStayListingMetadata({
@@ -429,11 +447,12 @@ export default async function StayListingDetailPageContent({
       prepaymentNoteText?.trim() ||
       listingContractHref,
   )
-  const regionName =
-    isHolidayHome ? (listing.city ?? listing.address)?.trim() || null : null
+  const regionName = isHolidayHome
+    ? normalizeHolidayHomeLocationPin(listing.city ?? listing.address)
+    : null
   const holidayHomeLocationPin = regionName?.trim() ?? ''
   const breadcrumbRegionLabel = holidayHomeLocationPin
-    ? shortRegionLabelFromLocationPin(holidayHomeLocationPin)
+    ? holidayHomeLocationPin.split(',')[0]?.trim() ?? ''
     : ''
   const breadcrumbRegionSlug = holidayHomeLocationPin
     ? regionBrowseSlugFromLocationPin(holidayHomeLocationPin)

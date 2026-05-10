@@ -22,6 +22,25 @@ interface ListingCardProps {
   size?: 'default' | 'small'
 }
 
+function normalizeHolidayHomeLocationPin(raw: string | null | undefined): string {
+  const text = String(raw ?? '').trim()
+  if (!text) return ''
+  const parts = text
+    .split(',')
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+    .map((segment) => segment.replace(/\b\d{4,6}\b/g, '').replace(/\s{2,}/g, ' ').trim())
+    .flatMap((segment) => segment.split('/').map((piece) => piece.trim()).filter(Boolean))
+  if (!parts.length) return ''
+  const deduped: string[] = []
+  for (const part of parts) {
+    if (!deduped.some((x) => x.toLocaleLowerCase('tr') === part.toLocaleLowerCase('tr'))) {
+      deduped.push(part)
+    }
+  }
+  return deduped.join(', ')
+}
+
 /**
  * Universal gallery-based listing card.
  * All category cards (Hotel, HolidayHome, Yacht, Tour, Activity, etc.) use this as base.
@@ -67,6 +86,8 @@ const ListingCard: FC<ListingCardProps> = ({
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
   const priceUnit = config.priceUnit ?? ''
   const extraInfo = config.extraInfo ? config.extraInfo(data, locale) : null
+  const normalizedAddress =
+    config.categoryCode === 'holiday_home' ? normalizeHolidayHomeLocationPin(address) : address
 
   // Yemek planı rozeti
   const mealBadge =
@@ -119,12 +140,12 @@ const ListingCard: FC<ListingCardProps> = ({
                 <span className="line-clamp-1">{title}</span>
               </h2>
             </div>
-            {address && (
+            {normalizedAddress && (
               <div className="flex items-center gap-x-1.5 text-sm text-neutral-500 dark:text-neutral-400">
                 {size === 'default' && (
                   <HugeiconsIcon icon={Location06Icon} size={14} color="currentColor" strokeWidth={1.5} />
                 )}
-                <span className="line-clamp-1">{address}</span>
+                <span className="line-clamp-1">{normalizedAddress}</span>
               </div>
             )}
             {themeChipsVisible.length > 0 && (
