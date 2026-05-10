@@ -72,17 +72,17 @@ export default function AccountPasswordPage() {
         <Field>
           <Label>{T.currentPassword}</Label>
           <Input type="password" name="current_password" required autoComplete="current-password" className="mt-1.5"
-            value={current} onChange={(e) => setCurrent(e.target.value)} />
+            value={current} onChange={(e) => setCurrent(e.currentTarget.value)} />
         </Field>
         <Field>
           <Label>{T.newPassword}</Label>
           <Input type="password" name="new_password" required minLength={6} autoComplete="new-password" className="mt-1.5"
-            value={next} onChange={(e) => setNext(e.target.value)} />
+            value={next} onChange={(e) => setNext(e.currentTarget.value)} />
         </Field>
         <Field>
           <Label>{T.confirmPassword}</Label>
           <Input type="password" name="confirm_password" required autoComplete="new-password" className="mt-1.5"
-            value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+            value={confirm} onChange={(e) => setConfirm(e.currentTarget.value)} />
         </Field>
         <div className="pt-4">
           <ButtonPrimary type="submit" disabled={pending}>

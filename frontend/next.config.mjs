@@ -85,6 +85,8 @@ const nextConfig = {
     /** Düşük RAM / Windows: PackFileCacheStrategy "Array buffer allocation failed" — dev’de kalıcı cache kapatılır */
     if (dev) {
       config.cache = false
+      /** Düşük RAM / Windows: aynı anda derlenen modül sayısını sınırla (OOM: Zone / allocation failed) */
+      config.parallelism = 2
     }
     config.resolve = config.resolve ?? {}
     config.resolve.modules = [
