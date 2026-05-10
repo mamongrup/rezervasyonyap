@@ -86,8 +86,10 @@ const ListingCard: FC<ListingCardProps> = ({
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
   const priceUnit = config.priceUnit ?? ''
   const extraInfo = config.extraInfo ? config.extraInfo(data, locale) : null
+  const isHolidayHomeCard =
+    data.listingVertical === 'holiday_home' || config.linkBase.includes('/tatil-evi')
   const normalizedAddress =
-    config.categoryCode === 'holiday_home' ? normalizeHolidayHomeLocationPin(address) : address
+    isHolidayHomeCard ? normalizeHolidayHomeLocationPin(address) : address
 
   // Yemek planı rozeti
   const mealBadge =
