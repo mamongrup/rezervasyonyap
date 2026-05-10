@@ -91,7 +91,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
           </div>
         </Link>
         <BtnLikeIcon isLiked={like} className="absolute end-3 top-3 z-1" />
-        {saleOff && <SaleOffBadge className="absolute start-3 top-3" />}
+        {saleOff ? <SaleOffBadge desc={saleOff} className="absolute start-3 top-3" /> : null}
       </div>
     )
   }

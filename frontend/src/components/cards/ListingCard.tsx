@@ -96,7 +96,7 @@ const ListingCard: FC<ListingCardProps> = ({
           galleryClass={size === 'default' ? undefined : ''}
         />
         <BtnLikeIcon listingId={data.id} className="absolute end-3 top-3 z-1" />
-        {saleOff && <SaleOffBadge className="absolute start-3 top-3" />}
+        {saleOff ? <SaleOffBadge desc={saleOff} className="absolute start-3 top-3" /> : null}
         {/* Yemek planı rozeti — görselin sol alt köşesi */}
         {mealBadge && !saleOff && (
           <div className="absolute start-3 top-3 z-1">{mealBadge}</div>

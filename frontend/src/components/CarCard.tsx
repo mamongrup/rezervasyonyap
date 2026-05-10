@@ -63,7 +63,7 @@ const CarCard: FC<CarCardProps> = ({ size = 'default', className = '', data }) =
           isLiked={like}
           className="absolute end-3 top-3 z-1"
         />
-        {saleOff && <SaleOffBadge className="absolute start-3 top-3" />}
+        {saleOff ? <SaleOffBadge desc={saleOff} className="absolute start-3 top-3" /> : null}
       </div>
     )
   }

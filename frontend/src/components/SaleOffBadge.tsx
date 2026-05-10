@@ -14,12 +14,13 @@ export interface SaleOffBadgeProps {
 
 const SaleOffBadge: FC<SaleOffBadgeProps> = ({
 	className = '',
-	desc = '%10',
+	desc,
 	locale: localeProp,
 }) => {
 	const pathname = usePathname() ?? ''
 	const locale = localeProp ?? localeFromPathname(pathname)
 	const label = formatSaleOffBadgeLabel(desc, locale)
+	if (!label) return null
 	return (
 		<div
 			className={`nc-SaleOffBadge flex items-center justify-center rounded-full bg-red-700 px-3 py-0.5 text-xs text-red-50 ${className}`}
