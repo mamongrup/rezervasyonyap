@@ -34,6 +34,7 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import {
   fetchPublicListingAvailabilityDaysSafe,
   fetchPublicListingContractSafe,
+  getBlogSlugsByTitles,
   getListingNearbyPois,
   getPublicHotelRooms,
   getPublicListingAttributes,
@@ -204,7 +205,12 @@ export default async function StayListingDetailPageContent({
 
   const mealPlans = await getPublicMealPlans(catalogListingId ?? listing.id)
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
-  const nearbyPois = await getListingNearbyPois(listing.id)
+  const rawNearbyPois = await getListingNearbyPois(listing.id)
+  const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
+  const nearbyPois = rawNearbyPois.map((p) => ({
+    ...p,
+    blog_slug: blogSlugMap[p.title] ?? p.blog_slug,
+  }))
 
   // listing_attributes (admin EAV) → vitrin amenity listesi
   let amenityKeys: string[] = []
@@ -1041,7 +1047,7 @@ export default async function StayListingDetailPageContent({
             overrideLat={map?.lat}
             overrideLng={map?.lng}
           />
-          <ListingNearbyPoisSection pois={nearbyPois} />
+          <ListingNearbyPoisSection pois={nearbyPois} locale={locale} />
           <SimilarListings
             listings={similarListings}
             title={dp.similarListings}

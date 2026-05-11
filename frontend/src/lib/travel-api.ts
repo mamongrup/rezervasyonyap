@@ -10200,12 +10200,35 @@ export interface NearbyPoi {
   summary?: string
   image?: string
   link?: string
+  blog_slug?: string
   place_id?: string
   lat: number
   lng: number
   distance_km: number
   distance_km_from_listing?: number
   distance_km_from_district?: number
+}
+
+/** Mekan başlıklarına göre blog yazısı slug'larını döndürür (herkese açık). */
+export async function getBlogSlugsByTitles(
+  titles: string[],
+  categorySlug = 'favori-mekanlar',
+): Promise<Record<string, string>> {
+  if (!titles.length) return {}
+  const b = base()
+  if (!b) return {}
+  try {
+    const res = await fetch(`${b}/api/v1/blog/posts/slugs-by-titles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ titles: JSON.stringify(titles), category_slug: categorySlug }),
+    })
+    if (!res.ok) return {}
+    const data = await res.json() as { slugs: Record<string, string> }
+    return data.slugs ?? {}
+  } catch {
+    return {}
+  }
 }
 
 /** Sunucu tarafında Haversine hesabı yapar ve listings.nearby_pois_json'u günceller. */

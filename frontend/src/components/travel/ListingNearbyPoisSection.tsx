@@ -1,9 +1,10 @@
 /**
  * İlana ait önceden hesaplanmış yakın mekan mesafeleri.
  * listings.nearby_pois_json → sunucu tarafında Haversine (PostgreSQL) ile doldurulur.
+ * blog_slug varsa ilgili blog yazısına, yoksa Google Maps'e bağlanır.
  */
 import type { NearbyPoi } from '@/lib/travel-api'
-import { MapPin } from 'lucide-react'
+import { BookOpen, MapPin } from 'lucide-react'
 import Link from 'next/link'
 
 function distanceLabel(km: number): string {
@@ -19,10 +20,13 @@ function distanceBadgeClass(km: number): string {
 interface Props {
   pois: NearbyPoi[]
   title?: string
+  locale?: string
 }
 
-export default function ListingNearbyPoisSection({ pois, title }: Props) {
+export default function ListingNearbyPoisSection({ pois, title, locale }: Props) {
   if (!pois.length) return null
+
+  const lang = locale ?? 'tr'
 
   return (
     <section className="listingSection__wrap">
@@ -42,7 +46,6 @@ export default function ListingNearbyPoisSection({ pois, title }: Props) {
             className="flex gap-3 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40"
           >
             {poi.image ? (
-               
               <img
                 src={poi.image}
                 alt={poi.title}
@@ -57,9 +60,18 @@ export default function ListingNearbyPoisSection({ pois, title }: Props) {
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start justify-between gap-2">
-                <p className="text-sm font-semibold leading-tight text-neutral-900 dark:text-white">
-                  {poi.title}
-                </p>
+                {poi.blog_slug ? (
+                  <Link
+                    href={`/${lang}/blog/${poi.blog_slug}`}
+                    className="text-sm font-semibold leading-tight text-neutral-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+                  >
+                    {poi.title}
+                  </Link>
+                ) : (
+                  <p className="text-sm font-semibold leading-tight text-neutral-900 dark:text-white">
+                    {poi.title}
+                  </p>
+                )}
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${distanceBadgeClass(poi.distance_km)}`}
                 >
@@ -71,17 +83,28 @@ export default function ListingNearbyPoisSection({ pois, title }: Props) {
                   {poi.summary}
                 </p>
               ) : null}
-              {poi.link ? (
-                <Link
-                  href={poi.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400"
-                >
-                  <MapPin className="h-3 w-3" />
-                  Haritada Gör
-                </Link>
-              ) : null}
+              <div className="mt-1.5 flex items-center gap-3">
+                {poi.blog_slug ? (
+                  <Link
+                    href={`/${lang}/blog/${poi.blog_slug}`}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400"
+                  >
+                    <BookOpen className="h-3 w-3" />
+                    Devamını Oku
+                  </Link>
+                ) : null}
+                {poi.link ? (
+                  <Link
+                    href={poi.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-neutral-400 hover:underline dark:text-neutral-500"
+                  >
+                    <MapPin className="h-3 w-3" />
+                    Haritada Gör
+                  </Link>
+                ) : null}
+              </div>
             </div>
           </div>
         ))}

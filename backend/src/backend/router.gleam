@@ -939,6 +939,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "blog", "posts", "by-slug"] ->
       blog_http.get_post_by_slug(req, ctx)
 
+    http.Post, ["api", "v1", "blog", "posts", "slugs-by-titles"] ->
+      blog_http.slugs_by_titles(req, ctx)
+
     http.Get, ["api", "v1", "blog", "posts"] -> blog_http.list_posts(req, ctx)
 
     http.Post, ["api", "v1", "blog", "posts"] -> blog_http.create_post(req, ctx)

@@ -798,6 +798,74 @@ fn upsert_translation_decoder() -> decode.Decoder(#(String, String, String, Stri
   })
 }
 
+/// POST /api/v1/blog/posts/slugs-by-titles — herkese açık
+///
+/// Verilen mekan başlıklarına karşılık gelen blog yazısı slug'larını döndürür.
+/// İlan sayfasındaki yakın mekanları ilgili blog yazısına bağlamak için kullanılır.
+/// Body: { "titles": ["Ölüdeniz", "Butterfly Valley", ...], "category_slug": "favori-mekanlar" }
+/// Yanıt: { "slugs": { "Ölüdeniz": "oludenz-...", ... } }
+pub fn slugs_by_titles(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "body_read_failed")
+    Ok(body_str) -> {
+      let decoder = {
+        use titles_raw <- decode.field("titles", decode.string)
+        use category_slug <- decode.optional_field(
+          "category_slug",
+          "favori-mekanlar",
+          decode.string,
+        )
+        decode.success(#(titles_raw, category_slug))
+      }
+      case json.parse(body_str, decoder) {
+        Error(_) -> json_err(400, "invalid_json_body")
+        Ok(#(titles_json, cat_slug)) -> {
+          let clean_cat = case string.trim(cat_slug) {
+            "" -> "favori-mekanlar"
+            s -> s
+          }
+          case
+            pog.query(
+              "select bp.title, bp.slug
+               from   blog_posts bp
+               join   blog_categories bc on bc.id = bp.category_id
+               where  bc.slug = $1
+                 and  bp.published = true
+                 and  lower(bp.title) in (
+                        select lower(t)
+                        from   json_array_elements_text($2::json) t
+                      )
+               order  by bp.title",
+            )
+            |> pog.parameter(pog.text(clean_cat))
+            |> pog.parameter(pog.text(titles_json))
+            |> pog.returning({
+              use title <- decode.field(0, decode.string)
+              use slug <- decode.field(1, decode.string)
+              decode.success(#(title, slug))
+            })
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "slugs_by_titles_failed")
+            Ok(ret) -> {
+              let pairs =
+                list.map(ret.rows, fn(row) {
+                  let #(t, s) = row
+                  #(t, json.string(s))
+                })
+              let body =
+                json.object([#("slugs", json.object(pairs))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
 /// PUT /api/v1/blog/posts/:id/translations
 pub fn upsert_translation(req: Request, ctx: Context, post_id: String) -> Response {
   use <- wisp.require_method(req, http.Put)
