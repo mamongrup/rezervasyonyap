@@ -33,6 +33,10 @@ import {
   createManageCatalogListing,
   createManageMealPlan,
   deleteListingPriceRule,
+  deleteManageMealPlan,
+  deleteIcalFeed,
+  syncIcalFeed,
+  patchIcalFeed,
   getAuthMe,
   getListingAttributeValues,
   getListingAvailabilityCalendar,
@@ -72,10 +76,17 @@ import {
   putListingPriceLineSelections,
   upsertSeoMetadata,
   updateManageMealPlan,
+  MEAL_PLAN_LABELS,
+  MEAL_OPTIONS,
+  MEAL_EXTRAS_OPTIONS,
   type AttributeDef,
   type AttributeGroup,
+  type IcalFeed,
   type ListingImage,
+  type ListingPriceRuleRow,
   type ManageListingRow,
+  type MealPlanCode,
+  type MealPlanItem,
   type NearbyPoi,
   type PriceLineItem,
   type ListingMeta,
@@ -169,6 +180,31 @@ function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, 
   for (const c of codes) o[c] = { title: '', description: '' }
   return o
 }
+
+function parseRuleJson(json: string): { base: string; weekend: string; minNights: string; label: string; weekly: string } {
+  try {
+    const obj = JSON.parse(json) as Record<string, unknown>
+    return {
+      base: String(obj.base_nightly ?? obj.base_price ?? ''),
+      weekend: String(obj.weekend_nightly ?? obj.weekend_price ?? ''),
+      minNights: String(obj.min_nights ?? obj.minimum_nights ?? ''),
+      label: String(obj.label ?? obj.season_name ?? ''),
+      weekly: String(obj.weekly_total ?? ''),
+    }
+  } catch { return { base: '', weekend: '', minNights: '', label: '', weekly: '' } }
+}
+
+function buildRuleJson(base: string, weekend: string, minNights: string, label: string, weeklyTotal: string): string {
+  const obj: Record<string, string | number> = {}
+  if (label.trim()) obj.label = label.trim()
+  if (base.trim()) obj.base_nightly = base.trim()
+  if (weekend.trim()) obj.weekend_nightly = weekend.trim()
+  if (weeklyTotal.trim()) obj.weekly_total = weeklyTotal.trim()
+  if (minNights.trim()) obj.min_nights = parseInt(minNights.trim(), 10)
+  return JSON.stringify(obj)
+}
+
+const MEAL_PLAN_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
 
 /** `listing_meal_plans` güncellemesi için güvenli JSON dizi (PG jsonb + decode uyumu) */
 function coerceMealPlanCodeArray(raw: unknown): string[] {
@@ -559,11 +595,51 @@ export default function CatalogNewListingClient({
   const [aiPolishBody, setAiPolishBody] = useState(false)
   const submitIntentRef = useRef<'save' | 'save-show'>('save')
 
-  // ── Takvim adımı (müsaitlik + fiyat geçersiz kılma) ──
+  // ── Takvim adımı ──
   const [calRows, setCalRows] = useState<MergedCalendarRow[]>([])
   const [calLoaded, setCalLoaded] = useState(false)
   const [calBusy, setCalBusy] = useState<'load' | 'save' | null>(null)
   const [calSaveMsg, setCalSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [calSubTab, setCalSubTab] = useState<'calendar' | 'seasonal' | 'ical'>('calendar')
+
+  // ── Dönemsel Fiyat (price rules) ──
+  const [rules, setRules] = useState<ListingPriceRuleRow[]>([])
+  const [ruleLabel, setRuleLabel] = useState('')
+  const [ruleBase, setRuleBase] = useState('')
+  const [ruleWeekend, setRuleWeekend] = useState('')
+  const [ruleWeeklyTotal, setRuleWeeklyTotal] = useState('')
+  const [ruleMinNights, setRuleMinNights] = useState('')
+  const [ruleFrom, setRuleFrom] = useState('')
+  const [ruleTo, setRuleTo] = useState('')
+  const [ruleRaw, setRuleRaw] = useState('')
+  const [showRawJson, setShowRawJson] = useState(false)
+  const [ruleBusy, setRuleBusy] = useState(false)
+
+  // ── Yemek Planları (meal plans) ──
+  const [mealPlans, setMealPlans] = useState<MealPlanItem[]>([])
+  const [mpFormOpen, setMpFormOpen] = useState(false)
+  const [mpEditId, setMpEditId] = useState<string | null>(null)
+  const [mpCode, setMpCode] = useState<MealPlanCode>('room_only')
+  const [mpLabel, setMpLabel] = useState('')
+  const [mpLabelEn, setMpLabelEn] = useState('')
+  const [mpPrice, setMpPrice] = useState('')
+  const [mpCurrency, setMpCurrency] = useState('TRY')
+  const [mpMeals, setMpMeals] = useState<string[]>([])
+  const [mpExtras, setMpExtras] = useState<string[]>([])
+  const [mpActive, setMpActive] = useState(true)
+  const [mpSort, setMpSort] = useState('0')
+  const [mpBusy, setMpBusy] = useState(false)
+
+  // ── iCal beslemeleri (tam yönetim) ──
+  const [icalFeeds, setIcalFeeds] = useState<IcalFeed[]>([])
+  const [icalFeedUrl, setIcalFeedUrl] = useState('')
+  const [icalFeedPlus, setIcalFeedPlus] = useState('0')
+  const [icalFeedMinus, setIcalFeedMinus] = useState('0')
+  const [icalFeedEditId, setIcalFeedEditId] = useState<string | null>(null)
+  const [icalFeedEditUrl, setIcalFeedEditUrl] = useState('')
+  const [icalFeedEditPlus, setIcalFeedEditPlus] = useState('0')
+  const [icalFeedEditMinus, setIcalFeedEditMinus] = useState('0')
+  const [icalFeedBusy, setIcalFeedBusy] = useState<string | null>(null)
 
   const setAiTargetFromToolbar = (code: string) => {
     const picked = translateTargets.find((l) => l.code === code)
@@ -1276,6 +1352,10 @@ export default function CatalogNewListingClient({
         setHeroManualStorageKeys(savedHero ?? defaultHeroKeysFromSort(sortedImgs))
         setNearbyPois(Array.isArray(nearbyPoisRes) ? nearbyPoisRes : [])
 
+        setRules(rulesRes.rules ?? [])
+        setMealPlans(mealPlansRes.meal_plans ?? [])
+        setIcalFeeds(feedsRes?.feeds ?? [])
+
         const mpList = mealPlansRes.meal_plans ?? []
         const activeMp = mpList.filter((p) => p.is_active && p.price_per_night > 0)
         const roomOnlyMp = activeMp.filter((p) => p.plan_code === 'room_only')
@@ -1762,6 +1842,149 @@ export default function CatalogNewListingClient({
     } finally {
       setCalBusy(null)
     }
+  }
+
+  // ── Dönemsel Fiyat handlers ──
+  const orgParam2 = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+
+  function ruleReset() {
+    setRuleLabel(''); setRuleBase(''); setRuleWeekend(''); setRuleWeeklyTotal('')
+    setRuleMinNights(''); setRuleFrom(''); setRuleTo(''); setRuleRaw('')
+  }
+
+  async function addRule(e: React.FormEvent) {
+    e.preventDefault()
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    const ruleJson = showRawJson
+      ? ruleRaw.trim()
+      : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal)
+    if (!ruleJson || ruleJson === '{}') return
+    setRuleBusy(true)
+    try {
+      await createListingPriceRule(token, editListingId, { rule_json: ruleJson, valid_from: ruleFrom.trim() || undefined, valid_to: ruleTo.trim() || undefined }, orgParam2)
+      const fresh = await listListingPriceRules(token, editListingId, orgParam2)
+      setRules(fresh.rules)
+      ruleReset()
+    } catch { /* silent */ } finally { setRuleBusy(false) }
+  }
+
+  async function deleteRule(id: string) {
+    const token = getStoredAuthToken()
+    if (!token || !editListingId || !confirm('Bu fiyat dönemini silmek istiyor musunuz?')) return
+    setRuleBusy(true)
+    try {
+      await deleteListingPriceRule(token, editListingId, id, orgParam2)
+      setRules((prev) => prev.filter((r) => r.id !== id))
+    } catch { /* silent */ } finally { setRuleBusy(false) }
+  }
+
+  // ── Yemek Planları handlers ──
+  function mpResetForm() {
+    setMpEditId(null); setMpCode('room_only'); setMpLabel(''); setMpLabelEn('')
+    setMpPrice(''); setMpCurrency('TRY'); setMpMeals([]); setMpExtras([])
+    setMpActive(true); setMpSort('0')
+  }
+
+  function mpOpenEdit(plan: MealPlanItem) {
+    setMpEditId(plan.id)
+    setMpCode(plan.plan_code as MealPlanCode)
+    setMpLabel(plan.label ?? '')
+    setMpLabelEn(plan.label_en ?? '')
+    setMpPrice(String(plan.price_per_night ?? ''))
+    setMpCurrency(plan.currency_code ?? 'TRY')
+    setMpMeals(coerceMealPlanCodeArray(plan.included_meals))
+    setMpExtras(coerceMealPlanCodeArray(plan.included_extras))
+    setMpActive(plan.is_active ?? true)
+    setMpSort(String(plan.sort_order ?? '0'))
+    setMpFormOpen(true)
+  }
+
+  async function saveMealPlan(e: React.FormEvent) {
+    e.preventDefault()
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    setMpBusy(true)
+    const labelVal = mpLabel.trim() || MEAL_PLAN_LABELS[mpCode]?.tr || mpCode
+    const labelEnVal = mpLabelEn.trim() || MEAL_PLAN_LABELS[mpCode]?.en
+    try {
+      if (mpEditId) {
+        await updateManageMealPlan(token, editListingId, mpEditId, {
+          label: labelVal,
+          label_en: labelEnVal,
+          price_per_night: String(parseFloat(mpPrice) || 0),
+          currency_code: mpCurrency,
+          included_meals: mpMeals,
+          included_extras: mpExtras,
+          is_active: mpActive,
+          sort_order: parseInt(mpSort) || 0,
+        }, orgParam2)
+      } else {
+        await createManageMealPlan(token, editListingId, {
+          plan_code: mpCode,
+          label: labelVal,
+          label_en: labelEnVal,
+          price_per_night: String(parseFloat(mpPrice) || 0),
+          currency_code: mpCurrency,
+          included_meals: mpMeals,
+          included_extras: mpExtras,
+        }, orgParam2)
+      }
+      const fresh = await listManageMealPlans(token, editListingId, orgParam2)
+      setMealPlans(fresh.meal_plans ?? [])
+      mpResetForm(); setMpFormOpen(false)
+    } catch { /* silent */ } finally { setMpBusy(false) }
+  }
+
+  async function deleteMealPlan(id: string) {
+    const token = getStoredAuthToken()
+    if (!token || !editListingId || !confirm('Bu yemek planını silmek istiyor musunuz?')) return
+    setMpBusy(true)
+    try {
+      await deleteManageMealPlan(token, editListingId, id, orgParam2)
+      setMealPlans((prev) => prev.filter((p) => p.id !== id))
+    } catch { /* silent */ } finally { setMpBusy(false) }
+  }
+
+  // ── iCal feed handlers (bu API'lar auth header almıyor — public endpoint) ──
+  async function addIcalFeed() {
+    if (!editListingId || !icalFeedUrl.trim()) return
+    setIcalFeedBusy('add')
+    try {
+      await createIcalFeed({ listing_id: editListingId, url: icalFeedUrl.trim(), day_offset_plus: parseInt(icalFeedPlus) || 0, day_offset_minus: parseInt(icalFeedMinus) || 0 })
+      const fresh = await listIcalFeeds(editListingId)
+      setIcalFeeds(fresh.feeds ?? [])
+      setIcalFeedUrl(''); setIcalFeedPlus('0'); setIcalFeedMinus('0')
+    } catch { /* silent */ } finally { setIcalFeedBusy(null) }
+  }
+
+  async function saveEditIcalFeed() {
+    if (!icalFeedEditId) return
+    setIcalFeedBusy('edit')
+    try {
+      await patchIcalFeed(icalFeedEditId, { url: icalFeedEditUrl, day_offset_plus: parseInt(icalFeedEditPlus) || 0, day_offset_minus: parseInt(icalFeedEditMinus) || 0 })
+      if (editListingId) {
+        const fresh = await listIcalFeeds(editListingId)
+        setIcalFeeds(fresh.feeds ?? [])
+      }
+      setIcalFeedEditId(null)
+    } catch { /* silent */ } finally { setIcalFeedBusy(null) }
+  }
+
+  async function removeIcalFeed(id: string) {
+    if (!confirm('Bu iCal beslemesini silmek istiyor musunuz?')) return
+    setIcalFeedBusy(`del-${id}`)
+    try {
+      await deleteIcalFeed(id)
+      setIcalFeeds((prev) => prev.filter((f) => f.id !== id))
+    } catch { /* silent */ } finally { setIcalFeedBusy(null) }
+  }
+
+  async function syncIcalFeedNow(id: string) {
+    setIcalFeedBusy(`sync-${id}`)
+    try {
+      await syncIcalFeed(id)
+    } catch { /* silent */ } finally { setIcalFeedBusy(null) }
   }
 
   /** Bölge düzenle ile aynı: mevcut dilde SEO / yazım iyileştirmesi */
@@ -3651,11 +3874,11 @@ export default function CatalogNewListingClient({
 
             </>
             )}
-            {/* ── ADIM 4: Takvim & Müsaitlik ── */}
+            {/* ── ADIM 4: Takvim, Dönemsel Fiyat & iCal ── */}
             {currentStep === 4 && (
               <Section
-                title="Takvim & Müsaitlik"
-                subtitle={editListingId ? 'Müsait günleri ve fiyat geçersiz kılmalarını ayarlayın. Günlere tıklayarak veya sürükleyerek değiştirebilirsiniz.' : 'İlan kaydedildikten sonra takvim ayarlanabilir.'}
+                title="Takvim & Rezervasyon"
+                subtitle={editListingId ? 'Müsaitlik, dönemsel fiyatlar ve iCal takvim senkronizasyonu.' : 'İlan kaydedildikten sonra bu bölümdeki tüm ayarlar aktif olur.'}
               >
                 {!editListingId ? (
                   <div className="flex flex-col items-center gap-3 py-6 text-center">
@@ -3663,85 +3886,262 @@ export default function CatalogNewListingClient({
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                     </svg>
                     <p className="max-w-xs text-sm text-neutral-500 dark:text-neutral-400">
-                      Önce ilanı kaydedin, ardından bu adımda müsaitlik takvimini düzenleyebilirsiniz.
+                      Önce ilanı kaydedin, ardından bu adımda müsaitlik, dönemsel fiyat ve iCal ayarları yapabilirsiniz.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => goToStep(6)}
-                      className="mt-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
-                    >
+                    <button type="button" onClick={() => goToStep(6)} className="mt-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
                       Fiyat adımına geç →
                     </button>
                   </div>
                 ) : (
                   <>
-                    {!calLoaded && (
-                      <div className="flex justify-center py-4">
+                    {/* Sub-tab navigation */}
+                    <div className="mb-5 flex gap-1 border-b border-neutral-200 dark:border-neutral-700">
+                      {([
+                        { id: 'calendar' as const, label: 'Müsaitlik Takvimi' },
+                        { id: 'seasonal' as const, label: 'Dönemsel Fiyat' },
+                        { id: 'ical' as const, label: 'iCal Senkronizasyon' },
+                      ] as const).map(({ id, label }) => (
                         <button
+                          key={id}
                           type="button"
-                          onClick={() => void loadCalendar()}
-                          disabled={calBusy === 'load'}
-                          className="flex items-center gap-2 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                          onClick={() => setCalSubTab(id)}
+                          className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${calSubTab === id ? 'border-b-2 border-primary-600 text-primary-700 dark:border-primary-400 dark:text-primary-300' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
                         >
-                          {calBusy === 'load' ? (
-                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                          ) : (
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                            </svg>
-                          )}
-                          {calBusy === 'load' ? 'Yükleniyor…' : 'Takvimi Yükle'}
+                          {label}
                         </button>
+                      ))}
+                    </div>
+
+                    {/* ── Müsaitlik Takvimi ── */}
+                    {calSubTab === 'calendar' && (
+                      <>
+                        {!calLoaded && (
+                          <div className="flex justify-center py-4">
+                            <button type="button" onClick={() => void loadCalendar()} disabled={calBusy === 'load'}
+                              className="flex items-center gap-2 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                            >
+                              {calBusy === 'load' ? <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : null}
+                              {calBusy === 'load' ? 'Yükleniyor…' : 'Takvimi Yükle'}
+                            </button>
+                          </div>
+                        )}
+                        {calLoaded && (
+                          <>
+                            <WizardCalendarGrid rows={calRows} onChange={setCalRows} currencyCode={currency} />
+                            <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-700">
+                              <button type="button" onClick={() => void saveCalendar()} disabled={calBusy === 'save'}
+                                className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
+                              >
+                                {calBusy === 'save' ? 'Kaydediliyor…' : 'Takvimi Kaydet'}
+                              </button>
+                              <button type="button" onClick={() => void loadCalendar()} disabled={!!calBusy}
+                                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                              >
+                                Yenile
+                              </button>
+                              {calSaveMsg && (
+                                <span className={`text-sm font-medium ${calSaveMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                                  {calSaveMsg.text}
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    {/* ── Dönemsel Fiyat ── */}
+                    {calSubTab === 'seasonal' && (
+                      <div className="space-y-4">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          Sezonluk fiyat dönemleri ekleyin. Her dönem için gecelik taban ücret, hafta sonu fiyatı ve geçerlilik tarihleri tanımlayabilirsiniz.
+                        </p>
+
+                        {/* Mevcut kurallar */}
+                        {rules.length > 0 && (
+                          <div className="space-y-2">
+                            {rules.map((r) => {
+                              const parsed = parseRuleJson(r.rule_json)
+                              return (
+                                <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
+                                  {parsed.label && <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">{parsed.label}</span>}
+                                  {parsed.base && <span className="text-sm font-medium text-neutral-900 dark:text-white">Gece: <span className="font-mono">{parsed.base}</span></span>}
+                                  {parsed.weekly && <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Haftalık: <span className="font-mono">{parsed.weekly}</span></span>}
+                                  {parsed.weekend && <span className="text-sm text-blue-700 dark:text-blue-300">Hft.sonu: <span className="font-mono">{parsed.weekend}</span></span>}
+                                  {parsed.minNights && <span className="text-xs text-neutral-500">Min. {parsed.minNights} gece</span>}
+                                  {(r.valid_from || r.valid_to) && <span className="font-mono text-xs text-neutral-500">{r.valid_from ?? '∞'} → {r.valid_to ?? '∞'}</span>}
+                                  <button type="button" onClick={() => void deleteRule(r.id)} disabled={ruleBusy}
+                                    className="ml-auto text-xs text-red-600 underline dark:text-red-400 disabled:opacity-50"
+                                  >
+                                    Sil
+                                  </button>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                        {rules.length === 0 && <p className="text-sm text-neutral-400">Henüz dönemsel fiyat tanımlanmamış.</p>}
+
+                        {/* Yeni kural formu */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 p-5 dark:border-neutral-600">
+                          <h3 className="mb-4 text-sm font-semibold text-neutral-700 dark:text-neutral-200">Yeni Dönem Ekle</h3>
+                          <form onSubmit={(e) => void addRule(e)} className="space-y-4">
+                            {!showRawJson ? (
+                              <div className="grid gap-4 sm:grid-cols-2">
+                                <Field className="block">
+                                  <Label>Sezon Adı</Label>
+                                  <Input className="mt-1" value={ruleLabel} onChange={(e) => setRuleLabel(e.target.value)} placeholder="Yaz sezonu" />
+                                </Field>
+                                <Field className="block">
+                                  <Label>Min. Konaklama (gece)</Label>
+                                  <Input type="number" min="1" className="mt-1" value={ruleMinNights} onChange={(e) => setRuleMinNights(e.target.value)} placeholder="3" />
+                                </Field>
+                                <Field className="block">
+                                  <Label>Gecelik Taban Ücret</Label>
+                                  <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleBase} onChange={(e) => setRuleBase(e.target.value)} placeholder="2500" />
+                                </Field>
+                                <Field className="block">
+                                  <Label>Hafta Sonu Gecelik</Label>
+                                  <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleWeekend} onChange={(e) => setRuleWeekend(e.target.value)} placeholder="3200" />
+                                </Field>
+                                <Field className="block sm:col-span-2">
+                                  <Label>Haftalık Toplam (opsiyonel)</Label>
+                                  <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleWeeklyTotal} onChange={(e) => setRuleWeeklyTotal(e.target.value)} placeholder="70000" />
+                                </Field>
+                                <Field className="block">
+                                  <Label>Başlangıç Tarihi</Label>
+                                  <Input type="date" className="mt-1" value={ruleFrom} onChange={(e) => setRuleFrom(e.target.value)} />
+                                </Field>
+                                <Field className="block">
+                                  <Label>Bitiş Tarihi</Label>
+                                  <Input type="date" className="mt-1" value={ruleTo} onChange={(e) => setRuleTo(e.target.value)} />
+                                </Field>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <Field className="block">
+                                  <Label>Ham JSON (rule_json)</Label>
+                                  <Textarea className="mt-1 font-mono text-sm" rows={3} value={ruleRaw} onChange={(e) => setRuleRaw(e.target.value)} placeholder='{"base_nightly":"2500","min_nights":3}' />
+                                </Field>
+                                <div className="grid gap-4 sm:grid-cols-2">
+                                  <Field className="block"><Label>Başlangıç Tarihi</Label><Input type="date" className="mt-1" value={ruleFrom} onChange={(e) => setRuleFrom(e.target.value)} /></Field>
+                                  <Field className="block"><Label>Bitiş Tarihi</Label><Input type="date" className="mt-1" value={ruleTo} onChange={(e) => setRuleTo(e.target.value)} /></Field>
+                                </div>
+                              </div>
+                            )}
+                            <div className="flex flex-wrap items-center gap-3">
+                              <ButtonPrimary type="submit" disabled={ruleBusy}>
+                                {ruleBusy ? '…' : 'Dönem Ekle'}
+                              </ButtonPrimary>
+                              <button type="button" onClick={() => setShowRawJson((v) => !v)} className="text-xs text-neutral-500 underline">
+                                {showRawJson ? 'Form görünümü' : 'Ham JSON'}
+                              </button>
+                            </div>
+                          </form>
+                        </div>
                       </div>
                     )}
 
-                    {calLoaded && (
-                      <>
-                        <WizardCalendarGrid
-                          rows={calRows}
-                          onChange={setCalRows}
-                          currencyCode={currency}
-                        />
-                        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-700">
-                          <button
-                            type="button"
-                            onClick={() => void saveCalendar()}
-                            disabled={calBusy === 'save'}
-                            className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
-                          >
-                            {calBusy === 'save' ? (
-                              <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                              </svg>
-                            ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
-                                <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                            {calBusy === 'save' ? 'Kaydediliyor…' : 'Takvimi Kaydet'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void loadCalendar()}
-                            disabled={!!calBusy}
-                            className="flex items-center gap-1.5 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                            </svg>
-                            Yenile
-                          </button>
-                          {calSaveMsg && (
-                            <span className={`text-sm font-medium ${calSaveMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
-                              {calSaveMsg.text}
-                            </span>
-                          )}
+                    {/* ── iCal Takvim Senkronizasyonu ── */}
+                    {calSubTab === 'ical' && (
+                      <div className="space-y-5">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          Airbnb, Booking.com veya başka bir platformdan iCal beslemesi ekleyin. Rezervasyonlar otomatik olarak senkronize edilir.
+                        </p>
+
+                        {/* Mevcut beslemeler */}
+                        {icalFeeds.length > 0 && (
+                          <div className="space-y-2">
+                            {icalFeeds.map((f) => (
+                              <div key={f.id} className={`rounded-xl border p-4 dark:border-neutral-700 ${icalFeedEditId === f.id ? 'border-primary-300 bg-primary-50/50 dark:bg-primary-950/20' : 'border-neutral-200 bg-neutral-50 dark:bg-neutral-800/40'}`}>
+                                {icalFeedEditId === f.id ? (
+                                  <div className="space-y-3">
+                                    <Field className="block">
+                                      <Label>URL</Label>
+                                      <Input className="mt-1 font-mono text-xs" value={icalFeedEditUrl} onChange={(e) => setIcalFeedEditUrl(e.target.value)} />
+                                    </Field>
+                                    <div className="grid grid-cols-2 gap-3">
+                                      <Field className="block"><Label>Gün ekle (+)</Label><Input type="number" className="mt-1" value={icalFeedEditPlus} onChange={(e) => setIcalFeedEditPlus(e.target.value)} /></Field>
+                                      <Field className="block"><Label>Gün çıkar (−)</Label><Input type="number" className="mt-1" value={icalFeedEditMinus} onChange={(e) => setIcalFeedEditMinus(e.target.value)} /></Field>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <ButtonPrimary type="button" onClick={() => void saveEditIcalFeed()} disabled={icalFeedBusy === 'edit'}>
+                                        {icalFeedBusy === 'edit' ? '…' : 'Kaydet'}
+                                      </ButtonPrimary>
+                                      <button type="button" onClick={() => setIcalFeedEditId(null)} className="text-sm text-neutral-500 underline">İptal</button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap items-center gap-3">
+                                    <span className="flex-1 truncate font-mono text-xs text-neutral-700 dark:text-neutral-300" title={f.url}>{f.url}</span>
+                                    {(f.day_offset_plus || f.day_offset_minus) ? (
+                                      <span className="text-xs text-neutral-500">+{f.day_offset_plus ?? 0} / −{f.day_offset_minus ?? 0} gün</span>
+                                    ) : null}
+                                    <div className="flex gap-2">
+                                      <button type="button" onClick={() => void syncIcalFeedNow(f.id)} disabled={icalFeedBusy === `sync-${f.id}`}
+                                        className="text-xs text-primary-600 underline dark:text-primary-400 disabled:opacity-50"
+                                      >
+                                        {icalFeedBusy === `sync-${f.id}` ? '…' : 'Senkronize et'}
+                                      </button>
+                                      <button type="button" onClick={() => { setIcalFeedEditId(f.id); setIcalFeedEditUrl(f.url ?? ''); setIcalFeedEditPlus(String(f.day_offset_plus ?? 0)); setIcalFeedEditMinus(String(f.day_offset_minus ?? 0)) }}
+                                        className="text-xs text-neutral-500 underline"
+                                      >
+                                        Düzenle
+                                      </button>
+                                      <button type="button" onClick={() => void removeIcalFeed(f.id)} disabled={icalFeedBusy === `del-${f.id}`}
+                                        className="text-xs text-red-600 underline dark:text-red-400 disabled:opacity-50"
+                                      >
+                                        Sil
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {icalFeeds.length === 0 && <p className="text-sm text-neutral-400">Henüz iCal beslemesi eklenmemiş.</p>}
+
+                        {/* Yeni besleme formu */}
+                        <div className="rounded-xl border border-dashed border-neutral-300 p-5 dark:border-neutral-600">
+                          <h3 className="mb-3 text-sm font-semibold text-neutral-700 dark:text-neutral-200">Yeni Besleme Ekle</h3>
+                          <div className="space-y-3">
+                            <Field className="block">
+                              <Label>iCal URL</Label>
+                              <Input className="mt-1 font-mono text-sm" value={icalFeedUrl} onChange={(e) => setIcalFeedUrl(e.target.value)} placeholder="https://airbnb.com/calendar/ical/..." />
+                            </Field>
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field className="block"><Label>Gün ekle (+)</Label><Input type="number" min="0" className="mt-1" value={icalFeedPlus} onChange={(e) => setIcalFeedPlus(e.target.value)} /></Field>
+                              <Field className="block"><Label>Gün çıkar (−)</Label><Input type="number" min="0" className="mt-1" value={icalFeedMinus} onChange={(e) => setIcalFeedMinus(e.target.value)} /></Field>
+                            </div>
+                            <ButtonPrimary type="button" onClick={() => void addIcalFeed()} disabled={!icalFeedUrl.trim() || icalFeedBusy === 'add'}>
+                              {icalFeedBusy === 'add' ? '…' : 'Besleme Ekle'}
+                            </ButtonPrimary>
+                          </div>
                         </div>
-                      </>
+
+                        {/* Dışa aktarma URL'si */}
+                        {editListingId && (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+                            <p className="mb-2 text-sm font-semibold text-emerald-900 dark:text-emerald-100">Dışa Aktarma URL (.ics)</p>
+                            <p className="mb-3 text-xs text-neutral-600 dark:text-neutral-400">Bu adresi diğer platformlarda «takvim içe aktar» olarak ekleyin.</p>
+                            <div className="flex gap-2">
+                              <input readOnly
+                                className="flex-1 rounded-lg border border-neutral-300 bg-white px-3 py-2 font-mono text-xs text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+                                value={icalExportLoading ? 'Yükleniyor…' : (icalExportUrl ?? 'İlan kaydedildikten sonra oluşturulur')}
+                                onFocus={(e) => e.currentTarget.select()}
+                              />
+                              {icalExportUrl && (
+                                <button type="button" onClick={() => void onCopyIcalExport()}
+                                  className="shrink-0 rounded-lg border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-700 hover:bg-white disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                                >
+                                  Kopyala
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </>
                 )}
@@ -4046,41 +4446,110 @@ export default function CatalogNewListingClient({
             {/* ── ADIM 1: Konum (villa) ── */}
             {currentStep === 1 && isVilla && locationSection}
 
-            {/* ── ADIM 4 devam: Pansiyon (villa) ── */}
-            {currentStep === 5 && isVilla && (
+            {/* ── ADIM 5 devam: Yemek Planları (hotel, holiday_home, yacht_charter) ── */}
+            {currentStep === 5 && MEAL_PLAN_CATS.has(categoryCode) && editListingId && (
               <Section
-                title="Pansiyon (yemekli / yemeksiz)"
-                subtitle="Bu bilgiler yeni ilan formunda değil; ilan kaydından sonra «Yemek Planları» sekmesinde girilir"
+                title="Yemek Planları"
+                subtitle="Pansiyon seçenekleri ve gecelik ücretler. Ön yüzde «Pansiyon Seçenekleri» olarak listelenir."
               >
-                <div className="space-y-3 text-sm text-neutral-600 dark:text-neutral-400">
-                  <p>
-                    İlanı bir kez kaydettikten sonra aynı ilanın sayfasında{' '}
-                    <strong className="text-neutral-800 dark:text-neutral-200">İlan Yönetimi</strong> →{' '}
-                    <strong className="text-neutral-800 dark:text-neutral-200">Yemek Planları</strong> sekmesine gidin;
-                    <strong className="text-neutral-800 dark:text-neutral-200"> Yeni Plan</strong> ile her pansiyon seçeneği için ayrı satır açın.
-                  </p>
-                  <ul className="list-inside list-disc space-y-2 rounded-xl border border-neutral-200 bg-neutral-50/80 px-4 py-3 dark:border-neutral-600 dark:bg-neutral-900/40">
-                    <li>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">Yemekli / yemeksiz gecelik ücret</span>
-                      {' — '}
-                      Formda <strong>Gecelik Fiyat</strong> ve <strong>Para Birimi</strong>. Yemeksiz için plan tipi «Yemeksiz»; yemekli için kahvaltı, yarım pansiyon vb. seçin.
-                    </li>
-                    <li>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">Hangi öğünler dahil</span>
-                      {' — '}
-                      Yemekli planlarda <strong>Dahil Öğünler</strong> alanından işaretleyin (kahvaltı, öğle, akşam, gece yemeği).
-                    </li>
-                    <li>
-                      <span className="font-medium text-neutral-800 dark:text-neutral-200">İkramlar</span>
-                      {' — '}
-                      Aynı planda <strong>Dahil İkramlar</strong> bölümünden seçin (çay/kahve, alkolsüz içecek, minibar, atıştırmalık, karşılama içeceği, meyve, barbekü vb.).
-                    </li>
-                  </ul>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-500">
-                    Ön yüzde «Pansiyon Seçenekleri» bu kayıtlarla listelenir. Kahvaltıyı kişi×gece ücretli satmak için ayrıca{' '}
-                    <strong>Ek Ücretler</strong> bölümünde «Kişi başı × gece» birimini kullanabilirsiniz.
-                  </p>
-                </div>
+                {/* Plan listesi */}
+                {mealPlans.length > 0 && (
+                  <div className="mb-4 space-y-2">
+                    {mealPlans.map((plan) => (
+                      <div key={plan.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
+                        <span className="text-base">{MEAL_PLAN_LABELS[plan.plan_code as MealPlanCode]?.emoji ?? '🍽️'}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{plan.label ?? MEAL_PLAN_LABELS[plan.plan_code as MealPlanCode]?.tr}</p>
+                          <p className="text-xs text-neutral-500">{plan.price_per_night} {plan.currency_code} / gece{plan.is_active ? '' : ' · Pasif'}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => mpOpenEdit(plan)} className="text-xs text-primary-600 underline dark:text-primary-400">Düzenle</button>
+                          <button type="button" onClick={() => void deleteMealPlan(plan.id)} disabled={mpBusy} className="text-xs text-red-600 underline dark:text-red-400 disabled:opacity-50">Sil</button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {mealPlans.length === 0 && !mpFormOpen && (
+                  <p className="mb-4 text-sm text-neutral-400">Henüz yemek planı eklenmemiş.</p>
+                )}
+
+                {/* Form */}
+                {mpFormOpen && (
+                  <div className="mb-4 rounded-2xl border border-primary-200 bg-primary-50/50 p-5 dark:border-primary-800 dark:bg-primary-950/20">
+                    <h3 className="mb-4 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+                      {mpEditId ? 'Planı Düzenle' : 'Yeni Plan'}
+                    </h3>
+                    <form onSubmit={(e) => void saveMealPlan(e)} className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        {!mpEditId && (
+                          <Field className="block sm:col-span-2">
+                            <Label>Plan Tipi</Label>
+                            <select value={mpCode} onChange={(e) => { const v = e.target.value as MealPlanCode; setMpCode(v); if (!mpLabel) setMpLabel(MEAL_PLAN_LABELS[v]?.tr ?? ''); if (!mpLabelEn) setMpLabelEn(MEAL_PLAN_LABELS[v]?.en ?? '') }}
+                              className="mt-1 block w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                            >
+                              {(Object.keys(MEAL_PLAN_LABELS) as MealPlanCode[]).map((k) => (
+                                <option key={k} value={k}>{MEAL_PLAN_LABELS[k].emoji} {MEAL_PLAN_LABELS[k].tr}</option>
+                              ))}
+                            </select>
+                          </Field>
+                        )}
+                        <Field className="block"><Label>Etiket (TR)</Label><Input className="mt-1" value={mpLabel} onChange={(e) => setMpLabel(e.target.value)} placeholder="Yarım Pansiyon" /></Field>
+                        <Field className="block"><Label>Etiket (EN)</Label><Input className="mt-1" value={mpLabelEn} onChange={(e) => setMpLabelEn(e.target.value)} placeholder="Half Board" /></Field>
+                        <Field className="block"><Label>Gecelik Fiyat</Label><Input className="mt-1" type="number" min="0" value={mpPrice} onChange={(e) => setMpPrice(e.target.value)} placeholder="1500" /></Field>
+                        <Field className="block">
+                          <Label>Para Birimi</Label>
+                          <select value={mpCurrency} onChange={(e) => setMpCurrency(e.target.value)} className="mt-1 block w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
+                            {['TRY', 'EUR', 'USD', 'GBP'].map((c) => <option key={c} value={c}>{c}</option>)}
+                          </select>
+                        </Field>
+                        {mpCode !== 'room_only' && (
+                          <div className="sm:col-span-2">
+                            <Label className="mb-2 block text-sm font-medium">Dahil Öğünler</Label>
+                            <div className="flex flex-wrap gap-2">
+                              {MEAL_OPTIONS.map((opt) => (
+                                <label key={opt.value} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition select-none ${mpMeals.includes(opt.value) ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:border-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300' : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'}`}>
+                                  <input type="checkbox" className="sr-only" checked={mpMeals.includes(opt.value)} onChange={(e) => setMpMeals(e.target.checked ? [...mpMeals, opt.value] : mpMeals.filter((v) => v !== opt.value))} />
+                                  {opt.labelTr}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="sm:col-span-2">
+                          <Label className="mb-2 block text-sm font-medium">Dahil İkramlar</Label>
+                          <div className="flex flex-wrap gap-2">
+                            {MEAL_EXTRAS_OPTIONS.map((opt) => (
+                              <label key={opt.value} className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition select-none ${mpExtras.includes(opt.value) ? 'border-blue-400 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-900/30 dark:text-blue-300' : 'border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'}`}>
+                                <input type="checkbox" className="sr-only" checked={mpExtras.includes(opt.value)} onChange={(e) => setMpExtras(e.target.checked ? [...mpExtras, opt.value] : mpExtras.filter((v) => v !== opt.value))} />
+                                {opt.labelTr}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        <Field className="block sm:col-span-2">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input type="checkbox" className="h-4 w-4 accent-primary-600" checked={mpActive} onChange={(e) => setMpActive(e.target.checked)} />
+                            Aktif (ön yüzde görünsün)
+                          </label>
+                        </Field>
+                      </div>
+                      <div className="flex gap-3">
+                        <ButtonPrimary type="submit" disabled={mpBusy}>{mpBusy ? '…' : mpEditId ? 'Güncelle' : 'Plan Ekle'}</ButtonPrimary>
+                        <button type="button" onClick={() => { mpResetForm(); setMpFormOpen(false) }} className="text-sm text-neutral-500 underline">İptal</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {!mpFormOpen && (
+                  <button type="button" onClick={() => { mpResetForm(); setMpFormOpen(true) }}
+                    className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:border-primary-400 hover:text-primary-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4"><path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" /></svg>
+                    Yeni Plan Ekle
+                  </button>
+                )}
               </Section>
             )}
 
