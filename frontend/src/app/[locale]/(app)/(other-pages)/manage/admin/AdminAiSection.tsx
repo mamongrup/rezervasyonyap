@@ -802,7 +802,7 @@ export default function AdminAiSection() {
         await saveDistrictPlaces(
           token,
           location_page_id,
-          JSON.stringify([{ id: 1, title: district_name, summary: `${region_name} iline bağlı ${district_name} ilçesi.` }]),
+          JSON.stringify([{ id: 1, title: district_name, summary: `${region_name} iline bağlı ${district_name} ilçesi.`, lat, lng }]),
         )
         setMapsLog((l) => [...l, `#${processed + 1} ~ ${district_name} — Maps sonucu yok, yer tutucu eklendi`])
         processed++
