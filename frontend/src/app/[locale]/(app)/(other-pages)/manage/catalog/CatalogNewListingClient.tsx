@@ -1379,7 +1379,7 @@ export default function CatalogNewListingClient({
       const lngF = parseFloat(lng)
 
       const amenityDefs: { type: string; label: string; googleType: string; radius: number }[] = [
-        { type: 'market',   label: 'Market',   googleType: 'supermarket', radius: 10000 },
+        { type: 'market',   label: 'Market',   googleType: 'grocery_or_supermarket', radius: 5000 },
         { type: 'restoran', label: 'Restoran', googleType: 'restaurant',  radius: 5000  },
         { type: 'eczane',   label: 'Eczane',   googleType: 'pharmacy',    radius: 15000 },
         { type: 'hastane',  label: 'Hastane',  googleType: 'hospital',    radius: 50000 },
