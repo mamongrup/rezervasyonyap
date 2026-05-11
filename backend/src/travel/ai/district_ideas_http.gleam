@@ -665,7 +665,9 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
           left join countries co on co.id = r.country_id
           where  lp.region_type in ('district', 'destination')
             and  (
+                   -- Hiç giriş yok
                    coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
+                   -- lat/lng içeren gerçek giriş yok
                    or not exists (
                      select 1
                      from jsonb_array_elements(coalesce(lp.travel_ideas_json, '[]'::jsonb)) elem
@@ -673,6 +675,13 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
                        and elem ? 'lng'
                        and nullif(elem->>'lat','') is not null
                        and nullif(elem->>'lng','') is not null
+                   )
+                   -- Tüm girişler yer tutucu (Google place_id olmayan) — gerçek mekan verisi yok
+                   or not exists (
+                     select 1
+                     from jsonb_array_elements(coalesce(lp.travel_ideas_json, '[]'::jsonb)) elem
+                     where elem ? 'place_id'
+                       and nullif(elem->>'place_id','') is not null
                    )
                  )
           order  by case lp.region_type when 'district' then 1 when 'destination' then 2 else 3 end,
