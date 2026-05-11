@@ -57,6 +57,28 @@ export interface NearbyPlace {
 //
 const NEARBY_SEARCH_MAX_RADIUS_M = 50_000
 
+// ─── Rakip / ticari işletme filtresi ─────────────────────────────────────────
+// Konaklama, araç kiralama, emlak vb. işletmeleri gezilecek yerler listesinden çıkar.
+const EXCLUDED_TYPES = new Set([
+  'lodging', 'hotel', 'motel', 'hostel', 'guest_house', 'rv_park',
+  'car_rental', 'car_dealer', 'car_repair',
+  'real_estate_agency', 'travel_agency', 'insurance_agency',
+  'moving_company', 'storage',
+])
+
+const EXCLUDED_NAME_PATTERNS = [
+  /\bvilla(s|r)?\b/i, /\botel\b/i, /\bhotel\b/i, /\bpansion/i, /\bpansiyon/i,
+  /\bapart(man)?\b/i, /\bkiral[aı]/i, /\brent[\s-]?a[\s-]?car/i,
+  /\bresort\b/i, /\bsuites?\b/i, /\boutique\b/i,
+]
+
+function isCompetitor(place: PlacesResult): boolean {
+  const types = place.types ?? []
+  if (types.some((t) => EXCLUDED_TYPES.has(t))) return true
+  if (EXCLUDED_NAME_PATTERNS.some((re) => re.test(place.name))) return true
+  return false
+}
+
 // Popülerlik skoru: puan yüksekliği + mesafeye yakınlık dengesini sağlar.
 // Yüksek puanlı uzak yer, düşük puanlı yakın yerden daha önce çıkar.
 function popularityScore(rating: number | undefined, distanceKm: number): number {
@@ -151,6 +173,7 @@ export async function POST(req: NextRequest) {
     // Popülerlik skoru: puanı yüksek + mesafesi makul yerler önce çıkar.
     const radiusKm = safeRadius / 1000
     const places: NearbyPlace[] = (data.results ?? [])
+      .filter((r) => !isCompetitor(r))
       .map((r) => ({
         placeId: r.place_id,
         name: r.name,

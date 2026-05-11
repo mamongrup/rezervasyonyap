@@ -608,6 +608,10 @@ export default function CatalogNewListingClient({
   const [nearbyPoisBusy, setNearbyPoisBusy] = useState(false)
   const [servicePoisBusy, setServicePoisBusy] = useState(false)
   const [mapsApiKey, setMapsApiKey] = useState('')
+  const [newPoiName, setNewPoiName] = useState('')
+  const [newPoiNote, setNewPoiNote] = useState('')
+  const [newPoiLink, setNewPoiLink] = useState('')
+  const [newPoiImage, setNewPoiImage] = useState('')
 
   // ── Vitrin promosyon (Tur2 yeni alanlar) ──
   /** Anında rezervasyon (tedarikçi onayı beklemeden) */
@@ -1450,6 +1454,49 @@ export default function CatalogNewListingClient({
     } finally {
       setServicePoisBusy(false)
     }
+  }
+
+  async function saveNearbyPois(pois: NearbyPoi[]) {
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    setNearbyPois(pois)
+    await patchListingNearbyPois(token, editListingId, pois).catch(() => {})
+  }
+
+  function movePoiUp(index: number) {
+    if (index === 0) return
+    const next = [...nearbyPois]
+    ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
+    void saveNearbyPois(next)
+  }
+
+  function movePoiDown(index: number) {
+    if (index === nearbyPois.length - 1) return
+    const next = [...nearbyPois]
+    ;[next[index], next[index + 1]] = [next[index + 1], next[index]]
+    void saveNearbyPois(next)
+  }
+
+  function deletePoi(index: number) {
+    void saveNearbyPois(nearbyPois.filter((_, i) => i !== index))
+  }
+
+  function addManualPoi() {
+    if (!newPoiName.trim()) return
+    const poi: NearbyPoi = {
+      title: newPoiName.trim(),
+      summary: newPoiNote.trim() || undefined,
+      link: newPoiLink.trim() || undefined,
+      image: newPoiImage.trim() || undefined,
+      lat: parseFloat(lat) || 0,
+      lng: parseFloat(lng) || 0,
+      distance_km: 0,
+    }
+    void saveNearbyPois([...nearbyPois, poi])
+    setNewPoiName('')
+    setNewPoiNote('')
+    setNewPoiLink('')
+    setNewPoiImage('')
   }
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
@@ -2482,19 +2529,100 @@ export default function CatalogNewListingClient({
             </p>
           ) : null}
           {nearbyPoisLoading ? (
-            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-              Yakın mekanlar yükleniyor…
-            </p>
+            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Yükleniyor…</p>
           ) : null}
+
+          {/* Mevcut POI listesi — sil + sırala */}
           {nearbyPois.length > 0 ? (
-            <div className="mt-4">
-              <ListingNearbyPoisSection pois={nearbyPois} title="Çevredeki mekanlar" />
+            <div className="mt-3 space-y-1.5">
+              {nearbyPois.map((poi, i) => (
+                <div
+                  key={poi.place_id ?? i}
+                  className="flex items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900/50"
+                >
+                  {poi.image ? (
+                    <img src={poi.image} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                  ) : (
+                    <div className="h-8 w-8 shrink-0 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
+                  )}
+                  <p className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-800 dark:text-neutral-200">
+                    {poi.title}
+                  </p>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => movePoiUp(i)}
+                      disabled={i === 0}
+                      title="Yukarı taşı"
+                      className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 disabled:opacity-30 dark:hover:bg-neutral-700"
+                    >▲</button>
+                    <button
+                      type="button"
+                      onClick={() => movePoiDown(i)}
+                      disabled={i === nearbyPois.length - 1}
+                      title="Aşağı taşı"
+                      className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 disabled:opacity-30 dark:hover:bg-neutral-700"
+                    >▼</button>
+                    <button
+                      type="button"
+                      onClick={() => deletePoi(i)}
+                      title="Sil"
+                      className="rounded p-0.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+                    >✕</button>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : !nearbyPoisLoading && lat.trim() && lng.trim() ? (
             <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-              Bu konum için yakın mekan bulunamadı. Haritadan konumu güncelleyip tekrar deneyin.
+              Henüz mekan yok. &quot;Gezilecek yerleri güncelle&quot; butonunu kullanın ya da manuel ekleyin.
             </p>
           ) : null}
+
+          {/* Manuel mekan ekleme */}
+          <details className="mt-3 group">
+            <summary className="cursor-pointer text-xs font-medium text-primary-600 hover:underline dark:text-primary-400 select-none">
+              + Manuel Mekan Ekle
+            </summary>
+            <div className="mt-2 space-y-2 rounded-xl border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
+              <input
+                type="text"
+                value={newPoiName}
+                onChange={(e) => setNewPoiName(e.target.value)}
+                placeholder="Mekan adı (zorunlu)"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+              />
+              <input
+                type="text"
+                value={newPoiNote}
+                onChange={(e) => setNewPoiNote(e.target.value)}
+                placeholder="Kısa açıklama (isteğe bağlı)"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+              />
+              <input
+                type="text"
+                value={newPoiLink}
+                onChange={(e) => setNewPoiLink(e.target.value)}
+                placeholder="Google Maps linki (isteğe bağlı)"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+              />
+              <input
+                type="text"
+                value={newPoiImage}
+                onChange={(e) => setNewPoiImage(e.target.value)}
+                placeholder="Görsel URL (isteğe bağlı)"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+              />
+              <button
+                type="button"
+                onClick={addManualPoi}
+                disabled={!newPoiName.trim()}
+                className="rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                Ekle
+              </button>
+            </div>
+          </details>
         </div>
       ) : (
         <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">
