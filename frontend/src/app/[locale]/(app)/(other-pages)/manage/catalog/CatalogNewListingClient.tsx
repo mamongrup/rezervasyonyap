@@ -1356,11 +1356,10 @@ export default function CatalogNewListingClient({
       const lngF = parseFloat(lng)
 
       const amenityDefs: { type: string; label: string; googleType: string; radius: number }[] = [
-        { type: 'market',   label: 'Market',                 googleType: 'supermarket',    radius: 10000 },
-        { type: 'restoran', label: 'Restoran',               googleType: 'restaurant',     radius: 5000 },
-        { type: 'cafe',     label: 'Kafe',                   googleType: 'cafe',           radius: 5000 },
-        { type: 'eczane',   label: 'Eczane',                 googleType: 'pharmacy',       radius: 15000 },
-        { type: 'hastane',  label: 'Hastane',                googleType: 'hospital',       radius: 50000 },
+        { type: 'market',   label: 'Market',   googleType: 'supermarket', radius: 10000 },
+        { type: 'restoran', label: 'Restoran', googleType: 'restaurant',  radius: 5000  },
+        { type: 'eczane',   label: 'Eczane',   googleType: 'pharmacy',    radius: 15000 },
+        { type: 'hastane',  label: 'Hastane',  googleType: 'hospital',    radius: 50000 },
       ]
       const transportDefs: { type: string; label: string; googleType: string; radius: number }[] = [
         { type: 'havalimani', label: 'Havalimanı',             googleType: 'airport',        radius: 200000 },

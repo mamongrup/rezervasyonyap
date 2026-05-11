@@ -7,7 +7,6 @@ import type { ServicePoi } from '@/lib/travel-api'
 import {
   Bus,
   Car,
-  Coffee,
   Hospital,
   MapPin,
   Pill,
@@ -17,25 +16,23 @@ import {
 } from 'lucide-react'
 
 const ICON_MAP: Record<string, React.ReactNode> = {
-  market: <ShoppingCart className="h-4 w-4" />,
-  restoran: <Utensils className="h-4 w-4" />,
-  cafe: <Coffee className="h-4 w-4" />,
-  eczane: <Pill className="h-4 w-4" />,
-  hastane: <Hospital className="h-4 w-4" />,
+  market:     <ShoppingCart className="h-4 w-4" />,
+  restoran:   <Utensils className="h-4 w-4" />,
+  eczane:     <Pill className="h-4 w-4" />,
+  hastane:    <Hospital className="h-4 w-4" />,
   havalimani: <PlaneTakeoff className="h-4 w-4" />,
-  otogar: <Car className="h-4 w-4" />,
-  minibus: <Bus className="h-4 w-4" />,
+  otogar:     <Car className="h-4 w-4" />,
+  minibus:    <Bus className="h-4 w-4" />,
 }
 
 const DEFAULT_LABELS: Record<string, string> = {
-  market: 'Market',
-  restoran: 'Restoran',
-  cafe: 'Kafe',
-  eczane: 'Eczane',
-  hastane: 'Hastane',
+  market:     'Market',
+  restoran:   'Restoran',
+  eczane:     'Eczane',
+  hastane:    'Hastane',
   havalimani: 'Havalimanı',
-  otogar: 'Otogar',
-  minibus: 'Minibüs / Dolmuş',
+  otogar:     'Otogar',
+  minibus:    'Minibüs / Dolmuş',
 }
 
 function distanceLabel(km: number): string {
