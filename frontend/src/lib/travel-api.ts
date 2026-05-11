@@ -10284,6 +10284,7 @@ export interface ServicePoi {
   type: string
   label?: string
   distance_km: number
+  duration_text?: string
 }
 
 export interface ListingServicePois {

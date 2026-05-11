@@ -1351,28 +1351,30 @@ export default function CatalogNewListingClient({
     setServicePoisBusy(true)
     try {
       type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
+      type DistResult = { id: string; distanceM: number | null; distanceText: string | null; durationText: string | null }
       const latF = parseFloat(lat)
       const lngF = parseFloat(lng)
 
-      const amenityTypes: { type: string; label: string; googleType: string; radius: number }[] = [
-        { type: 'market', label: 'Market', googleType: 'supermarket', radius: 5000 },
-        { type: 'restoran', label: 'Restoran', googleType: 'restaurant', radius: 3000 },
-        { type: 'cafe', label: 'Kafe', googleType: 'cafe', radius: 3000 },
-        { type: 'eczane', label: 'Eczane', googleType: 'pharmacy', radius: 10000 },
-        { type: 'hastane', label: 'Hastane', googleType: 'hospital', radius: 30000 },
+      const amenityDefs: { type: string; label: string; googleType: string; radius: number }[] = [
+        { type: 'market',   label: 'Market',                 googleType: 'supermarket',    radius: 10000 },
+        { type: 'restoran', label: 'Restoran',               googleType: 'restaurant',     radius: 5000 },
+        { type: 'cafe',     label: 'Kafe',                   googleType: 'cafe',           radius: 5000 },
+        { type: 'eczane',   label: 'Eczane',                 googleType: 'pharmacy',       radius: 15000 },
+        { type: 'hastane',  label: 'Hastane',                googleType: 'hospital',       radius: 50000 },
       ]
-      const transportTypes: { type: string; label: string; googleType: string; radius: number }[] = [
-        { type: 'havalimani', label: 'Havalimanı', googleType: 'airport', radius: 150000 },
-        { type: 'otogar', label: 'Otogar / Otobüs Terminali', googleType: 'bus_station', radius: 30000 },
-        { type: 'minibus', label: 'Minibüs / Dolmuş', googleType: 'transit_station', radius: 5000 },
+      const transportDefs: { type: string; label: string; googleType: string; radius: number }[] = [
+        { type: 'havalimani', label: 'Havalimanı',             googleType: 'airport',        radius: 200000 },
+        { type: 'otogar',     label: 'Otogar / Otobüs Terminali', googleType: 'bus_station', radius: 50000 },
+        { type: 'minibus',    label: 'Minibüs / Dolmuş',      googleType: 'transit_station', radius: 5000 },
       ]
+      const allDefs = [...amenityDefs, ...transportDefs]
 
       const fetchNearest = async (googleType: string, radius: number): Promise<PlaceRow | null> => {
         try {
           const r = await fetch('/api/places-nearby', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lat: latF, lng: lngF, googleType, radiusM: radius, maxCount: 3, language: 'tr', apiKey, useKeyword: false }),
+            body: JSON.stringify({ lat: latF, lng: lngF, googleType, radiusM: radius, maxCount: 1, language: 'tr', apiKey, useKeyword: false }),
           })
           if (!r.ok) return null
           const pd = await r.json() as { places: PlaceRow[] }
@@ -1380,21 +1382,51 @@ export default function CatalogNewListingClient({
         } catch { return null }
       }
 
-      const amenities: ServicePoi[] = []
-      for (const at of amenityTypes) {
-        const p = await fetchNearest(at.googleType, at.radius)
-        if (p) {
-          amenities.push({ type: at.type, label: p.name || at.label, distance_km: Math.round(p.distanceKm * 10) / 10 })
+      // 1. Tüm tipler için en yakın yeri paralel çek
+      const found = await Promise.all(allDefs.map((d) => fetchNearest(d.googleType, d.radius)))
+
+      // 2. Koordinatı olan yerler için tek Distance Matrix isteği at
+      const destinations = allDefs
+        .map((d, i) => found[i] ? { id: d.type, lat: found[i]!.lat, lng: found[i]!.lng } : null)
+        .filter((x): x is { id: string; lat: number; lng: number } => x !== null)
+
+      let distMap: Record<string, DistResult> = {}
+      if (destinations.length > 0) {
+        try {
+          const dmRes = await fetch('/api/distance-matrix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ origin: { lat: latF, lng: lngF }, destinations, apiKey, language: 'tr' }),
+          })
+          if (dmRes.ok) {
+            const dmData = await dmRes.json() as { results: DistResult[] }
+            distMap = Object.fromEntries((dmData.results ?? []).map((r) => [r.id, r]))
+          }
+        } catch { /* fallback to haversine */ }
+      }
+
+      // 3. Mesafeyi Distance Matrix'ten al, yoksa haversine'e düş
+      const toServicePoi = (def: typeof allDefs[0], place: PlaceRow | null): ServicePoi | null => {
+        if (!place) return null
+        const dm = distMap[def.type]
+        const distKm = dm?.distanceM != null
+          ? Math.round(dm.distanceM / 100) / 10  // metre → km, 1 ondalık
+          : Math.round(place.distanceKm * 10) / 10
+        return {
+          type: def.type,
+          label: place.name || def.label,
+          distance_km: distKm,
+          ...(dm?.durationText ? { duration_text: dm.durationText } : {}),
         }
       }
 
-      const transport: ServicePoi[] = []
-      for (const tt of transportTypes) {
-        const p = await fetchNearest(tt.googleType, tt.radius)
-        if (p) {
-          transport.push({ type: tt.type, label: p.name || tt.label, distance_km: Math.round(p.distanceKm * 10) / 10 })
-        }
-      }
+      const amenities: ServicePoi[] = amenityDefs
+        .map((d, i) => toServicePoi(d, found[i] ?? null))
+        .filter((x): x is ServicePoi => x !== null)
+
+      const transport: ServicePoi[] = transportDefs
+        .map((d, i) => toServicePoi(d, found[amenityDefs.length + i] ?? null))
+        .filter((x): x is ServicePoi => x !== null)
 
       await patchListingServicePois(token, editListingId, amenities, transport)
     } finally {

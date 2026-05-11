@@ -51,9 +51,16 @@ function PoiRow({ poi }: { poi: ServicePoi }) {
         <span className="text-neutral-400 dark:text-neutral-500">{icon}</span>
         <span className="text-sm">{label}</span>
       </div>
-      <span className="text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
-        {distanceLabel(poi.distance_km)}
-      </span>
+      <div className="text-right">
+        <span className="block text-sm font-semibold tabular-nums text-neutral-900 dark:text-white">
+          {distanceLabel(poi.distance_km)}
+        </span>
+        {poi.duration_text ? (
+          <span className="block text-[11px] text-neutral-400 dark:text-neutral-500">
+            {poi.duration_text}
+          </span>
+        ) : null}
+      </div>
     </div>
   )
 }
@@ -68,7 +75,12 @@ export default function ListingServicePoisSection({ amenities, transport }: Prop
 
   return (
     <section className="listingSection__wrap">
-      <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">Mesafeler</h2>
+      <div>
+        <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">Mesafeler</h2>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          Yol mesafesi · sürüş süresi araçla tahminidir.
+        </p>
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2">
         {amenities.length > 0 && (
