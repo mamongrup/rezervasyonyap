@@ -105,9 +105,10 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
       FROM   location_pages lp,
              jsonb_array_elements(lp.travel_ideas_json) elem
       WHERE  lp.region_type IN ('district', 'destination')
-        AND  elem->>'lat'  IS NOT NULL
-        AND  elem->>'lng'  IS NOT NULL
+        AND  elem->>'lat'      IS NOT NULL
+        AND  elem->>'lng'      IS NOT NULL
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
+        AND  NULLIF(elem->>'place_id', '') IS NOT NULL
     ),
     with_dist AS (
       SELECT
@@ -129,7 +130,7 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
     top10 AS (
       SELECT *
       FROM   with_dist
-      WHERE  distance_km < 50
+      WHERE  distance_km < 30
       ORDER  BY distance_km
       LIMIT  10
     ),

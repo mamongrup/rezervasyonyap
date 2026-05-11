@@ -1276,54 +1276,73 @@ export default function CatalogNewListingClient({
   }, [editListingId, categoryCode, needOrg, orgId, locale, localeCodes])
 
   async function refreshNearbyPoisFromServer() {
-    if (!editListingId) return
+    if (!editListingId || !lat.trim() || !lng.trim()) return
     const token = getStoredAuthToken()
     if (!token) return
     setNearbyPoisBusy(true)
     try {
-      await computeListingNearbyPois(token, editListingId).catch(() => {})
-      let next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
+      type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
 
-      // Yakın mekan bulunamadıysa Google Maps Places ile doğrudan dene
-      if (next.length === 0 && lat.trim() && lng.trim()) {
-        let apiKey = mapsApiKey
-        if (!apiKey) {
-          try {
-            const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
-            const raw = s.settings?.[0]?.value_json ?? ''
-            if (raw) {
-              const parsed = JSON.parse(raw) as Record<string, unknown>
-              apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key : ''
-              if (apiKey) setMapsApiKey(apiKey)
-            }
-          } catch { /* ignore */ }
-        }
-        if (apiKey) {
-          try {
-            type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
-            const placesRes = await fetch('/api/places-nearby', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lat: parseFloat(lat), lng: parseFloat(lng), googleType: 'turistik gezilecek görülecek plaj park doğa', radiusM: 25000, maxCount: 20, language: 'tr', apiKey, useKeyword: true }),
-            })
-            if (placesRes.ok) {
-              const pd = await placesRes.json() as { places: PlaceRow[] }
-              const mapped: NearbyPoi[] = (pd.places ?? []).map((p) => ({
-                title: p.name,
-                summary: [p.address, p.rating ? `Puan: ${p.rating}/5` : '', (p.types ?? []).filter((t) => !['point_of_interest', 'establishment'].includes(t)).slice(0, 2).map((t) => t.replace(/_/g, ' ')).join(', ')].filter(Boolean).join(' — '),
-                image: p.photoRef ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${apiKey}` : undefined,
-                link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
-                lat: p.lat,
-                lng: p.lng,
-                distance_km: Math.round(p.distanceKm * 10) / 10,
-              }))
-              if (mapped.length > 0) {
-                await patchListingNearbyPois(token, editListingId, mapped).catch(() => {})
-                next = mapped
-              }
-            }
-          } catch { /* sessizce geç */ }
-        }
+      // API anahtarını yükle
+      let apiKey = mapsApiKey
+      if (!apiKey) {
+        try {
+          const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
+          const raw = s.settings?.[0]?.value_json ?? ''
+          if (raw) {
+            const parsed = JSON.parse(raw) as Record<string, unknown>
+            apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key : ''
+            if (apiKey) setMapsApiKey(apiKey)
+          }
+        } catch { /* ignore */ }
+      }
+
+      let next: NearbyPoi[] = []
+
+      // Google Places API varsa ÖNCE onu kullan — doğru ve güncel sonuç verir
+      if (apiKey) {
+        try {
+          const placesRes = await fetch('/api/places-nearby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lat: parseFloat(lat), lng: parseFloat(lng),
+              googleType: 'turistik gezilecek görülecek plaj tarihi alan ören yeri park doğa',
+              radiusM: 20000, maxCount: 20, language: 'tr', apiKey, useKeyword: true,
+            }),
+          })
+          if (placesRes.ok) {
+            const pd = await placesRes.json() as { places: PlaceRow[] }
+            next = (pd.places ?? []).map((p) => ({
+              title: p.name,
+              summary: [
+                p.address,
+                p.rating ? `Puan: ${p.rating}/5` : '',
+                (p.types ?? [])
+                  .filter((t) => !['point_of_interest', 'establishment'].includes(t))
+                  .slice(0, 2).map((t) => t.replace(/_/g, ' ')).join(', '),
+              ].filter(Boolean).join(' — '),
+              image: p.photoRef
+                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${apiKey}`
+                : undefined,
+              link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
+              place_id: p.placeId,
+              lat: p.lat,
+              lng: p.lng,
+              distance_km: Math.round(p.distanceKm * 10) / 10,
+            }))
+          }
+        } catch { /* sessizce geç */ }
+      }
+
+      // Google Places başarısız ya da anahtar yoksa backend hesabına düş
+      if (next.length === 0) {
+        await computeListingNearbyPois(token, editListingId).catch(() => {})
+        next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
+      }
+
+      if (next.length > 0) {
+        await patchListingNearbyPois(token, editListingId, next).catch(() => {})
       }
       setNearbyPois(next)
     } finally {
