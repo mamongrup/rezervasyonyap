@@ -6,21 +6,37 @@
 //// GET   /api/v1/listings/:id/nearby-pois
 ////    → mevcut nearby_pois_json'u döndürür
 ////
-//// GET   /api/v1/listings/:id/service-pois
+//// GET   /api/v1/listings/:id/service-pois (eski, listing bazlı — override)
 ////    → amenities_pois_json + transport_pois_json (herkese açık)
 ////
 //// PATCH /api/v1/listings/:id/service-pois
 ////    → amenities_pois_json + transport_pois_json'u günceller
+////
+//// GET   /api/v1/listings/:id/computed-service-pois (herkese açık)
+////    → En yakın ilçenin service_pois_json'unu Haversine ile hesaplar
+////
+//// GET   /api/v1/location-pages/:id/service-pois (herkese açık)
+////    → location_pages.service_pois_json
+////
+//// PATCH /api/v1/location-pages/:id/service-pois (admin)
+////    → location_pages.service_pois_json günceller
+////
+//// GET   /api/v1/location-pages/next-without-service-pois (admin)
+////    → service_pois_json olmayan sonraki ilçeyi döndürür
 
 import backend/context.{type Context}
 import gleam/bit_array
 import gleam/dynamic/decode
+import gleam/float
 import gleam/http
 import gleam/json
+import gleam/list
+
 import gleam/result
 import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
+import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -78,7 +94,7 @@ fn pois_result_row() -> decode.Decoder(#(String, String)) {
 /// 1. İlanın `map_lat`, `map_lng` koordinatlarını okur.
 /// 2. Veritabanındaki tüm location_pages.travel_ideas_json POI'larını düzleştirir.
 /// 3. Her POI'ya ilanın koordinatından Haversine mesafesi hesaplar (PostgreSQL trig).
-/// 4. 50 km içindeki en yakın 10 POI'yu `listings.nearby_pois_json`'a yazar.
+/// 4. 30 km içindeki en yakın 10 POI'yu `listings.nearby_pois_json`'a yazar.
 /// 5. Güncellenmiş JSON'u döndürür.
 pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
   use <- wisp.require_method(req, http.Post)
@@ -204,8 +220,52 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
+/// PATCH /api/v1/listings/:id/nearby-pois
+///
+/// Admin panelinden veya listing form'undan gelen JSON'u doğrudan yazar.
+pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  let lid = string.trim(listing_id)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "body_read_failed")
+    Ok(body) ->
+      case json.parse(body, patch_body_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(pois_json) -> {
+          let safe_json = case
+            string.starts_with(string.trim(pois_json), "[")
+          {
+            True -> pois_json
+            False -> "[]"
+          }
+          case
+            pog.query(
+              "update listings set nearby_pois_json = ($2::text)::jsonb where id = $1::uuid returning id::text",
+            )
+            |> pog.parameter(pog.text(lid))
+            |> pog.parameter(pog.text(safe_json))
+            |> pog.returning(row_dec.col0_string())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "patch_pois_failed")
+            Ok(ret) ->
+              case ret.rows {
+                [] -> json_err(404, "listing_not_found")
+                [_] ->
+                  wisp.json_response(
+                    "{\"ok\":true}",
+                    200,
+                  )
+                _ -> json_err(500, "unexpected_rows")
+              }
+          }
+        }
+      }
+  }
+}
+
 // ---------------------------------------------------------------------------
-// GET  /api/v1/listings/:id/service-pois  (herkese açık)
+// GET  /api/v1/listings/:id/service-pois  (herkese açık, listing bazlı override)
 // PATCH /api/v1/listings/:id/service-pois
 // Body: { "amenities_pois_json": "[...]", "transport_pois_json": "[...]" }
 // ---------------------------------------------------------------------------
@@ -304,46 +364,298 @@ pub fn patch_service_pois(req: Request, ctx: Context, listing_id: String) -> Res
   }
 }
 
-/// PATCH /api/v1/listings/:id/nearby-pois
-///
-/// Admin panelinden veya listing form'undan gelen JSON'u doğrudan yazar.
-pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+// ===========================================================================
+// location_pages service_pois_json  (287_location_pages_service_pois)
+// ===========================================================================
+
+/// GET /api/v1/location-pages/:id/service-pois
+pub fn get_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let id = string.trim(lp_id)
+  case
+    pog.query(
+      "select coalesce(service_pois_json,'[]')::text
+       from   location_pages
+       where  id = $1::uuid",
+    )
+    |> pog.parameter(pog.text(id))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "lp_service_pois_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> json_err(404, "location_page_not_found")
+        [pois] ->
+          wisp.json_response(
+            json.object([#("service_pois_json", json.string(pois))])
+            |> json.to_string,
+            200,
+          )
+        _ -> json_err(500, "unexpected_rows")
+      }
+  }
+}
+
+/// PATCH /api/v1/location-pages/:id/service-pois (admin)
+pub fn patch_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Response {
   use <- wisp.require_method(req, http.Patch)
-  let lid = string.trim(listing_id)
-  case read_body_string(req) {
-    Error(_) -> json_err(400, "body_read_failed")
-    Ok(body) ->
-      case json.parse(body, patch_body_decoder()) {
-        Error(_) -> json_err(400, "invalid_json")
-        Ok(pois_json) -> {
-          let safe_json = case
-            string.starts_with(string.trim(pois_json), "[")
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      let id = string.trim(lp_id)
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "body_read_failed")
+        Ok(body) ->
+          case
+            json.parse(body, {
+              use s <- decode.field("service_pois_json", decode.string)
+              decode.success(s)
+            })
           {
-            True -> pois_json
-            False -> "[]"
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(pois_raw) -> {
+              let safe = case string.starts_with(string.trim(pois_raw), "[") {
+                True -> pois_raw
+                False -> "[]"
+              }
+              case
+                pog.query(
+                  "update location_pages
+                   set    service_pois_json = ($2::text)::jsonb
+                   where  id = $1::uuid
+                   returning id::text",
+                )
+                |> pog.parameter(pog.text(id))
+                |> pog.parameter(pog.text(safe))
+                |> pog.returning(row_dec.col0_string())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "patch_lp_service_pois_failed")
+                Ok(ret) ->
+                  case ret.rows {
+                    [] -> json_err(404, "location_page_not_found")
+                    [_] -> wisp.json_response("{\"ok\":true}", 200)
+                    _ -> json_err(500, "unexpected_rows")
+                  }
+              }
+            }
           }
+      }
+    }
+  }
+}
+
+/// GET /api/v1/location-pages/next-without-service-pois (admin)
+pub fn next_without_service_pois(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case
+        pog.query(
+          "select id::text, location_name,
+                  coalesce(center_lat::text,'') as clat,
+                  coalesce(center_lng::text,'') as clng,
+                  coalesce(parent_name,'') as parent_name
+           from   location_pages
+           where  region_type in ('district','destination')
+             and  (service_pois_json is null
+                   or jsonb_array_length(service_pois_json) = 0)
+           order  by location_name
+           limit  1",
+        )
+        |> pog.returning({
+          use id <- decode.field(0, decode.string)
+          use name <- decode.field(1, decode.string)
+          use clat <- decode.field(2, decode.string)
+          use clng <- decode.field(3, decode.string)
+          use parent <- decode.field(4, decode.string)
+          decode.success(#(id, name, clat, clng, parent))
+        })
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "next_without_svc_pois_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [] ->
+              wisp.json_response(
+                json.object([#("done", json.bool(True))]) |> json.to_string,
+                200,
+              )
+            [#(id, name, clat, clng, parent)] ->
+              wisp.json_response(
+                json.object([
+                  #("done", json.bool(False)),
+                  #("location_page_id", json.string(id)),
+                  #("location_name", json.string(name)),
+                  #("center_lat", json.string(clat)),
+                  #("center_lng", json.string(clng)),
+                  #("parent_name", json.string(parent)),
+                ])
+                |> json.to_string,
+                200,
+              )
+            _ -> json_err(500, "unexpected_rows")
+          }
+      }
+  }
+}
+
+// ===========================================================================
+// GET /api/v1/listings/:id/computed-service-pois  (herkese açık)
+// En yakın ilçenin service_pois_json koordinatlarından Haversine ile hesaplar.
+// ===========================================================================
+
+@external(erlang, "math", "sin")
+fn math_sin(x: Float) -> Float
+
+@external(erlang, "math", "cos")
+fn math_cos(x: Float) -> Float
+
+@external(erlang, "math", "atan2")
+fn math_atan2(y: Float, x: Float) -> Float
+
+fn haversine_km(lat1: Float, lng1: Float, lat2: Float, lng2: Float) -> Float {
+  let pi = 3.14159265358979
+  let to_rad = fn(d: Float) { d *. pi /. 180.0 }
+  let dlat = to_rad(lat2 -. lat1)
+  let dlng = to_rad(lng2 -. lng1)
+  let a =
+    float.power(math_sin(dlat /. 2.0), 2.0) |> result.unwrap(0.0)
+  let b =
+    float.power(math_sin(dlng /. 2.0), 2.0) |> result.unwrap(0.0)
+  let c = a +. math_cos(to_rad(lat1)) *. math_cos(to_rad(lat2)) *. b
+  let d = math_atan2(
+    float.square_root(c) |> result.unwrap(0.0),
+    float.square_root(1.0 -. c) |> result.unwrap(0.0),
+  )
+  6371.0 *. 2.0 *. d
+}
+
+fn round1(f: Float) -> Float {
+  let shifted = f *. 10.0
+  let rounded = float.round(shifted)
+  int_to_float(rounded) /. 10.0
+}
+
+@external(erlang, "erlang", "float")
+fn int_to_float(i: Int) -> Float
+
+/// GET /api/v1/listings/:id/computed-service-pois
+pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let lid = string.trim(listing_id)
+  let empty_response =
+    wisp.json_response(
+      json.object([
+        #("amenities", json.array([], fn(x) { x })),
+        #("transport", json.array([], fn(x) { x })),
+      ])
+      |> json.to_string,
+      200,
+    )
+
+  // 1. İlanın koordinatları
+  case
+    pog.query(
+      "select map_lat::float8, map_lng::float8
+       from   listings
+       where  id = $1::uuid
+         and  map_lat is not null and map_lng is not null",
+    )
+    |> pog.parameter(pog.text(lid))
+    |> pog.returning({
+      use la <- decode.field(0, decode.float)
+      use lo <- decode.field(1, decode.float)
+      decode.success(#(la, lo))
+    })
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "listing_coords_failed")
+    Ok(cret) ->
+      case cret.rows {
+        [] -> empty_response
+        [#(mlat, mlng)] -> {
+          // 2. En yakın service_pois_json dolu ilçe
           case
             pog.query(
-              "update listings set nearby_pois_json = ($2::text)::jsonb where id = $1::uuid returning id::text",
+              "select service_pois_json::text
+               from   location_pages
+               where  region_type in ('district','destination')
+                 and  center_lat is not null
+                 and  center_lng is not null
+                 and  service_pois_json is not null
+                 and  jsonb_array_length(service_pois_json) > 0
+               order  by
+                 (6371.0 * acos(LEAST(1.0,
+                   cos(radians($1)) * cos(radians(center_lat::float8))
+                   * cos(radians(center_lng::float8) - radians($2))
+                   + sin(radians($1)) * sin(radians(center_lat::float8))
+                 )))
+               limit  1",
             )
-            |> pog.parameter(pog.text(lid))
-            |> pog.parameter(pog.text(safe_json))
+            |> pog.parameter(pog.float(mlat))
+            |> pog.parameter(pog.float(mlng))
             |> pog.returning(row_dec.col0_string())
             |> pog.execute(ctx.db)
           {
-            Error(_) -> json_err(500, "patch_pois_failed")
-            Ok(ret) ->
-              case ret.rows {
-                [] -> json_err(404, "listing_not_found")
-                [_] ->
-                  wisp.json_response(
-                    "{\"ok\":true}",
-                    200,
-                  )
-                _ -> json_err(500, "unexpected_rows")
+            Error(_) -> empty_response
+            Ok(dret) ->
+              case dret.rows {
+                [] -> empty_response
+                [pois_text] -> {
+                  // 3. Haversine ile mesafeleri hesapla
+                  let poi_dec = {
+                    use poi_type <- decode.field("type", decode.string)
+                    use label <- decode.field("label", decode.string)
+                    use poi_lat <- decode.field("lat", decode.float)
+                    use poi_lng <- decode.field("lng", decode.float)
+                    use category <- decode.optional_field(
+                      "category",
+                      "amenity",
+                      decode.string,
+                    )
+                    decode.success(#(poi_type, label, poi_lat, poi_lng, category))
+                  }
+                  case json.parse(pois_text, decode.list(poi_dec)) {
+                    Error(_) -> empty_response
+                    Ok(pois) -> {
+                      let to_json = fn(tup) {
+                        let #(t, lbl, plat, plng, _) = tup
+                        let dist = round1(haversine_km(mlat, mlng, plat, plng))
+                        json.object([
+                          #("type", json.string(t)),
+                          #("label", json.string(lbl)),
+                          #("distance_km", json.float(dist)),
+                        ])
+                      }
+                      let amenities =
+                        list.filter(pois, fn(p) {
+                          let #(_, _, _, _, cat) = p
+                          cat != "transport"
+                        })
+                      let transport =
+                        list.filter(pois, fn(p) {
+                          let #(_, _, _, _, cat) = p
+                          cat == "transport"
+                        })
+                      wisp.json_response(
+                        json.object([
+                          #("amenities", json.array(amenities, to_json)),
+                          #("transport", json.array(transport, to_json)),
+                        ])
+                        |> json.to_string,
+                        200,
+                      )
+                    }
+                  }
+                }
+                _ -> empty_response
               }
           }
         }
+        _ -> empty_response
       }
   }
 }

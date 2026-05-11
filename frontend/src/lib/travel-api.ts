@@ -10329,7 +10329,76 @@ export async function patchListingServicePois(
   if (!res.ok) throw new Error(`patch_service_pois_${res.status}`)
 }
 
-/** Koordinatı olan tüm ilanların nearby_pois_json'unu toplu hesaplar. */
+// ─── District-based Service POIs (287) ────────────────────────────────────────
+
+export interface DistrictServicePoi {
+  type: string
+  label: string
+  googleType?: string
+  lat: number
+  lng: number
+  category: 'amenity' | 'transport'
+}
+
+/** İlçenin service_pois_json'unu getirir. */
+export async function getLpServicePois(lpId: string): Promise<DistrictServicePoi[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(`${b}/api/v1/location-pages/${lpId}/service-pois`)
+    if (!res.ok) return []
+    const data = await res.json() as { service_pois_json: string }
+    return JSON.parse(data.service_pois_json ?? '[]') as DistrictServicePoi[]
+  } catch { return [] }
+}
+
+/** İlçenin service_pois_json'unu yazar (admin). */
+export async function patchLpServicePois(
+  token: string,
+  lpId: string,
+  pois: DistrictServicePoi[],
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/location-pages/${lpId}/service-pois`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service_pois_json: JSON.stringify(pois) }),
+  })
+  if (!res.ok) throw new Error(`patch_lp_service_pois_${res.status}`)
+}
+
+export interface NextWithoutServicePois {
+  done: boolean
+  location_page_id?: string
+  location_name?: string
+  center_lat?: string
+  center_lng?: string
+  parent_name?: string
+}
+
+/** Batch için: service_pois_json olmayan sonraki ilçeyi döndürür. */
+export async function getNextWithoutServicePois(token: string): Promise<NextWithoutServicePois> {
+  const b = base()
+  if (!b) return { done: true }
+  const res = await fetch(`${b}/api/v1/location-pages/next-without-service-pois`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return { done: true }
+  return res.json() as Promise<NextWithoutServicePois>
+}
+
+/** İlanın koordinatlarından Haversine ile hesaplanmış servis mesafelerini döndürür. */
+export async function getComputedServicePois(listingId: string): Promise<ListingServicePois> {
+  const b = base()
+  if (!b) return { amenities: [], transport: [] }
+  try {
+    const res = await fetch(`${b}/api/v1/listings/${listingId}/computed-service-pois`)
+    if (!res.ok) return { amenities: [], transport: [] }
+    return res.json() as Promise<ListingServicePois>
+  } catch { return { amenities: [], transport: [] } }
+}
+
 // ─── Pexels ───────────────────────────────────────────────────────────────────
 
 export interface PexelsPhoto {

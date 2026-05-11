@@ -35,8 +35,8 @@ import {
   fetchPublicListingAvailabilityDaysSafe,
   fetchPublicListingContractSafe,
   getBlogSlugsByTitles,
+  getComputedServicePois,
   getListingNearbyPois,
-  getListingServicePois,
   getPublicHotelRooms,
   getPublicListingAttributes,
   getPublicMealPlans,
@@ -209,7 +209,7 @@ export default async function StayListingDetailPageContent({
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
   const [rawNearbyPois, servicePois] = await Promise.all([
     getListingNearbyPois(listing.id),
-    getListingServicePois(listing.id),
+    getComputedServicePois(listing.id),
   ])
   const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
   const nearbyPois = rawNearbyPois.map((p) => ({

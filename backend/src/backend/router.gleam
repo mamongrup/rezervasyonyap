@@ -696,6 +696,18 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "listings", lid, "service-pois"] ->
       listing_pois_http.patch_service_pois(req, ctx, lid)
 
+    http.Get, ["api", "v1", "listings", lid, "computed-service-pois"] ->
+      listing_pois_http.computed_service_pois(req, ctx, lid)
+
+    http.Get, ["api", "v1", "location-pages", "next-without-service-pois"] ->
+      listing_pois_http.next_without_service_pois(req, ctx)
+
+    http.Get, ["api", "v1", "location-pages", lpid, "service-pois"] ->
+      listing_pois_http.get_lp_service_pois(req, ctx, lpid)
+
+    http.Patch, ["api", "v1", "location-pages", lpid, "service-pois"] ->
+      listing_pois_http.patch_lp_service_pois(req, ctx, lpid)
+
     http.Post, ["api", "v1", "admin", "super-host", "recompute"] ->
       super_host_http.recompute_all(req, ctx)
     http.Get, ["api", "v1", "admin", "super-host", "organizations"] ->

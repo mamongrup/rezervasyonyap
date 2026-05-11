@@ -28,8 +28,6 @@ import {
   addListingImage,
   computeListingNearbyPois,
   patchListingNearbyPois,
-  patchListingServicePois,
-  type ServicePoi,
   createIcalFeed,
   createListingPriceRule,
   createManageCatalogListing,
@@ -606,7 +604,6 @@ export default function CatalogNewListingClient({
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([])
   const [nearbyPoisLoading, setNearbyPoisLoading] = useState(false)
   const [nearbyPoisBusy, setNearbyPoisBusy] = useState(false)
-  const [servicePoisBusy, setServicePoisBusy] = useState(false)
   const [mapsApiKey, setMapsApiKey] = useState('')
   const [newPoiName, setNewPoiName] = useState('')
   const [newPoiNote, setNewPoiNote] = useState('')
@@ -1351,119 +1348,6 @@ export default function CatalogNewListingClient({
       setNearbyPois(next)
     } finally {
       setNearbyPoisBusy(false)
-    }
-  }
-
-  async function refreshServicePoisFromServer() {
-    if (!editListingId || !lat.trim() || !lng.trim()) return
-    const token = getStoredAuthToken()
-    if (!token) return
-    let apiKey = mapsApiKey
-    if (!apiKey) {
-      try {
-        const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
-        const raw = s.settings?.[0]?.value_json ?? ''
-        if (raw) {
-          const parsed = JSON.parse(raw) as Record<string, unknown>
-          apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key : ''
-          if (apiKey) setMapsApiKey(apiKey)
-        }
-      } catch { /* ignore */ }
-    }
-    if (!apiKey) { alert('Google Maps API anahtarı bulunamadı.'); return }
-    setServicePoisBusy(true)
-    try {
-      type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
-      type DistResult = { id: string; distanceM: number | null; distanceText: string | null; durationText: string | null }
-      const latF = parseFloat(lat)
-      const lngF = parseFloat(lng)
-
-      type ServicePoiTypeDef = { type: string; label: string; googleType: string; radius: number; category?: string }
-      const DEFAULT_DEFS: ServicePoiTypeDef[] = [
-        { type: 'market',     label: 'Market',                    googleType: 'grocery_or_supermarket', radius: 5000,   category: 'amenity'   },
-        { type: 'restoran',   label: 'Restoran',                  googleType: 'restaurant',             radius: 5000,   category: 'amenity'   },
-        { type: 'eczane',     label: 'Eczane',                    googleType: 'pharmacy',               radius: 15000,  category: 'amenity'   },
-        { type: 'havalimani', label: 'Havalimanı',                googleType: 'airport',                radius: 200000, category: 'transport' },
-        { type: 'otogar',     label: 'Otogar / Otobüs Terminali', googleType: 'bus_station',            radius: 50000,  category: 'transport' },
-        { type: 'minibus',    label: 'Minibüs / Dolmuş',          googleType: 'transit_station',        radius: 5000,   category: 'transport' },
-      ]
-
-      // Admin ayarlarından tipler yükle, yoksa varsayılan
-      let allDefs: ServicePoiTypeDef[] = DEFAULT_DEFS
-      try {
-        const spt = await listSiteSettings(token, { scope: 'platform', key: 'service_poi_types' })
-        const sptRaw = spt.settings?.[0]?.value_json ?? ''
-        if (sptRaw) {
-          const parsed = JSON.parse(sptRaw) as ServicePoiTypeDef[]
-          if (Array.isArray(parsed) && parsed.length > 0) allDefs = parsed
-        }
-      } catch { /* varsayılanla devam */ }
-
-      const amenityDefs = allDefs.filter((d) => d.category !== 'transport')
-      const transportDefs = allDefs.filter((d) => d.category === 'transport')
-
-      const fetchNearest = async (googleType: string, radius: number): Promise<PlaceRow | null> => {
-        try {
-          const r = await fetch('/api/places-nearby', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lat: latF, lng: lngF, googleType, radiusM: radius, maxCount: 1, language: 'tr', apiKey, useKeyword: false }),
-          })
-          if (!r.ok) return null
-          const pd = await r.json() as { places: PlaceRow[] }
-          return pd.places?.[0] ?? null
-        } catch { return null }
-      }
-
-      // 1. Tüm tipler için en yakın yeri paralel çek
-      const found = await Promise.all(allDefs.map((d) => fetchNearest(d.googleType, d.radius)))
-
-      // 2. Koordinatı olan yerler için tek Distance Matrix isteği at
-      const destinations = allDefs
-        .map((d, i) => found[i] ? { id: d.type, lat: found[i]!.lat, lng: found[i]!.lng } : null)
-        .filter((x): x is { id: string; lat: number; lng: number } => x !== null)
-
-      let distMap: Record<string, DistResult> = {}
-      if (destinations.length > 0) {
-        try {
-          const dmRes = await fetch('/api/distance-matrix', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ origin: { lat: latF, lng: lngF }, destinations, apiKey, language: 'tr' }),
-          })
-          if (dmRes.ok) {
-            const dmData = await dmRes.json() as { results: DistResult[] }
-            distMap = Object.fromEntries((dmData.results ?? []).map((r) => [r.id, r]))
-          }
-        } catch { /* fallback to haversine */ }
-      }
-
-      // 3. Mesafeyi Distance Matrix'ten al, yoksa haversine'e düş
-      const toServicePoi = (def: typeof allDefs[0], place: PlaceRow | null): ServicePoi | null => {
-        if (!place) return null
-        const dm = distMap[def.type]
-        const distKm = dm?.distanceM != null
-          ? Math.round(dm.distanceM / 100) / 10  // metre → km, 1 ondalık
-          : Math.round(place.distanceKm * 10) / 10
-        return {
-          type: def.type,
-          label: place.name || def.label,
-          distance_km: distKm,
-          ...(dm?.durationText ? { duration_text: dm.durationText } : {}),
-        }
-      }
-
-      const amenities: ServicePoi[] = amenityDefs
-        .map((d, i) => toServicePoi(d, found[i] ?? null))
-        .filter((x): x is ServicePoi => x !== null)
-
-      const transport: ServicePoi[] = transportDefs
-        .map((d, i) => toServicePoi(d, found[amenityDefs.length + i] ?? null))
-        .filter((x): x is ServicePoi => x !== null)
-
-      await patchListingServicePois(token, editListingId, amenities, transport)
-    } finally {
-      setServicePoisBusy(false)
     }
   }
 
@@ -2524,14 +2408,7 @@ export default function CatalogNewListingClient({
               >
                 {nearbyPoisBusy ? 'Hesaplanıyor…' : 'Gezilecek yerleri güncelle'}
               </button>
-              <button
-                type="button"
-                onClick={() => void refreshServicePoisFromServer()}
-                disabled={servicePoisBusy || !lat.trim() || !lng.trim()}
-                className="rounded-lg border border-primary-300 px-3 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:text-primary-300 dark:hover:bg-primary-950/30"
-              >
-                {servicePoisBusy ? 'Çekiliyor…' : 'Hizmet mekanlarını güncelle'}
-              </button>
+              {/* Servis mekan koordinatları ilçe bazlı yönetilir (Admin → Servis Mekan Koordinatları batch) */}
             </div>
           </div>
           {!lat.trim() || !lng.trim() ? (

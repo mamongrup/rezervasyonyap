@@ -7,6 +7,7 @@ import {
   getDistrictIdeasStats,
   getNextEmptyDistrict,
   getNextNoCoverDistrict,
+  getNextWithoutServicePois,
   getNotFoundCovers,
   getRegionContentStats,
   listAiFeatureProfiles,
@@ -15,6 +16,7 @@ import {
   listAiProviders,
   listAgentRecommendations,
   patchAgentRecommendation,
+  patchLpServicePois,
   processNextPlaceBlog,
   processNextRegionContent,
   processNextDistrictIdea,
@@ -30,6 +32,7 @@ import {
   saveDistrictPlaces,
   searchPexelsImage,
   upsertSiteSetting,
+  type DistrictServicePoi,
   type AgentOverview,
   type AgentRecommendation,
   type CoverStats,
@@ -178,6 +181,14 @@ export default function AdminAiSection() {
   const [newServicePoiDef, setNewServicePoiDef] = useState<ServicePoiTypeDef>({
     type: '', label: '', googleType: '', radius: 10000, category: 'amenity',
   })
+  // ─── Servis Mekan Koordinatları batch (287) ───────────────────────────────
+  const [svcPoisRunning, setSvcPoisRunning] = useState(false)
+  const [svcPoisLog, setSvcPoisLog] = useState<string[]>([])
+  const [svcPoisErr, setSvcPoisErr] = useState<string | null>(null)
+  const [svcPoisProcessed, setSvcPoisProcessed] = useState(0)
+  const [svcPoisBatchCount, setSvcPoisBatchCount] = useState(20)
+  const svcPoisStopRef = useRef(false)
+
   const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
   const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
   const [notFoundExpanded, setNotFoundExpanded] = useState(false)
@@ -1104,6 +1115,80 @@ export default function AdminAiSection() {
       setNotFoundCovers(nf)
     } catch (e) {
       setPexelsErr(formatManageApiCatch(e, 'stats_load_failed'))
+    }
+  }
+
+  // ─── Servis Mekan Koordinatları batch ──────────────────────────────────────
+  async function onStartSvcPois() {
+    const token = getStoredAuthToken()
+    if (!token || !mapsApiKey.trim()) {
+      setSvcPoisErr('Google Maps API anahtarı gerekli.')
+      return
+    }
+    svcPoisStopRef.current = false
+    setSvcPoisRunning(true)
+    setSvcPoisLog([])
+    setSvcPoisErr(null)
+    setSvcPoisProcessed(0)
+    const limit = svcPoisBatchCount
+    let processed = 0
+
+    const addLog = (msg: string) =>
+      setSvcPoisLog((prev) => [...prev.slice(-99), msg])
+
+    try {
+      while (!svcPoisStopRef.current && (limit === 0 || processed < limit)) {
+        const next = await getNextWithoutServicePois(token)
+        if (next.done) {
+          addLog('✓ Tüm ilçeler tamamlandı.')
+          break
+        }
+        const { location_page_id: lpId, location_name: name, center_lat, center_lng } = next
+        if (!lpId || !center_lat || !center_lng) break
+        const lat = parseFloat(center_lat)
+        const lng = parseFloat(center_lng)
+        if (isNaN(lat) || isNaN(lng)) {
+          addLog(`⚠ ${name ?? lpId}: koordinat yok, atlanıyor.`)
+          // Boş liste yaz ki bir daha gelmesin
+          await patchLpServicePois(token, lpId, [])
+          processed++
+          continue
+        }
+
+        addLog(`⟳ ${name} işleniyor…`)
+        const pois: DistrictServicePoi[] = []
+
+        for (const def of servicePoiTypes) {
+          if (svcPoisStopRef.current) break
+          try {
+            const res = await fetch(
+              `/api/places-nearby?lat=${lat}&lng=${lng}&type=${encodeURIComponent(def.googleType)}&radius=${def.radius}&apiKey=${encodeURIComponent(mapsApiKey)}&maxCount=1&lang=tr`,
+            )
+            if (!res.ok) continue
+            const data = await res.json() as { places?: { name?: string; lat?: number; lng?: number }[] }
+            const place = data.places?.[0]
+            if (place?.lat != null && place?.lng != null) {
+              pois.push({
+                type: def.type,
+                label: def.label,
+                googleType: def.googleType,
+                lat: place.lat,
+                lng: place.lng,
+                category: def.category,
+              })
+            }
+          } catch { /* type hatasını atla */ }
+        }
+
+        await patchLpServicePois(token, lpId, pois)
+        processed++
+        setSvcPoisProcessed(processed)
+        addLog(`✓ ${name}: ${pois.length} mekan koordinatı kaydedildi.`)
+      }
+    } catch (e) {
+      setSvcPoisErr(formatManageApiCatch(e, 'svc_pois_batch_failed'))
+    } finally {
+      setSvcPoisRunning(false)
     }
   }
 
@@ -2178,6 +2263,66 @@ export default function AdminAiSection() {
         ) : null}
       </div>
 
+      {/* ── Servis Mekan Koordinatları (İlçe Bazlı, 287) ───────────────── */}
+      <div className="mt-10 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40">
+        <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+          <MapPin className="h-4 w-4 text-emerald-500" />
+          Servis Mekan Koordinatları — İlçe Bazlı Toplu Çekme
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          Her ilçe için aşağıdaki &quot;Mesafe Türleri&quot;nden birer mekanın koordinatını Google Places&apos;ten alıp
+          ilçeye kaydeder. İlan sayfasında ilan ile mekan arasındaki mesafe Haversine ile ücretsiz hesaplanır
+          (Google API artık her ilan için çağrılmaz).
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs font-medium text-neutral-600 dark:text-neutral-400">Max ilçe sayısı (0 = sınırsız)</label>
+            <input
+              type="number"
+              min={0}
+              value={svcPoisBatchCount}
+              onChange={(e) => setSvcPoisBatchCount(Number(e.target.value))}
+              disabled={svcPoisRunning}
+              className="mt-1 w-28 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+            />
+          </div>
+          {!svcPoisRunning ? (
+            <button
+              type="button"
+              onClick={() => void onStartSvcPois()}
+              disabled={!mapsApiKey.trim()}
+              className="rounded-xl bg-emerald-600 px-5 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              Başlat
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { svcPoisStopRef.current = true }}
+              className="rounded-xl bg-red-600 px-5 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              Durdur
+            </button>
+          )}
+          {svcPoisProcessed > 0 && (
+            <span className="text-sm text-neutral-500">{svcPoisProcessed} ilçe işlendi</span>
+          )}
+          {!mapsApiKey.trim() && (
+            <span className="text-xs text-red-500">⚠ Google Maps API anahtarı girilmeli.</span>
+          )}
+        </div>
+        {svcPoisErr && (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/20 dark:text-red-300">{svcPoisErr}</p>
+        )}
+        {svcPoisLog.length > 0 && (
+          <div className="mt-4 max-h-52 overflow-y-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-950">
+            {svcPoisLog.map((line, i) => (
+              <p key={i} className="text-[11px] leading-5 text-neutral-600 dark:text-neutral-400">{line}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* ── Mesafe Türleri Yapılandırması ───────────────────────────────── */}
       <div className="mt-10">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
@@ -2320,7 +2465,7 @@ export default function AdminAiSection() {
           </button>
         </div>
         <p className="mt-2 text-xs text-neutral-400">
-          Kaydettikten sonra ilan düzenleme sayfasında &quot;Hizmet mekanlarını güncelle&quot; butonuna basarak yeni yapılandırmayla verileri yenileyin.
+          Kaydettikten sonra yukarıdaki &quot;Servis Mekan Koordinatları&quot; batch ile ilçe verilerini yeniden çekin.
         </p>
       </div>
     </div>

@@ -75,7 +75,7 @@ export default function ListingServicePoisSection({ amenities, transport }: Prop
       <div>
         <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">Mesafeler</h2>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Yol mesafesi · sürüş süresi araçla tahminidir.
+          Kuş uçuşu yaklaşık mesafe
         </p>
       </div>
 
@@ -106,6 +106,9 @@ export default function ListingServicePoisSection({ amenities, transport }: Prop
           </div>
         )}
       </div>
+      <p className="mt-1 text-[11px] text-neutral-400 dark:text-neutral-500">
+        * Kuş uçuşu yaklaşık mesafe
+      </p>
     </section>
   )
 }
