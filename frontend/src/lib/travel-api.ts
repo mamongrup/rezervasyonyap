@@ -10171,16 +10171,22 @@ export async function saveDistrictPlaces(
   token: string,
   locationPageId: string,
   ideasJson: string,
+  centerCoords?: { lat: number; lng: number },
 ): Promise<void> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
+  const body: Record<string, unknown> = { location_page_id: locationPageId, ideas_json: ideasJson }
+  if (centerCoords) {
+    body.center_lat = String(centerCoords.lat)
+    body.center_lng = String(centerCoords.lng)
+  }
   const res = await fetch(`${b}/api/v1/ai/district-ideas/save-places`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ location_page_id: locationPageId, ideas_json: ideasJson }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`save_district_places_${res.status}`)
 }

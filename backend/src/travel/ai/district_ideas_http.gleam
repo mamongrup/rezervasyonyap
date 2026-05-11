@@ -717,16 +717,44 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
 // Body: { "location_page_id": "uuid", "ideas_json": "[...]" }
 // ---------------------------------------------------------------------------
 
-fn save_body_decoder() -> decode.Decoder(#(String, String)) {
+fn save_body_decoder() -> decode.Decoder(#(String, String, String, String)) {
   use lp_id <- decode.field("location_page_id", decode.string)
   use ideas <- decode.field("ideas_json", decode.string)
-  decode.success(#(lp_id, ideas))
+  use center_lat <- decode.optional_field("center_lat", "", decode.string)
+  use center_lng <- decode.optional_field("center_lng", "", decode.string)
+  decode.success(#(lp_id, ideas, center_lat, center_lng))
+}
+
+fn update_district_center(ctx: Context, lp_id: String, lat_str: String, lng_str: String) -> Nil {
+  let lat = string.trim(lat_str)
+  let lng = string.trim(lng_str)
+  case lat == "" || lng == "" {
+    True -> Nil
+    False -> {
+      let _ =
+        pog.query(
+          "update districts d
+           set    center_lat = $2::numeric,
+                  center_lng = $3::numeric
+           from   location_pages lp
+           where  lp.id = $1::uuid
+             and  lp.district_id = d.id
+             and  d.center_lat is null",
+        )
+        |> pog.parameter(pog.text(string.trim(lp_id)))
+        |> pog.parameter(pog.text(lat))
+        |> pog.parameter(pog.text(lng))
+        |> pog.execute(ctx.db)
+      Nil
+    }
+  }
 }
 
 /// POST /api/v1/ai/district-ideas/save-places — `admin.users.read`
 ///
 /// Google Maps sonuçlarından oluşturulan `ideas_json` dizisini
-/// ilgili location_page'e kaydeder.
+/// ilgili location_page'e kaydeder. Opsiyonel `center_lat` / `center_lng`
+/// gönderilirse, ilçenin koordinatları da doldurulur (yalnızca boşsa).
 pub fn save_places(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case admin_gate.require_admin_users_read(req, ctx) {
@@ -737,8 +765,9 @@ pub fn save_places(req: Request, ctx: Context) -> Response {
         Ok(body_str) ->
           case json.parse(body_str, save_body_decoder()) {
             Error(_) -> json_err(400, "invalid_json_body")
-            Ok(#(lp_id, ideas_json)) -> {
+            Ok(#(lp_id, ideas_json, center_lat, center_lng)) -> {
               let cleaned = clean_json_text(ideas_json)
+              update_district_center(ctx, lp_id, center_lat, center_lng)
               apply_ideas(ctx, "google_maps", string.trim(lp_id), cleaned)
             }
           }

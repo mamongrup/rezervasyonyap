@@ -745,12 +745,49 @@ export default function AdminAiSection() {
         center_lng != null &&
         String(center_lat).trim() !== '' &&
         String(center_lng).trim() !== ''
-      const lat = hasCoords ? parseFloat(center_lat!) : 39.0
-      const lng = hasCoords ? parseFloat(center_lng!) : 35.0
-      const query = hasCoords
+      let lat = hasCoords ? parseFloat(center_lat!) : 0
+      let lng = hasCoords ? parseFloat(center_lng!) : 0
+      let geocodedCoords: { lat: number; lng: number } | undefined
+
+      // Koordinat yoksa Google Geocoding ile ilçenin gerçek konumunu bul
+      if (!hasCoords) {
+        try {
+          const address = encodeURIComponent(
+            [district_name, region_name, 'Türkiye'].filter(Boolean).join(', '),
+          )
+          const geoRes = await fetch(
+            `https://maps.googleapis.com/maps/api/geocode/json?address=${address}&language=tr&key=${key}`,
+          )
+          if (geoRes.ok) {
+            const geoData = (await geoRes.json()) as {
+              status: string
+              results?: Array<{ geometry: { location: { lat: number; lng: number } } }>
+            }
+            if (geoData.status === 'OK' && geoData.results?.[0]?.geometry?.location) {
+              lat = geoData.results[0].geometry.location.lat
+              lng = geoData.results[0].geometry.location.lng
+              geocodedCoords = { lat, lng }
+              setMapsLog((l) => [
+                ...l,
+                `   📍 Geocoding: ${district_name} → ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+              ])
+            }
+          }
+        } catch {
+          // geocoding başarısız; Turkey merkezi kullanılacak
+        }
+        // Geocoding başarısız olduysa Turkey merkezi ile metin arama
+        if (!geocodedCoords) {
+          lat = 39.0
+          lng = 35.0
+        }
+      }
+
+      const resolvedCoords = geocodedCoords ?? (hasCoords ? { lat, lng } : undefined)
+      const query = (hasCoords || geocodedCoords)
         ? 'tourist_attraction'
         : `${district_name} ${region_name ?? ''} en popüler turistik yer görülecek gezilecek`
-      const radiusM = hasCoords ? 25_000 : 60_000
+      const radiusM = (hasCoords || geocodedCoords) ? 25_000 : 60_000
 
       type PlaceRow = {
         name: string
@@ -824,7 +861,7 @@ export default function AdminAiSection() {
       }
 
       if (ideas.length > 0) {
-        await saveDistrictPlaces(token, location_page_id, JSON.stringify(ideas))
+        await saveDistrictPlaces(token, location_page_id, JSON.stringify(ideas), resolvedCoords)
         processed++
         const countLabel = limit > 0 ? `${processed}/${limit}` : `${processed}`
         setMapsLog((l) => [...l, `#${countLabel} ✓ ${district_name} (${region_name}) — ${ideas.length} yer`])
@@ -833,6 +870,7 @@ export default function AdminAiSection() {
           token,
           location_page_id,
           JSON.stringify([{ id: 1, title: district_name, summary: `${region_name} iline bağlı ${district_name} ilçesi.`, lat, lng }]),
+          resolvedCoords,
         )
         processed++
         const countLabel = limit > 0 ? `${processed}/${limit}` : `${processed}`
