@@ -261,12 +261,16 @@ export default function StayListingReservationCard({
               </DescriptionDetails>
             </>
           ) : null}
-          <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-            {messages.listing.sidebar.serviceFee}
-          </DescriptionTerm>
-          <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-            {serviceFee > 0 ? formatConverted(serviceFee, currencyCode) : '—'}
-          </DescriptionDetails>
+          {serviceFee > 0 ? (
+            <>
+              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                {messages.listing.sidebar.serviceFee}
+              </DescriptionTerm>
+              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                {formatConverted(serviceFee, currencyCode)}
+              </DescriptionDetails>
+            </>
+          ) : null}
         </DescriptionList>
         <Divider />
         <DescriptionList>

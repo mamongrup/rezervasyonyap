@@ -191,8 +191,9 @@ export function useStayListingQuote({
       ? cleaningFeeAmount
       : 0
   const subtotalBeforeFee = lodgingSubtotal + heatingSubtotal + shortStayFeeApplied + cleaningFeeApplied
-  const serviceFee = subtotalBeforeFee > 0 ? Math.round(subtotalBeforeFee * 0.1) : 0
-  const grandTotal = subtotalBeforeFee + serviceFee
+  // Fiyatlar komisyon dahil tanımlandığından üstüne ek hizmet bedeli eklenmez.
+  const serviceFee = 0
+  const grandTotal = subtotalBeforeFee
 
   const unitForBreakdownLine =
     cheapestPlanForPricing != null
