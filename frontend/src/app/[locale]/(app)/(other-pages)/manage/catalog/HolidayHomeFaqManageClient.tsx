@@ -6,6 +6,7 @@ import {
   pickHolidayHomeFaqText,
   type HolidayHomeFaqStoredItem,
 } from '@/lib/holiday-home-faq-merge'
+import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { listSiteSettings, upsertSiteSetting } from '@/lib/travel-api'
@@ -17,6 +18,15 @@ import { GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 const SETTING_KEY = 'catalog.holiday_home_default_faq'
+
+const LOCALES = [
+  { code: 'tr', label: 'TR' },
+  { code: 'en', label: 'EN' },
+  { code: 'de', label: 'DE' },
+  { code: 'ru', label: 'RU' },
+  { code: 'zh', label: 'ZH' },
+  { code: 'fr', label: 'FR' },
+] as const
 
 function newItem(): HolidayHomeFaqStoredItem {
   return {
@@ -30,7 +40,9 @@ export default function HolidayHomeFaqManageClient() {
   const t = useManageT()
   const [items, setItems] = useState<HolidayHomeFaqStoredItem[]>([])
   const [busy, setBusy] = useState(false)
+  const [aiBusyId, setAiBusyId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
@@ -71,6 +83,7 @@ export default function HolidayHomeFaqManageClient() {
     if (!token) return
     setBusy(true)
     setErr(null)
+    setMsg(null)
     try {
       await upsertSiteSetting(token, {
         key: SETTING_KEY,
@@ -84,23 +97,96 @@ export default function HolidayHomeFaqManageClient() {
     }
   }
 
-  function patchItem(index: number, patch: Partial<{ q: string; a: string }>) {
+  function patchItem(
+    index: number,
+    patch: Partial<{ q: string; a: string; qByLocale: Record<string, string>; aByLocale: Record<string, string> }>,
+  ) {
     setItems((prev) => {
       const copy = [...prev]
       const cur = copy[index]
       if (!cur) return prev
-      const qTr =
-        patch.q !== undefined ? patch.q : pickHolidayHomeFaqText(cur.question, 'tr')
-      const aTr =
-        patch.a !== undefined ? patch.a : pickHolidayHomeFaqText(cur.answer, 'tr')
+      const qBase: Record<string, string> =
+        cur.question && typeof cur.question === 'object' && !Array.isArray(cur.question)
+          ? { ...(cur.question as Record<string, string>) }
+          : { tr: pickHolidayHomeFaqText(cur.question, 'tr') }
+      const aBase: Record<string, string> =
+        cur.answer && typeof cur.answer === 'object' && !Array.isArray(cur.answer)
+          ? { ...(cur.answer as Record<string, string>) }
+          : { tr: pickHolidayHomeFaqText(cur.answer, 'tr') }
+
+      if (patch.q !== undefined) qBase.tr = patch.q
+      if (patch.a !== undefined) aBase.tr = patch.a
+      if (patch.qByLocale) {
+        for (const [k, v] of Object.entries(patch.qByLocale)) qBase[k] = v
+      }
+      if (patch.aByLocale) {
+        for (const [k, v] of Object.entries(patch.aByLocale)) aBase[k] = v
+      }
       copy[index] = {
         ...cur,
         id: cur.id || newItem().id,
-        question: { tr: qTr },
-        answer: { tr: aTr },
+        question: qBase,
+        answer: aBase,
       }
       return copy
     })
+  }
+
+  async function aiTranslateOne(index: number, overwrite: boolean) {
+    const cur = items[index]
+    if (!cur) return
+    const id = cur.id || `row_${index}`
+    const qTr = pickHolidayHomeFaqText(cur.question, 'tr').trim()
+    const aTr = pickHolidayHomeFaqText(cur.answer, 'tr').trim()
+    if (!qTr || !aTr) {
+      setMsg({ ok: false, text: 'Önce TR soru ve TR yanıt alanını doldurun.' })
+      return
+    }
+    setAiBusyId(id)
+    setMsg(null)
+    try {
+      const targets = LOCALES.filter((l) => l.code !== 'tr').map((l) => l.code)
+      const [qOut, aOut] = await Promise.all([
+        translateOneToMany({
+          text: qTr,
+          context: 'short_label',
+          sourceLocale: 'tr',
+          targetLocales: targets,
+        }),
+        translateOneToMany({
+          text: aTr,
+          context: 'body',
+          sourceLocale: 'tr',
+          targetLocales: targets,
+        }),
+      ])
+
+      const qByLocale: Record<string, string> = {}
+      const aByLocale: Record<string, string> = {}
+
+      for (const lc of targets) {
+        const qExisting = pickHolidayHomeFaqText(cur.question, lc).trim()
+        const aExisting = pickHolidayHomeFaqText(cur.answer, lc).trim()
+        const qFresh = (qOut.ok[lc] ?? '').trim()
+        const aFresh = (aOut.ok[lc] ?? '').trim()
+        if (qFresh && (overwrite || qExisting.length === 0)) qByLocale[lc] = qFresh
+        if (aFresh && (overwrite || aExisting.length === 0)) aByLocale[lc] = aFresh
+      }
+
+      patchItem(index, { qByLocale, aByLocale })
+
+      const filled = new Set([...Object.keys(qByLocale), ...Object.keys(aByLocale)]).size
+      const failedLocales = [...qOut.failed, ...aOut.failed].map((f) => f.locale.toUpperCase())
+      const uniqFailed = [...new Set(failedLocales)].join(', ')
+      setMsg({
+        ok: filled > 0,
+        text: filled > 0 ? `AI çeviriler geldi. Kontrol edip “Kaydet”e basın.${uniqFailed ? ` Başarısız: ${uniqFailed}.` : ''}` : 'AI çeviri sonucu boş döndü.',
+      })
+    } catch (e) {
+      setMsg({ ok: false, text: aiErrorMessage(e) })
+    } finally {
+      setAiBusyId(null)
+    }
   }
 
   async function saveAll() {
@@ -108,8 +194,14 @@ export default function HolidayHomeFaqManageClient() {
       .map((it) => ({
         ...it,
         id: it.id?.trim() || newItem().id,
-        question: { tr: pickHolidayHomeFaqText(it.question, 'tr').trim() },
-        answer: { tr: pickHolidayHomeFaqText(it.answer, 'tr').trim() },
+        question:
+          it.question && typeof it.question === 'object' && !Array.isArray(it.question)
+            ? (it.question as Record<string, string>)
+            : { tr: pickHolidayHomeFaqText(it.question, 'tr').trim() },
+        answer:
+          it.answer && typeof it.answer === 'object' && !Array.isArray(it.answer)
+            ? (it.answer as Record<string, string>)
+            : { tr: pickHolidayHomeFaqText(it.answer, 'tr').trim() },
       }))
       .filter(
         (it) =>
@@ -158,6 +250,11 @@ export default function HolidayHomeFaqManageClient() {
       </div>
 
       {err ? <p className="text-sm text-red-600 dark:text-red-400">{err}</p> : null}
+      {msg ? (
+        <p className={`text-sm ${msg.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'}`}>
+          {msg.text}
+        </p>
+      ) : null}
 
       <div className="space-y-4">
         {items.map((row, idx) => (
@@ -216,6 +313,56 @@ export default function HolidayHomeFaqManageClient() {
                 placeholder="Kısa ve net yanıt…"
               />
             </Field>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || aiBusyId === (row.id || `row_${idx}`)}
+                onClick={() => void aiTranslateOne(idx, false)}
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
+              >
+                AI çeviri (boşları doldur)
+              </button>
+              <button
+                type="button"
+                disabled={busy || aiBusyId === (row.id || `row_${idx}`)}
+                onClick={() => void aiTranslateOne(idx, true)}
+                className="rounded-xl border border-neutral-300 px-3 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
+              >
+                AI çeviri (üstüne yaz)
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {LOCALES.filter((l) => l.code !== 'tr').map((lc) => (
+                <div key={lc.code} className="rounded-lg border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-700 dark:bg-neutral-900">
+                  <p className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">{lc.label}</p>
+                  <div className="mt-2 space-y-2">
+                    <div>
+                      <p className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Soru</p>
+                      <Input
+                        className="mt-1"
+                        value={pickHolidayHomeFaqText(row.question, lc.code)}
+                        onChange={(e) =>
+                          patchItem(idx, { qByLocale: { [lc.code]: e.target.value } })
+                        }
+                        placeholder="—"
+                      />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Yanıt</p>
+                      <Textarea
+                        className="mt-1 min-h-[72px]"
+                        value={pickHolidayHomeFaqText(row.answer, lc.code)}
+                        onChange={(e) =>
+                          patchItem(idx, { aByLocale: { [lc.code]: e.target.value } })
+                        }
+                        placeholder="—"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
