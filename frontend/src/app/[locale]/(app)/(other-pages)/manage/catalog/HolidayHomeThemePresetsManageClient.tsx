@@ -11,9 +11,7 @@ import {
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
-import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -54,7 +52,7 @@ function slugifyCode(s: string): string {
 
 export default function HolidayHomeThemePresetsManageClient({ locale }: { locale: string }) {
   const t = useManageT()
-  const chipCodes = new Set(VILLA_THEME_CHIP_PRESETS.map((x) => x.code))
+  const chipCodes = useMemo(() => new Set<string>(), [])
 
   const [publicItems, setPublicItems] = useState<{ code: string; label: string }[]>([])
   const [manageRows, setManageRows] = useState<Array<{ id: string; code: string; labels: Record<string, string> }>>(
@@ -66,8 +64,6 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   const [aiBusy, setAiBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [previewLocale, setPreviewLocale] = useState<string>(locale || 'tr')
-  /** Boş | preset kodu | özel satır */
-  const [presetPick, setPresetPick] = useState<string>('')
   const [newLabel, setNewLabel] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editLabels, setEditLabels] = useState<Record<string, string>>({})
@@ -210,15 +206,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   async function handleAdd() {
     const label = newLabel.trim()
     if (!label) return
-    let code: string
-    if (presetPick === '__custom__') {
-      code = slugifyCode(label)
-    } else if (presetPick.trim()) {
-      code = presetPick.trim()
-    } else {
-      setManageErr('Listeden bir özellik seçin veya «Diğer» ile yeni ad yazın.')
-      return
-    }
+    const code = slugifyCode(label)
     if (!code) {
       setManageErr('Etiketten geçerli bir kod üretilemedi (Latin harf, rakam, alt çizgi).')
       return
@@ -234,7 +222,6 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
         label,
         locale_code: 'tr',
       })
-      setPresetPick('')
       setNewLabel('')
       await loadManage()
       await loadPublic()
@@ -359,32 +346,10 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
             <div className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/80 px-3 py-3 dark:border-neutral-600 dark:bg-neutral-900/40">
               <p className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-400">Yeni tema</p>
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-                <Field className="block min-w-[14rem] flex-1">
-                  <Label className="text-[11px]">Özellik</Label>
-                  <select
-                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
-                    value={presetPick}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setPresetPick(v)
-                      if (v && v !== '__custom__') {
-                        const p = VILLA_THEME_CHIP_PRESETS.find((x) => x.code === v)
-                        if (p) setNewLabel(p.label)
-                      }
-                    }}
-                    disabled={busy}
-                  >
-                    <option value="">— Seçin —</option>
-                    {VILLA_THEME_CHIP_PRESETS.map((p) => (
-                      <option key={p.code} value={p.code}>
-                        {p.label}
-                      </option>
-                    ))}
-                    <option value="__custom__">Diğer (yeni özellik adı)</option>
-                  </select>
-                </Field>
-                <Field className="block min-w-[12rem] flex-1">
-                  <Label className="text-[11px]">Vitrin etiketi (TR)</Label>
+                <div className="block min-w-[12rem] flex-1">
+                  <label className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+                    Vitrin etiketi (TR)
+                  </label>
                   <Input
                     className="mt-1 text-sm"
                     placeholder="Listede görünecek ad"
@@ -392,18 +357,17 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
                     onChange={(e) => setNewLabel(e.target.value)}
                     disabled={busy}
                   />
-                </Field>
+                </div>
                 <ButtonPrimary
                   type="button"
-                  disabled={busy || !newLabel.trim() || !presetPick}
+                  disabled={busy || !newLabel.trim()}
                   onClick={() => void handleAdd()}
                 >
                   {busy ? '…' : 'Ekle'}
                 </ButtonPrimary>
               </div>
               <p className="mt-2 text-[11px] text-neutral-500">
-                Üstte listeden seçtiğiniz özellik ilan formundaki çip ile eşleşir. «Diğer» seçtiğinizde kod, etiketten
-                otomatik üretilir.
+                Kod, etiketten otomatik üretilir.
               </p>
             </div>
 
