@@ -161,6 +161,23 @@ export default function AdminAiSection() {
   const [pexelsKeysSaved, setPexelsKeysSaved] = useState(false)
   const pexelsStopRef = useRef(false)
   const pexelsKeyIndexRef = useRef(0)
+
+  // ─── Mesafe türleri yapılandırması ───────────────────────────────────────────
+  type ServicePoiTypeDef = { type: string; label: string; googleType: string; radius: number; category: 'amenity' | 'transport' }
+  const DEFAULT_SERVICE_POI_TYPES: ServicePoiTypeDef[] = [
+    { type: 'market',     label: 'Market',                   googleType: 'grocery_or_supermarket', radius: 5000,   category: 'amenity'   },
+    { type: 'restoran',   label: 'Restoran',                 googleType: 'restaurant',             radius: 5000,   category: 'amenity'   },
+    { type: 'eczane',     label: 'Eczane',                   googleType: 'pharmacy',               radius: 15000,  category: 'amenity'   },
+    { type: 'havalimani', label: 'Havalimanı',               googleType: 'airport',                radius: 200000, category: 'transport' },
+    { type: 'otogar',     label: 'Otogar / Otobüs Terminali',googleType: 'bus_station',            radius: 50000,  category: 'transport' },
+    { type: 'minibus',    label: 'Minibüs / Dolmuş',         googleType: 'transit_station',        radius: 5000,   category: 'transport' },
+  ]
+  const [servicePoiTypes, setServicePoiTypes] = useState<ServicePoiTypeDef[]>(DEFAULT_SERVICE_POI_TYPES)
+  const [servicePoiSaving, setServicePoiSaving] = useState(false)
+  const [servicePoiSaved, setServicePoiSaved] = useState(false)
+  const [newServicePoiDef, setNewServicePoiDef] = useState<ServicePoiTypeDef>({
+    type: '', label: '', googleType: '', radius: 10000, category: 'amenity',
+  })
   const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
   const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
   const [notFoundExpanded, setNotFoundExpanded] = useState(false)
@@ -172,14 +189,24 @@ export default function AdminAiSection() {
 
     ;(async () => {
       try {
-        const [mapsJsonRaw, pexelsJsonRaw] = await Promise.all([
+        const [mapsJsonRaw, pexelsJsonRaw, servicePoiRaw] = await Promise.all([
           listSiteSettings(token, { scope: 'platform', key: 'maps' })
             .then((r) => r.settings?.[0]?.value_json ?? '')
             .catch(() => ''),
           listSiteSettings(token, { scope: 'platform', key: 'pexels' })
             .then((r) => r.settings?.[0]?.value_json ?? '')
             .catch(() => ''),
+          listSiteSettings(token, { scope: 'platform', key: 'service_poi_types' })
+            .then((r) => r.settings?.[0]?.value_json ?? '')
+            .catch(() => ''),
         ])
+
+        if (servicePoiRaw?.trim()) {
+          try {
+            const parsed = JSON.parse(servicePoiRaw) as ServicePoiTypeDef[]
+            if (Array.isArray(parsed) && parsed.length > 0) setServicePoiTypes(parsed)
+          } catch { /* varsayılanla devam */ }
+        }
 
         if (mapsJsonRaw?.trim()) {
           const mapsJson = parseLenientJson(mapsJsonRaw) as Record<string, unknown>
@@ -2149,6 +2176,152 @@ export default function AdminAiSection() {
             {jobDetail}
           </pre>
         ) : null}
+      </div>
+
+      {/* ── Mesafe Türleri Yapılandırması ───────────────────────────────── */}
+      <div className="mt-10">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
+          Mesafe Türleri Yapılandırması
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+          İlan sayfasında &quot;Mesafeler&quot; bölümünde hangi POI tiplerinin gösterileceğini yönetin.
+          Kategori: <strong>amenity</strong> → Temel İhtiyaçlar, <strong>transport</strong> → Ulaşım.
+        </p>
+
+        <div className="mt-4 space-y-2">
+          {servicePoiTypes.map((def, i) => (
+            <div
+              key={def.type + i}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900/40"
+            >
+              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${def.category === 'transport' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
+                {def.category}
+              </span>
+              <input
+                className="w-28 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+                value={def.label}
+                onChange={(e) => {
+                  const next = [...servicePoiTypes]
+                  next[i] = { ...next[i], label: e.target.value }
+                  setServicePoiTypes(next)
+                }}
+                placeholder="Etiket"
+              />
+              <input
+                className="w-40 rounded-lg border border-neutral-300 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
+                value={def.googleType}
+                onChange={(e) => {
+                  const next = [...servicePoiTypes]
+                  next[i] = { ...next[i], googleType: e.target.value }
+                  setServicePoiTypes(next)
+                }}
+                placeholder="Google Places tipi"
+              />
+              <input
+                type="number"
+                className="w-24 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+                value={def.radius}
+                onChange={(e) => {
+                  const next = [...servicePoiTypes]
+                  next[i] = { ...next[i], radius: Number(e.target.value) }
+                  setServicePoiTypes(next)
+                }}
+                placeholder="Yarıçap (m)"
+              />
+              <select
+                className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+                value={def.category}
+                onChange={(e) => {
+                  const next = [...servicePoiTypes]
+                  next[i] = { ...next[i], category: e.target.value as 'amenity' | 'transport' }
+                  setServicePoiTypes(next)
+                }}
+              >
+                <option value="amenity">amenity</option>
+                <option value="transport">transport</option>
+              </select>
+              <div className="ml-auto flex items-center gap-1">
+                <button type="button" onClick={() => { const n=[...servicePoiTypes]; if(i>0){[n[i-1],n[i]]=[n[i],n[i-1]]; setServicePoiTypes(n)} }} disabled={i===0} className="rounded px-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800">▲</button>
+                <button type="button" onClick={() => { const n=[...servicePoiTypes]; if(i<n.length-1){[n[i],n[i+1]]=[n[i+1],n[i]]; setServicePoiTypes(n)} }} disabled={i===servicePoiTypes.length-1} className="rounded px-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800">▼</button>
+                <button type="button" onClick={() => setServicePoiTypes(servicePoiTypes.filter((_,j)=>j!==i))} className="rounded px-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30">✕</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Yeni tip ekle */}
+        <div className="mt-3 flex flex-wrap gap-2 rounded-xl border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
+          <input
+            className="w-28 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+            value={newServicePoiDef.label}
+            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, label: e.target.value, type: e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') })}
+            placeholder="Etiket"
+          />
+          <input
+            className="w-40 rounded-lg border border-neutral-300 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
+            value={newServicePoiDef.googleType}
+            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, googleType: e.target.value })}
+            placeholder="Google Places tipi"
+          />
+          <input
+            type="number"
+            className="w-24 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+            value={newServicePoiDef.radius}
+            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, radius: Number(e.target.value) })}
+            placeholder="Yarıçap (m)"
+          />
+          <select
+            className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
+            value={newServicePoiDef.category}
+            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, category: e.target.value as 'amenity' | 'transport' })}
+          >
+            <option value="amenity">amenity</option>
+            <option value="transport">transport</option>
+          </select>
+          <button
+            type="button"
+            disabled={!newServicePoiDef.label.trim() || !newServicePoiDef.googleType.trim()}
+            onClick={() => {
+              setServicePoiTypes([...servicePoiTypes, newServicePoiDef])
+              setNewServicePoiDef({ type: '', label: '', googleType: '', radius: 10000, category: 'amenity' })
+            }}
+            className="rounded-lg bg-neutral-800 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-40 dark:bg-neutral-200 dark:text-neutral-900"
+          >
+            + Ekle
+          </button>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            disabled={servicePoiSaving}
+            onClick={async () => {
+              const token = getStoredAuthToken()
+              if (!token) return
+              setServicePoiSaving(true)
+              try {
+                await upsertSiteSetting(token, { key: 'service_poi_types', value_json: JSON.stringify(servicePoiTypes) })
+                setServicePoiSaved(true)
+                setTimeout(() => setServicePoiSaved(false), 2000)
+              } finally {
+                setServicePoiSaving(false)
+              }
+            }}
+            className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {servicePoiSaving ? 'Kaydediliyor…' : servicePoiSaved ? '✓ Kaydedildi' : 'Ayarları Kaydet'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setServicePoiTypes(DEFAULT_SERVICE_POI_TYPES)}
+            className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            Varsayılana Dön
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-neutral-400">
+          Kaydettikten sonra ilan düzenleme sayfasında &quot;Hizmet mekanlarını güncelle&quot; butonuna basarak yeni yapılandırmayla verileri yenileyin.
+        </p>
       </div>
     </div>
   )

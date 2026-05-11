@@ -1378,18 +1378,29 @@ export default function CatalogNewListingClient({
       const latF = parseFloat(lat)
       const lngF = parseFloat(lng)
 
-      const amenityDefs: { type: string; label: string; googleType: string; radius: number }[] = [
-        { type: 'market',   label: 'Market',   googleType: 'grocery_or_supermarket', radius: 5000 },
-        { type: 'restoran', label: 'Restoran', googleType: 'restaurant',  radius: 5000  },
-        { type: 'eczane',   label: 'Eczane',   googleType: 'pharmacy',    radius: 15000 },
-        { type: 'hastane',  label: 'Hastane',  googleType: 'hospital',    radius: 50000 },
+      type ServicePoiTypeDef = { type: string; label: string; googleType: string; radius: number; category?: string }
+      const DEFAULT_DEFS: ServicePoiTypeDef[] = [
+        { type: 'market',     label: 'Market',                    googleType: 'grocery_or_supermarket', radius: 5000,   category: 'amenity'   },
+        { type: 'restoran',   label: 'Restoran',                  googleType: 'restaurant',             radius: 5000,   category: 'amenity'   },
+        { type: 'eczane',     label: 'Eczane',                    googleType: 'pharmacy',               radius: 15000,  category: 'amenity'   },
+        { type: 'havalimani', label: 'Havalimanı',                googleType: 'airport',                radius: 200000, category: 'transport' },
+        { type: 'otogar',     label: 'Otogar / Otobüs Terminali', googleType: 'bus_station',            radius: 50000,  category: 'transport' },
+        { type: 'minibus',    label: 'Minibüs / Dolmuş',          googleType: 'transit_station',        radius: 5000,   category: 'transport' },
       ]
-      const transportDefs: { type: string; label: string; googleType: string; radius: number }[] = [
-        { type: 'havalimani', label: 'Havalimanı',             googleType: 'airport',        radius: 200000 },
-        { type: 'otogar',     label: 'Otogar / Otobüs Terminali', googleType: 'bus_station', radius: 50000 },
-        { type: 'minibus',    label: 'Minibüs / Dolmuş',      googleType: 'transit_station', radius: 5000 },
-      ]
-      const allDefs = [...amenityDefs, ...transportDefs]
+
+      // Admin ayarlarından tipler yükle, yoksa varsayılan
+      let allDefs: ServicePoiTypeDef[] = DEFAULT_DEFS
+      try {
+        const spt = await listSiteSettings(token, { scope: 'platform', key: 'service_poi_types' })
+        const sptRaw = spt.settings?.[0]?.value_json ?? ''
+        if (sptRaw) {
+          const parsed = JSON.parse(sptRaw) as ServicePoiTypeDef[]
+          if (Array.isArray(parsed) && parsed.length > 0) allDefs = parsed
+        }
+      } catch { /* varsayılanla devam */ }
+
+      const amenityDefs = allDefs.filter((d) => d.category !== 'transport')
+      const transportDefs = allDefs.filter((d) => d.category === 'transport')
 
       const fetchNearest = async (googleType: string, radius: number): Promise<PlaceRow | null> => {
         try {
