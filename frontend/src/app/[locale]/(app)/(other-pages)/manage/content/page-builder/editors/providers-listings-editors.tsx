@@ -7,7 +7,7 @@ import type {
 } from '@/components/page-builder/modules/ListingsModule'
 import type { TopProvidersModuleConfig } from '@/components/page-builder/modules/TopProvidersModule'
 import Link from 'next/link'
-import { HeadingSubheadingFields, SectionFieldsTitle, SimpleTextFieldRow } from './section-fields'
+import { HeadingSubheadingFields, LocalizedTextFieldRow, SectionFieldsTitle, SimpleTextFieldRow } from './section-fields'
 
 const asRec = (c: object) => c as Record<string, unknown>
 
@@ -18,6 +18,7 @@ export function TopProvidersConfigEditor({
   config: TopProvidersModuleConfig
   onChange: (updated: TopProvidersModuleConfig) => void
 }) {
+  const rec = asRec(config)
   return (
     <div className="space-y-4">
       <div className="space-y-3">
@@ -33,11 +34,11 @@ export function TopProvidersConfigEditor({
             subheading: 'Tüm kategorilerde en yüksek puan alan...',
           }}
         />
-        <SimpleTextFieldRow
+        <LocalizedTextFieldRow
           label="Buton Metni"
           placeholder="Siz de ilan verin"
-          value={config.ctaText ?? ''}
-          onChange={(next) => onChange({ ...config, ctaText: next })}
+          value={rec.ctaText}
+          onChange={(next) => onChange({ ...(rec as TopProvidersModuleConfig), ctaText: next as unknown as string })}
         />
         <SimpleTextFieldRow
           label="Buton Linki"
@@ -89,6 +90,7 @@ export function BecomeProviderConfigEditor({
   config: BecomeProviderModuleConfig
   onChange: (updated: BecomeProviderModuleConfig) => void
 }) {
+  const rec = asRec(config)
   const bgOptions = [
     { value: 'light', label: 'Açık (varsayılan)' },
     { value: 'gradient', label: 'Gradyan' },
@@ -111,11 +113,11 @@ export function BecomeProviderConfigEditor({
             subheading: 'Milyonlarca gezgine ulaşın...',
           }}
         />
-        <SimpleTextFieldRow
+        <LocalizedTextFieldRow
           label="Ana Buton Metni"
           placeholder="Ücretsiz İlan Ver"
-          value={config.ctaText ?? ''}
-          onChange={(next) => onChange({ ...config, ctaText: next })}
+          value={rec.ctaText}
+          onChange={(next) => onChange({ ...(rec as BecomeProviderModuleConfig), ctaText: next as unknown as string })}
         />
         <SimpleTextFieldRow
           label="Ana Buton Linki"
@@ -123,11 +125,13 @@ export function BecomeProviderConfigEditor({
           value={config.ctaHref ?? ''}
           onChange={(next) => onChange({ ...config, ctaHref: next })}
         />
-        <SimpleTextFieldRow
+        <LocalizedTextFieldRow
           label="İkincil Buton Metni"
           placeholder="Nasıl Çalışır?"
-          value={config.secondaryCtaText ?? ''}
-          onChange={(next) => onChange({ ...config, secondaryCtaText: next })}
+          value={rec.secondaryCtaText}
+          onChange={(next) =>
+            onChange({ ...(rec as BecomeProviderModuleConfig), secondaryCtaText: next as unknown as string })
+          }
         />
         <SimpleTextFieldRow
           label="İkincil Buton Linki"
@@ -169,6 +173,7 @@ export function ListingsModuleConfigEditor({
   config: ListingsModuleConfig
   onChange: (updated: ListingsModuleConfig) => void
 }) {
+  const rec = asRec(config)
   const filterOptions = [
     { value: 'all', label: '🗂️ Tümü' },
     { value: 'new', label: '✨ Yeni İlanlar' },
@@ -198,11 +203,11 @@ export function ListingsModuleConfigEditor({
           value={config.viewAllHref ?? ''}
           onChange={(next) => onChange({ ...config, viewAllHref: next })}
         />
-        <SimpleTextFieldRow
+        <LocalizedTextFieldRow
           label='"Tümünü Gör" Butonu Metni'
           placeholder="Tümünü Gör"
-          value={config.viewAllLabel ?? ''}
-          onChange={(next) => onChange({ ...config, viewAllLabel: next })}
+          value={rec.viewAllLabel}
+          onChange={(next) => onChange({ ...(rec as ListingsModuleConfig), viewAllLabel: next as unknown as string })}
         />
       </div>
 

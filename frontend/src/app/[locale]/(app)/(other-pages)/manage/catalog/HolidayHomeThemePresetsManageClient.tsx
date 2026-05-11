@@ -20,7 +20,22 @@ import { useCallback, useEffect, useState } from 'react'
 const CATEGORY = 'holiday_home'
 
 function slugifyCode(s: string): string {
-  return s
+  const ascii = s
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/ı/g, 'i')
+    .replace(/İ/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/Ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/Ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/Ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/Ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/Ç/g, 'c')
+  return ascii
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '_')
@@ -36,7 +51,8 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   const [loading, setLoading] = useState(true)
   const [manageErr, setManageErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [newCode, setNewCode] = useState('')
+  /** Boş | preset kodu | özel satır */
+  const [presetPick, setPresetPick] = useState<string>('')
   const [newLabel, setNewLabel] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
@@ -83,9 +99,17 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   async function handleAdd() {
     const label = newLabel.trim()
     if (!label) return
-    const code = slugifyCode(newCode || label)
+    let code: string
+    if (presetPick === '__custom__') {
+      code = slugifyCode(label)
+    } else if (presetPick.trim()) {
+      code = presetPick.trim()
+    } else {
+      setManageErr('Listeden bir özellik seçin veya «Diğer» ile yeni ad yazın.')
+      return
+    }
     if (!code) {
-      setManageErr('Geçerli bir kod üretin (Latin harf, rakam, alt çizgi).')
+      setManageErr('Etiketten geçerli bir kod üretilemedi (Latin harf, rakam, alt çizgi).')
       return
     }
     const token = getStoredAuthToken()
@@ -99,7 +123,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
         label,
         locale_code: locale,
       })
-      setNewCode('')
+      setPresetPick('')
       setNewLabel('')
       await loadManage()
       await loadPublic()
@@ -160,19 +184,19 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
       </div>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Panel çip kodları (referans)</h2>
+        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">İlan formu özellikleri (referans)</h2>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          İlan formundaki tema çipleri bu kodlarla eşleşir; veritabanında aynı <span className="font-mono">code</span>{' '}
-          varsa vitrin etiketi çeviri tablosundan gelir.
+          Aşağıda listelenen sabit özellikler ilan düzenleyicideki tema çipleriyle eşleşir. Vitrinde görünen metinleri
+          «Vitrin temaları» bölümünden <strong>ekle / düzenle / sil</strong> ile yönetirsiniz; teknik kodlar arayüzde
+          gösterilmez.
         </p>
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {VILLA_THEME_CHIP_PRESETS.map((chip) => (
             <li
               key={chip.code}
-              className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+              className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
             >
-              <span className="font-mono text-[11px] text-neutral-500">{chip.code}</span>
-              <span className="mt-0.5 block text-neutral-800 dark:text-neutral-100">{chip.label}</span>
+              {chip.label}
             </li>
           ))}
         </ul>
@@ -182,10 +206,10 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Vitrin temaları — düzenleme
+              Vitrin temaları — ekle, düzenle, sil
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Kayıtlar <span className="font-mono">category_theme_items</span> tablosundadır. Şu an görünen dil:{' '}
+              Kayıtlar veritabanındadır (panel diline göre etiket). Şu dil:{' '}
               <strong className="text-neutral-700 dark:text-neutral-300">{locale}</strong>
             </p>
           </div>
@@ -210,33 +234,52 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
           <>
             <div className="mt-6 rounded-lg border border-dashed border-neutral-200 bg-neutral-50/80 px-3 py-3 dark:border-neutral-600 dark:bg-neutral-900/40">
               <p className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-400">Yeni tema</p>
-              <div className="flex flex-wrap items-end gap-2">
-                <Field className="block min-w-[8rem]">
-                  <Label className="text-[11px]">Kod</Label>
-                  <Input
-                    className="mt-1 font-mono text-xs"
-                    placeholder="ör. rooftop_pool"
-                    value={newCode}
-                    onChange={(e) => setNewCode(e.target.value)}
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                <Field className="block min-w-[14rem] flex-1">
+                  <Label className="text-[11px]">Özellik</Label>
+                  <select
+                    className="mt-1 w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+                    value={presetPick}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      setPresetPick(v)
+                      if (v && v !== '__custom__') {
+                        const p = VILLA_THEME_CHIP_PRESETS.find((x) => x.code === v)
+                        if (p) setNewLabel(p.label)
+                      }
+                    }}
                     disabled={busy}
-                  />
+                  >
+                    <option value="">— Seçin —</option>
+                    {VILLA_THEME_CHIP_PRESETS.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.label}
+                      </option>
+                    ))}
+                    <option value="__custom__">Diğer (yeni özellik adı)</option>
+                  </select>
                 </Field>
                 <Field className="block min-w-[12rem] flex-1">
-                  <Label className="text-[11px]">Etiket ({locale})</Label>
+                  <Label className="text-[11px]">Vitrin etiketi ({locale})</Label>
                   <Input
                     className="mt-1 text-sm"
-                    placeholder="Vitrinde görünen ad"
+                    placeholder="Listede görünecek ad"
                     value={newLabel}
                     onChange={(e) => setNewLabel(e.target.value)}
                     disabled={busy}
                   />
                 </Field>
-                <ButtonPrimary type="button" disabled={busy || !newLabel.trim()} onClick={() => void handleAdd()}>
+                <ButtonPrimary
+                  type="button"
+                  disabled={busy || !newLabel.trim() || !presetPick}
+                  onClick={() => void handleAdd()}
+                >
                   {busy ? '…' : 'Ekle'}
                 </ButtonPrimary>
               </div>
               <p className="mt-2 text-[11px] text-neutral-500">
-                Kod boşsa etiketten üretilir (küçük harf, boşluk → alt çizgi).
+                Üstte listeden seçtiğiniz özellik ilan formundaki çip ile eşleşir. «Diğer» seçtiğinizde kod, etiketten
+                otomatik üretilir.
               </p>
             </div>
 
@@ -276,10 +319,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
                         </button>
                       </div>
                     ) : (
-                      <>
-                        <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{row.label}</span>
-                        <span className="mt-0.5 block font-mono text-[11px] text-neutral-500">{row.code}</span>
-                      </>
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{row.label}</span>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">

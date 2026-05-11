@@ -337,7 +337,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   const totalListings = listingsResult?.total ?? 0
   const perPage = listingsResult?.per_page ?? 12
 
-  const listingCardsData = listings.map(mapPublicListingItemToListingBase)
+  const listingCardsData = listings.map((it) => mapPublicListingItemToListingBase(it, { locale }))
 
   const totalPois =
     placesData?.categories.flatMap((c) => c.types).flatMap((t) => t.places).length ?? 0

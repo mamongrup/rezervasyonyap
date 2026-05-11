@@ -32,7 +32,7 @@ const ListingTabs = ({ onChangeTab }: Props) => {
       if (activeTab === 'Stays' && stayListings.length === 0) {
         const res = await searchPublicListings({ categoryCode: 'hotel', perPage: 8, page: 1, locale })
         if (!cancelled && res?.listings?.length)
-          setStayListings(res.listings.map(mapPublicListingItemToListingBase) as TStayListing[])
+          setStayListings(res.listings.map((it) => mapPublicListingItemToListingBase(it, { locale })) as TStayListing[])
       } else if (activeTab === 'Car Rentals' && carListings.length === 0) {
         const res = await searchPublicListings({
           categoryCode: 'car_rental',
@@ -41,11 +41,11 @@ const ListingTabs = ({ onChangeTab }: Props) => {
           locale,
         })
         if (!cancelled && res?.listings?.length)
-          setCarListings(res.listings.map(mapPublicListingItemToListingBase) as TCarListing[])
+          setCarListings(res.listings.map((it) => mapPublicListingItemToListingBase(it, { locale })) as TCarListing[])
       } else if (activeTab === 'Experiences' && experienceListings.length === 0) {
         const res = await searchPublicListings({ categoryCode: 'tour', perPage: 8, page: 1, locale })
         if (!cancelled && res?.listings?.length)
-          setExperienceListings(res.listings.map(mapPublicListingItemToListingBase) as TExperienceListing[])
+          setExperienceListings(res.listings.map((it) => mapPublicListingItemToListingBase(it, { locale })) as TExperienceListing[])
       }
     })()
     return () => {

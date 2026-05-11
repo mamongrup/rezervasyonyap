@@ -2,6 +2,7 @@
   "categorySlug": "oteller",
   "modules": [
     {
+      "id": "oteller-module-0",
       "type": "hero",
       "enabled": true,
       "order": 1,
@@ -15,10 +16,10 @@
           "/uploads/general/hero/oteller-2.avif",
           "/uploads/general/hero/oteller-3.jpg"
         ]
-      },
-      "id": "oteller-module-0"
+      }
     },
     {
+      "id": "oteller-module-1",
       "type": "featured_by_region",
       "enabled": true,
       "order": 2,
@@ -27,10 +28,10 @@
         "subheading": "Popüler şehirlerdeki en beğenilen ilanlar",
         "viewAllHref": "/oteller/all",
         "regions": []
-      },
-      "id": "oteller-module-1"
+      }
     },
     {
+      "id": "oteller-module-2",
       "type": "listings_grid",
       "enabled": true,
       "order": 3,
@@ -42,10 +43,10 @@
         "count": 8,
         "viewAllHref": "/oteller/all",
         "viewAllLabel": "Tüm Yeni İlanları Gör"
-      },
-      "id": "oteller-module-2"
+      }
     },
     {
+      "id": "oteller-module-3",
       "type": "listings_slider",
       "enabled": true,
       "order": 4,
@@ -57,10 +58,10 @@
         "count": 8,
         "viewAllHref": "/oteller/all",
         "viewAllLabel": "Tüm İndirimleri Gör"
-      },
-      "id": "oteller-module-3"
+      }
     },
     {
+      "id": "oteller-module-4",
       "type": "listings_grid",
       "enabled": true,
       "order": 5,
@@ -72,19 +73,19 @@
         "count": 4,
         "viewAllHref": "/oteller/all",
         "viewAllLabel": "Tüm Kampanyaları Gör"
-      },
-      "id": "oteller-module-4"
+      }
     },
     {
+      "id": "oteller-module-5",
       "type": "why_us",
       "enabled": true,
       "order": 6,
       "config": {
         "title": "Neden Bizi Seçin?"
-      },
-      "id": "oteller-module-5"
+      }
     },
     {
+      "id": "oteller-module-6",
       "type": "top_providers",
       "enabled": true,
       "order": 7,
@@ -95,10 +96,10 @@
         "ctaHref": "/manage",
         "maxCount": 5,
         "showCategoryFilter": false
-      },
-      "id": "oteller-module-6"
+      }
     },
     {
+      "id": "oteller-module-7",
       "type": "become_provider",
       "enabled": true,
       "order": 8,
@@ -110,36 +111,36 @@
         "secondaryCtaText": "Nasıl Çalışır?",
         "secondaryCtaHref": "/ilan-ver#nasil-calisir",
         "bgVariant": "gradient"
-      },
-      "id": "oteller-module-7"
+      }
     },
     {
+      "id": "oteller-module-8",
       "type": "testimonials",
       "enabled": true,
       "order": 9,
       "config": {
         "title": "Misafirlerimiz Ne Diyor? 🥇"
-      },
-      "id": "oteller-module-8"
+      }
     },
     {
+      "id": "oteller-module-9",
       "type": "newsletter",
       "enabled": true,
       "order": 10,
-      "config": {},
-      "id": "oteller-module-9"
+      "config": {}
     },
     {
+      "id": "oteller-module-10",
       "type": "video_gallery",
-      "enabled": false,
+      "enabled": true,
       "order": 11,
       "config": {
         "title": "🎬 Oteller Videoları",
         "subtitle": "Oteller hakkında en iyi videoları izleyin.",
         "videos": []
-      },
-      "id": "oteller-module-10"
+      }
     }
   ],
-  "updatedAt": "2026-04-15T14:11:53.944Z"
+  "updatedAt": "2026-05-10T22:37:35.539Z",
+  "schemaVersion": 1
 }

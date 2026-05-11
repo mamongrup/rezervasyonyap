@@ -78,7 +78,10 @@ import {
   type ListingMeta,
 } from '@/lib/travel-api'
 import {
-  HOLIDAY_PROPERTY_TYPE_OPTIONS,
+  defaultHolidayHomePropertyTypeItems,
+  holidayPropertyLabelForLocale,
+  resolvePropertyTypeToSlug,
+  type HolidayHomePropertyTypeItem,
 } from '@/lib/holiday-property-type-options'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { slugifyListingSlug } from '@/lib/slug-latin-tr'
@@ -561,7 +564,9 @@ export default function CatalogNewListingClient({
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
   const [roomCount, setRoomCount] = useState('')
   const [propertyType, setPropertyType] = useState('')
-  const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>([...HOLIDAY_PROPERTY_TYPE_OPTIONS])
+  const [propertyTypeItems, setPropertyTypeItems] = useState<HolidayHomePropertyTypeItem[]>(() =>
+    defaultHolidayHomePropertyTypeItems(),
+  )
   const [poolSizeLabel, setPoolSizeLabel] = useState('')
   const [pools, setPools] = useState<{
     open_pool: PoolRow
@@ -823,10 +828,25 @@ export default function CatalogNewListingClient({
     if (!isVilla) return
     void fetchPublicHolidayHomePropertyTypes()
       .then((vals) => {
-        if (vals.length > 0) setPropertyTypeOptions(vals)
+        if (vals.length > 0) setPropertyTypeItems(vals)
       })
       .catch(() => {})
   }, [isVilla])
+
+  useEffect(() => {
+    if (!propertyType.trim()) return
+    if (propertyTypeItems.length === 0) return
+    const slug = resolvePropertyTypeToSlug(propertyType.trim(), propertyTypeItems)
+    if (slug && slug !== propertyType) setPropertyType(slug)
+  }, [propertyTypeItems, propertyType])
+
+  const propertyTypeSelectRows = useMemo(() => {
+    const cur = propertyType.trim()
+    const rows = propertyTypeItems
+    const known = rows.some((r) => r.slug === cur)
+    if (!cur || known) return rows
+    return [{ slug: cur, labels: { tr: cur } }, ...rows]
+  }, [propertyType, propertyTypeItems])
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -2951,9 +2971,9 @@ export default function CatalogNewListingClient({
                         onChange={(e) => setPropertyType(e.target.value)}
                       >
                         <option value="">— Seçin —</option>
-                        {propertyTypeOptions.map((opt) => (
-                          <option key={opt} value={opt}>
-                            {opt}
+                        {propertyTypeSelectRows.map((row) => (
+                          <option key={row.slug} value={row.slug}>
+                            {holidayPropertyLabelForLocale(row, locale)}
                           </option>
                         ))}
                       </select>

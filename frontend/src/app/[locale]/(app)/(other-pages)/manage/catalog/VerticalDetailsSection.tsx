@@ -25,7 +25,10 @@ import {
 } from '@/lib/travel-api'
 import {
   HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY,
-  HOLIDAY_PROPERTY_TYPE_OPTIONS,
+  defaultHolidayHomePropertyTypeItems,
+  holidayPropertyLabelForLocale,
+  resolvePropertyTypeToSlug,
+  type HolidayHomePropertyTypeItem,
 } from '@/lib/holiday-property-type-options'
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
@@ -119,16 +122,19 @@ function VillaSection({
   const [themeCatalogRows, setThemeCatalogRows] = useState<{ code: string; label: string }[]>([])
   const [themesCatalogLoading, setThemesCatalogLoading] = useState(true)
   const [propertyType, setPropertyType] = useState('')
-  const [propertyTypeOptions, setPropertyTypeOptions] = useState<string[]>(() => [...HOLIDAY_PROPERTY_TYPE_OPTIONS])
+  const [propertyTypeItems, setPropertyTypeItems] = useState<HolidayHomePropertyTypeItem[]>(() =>
+    defaultHolidayHomePropertyTypeItems(),
+  )
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const propertyTypeSelectOptions = useMemo(() => {
     const cur = propertyType.trim()
-    if (!cur) return propertyTypeOptions
-    if (propertyTypeOptions.includes(cur)) return propertyTypeOptions
-    return [cur, ...propertyTypeOptions]
-  }, [propertyTypeOptions, propertyType])
+    const rows = propertyTypeItems
+    const known = rows.some((r) => r.slug === cur)
+    if (!cur || known) return rows
+    return [{ slug: cur, labels: { tr: cur } }, ...rows]
+  }, [propertyTypeItems, propertyType])
 
   const themeCheckboxRows = useMemo(() => {
     const seen = new Set<string>()
@@ -175,7 +181,7 @@ function VillaSection({
     void fetchPublicHolidayHomePropertyTypes()
       .then((vals) => {
         if (cancelled) return
-        if (vals.length > 0) setPropertyTypeOptions(vals)
+        if (vals.length > 0) setPropertyTypeItems(vals)
       })
       .catch(() => {})
     return () => {
@@ -198,6 +204,13 @@ function VillaSection({
         .catch(() => {})
     }
   }, [listingId, orgQ])
+
+  useEffect(() => {
+    if (!propertyType.trim()) return
+    if (propertyTypeItems.length === 0) return
+    const slug = resolvePropertyTypeToSlug(propertyType.trim(), propertyTypeItems)
+    if (slug && slug !== propertyType) setPropertyType(slug)
+  }, [propertyTypeItems, propertyType])
 
   function toggle(list: string[], setList: (v: string[]) => void, code: string) {
     setList(list.includes(code) ? list.filter((c) => c !== code) : [...list, code])
@@ -233,9 +246,9 @@ function VillaSection({
           onChange={(e) => setPropertyType(e.target.value)}
         >
           <option value="">— Seçin —</option>
-          {propertyTypeSelectOptions.map((opt) => (
-            <option key={opt} value={opt}>
-              {opt}
+          {propertyTypeSelectOptions.map((row) => (
+            <option key={row.slug} value={row.slug}>
+              {holidayPropertyLabelForLocale(row, locale)}
             </option>
           ))}
         </select>

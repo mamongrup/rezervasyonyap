@@ -12,8 +12,14 @@ import {
   parseHolidayHomeFaqTemplatePayload,
   type HolidayHomeFaqTemplatePayload,
 } from '@/lib/holiday-home-faq-merge'
+import {
+  type HolidayHomePropertyTypeItem,
+  parseHolidayHomePropertyTypesPayload,
+} from '@/lib/holiday-property-type-options'
 
 const base = () => apiOriginForFetch()
+
+export type { HolidayHomePropertyTypeItem }
 
 /** Uzun AI admin çağrıları — tarayıcı iptali; `upstreamTimeoutMs` yoksa panel üst sınırı. */
 function fetchInitUpstreamOptional(upstreamTimeoutMs?: number): Pick<RequestInit, 'signal'> {
@@ -5790,15 +5796,16 @@ export async function fetchPublicHolidayHomeFaqTemplate(
 }
 
 /** `catalog.holiday_home_property_types` — kimlik gerekmez (ilan sahibi + admin aynı liste). */
-export async function fetchPublicHolidayHomePropertyTypes(init?: RequestInit): Promise<string[]> {
+export async function fetchPublicHolidayHomePropertyTypes(
+  init?: RequestInit,
+): Promise<HolidayHomePropertyTypeItem[]> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(`${b}/api/v1/catalog/public/holiday-home-property-types`, init)
   if (!res.ok) return []
   try {
     const raw: unknown = await json(res)
-    if (!Array.isArray(raw)) return []
-    return raw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+    return parseHolidayHomePropertyTypesPayload(raw)
   } catch {
     return []
   }

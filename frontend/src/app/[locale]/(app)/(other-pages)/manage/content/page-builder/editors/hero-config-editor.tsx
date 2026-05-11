@@ -6,7 +6,7 @@ import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
 import { slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { ImageIcon, Upload } from 'lucide-react'
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { HeadingSubheadingFields, PB_FIELD_LABEL_CLS, PB_TEXT_INPUT_CLS, SectionFieldsTitle } from './section-fields'
+import { HeadingSubheadingFields, LocalizedTextFieldRow, PB_FIELD_LABEL_CLS, PB_TEXT_INPUT_CLS, SectionFieldsTitle } from './section-fields'
 
 const asRec = (c: object) => c as Record<string, unknown>
 
@@ -130,6 +130,7 @@ export function HeroConfigEditor({
   }, [config])
 
   const images = normalizeHeroImages(config.images)
+  const rec = asRec(config)
 
   function setImage(index: number, url: string) {
     const c = configRef.current
@@ -175,16 +176,13 @@ export function HeroConfigEditor({
 
       <div className="space-y-3">
         <SectionFieldsTitle>Buton (İsteğe Bağlı)</SectionFieldsTitle>
-        <div className="flex flex-col gap-1">
-          <label className={PB_FIELD_LABEL_CLS}>Buton Metni</label>
-          <input
-            type="text"
-            placeholder="ör. Otelleri Keşfet"
-            value={config.ctaText ?? ''}
-            onChange={(e) => onChange({ ...config, ctaText: e.target.value })}
-            className={PB_TEXT_INPUT_CLS}
-          />
-        </div>
+        <LocalizedTextFieldRow
+          label="Buton Metni"
+          placeholder="ör. Otelleri Keşfet"
+          value={rec.ctaText}
+          onChange={(next) => onChange({ ...(rec as HeroModuleConfig), ctaText: next as unknown as string })}
+          inputClassName={PB_TEXT_INPUT_CLS}
+        />
         <div className="flex flex-col gap-1">
           <label className={PB_FIELD_LABEL_CLS}>Buton Linki</label>
           <input

@@ -9,7 +9,11 @@
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
-import { searchPublicListings, type PublicListingItem } from '@/lib/travel-api'
+import {
+  displayHolidayPropertyTypeLine,
+  type HolidayHomePropertyTypeItem,
+} from '@/lib/holiday-property-type-options'
+import { searchPublicListings, fetchPublicHolidayHomePropertyTypes, type PublicListingItem } from '@/lib/travel-api'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
@@ -153,7 +157,15 @@ function listingCreatedWithinDays(createdAt: string | undefined | null, days: nu
   return (Date.now() - t) / 86_400_000 <= days
 }
 
-export function mapPublicListingItemToListingBase(item: PublicListingItem): TListingBase {
+export type MapPublicListingItemOpts = {
+  locale?: string
+  holidayPropertyTypeItems?: HolidayHomePropertyTypeItem[]
+}
+
+export function mapPublicListingItemToListingBase(
+  item: PublicListingItem,
+  opts?: MapPublicListingItemOpts,
+): TListingBase {
   const stayBookingRules = parseStayBookingRulesFromPublicItem(item)
   const cur = (item.currency_code?.trim() || 'TRY').toUpperCase()
   const raw = item.price_from
@@ -183,6 +195,9 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
   const vertical = normalizeCatalogVertical(item.listing_vertical ?? cat)
   const isHoliday = cat === 'holiday_home' || vertical === 'holiday_home'
 
+  const loc = (opts?.locale ?? 'tr').trim().toLowerCase() || 'tr'
+  const ptItems = opts?.holidayPropertyTypeItems
+
   if (holidayHomeRulePriceRangeEnabled() && isHoliday) {
     const rMin = parsePubListingRuleNightly(item.price_rules_nightly_min)
     const rMax = parsePubListingRuleNightly(item.price_rules_nightly_max)
@@ -195,7 +210,7 @@ export function mapPublicListingItemToListingBase(item: PublicListingItem): TLis
 
   const typeLine =
     isHoliday && item.property_type?.trim()
-      ? item.property_type.trim()
+      ? displayHolidayPropertyTypeLine(item.property_type, ptItems, loc)
       : isHoliday
         ? categoryLabelTr('holiday_home')
         : categoryLabelTr(cat || 'hotel')
@@ -399,25 +414,35 @@ export async function fetchFlexibleHolidayListings(
     region && region !== 'all' ? region.replace(/-/g, ' ') : undefined
   const apiLocation = query.location?.trim() || regionAsLocation || undefined
 
-  const apiResult = await searchPublicListings(
-    {
-      categoryCode: 'holiday_home',
-      location: apiLocation,
-      checkin: relaxed.checkin,
-      checkout: relaxed.checkout,
-      guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
-      page: 1,
-      perPage: 36,
-      locale: locale || 'tr',
-      from: relaxed.from,
-      to: relaxed.to,
-      drop_off: relaxed.drop_off,
-    },
-    { cache: 'no-store' },
-  )
+  const [apiResult, ptItems] = await Promise.all([
+    searchPublicListings(
+      {
+        categoryCode: 'holiday_home',
+        location: apiLocation,
+        checkin: relaxed.checkin,
+        checkout: relaxed.checkout,
+        guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
+        page: 1,
+        perPage: 36,
+        locale: locale || 'tr',
+        from: relaxed.from,
+        to: relaxed.to,
+        drop_off: relaxed.drop_off,
+      },
+      { cache: 'no-store' },
+    ),
+    fetchPublicHolidayHomePropertyTypes({ cache: 'no-store' }).catch(
+      (): HolidayHomePropertyTypeItem[] => [],
+    ),
+  ])
+
+  const mapOpts: MapPublicListingItemOpts = {
+    locale: locale || 'tr',
+    holidayPropertyTypeItems: ptItems.length > 0 ? ptItems : undefined,
+  }
 
   if (apiResult) {
-    let rows = apiResult.listings.map(mapPublicListingItemToListingBase)
+    let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     rows = applyHolidayListingQueryFilters(rows, relaxed)
     return rows.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
   }
@@ -464,7 +489,17 @@ export async function fetchCategoryListings(
   )
 
   if (apiResult) {
-    let rows = apiResult.listings.map(mapPublicListingItemToListingBase)
+    let ptItems: HolidayHomePropertyTypeItem[] | undefined
+    if (categoryCode === 'holiday_home') {
+      ptItems = await fetchPublicHolidayHomePropertyTypes({ cache: 'no-store' }).catch(
+        (): HolidayHomePropertyTypeItem[] => [],
+      )
+    }
+    const mapOpts: MapPublicListingItemOpts = {
+      locale: locale || 'tr',
+      holidayPropertyTypeItems: ptItems?.length ? ptItems : undefined,
+    }
+    let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     if (categoryCode === 'holiday_home') {
       rows = applyHolidayListingQueryFilters(rows, query)
     }
