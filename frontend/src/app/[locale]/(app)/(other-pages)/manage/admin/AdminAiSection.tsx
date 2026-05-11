@@ -27,6 +27,7 @@ import {
   saveDistrictCover,
   saveDistrictPlaces,
   searchPexelsImage,
+  upsertSiteSetting,
   type AgentOverview,
   type AgentRecommendation,
   type CoverStats,
@@ -132,10 +133,9 @@ export default function AdminAiSection() {
   const [mapsRunning, setMapsRunning] = useState(false)
   const [mapsLog, setMapsLog] = useState<string[]>([])
   const [mapsErr, setMapsErr] = useState<string | null>(null)
-  const [mapsApiKey, setMapsApiKey] = useState<string>(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('admin_maps_api_key') ?? ''
-    return ''
-  })
+  const [mapsApiKey, setMapsApiKey] = useState<string>('')
+  const [mapsKeySaving, setMapsKeySaving] = useState(false)
+  const [mapsKeySaved, setMapsKeySaved] = useState(false)
   const mapsStopRef = useRef(false)
   /** Maps iş akışı: gezi fikirleri kaydından sonra region-places JSON (vitrin + mesafeler) */
   const [mapsAlsoWriteRegionPlaces, setMapsAlsoWriteRegionPlaces] = useState(true)
@@ -144,20 +144,106 @@ export default function AdminAiSection() {
   const [pexelsRunning, setPexelsRunning] = useState(false)
   const [pexelsLog, setPexelsLog] = useState<string[]>([])
   const [pexelsErr, setPexelsErr] = useState<string | null>(null)
-  const [pexelsApiKeys, setPexelsApiKeys] = useState<string[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem('admin_pexels_api_keys')
-        if (stored) return JSON.parse(stored) as string[]
-      } catch { /* ignore */ }
-    }
-    return ['', '', '', '', '']
-  })
+  const [pexelsApiKeys, setPexelsApiKeys] = useState<string[]>(['', '', '', '', ''])
+  const [pexelsKeysSaving, setPexelsKeysSaving] = useState(false)
+  const [pexelsKeysSaved, setPexelsKeysSaved] = useState(false)
   const pexelsStopRef = useRef(false)
   const pexelsKeyIndexRef = useRef(0)
   const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
   const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
   const [notFoundExpanded, setNotFoundExpanded] = useState(false)
+
+  // DB'de kalıcı tut: maps + pexels keyleri (site_settings, platform scope).
+  useEffect(() => {
+    const token = getStoredAuthToken()
+    if (!token) return
+
+    ;(async () => {
+      try {
+        const [mapsJsonRaw, pexelsJsonRaw] = await Promise.all([
+          listSiteSettings(token, { scope: 'platform', key: 'maps' })
+            .then((r) => r.settings?.[0]?.value_json ?? '')
+            .catch(() => ''),
+          listSiteSettings(token, { scope: 'platform', key: 'pexels' })
+            .then((r) => r.settings?.[0]?.value_json ?? '')
+            .catch(() => ''),
+        ])
+
+        if (mapsJsonRaw?.trim()) {
+          const mapsJson = parseLenientJson(mapsJsonRaw) as Record<string, unknown>
+          const k = typeof mapsJson.google_maps_api_key === 'string' ? mapsJson.google_maps_api_key.trim() : ''
+          if (k) setMapsApiKey(k)
+        }
+
+        if (pexelsJsonRaw?.trim()) {
+          const pj = parseLenientJson(pexelsJsonRaw) as Record<string, unknown>
+          const raw = pj.api_keys
+          if (Array.isArray(raw)) {
+            const keys = raw.filter((x): x is string => typeof x === 'string')
+            const padded = [...keys]
+            while (padded.length < 5) padded.push('')
+            setPexelsApiKeys(padded.slice(0, 10))
+          }
+        }
+      } catch {
+        // ignore
+      }
+    })()
+  }, [])
+
+  async function saveMapsKeyToDb() {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setMapsErr('Kaydetmek için yönetici oturumu gerekli.')
+      return
+    }
+    const key = mapsApiKey.trim()
+    if (!key) {
+      setMapsErr('Google Maps API anahtarı gerekli.')
+      return
+    }
+    setMapsKeySaving(true)
+    setMapsKeySaved(false)
+    setMapsErr(null)
+    try {
+      const existing = await listSiteSettings(token, { scope: 'platform', key: 'maps' }).catch(() => ({ settings: [] as any[] }))
+      const raw = existing.settings?.[0]?.value_json?.trim() ?? ''
+      const base = raw ? (parseLenientJson(raw) as Record<string, unknown>) : {}
+      const next = { ...base, google_maps_api_key: key }
+      await upsertSiteSetting(token, { key: 'maps', value_json: JSON.stringify(next) })
+      setMapsKeySaved(true)
+      setTimeout(() => setMapsKeySaved(false), 2500)
+    } catch (e) {
+      setMapsErr(formatManageApiCatch(e, 'Kayıt başarısız'))
+    } finally {
+      setMapsKeySaving(false)
+    }
+  }
+
+  async function savePexelsKeysToDb() {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setPexelsErr('Kaydetmek için yönetici oturumu gerekli.')
+      return
+    }
+    const keys = pexelsApiKeys.map((k) => k.trim()).filter(Boolean)
+    if (!keys.length) {
+      setPexelsErr('En az bir Pexels API anahtarı gerekli.')
+      return
+    }
+    setPexelsKeysSaving(true)
+    setPexelsKeysSaved(false)
+    setPexelsErr(null)
+    try {
+      await upsertSiteSetting(token, { key: 'pexels', value_json: JSON.stringify({ api_keys: keys }) })
+      setPexelsKeysSaved(true)
+      setTimeout(() => setPexelsKeysSaved(false), 2500)
+    } catch (e) {
+      setPexelsErr(formatManageApiCatch(e, 'Kayıt başarısız'))
+    } finally {
+      setPexelsKeysSaving(false)
+    }
+  }
 
   /** Ayarlar → Genel → Yapay zeka (`site_settings.ai`) — her işte taze okunur; fetch süresi buradan. */
   const fetchAiSettingsSnapshot = useCallback(async (): Promise<Record<string, unknown> | null> => {
@@ -1588,12 +1674,20 @@ export default function AdminAiSection() {
             <input
               type="password"
               value={mapsApiKey}
-              onChange={(e) => { setMapsApiKey(e.target.value); localStorage.setItem('admin_maps_api_key', e.target.value) }}
+              onChange={(e) => setMapsApiKey(e.target.value)}
               placeholder="AIzaSy..."
               className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-              disabled={mapsRunning}
+              disabled={mapsRunning || mapsKeySaving}
             />
           </div>
+          <button
+            type="button"
+            onClick={() => void saveMapsKeyToDb()}
+            disabled={mapsRunning || mapsKeySaving}
+            className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            {mapsKeySaving ? 'Kaydediliyor…' : mapsKeySaved ? 'Kaydedildi' : 'Kaydet'}
+          </button>
         </div>
 
         <label className="mb-4 flex cursor-pointer items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
@@ -1685,16 +1779,26 @@ export default function AdminAiSection() {
               <input
                 type="password"
                 value={k}
-                onChange={(e) => setPexelsApiKeys((prev) => { const next = prev.map((v, j) => j === i ? e.target.value : v); localStorage.setItem('admin_pexels_api_keys', JSON.stringify(next)); return next })}
+                onChange={(e) =>
+                  setPexelsApiKeys((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))
+                }
                 placeholder={`Pexels API key ${i + 1}...`}
                 className="flex-1 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-pink-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-                disabled={pexelsRunning}
+                disabled={pexelsRunning || pexelsKeysSaving}
               />
             </div>
           ))}
         </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void savePexelsKeysToDb()}
+            disabled={pexelsRunning || pexelsKeysSaving}
+            className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+          >
+            {pexelsKeysSaving ? 'Kaydediliyor…' : pexelsKeysSaved ? 'Kaydedildi' : 'Keyleri Kaydet'}
+          </button>
           {!pexelsRunning ? (
             <>
               <button

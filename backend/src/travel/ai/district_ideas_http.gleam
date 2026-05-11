@@ -664,11 +664,16 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
           left join regions   r  on r.id  = d.region_id
           left join countries co on co.id = r.country_id
           where  lp.region_type in ('district', 'destination')
-            and  coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
             and  (
-                   (lp.region_type = 'district' and d.center_lat is not null and d.center_lng is not null)
-                   or
-                   (lp.region_type = 'destination' and coalesce(lp.map_lat, d.center_lat) is not null and coalesce(lp.map_lng, d.center_lng) is not null)
+                   coalesce(jsonb_array_length(lp.travel_ideas_json), 0) = 0
+                   or not exists (
+                     select 1
+                     from jsonb_array_elements(coalesce(lp.travel_ideas_json, '[]'::jsonb)) elem
+                     where elem ? 'lat'
+                       and elem ? 'lng'
+                       and nullif(elem->>'lat','') is not null
+                       and nullif(elem->>'lng','') is not null
+                   )
                  )
           order  by case lp.region_type when 'district' then 1 when 'destination' then 2 else 3 end,
                     r.name,

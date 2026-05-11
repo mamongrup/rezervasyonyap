@@ -247,11 +247,14 @@ export default function BlogManageClient() {
   const loadPosts = useCallback(() => {
     if (!token) return
     setLoadingPosts(true)
-    listBlogPosts({ token, published_only: false })
+    const published_only =
+      filterStatus === 'published' ? true : filterStatus === 'draft' ? false : undefined
+    const category_id = filterCat ? filterCat : undefined
+    listBlogPosts({ token, published_only, category_id })
       .then((r) => setPosts(r.posts))
-      .catch(() => {})
+      .catch((e) => setError(formatManageApiCatch(e, 'Yüklenemedi')))
       .finally(() => setLoadingPosts(false))
-  }, [token])
+  }, [token, filterStatus, filterCat])
 
   useEffect(() => {
     loadCategories()

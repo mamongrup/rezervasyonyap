@@ -759,6 +759,12 @@ pub fn queue_place_blogs(req: Request, ctx: Context) -> Response {
           case lp.region_type when 'country' then 0 when 'province' then 1 when 'destination' then 2 else 3 end,
           lp.slug_path
         limit 2000
+        on conflict (location_page_id) do update set
+          posts_to_create = excluded.posts_to_create,
+          status = 'pending',
+          error = null,
+          updated_at = now()
+        where ai_place_blog_batches.status = 'failed'
         returning id::text
         "
       case
