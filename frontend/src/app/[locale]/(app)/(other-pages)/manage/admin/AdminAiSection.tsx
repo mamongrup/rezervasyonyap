@@ -114,6 +114,8 @@ export default function AdminAiSection() {
   const districtStopRef = useRef(false)
   /** DeepSeek kuyruğu: tek öğeli Maps yer tutucularını da hedefle (?include_weak=1) */
   const [districtQueueIncludeWeak, setDistrictQueueIncludeWeak] = useState(false)
+  /** Kaç ilçe işlenince duracak (0 = sınırsız) */
+  const [districtBatchCount, setDistrictBatchCount] = useState(20)
 
   // Bölge tanıtım yazısı + bölge blog yazıları
   const [regionContentStats, setRegionContentStats] = useState<RegionContentStats | null>(null)
@@ -139,6 +141,12 @@ export default function AdminAiSection() {
   const mapsStopRef = useRef(false)
   /** Maps iş akışı: gezi fikirleri kaydından sonra region-places JSON (vitrin + mesafeler) */
   const [mapsAlsoWriteRegionPlaces, setMapsAlsoWriteRegionPlaces] = useState(true)
+  /** Kaç ilçe Maps'ta işlenince duracak */
+  const [mapsBatchCount, setMapsBatchCount] = useState(20)
+  /** Kaç bölge içerik işlenince duracak */
+  const [regionBatchCount, setRegionBatchCount] = useState(10)
+  /** Kaç mekan blog'u işlenince duracak */
+  const [placesBatchCount, setPlacesBatchCount] = useState(10)
 
   // Pexels kapak + fikir resimleri
   const [pexelsRunning, setPexelsRunning] = useState(false)
@@ -191,15 +199,15 @@ export default function AdminAiSection() {
     })()
   }, [])
 
-  async function saveMapsKeyToDb() {
+  async function saveMapsKeyToDb(silent = false) {
     const token = getStoredAuthToken()
     if (!token) {
-      setMapsErr('Kaydetmek için yönetici oturumu gerekli.')
+      if (!silent) setMapsErr('Kaydetmek için yönetici oturumu gerekli.')
       return
     }
     const key = mapsApiKey.trim()
     if (!key) {
-      setMapsErr('Google Maps API anahtarı gerekli.')
+      if (!silent) setMapsErr('Google Maps API anahtarı gerekli.')
       return
     }
     setMapsKeySaving(true)
@@ -489,42 +497,50 @@ export default function AdminAiSection() {
     await Promise.all(workers)
   }
 
-  async function onStartRegionContentProcessing(opts: { untilDone: boolean }) {
+  async function onStartRegionContentProcessing(opts: { untilDone: boolean; maxItems?: number }) {
     const token = getStoredAuthToken()
     if (!token) return
     regionContentStopRef.current = false
     setRegionContentRunning(true)
     setRegionContentErr(null)
     let processed = 0
+    const limit = opts.maxItems ?? (opts.untilDone ? 0 : contentWorkerCount)
     appendOpsLog(
-      `Bölge içerik işçileri başladı (${opts.untilDone ? 'kuyruk bitene kadar' : 'tek dalga'}, ${contentWorkerCount} paralel).`,
+      `Bölge içerik işçileri başladı (${limit === 0 ? 'kuyruk bitene kadar' : `${limit} bölge`}, ${contentWorkerCount} paralel).`,
     )
     try {
       await runParallelWorkers(
         contentWorkerCount,
-        { untilDone: opts.untilDone },
-        () => regionContentStopRef.current, async (workerIndex) => {
-        const snap = await fetchAiSettingsSnapshot()
-        const ms = Math.max(
-          timeoutMsForProfile(snap, 'region_tourism_content'),
-          timeoutMsForProfile(snap, 'region_blog_writer'),
-        )
-        const r = await processNextRegionContent(token, { upstreamTimeoutMs: ms })
-        if (r.done) {
-          setRegionContentLog((l) => [...l, 'Bölge içerik kuyruğu tamamlandı.'])
-          appendOpsLog(`Bölge içerik kuyruğu tamamlandı (worker ${workerIndex}).`)
-          return false
-        }
-        processed++
-        const label = r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)
-        setRegionContentLog((l) => [
-          ...l,
-          `#${processed} ✓ [w${workerIndex}] ${label} · blog: ${r.blog_posts_created ?? 0}`,
-        ])
-        appendOpsLog(`Bölge içerik: ${label} · blog ${r.blog_posts_created ?? 0}`)
-        if (processed % 5 === 0) await loadRegionContentStats()
-        return true
-      })
+        { untilDone: opts.untilDone || (opts.maxItems != null && opts.maxItems > contentWorkerCount) },
+        () => regionContentStopRef.current || (limit > 0 && processed >= limit),
+        async (workerIndex) => {
+          if (limit > 0 && processed >= limit) return false
+          const snap = await fetchAiSettingsSnapshot()
+          const ms = Math.max(
+            timeoutMsForProfile(snap, 'region_tourism_content'),
+            timeoutMsForProfile(snap, 'region_blog_writer'),
+          )
+          const r = await processNextRegionContent(token, { upstreamTimeoutMs: ms })
+          if (r.done) {
+            setRegionContentLog((l) => [...l, 'Bölge içerik kuyruğu tamamlandı.'])
+            appendOpsLog(`Bölge içerik kuyruğu tamamlandı (worker ${workerIndex}).`)
+            return false
+          }
+          processed++
+          const countLabel = limit > 0 ? `${processed}/${limit}` : `${processed}`
+          const label = r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)
+          setRegionContentLog((l) => [
+            ...l,
+            `#${countLabel} ✓ [w${workerIndex}] ${label} · blog: ${r.blog_posts_created ?? 0}`,
+          ])
+          appendOpsLog(`Bölge içerik: ${label} · blog ${r.blog_posts_created ?? 0}`)
+          if (processed % 5 === 0) await loadRegionContentStats()
+          return true
+        })
+      if (limit > 0 && processed >= limit) {
+        setRegionContentLog((l) => [...l, `${processed} bölge işlendi, durdu.`])
+        appendOpsLog(`${processed} bölge işlendi, limit doldu.`)
+      }
     } catch (e) {
       setRegionContentErr(formatManageApiCatch(e, 'region_content_process_failed'))
       appendOpsLog(`Bölge içerik hata: ${formatManageApiCatch(e, 'region_content_process_failed')}`)
@@ -555,39 +571,47 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartPlaceBlogsProcessing(opts: { untilDone: boolean }) {
+  async function onStartPlaceBlogsProcessing(opts: { untilDone: boolean; maxItems?: number }) {
     const token = getStoredAuthToken()
     if (!token) return
     placeBlogsStopRef.current = false
     setPlaceBlogsRunning(true)
     setPlaceBlogsErr(null)
     let processed = 0
+    const limit = opts.maxItems ?? (opts.untilDone ? 0 : contentWorkerCount)
     appendOpsLog(
-      `Favori mekan blog işçileri başladı (${opts.untilDone ? 'kuyruk bitene kadar' : 'tek dalga'}, ${contentWorkerCount} paralel).`,
+      `Favori mekan blog işçileri başladı (${limit === 0 ? 'kuyruk bitene kadar' : `${limit} blog`}, ${contentWorkerCount} paralel).`,
     )
     try {
       await runParallelWorkers(
         contentWorkerCount,
-        { untilDone: opts.untilDone },
-        () => placeBlogsStopRef.current, async (workerIndex) => {
-        const snap = await fetchAiSettingsSnapshot()
-        const ms = timeoutMsForProfile(snap, 'place_blog_writer')
-        const r = await processNextPlaceBlog(token, { upstreamTimeoutMs: ms })
-        if (r.done) {
-          setPlaceBlogsLog((l) => [...l, 'Favori mekan blog kuyruğu tamamlandı.'])
-          appendOpsLog(`Favori mekan blog kuyruğu tamamlandı (worker ${workerIndex}).`)
-          return false
-        }
-        processed++
-        const label = r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)
-        setPlaceBlogsLog((l) => [
-          ...l,
-          `#${processed} ✓ [w${workerIndex}] ${label} · blog: ${r.blog_posts_created ?? 0}`,
-        ])
-        appendOpsLog(`Favori mekan blog: ${label} · blog ${r.blog_posts_created ?? 0}`)
-        if (processed % 5 === 0) await loadRegionContentStats()
-        return true
-      })
+        { untilDone: opts.untilDone || (opts.maxItems != null && opts.maxItems > contentWorkerCount) },
+        () => placeBlogsStopRef.current || (limit > 0 && processed >= limit),
+        async (workerIndex) => {
+          if (limit > 0 && processed >= limit) return false
+          const snap = await fetchAiSettingsSnapshot()
+          const ms = timeoutMsForProfile(snap, 'place_blog_writer')
+          const r = await processNextPlaceBlog(token, { upstreamTimeoutMs: ms })
+          if (r.done) {
+            setPlaceBlogsLog((l) => [...l, 'Favori mekan blog kuyruğu tamamlandı.'])
+            appendOpsLog(`Favori mekan blog kuyruğu tamamlandı (worker ${workerIndex}).`)
+            return false
+          }
+          processed++
+          const countLabel = limit > 0 ? `${processed}/${limit}` : `${processed}`
+          const label = r.name ?? r.slug_path ?? r.location_page_id?.slice(0, 8)
+          setPlaceBlogsLog((l) => [
+            ...l,
+            `#${countLabel} ✓ [w${workerIndex}] ${label} · blog: ${r.blog_posts_created ?? 0}`,
+          ])
+          appendOpsLog(`Favori mekan blog: ${label} · blog ${r.blog_posts_created ?? 0}`)
+          if (processed % 5 === 0) await loadRegionContentStats()
+          return true
+        })
+      if (limit > 0 && processed >= limit) {
+        setPlaceBlogsLog((l) => [...l, `${processed} blog işlendi, durdu.`])
+        appendOpsLog(`${processed} favori mekan blog işlendi, limit doldu.`)
+      }
     } catch (e) {
       setPlaceBlogsErr(formatManageApiCatch(e, 'place_blogs_process_failed'))
       appendOpsLog(`Favori mekan blog hata: ${formatManageApiCatch(e, 'place_blogs_process_failed')}`)
@@ -631,18 +655,21 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartProcessing(opts: { untilDone: boolean }) {
+  async function onStartProcessing(opts: { untilDone: boolean; maxItems?: number }) {
     const token = getStoredAuthToken()
     if (!token) return
     districtStopRef.current = false
     setDistrictRunning(true)
     setDistrictErr(null)
     let processed = 0
+    const limit = opts.maxItems ?? (opts.untilDone ? 0 : 1)
     setDistrictLog((l) => [
       ...l,
-      opts.untilDone
-        ? 'Onaylı mod: kuyruk boşalana veya «Durdur»a basana kadar devam eder.'
-        : 'Tek adım: bir kuyruk işlemi denendikten sonra durur.',
+      limit === 1
+        ? 'Tek adım: bir kuyruk işlemi denendikten sonra durur.'
+        : limit > 1
+          ? `${limit} ilçe işlenince otomatik duracak.`
+          : 'Onaylı mod: kuyruk boşalana veya «Durdur»a basana kadar devam eder.',
     ])
     const processDistrictIteration = async (): Promise<boolean> => {
       const snap = await fetchAiSettingsSnapshot()
@@ -659,21 +686,20 @@ export default function AdminAiSection() {
       processed++
       setDistrictLog((l) => [
         ...l,
-        `#${processed} – ${r.ideas_stored ? '✓' : '⚠'} ${r.location_page_id?.slice(0, 8)}…`,
+        `#${processed}${limit > 0 ? `/${limit}` : ''} – ${r.ideas_stored ? '✓' : '⚠'} ${r.location_page_id?.slice(0, 8)}…`,
       ])
       if (processed % 10 === 0) await loadDistrictStats()
       await new Promise((res) => setTimeout(res, 800))
       return true
     }
     try {
-      if (!opts.untilDone) {
-        await processDistrictIteration()
-        setDistrictLog((l) => [...l, 'Tek adım bitti.'])
-      } else {
-        while (!districtStopRef.current) {
-          const more = await processDistrictIteration()
-          if (!more) break
+      while (!districtStopRef.current) {
+        if (limit > 0 && processed >= limit) {
+          setDistrictLog((l) => [...l, `${processed} ilçe işlendi, durdu.`])
+          break
         }
+        const more = await processDistrictIteration()
+        if (!more) break
       }
     } catch (e) {
       setDistrictErr(formatManageApiCatch(e, 'process_failed'))
@@ -683,7 +709,7 @@ export default function AdminAiSection() {
     }
   }
 
-  async function onStartMapsProcessing(opts: { untilDone: boolean }) {
+  async function onStartMapsProcessing(opts: { untilDone: boolean; maxItems?: number }) {
     const token = getStoredAuthToken()
     if (!token) return
     const key = mapsApiKey.trim()
@@ -695,11 +721,14 @@ export default function AdminAiSection() {
     setMapsRunning(true)
     setMapsErr(null)
     let processed = 0
+    const limit = opts.maxItems ?? (opts.untilDone ? 0 : 1)
     setMapsLog((l) => [
       ...l,
-      opts.untilDone
-        ? 'Onaylı mod: içeriksiz ilçe kalmayıncaya veya «Durdur»a basana kadar devam.'
-        : 'Tek adım: sıradaki bir ilçe için Places işlenir.',
+      limit === 1
+        ? 'Tek adım: sıradaki bir ilçe için Places işlenir.'
+        : limit > 1
+          ? `${limit} ilçe işlenince otomatik duracak.`
+          : 'Onaylı mod: içeriksiz ilçe kalmayıncaya veya «Durdur»a basana kadar devam.',
     ])
     const runMapsOnce = async (): Promise<boolean> => {
       const next = await getNextEmptyDistrict(token)
@@ -797,15 +826,17 @@ export default function AdminAiSection() {
       if (ideas.length > 0) {
         await saveDistrictPlaces(token, location_page_id, JSON.stringify(ideas))
         processed++
-        setMapsLog((l) => [...l, `#${processed} ✓ ${district_name} (${region_name}) — ${ideas.length} yer`])
+        const countLabel = limit > 0 ? `${processed}/${limit}` : `${processed}`
+        setMapsLog((l) => [...l, `#${countLabel} ✓ ${district_name} (${region_name}) — ${ideas.length} yer`])
       } else {
         await saveDistrictPlaces(
           token,
           location_page_id,
           JSON.stringify([{ id: 1, title: district_name, summary: `${region_name} iline bağlı ${district_name} ilçesi.`, lat, lng }]),
         )
-        setMapsLog((l) => [...l, `#${processed + 1} ~ ${district_name} — Maps sonucu yok, yer tutucu eklendi`])
         processed++
+        const countLabel = limit > 0 ? `${processed}/${limit}` : `${processed}`
+        setMapsLog((l) => [...l, `#${countLabel} ~ ${district_name} — Maps sonucu yok, yer tutucu eklendi`])
       }
 
       if (mapsAlsoWriteRegionPlaces && hasCoords && slug_path) {
@@ -840,14 +871,13 @@ export default function AdminAiSection() {
       return true
     }
     try {
-      if (!opts.untilDone) {
-        await runMapsOnce()
-        setMapsLog((l) => [...l, 'Tek adım bitti.'])
-      } else {
-        while (!mapsStopRef.current) {
-          const more = await runMapsOnce()
-          if (!more) break
+      while (!mapsStopRef.current) {
+        if (limit > 0 && processed >= limit) {
+          setMapsLog((l) => [...l, `${processed} ilçe işlendi, durdu.`])
+          break
         }
+        const more = await runMapsOnce()
+        if (!more) break
       }
     } catch (e) {
       setMapsErr(formatManageApiCatch(e, 'maps_process_failed'))
@@ -1347,6 +1377,11 @@ export default function AdminAiSection() {
             ))}
           </div>
         ) : null}
+        {districtStats && (districtStats.jobs['failed'] ?? 0) > 0 ? (
+          <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+            <strong>{districtStats.jobs['failed']} başarısız iş</strong> var. Bunları yeniden işlemek için: «Yer tutucuları da kuyruğa al» seçeneğini işaretleyip <strong>1. Kuyruğa Al</strong> → <strong>N ilçe işle</strong>.
+          </div>
+        ) : null}
 
         {districtErr ? (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -1367,7 +1402,7 @@ export default function AdminAiSection() {
           </span>
         </label>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <ButtonPrimary
             type="button"
             disabled={districtRunning}
@@ -1385,12 +1420,29 @@ export default function AdminAiSection() {
               >
                 2a. Tek adım
               </button>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={districtBatchCount}
+                  onChange={(e) => setDistrictBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 rounded-xl border border-neutral-200 bg-neutral-50 px-2 py-2 text-center text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => void onStartProcessing({ untilDone: true, maxItems: districtBatchCount })}
+                  className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-200"
+                >
+                  2b. {districtBatchCount} ilçe işle
+                </button>
+              </div>
               <ButtonPrimary
                 type="button"
                 onClick={() => void onStartProcessing({ untilDone: true })}
                 className="bg-emerald-700 hover:bg-emerald-800"
               >
-                2b. Bitene kadar sürdür
+                2c. Bitene kadar sürdür
               </ButtonPrimary>
             </>
           ) : (
@@ -1399,7 +1451,7 @@ export default function AdminAiSection() {
               onClick={() => { districtStopRef.current = true }}
               className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
             >
-              Durdur
+              ⏹ Durdur
             </button>
           )}
           <button
@@ -1412,7 +1464,7 @@ export default function AdminAiSection() {
           </button>
         </div>
         <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-          Tek adım: yalnızca bir kuyruk işlemi dener. Bitene kadar sürdür: kuyruk boşalana veya «Durdur»a basana dek otomatik devam eder (uzun sürebilir; maliyet ve kota için bilinçli seçim).
+          Tek adım: yalnızca bir kuyruk işlemi dener. N ilçe işle: belirlenen sayıya ulaşınca otomatik durur. Bitene kadar sürdür: kuyruk boşalana veya «Durdur»a basana dek çalışır.
         </p>
 
         {districtLog.length > 0 ? (
@@ -1485,6 +1537,16 @@ export default function AdminAiSection() {
           </div>
         ) : null}
 
+        {regionContentStats && ((regionContentStats.batches['failed'] ?? 0) > 0 || (regionContentStats.place_blog_batches['failed'] ?? 0) > 0) ? (
+          <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+            {(regionContentStats.batches['failed'] ?? 0) > 0 && (
+              <span><strong>{regionContentStats.batches['failed']} başarısız bölge işi</strong> — <strong>1. Bölge İçeriklerini Kuyruğa Al</strong> ile yeniden kuyruğa alın. </span>
+            )}
+            {(regionContentStats.place_blog_batches['failed'] ?? 0) > 0 && (
+              <span><strong>{regionContentStats.place_blog_batches['failed']} başarısız mekan blog işi</strong> — <strong>Mekan Bloglarını Kuyruğa Al</strong> ile yeniden kuyruğa alın.</span>
+            )}
+          </div>
+        ) : null}
         {regionContentErr || placeBlogsErr ? (
           <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
             {regionContentErr ?? placeBlogsErr}
@@ -1541,12 +1603,31 @@ export default function AdminAiSection() {
               >
                 2a. Tek dalga
               </button>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={regionBatchCount}
+                  disabled={placeBlogsRunning}
+                  onChange={(e) => setRegionBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 rounded-xl border border-neutral-200 bg-neutral-50 px-2 py-2 text-center text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-violet-500 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  disabled={placeBlogsRunning}
+                  onClick={() => void onStartRegionContentProcessing({ untilDone: true, maxItems: regionBatchCount })}
+                  className="rounded-xl border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 hover:bg-violet-100 disabled:opacity-50 dark:border-violet-700 dark:bg-violet-950/30 dark:text-violet-200"
+                >
+                  2b. {regionBatchCount} bölge işle
+                </button>
+              </div>
               <ButtonPrimary
                 type="button"
                 disabled={placeBlogsRunning}
                 onClick={() => void onStartRegionContentProcessing({ untilDone: true })}
               >
-                2b. Bitene kadar sürdür
+                2c. Bitene kadar sürdür
               </ButtonPrimary>
             </>
           ) : (
@@ -1555,7 +1636,7 @@ export default function AdminAiSection() {
               onClick={() => { regionContentStopRef.current = true }}
               className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
             >
-              Durdur
+              ⏹ Durdur
             </button>
           )}
           <ButtonPrimary
@@ -1576,6 +1657,25 @@ export default function AdminAiSection() {
               >
                 Tek dalga
               </button>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={placesBatchCount}
+                  disabled={regionContentRunning}
+                  onChange={(e) => setPlacesBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 rounded-xl border border-neutral-200 bg-neutral-50 px-2 py-2 text-center text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-pink-500 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  disabled={regionContentRunning}
+                  onClick={() => void onStartPlaceBlogsProcessing({ untilDone: true, maxItems: placesBatchCount })}
+                  className="rounded-xl border border-pink-300 bg-pink-50 px-4 py-2 text-sm font-medium text-pink-800 hover:bg-pink-100 disabled:opacity-50 dark:border-pink-700 dark:bg-pink-950/30 dark:text-pink-200"
+                >
+                  {placesBatchCount} blog işle
+                </button>
+              </div>
               <ButtonPrimary
                 type="button"
                 disabled={regionContentRunning}
@@ -1590,7 +1690,7 @@ export default function AdminAiSection() {
               onClick={() => { placeBlogsStopRef.current = true }}
               className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
             >
-              Mekan Bloglarını Durdur
+              ⏹ Mekan Bloglarını Durdur
             </button>
           )}
           <button
@@ -1603,7 +1703,7 @@ export default function AdminAiSection() {
           </button>
         </div>
         <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
-          Paralel işçi sayısına göre «Tek dalga»: her işçi bir kez iş alır; «Bitene kadar sürdür»: kuyruk boşalana dek döner.
+          Paralel işçi sayısına göre «Tek dalga»: her işçi bir kez iş alır; «N bölge/blog işle»: belirlenen sayıya ulaşınca durur; «Bitene kadar sürdür»: kuyruk boşalana dek döner.
         </p>
 
         {opsLog.length > 0 ? (
@@ -1674,7 +1774,8 @@ export default function AdminAiSection() {
             <input
               type="password"
               value={mapsApiKey}
-              onChange={(e) => setMapsApiKey(e.target.value)}
+              onChange={(e) => { setMapsApiKey(e.target.value); setMapsKeySaved(false) }}
+              onBlur={() => { if (mapsApiKey.trim()) void saveMapsKeyToDb(true) }}
               placeholder="AIzaSy..."
               className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
               disabled={mapsRunning || mapsKeySaving}
@@ -1686,7 +1787,7 @@ export default function AdminAiSection() {
             disabled={mapsRunning || mapsKeySaving}
             className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
           >
-            {mapsKeySaving ? 'Kaydediliyor…' : mapsKeySaved ? 'Kaydedildi' : 'Kaydet'}
+            {mapsKeySaving ? 'Kaydediliyor…' : mapsKeySaved ? '✓ Kaydedildi' : 'Kaydet'}
           </button>
         </div>
 
@@ -1705,7 +1806,7 @@ export default function AdminAiSection() {
           </span>
         </label>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {!mapsRunning ? (
             <>
               <button
@@ -1715,6 +1816,23 @@ export default function AdminAiSection() {
               >
                 Tek ilçe
               </button>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={500}
+                  value={mapsBatchCount}
+                  onChange={(e) => setMapsBatchCount(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 rounded-xl border border-neutral-200 bg-neutral-50 px-2 py-2 text-center text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+                <button
+                  type="button"
+                  onClick={() => void onStartMapsProcessing({ untilDone: true, maxItems: mapsBatchCount })}
+                  className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-800 hover:bg-blue-100 dark:border-blue-700 dark:bg-blue-950/30 dark:text-blue-200"
+                >
+                  {mapsBatchCount} ilçe işle
+                </button>
+              </div>
               <ButtonPrimary
                 type="button"
                 onClick={() => void onStartMapsProcessing({ untilDone: true })}
@@ -1729,7 +1847,7 @@ export default function AdminAiSection() {
               onClick={() => { mapsStopRef.current = true }}
               className="rounded-xl border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300"
             >
-              Durdur
+              ⏹ Durdur
             </button>
           )}
           {mapsRunning ? (
@@ -1740,7 +1858,7 @@ export default function AdminAiSection() {
           ) : null}
         </div>
         <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-          Tek ilçe: sıradaki kaydı bir kez işler. Bitene kadar sürdür: içeriksiz ilçe kalmayıncaya veya «Durdur»a basana dek Google kota kullanımına devam eder.
+          Tek ilçe: sıradaki kaydı bir kez işler. N ilçe işle: belirlenen sayıya ulaşınca otomatik durur (Google kota koruması). Bitene kadar sürdür: içeriksiz ilçe kalmayıncaya dek devam eder.
         </p>
 
         {mapsLog.length > 0 ? (
