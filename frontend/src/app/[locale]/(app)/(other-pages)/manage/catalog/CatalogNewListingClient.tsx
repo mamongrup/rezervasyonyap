@@ -2394,121 +2394,198 @@ export default function CatalogNewListingClient({
         </Field>
       </Grid2>
       {editListingId ? (
-        <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-900/60">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
-              Çevredeki mekanlar ve mesafeler
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => void refreshNearbyPoisFromServer()}
-                disabled={nearbyPoisBusy || !lat.trim() || !lng.trim()}
-                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-              >
-                {nearbyPoisBusy ? 'Hesaplanıyor…' : 'Gezilecek yerleri güncelle'}
-              </button>
-              {/* Servis mekan koordinatları ilçe bazlı yönetilir (Admin → Servis Mekan Koordinatları batch) */}
+        <div className="mt-4 overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60">
+          {/* Başlık */}
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-100 px-4 py-3 dark:border-neutral-800">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                  <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.757.433.57.57 0 00.281.14l.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clipRule="evenodd" />
+                </svg>
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Yakındaki Gezilecek Yerler</p>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400">Önyüzde ilan sayfasında gösterilir · sürükleyerek sıralayın</p>
+              </div>
             </div>
+            <button
+              type="button"
+              onClick={() => void refreshNearbyPoisFromServer()}
+              disabled={nearbyPoisBusy || !lat.trim() || !lng.trim()}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-300 dark:hover:bg-neutral-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className={`h-3.5 w-3.5 ${nearbyPoisBusy ? 'animate-spin' : ''}`}>
+                <path fillRule="evenodd" d="M13.836 2.477a.75.75 0 0 1 .75.75v3.182a.75.75 0 0 1-.75.75h-3.182a.75.75 0 0 1 0-1.5h1.37l-.84-.841a4.5 4.5 0 0 0-7.08.932.75.75 0 0 1-1.3-.75 6 6 0 0 1 9.44-1.242l.842.84V3.227a.75.75 0 0 1 .75-.75Zm-.911 7.5A.75.75 0 0 1 13.199 11a6 6 0 0 1-9.44 1.241l-.84-.84v1.371a.75.75 0 0 1-1.5 0V9.591a.75.75 0 0 1 .75-.75H5.35a.75.75 0 0 1 0 1.5H3.98l.841.841a4.5 4.5 0 0 0 7.08-.932.75.75 0 0 1 1.025-.273Z" clipRule="evenodd" />
+              </svg>
+              {nearbyPoisBusy ? 'Güncelleniyor…' : 'Otomatik Güncelle'}
+            </button>
           </div>
+
+          {/* Uyarılar */}
           {!lat.trim() || !lng.trim() ? (
-            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-              Mesafe hesaplamak için enlem/boylam girin.
-            </p>
+            <div className="mx-4 mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-950/20 dark:text-amber-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 shrink-0">
+                <path fillRule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
+              </svg>
+              Mekan hesaplamak için enlem ve boylam koordinatları girilmeli.
+            </div>
           ) : null}
           {nearbyPoisLoading ? (
-            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">Yükleniyor…</p>
+            <div className="mx-4 mt-3 flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5 animate-spin">
+                <path fillRule="evenodd" d="M13.836 2.477a.75.75 0 0 1 .75.75v3.182a.75.75 0 0 1-.75.75h-3.182a.75.75 0 0 1 0-1.5h1.37l-.84-.841a4.5 4.5 0 0 0-7.08.932.75.75 0 0 1-1.3-.75 6 6 0 0 1 9.44-1.242l.842.84V3.227a.75.75 0 0 1 .75-.75Zm-.911 7.5A.75.75 0 0 1 13.199 11a6 6 0 0 1-9.44 1.241l-.84-.84v1.371a.75.75 0 0 1-1.5 0V9.591a.75.75 0 0 1 .75-.75H5.35a.75.75 0 0 1 0 1.5H3.98l.841.841a4.5 4.5 0 0 0 7.08-.932.75.75 0 0 1 1.025-.273Z" clipRule="evenodd" />
+              </svg>
+              Mekanlar yükleniyor…
+            </div>
           ) : null}
 
-          {/* Mevcut POI listesi — sil + sırala */}
+          {/* POI listesi */}
           {nearbyPois.length > 0 ? (
-            <div className="mt-3 space-y-1.5">
+            <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
               {nearbyPois.map((poi, i) => (
                 <div
                   key={poi.place_id ?? i}
-                  className="flex items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 px-3 py-2 dark:border-neutral-800 dark:bg-neutral-900/50"
+                  className="group flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40"
                 >
+                  {/* Numara */}
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-[10px] font-semibold text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                    {i + 1}
+                  </span>
+                  {/* Görsel */}
                   {poi.image ? (
-                    <img src={poi.image} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                    <img src={poi.image} alt="" className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm" />
                   ) : (
-                    <div className="h-8 w-8 shrink-0 rounded-lg bg-neutral-200 dark:bg-neutral-800" />
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4 text-neutral-400">
+                        <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.757.433.57.57 0 00.281.14l.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clipRule="evenodd" />
+                      </svg>
+                    </div>
                   )}
-                  <p className="min-w-0 flex-1 truncate text-xs font-medium text-neutral-800 dark:text-neutral-200">
-                    {poi.title}
-                  </p>
-                  <div className="flex shrink-0 items-center gap-1">
+                  {/* Başlık + özet */}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{poi.title}</p>
+                    {poi.summary ? (
+                      <p className="mt-0.5 truncate text-xs text-neutral-500 dark:text-neutral-400">{poi.summary}</p>
+                    ) : null}
+                  </div>
+                  {/* Aksiyon butonları — hover'da göster */}
+                  <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       type="button"
                       onClick={() => movePoiUp(i)}
                       disabled={i === 0}
                       title="Yukarı taşı"
-                      className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 disabled:opacity-30 dark:hover:bg-neutral-700"
-                    >▲</button>
+                      className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-25 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                        <path fillRule="evenodd" d="M8 14a.75.75 0 0 1-.75-.75V4.56L4.03 7.78a.75.75 0 0 1-1.06-1.06l4.5-4.5a.75.75 0 0 1 1.06 0l4.5 4.5a.75.75 0 0 1-1.06 1.06L8.75 4.56v8.69A.75.75 0 0 1 8 14Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                     <button
                       type="button"
                       onClick={() => movePoiDown(i)}
                       disabled={i === nearbyPois.length - 1}
                       title="Aşağı taşı"
-                      className="rounded p-0.5 text-neutral-400 hover:bg-neutral-200 disabled:opacity-30 dark:hover:bg-neutral-700"
-                    >▼</button>
+                      className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 disabled:cursor-not-allowed disabled:opacity-25 dark:hover:bg-neutral-700 dark:hover:text-neutral-200"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                        <path fillRule="evenodd" d="M8 2a.75.75 0 0 1 .75.75v8.69l3.22-3.22a.75.75 0 1 1 1.06 1.06l-4.5 4.5a.75.75 0 0 1-1.06 0l-4.5-4.5a.75.75 0 0 1 1.06-1.06L7.25 11.44V2.75A.75.75 0 0 1 8 2Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <div className="mx-1 h-4 w-px bg-neutral-200 dark:bg-neutral-700" />
                     <button
                       type="button"
                       onClick={() => deletePoi(i)}
                       title="Sil"
-                      className="rounded p-0.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                    >✕</button>
+                      className="rounded-lg p-1.5 text-neutral-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/30 dark:hover:text-red-400"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                        <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clipRule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
           ) : !nearbyPoisLoading && lat.trim() && lng.trim() ? (
-            <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-              Henüz mekan yok. &quot;Gezilecek yerleri güncelle&quot; butonunu kullanın ya da manuel ekleyin.
-            </p>
+            <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-neutral-400">
+                  <path fillRule="evenodd" d="M9.69 18.933l.003.001C9.89 19.02 10 19 10 19s.11.02.308-.066l.002-.001.006-.003.018-.008a5.741 5.741 0 00.281-.14c.186-.096.446-.24.757-.433.62-.384 1.445-.966 2.274-1.765C15.302 14.988 17 12.493 17 9A7 7 0 103 9c0 3.492 1.698 5.988 3.355 7.584a13.731 13.731 0 002.273 1.765 11.842 11.842 0 00.757.433.57.57 0 00.281.14l.018.008.006.003zM10 11.25a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">Henüz mekan yok</p>
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                &ldquo;Otomatik Güncelle&rdquo; ile Google Places&apos;ten çekin veya aşağıdan manuel ekleyin.
+              </p>
+            </div>
           ) : null}
 
           {/* Manuel mekan ekleme */}
-          <details className="mt-3 group">
-            <summary className="cursor-pointer text-xs font-medium text-primary-600 hover:underline dark:text-primary-400 select-none">
-              + Manuel Mekan Ekle
+          <details className="group border-t border-neutral-100 dark:border-neutral-800">
+            <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-xs font-medium text-primary-600 transition hover:bg-primary-50/50 dark:text-primary-400 dark:hover:bg-primary-950/20">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
+              </svg>
+              Manuel Mekan Ekle
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="ml-auto h-3.5 w-3.5 rotate-0 transition-transform group-open:rotate-180">
+                <path fillRule="evenodd" d="M4.22 6.22a.75.75 0 0 1 1.06 0L8 8.94l2.72-2.72a.75.75 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 7.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+              </svg>
             </summary>
-            <div className="mt-2 space-y-2 rounded-xl border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
-              <input
-                type="text"
-                value={newPoiName}
-                onChange={(e) => setNewPoiName(e.target.value)}
-                placeholder="Mekan adı (zorunlu)"
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-              />
-              <input
-                type="text"
-                value={newPoiNote}
-                onChange={(e) => setNewPoiNote(e.target.value)}
-                placeholder="Kısa açıklama (isteğe bağlı)"
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-              />
-              <input
-                type="text"
-                value={newPoiLink}
-                onChange={(e) => setNewPoiLink(e.target.value)}
-                placeholder="Google Maps linki (isteğe bağlı)"
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-              />
-              <input
-                type="text"
-                value={newPoiImage}
-                onChange={(e) => setNewPoiImage(e.target.value)}
-                placeholder="Görsel URL (isteğe bağlı)"
-                className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-              />
-              <button
-                type="button"
-                onClick={addManualPoi}
-                disabled={!newPoiName.trim()}
-                className="rounded-lg bg-primary-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-              >
-                Ekle
-              </button>
+            <div className="grid gap-2.5 px-4 pb-4 pt-3 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Mekan adı <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={newPoiName}
+                  onChange={(e) => setNewPoiName(e.target.value)}
+                  placeholder="ör. Kayaköy Antik Kenti"
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Kısa açıklama</label>
+                <input
+                  type="text"
+                  value={newPoiNote}
+                  onChange={(e) => setNewPoiNote(e.target.value)}
+                  placeholder="ör. Tarihi Rum köyü, 3 km"
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Google Maps linki</label>
+                <input
+                  type="text"
+                  value={newPoiLink}
+                  onChange={(e) => setNewPoiLink(e.target.value)}
+                  placeholder="https://maps.google.com/…"
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Görsel URL</label>
+                <input
+                  type="text"
+                  value={newPoiImage}
+                  onChange={(e) => setNewPoiImage(e.target.value)}
+                  placeholder="https://…/resim.jpg"
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-900 placeholder:text-neutral-400 focus:border-primary-400 focus:outline-none focus:ring-1 focus:ring-primary-400 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
+                />
+              </div>
+              <div className="flex items-end sm:col-span-2">
+                <button
+                  type="button"
+                  onClick={addManualPoi}
+                  disabled={!newPoiName.trim()}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-3.5 w-3.5">
+                    <path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" />
+                  </svg>
+                  Listeye Ekle
+                </button>
+              </div>
             </div>
           </details>
         </div>
