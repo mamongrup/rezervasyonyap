@@ -250,7 +250,7 @@ export default function BlogManageClient() {
     const published_only =
       filterStatus === 'published' ? true : filterStatus === 'draft' ? false : undefined
     const category_id = filterCat ? filterCat : undefined
-    listBlogPosts({ token, published_only, category_id })
+    listBlogPosts({ token, published_only, category_id, limit: 500 })
       .then((r) => setPosts(r.posts))
       .catch((e) => setError(formatManageApiCatch(e, 'Yüklenemedi')))
       .finally(() => setLoadingPosts(false))
