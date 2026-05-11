@@ -1063,3 +1063,37 @@ pub fn reset_not_found(req: Request, ctx: Context) -> Response {
     }
   }
 }
+
+/// POST /api/v1/ai/district-ideas/reset-stuck — `admin.users.read`
+///
+/// `ai_jobs` tablosunda district_travel_ideas profiline ait takılı
+/// (status = 'running') işleri 'failed' olarak işaretler.
+/// Ardından 1. Kuyruğa Al → işlemi yeniden başlatabilirsiniz.
+pub fn reset_stuck_jobs(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      case
+        pog.query(
+          "update ai_jobs
+           set    status = 'failed', error = 'reset_stuck'
+           where  status = 'running'
+             and  profile_code in ('district_travel_ideas')
+           returning id",
+        )
+        |> pog.returning(row_dec.col0_string())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "reset_stuck_failed")
+        Ok(ret) ->
+          wisp.json_response(
+            json.to_string(json.object([
+              #("reset_count", json.int(list.length(ret.rows))),
+            ])),
+            200,
+          )
+      }
+    }
+  }
+}

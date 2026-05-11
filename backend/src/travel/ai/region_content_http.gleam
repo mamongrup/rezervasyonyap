@@ -1076,3 +1076,43 @@ fn upsert_place_blog_post(ctx: Context, category_id: String, lp_id: String, slug
       }
   }
 }
+
+/// POST /api/v1/ai/region-content/reset-stuck — `admin.users.read`
+///
+/// Takılı kalan (status = 'running') toplu iş kayıtlarını 'pending' olarak
+/// sıfırlar. Sunucu yeniden başlatıldığında veya zaman aşımı sonrası kullanın.
+pub fn reset_stuck(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> {
+      let geo_reset =
+        pog.query(
+          "update ai_geo_blog_batches set status = 'pending' where status = 'running' returning id",
+        )
+        |> pog.returning(row_dec.col0_string())
+        |> pog.execute(ctx.db)
+      let place_reset =
+        pog.query(
+          "update ai_place_blog_batches set status = 'pending' where status = 'running' returning id",
+        )
+        |> pog.returning(row_dec.col0_string())
+        |> pog.execute(ctx.db)
+      let geo_count = case geo_reset {
+        Ok(r) -> list.length(r.rows)
+        Error(_) -> 0
+      }
+      let place_count = case place_reset {
+        Ok(r) -> list.length(r.rows)
+        Error(_) -> 0
+      }
+      let body =
+        json.object([
+          #("geo_reset", json.int(geo_count)),
+          #("place_reset", json.int(place_count)),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}

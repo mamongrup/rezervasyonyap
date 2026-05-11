@@ -22,6 +22,8 @@ import {
   queueAllPlaceBlogs,
   queueAllRegionContent,
   resetNotFoundCovers,
+  resetStuckDistrictJobs,
+  resetStuckBatchJobs,
   runDueAgentSupervisor,
   runAgentSupervisor,
   saveDistrictCover,
@@ -147,6 +149,8 @@ export default function AdminAiSection() {
   const [regionBatchCount, setRegionBatchCount] = useState(10)
   /** Kaç mekan blog'u işlenince duracak */
   const [placesBatchCount, setPlacesBatchCount] = useState(10)
+  /** Takılı iş sıfırlama durumu */
+  const [resetBusy, setResetBusy] = useState(false)
 
   // Pexels kapak + fikir resimleri
   const [pexelsRunning, setPexelsRunning] = useState(false)
@@ -297,6 +301,19 @@ export default function AdminAiSection() {
     void loadRegionContentStats()
   }, [refresh])
 
+  // İstatistik otomatik yenileme — çalışan iş varsa 30 sn'de bir güncelle
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const hasRunningDistrict = (districtStats?.jobs['running'] ?? 0) > 0
+      const hasRunningBatch =
+        (regionContentStats?.batches['running'] ?? 0) > 0 ||
+        (regionContentStats?.place_blog_batches['running'] ?? 0) > 0
+      if (hasRunningDistrict || districtRunning) void loadDistrictStats()
+      if (hasRunningBatch || regionContentRunning || placeBlogsRunning) void loadRegionContentStats()
+    }, 30_000)
+    return () => clearInterval(timer)
+  }, [districtStats, regionContentStats, districtRunning, regionContentRunning, placeBlogsRunning])
+
   async function loadAgentCenter() {
     const token = getStoredAuthToken()
     if (!token) return
@@ -442,6 +459,30 @@ export default function AdminAiSection() {
     } catch (e) {
       setRegionContentStats(null)
       setRegionContentErr(formatManageApiCatch(e, 'region_content_stats_failed'))
+    }
+  }
+
+  async function onResetStuck() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setResetBusy(true)
+    try {
+      const [d, b] = await Promise.all([
+        resetStuckDistrictJobs(token),
+        resetStuckBatchJobs(token),
+      ])
+      const total = d.reset_count + b.geo_reset + b.place_reset
+      const msg =
+        total === 0
+          ? 'Takılı iş yok, sıfırlanacak bir şey bulunamadı.'
+          : `Sıfırlandı: ${d.reset_count} ilçe işi, ${b.geo_reset} bölge batch, ${b.place_reset} mekan batch.`
+      setDistrictLog((l) => [...l, `♻ ${msg}`])
+      appendOpsLog(`♻ ${msg}`)
+      await Promise.all([loadDistrictStats(), loadRegionContentStats()])
+    } catch (e) {
+      setDistrictErr(formatManageApiCatch(e, 'reset_stuck_failed'))
+    } finally {
+      setResetBusy(false)
     }
   }
 
@@ -1500,9 +1541,19 @@ export default function AdminAiSection() {
             <RefreshCw className="h-4 w-4" />
             İstatistik Yenile
           </button>
+          <button
+            type="button"
+            onClick={() => void onResetStuck()}
+            disabled={resetBusy}
+            title="running durumunda takılı kalan işleri sıfırlar"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-60 dark:border-orange-800 dark:bg-orange-950/30 dark:text-orange-300"
+          >
+            <RefreshCw className={`h-4 w-4 ${resetBusy ? 'animate-spin' : ''}`} />
+            Takılı İşleri Sıfırla
+          </button>
         </div>
         <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-          Tek adım: yalnızca bir kuyruk işlemi dener. N ilçe işle: belirlenen sayıya ulaşınca otomatik durur. Bitene kadar sürdür: kuyruk boşalana veya «Durdur»a basana dek çalışır.
+          Tek adım: yalnızca bir kuyruk işlemi dener. N ilçe işle: belirlenen sayıya ulaşınca otomatik durur. Bitene kadar sürdür: kuyruk boşalana veya «Durdur»a basana dek çalışır. «Takılı İşleri Sıfırla»: sunucu yeniden başlatmadan kalan &ldquo;running&rdquo; işleri pending/failed&apos;a çeker.
         </p>
 
         {districtLog.length > 0 ? (

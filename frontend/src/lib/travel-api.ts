@@ -10364,6 +10364,30 @@ export async function resetNotFoundCovers(token: string): Promise<{ reset_count:
   return { reset_count: coerceInt(raw.reset_count) }
 }
 
+export async function resetStuckDistrictJobs(token: string): Promise<{ reset_count: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/district-ideas/reset-stuck`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`reset_stuck_district_${res.status}`)
+  const raw = await json<Record<string, unknown>>(res)
+  return { reset_count: coerceInt(raw.reset_count) }
+}
+
+export async function resetStuckBatchJobs(token: string): Promise<{ geo_reset: number; place_reset: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/region-content/reset-stuck`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`reset_stuck_batches_${res.status}`)
+  const raw = await json<Record<string, unknown>>(res)
+  return { geo_reset: coerceInt(raw.geo_reset), place_reset: coerceInt(raw.place_reset) }
+}
+
 // ─── Listing nearby POIs ──────────────────────────────────────────────────────
 
 export async function computeAllListingsNearbyPois(

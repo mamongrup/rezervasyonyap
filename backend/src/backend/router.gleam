@@ -1341,6 +1341,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "ai", "district-ideas", "reset-not-found"] ->
       district_ideas_http.reset_not_found(req, ctx)
 
+    http.Post, ["api", "v1", "ai", "district-ideas", "reset-stuck"] ->
+      district_ideas_http.reset_stuck_jobs(req, ctx)
+
     http.Get, ["api", "v1", "ai", "region-content", "stats"] ->
       region_content_http.stats(req, ctx)
 
@@ -1355,6 +1358,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "place-blogs", "process-next"] ->
       region_content_http.process_next_place_blog(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "region-content", "reset-stuck"] ->
+      region_content_http.reset_stuck(req, ctx)
 
     http.Post, ["api", "v1", "ai", "worker", "run-steps"] ->
       ai_worker_http.post_run_steps(req, ctx)
