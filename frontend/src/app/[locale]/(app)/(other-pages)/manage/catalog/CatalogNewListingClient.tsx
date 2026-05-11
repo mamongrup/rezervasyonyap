@@ -27,6 +27,7 @@ import { useManageT } from '@/lib/manage-i18n-context'
 import {
   addListingImage,
   computeListingNearbyPois,
+  patchListingNearbyPois,
   createIcalFeed,
   createListingPriceRule,
   createManageCatalogListing,
@@ -603,6 +604,7 @@ export default function CatalogNewListingClient({
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([])
   const [nearbyPoisLoading, setNearbyPoisLoading] = useState(false)
   const [nearbyPoisBusy, setNearbyPoisBusy] = useState(false)
+  const [mapsApiKey, setMapsApiKey] = useState('')
 
   // ── Vitrin promosyon (Tur2 yeni alanlar) ──
   /** Anında rezervasyon (tedarikçi onayı beklemeden) */
@@ -1277,7 +1279,49 @@ export default function CatalogNewListingClient({
     setNearbyPoisBusy(true)
     try {
       await computeListingNearbyPois(token, editListingId).catch(() => {})
-      const next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
+      let next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
+
+      // Yakın mekan bulunamadıysa Google Maps Places ile doğrudan dene
+      if (next.length === 0 && lat.trim() && lng.trim()) {
+        let apiKey = mapsApiKey
+        if (!apiKey) {
+          try {
+            const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
+            const raw = s.settings?.[0]?.value_json ?? ''
+            if (raw) {
+              const parsed = JSON.parse(raw) as Record<string, unknown>
+              apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key : ''
+              if (apiKey) setMapsApiKey(apiKey)
+            }
+          } catch { /* ignore */ }
+        }
+        if (apiKey) {
+          try {
+            type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
+            const placesRes = await fetch('/api/places-nearby', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ lat: parseFloat(lat), lng: parseFloat(lng), googleType: 'tourist_attraction', radiusM: 25000, maxCount: 10, language: 'tr', apiKey }),
+            })
+            if (placesRes.ok) {
+              const pd = await placesRes.json() as { places: PlaceRow[] }
+              const mapped: NearbyPoi[] = (pd.places ?? []).map((p) => ({
+                title: p.name,
+                summary: [p.address, p.rating ? `Puan: ${p.rating}/5` : '', (p.types ?? []).filter((t) => !['point_of_interest', 'establishment'].includes(t)).slice(0, 2).map((t) => t.replace(/_/g, ' ')).join(', ')].filter(Boolean).join(' — '),
+                image: p.photoRef ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${apiKey}` : undefined,
+                link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
+                lat: p.lat,
+                lng: p.lng,
+                distance_km: Math.round(p.distanceKm * 10) / 10,
+              }))
+              if (mapped.length > 0) {
+                await patchListingNearbyPois(token, editListingId, mapped).catch(() => {})
+                next = mapped
+              }
+            }
+          } catch { /* sessizce geç */ }
+        }
+      }
       setNearbyPois(next)
     } finally {
       setNearbyPoisBusy(false)

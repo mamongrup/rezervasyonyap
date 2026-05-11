@@ -10235,6 +10235,22 @@ export async function getListingNearbyPois(listingId: string): Promise<NearbyPoi
   }
 }
 
+/** İlanın nearby_pois_json'unu doğrudan yazar (admin / Maps fallback). */
+export async function patchListingNearbyPois(
+  token: string,
+  listingId: string,
+  pois: NearbyPoi[],
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/listings/${listingId}/nearby-pois`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nearby_pois_json: JSON.stringify(pois) }),
+  })
+  if (!res.ok) throw new Error(`patch_nearby_pois_${res.status}`)
+}
+
 /** Koordinatı olan tüm ilanların nearby_pois_json'unu toplu hesaplar. */
 // ─── Pexels ───────────────────────────────────────────────────────────────────
 
