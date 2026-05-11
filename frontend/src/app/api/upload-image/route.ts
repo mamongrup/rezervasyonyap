@@ -116,7 +116,7 @@ type FolderProfile = {
 const FALLBACK_PROFILES: Record<string, FolderProfile> = {
   hero:           { width: 1440, height: 810,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   regions:        { width: 1080, height: 720,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
-  listings:       { width: 1600, height: 1200, fit: 'cover',  vivid: true,  quality: 90, effort: 4, thumb: 384 },
+  listings:       { width: 1600, height: 1200, fit: 'cover',  vivid: true,  quality: 90, effort: 6, thumb: 384 },
   tours:          { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   events:         { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
   travel_ideas:   { width: 800,  height: 600,  fit: 'cover',  vivid: true,  quality: 60, effort: 6, thumb: 256 },
@@ -214,12 +214,28 @@ async function processImage(
       .linear(1.05, -(255 * 0.05 * 0.5))
   }
 
-  const output = await pipeline.avif({ quality: profile.quality, effort: profile.effort }).toBuffer()
+  /**
+   * Resize sonrası unsharp mask: küçültme işlemi görüntüyü hafifçe yumuşatır.
+   * sigma=0.8 (yarıçap ~1px), düz=0 (yalnızca kenar), flat=1 (düz alanlarda baskıla)
+   * — ince detay ve kenarları keskinleştirir, parazit eklemez.
+   */
+  pipeline = pipeline.sharpen({ sigma: 0.8, m1: 0, m2: 1.5 })
+
+  /**
+   * quality ≥ 85 iken chroma subsampling 4:4:4 → daha doğru renk üretimi.
+   * quality < 85 ise 4:2:0 (daha küçük dosya) varsayılanı kalır.
+   */
+  const chromaSubsampling = profile.quality >= 85 ? '4:4:4' : '4:2:0'
+  const output = await pipeline
+    .avif({ quality: profile.quality, effort: profile.effort, chromaSubsampling })
+    .toBuffer()
 
   /**
    * Thumbnail: kart/grid sayfalarında (listings, tours, events, …) ana görselin
    * yanında küçük versiyon. `attention` ile öne çıkan bölge merkez alınır.
+   * 384px'te quality:90 gereksiz; 78 görsel fark yaratmaksızın dosyayı küçültür.
    */
+  const thumbQuality = Math.min(profile.quality, 78)
   let thumb: Buffer | undefined
   if (profile.thumb > 0) {
     thumb = await sharp(buffer)
@@ -230,7 +246,8 @@ async function processImage(
         position: 'attention',
         withoutEnlargement: true,
       })
-      .avif({ quality: profile.quality, effort: profile.effort })
+      .sharpen({ sigma: 0.6, m1: 0, m2: 1.5 })
+      .avif({ quality: thumbQuality, effort: profile.effort })
       .toBuffer()
   }
 
