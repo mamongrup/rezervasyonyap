@@ -10,14 +10,24 @@ import {
 } from '@/lib/catalog-theme-items-api'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
+import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 const CATEGORY = 'holiday_home'
+
+const LOCALES = [
+  { code: 'tr', label: 'TR' },
+  { code: 'en', label: 'EN' },
+  { code: 'de', label: 'DE' },
+  { code: 'ru', label: 'RU' },
+  { code: 'zh', label: 'ZH' },
+  { code: 'fr', label: 'FR' },
+] as const
 
 function slugifyCode(s: string): string {
   const ascii = s
@@ -47,25 +57,31 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   const chipCodes = new Set(VILLA_THEME_CHIP_PRESETS.map((x) => x.code))
 
   const [publicItems, setPublicItems] = useState<{ code: string; label: string }[]>([])
-  const [manageRows, setManageRows] = useState<{ id: string; code: string; label: string }[]>([])
+  const [manageRows, setManageRows] = useState<Array<{ id: string; code: string; labels: Record<string, string> }>>(
+    [],
+  )
   const [loading, setLoading] = useState(true)
   const [manageErr, setManageErr] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [previewLocale, setPreviewLocale] = useState<string>(locale || 'tr')
   /** Boş | preset kodu | özel satır */
   const [presetPick, setPresetPick] = useState<string>('')
   const [newLabel, setNewLabel] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editDraft, setEditDraft] = useState('')
+  const [editLabels, setEditLabels] = useState<Record<string, string>>({})
   const [hasToken, setHasToken] = useState(false)
+  const configRef = useRef({ editingId, editLabels })
 
   useEffect(() => {
     setHasToken(Boolean(getStoredAuthToken()))
   }, [])
 
   const loadPublic = useCallback(async () => {
-    const r = await listPublicCategoryThemeItems({ categoryCode: CATEGORY, locale })
+    const r = await listPublicCategoryThemeItems({ categoryCode: CATEGORY, locale: previewLocale })
     setPublicItems(r.items)
-  }, [locale])
+  }, [previewLocale])
 
   const loadManage = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -75,15 +91,33 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
       return
     }
     try {
-      const r = await listManageThemeItems(token, { categoryCode: CATEGORY, locale })
-      setManageRows(r.items)
+      const all = await Promise.all(
+        LOCALES.map(async (lc) => {
+          try {
+            const r = await listManageThemeItems(token, { categoryCode: CATEGORY, locale: lc.code })
+            return { lc: lc.code, items: r.items }
+          } catch {
+            return { lc: lc.code, items: [] as { id: string; code: string; label: string }[] }
+          }
+        }),
+      )
+      const byId = new Map<string, { id: string; code: string; labels: Record<string, string> }>()
+      for (const pack of all) {
+        for (const it of pack.items) {
+          const cur = byId.get(it.id) ?? { id: it.id, code: it.code, labels: {} }
+          cur.code = it.code
+          cur.labels[pack.lc] = it.label
+          byId.set(it.id, cur)
+        }
+      }
+      setManageRows([...byId.values()].sort((a, b) => a.code.localeCompare(b.code)))
       setManageErr(null)
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e)
       setManageRows([])
       setManageErr(raw)
     }
-  }, [locale])
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -95,6 +129,83 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
       cancelled = true
     }
   }, [loadPublic, loadManage])
+
+  useEffect(() => {
+    configRef.current = { editingId, editLabels }
+  }, [editingId, editLabels])
+
+  const manageLabelForUi = useCallback(
+    (row: { labels: Record<string, string>; code: string }) => {
+      const pick = (previewLocale || 'tr').trim().toLowerCase()
+      return (
+        row.labels[pick]?.trim() ||
+        row.labels.tr?.trim() ||
+        row.labels.en?.trim() ||
+        Object.values(row.labels).find((x) => x?.trim()) ||
+        row.code
+      )
+    },
+    [previewLocale],
+  )
+
+  function startEdit(id: string) {
+    const row = manageRows.find((r) => r.id === id)
+    if (!row) return
+    setManageErr(null)
+    setMsg(null)
+    setEditingId(id)
+    const next: Record<string, string> = {}
+    for (const lc of LOCALES) next[lc.code] = row.labels[lc.code] ?? ''
+    setEditLabels(next)
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditLabels({})
+    setMsg(null)
+  }
+
+  async function handleAiTranslate(overwrite: boolean) {
+    const trText = (editLabels.tr ?? '').trim()
+    if (!trText) {
+      setMsg({ ok: false, text: 'Önce TR alanını doldurun.' })
+      return
+    }
+    setAiBusy(true)
+    setMsg(null)
+    try {
+      const targets = LOCALES.filter((l) => l.code !== 'tr').map((l) => l.code)
+      const out = await translateOneToMany({
+        text: trText,
+        context: 'short_label',
+        sourceLocale: 'tr',
+        targetLocales: targets,
+      })
+      setEditLabels((prev) => {
+        const next: Record<string, string> = { ...prev, tr: trText }
+        for (const lc of targets) {
+          const existing = (prev[lc] ?? '').trim()
+          const fresh = out.ok[lc] ?? ''
+          if (fresh && (overwrite || existing.length === 0)) next[lc] = fresh
+        }
+        return next
+      })
+      const filled = Object.keys(out.ok).length
+      const failedLocales = out.failed.map((f) => f.locale.toUpperCase()).join(', ')
+      const failTail = failedLocales ? ` Başarısız: ${failedLocales}.` : ''
+      setMsg({
+        ok: filled > 0,
+        text:
+          filled > 0
+            ? `${filled} dile AI çevirisi geldi. Kontrol edip kaydedin.` + failTail
+            : 'AI çeviri sonucu boş döndü.',
+      })
+    } catch (e) {
+      setMsg({ ok: false, text: aiErrorMessage(e) })
+    } finally {
+      setAiBusy(false)
+    }
+  }
 
   async function handleAdd() {
     const label = newLabel.trim()
@@ -121,7 +232,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
         category_code: CATEGORY,
         code,
         label,
-        locale_code: locale,
+        locale_code: 'tr',
       })
       setPresetPick('')
       setNewLabel('')
@@ -135,16 +246,23 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   }
 
   async function handleSaveEdit(id: string) {
-    const label = editDraft.trim()
-    if (!label) return
     const token = getStoredAuthToken()
     if (!token) return
     setBusy(true)
     setManageErr(null)
     try {
-      await patchManageThemeItem(token, id, { label, locale_code: locale })
-      setEditingId(null)
-      setEditDraft('')
+      const labels = { ...editLabels }
+      const tr = (labels.tr ?? '').trim()
+      if (!tr) {
+        setManageErr('TR alanı zorunlu.')
+        return
+      }
+      for (const lc of LOCALES) {
+        const v = (labels[lc.code] ?? '').trim()
+        if (!v) continue
+        await patchManageThemeItem(token, id, { label: v, locale_code: lc.code })
+      }
+      cancelEdit()
       await loadManage()
       await loadPublic()
     } catch (e) {
@@ -178,29 +296,10 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
           {t('catalog.hub_holiday_home_theme_presets')}
         </h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          İlan düzenlemede «Özellikler / Temalar» ile vitrin filtreleri bu kodları kullanır. Çok dilli etiket için üst
-          menüden panel dilini değiştirip aynı kod için farklı çevirileri düzenleyebilirsiniz.
+          İlan düzenlemede «Özellikler / Temalar» ile vitrin filtreleri bu kodları kullanır. Bu sayfa öznitelikler gibi
+          tek ekranda tüm dilleri düzenler; TR’den AI çeviri ile doldurabilirsiniz.
         </p>
       </div>
-
-      <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">İlan formu özellikleri (referans)</h2>
-        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Aşağıda listelenen sabit özellikler ilan düzenleyicideki tema çipleriyle eşleşir. Vitrinde görünen metinleri
-          «Vitrin temaları» bölümünden <strong>ekle / düzenle / sil</strong> ile yönetirsiniz; teknik kodlar arayüzde
-          gösterilmez.
-        </p>
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {VILLA_THEME_CHIP_PRESETS.map((chip) => (
-            <li
-              key={chip.code}
-              className="rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
-            >
-              {chip.label}
-            </li>
-          ))}
-        </ul>
-      </section>
 
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -209,8 +308,8 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
               Vitrin temaları — ekle, düzenle, sil
             </h2>
             <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-              Kayıtlar veritabanındadır (panel diline göre etiket). Şu dil:{' '}
-              <strong className="text-neutral-700 dark:text-neutral-300">{locale}</strong>
+              Kayıtlar veritabanındadır. Ön izleme dili:{' '}
+              <strong className="text-neutral-700 dark:text-neutral-300">{previewLocale}</strong>
             </p>
           </div>
           {loading ? (
@@ -229,6 +328,31 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
         {manageErr && hasToken ? (
           <p className="mt-4 text-sm text-red-600 dark:text-red-400">{formatManageApiError(manageErr)}</p>
         ) : null}
+        {msg ? (
+          <p
+            className={`mt-2 text-sm ${
+              msg.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-600 dark:text-red-400'
+            }`}
+          >
+            {msg.text}
+          </p>
+        ) : null}
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <label className="text-[11px] font-medium text-neutral-600 dark:text-neutral-400">Ön izleme dili</label>
+          <select
+            className="rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-100"
+            value={previewLocale}
+            onChange={(e) => setPreviewLocale(e.target.value)}
+            disabled={busy || editingId != null}
+          >
+            {LOCALES.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {hasToken ? (
           <>
@@ -260,7 +384,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
                   </select>
                 </Field>
                 <Field className="block min-w-[12rem] flex-1">
-                  <Label className="text-[11px]">Vitrin etiketi ({locale})</Label>
+                  <Label className="text-[11px]">Vitrin etiketi (TR)</Label>
                   <Input
                     className="mt-1 text-sm"
                     placeholder="Listede görünecek ad"
@@ -288,38 +412,67 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
                 <li key={row.id} className="flex flex-wrap items-center gap-2 py-3">
                   <div className="min-w-0 flex-1">
                     {editingId === row.id ? (
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Input
-                          className="max-w-md flex-1 text-sm"
-                          value={editDraft}
-                          onChange={(e) => setEditDraft(e.target.value)}
-                          disabled={busy}
-                          aria-label="Etiket düzenle"
-                        />
-                        <button
-                          type="button"
-                          disabled={busy || !editDraft.trim()}
-                          title="Kaydet"
-                          className="rounded-lg border border-emerald-200 bg-emerald-50 p-1.5 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300"
-                          onClick={() => void handleSaveEdit(row.id)}
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          title="İptal"
-                          className="rounded-lg border border-neutral-200 p-1.5 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                          onClick={() => {
-                            setEditingId(null)
-                            setEditDraft('')
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
+                      <div className="w-full space-y-3">
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {LOCALES.map((lc) => (
+                            <div key={lc.code}>
+                              <label className="block text-[11px] font-medium text-neutral-600 dark:text-neutral-400">
+                                {lc.label}
+                              </label>
+                              <Input
+                                className="mt-1 text-sm"
+                                value={editLabels[lc.code] ?? ''}
+                                onChange={(e) =>
+                                  setEditLabels((prev) => ({ ...prev, [lc.code]: e.target.value }))
+                                }
+                                disabled={busy}
+                                aria-label={`${lc.label} etiketi`}
+                                autoFocus={lc.code === 'tr'}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled={busy || aiBusy || !(editLabels.tr ?? '').trim()}
+                            onClick={() => void handleAiTranslate(false)}
+                            className="rounded-lg border border-neutral-200 px-3 py-2 text-[11px] text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                          >
+                            AI çeviri (boşları)
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || aiBusy || !(editLabels.tr ?? '').trim()}
+                            onClick={() => void handleAiTranslate(true)}
+                            className="rounded-lg border border-neutral-200 px-3 py-2 text-[11px] text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                          >
+                            AI çeviri (üstüne)
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy || !(editLabels.tr ?? '').trim()}
+                            title="Kaydet"
+                            className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300"
+                            onClick={() => void handleSaveEdit(row.id)}
+                          >
+                            <Check className="h-4 w-4" /> Kaydet
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy}
+                            title="İptal"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-3 py-2 text-[11px] text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+                            onClick={cancelEdit}
+                          >
+                            <X className="h-4 w-4" /> İptal
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{row.label}</span>
+                      <span className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                        {manageLabelForUi(row)}
+                      </span>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
@@ -337,10 +490,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
                           disabled={busy}
                           title="Düzenle"
                           className="rounded p-1 text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                          onClick={() => {
-                            setEditingId(row.id)
-                            setEditDraft(row.label)
-                          }}
+                          onClick={() => startEdit(row.id)}
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -349,7 +499,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
                           disabled={busy}
                           title="Sil"
                           className="rounded p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40"
-                          onClick={() => void handleDelete(row.id, row.label)}
+                          onClick={() => void handleDelete(row.id, manageLabelForUi(row))}
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -370,7 +520,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
       <section className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
         <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">Herkese açık API özeti</h2>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Vitrin ve harita filtreleri bu sırayı kullanır ({locale}).
+          Vitrin ve harita filtreleri bu sırayı kullanır ({previewLocale}).
         </p>
         {publicItems.length === 0 && !loading ? (
           <p className="mt-3 text-sm text-neutral-500">Liste boş.</p>
