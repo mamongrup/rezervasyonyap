@@ -57,11 +57,26 @@ export interface NearbyPlace {
 //
 const NEARBY_SEARCH_MAX_RADIUS_M = 50_000
 
-function buildNearbySearchUrl(lat: number, lng: number, radiusM: number, googleType: string, language: string, key: string): string {
+// Popülerlik skoru: puan yüksekliği + mesafeye yakınlık dengesini sağlar.
+// Yüksek puanlı uzak yer, düşük puanlı yakın yerden daha önce çıkar.
+function popularityScore(rating: number | undefined, distanceKm: number): number {
+  return ((rating ?? 3.5) * 2) / Math.log(distanceKm + 2)
+}
+
+function buildNearbySearchUrl(
+  lat: number, lng: number, radiusM: number,
+  googleType: string, language: string, key: string,
+  useKeyword = false,
+): string {
   const url = new URL('https://maps.googleapis.com/maps/api/place/nearbysearch/json')
   url.searchParams.set('location', `${lat},${lng}`)
   url.searchParams.set('radius', String(Math.min(radiusM, NEARBY_SEARCH_MAX_RADIUS_M)))
-  url.searchParams.set('type', googleType)
+  // keyword modu: tip kısıtlaması yok — plaj, doğa, park, tarihi yer hepsi gelir
+  if (useKeyword) {
+    url.searchParams.set('keyword', googleType)
+  } else {
+    url.searchParams.set('type', googleType)
+  }
   url.searchParams.set('language', language)
   url.searchParams.set('key', key)
   return url.toString()
@@ -69,7 +84,6 @@ function buildNearbySearchUrl(lat: number, lng: number, radiusM: number, googleT
 
 function buildTextSearchUrl(lat: number, lng: number, radiusM: number, googleType: string, language: string, key: string): string {
   const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json')
-  // Text Search sorgu olarak türün kendisini kullanır; konum önyargısı ile birlikte çalışır
   url.searchParams.set('query', googleType)
   url.searchParams.set('location', `${lat},${lng}`)
   url.searchParams.set('radius', String(radiusM))
@@ -79,7 +93,7 @@ function buildTextSearchUrl(lat: number, lng: number, radiusM: number, googleTyp
 }
 
 // ─── POST /api/places-nearby ──────────────────────────────────────────────────
-// Body: { lat, lng, googleType, radiusM, maxCount, language?, apiKey? }
+// Body: { lat, lng, googleType, radiusM, maxCount, language?, apiKey?, useKeyword? }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json() as {
@@ -90,9 +104,10 @@ export async function POST(req: NextRequest) {
       maxCount: number
       language?: string
       apiKey?: string
+      useKeyword?: boolean
     }
 
-    const { lat, lng, googleType, radiusM, maxCount, language = 'tr', apiKey } = body
+    const { lat, lng, googleType, radiusM, maxCount, language = 'tr', apiKey, useKeyword = false } = body
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || !googleType?.trim()) {
       return NextResponse.json({ error: 'lat, lng ve googleType zorunludur.' }, { status: 400 })
@@ -113,7 +128,7 @@ export async function POST(req: NextRequest) {
     const useTextSearch = safeRadius > NEARBY_SEARCH_MAX_RADIUS_M
     const apiUrl = useTextSearch
       ? buildTextSearchUrl(lat, lng, safeRadius, googleType, language, key)
-      : buildNearbySearchUrl(lat, lng, safeRadius, googleType, language, key)
+      : buildNearbySearchUrl(lat, lng, safeRadius, googleType, language, key, useKeyword)
 
     const res = await fetch(apiUrl, { next: { revalidate: 0 } })
     if (!res.ok) {
@@ -132,8 +147,8 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Mesafeyi hesapla, talep edilen yarıçap dışındakileri filtrele (Text Search için önemli),
-    // ardından mesafeye göre sırala ve limitle
+    // Mesafeyi hesapla, yarıçap dışındakileri filtrele.
+    // Popülerlik skoru: puanı yüksek + mesafesi makul yerler önce çıkar.
     const radiusKm = safeRadius / 1000
     const places: NearbyPlace[] = (data.results ?? [])
       .map((r) => ({
@@ -150,7 +165,7 @@ export async function POST(req: NextRequest) {
         photoRef: r.photos?.[0]?.photo_reference,
       }))
       .filter((p) => p.distanceKm <= radiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .sort((a, b) => popularityScore(b.rating, b.distanceKm) - popularityScore(a.rating, a.distanceKm))
       .slice(0, safeMax)
 
     return NextResponse.json({

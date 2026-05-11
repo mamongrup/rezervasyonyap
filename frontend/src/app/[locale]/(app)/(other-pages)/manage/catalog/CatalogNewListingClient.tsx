@@ -1301,7 +1301,7 @@ export default function CatalogNewListingClient({
             const placesRes = await fetch('/api/places-nearby', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ lat: parseFloat(lat), lng: parseFloat(lng), googleType: 'tourist_attraction', radiusM: 25000, maxCount: 10, language: 'tr', apiKey }),
+              body: JSON.stringify({ lat: parseFloat(lat), lng: parseFloat(lng), googleType: 'turistik gezilecek görülecek plaj park doğa', radiusM: 25000, maxCount: 20, language: 'tr', apiKey, useKeyword: true }),
             })
             if (placesRes.ok) {
               const pd = await placesRes.json() as { places: PlaceRow[] }

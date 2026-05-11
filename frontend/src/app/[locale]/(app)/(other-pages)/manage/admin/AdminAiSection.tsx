@@ -825,10 +825,13 @@ export default function AdminAiSection() {
       }
 
       const resolvedCoords = geocodedCoords ?? (hasCoords ? { lat, lng } : undefined)
+      // Keyword modu: tourist_attraction tipiyle sınırlamaz; plajlar, parklar,
+      // tarihi yerler, doğal güzellikler de dahil olur.
       const query = (hasCoords || geocodedCoords)
-        ? 'tourist_attraction'
+        ? 'turistik gezilecek görülecek plaj park doğa'
         : `${district_name} ${region_name ?? ''} en popüler turistik yer görülecek gezilecek`
       const radiusM = (hasCoords || geocodedCoords) ? 25_000 : 60_000
+      const useKeywordSearch = hasCoords || !!geocodedCoords
 
       type PlaceRow = {
         name: string
@@ -856,9 +859,10 @@ export default function AdminAiSection() {
             lng,
             googleType: query,
             radiusM,
-            maxCount: 10,
+            maxCount: 20,
             language: 'tr',
             apiKey: key,
+            useKeyword: useKeywordSearch,
           }),
         })
         if (placesRes.ok) {
