@@ -337,8 +337,8 @@ pub fn list_posts(req: Request, ctx: Context) -> Response {
     |> string.trim
   let lim = case int.parse(lim_str) {
     Ok(n) ->
-      case n > 500 {
-        True -> 500
+      case n > 10000 {
+        True -> 10000
         False ->
           case n < 1 {
             True -> 100
