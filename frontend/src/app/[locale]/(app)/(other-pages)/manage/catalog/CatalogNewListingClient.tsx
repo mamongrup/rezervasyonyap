@@ -118,9 +118,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react'
-import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
+import WizardStepNav, { type WizardStep } from '@/components/wizard/WizardStepNav'
+import WizardStepFooter from '@/components/wizard/WizardStepFooter'
 
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
 type ListingSeoDraft = {
@@ -454,9 +456,63 @@ export default function CatalogNewListingClient({
   const t = useManageT()
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const { allLocales, translateTargets, primaryLocale, localeCodes } = useManageAiLocaleRows()
+
+  // ── Wizard adım yönetimi ──
+  const TOTAL_STEPS = 6
+  const WIZARD_STEPS: WizardStep[] = [
+    {
+      label: 'Temel Bilgi',
+      shortLabel: '1',
+      icon: <span className="text-xs font-bold">1</span>,
+    },
+    {
+      label: 'Konum',
+      shortLabel: '2',
+      icon: <span className="text-xs font-bold">2</span>,
+    },
+    {
+      label: 'Özellikler',
+      shortLabel: '3',
+      icon: <span className="text-xs font-bold">3</span>,
+    },
+    {
+      label: 'Galeri',
+      shortLabel: '4',
+      icon: <span className="text-xs font-bold">4</span>,
+    },
+    {
+      label: 'Fiyat',
+      shortLabel: '5',
+      icon: <span className="text-xs font-bold">5</span>,
+    },
+    {
+      label: 'Yayın',
+      shortLabel: '6',
+      icon: <span className="text-xs font-bold">6</span>,
+    },
+  ]
+
+  const initialStep = Math.min(
+    Math.max(0, parseInt(searchParams?.get('step') ?? '0', 10) || 0),
+    TOTAL_STEPS - 1,
+  )
+  const [currentStep, setCurrentStep] = useState(initialStep)
+
+  const goToStep = useCallback(
+    (step: number) => {
+      const clamped = Math.min(Math.max(0, step), TOTAL_STEPS - 1)
+      setCurrentStep(clamped)
+      const url = new URL(window.location.href)
+      url.searchParams.set('step', String(clamped))
+      router.replace(url.pathname + url.search, { scroll: false })
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    },
+    [router],
+  )
   const localeCodesKey = localeCodes.join(',')
 
   // ── Temel alanlar ──
@@ -2615,33 +2671,44 @@ export default function CatalogNewListingClient({
         </div>
       ) : null}
       {!isVilla ? (
-        <div className="mb-8 flex flex-wrap items-start gap-3">
-          <Link
-            href={listHref}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-              <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
-            </svg>
-          </Link>
-          <div className="min-w-0 flex-1">
-            <ManageFormPageHeader
-              className="mb-0"
-              title="Yeni ilan ekle"
-              subtitle={<>{categoryLabelTr(categoryCode)} kategorisi</>}
-            />
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-3">
-            <span
-              className={clsx(
-                'rounded-full px-3 py-1 text-xs font-medium',
-                status === 'published'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-              )}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-wrap items-start gap-3">
+            <Link
+              href={listHref}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
             >
-              {status === 'published' ? 'Yayında' : 'Taslak'}
-            </span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+              </svg>
+            </Link>
+            <div className="min-w-0 flex-1">
+              <ManageFormPageHeader
+                className="mb-0"
+                title="Yeni ilan ekle"
+                subtitle={<>{categoryLabelTr(categoryCode)} kategorisi</>}
+              />
+            </div>
+            <div className="ml-auto flex shrink-0 items-center gap-3">
+              <span
+                className={clsx(
+                  'rounded-full px-3 py-1 text-xs font-medium',
+                  status === 'published'
+                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+                )}
+              >
+                {status === 'published' ? 'Yayında' : 'Taslak'}
+              </span>
+            </div>
+          </div>
+          {/* Wizard adım navigasyonu — non-villa */}
+          <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+            <WizardStepNav
+              steps={WIZARD_STEPS}
+              currentStep={currentStep}
+              canJumpFreely={Boolean(editListingId)}
+              onStepClick={goToStep}
+            />
           </div>
         </div>
       ) : (
@@ -2789,6 +2856,16 @@ export default function CatalogNewListingClient({
                   ) : null}
                 </div>
               </div>
+
+              {/* Wizard adım navigasyonu — villa sticky header */}
+              <div className="border-t border-neutral-100 pt-3 dark:border-neutral-800 sm:pl-11">
+                <WizardStepNav
+                  steps={WIZARD_STEPS}
+                  currentStep={currentStep}
+                  canJumpFreely={Boolean(editListingId)}
+                  onStepClick={goToStep}
+                />
+              </div>
             </div>
           </div>
         </>
@@ -2870,9 +2947,15 @@ export default function CatalogNewListingClient({
               </Section>
             )}
 
-            {!isVilla && contractSection}
-            {!isVilla && locationSection}
+            {/* ── ADIM 0: Temel Bilgi ── */}
+            {currentStep === 0 && !isVilla && contractSection}
 
+            {/* ── ADIM 1: Konum ── */}
+            {currentStep === 1 && !isVilla && locationSection}
+
+            {/* ── ADIM 0 devam: İlan İçeriği ── */}
+            {currentStep === 0 && (
+            <>
             {/* İlan İçeriği */}
             <Section
               title={
@@ -3058,7 +3141,11 @@ export default function CatalogNewListingClient({
                 </div>
               </Section>
             ) : null}
+            </>
+            )}
 
+            {/* ── ADIM 3: Galeri ── */}
+            {currentStep === 3 && (
             <Section
               title="Galeri"
               subtitle={
@@ -3221,7 +3308,11 @@ export default function CatalogNewListingClient({
                 </Field>
               ) : null}
             </Section>
+            )}
 
+            {/* ── ADIM 2: Özellikler ── */}
+            {currentStep === 2 && (
+            <>
             {/* Fazladan Bilgi — villa: önceden rezervasyon, kişi/oda/banyo; diğer: yatak, alan… */}
             <Section
               title="Fazladan Bilgi"
@@ -3457,7 +3548,8 @@ export default function CatalogNewListingClient({
               </Section>
             )}
 
-            {isVilla ? (
+            {/* Giriş / Çıkış Saati (villa) — step 2 içinde */}
+            {isVilla && (
               <>
                 {/* Giriş / Çıkış — fiyat ve havuzdan önce (Booking Core sırası) */}
                 <Section title="Giriş / Çıkış Saati">
@@ -3478,7 +3570,13 @@ export default function CatalogNewListingClient({
                     </Field>
                   </Grid2>
                 </Section>
+              </>
+            )}
 
+            </>
+            )}
+            {/* ── ADIM 4: Fiyat (villa Fiyatlandırma+EkÜcretler) ── */}
+            {isVilla && currentStep === 4 && (
                 <Section title="Fiyatlandırma">
                   <Field className="block max-w-md">
                     <Label>
@@ -3664,11 +3762,10 @@ export default function CatalogNewListingClient({
                     </div>
                   </div>
                 </Section>
-              </>
-            ) : null}
+            )}
 
-            {/* Havuz tipleri — tatil evi (plaj/villa dikey formu ile aynı yapı) */}
-            {categoryCode === 'holiday_home' ? (
+            {/* ── ADIM 2 devam: Havuz ── */}
+            {currentStep === 2 && (categoryCode === 'holiday_home' ? (
               <Section title="Havuz Bilgileri" subtitle="Açık, ısıtmalı ve çocuk havuzu — boyut ve ısıtma ücreti">
                 <Field className="block">
                   <Label>Havuz etiketi / özet</Label>
@@ -3771,11 +3868,13 @@ export default function CatalogNewListingClient({
                   <HintText>Havuz yoksa boş bırakın.</HintText>
                 </Field>
               </Section>
-            )}
+            ))}
 
-            {isVilla && locationSection}
+            {/* ── ADIM 1: Konum (villa) ── */}
+            {currentStep === 1 && isVilla && locationSection}
 
-            {isVilla && (
+            {/* ── ADIM 4 devam: Pansiyon (villa) ── */}
+            {currentStep === 4 && isVilla && (
               <Section
                 title="Pansiyon (yemekli / yemeksiz)"
                 subtitle="Bu bilgiler yeni ilan formunda değil; ilan kaydından sonra «Yemek Planları» sekmesinde girilir"
@@ -3812,7 +3911,8 @@ export default function CatalogNewListingClient({
               </Section>
             )}
 
-            {!isVilla ? (
+            {/* ── ADIM 2 devam: Giriş/Çıkış (non-villa) ── */}
+            {!isVilla && currentStep === 2 && (
               <>
                 {/* Giriş / Çıkış Saati */}
                 <Section title="Giriş / Çıkış Saati">
@@ -3833,7 +3933,11 @@ export default function CatalogNewListingClient({
                     </Field>
                   </Grid2>
                 </Section>
-
+              </>
+            )}
+            {/* ── ADIM 4 devam: Fiyatlandırma (non-villa) ── */}
+            {!isVilla && currentStep === 4 && (
+              <>
                 {/* Fiyatlandırma — kısa konaklama + temizlik aynı kartta */}
                 <Section title="Fiyatlandırma">
                   <Grid2>
@@ -3937,9 +4041,10 @@ export default function CatalogNewListingClient({
                   </div>
                 </Section>
               </>
-            ) : null}
+            )}
 
-            {/* Provizyon & Komisyon Ayarları */}
+            {/* ── ADIM 4 devam: Provizyon & Komisyon ── */}
+            {currentStep === 4 && (
             <Section
               title="Provizyon & Komisyon Ayarları"
               subtitle="Ödeme akışı, tedarikçi onay süreleri ve yüksek sezon tanımı"
@@ -4046,7 +4151,11 @@ export default function CatalogNewListingClient({
                 <HintText>Bu not ödeme cetvelinde tedarikçiye gösterilir.</HintText>
               </Field>
             </Section>
+            )}
 
+            {/* ── ADIM 5: Yayın ── */}
+            {currentStep === 5 && (
+            <>
             {/* İlan Sahibi Bilgileri (+ villa: BTrans / banka) */}
             <Section
               title="İlan Sahibi Bilgileri"
@@ -4225,8 +4334,11 @@ export default function CatalogNewListingClient({
                 </label>
               </div>
             </Section>
+            </>
+            )}
 
-            {isVilla ? (
+            {/* ── ADIM 4 devam: Fiyata dahil (villa) ── */}
+            {isVilla && currentStep === 4 && (
               <Section
                 title="Fiyata dahil & hariç"
                 subtitle="Katalogda tanımlı kalemleri işaretleyin; etiketler mevcut arayüz diline göre listelenir."
@@ -4307,8 +4419,11 @@ export default function CatalogNewListingClient({
                   </div>
                 )}
               </Section>
-            ) : null}
+            )}
 
+            {/* ── ADIM 5 devam: Vitrin Promosyon + SEO ── */}
+            {currentStep === 5 && (
+            <>
             {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
             <Section
               title="Vitrin Promosyon"
@@ -4541,8 +4656,10 @@ export default function CatalogNewListingClient({
                 </Field>
               </Section>
             ) : null}
+            </>
+            )}
 
-            {/* Hata mesajı */}
+            {/* Hata mesajı — her adımda */}
             {err && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-300">
                 {err}
@@ -4643,6 +4760,30 @@ export default function CatalogNewListingClient({
           ) : null}
         </div>
         </div>
+
+        {/* Wizard footer — non-villa */}
+        {!isVilla && (
+          <WizardStepFooter
+            currentStep={currentStep}
+            totalSteps={TOTAL_STEPS}
+            onBack={() => goToStep(currentStep - 1)}
+            onNext={() => {
+              if (currentStep < TOTAL_STEPS - 1) {
+                goToStep(currentStep + 1)
+              } else {
+                submitIntentRef.current = 'save'
+                const formEl = document.getElementById(formId) as HTMLFormElement | null
+                formEl?.requestSubmit()
+              }
+            }}
+            onSave={editListingId ? () => {
+              submitIntentRef.current = 'save'
+              const formEl = document.getElementById(formId) as HTMLFormElement | null
+              formEl?.requestSubmit()
+            } : undefined}
+            isSaving={busy}
+          />
+        )}
       </form>
 
       {isVilla ? (
@@ -4656,26 +4797,53 @@ export default function CatalogNewListingClient({
               'flex flex-wrap items-center justify-end gap-2 sm:justify-between sm:gap-3',
             )}
           >
-            <a
-              href={
-                slug.trim()
-                  ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slugifyListingSlug(slug.trim())}`)
-                  : '#'
-              }
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => {
-                if (!slug.trim()) e.preventDefault()
-              }}
-              className={clsx(
-                'inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800',
-                !slug.trim() && 'opacity-40',
+            {/* Wizard Geri / İleri — villa sticky footer sol */}
+            <div className="flex items-center gap-2">
+              {currentStep > 0 && (
+                <button
+                  type="button"
+                  onClick={() => goToStep(currentStep - 1)}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+                  </svg>
+                  Geri
+                </button>
               )}
-              aria-disabled={!slug.trim()}
-            >
-              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-              Önizleme
-            </a>
+              {currentStep < TOTAL_STEPS - 1 ? (
+                <button
+                  type="button"
+                  onClick={() => goToStep(currentStep + 1)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
+                >
+                  İleri
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-3.5 w-3.5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                  </svg>
+                </button>
+              ) : null}
+              <a
+                href={
+                  slug.trim()
+                    ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slugifyListingSlug(slug.trim())}`)
+                    : '#'
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  if (!slug.trim()) e.preventDefault()
+                }}
+                className={clsx(
+                  'hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800',
+                  !slug.trim() && 'opacity-40',
+                )}
+                aria-disabled={!slug.trim()}
+              >
+                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+                Önizleme
+              </a>
+            </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-1.5 dark:border-neutral-700">
                 <span className="text-xs text-neutral-500">Yayın</span>
