@@ -36,6 +36,7 @@ import {
   fetchPublicListingContractSafe,
   getBlogSlugsByTitles,
   getListingNearbyPois,
+  getListingServicePois,
   getPublicHotelRooms,
   getPublicListingAttributes,
   getPublicMealPlans,
@@ -89,6 +90,7 @@ import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
+import ListingServicePoisSection from '@/components/travel/ListingServicePoisSection'
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
 
 function formatPrepaymentPercentForDisplay(raw: string): string {
@@ -205,7 +207,10 @@ export default async function StayListingDetailPageContent({
 
   const mealPlans = await getPublicMealPlans(catalogListingId ?? listing.id)
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
-  const rawNearbyPois = await getListingNearbyPois(listing.id)
+  const [rawNearbyPois, servicePois] = await Promise.all([
+    getListingNearbyPois(listing.id),
+    getListingServicePois(listing.id),
+  ])
   const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
   const nearbyPois = rawNearbyPois.map((p) => ({
     ...p,
@@ -1035,6 +1040,10 @@ export default async function StayListingDetailPageContent({
             lng={map?.lng}
             address={address}
             heading={dp.location}
+          />
+          <ListingServicePoisSection
+            amenities={servicePois.amenities}
+            transport={servicePois.transport}
           />
           <NearbyPlacesSection
             locale={locale}

@@ -10280,6 +10280,54 @@ export async function patchListingNearbyPois(
   if (!res.ok) throw new Error(`patch_nearby_pois_${res.status}`)
 }
 
+export interface ServicePoi {
+  type: string
+  label?: string
+  distance_km: number
+}
+
+export interface ListingServicePois {
+  amenities: ServicePoi[]
+  transport: ServicePoi[]
+}
+
+/** Temel ihtiyaç ve ulaşım mekanlarını getirir (herkese açık, RSC için). */
+export async function getListingServicePois(listingId: string): Promise<ListingServicePois> {
+  const b = base()
+  if (!b) return { amenities: [], transport: [] }
+  try {
+    const res = await fetch(`${b}/api/v1/listings/${listingId}/service-pois`)
+    if (!res.ok) return { amenities: [], transport: [] }
+    const data = await res.json() as { amenities_pois_json: string; transport_pois_json: string }
+    return {
+      amenities: JSON.parse(data.amenities_pois_json ?? '[]') as ServicePoi[],
+      transport: JSON.parse(data.transport_pois_json ?? '[]') as ServicePoi[],
+    }
+  } catch {
+    return { amenities: [], transport: [] }
+  }
+}
+
+/** Temel ihtiyaç ve ulaşım mekanlarını yazar (admin). */
+export async function patchListingServicePois(
+  token: string,
+  listingId: string,
+  amenities: ServicePoi[],
+  transport: ServicePoi[],
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/listings/${listingId}/service-pois`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      amenities_pois_json: JSON.stringify(amenities),
+      transport_pois_json: JSON.stringify(transport),
+    }),
+  })
+  if (!res.ok) throw new Error(`patch_service_pois_${res.status}`)
+}
+
 /** Koordinatı olan tüm ilanların nearby_pois_json'unu toplu hesaplar. */
 // ─── Pexels ───────────────────────────────────────────────────────────────────
 

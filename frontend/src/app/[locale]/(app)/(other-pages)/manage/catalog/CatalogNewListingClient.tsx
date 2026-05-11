@@ -28,6 +28,8 @@ import {
   addListingImage,
   computeListingNearbyPois,
   patchListingNearbyPois,
+  patchListingServicePois,
+  type ServicePoi,
   createIcalFeed,
   createListingPriceRule,
   createManageCatalogListing,
@@ -604,6 +606,7 @@ export default function CatalogNewListingClient({
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([])
   const [nearbyPoisLoading, setNearbyPoisLoading] = useState(false)
   const [nearbyPoisBusy, setNearbyPoisBusy] = useState(false)
+  const [servicePoisBusy, setServicePoisBusy] = useState(false)
   const [mapsApiKey, setMapsApiKey] = useState('')
 
   // ── Vitrin promosyon (Tur2 yeni alanlar) ──
@@ -1325,6 +1328,77 @@ export default function CatalogNewListingClient({
       setNearbyPois(next)
     } finally {
       setNearbyPoisBusy(false)
+    }
+  }
+
+  async function refreshServicePoisFromServer() {
+    if (!editListingId || !lat.trim() || !lng.trim()) return
+    const token = getStoredAuthToken()
+    if (!token) return
+    let apiKey = mapsApiKey
+    if (!apiKey) {
+      try {
+        const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
+        const raw = s.settings?.[0]?.value_json ?? ''
+        if (raw) {
+          const parsed = JSON.parse(raw) as Record<string, unknown>
+          apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key : ''
+          if (apiKey) setMapsApiKey(apiKey)
+        }
+      } catch { /* ignore */ }
+    }
+    if (!apiKey) { alert('Google Maps API anahtarı bulunamadı.'); return }
+    setServicePoisBusy(true)
+    try {
+      type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
+      const latF = parseFloat(lat)
+      const lngF = parseFloat(lng)
+
+      const amenityTypes: { type: string; label: string; googleType: string; radius: number }[] = [
+        { type: 'market', label: 'Market', googleType: 'supermarket', radius: 5000 },
+        { type: 'restoran', label: 'Restoran', googleType: 'restaurant', radius: 3000 },
+        { type: 'cafe', label: 'Kafe', googleType: 'cafe', radius: 3000 },
+        { type: 'eczane', label: 'Eczane', googleType: 'pharmacy', radius: 10000 },
+        { type: 'hastane', label: 'Hastane', googleType: 'hospital', radius: 30000 },
+      ]
+      const transportTypes: { type: string; label: string; googleType: string; radius: number }[] = [
+        { type: 'havalimani', label: 'Havalimanı', googleType: 'airport', radius: 150000 },
+        { type: 'otogar', label: 'Otogar / Otobüs Terminali', googleType: 'bus_station', radius: 30000 },
+        { type: 'minibus', label: 'Minibüs / Dolmuş', googleType: 'transit_station', radius: 5000 },
+      ]
+
+      const fetchNearest = async (googleType: string, radius: number): Promise<PlaceRow | null> => {
+        try {
+          const r = await fetch('/api/places-nearby', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat: latF, lng: lngF, googleType, radiusM: radius, maxCount: 3, language: 'tr', apiKey, useKeyword: false }),
+          })
+          if (!r.ok) return null
+          const pd = await r.json() as { places: PlaceRow[] }
+          return pd.places?.[0] ?? null
+        } catch { return null }
+      }
+
+      const amenities: ServicePoi[] = []
+      for (const at of amenityTypes) {
+        const p = await fetchNearest(at.googleType, at.radius)
+        if (p) {
+          amenities.push({ type: at.type, label: p.name || at.label, distance_km: Math.round(p.distanceKm * 10) / 10 })
+        }
+      }
+
+      const transport: ServicePoi[] = []
+      for (const tt of transportTypes) {
+        const p = await fetchNearest(tt.googleType, tt.radius)
+        if (p) {
+          transport.push({ type: tt.type, label: p.name || tt.label, distance_km: Math.round(p.distanceKm * 10) / 10 })
+        }
+      }
+
+      await patchListingServicePois(token, editListingId, amenities, transport)
+    } finally {
+      setServicePoisBusy(false)
     }
   }
 
@@ -2333,14 +2407,24 @@ export default function CatalogNewListingClient({
             <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
               Çevredeki mekanlar ve mesafeler
             </p>
-            <button
-              type="button"
-              onClick={() => void refreshNearbyPoisFromServer()}
-              disabled={nearbyPoisBusy || !lat.trim() || !lng.trim()}
-              className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-            >
-              {nearbyPoisBusy ? 'Hesaplanıyor…' : 'Yakın mekanları güncelle'}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void refreshNearbyPoisFromServer()}
+                disabled={nearbyPoisBusy || !lat.trim() || !lng.trim()}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 transition hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              >
+                {nearbyPoisBusy ? 'Hesaplanıyor…' : 'Gezilecek yerleri güncelle'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void refreshServicePoisFromServer()}
+                disabled={servicePoisBusy || !lat.trim() || !lng.trim()}
+                className="rounded-lg border border-primary-300 px-3 py-1.5 text-xs font-medium text-primary-700 transition hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-primary-700 dark:text-primary-300 dark:hover:bg-primary-950/30"
+              >
+                {servicePoisBusy ? 'Çekiliyor…' : 'Hizmet mekanlarını güncelle'}
+              </button>
+            </div>
           </div>
           {!lat.trim() || !lng.trim() ? (
             <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">

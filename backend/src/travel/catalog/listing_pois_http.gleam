@@ -1,10 +1,16 @@
 //// İlan yakın mekan mesafe hesabı (265_district_coords_and_listing_pois).
 ////
-//// POST /api/v1/listings/:id/compute-nearby-pois
-////   → listings.nearby_pois_json'u günceller
+//// POST  /api/v1/listings/:id/compute-nearby-pois
+////    → listings.nearby_pois_json'u günceller
 ////
-//// GET  /api/v1/listings/:id/nearby-pois
-////   → mevcut nearby_pois_json'u döndürür
+//// GET   /api/v1/listings/:id/nearby-pois
+////    → mevcut nearby_pois_json'u döndürür
+////
+//// GET   /api/v1/listings/:id/service-pois
+////    → amenities_pois_json + transport_pois_json (herkese açık)
+////
+//// PATCH /api/v1/listings/:id/service-pois
+////    → amenities_pois_json + transport_pois_json'u günceller
 
 import backend/context.{type Context}
 import gleam/bit_array
@@ -195,6 +201,106 @@ fn patch_body_decoder() -> decode.Decoder(String) {
 fn read_body_string(req: Request) -> Result(String, Nil) {
   use bits <- result.try(wisp.read_body_bits(req))
   bit_array.to_string(bits)
+}
+
+// ---------------------------------------------------------------------------
+// GET  /api/v1/listings/:id/service-pois  (herkese açık)
+// PATCH /api/v1/listings/:id/service-pois
+// Body: { "amenities_pois_json": "[...]", "transport_pois_json": "[...]" }
+// ---------------------------------------------------------------------------
+
+fn service_pois_row() -> decode.Decoder(#(String, String)) {
+  use a <- decode.field(0, decode.string)
+  use t <- decode.field(1, decode.string)
+  decode.success(#(a, t))
+}
+
+/// GET /api/v1/listings/:id/service-pois
+///
+/// Temel ihtiyaç ve ulaşım mekanlarını döndürür (herkese açık).
+pub fn get_service_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let lid = string.trim(listing_id)
+  case
+    pog.query(
+      "select coalesce(amenities_pois_json,'[]')::text,
+              coalesce(transport_pois_json,'[]')::text
+       from   listings
+       where  id = $1::uuid",
+    )
+    |> pog.parameter(pog.text(lid))
+    |> pog.returning(service_pois_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "service_pois_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> json_err(404, "listing_not_found")
+        [#(a, t)] ->
+          wisp.json_response(
+            json.object([
+              #("amenities_pois_json", json.string(a)),
+              #("transport_pois_json", json.string(t)),
+            ])
+            |> json.to_string,
+            200,
+          )
+        _ -> json_err(500, "unexpected_rows")
+      }
+  }
+}
+
+fn patch_service_decoder() -> decode.Decoder(#(String, String)) {
+  use a <- decode.field("amenities_pois_json", decode.string)
+  use t <- decode.field("transport_pois_json", decode.string)
+  decode.success(#(a, t))
+}
+
+/// PATCH /api/v1/listings/:id/service-pois
+///
+/// Admin panelinden temel ihtiyaç ve ulaşım mekanlarını günceller.
+pub fn patch_service_pois(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  let lid = string.trim(listing_id)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "body_read_failed")
+    Ok(body) ->
+      case json.parse(body, patch_service_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(amenities_raw, transport_raw)) -> {
+          let safe_a = case string.starts_with(string.trim(amenities_raw), "[") {
+            True -> amenities_raw
+            False -> "[]"
+          }
+          let safe_t = case string.starts_with(string.trim(transport_raw), "[") {
+            True -> transport_raw
+            False -> "[]"
+          }
+          case
+            pog.query(
+              "update listings
+               set    amenities_pois_json = ($2::text)::jsonb,
+                      transport_pois_json = ($3::text)::jsonb
+               where  id = $1::uuid
+               returning id::text",
+            )
+            |> pog.parameter(pog.text(lid))
+            |> pog.parameter(pog.text(safe_a))
+            |> pog.parameter(pog.text(safe_t))
+            |> pog.returning(row_dec.col0_string())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "patch_service_pois_failed")
+            Ok(ret) ->
+              case ret.rows {
+                [] -> json_err(404, "listing_not_found")
+                [_] -> wisp.json_response("{\"ok\":true}", 200)
+                _ -> json_err(500, "unexpected_rows")
+              }
+          }
+        }
+      }
+  }
 }
 
 /// PATCH /api/v1/listings/:id/nearby-pois

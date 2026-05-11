@@ -690,6 +690,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "listings", lid, "nearby-pois"] ->
       listing_pois_http.patch_nearby_pois(req, ctx, lid)
 
+    http.Get, ["api", "v1", "listings", lid, "service-pois"] ->
+      listing_pois_http.get_service_pois(req, ctx, lid)
+
+    http.Patch, ["api", "v1", "listings", lid, "service-pois"] ->
+      listing_pois_http.patch_service_pois(req, ctx, lid)
+
     http.Post, ["api", "v1", "admin", "super-host", "recompute"] ->
       super_host_http.recompute_all(req, ctx)
     http.Get, ["api", "v1", "admin", "super-host", "organizations"] ->
