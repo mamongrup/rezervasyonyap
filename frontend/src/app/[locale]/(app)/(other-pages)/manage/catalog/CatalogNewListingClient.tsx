@@ -35,6 +35,7 @@ import {
   deleteListingPriceRule,
   getAuthMe,
   getListingAttributeValues,
+  getListingAvailabilityCalendar,
   getListingBasics,
   getListingIcalExportToken,
   getListingMeta,
@@ -55,6 +56,7 @@ import {
   listManageCatalogListings,
   listManageMealPlans,
   listManageCategoryContracts,
+  putListingAvailabilityCalendar,
   rotateListingIcalExportToken,
   listPriceLineItems,
   listSiteSettings,
@@ -78,6 +80,8 @@ import {
   type PriceLineItem,
   type ListingMeta,
 } from '@/lib/travel-api'
+import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import WizardCalendarGrid from '@/components/wizard/WizardCalendarGrid'
 import {
   defaultHolidayHomePropertyTypeItems,
   holidayPropertyLabelForLocale,
@@ -462,7 +466,7 @@ export default function CatalogNewListingClient({
   const { allLocales, translateTargets, primaryLocale, localeCodes } = useManageAiLocaleRows()
 
   // ── Wizard adım yönetimi ──
-  const TOTAL_STEPS = 6
+  const TOTAL_STEPS = 7
   const WIZARD_STEPS: WizardStep[] = [
     {
       label: 'Temel Bilgi',
@@ -485,14 +489,19 @@ export default function CatalogNewListingClient({
       icon: <span className="text-xs font-bold">4</span>,
     },
     {
-      label: 'Fiyat',
+      label: 'Takvim',
       shortLabel: '5',
       icon: <span className="text-xs font-bold">5</span>,
     },
     {
-      label: 'Yayın',
+      label: 'Fiyat',
       shortLabel: '6',
       icon: <span className="text-xs font-bold">6</span>,
+    },
+    {
+      label: 'Yayın',
+      shortLabel: '7',
+      icon: <span className="text-xs font-bold">7</span>,
     },
   ]
 
@@ -549,6 +558,12 @@ export default function CatalogNewListingClient({
   const [aiPolishTitle, setAiPolishTitle] = useState(false)
   const [aiPolishBody, setAiPolishBody] = useState(false)
   const submitIntentRef = useRef<'save' | 'save-show'>('save')
+
+  // ── Takvim adımı (müsaitlik + fiyat geçersiz kılma) ──
+  const [calRows, setCalRows] = useState<MergedCalendarRow[]>([])
+  const [calLoaded, setCalLoaded] = useState(false)
+  const [calBusy, setCalBusy] = useState<'load' | 'save' | null>(null)
+  const [calSaveMsg, setCalSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const setAiTargetFromToolbar = (code: string) => {
     const picked = translateTargets.find((l) => l.code === code)
@@ -982,6 +997,14 @@ export default function CatalogNewListingClient({
       cancelled = true
     }
   }, [editListingId, categoryCode, needOrg, orgId])
+
+  // Takvim adımına gelindiğinde ve henüz yüklenmemişse otomatik yükle
+  useEffect(() => {
+    if (currentStep === 4 && editListingId && !calLoaded && !calBusy) {
+      void loadCalendar(editListingId)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, editListingId, calLoaded])
 
   useEffect(() => {
     if (!editListingId || categoryCode !== 'holiday_home') {
@@ -1685,6 +1708,59 @@ export default function CatalogNewListingClient({
       })
     } finally {
       setAiTranslating(false)
+    }
+  }
+
+  // ── Takvim yükle / kaydet ──
+  async function loadCalendar(listingIdParam?: string) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    const id = listingIdParam ?? editListingId
+    if (!id) return
+    setCalBusy('load')
+    setCalSaveMsg(null)
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const toDate = new Date()
+      toDate.setMonth(toDate.getMonth() + 6)
+      const to = toDate.toISOString().slice(0, 10)
+      const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+      const av = await getListingAvailabilityCalendar(token, id, { from: today, to }, orgParam)
+      setCalRows(mergeCalendarRows(today, to, av.days))
+      setCalLoaded(true)
+    } catch {
+      setCalSaveMsg({ ok: false, text: 'Takvim yüklenemedi.' })
+    } finally {
+      setCalBusy(null)
+    }
+  }
+
+  async function saveCalendar() {
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    setCalBusy('save')
+    setCalSaveMsg(null)
+    try {
+      const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+      await putListingAvailabilityCalendar(
+        token,
+        editListingId,
+        {
+          days: calRows.map((r) => ({
+            day: r.day,
+            is_available: r.am_available || r.pm_available,
+            am_available: r.am_available,
+            pm_available: r.pm_available,
+            price_override: r.price_override.trim(),
+          })),
+        },
+        orgParam,
+      )
+      setCalSaveMsg({ ok: true, text: 'Takvim kaydedildi.' })
+    } catch {
+      setCalSaveMsg({ ok: false, text: 'Takvim kaydedilemedi.' })
+    } finally {
+      setCalBusy(null)
     }
   }
 
@@ -3575,8 +3651,105 @@ export default function CatalogNewListingClient({
 
             </>
             )}
-            {/* ── ADIM 4: Fiyat (villa Fiyatlandırma+EkÜcretler) ── */}
-            {isVilla && currentStep === 4 && (
+            {/* ── ADIM 4: Takvim & Müsaitlik ── */}
+            {currentStep === 4 && (
+              <Section
+                title="Takvim & Müsaitlik"
+                subtitle={editListingId ? 'Müsait günleri ve fiyat geçersiz kılmalarını ayarlayın. Günlere tıklayarak veya sürükleyerek değiştirebilirsiniz.' : 'İlan kaydedildikten sonra takvim ayarlanabilir.'}
+              >
+                {!editListingId ? (
+                  <div className="flex flex-col items-center gap-3 py-6 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-10 w-10 text-neutral-300">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                    </svg>
+                    <p className="max-w-xs text-sm text-neutral-500 dark:text-neutral-400">
+                      Önce ilanı kaydedin, ardından bu adımda müsaitlik takvimini düzenleyebilirsiniz.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => goToStep(6)}
+                      className="mt-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700"
+                    >
+                      Fiyat adımına geç →
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {!calLoaded && (
+                      <div className="flex justify-center py-4">
+                        <button
+                          type="button"
+                          onClick={() => void loadCalendar()}
+                          disabled={calBusy === 'load'}
+                          className="flex items-center gap-2 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        >
+                          {calBusy === 'load' ? (
+                            <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-4 w-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+                            </svg>
+                          )}
+                          {calBusy === 'load' ? 'Yükleniyor…' : 'Takvimi Yükle'}
+                        </button>
+                      </div>
+                    )}
+
+                    {calLoaded && (
+                      <>
+                        <WizardCalendarGrid
+                          rows={calRows}
+                          onChange={setCalRows}
+                          currencyCode={currency}
+                        />
+                        <div className="mt-5 flex flex-wrap items-center gap-3 border-t border-neutral-100 pt-4 dark:border-neutral-700">
+                          <button
+                            type="button"
+                            onClick={() => void saveCalendar()}
+                            disabled={calBusy === 'save'}
+                            className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
+                          >
+                            {calBusy === 'save' ? (
+                              <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                              </svg>
+                            ) : (
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4">
+                                <path fillRule="evenodd" d="M12.416 3.376a.75.75 0 0 1 .208 1.04l-5 7.5a.75.75 0 0 1-1.154.114l-3-3a.75.75 0 0 1 1.06-1.06l2.353 2.353 4.493-6.74a.75.75 0 0 1 1.04-.207Z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                            {calBusy === 'save' ? 'Kaydediliyor…' : 'Takvimi Kaydet'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void loadCalendar()}
+                            disabled={!!calBusy}
+                            className="flex items-center gap-1.5 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                            </svg>
+                            Yenile
+                          </button>
+                          {calSaveMsg && (
+                            <span className={`text-sm font-medium ${calSaveMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                              {calSaveMsg.text}
+                            </span>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </Section>
+            )}
+
+            {/* ── ADIM 5: Fiyat (villa Fiyatlandırma+EkÜcretler) ── */}
+            {isVilla && currentStep === 5 && (
                 <Section title="Fiyatlandırma">
                   <Field className="block max-w-md">
                     <Label>
@@ -3874,7 +4047,7 @@ export default function CatalogNewListingClient({
             {currentStep === 1 && isVilla && locationSection}
 
             {/* ── ADIM 4 devam: Pansiyon (villa) ── */}
-            {currentStep === 4 && isVilla && (
+            {currentStep === 5 && isVilla && (
               <Section
                 title="Pansiyon (yemekli / yemeksiz)"
                 subtitle="Bu bilgiler yeni ilan formunda değil; ilan kaydından sonra «Yemek Planları» sekmesinde girilir"
@@ -3936,7 +4109,7 @@ export default function CatalogNewListingClient({
               </>
             )}
             {/* ── ADIM 4 devam: Fiyatlandırma (non-villa) ── */}
-            {!isVilla && currentStep === 4 && (
+            {!isVilla && currentStep === 5 && (
               <>
                 {/* Fiyatlandırma — kısa konaklama + temizlik aynı kartta */}
                 <Section title="Fiyatlandırma">
@@ -4044,7 +4217,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 4 devam: Provizyon & Komisyon ── */}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
             <Section
               title="Provizyon & Komisyon Ayarları"
               subtitle="Ödeme akışı, tedarikçi onay süreleri ve yüksek sezon tanımı"
@@ -4154,7 +4327,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 5: Yayın ── */}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
             <>
             {/* İlan Sahibi Bilgileri (+ villa: BTrans / banka) */}
             <Section
@@ -4338,7 +4511,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 4 devam: Fiyata dahil (villa) ── */}
-            {isVilla && currentStep === 4 && (
+            {isVilla && currentStep === 5 && (
               <Section
                 title="Fiyata dahil & hariç"
                 subtitle="Katalogda tanımlı kalemleri işaretleyin; etiketler mevcut arayüz diline göre listelenir."
@@ -4422,7 +4595,7 @@ export default function CatalogNewListingClient({
             )}
 
             {/* ── ADIM 5 devam: Vitrin Promosyon + SEO ── */}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
             <>
             {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
             <Section
