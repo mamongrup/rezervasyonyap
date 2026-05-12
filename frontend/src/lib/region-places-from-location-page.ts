@@ -55,14 +55,18 @@ function travelIdeaPlaceId(idea: TravelIdea, idx: number): string {
 }
 
 export function resolveRegionCenterCoords(page: LocationPage): { lat: number; lng: number } | null {
-  const lat =
-    parseCoord(page.map_lat ?? undefined) ??
-    parseCoord(page.district_center_lat ?? undefined)
-  const lng =
-    parseCoord(page.map_lng ?? undefined) ??
-    parseCoord(page.district_center_lng ?? undefined)
-  if (lat == null || lng == null) return null
-  return { lat, lng }
+  const fromPair = (la?: string | null, lo?: string | null) => {
+    const lat = parseCoord(la)
+    const lng = parseCoord(lo)
+    if (lat == null || lng == null) return null
+    return { lat, lng }
+  }
+  return (
+    fromPair(page.map_lat, page.map_lng) ??
+    fromPair(page.district_center_lat, page.district_center_lng) ??
+    fromPair(page.region_center_lat, page.region_center_lng) ??
+    null
+  )
 }
 
 /**

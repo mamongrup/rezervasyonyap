@@ -417,11 +417,15 @@ const page_json_sql = "json_build_object(
   'country_info_json', coalesce(lp.country_info_json, '{}'::jsonb),
   'district_center_lat', d.center_lat::text,
   'district_center_lng', d.center_lng::text,
+  'region_center_lat', reg.center_lat::text,
+  'region_center_lng', reg.center_lng::text,
   'service_pois_json', coalesce(lp.service_pois_json, '[]'::jsonb)
 )::text"
 
 const page_json_from =
-  " from location_pages lp left join districts d on d.id = lp.district_id "
+  " from location_pages lp
+    left join districts d on d.id = lp.district_id
+    left join regions reg on reg.id = coalesce(lp.region_id, d.region_id) "
 
 fn page_row() -> decode.Decoder(String) {
   use s <- decode.field(0, decode.string)

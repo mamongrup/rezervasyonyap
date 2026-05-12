@@ -6745,6 +6745,9 @@ export type LocationPage = {
   /** İlçe tablosundan; `map_lat` boşsa yönetim haritası buna düşer */
   district_center_lat?: string | null
   district_center_lng?: string | null
+  /** `regions` tablosu — il (`province`) sayfaları veya ilçe üzerinden il merkezi */
+  region_center_lat?: string | null
+  region_center_lng?: string | null
   map_zoom: number
   is_published: boolean
   region_type: 'country' | 'province' | 'district' | 'destination'

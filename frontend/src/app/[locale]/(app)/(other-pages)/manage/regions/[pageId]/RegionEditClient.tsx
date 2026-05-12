@@ -348,8 +348,15 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           const pinLng = (p.map_lng ?? '').trim()
           const distLat = (p.district_center_lat ?? '').trim()
           const distLng = (p.district_center_lng ?? '').trim()
-          setMapLat(pinLat || distLat)
-          setMapLng(pinLng || distLng)
+          const regLat = (p.region_center_lat ?? '').trim()
+          const regLng = (p.region_center_lng ?? '').trim()
+          const pair =
+            pinLat && pinLng ? { lat: pinLat, lng: pinLng }
+            : distLat && distLng ? { lat: distLat, lng: distLng }
+            : regLat && regLng ? { lat: regLat, lng: regLng }
+            : null
+          setMapLat(pair?.lat ?? '')
+          setMapLng(pair?.lng ?? '')
         }
         setMapZoom(String(p.map_zoom ?? 12))
         setDistrictId(p.district_id ?? '')

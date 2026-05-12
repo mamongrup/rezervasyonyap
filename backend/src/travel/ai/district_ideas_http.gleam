@@ -747,8 +747,70 @@ fn update_district_center(ctx: Context, lp_id: String, lat_str: String, lng_str:
                   center_lng = $3::numeric
            from   location_pages lp
            where  lp.id = $1::uuid
-             and  lp.district_id = d.id
-             and  d.center_lat is null",
+             and  lp.district_id = d.id",
+        )
+        |> pog.parameter(pog.text(string.trim(lp_id)))
+        |> pog.parameter(pog.text(lat))
+        |> pog.parameter(pog.text(lng))
+        |> pog.execute(ctx.db)
+      Nil
+    }
+  }
+}
+
+/// AI gönderdiği merkezler `districts` ve bazen vitrin için `location_pages.map_*` boş kaldı;
+/// panel haritası `map_lat` okuduğundan, ikisi de boşken buraya yazar.
+fn sync_location_page_map_if_empty(
+  ctx: Context,
+  lp_id: String,
+  lat_str: String,
+  lng_str: String,
+) -> Nil {
+  let lat = string.trim(lat_str)
+  let lng = string.trim(lng_str)
+  case lat == "" || lng == "" {
+    True -> Nil
+    False -> {
+      let _ =
+        pog.query(
+          "update location_pages
+           set    map_lat = $2::numeric,
+                  map_lng = $3::numeric,
+                  updated_at = now()
+           where  id = $1::uuid
+             and  map_lat is null
+             and  map_lng is null",
+        )
+        |> pog.parameter(pog.text(string.trim(lp_id)))
+        |> pog.parameter(pog.text(lat))
+        |> pog.parameter(pog.text(lng))
+        |> pog.execute(ctx.db)
+      Nil
+    }
+  }
+}
+
+/// `region_type = province` sayfalarında il merkezi `regions` tablosunda.
+fn sync_region_center_for_province_page(
+  ctx: Context,
+  lp_id: String,
+  lat_str: String,
+  lng_str: String,
+) -> Nil {
+  let lat = string.trim(lat_str)
+  let lng = string.trim(lng_str)
+  case lat == "" || lng == "" {
+    True -> Nil
+    False -> {
+      let _ =
+        pog.query(
+          "update regions r
+           set    center_lat = $2::numeric,
+                  center_lng = $3::numeric
+           from   location_pages lp
+           where  lp.id = $1::uuid
+             and  lp.region_id = r.id
+             and  coalesce(lp.region_type, '') = 'province'",
         )
         |> pog.parameter(pog.text(string.trim(lp_id)))
         |> pog.parameter(pog.text(lat))
@@ -763,7 +825,8 @@ fn update_district_center(ctx: Context, lp_id: String, lat_str: String, lng_str:
 ///
 /// Google Maps sonuçlarından oluşturulan `ideas_json` dizisini
 /// ilgili location_page'e kaydeder. Opsiyonel `center_lat` / `center_lng`
-/// gönderilirse, ilçenin koordinatları da doldurulur (yalnızca boşsa).
+/// ile ilçe (`districts`), il (`regions`, province sayfası) ve harita pin'i
+/// (`location_pages.map_*`, yalnız ikisi boşsa) güncellenir.
 pub fn save_places(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case admin_gate.require_admin_users_read(req, ctx) {
@@ -777,6 +840,8 @@ pub fn save_places(req: Request, ctx: Context) -> Response {
             Ok(#(lp_id, ideas_json, center_lat, center_lng)) -> {
               let cleaned = clean_json_text(ideas_json)
               update_district_center(ctx, lp_id, center_lat, center_lng)
+              sync_region_center_for_province_page(ctx, lp_id, center_lat, center_lng)
+              sync_location_page_map_if_empty(ctx, lp_id, center_lat, center_lng)
               apply_ideas(ctx, "google_maps", string.trim(lp_id), cleaned)
             }
           }
