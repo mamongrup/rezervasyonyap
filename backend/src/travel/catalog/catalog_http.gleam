@@ -9,6 +9,8 @@ import gleam/int
 import gleam/io
 import gleam/json
 import gleam/list
+import gleam/dict.{type Dict}
+import gleam/dynamic.{type Dynamic}
 import gleam/order
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -2801,6 +2803,105 @@ pub fn get_listing_meta(
   }
 }
 
+fn listing_meta_strip_null_bytes(raw: String) -> String {
+  string.replace(raw, "\u{0000}", "")
+}
+
+/// lat/lng: anahtar yok = kolon dokunma; boş string = null; geçersiz sayı = dokunma
+type ListingMetaCoordPin {
+  CoordSkip
+  CoordClear
+  CoordNum(Float)
+}
+
+fn clamp_coord_range(v: Float, low: Float, hi: Float) -> Float {
+  case v <. low {
+    True -> low
+    False ->
+      case v >. hi {
+        True -> hi
+        False -> v
+      }
+  }
+}
+
+fn listing_meta_coord_from(meta: Dict(String, Dynamic), key: String) -> ListingMetaCoordPin {
+  case dict.get(meta, key) {
+    Error(_) -> CoordSkip
+    Ok(dyn_val) ->
+      case decode.run(dyn_val, decode.string) {
+        Ok(s_raw) -> {
+          let s =
+            listing_meta_strip_null_bytes(s_raw)
+            |> string.trim()
+            |> string.replace(",", ".")
+          case s == "" {
+            True -> CoordClear
+            False ->
+              case float.parse(s) {
+                Ok(f) -> CoordNum(f)
+                Error(_) -> CoordSkip
+              }
+          }
+        }
+        Error(_) ->
+          case decode.run(dyn_val, decode.float) {
+            Ok(f) -> CoordNum(f)
+            Error(_) ->
+              case decode.run(dyn_val, decode.int) {
+                Ok(i) -> CoordNum(int.to_float(i))
+                Error(_) -> CoordSkip
+              }
+          }
+      }
+  }
+}
+
+fn listing_meta_coord_sql(pin: ListingMetaCoordPin, low: Float, hi: Float) -> #(
+  String,
+  Float,
+) {
+  case pin {
+    CoordSkip -> #("s", 0.0)
+    CoordClear -> #("n", 0.0)
+    CoordNum(f) -> {
+      let c = clamp_coord_range(f, low, hi)
+      #("v", c)
+    }
+  }
+}
+
+type ListingMetaAddrPin {
+  AddrSkip
+  AddrClear
+  AddrText(String)
+}
+
+fn listing_meta_addr_from(meta: Dict(String, Dynamic)) -> ListingMetaAddrPin {
+  case dict.get(meta, "address") {
+    Error(_) -> AddrSkip
+    Ok(dyn_val) ->
+      case decode.run(dyn_val, decode.string) {
+        Ok(s0) -> {
+          let s = string.trim(listing_meta_strip_null_bytes(s0))
+          case s == "" {
+            True -> AddrClear
+            False -> AddrText(s)
+          }
+        }
+        Error(_) -> AddrSkip
+      }
+  }
+}
+
+fn listing_meta_addr_sql(pin: ListingMetaAddrPin) -> #(String, String) {
+  case pin {
+    AddrSkip -> #("s", "")
+    AddrClear -> #("n", "")
+    AddrText(t) -> #("v", t)
+  }
+}
+
 /// PUT /api/v1/catalog/listings/:id/meta — tüm meta alanları tek JSONB olarak sakla
 pub fn put_listing_meta(
   req: Request,
@@ -2817,85 +2918,67 @@ pub fn put_listing_meta(
         Ok(True) ->
           case read_body_string(req) {
             Error(_) -> json_err(400, "empty_body")
-            Ok(body) ->
-              case json.parse(body, decode.dynamic) {
+            Ok(body) -> {
+              let cleaned = listing_meta_strip_null_bytes(body)
+              case json.parse(cleaned, decode.dict(decode.string, decode.dynamic)) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(_) ->
+                Ok(meta_dict) ->
                   case
                     pog.query(
-                      "with payload as (
-                         select ($2::text)::jsonb as body
-                       ),
-                       saved_meta as (
-                         insert into listing_attributes (listing_id, group_code, key, value_json)
-                         values ($1::uuid, 'listing_meta', 'v1', (select body from payload))
-                         on conflict (listing_id, group_code, key)
-                         do update set value_json = excluded.value_json
-                         returning listing_id
-                       )
-                       update listings l
-                           set map_lat = case
-                             when (select body from payload) ? 'lat'
-                              and coalesce((select body->>'lat' from payload), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                               then round(
-                                 least(
-                                   greatest(
-                                     ((select body->>'lat' from payload))::numeric,
-                                     -90::numeric),
-                                   90::numeric),
-                                 7
-                               )::numeric(10, 7)
-                             when (select body from payload) ? 'lat'
-                              and coalesce((select body->>'lat' from payload), '') = ''
-                               then null
-                             else l.map_lat
-                           end,
-                           map_lng = case
-                             when (select body from payload) ? 'lng'
-                              and coalesce((select body->>'lng' from payload), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                               then round(
-                                 least(
-                                   greatest(
-                                     ((select body->>'lng' from payload))::numeric,
-                                     -180::numeric),
-                                   180::numeric),
-                                 7
-                               )::numeric(10, 7)
-                             when (select body from payload) ? 'lng'
-                              and coalesce((select body->>'lng' from payload), '') = ''
-                               then null
-                             else l.map_lng
-                           end,
-                           location_name = case
-                             when (select body from payload) ? 'address'
-                              and nullif(
-                                trim(coalesce((select body->>'address' from payload), '')),
-                                '',
-                              ) is not null
-                               then trim((select body->>'address' from payload))
-                             when (select body from payload) ? 'address'
-                              and trim(coalesce((select body->>'address' from payload), '')) = ''
-                               then null
-                             else l.location_name
-                           end
-                       from saved_meta
-                       where l.id = saved_meta.listing_id",
+                      "insert into listing_attributes (listing_id, group_code, key, value_json) values ($1::uuid, 'listing_meta', 'v1', ($2::text)::jsonb) on conflict (listing_id, group_code, key) do update set value_json = excluded.value_json",
                     )
                     |> pog.parameter(pog.text(listing_id))
-                    |> pog.parameter(pog.text(body))
+                    |> pog.parameter(pog.text(cleaned))
                     |> pog.execute(ctx.db)
                   {
                     Error(e) -> {
                       let _ =
                         io.println(
-                          "[catalog.put_listing_meta] "
+                          "[catalog.put_listing_meta:json] "
                           <> pog_errors.query_error_to_string(e),
                         )
                       json_err(500, "listing_meta_save_failed")
                     }
-                    Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
+                    Ok(_) -> {
+                      let lat_pin = listing_meta_coord_from(meta_dict, "lat")
+                      let lng_pin = listing_meta_coord_from(meta_dict, "lng")
+                      let addr_pin = listing_meta_addr_from(meta_dict)
+                      let #(lat_m, lat_f) =
+                        listing_meta_coord_sql(lat_pin, -90.0, 90.0)
+                      let #(lng_m, lng_f) =
+                        listing_meta_coord_sql(lng_pin, -180.0, 180.0)
+                      let #(addr_m, addr_s) = listing_meta_addr_sql(addr_pin)
+                      case
+                        pog.query(
+                          "update listings set "
+                          <> "map_lat = case $2::text when 'v' then round(least(greatest($3::double precision::numeric, -90::numeric), 90::numeric), 7)::numeric(10, 7) when 'n' then null else map_lat end, "
+                          <> "map_lng = case $4::text when 'v' then round(least(greatest($5::double precision::numeric, -180::numeric), 180::numeric), 7)::numeric(10, 7) when 'n' then null else map_lng end, "
+                          <> "location_name = case $6::text when 'v' then nullif(trim($7::text), '') when 'n' then null else location_name end "
+                          <> "where id = $1::uuid",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(lat_m))
+                        |> pog.parameter(pog.float(lat_f))
+                        |> pog.parameter(pog.text(lng_m))
+                        |> pog.parameter(pog.float(lng_f))
+                        |> pog.parameter(pog.text(addr_m))
+                        |> pog.parameter(pog.text(addr_s))
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(e2) -> {
+                          let _ =
+                            io.println(
+                              "[catalog.put_listing_meta:geo] "
+                              <> pog_errors.query_error_to_string(e2),
+                            )
+                          json_err(500, "listing_meta_save_failed")
+                        }
+                        Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
+                      }
+                    }
                   }
               }
+            }
           }
       }
   }
