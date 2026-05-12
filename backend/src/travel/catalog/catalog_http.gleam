@@ -2834,10 +2834,17 @@ pub fn put_listing_meta(
                          returning listing_id
                        )
                        update listings l
-                       set map_lat = case
+                           set map_lat = case
                              when (select body from payload) ? 'lat'
                               and coalesce((select body->>'lat' from payload), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                               then ((select body->>'lat' from payload))::numeric
+                               then round(
+                                 least(
+                                   greatest(
+                                     ((select body->>'lat' from payload))::numeric,
+                                     -90::numeric),
+                                   90::numeric),
+                                 7
+                               )::numeric(10, 7)
                              when (select body from payload) ? 'lat'
                               and coalesce((select body->>'lat' from payload), '') = ''
                                then null
@@ -2846,7 +2853,14 @@ pub fn put_listing_meta(
                            map_lng = case
                              when (select body from payload) ? 'lng'
                               and coalesce((select body->>'lng' from payload), '') ~ '^-?[0-9]+(\\.[0-9]+)?$'
-                               then ((select body->>'lng' from payload))::numeric
+                               then round(
+                                 least(
+                                   greatest(
+                                     ((select body->>'lng' from payload))::numeric,
+                                     -180::numeric),
+                                   180::numeric),
+                                 7
+                               )::numeric(10, 7)
                              when (select body from payload) ? 'lng'
                               and coalesce((select body->>'lng' from payload), '') = ''
                                then null
