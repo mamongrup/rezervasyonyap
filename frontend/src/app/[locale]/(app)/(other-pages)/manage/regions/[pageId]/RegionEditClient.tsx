@@ -6,6 +6,7 @@ import {
   listLocationCountries,
   listLocationRegions,
   listLocationDistricts,
+  lookupLocationDistrict,
   type LocationPage,
   type LocationCountry,
   type LocationRegion,
@@ -154,6 +155,14 @@ const inputCls = 'w-full rounded-xl border border-neutral-200 bg-white px-3 py-2
 const textareaCls = `${inputCls} min-h-[120px] resize-y`
 const labelCls = 'mb-1.5 block text-sm font-medium text-neutral-700 dark:text-neutral-300'
 const hintCls = 'mt-1 text-xs text-neutral-400'
+
+/** API bazen küçük tamsayı/parslanmış değer döndürebilir; select value her zaman düz metindir */
+function locationJsonScalarStr(v: unknown): string {
+  if (v == null) return ''
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v)
+  if (typeof v === 'boolean') return v ? '1' : '0'
+  return String(v).trim()
+}
 
 function Card({
   title,
@@ -350,17 +359,16 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           const distLng = (p.district_center_lng ?? '').trim()
           const regLat = (p.region_center_lat ?? '').trim()
           const regLng = (p.region_center_lng ?? '').trim()
-          const hasDistrictLink = Boolean((p.district_id ?? '').trim())
           const pair =
             pinLat && pinLng ? { lat: pinLat, lng: pinLng }
             : distLat && distLng ? { lat: distLat, lng: distLng }
-            : !hasDistrictLink && regLat && regLng ? { lat: regLat, lng: regLng }
+            : regLat && regLng ? { lat: regLat, lng: regLng }
             : null
           setMapLat(pair?.lat ?? '')
           setMapLng(pair?.lng ?? '')
         }
         setMapZoom(String(p.map_zoom ?? 12))
-        setDistrictId(p.district_id ?? '')
+        setDistrictId(locationJsonScalarStr(p.district_id))
         setMetaTitle(p.meta_title ?? '')
         setMetaDesc(p.meta_description ?? '')
 
@@ -437,8 +445,18 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
         setCountries(countriesRes.countries)
 
-        const pc = (p.parent_country_id ?? '').trim()
-        const pr = (p.parent_region_id ?? '').trim()
+        let pc = locationJsonScalarStr((p as { parent_country_id?: unknown }).parent_country_id)
+        let pr = locationJsonScalarStr((p as { parent_region_id?: unknown }).parent_region_id)
+        const pageDistrictId = locationJsonScalarStr((p as { district_id?: unknown }).district_id)
+        if ((!pc || !pr) && pageDistrictId) {
+          try {
+            const lu = await lookupLocationDistrict(pageDistrictId)
+            if (!pr && lu.district.region_id) pr = locationJsonScalarStr(lu.district.region_id)
+            if (!pc && lu.district.country_id) pc = locationJsonScalarStr(lu.district.country_id)
+          } catch {
+            /* ilçe bulunamazsa kullanıcı manuel seçer */
+          }
+        }
         if (pc) {
           setSelCountry(pc)
           try {
@@ -1437,9 +1455,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               onChange={(lat, lng) => { setMapLat(lat); setMapLng(lng) }}
             />
             <p className="mt-2 text-[11px] text-neutral-500">
-              Sayfa kaydında pin yoksa, ilçe merkezi veritabanından önizleme için yüklenir; tam konum için haritadan pin bırakıp{' '}
-              <strong className="font-medium text-neutral-600 dark:text-neutral-400">Kaydet</strong> ile kaydedin.
-              İl kaydı değil, ilçe sayfasında harita önce ilçe merkezini kullanır; pin yokken il merkezine düşmez.
+              Pin kayıtlı değilken sıra ile <strong className="font-medium text-neutral-600 dark:text-neutral-400">ilçe</strong> ve gerekiyorsa{' '}
+              <strong className="font-medium text-neutral-600 dark:text-neutral-400">il</strong> merkezi kullanılır; böylece harita Türkiye geneli yerine yakın zoom açar.
+              Kesin koordinat için haritada pinleyip{' '}
+              <strong className="font-medium text-neutral-600 dark:text-neutral-400">Kaydet</strong> kullanın.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
@@ -1837,6 +1856,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               </div>
             }
           >
+            <p className="-mt-1 mb-4 text-[11px] text-neutral-500">
+              Liste bu bölümde devam eder; mekân uzaklıkları ve üç sütun yapısı için sayfa başındaki (&quot;
+              <a href="#manage-region-pois" className="text-[color:var(--manage-primary)] hover:underline">Mesafe — mekanlar</a>,{' '}
+              <a href="#manage-region-vitrin-json" className="text-[color:var(--manage-primary)] hover:underline">Vitrin 3 sütun</a>&quot;) kısayollarına çıkabilirsiniz.
+              Rozette <span className="font-medium">Favori</span> yazarsanız vitrin kartlarında vurgulanır.
+            </p>
             {travelIdeas.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <p className="text-sm text-neutral-400">Henüz gezi fikri eklenmemiş.</p>

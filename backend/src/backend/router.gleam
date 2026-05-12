@@ -1172,6 +1172,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "locations", "regions"] ->
       locations_http.create_region(req, ctx)
 
+    http.Get, ["api", "v1", "locations", "districts", "lookup"] ->
+      locations_http.get_district_lookup(req, ctx)
+
     http.Get, ["api", "v1", "locations", "districts"] ->
       locations_http.list_districts(req, ctx)
 

@@ -282,6 +282,85 @@ fn district_json(row: #(String, String, String, String, String, String)) -> json
   ])
 }
 
+fn district_lookup_row() -> decode.Decoder(#(
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+)) {
+  use id <- decode.field(0, decode.string)
+  use rid <- decode.field(1, decode.string)
+  use cid <- decode.field(2, decode.string)
+  use name <- decode.field(3, decode.string)
+  use slug <- decode.field(4, decode.string)
+  use lat <- decode.field(5, decode.string)
+  use lng <- decode.field(6, decode.string)
+  decode.success(#(id, rid, cid, name, slug, lat, lng))
+}
+
+fn district_lookup_json(
+  row: #(String, String, String, String, String, String, String),
+) -> json.Json {
+  let #(id, rid, cid, name, slug, lat, lng) = row
+  let latj = case lat == "" {
+    True -> json.null()
+    False -> json.string(lat)
+  }
+  let lngj = case lng == "" {
+    True -> json.null()
+    False -> json.string(lng)
+  }
+  json.object([
+    #("id", json.string(id)),
+    #("region_id", json.string(rid)),
+    #("country_id", json.string(cid)),
+    #("name", json.string(name)),
+    #("slug", json.string(slug)),
+    #("center_lat", latj),
+    #("center_lng", lngj),
+  ])
+}
+
+/// GET /api/v1/locations/districts/lookup?id=<district id>
+pub fn get_district_lookup(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let raw_id =
+    list.key_find(qs, "id")
+    |> result.unwrap("")
+    |> string.trim
+  case raw_id == "" {
+    True -> json_err(400, "id_required")
+    False ->
+      case
+        pog.query(
+          "select d.id::text, d.region_id::text, r.country_id::text, d.name, d.slug, coalesce(d.center_lat::text,''), coalesce(d.center_lng::text,'') from districts d join regions r on r.id = d.region_id where d.id = $1::int limit 1",
+        )
+        |> pog.parameter(pog.text(raw_id))
+        |> pog.returning(district_lookup_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "district_lookup_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [row] -> {
+              let payload =
+                json.object([#("district", district_lookup_json(row))])
+                |> json.to_string
+              wisp.json_response(payload, 200)
+            }
+            _ -> json_err(404, "district_not_found")
+          }
+      }
+  }
+}
+
 /// GET /api/v1/locations/districts?region_id=
 pub fn list_districts(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -419,7 +498,10 @@ const page_json_sql = "json_build_object(
   'district_center_lng', d.center_lng::text,
   'region_center_lat', reg.center_lat::text,
   'region_center_lng', reg.center_lng::text,
-  'parent_country_id', case when reg.id is null then null else reg.country_id::text end,
+  'parent_country_id', coalesce(
+    case when reg.id is null then null else reg.country_id::text end,
+    (select rx.country_id::text from regions rx where rx.id = d.region_id limit 1)
+  ),
   'parent_region_id', case
     when coalesce(lp.region_id, d.region_id) is null then null
     else coalesce(lp.region_id, d.region_id)::text

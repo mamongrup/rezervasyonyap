@@ -6674,6 +6674,22 @@ export type LocationDistrict = {
   center_lng: string | null
 }
 
+/** `GET districts/lookup` — panelde il/ülke zincirini kurmak için (country_id dahil). */
+export type LocationDistrictLookupDetail = LocationDistrict & { country_id: string }
+
+export async function lookupLocationDistrict(
+  districtId: string,
+): Promise<{ district: LocationDistrictLookupDetail }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const raw = `${districtId}`.trim()
+  if (!raw) throw new Error('district_id_missing')
+  const q = new URLSearchParams({ id: raw })
+  const res = await fetch(`${b}/api/v1/locations/districts/lookup?${q}`)
+  if (!res.ok) throw new Error(`locations_district_lookup_${res.status}`)
+  return json(res)
+}
+
 export async function listLocationDistricts(regionId: string): Promise<{ districts: LocationDistrict[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
