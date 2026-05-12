@@ -70,8 +70,8 @@ const REGION_TYPES = [
 const POIS_VISIBLE = new Set(['district', 'destination'])
 
 const POI_CATEGORIES = [
-  'Plaj', 'Havalimanı', 'Otobüs Terminali', 'Marina', 'Restoran', 'Tarihi Alan',
-  'Müze', 'Alışveriş Merkezi', 'Hastane', 'Eczane', 'Banka', 'Kamp Alanı', 'Diğer',
+  'Plaj', 'Havalimanı', 'Otogar', 'Otobüs Terminali', 'Dolmuş durağı', 'Marina', 'Restoran', 'Tarihi Alan',
+  'Ören yeri', 'Müze', 'Alışveriş Merkezi', 'Hastane', 'Eczane', 'Banka', 'Kamp Alanı', 'Diğer',
 ]
 
 const SEO_BRAND_SUFFIX = ' | Mamon Travel'
@@ -350,10 +350,11 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           const distLng = (p.district_center_lng ?? '').trim()
           const regLat = (p.region_center_lat ?? '').trim()
           const regLng = (p.region_center_lng ?? '').trim()
+          const hasDistrictLink = Boolean((p.district_id ?? '').trim())
           const pair =
             pinLat && pinLng ? { lat: pinLat, lng: pinLng }
             : distLat && distLng ? { lat: distLat, lng: distLng }
-            : regLat && regLng ? { lat: regLat, lng: regLng }
+            : !hasDistrictLink && regLat && regLng ? { lat: regLat, lng: regLng }
             : null
           setMapLat(pair?.lat ?? '')
           setMapLng(pair?.lng ?? '')
@@ -435,6 +436,23 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         } catch { /* ignore */ }
 
         setCountries(countriesRes.countries)
+
+        const pc = (p.parent_country_id ?? '').trim()
+        const pr = (p.parent_region_id ?? '').trim()
+        if (pc) {
+          setSelCountry(pc)
+          try {
+            const regRes = await listLocationRegions(pc)
+            setRegions(regRes.regions)
+            if (pr) {
+              setSelRegion(pr)
+              const distRes = await listLocationDistricts(pr)
+              setDistricts(distRes.districts)
+            }
+          } catch {
+            /* ülke/il listesi gelmezse select’ler manuel seçimle doldurulur */
+          }
+        }
       } catch {
         // not found
       } finally {
@@ -1057,6 +1075,30 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           }
         />
 
+        <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, '-mt-4 mb-2')}>
+          <nav className="flex flex-wrap gap-x-5 gap-y-1 text-[13px] font-medium" aria-label="Bölüm kısayolları">
+            <a href="#manage-region-parent" className="text-[color:var(--manage-primary)] hover:underline">
+              Ülke / il / ilçe
+            </a>
+            <a href="#manage-region-map" className="text-[color:var(--manage-primary)] hover:underline">
+              Harita
+            </a>
+            {POIS_VISIBLE.has(regionType) ? (
+              <>
+                <a href="#manage-region-pois" className="text-[color:var(--manage-primary)] hover:underline">
+                  Mesafe — mekanlar
+                </a>
+                <a href="#manage-region-travel-ideas" className="text-[color:var(--manage-primary)] hover:underline">
+                  Gezi fikirleri
+                </a>
+                <a href="#manage-region-vitrin-json" className="text-[color:var(--manage-primary)] hover:underline">
+                  Vitrin 3 sütun
+                </a>
+              </>
+            ) : null}
+          </nav>
+        </div>
+
         <ManageFormListingSection>
           {/* Konum İçeriği */}
           <Card plain title={`Konum İçeriği — ${allLocales.find((l) => l.code === activeLang)?.flag} ${allLocales.find((l) => l.code === activeLang)?.label}`}>
@@ -1168,6 +1210,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 <p className={hintCls}>{REGION_TYPES.find((t) => t.value === regionType)?.label}</p>
               </div>
 
+              <section id="manage-region-parent" className="scroll-mt-28">
               <Card title="Ebeveyn Konum">
                 <div className="space-y-3">
                   <div>
@@ -1235,6 +1278,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   )}
                 </div>
               </Card>
+              </section>
 
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
@@ -1382,7 +1426,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
           {/* Coordinates + Map */}
           <Card plain title="Coğrafi Koordinat">
-            <p className="mb-3 text-xs text-neutral-500">
+            <section id="manage-region-map" className="scroll-mt-28">
+              <p className="mb-3 text-xs text-neutral-500">
               Haritaya tıklayarak veya arama yaparak pin koyun. Koordinatlar otomatik dolar.
             </p>
             <MapPicker
@@ -1394,6 +1439,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             <p className="mt-2 text-[11px] text-neutral-500">
               Sayfa kaydında pin yoksa, ilçe merkezi veritabanından önizleme için yüklenir; tam konum için haritadan pin bırakıp{' '}
               <strong className="font-medium text-neutral-600 dark:text-neutral-400">Kaydet</strong> ile kaydedin.
+              İl kaydı değil, ilçe sayfasında harita önce ilçe merkezini kullanır; pin yokken il merkezine düşmez.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
@@ -1421,6 +1467,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 <input type="number" min={1} max={20} value={mapZoom} onChange={(e) => setMapZoom(e.target.value)} className={inputCls} />
               </div>
             </div>
+          </section>
           </Card>
 
           {/* ── Ülke Bilgileri (yalnızca ülke tipinde) ───────────────────── */}
@@ -1668,6 +1715,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
           {/* Manual POIs — yalnızca ilçe ve destinasyon */}
           {POIS_VISIBLE.has(regionType) && (
+          <section id="manage-region-pois" className="scroll-mt-28">
           <Card
             plain
             title="Mekanlara Uzaklıklar (İlçe / Destinasyon)"
@@ -1684,7 +1732,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             }
           >
             <p className={`${hintCls} mb-4`}>
-              İl veya ilçe için haritada konumu işaretleyin, ardından butona tıklayın. API&apos;de çıkmayan mekanları aşağıdan manuel ekleyin.
+              İlan kartlarında gösterilen &quot;mekân mesafeleri&quot;, ilanın koordinatı ile ilçe kaydındaki hizmet
+              POI (&quot;servis mekânları&quot;) ve elle eklenen bu tablo birleştirilir. Önce orta noktayı haritadan
+              netleştirin (&quot;Mekanlara Olan Mesafeleri Getir&quot;) ve kaydedin; API&apos;de çıkmayan satırları
+              buradan tamamlayın.
             </p>
 
             {/* Existing POIs */}
@@ -1767,9 +1818,11 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               </div>
             </div>
           </Card>
+          </section>
           )}
 
           {/* Travel Ideas */}
+          <section id="manage-region-travel-ideas" className="scroll-mt-28">
           <Card
             plain
             title="Otomasyonlu Gezi Fikirleri"
@@ -1785,8 +1838,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             }
           >
             {travelIdeas.length === 0 ? (
-              <div className="flex flex-col items-center py-8 text-center">
+              <div className="flex flex-col items-center gap-2 py-8 text-center">
                 <p className="text-sm text-neutral-400">Henüz gezi fikri eklenmemiş.</p>
+                <p className="max-w-md text-[11px] text-neutral-500">
+                  Yukarıdan &quot;Öğe Ekle&quot; ile ekleyebilir veya yapay zekâ araçlarıyla içerik üretebilirsiniz. Rozette
+                  <span className="font-medium"> Favori</span> kullanırsanız vitrin kartlarında vurgulanır.
+                </p>
               </div>
             ) : (
               <div className="mb-4 space-y-3">
@@ -1850,7 +1907,9 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               <Plus className="h-4 w-4" /> Öğe Ekle
             </button>
           </Card>
+          </section>
 
+          <section id="manage-region-vitrin-json" className="scroll-mt-28">
           <Card plain title="Gezi fikirleri altı — 3 sütun mekan / mesafe">
             <p className={`${hintCls} mb-3`}>
               Vitrin, kayıtlı bölge mekanlarından (
@@ -1887,6 +1946,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               className={`${inputCls} min-h-[220px] font-mono text-xs`}
             />
           </Card>
+          </section>
 
           {/* SEO */}
           <Card

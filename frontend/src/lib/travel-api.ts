@@ -6748,6 +6748,9 @@ export type LocationPage = {
   /** `regions` tablosu — il (`province`) sayfaları veya ilçe üzerinden il merkezi */
   region_center_lat?: string | null
   region_center_lng?: string | null
+  /** Ülke / il seçicilerini doldurmak için (`regions.country_id`, bağlı il kimliği) */
+  parent_country_id?: string | null
+  parent_region_id?: string | null
   map_zoom: number
   is_published: boolean
   region_type: 'country' | 'province' | 'district' | 'destination'

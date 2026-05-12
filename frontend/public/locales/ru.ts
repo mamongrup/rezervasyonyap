@@ -483,6 +483,7 @@ export const ru: AppMessages = {
       nearbyVitrinRowMuseums: 'Музеи',
       nearbyVitrinRowMarket: 'Маркет / продукты',
       nearbyVitrinRowRestaurants: 'Рестораны',
+      nearbyVitrinRowPharmacy: 'Аптеки',
       nearbyVitrinRowEntertainment: 'Развлечения',
       nearbyVitrinRowAirport: 'Аэропорт',
       nearbyVitrinRowBusStation: 'Автовокзал',

@@ -61,10 +61,11 @@ export function resolveRegionCenterCoords(page: LocationPage): { lat: number; ln
     if (lat == null || lng == null) return null
     return { lat, lng }
   }
+  const districtLinked = Boolean((page.district_id ?? '').trim())
   return (
     fromPair(page.map_lat, page.map_lng) ??
     fromPair(page.district_center_lat, page.district_center_lng) ??
-    fromPair(page.region_center_lat, page.region_center_lng) ??
+    (!districtLinked ? fromPair(page.region_center_lat, page.region_center_lng) : null) ??
     null
   )
 }

@@ -484,6 +484,7 @@ export const de: AppMessages = {
       nearbyVitrinRowMuseums: 'Museen',
       nearbyVitrinRowMarket: 'Supermarkt',
       nearbyVitrinRowRestaurants: 'Restaurants',
+      nearbyVitrinRowPharmacy: 'Apotheken',
       nearbyVitrinRowEntertainment: 'Freizeit & Ausgehen',
       nearbyVitrinRowAirport: 'Flughafen',
       nearbyVitrinRowBusStation: 'Busbahnhof',

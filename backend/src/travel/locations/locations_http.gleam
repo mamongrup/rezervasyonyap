@@ -419,6 +419,11 @@ const page_json_sql = "json_build_object(
   'district_center_lng', d.center_lng::text,
   'region_center_lat', reg.center_lat::text,
   'region_center_lng', reg.center_lng::text,
+  'parent_country_id', case when reg.id is null then null else reg.country_id::text end,
+  'parent_region_id', case
+    when coalesce(lp.region_id, d.region_id) is null then null
+    else coalesce(lp.region_id, d.region_id)::text
+  end,
   'service_pois_json', coalesce(lp.service_pois_json, '[]'::jsonb)
 )::text"
 

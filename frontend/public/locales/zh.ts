@@ -474,6 +474,7 @@ export const zh: AppMessages = {
       nearbyVitrinRowMuseums: '博物馆',
       nearbyVitrinRowMarket: '超市 / 市集',
       nearbyVitrinRowRestaurants: '餐饮',
+      nearbyVitrinRowPharmacy: '药店',
       nearbyVitrinRowEntertainment: '娱乐休闲',
       nearbyVitrinRowAirport: '机场',
       nearbyVitrinRowBusStation: '客运站',

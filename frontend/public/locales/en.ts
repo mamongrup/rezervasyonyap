@@ -1539,6 +1539,7 @@ export const en = {
       nearbyVitrinRowMuseums: 'Museums',
       nearbyVitrinRowMarket: 'Grocery / market',
       nearbyVitrinRowRestaurants: 'Restaurants',
+      nearbyVitrinRowPharmacy: 'Pharmacies',
       nearbyVitrinRowEntertainment: 'Nightlife & fun',
       nearbyVitrinRowAirport: 'Airport',
       nearbyVitrinRowBusStation: 'Bus terminal',

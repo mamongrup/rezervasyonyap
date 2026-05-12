@@ -200,12 +200,12 @@ export function buildDefaultNearbyVitrinColumns(locale: string): NearbyVitrinCol
         rows: [
           { label: r.nearbyVitrinRowBeaches, googleTypes: ['beach'] },
           {
-            label: r.nearbyVitrinRowRuins,
-            googleTypes: ['tourist_attraction', 'historical_landmark', 'monument'],
-          },
-          {
             label: r.nearbyVitrinRowHistoric,
             googleTypes: ['tourist_attraction', 'historical_landmark', 'church', 'mosque'],
+          },
+          {
+            label: r.nearbyVitrinRowRuins,
+            googleTypes: ['archaeological_site', 'tourist_attraction', 'historical_landmark', 'monument'],
           },
           { label: r.nearbyVitrinRowMuseums, googleTypes: ['museum', 'art_gallery'] },
         ],
@@ -219,8 +219,8 @@ export function buildDefaultNearbyVitrinColumns(locale: string): NearbyVitrinCol
           },
           { label: r.nearbyVitrinRowRestaurants, googleTypes: ['restaurant', 'meal_takeaway', 'cafe'] },
           {
-            label: r.nearbyVitrinRowEntertainment,
-            googleTypes: ['night_club', 'movie_theater', 'amusement_park', 'casino', 'bowling_alley'],
+            label: r.nearbyVitrinRowPharmacy,
+            googleTypes: ['pharmacy', 'drugstore'],
           },
         ],
       },
