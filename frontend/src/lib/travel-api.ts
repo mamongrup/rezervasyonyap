@@ -6757,6 +6757,8 @@ export type LocationPage = {
   country_info_json: string
   /** Gezi fikirleri altı 3 sütun mekan/mesafe — JSON veya API nesnesi */
   nearby_vitrin_columns_json?: unknown
+  /** İlçe servis POI (market, havalimanı …) — vitrin yakın mekanlar */
+  service_pois_json?: unknown
 }
 
 export type TravelIdea = {

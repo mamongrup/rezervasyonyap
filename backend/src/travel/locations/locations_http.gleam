@@ -416,7 +416,8 @@ const page_json_sql = "json_build_object(
   'poi_manual_json', coalesce(lp.poi_manual_json, '[]'::jsonb),
   'country_info_json', coalesce(lp.country_info_json, '{}'::jsonb),
   'district_center_lat', d.center_lat::text,
-  'district_center_lng', d.center_lng::text
+  'district_center_lng', d.center_lng::text,
+  'service_pois_json', coalesce(lp.service_pois_json, '[]'::jsonb)
 )::text"
 
 const page_json_from =

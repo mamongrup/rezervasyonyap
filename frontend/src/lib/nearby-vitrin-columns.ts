@@ -61,13 +61,25 @@ function flattenTypes(data: RegionPlaceData) {
   )
 }
 
+type VitrinPlaceCandidate = {
+  name: string
+  distanceKm: number
+  placeId: string
+  lat: number
+  lng: number
+}
+
+function pushPlace(out: VitrinPlaceCandidate[], p: RegionPlaceData['categories'][0]['types'][0]['places'][0]) {
+  const lat = typeof p.lat === 'number' ? p.lat : Number.NaN
+  const lng = typeof p.lng === 'number' ? p.lng : Number.NaN
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return
+  out.push({ name: p.name, distanceKm: p.distanceKm, placeId: p.placeId, lat, lng })
+}
+
 /** Bir satır için aday mekanlar + mesafe */
-function collectCandidates(
-  data: RegionPlaceData,
-  row: NearbyVitrinRow,
-): { name: string; distanceKm: number; placeId: string }[] {
+function collectCandidates(data: RegionPlaceData, row: NearbyVitrinRow): VitrinPlaceCandidate[] {
   const flat = flattenTypes(data)
-  const out: { name: string; distanceKm: number; placeId: string }[] = []
+  const out: VitrinPlaceCandidate[] = []
 
   const typeIds = row.typeIds?.map((x) => String(x).trim()).filter(Boolean) ?? []
   if (typeIds.length > 0) {
@@ -75,7 +87,7 @@ function collectCandidates(
       const hit = flat.find((x) => x.type.id === tid)
       if (!hit) continue
       for (const p of hit.type.places) {
-        out.push({ name: p.name, distanceKm: p.distanceKm, placeId: p.placeId })
+        pushPlace(out, p)
       }
     }
     return dedupeByPlaceId(out)
@@ -91,7 +103,7 @@ function collectCandidates(
         ]) || lh.some((h) => norm(t.googleType).includes(norm(h)))
       if (!match) continue
       for (const p of t.places) {
-        out.push({ name: p.name, distanceKm: p.distanceKm, placeId: p.placeId })
+        pushPlace(out, p)
       }
     }
     return dedupeByPlaceId(out)
@@ -103,19 +115,17 @@ function collectCandidates(
     const tn = norm(t.name)
     if (!tn.includes(lab) && !lab.includes(tn)) continue
     for (const p of t.places) {
-      out.push({ name: p.name, distanceKm: p.distanceKm, placeId: p.placeId })
+      pushPlace(out, p)
     }
   }
   return dedupeByPlaceId(out)
 }
 
-function dedupeByPlaceId(
-  rows: { name: string; distanceKm: number; placeId: string }[],
-): { name: string; distanceKm: number; placeId: string }[] {
+function dedupeByPlaceId(rows: VitrinPlaceCandidate[]): VitrinPlaceCandidate[] {
   const seen = new Set<string>()
   const out: typeof rows = []
   for (const r of rows) {
-    const k = r.placeId || `${r.name}:${r.distanceKm}`
+    const k = r.placeId || `${r.name}:${r.distanceKm}:${r.lat}:${r.lng}`
     if (seen.has(k)) continue
     seen.add(k)
     out.push(r)
@@ -123,11 +133,17 @@ function dedupeByPlaceId(
   return out
 }
 
-function pickClosest(
-  candidates: { name: string; distanceKm: number; placeId: string }[],
-): { name: string; distanceKm: number; placeId: string } | null {
+function pickClosest(candidates: VitrinPlaceCandidate[]): VitrinPlaceCandidate | null {
   if (!candidates.length) return null
   return candidates.reduce((a, b) => (a.distanceKm <= b.distanceKm ? a : b))
+}
+
+function googleMapsHrefForVitrinPick(picked: VitrinPlaceCandidate | null): string | null {
+  if (!picked) return null
+  const pid = picked.placeId ?? ''
+  if (pid.includes('travel_idea:') || pid.startsWith('svc:'))
+    return `https://www.google.com/maps?q=${picked.lat},${picked.lng}`
+  return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(pid)}`
 }
 
 function formatKm(km: number): string {
@@ -244,9 +260,7 @@ export function resolveNearbyVitrinForDisplay(
     title: col.title,
     cells: col.rows.map((row) => {
       const picked = pickClosest(collectCandidates(data, row))
-      const mapsHref = picked?.placeId
-        ? `https://www.google.com/maps/place/?q=place_id:${picked.placeId}`
-        : null
+      const mapsHref = googleMapsHrefForVitrinPick(picked)
       return {
         rowLabel: row.label,
         placeName: picked?.name ?? null,

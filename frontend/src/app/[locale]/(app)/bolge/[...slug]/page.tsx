@@ -21,6 +21,7 @@ import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import RegionNearbyPlacesVitrin from '@/components/travel/RegionNearbyPlacesVitrin'
 import RegionTravelIdeasSection from '@/components/travel/RegionTravelIdeasSection'
 import { resolveNearbyVitrinConfig } from '@/lib/nearby-vitrin-columns'
+import { resolveRegionCenterCoords, resolveRegionPlacesForBolgePage } from '@/lib/region-places-from-location-page'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getRegionDetailPageBuilderConfig } from '@/data/page-builder-config'
@@ -298,7 +299,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   const cat = m.categoryPage
   const regionCategoryTabs = regionListingCategoryTabs(locale)
 
-  const [pageData, placesData, filterOptions, heroPack] = await Promise.all([
+  const [pageData, placesFileRaw, filterOptions, heroPack] = await Promise.all([
     getLocationPageBySlug(slugPath),
     getRegionPlaces(regionSlug),
     getStayListingFilterOptions(),
@@ -314,6 +315,14 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
 
   const regionName =
     pageData?.title ?? slug.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')
+
+  const placesData = resolveRegionPlacesForBolgePage(
+    placesFileRaw,
+    pageData,
+    regionSlug,
+    regionName,
+    locale,
+  )
 
   /** Galeri URL’leri (gezi fikirleri yedeği vb.) — hero görseli anasayfa ile aynı paketten gelir */
   const galleryUrls = pageData
@@ -370,9 +379,12 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       regionViewOnMapHref = prefixLocale(locale, mapPath)
     }
   }
-  if (!regionViewOnMapHref && pageData?.map_lat && pageData?.map_lng) {
-    regionViewOnMapHref = `https://www.google.com/maps?q=${pageData.map_lat},${pageData.map_lng}`
-    regionViewOnMapExternal = true
+  if (!regionViewOnMapHref && pageData) {
+    const c = resolveRegionCenterCoords(pageData)
+    if (c) {
+      regionViewOnMapHref = `https://www.google.com/maps?q=${c.lat},${c.lng}`
+      regionViewOnMapExternal = true
+    }
   }
 
   const descriptionHtml = pageData?.description?.trim() ?? ''
@@ -644,8 +656,20 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       </div>
     ) : null
 
+  const regionCenterForMap = pageData ? resolveRegionCenterCoords(pageData) : null
+  const embedLat = regionCenterForMap?.lat ?? placesData?.coordinates.lat ?? null
+  const embedLng = regionCenterForMap?.lng ?? placesData?.coordinates.lng ?? null
+  const embedZoom = pageData?.map_zoom ?? 12
+  const mapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? ''
+  const mapIframeSrc =
+    embedLat != null && embedLng != null
+      ? mapsKey !== ''
+        ? `https://www.google.com/maps/embed/v1/view?key=${encodeURIComponent(mapsKey)}&center=${embedLat},${embedLng}&zoom=${embedZoom}`
+        : `https://maps.google.com/maps?q=${embedLat},${embedLng}&z=${embedZoom}&output=embed&hl=${encodeURIComponent(locale.split('-')[0] ?? 'tr')}`
+      : null
+
   const mapSlot =
-    (pageData?.map_lat && pageData?.map_lng) || placesData?.coordinates ? (
+    mapIframeSrc ? (
       <div className="bg-white py-10 dark:bg-neutral-900">
         <div className="container">
           <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
@@ -659,7 +683,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
               style={{ border: 0 }}
               loading="lazy"
               allowFullScreen
-              src={`https://www.google.com/maps/embed/v1/view?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ''}&center=${pageData?.map_lat ?? String(placesData?.coordinates.lat)},${pageData?.map_lng ?? String(placesData?.coordinates.lng)}&zoom=${pageData?.map_zoom ?? 12}`}
+              src={mapIframeSrc}
             />
           </div>
         </div>

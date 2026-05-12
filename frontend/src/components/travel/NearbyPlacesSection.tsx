@@ -41,6 +41,13 @@ interface Place {
   lng: number
 }
 
+function googleMapsHrefForSavedPlace(place: Place): string {
+  const pid = place.placeId?.trim() ?? ''
+  if (pid.includes('travel_idea:') || pid.startsWith('svc:'))
+    return `https://www.google.com/maps?q=${place.lat},${place.lng}`
+  return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(pid)}`
+}
+
 interface PlaceTypeData {
   id: string
   name: string
@@ -94,7 +101,7 @@ function PlaceRow({
 }) {
   return (
     <a
-      href={`https://www.google.com/maps/place/?q=place_id:${place.placeId}`}
+      href={googleMapsHrefForSavedPlace(place)}
       target="_blank"
       rel="noopener noreferrer"
       className="group flex items-center justify-between gap-4 rounded-xl px-4 py-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
@@ -238,7 +245,7 @@ function FlatPlaceRow({
 }) {
   return (
     <a
-      href={`https://www.google.com/maps/place/?q=place_id:${place.placeId}`}
+      href={googleMapsHrefForSavedPlace(place)}
       target="_blank"
       rel="noopener noreferrer"
       className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/70"
