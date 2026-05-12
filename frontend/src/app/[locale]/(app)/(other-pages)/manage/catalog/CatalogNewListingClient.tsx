@@ -2780,13 +2780,6 @@ export default function CatalogNewListingClient({
         `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/translations`,
       )
     : ''
-  const advancedPanelHref =
-    editListingId && categoryCode === 'holiday_home'
-      ? vitrinPath(
-          `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/advanced`,
-        )
-      : ''
-
   const inputCls =
     'block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 disabled:opacity-50'
   const selectCls = inputCls
@@ -3256,15 +3249,6 @@ export default function CatalogNewListingClient({
                       className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-primary-300 dark:hover:bg-neutral-800"
                     >
                       Çeviriler
-                    </Link>
-                  ) : null}
-                  {advancedPanelHref ? (
-                    <Link
-                      href={advancedPanelHref}
-                      prefetch={false}
-                      className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800"
-                    >
-                      Takvim & ek araçlar
                     </Link>
                   ) : null}
                 </div>
