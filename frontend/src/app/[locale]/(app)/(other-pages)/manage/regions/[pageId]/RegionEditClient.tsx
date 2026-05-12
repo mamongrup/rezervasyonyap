@@ -343,8 +343,14 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setHeroGallery(urls)
           setHeroBannerLayoutJson(layout ? JSON.stringify(layout, null, 2) : '')
         }
-        setMapLat(p.map_lat ?? '')
-        setMapLng(p.map_lng ?? '')
+        {
+          const pinLat = (p.map_lat ?? '').trim()
+          const pinLng = (p.map_lng ?? '').trim()
+          const distLat = (p.district_center_lat ?? '').trim()
+          const distLng = (p.district_center_lng ?? '').trim()
+          setMapLat(pinLat || distLat)
+          setMapLng(pinLng || distLng)
+        }
         setMapZoom(String(p.map_zoom ?? 12))
         setDistrictId(p.district_id ?? '')
         setMetaTitle(p.meta_title ?? '')
@@ -1378,14 +1384,30 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               zoom={parseInt(mapZoom) || 12}
               onChange={(lat, lng) => { setMapLat(lat); setMapLng(lng) }}
             />
+            <p className="mt-2 text-[11px] text-neutral-500">
+              Sayfa kaydında pin yoksa, ilçe merkezi veritabanından önizleme için yüklenir; tam konum için haritadan pin bırakıp{' '}
+              <strong className="font-medium text-neutral-600 dark:text-neutral-400">Kaydet</strong> ile kaydedin.
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
                 <label className={labelCls}>Enlem</label>
-                <input type="text" value={mapLat} onChange={(e) => setMapLat(e.target.value)} placeholder="37.000000" className={`${inputCls} font-mono text-xs`} />
+                <input
+                  type="text"
+                  value={mapLat}
+                  onChange={(e) => setMapLat(e.target.value)}
+                  placeholder="Örn. 36.621389"
+                  className={`${inputCls} font-mono text-xs`}
+                />
               </div>
               <div>
                 <label className={labelCls}>Boylam</label>
-                <input type="text" value={mapLng} onChange={(e) => setMapLng(e.target.value)} placeholder="35.000000" className={`${inputCls} font-mono text-xs`} />
+                <input
+                  type="text"
+                  value={mapLng}
+                  onChange={(e) => setMapLng(e.target.value)}
+                  placeholder="Örn. 29.116389"
+                  className={`${inputCls} font-mono text-xs`}
+                />
               </div>
               <div>
                 <label className={labelCls}>Yakınlaştırma</label>

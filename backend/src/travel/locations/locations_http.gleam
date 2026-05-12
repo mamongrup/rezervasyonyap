@@ -391,30 +391,36 @@ pub fn create_district(req: Request, ctx: Context) -> Response {
 
 // --- location_pages ---
 // SQL helper: full page JSON columns (used in SELECT as single json_build_object column)
+/// Tek satır JSON; `districts` ile JOIN — harita pin'i boşken ilçe merkezi için kullanılır.
 const page_json_sql = "json_build_object(
-  'id', id::text,
-  'district_id', district_id::text,
-  'slug_path', slug_path,
-  'hero_image_key', hero_image_key,
-  'created_at', created_at::text,
-  'title', title,
-  'description', description,
-  'meta_title', meta_title,
-  'meta_description', meta_description,
-  'gallery_json', gallery_json,
-  'map_lat', map_lat::text,
-  'map_lng', map_lng::text,
-  'map_zoom', coalesce(map_zoom, 12),
-  'is_published', coalesce(is_published, false),
-  'region_type', coalesce(region_type, 'district'),
-  'featured_image_url', featured_image_url,
-  'hero_image_url', hero_image_url,
-  'travel_ideas_image_url', travel_ideas_image_url,
-  'travel_ideas_json', coalesce(travel_ideas_json, '[]'::jsonb),
-  'translations_json', coalesce(translations_json, '{}'::jsonb),
-  'poi_manual_json', coalesce(poi_manual_json, '[]'::jsonb),
-  'country_info_json', coalesce(country_info_json, '{}'::jsonb)
+  'id', lp.id::text,
+  'district_id', lp.district_id::text,
+  'slug_path', lp.slug_path,
+  'hero_image_key', lp.hero_image_key,
+  'created_at', lp.created_at::text,
+  'title', lp.title,
+  'description', lp.description,
+  'meta_title', lp.meta_title,
+  'meta_description', lp.meta_description,
+  'gallery_json', lp.gallery_json,
+  'map_lat', lp.map_lat::text,
+  'map_lng', lp.map_lng::text,
+  'map_zoom', coalesce(lp.map_zoom, 12),
+  'is_published', coalesce(lp.is_published, false),
+  'region_type', coalesce(lp.region_type, 'district'),
+  'featured_image_url', lp.featured_image_url,
+  'hero_image_url', lp.hero_image_url,
+  'travel_ideas_image_url', lp.travel_ideas_image_url,
+  'travel_ideas_json', coalesce(lp.travel_ideas_json, '[]'::jsonb),
+  'translations_json', coalesce(lp.translations_json, '{}'::jsonb),
+  'poi_manual_json', coalesce(lp.poi_manual_json, '[]'::jsonb),
+  'country_info_json', coalesce(lp.country_info_json, '{}'::jsonb),
+  'district_center_lat', d.center_lat::text,
+  'district_center_lng', d.center_lng::text
 )::text"
+
+const page_json_from =
+  " from location_pages lp left join districts d on d.id = lp.district_id "
 
 fn page_row() -> decode.Decoder(String) {
   use s <- decode.field(0, decode.string)
@@ -453,13 +459,13 @@ fn parse_location_pages_offset(raw: String) -> Int {
 }
 
 fn location_pages_search_predicate(placeholder: String) -> String {
-  "(lower(slug_path) like "
+  "(lower(lp.slug_path) like "
   <> placeholder
-  <> " or lower(coalesce(title,'')) like "
+  <> " or lower(coalesce(lp.title,'')) like "
   <> placeholder
-  <> " or lower(coalesce(meta_title,'')) like "
+  <> " or lower(coalesce(lp.meta_title,'')) like "
   <> placeholder
-  <> " or lower(translations_json::text) like "
+  <> " or lower(lp.translations_json::text) like "
   <> placeholder
   <> ")"
 }
@@ -494,15 +500,17 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
   let has_q = search_pat != ""
   let has_d = df != ""
 
-  let base_sql = "select " <> page_json_sql <> " from location_pages"
+  let base_sql = "select " <> page_json_sql <> page_json_from
 
   let #(count_exec, list_exec) = case has_d, has_q {
     False, False -> #(
-      pog.query("select count(*)::text from location_pages")
+      pog.query(
+        "select count(*)::text from location_pages lp left join districts d on d.id = lp.district_id",
+      )
         |> pog.returning(location_pages_count_row())
         |> pog.execute(ctx.db),
       pog.query(
-        base_sql <> " order by slug_path limit $1::int offset $2::int",
+        base_sql <> " order by lp.slug_path limit $1::int offset $2::int",
       )
         |> pog.parameter(pog.int(limit_n))
         |> pog.parameter(pog.int(offset_n))
@@ -511,7 +519,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
     )
     False, True -> #(
       pog.query(
-        "select count(*)::text from location_pages where "
+        "select count(*)::text from location_pages lp left join districts d on d.id = lp.district_id where "
         <> location_pages_search_predicate("$1"),
       )
         |> pog.parameter(pog.text(search_pat))
@@ -531,14 +539,14 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
     )
     True, False -> #(
       pog.query(
-        "select count(*)::text from location_pages where district_id = $1::int",
+        "select count(*)::text from location_pages lp left join districts d on d.id = lp.district_id where lp.district_id = $1::int",
       )
         |> pog.parameter(pog.text(df))
         |> pog.returning(location_pages_count_row())
         |> pog.execute(ctx.db),
       pog.query(
         base_sql
-        <> " where district_id = $1::int order by slug_path limit $2::int offset $3::int",
+        <> " where lp.district_id = $1::int order by lp.slug_path limit $2::int offset $3::int",
       )
         |> pog.parameter(pog.text(df))
         |> pog.parameter(pog.int(limit_n))
@@ -548,7 +556,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
     )
     True, True -> #(
       pog.query(
-        "select count(*)::text from location_pages where district_id = $1::int and "
+        "select count(*)::text from location_pages lp left join districts d on d.id = lp.district_id where lp.district_id = $1::int and "
         <> location_pages_search_predicate("$2"),
       )
         |> pog.parameter(pog.text(df))
@@ -557,9 +565,9 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
         |> pog.execute(ctx.db),
       pog.query(
         base_sql
-        <> " where district_id = $1::int and "
+        <> " where lp.district_id = $1::int and "
         <> location_pages_search_predicate("$2")
-        <> " order by slug_path limit $3::int offset $4::int",
+        <> " order by lp.slug_path limit $3::int offset $4::int",
       )
         |> pog.parameter(pog.text(df))
         |> pog.parameter(pog.text(search_pat))
@@ -617,7 +625,12 @@ pub fn get_location_page_by_slug(req: Request, ctx: Context) -> Response {
     True -> json_err(400, "slug_path_required")
     False ->
       case
-        pog.query("select " <> page_json_sql <> " from location_pages where slug_path = $1 limit 1")
+        pog.query(
+          "select "
+          <> page_json_sql
+          <> page_json_from
+          <> " where lp.slug_path = $1 limit 1",
+        )
         |> pog.parameter(pog.text(sp))
         |> pog.returning(page_row())
         |> pog.execute(ctx.db)
@@ -729,10 +742,11 @@ pub fn get_location_page_by_name(req: Request, ctx: Context) -> Response {
         pog.query(
           "select "
           <> page_json_sql
-          <> " from location_pages where lower(title) = $1"
-          <> " or lower(slug_path) like '%/' || $1"
-          <> " or lower(slug_path) = $1"
-          <> " order by length(slug_path) asc limit 1",
+          <> page_json_from
+          <> " where lower(lp.title) = $1"
+          <> " or lower(lp.slug_path) like '%/' || $1"
+          <> " or lower(lp.slug_path) = $1"
+          <> " order by length(lp.slug_path) asc limit 1",
         )
         |> pog.parameter(pog.text(name))
         |> pog.returning(page_row())
@@ -753,7 +767,12 @@ pub fn get_location_page_by_name(req: Request, ctx: Context) -> Response {
 pub fn get_location_page(req: Request, ctx: Context, page_id: String) -> Response {
   use <- wisp.require_method(req, http.Get)
   case
-    pog.query("select " <> page_json_sql <> " from location_pages where id = $1::uuid limit 1")
+    pog.query(
+      "select "
+      <> page_json_sql
+      <> page_json_from
+      <> " where lp.id = $1::uuid limit 1",
+    )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(page_row())
     |> pog.execute(ctx.db)

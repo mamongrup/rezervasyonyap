@@ -92,9 +92,10 @@ fn pois_result_row() -> decode.Decoder(#(String, String)) {
 /// POST /api/v1/listings/:id/compute-nearby-pois
 ///
 /// 1. İlanın `map_lat`, `map_lng` koordinatlarını okur.
-/// 2. Veritabanındaki tüm location_pages.travel_ideas_json POI'larını düzleştirir.
-/// 3. Her POI'ya ilanın koordinatından Haversine mesafesi hesaplar (PostgreSQL trig).
-/// 4. 30 km içindeki en yakın 10 POI'yu `listings.nearby_pois_json`'a yazar.
+/// 2. Tüm bölgelerin `travel_ideas_json` (gezi önerisi) ile en yakın ilçenin
+///    `service_pois_json` (market, havalimanı, restoran vb.) kayıtlarını birleştirir.
+/// 3. İlana olan Haversine mesafesi (km) hesaplanır (≤ 30 km).
+/// 4. En yakından başlayarak en fazla 18 kalemi `listings.nearby_pois_json`'a yazar.
 /// 5. Güncellenmiş JSON'u döndürür.
 pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Response {
   use <- wisp.require_method(req, http.Post)
@@ -108,7 +109,7 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         AND  map_lat IS NOT NULL
         AND  map_lng IS NOT NULL
     ),
-    pois AS (
+    travel_pois AS (
       SELECT
         elem->>'title'     AS title,
         elem->>'summary'   AS summary,
@@ -125,6 +126,62 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         AND  elem->>'lng'      IS NOT NULL
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
         AND  NULLIF(elem->>'place_id', '') IS NOT NULL
+    ),
+    nearest_svc_page AS (
+      SELECT lp.service_pois_json
+      FROM   location_pages lp
+      LEFT   JOIN districts d ON d.id = lp.district_id
+      CROSS  JOIN listing_coords lc
+      WHERE  lp.region_type IN ('district', 'destination')
+        AND  COALESCE(lp.map_lat, d.center_lat) IS NOT NULL
+        AND  COALESCE(lp.map_lng, d.center_lng) IS NOT NULL
+        AND  lp.service_pois_json IS NOT NULL
+        AND  jsonb_array_length(lp.service_pois_json) > 0
+      ORDER  BY
+        (6371.0 * acos(LEAST(1.0,
+          cos(radians(lc.mlat)) * cos(radians(COALESCE(lp.map_lat, d.center_lat)::float8))
+          * cos(radians(COALESCE(lp.map_lng, d.center_lng)::float8) - radians(lc.mlng))
+          + sin(radians(lc.mlat)) * sin(radians(COALESCE(lp.map_lat, d.center_lat)::float8))
+        )))
+      LIMIT  1
+    ),
+    service_pois AS (
+      SELECT
+        coalesce(
+          NULLIF(trim(elem->>'label'), ''),
+          NULLIF(trim(elem->>'type'), ''),
+          'Mekân'
+        ) AS title,
+        trim(
+          regexp_replace(
+            concat_ws(
+              ' ',
+              NULLIF(trim(elem->>'category'), ''),
+              NULLIF(trim(elem->>'type'), ''),
+              NULLIF(trim(elem->>'googleType'), '')
+            ),
+            '[[:space:]]+', ' ', 'g'
+          )
+        ) AS summary,
+        '' AS image,
+        '' AS link,
+        trim(coalesce(elem->>'place_id', '')) AS place_id,
+        (elem->>'lat')::float8 AS poi_lat,
+        (elem->>'lng')::float8 AS poi_lng,
+        NULL::numeric AS district_distance_km
+      FROM   nearest_svc_page ns
+             CROSS JOIN LATERAL jsonb_array_elements(
+               coalesce(ns.service_pois_json, '[]'::jsonb)
+             ) elem
+      WHERE  elem->>'lat' IS NOT NULL
+        AND  elem->>'lng' IS NOT NULL
+        AND  jsonb_typeof(elem->'lat') IN ('number','string')
+        AND  jsonb_typeof(elem->'lng') IN ('number','string')
+    ),
+    pois AS (
+      SELECT * FROM travel_pois
+      UNION ALL
+      SELECT * FROM service_pois
     ),
     with_dist AS (
       SELECT
@@ -143,12 +200,21 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
       FROM   pois p
       CROSS  JOIN listing_coords lc
     ),
-    top10 AS (
-      SELECT *
+    topn AS (
+      SELECT *,
+        ROW_NUMBER() OVER (
+          PARTITION BY ROUND(poi_lat::numeric, 4), ROUND(poi_lng::numeric, 4)
+          ORDER BY distance_km
+        ) AS dedupe_rn
       FROM   with_dist
-      WHERE  distance_km < 30
+      WHERE  distance_km <= 30
+    ),
+    top18 AS (
+      SELECT *
+      FROM   topn
+      WHERE  dedupe_rn = 1
       ORDER  BY distance_km
-      LIMIT  10
+      LIMIT  18
     ),
     aggregated AS (
       SELECT COALESCE(
@@ -169,7 +235,7 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         ),
         '[]'::jsonb
       ) AS pois_json
-      FROM top10
+      FROM top18
     )
     UPDATE listings
     SET    nearby_pois_json = (SELECT pois_json FROM aggregated)
@@ -580,18 +646,19 @@ pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> 
           // 2. En yakın service_pois_json dolu ilçe
           case
             pog.query(
-              "select service_pois_json::text
-               from   location_pages
-               where  region_type in ('district','destination')
-                 and  center_lat is not null
-                 and  center_lng is not null
-                 and  service_pois_json is not null
-                 and  jsonb_array_length(service_pois_json) > 0
+              "select lp.service_pois_json::text
+               from   location_pages lp
+               left join districts d on d.id = lp.district_id
+               where  lp.region_type in ('district','destination')
+                 and  coalesce(lp.map_lat, d.center_lat) is not null
+                 and  coalesce(lp.map_lng, d.center_lng) is not null
+                 and  lp.service_pois_json is not null
+                 and  jsonb_array_length(lp.service_pois_json) > 0
                order  by
                  (6371.0 * acos(LEAST(1.0,
-                   cos(radians($1)) * cos(radians(center_lat::float8))
-                   * cos(radians(center_lng::float8) - radians($2))
-                   + sin(radians($1)) * sin(radians(center_lat::float8))
+                   cos(radians($1)) * cos(radians(coalesce(lp.map_lat, d.center_lat)::float8))
+                   * cos(radians(coalesce(lp.map_lng, d.center_lng)::float8) - radians($2))
+                   + sin(radians($1)) * sin(radians(coalesce(lp.map_lat, d.center_lat)::float8))
                  )))
                limit  1",
             )

@@ -6742,6 +6742,9 @@ export type LocationPage = {
   gallery_json: string
   map_lat: string | null
   map_lng: string | null
+  /** İlçe tablosundan; `map_lat` boşsa yönetim haritası buna düşer */
+  district_center_lat?: string | null
+  district_center_lng?: string | null
   map_zoom: number
   is_published: boolean
   region_type: 'country' | 'province' | 'district' | 'destination'

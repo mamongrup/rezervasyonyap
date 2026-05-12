@@ -72,15 +72,29 @@ export default function MapPicker({
     onChangeRef.current = onChange
   }, [onChange])
 
+  useEffect(() => {
+    setManualLat(lat)
+    setManualLng(lng)
+  }, [lat, lng])
+
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google) return
 
-    const defaultLat = parseFloat(lat) || 39.9208
-    const defaultLng = parseFloat(lng) || 32.8541
+    const parsedLat = parseFloat(lat)
+    const parsedLng = parseFloat(lng)
+    const hasValidPin =
+      lat.trim() !== '' &&
+      lng.trim() !== '' &&
+      Number.isFinite(parsedLat) &&
+      Number.isFinite(parsedLng)
+    // Pin yokken Ankara sabiti Akdeniz ilçelerinde yanıltıcıydı — Türkiye geneli + düşük zoom
+    const defaultLat = hasValidPin ? parsedLat : 39.2
+    const defaultLng = hasValidPin ? parsedLng : 35.4
+    const initialZoom = hasValidPin ? zoom : Math.min(zoom, 6)
 
     const map = new window.google.maps.Map(mapRef.current, {
       center: { lat: defaultLat, lng: defaultLng },
-      zoom,
+      zoom: initialZoom,
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
@@ -107,8 +121,8 @@ export default function MapPicker({
     })
     markerRef.current = marker
 
-    if (lat && lng) {
-      const pos = { lat: parseFloat(lat), lng: parseFloat(lng) }
+    if (hasValidPin) {
+      const pos = { lat: parsedLat, lng: parsedLng }
       marker.setPosition(pos)
     } else {
       marker.setVisible(false)
@@ -253,7 +267,7 @@ export default function MapPicker({
               type="text"
               value={manualLat}
               onChange={(e) => setManualLat(e.target.value)}
-              placeholder="37.000000"
+              placeholder="Örn. 36.621389"
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 dark:border-neutral-700 dark:bg-neutral-800"
             />
           </div>
@@ -263,7 +277,7 @@ export default function MapPicker({
               type="text"
               value={manualLng}
               onChange={(e) => setManualLng(e.target.value)}
-              placeholder="35.000000"
+              placeholder="Örn. 29.116389"
               className="w-full rounded-lg border border-neutral-200 px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 dark:border-neutral-700 dark:bg-neutral-800"
             />
           </div>
