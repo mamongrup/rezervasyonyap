@@ -73,31 +73,52 @@ export async function POST(req: NextRequest) {
   if (!token) return NextResponse.json({ error: 'auth_required' }, { status: 401 })
 
   // 2. Body parse
-  let body: { listing_id?: string; caption?: string }
+  let body: {
+    listing_id?: string
+    caption?: string
+    /** Önceden bilinen ilan alanları — geçilirse backend'e tekrar istek atılmaz */
+    listing_title?: string
+    listing_handle?: string
+    listing_category_code?: string
+  }
   try {
-    body = await req.json() as { listing_id?: string; caption?: string }
+    body = await req.json() as typeof body
   } catch {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 })
   }
   const { listing_id, caption } = body
   if (!listing_id) return NextResponse.json({ error: 'listing_id_required' }, { status: 400 })
 
-  // 3. Kullanıcı doğrula (admin veya ilan sahibi)
+  // 3. Kullanıcı doğrula
   try {
     await backendGet('/api/v1/auth/me', token)
   } catch {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  // 4. İlan bilgilerini al
-  let basics: { id: string; title: string; handle: string; category_code: string; description?: string | null; featured_image_url?: string | null }
-  try {
-    basics = await backendGet<typeof basics>(
-      `/api/v1/catalog/listings/${encodeURIComponent(listing_id)}/basics`,
-      token,
-    )
-  } catch (e) {
-    return NextResponse.json({ error: `listing_not_found: ${String(e)}` }, { status: 404 })
+  // 4. İlan bilgilerini belirle
+  // Frontend zaten başlık/slug/kategori biliyor; bunları geçerse backend çağrısı gerekmez.
+  let basics: { title: string; handle: string; category_code: string }
+
+  if (body.listing_title && body.listing_handle && body.listing_category_code) {
+    basics = {
+      title: body.listing_title,
+      handle: body.listing_handle,
+      category_code: body.listing_category_code,
+    }
+  } else {
+    // Fallback: manage-listings listesinden çek (org_id gerektirmez, admin görür)
+    try {
+      const listRes = await backendGet<{ listings: { id: string; title: string; slug: string; category_code: string }[] }>(
+        `/api/v1/catalog/manage-listings?search=${encodeURIComponent(listing_id)}`,
+        token,
+      )
+      const match = listRes.listings.find((l) => l.id === listing_id)
+      if (!match) throw new Error('not_found')
+      basics = { title: match.title, handle: match.slug, category_code: match.category_code }
+    } catch (e) {
+      return NextResponse.json({ error: `listing_not_found: ${String(e)}` }, { status: 404 })
+    }
   }
 
   // 5. social_api ayarlarını al

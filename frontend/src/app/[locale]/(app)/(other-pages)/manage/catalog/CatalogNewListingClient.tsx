@@ -5002,7 +5002,11 @@ export default function CatalogNewListingClient({
                         if (!token) return
                         setFbPosting(true)
                         setFbResult(null)
-                        const r = await postListingToFacebook(token, editListingId)
+                        const r = await postListingToFacebook(token, editListingId, undefined, {
+                          title: (isVilla ? listingByLocale[primaryLocale]?.title : title) || title,
+                          handle: slug,
+                          category_code: categoryCode,
+                        })
                         setFbResult(r)
                         setFbPosting(false)
                       }}

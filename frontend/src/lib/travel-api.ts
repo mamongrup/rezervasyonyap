@@ -3927,6 +3927,7 @@ export async function postListingToFacebook(
   token: string,
   listingId: string,
   caption?: string,
+  listingMeta?: { title?: string; handle?: string; category_code?: string },
 ): Promise<{
   ok: boolean
   post_id?: string
@@ -3940,7 +3941,13 @@ export async function postListingToFacebook(
   const res = await fetch('/api/social/facebook-post', {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ listing_id: listingId, caption }),
+    body: JSON.stringify({
+      listing_id: listingId,
+      caption,
+      listing_title: listingMeta?.title,
+      listing_handle: listingMeta?.handle,
+      listing_category_code: listingMeta?.category_code,
+    }),
   })
   const data = await res.json().catch(() => ({ ok: false, error: `http_${res.status}` })) as {
     ok: boolean; post_id?: string; post_url?: string; listing_url?: string

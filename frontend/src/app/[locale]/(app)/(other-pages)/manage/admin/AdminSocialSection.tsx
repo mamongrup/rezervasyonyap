@@ -137,7 +137,11 @@ function FacebookQuickPost() {
     setBusy(true)
     setResult(null)
     try {
-      const r = await postListingToFacebook(token, selectedListing.id, caption.trim() || undefined)
+      const r = await postListingToFacebook(token, selectedListing.id, caption.trim() || undefined, {
+        title: selectedListing.title,
+        handle: selectedListing.slug,
+        category_code: selectedListing.category_code,
+      })
       setResult(r)
     } catch (e) {
       setResult({ ok: false, error: formatManageApiCatch(e, 'facebook_post_failed') })
