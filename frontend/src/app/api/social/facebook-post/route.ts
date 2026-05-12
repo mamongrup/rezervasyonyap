@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
   // 6. Paylaşım metnini hazırla
   const pageUrl = listingUrl(basics.category_code, basics.handle)
   const message = caption?.trim()
-    || `${basics.title}\n\n${basics.description ? String(basics.description).slice(0, 200).trim() + '…' : ''}\n\n🔗 ${pageUrl}`
+    || `${basics.title}\n\n🔗 ${pageUrl}`
 
   // 7. Facebook Graph API — /feed endpoint
   const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(meta.page_id)}/feed`, {
