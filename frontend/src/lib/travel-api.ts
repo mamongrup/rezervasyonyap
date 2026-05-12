@@ -8744,12 +8744,40 @@ const LISTING_META_PUT_KEYS = new Set([
   'min_short_stay_nights',
 ])
 
+/** listings.map_lat / map_lng = NUMERIC(10,7); aralık dışı veya aşırı hassas değerler PG güncellemesini düşürür */
+function sanitizeListingMetaCoord(raw: unknown, isLat: boolean): string | undefined {
+  if (raw === null || raw === undefined) return undefined
+  const s =
+    typeof raw === 'number' && Number.isFinite(raw)
+      ? String(raw)
+      : typeof raw === 'string'
+        ? raw.replace(/\0/g, '').trim().replace(',', '.')
+        : ''
+  if (s === '') return undefined
+  const n = Number(s)
+  if (!Number.isFinite(n)) return undefined
+  const limit = isLat ? 90 : 180
+  if (Math.abs(n) > limit) return undefined
+  const rounded = Math.round(n * 1e7) / 1e7
+  return String(rounded)
+}
+
 function flattenListingMetaForPut(meta: Record<string, unknown>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const key of Object.keys(meta)) {
     if (!LISTING_META_PUT_KEYS.has(key)) continue
     const v = meta[key]
     if (v === null || v === undefined) continue
+    if (key === 'lat') {
+      const s = sanitizeListingMetaCoord(v, true)
+      if (s !== undefined) out[key] = s
+      continue
+    }
+    if (key === 'lng') {
+      const s = sanitizeListingMetaCoord(v, false)
+      if (s !== undefined) out[key] = s
+      continue
+    }
     if (typeof v === 'boolean') {
       out[key] = v ? 'true' : 'false'
       continue
