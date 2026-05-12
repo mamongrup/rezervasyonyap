@@ -59,6 +59,7 @@ import {
   listAttributeGroups,
   listIcalFeeds,
   listListingImages,
+  getManageCategoryAccommodationRules,
   listListingExternalBookings,
   listListingPriceRules,
   listManageCatalogListings,
@@ -86,6 +87,7 @@ import {
   MEAL_EXTRAS_OPTIONS,
   type AttributeDef,
   type AttributeGroup,
+  type CategoryAccommodationRuleItem,
   type IcalFeed,
   type ListingExternalBookingRow,
   type ListingImage,
@@ -819,6 +821,7 @@ export default function CatalogNewListingClient({
   // ── Öznitelikler (ilan eklemede seçim) ──
   const [attributeGroups, setAttributeGroups] = useState<AttributeGroup[]>([])
   const [attributeDefsByGroup, setAttributeDefsByGroup] = useState<Record<string, AttributeDef[]>>({})
+  const [accRules, setAccRules] = useState<CategoryAccommodationRuleItem[]>([])
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({})
 
   // ── UI ──
@@ -1053,6 +1056,12 @@ export default function CatalogNewListingClient({
           setAttributeDefsByGroup({})
         }
       })
+    // Ev kuralları (holiday_home için)
+    if (categoryCode === 'holiday_home') {
+      void getManageCategoryAccommodationRules(token, categoryCode)
+        .then((r) => { if (!cancelled) setAccRules(r) })
+        .catch(() => { if (!cancelled) setAccRules([]) })
+    }
     return () => {
       cancelled = true
     }
@@ -3890,6 +3899,34 @@ export default function CatalogNewListingClient({
                 </Grid3>
               )}
             </Section>
+
+            {isVilla && accRules.length > 0 && (
+              <Section title="Ev Kuralları" subtitle="Havuz saatleri, evcil hayvan politikası ve diğer konaklama kurallarını seçin.">
+                <div className="flex flex-wrap gap-3">
+                  {accRules.map((r) => {
+                    const raw = attributeValues['catalog.accommodation_rule_ids'] ?? '[]'
+                    let ids: string[] = []
+                    try { ids = JSON.parse(raw) as string[] } catch { ids = [] }
+                    const checked = ids.includes(r.id)
+                    const label = r.labels[locale] ?? r.labels.tr ?? r.labels.en ?? Object.values(r.labels)[0] ?? r.id
+                    return (
+                      <label key={r.id} className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900">
+                        <input type="checkbox" checked={checked}
+                          onChange={() => {
+                            const cur: string[] = (() => { try { return JSON.parse(attributeValues['catalog.accommodation_rule_ids'] ?? '[]') as string[] } catch { return [] } })()
+                            const next = checked ? cur.filter((x) => x !== r.id) : [...cur, r.id]
+                            setAttributeValues((prev) => ({ ...prev, 'catalog.accommodation_rule_ids': JSON.stringify(next) }))
+                          }}
+                          className="h-4 w-4 accent-primary-600" />
+                        <span>{label}{' '}
+                          <span className="text-xs text-neutral-400">({r.severity === 'warn' ? 'uyarı' : 'bilgi'})</span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </Section>
+            )}
 
             {attributeGroups.length > 0 && (
               <Section
