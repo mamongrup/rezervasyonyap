@@ -1,259 +1,268 @@
 'use client'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
-  createSocialJob,
-  createSocialTemplate,
   listSocialJobs,
-  listSocialTemplates,
-  type SocialNetwork,
+  postListingToFacebook,
   type SocialShareJob,
-  type SocialTemplate,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
-import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Field, Label } from '@/shared/fieldset'
-import Input from '@/shared/Input'
-import Textarea from '@/shared/Textarea'
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { CheckCircle, ExternalLink, Facebook, Loader2, RefreshCw, XCircle } from 'lucide-react'
 
-const NETWORKS: SocialNetwork[] = ['instagram', 'facebook', 'twitter', 'pinterest']
+// ─── Hızlı Facebook Paylaşım Paneli ──────────────────────────────────────────
 
-export default function AdminSocialSection() {
-  const [templates, setTemplates] = useState<SocialTemplate[]>([])
-  const [jobs, setJobs] = useState<SocialShareJob[]>([])
-  const [jobStatusFilter, setJobStatusFilter] = useState('')
-  const [loadErr, setLoadErr] = useState<string | null>(null)
+interface FbResult {
+  ok: boolean
+  post_url?: string
+  listing_url?: string
+  message_preview?: string
+  error?: string
+  hint?: string
+}
+
+function FacebookQuickPost() {
+  const [listingId, setListingId] = useState('')
+  const [caption, setCaption] = useState('')
   const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<FbResult | null>(null)
 
-  const [tplNet, setTplNet] = useState<SocialNetwork>('instagram')
-  const [tplName, setTplName] = useState('')
-  const [tplBody, setTplBody] = useState('')
-
-  const [jobEntityType, setJobEntityType] = useState('listing')
-  const [jobEntityId, setJobEntityId] = useState('')
-  const [jobTemplateId, setJobTemplateId] = useState('')
-  const [jobImageKeysRaw, setJobImageKeysRaw] = useState('')
-  const [jobCaption, setJobCaption] = useState('')
-
-  const jobStatusFilterRef = useRef(jobStatusFilter)
-  jobStatusFilterRef.current = jobStatusFilter
-
-  const refresh = useCallback(async () => {
+  async function onPost() {
     const token = getStoredAuthToken()
-    if (!token) return
-    setLoadErr(null)
-    const st = jobStatusFilterRef.current.trim()
-    try {
-      const [t, j] = await Promise.all([
-        listSocialTemplates(token),
-        listSocialJobs(token, {
-          ...(st ? { status: st } : {}),
-          limit: 80,
-        }),
-      ])
-      setTemplates(t.templates)
-      setJobs(j.jobs)
-    } catch (e) {
-      setLoadErr(formatManageApiCatch(e, 'social_load_failed'))
-    }
-  }, [])
-
-  useEffect(() => {
-    void refresh()
-  }, [refresh])
-
-  async function onCreateTemplate(e: FormEvent) {
-    e.preventDefault()
-    const token = getStoredAuthToken()
-    if (!token) return
+    if (!token || !listingId.trim()) return
     setBusy(true)
-    setLoadErr(null)
+    setResult(null)
     try {
-      await createSocialTemplate(token, {
-        network: tplNet,
-        name: tplName.trim(),
-        template_body: tplBody,
-      })
-      setTplName('')
-      setTplBody('')
-      await refresh()
+      const r = await postListingToFacebook(token, listingId.trim(), caption.trim() || undefined)
+      setResult(r)
     } catch (e) {
-      setLoadErr(formatManageApiCatch(e, 'template_create_failed'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function onCreateJob(e: FormEvent) {
-    e.preventDefault()
-    const token = getStoredAuthToken()
-    if (!token) return
-    const keys = jobImageKeysRaw
-      .split(/[\n,]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    if (keys.length === 0) {
-      setLoadErr('En az bir görsel storage key gerekir.')
-      return
-    }
-    setBusy(true)
-    setLoadErr(null)
-    try {
-      await createSocialJob(token, {
-        entity_type: jobEntityType.trim(),
-        entity_id: jobEntityId.trim(),
-        ...(jobTemplateId.trim() ? { template_id: jobTemplateId.trim() } : {}),
-        image_keys: keys,
-        ...(jobCaption.trim() ? { caption_ai_generated: jobCaption.trim() } : {}),
-      })
-      setJobEntityId('')
-      setJobImageKeysRaw('')
-      setJobCaption('')
-      await refresh()
-    } catch (e) {
-      setLoadErr(formatManageApiCatch(e, 'job_create_failed'))
+      setResult({ ok: false, error: formatManageApiCatch(e, 'facebook_post_failed') })
     } finally {
       setBusy(false)
     }
   }
 
   return (
-    <section
-      id="admin-social-block"
-      className="mt-4 scroll-mt-24 rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-6 backdrop-blur-sm"
-    >
-      <h2 className="text-lg font-semibold text-[color:var(--manage-text)]">Paylaşım Kuyruğu & Şablonlar</h2>
-      <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
-        Şablonlar ve paylaşım kuyruğu (<span className="font-mono">admin.social.read</span> /{' '}
-        <span className="font-mono">admin.social.write</span>). Worker dış süreçler kuyruğu işleyip durumu{' '}
-        <span className="font-mono">posted</span> / <span className="font-mono">failed</span> yapar.
-      </p>
-      {loadErr ? (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-400" role="alert">
-          {loadErr}
-        </p>
-      ) : null}
-      <div className="mt-4 flex flex-wrap gap-2">
+    <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-5 dark:border-blue-900/40 dark:bg-blue-950/20">
+      <div className="mb-4 flex items-center gap-2">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#1877F2]">
+          <Facebook className="h-5 w-5 text-white" />
+        </div>
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Facebook&apos;ta Paylaş</h3>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">İlan UUID&apos;sini girin, Facebook sayfanıza anında gönderin</p>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">İlan UUID *</label>
+          <input
+            type="text"
+            value={listingId}
+            onChange={(e) => setListingId(e.target.value)}
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+            Özel açıklama <span className="text-neutral-400">(opsiyonel — boş bırakılırsa ilan başlığı kullanılır)</span>
+          </label>
+          <textarea
+            rows={3}
+            value={caption}
+            onChange={(e) => setCaption(e.target.value)}
+            placeholder="Harika bir tatil fırsatı! 🌊 Bu ilanı keşfedin…"
+            className="w-full resize-none rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
+          />
+        </div>
+
         <button
           type="button"
-          disabled={busy}
-          onClick={() => void refresh()}
-          className="text-sm font-medium text-primary-600 underline disabled:opacity-50 dark:text-primary-400"
+          onClick={() => void onPost()}
+          disabled={busy || !listingId.trim()}
+          className="flex items-center gap-2 rounded-xl bg-[#1877F2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#166FE5] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Yenile
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Facebook className="h-4 w-4" />}
+          {busy ? 'Paylaşılıyor…' : 'Facebook\'ta Paylaş'}
         </button>
-      </div>
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-2">
-        <div>
-          <h3 className="text-base font-medium text-neutral-900 dark:text-white">Şablonlar</h3>
-          <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto text-sm">
-            {templates.length === 0 ? (
-              <li className="text-neutral-500">Kayıt yok.</li>
-            ) : (
-              templates.map((t) => (
-                <li key={t.id} className="rounded border border-neutral-100 p-2 dark:border-neutral-800">
-                  <span className="font-mono text-xs text-neutral-500">{t.network}</span>{' '}
-                  <span className="font-medium">{t.name}</span>
-                  <pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-400">
-                    {t.template_body}
-                  </pre>
-                  <span className="text-[10px] text-neutral-400">{t.id}</span>
-                </li>
-              ))
-            )}
-          </ul>
-          <form className="mt-4 space-y-3 border-t border-neutral-200 pt-4 dark:border-neutral-700" onSubmit={(e) => void onCreateTemplate(e)}>
-            <Field>
-              <Label>Ağ</Label>
-              <select
-                className="mt-1 w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-                value={tplNet}
-                onChange={(e) => setTplNet(e.target.value as SocialNetwork)}
-              >
-                {NETWORKS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field>
-              <Label>Ad</Label>
-              <Input className="mt-1" value={tplName} onChange={(e) => setTplName(e.target.value)} required />
-            </Field>
-            <Field>
-              <Label>Gövde (değişkenler worker tarafından)</Label>
-              <Textarea className="mt-1 font-mono text-sm" rows={4} value={tplBody} onChange={(e) => setTplBody(e.target.value)} required />
-            </Field>
-            <ButtonPrimary type="submit" disabled={busy}>
-              {busy ? '…' : 'Şablon ekle'}
-            </ButtonPrimary>
-          </form>
-        </div>
-
-        <div>
-          <div className="flex flex-wrap items-end gap-3">
-            <Field>
-              <Label htmlFor="social-job-status">Kuyruk durumu</Label>
-              <Input
-                id="social-job-status"
-                className="mt-1 font-mono text-sm"
-                placeholder="pending | posted | failed (boş=tümü)"
-                value={jobStatusFilter}
-                onChange={(e) => setJobStatusFilter(e.target.value)}
-              />
-            </Field>
+        {/* Sonuç */}
+        {result && (
+          <div className={`mt-2 rounded-xl border p-4 ${result.ok ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/20' : 'border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/20'}`}>
+            <div className="flex items-start gap-2">
+              {result.ok
+                ? <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                : <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600 dark:text-red-400" />
+              }
+              <div className="min-w-0 flex-1">
+                {result.ok ? (
+                  <>
+                    <p className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">Paylaşım başarılı!</p>
+                    {result.post_url && (
+                      <a href={result.post_url} target="_blank" rel="noopener noreferrer"
+                        className="mt-1 flex items-center gap-1 text-xs text-emerald-700 underline dark:text-emerald-300"
+                      >
+                        Gönderiyi göster <ExternalLink className="h-3 w-3" />
+                      </a>
+                    )}
+                    {result.message_preview && (
+                      <p className="mt-2 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs text-neutral-600 dark:border-emerald-800 dark:bg-neutral-900 dark:text-neutral-400">
+                        &ldquo;{result.message_preview}&hellip;&rdquo;
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-red-800 dark:text-red-200">Paylaşım başarısız</p>
+                    <p className="mt-1 text-xs text-red-700 dark:text-red-300">{result.error}</p>
+                    {result.hint && (
+                      <p className="mt-2 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs text-neutral-700 dark:border-red-800 dark:bg-neutral-900 dark:text-neutral-300">
+                        💡 {result.hint}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-          <ul className="mt-3 max-h-56 space-y-2 overflow-y-auto text-sm">
-            {jobs.length === 0 ? (
-              <li className="text-neutral-500">Kayıt yok.</li>
-            ) : (
-              jobs.map((j) => (
-                <li key={j.id} className="rounded border border-neutral-100 p-2 font-mono text-xs dark:border-neutral-800">
-                  <span className="text-neutral-800 dark:text-neutral-200">{j.status}</span> · {j.entity_type} ·{' '}
-                  {j.entity_id}
-                  <div className="mt-1 text-[10px] text-neutral-500">
-                    görseller: {j.image_keys.length} · {j.id}
-                  </div>
-                </li>
-              ))
-            )}
-          </ul>
-          <form className="mt-4 space-y-3 border-t border-neutral-200 pt-4 dark:border-neutral-700" onSubmit={(e) => void onCreateJob(e)}>
-            <Field>
-              <Label>Varlık türü</Label>
-              <Input className="mt-1 font-mono text-sm" value={jobEntityType} onChange={(e) => setJobEntityType(e.target.value)} required />
-            </Field>
-            <Field>
-              <Label>Varlık UUID</Label>
-              <Input className="mt-1 font-mono text-sm" value={jobEntityId} onChange={(e) => setJobEntityId(e.target.value)} required />
-            </Field>
-            <Field>
-              <Label>Şablon id (isteğe bağlı)</Label>
-              <Input className="mt-1 font-mono text-sm" value={jobTemplateId} onChange={(e) => setJobTemplateId(e.target.value)} />
-            </Field>
-            <Field>
-              <Label>Görsel storage key&apos;leri (virgül veya satır)</Label>
-              <Textarea
-                className="mt-1 font-mono text-sm"
-                rows={3}
-                value={jobImageKeysRaw}
-                onChange={(e) => setJobImageKeysRaw(e.target.value)}
-                placeholder="key1&#10;key2"
-                required
-              />
-            </Field>
-            <Field>
-              <Label>Alt yazı / AI çıktısı (isteğe bağlı)</Label>
-              <Textarea className="mt-1 text-sm" rows={2} value={jobCaption} onChange={(e) => setJobCaption(e.target.value)} />
-            </Field>
-            <ButtonPrimary type="submit" disabled={busy}>
-              {busy ? '…' : 'Kuyruğa ekle'}
-            </ButtonPrimary>
-          </form>
-        </div>
+        )}
       </div>
-    </section>
+    </div>
+  )
+}
+
+// ─── Kuyruk görünümü ──────────────────────────────────────────────────────────
+
+const STATUS_COLORS: Record<string, string> = {
+  pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
+  posted: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
+}
+
+function JobRow({ j }: { j: SocialShareJob }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
+      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[j.status] ?? 'bg-neutral-100 text-neutral-600'}`}>
+        {j.status}
+      </span>
+      <span className="font-mono text-xs text-neutral-700 dark:text-neutral-300">{j.entity_type}</span>
+      <span className="truncate font-mono text-xs text-neutral-500 dark:text-neutral-400" title={j.entity_id}>
+        {j.entity_id.slice(0, 8)}…
+      </span>
+      {j.caption_ai_generated && (
+        <span className="max-w-xs truncate text-xs text-neutral-600 dark:text-neutral-400" title={j.caption_ai_generated}>
+          &ldquo;{j.caption_ai_generated.slice(0, 60)}&rdquo;
+        </span>
+      )}
+      <span className="ml-auto text-[10px] text-neutral-400">{j.created_at ? new Date(j.created_at).toLocaleDateString('tr') : ''}</span>
+    </div>
+  )
+}
+
+// ─── Ana bileşen ──────────────────────────────────────────────────────────────
+
+export default function AdminSocialSection() {
+  const [jobs, setJobs] = useState<SocialShareJob[]>([])
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'posted' | 'failed'>('all')
+  const [loadErr, setLoadErr] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  const statusFilterRef = useRef(statusFilter)
+  statusFilterRef.current = statusFilter
+
+  const refresh = useCallback(async () => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setLoadErr(null)
+    setLoading(true)
+    const st = statusFilterRef.current
+    try {
+      const j = await listSocialJobs(token, {
+        ...(st !== 'all' ? { status: st } : {}),
+        limit: 100,
+      })
+      setJobs(j.jobs)
+    } catch (e) {
+      setLoadErr(formatManageApiCatch(e, 'social_load_failed'))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void refresh() }, [refresh])
+
+  const counts = {
+    all: jobs.length,
+    pending: jobs.filter((j) => j.status === 'pending').length,
+    posted: jobs.filter((j) => j.status === 'posted').length,
+    failed: jobs.filter((j) => j.status === 'failed').length,
+  }
+
+  const visibleJobs = statusFilter === 'all' ? jobs : jobs.filter((j) => j.status === statusFilter)
+
+  return (
+    <div className="space-y-6">
+      {/* Hızlı paylaşım */}
+      <FacebookQuickPost />
+
+      {/* Paylaşım kuyruğu */}
+      <div className="rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-6 backdrop-blur-sm">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-[color:var(--manage-text)]">Paylaşım Geçmişi</h3>
+            <p className="mt-0.5 text-xs text-[color:var(--manage-text-muted)]">Facebook&apos;a gönderilen paylaşım kayıtları</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void refresh()}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-xl border border-[color:var(--manage-card-border)] px-3 py-2 text-sm text-[color:var(--manage-text-muted)] hover:bg-[color:var(--manage-hover-bg)] disabled:opacity-50"
+          >
+            <RefreshCw className={['h-3.5 w-3.5', loading ? 'animate-spin' : ''].join(' ')} />
+            Yenile
+          </button>
+        </div>
+
+        {/* Durum filtreleri */}
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(['all', 'pending', 'posted', 'failed'] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setStatusFilter(s)}
+              className={[
+                'rounded-full border px-3 py-1 text-xs font-medium transition',
+                statusFilter === s
+                  ? 'border-primary-500 bg-primary-100 text-primary-700 dark:bg-primary-950/40 dark:text-primary-300'
+                  : 'border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400',
+              ].join(' ')}
+            >
+              {s === 'all' ? 'Tümü' : s === 'pending' ? 'Bekleyen' : s === 'posted' ? 'Paylaşıldı' : 'Başarısız'}
+              {' '}
+              <span className="ml-0.5 text-[10px] opacity-70">({counts[s]})</span>
+            </button>
+          ))}
+        </div>
+
+        {loadErr && (
+          <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
+            {loadErr}
+          </p>
+        )}
+
+        {loading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-neutral-400" />
+          </div>
+        ) : visibleJobs.length === 0 ? (
+          <p className="py-6 text-center text-sm text-neutral-400">Kayıt yok.</p>
+        ) : (
+          <div className="space-y-2">
+            {visibleJobs.map((j) => <JobRow key={j.id} j={j} />)}
+          </div>
+        )}
+      </div>
+    </div>
   )
 }

@@ -76,6 +76,7 @@ import {
   putListingPriceLineSelections,
   upsertSeoMetadata,
   updateManageMealPlan,
+  postListingToFacebook,
   MEAL_PLAN_LABELS,
   MEAL_OPTIONS,
   MEAL_EXTRAS_OPTIONS,
@@ -703,6 +704,8 @@ export default function CatalogNewListingClient({
   const [shareToSocial, setShareToSocial] = useState(true)
   const [allowAiCaption, setAllowAiCaption] = useState(true)
   const [allowSubMinStayGap, setAllowSubMinStayGap] = useState(false)
+  const [fbPosting, setFbPosting] = useState(false)
+  const [fbResult, setFbResult] = useState<{ ok: boolean; post_url?: string; error?: string; hint?: string } | null>(null)
 
   // ── Mülk bilgileri ──
   const [bedCount, setBedCount] = useState('')
@@ -4974,6 +4977,61 @@ export default function CatalogNewListingClient({
                     className="h-5 w-5 accent-primary-600"
                   />
                 </label>
+
+                {/* Facebook paylaşım — yalnızca kaydedilmiş ilan */}
+                {editListingId && (
+                  <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-900/40 dark:bg-blue-950/20">
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#1877F2]">
+                        <svg viewBox="0 0 24 24" fill="white" className="h-4 w-4"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                      </div>
+                      <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">Facebook&apos;ta Paylaş</p>
+                    </div>
+                    <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
+                      İlanı Facebook sayfanıza hemen gönder. Admin → Sosyal Medya → API Ayarları → Meta bölümünde token girilmiş olmalı.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={fbPosting}
+                      onClick={async () => {
+                        const token = getStoredAuthToken()
+                        if (!token) return
+                        setFbPosting(true)
+                        setFbResult(null)
+                        const r = await postListingToFacebook(token, editListingId)
+                        setFbResult(r)
+                        setFbPosting(false)
+                      }}
+                      className="flex items-center gap-2 rounded-xl bg-[#1877F2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166FE5] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {fbPosting ? (
+                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" strokeOpacity=".25"/><path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round"/></svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="white" className="h-4 w-4"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                      )}
+                      {fbPosting ? 'Paylaşılıyor…' : 'Facebook\'ta Paylaş'}
+                    </button>
+                    {fbResult && (
+                      <div className={`mt-3 rounded-xl border p-3 text-xs ${fbResult.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300' : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300'}`}>
+                        {fbResult.ok ? (
+                          <>
+                            ✓ Paylaşım başarılı!
+                            {fbResult.post_url && (
+                              <a href={fbResult.post_url} target="_blank" rel="noopener noreferrer" className="ml-2 underline">
+                                Gönderiyi gör →
+                              </a>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            ✗ {fbResult.error}
+                            {fbResult.hint && <p className="mt-1 italic">{fbResult.hint}</p>}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </Section>
             </>

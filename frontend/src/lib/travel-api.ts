@@ -3922,6 +3922,34 @@ export async function createSocialJob(
   return json(res)
 }
 
+/** Sunucu taraflı Facebook paylaşım API rotasını çağırır. */
+export async function postListingToFacebook(
+  token: string,
+  listingId: string,
+  caption?: string,
+): Promise<{
+  ok: boolean
+  post_id?: string
+  post_url?: string
+  listing_url?: string
+  job_id?: string
+  message_preview?: string
+  error?: string
+  hint?: string
+}> {
+  const res = await fetch('/api/social/facebook-post', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ listing_id: listingId, caption }),
+  })
+  const data = await res.json().catch(() => ({ ok: false, error: `http_${res.status}` })) as {
+    ok: boolean; post_id?: string; post_url?: string; listing_url?: string
+    job_id?: string; message_preview?: string; error?: string; hint?: string
+  }
+  if (!res.ok && !data.error) data.error = `facebook_post_${res.status}`
+  return data
+}
+
 export async function patchListingSocial(
   token: string,
   listingId: string,
