@@ -3,6 +3,8 @@
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { extractHolidayHomePoolsFromVerticalMeta, unwrapVerticalMetaPayload } from '@/lib/listing-pools'
+import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
+import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import {
   parseHolidayHomeFaqListingOverlay,
   parseHolidayHomeFaqTemplatePayload,
@@ -40,6 +42,7 @@ import {
   syncIcalFeed,
   patchIcalFeed,
   patchListingExternalBooking,
+  patchVerticalHolidayHome,
   getAuthMe,
   getListingAttributeValues,
   getListingAvailabilityCalendar,
@@ -60,6 +63,7 @@ import {
   listIcalFeeds,
   listListingImages,
   getManageCategoryAccommodationRules,
+  getVerticalHolidayHome,
   listListingExternalBookings,
   listListingPriceRules,
   listManageCatalogListings,
@@ -822,6 +826,8 @@ export default function CatalogNewListingClient({
   const [attributeGroups, setAttributeGroups] = useState<AttributeGroup[]>([])
   const [attributeDefsByGroup, setAttributeDefsByGroup] = useState<Record<string, AttributeDef[]>>({})
   const [accRules, setAccRules] = useState<CategoryAccommodationRuleItem[]>([])
+  const [villaThemes, setVillaThemes] = useState<string[]>([])
+  const [villaThemeCatalog, setVillaThemeCatalog] = useState<{ code: string; label: string }[]>([])
   const [attributeValues, setAttributeValues] = useState<Record<string, string>>({})
 
   // ── UI ──
@@ -1056,11 +1062,20 @@ export default function CatalogNewListingClient({
           setAttributeDefsByGroup({})
         }
       })
-    // Ev kuralları (holiday_home için)
+    // Ev kuralları + tema kataloğu (holiday_home için)
     if (categoryCode === 'holiday_home') {
       void getManageCategoryAccommodationRules(token, categoryCode)
         .then((r) => { if (!cancelled) setAccRules(r) })
         .catch(() => { if (!cancelled) setAccRules([]) })
+      void listPublicCategoryThemeItems({ categoryCode: 'holiday_home', locale })
+        .then((r) => {
+          if (cancelled) return
+          const rows = r.items.length > 0
+            ? r.items.map((i) => ({ code: i.code, label: i.label || i.code }))
+            : VILLA_THEME_CHIP_PRESETS
+          setVillaThemeCatalog(rows)
+        })
+        .catch(() => { if (!cancelled) setVillaThemeCatalog(VILLA_THEME_CHIP_PRESETS) })
     }
     return () => {
       cancelled = true
@@ -1389,6 +1404,13 @@ export default function CatalogNewListingClient({
         setRules(rulesRes.rules ?? [])
         setMealPlans(mealPlansRes.meal_plans ?? [])
         setIcalFeeds(feedsRes?.feeds ?? [])
+
+        // Villa temaları
+        if (categoryCode === 'holiday_home') {
+          void getVerticalHolidayHome(lid)
+            .then((d) => setVillaThemes(d.theme_codes ? d.theme_codes.split(',').filter(Boolean) : []))
+            .catch(() => {})
+        }
 
         const mpList = mealPlansRes.meal_plans ?? []
         const activeMp = mpList.filter((p) => p.is_active && p.price_per_night > 0)
@@ -2589,6 +2611,8 @@ export default function CatalogNewListingClient({
           'Tatil evi detayları kaydı',
           putVerticalMeta(token, lid, 'holiday_home', vert, orgParam),
         )
+        // Tema kodları (patchVerticalHolidayHome → listing_holiday_home_details.theme_codes)
+        await patchVerticalHolidayHome(lid, { theme_codes: villaThemes }).catch(() => {})
       }
 
       if (isVilla) {
@@ -3878,6 +3902,21 @@ export default function CatalogNewListingClient({
                 </Grid3>
               )}
             </Section>
+
+            {isVilla && villaThemeCatalog.length > 0 && (
+              <Section title="Temalar" subtitle="İlanı arama filtrelerinde öne çıkaracak özellikleri işaretleyin.">
+                <div className="flex flex-wrap gap-3">
+                  {villaThemeCatalog.map(({ code, label }) => (
+                    <label key={code} className="flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900">
+                      <input type="checkbox" checked={villaThemes.includes(code)}
+                        onChange={() => setVillaThemes((prev) => prev.includes(code) ? prev.filter((c) => c !== code) : [...prev, code])}
+                        className="h-4 w-4 accent-primary-600" />
+                      <span>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {isVilla && accRules.length > 0 && (
               <Section title="Ev Kuralları" subtitle="Havuz saatleri, evcil hayvan politikası ve diğer konaklama kurallarını seçin.">
