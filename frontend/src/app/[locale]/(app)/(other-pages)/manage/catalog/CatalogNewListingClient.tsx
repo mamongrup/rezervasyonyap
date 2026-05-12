@@ -594,7 +594,7 @@ export default function CatalogNewListingClient({
   const [translateMsg, setTranslateMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [aiPolishTitle, setAiPolishTitle] = useState(false)
   const [aiPolishBody, setAiPolishBody] = useState(false)
-  const submitIntentRef = useRef<'save' | 'save-show'>('save')
+  const submitIntentRef = useRef<'save' | 'save-show' | 'save-next'>('save')
 
   // ── Takvim adımı ──
   const [calRows, setCalRows] = useState<MergedCalendarRow[]>([])
@@ -2618,6 +2618,10 @@ export default function CatalogNewListingClient({
       submitIntentRef.current = 'save'
       if (intent === 'save-show') {
         window.open(publicStayUrl, '_blank', 'noopener,noreferrer')
+      }
+      if (intent === 'save-next') {
+        goToStep(currentStep + 1)
+        return
       }
       if (!editListingId) {
         router.push(manageUrl)
@@ -5469,7 +5473,13 @@ export default function CatalogNewListingClient({
             onBack={() => goToStep(currentStep - 1)}
             onNext={() => {
               if (currentStep < TOTAL_STEPS - 1) {
-                goToStep(currentStep + 1)
+                if (editListingId) {
+                  submitIntentRef.current = 'save-next'
+                  const formEl = document.getElementById(formId) as HTMLFormElement | null
+                  formEl?.requestSubmit()
+                } else {
+                  goToStep(currentStep + 1)
+                }
               } else {
                 submitIntentRef.current = 'save'
                 const formEl = document.getElementById(formId) as HTMLFormElement | null
@@ -5514,7 +5524,15 @@ export default function CatalogNewListingClient({
               {currentStep < TOTAL_STEPS - 1 ? (
                 <button
                   type="button"
-                  onClick={() => goToStep(currentStep + 1)}
+                  onClick={() => {
+                    if (editListingId) {
+                      submitIntentRef.current = 'save-next'
+                      const formEl = document.getElementById(formId) as HTMLFormElement | null
+                      formEl?.requestSubmit()
+                    } else {
+                      goToStep(currentStep + 1)
+                    }
+                  }}
                   className="inline-flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-xs font-semibold text-white hover:bg-primary-700"
                 >
                   İleri
