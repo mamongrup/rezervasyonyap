@@ -32,11 +32,14 @@ import {
   createListingPriceRule,
   createManageCatalogListing,
   createManageMealPlan,
+  createListingExternalBooking,
+  deleteListingExternalBooking,
   deleteListingPriceRule,
   deleteManageMealPlan,
   deleteIcalFeed,
   syncIcalFeed,
   patchIcalFeed,
+  patchListingExternalBooking,
   getAuthMe,
   getListingAttributeValues,
   getListingAvailabilityCalendar,
@@ -56,6 +59,7 @@ import {
   listAttributeGroups,
   listIcalFeeds,
   listListingImages,
+  listListingExternalBookings,
   listListingPriceRules,
   listManageCatalogListings,
   listManageMealPlans,
@@ -83,6 +87,7 @@ import {
   type AttributeDef,
   type AttributeGroup,
   type IcalFeed,
+  type ListingExternalBookingRow,
   type ListingImage,
   type ListingPriceRuleRow,
   type ManageListingRow,
@@ -579,7 +584,7 @@ export default function CatalogNewListingClient({
   const [description, setDescription] = useState('')
   const [currency, setCurrency] = useState('TRY')
   const [currencies, setCurrencies] = useState<{ code: string; name: string }[]>([])
-  const [status, setStatus] = useState<'draft' | 'published'>('draft')
+  const [status, setStatus] = useState<'draft' | 'published' | 'archived'>('draft')
 
   const [activeLang, setActiveLang] = useState(primaryLocale)
   const [listingByLocale, setListingByLocale] = useState(() => emptyListingByLocaleForCodes(localeCodes))
@@ -601,7 +606,22 @@ export default function CatalogNewListingClient({
   const [calLoaded, setCalLoaded] = useState(false)
   const [calBusy, setCalBusy] = useState<'load' | 'save' | null>(null)
   const [calSaveMsg, setCalSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
-  const [calSubTab, setCalSubTab] = useState<'calendar' | 'seasonal' | 'ical'>('calendar')
+  const [calSubTab, setCalSubTab] = useState<'calendar' | 'seasonal' | 'ical' | 'external'>('calendar')
+  const [calFrom, setCalFrom] = useState(() => new Date().toISOString().slice(0, 10))
+  const [calTo, setCalTo] = useState(() => { const d = new Date(); d.setMonth(d.getMonth() + 6); return d.toISOString().slice(0, 10) })
+  const [bulkPrice, setBulkPrice] = useState('')
+  // ── Harici rezervasyon defteri ──
+  const [externalBookings, setExternalBookings] = useState<ListingExternalBookingRow[]>([])
+  const [extBusy, setExtBusy] = useState<string | null>(null)
+  const [ebStayFrom, setEbStayFrom] = useState(() => new Date().toISOString().slice(0, 10))
+  const [ebStayTo, setEbStayTo] = useState(() => { const d = new Date(); d.setDate(d.getDate() + 7); return d.toISOString().slice(0, 10) })
+  const [ebSource, setEbSource] = useState('')
+  const [ebSold, setEbSold] = useState('')
+  const [ebReceived, setEbReceived] = useState('')
+  const [ebRemaining, setEbRemaining] = useState('')
+  const [ebFirstPayment, setEbFirstPayment] = useState('')
+  const [ebNotes, setEbNotes] = useState('')
+  const [ebEditingId, setEbEditingId] = useState<string | null>(null)
 
   // ── Dönemsel Fiyat (price rules) ──
   const [rules, setRules] = useState<ListingPriceRuleRow[]>([])
@@ -714,6 +734,7 @@ export default function CatalogNewListingClient({
   /** Villa: en az kaç gün önceden rezervasyon + oda sayısı */
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
   const [roomCount, setRoomCount] = useState('')
+  const [squareMeters, setSquareMeters] = useState('')
   const [propertyType, setPropertyType] = useState('')
   const [propertyTypeItems, setPropertyTypeItems] = useState<HolidayHomePropertyTypeItem[]>(() =>
     defaultHolidayHomePropertyTypeItems(),
@@ -1205,7 +1226,7 @@ export default function CatalogNewListingClient({
         })
 
         if (basics) {
-          setStatus(basics.status === 'published' ? 'published' : 'draft')
+          setStatus(basics.status === 'published' ? 'published' : basics.status === 'archived' ? 'archived' : 'draft')
           setMinStayNights(basics.min_stay_nights ?? '')
           setCleaningFee(basics.cleaning_fee_amount ?? '')
           setDepositAmount(basics.first_charge_amount ?? '')
@@ -1277,6 +1298,7 @@ export default function CatalogNewListingClient({
           setLng(lg)
           setShortStayMinNights(meta.min_short_stay_nights ?? '')
           setShortStayFee(meta.short_stay_fee ?? '')
+          setSquareMeters(meta.square_meters ?? '')
           setOwnerTcNo(meta.owner_tc_no ?? '')
           setOwnerBankName(meta.owner_bank_name ?? '')
           setOwnerIban(meta.owner_iban ?? '')
@@ -1803,19 +1825,94 @@ export default function CatalogNewListingClient({
     setCalBusy('load')
     setCalSaveMsg(null)
     try {
-      const today = new Date().toISOString().slice(0, 10)
-      const toDate = new Date()
-      toDate.setMonth(toDate.getMonth() + 6)
-      const to = toDate.toISOString().slice(0, 10)
       const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
-      const av = await getListingAvailabilityCalendar(token, id, { from: today, to }, orgParam)
-      setCalRows(mergeCalendarRows(today, to, av.days))
+      const av = await getListingAvailabilityCalendar(token, id, { from: calFrom, to: calTo }, orgParam)
+      setCalRows(mergeCalendarRows(calFrom, calTo, av.days))
       setCalLoaded(true)
     } catch {
       setCalSaveMsg({ ok: false, text: 'Takvim yüklenemedi.' })
     } finally {
       setCalBusy(null)
     }
+  }
+
+  // ── Toplu takvim işlemleri ──
+  function bulkSetAll(available: boolean) {
+    setCalRows((prev) => prev.map((r) => ({ ...r, am_available: available, pm_available: available, is_available: available })))
+  }
+  function bulkMarkWeekends(available: boolean) {
+    setCalRows((prev) => prev.map((r) => r.weekday === 0 || r.weekday === 6 ? { ...r, am_available: available, pm_available: available, is_available: available } : r))
+  }
+  function applyBulkPrice() {
+    if (!bulkPrice.trim()) return
+    setCalRows((prev) => prev.map((r) => ({ ...r, price_override: bulkPrice.trim() })))
+  }
+
+  // ── Harici rezervasyon defteri ──
+  async function loadExternalBookings() {
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    try {
+      const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+      const res = await listListingExternalBookings(token, editListingId, orgParam)
+      setExternalBookings(res.bookings)
+    } catch { /* ignore */ }
+  }
+
+  function resetExternalBookingForm() {
+    const today = new Date().toISOString().slice(0, 10)
+    const nextWeek = new Date(); nextWeek.setDate(nextWeek.getDate() + 7)
+    setEbEditingId(null)
+    setEbStayFrom(today)
+    setEbStayTo(nextWeek.toISOString().slice(0, 10))
+    setEbSource(''); setEbSold(''); setEbReceived(''); setEbRemaining(''); setEbFirstPayment(''); setEbNotes('')
+  }
+
+  function beginEditExternalBooking(row: ListingExternalBookingRow) {
+    setEbEditingId(row.id)
+    setEbStayFrom(row.stay_from)
+    setEbStayTo(row.stay_to)
+    setEbSource(row.source_label)
+    setEbSold(row.sold_total != null ? String(row.sold_total) : '')
+    setEbReceived(row.amount_received != null ? String(row.amount_received) : '')
+    setEbRemaining(row.amount_remaining != null ? String(row.amount_remaining) : '')
+    setEbFirstPayment(row.first_payment_note)
+    setEbNotes(row.notes)
+  }
+
+  async function saveExternalBooking() {
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    setExtBusy('save')
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    const body = {
+      stay_from: ebStayFrom.trim(), stay_to: ebStayTo.trim(),
+      source_label: ebSource.trim() || undefined,
+      sold_total: ebSold.trim() || undefined, amount_received: ebReceived.trim() || undefined,
+      amount_remaining: ebRemaining.trim() || undefined,
+      first_payment_note: ebFirstPayment.trim() || undefined, notes: ebNotes.trim() || undefined,
+    }
+    try {
+      if (ebEditingId) { await patchListingExternalBooking(token, editListingId, ebEditingId, body, orgParam) }
+      else { await createListingExternalBooking(token, editListingId, body, orgParam) }
+      resetExternalBookingForm()
+      await loadExternalBookings()
+    } catch { /* ignore */ }
+    finally { setExtBusy(null) }
+  }
+
+  async function removeExternalBooking(id: string) {
+    if (!window.confirm('Bu kaydı silmek istediğinize emin misiniz?')) return
+    const token = getStoredAuthToken()
+    if (!token || !editListingId) return
+    setExtBusy(`del-${id}`)
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    try {
+      await deleteListingExternalBooking(token, editListingId, id, orgParam)
+      if (ebEditingId === id) resetExternalBookingForm()
+      await loadExternalBookings()
+    } catch { /* ignore */ }
+    finally { setExtBusy(null) }
   }
 
   async function saveCalendar() {
@@ -2427,6 +2524,7 @@ export default function CatalogNewListingClient({
       if (lng.trim()) metaBody.lng = lng.trim()
       if (shortStayMinNights.trim()) metaBody.min_short_stay_nights = shortStayMinNights.trim()
       if (shortStayFee.trim()) metaBody.short_stay_fee = shortStayFee.trim()
+      if (squareMeters.trim()) metaBody.square_meters = squareMeters.trim()
       if (isVilla && ownerTcNo.trim()) metaBody.owner_tc_no = ownerTcNo.trim()
       if (isVilla && ownerBankName.trim()) metaBody.owner_bank_name = ownerBankName.trim()
       if (isVilla && ownerIban.trim()) metaBody.owner_iban = ownerIban.replace(/\s/g, '').trim()
@@ -3715,6 +3813,17 @@ export default function CatalogNewListingClient({
                         placeholder="ör: 2"
                       />
                     </Field>
+                    <Field className="block">
+                      <Label>Alan (m²)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="mt-1"
+                        value={squareMeters}
+                        onChange={(e) => setSquareMeters(e.target.value)}
+                        placeholder="ör: 180"
+                      />
+                    </Field>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     <Field className="block">
@@ -3907,11 +4016,15 @@ export default function CatalogNewListingClient({
                         { id: 'calendar' as const, label: 'Müsaitlik Takvimi' },
                         { id: 'seasonal' as const, label: 'Dönemsel Fiyat' },
                         { id: 'ical' as const, label: 'iCal Senkronizasyon' },
+                        { id: 'external' as const, label: 'Harici Rezervasyon' },
                       ] as const).map(({ id, label }) => (
                         <button
                           key={id}
                           type="button"
-                          onClick={() => setCalSubTab(id)}
+                          onClick={() => {
+                            setCalSubTab(id)
+                            if (id === 'external') void loadExternalBookings()
+                          }}
                           className={`rounded-t-lg px-4 py-2 text-sm font-medium transition ${calSubTab === id ? 'border-b-2 border-primary-600 text-primary-700 dark:border-primary-400 dark:text-primary-300' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'}`}
                         >
                           {label}
@@ -3922,15 +4035,60 @@ export default function CatalogNewListingClient({
                     {/* ── Müsaitlik Takvimi ── */}
                     {calSubTab === 'calendar' && (
                       <>
-                        {!calLoaded && (
-                          <div className="flex justify-center py-4">
-                            <button type="button" onClick={() => void loadCalendar()} disabled={calBusy === 'load'}
-                              className="flex items-center gap-2 rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                            >
-                              {calBusy === 'load' ? <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : null}
-                              {calBusy === 'load' ? 'Yükleniyor…' : 'Takvimi Yükle'}
-                            </button>
+                        {/* Tarih aralığı seçici */}
+                        <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">Başlangıç</label>
+                            <input type="date" value={calFrom} onChange={(e) => setCalFrom(e.target.value)}
+                              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200" />
                           </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">Bitiş</label>
+                            <input type="date" value={calTo} onChange={(e) => setCalTo(e.target.value)}
+                              className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200" />
+                          </div>
+                          <button type="button" onClick={() => void loadCalendar()} disabled={calBusy === 'load'}
+                            className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                          >
+                            {calBusy === 'load' ? <svg className="h-3.5 w-3.5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg> : null}
+                            {calBusy === 'load' ? 'Yükleniyor…' : 'Yükle'}
+                          </button>
+                        </div>
+
+                        {/* Toplu işlemler */}
+                        {calRows.length > 0 && (
+                          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-2.5 dark:border-neutral-700 dark:bg-neutral-800/40">
+                            <span className="mr-1 text-xs font-semibold text-neutral-500">Toplu:</span>
+                            <button type="button" onClick={() => bulkSetAll(true)}
+                              className="flex items-center gap-1 rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-transparent dark:text-emerald-400">
+                              ✓ Tümü Müsait
+                            </button>
+                            <button type="button" onClick={() => bulkSetAll(false)}
+                              className="flex items-center gap-1 rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs text-red-700 hover:bg-red-50 dark:border-red-800 dark:bg-transparent dark:text-red-400">
+                              ✗ Tümü Dolu
+                            </button>
+                            <button type="button" onClick={() => bulkMarkWeekends(false)}
+                              className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-transparent dark:text-neutral-400">
+                              H.Sonu Dolu
+                            </button>
+                            <button type="button" onClick={() => bulkMarkWeekends(true)}
+                              className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-transparent dark:text-neutral-400">
+                              H.Sonu Müsait
+                            </button>
+                            <div className="flex items-center gap-1 ml-2">
+                              <input type="text" inputMode="decimal" value={bulkPrice} onChange={(e) => setBulkPrice(e.target.value)}
+                                placeholder="Toplu fiyat…"
+                                className="w-24 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs dark:border-neutral-700 dark:bg-neutral-800" />
+                              <button type="button" onClick={applyBulkPrice}
+                                className="rounded-lg border border-blue-200 bg-white px-3 py-1.5 text-xs text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:bg-transparent dark:text-blue-400">
+                                Uygula
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {!calLoaded && calRows.length === 0 && (
+                          <p className="py-4 text-center text-sm text-neutral-400">Yukarıdan tarih aralığı seçip Yükle butonuna tıklayın.</p>
                         )}
                         {calLoaded && (
                           <>
@@ -3940,11 +4098,6 @@ export default function CatalogNewListingClient({
                                 className="flex items-center gap-2 rounded-xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-700 disabled:opacity-50"
                               >
                                 {calBusy === 'save' ? 'Kaydediliyor…' : 'Takvimi Kaydet'}
-                              </button>
-                              <button type="button" onClick={() => void loadCalendar()} disabled={!!calBusy}
-                                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                              >
-                                Yenile
                               </button>
                               {calSaveMsg && (
                                 <span className={`text-sm font-medium ${calSaveMsg.ok ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -4148,6 +4301,121 @@ export default function CatalogNewListingClient({
                             </div>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {/* ── Harici Rezervasyon Defteri ── */}
+                    {calSubTab === 'external' && (
+                      <div className="space-y-5">
+                        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                          Platformumuz dışında yapılan rezervasyonları takip edin (Airbnb, Sahibinden, telefon vb.). Gelir ve ödeme durumunu kayıt altına alın.
+                        </p>
+
+                        {/* Form */}
+                        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-5 dark:border-neutral-700 dark:bg-neutral-800/40">
+                          <h4 className="mb-4 text-sm font-semibold text-neutral-800 dark:text-neutral-100">
+                            {ebEditingId ? 'Rezervasyonu Güncelle' : 'Yeni Rezervasyon Ekle'}
+                          </h4>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <Field className="block">
+                              <Label>Giriş tarihi</Label>
+                              <input type="date" value={ebStayFrom} onChange={(e) => setEbStayFrom(e.target.value)}
+                                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200" />
+                            </Field>
+                            <Field className="block">
+                              <Label>Çıkış tarihi</Label>
+                              <input type="date" value={ebStayTo} onChange={(e) => setEbStayTo(e.target.value)}
+                                className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200" />
+                            </Field>
+                          </div>
+                          <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                            <Field className="block">
+                              <Label>Kaynak (platform)</Label>
+                              <Input className="mt-1" value={ebSource} onChange={(e) => setEbSource(e.target.value)} placeholder="Airbnb, telefon, vb." />
+                            </Field>
+                            <Field className="block">
+                              <Label>Toplam satış ({currency})</Label>
+                              <Input type="number" min="0" step="0.01" className="mt-1" value={ebSold} onChange={(e) => setEbSold(e.target.value)} placeholder="0" />
+                            </Field>
+                            <Field className="block">
+                              <Label>Alınan ödeme ({currency})</Label>
+                              <Input type="number" min="0" step="0.01" className="mt-1" value={ebReceived} onChange={(e) => setEbReceived(e.target.value)} placeholder="0" />
+                            </Field>
+                          </div>
+                          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                            <Field className="block">
+                              <Label>Kalan ödeme ({currency})</Label>
+                              <Input type="number" min="0" step="0.01" className="mt-1" value={ebRemaining} onChange={(e) => setEbRemaining(e.target.value)} placeholder="0" />
+                            </Field>
+                            <Field className="block">
+                              <Label>İlk ödeme notu</Label>
+                              <Input className="mt-1" value={ebFirstPayment} onChange={(e) => setEbFirstPayment(e.target.value)} placeholder="Kapora tarihi / miktarı" />
+                            </Field>
+                          </div>
+                          <Field className="mt-3 block">
+                            <Label>Notlar</Label>
+                            <textarea value={ebNotes} onChange={(e) => setEbNotes(e.target.value)} rows={2}
+                              className="mt-1 w-full resize-none rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                              placeholder="Misafir adı, özel talepler…" />
+                          </Field>
+                          <div className="mt-4 flex gap-2">
+                            <button type="button" onClick={() => void saveExternalBooking()} disabled={extBusy === 'save'}
+                              className="flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-700 disabled:opacity-50"
+                            >
+                              {extBusy === 'save' ? 'Kaydediliyor…' : ebEditingId ? 'Güncelle' : 'Ekle'}
+                            </button>
+                            {ebEditingId && (
+                              <button type="button" onClick={resetExternalBookingForm}
+                                className="rounded-xl border border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                              >
+                                İptal
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Liste */}
+                        <div className="overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
+                          {externalBookings.length === 0 ? (
+                            <p className="p-5 text-sm text-neutral-400">Henüz harici rezervasyon kaydı yok.</p>
+                          ) : (
+                            <table className="min-w-full text-left text-sm">
+                              <thead className="bg-neutral-50 dark:bg-neutral-800/90">
+                                <tr>
+                                  {['Dönem', 'Kaynak', `Satış (${currency})`, `Alınan`, `Kalan`, 'Not', ''].map((h) => (
+                                    <th key={h} className="px-3 py-2 text-xs font-medium text-neutral-500">{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {externalBookings.map((row) => (
+                                  <tr key={row.id} className="border-t border-neutral-100 dark:border-neutral-800">
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{row.stay_from} → {row.stay_to}</td>
+                                    <td className="px-3 py-2 text-xs">{row.source_label || '—'}</td>
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{row.sold_total ?? '—'}</td>
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{row.amount_received ?? '—'}</td>
+                                    <td className="whitespace-nowrap px-3 py-2 font-mono text-xs">{row.amount_remaining ?? '—'}</td>
+                                    <td className="max-w-[12rem] px-3 py-2 text-xs text-neutral-600 dark:text-neutral-400">
+                                      <span className="line-clamp-2" title={row.notes}>{row.notes || row.first_payment_note || '—'}</span>
+                                    </td>
+                                    <td className="whitespace-nowrap px-3 py-2">
+                                      <div className="flex gap-1">
+                                        <button type="button" onClick={() => beginEditExternalBooking(row)} disabled={Boolean(extBusy)}
+                                          className="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200">
+                                          Düzenle
+                                        </button>
+                                        <button type="button" onClick={() => void removeExternalBooking(row.id)} disabled={Boolean(extBusy)}
+                                          className="rounded-lg border border-red-200 bg-white px-2 py-1 text-xs text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/50 dark:bg-neutral-900 dark:text-red-400">
+                                          Sil
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
                       </div>
                     )}
                   </>
@@ -5408,6 +5676,17 @@ export default function CatalogNewListingClient({
                     />
                     <span className="text-sm text-neutral-700 dark:text-neutral-300">Taslak</span>
                   </label>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="radio"
+                      name="status"
+                      value="archived"
+                      checked={status === 'archived'}
+                      onChange={() => setStatus('archived')}
+                      className="h-4 w-4 accent-primary-600"
+                    />
+                    <span className="text-sm text-neutral-700 dark:text-neutral-300">Arşivlenmiş</span>
+                  </label>
                 </div>
 
                 <ButtonPrimary
@@ -5438,11 +5717,12 @@ export default function CatalogNewListingClient({
               <div className="p-5">
                 <select
                   value={status}
-                  onChange={(e) => setStatus(e.target.value as 'draft' | 'published')}
+                  onChange={(e) => setStatus(e.target.value as 'draft' | 'published' | 'archived')}
                   className={selectCls}
                 >
                   <option value="draft">Yalnızca belirli tarihlerle</option>
                   <option value="published">Her zaman müsait</option>
+                  <option value="archived">Arşivlenmiş (gizle)</option>
                 </select>
                 <p className="mt-2 text-xs text-neutral-400">
                   Takvim yönetimi için ilan oluşturduktan sonra Takvim sekmesini kullanın.
