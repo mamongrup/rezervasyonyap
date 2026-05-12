@@ -2,12 +2,117 @@
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   listSocialJobs,
+  listManageCatalogListings,
   postListingToFacebook,
+  type ManageListingRow,
   type SocialShareJob,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle, ExternalLink, Facebook, Loader2, RefreshCw, XCircle } from 'lucide-react'
+import { CheckCircle, ChevronDown, ExternalLink, Facebook, Loader2, RefreshCw, Search, X, XCircle } from 'lucide-react'
+
+// ─── İlan arama + seçici ──────────────────────────────────────────────────────
+
+function ListingPicker({
+  value,
+  onSelect,
+}: {
+  value: ManageListingRow | null
+  onSelect: (listing: ManageListingRow | null) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<ManageListingRow[]>([])
+  const [searching, setSearching] = useState(false)
+  const [open, setOpen] = useState(false)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onOutside)
+    return () => document.removeEventListener('mousedown', onOutside)
+  }, [])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!query.trim()) { setResults([]); return }
+    debounceRef.current = setTimeout(async () => {
+      const token = getStoredAuthToken()
+      if (!token) return
+      setSearching(true)
+      try {
+        const res = await listManageCatalogListings(token, { search: query.trim() })
+        setResults(res.listings.slice(0, 10))
+        setOpen(true)
+      } catch { /* ignore */ }
+      finally { setSearching(false) }
+    }, 350)
+  }, [query])
+
+  if (value) {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-blue-300 bg-white px-4 py-3 dark:border-blue-700 dark:bg-neutral-900">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{value.title}</p>
+          <p className="mt-0.5 text-xs text-neutral-400">{value.category_code} · {value.status}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => { onSelect(null); setQuery('') }}
+          className="ml-3 shrink-0 rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-600 dark:hover:bg-neutral-800"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="flex items-center rounded-xl border border-neutral-300 bg-white px-3 dark:border-neutral-600 dark:bg-neutral-900">
+        {searching
+          ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-neutral-400" />
+          : <Search className="h-4 w-4 shrink-0 text-neutral-400" />
+        }
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => results.length > 0 && setOpen(true)}
+          placeholder="İlan adı ile arayın…"
+          className="w-full bg-transparent py-2.5 pl-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-200"
+        />
+        {query && <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" />}
+      </div>
+
+      {open && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          {results.map((l) => (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => { onSelect(l); setOpen(false); setQuery('') }}
+              className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-neutral-50 dark:hover:bg-neutral-800"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{l.title}</p>
+                <p className="text-xs text-neutral-400">{l.category_code} · {l.status}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {open && !searching && query.trim() && results.length === 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+          <p className="text-sm text-neutral-400">Sonuç bulunamadı.</p>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── Hızlı Facebook Paylaşım Paneli ──────────────────────────────────────────
 
@@ -21,18 +126,18 @@ interface FbResult {
 }
 
 function FacebookQuickPost() {
-  const [listingId, setListingId] = useState('')
+  const [selectedListing, setSelectedListing] = useState<ManageListingRow | null>(null)
   const [caption, setCaption] = useState('')
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<FbResult | null>(null)
 
   async function onPost() {
     const token = getStoredAuthToken()
-    if (!token || !listingId.trim()) return
+    if (!token || !selectedListing) return
     setBusy(true)
     setResult(null)
     try {
-      const r = await postListingToFacebook(token, listingId.trim(), caption.trim() || undefined)
+      const r = await postListingToFacebook(token, selectedListing.id, caption.trim() || undefined)
       setResult(r)
     } catch (e) {
       setResult({ ok: false, error: formatManageApiCatch(e, 'facebook_post_failed') })
@@ -49,20 +154,14 @@ function FacebookQuickPost() {
         </div>
         <div>
           <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Facebook&apos;ta Paylaş</h3>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">İlan UUID&apos;sini girin, Facebook sayfanıza anında gönderin</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">İlanı ada göre bulun, Facebook sayfanıza anında gönderin</p>
         </div>
       </div>
 
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">İlan UUID *</label>
-          <input
-            type="text"
-            value={listingId}
-            onChange={(e) => setListingId(e.target.value)}
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200"
-          />
+          <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">İlan seç *</label>
+          <ListingPicker value={selectedListing} onSelect={setSelectedListing} />
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
@@ -80,7 +179,7 @@ function FacebookQuickPost() {
         <button
           type="button"
           onClick={() => void onPost()}
-          disabled={busy || !listingId.trim()}
+          disabled={busy || !selectedListing}
           className="flex items-center gap-2 rounded-xl bg-[#1877F2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#166FE5] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Facebook className="h-4 w-4" />}
