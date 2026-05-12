@@ -2458,23 +2458,18 @@ export default function CatalogNewListingClient({
             createListingPriceRule(token, lid, { rule_json: JSON.stringify(ruleObj) }, orgParam),
           )
           if (categoryCode === 'holiday_home') {
-            await saveRequiredStep(
-              'Gecelik ücret (yemek planı) kaydı',
-              ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam),
-            )
+            await ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam)
+              .catch((e) => console.warn('[meal_plan_sync]', e))
           }
         }
       } else if (editListingId && categoryCode === 'holiday_home') {
         const price = parseFloat(basePrice.replace(',', '.'))
         if (Number.isFinite(price) && price > 0) {
-          await saveRequiredStep(
-            'Gecelik ücret (yemek planı) kaydı',
-            ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam),
-          )
-          await saveRequiredStep(
-            'Temel gecelik (fiyat kuralı) kaydı',
-            syncHolidayHomeDefaultPriceRule(token, lid, price, orgParam),
-          )
+          // Soft-fail: vitrin senkronu — başarısız olsa da ana kayıt devam etsin
+          await ensureHolidayHomeMealPlanNightly(token, lid, price, currency.trim().toUpperCase() || 'TRY', orgParam)
+            .catch((e) => console.warn('[meal_plan_sync]', e))
+          await syncHolidayHomeDefaultPriceRule(token, lid, price, orgParam)
+            .catch((e) => console.warn('[price_rule_sync]', e))
         }
       }
 
