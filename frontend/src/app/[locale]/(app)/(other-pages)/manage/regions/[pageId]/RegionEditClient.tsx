@@ -59,6 +59,7 @@ import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextBu
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
+import { asTrimmedString, parseTravelIdeas } from '@/lib/travel-ideas-parse'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -80,9 +81,10 @@ const POI_CATEGORIES = [
 const SEO_BRAND_SUFFIX = ' | Mamon Travel'
 
 /** Rich metinden SEO açıklaması için düz metin */
-function stripHtmlToPlain(html: string): string {
-  if (!html) return ''
-  return html
+function stripHtmlToPlain(html: unknown): string {
+  const raw = typeof html === 'string' ? html : html == null ? '' : String(html)
+  if (!raw) return ''
+  return raw
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&#\d+;/g, ' ')
@@ -91,8 +93,8 @@ function stripHtmlToPlain(html: string): string {
     .trim()
 }
 
-function fitMetaTitle(name: string): string {
-  const n = name.trim() || 'Bölge'
+function fitMetaTitle(name: unknown): string {
+  const n = asTrimmedString(name) || 'Bölge'
   const max = 70
   if (n.length + SEO_BRAND_SUFFIX.length <= max) return n + SEO_BRAND_SUFFIX
   const room = max - SEO_BRAND_SUFFIX.length
@@ -102,17 +104,19 @@ function fitMetaTitle(name: string): string {
   return `${head || n.slice(0, room)}…${SEO_BRAND_SUFFIX}`
 }
 
-function fitMetaDescription(plain: string, name: string, regionLabel: string): string {
+function fitMetaDescription(plain: unknown, name: unknown, regionLabel: unknown): string {
   const max = 160
-  const compact = plain.replace(/\s+/g, ' ').trim()
+  const compact = asTrimmedString(plain).replace(/\s+/g, ' ').trim()
   if (compact.length >= 40) {
     if (compact.length <= max) return compact
     const cut = compact.slice(0, max - 1)
     const sp = cut.lastIndexOf(' ')
     return (sp > max * 0.35 ? cut.slice(0, sp) : cut) + '…'
   }
-  const hint = regionLabel ? ` ${regionLabel} rehberi.` : ''
-  let fallback = `${name} — konaklama, gezilecek yerler ve seyahat ipuçları Mamon Travel'da.${hint}`
+  const rl = asTrimmedString(regionLabel)
+  const hint = rl ? ` ${rl} rehberi.` : ''
+  const nm = asTrimmedString(name) || 'Bölge'
+  let fallback = `${nm} — konaklama, gezilecek yerler ve seyahat ipuçları Mamon Travel'da.${hint}`
   if (fallback.length > max) fallback = fallback.slice(0, max - 1) + '…'
   return fallback
 }
@@ -145,21 +149,14 @@ type MapCoordSource =
   | 'none'
 
 /** `travel_ideas_json` içindeki ilk geçerli lat/lng — AI pin'i genelde burada kalır */
-function firstTravelIdeaCoordsFromJson(raw: string | undefined | null): { lat: string; lng: string } | null {
-  const s = raw?.trim()
-  if (!s) return null
-  try {
-    const arr = JSON.parse(s) as unknown
-    if (!Array.isArray(arr)) return null
-    for (const item of arr) {
-      if (!item || typeof item !== 'object') continue
-      const o = item as Record<string, unknown>
-      const lat = coordFieldToString(o.lat)
-      const lng = coordFieldToString(o.lng)
-      if (lat && lng) return { lat, lng }
-    }
-  } catch {
-    return null
+function firstTravelIdeaCoordsFromJson(raw: unknown): { lat: string; lng: string } | null {
+  const ideas = parseTravelIdeas(raw)
+  for (const item of ideas) {
+    if (!item || typeof item !== 'object') continue
+    const o = item as Record<string, unknown>
+    const lat = coordFieldToString(o.lat)
+    const lng = coordFieldToString(o.lng)
+    if (lat && lng) return { lat, lng }
   }
   return null
 }
@@ -516,7 +513,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         }
 
         setPage(p)
-        setSlugPath(p.slug_path)
+        setSlugPath(String(p.slug_path ?? ''))
         const geoRegionType = p.region_type ?? 'district'
         setRegionType(geoRegionType)
         setIsPublished(p.is_published)
@@ -559,8 +556,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         }
         setMapZoom(String(p.map_zoom ?? 12))
         setDistrictId(pageDistrictId)
-        setMetaTitle(p.meta_title ?? '')
-        setMetaDesc(p.meta_description ?? '')
+        setMetaTitle(asTrimmedString(p.meta_title))
+        setMetaDesc(asTrimmedString(p.meta_description))
 
         // Parse translations
         try {
@@ -568,10 +565,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           const merged: LocationTranslations = {}
           for (const code of localeCodes) {
             merged[code] = {
-              name: parsed[code]?.name ?? (code === primaryLocale ? p.title ?? '' : ''),
-              description: parsed[code]?.description ?? (code === primaryLocale ? p.description ?? '' : ''),
-              meta_title: parsed[code]?.meta_title ?? '',
-              meta_description: parsed[code]?.meta_description ?? '',
+              name: asTrimmedString(parsed[code]?.name ?? (code === primaryLocale ? p.title : '')),
+              description: asTrimmedString(
+                parsed[code]?.description ?? (code === primaryLocale ? p.description : ''),
+              ),
+              meta_title: asTrimmedString(parsed[code]?.meta_title),
+              meta_description: asTrimmedString(parsed[code]?.meta_description),
             }
           }
           setTranslations(merged)
@@ -579,10 +578,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setTranslations((prev) => ({
             ...prev,
             [primaryLocale]: {
-              name: p.title ?? '',
-              description: p.description ?? '',
-              meta_title: p.meta_title ?? '',
-              meta_description: p.meta_description ?? '',
+              name: asTrimmedString(p.title),
+              description: asTrimmedString(p.description),
+              meta_title: asTrimmedString(p.meta_title),
+              meta_description: asTrimmedString(p.meta_description),
             },
           }))
         }
@@ -590,7 +589,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         // Parse POIs
         try { setManualPois(JSON.parse(p.poi_manual_json) as ManualPoi[]) } catch { setManualPois([]) }
         // Parse travel ideas
-        try { setTravelIdeas(JSON.parse(p.travel_ideas_json) as TravelIdea[]) } catch { setTravelIdeas([]) }
+        setTravelIdeas(parseTravelIdeas(p.travel_ideas_json as unknown))
         setServicePois(parseDistrictServicePoisJson((p as { service_pois_json?: unknown }).service_pois_json))
         try {
           const nv = (p as { nearby_vitrin_columns_json?: unknown }).nearby_vitrin_columns_json
@@ -699,7 +698,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const handleAutoSeo = useCallback(() => {
     const primary = translations[primaryLocale]
     const slugTail = slugPath.split('/').filter(Boolean).pop() ?? ''
-    const nameRaw = (primary?.name ?? page?.title ?? slugTail).trim() || 'Bölge'
+    const nameRaw = asTrimmedString(primary?.name ?? page?.title ?? slugTail) || 'Bölge'
     const plain = stripHtmlToPlain(primary?.description ?? page?.description ?? '')
     const regionLabel =
       REGION_TYPES.find((r) => r.value === regionType)?.label?.split('—')[0]?.trim() ?? ''
@@ -719,7 +718,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }, [translations, slugPath, page, regionType, primaryLocale])
 
   const handleMagicPolishTitle = async () => {
-    const raw = (translations[activeLang]?.name ?? '').trim()
+    const raw = asTrimmedString(translations[activeLang]?.name)
     if (!raw) {
       setSaveMsg({ ok: false, text: 'Önce başlık (isim) alanına metin girin.' })
       return
@@ -743,7 +742,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }
 
   const handleMagicPolishBody = async () => {
-    const raw = (translations[activeLang]?.description ?? '').trim()
+    const raw = asTrimmedString(translations[activeLang]?.description)
     if (!raw) {
       setSaveMsg({ ok: false, text: 'Önce açıklama içeriği girin.' })
       return
@@ -772,10 +771,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
   const runAiTranslateRegionToLocale = async (targetCode: string) => {
     const src = translations[primaryLocale]
-    const name = (src?.name ?? '').trim()
-    const desc = (src?.description ?? '').trim()
-    const mtSrc = (metaTitle || src?.meta_title || '').trim()
-    const mdSrc = (metaDesc || src?.meta_description || '').trim()
+    const name = asTrimmedString(src?.name)
+    const desc = asTrimmedString(src?.description)
+    const mtSrc = asTrimmedString(metaTitle || src?.meta_title)
+    const mdSrc = asTrimmedString(metaDesc || src?.meta_description)
     const [tName, tDesc, tMetaTitle, tMetaDesc] = await Promise.all([
       name
         ? callAiTranslate({
@@ -825,7 +824,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
   // ─── AI ile bölge tanıtım, çeviri ve gezilecek yerler oluştur ──────────────
   const handleAiRegionGenerate = useCallback(async () => {
-    const trName = translations[primaryLocale]?.name?.trim()
+    const trName = asTrimmedString(translations[primaryLocale]?.name)
     if (!trName) {
       setSaveMsg({ ok: false, text: 'Önce Türkçe isim alanını doldurun.' })
       return
@@ -918,8 +917,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       return
     }
     const src = translations[primaryLocale]
-    const name = (src?.name ?? '').trim()
-    const desc = (src?.description ?? '').trim()
+    const name = asTrimmedString(src?.name)
+    const desc = asTrimmedString(src?.description)
     if (!name && !desc) {
       const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
       setSaveMsg({ ok: false, text: `Önce ${plabel} dilinde isim veya açıklama girin.` })
@@ -942,8 +941,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
   const handleAiTranslateAllRegionTargets = async () => {
     const src = translations[primaryLocale]
-    const name = (src?.name ?? '').trim()
-    const desc = (src?.description ?? '').trim()
+    const name = asTrimmedString(src?.name)
+    const desc = asTrimmedString(src?.description)
     if (!name && !desc) {
       const plabel = allLocales.find((l) => l.code === primaryLocale)?.label ?? primaryLocale
       setSaveMsg({ ok: false, text: `Önce ${plabel} dilinde isim veya açıklama girin.` })
@@ -979,8 +978,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }
 
   const handleFooterAiPolishMeta = async () => {
-    const mt = (metaTitle || translations[primaryLocale]?.meta_title || '').trim()
-    const md = (metaDesc || translations[primaryLocale]?.meta_description || '').trim()
+    const mt = asTrimmedString(metaTitle || translations[primaryLocale]?.meta_title)
+    const md = asTrimmedString(metaDesc || translations[primaryLocale]?.meta_description)
     if (!mt && !md) {
       setSaveMsg({ ok: false, text: 'Önce meta alanlarını doldurun veya “SEO Otomatik” kullanın.' })
       return
@@ -1558,7 +1557,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           subtitle={
             <>
               <span className="font-medium text-neutral-800 dark:text-neutral-200">
-                {translations[primaryLocale]?.name?.trim() || page.slug_path}
+                {asTrimmedString(translations[primaryLocale]?.name) || String(page.slug_path ?? '')}
               </span>
               <span className="ml-2 font-mono text-xs text-neutral-400">{regionPublicHref(routeLocale, slugPath)}</span>
             </>
@@ -2001,7 +2000,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                     <button
                       type="button"
                       onClick={() => {
-                        const name = translations[primaryLocale]?.name?.trim() ?? ''
+                        const name = asTrimmedString(translations[primaryLocale]?.name)
                         if (!name) { alert('Önce ülke adını (Türkçe) girin.'); return }
                         // ISO2 eşleştir
                         const found = countries.find(

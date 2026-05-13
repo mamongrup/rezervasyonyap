@@ -15,6 +15,7 @@ import {
   type LocationTranslations,
 } from '@/lib/travel-api'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
+import { asTrimmedString } from '@/lib/travel-ideas-parse'
 import { regionPublicHref } from '@/lib/region-public-path'
 import clsx from 'clsx'
 import {
@@ -43,20 +44,20 @@ const REGION_LIST_PAGE_SIZE = 200
 
 /** Liste: çekirdek `title` boş olsa bile çevirideki ad veya meta ile gösterim başlığı */
 function locationPageListTitle(page: LocationPage): string {
-  const direct = page.title?.trim()
+  const direct = asTrimmedString(page.title)
   if (direct) return direct
   try {
     const tr = JSON.parse(page.translations_json || '{}') as LocationTranslations
-    const trName = tr.tr?.name?.trim()
+    const trName = asTrimmedString(tr.tr?.name)
     if (trName) return trName
     for (const k of Object.keys(tr)) {
-      const n = tr[k]?.name?.trim()
+      const n = asTrimmedString(tr[k]?.name)
       if (n) return n
     }
   } catch {
     /* ignore */
   }
-  const meta = page.meta_title?.trim()
+  const meta = asTrimmedString(page.meta_title)
   if (meta) return meta
   const tail = page.slug_path.split('/').filter(Boolean).pop() ?? page.slug_path
   const words = tail.replace(/[-_]+/g, ' ').trim().split(/\s+/).filter(Boolean)

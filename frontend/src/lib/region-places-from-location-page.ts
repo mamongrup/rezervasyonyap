@@ -4,7 +4,7 @@
  */
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import type { DistrictServicePoi, LocationPage, TravelIdea } from '@/lib/travel-api'
-import { parseTravelIdeas } from '@/lib/travel-ideas-parse'
+import { asTrimmedString, parseTravelIdeas } from '@/lib/travel-ideas-parse'
 import { getMessages } from '@/utils/getT'
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -121,14 +121,14 @@ export function buildRegionPlacesFromLocationPage(
       icon: '🗺️',
       types: ideaPlaces.map(({ idea, idx, lat, lng, dist }) => ({
         id: `travel_idea_${idea.id ?? idx}`,
-        name: idea.title?.trim() || `Öneri ${idx + 1}`,
+        name: asTrimmedString(idea.title) || `Öneri ${idx + 1}`,
         googleType: 'tourist_attraction',
         emoji: '📍',
         places: [
           {
             placeId: travelIdeaPlaceId(idea, idx),
-            name: idea.title?.trim() || `Öneri ${idx + 1}`,
-            address: idea.summary?.trim()?.slice(0, 160) ?? '',
+            name: asTrimmedString(idea.title) || `Öneri ${idx + 1}`,
+            address: asTrimmedString(idea.summary).slice(0, 160),
             distanceKm: dist,
             lat,
             lng,
