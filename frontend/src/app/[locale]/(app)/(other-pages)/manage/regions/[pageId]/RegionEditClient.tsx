@@ -139,8 +139,30 @@ type MapCoordSource =
   | 'saved_pin'
   | 'district_table'
   | 'district_lookup'
+  /** AI / Google ile doldurulmuş gezi fikirleri satırından (map_lat boşken) */
+  | 'travel_ideas_fallback'
   | 'region_center'
   | 'none'
+
+/** `travel_ideas_json` içindeki ilk geçerli lat/lng — AI pin'i genelde burada kalır */
+function firstTravelIdeaCoordsFromJson(raw: string | undefined | null): { lat: string; lng: string } | null {
+  const s = raw?.trim()
+  if (!s) return null
+  try {
+    const arr = JSON.parse(s) as unknown
+    if (!Array.isArray(arr)) return null
+    for (const item of arr) {
+      if (!item || typeof item !== 'object') continue
+      const o = item as Record<string, unknown>
+      const lat = coordFieldToString(o.lat)
+      const lng = coordFieldToString(o.lng)
+      if (lat && lng) return { lat, lng }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
 
 /** Harita formunun merkezi: önce kayıtlı pin, sonra ilçe/il düşüşleri */
 function deriveMapPresentation(
@@ -186,9 +208,15 @@ function deriveMapPresentation(
   } else if (luLat && luLng) {
     source = 'district_lookup'
     pair = { lat: luLat, lng: luLng }
-  } else if (!districtLinkedPage && regLat && regLng) {
-    source = 'region_center'
-    pair = { lat: regLat, lng: regLng }
+  } else {
+    const ideaPair = firstTravelIdeaCoordsFromJson(p.travel_ideas_json)
+    if (ideaPair) {
+      source = 'travel_ideas_fallback'
+      pair = ideaPair
+    } else if (!districtLinkedPage && regLat && regLng) {
+      source = 'region_center'
+      pair = { lat: regLat, lng: regLng }
+    }
   }
 
   return { lat: pair?.lat ?? '', lng: pair?.lng ?? '', source }
@@ -377,7 +405,13 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [mapZoom, setMapZoom] = useState('12')
   /** Sunucudan hydrate sonrası koordinatın kaynağı — panelde doğrulama için */
   const [mapCoordSource, setMapCoordSource] = useState<
-    'idle' | 'saved_pin' | 'district_table' | 'district_lookup' | 'region_center' | 'none'
+    | 'idle'
+    | 'saved_pin'
+    | 'district_table'
+    | 'district_lookup'
+    | 'travel_ideas_fallback'
+    | 'region_center'
+    | 'none'
   >('idle')
   const handleMapPickerChange = useCallback((nextLat: string, nextLng: string) => {
     setMapLat(nextLat)
@@ -426,6 +460,9 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [aiPolishTitle, setAiPolishTitle] = useState(false)
   const [aiPolishBody, setAiPolishBody] = useState(false)
   const [aiPolishFooterMeta, setAiPolishFooterMeta] = useState(false)
+
+  // ─── AI bölge içerik oluşturma (tanıtım + çeviriler + gezilecek yerler) ───────
+  const [aiRegionGenerating, setAiRegionGenerating] = useState(false)
 
   const localeCodesKey = localeCodes.join(',')
 
@@ -785,6 +822,91 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       },
     }))
   }
+
+  // ─── AI ile bölge tanıtım, çeviri ve gezilecek yerler oluştur ──────────────
+  const handleAiRegionGenerate = useCallback(async () => {
+    const trName = translations[primaryLocale]?.name?.trim()
+    if (!trName) {
+      setSaveMsg({ ok: false, text: 'Önce Türkçe isim alanını doldurun.' })
+      return
+    }
+
+    setAiRegionGenerating(true)
+    setSaveMsg({ ok: false, text: 'AI içerik oluşturuluyor… (tanıtım, çeviriler, gezilecek yerler)' })
+
+    try {
+      const res = await fetch('/api/ai-region-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: trName,
+          regionType: page.region_type ?? 'destination',
+          countryName: page.country_name ?? '',
+          provinceName: page.region_name ?? '',
+          slugPath: page.slug_path ?? '',
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        setSaveMsg({ ok: false, text: data.message || data.error || 'AI isteği başarısız.' })
+        return
+      }
+
+      // 1. Tanıtım yazısını aktif dil alanına yerleştir
+      const { descriptionHtml, translations: aiTranslations, travelIdeas } = data as {
+        descriptionHtml: string
+        translations: Record<string, { name: string; description: string }>
+        travelIdeas: Array<{ name: string; description: string; category: string; image: string }>
+      }
+
+      setTranslations((prev) => {
+        const next = { ...prev }
+        // Türkçe açıklama
+        if (next[primaryLocale]) {
+          next[primaryLocale] = {
+            ...next[primaryLocale],
+            description: descriptionHtml,
+          }
+        }
+        // Diğer diller
+        for (const [lc, t] of Object.entries(aiTranslations)) {
+          if (next[lc]) {
+            next[lc] = {
+              ...next[lc],
+              name: t.name || next[lc]?.name || trName,
+              description: t.description || next[lc]?.description || '',
+            }
+          }
+        }
+        return next
+      })
+
+      // 2. Gezilecek yerleri travel_ideas_json'a ekle
+      if (Array.isArray(travelIdeas) && travelIdeas.length > 0) {
+        const newIdeas = travelIdeas.map((idea) => ({
+          id: uid(),
+          name: idea.name,
+          description: idea.description,
+          category: idea.category || 'Diğer',
+          image: idea.image || '',
+        }))
+
+        setTravelIdeas((prev) => {
+          const existing = [...(prev || [])]
+          // Sadece el ile girilmis olanlari koru, AI mekanlarini ekle
+          const manual = existing.filter((p) => !p.id.startsWith('ai-'))
+          return [...manual, ...newIdeas]
+        })
+      }
+
+      setSaveMsg({ ok: true, text: '✅ Tanıtım, çeviriler ve gezilecek yerler oluşturuldu. Kaydetmeyi unutmayın.' })
+    } catch {
+      setSaveMsg({ ok: false, text: 'AI içerik oluşturulurken hata oluştu.' })
+    } finally {
+      setAiRegionGenerating(false)
+    }
+  }, [translations, primaryLocale, page.region_type, page.country_name, page.region_name, page.slug_path])
 
   const handleAiTranslateTrToTarget = async () => {
     if (aiTargetLocale === primaryLocale) {
@@ -1288,6 +1410,21 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               onTranslateAll={() => void handleAiTranslateAllRegionTargets()}
               translating={aiTranslating}
             />
+            {/* AI ile tanıtım oluştur */}
+            <button
+              type="button"
+              onClick={() => void handleAiRegionGenerate()}
+              disabled={aiRegionGenerating}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-orange-400 px-3 py-1.5 text-xs font-bold text-neutral-900 shadow-sm transition-all hover:from-amber-300 hover:to-orange-300 disabled:cursor-not-allowed disabled:opacity-60 dark:from-amber-500 dark:to-orange-500 dark:text-neutral-950 dark:hover:from-amber-400 dark:hover:to-orange-400"
+            >
+              {aiRegionGenerating ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden lg:inline">AI ile Tanıtım Oluştur</span>
+              <span className="lg:hidden">AI Tanıtım</span>
+            </button>
           </div>
         </div>
 
@@ -1319,6 +1456,19 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             onTranslateAll={() => void handleAiTranslateAllRegionTargets()}
             translating={aiTranslating}
           />
+          <button
+            type="button"
+            onClick={() => void handleAiRegionGenerate()}
+            disabled={aiRegionGenerating}
+            className="inline-flex shrink-0 items-center justify-center gap-1 rounded-lg bg-gradient-to-r from-amber-400 to-orange-400 px-3 py-1.5 text-xs font-bold text-neutral-900 shadow-sm transition-all hover:from-amber-300 hover:to-orange-300 disabled:cursor-not-allowed disabled:opacity-60 dark:from-amber-500 dark:to-orange-500 dark:text-neutral-950 dark:hover:from-amber-400 dark:hover:to-orange-400"
+          >
+            {aiRegionGenerating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5" />
+            )}
+            AI Tanıtım
+          </button>
         </div>
       </div>
 
@@ -1775,6 +1925,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   'mb-3 rounded-lg border px-3 py-2 text-xs leading-relaxed',
                   mapCoordSource === 'saved_pin'
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/35 dark:text-emerald-100'
+                    : mapCoordSource === 'travel_ideas_fallback'
+                      ? 'border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-100'
                     : mapCoordSource === 'none'
                       ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100'
                       : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100',
@@ -1787,6 +1939,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                     ? 'Özel pin yok; ilçenin kayıtlı merkezi (tablo) kullanılıyor. Kesin nokta için pinleyip Kaydet yapın.'
                     : mapCoordSource === 'district_lookup'
                       ? 'Özel pin yok; bağlı ilçe kaydından merkez koordinatı yüklendi.'
+                      : mapCoordSource === 'travel_ideas_fallback'
+                        ? 'Sayfa pin alanı boş; gezi fikirleri listesindeki ilk geçerli koordinat haritada gösteriliyor (AI/Google akışı). Kalıcı pin için Kaydet ile kaydedin.'
                       : mapCoordSource === 'region_center'
                         ? 'İl veya ülke için bölge merkezi kullanılıyor (sayfaya özel pin yoksa).'
                         : 'Konum seçilmemiş. Haritada arayın veya tıklayın; ardından Kaydet.'}

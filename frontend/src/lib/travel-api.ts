@@ -6937,6 +6937,10 @@ export async function createLocationPage(body: {
   slug_path: string
   district_id?: string
   hero_image_key?: string
+  title?: string
+  map_lat?: string | number
+  map_lng?: string | number
+  map_zoom?: number
 }): Promise<{ id: string }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')

@@ -37,6 +37,30 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
+/// JSON gövdesinde `map_lat` / `map_lng` kimi araçlar string, kimi sayı gönderebilir.
+fn optional_geo_coord_string() -> decode.Decoder(Option(String)) {
+  let as_text =
+    decode.one_of(decode.string, or: [
+      decode.int |> decode.map(int.to_string),
+      decode.float |> decode.map(float.to_string),
+    ])
+  decode.optional(as_text)
+}
+
+fn opt_text(o: Option(String)) -> pog.Value {
+  case o {
+    None -> pog.null()
+    Some(s) -> case string.trim(s) == "" { True -> pog.null() False -> pog.text(string.trim(s)) }
+  }
+}
+
+fn opt_map_zoom(o: Option(Int)) -> pog.Value {
+  case o {
+    None -> pog.null()
+    Some(z) -> pog.int(z)
+  }
+}
+
 // --- countries ---
 
 fn country_row() -> decode.Decoder(#(String, String, String)) {
@@ -921,19 +945,47 @@ pub fn get_location_page(req: Request, ctx: Context, page_id: String) -> Respons
   }
 }
 
-fn page_create_decoder() -> decode.Decoder(#(String, Option(String), Option(String))) {
+type PageCreateBody {
+  PageCreateBody(
+    slug_path: String,
+    district_id: Option(String),
+    hero_image_key: Option(String),
+    title: Option(String),
+    map_lat: Option(String),
+    map_lng: Option(String),
+    map_zoom: Option(Int),
+  )
+}
+
+fn page_create_decoder() -> decode.Decoder(PageCreateBody) {
   decode.field("slug_path", decode.string, fn(sp) {
     decode.optional_field("district_id", "", decode.string, fn(did) {
       decode.optional_field("hero_image_key", "", decode.string, fn(hk) {
-        let d = case string.trim(did) == "" {
-          True -> None
-          False -> Some(string.trim(did))
-        }
-        let h = case string.trim(hk) == "" {
-          True -> None
-          False -> Some(string.trim(hk))
-        }
-        decode.success(#(string.trim(sp), d, h))
+        decode.optional_field("title", None, decode.optional(decode.string), fn(title) {
+          decode.optional_field("map_lat", None, optional_geo_coord_string(), fn(lat) {
+            decode.optional_field("map_lng", None, optional_geo_coord_string(), fn(lng) {
+              decode.optional_field("map_zoom", None, decode.optional(decode.int), fn(mz) {
+                let d = case string.trim(did) == "" {
+                  True -> None
+                  False -> Some(string.trim(did))
+                }
+                let h = case string.trim(hk) == "" {
+                  True -> None
+                  False -> Some(string.trim(hk))
+                }
+                decode.success(PageCreateBody(
+                  slug_path: string.trim(sp),
+                  district_id: d,
+                  hero_image_key: h,
+                  title: title,
+                  map_lat: lat,
+                  map_lng: lng,
+                  map_zoom: mz,
+                ))
+              })
+            })
+          })
+        })
       })
     })
   })
@@ -947,7 +999,7 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
     Ok(body) ->
       case json.parse(body, page_create_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
-        Ok(#(sp, did_opt, hk_opt)) ->
+        Ok(PageCreateBody(sp, did_opt, hk_opt, title_opt, lat_opt, lng_opt, zoom_opt)) ->
           case sp == "" {
             True -> json_err(400, "slug_path_required")
             False -> {
@@ -961,11 +1013,15 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
               }
               case
                 pog.query(
-                  "insert into location_pages (district_id, slug_path, hero_image_key) values ($1::int, $2, $3) returning id::text",
+                  "insert into location_pages (district_id, slug_path, hero_image_key, title, map_lat, map_lng, map_zoom) values ($1::int, $2, $3, $4::text, $5::numeric, $6::numeric, coalesce($7::smallint, 12)) returning id::text",
                 )
                 |> pog.parameter(d_p)
                 |> pog.parameter(pog.text(sp))
                 |> pog.parameter(h_p)
+                |> pog.parameter(opt_text(title_opt))
+                |> pog.parameter(opt_text(lat_opt))
+                |> pog.parameter(opt_text(lng_opt))
+                |> pog.parameter(opt_map_zoom(zoom_opt))
                 |> pog.returning(row_dec.col0_string())
                 |> pog.execute(ctx.db)
               {
@@ -983,16 +1039,6 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
           }
       }
   }
-}
-
-/// PATCH gövdesinde `map_lat` / `map_lng` kimi araçlar string, kimi sayı gönderebilir.
-fn optional_geo_coord_string() -> decode.Decoder(Option(String)) {
-  let as_text =
-    decode.one_of(decode.string, or: [
-      decode.int |> decode.map(int.to_string),
-      decode.float |> decode.map(float.to_string),
-    ])
-  decode.optional(as_text)
 }
 
 type PagePatch {
@@ -1082,20 +1128,6 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
       })
     })
   })
-}
-
-fn opt_text(o: Option(String)) -> pog.Value {
-  case o {
-    None -> pog.null()
-    Some(s) -> case string.trim(s) == "" { True -> pog.null() False -> pog.text(string.trim(s)) }
-  }
-}
-
-fn opt_map_zoom(o: Option(Int)) -> pog.Value {
-  case o {
-    None -> pog.null()
-    Some(z) -> pog.int(z)
-  }
 }
 
 /// PATCH /api/v1/locations/pages/:page_id

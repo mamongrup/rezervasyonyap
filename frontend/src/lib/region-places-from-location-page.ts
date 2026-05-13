@@ -54,6 +54,15 @@ function travelIdeaPlaceId(idea: TravelIdea, idx: number): string {
   return `travel_idea:${idx}:${title}`
 }
 
+function firstTravelIdeaCenterFromPage(page: LocationPage): { lat: number; lng: number } | null {
+  const ideas = parseTravelIdeas(page.travel_ideas_json as unknown)
+  for (const idea of ideas) {
+    const c = travelIdeaCoords(idea)
+    if (c) return c
+  }
+  return null
+}
+
 export function resolveRegionCenterCoords(page: LocationPage): { lat: number; lng: number } | null {
   const fromPair = (la?: string | null, lo?: string | null) => {
     const lat = parseCoord(la)
@@ -64,6 +73,7 @@ export function resolveRegionCenterCoords(page: LocationPage): { lat: number; ln
   return (
     fromPair(page.map_lat, page.map_lng) ??
     fromPair(page.district_center_lat, page.district_center_lng) ??
+    firstTravelIdeaCenterFromPage(page) ??
     fromPair(page.region_center_lat, page.region_center_lng) ??
     null
   )
