@@ -121,6 +121,23 @@ const TR_BY_CODE: Record<string, string> = {
   listing_cat_query_failed: 'İlan kategorisi alınamadı.',
   price_line_sel_clear_failed: 'Fiyat kalemi seçimleri temizlenemedi.',
 
+  // Lokasyon şeması — ülke / il (`regions`) / ilçe
+  regions_query_failed:
+    'İl listesi (regions) veritabanından alınamadı. Ülke ID’sinin doğru olduğundan emin olun; travel-api güncel derlemesi + PostgreSQL günlüklerini kontrol edin.',
+  districts_query_failed:
+    'İlçe listesi alınamadı. İl seçildi mi ve doğru bağlantı mı kullanılıyor kontrol edin.',
+  district_lookup_failed:
+    'İlçe detayı (lookup) alınamadı. Kayıtlı district_id doğruluğunu ve API günlüklerini kontrol edin.',
+  country_id_must_be_positive_integer:
+    'Ülke kimliği sayı olarak bekleniyor; ülkeleri seçiciden «Türkiye» dahil yeniden seçin.',
+  country_id_out_of_range: 'Geçersiz ülke kimliği. Ülkeler listesinden tekrar seçim yapın.',
+  district_id_must_be_positive_integer:
+    'İlçe kimliği sayı olmalı. Sayfayı yenileyin.',
+  district_id_invalid: 'İlçe kimliği geçersiz.',
+  region_id_must_be_positive_integer:
+    'İl (region) kimliği sayı olmalı. Önce ili seçmeden ilçeler yüklenemez.',
+  region_id_invalid: 'İl seçimi geçersiz.',
+
   // İstemci tarafı yedek kodları (catch dalları)
   cal_load_failed: 'Müsaitlik takvimi yüklenemedi.',
   cal_save_failed: 'Müsaitlik takvimi kaydedilemedi.',

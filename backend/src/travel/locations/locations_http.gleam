@@ -157,22 +157,32 @@ pub fn list_regions(req: Request, ctx: Context) -> Response {
   case cf == "" {
     True -> json_err(400, "country_id_required")
     False ->
-      case
-        pog.query(
-          "select id::text, country_id::text, name, slug, coalesce(center_lat::text,''), coalesce(center_lng::text,'') from regions where country_id = $1::smallint order by name limit 500",
-        )
-        |> pog.parameter(pog.text(cf))
-        |> pog.returning(region_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "regions_query_failed")
-        Ok(ret) -> {
-          let arr = list.map(ret.rows, region_json)
-          let body =
-            json.object([#("regions", json.array(from: arr, of: fn(x) { x }))])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
+      case int.parse(cf) {
+        Error(_) ->
+          json_err(400, "country_id_must_be_positive_integer")
+        Ok(cid_raw) ->
+          case cid_raw < 1 || cid_raw > 32767 {
+            True ->
+              json_err(400, "country_id_out_of_range")
+            False ->
+              case
+                pog.query(
+                  "select id::text, country_id::text, name, slug, coalesce(center_lat::text,''), coalesce(center_lng::text,'') from regions where country_id = $1 order by name limit 500",
+                )
+                |> pog.parameter(pog.int(cid_raw))
+                |> pog.returning(region_row())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "regions_query_failed")
+                Ok(ret) -> {
+                  let arr = list.map(ret.rows, region_json)
+                  let body =
+                    json.object([#("regions", json.array(from: arr, of: fn(x) { x }))])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
+                }
+              }
+          }
       }
   }
 }
@@ -338,24 +348,33 @@ pub fn get_district_lookup(req: Request, ctx: Context) -> Response {
   case raw_id == "" {
     True -> json_err(400, "id_required")
     False ->
-      case
-        pog.query(
-          "select d.id::text, d.region_id::text, r.country_id::text, d.name, d.slug, coalesce(d.center_lat::text,''), coalesce(d.center_lng::text,'') from districts d join regions r on r.id = d.region_id where d.id = $1::int limit 1",
-        )
-        |> pog.parameter(pog.text(raw_id))
-        |> pog.returning(district_lookup_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "district_lookup_failed")
-        Ok(ret) ->
-          case ret.rows {
-            [row] -> {
-              let payload =
-                json.object([#("district", district_lookup_json(row))])
-                |> json.to_string
-              wisp.json_response(payload, 200)
-            }
-            _ -> json_err(404, "district_not_found")
+      case int.parse(raw_id) {
+        Error(_) ->
+          json_err(400, "district_id_must_be_positive_integer")
+        Ok(did) ->
+          case did < 1 {
+            True -> json_err(400, "district_id_invalid")
+            False ->
+              case
+                pog.query(
+                  "select d.id::text, d.region_id::text, r.country_id::text, d.name, d.slug, coalesce(d.center_lat::text,''), coalesce(d.center_lng::text,'') from districts d join regions r on r.id = d.region_id where d.id = $1 limit 1",
+                )
+                |> pog.parameter(pog.int(did))
+                |> pog.returning(district_lookup_row())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "district_lookup_failed")
+                Ok(ret) ->
+                  case ret.rows {
+                    [row] -> {
+                      let payload =
+                        json.object([#("district", district_lookup_json(row))])
+                        |> json.to_string
+                      wisp.json_response(payload, 200)
+                    }
+                    _ -> json_err(404, "district_not_found")
+                  }
+              }
           }
       }
   }
@@ -375,22 +394,36 @@ pub fn list_districts(req: Request, ctx: Context) -> Response {
   case rf == "" {
     True -> json_err(400, "region_id_required")
     False ->
-      case
-        pog.query(
-          "select id::text, region_id::text, name, slug, coalesce(center_lat::text,''), coalesce(center_lng::text,'') from districts where region_id = $1::int order by name limit 500",
-        )
-        |> pog.parameter(pog.text(rf))
-        |> pog.returning(district_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(_) -> json_err(500, "districts_query_failed")
-        Ok(ret) -> {
-          let arr = list.map(ret.rows, district_json)
-          let body =
-            json.object([#("districts", json.array(from: arr, of: fn(x) { x }))])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
+      case int.parse(rf) {
+        Error(_) ->
+          json_err(400, "region_id_must_be_positive_integer")
+        Ok(rid) ->
+          case rid < 1 {
+            True -> json_err(400, "region_id_invalid")
+            False ->
+              case
+                pog.query(
+                  "select id::text, region_id::text, name, slug, coalesce(center_lat::text,''), coalesce(center_lng::text,'') from districts where region_id = $1 order by name limit 500",
+                )
+                |> pog.parameter(pog.int(rid))
+                |> pog.returning(district_row())
+                |> pog.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "districts_query_failed")
+                Ok(ret) -> {
+                  let arr = list.map(ret.rows, district_json)
+                  let body =
+                    json.object([
+                      #(
+                        "districts",
+                        json.array(from: arr, of: fn(x) { x }),
+                      ),
+                    ])
+                    |> json.to_string
+                  wisp.json_response(body, 200)
+                }
+              }
+          }
       }
   }
 }

@@ -6598,6 +6598,13 @@ export async function createExternalReviewSnapshot(body: {
 
 const locJson = (): HeadersInit => ({ 'Content-Type': 'application/json' })
 
+async function rejectUnlessOkLocations(res: Response, statusFallbackPrefix: string): Promise<void> {
+  if (res.ok) return
+  const parsed = (await res.clone().json().catch(() => ({}))) as { error?: string }
+  const code = parsed.error?.trim()
+  throw new Error(code && code !== '' ? code : `${statusFallbackPrefix}_${res.status}`)
+}
+
 export type LocationCountry = { id: string; iso2: string; name: string }
 
 export async function listLocationCountries(): Promise<{ countries: LocationCountry[] }> {
@@ -6640,7 +6647,7 @@ export async function listLocationRegions(countryId: string): Promise<{ regions:
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams({ country_id: countryId })
   const res = await fetch(`${b}/api/v1/locations/regions?${q}`, { credentials: 'include' })
-  if (!res.ok) throw new Error(`locations_regions_${res.status}`)
+  await rejectUnlessOkLocations(res, 'locations_regions')
   return json(res)
 }
 
@@ -6686,7 +6693,7 @@ export async function lookupLocationDistrict(
   if (!raw) throw new Error('district_id_missing')
   const q = new URLSearchParams({ id: raw })
   const res = await fetch(`${b}/api/v1/locations/districts/lookup?${q}`, { credentials: 'include' })
-  if (!res.ok) throw new Error(`locations_district_lookup_${res.status}`)
+  await rejectUnlessOkLocations(res, 'locations_district_lookup')
   return json(res)
 }
 
@@ -6695,7 +6702,7 @@ export async function listLocationDistricts(regionId: string): Promise<{ distric
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams({ region_id: regionId })
   const res = await fetch(`${b}/api/v1/locations/districts?${q}`, { credentials: 'include' })
-  if (!res.ok) throw new Error(`locations_districts_${res.status}`)
+  await rejectUnlessOkLocations(res, 'locations_districts')
   return json(res)
 }
 
