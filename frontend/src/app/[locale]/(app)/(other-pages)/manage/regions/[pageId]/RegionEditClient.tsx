@@ -44,7 +44,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import RichEditor from '@/components/editor/RichEditor'
 import MapPicker from '@/components/editor/MapPicker'
 import ImageUpload from '@/components/editor/ImageUpload'
@@ -275,6 +275,104 @@ function normalizeEmergencyNumbers(raw: unknown): { label: string; number: strin
   return out
 }
 
+type DistrictLookupArg = Parameters<typeof deriveMapPresentation>[1]
+
+/** DB'de pin yokken türetilen noktayı (ilçe merkezi / gezi fikri / il merkezi) kayda yazar; varsa adres satırı `country_info_json.map_reverse_geocode_label`. */
+async function maybePersistDerivedMapPinFromLoad(opts: {
+  pageId: string
+  p: LocationPage
+  mapPres: { lat: string; lng: string; source: MapCoordSource }
+  districtLookup: DistrictLookupArg
+  geoRegionType: string
+  pageDistrictId: string
+  setPage: (next: LocationPage | null) => void
+  setMapLat: (s: string) => void
+  setMapLng: (s: string) => void
+  setMapCoordSource: (s: MapCoordSource | 'idle') => void
+  setCiLanguages: (v: string[]) => void
+  setCiCurrencies: (v: string[]) => void
+  setCiConsulatePhone: (v: string) => void
+  setCiEmergencyNumbers: (v: { label: string; number: string }[]) => void
+  setCiFlagEmoji: (v: string) => void
+  setCiFlagUrl: (v: string) => void
+}): Promise<boolean> {
+  const dbEmpty = !coordFieldToString(opts.p.map_lat) && !coordFieldToString(opts.p.map_lng)
+  const { lat, lng, source } = opts.mapPres
+  if (!dbEmpty || !lat || !lng || source === 'none') return false
+
+  let label = ''
+  const la = parseFloat(lat)
+  const lo = parseFloat(lng)
+  if (Number.isFinite(la) && Number.isFinite(lo)) {
+    try {
+      const r = await fetch('/api/manage/reverse-geocode', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: la, lng: lo }),
+      })
+      if (r.ok) {
+        const j = (await r.json()) as { formatted_address?: string | null }
+        label = asTrimmedString(j.formatted_address)
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  let ci: Record<string, unknown> = {}
+  try {
+    ci = { ...(JSON.parse(opts.p.country_info_json ?? '{}') as Record<string, unknown>) }
+  } catch {
+    ci = {}
+  }
+  if (label) ci.map_reverse_geocode_label = label
+
+  const mapZoomNum = Number(opts.p.map_zoom ?? 12)
+
+  await patchLocationPage(opts.pageId, {
+    map_lat: lat,
+    map_lng: lng,
+    ...(Number.isFinite(mapZoomNum) ? { map_zoom: mapZoomNum } : {}),
+    country_info_json: JSON.stringify(ci),
+  })
+
+  const updated = await getLocationPage(opts.pageId)
+  opts.setPage(updated)
+  const m2 = deriveMapPresentation(updated, opts.districtLookup, opts.geoRegionType, opts.pageDistrictId)
+  opts.setMapLat(m2.lat)
+  opts.setMapLng(m2.lng)
+  opts.setMapCoordSource(m2.source)
+
+  try {
+    const ci2 = JSON.parse(updated.country_info_json ?? '{}') as {
+      languages?: string[]
+      currencies?: string[]
+      consulate_phone?: string
+      emergency_numbers?: { label: string; number: string }[]
+      flag_emoji?: string
+      flag_url?: string
+    }
+    opts.setCiLanguages(ci2.languages ?? [])
+    opts.setCiCurrencies(ci2.currencies ?? [])
+    opts.setCiConsulatePhone(ci2.consulate_phone ?? '')
+    opts.setCiEmergencyNumbers(normalizeEmergencyNumbers(ci2.emergency_numbers))
+    opts.setCiFlagEmoji(ci2.flag_emoji ?? '')
+    opts.setCiFlagUrl(ci2.flag_url ?? '')
+  } catch {
+    /* ignore */
+  }
+
+  void fetch('/api/manage/revalidate-location-page', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ slug_path: String(updated.slug_path ?? '').trim() }),
+  }).catch(() => undefined)
+
+  return true
+}
+
 // ─── UI helpers ───────────────────────────────────────────────────────────────
 const inputCls = 'w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100'
 const textareaCls = `${inputCls} min-h-[120px] resize-y`
@@ -408,6 +506,15 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     setMapCoordSource(nextLat.trim() && nextLng.trim() ? 'saved_pin' : 'none')
   }, [])
 
+  const mapReverseGeocodeLabel = useMemo(() => {
+    try {
+      const o = JSON.parse(page?.country_info_json ?? '{}') as { map_reverse_geocode_label?: unknown }
+      return asTrimmedString(o.map_reverse_geocode_label)
+    } catch {
+      return ''
+    }
+  }, [page?.country_info_json])
+
   // ─── District linkage ─────────────────────────────────────────────────────
   const [countries, setCountries] = useState<LocationCountry[]>([])
   const [regions, setRegions] = useState<LocationRegion[]>([])
@@ -540,11 +647,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           }
         }
 
+        let initialMapPresentation: ReturnType<typeof deriveMapPresentation> | null = null
         {
-          const m = deriveMapPresentation(p, districtLookup, geoRegionType, pageDistrictId)
-          setMapLat(m.lat)
-          setMapLng(m.lng)
-          setMapCoordSource(m.source)
+          initialMapPresentation = deriveMapPresentation(p, districtLookup, geoRegionType, pageDistrictId)
+          setMapLat(initialMapPresentation.lat)
+          setMapLng(initialMapPresentation.lng)
+          setMapCoordSource(initialMapPresentation.source)
         }
         setMapZoom(String(p.map_zoom ?? 12))
         setDistrictId(pageDistrictId)
@@ -624,6 +732,37 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setCiFlagEmoji(ci.flag_emoji ?? '')
           setCiFlagUrl(ci.flag_url ?? '')
         } catch { /* ignore */ }
+
+        try {
+          if (initialMapPresentation) {
+            const did = await maybePersistDerivedMapPinFromLoad({
+              pageId,
+              p,
+              mapPres: initialMapPresentation,
+              districtLookup,
+              geoRegionType,
+              pageDistrictId,
+              setPage,
+              setMapLat,
+              setMapLng,
+              setMapCoordSource,
+              setCiLanguages,
+              setCiCurrencies,
+              setCiConsulatePhone,
+              setCiEmergencyNumbers,
+              setCiFlagEmoji,
+              setCiFlagUrl,
+            })
+            if (did) {
+              setSaveMsg({
+                ok: true,
+                text: 'Harita pin’i boştu; tahmini konum koordinatları ve (varsa) adres satırı kayda yazıldı.',
+              })
+            }
+          }
+        } catch {
+          /* sessiz — elle Kaydet mümkün */
+        }
 
         let countriesRow: LocationCountry[] = []
         try {
@@ -1077,6 +1216,13 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         travel_ideas_json: JSON.stringify(travelIdeas),
         poi_manual_json: JSON.stringify(manualPois),
         country_info_json: JSON.stringify({
+          ...(() => {
+            try {
+              return { ...(JSON.parse(page?.country_info_json ?? '{}') as Record<string, unknown>) }
+            } catch {
+              return {}
+            }
+          })(),
           languages: ciLanguages,
           currencies: ciCurrencies,
           consulate_phone: ciConsulatePhone,
@@ -1977,6 +2123,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 <input type="number" min={1} max={20} value={mapZoom} onChange={(e) => setMapZoom(e.target.value)} className={inputCls} />
               </div>
             </div>
+            {mapReverseGeocodeLabel ? (
+              <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-400">
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">Kayıtlı adres önizlemesi:</span>{' '}
+                {mapReverseGeocodeLabel}
+              </p>
+            ) : null}
           </section>
           </Card>
 
