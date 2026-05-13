@@ -830,6 +830,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       setSaveMsg({ ok: false, text: 'Önce Türkçe isim alanını doldurun.' })
       return
     }
+    if (!page) {
+      setSaveMsg({ ok: false, text: 'Bölge kaydı henüz yüklenmedi; sayfayı yenileyip tekrar deneyin.' })
+      return
+    }
 
     setAiRegionGenerating(true)
     setSaveMsg({ ok: false, text: 'AI içerik oluşturuluyor… (tanıtım, çeviriler, gezilecek yerler)' })
@@ -841,8 +845,6 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         body: JSON.stringify({
           name: trName,
           regionType: page.region_type ?? 'destination',
-          countryName: page.country_name ?? '',
-          provinceName: page.region_name ?? '',
           slugPath: page.slug_path ?? '',
         }),
       })
@@ -884,18 +886,17 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
       // 2. Gezilecek yerleri travel_ideas_json'a ekle
       if (Array.isArray(travelIdeas) && travelIdeas.length > 0) {
-        const newIdeas = travelIdeas.map((idea) => ({
+        const newIdeas: TravelIdea[] = travelIdeas.map((idea: { name?: string; description?: string; category?: string; image?: string }) => ({
           id: uid(),
-          name: idea.name,
-          description: idea.description,
-          category: idea.category || 'Diğer',
+          title: idea.name || idea.description?.slice(0, 40) || 'Mekan',
+          summary: idea.description || '',
+          tag: idea.category || 'Diğer',
           image: idea.image || '',
         }))
 
         setTravelIdeas((prev) => {
           const existing = [...(prev || [])]
-          // Sadece el ile girilmis olanlari koru, AI mekanlarini ekle
-          const manual = existing.filter((p) => !p.id.startsWith('ai-'))
+          const manual = existing.filter((p) => String(p.id).startsWith('manual-') || !String(p.id).startsWith('ai-'))
           return [...manual, ...newIdeas]
         })
       }
@@ -906,7 +907,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     } finally {
       setAiRegionGenerating(false)
     }
-  }, [translations, primaryLocale, page.region_type, page.country_name, page.region_name, page.slug_path])
+  }, [translations, primaryLocale, page])
 
   const handleAiTranslateTrToTarget = async () => {
     if (aiTargetLocale === primaryLocale) {
