@@ -336,13 +336,20 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   useEffect(() => {
     void (async () => {
       try {
+        /* Önceki kayıttan gelen il/ilçe select seçenekleri — kısa süreli yanlış kombinasyonları önler */
+        setRegions([])
+        setDistricts([])
+        setSelCountry('')
+        setSelRegion('')
+
         const [p, countriesRes] = await Promise.all([
           getLocationPage(pageId),
           listLocationCountries(),
         ])
         setPage(p)
         setSlugPath(p.slug_path)
-        setRegionType(p.region_type ?? 'district')
+        const geoRegionType = p.region_type ?? 'district'
+        setRegionType(geoRegionType)
         setIsPublished(p.is_published)
         setFeaturedImageUrl(p.featured_image_url ?? '')
         setHeroImageUrl(p.hero_image_url ?? '')
@@ -352,23 +359,58 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setHeroGallery(urls)
           setHeroBannerLayoutJson(layout ? JSON.stringify(layout, null, 2) : '')
         }
+
+        const pageDistrictId = locationJsonScalarStr((p as { district_id?: unknown }).district_id)
+        const districtLinkedPage =
+          Boolean(pageDistrictId) && (geoRegionType === 'district' || geoRegionType === 'destination')
+
+        let pc = locationJsonScalarStr((p as { parent_country_id?: unknown }).parent_country_id)
+        let pr = locationJsonScalarStr((p as { parent_region_id?: unknown }).parent_region_id)
+        let districtLookup: {
+          district: {
+            region_id: string
+            country_id: string
+            center_lat: string | null
+            center_lng: string | null
+          }
+        } | null = null
+        if (pageDistrictId) {
+          try {
+            districtLookup = await lookupLocationDistrict(pageDistrictId)
+            if (!pr) pr = locationJsonScalarStr(districtLookup.district.region_id)
+            if (!pc) pc = locationJsonScalarStr(districtLookup.district.country_id)
+          } catch {
+            districtLookup = null
+          }
+        }
+
         {
           const pinLat = (p.map_lat ?? '').trim()
           const pinLng = (p.map_lng ?? '').trim()
           const distLat = (p.district_center_lat ?? '').trim()
           const distLng = (p.district_center_lng ?? '').trim()
+          const luLat =
+            districtLookup?.district.center_lat != null
+              ? String(districtLookup.district.center_lat).trim()
+              : ''
+          const luLng =
+            districtLookup?.district.center_lng != null
+              ? String(districtLookup.district.center_lng).trim()
+              : ''
           const regLat = (p.region_center_lat ?? '').trim()
           const regLng = (p.region_center_lng ?? '').trim()
+          /* İlçe/destinasyon + district_id varken il merkezi (Muğla) yanıltır — yalnızca pin / ilçe kaydı */
           const pair =
             pinLat && pinLng ? { lat: pinLat, lng: pinLng }
             : distLat && distLng ? { lat: distLat, lng: distLng }
-            : regLat && regLng ? { lat: regLat, lng: regLng }
+            : luLat && luLng ? { lat: luLat, lng: luLng }
+            : !districtLinkedPage && regLat && regLng ? { lat: regLat, lng: regLng }
             : null
           setMapLat(pair?.lat ?? '')
           setMapLng(pair?.lng ?? '')
         }
         setMapZoom(String(p.map_zoom ?? 12))
-        setDistrictId(locationJsonScalarStr(p.district_id))
+        setDistrictId(pageDistrictId)
         setMetaTitle(p.meta_title ?? '')
         setMetaDesc(p.meta_description ?? '')
 
@@ -445,18 +487,6 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
         setCountries(countriesRes.countries)
 
-        let pc = locationJsonScalarStr((p as { parent_country_id?: unknown }).parent_country_id)
-        let pr = locationJsonScalarStr((p as { parent_region_id?: unknown }).parent_region_id)
-        const pageDistrictId = locationJsonScalarStr((p as { district_id?: unknown }).district_id)
-        if ((!pc || !pr) && pageDistrictId) {
-          try {
-            const lu = await lookupLocationDistrict(pageDistrictId)
-            if (!pr && lu.district.region_id) pr = locationJsonScalarStr(lu.district.region_id)
-            if (!pc && lu.district.country_id) pc = locationJsonScalarStr(lu.district.country_id)
-          } catch {
-            /* ilçe bulunamazsa kullanıcı manuel seçer */
-          }
-        }
         if (pc) {
           setSelCountry(pc)
           try {
@@ -467,8 +497,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               const distRes = await listLocationDistricts(pr)
               setDistricts(distRes.districts)
             }
-          } catch {
-            /* ülke/il listesi gelmezse select’ler manuel seçimle doldurulur */
+          } catch (e) {
+            setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'İl listesi yüklenemedi') })
           }
         }
       } catch {
@@ -1455,10 +1485,11 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               onChange={(lat, lng) => { setMapLat(lat); setMapLng(lng) }}
             />
             <p className="mt-2 text-[11px] text-neutral-500">
-              Pin kayıtlı değilken sıra ile <strong className="font-medium text-neutral-600 dark:text-neutral-400">ilçe</strong> ve gerekiyorsa{' '}
-              <strong className="font-medium text-neutral-600 dark:text-neutral-400">il</strong> merkezi kullanılır; böylece harita Türkiye geneli yerine yakın zoom açar.
-              Kesin koordinat için haritada pinleyip{' '}
-              <strong className="font-medium text-neutral-600 dark:text-neutral-400">Kaydet</strong> kullanın.
+              İlçe veya destinasyon kaydında önce kayıtlı <strong className="font-medium text-neutral-600 dark:text-neutral-400">ilçe merkezi</strong> kullanılır;
+              koordinatsızsa il merkezi <strong className="font-medium text-neutral-700 dark:text-neutral-300">otomatik seçilmez</strong> (yanlışlıkla başka şehir göstermeyelim).
+              İl sayfalarında ise il merkezi önizleme olarak kullanılır.
+              Kesin konum için arama ile pinleyip{' '}
+              <strong className="font-medium text-neutral-600 dark:text-neutral-400">Kaydet</strong> yapın.
             </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>

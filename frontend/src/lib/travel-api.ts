@@ -6603,7 +6603,7 @@ export type LocationCountry = { id: string; iso2: string; name: string }
 export async function listLocationCountries(): Promise<{ countries: LocationCountry[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/locations/countries`)
+  const res = await fetch(`${b}/api/v1/locations/countries`, { credentials: 'include' })
   if (!res.ok) throw new Error(`locations_countries_${res.status}`)
   return json(res)
 }
@@ -6639,7 +6639,7 @@ export async function listLocationRegions(countryId: string): Promise<{ regions:
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams({ country_id: countryId })
-  const res = await fetch(`${b}/api/v1/locations/regions?${q}`)
+  const res = await fetch(`${b}/api/v1/locations/regions?${q}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`locations_regions_${res.status}`)
   return json(res)
 }
@@ -6685,7 +6685,7 @@ export async function lookupLocationDistrict(
   const raw = `${districtId}`.trim()
   if (!raw) throw new Error('district_id_missing')
   const q = new URLSearchParams({ id: raw })
-  const res = await fetch(`${b}/api/v1/locations/districts/lookup?${q}`)
+  const res = await fetch(`${b}/api/v1/locations/districts/lookup?${q}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`locations_district_lookup_${res.status}`)
   return json(res)
 }
@@ -6694,7 +6694,7 @@ export async function listLocationDistricts(regionId: string): Promise<{ distric
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const q = new URLSearchParams({ region_id: regionId })
-  const res = await fetch(`${b}/api/v1/locations/districts?${q}`)
+  const res = await fetch(`${b}/api/v1/locations/districts?${q}`, { credentials: 'include' })
   if (!res.ok) throw new Error(`locations_districts_${res.status}`)
   return json(res)
 }
@@ -6898,7 +6898,9 @@ export async function getLocationPageByName(name: string): Promise<LocationPage 
 export async function getLocationPage(pageId: string): Promise<LocationPage> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(`${b}/api/v1/locations/pages/${encodeURIComponent(pageId)}`)
+  const res = await fetch(`${b}/api/v1/locations/pages/${encodeURIComponent(pageId)}`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error(`locations_page_${res.status}`)
   return json(res)
 }
@@ -6914,6 +6916,7 @@ export async function createLocationPage(body: {
     method: 'POST',
     headers: locJson(),
     body: JSON.stringify(body),
+    credentials: 'include',
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
@@ -6932,6 +6935,7 @@ export async function patchLocationPage(
     method: 'PATCH',
     headers: locJson(),
     body: JSON.stringify(body),
+    credentials: 'include',
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
