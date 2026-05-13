@@ -282,6 +282,18 @@ function looksLikeApiCode(s: string): boolean {
 export function formatManageApiError(raw: string): string {
   const key = raw.trim()
   if (!key) return 'Bilinmeyen hata.'
+  const low = key.toLowerCase()
+  if (
+    low.includes('failed to fetch') ||
+    low.includes('networkerror') ||
+    low === 'network error'
+  ) {
+    return (
+      'Sunucuya bağlanılamadı (ağ veya tarayıcı CORS engeli). ' +
+      'Panel adresi ile NEXT_PUBLIC_API_URL’nin aynı site olduğundan emin olun (www ile / www’sız farkı). ' +
+      'Üretimde nginx’te /api/v1 → Gleam API yönlendirmesi ve travel-api servisinin ayakta olduğunu kontrol edin.'
+    )
+  }
   if (key.startsWith('invalid_json_response_')) {
     return 'Sunucu geçersiz veya bozuk JSON döndü. API kök adresi, nginx ve travel-api güncellemesini kontrol edin.'
   }

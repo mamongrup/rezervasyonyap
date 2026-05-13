@@ -5,9 +5,22 @@
  *   VPS’te yalnızca public URL kullanılırsa kendi domain’ine hairpin/NAT olmadan çıkamama olabilir;
  *   bu yüzden üretimde loopback tercih edilir: `INTERNAL_API_ORIGIN=http://127.0.0.1:8080`
  *   (`deploy/systemd/frontend.env.example`). `API_URL` yedek olarak `listing-search` route ile uyumludur.
+ *
+ * ### www / apex (yönetim paneli “Failed to fetch”)
+ * Build’de `NEXT_PUBLIC_API_URL=https://ornek.com` iken kullanıcı `https://www.ornek.com` üzerinden
+ * paneli açarsa tarayıcı isteği farklı origin’e gider; CORS yoksa yanıt gelmez ve `fetch` “Failed to fetch”
+ * verir. Aynı sitenin `www` ve apex host’u eşleşiyorsa API kökü olarak **geçerli sekme origin’i** kullanılır.
  */
+function stripTrailingSlash(s: string): string {
+  return s.replace(/\/$/, '')
+}
+
+function hostApexKey(hostname: string): string {
+  return hostname.replace(/^www\./i, '').toLowerCase()
+}
+
 export function apiOriginForFetch(): string {
-  const strip = (s: string) => s.replace(/\/$/, '')
+  const strip = stripTrailingSlash
   if (typeof window === 'undefined') {
     const internal = process.env.INTERNAL_API_ORIGIN?.trim()
     if (internal) return strip(internal)
@@ -15,6 +28,21 @@ export function apiOriginForFetch(): string {
     if (apiUrl) return strip(apiUrl)
   }
   const pub = process.env.NEXT_PUBLIC_API_URL?.trim() ?? ''
+
+  if (typeof window !== 'undefined' && pub !== '') {
+    try {
+      const abs = /^https?:\/\//i.test(pub) ? pub : `https://${pub}`
+      const apiHostname = new URL(abs).hostname
+      const pageHostname = window.location.hostname
+      if (hostApexKey(apiHostname) === hostApexKey(pageHostname)) {
+        const o = window.location?.origin ?? ''
+        if (o) return strip(o)
+      }
+    } catch {
+      /* yoksay — pub’a düş */
+    }
+  }
+
   if (pub) return strip(pub)
   /**
    * Üretimde `NEXT_PUBLIC_API_URL` build'e hiç verilmediyse tarayıcıda kök boş kalırdı
