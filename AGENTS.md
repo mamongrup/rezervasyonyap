@@ -1,6 +1,6 @@
 # Ajan / geliştirici hızlı referans
 
-Bu dosya **yeni oturumlarda** ortak bağlamı tek yerde toplar. Ayrıntılı kurallar: `.cursor/rules/` (özellikle `00-project-overview.mdc`, `50-workflow.mdc`, `51-rezervasyonyap-production.mdc`). Domain özeti: `deploy/DOMAIN.md`.
+Bu dosya **yeni oturumlarda** ortak bağlamı tek yerde toplar. Ayrıntılı kurallar: `.cursor/rules/` (özellikle `00-project-overview.mdc`, `50-workflow.mdc`, `53-regression-scope.mdc`, `51-rezervasyonyap-production.mdc`). Domain özeti: `deploy/DOMAIN.md`.
 
 ---
 

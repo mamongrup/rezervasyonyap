@@ -8,7 +8,7 @@ alwaysApply: true
 ## Her dokunuştan sonra
 
 1. **Backend** dosyası değişti mi? → `gleam build` (CWD: `backend/`).
-2. **Frontend** dosyası değişti mi? → `ReadLints` ile kontrol; pre-existing olmayan hataları düzelt.
+2. **Frontend** dosyası değişti mi? → `ReadLints` ve mümkünse `cd frontend && npx tsc --noEmit`; pre-existing olmayan hataları düzelt.
 3. **SQL** dosyası eklediysen → Manuel çalıştırma komutunu cevaba ekle (`psql ... -f modules/NNN_*.sql`).
 
 ## Cevap formatı (özet)
@@ -19,6 +19,10 @@ Bir feature tamamlanınca cevabı şu sırayla yaz:
 2. **Manuel adımlar** — varsa SQL çalıştırma, env değişkeni, vs.
 3. **Doğrulama** — `gleam build ✓`, `ReadLints ✓` durumu.
 4. **Sıradaki öneri** — kullanıcının takip etmek isteyebileceği 1-3 madde.
+
+## Regresyon ve kapsam
+
+- **Tek tema / tek dal**; deploy + geniş panel + alakasız API aynı PR’da birleştirme. Ayrıntı: `.cursor/rules/53-regression-scope.mdc`.
 
 ## Kaçınılacaklar
 

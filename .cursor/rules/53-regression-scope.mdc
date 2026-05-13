@@ -1,0 +1,70 @@
+---
+description: Kapsam disiplini ve regresyon önleme — tek konu, doğrulama, deploy, teşhis
+alwaysApply: true
+---
+
+# Kapsam ve regresyon önleme (zorunlu süreç)
+
+Amaç: **bir düzeltme başka yeri kırınca** ilerleyememe ve tekrarlı zaman kaybını azaltmak.
+
+## 1. Tek dal / tek tema (değişmez kural)
+
+- **Bir PR veya bir feature branch = bir net hedef** (ör. yalnızca `locations/regions` 500, yalnızca deploy env, yalnızca bölge formu).
+- Aynı oturumda **alıakasız** üç dosya grubuna dokunma: `deploy/*` + `backend/*` + geniş `RegionEditClient` refaktörü tek “fix”te birleşmesin.
+- Zorunlu istisna: bir hata **zincir gerektiriyorsa** (ör. API + `travel-api.ts` + panel mesajı), cevapta **tek cümle kök neden** yaz; yine de mümkünse **önce API’yi düzelt**, sonra paneli.
+
+## 2. Commit öncesi doğrulama (agent / geliştirici)
+
+| Ne değişti | Zorunlu komut / kontrol |
+|------------|-------------------------|
+| `backend/**/*.gleam` | `cd backend` → `gleam build` |
+| `frontend/**/*.{ts,tsx}` | `cd frontend` → `npx tsc --noEmit` (ReadLints ile birlikte) |
+| Üretim davranışına dokunan Next değişimi | İsteğe bağlı ama güçlü: `npm run build` (VPS öncesi özellikle) |
+| `backend/priv/sql/**/*.sql` | Yeni `NNN_*.sql` + `install_order.txt`; **eski migration’a ekleme yok** (`20-migrations.mdc`) |
+
+Pre-commit hook var; **agent yine de elle** yukarıdakileri çalıştırıp sonucu özette belirtir (`50-workflow.mdc`).
+
+## 3. Lokasyon / yönetim paneli (riskli alan — kısa smoke)
+
+Aşağıdakilerden **biri** değiştiyse, PR öncesi veya cevapta **en az biri** doğrulanmalı:
+
+- `backend/src/travel/locations/locations_http.gleam`
+- `frontend/src/lib/travel-api.ts` (lokasyon fetch’leri)
+- `frontend/**/manage/regions/**`
+
+**Smoke (yerel veya üretim API kökü ile):**
+
+```bash
+# Ülke TR id’sini kendi DB’nizdeki `countries` satırına göre değiştirin (ör. 1).
+curl -sS -o /dev/null -w "%{http_code}\n" "http://127.0.0.1:8080/api/v1/locations/regions?country_id=1"
+curl -sS -o /dev/null -w "%{http_code}\n" "http://127.0.0.1:8080/api/v1/locations/countries"
+```
+
+Beklenen: **200**. 500 ise önce **travel-api log** (`51-rezervasyonyap-production.mdc`), sonra SQL/şema uyumu.
+
+**Panel:** Yönetim → Bölge düzenle → Ülke seç → **İl** listesi doluyor mu (boş “Seçin…” + kırmızı uyarı = zincir kırık).
+
+## 4. Üretim deploy (ikisi birden)
+
+- Backend değiştiyse **`travel-api` mutlaka yeniden derlenmiş shipment + restart** (`deploy/deploy.sh` bunu yapmalı); yalnız Next deploy **API düzeltmesini taşımaz**.
+- Frontend `NEXT_PUBLIC_*` değiştiyse: **build + `travel-web` restart**.
+- Mümkünse **`./deploy/verify.sh`** ile kapı.
+
+## 5. Hata teşhisi sırası (aynı soruya tekrar düşmeyin)
+
+1. Tarayıcı **Network**: hangi URL, **HTTP status**, yanıt gövdesinde `error` alanı var mı?
+2. Aynı isteği **curl** ile API’ye doğrudan (localhost veya public origin) — frontend mi API mi?
+3. Sunucuda **`journalctl -u travel-api.service -n 120`** (PostgreSQL / decode / connection).
+4. **`NEXT_PUBLIC_API_URL` / www–apex** uyumsuzluğu: `frontend/src/lib/api-origin.ts` davranışına güven; klasik belirti: `Failed to fetch` veya sahte “bulunamadı”.
+
+## 6. Müşteri mesajı / `travel-api.ts` hata yüzeyi
+
+- API JSON `{"error":"…"}` dönüyorsa, **`throw new Error` mesajında mümkün olduğunca bu kod** kullanılsın; böylece `manage-api-error-tr.ts` eşlemesi devreye girer.
+- Üretimde “genel 500” ile kalmamak için backend’de **`json_err(500, “anlamlı_kod”)`** tercih edilir (yalnızca hassas detay sızdırmayın).
+
+## 7. PR / branch isimlendirme (özet)
+
+- Küçük düzeltme: `fix/regions-list-500`, `fix/deploy-env-clean` gibi okunur isimler.
+- `main`’e merge öncesi mümkünse **verify + smoke** çalışmış olsun.
+
+Bu kural, **`50-workflow.mdc`** ile birlikte okunur; çakışırsa **önce güvenli davranış ve dar kapsam** kazanır.
