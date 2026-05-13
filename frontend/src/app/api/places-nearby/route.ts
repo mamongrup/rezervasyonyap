@@ -135,7 +135,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'lat, lng ve googleType zorunludur.' }, { status: 400 })
     }
 
-    const key = apiKey?.trim() || process.env.GOOGLE_MAPS_API_KEY || ''
+    const key =
+      apiKey?.trim() ||
+      process.env.GOOGLE_MAPS_API_KEY?.trim() ||
+      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ||
+      ''
     if (!key) {
       return NextResponse.json(
         { error: 'Google Maps API anahtarı bulunamadı. Ayarlardan ekleyin veya GOOGLE_MAPS_API_KEY env değişkeni tanımlayın.' },

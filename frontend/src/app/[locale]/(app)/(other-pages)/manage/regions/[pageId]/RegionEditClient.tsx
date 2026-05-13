@@ -14,10 +14,12 @@ import {
   type TravelIdea,
   type ManualPoi,
   type LocationTranslations,
+  type DistrictServicePoi,
+  parseDistrictServicePoisJson,
 } from '@/lib/travel-api'
 import { parseFreeformDoc } from '@/lib/freeform-banner-spec'
 import { parseGalleryBundle } from '@/lib/hero-gallery-slots'
-import { formatNearbyVitrinTemplateJson } from '@/lib/nearby-vitrin-columns'
+import { formatNearbyVitrinTemplateJson, inferServicePoiCategoryForColumn, resolveNearbyVitrinConfig } from '@/lib/nearby-vitrin-columns'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { regionPublicHref } from '@/lib/region-public-path'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
@@ -123,6 +125,45 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLng / 2) ** 2
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+type PlacesNearbyHit = {
+  placeId: string
+  name: string
+  address: string
+  distanceKm: number
+  lat: number
+  lng: number
+  rating?: number
+}
+
+async function postPlacesNearby(body: {
+  lat: number
+  lng: number
+  googleType: string
+  radiusM: number
+  maxCount: number
+  language?: string
+}): Promise<PlacesNearbyHit[]> {
+  const res = await fetch('/api/places-nearby', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(err.error ?? `places-nearby ${res.status}`)
+  }
+  const data = (await res.json()) as { places?: PlacesNearbyHit[] }
+  return data.places ?? []
+}
+
+function svcCategoryBadgeTr(cat?: DistrictServicePoi['category']) {
+  if (cat === 'sightseeing') return 'Gezilecek yerler'
+  if (cat === 'transport') return 'Ulaşım'
+  return 'Temel ihtiyaçlar'
 }
 
 /** country_info_json içindeki acil hatlar — eski format: yalnızca numara dizisi veya eksik alan */
@@ -285,6 +326,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [newPoiLng, setNewPoiLng] = useState('')
   const [fetchingDists, setFetchingDists] = useState(false)
 
+  /** Vitrin 3 sütun — `service_pois_json`; Google toplu çekme ile doldurulur */
+  const [servicePois, setServicePois] = useState<DistrictServicePoi[]>([])
+  const [fetchingIdeasPlaces, setFetchingIdeasPlaces] = useState(false)
+
   // ─── Travel ideas ─────────────────────────────────────────────────────────
   const [travelIdeas, setTravelIdeas] = useState<TravelIdea[]>([])
   /** Gezi fikirleri altı vitrin — boş = site varsayılanı; {"columns":[]} kayıtta site varsayılanına döner */
@@ -443,6 +488,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         try { setManualPois(JSON.parse(p.poi_manual_json) as ManualPoi[]) } catch { setManualPois([]) }
         // Parse travel ideas
         try { setTravelIdeas(JSON.parse(p.travel_ideas_json) as TravelIdea[]) } catch { setTravelIdeas([]) }
+        setServicePois(parseDistrictServicePoisJson((p as { service_pois_json?: unknown }).service_pois_json))
         try {
           const nv = (p as { nearby_vitrin_columns_json?: unknown }).nearby_vitrin_columns_json
           if (nv == null || nv === '') {
@@ -842,6 +888,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           flag_url: ciFlagUrl,
         }),
         nearby_vitrin_columns_json: nearbyVitrinPayload,
+        service_pois_json: JSON.stringify(servicePois),
       })
       try {
         const p = await getLocationPage(pageId)
@@ -889,31 +936,167 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
   const removeManualPoi = (id: string) => setManualPois((prev) => prev.filter((p) => p.id !== id))
 
+  /** «Gezi fikirleri altı 3 sütun» yapılandırması + googleTypes ile Google'dan en yakın mekânı satır başına bir kayıt yazar (`service_pois_json`). */
   const fetchNearbyDistances = async () => {
-    if (!mapLat || !mapLng) { alert('Önce koordinatları girin ve kaydedin.'); return }
+    if (!mapLat || !mapLng) {
+      alert('Önce koordinatları haritadan netleştirin.')
+      return
+    }
+    const lat = parseFloat(mapLat)
+    const lng = parseFloat(mapLng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      alert('Koordinatlar geçersiz.')
+      return
+    }
+
+    const vitrinSrc = nearbyVitrinJson.trim()
+    const cfg = resolveNearbyVitrinConfig(primaryLocale, vitrinSrc ? vitrinSrc : null)
+    const cols = cfg.columns ?? []
+    if (!cols.length) {
+      setSaveMsg({ ok: false, text: 'Vitrin yapılandırması boş — JSON alanına varsayılan şablon yazın veya düzenleyin.' })
+      return
+    }
+
     setFetchingDists(true)
     try {
-      const res = await fetch('/api/places-nearby', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lat: parseFloat(mapLat),
-          lng: parseFloat(mapLng),
-          googleType: 'airport',
-          radiusM: 150_000,
-          maxCount: 3,
-        }),
-      })
-      if (res.ok) {
-        const data = await res.json() as { places?: { name: string; distanceKm: number }[] }
-        if (data.places?.length) {
-          const newPois: ManualPoi[] = data.places.map((p) => ({
-            id: uid(), category: 'Havalimanı', name: p.name, distance_km: p.distanceKm,
-          }))
-          setManualPois((prev) => [...prev.filter((p) => p.category !== 'Havalimanı'), ...newPois])
+      const produced: DistrictServicePoi[] = []
+
+      for (let ci = 0; ci < cols.length; ci++) {
+        const col = cols[ci]
+        if (!col?.rows?.length) continue
+        const cat = inferServicePoiCategoryForColumn(col.title, ci, cols.length, primaryLocale)
+
+        for (const row of col.rows) {
+          const gTypes =
+            Array.isArray(row.googleTypes)
+              ? row.googleTypes.map((x) => String(x).trim()).filter(Boolean)
+              : []
+          if (!gTypes.length || !row.label.trim()) continue
+
+          let picked: PlacesNearbyHit | null = null
+          let usedType = gTypes[0]
+
+          for (const gt of gTypes) {
+            const radiusM = gt === 'airport' ? 150_000 : 50_000
+            const hits = await postPlacesNearby({
+              lat,
+              lng,
+              googleType: gt,
+              radiusM,
+              maxCount: 3,
+              language: routeLocale,
+            })
+            if (hits.length) {
+              picked = hits[0] ?? null
+              usedType = gt
+              break
+            }
+            await sleepMs(140)
+          }
+
+          if (picked == null) continue
+
+          produced.push({
+            type: row.label.trim(),
+            label: picked.name,
+            googleType: usedType,
+            lat: picked.lat,
+            lng: picked.lng,
+            category: cat,
+            source: 'google_vitrin',
+            place_id: picked.placeId,
+          })
+          await sleepMs(140)
         }
       }
-    } finally { setFetchingDists(false) }
+
+      setServicePois((prev) => {
+        const legacy = prev.filter((p) => p.source !== 'google_vitrin')
+        return [...legacy, ...produced]
+      })
+
+      setSaveMsg({
+        ok: true,
+        text:
+          produced.length === 0
+            ? 'Google Places bu satırlar için sonuç döndürmedi (tür / yarıçap).'
+            : `${produced.length} vitrin satırı için servis kaydı eklendi (${cols.length} sütun şablonuna göre). Kaydet ile saklayın.`,
+      })
+    } catch (e) {
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Google Places isteği başarısız') })
+    } finally {
+      setFetchingDists(false)
+    }
+  }
+
+  const fetchTravelIdeasFromGoogle = async () => {
+    if (!mapLat || !mapLng) {
+      alert('Önce koordinatları haritadan netleştirin.')
+      return
+    }
+    const lat = parseFloat(mapLat)
+    const lng = parseFloat(mapLng)
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      alert('Koordinatlar geçersiz.')
+      return
+    }
+
+    setFetchingIdeasPlaces(true)
+    try {
+      const places = await postPlacesNearby({
+        lat,
+        lng,
+        googleType: 'tourist_attraction',
+        radiusM: 50_000,
+        maxCount: 10,
+        language: routeLocale,
+      })
+
+      if (!places.length) {
+        setSaveMsg({ ok: true, text: 'Yakın turistik nokta bulunamadı.' })
+        return
+      }
+
+      const existing = new Set(
+        travelIdeas
+          .map((t) => (typeof t.place_id === 'string' ? t.place_id.trim() : ''))
+          .filter(Boolean),
+      )
+
+      const additions: TravelIdea[] = []
+      let favoriRemaining = 3
+      for (const p of places) {
+        if (existing.has(p.placeId)) continue
+        const tagFav = favoriRemaining > 0
+        if (tagFav) favoriRemaining--
+        additions.push({
+          id: uid(),
+          image: '',
+          tag: tagFav ? 'Favori' : '',
+          title: p.name,
+          link: '',
+          summary: [p.address?.trim(), `${p.distanceKm.toFixed(1)} km`].filter(Boolean).join(' — '),
+          lat: p.lat,
+          lng: p.lng,
+          place_id: p.placeId,
+          distance_km_from_district: p.distanceKm,
+        })
+        existing.add(p.placeId)
+      }
+
+      setTravelIdeas((prev) => [...prev, ...additions])
+      setSaveMsg({
+        ok: true,
+        text:
+          additions.length === 0
+            ? 'Tüm öneriler zaten listede (place_id ile eşleşti).'
+            : `${additions.length} gezi fikri eklendi (ilk 3 «Favori» rozeti ile). Kaydet ile saklayın.`,
+      })
+    } catch (e) {
+      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Gezi önerileri alınamadı') })
+    } finally {
+      setFetchingIdeasPlaces(false)
+    }
   }
 
   // ─── Travel idea CRUD ─────────────────────────────────────────────────────
@@ -1777,16 +1960,78 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 className="flex items-center gap-1.5 rounded-lg bg-[color:var(--manage-primary)] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
               >
                 {fetchingDists ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MapPin className="h-3.5 w-3.5" />}
-                Mekanlara Olan Mesafeleri Getir
+                Vitrin 3 sütununu Google ile doldur
               </button>
             }
           >
             <p className={`${hintCls} mb-4`}>
-              İlan kartlarında gösterilen &quot;mekân mesafeleri&quot;, ilanın koordinatı ile ilçe kaydındaki hizmet
-              POI (&quot;servis mekânları&quot;) ve elle eklenen bu tablo birleştirilir. Önce orta noktayı haritadan
-              netleştirin (&quot;Mekanlara Olan Mesafeleri Getir&quot;) ve kaydedin; API&apos;de çıkmayan satırları
-              buradan tamamlayın.
+              «Gezilecek yerler», «Temel ihtiyaçlar», «Ulaşım» vitrin satırları{' '}
+              <a href="#manage-region-vitrin-json" className="text-[color:var(--manage-primary)] hover:underline">
+                JSON şablonundaki
+              </a>{' '}
+              <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">googleTypes</code> ile Google&apos;dan
+              çekilir ve <strong>servis POI</strong> listesine yazılır (kayıt: Kaydet). Elle tablo (aşağıda) ilan
+              kartlarında ek mesafe satırları için kullanılır.
             </p>
+
+            {/* Servis POI — vitrin kaynağı */}
+            {servicePois.length > 0 && (
+              <div className="mb-4 overflow-hidden rounded-xl border border-neutral-100 dark:border-neutral-800">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-neutral-50 text-xs font-semibold text-neutral-400 dark:bg-neutral-800/50">
+                      <th className="py-2 pl-4 text-left">Grup</th>
+                      <th className="py-2 text-left">Satır</th>
+                      <th className="py-2 text-left">Mekân</th>
+                      <th className="py-2 text-center">Mesafe</th>
+                      <th className="py-2 text-center">Koord</th>
+                      <th className="py-2 pr-3 text-right" aria-hidden />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
+                    {servicePois.map((sp, idx) => {
+                      const centerOk =
+                        mapLat &&
+                        mapLng &&
+                        Number.isFinite(sp.lat) &&
+                        Number.isFinite(sp.lng) &&
+                        Number.isFinite(parseFloat(mapLat)) &&
+                        Number.isFinite(parseFloat(mapLng))
+                      const distKm =
+                        centerOk
+                          ? haversineKm(parseFloat(mapLat), parseFloat(mapLng), sp.lat, sp.lng)
+                          : Number.NaN
+                      return (
+                        <tr key={`svc-poi-${idx}`}>
+                          <td className="py-2 pl-4 text-xs text-neutral-500">{svcCategoryBadgeTr(sp.category)}</td>
+                          <td className="py-2 text-xs text-neutral-500">{sp.type}</td>
+                          <td className="py-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">{sp.label}</td>
+                          <td className="py-2 text-center text-sm font-mono">
+                            {Number.isFinite(distKm) ? `${distKm.toFixed(1)} km` : '—'}
+                          </td>
+                          <td className="py-2 text-center">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300">
+                              <MapPin className="h-2.5 w-2.5" />
+                              {sp.lat.toFixed(3)}, {sp.lng.toFixed(3)}
+                            </span>
+                          </td>
+                          <td className="py-2 pr-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => setServicePois((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-neutral-300 hover:text-red-500"
+                              aria-label="Satırı sil"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Existing POIs */}
             {manualPois.length > 0 && (
@@ -1877,7 +2122,20 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             plain
             title="Otomasyonlu Gezi Fikirleri"
             action={
-              <div className="flex gap-2">
+              <div className="flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={fetchingIdeasPlaces || !mapLat || !mapLng}
+                  onClick={() => void fetchTravelIdeasFromGoogle()}
+                  className="flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200"
+                >
+                  {fetchingIdeasPlaces ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Navigation className="h-3.5 w-3.5" />
+                  )}
+                  Google&apos;dan öneri çek
+                </button>
                 <button
                   type="button"
                   className="flex items-center gap-1.5 rounded-lg border border-[color:var(--manage-primary)] px-3 py-1.5 text-xs font-semibold text-[color:var(--manage-primary)] hover:bg-[color:var(--manage-primary)]/5"
@@ -1888,10 +2146,18 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             }
           >
             <p className="-mt-1 mb-4 text-[11px] text-neutral-500">
-              Liste bu bölümde devam eder; mekân uzaklıkları ve üç sütun yapısı için sayfa başındaki (&quot;
-              <a href="#manage-region-pois" className="text-[color:var(--manage-primary)] hover:underline">Mesafe — mekanlar</a>,{' '}
-              <a href="#manage-region-vitrin-json" className="text-[color:var(--manage-primary)] hover:underline">Vitrin 3 sütun</a>&quot;) kısayollarına çıkabilirsiniz.
-              Rozette <span className="font-medium">Favori</span> yazarsanız vitrin kartlarında vurgulanır.
+              Liste bu bölümde devam eder. «Google&apos;dan öneri çek» turistik noktaları harita merkezine göre ekler;
+              yeni eklenen ilk üç kayda otomatik <span className="font-medium">Favori</span> rozeti verilir (
+              düzenleyerek kaldırabilirsiniz). Üç sütunlu mekân—mesafe satırları için{' '}
+              <a href="#manage-region-pois" className="text-[color:var(--manage-primary)] hover:underline">
+                Mesafe — mekanlar
+              </a>{' '}
+              ve{' '}
+              <a href="#manage-region-vitrin-json" className="text-[color:var(--manage-primary)] hover:underline">
+                vitrin JSON
+              </a>{' '}
+              bölümlerini kullanın. Rozette <span className="font-medium">Favori</span> yazılı kalemler vitrinde
+              vurgulanır.
             </p>
             {travelIdeas.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-8 text-center">

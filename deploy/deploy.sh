@@ -91,7 +91,14 @@ git_sync_ref() {
   # Panel yüklemeleri `frontend/public/uploads/` genelde .gitignore'da; `git clean -fd`
   # normalde ignored içeriği silmez. Yanlislikla `clean -x` veya farkli bir kurulumda
   # veri kaybini önlemek için uploads kökünü acikça disliyoruz.
-  git clean -fd --exclude=frontend/public/uploads/
+  # Google Maps anahtari icin yazilan frontend/.env.local (gitignored) klasik olarak
+  # burada SILINirdi; frontend env dosyalari da exclude ile korunur.
+  git clean -fd \
+    --exclude=frontend/public/uploads/ \
+    --exclude=frontend/.env.local \
+    --exclude=frontend/.env.development.local \
+    --exclude=frontend/.env.production.local \
+    --exclude=frontend/.env
 }
 
 main() {

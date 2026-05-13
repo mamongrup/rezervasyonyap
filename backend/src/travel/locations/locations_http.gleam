@@ -964,6 +964,8 @@ type PagePatch {
     translations_json: Option(String),
     poi_manual_json: Option(String),
     country_info_json: Option(String),
+    nearby_vitrin_columns_json: Option(String),
+    service_pois_json: Option(String),
   )
 }
 
@@ -987,8 +989,25 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
                                   decode.optional_field("translations_json", None, decode.optional(decode.string), fn(trj) {
                                     decode.optional_field("poi_manual_json", None, decode.optional(decode.string), fn(pmj) {
                                       decode.optional_field("country_info_json", None, decode.optional(decode.string), fn(cij) {
-                                      decode.success(PagePatch(did, sp, hk, title, desc, mt, md, gallery, lat, lng, is_pub, rt, fi, hi, tii, tij, trj, pmj, cij))
-                                    })
+                                        decode.optional_field(
+                                          "nearby_vitrin_columns_json",
+                                          None,
+                                          decode.optional(decode.string),
+                                          fn(nvc) {
+                                            decode.optional_field(
+                                              "service_pois_json",
+                                              None,
+                                              decode.optional(decode.string),
+                                              fn(spj) {
+                                                decode.success(PagePatch(
+                                                  did, sp, hk, title, desc, mt, md, gallery, lat, lng, is_pub, rt,
+                                                  fi, hi, tii, tij, trj, pmj, cij, nvc, spj,
+                                                ))
+                                              },
+                                            )
+                                          },
+                                        )
+                                      })
                                     })
                                   })
                                 })
@@ -1049,9 +1068,11 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
                 travel_ideas_image_url = coalesce($16::text, travel_ideas_image_url),
                 travel_ideas_json      = coalesce($17::jsonb, travel_ideas_json),
                 translations_json      = coalesce($18::jsonb, translations_json),
-                poi_manual_json        = coalesce($19::jsonb, poi_manual_json),
-                country_info_json      = coalesce($20::jsonb, country_info_json),
-                updated_at             = now()
+                poi_manual_json              = coalesce($19::jsonb, poi_manual_json),
+                country_info_json            = coalesce($20::jsonb, country_info_json),
+                nearby_vitrin_columns_json   = coalesce($21::jsonb, nearby_vitrin_columns_json),
+                service_pois_json            = coalesce($22::jsonb, service_pois_json),
+                updated_at                   = now()
               where id = $1::uuid returning id::text",
             )
             |> pog.parameter(pog.text(string.trim(page_id)))
@@ -1074,6 +1095,8 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
             |> pog.parameter(opt_text(p.translations_json))
             |> pog.parameter(opt_text(p.poi_manual_json))
             |> pog.parameter(opt_text(p.country_info_json))
+            |> pog.parameter(opt_text(p.nearby_vitrin_columns_json))
+            |> pog.parameter(opt_text(p.service_pois_json))
             |> pog.returning(row_dec.col0_string())
             |> pog.execute(ctx.db)
           {

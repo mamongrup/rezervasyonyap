@@ -1,4 +1,5 @@
 import type { RegionPlaceData } from '@/app/api/region-places/route'
+import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import { getMessages } from '@/utils/getT'
 
 /** Panel / API JSON şeması */
@@ -189,6 +190,31 @@ export function parseNearbyVitrinColumnsJson(raw: unknown): NearbyVitrinColumnsC
     if (rows.length) columns.push({ title, rows })
   }
   return columns.length ? { columns } : null
+}
+
+/** Vitrin JSON sütun başlığı → `service_pois_json` için kategori */
+export function inferServicePoiCategoryForColumn(
+  columnTitle: string,
+  columnIndex: number,
+  totalColumns: number,
+  locale: string,
+): 'sightseeing' | 'amenity' | 'transport' {
+  const order: ('sightseeing' | 'amenity' | 'transport')[] = ['sightseeing', 'amenity', 'transport']
+  const tryLocales = [locale, defaultLocale, 'tr', 'en', 'de', 'ru', 'zh', 'fr'].filter(
+    (v, i, arr) => arr.indexOf(v) === i,
+  )
+  for (const loc of tryLocales) {
+    if (!isAppLocale(loc)) continue
+    const r = getMessages(loc).site.region
+    const t = columnTitle.trim()
+    if (t === String(r.nearbyVitrinColSightseeing).trim()) return 'sightseeing'
+    if (t === String(r.nearbyVitrinColEssentials).trim()) return 'amenity'
+    if (t === String(r.nearbyVitrinColTransport).trim()) return 'transport'
+  }
+  if (totalColumns === 3 && columnIndex >= 0 && columnIndex < 3) {
+    return order[columnIndex] ?? 'amenity'
+  }
+  return 'amenity'
 }
 
 export function buildDefaultNearbyVitrinColumns(locale: string): NearbyVitrinColumnsConfig {

@@ -6812,6 +6812,23 @@ export type ManualPoi = {
   lng?: number | null
 }
 
+/** `location_pages.service_pois_json` okuma — panel ve vitrin türevi */
+export function parseDistrictServicePoisJson(raw: unknown): DistrictServicePoi[] {
+  if (raw == null) return []
+  if (Array.isArray(raw)) return raw as DistrictServicePoi[]
+  if (typeof raw === 'string') {
+    const s = raw.trim()
+    if (!s) return []
+    try {
+      const p = JSON.parse(s) as unknown
+      return Array.isArray(p) ? (p as DistrictServicePoi[]) : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
 export type LocationTranslations = {
   [locale: string]: { name?: string; description?: string; meta_title?: string; meta_description?: string }
 }
@@ -6838,6 +6855,8 @@ export type LocationPagePatch = {
   poi_manual_json?: string
   country_info_json?: string
   nearby_vitrin_columns_json?: string
+  /** Gezilecek / temel / ulaşım vitrin POI kayıtları */
+  service_pois_json?: string
 }
 
 export type ListLocationPagesResult = {
@@ -10426,12 +10445,17 @@ export async function patchListingServicePois(
 // ─── District-based Service POIs (287) ────────────────────────────────────────
 
 export interface DistrictServicePoi {
+  /** Vitrin satırı etiketi veya tip anahtarı */
   type: string
+  /** Google’dan gelen mekân adı */
   label: string
   googleType?: string
   lat: number
   lng: number
-  category: 'amenity' | 'transport'
+  category?: 'sightseeing' | 'amenity' | 'transport'
+  /** `google_vitrin` — toplu çekmede üretilen; yeniden çekmede kaldırılır */
+  source?: string
+  place_id?: string
 }
 
 /** İlçenin service_pois_json'unu getirir. */

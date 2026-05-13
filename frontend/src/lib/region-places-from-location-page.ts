@@ -130,8 +130,11 @@ export function buildRegionPlacesFromLocationPage(
   }
 
   const services = parseServicePois(page.service_pois_json as unknown)
-  const amenities = services.filter((s) => (s.category ?? 'amenity') !== 'transport')
+  const sightseeing = services.filter((s) => s.category === 'sightseeing')
   const transport = services.filter((s) => s.category === 'transport')
+  const amenities = services.filter(
+    (s) => s.category !== 'transport' && s.category !== 'sightseeing',
+  )
 
   const mapSvcPlaces = (rows: DistrictServicePoi[], prefix: string) =>
     rows
@@ -141,14 +144,19 @@ export function buildRegionPlacesFromLocationPage(
         if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
         const label = (s.label ?? s.type ?? 'Mekân').trim()
         const gType = (s.googleType ?? s.type ?? 'point_of_interest').trim()
+        const emoji =
+          prefix === 'transport' ? '🚌' : prefix === 'sightseeing' ? '🗺️' : '⭐'
         return {
           id: `${prefix}_${idx}`,
           name: label,
           googleType: gType,
-          emoji: prefix === 'transport' ? '🚌' : '⭐',
+          emoji,
           places: [
             {
-              placeId: `svc:${prefix}:${s.type}:${idx}:${lat.toFixed(4)},${lng.toFixed(4)}`,
+              placeId:
+                (typeof s.place_id === 'string' && s.place_id.trim() !== ''
+                  ? s.place_id.trim()
+                  : null) ?? `svc:${prefix}:${s.type}:${idx}:${lat.toFixed(4)},${lng.toFixed(4)}`,
               name: label,
               address: '',
               distanceKm: haversineKm(center.lat, center.lng, lat, lng),
@@ -161,7 +169,17 @@ export function buildRegionPlacesFromLocationPage(
       })
       .filter((x): x is NonNullable<typeof x> => x != null)
 
+  const sightTypes = mapSvcPlaces(sightseeing, 'sightseeing')
   const amenTypes = mapSvcPlaces(amenities, 'amenity')
+
+  if (sightTypes.length > 0) {
+    categories.push({
+      id: 'service_sightseeing_db',
+      name: copy.nearbyVitrinColSightseeing,
+      icon: '🗺️',
+      types: sightTypes,
+    })
+  }
   if (amenTypes.length > 0) {
     categories.push({
       id: 'service_amenity_db',
