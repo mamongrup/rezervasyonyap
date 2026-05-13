@@ -270,6 +270,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
 
   const [page, setPage] = useState<LocationPage | null>(null)
   const [loading, setLoading] = useState(true)
+  /** Ülkeler isteği başarısız olsa bile sayfa yüklemez uyarısı vermesin — gerçek API nedeni buraya yazılır */
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveMsg, setSaveMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [activeLang, setActiveLang] = useState(primaryLocale)
@@ -380,6 +382,9 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   // ─── Load ─────────────────────────────────────────────────────────────────
   useEffect(() => {
     void (async () => {
+      setLoading(true)
+      setLoadError(null)
+      setPage(null)
       try {
         /* Önceki kayıttan gelen il/ilçe select seçenekleri — kısa süreli yanlış kombinasyonları önler */
         setRegions([])
@@ -387,10 +392,15 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         setSelCountry('')
         setSelRegion('')
 
-        const [p, countriesRes] = await Promise.all([
-          getLocationPage(pageId),
-          listLocationCountries(),
-        ])
+        let p: LocationPage
+        try {
+          p = await getLocationPage(pageId)
+        } catch (e) {
+          setPage(null)
+          setLoadError(formatManageApiCatch(e, 'Bölge kaydı yüklenemedi'))
+          return
+        }
+
         setPage(p)
         setSlugPath(p.slug_path)
         const geoRegionType = p.region_type ?? 'district'
@@ -531,7 +541,14 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setCiFlagUrl(ci.flag_url ?? '')
         } catch { /* ignore */ }
 
-        setCountries(countriesRes.countries)
+        let countriesRow: LocationCountry[] = []
+        try {
+          const countriesRes = await listLocationCountries()
+          countriesRow = countriesRes.countries
+        } catch (ce) {
+          setSaveMsg({ ok: false, text: formatManageApiCatch(ce, 'Ülkeler listesi yüklenemedi') })
+        }
+        setCountries(countriesRow)
 
         if (pc) {
           setSelCountry(pc)
@@ -547,8 +564,9 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'İl listesi yüklenemedi') })
           }
         }
-      } catch {
-        // not found
+      } catch (e) {
+        setPage(null)
+        setLoadError(formatManageApiCatch(e, 'Bölge sayfası yüklenirken hata oluştu'))
       } finally {
         setLoading(false)
       }
@@ -1124,10 +1142,16 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   }
   if (!page) {
     return (
-      <div className="flex flex-col items-center py-24 text-center">
+      <div className="flex flex-col items-center px-4 py-24 text-center">
         <AlertCircle className="mb-3 h-10 w-10 text-red-400" />
-        <p className="text-neutral-500">Bölge sayfası bulunamadı.</p>
-        <Link href="/manage/regions" className="mt-4 text-sm text-[color:var(--manage-primary)] hover:underline">← Bölge listesine dön</Link>
+        <p className="max-w-lg text-neutral-600 dark:text-neutral-300">{loadError ?? 'Bölge sayfası bulunamadı.'}</p>
+        <p className="mt-3 max-w-md text-xs text-neutral-400">
+          Bağlantı doğruysa kayıt silinmiş veya farklı sunucu veritabanına bakıyor olabilirsiniz. Üstte kırmızı uyarı
+          varsa API veya oturum sorununu gösterir.
+        </p>
+        <Link href="/manage/regions" className="mt-4 text-sm text-[color:var(--manage-primary)] hover:underline">
+          ← Bölge listesine dön
+        </Link>
       </div>
     )
   }

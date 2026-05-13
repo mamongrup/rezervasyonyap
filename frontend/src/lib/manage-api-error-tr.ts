@@ -297,6 +297,20 @@ export function formatManageApiError(raw: string): string {
   if (key.startsWith('invalid_json_response_')) {
     return 'Sunucu geçersiz veya bozuk JSON döndü. API kök adresi, nginx ve travel-api güncellemesini kontrol edin.'
   }
+  if (key.startsWith('locations_pages_')) {
+    const rest = key.slice('locations_pages_'.length)
+    if (rest === '404') {
+      return 'Bölge listesi veya tek kayıt bulunamadı (404). API yolu ve ortamın (staging/canlı) eşleştiğinden emin olun.'
+    }
+    return `Bölge sayfaları API yanıtı: ${rest}. travel-api günlüğü ve nginx /api/v1 yönlendirmesini kontrol edin.`
+  }
+  if (key.startsWith('locations_page_')) {
+    const rest = key.slice('locations_page_'.length)
+    if (rest === '404') {
+      return 'Bu bölge düzenleme kaydı bulunamadı (404). ID listedekiyle aynı mı, kayıt silinmiş mi veya farklı veritabanına mı bakılıyor kontrol edin.'
+    }
+    return `Bölge kaydı API yanıtı: ${rest}.`
+  }
   if (key.startsWith('not_found_covers_invalid_')) {
     return 'Kapak bulunamayanlar listesi beklenmeyen formatta döndü; travel-api güncel mi kontrol edin.'
   }
