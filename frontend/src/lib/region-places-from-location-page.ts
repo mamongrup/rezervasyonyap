@@ -4,7 +4,7 @@
  */
 import type { RegionPlaceData } from '@/app/api/region-places/route'
 import type { DistrictServicePoi, LocationPage, TravelIdea } from '@/lib/travel-api'
-import { asTrimmedString, parseTravelIdeas } from '@/lib/travel-ideas-parse'
+import { asTrimmedString, parseTravelIdeas, pickTravelIdeasMapCoords } from '@/lib/travel-ideas-parse'
 import { getMessages } from '@/utils/getT'
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -55,12 +55,10 @@ function travelIdeaPlaceId(idea: TravelIdea, idx: number): string {
 }
 
 function firstTravelIdeaCenterFromPage(page: LocationPage): { lat: number; lng: number } | null {
-  const ideas = parseTravelIdeas(page.travel_ideas_json as unknown)
-  for (const idea of ideas) {
-    const c = travelIdeaCoords(idea)
-    if (c) return c
-  }
-  return null
+  const lat = parseCoord(page.region_center_lat)
+  const lng = parseCoord(page.region_center_lng)
+  const anchor = lat != null && lng != null ? { lat, lng } : null
+  return pickTravelIdeasMapCoords(page.travel_ideas_json as unknown, anchor)
 }
 
 export function resolveRegionCenterCoords(page: LocationPage): { lat: number; lng: number } | null {

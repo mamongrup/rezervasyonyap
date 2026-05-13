@@ -59,7 +59,7 @@ import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextBu
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
 import { useManageAiLocaleRows } from '@/hooks/use-manage-ai-locales'
 import { callAiTranslate } from '@/lib/manage-content-ai'
-import { asTrimmedString, parseTravelIdeas } from '@/lib/travel-ideas-parse'
+import { asTrimmedString, parseTravelIdeas, pickTravelIdeasMapCoords } from '@/lib/travel-ideas-parse'
 
 const uid = () => Math.random().toString(36).slice(2, 10)
 
@@ -143,23 +143,10 @@ type MapCoordSource =
   | 'saved_pin'
   | 'district_table'
   | 'district_lookup'
-  /** AI / Google ile doldurulmuş gezi fikirleri satırından (map_lat boşken) */
+  /** Gezi fikirleri + bölge merkezine göre tahmin (ilk satır değil); çok uzaksa il merkezi */
   | 'travel_ideas_fallback'
   | 'region_center'
   | 'none'
-
-/** `travel_ideas_json` içindeki ilk geçerli lat/lng — AI pin'i genelde burada kalır */
-function firstTravelIdeaCoordsFromJson(raw: unknown): { lat: string; lng: string } | null {
-  const ideas = parseTravelIdeas(raw)
-  for (const item of ideas) {
-    if (!item || typeof item !== 'object') continue
-    const o = item as Record<string, unknown>
-    const lat = coordFieldToString(o.lat)
-    const lng = coordFieldToString(o.lng)
-    if (lat && lng) return { lat, lng }
-  }
-  return null
-}
 
 /** Harita formunun merkezi: önce kayıtlı pin, sonra ilçe/il düşüşleri */
 function deriveMapPresentation(
@@ -172,12 +159,9 @@ function deriveMapPresentation(
       center_lng: string | null
     }
   } | null,
-  geoRegionType: string,
-  pageDistrictId: string,
+  _geoRegionType: string,
+  _pageDistrictId: string,
 ): { lat: string; lng: string; source: MapCoordSource } {
-  const districtLinkedPage =
-    Boolean(pageDistrictId) && (geoRegionType === 'district' || geoRegionType === 'destination')
-
   const pinLat = coordFieldToString(p.map_lat)
   const pinLng = coordFieldToString(p.map_lng)
   const distLat = coordFieldToString(p.district_center_lat)
@@ -206,11 +190,19 @@ function deriveMapPresentation(
     source = 'district_lookup'
     pair = { lat: luLat, lng: luLng }
   } else {
-    const ideaPair = firstTravelIdeaCoordsFromJson(p.travel_ideas_json)
-    if (ideaPair) {
+    const anchorNum =
+      regLat && regLng
+        ? (() => {
+            const la = parseFloat(regLat)
+            const lo = parseFloat(regLng)
+            return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo } : null
+          })()
+        : null
+    const ideaPt = pickTravelIdeasMapCoords(p.travel_ideas_json as unknown, anchorNum)
+    if (ideaPt) {
       source = 'travel_ideas_fallback'
-      pair = ideaPair
-    } else if (!districtLinkedPage && regLat && regLng) {
+      pair = { lat: ideaPt.lat.toFixed(6), lng: ideaPt.lng.toFixed(6) }
+    } else if (regLat && regLng) {
       source = 'region_center'
       pair = { lat: regLat, lng: regLng }
     }
@@ -1940,7 +1932,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                     : mapCoordSource === 'district_lookup'
                       ? 'Özel pin yok; bağlı ilçe kaydından merkez koordinatı yüklendi.'
                       : mapCoordSource === 'travel_ideas_fallback'
-                        ? 'Sayfa pin alanı boş; gezi fikirleri listesindeki ilk geçerli koordinat haritada gösteriliyor (AI/Google akışı). Kalıcı pin için Kaydet ile kaydedin.'
+                        ? 'Sayfa pin alanı boş; harita merkezi gezi fikirlerinden seçiliyor (kayıtlı bölge/il merkezine en yakın nokta veya medyan; merkeze 60 km\'den uzaksa il merkezi kullanılır). Kalıcı pin için Kaydet ile kaydedin.'
                       : mapCoordSource === 'region_center'
                         ? 'İl veya ülke için bölge merkezi kullanılıyor (sayfaya özel pin yoksa).'
                         : 'Konum seçilmemiş. Haritada arayın veya tıklayın; ardından Kaydet.'}
