@@ -17,7 +17,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
-function parseCoord(raw: string | null | undefined): number | null {
+function parseCoord(raw: string | number | null | undefined): number | null {
   if (raw == null) return null
   const n = Number.parseFloat(String(raw).trim().replace(',', '.'))
   return Number.isFinite(n) ? n : null

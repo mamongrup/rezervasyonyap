@@ -6898,7 +6898,8 @@ export async function getLocationPageBySlug(slugPath: string): Promise<LocationP
   try {
     const q = new URLSearchParams({ slug_path: slugPath })
     const res = await fetch(`${b}/api/v1/locations/pages/by-slug?${q}`, {
-      next: { revalidate: 60 },
+      /** Yönetimden gelen `map_lat`/`map_lng` vitrinla aynı kaynaktan okunmalı; kısa önbellek pin sapması yaratıyordu. */
+      cache: 'no-store',
     })
     if (!res.ok) return null
     return json(res)
@@ -6926,6 +6927,7 @@ export async function getLocationPage(pageId: string): Promise<LocationPage> {
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(`${b}/api/v1/locations/pages/${encodeURIComponent(pageId)}`, {
     credentials: 'include',
+    cache: 'no-store',
   })
   if (!res.ok) throw new Error(`locations_page_${res.status}`)
   return json(res)

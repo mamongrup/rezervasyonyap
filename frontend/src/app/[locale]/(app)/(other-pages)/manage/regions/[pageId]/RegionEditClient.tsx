@@ -135,6 +135,65 @@ function coordFieldToString(v: unknown): string {
   return s
 }
 
+type MapCoordSource =
+  | 'saved_pin'
+  | 'district_table'
+  | 'district_lookup'
+  | 'region_center'
+  | 'none'
+
+/** Harita formunun merkezi: önce kayıtlı pin, sonra ilçe/il düşüşleri */
+function deriveMapPresentation(
+  p: LocationPage,
+  districtLookup: {
+    district: {
+      region_id: string
+      country_id: string
+      center_lat: string | null
+      center_lng: string | null
+    }
+  } | null,
+  geoRegionType: string,
+  pageDistrictId: string,
+): { lat: string; lng: string; source: MapCoordSource } {
+  const districtLinkedPage =
+    Boolean(pageDistrictId) && (geoRegionType === 'district' || geoRegionType === 'destination')
+
+  const pinLat = coordFieldToString(p.map_lat)
+  const pinLng = coordFieldToString(p.map_lng)
+  const distLat = coordFieldToString(p.district_center_lat)
+  const distLng = coordFieldToString(p.district_center_lng)
+  const luLat =
+    districtLookup?.district.center_lat != null
+      ? coordFieldToString(districtLookup.district.center_lat)
+      : ''
+  const luLng =
+    districtLookup?.district.center_lng != null
+      ? coordFieldToString(districtLookup.district.center_lng)
+      : ''
+  const regLat = coordFieldToString(p.region_center_lat)
+  const regLng = coordFieldToString(p.region_center_lng)
+
+  let source: MapCoordSource = 'none'
+  let pair: { lat: string; lng: string } | null = null
+
+  if (pinLat && pinLng) {
+    source = 'saved_pin'
+    pair = { lat: pinLat, lng: pinLng }
+  } else if (distLat && distLng) {
+    source = 'district_table'
+    pair = { lat: distLat, lng: distLng }
+  } else if (luLat && luLng) {
+    source = 'district_lookup'
+    pair = { lat: luLat, lng: luLng }
+  } else if (!districtLinkedPage && regLat && regLng) {
+    source = 'region_center'
+    pair = { lat: regLat, lng: regLng }
+  }
+
+  return { lat: pair?.lat ?? '', lng: pair?.lng ?? '', source }
+}
+
 const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 type PlacesNearbyHit = {
@@ -434,8 +493,6 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         }
 
         const pageDistrictId = locationJsonScalarStr((p as { district_id?: unknown }).district_id)
-        const districtLinkedPage =
-          Boolean(pageDistrictId) && (geoRegionType === 'district' || geoRegionType === 'destination')
 
         let pc = locationJsonScalarStr((p as { parent_country_id?: unknown }).parent_country_id)
         let pr = locationJsonScalarStr((p as { parent_region_id?: unknown }).parent_region_id)
@@ -458,47 +515,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         }
 
         {
-          const pinLat = coordFieldToString(p.map_lat)
-          const pinLng = coordFieldToString(p.map_lng)
-          const distLat = coordFieldToString(p.district_center_lat)
-          const distLng = coordFieldToString(p.district_center_lng)
-          const luLat =
-            districtLookup?.district.center_lat != null
-              ? coordFieldToString(districtLookup.district.center_lat)
-              : ''
-          const luLng =
-            districtLookup?.district.center_lng != null
-              ? coordFieldToString(districtLookup.district.center_lng)
-              : ''
-          const regLat = coordFieldToString(p.region_center_lat)
-          const regLng = coordFieldToString(p.region_center_lng)
-
-          let source:
-            | 'saved_pin'
-            | 'district_table'
-            | 'district_lookup'
-            | 'region_center'
-            | 'none' = 'none'
-          let pair: { lat: string; lng: string } | null = null
-
-          if (pinLat && pinLng) {
-            source = 'saved_pin'
-            pair = { lat: pinLat, lng: pinLng }
-          } else if (distLat && distLng) {
-            source = 'district_table'
-            pair = { lat: distLat, lng: distLng }
-          } else if (luLat && luLng) {
-            source = 'district_lookup'
-            pair = { lat: luLat, lng: luLng }
-          } else if (!districtLinkedPage && regLat && regLng) {
-            source = 'region_center'
-            pair = { lat: regLat, lng: regLng }
-          }
-
-          /* İlçe/destinasyon + district_id varken il merkezi (Muğla) yanıltır — yalnızca pin / ilçe kaydı */
-          setMapLat(pair?.lat ?? '')
-          setMapLng(pair?.lng ?? '')
-          setMapCoordSource(source)
+          const m = deriveMapPresentation(p, districtLookup, geoRegionType, pageDistrictId)
+          setMapLat(m.lat)
+          setMapLng(m.lng)
+          setMapCoordSource(m.source)
         }
         setMapZoom(String(p.map_zoom ?? 12))
         setDistrictId(pageDistrictId)
@@ -899,6 +919,14 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         setSaving(false)
         return
       }
+      const parsedZoom = parseInt(mapZoom.trim(), 10)
+      const map_zoom =
+        mapZoom.trim() !== '' &&
+        Number.isFinite(parsedZoom) &&
+        parsedZoom >= 1 &&
+        parsedZoom <= 22
+          ? parsedZoom
+          : undefined
       await patchLocationPage(pageId, {
         slug_path: slugPath || undefined,
         district_id: districtId || undefined,
@@ -930,6 +958,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         })(),
         map_lat: mapLat || undefined,
         map_lng: mapLng || undefined,
+        map_zoom,
         translations_json: JSON.stringify(translations),
         travel_ideas_json: JSON.stringify(travelIdeas),
         poi_manual_json: JSON.stringify(manualPois),
@@ -944,15 +973,34 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         nearby_vitrin_columns_json: nearbyVitrinPayload,
         service_pois_json: JSON.stringify(servicePois),
       })
+      let revalidateSlug = slugPath.trim()
       try {
         const p = await getLocationPage(pageId)
+        const sp = String(p.slug_path ?? '').trim()
+        if (sp) revalidateSlug = sp
+        setPage(p)
         {
           const { urls, layout } = parseGalleryBundle(p.gallery_json as unknown)
           setHeroGallery(urls)
           setHeroBannerLayoutJson(layout ? JSON.stringify(layout, null, 2) : '')
         }
+        {
+          const m = deriveMapPresentation(p, null, regionType, districtId.trim())
+          setMapLat(m.lat)
+          setMapLng(m.lng)
+          setMapCoordSource(m.source)
+          setMapZoom(String(p.map_zoom ?? 12))
+        }
       } catch {
         /* kayıt başarılı; yenileme isteğe bağlı */
+      }
+      if (revalidateSlug) {
+        void fetch('/api/manage/revalidate-location-page', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug_path: revalidateSlug }),
+        }).catch(() => undefined)
       }
       setSaveMsg({ ok: true, text: 'Değişiklikler kaydedildi.' })
     } catch (e) {

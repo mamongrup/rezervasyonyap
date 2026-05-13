@@ -3,6 +3,7 @@
 import backend/context.{type Context}
 import gleam/bit_array
 import gleam/dynamic/decode
+import gleam/float
 import gleam/http
 import gleam/http/request
 import gleam/int
@@ -21,6 +22,14 @@ fn json_err(status: Int, msg: String) -> Response {
     json.object([#("error", json.string(msg))])
     |> json.to_string
   wisp.json_response(body, status)
+}
+
+/// CDN / ara proxy `GET` önbelleğinde eski harita koordinatı kalmayı engeller.
+const location_pages_http_cache_control = "private, no-store, max-age=0, must-revalidate"
+
+fn json_response_location_pages_no_store(body: String, status: Int) -> Response {
+  wisp.json_response(body, status)
+  |> wisp.set_header("cache-control", location_pages_http_cache_control)
 }
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
@@ -727,7 +736,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
                 <> ",\"offset\":"
                 <> int.to_string(offset_n)
                 <> "}"
-              wisp.json_response(body, 200)
+              json_response_location_pages_no_store(body, 200)
             }
           }
         }
@@ -764,7 +773,7 @@ pub fn get_location_page_by_slug(req: Request, ctx: Context) -> Response {
         Ok(ret) ->
           case ret.rows {
             [] -> json_err(404, "not_found")
-            [row] -> wisp.json_response(row, 200)
+            [row] -> json_response_location_pages_no_store(row, 200)
             _ -> json_err(500, "unexpected")
           }
       }
@@ -881,7 +890,7 @@ pub fn get_location_page_by_name(req: Request, ctx: Context) -> Response {
         Ok(ret) ->
           case ret.rows {
             [] -> json_err(404, "not_found")
-            [row] -> wisp.json_response(row, 200)
+            [row] -> json_response_location_pages_no_store(row, 200)
             _ -> json_err(500, "unexpected")
           }
       }
@@ -906,7 +915,7 @@ pub fn get_location_page(req: Request, ctx: Context, page_id: String) -> Respons
     Ok(ret) ->
       case ret.rows {
         [] -> json_err(404, "not_found")
-        [row] -> wisp.json_response(row, 200)
+        [row] -> json_response_location_pages_no_store(row, 200)
         _ -> json_err(500, "unexpected")
       }
   }
@@ -976,6 +985,16 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
   }
 }
 
+/// PATCH gövdesinde `map_lat` / `map_lng` kimi araçlar string, kimi sayı gönderebilir.
+fn optional_geo_coord_string() -> decode.Decoder(Option(String)) {
+  let as_text =
+    decode.one_of(decode.string, or: [
+      decode.int |> decode.map(int.to_string),
+      decode.float |> decode.map(float.to_string),
+    ])
+  decode.optional(as_text)
+}
+
 type PagePatch {
   PagePatch(
     district_id: Option(String),
@@ -988,6 +1007,7 @@ type PagePatch {
     gallery_json: Option(String),
     map_lat: Option(String),
     map_lng: Option(String),
+    map_zoom: Option(Int),
     is_published: Option(Bool),
     region_type: Option(String),
     featured_image_url: Option(String),
@@ -1011,9 +1031,10 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
             decode.optional_field("meta_title", None, decode.optional(decode.string), fn(mt) {
               decode.optional_field("meta_description", None, decode.optional(decode.string), fn(md) {
                 decode.optional_field("gallery_json", None, decode.optional(decode.string), fn(gallery) {
-                  decode.optional_field("map_lat", None, decode.optional(decode.string), fn(lat) {
-                    decode.optional_field("map_lng", None, decode.optional(decode.string), fn(lng) {
-                      decode.optional_field("is_published", None, decode.optional(decode.bool), fn(is_pub) {
+                  decode.optional_field("map_lat", None, optional_geo_coord_string(), fn(lat) {
+                    decode.optional_field("map_lng", None, optional_geo_coord_string(), fn(lng) {
+                      decode.optional_field("map_zoom", None, decode.optional(decode.int), fn(mz) {
+                        decode.optional_field("is_published", None, decode.optional(decode.bool), fn(is_pub) {
                         decode.optional_field("region_type", None, decode.optional(decode.string), fn(rt) {
                           decode.optional_field("featured_image_url", None, decode.optional(decode.string), fn(fi) {
                             decode.optional_field("hero_image_url", None, decode.optional(decode.string), fn(hi) {
@@ -1033,7 +1054,8 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
                                               decode.optional(decode.string),
                                               fn(spj) {
                                                 decode.success(PagePatch(
-                                                  did, sp, hk, title, desc, mt, md, gallery, lat, lng, is_pub, rt,
+                                                  did, sp, hk, title, desc, mt, md, gallery, lat, lng, mz, is_pub,
+                                                  rt,
                                                   fi, hi, tii, tij, trj, pmj, cij, nvc, spj,
                                                 ))
                                               },
@@ -1048,6 +1070,7 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
                             })
                           })
                         })
+                      })
                       })
                     })
                   })
@@ -1065,6 +1088,13 @@ fn opt_text(o: Option(String)) -> pog.Value {
   case o {
     None -> pog.null()
     Some(s) -> case string.trim(s) == "" { True -> pog.null() False -> pog.text(string.trim(s)) }
+  }
+}
+
+fn opt_map_zoom(o: Option(Int)) -> pog.Value {
+  case o {
+    None -> pog.null()
+    Some(z) -> pog.int(z)
   }
 }
 
@@ -1094,17 +1124,18 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
                 gallery_json           = coalesce($9::jsonb, gallery_json),
                 map_lat                = coalesce($10::numeric, map_lat),
                 map_lng                = coalesce($11::numeric, map_lng),
-                is_published           = coalesce($12::boolean, is_published),
-                region_type            = coalesce($13::text, region_type),
-                featured_image_url     = coalesce($14::text, featured_image_url),
-                hero_image_url         = coalesce($15::text, hero_image_url),
-                travel_ideas_image_url = coalesce($16::text, travel_ideas_image_url),
-                travel_ideas_json      = coalesce($17::jsonb, travel_ideas_json),
-                translations_json      = coalesce($18::jsonb, translations_json),
-                poi_manual_json              = coalesce($19::jsonb, poi_manual_json),
-                country_info_json            = coalesce($20::jsonb, country_info_json),
-                nearby_vitrin_columns_json   = coalesce($21::jsonb, nearby_vitrin_columns_json),
-                service_pois_json            = coalesce($22::jsonb, service_pois_json),
+                map_zoom               = coalesce($12::smallint, map_zoom),
+                is_published           = coalesce($13::boolean, is_published),
+                region_type            = coalesce($14::text, region_type),
+                featured_image_url     = coalesce($15::text, featured_image_url),
+                hero_image_url         = coalesce($16::text, hero_image_url),
+                travel_ideas_image_url = coalesce($17::text, travel_ideas_image_url),
+                travel_ideas_json      = coalesce($18::jsonb, travel_ideas_json),
+                translations_json      = coalesce($19::jsonb, translations_json),
+                poi_manual_json              = coalesce($20::jsonb, poi_manual_json),
+                country_info_json            = coalesce($21::jsonb, country_info_json),
+                nearby_vitrin_columns_json   = coalesce($22::jsonb, nearby_vitrin_columns_json),
+                service_pois_json            = coalesce($23::jsonb, service_pois_json),
                 updated_at                   = now()
               where id = $1::uuid returning id::text",
             )
@@ -1119,6 +1150,7 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
             |> pog.parameter(opt_text(p.gallery_json))
             |> pog.parameter(opt_text(p.map_lat))
             |> pog.parameter(opt_text(p.map_lng))
+            |> pog.parameter(opt_map_zoom(p.map_zoom))
             |> pog.parameter(p_pub)
             |> pog.parameter(opt_text(p.region_type))
             |> pog.parameter(opt_text(p.featured_image_url))
