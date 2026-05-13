@@ -127,6 +127,14 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
 }
 
+/** Konum kaydından gelen alan (`string | number`) — forma güvenli metin */
+function coordFieldToString(v: unknown): string {
+  if (v == null) return ''
+  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : ''
+  const s = String(v).trim()
+  return s
+}
+
 const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 type PlacesNearbyHit = {
@@ -308,9 +316,14 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [mapLat, setMapLat] = useState('')
   const [mapLng, setMapLng] = useState('')
   const [mapZoom, setMapZoom] = useState('12')
+  /** Sunucudan hydrate sonrası koordinatın kaynağı — panelde doğrulama için */
+  const [mapCoordSource, setMapCoordSource] = useState<
+    'idle' | 'saved_pin' | 'district_table' | 'district_lookup' | 'region_center' | 'none'
+  >('idle')
   const handleMapPickerChange = useCallback((nextLat: string, nextLng: string) => {
     setMapLat(nextLat)
     setMapLng(nextLng)
+    setMapCoordSource(nextLat.trim() && nextLng.trim() ? 'saved_pin' : 'none')
   }, [])
 
   // ─── District linkage ─────────────────────────────────────────────────────
@@ -389,6 +402,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
       setLoading(true)
       setLoadError(null)
       setPage(null)
+      setMapCoordSource('idle')
       try {
         /* Önceki kayıttan gelen il/ilçe select seçenekleri — kısa süreli yanlış kombinasyonları önler */
         setRegions([])
@@ -444,29 +458,47 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         }
 
         {
-          const pinLat = (p.map_lat ?? '').trim()
-          const pinLng = (p.map_lng ?? '').trim()
-          const distLat = (p.district_center_lat ?? '').trim()
-          const distLng = (p.district_center_lng ?? '').trim()
+          const pinLat = coordFieldToString(p.map_lat)
+          const pinLng = coordFieldToString(p.map_lng)
+          const distLat = coordFieldToString(p.district_center_lat)
+          const distLng = coordFieldToString(p.district_center_lng)
           const luLat =
             districtLookup?.district.center_lat != null
-              ? String(districtLookup.district.center_lat).trim()
+              ? coordFieldToString(districtLookup.district.center_lat)
               : ''
           const luLng =
             districtLookup?.district.center_lng != null
-              ? String(districtLookup.district.center_lng).trim()
+              ? coordFieldToString(districtLookup.district.center_lng)
               : ''
-          const regLat = (p.region_center_lat ?? '').trim()
-          const regLng = (p.region_center_lng ?? '').trim()
+          const regLat = coordFieldToString(p.region_center_lat)
+          const regLng = coordFieldToString(p.region_center_lng)
+
+          let source:
+            | 'saved_pin'
+            | 'district_table'
+            | 'district_lookup'
+            | 'region_center'
+            | 'none' = 'none'
+          let pair: { lat: string; lng: string } | null = null
+
+          if (pinLat && pinLng) {
+            source = 'saved_pin'
+            pair = { lat: pinLat, lng: pinLng }
+          } else if (distLat && distLng) {
+            source = 'district_table'
+            pair = { lat: distLat, lng: distLng }
+          } else if (luLat && luLng) {
+            source = 'district_lookup'
+            pair = { lat: luLat, lng: luLng }
+          } else if (!districtLinkedPage && regLat && regLng) {
+            source = 'region_center'
+            pair = { lat: regLat, lng: regLng }
+          }
+
           /* İlçe/destinasyon + district_id varken il merkezi (Muğla) yanıltır — yalnızca pin / ilçe kaydı */
-          const pair =
-            pinLat && pinLng ? { lat: pinLat, lng: pinLng }
-            : distLat && distLng ? { lat: distLat, lng: distLng }
-            : luLat && luLng ? { lat: luLat, lng: luLng }
-            : !districtLinkedPage && regLat && regLng ? { lat: regLat, lng: regLng }
-            : null
           setMapLat(pair?.lat ?? '')
           setMapLng(pair?.lng ?? '')
+          setMapCoordSource(source)
         }
         setMapZoom(String(p.map_zoom ?? 12))
         setDistrictId(pageDistrictId)
@@ -1689,6 +1721,29 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               <p className="mb-3 text-xs text-neutral-500">
               Haritaya tıklayarak veya arama yaparak pin koyun. Koordinatlar otomatik dolar.
             </p>
+            {!loading && mapCoordSource !== 'idle' ? (
+              <div
+                className={clsx(
+                  'mb-3 rounded-lg border px-3 py-2 text-xs leading-relaxed',
+                  mapCoordSource === 'saved_pin'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/35 dark:text-emerald-100'
+                    : mapCoordSource === 'none'
+                      ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100'
+                      : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100',
+                )}
+                role="status"
+              >
+                {mapCoordSource === 'saved_pin'
+                  ? 'Bu sayfa için koordinat veritabanında kayıtlı; Enlem/Boylam ve harita yüklendi. Değiştirirseniz Kaydet ile kaydedin.'
+                  : mapCoordSource === 'district_table'
+                    ? 'Özel pin yok; ilçenin kayıtlı merkezi (tablo) kullanılıyor. Kesin nokta için pinleyip Kaydet yapın.'
+                    : mapCoordSource === 'district_lookup'
+                      ? 'Özel pin yok; bağlı ilçe kaydından merkez koordinatı yüklendi.'
+                      : mapCoordSource === 'region_center'
+                        ? 'İl veya ülke için bölge merkezi kullanılıyor (sayfaya özel pin yoksa).'
+                        : 'Konum seçilmemiş. Haritada arayın veya tıklayın; ardından Kaydet.'}
+              </div>
+            ) : null}
             <MapPicker
               lat={mapLat}
               lng={mapLng}
