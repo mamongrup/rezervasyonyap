@@ -1553,7 +1553,7 @@ export default function CatalogNewListingClient({
 
       // Google Places başarısız ya da anahtar yoksa backend hesabına düş
       if (next.length === 0) {
-        await computeListingNearbyPois(token, editListingId).catch(() => {})
+      await computeListingNearbyPois(token, editListingId).catch(() => {})
         next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
       }
 
@@ -2562,13 +2562,13 @@ export default function CatalogNewListingClient({
         const nextMeta: ListingMeta = { ...existingMeta, ...metaBody }
         await saveRequiredStep('Detay alanları kaydı', putListingMeta(token, lid, nextMeta, orgParam))
       }
-      if (lat.trim() && lng.trim()) {
-        await computeListingNearbyPois(token, lid).catch(() => {})
-        const nextNearby = await getListingNearbyPois(lid).catch(() => [] as NearbyPoi[])
-        setNearbyPois(nextNearby)
-      } else {
-        setNearbyPois([])
-      }
+      // Yakındaki gezilecek yerler: «Otomatik Güncelle» Google Places + patch ile DB'ye yazıyor.
+      // Kayıtta `computeListingNearbyPois` çağrısı aynı alanı bölge tabanlı sorgu ile yeniden yazar ve
+      // Google ile gelen zengin listeyi (görsel, özet) boş veya farklı veriyle değiştirirdi — kaldırıldı.
+      // Mevcut form state'ini aynen kalıcılaştır (koordinat yoksa boş dizi = alanı temizle).
+      const nearbyToPersist = lat.trim() && lng.trim() ? nearbyPois : []
+      await patchListingNearbyPois(token, lid, nearbyToPersist).catch(() => {})
+      setNearbyPois(nearbyToPersist)
 
       const attrPayload = Object.entries(attributeValues)
         .filter(([, v]) => v !== '')
@@ -3098,32 +3098,32 @@ export default function CatalogNewListingClient({
       {!isVilla ? (
         <div className="mb-6 space-y-4">
           <div className="flex flex-wrap items-start gap-3">
-            <Link
-              href={listHref}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+          <Link
+            href={listHref}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
+            </svg>
+          </Link>
+          <div className="min-w-0 flex-1">
+            <ManageFormPageHeader
+              className="mb-0"
+              title="Yeni ilan ekle"
+              subtitle={<>{categoryLabelTr(categoryCode)} kategorisi</>}
+            />
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-3">
+            <span
+              className={clsx(
+                'rounded-full px-3 py-1 text-xs font-medium',
+                status === 'published'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+              )}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
-              </svg>
-            </Link>
-            <div className="min-w-0 flex-1">
-              <ManageFormPageHeader
-                className="mb-0"
-                title="Yeni ilan ekle"
-                subtitle={<>{categoryLabelTr(categoryCode)} kategorisi</>}
-              />
-            </div>
-            <div className="ml-auto flex shrink-0 items-center gap-3">
-              <span
-                className={clsx(
-                  'rounded-full px-3 py-1 text-xs font-medium',
-                  status === 'published'
-                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-                )}
-              >
-                {status === 'published' ? 'Yayında' : 'Taslak'}
-              </span>
+              {status === 'published' ? 'Yayında' : 'Taslak'}
+            </span>
             </div>
           </div>
           {/* Wizard adım navigasyonu — non-villa */}
@@ -4791,7 +4791,7 @@ export default function CatalogNewListingClient({
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{plan.label ?? MEAL_PLAN_LABELS[plan.plan_code as MealPlanCode]?.tr}</p>
                           <p className="text-xs text-neutral-500">{plan.price_per_night} {plan.currency_code} / gece{plan.is_active ? '' : ' · Pasif'}</p>
-                        </div>
+                </div>
                         <div className="flex gap-2">
                           <button type="button" onClick={() => mpOpenEdit(plan)} className="text-xs text-primary-600 underline dark:text-primary-400">Düzenle</button>
                           <button type="button" onClick={() => void deleteMealPlan(plan.id)} disabled={mpBusy} className="text-xs text-red-600 underline dark:text-red-400 disabled:opacity-50">Sil</button>
@@ -5880,26 +5880,26 @@ export default function CatalogNewListingClient({
                   </svg>
                 </button>
               ) : null}
-              <a
-                href={
-                  slug.trim()
-                    ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slugifyListingSlug(slug.trim())}`)
-                    : '#'
-                }
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => {
-                  if (!slug.trim()) e.preventDefault()
-                }}
-                className={clsx(
+            <a
+              href={
+                slug.trim()
+                  ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slugifyListingSlug(slug.trim())}`)
+                  : '#'
+              }
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!slug.trim()) e.preventDefault()
+              }}
+              className={clsx(
                   'hidden sm:inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800',
-                  !slug.trim() && 'opacity-40',
-                )}
-                aria-disabled={!slug.trim()}
-              >
-                <ExternalLink className="h-3.5 w-3.5 shrink-0" />
-                Önizleme
-              </a>
+                !slug.trim() && 'opacity-40',
+              )}
+              aria-disabled={!slug.trim()}
+            >
+              <ExternalLink className="h-3.5 w-3.5 shrink-0" />
+              Önizleme
+            </a>
             </div>
             <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <div className="flex items-center gap-2 rounded-xl border border-neutral-200 px-3 py-1.5 dark:border-neutral-700">
