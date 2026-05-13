@@ -4,7 +4,15 @@ import type { AppMessages } from '../../public/locales/en'
 import { interpolate } from '@/utils/interpolate'
 
 const STAY_SLUGS = new Set(['oteller', 'tatil-evleri', 'yat-kiralama'])
-const EXPERIENCE_SLUGS = new Set(['turlar', 'aktiviteler', 'kruvaziyer'])
+const EXPERIENCE_SLUGS = new Set([
+  'turlar',
+  'aktiviteler',
+  'kruvaziyer',
+  'sinema-biletleri',
+  'etkinlikler',
+  'plaj-sezlong',
+  'restoran-rezervasyon',
+])
 const TRANSPORT_SLUGS = new Set(['arac-kiralama', 'feribot', 'transfer'])
 
 function stayModules(slug: string, m: AppMessages, categoryName: string): Omit<PageBuilderModule, 'id'>[] {

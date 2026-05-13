@@ -45,7 +45,7 @@ export async function generateExperienceListingMetadata({
   params: Promise<{ locale: string; handle: string }>
 }): Promise<Metadata> {
   const { handle, locale } = await params
-  const listing = await getExperienceListingByHandle(handle)
+  const listing = await getExperienceListingByHandle(handle, locale)
 
   if (!listing) {
     return {
@@ -87,13 +87,23 @@ export default async function ExperienceListingDetailPage({
 }) {
   const { handle, locale } = await params
   const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
-  const listing = await getExperienceListingByHandle(handle)
+  const listing = await getExperienceListingByHandle(handle, locale)
   if (!listing?.id) {
     return redirect(await vitrinHref(locale, '/turlar/all'))
   }
 
   const vertical = normalizeCatalogVertical(listing.listingVertical) ?? 'activity'
-  const experienceCodes: CatalogListingVerticalCode[] = ['tour', 'activity', 'cruise', 'hajj', 'visa']
+  const experienceCodes: CatalogListingVerticalCode[] = [
+    'tour',
+    'activity',
+    'cruise',
+    'hajj',
+    'visa',
+    'event',
+    'cinema_ticket',
+    'beach_lounger',
+    'restaurant_table',
+  ]
   if (!experienceCodes.includes(vertical)) {
     return redirect(await vitrinHref(locale, experienceBrowsePathForVertical(vertical)))
   }

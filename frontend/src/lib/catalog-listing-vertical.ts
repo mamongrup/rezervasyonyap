@@ -17,6 +17,10 @@ export const CATALOG_LISTING_VERTICAL_CODES = [
   'ferry',
   'transfer',
   'flight',
+  'beach_lounger',
+  'cinema_ticket',
+  'event',
+  'restaurant_table',
 ] as const
 
 export type CatalogListingVerticalCode = (typeof CATALOG_LISTING_VERTICAL_CODES)[number]
@@ -49,6 +53,10 @@ export function schemaOrgTypeForCatalogVertical(code: CatalogListingVerticalCode
     ferry: 'Product',
     transfer: 'Service',
     flight: 'Product',
+    beach_lounger: 'Product',
+    cinema_ticket: 'Event',
+    event: 'Event',
+    restaurant_table: 'Restaurant',
   }
   return map[code] ?? 'Product'
 }

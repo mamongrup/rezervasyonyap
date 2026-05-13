@@ -24,6 +24,10 @@ export const DETAIL_SEGMENT_BY_VERTICAL: Record<CatalogListingVerticalCode, stri
   car_rental: 'arac',
   ferry: 'feribot-rezervasyon',
   transfer: 'tasima',
+  beach_lounger: 'plaj-sezlong-ilan',
+  cinema_ticket: 'sinema-bileti',
+  event: 'etkinlik',
+  restaurant_table: 'restoran-masa',
 }
 
 export function detailPathForVertical(v: CatalogListingVerticalCode | undefined): string {
@@ -36,6 +40,18 @@ export function verticalFromDetailSegment(segment: string): CatalogListingVertic
   const s = segment.trim().toLowerCase()
   const entry = Object.entries(DETAIL_SEGMENT_BY_VERTICAL).find(([, seg]) => seg === s)
   return entry ? (entry[0] as CatalogListingVerticalCode) : undefined
+}
+
+/** Panel «kaydet ve vitrinde gör» — konaklama `stayDetailPathForVertical`, diğer dikeyler tek detay kökü */
+export function managePublicDetailPathForVertical(
+  v: CatalogListingVerticalCode | undefined,
+): string {
+  const code = normalizeCatalogVertical(v)
+  if (!code) return stayDetailPathForVertical(undefined)
+  if (code === 'hotel' || code === 'holiday_home' || code === 'yacht_charter') {
+    return stayDetailPathForVertical(code)
+  }
+  return detailPathForVertical(code)
 }
 
 /** Konaklama detayları (otel / yat / tatil evi) */
@@ -67,6 +83,10 @@ export function experienceBrowsePathForVertical(v: CatalogListingVerticalCode | 
     hajj: '/hac-umre/all',
     visa: '/vize/all',
     flight: '/ucak-bileti/all',
+    beach_lounger: '/plaj-sezlong/all',
+    cinema_ticket: '/sinema-biletleri/all',
+    event: '/etkinlikler/all',
+    restaurant_table: '/restoran-rezervasyon/all',
   }
   return m[code] ?? '/turlar/all'
 }

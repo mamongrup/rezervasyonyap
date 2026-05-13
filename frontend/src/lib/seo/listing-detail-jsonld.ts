@@ -6,6 +6,7 @@
 
 import type { ListingType } from '@/data/category-registry'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
+import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { vitrinHref } from '@/lib/vitrin-href'
@@ -213,6 +214,48 @@ function schemaTypeForExperience(v: ExperienceVertical): string {
   return v === 'activity' ? 'TouristAttraction' : 'TouristTrip'
 }
 
+function experienceBrowseMetaForListing(listing: VerticalHints): {
+  path: string
+  nameTr: string
+  nameEn: string
+} {
+  const v = normalizeCatalogVertical(listing.listingVertical ?? undefined)
+  const table: Partial<
+    Record<CatalogListingVerticalCode, { path: string; nameTr: string; nameEn: string }>
+  > = {
+    tour: { path: '/turlar/all', nameTr: 'Turlar', nameEn: 'Tours' },
+    activity: { path: '/aktiviteler/all', nameTr: 'Aktiviteler', nameEn: 'Activities' },
+    cruise: { path: '/kruvaziyer/all', nameTr: 'Kruvaziyer', nameEn: 'Cruises' },
+    hajj: { path: '/hac-umre/all', nameTr: 'Hac & Umre', nameEn: 'Hajj & Umrah' },
+    visa: { path: '/vize/all', nameTr: 'Vize Hizmetleri', nameEn: 'Visa services' },
+    beach_lounger: { path: '/plaj-sezlong/all', nameTr: 'Plaj & Şezlong', nameEn: 'Beach loungers' },
+    cinema_ticket: {
+      path: '/sinema-biletleri/all',
+      nameTr: 'Sinema Biletleri',
+      nameEn: 'Cinema tickets',
+    },
+    event: { path: '/etkinlikler/all', nameTr: 'Etkinlikler', nameEn: 'Events' },
+    restaurant_table: {
+      path: '/restoran-rezervasyon/all',
+      nameTr: 'Restoran Rezervasyonu',
+      nameEn: 'Restaurant booking',
+    },
+  }
+  if (v && table[v]) return table[v]!
+
+  const inferred = resolveExperienceVertical(listing)
+  return experienceCategoryMeta(inferred, 'tr')
+}
+
+function schemaOrgMainTypeForExperienceListing(listing: VerticalHints): string {
+  const v = normalizeCatalogVertical(listing.listingVertical ?? undefined)
+  if (v === 'cinema_ticket' || v === 'event') return 'Event'
+  if (v === 'restaurant_table') return 'Restaurant'
+  if (v === 'beach_lounger' || v === 'visa') return 'Product'
+  const ev = resolveExperienceVertical(listing)
+  return schemaTypeForExperience(ev)
+}
+
 async function buildGraphBase(opts: {
   base: string
   locale: string
@@ -399,8 +442,7 @@ export async function buildExperienceListingDetailJsonLd(opts: {
   if (!base) return null
 
   const { locale, listing, linkBase, organizationName } = opts
-  const vertical = resolveExperienceVertical(listing)
-  const cat = experienceCategoryMeta(vertical, locale)
+  const cat = experienceBrowseMetaForListing(listing)
   const categoryName = locale.toLowerCase().startsWith('en') ? cat.nameEn : cat.nameTr
 
   const itemPath = await vitrinHref(locale, `${linkBase}/${listing.handle}`)
@@ -412,7 +454,7 @@ export async function buildExperienceListingDetailJsonLd(opts: {
   const g = geo(listing)
   const addr = postalAddress(listing)
 
-  const schemaType = schemaTypeForExperience(vertical)
+  const schemaType = schemaOrgMainTypeForExperienceListing(listing)
   const main: Record<string, unknown> = withId(
     {
       '@type': schemaType,

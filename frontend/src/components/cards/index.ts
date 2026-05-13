@@ -112,6 +112,38 @@ export const CruiseCard = makeCard({
   },
 })
 
+export const BeachLoungerCard = makeCard({
+  linkBase: '/plaj-sezlong-ilan',
+  priceUnit: '/kişi',
+  ratioClass: 'aspect-w-3 aspect-h-3',
+  categoryLabel: 'Şezlong',
+  extraInfo: () => null,
+})
+
+export const CinemaTicketCard = makeCard({
+  linkBase: '/sinema-bileti',
+  priceUnit: '/bilet',
+  ratioClass: 'aspect-w-3 aspect-h-3',
+  categoryLabel: 'Sinema',
+  extraInfo: () => null,
+})
+
+export const EventTicketCard = makeCard({
+  linkBase: '/etkinlik',
+  priceUnit: '/bilet',
+  ratioClass: 'aspect-w-3 aspect-h-3',
+  categoryLabel: 'Etkinlik',
+  extraInfo: () => null,
+})
+
+export const RestaurantTableCard = makeCard({
+  linkBase: '/restoran-masa',
+  priceUnit: '/kişi',
+  ratioClass: 'aspect-w-3 aspect-h-3',
+  categoryLabel: 'Restoran',
+  extraInfo: () => null,
+})
+
 // ─── Ulaşım Kartları ──────────────────────────────────────────────────────────
 
 export const TransferCard = makeCard({

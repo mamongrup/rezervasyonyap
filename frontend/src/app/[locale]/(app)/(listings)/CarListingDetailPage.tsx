@@ -32,8 +32,8 @@ export async function generateCarListingMetadata({
 }: {
   params: Promise<{ locale: string; handle: string }>
 }): Promise<Metadata> {
-  const { handle } = await params
-  const listing = await getCarListingByHandle(handle)
+  const { handle, locale } = await params
+  const listing = await getCarListingByHandle(handle, locale)
 
   if (!listing) {
     return {
@@ -58,7 +58,7 @@ export default async function CarListingDetailPage({
   const { handle, locale } = await params
   const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
 
-  const listing = await getCarListingByHandle(handle)
+  const listing = await getCarListingByHandle(handle, locale)
 
   if (!listing?.id) {
     return redirect(await vitrinHref(locale, '/arac-kiralama/all'))

@@ -17,7 +17,7 @@ import {
   type HolidayHomeFaqTemplatePayload,
 } from '@/lib/holiday-home-faq-merge'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
-import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import { normalizeCatalogVertical, type CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import {
   getPublicListingImages,
@@ -292,7 +292,34 @@ export async function getCarListings(): Promise<TCarListing[]> {
   return []
 }
 
-export const getCarListingByHandle = async (_handle: string): Promise<TCarListing | null> => null
+const EXPERIENCE_DETAIL_VERTICALS = new Set<CatalogListingVerticalCode>([
+  'tour',
+  'activity',
+  'cruise',
+  'hajj',
+  'visa',
+  'event',
+  'cinema_ticket',
+  'beach_lounger',
+  'restaurant_table',
+])
+
+const TRANSPORT_DETAIL_VERTICALS = new Set<CatalogListingVerticalCode>([
+  'car_rental',
+  'ferry',
+  'transfer',
+])
+
+export const getCarListingByHandle = async (
+  handle: string,
+  locale?: string,
+): Promise<TCarListing | null> => {
+  const row = await getStayListingByHandle(handle, locale)
+  if (!row) return null
+  const v = normalizeCatalogVertical(row.listingVertical)
+  if (!v || !TRANSPORT_DETAIL_VERTICALS.has(v)) return null
+  return row as TCarListing
+}
 
 //  EXPERIENCE LISTING  //
 export async function getExperienceListings(): Promise<TExperienceListing[]> {
@@ -300,8 +327,15 @@ export async function getExperienceListings(): Promise<TExperienceListing[]> {
 }
 
 export const getExperienceListingByHandle = async (
-  _handle: string,
-): Promise<TExperienceListing | null> => null
+  handle: string,
+  locale?: string,
+): Promise<TExperienceListing | null> => {
+  const row = await getStayListingByHandle(handle, locale)
+  if (!row) return null
+  const v = normalizeCatalogVertical(row.listingVertical)
+  if (!v || !EXPERIENCE_DETAIL_VERTICALS.has(v)) return null
+  return row as TExperienceListing
+}
 
 // FLIGHT LISTING //
 export async function getFlightListings(): Promise<TFlightListing[]> {

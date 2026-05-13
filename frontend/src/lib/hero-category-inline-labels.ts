@@ -16,6 +16,10 @@ const LABEL_TR: Record<string, string> = {
   'arac-kiralama': 'Araç',
   feribot: 'Feribot',
   transfer: 'Transfer',
+  'plaj-sezlong': 'Şezlong',
+  'sinema-biletleri': 'Sinema',
+  etkinlikler: 'Etkinlik',
+  'restoran-rezervasyon': 'Restoran',
 }
 
 const LABEL_EN: Record<string, string> = {
@@ -31,6 +35,10 @@ const LABEL_EN: Record<string, string> = {
   'arac-kiralama': 'Car',
   feribot: 'Ferry',
   transfer: 'Transfer',
+  'plaj-sezlong': 'Lounger',
+  'sinema-biletleri': 'Cinema',
+  etkinlikler: 'Events',
+  'restoran-rezervasyon': 'Restaurant',
 }
 
 const LABEL_DE: Record<string, string> = {
@@ -46,6 +54,10 @@ const LABEL_DE: Record<string, string> = {
   'arac-kiralama': 'Auto',
   feribot: 'Fähre',
   transfer: 'Transfer',
+  'plaj-sezlong': 'Liege',
+  'sinema-biletleri': 'Kino',
+  etkinlikler: 'Events',
+  'restoran-rezervasyon': 'Restaurant',
 }
 
 const LABEL_RU: Record<string, string> = {
@@ -61,6 +73,10 @@ const LABEL_RU: Record<string, string> = {
   'arac-kiralama': 'Авто',
   feribot: 'Паром',
   transfer: 'Трансфер',
+  'plaj-sezlong': 'Шезлонг',
+  'sinema-biletleri': 'Кино',
+  etkinlikler: 'События',
+  'restoran-rezervasyon': 'Ресторан',
 }
 
 const LABEL_ZH: Record<string, string> = {
@@ -76,6 +92,10 @@ const LABEL_ZH: Record<string, string> = {
   'arac-kiralama': '租车',
   feribot: '渡轮',
   transfer: '接送',
+  'plaj-sezlong': '沙滩椅',
+  'sinema-biletleri': '电影',
+  etkinlikler: '活动',
+  'restoran-rezervasyon': '餐厅',
 }
 
 const LABEL_FR: Record<string, string> = {
@@ -91,6 +111,10 @@ const LABEL_FR: Record<string, string> = {
   'arac-kiralama': 'Voiture',
   feribot: 'Ferry',
   transfer: 'Transfert',
+  'plaj-sezlong': 'Transat',
+  'sinema-biletleri': 'Cinéma',
+  etkinlikler: 'Événements',
+  'restoran-rezervasyon': 'Restaurant',
 }
 
 const LABEL_BY_LOCALE: Record<string, Record<string, string>> = {

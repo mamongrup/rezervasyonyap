@@ -51,6 +51,8 @@ export default function MapPicker({
   const markerRef = useRef<any>(null)
   const searchRef = useRef<HTMLInputElement>(null)
   const onChangeRef = useRef(onChange)
+  /** initMap tek seferlik — ilk yüklemede kullanılan lat/lng/zoom */
+  const initArgsRef = useRef({ lat, lng, zoom })
   const [ready, setReady] = useState(false)
   const [mapError, setMapError] = useState(false)
   const [searching, setSearching] = useState(false)
@@ -73,24 +75,30 @@ export default function MapPicker({
   }, [onChange])
 
   useEffect(() => {
+    initArgsRef.current = { lat, lng, zoom }
+  }, [lat, lng, zoom])
+
+  useEffect(() => {
     setManualLat(lat)
     setManualLng(lng)
   }, [lat, lng])
 
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google) return
+    if (mapInstance.current) return
 
-    const parsedLat = parseFloat(lat)
-    const parsedLng = parseFloat(lng)
+    const { lat: laStr, lng: loStr, zoom: zm } = initArgsRef.current
+    const parsedLat = parseFloat(laStr)
+    const parsedLng = parseFloat(loStr)
     const hasValidPin =
-      lat.trim() !== '' &&
-      lng.trim() !== '' &&
+      laStr.trim() !== '' &&
+      loStr.trim() !== '' &&
       Number.isFinite(parsedLat) &&
       Number.isFinite(parsedLng)
     // Pin yokken Ankara sabiti Akdeniz ilçelerinde yanıltıcıydı — Türkiye geneli + düşük zoom
     const defaultLat = hasValidPin ? parsedLat : 39.2
     const defaultLng = hasValidPin ? parsedLng : 35.4
-    const initialZoom = hasValidPin ? zoom : Math.min(zoom, 6)
+    const initialZoom = hasValidPin ? zm : Math.min(zm, 6)
 
     const map = new window.google.maps.Map(mapRef.current, {
       center: { lat: defaultLat, lng: defaultLng },
@@ -134,17 +142,17 @@ export default function MapPicker({
       const pos = { lat: e.latLng.lat(), lng: e.latLng.lng() }
       marker.setPosition(pos)
       marker.setVisible(true)
-      onChange(pos.lat.toFixed(6), pos.lng.toFixed(6))
+      onChangeRef.current(pos.lat.toFixed(6), pos.lng.toFixed(6))
     })
 
     // Drag marker → update
     marker.addListener('dragend', () => {
       const pos = marker.getPosition()
-      if (pos) onChange(pos.lat().toFixed(6), pos.lng().toFixed(6))
+      if (pos) onChangeRef.current(pos.lat().toFixed(6), pos.lng().toFixed(6))
     })
 
     setReady(true)
-  }, [lat, lng, zoom, onChange])
+  }, [])
 
   // Subscribe to auth failure events
   useEffect(() => {
@@ -153,18 +161,44 @@ export default function MapPicker({
   }, [])
 
   useEffect(() => {
-    if (!apiKey || isGoogleMapsAuthFailed()) { setReady(false); return }
+    if (!apiKey || isGoogleMapsAuthFailed()) {
+      setReady(false)
+      return
+    }
     loadGoogleMaps(apiKey, initMap, () => setMapError(true))
   }, [apiKey, initMap])
 
-  // When lat/lng props change externally, sync the marker
+  useEffect(() => {
+    const container = mapRef.current
+    return () => {
+      setReady(false)
+      try {
+        if (markerRef.current) {
+          markerRef.current.setMap(null)
+          markerRef.current = null
+        }
+        mapInstance.current = null
+        if (container) container.innerHTML = ''
+      } catch {
+        /* unload */
+      }
+    }
+  }, [])
+
+  // Üst bileşen prop veya kullanıcı etkileşimi — pin / görünürlük
   useEffect(() => {
     if (!ready || !markerRef.current || !mapInstance.current) return
-    if (lat && lng) {
-      const pos = { lat: parseFloat(lat), lng: parseFloat(lng) }
-      markerRef.current.setPosition(pos)
+    const la = lat.trim()
+    const lo = lng.trim()
+    if (la && lo) {
+      const pLat = parseFloat(la)
+      const pLng = parseFloat(lo)
+      if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) return
+      markerRef.current.setPosition({ lat: pLat, lng: pLng })
       markerRef.current.setVisible(true)
-      mapInstance.current.panTo(pos)
+      mapInstance.current.panTo({ lat: pLat, lng: pLng })
+    } else {
+      markerRef.current.setVisible(false)
     }
   }, [lat, lng, ready])
 
@@ -208,7 +242,7 @@ export default function MapPicker({
 
     return () => {
       window.google.maps.event.removeListener(lid)
-      window.google.maps.event.clearInstanceListeners(ac)
+      window.google.maps.event.clearInstanceListeners(input)
     }
   }, [ready, mapError, placesCountry])
 
@@ -217,15 +251,21 @@ export default function MapPicker({
     setSearching(true)
     try {
       const geocoder = new window.google.maps.Geocoder()
-      const res = await geocoder.geocode({ address: searchQuery })
+      const req: { address: string; region?: string } = { address: searchQuery }
+      const cc = placesCountry.trim().toLowerCase()
+      if (cc) req.region = cc
+      const res = await geocoder.geocode(req)
       if (res.results[0]) {
-        const { lat: rLat, lng: rLng } = res.results[0].geometry.location
-        const pos: LatLng = { lat: rLat(), lng: rLng() }
+        const loc = res.results[0].geometry.location
+        const pos: LatLng = {
+          lat: typeof loc.lat === 'function' ? loc.lat() : loc.lat,
+          lng: typeof loc.lng === 'function' ? loc.lng() : loc.lng,
+        }
         mapInstance.current.setCenter(pos)
         mapInstance.current.setZoom(13)
         markerRef.current?.setPosition(pos)
         markerRef.current?.setVisible(true)
-        onChange(pos.lat.toFixed(6), pos.lng.toFixed(6))
+        onChangeRef.current(pos.lat.toFixed(6), pos.lng.toFixed(6))
       }
     } finally {
       setSearching(false)
@@ -240,7 +280,7 @@ export default function MapPicker({
 
   const handleClear = () => {
     markerRef.current?.setVisible(false)
-    onChange('', '')
+    onChangeRef.current('', '')
   }
 
   // ─── Fallback: billing error or no key ────────────────────────────────────

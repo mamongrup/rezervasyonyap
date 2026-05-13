@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 /** Eski URL → tur / aktivite / … kanonik segment */
 export default async function Page({ params }: { params: Promise<{ locale: string; handle: string }> }) {
   const { handle, locale } = await params
-  const listing = await getExperienceListingByHandle(handle)
+  const listing = await getExperienceListingByHandle(handle, locale)
   if (!listing?.id) redirect(await vitrinHref(locale, '/turlar/all'))
   const path = detailPathForVertical(normalizeCatalogVertical(listing.listingVertical) ?? 'activity')
   redirect(await vitrinHref(locale, `${path}/${handle}`))

@@ -33,6 +33,10 @@ export const SLUG_TO_CODE: Record<string, string> = {
   transfer:       'transfer',
   feribot:        'ferry',
   'ucak-bileti':  'flight',
+  'plaj-sezlong': 'beach_lounger',
+  'sinema-biletleri': 'cinema_ticket',
+  etkinlikler:    'event',
+  'restoran-rezervasyon': 'restaurant_table',
 }
 
 export interface SearchQuery {

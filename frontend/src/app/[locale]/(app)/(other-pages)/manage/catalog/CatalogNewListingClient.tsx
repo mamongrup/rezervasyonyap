@@ -18,7 +18,7 @@ import {
   pickHeroKeysFromTaggedImages,
 } from '@/lib/holiday-listing-hero-preview'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
-import { stayDetailPathForVertical } from '@/lib/stay-detail-routes'
+import { managePublicDetailPathForVertical, stayDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -2738,7 +2738,7 @@ export default function CatalogNewListingClient({
       const manageUrl = vitrinPath(
         `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(lid)}`,
       )
-      const publicPath = stayDetailPathForVertical(categoryCode as CatalogListingVerticalCode)
+      const publicPath = managePublicDetailPathForVertical(categoryCode as CatalogListingVerticalCode)
       const publicStayUrl = vitrinPath(`${publicPath}/${encodeURIComponent(slugifyListingSlug(slug.trim()))}`)
       const intent = submitIntentRef.current
       submitIntentRef.current = 'save'

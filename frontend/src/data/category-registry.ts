@@ -17,6 +17,10 @@ export type ListingType =
   | 'ferry'
   | 'transfer'
   | 'flight'
+  | 'beach-lounger'
+  | 'cinema-ticket'
+  | 'event'
+  | 'restaurant-table'
 
 /** Which static hero image to use (maps to /images/hero-right-*.png) */
 export type HeroImageType = 'stay' | 'experience' | 'car' | 'flight'
@@ -295,6 +299,79 @@ export const CATEGORY_REGISTRY: CategoryRegistryEntry[] = [
     heroGradient: 'from-violet-600 to-purple-700',
     showInNav: false,
     navOrder: 12,
+  },
+  {
+    slug: 'plaj-sezlong',
+    name: 'Plaj & Şezlong',
+    namePlural: 'Beach loungers',
+    listingType: 'beach-lounger',
+    categoryRoute: '/plaj-sezlong',
+    detailRoute: '/plaj-sezlong-ilan',
+    emoji: '🏖️',
+    priceUnit: '/kişi',
+    heroHeading: 'Plaj Keyfi <br /> Şezlong Rezervasyonu',
+    heroSubheading:
+      'Popüler plajlarda şezlong ve şemsiye rezervasyonu; günübirlik deniz keyfi için hazır alanlar.',
+    heroImageType: 'experience',
+    heroSearchTab: 'Experiences',
+    searchFormType: 'experience',
+    heroGradient: 'from-amber-500 to-orange-600',
+    showInNav: false,
+    navOrder: 13,
+  },
+  {
+    slug: 'sinema-biletleri',
+    name: 'Sinema Biletleri',
+    namePlural: 'Cinema tickets',
+    listingType: 'cinema-ticket',
+    categoryRoute: '/sinema-biletleri',
+    detailRoute: '/sinema-bileti',
+    emoji: '🎬',
+    priceUnit: '/bilet',
+    heroHeading: 'Sinema <br /> Biletleri',
+    heroSubheading: 'Yeni filmler, özel gösterimler ve seanslar için online bilet seçenekleri.',
+    heroImageType: 'experience',
+    heroSearchTab: 'Experiences',
+    searchFormType: 'experience',
+    heroGradient: 'from-violet-600 to-fuchsia-700',
+    showInNav: false,
+    navOrder: 14,
+  },
+  {
+    slug: 'etkinlikler',
+    name: 'Etkinlikler',
+    namePlural: 'Events',
+    listingType: 'event',
+    categoryRoute: '/etkinlikler',
+    detailRoute: '/etkinlik',
+    emoji: '🎫',
+    priceUnit: '/bilet',
+    heroHeading: 'Konser, Festival <br /> ve Daha Fazlası',
+    heroSubheading: 'Konser, tiyatro, festival ve kültür etkinlikleri için güvenilir bilet ve kayıt.',
+    heroImageType: 'experience',
+    heroSearchTab: 'Experiences',
+    searchFormType: 'experience',
+    heroGradient: 'from-rose-600 to-red-700',
+    showInNav: false,
+    navOrder: 15,
+  },
+  {
+    slug: 'restoran-rezervasyon',
+    name: 'Restoran Rezervasyonu',
+    namePlural: 'Restaurant bookings',
+    listingType: 'restaurant-table',
+    categoryRoute: '/restoran-rezervasyon',
+    detailRoute: '/restoran-masa',
+    emoji: '🍽️',
+    priceUnit: '/kişi',
+    heroHeading: 'Restoran <br /> Masanız Hazır',
+    heroSubheading: 'Seçkin restoranlarda tarih ve saat seçerek masa rezervasyonu yapın.',
+    heroImageType: 'experience',
+    heroSearchTab: 'Experiences',
+    searchFormType: 'experience',
+    heroGradient: 'from-lime-700 to-green-900',
+    showInNav: false,
+    navOrder: 16,
   },
 ]
 

@@ -185,7 +185,7 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const listing = await getExperienceListingByHandle(handle)
+  const listing = await getExperienceListingByHandle(handle, locale)
   if (!listing?.id) {
     return new Response('Not found', { status: 404 })
   }

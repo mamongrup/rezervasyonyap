@@ -27,6 +27,10 @@ function schemaTypeForListing(listingType: ListingType): string {
     ferry: 'Product',
     transfer: 'Service',
     flight: 'Product',
+    'beach-lounger': 'Product',
+    'cinema-ticket': 'Event',
+    event: 'Event',
+    'restaurant-table': 'Restaurant',
   }
   return map[listingType] ?? 'Product'
 }

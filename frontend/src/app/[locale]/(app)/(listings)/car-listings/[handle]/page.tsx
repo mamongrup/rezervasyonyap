@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
 /** Eski URL → arac / feribot / tasima */
 export default async function Page({ params }: { params: Promise<{ locale: string; handle: string }> }) {
   const { handle, locale } = await params
-  const listing = await getCarListingByHandle(handle)
+  const listing = await getCarListingByHandle(handle, locale)
   if (!listing?.id) redirect(await vitrinHref(locale, '/arac-kiralama/all'))
   const path = detailPathForVertical(normalizeCatalogVertical(listing.listingVertical) ?? 'car_rental')
   redirect(await vitrinHref(locale, `${path}/${handle}`))

@@ -308,6 +308,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [mapLat, setMapLat] = useState('')
   const [mapLng, setMapLng] = useState('')
   const [mapZoom, setMapZoom] = useState('12')
+  const handleMapPickerChange = useCallback((nextLat: string, nextLng: string) => {
+    setMapLat(nextLat)
+    setMapLng(nextLng)
+  }, [])
 
   // ─── District linkage ─────────────────────────────────────────────────────
   const [countries, setCountries] = useState<LocationCountry[]>([])
@@ -1689,7 +1693,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               lat={mapLat}
               lng={mapLng}
               zoom={parseInt(mapZoom) || 12}
-              onChange={(lat, lng) => { setMapLat(lat); setMapLng(lng) }}
+              onChange={handleMapPickerChange}
             />
             <p className="mt-2 text-[11px] text-neutral-500">
               İlçe veya destinasyon kaydında önce kayıtlı <strong className="font-medium text-neutral-600 dark:text-neutral-400">ilçe merkezi</strong> kullanılır;
