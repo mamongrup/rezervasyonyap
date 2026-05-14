@@ -155,8 +155,8 @@ function humanizePathSlugSegment(slug: string): string {
   return s.replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-/** İlçe merkezi yokken Google’a verilecek adres: önce slug (il/ilçe yolu), yoksa ilçe adı */
-function buildGeocodeHintAddress(
+/** İlçe merkezi yokken denenecek adres sırası (Google); il merkezine sapmayı azaltır */
+function buildGeocodeHintAddressCandidates(
   p: LocationPage,
   districtLookup: {
     district: {
@@ -167,22 +167,59 @@ function buildGeocodeHintAddress(
       name?: string
     }
   } | null,
-): string | null {
+  trPrimaryName: string,
+): string[] {
+  const out: string[] = []
+  const push = (s: string) => {
+    const t = s.trim()
+    if (t.length >= 3 && !out.includes(t)) out.push(t)
+  }
+
   const raw = String(p.slug_path ?? '').trim()
   let parts = raw.split('/').map((x) => x.trim()).filter(Boolean)
   if (parts[0] && /^[a-z]{2}$/i.test(parts[0])) parts = parts.slice(1)
-  if (parts.length >= 2) {
+  const lastSeg = parts[parts.length - 1] ?? ''
+  const looksLikeUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastSeg)
+
+  const dName = districtLookup?.district?.name?.trim()
+  const provSeg =
+    !looksLikeUuid && parts.length >= 2 ? humanizePathSlugSegment(parts[parts.length - 2] ?? '') : ''
+
+  if (dName) {
+    if (provSeg) {
+      push(`${dName}, ${provSeg} ili, Türkiye`)
+      push(`${dName}, ${provSeg}, Türkiye`)
+    }
+    push(`${dName} ilçesi, Türkiye`)
+    push(`${dName}, Türkiye`)
+  }
+
+  const titleHint = asTrimmedString(trPrimaryName)
+  if (
+    titleHint.length >= 2 &&
+    titleHint.length < 120 &&
+    !looksLikeUuid &&
+    titleHint.toLowerCase() !== (dName ?? '').toLowerCase()
+  ) {
+    if (provSeg) push(`${titleHint}, ${provSeg} ili, Türkiye`)
+    push(`${titleHint}, Türkiye`)
+  }
+
+  if (!looksLikeUuid && parts.length >= 2) {
     const loc = humanizePathSlugSegment(parts[parts.length - 1] ?? '')
     const prov = humanizePathSlugSegment(parts[parts.length - 2] ?? '')
-    if (loc && prov) return `${loc}, ${prov}, Türkiye`
+    if (loc && prov) {
+      push(`${loc}, ${prov} ili, Türkiye`)
+      push(`${loc}, ${prov}, Türkiye`)
+    }
   }
-  if (parts.length >= 1) {
+  if (!looksLikeUuid && parts.length >= 1) {
     const loc = humanizePathSlugSegment(parts[parts.length - 1] ?? '')
-    if (loc) return `${loc}, Türkiye`
+    if (loc) push(`${loc}, Türkiye`)
   }
-  const dName = districtLookup?.district?.name?.trim()
-  if (dName) return `${dName}, Türkiye`
-  return null
+
+  return out
 }
 
 type DeriveMapGeoOpts = {
@@ -720,10 +757,24 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           !(distLatG && distLngG) &&
           !(luLatG && luLngG)
 
+        let trPrimaryForGeocode = asTrimmedString(p.title)
+        try {
+          const parsed = JSON.parse(p.translations_json ?? '{}') as LocationTranslations
+          trPrimaryForGeocode =
+            asTrimmedString(parsed[primaryLocale]?.name ?? p.title) || trPrimaryForGeocode
+        } catch {
+          /* ignore */
+        }
+
         let geoHintCoords: { lat: number; lng: number } | null = null
         if (needGeocodeHint) {
-          const addr = buildGeocodeHintAddress(p, districtLookup)
-          if (addr) {
+          const candidates = buildGeocodeHintAddressCandidates(p, districtLookup, trPrimaryForGeocode)
+          const regLa = parseFloat(coordFieldToString(p.region_center_lat))
+          const regLo = parseFloat(coordFieldToString(p.region_center_lng))
+          const regOk = Number.isFinite(regLa) && Number.isFinite(regLo)
+          const dNorm = (districtLookup?.district?.name ?? '').trim().toLocaleLowerCase('tr')
+
+          for (const addr of candidates) {
             try {
               const fr = await fetch('/api/manage/forward-geocode', {
                 method: 'POST',
@@ -731,14 +782,24 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ address: addr }),
               })
-              if (fr.ok) {
-                const gj = (await fr.json()) as { lat?: unknown; lng?: unknown }
-                const la = typeof gj.lat === 'number' ? gj.lat : Number.parseFloat(String(gj.lat))
-                const lo = typeof gj.lng === 'number' ? gj.lng : Number.parseFloat(String(gj.lng))
-                if (Number.isFinite(la) && Number.isFinite(lo)) geoHintCoords = { lat: la, lng: lo }
+              if (!fr.ok) continue
+              const gj = (await fr.json()) as {
+                lat?: unknown
+                lng?: unknown
+                formatted_address?: string | null
               }
+              const la = typeof gj.lat === 'number' ? gj.lat : Number.parseFloat(String(gj.lat))
+              const lo = typeof gj.lng === 'number' ? gj.lng : Number.parseFloat(String(gj.lng))
+              if (!Number.isFinite(la) || !Number.isFinite(lo)) continue
+
+              const fmt = asTrimmedString(gj.formatted_address).toLocaleLowerCase('tr')
+              const distToIl = regOk ? haversineKm(la, lo, regLa, regLo) : 999
+              if (dNorm && regOk && distToIl < 50 && !fmt.includes(dNorm)) continue
+
+              geoHintCoords = { lat: la, lng: lo }
+              break
             } catch {
-              /* Google veya ağ yoksa zincir eskisi gibi devam eder */
+              /* next candidate */
             }
           }
         }
