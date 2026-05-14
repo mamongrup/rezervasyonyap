@@ -143,10 +143,52 @@ type MapCoordSource =
   | 'saved_pin'
   | 'district_table'
   | 'district_lookup'
-  /** Gezi fikirleri + bölge merkezine göre tahmin (ilk satır değil); çok uzaksa il merkezi */
+  /** slug / ilçe adı ile Google geocode — il merkezinden önce tercih (Fethiye vb.) */
+  | 'geocode_hint'
   | 'travel_ideas_fallback'
   | 'region_center'
   | 'none'
+
+function humanizePathSlugSegment(slug: string): string {
+  const s = slug.trim().replace(/[-_]+/g, ' ').trim()
+  if (!s) return ''
+  return s.replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+/** İlçe merkezi yokken Google’a verilecek adres: önce slug (il/ilçe yolu), yoksa ilçe adı */
+function buildGeocodeHintAddress(
+  p: LocationPage,
+  districtLookup: {
+    district: {
+      region_id: string
+      country_id: string
+      center_lat: string | null
+      center_lng: string | null
+      name?: string
+    }
+  } | null,
+): string | null {
+  const raw = String(p.slug_path ?? '').trim()
+  let parts = raw.split('/').map((x) => x.trim()).filter(Boolean)
+  if (parts[0] && /^[a-z]{2}$/i.test(parts[0])) parts = parts.slice(1)
+  if (parts.length >= 2) {
+    const loc = humanizePathSlugSegment(parts[parts.length - 1] ?? '')
+    const prov = humanizePathSlugSegment(parts[parts.length - 2] ?? '')
+    if (loc && prov) return `${loc}, ${prov}, Türkiye`
+  }
+  if (parts.length >= 1) {
+    const loc = humanizePathSlugSegment(parts[parts.length - 1] ?? '')
+    if (loc) return `${loc}, Türkiye`
+  }
+  const dName = districtLookup?.district?.name?.trim()
+  if (dName) return `${dName}, Türkiye`
+  return null
+}
+
+type DeriveMapGeoOpts = {
+  /** slug/ilçe adından forward geocode — gezi fikirleri anchor + son düşüş */
+  geoHint?: { lat: number; lng: number } | null
+}
 
 /** Harita formunun merkezi: önce kayıtlı pin, sonra ilçe/il düşüşleri */
 function deriveMapPresentation(
@@ -157,10 +199,12 @@ function deriveMapPresentation(
       country_id: string
       center_lat: string | null
       center_lng: string | null
+      name?: string
     }
   } | null,
   _geoRegionType: string,
   _pageDistrictId: string,
+  opts?: DeriveMapGeoOpts | null,
 ): { lat: string; lng: string; source: MapCoordSource } {
   const pinLat = coordFieldToString(p.map_lat)
   const pinLng = coordFieldToString(p.map_lng)
@@ -190,7 +234,13 @@ function deriveMapPresentation(
     source = 'district_lookup'
     pair = { lat: luLat, lng: luLng }
   } else {
-    const anchorNum =
+    const hint =
+      opts?.geoHint &&
+      Number.isFinite(opts.geoHint.lat) &&
+      Number.isFinite(opts.geoHint.lng)
+        ? opts.geoHint
+        : null
+    const regAnchor =
       regLat && regLng
         ? (() => {
             const la = parseFloat(regLat)
@@ -198,10 +248,15 @@ function deriveMapPresentation(
             return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo } : null
           })()
         : null
-    const ideaPt = pickTravelIdeasMapCoords(p.travel_ideas_json as unknown, anchorNum)
+    const anchorForIdeas = hint ?? regAnchor
+
+    const ideaPt = pickTravelIdeasMapCoords(p.travel_ideas_json as unknown, anchorForIdeas)
     if (ideaPt) {
       source = 'travel_ideas_fallback'
       pair = { lat: ideaPt.lat.toFixed(6), lng: ideaPt.lng.toFixed(6) }
+    } else if (hint) {
+      source = 'geocode_hint'
+      pair = { lat: hint.lat.toFixed(6), lng: hint.lng.toFixed(6) }
     } else if (regLat && regLng) {
       source = 'region_center'
       pair = { lat: regLat, lng: regLng }
@@ -339,7 +394,7 @@ async function maybePersistDerivedMapPinFromLoad(opts: {
 
   const updated = await getLocationPage(opts.pageId)
   opts.setPage(updated)
-  const m2 = deriveMapPresentation(updated, opts.districtLookup, opts.geoRegionType, opts.pageDistrictId)
+  const m2 = deriveMapPresentation(updated, opts.districtLookup, opts.geoRegionType, opts.pageDistrictId, undefined)
   opts.setMapLat(m2.lat)
   opts.setMapLng(m2.lng)
   opts.setMapCoordSource(m2.source)
@@ -496,6 +551,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
     | 'saved_pin'
     | 'district_table'
     | 'district_lookup'
+    | 'geocode_hint'
     | 'travel_ideas_fallback'
     | 'region_center'
     | 'none'
@@ -635,6 +691,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             country_id: string
             center_lat: string | null
             center_lng: string | null
+            name?: string
           }
         } | null = null
         if (pageDistrictId) {
@@ -647,9 +704,54 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           }
         }
 
+        const distLatG = coordFieldToString(p.district_center_lat)
+        const distLngG = coordFieldToString(p.district_center_lng)
+        const luLatG =
+          districtLookup?.district.center_lat != null
+            ? coordFieldToString(districtLookup.district.center_lat)
+            : ''
+        const luLngG =
+          districtLookup?.district.center_lng != null
+            ? coordFieldToString(districtLookup.district.center_lng)
+            : ''
+        const needGeocodeHint =
+          !coordFieldToString(p.map_lat) &&
+          !coordFieldToString(p.map_lng) &&
+          !(distLatG && distLngG) &&
+          !(luLatG && luLngG)
+
+        let geoHintCoords: { lat: number; lng: number } | null = null
+        if (needGeocodeHint) {
+          const addr = buildGeocodeHintAddress(p, districtLookup)
+          if (addr) {
+            try {
+              const fr = await fetch('/api/manage/forward-geocode', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ address: addr }),
+              })
+              if (fr.ok) {
+                const gj = (await fr.json()) as { lat?: unknown; lng?: unknown }
+                const la = typeof gj.lat === 'number' ? gj.lat : Number.parseFloat(String(gj.lat))
+                const lo = typeof gj.lng === 'number' ? gj.lng : Number.parseFloat(String(gj.lng))
+                if (Number.isFinite(la) && Number.isFinite(lo)) geoHintCoords = { lat: la, lng: lo }
+              }
+            } catch {
+              /* Google veya ağ yoksa zincir eskisi gibi devam eder */
+            }
+          }
+        }
+
         let initialMapPresentation: ReturnType<typeof deriveMapPresentation> | null = null
         {
-          initialMapPresentation = deriveMapPresentation(p, districtLookup, geoRegionType, pageDistrictId)
+          initialMapPresentation = deriveMapPresentation(
+            p,
+            districtLookup,
+            geoRegionType,
+            pageDistrictId,
+            geoHintCoords ? { geoHint: geoHintCoords } : undefined,
+          )
           setMapLat(initialMapPresentation.lat)
           setMapLng(initialMapPresentation.lng)
           setMapCoordSource(initialMapPresentation.source)
@@ -1245,7 +1347,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setHeroBannerLayoutJson(layout ? JSON.stringify(layout, null, 2) : '')
         }
         {
-          const m = deriveMapPresentation(p, null, regionType, districtId.trim())
+          const m = deriveMapPresentation(p, null, regionType, districtId.trim(), undefined)
           setMapLat(m.lat)
           setMapLng(m.lng)
           setMapCoordSource(m.source)
@@ -2067,6 +2169,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                       ? 'border-violet-200 bg-violet-50 text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-100'
                     : mapCoordSource === 'none'
                       ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/25 dark:text-amber-100'
+                      : mapCoordSource === 'geocode_hint'
+                        ? 'border-teal-200 bg-teal-50 text-teal-900 dark:border-teal-900/50 dark:bg-teal-950/30 dark:text-teal-100'
                       : 'border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-100',
                 )}
                 role="status"
@@ -2079,6 +2183,8 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                       ? 'Özel pin yok; bağlı ilçe kaydından merkez koordinatı yüklendi.'
                       : mapCoordSource === 'travel_ideas_fallback'
                         ? 'Sayfa pin alanı boş; harita merkezi gezi fikirlerinden seçiliyor (kayıtlı bölge/il merkezine en yakın nokta veya medyan; merkeze 60 km\'den uzaksa il merkezi kullanılır). Kalıcı pin için Kaydet ile kaydedin.'
+                      : mapCoordSource === 'geocode_hint'
+                        ? 'Özel pin ve ilçe merkezi yok; slug / ilçe adına göre Google ile konum tahmini kullanılıyor (Fethiye düzeyi). İsterseniz haritadan ince ayar yapıp Kaydedin.'
                       : mapCoordSource === 'region_center'
                         ? 'İl veya ülke için bölge merkezi kullanılıyor (sayfaya özel pin yoksa).'
                         : 'Konum seçilmemiş. Haritada arayın veya tıklayın; ardından Kaydet.'}
