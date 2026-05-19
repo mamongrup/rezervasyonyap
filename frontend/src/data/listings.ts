@@ -16,6 +16,7 @@ import {
   parseHolidayHomeFaqListingOverlay,
   type HolidayHomeFaqTemplatePayload,
 } from '@/lib/holiday-home-faq-merge'
+import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
 import { normalizeCatalogVertical, type CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { stripHtml } from '@/lib/social-share/strip-html'
@@ -233,10 +234,7 @@ export const getStayListingByHandle = async (
 
   if (item) {
     if (item.theme_codes?.trim()) {
-      themeCodes = item.theme_codes
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
+      themeCodes = parseHolidayThemeCodes(item.theme_codes)
     }
     if (item.ministry_license_ref?.trim()) {
       ministryLicenseRef = item.ministry_license_ref.trim()

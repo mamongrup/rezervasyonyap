@@ -1,5 +1,6 @@
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
+import { HOLIDAY_THEME_CODE_RE, parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 
 function mergeHolidayThemeFallbacksIntoMap(map: Map<string, string>): void {
   for (const row of HOLIDAY_THEME_FILTER_FALLBACK) {
@@ -27,15 +28,15 @@ export async function getHolidayThemeLabelMap(locale: string): Promise<Map<strin
 
 /** Harita üzerinde tema kodlarını görünür etiketlere çevirir (sıra korunur, tekrarsız). */
 export function resolveHolidayThemeLabelsFromMap(codes: string[], map: Map<string, string>): string[] {
-  const trimmed = codes.map((c) => c.trim()).filter(Boolean)
-  if (!trimmed.length) return []
+  const normalized = parseHolidayThemeCodes(codes)
+  if (!normalized.length) return []
 
   const seen = new Set<string>()
   const out: string[] = []
-  for (const raw of trimmed) {
-    const key = raw.toLowerCase()
-    const label = map.get(key) ?? raw.replace(/_/g, ' ')
-    if (seen.has(label)) continue
+  for (const key of normalized) {
+    const fromMap = map.get(key)?.trim()
+    const label = fromMap || (HOLIDAY_THEME_CODE_RE.test(key) ? key.replace(/_/g, ' ') : '')
+    if (!label || seen.has(label)) continue
     seen.add(label)
     out.push(label)
   }
@@ -47,8 +48,8 @@ export async function resolveHolidayThemeLabels(
   codes: string[],
   locale: string | undefined,
 ): Promise<string[]> {
-  const trimmed = codes.map((c) => c.trim()).filter(Boolean)
-  if (!trimmed.length) return []
+  const normalized = parseHolidayThemeCodes(codes)
+  if (!normalized.length) return []
   const map = await getHolidayThemeLabelMap(locale?.trim() || 'tr')
-  return resolveHolidayThemeLabelsFromMap(trimmed, map)
+  return resolveHolidayThemeLabelsFromMap(normalized, map)
 }

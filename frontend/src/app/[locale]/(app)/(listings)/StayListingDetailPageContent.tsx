@@ -81,7 +81,6 @@ import StayListingReservationCard from './StayListingReservationCard'
 import StayListingMobileStickyBar from './StayListingMobileStickyBar'
 import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
 import ListingPriceInclusionsSection from './ListingPriceInclusionsSection'
-import StayListingSectionNav from './StayListingSectionNav'
 import SectionHeader from './components/SectionHeader'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 import SocialProofBadge from '@/components/listing/SocialProofBadge'
@@ -609,42 +608,6 @@ export default async function StayListingDetailPageContent({
 
   const galleryForShare = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs).filter((u) => u.trim())
 
-  const holidaySectionNavItems = isHolidayHome
-    ? (
-        [
-          { id: 'stay-section-about', label: messages.listing.sectionNav.about },
-          amenityKeys.length > 0
-            ? { id: 'stay-section-amenities', label: messages.listing.sectionNav.amenities }
-            : null,
-          isHolidayHome && (listing as TListingHolidayHome).pools
-            ? { id: 'stay-section-pool', label: messages.listing.sectionNav.pool }
-            : null,
-          listingBedrooms.length > 0
-            ? { id: 'stay-section-bedrooms', label: messages.listing.sectionNav.bedrooms }
-            : null,
-          holidayHomePricingVisible
-            ? { id: 'stay-section-pricing', label: messages.listing.sectionNav.pricing }
-            : null,
-          priceLines &&
-          (priceLines.included.length > 0 || priceLines.excluded.length > 0)
-            ? {
-                id: 'stay-section-price-inclusions',
-                label: messages.listing.priceInclusions.title,
-              }
-            : null,
-          { id: 'stay-section-calendar', label: messages.listing.sectionNav.calendar },
-          { id: 'stay-section-rules', label: messages.listing.sectionNav.rules },
-          hasPoliciesSection
-            ? { id: 'stay-section-policies', label: messages.listing.sectionNav.policies }
-            : null,
-          Array.isArray(listing.holidayHomeFaqItems) && listing.holidayHomeFaqItems.length > 0
-            ? { id: 'stay-section-faq', label: messages.listing.sectionNav.faq }
-            : null,
-          { id: 'stay-section-location', label: messages.listing.sectionNav.location },
-        ] as const
-      ).filter((x): x is { id: string; label: string } => x != null)
-    : []
-
   const renderSectionHeader = () => (
     <SectionHeader
       address={address ?? ''}
@@ -930,9 +893,6 @@ export default async function StayListingDetailPageContent({
         {/* LEFT COLUMN */}
         <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
-          {isHolidayHome && holidaySectionNavItems.length > 1 ? (
-            <StayListingSectionNav items={holidaySectionNavItems} />
-          ) : null}
           {perksBadges}
           {socialProof}
           {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,

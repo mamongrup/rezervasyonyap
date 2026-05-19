@@ -9,6 +9,7 @@
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
+import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import {
   displayHolidayPropertyTypeLine,
   type HolidayHomePropertyTypeItem,
@@ -282,13 +283,7 @@ export function mapPublicListingItemToListingBase(
     } as TListingBase
   }
 
-  const themeCsv = item.theme_codes?.trim() ?? ''
-  const themeCodes = themeCsv
-    ? themeCsv
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : []
+  const themeCodes = parseHolidayThemeCodes(item.theme_codes ?? undefined)
 
   const cpt = item.cancellation_policy_text?.trim()
 

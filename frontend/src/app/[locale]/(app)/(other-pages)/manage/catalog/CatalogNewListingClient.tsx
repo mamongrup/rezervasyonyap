@@ -4,6 +4,7 @@ import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { extractHolidayHomePoolsFromVerticalMeta, unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
+import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import {
   parseHolidayHomeFaqListingOverlay,
@@ -105,6 +106,7 @@ import {
 } from '@/lib/travel-api'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 import WizardCalendarGrid from '@/components/wizard/WizardCalendarGrid'
+import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
 import {
   defaultHolidayHomePropertyTypeItems,
   holidayPropertyLabelForLocale,
@@ -748,6 +750,7 @@ export default function CatalogNewListingClient({
   const [avgAdCostPercent, setAvgAdCostPercent] = useState('')
   const [cancellationPolicyText, setCancellationPolicyText] = useState('')
   const [ministryLicenseRef, setMinistryLicenseRef] = useState('')
+  const [externalListingRef, setExternalListingRef] = useState('')
   const [shareToSocial, setShareToSocial] = useState(true)
   const [allowAiCaption, setAllowAiCaption] = useState(true)
   const [allowSubMinStayGap, setAllowSubMinStayGap] = useState(false)
@@ -1279,6 +1282,7 @@ export default function CatalogNewListingClient({
           setCommissionPercent(basics.commission_percent ?? '')
           setCancellationPolicyText(basics.cancellation_policy_text ?? '')
           setMinistryLicenseRef(basics.ministry_license_ref ?? '')
+          setExternalListingRef(basics.external_listing_ref ?? '')
           setShareToSocial(Boolean(basics.share_to_social))
           setAllowAiCaption(Boolean(basics.allow_ai_caption))
           setAllowSubMinStayGap(Boolean(basics.allow_sub_min_stay_gap_booking))
@@ -1429,7 +1433,7 @@ export default function CatalogNewListingClient({
         // Villa temaları
         if (categoryCode === 'holiday_home') {
           void getVerticalHolidayHome(lid)
-            .then((d) => setVillaThemes(d.theme_codes ? d.theme_codes.split(',').filter(Boolean) : []))
+            .then((d) => setVillaThemes(parseHolidayThemeCodes(d.theme_codes)))
             .catch(() => {})
         }
 
@@ -2540,6 +2544,7 @@ export default function CatalogNewListingClient({
       if (avgAdCostPercent.trim()) basicsBody.avg_ad_cost_percent = avgAdCostPercent.trim()
       if (cancellationPolicyText.trim()) basicsBody.cancellation_policy_text = cancellationPolicyText.trim()
       if (ministryLicenseRef.trim()) basicsBody.ministry_license_ref = ministryLicenseRef.trim()
+      if (externalListingRef.trim()) basicsBody.external_listing_ref = externalListingRef.trim()
       basicsBody.share_to_social = shareToSocial
       basicsBody.allow_ai_caption = allowAiCaption
       basicsBody.allow_sub_min_stay_gap_booking = allowSubMinStayGap
@@ -2779,7 +2784,7 @@ export default function CatalogNewListingClient({
         return
       }
       if (!editListingId) {
-        router.push(manageUrl)
+        router.push(`${manageUrl}?step=${currentStep}`)
       }
       router.refresh()
     } catch (e) {
@@ -3947,6 +3952,22 @@ export default function CatalogNewListingClient({
               </Section>
             )}
 
+            {isVilla ? (
+              <Section
+                title="Yatak odaları"
+                subtitle="Oda adı, kat ve yatak düzeni — vitrin detayında listelenir."
+              >
+                {editListingId ? (
+                  <HolidayHomeBedroomsEditor listingId={editListingId} />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
+                    İlanı kaydettikten sonra bu adımda yatak odası satırlarını ekleyebilirsiniz. Önce «Kaydet» ile
+                    ilanı oluşturun; kayıt sonrası aynı sihirbazda bu bölüm açılır.
+                  </p>
+                )}
+              </Section>
+            ) : null}
+
             {isVilla && accRules.length > 0 && (
               <Section title="Ev Kuralları" subtitle="Havuz saatleri, evcil hayvan politikası ve diğer konaklama kurallarını seçin.">
                 <div className="flex flex-wrap gap-3">
@@ -4085,8 +4106,10 @@ export default function CatalogNewListingClient({
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="h-10 w-10 text-neutral-300">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                     </svg>
-                    <p className="max-w-xs text-sm text-neutral-500 dark:text-neutral-400">
-                      Önce ilanı kaydedin, ardından bu adımda müsaitlik, dönemsel fiyat ve iCal ayarları yapabilirsiniz.
+                    <p className="max-w-md text-sm text-neutral-500 dark:text-neutral-400">
+                      Önce ilanı kaydedin; ardından bu adımda müsaitlik (opsiyon / fırsat günleri), dönemsel fiyat
+                      (liste fiyatı compare_at), iCal ve harici rezervasyon defteri kullanılabilir. Yatak odaları ve
+                      referans kodu için 2. ve 6. adımlara da dönebilirsiniz.
                     </p>
                     <button type="button" onClick={() => goToStep(6)} className="mt-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700">
                       Fiyat adımına geç →
@@ -4158,6 +4181,31 @@ export default function CatalogNewListingClient({
                             <button type="button" onClick={() => bulkMarkWeekends(true)}
                               className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-transparent dark:text-neutral-400">
                               H.Sonu Müsait
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCalRows((prev) => prev.map((r) => ({ ...r, day_status: 'option' as const })))
+                              }
+                              className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
+                            >
+                              Tümü opsiyon
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCalRows((prev) => prev.map((r) => ({ ...r, day_status: 'promo' as const })))
+                              }
+                              className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
+                            >
+                              Tümü fırsat
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalRows((prev) => prev.map((r) => ({ ...r, day_status: null })))}
+                              className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-transparent dark:text-neutral-400"
+                            >
+                              Durumu temizle
                             </button>
                             <div className="flex items-center gap-1 ml-2">
                               <input type="text" inputMode="decimal" value={bulkPrice} onChange={(e) => setBulkPrice(e.target.value)}
@@ -5300,6 +5348,18 @@ export default function CatalogNewListingClient({
                 />
                 <HintText>Tek kayıt; ilan kaydında ve meta alanında (kurallar) aynı değer kullanılır.</HintText>
               </Field>
+              {isVilla ? (
+                <Field className="mt-3 block max-w-md">
+                  <Label>İlan referans kodu</Label>
+                  <Input
+                    value={externalListingRef}
+                    onChange={(e) => setExternalListingRef(e.target.value)}
+                    placeholder="VIL-2024-001"
+                    className="mt-1"
+                  />
+                  <HintText>Vitrin ve panelde görünen harici referans; kayıtta hemen yazılabilir.</HintText>
+                </Field>
+              ) : null}
             </Section>
 
             {/* Sosyal Medya & AI Ayarları */}

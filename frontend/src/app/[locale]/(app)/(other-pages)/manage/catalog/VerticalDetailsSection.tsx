@@ -10,6 +10,7 @@
  */
 
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
+import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   getListingMeta,
@@ -193,7 +194,7 @@ function VillaSection({
   useEffect(() => {
     void getVerticalHolidayHome(listingId)
       .then((d) => {
-        setThemes(d.theme_codes ? d.theme_codes.split(',').filter(Boolean) : [])
+        setThemes(parseHolidayThemeCodes(d.theme_codes))
       })
       .catch(() => {})
     const token = getStoredAuthToken()
