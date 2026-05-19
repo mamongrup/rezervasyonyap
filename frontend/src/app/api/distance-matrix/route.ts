@@ -14,6 +14,7 @@
  *   results: { id: string; distanceM: number; distanceText: string; durationText: string }[]
  * }
  */
+import { resolveGoogleMapsApiKey } from '@/lib/google-maps-api-key'
 import { NextRequest, NextResponse } from 'next/server'
 
 interface DistanceElement {
@@ -43,13 +44,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'origin ve destinations zorunludur.' }, { status: 400 })
     }
 
-    const key =
-      apiKey?.trim() ||
-      process.env.GOOGLE_MAPS_API_KEY?.trim() ||
-      process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ||
-      ''
+    const key = await resolveGoogleMapsApiKey(apiKey)
     if (!key) {
-      return NextResponse.json({ error: 'API anahtarı bulunamadı.' }, { status: 400 })
+      return NextResponse.json({ error: 'Google Maps API anahtarı bulunamadı (ayarlar veya env).' }, { status: 400 })
     }
 
     const originStr = `${origin.lat},${origin.lng}`

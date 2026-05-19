@@ -59,7 +59,18 @@ check_env() {
     warn "ALLOWED_HOSTS boş — eski proxy build'inde tüm site 400 Bad Request verebilir. Örnek: ALLOWED_HOSTS=rezervasyonyap.tr,www.rezervasyonyap.tr,127.0.0.1,localhost"
   fi
   if [[ -z "${GOOGLE_MAPS_API_KEY:-}" ]] && [[ -z "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}" ]]; then
-    warn "Google Maps anahtarı yok (GOOGLE_MAPS_API_KEY veya NEXT_PUBLIC_GOOGLE_MAPS_API_KEY). Bölge «Mekan—mesafe» Google çekme ve /api/places-nearby çalışmaz. Örnek: deploy/systemd/frontend.env.example"
+    maps_from_settings=""
+    if [[ -n "${INTERNAL_API_ORIGIN:-}" ]]; then
+      maps_from_settings="$(curl -sS --connect-timeout 3 --max-time 8 \
+        "${INTERNAL_API_ORIGIN%/}/api/v1/site/public-config" 2>/dev/null \
+        | sed -n 's/.*"google_maps_api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        | head -n1)"
+    fi
+    if [[ -n "$maps_from_settings" ]]; then
+      ok "Google Maps anahtarı site ayarlarında (public-config); env opsiyonel"
+    else
+      warn "Google Maps: env boş ve public-config'te anahtar yok. Yönetim → Genel ayarlar (Harita) veya GOOGLE_MAPS_API_KEY env."
+    fi
   fi
   ok "$WEB_SERVICE için gerekli env anahtarları tanımlı (frontend.env)"
 }

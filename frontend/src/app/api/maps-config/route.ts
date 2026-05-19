@@ -1,3 +1,4 @@
+import { resolveGoogleMapsApiKey } from '@/lib/google-maps-api-key'
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { NextResponse } from 'next/server'
 
@@ -7,10 +8,11 @@ import { NextResponse } from 'next/server'
 export async function GET() {
   const apiBase =
     apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
+  const apiKey = await resolveGoogleMapsApiKey()
+
   if (!apiBase) {
-    // Fall back to env-only key
     return NextResponse.json({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+      apiKey,
       defaultLat: 39.9334,
       defaultLng: 32.8597,
       defaultZoom: 6,
@@ -24,21 +26,20 @@ export async function GET() {
     if (!res.ok) throw new Error('upstream')
     const data = (await res.json()) as {
       maps?: {
-        google_maps_api_key?: string
         default_center?: { lat?: number; lng?: number }
         default_zoom?: number
       }
     }
     const maps = data.maps ?? {}
     return NextResponse.json({
-      apiKey: maps.google_maps_api_key ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+      apiKey,
       defaultLat: maps.default_center?.lat ?? 39.9334,
       defaultLng: maps.default_center?.lng ?? 32.8597,
       defaultZoom: maps.default_zoom ?? 6,
     })
   } catch {
     return NextResponse.json({
-      apiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '',
+      apiKey,
       defaultLat: 39.9334,
       defaultLng: 32.8597,
       defaultZoom: 6,
