@@ -11,8 +11,11 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import clsx from 'clsx'
 import Form from 'next/form'
+import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export type StayListingReservationCardProps = {
@@ -24,7 +27,8 @@ export type StayListingReservationCardProps = {
   priceCurrency: string | undefined
   saleOff: string | null | undefined
   discountPercent: number | null | undefined
-  handleSubmitForm: (formData: FormData) => Promise<void>
+  /** Env tabanlı demo checkout; `listingId` yoksa kullanılır */
+  handleSubmitForm?: (formData: FormData) => Promise<void>
   /** Tatil evi — ısıtmalı havuz günlük ücreti (havuz bilgisinden); tutar ilan para birimindedir */
   poolHeating?: { dailyAmount: number; feeSummary: string; currencyCode: string } | null
   stayBookingRules?: StayBookingRules
@@ -59,6 +63,8 @@ export default function StayListingReservationCard({
   listingId,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
+  const router = useRouter()
+  const vitrinHref = useVitrinHref()
 
   const [rangeStart, setRangeStart] = useState<Date | null>(() =>
     defaultStayDateRange(stayBookingRules)[0],
@@ -114,6 +120,22 @@ export default function StayListingReservationCard({
 
   const hasMultiplePlans = activePlans.length > 1
   const hasMealPlan = activePlans.some((p) => p.plan_code !== 'room_only')
+
+  const canCheckoutWithListing =
+    Boolean(listingId?.trim()) && rangeStart != null && rangeEnd != null && grandTotal > 0
+
+  function goCheckoutFromSidebar() {
+    if (!listingId?.trim() || !rangeStart || !rangeEnd || grandTotal <= 0) return
+    router.push(
+      buildStayCheckoutUrl(vitrinHref('/checkout'), {
+        listingId,
+        startDate: rangeStart,
+        endDate: rangeEnd,
+        currencyCode,
+        unitPrice: grandTotal,
+      }),
+    )
+  }
 
   return (
     <div
@@ -182,7 +204,13 @@ export default function StayListingReservationCard({
       </div>
 
       <Form
-        action={handleSubmitForm}
+        action={
+          canCheckoutWithListing
+            ? async () => {
+                goCheckoutFromSidebar()
+              }
+            : handleSubmitForm ?? (async () => {})
+        }
         className="mt-2 flex flex-col overflow-visible rounded-2xl border border-neutral-200 dark:border-neutral-700"
         id="booking-form"
       >

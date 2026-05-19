@@ -193,7 +193,14 @@ function emptyListingByLocaleForCodes(codes: readonly string[]): Record<string, 
   return o
 }
 
-function parseRuleJson(json: string): { base: string; weekend: string; minNights: string; label: string; weekly: string } {
+function parseRuleJson(json: string): {
+  base: string
+  weekend: string
+  minNights: string
+  label: string
+  weekly: string
+  compareAt: string
+} {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>
     return {
@@ -202,16 +209,29 @@ function parseRuleJson(json: string): { base: string; weekend: string; minNights
       minNights: String(obj.min_nights ?? obj.minimum_nights ?? ''),
       label: String(obj.label ?? obj.season_name ?? ''),
       weekly: String(obj.weekly_total ?? ''),
+      compareAt: String(
+        obj.compare_at_nightly ?? obj.list_nightly ?? obj.original_nightly ?? obj.msrp_nightly ?? '',
+      ),
     }
-  } catch { return { base: '', weekend: '', minNights: '', label: '', weekly: '' } }
+  } catch {
+    return { base: '', weekend: '', minNights: '', label: '', weekly: '', compareAt: '' }
+  }
 }
 
-function buildRuleJson(base: string, weekend: string, minNights: string, label: string, weeklyTotal: string): string {
+function buildRuleJson(
+  base: string,
+  weekend: string,
+  minNights: string,
+  label: string,
+  weeklyTotal: string,
+  compareAt: string,
+): string {
   const obj: Record<string, string | number> = {}
   if (label.trim()) obj.label = label.trim()
   if (base.trim()) obj.base_nightly = base.trim()
   if (weekend.trim()) obj.weekend_nightly = weekend.trim()
   if (weeklyTotal.trim()) obj.weekly_total = weeklyTotal.trim()
+  if (compareAt.trim()) obj.compare_at_nightly = compareAt.trim()
   if (minNights.trim()) obj.min_nights = parseInt(minNights.trim(), 10)
   return JSON.stringify(obj)
 }
@@ -635,6 +655,7 @@ export default function CatalogNewListingClient({
   const [ruleBase, setRuleBase] = useState('')
   const [ruleWeekend, setRuleWeekend] = useState('')
   const [ruleWeeklyTotal, setRuleWeeklyTotal] = useState('')
+  const [ruleCompareAt, setRuleCompareAt] = useState('')
   const [ruleMinNights, setRuleMinNights] = useState('')
   const [ruleFrom, setRuleFrom] = useState('')
   const [ruleTo, setRuleTo] = useState('')
@@ -1963,6 +1984,7 @@ export default function CatalogNewListingClient({
             am_available: r.am_available,
             pm_available: r.pm_available,
             price_override: r.price_override.trim(),
+            day_status: r.day_status ?? null,
           })),
         },
         orgParam,
@@ -1979,8 +2001,15 @@ export default function CatalogNewListingClient({
   const orgParam2 = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
 
   function ruleReset() {
-    setRuleLabel(''); setRuleBase(''); setRuleWeekend(''); setRuleWeeklyTotal('')
-    setRuleMinNights(''); setRuleFrom(''); setRuleTo(''); setRuleRaw('')
+    setRuleLabel('')
+    setRuleBase('')
+    setRuleWeekend('')
+    setRuleWeeklyTotal('')
+    setRuleCompareAt('')
+    setRuleMinNights('')
+    setRuleFrom('')
+    setRuleTo('')
+    setRuleRaw('')
   }
 
   async function addRule(e: React.FormEvent) {
@@ -1989,7 +2018,7 @@ export default function CatalogNewListingClient({
     if (!token || !editListingId) return
     const ruleJson = showRawJson
       ? ruleRaw.trim()
-      : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal)
+      : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal, ruleCompareAt)
     if (!ruleJson || ruleJson === '{}') return
     setRuleBusy(true)
     try {
@@ -4181,6 +4210,7 @@ export default function CatalogNewListingClient({
                                 <div key={r.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
                                   {parsed.label && <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">{parsed.label}</span>}
                                   {parsed.base && <span className="text-sm font-medium text-neutral-900 dark:text-white">Gece: <span className="font-mono">{parsed.base}</span></span>}
+                                  {parsed.compareAt && <span className="text-sm text-amber-800 dark:text-amber-200">Liste: <span className="font-mono">{parsed.compareAt}</span></span>}
                                   {parsed.weekly && <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">Haftalık: <span className="font-mono">{parsed.weekly}</span></span>}
                                   {parsed.weekend && <span className="text-sm text-blue-700 dark:text-blue-300">Hft.sonu: <span className="font-mono">{parsed.weekend}</span></span>}
                                   {parsed.minNights && <span className="text-xs text-neutral-500">Min. {parsed.minNights} gece</span>}
@@ -4220,6 +4250,13 @@ export default function CatalogNewListingClient({
                                   <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleWeekend} onChange={(e) => setRuleWeekend(e.target.value)} placeholder="3200" />
                                 </Field>
                                 <Field className="block sm:col-span-2">
+                                  <Label>İndirim öncesi liste fiyatı (opsiyonel)</Label>
+                                  <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleCompareAt} onChange={(e) => setRuleCompareAt(e.target.value)} placeholder="3000" />
+                                  <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                                    Satış geceliğinden yüksekse vitrin dönem tablosunda üstü çizili liste + indirimli fiyat gösterilir.
+                                  </p>
+                                </Field>
+                                <Field className="block sm:col-span-2">
                                   <Label>Haftalık Toplam (opsiyonel)</Label>
                                   <Input type="text" inputMode="decimal" className="mt-1 font-mono" value={ruleWeeklyTotal} onChange={(e) => setRuleWeeklyTotal(e.target.value)} placeholder="70000" />
                                 </Field>
@@ -4236,7 +4273,7 @@ export default function CatalogNewListingClient({
                               <div className="space-y-3">
                                 <Field className="block">
                                   <Label>Ham JSON (rule_json)</Label>
-                                  <Textarea className="mt-1 font-mono text-sm" rows={3} value={ruleRaw} onChange={(e) => setRuleRaw(e.target.value)} placeholder='{"base_nightly":"2500","min_nights":3}' />
+                                  <Textarea className="mt-1 font-mono text-sm" rows={3} value={ruleRaw} onChange={(e) => setRuleRaw(e.target.value)} placeholder='{"base_nightly":"2500","compare_at_nightly":"3000","min_nights":3}' />
                                 </Field>
                                 <div className="grid gap-4 sm:grid-cols-2">
                                   <Field className="block"><Label>Başlangıç Tarihi</Label><Input type="date" className="mt-1" value={ruleFrom} onChange={(e) => setRuleFrom(e.target.value)} /></Field>

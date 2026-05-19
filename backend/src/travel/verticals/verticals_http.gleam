@@ -130,6 +130,146 @@ pub fn patch_holiday_home(req: Request, ctx: Context, listing_id: String) -> Res
   }
 }
 
+// --- holiday home bedrooms ---
+
+fn hh_bedroom_row() -> decode.Decoder(#(String, String, String, String, String, Bool)) {
+  use id <- decode.field(0, decode.string)
+  use nm <- decode.field(1, decode.string)
+  use fl <- decode.field(2, decode.string)
+  use bd <- decode.field(3, decode.string)
+  use so <- decode.field(4, decode.string)
+  use en <- decode.field(5, decode.bool)
+  decode.success(#(id, nm, fl, bd, so, en))
+}
+
+fn hh_bedroom_json(r: #(String, String, String, String, String, Bool)) -> json.Json {
+  let #(id, nm, fl, bd, so, en) = r
+  let flj = case fl == "" {
+    True -> json.null()
+    False -> json.string(fl)
+  }
+  json.object([
+    #("id", json.string(id)),
+    #("name", json.string(nm)),
+    #("floor_label", flj),
+    #("beds_description", json.string(bd)),
+    #("sort_order", json.string(so)),
+    #("ensuite", json.bool(en)),
+  ])
+}
+
+/// GET /api/v1/verticals/listings/:listing_id/holiday-home/bedrooms
+pub fn list_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select id::text, coalesce(name,''), coalesce(floor_label::text,''), coalesce(beds_description,''), coalesce(sort_order::text,'0'), ensuite from listing_bedrooms where listing_id = $1::uuid order by sort_order, created_at",
+    )
+    |> pog.parameter(pog.text(lid_param(listing_id)))
+    |> pog.returning(hh_bedroom_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "query_failed")
+    Ok(ret) -> {
+      let arr = list.map(ret.rows, hh_bedroom_json)
+      let body =
+        json.object([#("bedrooms", json.array(from: arr, of: fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+fn hh_bedroom_input_decoder() -> decode.Decoder(#(String, Option(String), String, Int, Bool)) {
+  decode.field("name", decode.string, fn(nm) {
+    decode.optional_field("floor_label", "", decode.string, fn(fl_raw) {
+      decode.field("beds_description", decode.string, fn(bd) {
+        decode.optional_field("sort_order", 0, decode.int, fn(so) {
+          decode.optional_field("ensuite", False, decode.bool, fn(en) {
+            let fl = case string.trim(fl_raw) == "" {
+              True -> None
+              False -> Some(string.trim(fl_raw))
+            }
+            decode.success(#(string.trim(nm), fl, string.trim(bd), so, en))
+          })
+        })
+      })
+    })
+  })
+}
+
+fn hh_bedrooms_put_decoder() -> decode.Decoder(List(#(String, Option(String), String, Int, Bool))) {
+  decode.field("bedrooms", decode.list(hh_bedroom_input_decoder()), fn(rows) {
+    decode.success(rows)
+  })
+}
+
+/// PUT /api/v1/verticals/listings/:listing_id/holiday-home/bedrooms — tüm listeyi değiştirir
+pub fn put_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, hh_bedrooms_put_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(rows) ->
+          case pog.transaction(ctx.db, fn(conn) {
+            case
+              pog.query("delete from listing_bedrooms where listing_id = $1::uuid")
+              |> pog.parameter(pog.text(lid_param(listing_id)))
+              |> pog.execute(conn)
+            {
+              Error(_) -> Error("bedrooms_delete_failed")
+              Ok(_) -> hh_insert_bedrooms(conn, listing_id, rows, 0)
+            }
+          }) {
+            Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
+            Error(pog.TransactionQueryError(_)) -> json_err(500, "bedrooms_transaction_failed")
+            Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
+          }
+      }
+  }
+}
+
+fn hh_insert_bedrooms(
+  conn: pog.Connection,
+  listing_id: String,
+  rows: List(#(String, Option(String), String, Int, Bool)),
+  idx: Int,
+) -> Result(Nil, String) {
+  case rows {
+    [] -> Ok(Nil)
+    [first, ..rest] -> {
+      let #(nm, fl_opt, bd, _so, en) = first
+      let nm_t = string.trim(nm)
+      case nm_t == "" && bd == "" {
+        True -> hh_insert_bedrooms(conn, listing_id, rest, idx + 1)
+        False -> {
+          let fl_p = case fl_opt {
+            None -> pog.null()
+            Some(s) -> pog.text(s)
+          }
+          case
+            pog.query(
+              "insert into listing_bedrooms (listing_id, sort_order, name, floor_label, beds_description, ensuite) values ($1::uuid, $2::smallint, $3, $4, $5, $6)",
+            )
+            |> pog.parameter(pog.text(lid_param(listing_id)))
+            |> pog.parameter(pog.int(idx))
+            |> pog.parameter(pog.text(nm_t))
+            |> pog.parameter(fl_p)
+            |> pog.parameter(pog.text(bd))
+            |> pog.parameter(pog.bool(en))
+            |> pog.execute(conn)
+          {
+            Error(_) -> Error("bedrooms_insert_failed")
+            Ok(_) -> hh_insert_bedrooms(conn, listing_id, rest, idx + 1)
+          }
+        }
+      }
+    }
+  }
+}
+
 // --- yacht ---
 
 /// GET /api/v1/verticals/listings/:listing_id/yacht

@@ -1298,6 +1298,32 @@ export type PublicListingVitrine = {
   contact_name: string | null
   /** `location_name` veya panel `listing_meta.address` birleşimi — başlık altı konum satırı */
   location_label?: string | null
+  external_listing_ref?: string | null
+}
+
+export type PublicListingPriceLines = {
+  included: { label: string }[]
+  excluded: { label: string }[]
+}
+
+export async function getPublicListingPriceLines(
+  listingId: string,
+  locale?: string,
+): Promise<PublicListingPriceLines | null> {
+  const b = base()
+  if (!b) return null
+  const u = new URLSearchParams()
+  if (locale?.trim()) u.set('locale', locale.trim())
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/price-lines${u.toString() ? `?${u}` : ''}`,
+      typeof window === 'undefined' ? { next: { revalidate: 120 } } : {},
+    )
+    if (!res.ok) return null
+    return json<PublicListingPriceLines>(res)
+  } catch {
+    return null
+  }
 }
 
 export async function getPublicListingVitrine(
@@ -1375,6 +1401,9 @@ export async function patchManageHotelDetails(
   return json(res)
 }
 
+/** Takvim günü özel durumu — `listing_availability_calendar.day_status` */
+export type ListingAvailabilityDayStatus = 'option' | 'promo'
+
 export type ListingAvailabilityDay = {
   day: string
   is_available: boolean
@@ -1383,6 +1412,8 @@ export type ListingAvailabilityDay = {
   am_available?: boolean
   /** Öğleden sonra müsait (yoksa `is_available` kullanılır) */
   pm_available?: boolean
+  /** Opsiyon (hold) veya fırsat (promo) — vitrin renkleri */
+  day_status?: ListingAvailabilityDayStatus | null
 }
 
 export async function getListingAvailabilityCalendar(
@@ -1418,6 +1449,7 @@ export async function putListingAvailabilityCalendar(
       price_override?: string
       am_available?: boolean
       pm_available?: boolean
+      day_status?: ListingAvailabilityDayStatus | '' | null
     }[]
   },
   params?: { organizationId?: string },
@@ -1812,6 +1844,40 @@ export async function fetchPublicListingAvailabilityDaysSafe(
     from: formatLocalYmd(from),
     to: formatLocalYmd(to),
   })
+}
+
+export type ListingBedroomRow = {
+  id: string
+  name: string
+  floor_label: string | null
+  beds_description: string
+  sort_order: string
+  ensuite: boolean
+}
+
+export async function getPublicListingBedrooms(
+  listingId: string,
+): Promise<ListingBedroomRow[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/bedrooms`,
+      { next: { revalidate: 120 } },
+    )
+    if (!res.ok) return []
+    const data = await json<{ bedrooms: ListingBedroomRow[] }>(res)
+    return data.bedrooms ?? []
+  } catch {
+    return []
+  }
+}
+
+export async function fetchPublicListingBedroomsSafe(
+  listingId: string | null | undefined,
+): Promise<ListingBedroomRow[]> {
+  if (!listingId?.trim()) return []
+  return getPublicListingBedrooms(listingId.trim())
 }
 
 /** POST — yeni para birimi (yönetici oturumu; TCMB sonrası kur için önce ekleyin). */
@@ -8156,6 +8222,40 @@ export async function patchVerticalHolidayHome(
   return json(res)
 }
 
+export async function getVerticalHolidayHomeBedrooms(
+  listingId: string,
+): Promise<{ bedrooms: ListingBedroomRow[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(v(listingId, '/holiday-home/bedrooms'))
+  if (!res.ok) throw new Error(`vertical_holiday_home_bedrooms_${res.status}`)
+  return json(res)
+}
+
+export async function putVerticalHolidayHomeBedrooms(
+  listingId: string,
+  bedrooms: {
+    name: string
+    floor_label?: string
+    beds_description: string
+    sort_order?: number
+    ensuite?: boolean
+  }[],
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(v(listingId, '/holiday-home/bedrooms'), {
+    method: 'PUT',
+    headers: locJson(),
+    body: JSON.stringify({ bedrooms }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `vertical_holiday_home_bedrooms_put_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function getVerticalYacht(listingId: string): Promise<Record<string, string>> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
@@ -8396,6 +8496,8 @@ export interface PublicListingSearchParams {
   theme?: string
   /** Vitrin sırası: boş → en yeni; `recommended` \| `rating` → puana göre (önce yüksek yıldız) */
   sort?: string
+  /** Tatil evi: `listing_attributes` anahtarları (virgülle, örn. pool,wifi) */
+  attrs?: string
 }
 
 export type MealPlanSummary = 'room_only' | 'meal_only' | 'both'
@@ -8506,6 +8608,7 @@ export async function searchPublicListings(
   if (params.listingIds?.length)   u.set('listing_ids', params.listingIds.join(','))
   if (params.theme?.trim())        u.set('theme', params.theme.trim())
   if (params.sort?.trim())         u.set('sort', params.sort.trim())
+  if (params.attrs?.trim())        u.set('attrs', params.attrs.trim())
 
   try {
     const init: RequestInit =
@@ -8595,6 +8698,7 @@ export interface ListingBasicsPatch {
   // İçerik & lisanslama
   cancellation_policy_text?: string
   ministry_license_ref?: string
+  external_listing_ref?: string
   // Sosyal & AI
   share_to_social?: boolean
   allow_ai_caption?: boolean
@@ -8611,6 +8715,7 @@ export interface ListingBasicsSnapshot {
   commission_percent: string
   cancellation_policy_text: string
   ministry_license_ref: string
+  external_listing_ref?: string
   pool_size_label?: string
   high_season_dates_json?: string
   confirm_deadline_normal_h?: string

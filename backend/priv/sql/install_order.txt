@@ -129,6 +129,9 @@ modules/284_listings_location_name_backfill_from_meta.sql
 modules/285_listings_image_avif_effort_faster.sql
 modules/286_listings_service_pois.sql
 modules/287_location_pages_service_pois.sql
+modules/288_manage_catalog_holiday_home_faq_hub_i18n.sql
+modules/289_listing_availability_day_status.sql
+modules/290_listing_bedrooms.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

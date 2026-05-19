@@ -282,7 +282,7 @@ export default function ListingSeasonalPricingSection({
                           <td className="whitespace-nowrap px-4 py-3 text-end">
                             <PriceCell
                               amount={row.roomOnlyNightly ?? row.nightlyAmount}
-                              compareAt={null}
+                              compareAt={row.roomOnlyCompareAtNightly}
                               formatConverted={formatConverted}
                               currency={row.listingCurrency}
                               mealBadge={{
@@ -294,7 +294,7 @@ export default function ListingSeasonalPricingSection({
                           <td className="whitespace-nowrap px-4 py-3 text-end">
                             <PriceCell
                               amount={row.roomOnlyWeekly ?? row.weeklyAmount}
-                              compareAt={null}
+                              compareAt={row.roomOnlyCompareAtWeekly}
                               formatConverted={formatConverted}
                               currency={row.listingCurrency}
                             />
@@ -302,7 +302,7 @@ export default function ListingSeasonalPricingSection({
                           <td className="whitespace-nowrap px-4 py-3 text-end">
                             <PriceCell
                               amount={row.mealsIncludedNightly ?? row.nightlyAmount}
-                              compareAt={null}
+                              compareAt={row.mealsIncludedCompareAtNightly}
                               formatConverted={formatConverted}
                               currency={row.listingCurrency}
                               mealBadge={{
@@ -314,7 +314,7 @@ export default function ListingSeasonalPricingSection({
                           <td className="whitespace-nowrap px-4 py-3 text-end">
                             <PriceCell
                               amount={row.mealsIncludedWeekly ?? row.weeklyAmount}
-                              compareAt={null}
+                              compareAt={row.mealsIncludedCompareAtWeekly}
                               formatConverted={formatConverted}
                               currency={row.listingCurrency}
                             />

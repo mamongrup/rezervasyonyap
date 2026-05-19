@@ -5,7 +5,11 @@ import DatePickerCustomHeaderTwoMonth from '@/components/DatePickerCustomHeaderT
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { datePickerLocaleId, intlDateLocaleTag } from '@/lib/i18n-config'
 import '@/lib/register-datepicker-locales'
-import { isListingDayFullyBlocked, listingDayAmPm } from '@/lib/listing-availability-day'
+import {
+  isListingDayFullyBlocked,
+  listingDayAmPm,
+  listingDayVisualStatus,
+} from '@/lib/listing-availability-day'
 import {
   addDays,
   defaultRangeStayNights,
@@ -183,7 +187,16 @@ function SectionDateRangeCalendar({
             const ymd = date ? formatLocalYmd(date) : ''
             const row = ymd ? byYmd.get(ymd) : undefined
             const { am, pm } = listingDayAmPm(row)
-            return <DatePickerCustomDay dayOfMonth={day} date={date} am={am} pm={pm} />
+            const visualStatus = listingDayVisualStatus(row)
+            return (
+              <DatePickerCustomDay
+                dayOfMonth={day}
+                date={date}
+                am={am}
+                pm={pm}
+                visualStatus={visualStatus}
+              />
+            )
           }}
         />
         </div>
@@ -256,6 +269,25 @@ export default function SectionDateRange({
         onCompleteRange={onCompleteRange}
         initialMonthsShown={initialMonthsShown}
       />
+
+      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-neutral-600 dark:text-neutral-400">
+        <li className="flex items-center gap-2">
+          <span className="inline-block size-3 rounded-sm border border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-900" />
+          {copy.legendAvailable}
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="inline-block size-3 rounded-sm bg-neutral-200 opacity-60 dark:bg-neutral-700" />
+          {copy.legendBlocked}
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="inline-block size-3 rounded-sm ring-2 ring-amber-400/90 bg-amber-50 dark:bg-amber-950/40" />
+          {copy.legendOption}
+        </li>
+        <li className="flex items-center gap-2">
+          <span className="inline-block size-3 rounded-sm ring-2 ring-emerald-500/80 bg-emerald-50 dark:bg-emerald-950/40" />
+          {copy.legendPromo}
+        </li>
+      </ul>
     </div>
   )
 }

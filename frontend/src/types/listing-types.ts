@@ -50,6 +50,8 @@ export interface TListingBase {
   isAds?: string | null
   /** Kültür ve Turizm Bakanlığı / tesis kayıt no — vitrin */
   ministryLicenseRef?: string
+  /** Panel `listings.external_listing_ref` — vitrin referans kodu */
+  externalListingRef?: string
   /** Ön ödeme yüzdesi (sayısal metin) — vitrin */
   prepaymentPercent?: string
   /** İptal politikası — panelden serbest metin (`listings.cancellation_policy_text`) */

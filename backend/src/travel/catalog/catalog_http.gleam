@@ -1856,13 +1856,21 @@ fn parse_iso_date_ymd(raw: String) -> Result(calendar.Date, Nil) {
   }
 }
 
-fn avail_day_row() -> decode.Decoder(#(String, Bool, String, Bool, Bool)) {
+fn avail_day_row() -> decode.Decoder(#(String, Bool, String, Bool, Bool, String)) {
   use d <- decode.field(0, decode.string)
   use av <- decode.field(1, decode.bool)
   use po <- decode.field(2, decode.string)
   use am <- decode.field(3, decode.bool)
   use pm <- decode.field(4, decode.bool)
-  decode.success(#(d, av, po, am, pm))
+  use st <- decode.field(5, decode.string)
+  decode.success(#(d, av, po, am, pm, st))
+}
+
+fn avail_day_status_json(st: String) -> json.Json {
+  case string.trim(st) {
+    "" -> json.null()
+    s -> json.string(s)
+  }
 }
 
 /// GET /api/v1/catalog/listings/:id/availability-calendar?from=YYYY-MM-DD&to=YYYY-MM-DD
@@ -1894,7 +1902,7 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
                 Ok(from_date), Ok(to_date) ->
                   case
                     pog.query(
-                      "select day::text, coalesce((coalesce(am_available, is_available, false) or coalesce(pm_available, is_available, false)), false), coalesce(price_override::text,''), coalesce(am_available, is_available, false), coalesce(pm_available, is_available, false) from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
+                      "select day::text, coalesce((coalesce(am_available, is_available, false) or coalesce(pm_available, is_available, false)), false), coalesce(price_override::text,''), coalesce(am_available, is_available, false), coalesce(pm_available, is_available, false), coalesce(day_status::text,'') from listing_availability_calendar where listing_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
                     )
                     |> pog.parameter(pog.text(listing_id))
                     |> pog.parameter(pog.calendar_date(from_date))
@@ -1913,7 +1921,7 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
                     Ok(ret) -> {
                       let arr =
                         list.map(ret.rows, fn(row) {
-                          let #(d, av, po, am, pm) = row
+                          let #(d, av, po, am, pm, st) = row
                           let poj = case po == "" {
                             True -> json.null()
                             False -> json.string(po)
@@ -1924,6 +1932,7 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
                             #("price_override", poj),
                             #("am_available", json.bool(am)),
                             #("pm_available", json.bool(pm)),
+                            #("day_status", avail_day_status_json(st)),
                           ])
                         })
                       let body =
@@ -1940,22 +1949,29 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
   }
 }
 
-fn day_patch_decoder() -> decode.Decoder(#(String, Bool, Bool, Bool, String)) {
+fn day_patch_decoder() -> decode.Decoder(#(String, Bool, Bool, Bool, String, String)) {
   decode.field("day", decode.string, fn(day) {
     decode.field("is_available", decode.bool, fn(ia) {
       decode.optional_field("am_available", None, decode.optional(decode.bool), fn(am_opt) {
         decode.optional_field("pm_available", None, decode.optional(decode.bool), fn(pm_opt) {
           decode.optional_field("price_override", "", decode.string, fn(po) {
-            let am = case am_opt {
-              Some(a) -> a
-              None -> ia
-            }
-            let pm = case pm_opt {
-              Some(p) -> p
-              None -> ia
-            }
-            let combined = am || pm
-            decode.success(#(string.trim(day), combined, am, pm, string.trim(po)))
+            decode.optional_field("day_status", "", decode.string, fn(st_raw) {
+              let am = case am_opt {
+                Some(a) -> a
+                None -> ia
+              }
+              let pm = case pm_opt {
+                Some(p) -> p
+                None -> ia
+              }
+              let combined = am || pm
+              let st = string.trim(st_raw)
+              let st_norm = case st {
+                "option" | "promo" -> st
+                _ -> ""
+              }
+              decode.success(#(string.trim(day), combined, am, pm, string.trim(po), st_norm))
+            })
           })
         })
       })
@@ -1963,29 +1979,33 @@ fn day_patch_decoder() -> decode.Decoder(#(String, Bool, Bool, Bool, String)) {
   })
 }
 
-fn put_availability_body_decoder() -> decode.Decoder(List(#(String, Bool, Bool, Bool, String))) {
+fn put_availability_body_decoder() -> decode.Decoder(List(#(String, Bool, Bool, Bool, String, String))) {
   decode.field("days", decode.list(day_patch_decoder()), fn(days) { decode.success(days) })
 }
 
 fn upsert_availability_days(
   conn: pog.Connection,
   listing_id: String,
-  days: List(#(String, Bool, Bool, Bool, String)),
+  days: List(#(String, Bool, Bool, Bool, String, String)),
 ) -> Result(Nil, String) {
   case days {
     [] -> Ok(Nil)
     [first, ..rest] -> {
-      let #(day, combined, am, pm, po_raw) = first
+      let #(day, combined, am, pm, po_raw, st_raw) = first
       let po_p = case po_raw == "" {
         True -> pog.null()
         False -> pog.text(po_raw)
+      }
+      let st_p = case st_raw == "" {
+        True -> pog.null()
+        False -> pog.text(st_raw)
       }
       case parse_iso_date_ymd(day) {
         Error(_) -> Error("invalid_day_format")
         Ok(day_cal) ->
           case
             pog.query(
-              "insert into listing_availability_calendar (listing_id, day, is_available, am_available, pm_available, price_override) values ($1::uuid, $2::date, $3, $4, $5, case when $6::text is null or btrim($6::text) = '' then null else $6::numeric end) on conflict (listing_id, day) do update set is_available = excluded.is_available, am_available = excluded.am_available, pm_available = excluded.pm_available, price_override = excluded.price_override",
+              "insert into listing_availability_calendar (listing_id, day, is_available, am_available, pm_available, price_override, day_status) values ($1::uuid, $2::date, $3, $4, $5, case when $6::text is null or btrim($6::text) = '' then null else $6::numeric end, $7) on conflict (listing_id, day) do update set is_available = excluded.is_available, am_available = excluded.am_available, pm_available = excluded.pm_available, price_override = excluded.price_override, day_status = excluded.day_status",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.calendar_date(day_cal))
@@ -1993,6 +2013,7 @@ fn upsert_availability_days(
             |> pog.parameter(pog.bool(am))
             |> pog.parameter(pog.bool(pm))
             |> pog.parameter(po_p)
+            |> pog.parameter(st_p)
             |> pog.execute(conn)
           {
             Error(_) -> Error("availability_upsert_failed")
@@ -2194,6 +2215,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
     Bool,
     Bool,
     Bool,
+    String,
   ),
 ) {
   use status <- decode.field(0, decode.string)
@@ -2213,6 +2235,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
   use sts <- decode.field(14, decode.bool)
   use aai <- decode.field(15, decode.bool)
   use asg <- decode.field(16, decode.bool)
+  use elr <- decode.field(17, decode.string)
   decode.success(#(
     status,
     msn,
@@ -2231,6 +2254,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
     sts,
     aai,
     asg,
+    elr,
   ))
 }
 
@@ -2258,7 +2282,7 @@ pub fn get_listing_basics(
         Ok(True) ->
           case
             pog.query(
-              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false) from listings where id = $1::uuid and organization_id = $2::uuid",
+              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false), coalesce(external_listing_ref::text, '') from listings where id = $1::uuid and organization_id = $2::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
@@ -2295,6 +2319,7 @@ pub fn get_listing_basics(
                     sts,
                     aai,
                     asg,
+                    elr,
                   ),
                 ] -> {
                   let body =
@@ -2325,6 +2350,7 @@ pub fn get_listing_basics(
                         "allow_sub_min_stay_gap_booking",
                         json.bool(asg),
                       ),
+                      #("external_listing_ref", json.string(elr)),
                     ])
                     |> json.to_string
                   wisp.json_response(body, 200)
@@ -2354,6 +2380,7 @@ type BasicsPatch {
     avg_ad_cost_percent: String,
     cancellation_policy_text: String,
     ministry_license_ref: String,
+    external_listing_ref: String,
     share_to_social: Option(Bool),
     allow_ai_caption: Option(Bool),
     allow_sub_min_stay_gap_booking: Option(Bool),
@@ -2375,6 +2402,7 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
                         decode.optional_field("avg_ad_cost_percent", "", decode.string, fn(aac) {
                           decode.optional_field("cancellation_policy_text", "", decode.string, fn(cpt) {
                             decode.optional_field("ministry_license_ref", "", decode.string, fn(mlr) {
+                              decode.optional_field("external_listing_ref", "", decode.string, fn(elr) {
                               decode.optional_field("share_to_social", None, decode.optional(decode.bool), fn(sts_opt) {
                                 decode.optional_field("allow_ai_caption", None, decode.optional(decode.bool), fn(aai_opt) {
                                   decode.optional_field("allow_sub_min_stay_gap_booking", None, decode.optional(decode.bool), fn(asg_opt) {
@@ -2393,12 +2421,14 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
                                       avg_ad_cost_percent: aac,
                                       cancellation_policy_text: cpt,
                                       ministry_license_ref: mlr,
+                                      external_listing_ref: elr,
                                       share_to_social: sts_opt,
                                       allow_ai_caption: aai_opt,
                                       allow_sub_min_stay_gap_booking: asg_opt,
                                     ))
                                   })
                                 })
+                              })
                               })
                             })
                           })
@@ -2458,9 +2488,10 @@ pub fn patch_listing_basics(
                           <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
                           <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
                           <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
-                          <> "share_to_social = case when $17 = '' then share_to_social when $17 = 'true' then true else false end, "
-                          <> "allow_ai_caption = case when $18 = '' then allow_ai_caption when $18 = 'true' then true else false end, "
-                          <> "allow_sub_min_stay_gap_booking = case when $19 = '' then allow_sub_min_stay_gap_booking when $19 = 'true' then true else false end, "
+                          <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
+                          <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
+                          <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
+                          <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
                           <> "updated_at = now() "
                           <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
                         )
@@ -2480,6 +2511,7 @@ pub fn patch_listing_basics(
                         |> pog.parameter(pog.text(string.trim(p.avg_ad_cost_percent)))
                         |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
                         |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
+                        |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
                         |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
                         |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
                         |> pog.parameter(pog.text(basics_patch_bool_param(
@@ -3994,6 +4026,78 @@ pub fn list_public_listing_price_rules(
   }
 }
 
+fn public_price_line_row() -> decode.Decoder(#(String, String)) {
+  use scope <- decode.field(0, decode.string)
+  use label <- decode.field(1, decode.string)
+  decode.success(#(scope, label))
+}
+
+/// GET /api/v1/catalog/public/listings/:id/price-lines?locale=tr — vitrin dahil/hariç kalemleri
+pub fn list_public_listing_price_lines(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let locale_raw =
+    list.key_find(qs, "locale")
+    |> result.unwrap("tr")
+    |> string.trim
+  let locale = case locale_raw == "" {
+    True -> "tr"
+    False -> locale_raw
+  }
+  case
+    pog.query(
+      "select i.scope, coalesce(nullif(trim(t.label), ''), i.code) "
+      <> "from listing_price_line_selections s "
+      <> "join category_price_line_items i on i.id = s.item_id and i.is_active = true "
+      <> "inner join listings l on l.id = s.listing_id and l.status = 'published' "
+      <> "left join category_price_line_item_translations t on t.item_id = i.id "
+      <> "and t.locale_id = (select id from locales where lower(code) = lower($2) limit 1) "
+      <> "where s.listing_id = $1::uuid "
+      <> "order by i.scope, i.sort_order, i.code",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(locale))
+    |> pog.returning(public_price_line_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "public_price_lines_query_failed")
+    Ok(ret) -> {
+      let inc_json =
+        list.filter(ret.rows, fn(r) {
+          let #(scope, _) = r
+          scope == "included"
+        })
+        |> list.map(fn(r) {
+          let #(_, lbl) = r
+          json.object([#("label", json.string(lbl))])
+        })
+      let exc_json =
+        list.filter(ret.rows, fn(r) {
+          let #(scope, _) = r
+          scope == "excluded"
+        })
+        |> list.map(fn(r) {
+          let #(_, lbl) = r
+          json.object([#("label", json.string(lbl))])
+        })
+      let body =
+        json.object([
+          #("included", json.array(from: inc_json, of: fn(x) { x })),
+          #("excluded", json.array(from: exc_json, of: fn(x) { x })),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
 /// GET /api/v1/catalog/public/listings/:id/availability-calendar?from=YYYY-MM-DD&to=YYYY-MM-DD — vitrin (yayında ilan)
 pub fn list_public_listing_availability_calendar(
   req: Request,
@@ -4020,7 +4124,7 @@ pub fn list_public_listing_availability_calendar(
         Ok(from_date), Ok(to_date) ->
           case
             pog.query(
-              "select c.day::text, coalesce((coalesce(c.am_available, c.is_available, false) or coalesce(c.pm_available, c.is_available, false)), false), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available, false), coalesce(c.pm_available, c.is_available, false) "
+              "select c.day::text, coalesce((coalesce(c.am_available, c.is_available, false) or coalesce(c.pm_available, c.is_available, false)), false), coalesce(c.price_override::text,''), coalesce(c.am_available, c.is_available, false), coalesce(c.pm_available, c.is_available, false), coalesce(c.day_status::text,'') "
               <> "from listing_availability_calendar c "
               <> "inner join listings l on l.id = c.listing_id and l.status = 'published' "
               <> "where c.listing_id = $1::uuid and c.day >= $2::date and c.day <= $3::date "
@@ -4043,7 +4147,7 @@ pub fn list_public_listing_availability_calendar(
             Ok(ret) -> {
               let arr =
                 list.map(ret.rows, fn(row) {
-                  let #(d, av, po, am, pm) = row
+                  let #(d, av, po, am, pm, st) = row
                   let poj = case po == "" {
                     True -> json.null()
                     False -> json.string(po)
@@ -4054,6 +4158,7 @@ pub fn list_public_listing_availability_calendar(
                     #("price_override", poj),
                     #("am_available", json.bool(am)),
                     #("pm_available", json.bool(pm)),
+                    #("day_status", avail_day_status_json(st)),
                   ])
                 })
               let body =
@@ -4067,12 +4172,69 @@ pub fn list_public_listing_availability_calendar(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String)) {
+fn bedroom_row() -> decode.Decoder(#(String, String, String, String, String, Bool)) {
+  use id <- decode.field(0, decode.string)
+  use nm <- decode.field(1, decode.string)
+  use fl <- decode.field(2, decode.string)
+  use bd <- decode.field(3, decode.string)
+  use so <- decode.field(4, decode.string)
+  use en <- decode.field(5, decode.bool)
+  decode.success(#(id, nm, fl, bd, so, en))
+}
+
+fn bedroom_to_json(r: #(String, String, String, String, String, Bool)) -> json.Json {
+  let #(id, nm, fl, bd, so, en) = r
+  let flj = case fl == "" {
+    True -> json.null()
+    False -> json.string(fl)
+  }
+  json.object([
+    #("id", json.string(id)),
+    #("name", json.string(nm)),
+    #("floor_label", flj),
+    #("beds_description", json.string(bd)),
+    #("sort_order", json.string(so)),
+    #("ensuite", json.bool(en)),
+  ])
+}
+
+/// GET /api/v1/catalog/public/listings/:id/bedrooms — vitrin (yayında ilan)
+pub fn list_public_listing_bedrooms(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select b.id::text, coalesce(b.name,''), coalesce(b.floor_label::text,''), coalesce(b.beds_description,''), coalesce(b.sort_order::text,'0'), b.ensuite "
+      <> "from listing_bedrooms b "
+      <> "inner join listings l on l.id = b.listing_id and l.status = 'published' "
+      <> "where b.listing_id = $1::uuid "
+      <> "order by b.sort_order, b.created_at",
+    )
+    |> pog.parameter(pog.text(string.trim(listing_id)))
+    |> pog.returning(bedroom_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "public_bedrooms_query_failed")
+    Ok(ret) -> {
+      let arr = list.map(ret.rows, bedroom_to_json)
+      let body =
+        json.object([#("bedrooms", json.array(from: arr, of: fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
   use location_label <- decode.field(3, decode.string)
-  decode.success(#(title, description, contact_name, location_label))
+  use external_listing_ref <- decode.field(4, decode.string)
+  decode.success(#(title, description, contact_name, location_label, external_listing_ref))
 }
 
 /// GET /api/v1/catalog/public/listings/:id/vitrine?locale=tr — yayında ilan başlığı, açıklaması, iletişim adı (vitrin)
@@ -4106,7 +4268,8 @@ pub fn get_public_listing_vitrine(
       <> "join locales lo on lo.id = lt.locale_id "
       <> "where lt.listing_id = l.id and lower(lo.code) = lower($2) limit 1), ''), "
       <> "coalesce((select c.contact_name from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
-      <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), '') "
+      <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
+      <> "coalesce(l.external_listing_ref::text, '') "
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -4119,7 +4282,13 @@ pub fn get_public_listing_vitrine(
       case ret.rows {
         [] -> json_err(404, "listing_not_found")
         [first, ..] -> {
-          let #(title, description, contact_name, location_label) = first
+          let #(
+            title,
+            description,
+            contact_name,
+            location_label,
+            external_listing_ref,
+          ) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
             False -> json.string(string.trim(contact_name))
@@ -4128,12 +4297,17 @@ pub fn get_public_listing_vitrine(
             True -> json.null()
             False -> json.string(string.trim(location_label))
           }
+          let ref_j = case string.trim(external_listing_ref) == "" {
+            True -> json.null()
+            False -> json.string(string.trim(external_listing_ref))
+          }
           let body =
             json.object([
               #("title", json.string(title)),
               #("description", json.string(description)),
               #("contact_name", cnj),
               #("location_label", loc_j),
+              #("external_listing_ref", ref_j),
             ])
             |> json.to_string
           wisp.json_response(body, 200)

@@ -343,21 +343,7 @@ export function applyHolidayListingQueryFilters(
     })
   }
 
-  const attrs =
-    query.attrs
-      ?.split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean) ?? []
-  if (attrs.length > 0) {
-    out = out.filter((l) => {
-      const row = l as { pool?: boolean; beachFront?: boolean }
-      return attrs.every((k) => {
-        if (k === 'pool') return row.pool === true
-        if (k === 'beach') return row.beachFront === true
-        return true
-      })
-    })
-  }
+  // `attrs` — API `listing_attributes` üzerinden filtreler (`searchPublicListings`); istemci tekrar filtrelemez.
 
   const themeNeedle =
     query.theme
@@ -488,6 +474,7 @@ export async function fetchCategoryListings(
       drop_off: query.drop_off,
       theme: query.theme,
       sort: query.sort?.trim() || undefined,
+      attrs: query.attrs?.trim() || undefined,
     },
     { cache: 'no-store' },
   )

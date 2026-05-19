@@ -11,6 +11,12 @@ interface Props {
   reviewStart: number
   reviewCount: number
   address: string
+  /** Vitrin favori — `engagement/favorites` */
+  listingId?: string
+  /** Panel `external_listing_ref` */
+  referenceCode?: string | null
+  /** Örn. «Referans kodu:» — `listing.detailHeader.referenceCode` */
+  referenceCodeLabel?: string
   children?: React.ReactNode
   /** Galeriden en fazla 10 görsel seçerek paylaşım */
   shareGallery?: { galleryUrls: string[]; listingTitle: string; locale: string }
@@ -33,6 +39,9 @@ const SectionHeader = ({
   shareTitle,
   themePills,
   regionName,
+  listingId,
+  referenceCode,
+  referenceCodeLabel,
 }: Props) => {
   const region = regionName?.trim() ?? ''
   const addr = address?.trim() ?? ''
@@ -51,8 +60,22 @@ const SectionHeader = ({
             className="shrink-0 pt-1 sm:pt-0.5"
             galleryShare={shareGallery}
             shareTitle={shareTitle ?? title}
+            listingId={listingId}
           />
         </div>
+
+        {referenceCode?.trim() ? (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            {referenceCodeLabel ? (
+              <>
+                <span>{referenceCodeLabel} </span>
+                <span className="font-medium text-neutral-700 dark:text-neutral-300">{referenceCode.trim()}</span>
+              </>
+            ) : (
+              <span className="font-medium text-neutral-700 dark:text-neutral-300">{referenceCode.trim()}</span>
+            )}
+          </p>
+        ) : null}
 
         {themePills && themePills.length > 0 ? (
           <div className="flex flex-wrap gap-2">

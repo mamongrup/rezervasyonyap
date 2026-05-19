@@ -393,6 +393,10 @@ export const ru: AppMessages = {
       rulesSubtitle: 'Прочитайте перед бронированием',
       checkInRule: 'Заезд: 14:00 – 22:00',
       checkOutRule: 'Выезд: до 11:00',
+      sleepingTitle: 'Где вы будете спать',
+      sleepingSubtitle: 'Расположение кроватей по комнатам',
+      sleepingFloor: 'Этаж {floor}',
+      sleepingEnsuite: 'Собственная ванная',
       host: {
         listingsCount: '{count} объявлений',
         superHost: 'Супер-хозяин',

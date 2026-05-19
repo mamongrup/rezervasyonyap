@@ -375,6 +375,15 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     False -> pog.text(theme_raw)
   }
 
+  let attrs_raw =
+    list.key_find(qs, "attrs")
+    |> result.unwrap("")
+    |> string.trim
+  let attrs_param = case attrs_raw == "" {
+    True -> pog.null()
+    False -> pog.text(attrs_raw)
+  }
+
   let sort_raw =
     list.key_find(qs, "sort")
     |> result.unwrap("")
@@ -492,6 +501,16 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
     <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
     <> ")) "
+    <> "and ($11::text is null or trim($11) = '' or ( "
+    <> "  select count(*) = cardinality(string_to_array(trim($11), ',')::text[]) "
+    <> "  from unnest(string_to_array(trim($11), ',')::text[]) as need(k) "
+    <> "  where exists ( "
+    <> "    select 1 from listing_attributes la "
+    <> "    where la.listing_id = l.id "
+    <> "    and lower(trim(la.key)) = lower(trim(need.k)) "
+    <> "    and (la.value_json = 'true'::jsonb or lower(trim(both '\"' from la.value_json::text)) = 'true') "
+    <> "  ) "
+    <> ")) "
     <> order_sql
     <> "limit $5"
 
@@ -507,6 +526,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.parameter(start_param)
     |> pog.parameter(end_param)
     |> pog.parameter(pog.text(int.to_string(flex_days)))
+    |> pog.parameter(attrs_param)
     |> pog.returning(pub_listing_row())
     |> pog.execute(ctx.db)
   {

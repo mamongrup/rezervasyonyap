@@ -908,8 +908,27 @@ export const en = {
     },
     detailHeader: {
       ministryLicense: 'Ministry of Culture and Tourism registration no.: {ref}',
+      referenceCode: 'Reference code:',
       prepaymentNote:
         'The prepayment amount is {percent}%. You can pay the prepayment or the full amount when booking.',
+    },
+    priceInclusions: {
+      title: 'Included / not included',
+      subtitle: 'Items to clarify before you book',
+      included: 'Included',
+      excluded: 'Not included',
+    },
+    sectionNav: {
+      about: 'About',
+      amenities: 'Amenities',
+      pool: 'Pool',
+      bedrooms: 'Sleeping',
+      pricing: 'Pricing',
+      calendar: 'Calendar',
+      rules: 'Rules',
+      policies: 'Policies',
+      faq: 'FAQ',
+      location: 'Location',
     },
     /** Konaklama ilan detayı — üst breadcrumb */
     breadcrumb: {
@@ -1075,6 +1094,10 @@ export const en = {
       rulesShortStay: 'Short-stay fee applies for stays under {n} nights',
       rulesGap:
         'Gap fill: when enabled, stays shorter than the minimum night rule are allowed if they only fill an available gap between other bookings.',
+      legendAvailable: 'Available',
+      legendBlocked: 'Unavailable',
+      legendOption: 'Option (hold)',
+      legendPromo: 'Special offer',
     },
     /** Rezervasyon kartı (sağ sütun) */
     sidebar: {
@@ -1128,6 +1151,10 @@ export const en = {
       rulesSubtitle: 'Please read before your stay',
       checkInRule: 'Check-in: 14:00 – 22:00',
       checkOutRule: 'Check-out: until 11:00',
+      sleepingTitle: 'Where you will sleep',
+      sleepingSubtitle: 'Bed layout by room',
+      sleepingFloor: 'Floor {floor}',
+      sleepingEnsuite: 'Ensuite bathroom',
       host: {
         listingsCount: '{count} listings',
         superHost: 'Superhost',
@@ -1227,6 +1254,7 @@ export const en = {
       prepaymentPercent: 'Prepayment (%)',
       commissionPercent: 'Commission (%)',
       licenseRef: 'License reference',
+      externalListingRef: 'Listing reference code',
       cancellationPolicy: 'Cancellation policy text',
       shareToSocial: 'Social sharing enabled',
       allowAiCaption: 'AI caption enabled',
@@ -1304,7 +1332,14 @@ export const en = {
       colDay: 'Day',
       colAm: 'AM',
       colPm: 'PM',
+      colStatus: 'Status',
       colPrice: 'Daily price (override)',
+      statusNormal: 'Normal',
+      statusOption: 'Option',
+      statusPromo: 'Offer',
+      bulkOption: 'All option',
+      bulkPromo: 'All offers',
+      bulkClearStatus: 'Clear status',
       calendarSave: 'Save calendar',
       statsLine: '{n} / {total} days with at least half-day availability',
       bulkPricePlaceholder: 'Price',
@@ -1386,11 +1421,16 @@ export const en = {
       weeklyTotalHint: 'Total for a 7-night stay; stored as weekly_total.',
       priceEitherHint: 'Provide nightly base and/or weekly total — at least one is required (weekend-only also counts).',
       weekendLabel: 'Weekend price (optional)',
+      compareAtNightlyLabel: 'List price before discount (optional)',
+      compareAtNightlyHint:
+        'When higher than the sale nightly rate, the storefront period table shows strikethrough list price + discounted price (compare_at_nightly).',
+      badgeCompareAt: 'List:',
       validFrom: 'Valid from',
       validTo: 'Valid to',
       preview: 'Preview:',
       ruleJsonLabel: 'rule_json (raw JSON)',
-      rawJsonPlaceholder: '{"base_nightly":"2500","weekly_total":"17500","min_nights":3}',
+      rawJsonPlaceholder:
+        '{"base_nightly":"2500","compare_at_nightly":"3000","weekly_total":"17500","min_nights":3}',
       addPeriodBtn: 'Add period',
       toggleStructured: 'Use structured form',
       toggleRaw: 'Enter raw JSON',

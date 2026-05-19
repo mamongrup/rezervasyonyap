@@ -132,6 +132,37 @@ export default function HolidayListingFilters({
   const bedrooms = searchParams.get('bedrooms') ?? ''
   const bathrooms = searchParams.get('bathrooms') ?? ''
   const themeParam = searchParams.get('theme') ?? ''
+  const attrsParam = searchParams.get('attrs') ?? ''
+
+  const selectedAttrKeys = useMemo(() => {
+    const s = new Set<string>()
+    for (const x of attrsParam.split(',')) {
+      const t = x.trim().toLowerCase()
+      if (t) s.add(t)
+    }
+    return s
+  }, [attrsParam])
+
+  const attrOptions = useMemo(
+    () =>
+      [
+        { key: 'pool', label: l.attrPool },
+        { key: 'wifi', label: l.attrWifi },
+        { key: 'kitchen', label: l.attrKitchen },
+        { key: 'parking', label: l.attrParking },
+        { key: 'ac', label: l.attrAc },
+        { key: 'heating', label: l.attrHeating },
+      ] as const,
+    [l],
+  )
+
+  function toggleAttrKey(key: string) {
+    const next = new Set(selectedAttrKeys)
+    const k = key.toLowerCase()
+    if (next.has(k)) next.delete(k)
+    else next.add(k)
+    setQuery({ attrs: [...next].join(',') || null })
+  }
 
   /** Tatil evleri: API boş gelse bile tema filtresi (alt kategori yerine) */
   const useThemeFilter = isHolidayHomesCategory && effectiveThemeOptions.length > 0
@@ -150,8 +181,9 @@ export default function HolidayListingFilters({
     if (beds || bedrooms || bathrooms) n += 1
     if (themeActive) n += 1
     else if (subActive) n += 1
+    if (selectedAttrKeys.size > 0) n += 1
     return n
-  }, [sort, priceMin, priceMax, beds, bedrooms, bathrooms, subActive, themeActive])
+  }, [sort, priceMin, priceMax, beds, bedrooms, bathrooms, subActive, themeActive, selectedAttrKeys.size])
 
   const pricePanelCount = (priceMin || priceMax ? 1 : 0) + (beds || bedrooms || bathrooms ? 1 : 0)
 
@@ -171,6 +203,7 @@ export default function HolidayListingFilters({
       bedrooms: null,
       bathrooms: null,
       theme: null,
+      attrs: null,
     })
   }
 
@@ -192,6 +225,42 @@ export default function HolidayListingFilters({
   }
 
   const themeOrSubBadgeCount = useThemeFilter ? selectedThemeCodes.size : subActive ? 1 : 0
+
+  const attrCheckboxList = (
+    <ul className="space-y-2">
+      {attrOptions.map((opt) => (
+        <li key={opt.key}>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700 dark:text-neutral-200">
+            <input
+              type="checkbox"
+              className="rounded border-neutral-300"
+              checked={selectedAttrKeys.has(opt.key)}
+              onChange={() => toggleAttrKey(opt.key)}
+            />
+            {opt.label}
+          </label>
+        </li>
+      ))}
+    </ul>
+  )
+
+  const attrPillList = (
+    <div className="flex flex-wrap gap-2">
+      {attrOptions.map((opt) => {
+        const on = selectedAttrKeys.has(opt.key)
+        return (
+          <button
+            key={opt.key}
+            type="button"
+            onClick={() => toggleAttrKey(opt.key)}
+            className={clsx(filterPillBase, on ? filterPillEmphasis : filterPillIdle)}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
 
   const allFiltersDialog = (
     <Dialog open={showAll} onClose={() => setShowAll(false)} className="relative z-50">
@@ -319,6 +388,12 @@ export default function HolidayListingFilters({
                 </ul>
               </div>
             )}
+            {isHolidayHomesCategory ? (
+              <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
+                <h3 className="text-lg font-medium">{l.attributes}</h3>
+                <div className="mt-3">{attrPillList}</div>
+              </div>
+            ) : null}
             <div className="border-t border-neutral-200 py-6 dark:border-neutral-800">
               <h3 className="text-lg font-medium">{l.sortLabel}</h3>
               <select
@@ -529,6 +604,46 @@ export default function HolidayListingFilters({
             </div>
           </PopoverPanel>
         </Popover>
+
+        {isHolidayHomesCategory ? (
+          <Popover className="relative">
+            <PopoverButton
+              type="button"
+              className={clsx(
+                filterPillBase,
+                selectedAttrKeys.size > 0 ? filterPillEmphasis : filterPillIdle,
+                'relative max-w-[min(100%,14rem)] sm:max-w-none',
+                'data-[headlessui-state=open]:border-neutral-950 dark:data-[headlessui-state=open]:border-white',
+              )}
+            >
+              <span>{l.attributes}</span>
+              <HugeiconsIcon icon={ArrowDown01Icon} className="size-4 shrink-0 opacity-70" strokeWidth={1.75} />
+              {selectedAttrKeys.size > 0 ? filterCountBadge(selectedAttrKeys.size) : null}
+            </PopoverButton>
+            <PopoverPanel
+              transition
+              unmount={false}
+              className="absolute -start-5 top-full z-10 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
+            >
+              <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="max-h-[24rem] overflow-y-auto px-5 py-4">{attrCheckboxList}</div>
+                <div className="flex items-center justify-between rounded-b-2xl border-t border-neutral-100 bg-neutral-50 p-4 dark:border-neutral-800 dark:bg-neutral-900">
+                  <CloseButton
+                    as={ButtonThird}
+                    type="button"
+                    className="-mx-3"
+                    onClick={() => setQuery({ attrs: null })}
+                  >
+                    {l.clear}
+                  </CloseButton>
+                  <CloseButton as={ButtonPrimary} type="button">
+                    {l.apply}
+                  </CloseButton>
+                </div>
+              </div>
+            </PopoverPanel>
+          </Popover>
+        ) : null}
 
         <Popover className="relative">
           <PopoverButton

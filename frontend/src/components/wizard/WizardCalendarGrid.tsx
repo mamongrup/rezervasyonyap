@@ -163,7 +163,7 @@ function MonthGrid({
 
               {popoverDay === iso && (
                 <PricePopover
-                  row={row ?? { day: iso, is_available: true, am_available: true, pm_available: true, price_override: '', weekday: wd }}
+                  row={row ?? { day: iso, is_available: true, am_available: true, pm_available: true, price_override: '', weekday: wd, day_status: null }}
                   onSave={(p) => onPopoverSave(iso, p)}
                   onClose={onPopoverClose}
                 />
@@ -211,6 +211,7 @@ export default function WizardCalendarGrid({ rows, onChange, currencyCode = 'TRY
         day: iso, weekday: wd,
         is_available: makeAvailable, am_available: makeAvailable, pm_available: makeAvailable,
         price_override: '',
+        day_status: null,
       }].sort((a, b) => a.day.localeCompare(b.day)))
     }
   }, [rows, rowMap, onChange])

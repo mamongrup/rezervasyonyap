@@ -1,4 +1,5 @@
-import type { ListingAvailabilityDay } from '@/lib/travel-api'
+import { normalizeListingDayStatus } from '@/lib/listing-availability-day'
+import type { ListingAvailabilityDay, ListingAvailabilityDayStatus } from '@/lib/travel-api'
 
 /** `mergeCalendarRows` çıktısı — panel takvim tablosu / hub grid ile uyumlu */
 export type MergedCalendarRow = {
@@ -8,6 +9,7 @@ export type MergedCalendarRow = {
   pm_available: boolean
   price_override: string
   weekday: number
+  day_status: ListingAvailabilityDayStatus | null
 }
 
 /** ISO gün aralığı için API günlerini dolu bir sıraya çevirir (her gün bir satır). */
@@ -33,6 +35,7 @@ export function mergeCalendarRows(
       am_available: am,
       pm_available: pm,
       price_override: ex?.price_override ?? '',
+      day_status: normalizeListingDayStatus(ex?.day_status ?? null),
     })
     cur.setDate(cur.getDate() + 1)
   }

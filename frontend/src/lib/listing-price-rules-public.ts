@@ -14,6 +14,10 @@ export type SeasonalPricingRowModel = {
   roomOnlyWeekly?: number | null
   mealsIncludedNightly?: number | null
   mealsIncludedWeekly?: number | null
+  roomOnlyCompareAtNightly?: number | null
+  roomOnlyCompareAtWeekly?: number | null
+  mealsIncludedCompareAtNightly?: number | null
+  mealsIncludedCompareAtWeekly?: number | null
 }
 
 export type ParsedPriceRuleJson = {
@@ -22,6 +26,8 @@ export type ParsedPriceRuleJson = {
   minNights: string
   label: string
   compareAt: string
+  compareAtRoomOnly: string
+  compareAtMeals: string
   roomOnly: string
   mealsIncluded: string
 }
@@ -49,6 +55,17 @@ export function parseListingPriceRuleJson(json: string): ParsedPriceRuleJson {
         'msrp_nightly',
         'catalog_nightly',
       ]),
+      compareAtRoomOnly: pickStr(obj, [
+        'compare_at_room_only_nightly',
+        'list_room_only_nightly',
+        'original_room_only_nightly',
+      ]),
+      compareAtMeals: pickStr(obj, [
+        'compare_at_meals_included_nightly',
+        'compare_at_meal_plan_nightly',
+        'list_meals_included_nightly',
+        'original_meals_included_nightly',
+      ]),
       roomOnly: pickStr(obj, ['room_only_nightly', 'yemeksiz_nightly', 'without_meals_nightly']),
       mealsIncluded: pickStr(obj, [
         'meals_included_nightly',
@@ -65,10 +82,17 @@ export function parseListingPriceRuleJson(json: string): ParsedPriceRuleJson {
       minNights: '',
       label: '',
       compareAt: '',
+      compareAtRoomOnly: '',
+      compareAtMeals: '',
       roomOnly: '',
       mealsIncluded: '',
     }
   }
+}
+
+/** rule_json metin alanlarından tutar — vitrin ve panel ortak */
+export function parseListingPriceRuleAmount(raw: string): number | null {
+  return parseAmount(raw)
 }
 
 function parseAmount(raw: string): number | null {
@@ -141,6 +165,33 @@ function formatPeriodLabel(
   return msg.defaultPeriod
 }
 
+function resolveCompareAtNightly(
+  saleNightly: number,
+  parsed: ParsedPriceRuleJson,
+  variant?: 'room_only' | 'meals_included',
+): number | null {
+  const candidates =
+    variant === 'room_only'
+      ? [parsed.compareAtRoomOnly, parsed.compareAt]
+      : variant === 'meals_included'
+        ? [parsed.compareAtMeals, parsed.compareAt]
+        : [parsed.compareAt]
+  for (const raw of candidates) {
+    const n = parseAmount(raw)
+    if (n != null && n > saleNightly) return n
+  }
+  return null
+}
+
+/** Panel özet tablosu — gecelik için üstü çizili liste fiyatı */
+export function listingRuleCompareAtNightly(
+  saleNightly: number,
+  ruleJson: string,
+  variant?: 'room_only' | 'meals_included',
+): number | null {
+  return resolveCompareAtNightly(saleNightly, parseListingPriceRuleJson(ruleJson), variant)
+}
+
 export function buildSeasonalPricingTableRows(
   rules: ListingPriceRuleRow[],
   locale: string,
@@ -164,6 +215,8 @@ export function buildSeasonalPricingTableRows(
       if (roFinal == null && miFinal == null) continue
       const ro = roFinal ?? miFinal!
       const mi = miFinal ?? roFinal!
+      const roCompare = resolveCompareAtNightly(ro, parsed, 'room_only')
+      const miCompare = resolveCompareAtNightly(mi, parsed, 'meals_included')
       out.push({
         periodLabel: formatPeriodLabel(r, parsed, locale, msg),
         nightlyAmount: baseN ?? ro,
@@ -173,6 +226,10 @@ export function buildSeasonalPricingTableRows(
         roomOnlyWeekly: ro * 7,
         mealsIncludedNightly: mi,
         mealsIncludedWeekly: mi * 7,
+        roomOnlyCompareAtNightly: roCompare,
+        roomOnlyCompareAtWeekly: roCompare != null ? roCompare * 7 : null,
+        mealsIncludedCompareAtNightly: miCompare,
+        mealsIncludedCompareAtWeekly: miCompare != null ? miCompare * 7 : null,
       })
       continue
     }
@@ -180,16 +237,15 @@ export function buildSeasonalPricingTableRows(
     const nightlyNum = baseN ?? roN ?? miN
     if (nightlyNum == null) continue
 
-    const compareRaw = parseAmount(parsed.compareAt)
-    const showCompare = compareRaw != null && compareRaw > nightlyNum
+    const compareNightly = resolveCompareAtNightly(nightlyNum, parsed)
 
     out.push({
       periodLabel: formatPeriodLabel(r, parsed, locale, msg),
       nightlyAmount: nightlyNum,
       weeklyAmount: nightlyNum * 7,
       listingCurrency: code,
-      compareAtNightly: showCompare ? compareRaw : null,
-      compareAtWeekly: showCompare ? compareRaw * 7 : null,
+      compareAtNightly: compareNightly,
+      compareAtWeekly: compareNightly != null ? compareNightly * 7 : null,
     })
   }
   return out

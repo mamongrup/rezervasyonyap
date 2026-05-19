@@ -12,6 +12,7 @@ import {
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import { listingRuleCompareAtNightly } from '@/lib/listing-price-rules-public'
 import {
   addManageHotelRoom,
   patchListingBasics,
@@ -155,6 +156,7 @@ function parseRuleJson(json: string): {
   minNights: string
   label: string
   weekly: string
+  compareAt: string
 } {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>
@@ -164,9 +166,16 @@ function parseRuleJson(json: string): {
       minNights: String(obj.min_nights ?? obj.minimum_nights ?? ''),
       label: String(obj.label ?? obj.season_name ?? ''),
       weekly: String(obj.weekly_total ?? ''),
+      compareAt: String(
+        obj.compare_at_nightly ??
+          obj.list_nightly ??
+          obj.original_nightly ??
+          obj.msrp_nightly ??
+          '',
+      ),
     }
   } catch {
-    return { base: '', weekend: '', minNights: '', label: '', weekly: '' }
+    return { base: '', weekend: '', minNights: '', label: '', weekly: '', compareAt: '' }
   }
 }
 
@@ -176,14 +185,42 @@ function buildRuleJson(
   minNights: string,
   label: string,
   weeklyTotal: string,
+  compareAt: string,
 ): string {
   const obj: Record<string, string | number> = {}
   if (label.trim()) obj.label = label.trim()
   if (base.trim()) obj.base_nightly = base.trim()
   if (weekend.trim()) obj.weekend_nightly = weekend.trim()
   if (weeklyTotal.trim()) obj.weekly_total = weeklyTotal.trim()
+  if (compareAt.trim()) obj.compare_at_nightly = compareAt.trim()
   if (minNights.trim()) obj.min_nights = parseInt(minNights.trim(), 10)
   return JSON.stringify(obj)
+}
+
+function ManageMoneyWithCompare({
+  amount,
+  compareAt,
+  currencyCode,
+  locale,
+}: {
+  amount: number
+  compareAt: number | null | undefined
+  currencyCode: string
+  locale: string
+}) {
+  const showStrike = compareAt != null && compareAt > amount
+  const main = formatManageListingMoney(amount, currencyCode, locale)
+  if (!showStrike) {
+    return <span className="font-medium text-slate-900 dark:text-slate-100">{main}</span>
+  }
+  return (
+    <span className="inline-flex flex-wrap items-baseline justify-end gap-x-1.5 tabular-nums font-medium text-slate-900 dark:text-slate-100">
+      <span className="line-through text-neutral-400 dark:text-neutral-500">
+        {formatManageListingMoney(compareAt, currencyCode, locale)}
+      </span>
+      <span>{main}</span>
+    </span>
+  )
 }
 
 function parseMoneyAmount(raw: string): number | null {
@@ -314,28 +351,49 @@ function HolidayHomeSeasonalPricingCalendarSummary({
                   seasonalUi.calendarSummaryDefaultPeriod,
                 )
 
+                const compareNightly =
+                  baseNum != null ? listingRuleCompareAtNightly(baseNum, r.rule_json) : null
+                const compareWeekly =
+                  weeklyNum != null && compareNightly != null ? compareNightly * 7 : null
+
                 let nightlyCell: ReactNode
                 if (baseNum != null) {
-                  const main = formatManageListingMoney(baseNum, currencyCode, locale)
                   if (weekendNum != null && weekendNum !== baseNum) {
                     nightlyCell = (
                       <div className="text-right">
-                        <div className="font-medium text-slate-900 dark:text-slate-100">{main}</div>
+                        <ManageMoneyWithCompare
+                          amount={baseNum}
+                          compareAt={compareNightly}
+                          currencyCode={currencyCode}
+                          locale={locale}
+                        />
                         <div className="text-xs text-slate-500 dark:text-slate-400">
                           {seasonalUi.calendarSummaryWeekendNote}: {formatManageListingMoney(weekendNum, currencyCode, locale)}
                         </div>
                       </div>
                     )
                   } else {
-                    nightlyCell = <span className="font-medium text-slate-900 dark:text-slate-100">{main}</span>
+                    nightlyCell = (
+                      <ManageMoneyWithCompare
+                        amount={baseNum}
+                        compareAt={compareNightly}
+                        currencyCode={currencyCode}
+                        locale={locale}
+                      />
+                    )
                   }
                 } else if (weeklyStored != null) {
                   const perNight = weeklyStored / 7
+                  const perNightCompare =
+                    compareWeekly != null ? compareWeekly / 7 : listingRuleCompareAtNightly(perNight, r.rule_json)
                   nightlyCell = (
                     <div className="text-right">
-                      <span className="font-medium text-slate-900 dark:text-slate-100">
-                        {formatManageListingMoney(perNight, currencyCode, locale)}
-                      </span>
+                      <ManageMoneyWithCompare
+                        amount={perNight}
+                        compareAt={perNightCompare}
+                        currencyCode={currencyCode}
+                        locale={locale}
+                      />
                       <div className="text-xs text-slate-500 dark:text-slate-400">{seasonalUi.calendarSummaryDerivedNightlyNote}</div>
                     </div>
                   )
@@ -345,9 +403,12 @@ function HolidayHomeSeasonalPricingCalendarSummary({
 
                 const weeklyCell =
                   weeklyNum != null ? (
-                    <span className="font-medium text-slate-900 dark:text-slate-100">
-                      {formatManageListingMoney(weeklyNum, currencyCode, locale)}
-                    </span>
+                    <ManageMoneyWithCompare
+                      amount={weeklyNum}
+                      compareAt={compareWeekly}
+                      currencyCode={currencyCode}
+                      locale={locale}
+                    />
                   ) : (
                     <span className="text-slate-400">—</span>
                   )
@@ -930,6 +991,7 @@ export default function CatalogListingDetailClient({
   const [ruleBase, setRuleBase] = useState('')
   const [ruleWeekend, setRuleWeekend] = useState('')
   const [ruleWeeklyTotal, setRuleWeeklyTotal] = useState('')
+  const [ruleCompareAt, setRuleCompareAt] = useState('')
   const [ruleMinNights, setRuleMinNights] = useState('')
   const [ruleFrom, setRuleFrom] = useState('')
   const [ruleTo, setRuleTo] = useState('')
@@ -996,6 +1058,7 @@ export default function CatalogListingDetailClient({
   const [commissionPercent, setCommissionPercent] = useState('')
   const [cancellationPolicy, setCancellationPolicy] = useState('')
   const [licenseRef, setLicenseRef] = useState('')
+  const [externalListingRef, setExternalListingRef] = useState('')
   const [shareToSocial, setShareToSocial] = useState(true)
   const [allowAiCaption, setAllowAiCaption] = useState(true)
   const [allowGapBooking, setAllowGapBooking] = useState(false)
@@ -1129,6 +1192,7 @@ export default function CatalogListingDetailClient({
         setCommissionPercent(basics.commission_percent ?? '')
         setCancellationPolicy(basics.cancellation_policy_text ?? '')
         setLicenseRef(basics.ministry_license_ref ?? '')
+        setExternalListingRef(basics.external_listing_ref ?? '')
         setShareToSocial(Boolean(basics.share_to_social))
         setAllowAiCaption(Boolean(basics.allow_ai_caption))
         setAllowGapBooking(Boolean(basics.allow_sub_min_stay_gap_booking))
@@ -1305,6 +1369,7 @@ export default function CatalogListingDetailClient({
           commission_percent: commissionPercent.trim() || undefined,
           cancellation_policy_text: cancellationPolicy.trim() || undefined,
           ministry_license_ref: licenseRef.trim() || undefined,
+          external_listing_ref: externalListingRef.trim() || undefined,
           share_to_social: shareToSocial,
           allow_ai_caption: allowAiCaption,
           allow_sub_min_stay_gap_booking: allowGapBooking,
@@ -1374,6 +1439,7 @@ export default function CatalogListingDetailClient({
             am_available: r.am_available,
             pm_available: r.pm_available,
             price_override: r.price_override.trim(),
+            day_status: r.day_status ?? null,
           })),
         },
         orgQ,
@@ -1424,7 +1490,7 @@ export default function CatalogListingDetailClient({
       }
       const finalJson = showRawJson
         ? ruleRaw.trim()
-        : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal)
+        : buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal, ruleCompareAt)
       if (!showRawJson) {
         if (!ruleBase.trim() && !ruleWeeklyTotal.trim() && !ruleWeekend.trim()) {
           setErr(formatManageApiError('seasonal_price_base_or_weekly_required'))
@@ -1453,6 +1519,7 @@ export default function CatalogListingDetailClient({
       setRuleBase('')
       setRuleWeekend('')
       setRuleWeeklyTotal('')
+      setRuleCompareAt('')
       setRuleMinNights('')
       setRuleFrom('')
       setRuleTo('')
@@ -1924,6 +1991,15 @@ export default function CatalogListingDetailClient({
                 <Label>{ui.listingForm.licenseRef}</Label>
                 <Input className="mt-1" value={licenseRef} onChange={(e) => setLicenseRef(e.target.value)} />
               </Field>
+              <Field className="block">
+                <Label>{ui.listingForm.externalListingRef}</Label>
+                <Input
+                  className="mt-1"
+                  value={externalListingRef}
+                  onChange={(e) => setExternalListingRef(e.target.value)}
+                  placeholder="VIL-2024-001"
+                />
+              </Field>
             </div>
             <Field className="mt-4 block">
               <Label>{ui.listingForm.cancellationPolicy}</Label>
@@ -2150,6 +2226,31 @@ export default function CatalogListingDetailClient({
                 >
                   {ui.calendar.weekendsAvailable}
                 </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCalRows((prev) => prev.map((r) => ({ ...r, day_status: 'option' as const })))
+                  }
+                  className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:bg-transparent dark:text-amber-300"
+                >
+                  {ui.calendar.bulkOption}
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setCalRows((prev) => prev.map((r) => ({ ...r, day_status: 'promo' as const })))
+                  }
+                  className="rounded-lg border border-emerald-200 bg-white px-3 py-1.5 text-xs text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-transparent dark:text-emerald-300"
+                >
+                  {ui.calendar.bulkPromo}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCalRows((prev) => prev.map((r) => ({ ...r, day_status: null })))}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-transparent dark:text-neutral-400"
+                >
+                  {ui.calendar.bulkClearStatus}
+                </button>
                 <div className="flex items-center gap-1 ml-2">
                   <input
                     type="text"
@@ -2182,6 +2283,7 @@ export default function CatalogListingDetailClient({
                         <th className="px-3 py-2 text-xs text-neutral-500">{ui.calendar.colDay}</th>
                         <th className="px-3 py-2 text-xs text-neutral-500">{ui.calendar.colAm}</th>
                         <th className="px-3 py-2 text-xs text-neutral-500">{ui.calendar.colPm}</th>
+                        <th className="px-3 py-2 text-xs text-neutral-500">{ui.calendar.colStatus}</th>
                         <th className="px-3 py-2 text-xs text-neutral-500">{ui.calendar.colPrice}</th>
                       </tr>
                     </thead>
@@ -2226,6 +2328,26 @@ export default function CatalogListingDetailClient({
                                 className="h-4 w-4 accent-primary-600"
                                 title={ui.calendar.pmTitle}
                               />
+                            </td>
+                            <td className="px-3 py-1.5">
+                              <select
+                                className="rounded border border-neutral-200 bg-white px-1.5 py-0.5 text-xs dark:border-neutral-600 dark:bg-neutral-900"
+                                value={row.day_status ?? ''}
+                                onChange={(e) => {
+                                  const next = [...calRows]
+                                  const v = e.target.value
+                                  next[i] = {
+                                    ...row,
+                                    day_status:
+                                      v === 'option' || v === 'promo' ? v : null,
+                                  }
+                                  setCalRows(next)
+                                }}
+                              >
+                                <option value="">{ui.calendar.statusNormal}</option>
+                                <option value="option">{ui.calendar.statusOption}</option>
+                                <option value="promo">{ui.calendar.statusPromo}</option>
+                              </select>
                             </td>
                             <td className="px-3 py-1.5">
                               <input
@@ -2506,6 +2628,12 @@ export default function CatalogListingDetailClient({
                           {ui.seasonalPrice.badgeBase} <span className="font-mono">{parsed.base}</span>
                         </span>
                       )}
+                      {parsed.compareAt && (
+                        <span className="text-sm text-amber-800 dark:text-amber-200">
+                          {ui.seasonalPrice.badgeCompareAt}{' '}
+                          <span className="font-mono">{parsed.compareAt}</span>
+                        </span>
+                      )}
                       {parsed.weekly && (
                         <span className="text-sm font-medium text-emerald-800 dark:text-emerald-200">
                           {ui.seasonalPrice.badgeWeekly} <span className="font-mono">{parsed.weekly}</span>
@@ -2597,6 +2725,20 @@ export default function CatalogListingDetailClient({
                         />
                       </Field>
                       <Field className="block sm:col-span-2">
+                        <Label>{ui.seasonalPrice.compareAtNightlyLabel}</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          className="mt-1 font-mono"
+                          value={ruleCompareAt}
+                          onChange={(e) => setRuleCompareAt(e.target.value)}
+                          placeholder="3000"
+                        />
+                        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                          {ui.seasonalPrice.compareAtNightlyHint}
+                        </p>
+                      </Field>
+                      <Field className="block sm:col-span-2">
                         <Label>{ui.seasonalPrice.weeklyTotalLabel}</Label>
                         <Input
                           type="text"
@@ -2620,7 +2762,7 @@ export default function CatalogListingDetailClient({
                     </div>
                     <div className="rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-500 font-mono dark:bg-neutral-800">
                       {ui.seasonalPrice.preview}{' '}
-                      {buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal) || '—'}
+                      {buildRuleJson(ruleBase, ruleWeekend, ruleMinNights, ruleLabel, ruleWeeklyTotal, ruleCompareAt) || '—'}
                     </div>
                   </>
                 ) : (

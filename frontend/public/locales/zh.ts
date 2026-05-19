@@ -384,6 +384,10 @@ export const zh: AppMessages = {
       rulesSubtitle: '入住前请阅读',
       checkInRule: '入住：14:00 – 22:00',
       checkOutRule: '退房：11:00 前',
+      sleepingTitle: '您将睡在哪里',
+      sleepingSubtitle: '各卧室床位安排',
+      sleepingFloor: '{floor} 楼',
+      sleepingEnsuite: '独立卫浴',
       host: {
         listingsCount: '{count} 条房源',
         superHost: '超赞房东',

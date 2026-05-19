@@ -9,6 +9,7 @@ import StayListingBookingQuoteModal from './StayListingBookingQuoteModal'
 
 export default function StayListingCalendarBookingBlock({
   locale,
+  listingId,
   initialDays,
   mealPlans,
   price,
@@ -26,6 +27,7 @@ export default function StayListingCalendarBookingBlock({
   ruleNightlyRange,
 }: {
   locale: string
+  listingId: string
   initialDays: ListingAvailabilityDay[]
   /** Sunucu UA / Client Hints ile tahmin — takvim SSR’da doğru ay sayısı */
   initialMonthsShown?: 1 | 2
@@ -61,6 +63,7 @@ export default function StayListingCalendarBookingBlock({
       {range ? (
         <StayListingBookingQuoteModal
           locale={locale}
+          listingId={listingId}
           open={modalOpen}
           onClose={() => setModalOpen(false)}
           rangeStart={range.start}

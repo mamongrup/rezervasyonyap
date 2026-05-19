@@ -11,11 +11,13 @@ import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/d
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
+import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export default function StayListingBookingQuoteModal({
   locale,
+  listingId,
   open,
   onClose,
   rangeStart,
@@ -35,6 +37,7 @@ export default function StayListingBookingQuoteModal({
   ruleNightlyRange,
 }: {
   locale: string
+  listingId: string
   open: boolean
   onClose: () => void
   rangeStart: Date
@@ -93,10 +96,16 @@ export default function StayListingBookingQuoteModal({
   })
 
   const goCheckout = () => {
-    const u = new URLSearchParams()
-    u.set('startDate', rangeStart.toISOString())
-    u.set('endDate', rangeEnd.toISOString())
-    router.push(`${vitrinHref('/checkout')}?${u.toString()}`)
+    if (!listingId.trim() || grandTotal <= 0) return
+    router.push(
+      buildStayCheckoutUrl(vitrinHref('/checkout'), {
+        listingId,
+        startDate: rangeStart,
+        endDate: rangeEnd,
+        currencyCode,
+        unitPrice: grandTotal,
+      }),
+    )
     onClose()
   }
 
@@ -211,7 +220,12 @@ export default function StayListingBookingQuoteModal({
             ) : null}
           </div>
           <div className="flex flex-col gap-2 border-t border-neutral-200 bg-neutral-50/80 px-5 py-4 dark:border-neutral-700 dark:bg-neutral-900/50">
-            <ButtonPrimary type="button" className="w-full" onClick={goCheckout}>
+            <ButtonPrimary
+              type="button"
+              className="w-full"
+              onClick={goCheckout}
+              disabled={!listingId.trim() || grandTotal <= 0}
+            >
               {copy.bookingModalContinue}
             </ButtonPrimary>
             <button

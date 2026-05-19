@@ -248,6 +248,7 @@ export const getStayListingByHandle = async (
   }
 
   const contactName = vitrine?.contact_name?.trim()
+  const externalListingRef = vitrine?.external_listing_ref?.trim() || undefined
 
   const featuredNorm = listing.featuredImage?.trim()
     ? preferListingGalleryFullAsset(listing.featuredImage.trim())
@@ -265,6 +266,7 @@ export const getStayListingByHandle = async (
     ...(pools ? { pools, ...(poolsDemo ? { poolsDemo: true } : {}) } : {}),
     ...(listingExtraFees?.length ? { listingExtraFees } : {}),
     ...(holidayHomeFaqItems?.length ? { holidayHomeFaqItems } : {}),
+    ...(externalListingRef ? { externalListingRef } : {}),
     host: {
       displayName: contactName?.trim() || listing.title?.trim() || 'Host',
       avatarUrl: avatars1.src,

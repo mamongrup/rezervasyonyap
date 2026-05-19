@@ -1,3 +1,5 @@
+import { type ListingDayVisualStatus } from '@/lib/listing-availability-day'
+import clsx from 'clsx'
 import { FC } from 'react'
 
 interface Props {
@@ -7,25 +9,33 @@ interface Props {
   am?: boolean
   /** Öğleden sonra müsait mi */
   pm?: boolean
+  /** Müsait / dolu / opsiyon / fırsat — Villacınız tarzı renkler */
+  visualStatus?: ListingDayVisualStatus
+}
+
+const STATUS_RING: Record<ListingDayVisualStatus, string> = {
+  available: '',
+  blocked: 'opacity-60',
+  option: 'ring-2 ring-amber-400/90 bg-amber-50/80 dark:bg-amber-950/30',
+  promo: 'ring-2 ring-emerald-500/80 bg-emerald-50/90 dark:bg-emerald-950/35',
 }
 
 /**
  * Şablon varsayılanı — sadece gün numarası.
  * AM/PM bilgisi geldiyse köşe üçgenleriyle yarım-gün doluluk işareti basar.
- *
- * Kurallar:
- *  - am=false → sol-üst köşeye kırmızımsı üçgen ("öğleden önce dolu")
- *  - pm=false → sağ-alt köşeye kırmızımsı üçgen ("öğleden sonra dolu")
- *  - ikisi de undefined → davranış değişmez (mevcut çağrılarda regression yok)
- *  - ikisi de false → react-datepicker zaten excludeDates ile günü pasif yapacak;
- *    burada sadece görsel ipucu basıyoruz.
  */
-const DatePickerCustomDay: FC<Props> = ({ dayOfMonth, am, pm }) => {
+const DatePickerCustomDay: FC<Props> = ({ dayOfMonth, am, pm, visualStatus = 'available' }) => {
   const showAm = am === false
   const showPm = pm === false
+  const ringCls = STATUS_RING[visualStatus] ?? ''
 
   return (
-    <span className="react-datepicker__day_span relative inline-block w-full">
+    <span
+      className={clsx(
+        'react-datepicker__day_span relative inline-flex w-full items-center justify-center rounded-md',
+        ringCls,
+      )}
+    >
       {dayOfMonth}
       {showAm ? (
         <span

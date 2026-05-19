@@ -18,7 +18,12 @@ import {
 import CouponBox from '@/components/checkout/CouponBox'
 import Form from 'next/form'
 import Image from 'next/image'
-import { useParams, useRouter } from 'next/navigation'
+import {
+  resolveCheckoutCurrency,
+  resolveCheckoutListingId,
+  resolveCheckoutUnitPrice,
+} from '@/lib/stay-checkout-url'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense } from 'react'
 import CheckoutContractAcceptance, {
   type CheckoutContractAcceptancePayload,
@@ -39,10 +44,23 @@ function toYmd(iso: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-const Page = () => {
+function CheckoutPageContent() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
+  const checkoutListingId = resolveCheckoutListingId(
+    searchParams.get('listingId'),
+    process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID,
+  )
+  const checkoutCurrency = resolveCheckoutCurrency(
+    searchParams.get('currency'),
+    process.env.NEXT_PUBLIC_CHECKOUT_CURRENCY,
+  )
+  const checkoutUnitPrice = resolveCheckoutUnitPrice(
+    searchParams.get('unitPrice'),
+    process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE,
+  )
   const [pending, setPending] = React.useState(false)
   /** G2.1 — sepet oluşturulunca API’den gelen kur kilidi (gösterim) */
   const [fxLockInfo, setFxLockInfo] = React.useState<FxLockSnapshot | null>(null)
@@ -58,9 +76,9 @@ const Page = () => {
 
   const commissionPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_COMMISSION_PERCENT ?? 20)
   const prepaymentPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_PREPAYMENT_PERCENT ?? 30)
-  const totalPrice = Number(process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? 0)
+  const totalPrice = checkoutUnitPrice
   const [paymentType, setPaymentType] = React.useState<'full' | 'partial'>('partial')
-  const hasCheckoutListing = Boolean(process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID?.trim())
+  const hasCheckoutListing = Boolean(checkoutListingId)
   const [coupon, setCoupon] = React.useState<CouponPreview | null>(null)
   const couponDiscount = React.useMemo(() => {
     if (!coupon) return 0
@@ -79,13 +97,14 @@ const Page = () => {
   const handleSubmitForm = async (formData: FormData) => {
     const formObject = Object.fromEntries(formData.entries())
     const apiBase = process.env.NEXT_PUBLIC_API_URL
-    const listingId = process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID
+    const listingId = checkoutListingId
 
     if (apiBase && listingId) {
       setPending(true)
       try {
-        const currency = process.env.NEXT_PUBLIC_CHECKOUT_CURRENCY ?? 'TRY'
-        const unitPrice = process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00'
+        const currency = checkoutCurrency
+        const unitPrice =
+          checkoutUnitPrice > 0 ? checkoutUnitPrice.toFixed(2) : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
         const start = toYmd(String(formObject.startDate ?? ''))
         const end = toYmd(String(formObject.endDate ?? ''))
         const email = String(formObject.guest_email ?? '').trim()
@@ -259,7 +278,7 @@ const Page = () => {
               totalPrice={totalPrice}
               commissionPercent={commissionPercent}
               prepaymentPercent={prepaymentPercent}
-              currencyCode={process.env.NEXT_PUBLIC_CHECKOUT_CURRENCY ?? 'TRY'}
+              currencyCode={checkoutCurrency}
               value={paymentType}
               onChange={setPaymentType}
             />
@@ -267,7 +286,7 @@ const Page = () => {
         )}
 
         <CheckoutContractAcceptance
-          listingId={process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID}
+          listingId={checkoutListingId || undefined}
           locale={locale}
           onValidityChange={onContractValidity}
         />
@@ -302,4 +321,14 @@ const Page = () => {
   )
 }
 
-export default Page
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <main className="container mt-10 mb-24 min-h-[40vh] animate-pulse rounded-3xl bg-neutral-100 dark:bg-neutral-800" />
+      }
+    >
+      <CheckoutPageContent />
+    </Suspense>
+  )
+}

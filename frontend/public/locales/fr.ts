@@ -394,6 +394,10 @@ export const fr: AppMessages = {
       rulesSubtitle: 'Veuillez les lire avant votre séjour',
       checkInRule: 'Arrivée : 14h00 – 22h00',
       checkOutRule: 'Départ : avant 11h00',
+      sleepingTitle: 'Où vous dormirez',
+      sleepingSubtitle: 'Disposition des lits par chambre',
+      sleepingFloor: 'Étage {floor}',
+      sleepingEnsuite: 'Salle de bain privée',
       host: {
         listingsCount: '{count} annonces',
         superHost: 'Superhôte',

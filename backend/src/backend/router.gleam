@@ -178,11 +178,17 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-rules"] ->
       catalog_http.list_public_listing_price_rules(req, ctx, lid)
 
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-lines"] ->
+      catalog_http.list_public_listing_price_lines(req, ctx, lid)
+
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "accommodation-rules"] ->
       catalog_http.get_public_listing_accommodation_rules(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "availability-calendar"] ->
       catalog_http.list_public_listing_availability_calendar(req, ctx, lid)
+
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "bedrooms"] ->
+      catalog_http.list_public_listing_bedrooms(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "vitrine"] ->
       catalog_http.get_public_listing_vitrine(req, ctx, lid)
@@ -1421,6 +1427,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Patch, ["api", "v1", "verticals", "listings", lid, "holiday-home"] ->
       verticals_http.patch_holiday_home(req, ctx, lid)
+
+    http.Get, ["api", "v1", "verticals", "listings", lid, "holiday-home", "bedrooms"] ->
+      verticals_http.list_holiday_home_bedrooms(req, ctx, lid)
+
+    http.Put, ["api", "v1", "verticals", "listings", lid, "holiday-home", "bedrooms"] ->
+      verticals_http.put_holiday_home_bedrooms(req, ctx, lid)
 
     http.Get, ["api", "v1", "verticals", "listings", lid, "yacht"] ->
       verticals_http.get_yacht(req, ctx, lid)

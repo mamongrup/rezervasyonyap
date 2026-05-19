@@ -32,6 +32,7 @@ import {
 } from '@/lib/holiday-property-type-options'
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
+import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
 import MapPicker from '@/components/editor/MapPicker'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
@@ -399,6 +400,10 @@ function VillaSection({
         {themesFooter}
       </div>
       {galleryNote}
+      <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+        <h2 className="mb-3 text-base font-semibold text-neutral-900 dark:text-white">Yatak odaları</h2>
+        <HolidayHomeBedroomsEditor listingId={listingId} />
+      </div>
       {saveFooter}
     </div>
   )

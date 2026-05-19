@@ -1,26 +1,28 @@
 'use client'
 
+import BtnLikeIcon from '@/components/BtnLikeIcon'
 import { ListingShareGalleryButton } from '@/components/listing/ListingShareGalleryButton'
 import { ButtonCircle } from '@/shared/Button'
 import SocialsShare from '@/shared/SocialsShare'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
-import { FavouriteIcon, Share03Icon } from '@hugeicons/core-free-icons'
+import { Share03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
-export const LikeButton = () => {
-  const [isLiked, setIsLiked] = useState(false)
-  return (
-    <ButtonCircle outline onClick={() => setIsLiked(!isLiked)}>
-      {isLiked ? (
-        <HugeiconsIcon icon={FavouriteIcon} className="size-5! text-red-400" strokeWidth={2} />
-      ) : (
-        <HugeiconsIcon icon={FavouriteIcon} className="size-5!" strokeWidth={1.75} />
-      )}
-    </ButtonCircle>
-  )
+export const LikeButton = ({ listingId }: { listingId?: string }) => {
+  if (listingId?.trim()) {
+    return (
+      <BtnLikeIcon
+        listingId={listingId.trim()}
+        className="!size-10 border border-neutral-200 bg-white text-neutral-800 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+        colorClass=""
+        sizeClass="w-10 h-10"
+      />
+    )
+  }
+  return null
 }
 
 export const ShareButton = ({ shareTitle }: { shareTitle?: string }) => {
@@ -55,8 +57,10 @@ const LikeSaveBtns = ({
   className,
   galleryShare,
   shareTitle,
+  listingId,
 }: {
   className?: string
+  listingId?: string
   /** Galeri görsellerinden (en fazla 10) seçerek paylaşım — Web Share API + dosya ekleri */
   galleryShare?: { galleryUrls: string[]; listingTitle: string; locale: string }
   /** Facebook / X / e-posta için başlık (galeri paylaşımı yokken) */
@@ -65,7 +69,7 @@ const LikeSaveBtns = ({
   const hasGallery = galleryShare && galleryShare.galleryUrls.filter(Boolean).length > 0
   return (
     <div className={clsx('flex gap-2', className)}>
-      <LikeButton />
+      <LikeButton listingId={listingId} />
       {hasGallery ? (
         <ListingShareGalleryButton
           galleryUrls={galleryShare.galleryUrls}
