@@ -10440,6 +10440,20 @@ export interface NearbyPoi {
   distance_km_from_district?: number
 }
 
+/** GET nearby-pois yanıtı — `nearby_pois` JSON dizesi veya doğrudan dizi olabilir. */
+export function parseNearbyPoisPayload(raw: unknown): NearbyPoi[] {
+  if (Array.isArray(raw)) return raw as NearbyPoi[]
+  if (typeof raw !== 'string') return []
+  const trimmed = raw.trim()
+  if (!trimmed) return []
+  try {
+    const parsed = parseLenientJson(trimmed) as unknown
+    return Array.isArray(parsed) ? (parsed as NearbyPoi[]) : []
+  } catch {
+    return []
+  }
+}
+
 /** Mekan başlıklarına göre blog yazısı slug'larını döndürür (herkese açık). */
 export async function getBlogSlugsByTitles(
   titles: string[],
@@ -10474,10 +10488,10 @@ export async function computeListingNearbyPois(
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error(`compute_nearby_pois_${res.status}`)
-  const data = await res.json() as { listing_id: string; nearby_pois: string }
+  const data = await json<{ listing_id: string; nearby_pois: unknown }>(res)
   return {
     listing_id: data.listing_id,
-    nearby_pois: JSON.parse(data.nearby_pois) as NearbyPoi[],
+    nearby_pois: parseNearbyPoisPayload(data.nearby_pois),
   }
 }
 
@@ -10488,8 +10502,8 @@ export async function getListingNearbyPois(listingId: string): Promise<NearbyPoi
   try {
     const res = await fetch(`${b}/api/v1/listings/${listingId}/nearby-pois`)
     if (!res.ok) return []
-    const data = await res.json() as { nearby_pois: string }
-    return JSON.parse(data.nearby_pois) as NearbyPoi[]
+    const data = await json<{ nearby_pois: unknown }>(res)
+    return parseNearbyPoisPayload(data.nearby_pois)
   } catch {
     return []
   }

@@ -859,6 +859,8 @@ export default function CatalogNewListingClient({
   const [busy, setBusy] = useState(false)
   const slugRef = useRef<HTMLInputElement>(null)
   const galleryKeysAtHydrateRef = useRef<Set<string>>(new Set())
+  /** Adım 1 kaydı, POI listesi yüklenmeden DB'yi boşaltmasın. */
+  const nearbyPoisHydratedRef = useRef(false)
   /** Tatil evi düzenlemede yeni iCal URL’si yalnızca hydrate’de olmayan adres için eklenir (çift kayıt önlenir). */
   const icalUrlsAtHydrateRef = useRef<Set<string>>(new Set())
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
@@ -1158,6 +1160,7 @@ export default function CatalogNewListingClient({
     if (!editListingId || categoryCode !== 'holiday_home') {
       setEditListingReady(true)
       galleryKeysAtHydrateRef.current = new Set()
+      nearbyPoisHydratedRef.current = false
       setListingGalleryUrls([])
       setListingGalleryImages([])
       setHeroManualStorageKeys(['', '', '', '', ''])
@@ -1181,6 +1184,7 @@ export default function CatalogNewListingClient({
 
     setEditListingReady(false)
     setNearbyPoisLoading(true)
+    nearbyPoisHydratedRef.current = false
 
     void (async () => {
       try {
@@ -1228,6 +1232,9 @@ export default function CatalogNewListingClient({
         ])
 
         if (cancelled) return
+
+        setNearbyPois(Array.isArray(nearbyPoisRes) ? nearbyPoisRes : [])
+        nearbyPoisHydratedRef.current = true
 
         const verticalMeta: Record<string, unknown> =
           typeof vertRaw === 'object' && vertRaw !== null && !Array.isArray(vertRaw)
@@ -1424,7 +1431,6 @@ export default function CatalogNewListingClient({
         const vmInner = unwrapVerticalMetaPayload(verticalMeta)
         const savedHero = parseHeroPreviewKeysFromVertical(vmInner)
         setHeroManualStorageKeys(savedHero ?? defaultHeroKeysFromSort(sortedImgs))
-        setNearbyPois(Array.isArray(nearbyPoisRes) ? nearbyPoisRes : [])
 
         setRules(rulesRes.rules ?? [])
         setMealPlans(mealPlansRes.meal_plans ?? [])
@@ -1586,6 +1592,7 @@ export default function CatalogNewListingClient({
         await patchListingNearbyPois(token, editListingId, next).catch(() => {})
       }
       setNearbyPois(next)
+      nearbyPoisHydratedRef.current = true
     } finally {
       setNearbyPoisBusy(false)
     }
@@ -1595,6 +1602,7 @@ export default function CatalogNewListingClient({
     const token = getStoredAuthToken()
     if (!token || !editListingId) return
     setNearbyPois(pois)
+    nearbyPoisHydratedRef.current = true
     await patchListingNearbyPois(token, editListingId, pois).catch(() => {})
   }
 
@@ -2597,12 +2605,11 @@ export default function CatalogNewListingClient({
         await saveRequiredStep('Detay alanları kaydı', putListingMeta(token, lid, nextMeta, orgParam))
       }
       // Yakındaki gezilecek yerler: «Otomatik Güncelle» Google Places + patch ile DB'ye yazıyor.
-      // Kayıtta `computeListingNearbyPois` çağrısı aynı alanı bölge tabanlı sorgu ile yeniden yazar ve
-      // Google ile gelen zengin listeyi (görsel, özet) boş veya farklı veriyle değiştirirdi — kaldırıldı.
-      // Mevcut form state'ini aynen kalıcılaştır (koordinat yoksa boş dizi = alanı temizle).
-      const nearbyToPersist = lat.trim() && lng.trim() ? nearbyPois : []
-      await patchListingNearbyPois(token, lid, nearbyToPersist).catch(() => {})
-      setNearbyPois(nearbyToPersist)
+      // Kayıtta compute çağrısı kaldırıldı; yalnızca yüklü form state kalıcılaştırılır.
+      // POI listesi henüz gelmediyse veya koordinat yoksa DB'deki mevcut JSON'a dokunma.
+      if (nearbyPoisHydratedRef.current && lat.trim() && lng.trim()) {
+        await patchListingNearbyPois(token, lid, nearbyPois).catch(() => {})
+      }
 
       const attrPayload = Object.entries(attributeValues)
         .filter(([, v]) => v !== '')
