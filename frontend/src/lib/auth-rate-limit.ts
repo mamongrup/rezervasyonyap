@@ -18,7 +18,7 @@ const WINDOW_MS = 15 * 60 * 1000 // 15 dakika
 const MAX_FAILS = 5 // bu kadar başarısız denemeden sonra blok
 const BLOCK_MS = 15 * 60 * 1000 // 15 dakika blok
 
-type Action = 'login' | 'register'
+export type Action = 'login' | 'register' | 'global_api' | 'auth_brute'
 
 interface Bucket {
   failures: number[] // başarısız deneme zaman damgaları (ms)

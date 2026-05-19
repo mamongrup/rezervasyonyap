@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { AUTH_COOKIE_NAME, authCookieOptions } from '@/lib/auth-cookie'
 import { recordAuthAttempt, isRateLimited, rateLimitRetryAfter } from '@/lib/auth-rate-limit'
+import { validatePassword } from '@/lib/security'
 
 /**
  * Kayıt işlemi için backend proxy. Login route'u ile aynı güvenlik prensipleri:
@@ -24,6 +25,15 @@ export async function POST(req: NextRequest) {
   const email = (body?.email ?? '').trim().toLowerCase()
   if (!email || !body?.password) {
     return NextResponse.json({ error: 'email_password_required' }, { status: 400 })
+  }
+
+  // Şifre politikası kontrolü (OWASP temel)
+  const pwResult = validatePassword(body.password)
+  if (!pwResult.ok) {
+    return NextResponse.json(
+      { error: pwResult.errors[0] ?? 'password_policy_violation' },
+      { status: 400 },
+    )
   }
 
   const ip = clientIp(req)

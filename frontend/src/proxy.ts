@@ -2,6 +2,12 @@ import { LOCALIZED_FIRST_SEGMENT_ALIASES } from '@/data/localized-middleware-rew
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import {
+  applySecurityHeaders,
+  applyCorsHeaders,
+  isAllowedHost,
+} from '@/lib/http-security'
+import { isRateLimited, recordAuthAttempt } from '@/lib/auth-rate-limit'
 
 const AUTH_COOKIE = 'travel_auth_token'
 
@@ -69,15 +75,134 @@ function applyFirstSegmentAlias(pathname: string, locLower: string): string {
   return pathname
 }
 
+// ---------------------------------------------------------------------------
+// Güvenlik yardımcıları (eski middleware.ts → proxy.ts entegrasyonu)
+// ---------------------------------------------------------------------------
+
+/** `/tr/api/...` → `/api/...` — güvenlik ve koruma kontrolleri için kanonik yol */
+function normalizeApiPathname(pathname: string): string {
+  const localeApi = pathname.match(/^\/[a-z]{2}(?:-[a-z0-9]+)?\/(api(?:\/|$).*)$/i)
+  if (localeApi) return `/${localeApi[1]}`
+  return pathname
+}
+
+/** Client IP çıkarımı (proxy arkası) */
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-for')
+  if (forwarded) {
+    const first = forwarded.split(',')[0]?.trim()
+    if (first) return first
+  }
+  const realIp = request.headers.get('x-real-ip')
+  if (realIp) return realIp.trim()
+  return '127.0.0.1'
+}
+
+function applyApiSecurity(
+  request: NextRequest,
+  res: NextResponse,
+): NextResponse {
+  const origin = request.headers.get('origin')
+  applyCorsHeaders(res, origin)
+  applySecurityHeaders(res)
+  return res
+}
+
+function authRequiredResponse(request: NextRequest): NextResponse {
+  const res = NextResponse.json(
+    { ok: false, error: 'Oturum gerekli. Lütfen tekrar giriş yapın.' },
+    { status: 401 },
+  )
+  return applyApiSecurity(request, res)
+}
+
+// ---------------------------------------------------------------------------
+// Rate limit — global API + auth brute-force
+// ---------------------------------------------------------------------------
+
+/** Global API rate limit: IP başına dakikada maksimum istek */
+const AUTH_ENDPOINTS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/forgot-password',
+]
+
+function applyGlobalApiRateLimit(
+  request: NextRequest,
+): NextResponse | null {
+  const pathname = request.nextUrl.pathname
+  if (!pathname.startsWith('/api/')) return null
+
+  const ip = getClientIp(request)
+  const limitKey = `global:${ip}`
+
+  if (isRateLimited('global_api', limitKey)) {
+    const res = NextResponse.json(
+      { error: 'too_many_requests' },
+      { status: 429 },
+    )
+    res.headers.set('Retry-After', '60')
+    applyApiSecurity(request, res)
+    return res
+  }
+
+  recordAuthAttempt('global_api', limitKey, true)
+  return null
+}
+
+function applyAuthBruteForceLimit(
+  request: NextRequest,
+): NextResponse | null {
+  if (request.method !== 'POST') return null
+  const pathname = request.nextUrl.pathname
+  const isAuthEndpoint = AUTH_ENDPOINTS.some((ep) => pathname.startsWith(ep))
+  if (!isAuthEndpoint) return null
+
+  const ip = getClientIp(request)
+  const bruteKey = `brute:${ip}`
+
+  if (isRateLimited('auth_brute', bruteKey)) {
+    const res = NextResponse.json(
+      { error: 'too_many_attempts' },
+      { status: 429 },
+    )
+    res.headers.set('Retry-After', '300')
+    applyApiSecurity(request, res)
+    return res
+  }
+
+  return null
+}
+
 /**
  * Varsayılan dil (`tr`): adres çubuğunda dil kodu yok (`/blog`).
  * İçeride `[locale]` = `tr` olacak şekilde `rewrite` yapılır.
  * `/tr/blog` istekleri kanonik `/blog` adresine yönlendirilir (308).
  *
  * (Eski `middleware.ts`) İsteğe bağlı HTTP → HTTPS: `ENFORCE_HTTPS_REDIRECT=1` ve
- * `NODE_ENV=production` iken `X-Forwarded-Proto: http` ise 308 ile HTTPS’e yönlendirilir.
+ * `NODE_ENV=production` iken `X-Forwarded-Proto: http` ise 308 ile HTTPS'e yönlendirilir.
  */
 export function proxy(request: NextRequest) {
+  // -----------------------------------------------------------------------
+  // 0. Host header kontrolü — bilinmeyen host'ları reddet
+  // -----------------------------------------------------------------------
+  const host = request.headers.get('host') ?? ''
+  if (host && !isAllowedHost(host)) {
+    return new NextResponse('Bad Request', { status: 400 })
+  }
+
+  // -----------------------------------------------------------------------
+  // 0.1 Global API rate limit (tüm /api/* istekleri)
+  // -----------------------------------------------------------------------
+  const rateLimitRes = applyGlobalApiRateLimit(request)
+  if (rateLimitRes) return rateLimitRes
+
+  // -----------------------------------------------------------------------
+  // 0.2 Auth brute-force koruması (ek katman)
+  // -----------------------------------------------------------------------
+  const bruteForceRes = applyAuthBruteForceLimit(request)
+  if (bruteForceRes) return bruteForceRes
+
   if (process.env.ENFORCE_HTTPS_REDIRECT === '1' && process.env.NODE_ENV === 'production') {
     const proto = request.headers.get('x-forwarded-proto')
     if (proto === 'http') {
@@ -94,17 +219,21 @@ export function proxy(request: NextRequest) {
   // Dahili olarak her zaman `/api/...` route handler'a yönlendir.
   const localeThenApi = pathname.match(/^\/([a-z]{2}(?:-[a-z0-9]+)?)\/(api(?:\/|$).*)$/i)
   if (localeThenApi) {
-    return rewriteResponse(request, rewriteTarget(request, `/${localeThenApi[2]}`))
+    const apiPath = `/${localeThenApi[2]}`
+    if (isProtected(apiPath) && !request.cookies.get(AUTH_COOKIE)?.value) {
+      return authRequiredResponse(request)
+    }
+    const res = rewriteResponse(request, rewriteTarget(request, apiPath))
+    return applyApiSecurity(request, res)
   }
 
-  if (isProtected(pathname)) {
+  const apiPath = normalizeApiPathname(pathname)
+
+  if (isProtected(pathname) || isProtected(apiPath)) {
     const token = request.cookies.get(AUTH_COOKIE)?.value
     if (!token) {
-      if (pathname.startsWith('/api/')) {
-        return NextResponse.json(
-          { ok: false, error: 'Oturum gerekli. Lütfen tekrar giriş yapın.' },
-          { status: 401 },
-        )
+      if (apiPath.startsWith('/api/')) {
+        return authRequiredResponse(request)
       }
       return NextResponse.redirect(loginUrl(request, pathname))
     }
@@ -117,11 +246,22 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/_next') ||
     pathname.startsWith('/_vercel')
   ) {
-    return NextResponse.next()
+    // API OPTIONS preflight
+    if (request.method === 'OPTIONS') {
+      const res = new NextResponse(null, { status: 204 })
+      applyCorsHeaders(res, request.headers.get('origin'))
+      applySecurityHeaders(res)
+      return res
+    }
+
+    const res = NextResponse.next()
+    return applyApiSecurity(request, res)
   }
 
   if (pathname.includes('.')) {
-    return NextResponse.next()
+    const res = NextResponse.next()
+    applySecurityHeaders(res)
+    return res
   }
 
   const segments = pathname.split('/').filter(Boolean)
@@ -139,10 +279,14 @@ export function proxy(request: NextRequest) {
       if (canonical && canonical !== rest[0]) {
         const tail = rest.slice(1)
         const mid = tail.length > 0 ? `/${canonical}/${tail.join('/')}` : `/${canonical}`
-        return rewriteResponse(request, rewriteTarget(request, `/${first}${mid}`))
+        const res = rewriteResponse(request, rewriteTarget(request, `/${first}${mid}`))
+        applySecurityHeaders(res)
+        return res
       }
     }
-    return NextResponse.next()
+    const res = NextResponse.next()
+    applySecurityHeaders(res)
+    return res
   }
 
   // /tr veya /tr/... — **redirect YOK**. Next.js 16 standalone/edge middleware
@@ -150,13 +294,17 @@ export function proxy(request: NextRequest) {
   // yaratıyor (bkz. vercel/next.js#91844). Duplicate URL riskini SEO tarafında
   // `<link rel="canonical">` ile hallediyoruz; burada hiçbir şey yapmıyoruz.
   if (first && isAppLocale(first) && first.toLowerCase() === def) {
-    return NextResponse.next()
+    const res = NextResponse.next()
+    applySecurityHeaders(res)
+    return res
   }
 
   // Dil segmenti yok: `/`, `/blog` → içeride `/tr`, `/tr/blog` (+ alias)
   const suffix = pathname === '/' ? '' : pathname
   const pathOut = applyFirstSegmentAlias(`/${defaultLocale}${suffix}`, def)
-  return rewriteResponse(request, rewriteTarget(request, pathOut))
+  const res = rewriteResponse(request, rewriteTarget(request, pathOut))
+  applySecurityHeaders(res)
+  return res
 }
 
 export const config = {

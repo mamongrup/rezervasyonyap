@@ -3,8 +3,9 @@ import { cookies } from 'next/headers'
 import { constants as fsConstants, promises as fs } from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
+import { sanitizeFilename } from '@/lib/security'
 
-/** Sharp + `node:fs`; Edge’de çalışmaz. */
+/** Sharp + `node:fs`; Edge'de çalışmaz. */
 export const runtime = 'nodejs'
 
 function sanitizePathSegment(s: string): string {
@@ -64,7 +65,9 @@ async function nextSequentialIndex(uploadDir: string, stem: string, ext: string)
 }
 
 function stemFromOriginalFilename(name: string): string {
-  const base = name.replace(/\.[^/.]+$/, '')
+  // Çift katmanlı koruma: önce security.ts sanitizasyonu, sonra yerel sanitizasyon
+  const safe = sanitizeFilename(name)
+  const base = safe.replace(/\.[^/.]+$/, '')
   return sanitizePathSegment(base) || 'gorsel'
 }
 
@@ -187,11 +190,16 @@ const PASSTHROUGH_TYPES = new Set(['image/svg+xml', 'image/x-icon', 'image/vnd.m
 // Minimum kabul edilebilir boyut: hedefin %50'si (altı bulanık görünür)
 const MIN_RATIO = 0.5
 
+/** Buffer → Uint8Array (Node 22+ tip uyumluluğu için) */
+function toUint8Array(buf: Buffer): Uint8Array {
+  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
+}
+
 async function processImage(
   buffer: Buffer,
   profile: FolderProfile,
 ): Promise<{ output: Buffer; thumb?: Buffer; warning?: string }> {
-  const meta = await sharp(buffer).metadata()
+  const meta = await sharp(toUint8Array(buffer)).metadata()
   const w = meta.width ?? 0
   const h = meta.height ?? 0
 
@@ -201,7 +209,7 @@ async function processImage(
     ? `Resim çok küçük (${w}×${h}px). Önerilen minimum ${Math.ceil(profile.width * MIN_RATIO)}×${Math.ceil(profile.height * MIN_RATIO)}px; büyütülmedi, yalnızca AVIF olarak kaydedildi.`
     : undefined
 
-  let pipeline = sharp(buffer).resize(profile.width, profile.height, {
+  let pipeline = sharp(toUint8Array(buffer)).resize(profile.width, profile.height, {
     fit: profile.fit,
     position: profile.fit === 'cover' ? 'attention' : undefined,
     /** Küçük görseller bulanık büyütülmesin; yine de çıktı her zaman AVIF. */
@@ -238,7 +246,7 @@ async function processImage(
   const thumbQuality = Math.min(profile.quality, 78)
   let thumb: Buffer | undefined
   if (profile.thumb > 0) {
-    thumb = await sharp(buffer)
+    thumb = await sharp(toUint8Array(buffer))
       .resize({
         width: profile.thumb,
         height: profile.thumb,
@@ -275,7 +283,9 @@ export async function POST(req: NextRequest) {
     }
     const folder = SAFE_FOLDERS[rawFolder] ? rawFolder : 'general'
 
-    const fileExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+    // Dosya adı güvenliği: orijinal adı sanitize et
+    const safeFileName = sanitizeFilename(file.name)
+    const fileExt = safeFileName.split('.').pop()?.toLowerCase() ?? ''
     const isImageType = ALLOWED_TYPES.includes(file.type) || ['svg', 'ico'].includes(fileExt)
     const isDocType =
       folder === 'supplier-docs' && (DOC_ALLOWED_TYPES.has(file.type) || DOC_ALLOWED_EXTS.has(fileExt))
@@ -344,7 +354,8 @@ export async function POST(req: NextRequest) {
     const stemBase = fileBase || prefix || lastSeg || 'gorsel'
 
     const rawBuffer = Buffer.from(await file.arrayBuffer())
-    const originalExt = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+    // Güvenli dosya adından uzantıyı al
+    const originalExt = safeFileName.split('.').pop()?.toLowerCase() ?? 'bin'
 
     const isPdf = isDocType && (file.type === 'application/pdf' || originalExt === 'pdf')
     const isPassthrough =
@@ -375,7 +386,7 @@ export async function POST(req: NextRequest) {
          */
         console.error('[upload-image] sharp', sharpErr)
         try {
-          outputBuffer = await sharp(rawBuffer)
+          outputBuffer = await sharp(toUint8Array(rawBuffer))
             .rotate()
             .avif({ quality: profile.quality, effort: profile.effort })
             .toBuffer()
@@ -406,65 +417,58 @@ export async function POST(req: NextRequest) {
       const sl = formData.get('slot')
       if (sl != null && String(sl).trim() !== '') {
         const n = Number.parseInt(String(sl), 10)
-        if (Number.isFinite(n) && n >= 0 && n <= 99) seq = n + 1
+        if (Number.isFinite(n) && n >= 1 && n <= 100) seq = n
       }
     }
 
-    const useOriginalStem =
-      String(formData.get('useOriginalStem') ?? '') === '1' ||
-      String(formData.get('useOriginalStem') ?? '') === 'true'
-
-    let filename: string
+    let finalStem: string
     if (fixedStem) {
-      filename = `${fixedStem}.${ext}`
-    } else if (seq != null) {
-      filename = `${stemBase}-${seq}.${ext}`
-    } else if (useOriginalStem) {
-      const fromName = stemFromOriginalFilename(file.name)
-      const direct = `${fromName}.${ext}`
-      const directPath = path.join(uploadDir, direct)
-      try {
-        await fs.access(directPath, fsConstants.F_OK)
-        const next = await nextSequentialIndex(uploadDir, fromName, ext)
-        filename = `${fromName}-${next}.${ext}`
-      } catch {
-        filename = direct
-      }
+      finalStem = fixedStem
     } else {
-      const next = await nextSequentialIndex(uploadDir, stemBase, ext)
-      filename = `${stemBase}-${next}.${ext}`
-    }
-    await fs.writeFile(
-      path.join(uploadDir, filename),
-      new Uint8Array(outputBuffer.buffer, outputBuffer.byteOffset, outputBuffer.byteLength),
-    )
-
-    /**
-     * Aynı stem + `-thumb.avif`: kart/grid'lerde tek bir küçük dosya yüklenir,
-     * büyük görsel sadece detay sayfasında istenir.
-     */
-    let thumbUrl: string | undefined
-    if (thumbBuffer && ext === 'avif') {
-      const stem = filename.replace(/\.avif$/i, '')
-      const thumbName = `${stem}-thumb.avif`
-      await fs.writeFile(
-        path.join(uploadDir, thumbName),
-        new Uint8Array(thumbBuffer.buffer, thumbBuffer.byteOffset, thumbBuffer.byteLength),
-      )
-      const thumbParts = [folder, ...subSegments, thumbName].filter(Boolean)
-      thumbUrl = `/uploads/${thumbParts.join('/')}`
+      const fromName = stemFromOriginalFilename(safeFileName)
+      if (seq != null) {
+        finalStem = `${stemBase}-${seq}`
+      } else {
+        const nextIdx = await nextSequentialIndex(uploadDir, stemBase, ext)
+        finalStem = `${stemBase}-${nextIdx}`
+      }
     }
 
-    const relParts = [folder, ...subSegments, filename].filter(Boolean)
-    const publicUrl = `/uploads/${relParts.join('/')}`
+    const outName = `${finalStem}.${ext}`
+    const outPath = path.join(uploadDir, outName)
+
+    // Son savunma: çıktı yolunun uploads kökü içinde olduğunu doğrula
+    const resolvedOut = path.resolve(outPath)
+    const relOut = path.relative(path.resolve(UPLOADS_ROOT), resolvedOut)
+    if (relOut.startsWith('..') || path.isAbsolute(relOut)) {
+      return NextResponse.json({ ok: false, error: 'Geçersiz dosya yolu.' }, { status: 400 })
+    }
+
+    await fs.writeFile(outPath, Uint8Array.from(outputBuffer))
+
+    let thumbPath: string | undefined
+    if (thumbBuffer) {
+      const thumbName = `${finalStem}-thumb.avif`
+      thumbPath = path.join(uploadDir, thumbName)
+      await fs.writeFile(thumbPath, Uint8Array.from(thumbBuffer))
+    }
+
+    // Göreli yol (public/uploads/... — Next.js statik servis eder)
+    const publicRel = path.relative(path.join(process.cwd(), 'public'), resolvedOut).replace(/\\/g, '/')
+
     return NextResponse.json({
       ok: true,
-      url: publicUrl,
-      ...(thumbUrl ? { thumbUrl } : {}),
-      ...(warning ? { warning } : {}),
+      path: `/${publicRel}`,
+      thumb: thumbPath
+        ? `/${path.relative(path.join(process.cwd(), 'public'), thumbPath).replace(/\\/g, '/')}`
+        : undefined,
+      warning,
     })
-  } catch (err) {
+  } catch (err: any) {
     console.error('[upload-image]', err)
-    return NextResponse.json({ ok: false, error: 'Yükleme sırasında bir hata oluştu.' }, { status: 500 })
+    return NextResponse.json(
+      { ok: false, error: err?.message || 'Yükleme sırasında beklenmeyen bir hata oluştu.' },
+      { status: 500 },
+    )
   }
 }

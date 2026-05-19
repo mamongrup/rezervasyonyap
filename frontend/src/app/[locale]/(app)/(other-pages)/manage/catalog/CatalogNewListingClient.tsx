@@ -1,6 +1,6 @@
 'use client'
 
-import { formatManageApiError } from '@/lib/manage-api-error-tr'
+import { formatManageApiCatch, formatManageApiError } from '@/lib/manage-api-error-tr'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { extractHolidayHomePoolsFromVerticalMeta, unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
@@ -805,6 +805,7 @@ export default function CatalogNewListingClient({
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([])
   const [nearbyPoisLoading, setNearbyPoisLoading] = useState(false)
   const [nearbyPoisBusy, setNearbyPoisBusy] = useState(false)
+  const [nearbyPoisMsg, setNearbyPoisMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [mapsApiKey, setMapsApiKey] = useState('')
   const [newPoiName, setNewPoiName] = useState('')
   const [newPoiNote, setNewPoiNote] = useState('')
@@ -1525,74 +1526,171 @@ export default function CatalogNewListingClient({
   async function refreshNearbyPoisFromServer() {
     if (!editListingId || !lat.trim() || !lng.trim()) return
     const token = getStoredAuthToken()
-    if (!token) return
-    setNearbyPoisBusy(true)
-    try {
-      type PlaceRow = { name: string; address: string; types: string[]; rating?: number; placeId: string; photoRef?: string; lat: number; lng: number; distanceKm: number }
+    if (!token) {
+      setNearbyPoisMsg({ ok: false, text: 'Oturum bulunamadı. Yeniden giriş yapın.' })
+      return
+    }
+    const latNum = parseFloat(lat)
+    const lngNum = parseFloat(lng)
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+      setNearbyPoisMsg({ ok: false, text: 'Enlem ve boylam geçerli sayı olmalı.' })
+      return
+    }
 
-      // API anahtarını yükle
-      let apiKey = mapsApiKey
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    setNearbyPoisBusy(true)
+    setNearbyPoisMsg(null)
+    try {
+      type PlaceRow = {
+        name: string
+        address: string
+        types: string[]
+        rating?: number
+        placeId: string
+        photoRef?: string
+        lat: number
+        lng: number
+        distanceKm: number
+      }
+
+      const placeRowToPoi = (p: PlaceRow, apiKey: string): NearbyPoi => ({
+        title: p.name,
+        summary: [
+          p.address,
+          p.rating ? `Puan: ${p.rating}/5` : '',
+          (p.types ?? [])
+            .filter((t) => !['point_of_interest', 'establishment'].includes(t))
+            .slice(0, 2)
+            .map((t) => t.replace(/_/g, ' '))
+            .join(', '),
+        ]
+          .filter(Boolean)
+          .join(' — '),
+        image: p.photoRef
+          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${apiKey}`
+          : undefined,
+        link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
+        place_id: p.placeId,
+        lat: p.lat,
+        lng: p.lng,
+        distance_km: Math.round(p.distanceKm * 10) / 10,
+      })
+
+      // API anahtarını yükle (state → site ayarları → public maps-config)
+      let apiKey = mapsApiKey.trim()
       if (!apiKey) {
         try {
           const s = await listSiteSettings(token, { scope: 'platform', key: 'maps' })
           const raw = s.settings?.[0]?.value_json ?? ''
           if (raw) {
             const parsed = JSON.parse(raw) as Record<string, unknown>
-            apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key : ''
+            apiKey = typeof parsed.google_maps_api_key === 'string' ? parsed.google_maps_api_key.trim() : ''
             if (apiKey) setMapsApiKey(apiKey)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!apiKey) {
+        try {
+          const cfgRes = await fetch('/api/maps-config')
+          if (cfgRes.ok) {
+            const cfg = (await cfgRes.json()) as { apiKey?: string }
+            apiKey = cfg.apiKey?.trim() ?? ''
+            if (apiKey) setMapsApiKey(apiKey)
+          }
+        } catch {
+          /* ignore */
+        }
       }
 
       let next: NearbyPoi[] = []
+      let googleError: string | null = null
 
-      // Google Places API varsa ÖNCE onu kullan — doğru ve güncel sonuç verir
+      // Google Places — birden fazla tip (bölge düzenleme ile aynı mantık)
       if (apiKey) {
-        try {
-          const placesRes = await fetch('/api/places-nearby', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              lat: parseFloat(lat), lng: parseFloat(lng),
-              googleType: 'turistik gezilecek görülecek plaj tarihi alan ören yeri park doğa',
-              radiusM: 20000, maxCount: 20, language: 'tr', apiKey, useKeyword: true,
-            }),
-          })
-          if (placesRes.ok) {
-            const pd = await placesRes.json() as { places: PlaceRow[] }
-            next = (pd.places ?? []).map((p) => ({
-              title: p.name,
-              summary: [
-                p.address,
-                p.rating ? `Puan: ${p.rating}/5` : '',
-                (p.types ?? [])
-                  .filter((t) => !['point_of_interest', 'establishment'].includes(t))
-                  .slice(0, 2).map((t) => t.replace(/_/g, ' ')).join(', '),
-              ].filter(Boolean).join(' — '),
-              image: p.photoRef
-                ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${apiKey}`
-                : undefined,
-              link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
-              place_id: p.placeId,
-              lat: p.lat,
-              lng: p.lng,
-              distance_km: Math.round(p.distanceKm * 10) / 10,
-            }))
+        const googleTypes = ['tourist_attraction', 'park', 'natural_feature', 'museum']
+        const byPlaceId = new Map<string, PlaceRow>()
+        for (const googleType of googleTypes) {
+          try {
+            const placesRes = await fetch('/api/places-nearby', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                lat: latNum,
+                lng: lngNum,
+                googleType,
+                radiusM: 20_000,
+                maxCount: 8,
+                language: locale || 'tr',
+                apiKey,
+              }),
+            })
+            const pd = (await placesRes.json().catch(() => ({}))) as {
+              places?: PlaceRow[]
+              error?: string
+            }
+            if (!placesRes.ok) {
+              googleError = pd.error ?? `Google Places HTTP ${placesRes.status}`
+              break
+            }
+            for (const p of pd.places ?? []) {
+              const prev = byPlaceId.get(p.placeId)
+              if (!prev || p.distanceKm < prev.distanceKm) byPlaceId.set(p.placeId, p)
+            }
+            await new Promise((r) => setTimeout(r, 280))
+          } catch (e) {
+            googleError = e instanceof Error ? e.message : 'Google Places isteği başarısız'
+            break
           }
-        } catch { /* sessizce geç */ }
+        }
+        if (!googleError && byPlaceId.size > 0) {
+          next = [...byPlaceId.values()]
+            .sort((a, b) => a.distanceKm - b.distanceKm)
+            .slice(0, 20)
+            .map((p) => placeRowToPoi(p, apiKey))
+        }
+      } else {
+        googleError =
+          'Google Maps API anahtarı yok. Yönetim → Genel ayarlar veya Yapay zeka bölümünden anahtar ekleyin.'
       }
 
-      // Google Places başarısız ya da anahtar yoksa backend hesabına düş
+      // Yedek: bölge/ilçe travel_ideas — önce form koordinatlarını DB'ye yaz
       if (next.length === 0) {
-      await computeListingNearbyPois(token, editListingId).catch(() => {})
-        next = await getListingNearbyPois(editListingId).catch(() => [] as NearbyPoi[])
+        await putListingMeta(token, editListingId, { lat: lat.trim(), lng: lng.trim() }, orgParam).catch(
+          () => {},
+        )
+        try {
+          await computeListingNearbyPois(token, editListingId)
+          next = await getListingNearbyPois(editListingId)
+        } catch (e) {
+          const backendMsg = formatManageApiCatch(e, 'Yakın mekan hesabı başarısız')
+          if (googleError) {
+            setNearbyPoisMsg({
+              ok: false,
+              text: `${googleError} Bölge yedeği: ${backendMsg}`,
+            })
+          } else {
+            setNearbyPoisMsg({ ok: false, text: backendMsg })
+          }
+          return
+        }
       }
 
       if (next.length > 0) {
         await patchListingNearbyPois(token, editListingId, next).catch(() => {})
+        setNearbyPois(next)
+        nearbyPoisHydratedRef.current = true
+        const via = apiKey && !googleError ? 'Google Places' : 'bölge verisi'
+        setNearbyPoisMsg({ ok: true, text: `${next.length} mekan eklendi (${via}).` })
+      } else {
+        setNearbyPois(next)
+        nearbyPoisHydratedRef.current = true
+        const hint = googleError
+          ? googleError
+          : 'Bu koordinat çevresinde sonuç bulunamadı. Bölge sayfasında gezi önerileri tanımlı mı kontrol edin veya manuel ekleyin.'
+        setNearbyPoisMsg({ ok: false, text: hint })
       }
-      setNearbyPois(next)
-      nearbyPoisHydratedRef.current = true
     } finally {
       setNearbyPoisBusy(false)
     }
@@ -2950,6 +3048,18 @@ export default function CatalogNewListingClient({
                 <path fillRule="evenodd" d="M6.701 2.25c.577-1 2.02-1 2.598 0l5.196 9a1.5 1.5 0 0 1-1.299 2.25H2.804a1.5 1.5 0 0 1-1.3-2.25l5.197-9ZM8 4a.75.75 0 0 1 .75.75v3a.75.75 0 1 1-1.5 0v-3A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clipRule="evenodd" />
               </svg>
               Mekan hesaplamak için enlem ve boylam koordinatları girilmeli.
+            </div>
+          ) : null}
+          {nearbyPoisMsg ? (
+            <div
+              role="status"
+              className={`mx-4 mt-3 rounded-xl px-3 py-2 text-xs ${
+                nearbyPoisMsg.ok
+                  ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300'
+                  : 'bg-red-50 text-red-800 dark:bg-red-950/30 dark:text-red-300'
+              }`}
+            >
+              {nearbyPoisMsg.text}
             </div>
           ) : null}
           {nearbyPoisLoading ? (
