@@ -3,6 +3,7 @@
  * listings.nearby_pois_json → sunucu tarafında Haversine (PostgreSQL) ile doldurulur.
  * blog_slug varsa ilgili blog yazısına, yoksa Google Maps'e bağlanır.
  */
+import NearbyPoiCardImage from '@/components/travel/NearbyPoiCardImage'
 import type { NearbyPoi } from '@/lib/travel-api'
 import { BookOpen, MapPin } from 'lucide-react'
 import Link from 'next/link'
@@ -36,18 +37,7 @@ export default function ListingNearbyPoisSection({ pois, title, locale }: Props)
             key={poi.place_id ?? i}
             className="flex gap-3 rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40"
           >
-            {poi.image ? (
-              <img
-                src={poi.image}
-                alt={poi.title}
-                className="h-16 w-16 shrink-0 rounded-xl object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-neutral-100 dark:bg-neutral-800">
-                <MapPin className="h-6 w-6 text-neutral-400" />
-              </div>
-            )}
+            <NearbyPoiCardImage src={poi.image} alt={poi.title} />
 
             <div className="min-w-0 flex-1">
               <div className="flex items-start gap-2">
