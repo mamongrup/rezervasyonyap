@@ -55,6 +55,9 @@ check_env() {
       warn "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL — tarayıcı bu adresi kullanıcının bilgisayarında arar; uzaktan Yönetim/YZ çalışmaz. Örnek: https://rezervasyonyap.tr (INTERNAL_API_ORIGIN ayrıca 127.0.0.1:8080 kalabilir)."
       ;;
   esac
+  if [[ -z "${ALLOWED_HOSTS:-}" ]]; then
+    warn "ALLOWED_HOSTS boş — eski proxy build'inde tüm site 400 Bad Request verebilir. Örnek: ALLOWED_HOSTS=rezervasyonyap.tr,www.rezervasyonyap.tr,127.0.0.1,localhost"
+  fi
   if [[ -z "${GOOGLE_MAPS_API_KEY:-}" ]] && [[ -z "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}" ]]; then
     warn "Google Maps anahtarı yok (GOOGLE_MAPS_API_KEY veya NEXT_PUBLIC_GOOGLE_MAPS_API_KEY). Bölge «Mekan—mesafe» Google çekme ve /api/places-nearby çalışmaz. Örnek: deploy/systemd/frontend.env.example"
   fi

@@ -62,19 +62,67 @@ export function applySecurityHeaders(response: NextResponse): void {
  * İzin verilen host'lar (ALLOWED_HOSTS env değişkeninden).
  * Geliştirmede boşsa localhost/127.0.0.1 varsayılan kabul edilir.
  */
+function hostFromPublicUrl(envKey: string): string | null {
+  const raw = process.env[envKey]?.trim()
+  if (!raw) return null
+  try {
+    return new URL(raw).hostname.toLowerCase()
+  } catch {
+    return null
+  }
+}
+
+/** `rezervasyonyap.tr` → aynı + `www.rezervasyonyap.tr` */
+function expandHostAliases(hostname: string): string[] {
+  const h = hostname.toLowerCase()
+  const out = [h]
+  if (h.startsWith('www.')) {
+    out.push(h.slice(4))
+  } else if (h && !h.includes(':')) {
+    out.push(`www.${h}`)
+  }
+  return out
+}
+
 function getAllowedHosts(): string[] {
   const raw = process.env.ALLOWED_HOSTS ?? ''
-  if (!raw.trim()) {
-    // Geliştirme ortamında varsayılan olarak localhost izin ver
-    if (process.env.NODE_ENV !== 'production') {
-      return ['localhost', '127.0.0.1']
-    }
-    return []
-  }
-  return raw
+  const fromEnv = raw
     .split(',')
     .map((h) => h.trim().toLowerCase())
     .filter(Boolean)
+  if (fromEnv.length > 0) return fromEnv
+
+  // Geliştirme: localhost
+  if (process.env.NODE_ENV !== 'production') {
+    return ['localhost', '127.0.0.1']
+  }
+
+  // Üretim: ALLOWED_HOSTS unutulmuşsa SITE_URL / API_URL host'larından türet (+ verify loopback)
+  const derived = new Set<string>(['127.0.0.1', 'localhost'])
+  for (const h of [
+    hostFromPublicUrl('NEXT_PUBLIC_SITE_URL'),
+    hostFromPublicUrl('NEXT_PUBLIC_API_URL'),
+    hostFromPublicUrl('SITE_URL'),
+  ]) {
+    for (const alias of expandHostAliases(h ?? '')) {
+      if (alias) derived.add(alias)
+    }
+  }
+  return [...derived]
+}
+
+/** `Host: rezervasyonyap.tr:443` → `rezervasyonyap.tr` */
+export function normalizeHostHeader(host: string): string {
+  const h = host.trim().toLowerCase()
+  if (h.startsWith('[')) {
+    const end = h.indexOf(']')
+    return end > 0 ? h.slice(1, end) : h
+  }
+  const colon = h.lastIndexOf(':')
+  if (colon > 0 && /^\d+$/.test(h.slice(colon + 1))) {
+    return h.slice(0, colon)
+  }
+  return h
 }
 
 /**
@@ -123,14 +171,12 @@ export function applyCorsHeaders(
  */
 export function isAllowedHost(host: string): boolean {
   const allowedHosts = getAllowedHosts()
-  if (allowedHosts.length === 0) {
-    // Üretimde ALLOWED_HOSTS boşsa host doğrulaması kapalı kalmasın
-    return process.env.NODE_ENV !== 'production'
-  }
-  const h = host.toLowerCase()
-  return allowedHosts.some(
-    (allowed) => h === allowed || h.startsWith(`${allowed}:`),
-  )
+  if (allowedHosts.length === 0) return false
+  const h = normalizeHostHeader(host)
+  return allowedHosts.some((allowed) => {
+    const a = normalizeHostHeader(allowed)
+    return h === a
+  })
 }
 
 // ---------------------------------------------------------------------------
