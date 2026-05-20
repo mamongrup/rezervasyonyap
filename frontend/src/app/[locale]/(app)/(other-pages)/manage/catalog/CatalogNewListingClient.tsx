@@ -1,7 +1,10 @@
 'use client'
 
 import { formatManageApiCatch, formatManageApiError } from '@/lib/manage-api-error-tr'
-import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
+import {
+  normalizeCatalogVertical,
+  type CatalogListingVerticalCode,
+} from '@/lib/catalog-listing-vertical'
 import { extractHolidayHomePoolsFromVerticalMeta, unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
 import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
@@ -19,7 +22,7 @@ import {
   pickHeroKeysFromTaggedImages,
 } from '@/lib/holiday-listing-hero-preview'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
-import { managePublicDetailPathForVertical, stayDetailPathForVertical } from '@/lib/stay-detail-routes'
+import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import {
@@ -116,10 +119,7 @@ import {
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
 import { buildPlacePhotoProxySrc } from '@/lib/nearby-poi-image'
 import { slugifyListingSlug } from '@/lib/slug-latin-tr'
-import {
-  MANAGE_FORM_CONTAINER_CLASS,
-  ManageFormPageHeader,
-} from '@/components/manage/ManageFormShell'
+import { MANAGE_FORM_CONTAINER_CLASS } from '@/components/manage/ManageFormShell'
 import { HeroSlotPickerModal } from '@/components/manage/HeroSlotPickerModal'
 import { ManageListingGalleryHeroPreview } from '@/components/manage/ManageListingGalleryHeroPreview'
 import { HotelFacetSelectPanels } from '@/components/catalog/HotelFacetSelectPanels'
@@ -153,7 +153,6 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import WizardStepNav, { type WizardStep } from '@/components/wizard/WizardStepNav'
-import WizardStepFooter from '@/components/wizard/WizardStepFooter'
 
 /** Arama / paylaşım — `upsertSeoMetadata` ile kayıt (listing) */
 type ListingSeoDraft = {
@@ -870,6 +869,8 @@ export default function CatalogNewListingClient({
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
+  const catalogVertical = normalizeCatalogVertical(categoryCode)
+  const listingPreviewBase = managePublicDetailPathForVertical(catalogVertical)
   const isTour = categoryCode === 'tour'
 
   const gallerySlugBase = slug.trim() ? slugifyMediaSegment(slug) : 'yeni-ilan'
@@ -3349,61 +3350,13 @@ export default function CatalogNewListingClient({
   const saveLocked = busy || (Boolean(editListingId) && !editListingReady)
 
   return (
-    <div
-      className={
-        isVilla
-          ? 'bg-neutral-50 pb-20 dark:bg-neutral-950 sm:pb-24'
-          : 'bg-neutral-50 pb-20 dark:bg-neutral-950 sm:pb-24'
-      }
-    >
-      {isVilla && editListingId && !editListingReady ? (
+    <div className="bg-neutral-50 pb-20 dark:bg-neutral-950 sm:pb-24">
+      {editListingId && !editListingReady ? (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-white/85 backdrop-blur-sm dark:bg-neutral-950/85">
           <Loader2 className="h-8 w-8 animate-spin text-[color:var(--manage-primary)]" />
         </div>
       ) : null}
-      {!isVilla ? (
-        <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'mb-6 space-y-4 pt-4 sm:pt-5')}>
-          <div className="flex flex-wrap items-start gap-3">
-          <Link
-            href={listHref}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-              <path fillRule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clipRule="evenodd" />
-            </svg>
-          </Link>
-          <div className="min-w-0 flex-1">
-            <ManageFormPageHeader
-              className="mb-0"
-              title="Yeni ilan ekle"
-              subtitle={<>{categoryLabelTr(categoryCode)} kategorisi</>}
-            />
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-3">
-            <span
-              className={clsx(
-                'rounded-full px-3 py-1 text-xs font-medium',
-                status === 'published'
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-                  : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-              )}
-            >
-              {status === 'published' ? 'Yayında' : 'Taslak'}
-            </span>
-            </div>
-          </div>
-          {/* Wizard adım navigasyonu — non-villa */}
-          <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
-            <WizardStepNav
-              steps={WIZARD_STEPS}
-              currentStep={currentStep}
-              canJumpFreely={Boolean(editListingId)}
-              onStepClick={goToStep}
-            />
-          </div>
-        </div>
-      ) : (
-        <>
+      <>
           <div className="sticky top-0 z-20 border-b border-neutral-100 bg-white shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
             <div className="space-y-3 px-4 py-3 sm:px-6">
               {/* Üst satır: geri + başlık (dillerle aynı satırda sıkışmasın) */}
@@ -3539,7 +3492,7 @@ export default function CatalogNewListingClient({
                 </div>
               </div>
 
-              {/* Wizard adım navigasyonu — villa sticky header */}
+              {/* Wizard adım navigasyonu */}
               <div className="border-t border-neutral-100 pt-3 dark:border-neutral-800 sm:pl-11">
                 <WizardStepNav
                   steps={WIZARD_STEPS}
@@ -3550,12 +3503,10 @@ export default function CatalogNewListingClient({
               </div>
             </div>
           </div>
-        </>
-      )}
+      </>
 
       <form id={formId} onSubmit={(e) => void onSubmit(e)}>
-        {isVilla && (
-          <div
+        <div
             className={clsx(
               MANAGE_FORM_CONTAINER_CLASS,
               'mb-6 sm:mb-8 pt-4 sm:pt-5',
@@ -3573,13 +3524,11 @@ export default function CatalogNewListingClient({
               <div className="mt-4 border-b border-neutral-200 dark:border-neutral-700" />
             </header>
           </div>
-        )}
         {translateMsg ? (
           <div
             className={clsx(
               MANAGE_FORM_CONTAINER_CLASS,
               'mb-4',
-              !isVilla && 'mt-2',
             )}
           >
             <div
@@ -6044,42 +5993,12 @@ export default function CatalogNewListingClient({
         </div>
         </div>
 
-        {/* Wizard footer — non-villa */}
-        {!isVilla && (
-          <WizardStepFooter
-            currentStep={currentStep}
-            totalSteps={TOTAL_STEPS}
-            onBack={() => goToStep(currentStep - 1)}
-            onNext={() => {
-              if (currentStep < TOTAL_STEPS - 1) {
-                if (editListingId) {
-                  submitIntentRef.current = 'save-next'
-                  const formEl = document.getElementById(formId) as HTMLFormElement | null
-                  formEl?.requestSubmit()
-                } else {
-                  goToStep(currentStep + 1)
-                }
-              } else {
-                submitIntentRef.current = 'save'
-                const formEl = document.getElementById(formId) as HTMLFormElement | null
-                formEl?.requestSubmit()
-              }
-            }}
-            onSave={editListingId ? () => {
-              submitIntentRef.current = 'save'
-              const formEl = document.getElementById(formId) as HTMLFormElement | null
-              formEl?.requestSubmit()
-            } : undefined}
-            isSaving={busy}
-          />
-        )}
       </form>
 
-      {isVilla ? (
-        <div
-          className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95"
-          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-        >
+      <div
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-neutral-200 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
           <div
             className={clsx(
               MANAGE_FORM_CONTAINER_CLASS,
@@ -6123,7 +6042,7 @@ export default function CatalogNewListingClient({
             <a
               href={
                 slug.trim()
-                  ? vitrinPath(`${stayDetailPathForVertical('holiday_home')}/${slugifyListingSlug(slug.trim())}`)
+                  ? vitrinPath(`${listingPreviewBase}/${slugifyListingSlug(slug.trim())}`)
                   : '#'
               }
               target="_blank"
@@ -6197,7 +6116,6 @@ export default function CatalogNewListingClient({
             </div>
           </div>
         </div>
-      ) : null}
     </div>
   )
 }
