@@ -101,6 +101,9 @@ export default function CatalogSidebar() {
         items.push({ href: `${p}/facet-options`, label: 'Tip / tema / konaklama' })
         items.push({ href: `${p}/room-features`, label: 'Oda öznitelikleri' })
       }
+      if (code === 'tour') {
+        items.push({ href: `${p}/facet-options`, label: 'Tur filtreleri' })
+      }
       items.push(
         { href: `${p}/seo`, label: 'SEO & açılış' },
         { href: `${p}/availability`, label: 'Kullanılabilirlik' },

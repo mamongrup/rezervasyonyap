@@ -14,14 +14,17 @@ import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   getListingMeta,
+  listManageActivitySessions,
   getVerticalHolidayHome,
   getVerticalMeta,
   getVerticalYacht,
   patchVerticalHolidayHome,
   patchVerticalYacht,
   putListingMeta,
+  putManageActivitySessions,
   putVerticalMeta,
   fetchPublicHolidayHomePropertyTypes,
+  type ActivitySessionRow,
   type ListingMeta,
 } from '@/lib/travel-api'
 import {
@@ -31,7 +34,11 @@ import {
   resolvePropertyTypeToSlug,
   type HolidayHomePropertyTypeItem,
 } from '@/lib/holiday-property-type-options'
-import { listPublicCategoryThemeItems } from '@/lib/catalog-theme-items-api'
+import { listPublicCategoryThemeItems, listPublicThemeItems } from '@/lib/catalog-theme-items-api'
+import {
+  TOUR_ACCOMMODATION_OPTIONS,
+  TOUR_TRAVEL_TYPE_OPTIONS,
+} from '@/lib/tour-filter-options'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
 import MapPicker from '@/components/editor/MapPicker'
@@ -612,13 +619,33 @@ function IncludeExclude({
 // ─── Tur (tour) ───────────────────────────────────────────────────────────────
 interface ItineraryDay { day: number; title: string; description: string }
 
+const emptyActivitySession = (): ActivitySessionRow => ({
+  valid_from: '',
+  valid_to: '',
+  start_time: '10:00',
+  duration_minutes: '',
+  capacity: '',
+  is_active: true,
+  sort_order: '0',
+  adult_price: '',
+  child_price: '',
+  currency_code: 'TRY',
+  adult_min_age: '13',
+  adult_max_age: '',
+  child_min_age: '3',
+})
+
 function TourSection({ listingId }: { listingId: string }) {
+  const params = useParams()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const [form, setForm] = useState({
     duration_days: '', min_people: '', max_people: '',
     visa_required: false, travel_type: '', is_guided: false,
     accommodation_type: '', languages: '', min_day_before_booking: '',
     wtatil_package_ref: '',
   })
+  const [travelTypeOptions, setTravelTypeOptions] = useState(() => TOUR_TRAVEL_TYPE_OPTIONS)
+  const [accommodationOptions, setAccommodationOptions] = useState(() => TOUR_ACCOMMODATION_OPTIONS)
   const [includes, setIncludes] = useState<string[]>([''])
   const [excludes, setExcludes] = useState<string[]>([''])
   const [itinerary, setItinerary] = useState<ItineraryDay[]>([{ day: 1, title: '', description: '' }])
@@ -651,6 +678,26 @@ function TourSection({ listingId }: { listingId: string }) {
     if (d.excludes?.length) setExcludes(d.excludes)
     if (d.itinerary?.length) setItinerary(d.itinerary)
   })
+
+  useEffect(() => {
+    let cancelled = false
+    void listPublicThemeItems({ categoryCode: 'tour', locale, facet: 'travel_type' }).then((r) => {
+      if (!cancelled && r?.items?.length) setTravelTypeOptions(r.items)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
+
+  useEffect(() => {
+    let cancelled = false
+    void listPublicThemeItems({ categoryCode: 'tour', locale, facet: 'accommodation' }).then((r) => {
+      if (!cancelled && r?.items?.length) setAccommodationOptions(r.items)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [locale])
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((prev) => ({ ...prev, [k]: e.target.value }))
@@ -731,21 +778,22 @@ function TourSection({ listingId }: { listingId: string }) {
           <Label>Ulaşım Türü</Label>
           <select className={SELECT_CLS} value={form.travel_type} onChange={set('travel_type')}>
             <option value="">— Seçin —</option>
-            <option value="plane">Uçakla</option>
-            <option value="bus">Otobüsle</option>
-            <option value="both">Uçak + Otobüs</option>
-            <option value="own">Kendi Aracıyla</option>
+            {travelTypeOptions.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </Field>
         <Field className="block">
           <Label>Konaklama Tipi</Label>
           <select className={SELECT_CLS} value={form.accommodation_type} onChange={set('accommodation_type')}>
             <option value="">— Seçin —</option>
-            <option value="hotel">Otel</option>
-            <option value="hostel">Hostel</option>
-            <option value="villa">Villa</option>
-            <option value="camping">Kamp</option>
-            <option value="none">Gecekonaklama Yok</option>
+            {accommodationOptions.map((option) => (
+              <option key={option.code} value={option.code}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </Field>
         <Field className="block">
@@ -835,7 +883,10 @@ function ActivitySection({ listingId }: { listingId: string }) {
   const [includes, setIncludes] = useState<string[]>([''])
   const [excludes, setExcludes] = useState<string[]>([''])
   const [busy, setBusy] = useState(false)
+  const [sessionsBusy, setSessionsBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [sessionsMsg, setSessionsMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [sessions, setSessions] = useState<ActivitySessionRow[]>([])
   const save = useSave('activity', listingId)
 
   interface ActivityMeta {
@@ -856,6 +907,22 @@ function ActivitySection({ listingId }: { listingId: string }) {
     if (d.excludes?.length) setExcludes(d.excludes)
   })
 
+  useEffect(() => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    let cancelled = false
+    void listManageActivitySessions(token, listingId)
+      .then((r) => {
+        if (!cancelled) setSessions(r.sessions.length > 0 ? r.sessions : [emptyActivitySession()])
+      })
+      .catch(() => {
+        if (!cancelled) setSessions([emptyActivitySession()])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [listingId])
+
   async function handleSave() {
     setBusy(true); setMsg(null)
     try {
@@ -864,6 +931,36 @@ function ActivitySection({ listingId }: { listingId: string }) {
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
     } finally { setBusy(false) }
+  }
+
+  function updateSession(index: number, patch: Partial<ActivitySessionRow>) {
+    setSessions((prev) => prev.map((row, i) => i === index ? { ...row, ...patch } : row))
+  }
+
+  async function handleSaveSessions() {
+    const token = getStoredAuthToken()
+    if (!token) {
+      setSessionsMsg({ ok: false, text: 'Oturum bulunamadı.' })
+      return
+    }
+    setSessionsBusy(true)
+    setSessionsMsg(null)
+    try {
+      const clean = sessions
+        .filter((s) => s.valid_from.trim() && s.valid_to.trim() && s.start_time.trim())
+        .map((s, i) => ({ ...s, sort_order: s.sort_order?.trim() || String(i) }))
+      await putManageActivitySessions(token, listingId, clean)
+      const fresh = await listManageActivitySessions(token, listingId)
+      setSessions(fresh.sessions.length > 0 ? fresh.sessions : [emptyActivitySession()])
+      setSessionsMsg({ ok: true, text: 'Seans ve fiyatlar kaydedildi.' })
+    } catch (e) {
+      setSessionsMsg({
+        ok: false,
+        text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed'),
+      })
+    } finally {
+      setSessionsBusy(false)
+    }
   }
 
   if (loading) return <p className="text-sm text-neutral-400">Yükleniyor…</p>
@@ -920,6 +1017,83 @@ function ActivitySection({ listingId }: { listingId: string }) {
         </Field>
       </div>
       <IncludeExclude includes={includes} excludes={excludes} onIncludes={setIncludes} onExcludes={setExcludes} />
+      <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
+        <SectionTitle>Seanslar ve Fiyatlar</SectionTitle>
+        <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">
+          Tarih aralığı + saat bazında yetişkin/çocuk fiyatı tanımlayın. Public aktivite detayındaki tarih, saat ve kişi seçimi bu satırlardan beslenir.
+        </p>
+        <div className="space-y-4">
+          {sessions.map((session, index) => (
+            <div key={index} className="rounded-xl border border-neutral-200 bg-neutral-50/70 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field className="block">
+                  <Label>Başlangıç tarihi</Label>
+                  <Input type="date" className="mt-1" value={session.valid_from} onChange={(e) => updateSession(index, { valid_from: e.target.value })} />
+                </Field>
+                <Field className="block">
+                  <Label>Bitiş tarihi</Label>
+                  <Input type="date" className="mt-1" value={session.valid_to} onChange={(e) => updateSession(index, { valid_to: e.target.value })} />
+                </Field>
+                <Field className="block">
+                  <Label>Saat</Label>
+                  <Input type="time" className="mt-1" value={session.start_time} onChange={(e) => updateSession(index, { start_time: e.target.value })} />
+                </Field>
+                <Field className="block">
+                  <Label>Süre (dk)</Label>
+                  <Input type="number" min="0" className="mt-1" value={session.duration_minutes ?? ''} onChange={(e) => updateSession(index, { duration_minutes: e.target.value })} placeholder="150" />
+                </Field>
+                <Field className="block">
+                  <Label>Kapasite</Label>
+                  <Input type="number" min="0" className="mt-1" value={session.capacity ?? ''} onChange={(e) => updateSession(index, { capacity: e.target.value })} placeholder="20" />
+                </Field>
+                <Field className="block">
+                  <Label>Para birimi</Label>
+                  <Input className="mt-1" value={session.currency_code ?? 'TRY'} onChange={(e) => updateSession(index, { currency_code: e.target.value.toUpperCase() })} placeholder="TRY" />
+                </Field>
+                <Field className="block">
+                  <Label>Yetişkin fiyat</Label>
+                  <Input type="number" min="0" step="0.01" className="mt-1" value={session.adult_price ?? ''} onChange={(e) => updateSession(index, { adult_price: e.target.value })} placeholder="1200" />
+                </Field>
+                <Field className="block">
+                  <Label>Çocuk fiyat</Label>
+                  <Input type="number" min="0" step="0.01" className="mt-1" value={session.child_price ?? ''} onChange={(e) => updateSession(index, { child_price: e.target.value })} placeholder="850" />
+                </Field>
+              </div>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <label className="flex cursor-pointer items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary-600"
+                    checked={session.is_active !== false}
+                    onChange={(e) => updateSession(index, { is_active: e.target.checked })}
+                  />
+                  Aktif
+                </label>
+                <button
+                  type="button"
+                  className="text-sm text-red-600 underline decoration-red-600/30 underline-offset-2 dark:text-red-400"
+                  onClick={() => setSessions((prev) => prev.filter((_, i) => i !== index))}
+                >
+                  Seansı kaldır
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            className="rounded-xl border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:border-primary-400 hover:text-primary-700 dark:border-neutral-600 dark:text-neutral-300"
+            onClick={() => setSessions((prev) => [...prev, emptyActivitySession()])}
+          >
+            Seans ekle
+          </button>
+          <ButtonPrimary type="button" disabled={sessionsBusy} onClick={() => void handleSaveSessions()}>
+            {sessionsBusy ? '…' : 'Seans ve Fiyatları Kaydet'}
+          </ButtonPrimary>
+        </div>
+        <StatusMsg msg={sessionsMsg} />
+      </div>
       <StatusMsg msg={msg} />
       <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>
         {busy ? '…' : 'Aktivite Bilgilerini Kaydet'}

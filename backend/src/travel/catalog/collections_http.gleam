@@ -426,6 +426,86 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     False -> pog.text(attrs_raw)
   }
 
+  let price_min_raw =
+    list.key_find(qs, "price_min")
+    |> result.unwrap("")
+    |> string.trim
+  let price_min_param = case price_min_raw == "" {
+    True -> pog.null()
+    False -> pog.text(price_min_raw)
+  }
+  let price_max_raw =
+    list.key_find(qs, "price_max")
+    |> result.unwrap("")
+    |> string.trim
+  let price_max_param = case price_max_raw == "" {
+    True -> pog.null()
+    False -> pog.text(price_max_raw)
+  }
+  let hotel_type_raw =
+    list.key_find(qs, "hotel_type")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let hotel_type_param = case hotel_type_raw == "" {
+    True -> pog.null()
+    False -> pog.text(hotel_type_raw)
+  }
+  let hotel_theme_raw =
+    list.key_find(qs, "hotel_theme")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let hotel_theme_param = case hotel_theme_raw == "" {
+    True -> pog.null()
+    False -> pog.text(hotel_theme_raw)
+  }
+  let hotel_accommodation_raw =
+    list.key_find(qs, "hotel_accommodation")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let hotel_accommodation_param = case hotel_accommodation_raw == "" {
+    True -> pog.null()
+    False -> pog.text(hotel_accommodation_raw)
+  }
+  let hotel_stars_raw =
+    list.key_find(qs, "hotel_stars")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let hotel_stars_param = case hotel_stars_raw == "" {
+    True -> pog.null()
+    False -> pog.text(hotel_stars_raw)
+  }
+  let tour_travel_type_raw =
+    list.key_find(qs, "tour_travel_type")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let tour_travel_type_param = case tour_travel_type_raw == "" {
+    True -> pog.null()
+    False -> pog.text(tour_travel_type_raw)
+  }
+  let tour_accommodation_raw =
+    list.key_find(qs, "tour_accommodation")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let tour_accommodation_param = case tour_accommodation_raw == "" {
+    True -> pog.null()
+    False -> pog.text(tour_accommodation_raw)
+  }
+  let tour_duration_raw =
+    list.key_find(qs, "tour_duration")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let tour_duration_param = case tour_duration_raw == "" {
+    True -> pog.null()
+    False -> pog.text(tour_duration_raw)
+  }
+
   let sort_raw =
     list.key_find(qs, "sort")
     |> result.unwrap("")
@@ -529,8 +609,13 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
+    <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
+    <> listing_price_rule_nightly_lateral_values_sql()
+    <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
+    <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'theme_code' limit 1) hotel_theme_attr on true "
+    <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'accommodation_code' limit 1) hotel_acc_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "where l.status = 'published' "
     <> "and ($1::text is null or lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug)) ilike $1 or lower(l.slug) ilike $1) "
@@ -563,6 +648,21 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "    and (la.value_json = 'true'::jsonb or lower(trim(both '\"' from la.value_json::text)) = 'true') "
     <> "  ) "
     <> ")) "
+    <> "and ($12::text is null or coalesce(price_rule.min_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
+    <> "and ($13::text is null or coalesce(price_rule.min_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
+    <> "and ($14::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_attr.value_json->>'hotel_type_code', ''))) = any(string_to_array(trim($14), ',')::text[])) "
+    <> "and ($15::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_theme_attr.value_json->>'theme_code', ''))) = any(string_to_array(trim($15), ',')::text[])) "
+    <> "and ($16::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_acc_attr.value_json->>'accommodation_code', ''))) = any(string_to_array(trim($16), ',')::text[])) "
+    <> "and ($17::text is null or pc.code != 'hotel' or floor(coalesce(hotel.star_rating, 0))::int::text = any(string_to_array(trim($17), ',')::text[])) "
+    <> "and ($18::text is null or pc.code != 'tour' or lower(trim(coalesce(tour_attr.value_json->'data'->>'travel_type', tour_attr.value_json->>'travel_type', ''))) = any(string_to_array(trim($18), ',')::text[])) "
+    <> "and ($19::text is null or pc.code != 'tour' or lower(trim(coalesce(tour_attr.value_json->'data'->>'accommodation_type', tour_attr.value_json->>'accommodation_type', ''))) = any(string_to_array(trim($19), ',')::text[])) "
+    <> "and ($20::text is null or pc.code != 'tour' or exists ( "
+    <> "  select 1 from unnest(string_to_array(trim($20), ',')::text[]) as bucket(v) "
+    <> "  where (bucket.v = '1' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int = 1) "
+    <> "     or (bucket.v = '2-3' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 2 and 3) "
+    <> "     or (bucket.v = '4-7' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 4 and 7) "
+    <> "     or (bucket.v = '8+' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int >= 8) "
+    <> ")) "
     <> order_sql
     <> "limit $5"
 
@@ -579,6 +679,15 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.parameter(end_param)
     |> pog.parameter(pog.text(int.to_string(flex_days)))
     |> pog.parameter(attrs_param)
+    |> pog.parameter(price_min_param)
+    |> pog.parameter(price_max_param)
+    |> pog.parameter(hotel_type_param)
+    |> pog.parameter(hotel_theme_param)
+    |> pog.parameter(hotel_accommodation_param)
+    |> pog.parameter(hotel_stars_param)
+    |> pog.parameter(tour_travel_type_param)
+    |> pog.parameter(tour_accommodation_param)
+    |> pog.parameter(tour_duration_param)
     |> pog.returning(pub_listing_row())
     |> pog.execute(ctx.db)
   {

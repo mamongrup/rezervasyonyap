@@ -1,8 +1,8 @@
 import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { HotelCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
-import { getStayListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -32,7 +32,7 @@ export default async function Page({
   })
 
   const [filterOptions, heroOverride] = await Promise.all([
-    getStayListingFilterOptions(),
+    getHotelCategoryFilterOptions(locale),
     getRegionHeroConfig('oteller', currentHandle ?? ''),
   ])
 

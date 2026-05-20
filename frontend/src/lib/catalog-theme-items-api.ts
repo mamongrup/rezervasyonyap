@@ -7,8 +7,12 @@
 
 import { HOTEL_ACCOMMODATION_FILTER_FALLBACK } from '@/lib/hotel-accommodation-fallback'
 import { HOTEL_THEME_OPTIONS, HOTEL_TYPE_OPTIONS } from '@/lib/hotel-manage-fields'
+import {
+  TOUR_ACCOMMODATION_OPTIONS,
+  TOUR_TRAVEL_TYPE_OPTIONS,
+} from '@/lib/tour-filter-options'
 
-export type ThemeFacet = 'hotel_type' | 'theme' | 'accommodation'
+export type ThemeFacet = 'hotel_type' | 'theme' | 'accommodation' | 'travel_type'
 
 function travelApiBase(): string {
   if (typeof process === 'undefined') return ''
@@ -35,18 +39,26 @@ async function readJson<T>(res: Response): Promise<T | null> {
   }
 }
 
-function facetCodeSet(facet: ThemeFacet): Set<string> {
+function facetCodeSet(categoryCode: string, facet: ThemeFacet): Set<string> | null {
+  if (categoryCode === 'tour') {
+    if (facet === 'travel_type') return new Set(TOUR_TRAVEL_TYPE_OPTIONS.map((x) => x.code))
+    if (facet === 'accommodation') return new Set(TOUR_ACCOMMODATION_OPTIONS.map((x) => x.code))
+    return new Set()
+  }
   if (facet === 'hotel_type') return new Set(HOTEL_TYPE_OPTIONS.map((x) => x.code))
   if (facet === 'theme') return new Set(HOTEL_THEME_OPTIONS.map((x) => x.code))
-  return new Set(HOTEL_ACCOMMODATION_FILTER_FALLBACK.map((x) => x.code))
+  if (facet === 'accommodation') return new Set(HOTEL_ACCOMMODATION_FILTER_FALLBACK.map((x) => x.code))
+  return null
 }
 
 function filterByFacet(
   items: { code: string; label: string }[] | undefined,
+  categoryCode: string,
   facet: ThemeFacet,
 ): { code: string; label: string }[] {
   if (!items?.length) return []
-  const allow = facetCodeSet(facet)
+  const allow = facetCodeSet(categoryCode, facet)
+  if (allow == null) return []
   return items.filter((i) => allow.has(i.code))
 }
 
@@ -90,7 +102,7 @@ export async function listPublicThemeItems(params: {
     })
     const data = await readJson<{ items?: { code: string; label: string }[] }>(res)
     if (!data?.items) return data
-    return { items: filterByFacet(data.items, params.facet) }
+    return { items: filterByFacet(data.items, params.categoryCode, params.facet) }
   } catch {
     return null
   }
@@ -98,7 +110,7 @@ export async function listPublicThemeItems(params: {
 
 export type ManageThemeItemRow = { id: string; code: string; label: string }
 
-/** Yönetim listesi — Bearer token; `facet` yalnızca `hotel` satır alt kümesi için istemci filtresi. */
+/** Yönetim listesi — Bearer token; `facet` desteklenen kategori alt kümeleri için istemci filtresi. */
 export async function listManageThemeItems(
   token: string,
   params: { categoryCode: string; locale: string; facet?: ThemeFacet },
@@ -127,8 +139,9 @@ export async function listManageThemeItems(
   }
   let items = Array.isArray(data?.items) ? data!.items! : []
   const facet = params.facet
-  if (params.categoryCode === 'hotel' && facet != null) {
-    items = items.filter((i) => facetCodeSet(facet).has(i.code))
+  if (facet != null) {
+    const allow = facetCodeSet(params.categoryCode, facet)
+    if (allow != null) items = items.filter((i) => allow.has(i.code))
   }
   return { items }
 }

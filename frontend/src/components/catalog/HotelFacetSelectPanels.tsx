@@ -33,13 +33,15 @@ function slugifyCode(s: string): string {
     .replace(/[^a-z0-9_]/g, '')
 }
 
-type Facet = 'hotel_type' | 'theme' | 'accommodation'
+type Facet = 'hotel_type' | 'theme' | 'accommodation' | 'travel_type'
 
 function FacetOptionManager({
+  categoryCode,
   facet,
   locale,
   onOptionsChanged,
 }: {
+  categoryCode: string
   facet: Facet
   locale: string
   onOptionsChanged: () => void
@@ -61,7 +63,7 @@ function FacetOptionManager({
     let cancelled = false
     void (async () => {
       try {
-        const r = await listManageThemeItems(token, { categoryCode: 'hotel', facet, locale })
+        const r = await listManageThemeItems(token, { categoryCode, facet, locale })
         if (!cancelled) {
           setRows(r.items)
           setListHint(null)
@@ -85,7 +87,7 @@ function FacetOptionManager({
     return () => {
       cancelled = true
     }
-  }, [facet, locale])
+  }, [categoryCode, facet, locale])
 
   if (!getStoredAuthToken()) return null
 
@@ -106,7 +108,7 @@ function FacetOptionManager({
     setErr(null)
     try {
       await createManageThemeItem(token, {
-        category_code: 'hotel',
+        category_code: categoryCode,
         facet,
         code,
         label,
@@ -114,7 +116,7 @@ function FacetOptionManager({
       })
       setNewLabel('')
       setNewCode('')
-      const r = await listManageThemeItems(token, { categoryCode: 'hotel', facet, locale })
+      const r = await listManageThemeItems(token, { categoryCode, facet, locale })
       setRows(r.items)
       setListHint(null)
       onOptionsChanged()
@@ -133,7 +135,7 @@ function FacetOptionManager({
     setErr(null)
     try {
       await deleteManageThemeItem(token, id)
-      const r = await listManageThemeItems(token, { categoryCode: 'hotel', facet, locale })
+      const r = await listManageThemeItems(token, { categoryCode, facet, locale })
       setRows(r.items)
       onOptionsChanged()
     } catch (e) {
@@ -226,19 +228,50 @@ export function HotelFacetOptionManagers({
       <Field className="min-w-0 block">
         <Label className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{h.hotelType}</Label>
         <div data-slot="control">
-          <FacetOptionManager facet="hotel_type" locale={locale} onOptionsChanged={noop} />
+          <FacetOptionManager categoryCode="hotel" facet="hotel_type" locale={locale} onOptionsChanged={noop} />
         </div>
       </Field>
       <Field className="min-w-0 block">
         <Label className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{h.theme}</Label>
         <div data-slot="control">
-          <FacetOptionManager facet="theme" locale={locale} onOptionsChanged={noop} />
+          <FacetOptionManager categoryCode="hotel" facet="theme" locale={locale} onOptionsChanged={noop} />
         </div>
       </Field>
       <Field className="min-w-0 block">
         <Label className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{h.accommodation}</Label>
         <div data-slot="control">
-          <FacetOptionManager facet="accommodation" locale={locale} onOptionsChanged={noop} />
+          <FacetOptionManager categoryCode="hotel" facet="accommodation" locale={locale} onOptionsChanged={noop} />
+        </div>
+      </Field>
+    </div>
+  )
+}
+
+/** Katalog → Tur → vitrin filtrelerinde kullanılan ulaşım / konaklama seçenekleri. */
+export function TourFacetOptionManagers({
+  locale,
+  headings,
+}: {
+  locale: string
+  headings?: Partial<{ travelType: string; accommodation: string }>
+}) {
+  const h = {
+    travelType: headings?.travelType ?? 'Ulaşım türü',
+    accommodation: headings?.accommodation ?? 'Konaklama tipi',
+  }
+  const noop = () => {}
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <Field className="min-w-0 block">
+        <Label className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{h.travelType}</Label>
+        <div data-slot="control">
+          <FacetOptionManager categoryCode="tour" facet="travel_type" locale={locale} onOptionsChanged={noop} />
+        </div>
+      </Field>
+      <Field className="min-w-0 block">
+        <Label className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{h.accommodation}</Label>
+        <div data-slot="control">
+          <FacetOptionManager categoryCode="tour" facet="accommodation" locale={locale} onOptionsChanged={noop} />
         </div>
       </Field>
     </div>

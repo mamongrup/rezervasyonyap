@@ -1401,6 +1401,112 @@ export async function patchManageHotelDetails(
   return json(res)
 }
 
+export type ActivitySessionRow = {
+  id?: string
+  valid_from: string
+  valid_to: string
+  start_time: string
+  duration_minutes?: string | null
+  capacity?: string | null
+  is_active?: boolean
+  sort_order?: string | null
+  adult_price?: string | null
+  child_price?: string | null
+  currency_code?: string | null
+  adult_min_age?: string | null
+  adult_max_age?: string | null
+  child_min_age?: string | null
+}
+
+export async function listManageActivitySessions(
+  token: string,
+  listingId: string,
+  params?: { organizationId?: string },
+): Promise<{ sessions: ActivitySessionRow[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/activity-sessions${catalogListingQs(params)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `activity_sessions_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function putManageActivitySessions(
+  token: string,
+  listingId: string,
+  sessions: ActivitySessionRow[],
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/activity-sessions${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ sessions }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `activity_sessions_put_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function listPublicActivitySessions(
+  listingId: string,
+  date?: string,
+): Promise<{ sessions: ActivitySessionRow[] }> {
+  const b = base()
+  if (!b) return { sessions: [] }
+  const u = new URLSearchParams()
+  if (date?.trim()) u.set('date', date.trim())
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/activity-sessions${u.toString() ? `?${u}` : ''}`,
+      typeof window === 'undefined' ? { next: { revalidate: 60 } } : {},
+    )
+    if (!res.ok) return { sessions: [] }
+    return json(res)
+  } catch {
+    return { sessions: [] }
+  }
+}
+
+export type ActivityQuote = {
+  currency_code: string
+  adult_unit: string
+  child_unit: string
+  line_total: string
+  capacity: string
+  remaining_hint?: string
+  start_time?: string
+}
+
+export async function quotePublicActivity(
+  listingId: string,
+  body: { date: string; session_id: string; adults: number; children: number },
+): Promise<ActivityQuote> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/activity-quote`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `activity_quote_${res.status}`)
+  }
+  return json(res)
+}
+
 /** Takvim günü özel durumu — `listing_availability_calendar.day_status` */
 export type ListingAvailabilityDayStatus = 'option' | 'promo'
 
@@ -8498,6 +8604,18 @@ export interface PublicListingSearchParams {
   sort?: string
   /** Tatil evi: `listing_attributes` anahtarları (virgülle, örn. pool,wifi) */
   attrs?: string
+  /** Ortak fiyat filtresi */
+  priceMin?: string
+  priceMax?: string
+  /** Otel kategori filtreleri */
+  hotelType?: string
+  hotelTheme?: string
+  hotelAccommodation?: string
+  hotelStars?: string
+  /** Tur kategori filtreleri */
+  tourTravelType?: string
+  tourAccommodation?: string
+  tourDuration?: string
 }
 
 export type MealPlanSummary = 'room_only' | 'meal_only' | 'both'
@@ -8621,6 +8739,15 @@ export async function searchPublicListings(
   if (params.theme?.trim())        u.set('theme', params.theme.trim())
   if (params.sort?.trim())         u.set('sort', params.sort.trim())
   if (params.attrs?.trim())        u.set('attrs', params.attrs.trim())
+  if (params.priceMin?.trim())     u.set('price_min', params.priceMin.trim())
+  if (params.priceMax?.trim())     u.set('price_max', params.priceMax.trim())
+  if (params.hotelType?.trim())    u.set('hotel_type', params.hotelType.trim())
+  if (params.hotelTheme?.trim())   u.set('hotel_theme', params.hotelTheme.trim())
+  if (params.hotelAccommodation?.trim()) u.set('hotel_accommodation', params.hotelAccommodation.trim())
+  if (params.hotelStars?.trim())   u.set('hotel_stars', params.hotelStars.trim())
+  if (params.tourTravelType?.trim()) u.set('tour_travel_type', params.tourTravelType.trim())
+  if (params.tourAccommodation?.trim()) u.set('tour_accommodation', params.tourAccommodation.trim())
+  if (params.tourDuration?.trim()) u.set('tour_duration', params.tourDuration.trim())
 
   try {
     const init: RequestInit =

@@ -64,6 +64,15 @@ export interface SearchQuery {
   attrs?: string
   /** Tatil evi tema kodları (virgülle) */
   theme?: string
+  /** Otel filtreleri */
+  hotel_type?: string
+  hotel_theme?: string
+  hotel_accommodation?: string
+  hotel_stars?: string
+  /** Tur filtreleri */
+  tour_travel_type?: string
+  tour_accommodation?: string
+  tour_duration?: string
 }
 
 export interface ListingsResult {
@@ -102,6 +111,13 @@ export function parseSearchParamsFromUrl(
     bathrooms: g('bathrooms'),
     attrs: g('attrs'),
     theme: g('theme'),
+    hotel_type: g('hotel_type'),
+    hotel_theme: g('hotel_theme'),
+    hotel_accommodation: g('hotel_accommodation'),
+    hotel_stars: g('hotel_stars'),
+    tour_travel_type: g('tour_travel_type'),
+    tour_accommodation: g('tour_accommodation'),
+    tour_duration: g('tour_duration'),
   }
 }
 
@@ -496,6 +512,15 @@ export async function fetchCategoryListings(
       theme: query.theme,
       sort: query.sort?.trim() || undefined,
       attrs: query.attrs?.trim() || undefined,
+      priceMin: query.price_min?.trim() || undefined,
+      priceMax: query.price_max?.trim() || undefined,
+      hotelType: query.hotel_type?.trim() || undefined,
+      hotelTheme: query.hotel_theme?.trim() || undefined,
+      hotelAccommodation: query.hotel_accommodation?.trim() || undefined,
+      hotelStars: query.hotel_stars?.trim() || undefined,
+      tourTravelType: query.tour_travel_type?.trim() || undefined,
+      tourAccommodation: query.tour_accommodation?.trim() || undefined,
+      tourDuration: query.tour_duration?.trim() || undefined,
     },
     { cache: 'no-store' },
   )

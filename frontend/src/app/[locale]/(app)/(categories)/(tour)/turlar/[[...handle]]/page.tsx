@@ -1,8 +1,8 @@
 import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { TourCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
-import { getExperienceListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { getTourCategoryFilterOptions } from '@/lib/category-filter-options'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -31,7 +31,7 @@ export default async function Page({
   })
 
   const [filterOptions, heroOverride] = await Promise.all([
-    getExperienceListingFilterOptions(),
+    getTourCategoryFilterOptions(locale),
     getRegionHeroConfig('turlar', currentHandle ?? ''),
   ])
 

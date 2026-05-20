@@ -21,7 +21,8 @@ import {
 import { ArrowDown01Icon, FilterVerticalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import Form from 'next/form'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { PriceRangeSlider } from './PriceRangeSlider'
 import type { FilterOption } from '@/types/listing-types'
@@ -32,6 +33,7 @@ type CheckboxFilter = {
   tabUIType: 'checkbox'
   options: {
     name: string
+    value?: string
     description?: string
     defaultChecked?: boolean
   }[]
@@ -64,16 +66,26 @@ const filterPillEmphasis =
   'border-2 border-neutral-950 text-neutral-950 shadow-sm dark:border-white dark:text-white'
 
 const CheckboxPanel = ({ filterOption, className }: { filterOption: CheckboxFilter; className?: string }) => {
+  const searchParams = useSearchParams()
+  const selectedValues = new Set(
+    (searchParams.get(filterOption.name) ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean),
+  )
   return (
     <Fieldset>
       <CheckboxGroup className={className}>
-        {filterOption.options.map((option) => (
-          <CheckboxField key={option.name}>
-            <Checkbox name={`${filterOption.name}[]`} value={option.name} defaultChecked={!!option.defaultChecked} />
-            <Label>{option.name}</Label>
-            {option.description && <Description>{option.description}</Description>}
-          </CheckboxField>
-        ))}
+        {filterOption.options.map((option) => {
+          const value = option.value ?? option.name
+          return (
+            <CheckboxField key={value}>
+              <Checkbox name={filterOption.name} value={value} defaultChecked={selectedValues.has(value) || !!option.defaultChecked} />
+              <Label>{option.name}</Label>
+              {option.description && <Description>{option.description}</Description>}
+            </CheckboxField>
+          )
+        })}
       </CheckboxGroup>
     </Fieldset>
   )
@@ -81,7 +93,13 @@ const CheckboxPanel = ({ filterOption, className }: { filterOption: CheckboxFilt
 const PriceRagePanel = ({ filterOption: { min, max, name } }: { filterOption: PriceRangeFilter }) => {
   const [rangePrices, setRangePrices] = useState([min, max])
 
-  return <PriceRangeSlider defaultValue={rangePrices} onChange={setRangePrices} min={min} max={max} />
+  return (
+    <>
+      <PriceRangeSlider defaultValue={rangePrices} onChange={setRangePrices} min={min} max={max} />
+      <input type="hidden" name={`${name}_min`} value={String(rangePrices[0])} />
+      <input type="hidden" name={`${name}_max`} value={String(rangePrices[1])} />
+    </>
+  )
 }
 const NumberSelectPanel = ({ filterOption: { name, options } }: { filterOption: SelectNumberFilter }) => {
   return (
@@ -99,10 +117,41 @@ const ListingFilterTabs = ({
   filterOptions?: FilterOption[]
 }) => {
   const [showAllFilter, setShowAllFilter] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname() ?? ''
+  const searchParams = useSearchParams()
 
-  const handleFormSubmit = async (formData: FormData) => {
-    const formDataObject = Object.fromEntries(formData.entries())
-    console.log('Form submitted with data:', formDataObject)
+  const handleFormSubmit = (formData: FormData) => {
+    const next = new URLSearchParams(searchParams.toString())
+    const filterNames = new Set<string>()
+
+    for (const option of filterOptions) {
+      filterNames.add(option.name)
+      if (option.tabUIType === 'price-range') {
+        filterNames.add(`${option.name}_min`)
+        filterNames.add(`${option.name}_max`)
+      }
+      if (option.tabUIType === 'select-number') {
+        for (const item of option.options) filterNames.add(item.name)
+      }
+    }
+
+    filterNames.forEach((name) => next.delete(name))
+    for (const name of filterNames) {
+      const values = formData
+        .getAll(name)
+        .map((value) => String(value).trim())
+        .filter(Boolean)
+      if (values.length > 0) next.set(name, values.join(','))
+    }
+    next.delete('page')
+    const qs = next.toString()
+    router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
+  }
+
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    handleFormSubmit(new FormData(event.currentTarget))
   }
 
   const renderTabAllFilters = () => {
@@ -126,8 +175,8 @@ const ListingFilterTabs = ({
           open={showAllFilter}
           onClose={() => setShowAllFilter(false)}
           className="relative z-50"
-          as={Form}
-          action={handleFormSubmit}
+          as="form"
+          onSubmit={handleSubmit}
         >
           <DialogBackdrop
             transition
@@ -192,7 +241,7 @@ const ListingFilterTabs = ({
   return (
     <div className="flex flex-wrap items-center gap-2 md:gap-3">
       {renderTabAllFilters()}
-      <PopoverGroup className="hidden flex-wrap items-center gap-2 md:flex md:gap-3" as={Form} action={handleFormSubmit}>
+      <PopoverGroup className="hidden flex-wrap items-center gap-2 md:flex md:gap-3" as="form" onSubmit={handleSubmit}>
         {filterOptions.map((filterOption, index) => {
           // only show 3 filters in the tab. Other filters will be shown in the All-filters-popover
           if (index > 2 || !filterOption) {
@@ -200,7 +249,12 @@ const ListingFilterTabs = ({
           }
 
           const checkedNumber =
-            (filterOption as CheckboxFilter).options?.filter((option) => !!option.defaultChecked)?.length || 0
+            filterOption.tabUIType === 'checkbox'
+              ? (searchParams.get(filterOption.name) ?? '')
+                  .split(',')
+                  .map((value) => value.trim())
+                  .filter(Boolean).length
+              : 0
 
           return (
             <Popover className="relative" key={index}>
