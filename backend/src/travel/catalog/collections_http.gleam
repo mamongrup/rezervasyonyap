@@ -74,6 +74,13 @@ fn pub_listing_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
   ),
 ) {
   use id <- decode.field(0, decode.string)
@@ -110,6 +117,13 @@ fn pub_listing_row() -> decode.Decoder(
   use gallery_paths_agg <- decode.field(31, decode.string)
   use price_rules_nightly_min <- decode.field(32, decode.string)
   use price_rules_nightly_max <- decode.field(33, decode.string)
+  use hotel_star_rating <- decode.field(34, decode.string)
+  use hotel_type_code <- decode.field(35, decode.string)
+  use tour_duration_days <- decode.field(36, decode.string)
+  use tour_max_people <- decode.field(37, decode.string)
+  use tour_travel_type <- decode.field(38, decode.string)
+  use tour_accommodation_type <- decode.field(39, decode.string)
+  use tour_languages <- decode.field(40, decode.string)
   decode.success(#(
     id,
     slug,
@@ -145,6 +159,13 @@ fn pub_listing_row() -> decode.Decoder(
     gallery_paths_agg,
     price_rules_nightly_min,
     price_rules_nightly_max,
+    hotel_star_rating,
+    hotel_type_code,
+    tour_duration_days,
+    tour_max_people,
+    tour_travel_type,
+    tour_accommodation_type,
+    tour_languages,
   ))
 }
 
@@ -218,6 +239,13 @@ fn pub_listing_json(
     String,
     String,
     String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
   ),
 ) -> json.Json {
   let #(
@@ -255,6 +283,13 @@ fn pub_listing_json(
     gallery_paths_agg,
     pr_min_s,
     pr_max_s,
+    hotel_star_rating,
+    hotel_type_code,
+    tour_duration_days,
+    tour_max_people,
+    tour_travel_type,
+    tour_accommodation_type,
+    tour_languages,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -310,6 +345,13 @@ fn pub_listing_json(
     #("gallery_urls", gallery_urls_json(gallery_paths_agg)),
     #("price_rules_nightly_min", pr_min_j),
     #("price_rules_nightly_max", pr_max_j),
+    #("hotel_star_rating", json_opt_str(hotel_star_rating)),
+    #("hotel_type_code", json_opt_str(hotel_type_code)),
+    #("tour_duration_days", json_opt_str(tour_duration_days)),
+    #("tour_max_people", json_opt_str(tour_max_people)),
+    #("tour_travel_type", json_opt_str(tour_travel_type)),
+    #("tour_accommodation_type", json_opt_str(tour_accommodation_type)),
+    #("tour_languages", json_opt_str(tour_languages)),
   ])
 }
 
@@ -476,10 +518,20 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> ", coalesce(nullif((select max(u.v)::text from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
     <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), '') "
+    <> ", coalesce(nullif(hotel.star_rating::text, ''), '') "
+    <> ", coalesce(nullif(trim(hotel_attr.value_json->>'hotel_type_code'), ''), '') "
+    <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '') "
+    <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'max_people'), ''), nullif(trim(tour_attr.value_json->>'max_people'), ''), '') "
+    <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'travel_type'), ''), nullif(trim(tour_attr.value_json->>'travel_type'), ''), '') "
+    <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'accommodation_type'), ''), nullif(trim(tour_attr.value_json->>'accommodation_type'), ''), '') "
+    <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'languages'), ''), nullif(trim(tour_attr.value_json->>'languages'), ''), '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+    <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
+    <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
+    <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "where l.status = 'published' "
     <> "and ($1::text is null or lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug)) ilike $1 or lower(l.slug) ilike $1) "
     <> "and ($2::text is null or pc.code = $2) "

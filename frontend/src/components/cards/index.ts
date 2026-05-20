@@ -51,8 +51,14 @@ export const HotelCard = makeCard({
   ratioClass: 'aspect-w-4 aspect-h-3',
   categoryLabel: 'Otel',
   extraInfo: (d, _locale) => {
-    const { beds, bathrooms: baths } = d as TListingHotel
-    if (beds || baths) return [beds && `${beds} yatak`, baths && `${baths} banyo`].filter(Boolean).join(' · ')
+    const { beds, bathrooms: baths, stars, hotelTypeCode } = d as TListingHotel
+    const hotelType = hotelTypeCode?.replace(/_/g, ' ')
+    const starLine = stars ? `${stars} yıldız` : null
+    if (starLine || hotelType || beds || baths) {
+      return [starLine, hotelType, beds && `${beds} oda`, baths && `${baths} banyo`]
+        .filter(Boolean)
+        .join(' · ')
+    }
     return null
   },
 })
@@ -85,8 +91,31 @@ export const TourCard = makeCard({
   ratioClass: 'aspect-w-3 aspect-h-3',
   categoryLabel: 'Tur',
   extraInfo: (d, _locale) => {
-    const { durationDays: days, maxGroupSize: group } = d as TListingTour
-    return [days && `${days} gün`, group && `Maks ${group} kişi`].filter(Boolean).join(' · ') || null
+    const {
+      durationDays: days,
+      maxGroupSize: group,
+      travelType,
+      accommodationType,
+    } = d as TListingTour
+    const travelLabel =
+      travelType === 'plane'
+        ? 'Uçaklı'
+        : travelType === 'bus'
+          ? 'Otobüslü'
+          : travelType === 'both'
+            ? 'Uçak + otobüs'
+            : travelType === 'own'
+              ? 'Kendi araçlı'
+              : null
+    const accommodationLabel =
+      accommodationType === 'hotel'
+        ? 'Otel konaklamalı'
+        : accommodationType === 'none'
+          ? 'Konaklamasız'
+          : null
+    return [days && `${days} gün`, travelLabel, accommodationLabel, group && `Maks ${group} kişi`]
+      .filter(Boolean)
+      .join(' · ') || null
   },
 })
 

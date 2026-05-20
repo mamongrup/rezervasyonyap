@@ -111,6 +111,20 @@ function parseMetaInt(v: string | null | undefined): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
+function parseMetaFloat(v: string | null | undefined): number | undefined {
+  if (v == null || String(v).trim() === '') return undefined
+  const n = parseFloat(String(v).replace(',', '.'))
+  return Number.isFinite(n) ? n : undefined
+}
+
+function splitCsvText(v: string | null | undefined): string[] | undefined {
+  const arr = String(v ?? '')
+    .split(/[,\n]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+  return arr.length > 0 ? arr : undefined
+}
+
 /** «Oda» kutusu: önce `room_count`, boşsa `bed_count` (eski / eksik meta uyumu). */
 function metaRoomCountForDisplay(item: PublicListingItem): string | undefined {
   const rc = item.room_count != null ? String(item.room_count).trim() : ''
@@ -273,6 +287,12 @@ export function mapPublicListingItemToListingBase(
 
   if (!isHoliday) {
     const hotelTypeTrim = item.hotel_type_code?.trim()
+    const hotelStars = parseMetaFloat(item.hotel_star_rating ?? undefined)
+    const tourDurationDays = parseMetaInt(item.tour_duration_days ?? undefined)
+    const tourMaxPeople = parseMetaInt(item.tour_max_people ?? undefined)
+    const tourTravelType = item.tour_travel_type?.trim()
+    const tourAccommodationType = item.tour_accommodation_type?.trim()
+    const tourLanguages = splitCsvText(item.tour_languages)
     return {
       ...base,
       maxGuests: parseMetaInt(item.max_guests ?? undefined),
@@ -280,6 +300,12 @@ export function mapPublicListingItemToListingBase(
       bathrooms: parseMetaInt(item.bath_count ?? undefined),
       beds: parseMetaInt(metaRoomCountForDisplay(item)),
       ...(vertical === 'hotel' && hotelTypeTrim ? { hotelTypeCode: hotelTypeTrim } : {}),
+      ...(vertical === 'hotel' && hotelStars != null ? { stars: hotelStars } : {}),
+      ...(vertical === 'tour' && tourDurationDays != null ? { durationDays: tourDurationDays } : {}),
+      ...(vertical === 'tour' && tourMaxPeople != null ? { maxGroupSize: tourMaxPeople } : {}),
+      ...(vertical === 'tour' && tourTravelType ? { travelType: tourTravelType } : {}),
+      ...(vertical === 'tour' && tourAccommodationType ? { accommodationType: tourAccommodationType } : {}),
+      ...(vertical === 'tour' && tourLanguages ? { languages: tourLanguages } : {}),
     } as TListingBase
   }
 

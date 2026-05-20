@@ -41,7 +41,7 @@ import Input from '@/shared/Input'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { Home, MinusCircle, Palette, PlusCircle, Trash2 } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Home, MinusCircle, Palette, PlusCircle, Route, Trash2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -476,7 +476,7 @@ function YachtSection({ listingId }: { listingId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-3">
         <Field className="block">
           <Label>Yat Tipi</Label>
           <select className={SELECT_CLS} value={form.yacht_type} onChange={set('yacht_type')}>
@@ -679,7 +679,41 @@ function TourSection({ listingId }: { listingId: string }) {
 
   return (
     <div className="space-y-6">
+      <div className="grid gap-3 md:grid-cols-3">
+        {[
+          {
+            title: 'Genel Bilgiler',
+            text: 'Süre, kapasite, ulaşım ve konaklama bilgileri vitrin özet kartlarını besler.',
+            Icon: Route,
+          },
+          {
+            title: 'Dahil / Hariç',
+            text: 'Paket kapsamını referans tur sitelerindeki gibi iki kolon halinde gösterir.',
+            Icon: CheckCircle2,
+          },
+          {
+            title: 'Gün Gün Program',
+            text: 'Her satır public tur detayında timeline olarak yayınlanır.',
+            Icon: CalendarDays,
+          },
+        ].map(({ title, text, Icon }) => (
+          <div
+            key={title}
+            className="flex gap-3 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+              <Icon className="h-5 w-5" aria-hidden />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{title}</p>
+              <p className="mt-1 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{text}</p>
+            </div>
+          </div>
+        ))}
+      </div>
       {/* Temel bilgiler */}
+      <section className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
+        <SectionTitle>Genel Tur Bilgileri</SectionTitle>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field className="block">
           <Label>Süre (gün)</Label>
@@ -728,7 +762,7 @@ function TourSection({ listingId }: { listingId: string }) {
         </Field>
       </div>
 
-      <div className="flex flex-wrap gap-6">
+        <div className="mt-4 flex flex-wrap gap-6">
         <label className="flex cursor-pointer items-center gap-2">
           <input type="checkbox" className="h-4 w-4 accent-primary-600"
             checked={form.visa_required}
@@ -742,11 +776,12 @@ function TourSection({ listingId }: { listingId: string }) {
           <span className="text-sm">Rehberli Tur</span>
         </label>
       </div>
+      </section>
 
       <IncludeExclude includes={includes} excludes={excludes} onIncludes={setIncludes} onExcludes={setExcludes} />
 
       {/* Gün bazlı program */}
-      <div>
+      <section className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
         <SectionTitle>Gün Gün Program (İtinerary)</SectionTitle>
         <div className="space-y-3">
           {itinerary.map((day, i) => (
@@ -780,7 +815,7 @@ function TourSection({ listingId }: { listingId: string }) {
             <PlusCircle className="h-4 w-4" /> Gün Ekle
           </button>
         </div>
-      </div>
+      </section>
 
       <StatusMsg msg={msg} />
       <ButtonPrimary type="button" disabled={busy} onClick={() => void handleSave()}>

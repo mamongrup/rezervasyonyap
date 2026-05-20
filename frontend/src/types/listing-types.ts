@@ -122,6 +122,9 @@ export interface TListingYacht extends TListingBase {
 export interface TListingTour extends TListingBase {
   durationDays?: number
   maxGroupSize?: number
+  travelType?: string
+  accommodationType?: string
+  languages?: string[]
   difficulty?: 'easy' | 'moderate' | 'hard'
   included?: string[]
   departureCity?: string

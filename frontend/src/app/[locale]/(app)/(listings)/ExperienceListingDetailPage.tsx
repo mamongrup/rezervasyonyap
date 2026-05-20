@@ -15,6 +15,7 @@ import { redirect } from 'next/navigation'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import { getSitePublicConfig } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
+import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import {
@@ -22,7 +23,13 @@ import {
   experienceBrowsePathForVertical,
 } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { fetchPublicListingAvailabilityDaysSafe, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
+import {
+  fetchPublicListingAvailabilityDaysSafe,
+  getPublicListingPriceLines,
+  getVerticalMeta,
+  resolvePublishedListingIdForStayPage,
+} from '@/lib/travel-api'
+import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
 import { getMessages } from '@/utils/getT'
@@ -38,6 +45,120 @@ import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
+import {
+  TourIncludedExcludedSection,
+  TourItinerarySection,
+  TourNotesSection,
+  TourOverviewSection,
+  TourSectionNav,
+  type TourItineraryDay,
+  type TourOverviewItem,
+  type TourSectionNavItem,
+} from './TourDetailSections'
+
+type TourMeta = {
+  duration_days?: string
+  min_people?: string
+  max_people?: string
+  visa_required?: boolean
+  travel_type?: string
+  is_guided?: boolean
+  accommodation_type?: string
+  languages?: string
+  min_day_before_booking?: string
+  includes?: string[]
+  excludes?: string[]
+  itinerary?: TourItineraryDay[]
+}
+
+function textFromMeta(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim()
+}
+
+function splitMetaList(raw: string | string[] | undefined): string[] {
+  if (Array.isArray(raw)) return raw.map((x) => textFromMeta(x)).filter(Boolean)
+  return textFromMeta(raw)
+    .split(/[,\n]/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
+function uniqueLines(lines: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const line of lines) {
+    const clean = line.trim()
+    if (!clean) continue
+    const key = clean.toLocaleLowerCase('tr')
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(clean)
+  }
+  return out
+}
+
+function travelTypeLabel(code: string): string {
+  switch (code) {
+    case 'plane':
+      return 'Uçaklı tur'
+    case 'bus':
+      return 'Otobüslü tur'
+    case 'both':
+      return 'Uçak + otobüs'
+    case 'own':
+      return 'Kendi aracıyla'
+    default:
+      return ''
+  }
+}
+
+function accommodationTypeLabel(code: string): string {
+  switch (code) {
+    case 'hotel':
+      return 'Otel konaklamalı'
+    case 'hostel':
+      return 'Hostel konaklamalı'
+    case 'villa':
+      return 'Villa konaklamalı'
+    case 'camping':
+      return 'Kamp konaklamalı'
+    case 'none':
+      return 'Konaklama yok'
+    default:
+      return ''
+  }
+}
+
+function parseTourMeta(raw: unknown): TourMeta {
+  const data = unwrapVerticalMetaPayload(raw)
+  const itineraryRaw = Array.isArray(data.itinerary) ? data.itinerary : []
+  const itinerary = itineraryRaw
+    .map((item, index): TourItineraryDay => {
+      const row = item && typeof item === 'object' ? (item as Record<string, unknown>) : {}
+      const dayRaw = Number(row.day)
+      return {
+        day: Number.isFinite(dayRaw) && dayRaw > 0 ? dayRaw : index + 1,
+        title: textFromMeta(row.title),
+        description: textFromMeta(row.description),
+      }
+    })
+    .filter((day) => day.title || day.description)
+
+  return {
+    duration_days: textFromMeta(data.duration_days),
+    min_people: textFromMeta(data.min_people),
+    max_people: textFromMeta(data.max_people),
+    visa_required: data.visa_required === true,
+    travel_type: textFromMeta(data.travel_type),
+    is_guided: data.is_guided === true,
+    accommodation_type: textFromMeta(data.accommodation_type),
+    languages: textFromMeta(data.languages),
+    min_day_before_booking: textFromMeta(data.min_day_before_booking),
+    includes: splitMetaList(data.includes as string[] | string | undefined),
+    excludes: splitMetaList(data.excludes as string[] | string | undefined),
+    itinerary,
+  }
+}
 
 export async function generateExperienceListingMetadata({
   params,
@@ -113,8 +234,16 @@ export default async function ExperienceListingDetailPage({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
 
-  const catalogListingId = await resolvePublishedListingIdForStayPage(handle, locale)
-  const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
+  const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
+  const [availabilityCalendarDays, rawTourMeta, priceLines] = await Promise.all([
+    fetchPublicListingAvailabilityDaysSafe(catalogListingId),
+    vertical === 'tour'
+      ? getVerticalMeta(catalogListingId, 'tour').catch(() => null)
+      : Promise.resolve(null),
+    vertical === 'tour'
+      ? getPublicListingPriceLines(catalogListingId, locale).catch(() => null)
+      : Promise.resolve(null),
+  ])
 
   const {
     address,
@@ -135,6 +264,67 @@ export default async function ExperienceListingDetailPage({
 
   const city = (listing as TListingBase).city
   const dp = getMessages(locale).listing.detailPage
+  const isTour = vertical === 'tour'
+  const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
+  const tourLanguages = splitMetaList(tourMeta?.languages)
+  const tourDurationLine = tourMeta?.duration_days
+    ? `${tourMeta.duration_days} gün`
+    : durationTime || 'Süre belirtilmedi'
+  const tourGroupLine = tourMeta?.max_people
+    ? `Maks. ${tourMeta.max_people} kişi`
+    : maxGuests
+      ? `Maks. ${maxGuests} kişi`
+      : 'Kapasite belirtilmedi'
+  const tourDescriptionHtml = description?.trim() ? sanitizeRichCmsHtml(description) : ''
+  const tourOverviewItems: TourOverviewItem[] = isTour
+    ? [
+        tourDurationLine ? { label: 'Süre', value: tourDurationLine, icon: 'duration' } : null,
+        tourGroupLine ? { label: 'Katılım', value: tourGroupLine, icon: 'group' } : null,
+        tourMeta?.travel_type && travelTypeLabel(tourMeta.travel_type)
+          ? { label: 'Ulaşım', value: travelTypeLabel(tourMeta.travel_type), icon: 'transport' }
+          : null,
+        tourMeta?.accommodation_type && accommodationTypeLabel(tourMeta.accommodation_type)
+          ? { label: 'Konaklama', value: accommodationTypeLabel(tourMeta.accommodation_type), icon: 'location' }
+          : null,
+        tourMeta?.is_guided ? { label: 'Rehber', value: 'Rehberli tur', icon: 'guide' } : null,
+        tourMeta?.visa_required ? { label: 'Vize', value: 'Vize gerektirir', icon: 'visa' } : null,
+        tourLanguages.length > 0
+          ? { label: 'Dil', value: tourLanguages.join(', '), icon: 'language' }
+          : null,
+      ].filter((item): item is TourOverviewItem => item !== null)
+    : []
+  const tourIncludedLines = uniqueLines([
+    ...(tourMeta?.includes ?? []),
+    ...(priceLines?.included ?? []).map((line) => line.label),
+  ])
+  const tourExcludedLines = uniqueLines([
+    ...(tourMeta?.excludes ?? []),
+    ...(priceLines?.excluded ?? []).map((line) => line.label),
+  ])
+  const listingBase = listing as TListingBase
+  const tourNotes = uniqueLines([
+    tourMeta?.min_day_before_booking
+      ? `Rezervasyon en az ${tourMeta.min_day_before_booking} gün önceden yapılmalıdır.`
+      : '',
+    listingBase.prepaymentPercent?.trim()
+      ? `Ön ödeme oranı: %${listingBase.prepaymentPercent.trim()}.`
+      : '',
+    listingBase.cancellationPolicyText?.trim() ?? '',
+  ])
+  const tourNavItems: TourSectionNavItem[] = isTour
+    ? [
+        tourOverviewItems.length > 0 || tourDescriptionHtml ? { id: 'tour-section-overview', label: 'Genel Bilgiler' } : null,
+        (tourMeta?.itinerary ?? []).length > 0
+          ? { id: 'tour-section-program', label: 'Program', eyebrow: String(tourMeta?.itinerary?.length ?? '') }
+          : null,
+        tourIncludedLines.length > 0 || tourExcludedLines.length > 0
+          ? { id: 'tour-section-services', label: 'Dahil/Hariç' }
+          : null,
+        { id: 'tour-section-dates', label: 'Tarih ve Fiyat' },
+        tourNotes.length > 0 ? { id: 'tour-section-notes', label: 'Önemli Notlar' } : null,
+        { id: 'tour-section-location', label: 'Konum' },
+      ].filter((item): item is TourSectionNavItem => item !== null)
+    : []
 
   const handleSubmitForm = async (formData: FormData) => {
     'use server'
@@ -185,16 +375,18 @@ export default async function ExperienceListingDetailPage({
       >
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Clock01Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{durationTime}</span>
+          <span>{isTour ? tourDurationLine : durationTime}</span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>Up to {maxGuests} people</span>
+          <span>{isTour ? tourGroupLine : `Up to ${maxGuests} people`}</span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6" strokeWidth={1.75} />
           <span>
-            {(languages ?? []).length > 0 ? (languages ?? []).join(', ') : 'Languages not specified'}
+            {isTour
+              ? tourLanguages.length > 0 ? tourLanguages.join(', ') : 'Dil bilgisi belirtilmedi'
+              : (languages ?? []).length > 0 ? (languages ?? []).join(', ') : 'Languages not specified'}
           </span>
         </div>
       </SectionHeader>
@@ -242,11 +434,39 @@ export default async function ExperienceListingDetailPage({
       <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
           {renderSectionHeader()}
-          <SectionDateRange
-            locale={locale}
-            initialDays={availabilityCalendarDays}
-            initialMonthsShown={calendarMonthsShown}
-          />
+          {isTour ? <TourSectionNav items={tourNavItems} /> : null}
+          {isTour ? (
+            <>
+              <div id="tour-section-overview" className="scroll-mt-28">
+                <TourOverviewSection
+                  items={tourOverviewItems}
+                  description={
+                    tourDescriptionHtml ? (
+                      <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
+                    ) : null
+                  }
+                />
+              </div>
+              <div id="tour-section-program" className="scroll-mt-28">
+                <TourItinerarySection days={tourMeta?.itinerary ?? []} />
+              </div>
+              <div id="tour-section-services" className="scroll-mt-28">
+                <TourIncludedExcludedSection included={tourIncludedLines} excluded={tourExcludedLines} />
+              </div>
+            </>
+          ) : null}
+          <div id={isTour ? 'tour-section-dates' : undefined} className="scroll-mt-28">
+            <SectionDateRange
+              locale={locale}
+              initialDays={availabilityCalendarDays}
+              initialMonthsShown={calendarMonthsShown}
+            />
+          </div>
+          {isTour ? (
+            <div id="tour-section-notes" className="scroll-mt-28">
+              <TourNotesSection notes={tourNotes} />
+            </div>
+          ) : null}
         </div>
 
         <div className="grow">
@@ -272,7 +492,9 @@ export default async function ExperienceListingDetailPage({
           </div>
         </div>
 
-        <SectionMap />
+        <div id={isTour ? 'tour-section-location' : undefined} className="scroll-mt-28">
+          <SectionMap />
+        </div>
 
         <NearbyPlacesSection
           locale={locale}

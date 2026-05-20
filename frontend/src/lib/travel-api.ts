@@ -8551,6 +8551,18 @@ export interface PublicListingItem {
   theme_codes?: string | null
   /** Otel — vitrin `hotel_type` kodu (kategori tema öğeleri ile eşleştirilir) */
   hotel_type_code?: string | null
+  /** Otel detay — `listing_hotel_details.star_rating` */
+  hotel_star_rating?: string | null
+  /** Tur detay — `vertical_tour.duration_days` */
+  tour_duration_days?: string | null
+  /** Tur detay — `vertical_tour.max_people` */
+  tour_max_people?: string | null
+  /** Tur detay — `vertical_tour.travel_type` */
+  tour_travel_type?: string | null
+  /** Tur detay — `vertical_tour.accommodation_type` */
+  tour_accommodation_type?: string | null
+  /** Tur detay — `vertical_tour.languages` */
+  tour_languages?: string | null
   /** Kültür ve Turizm Bakanlığı / tesis belge no — `listings.ministry_license_ref` */
   ministry_license_ref?: string | null
   /** Ön ödeme yüzdesi — `listings.prepayment_percent` */

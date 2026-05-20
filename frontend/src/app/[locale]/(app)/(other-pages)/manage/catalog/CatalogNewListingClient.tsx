@@ -870,6 +870,7 @@ export default function CatalogNewListingClient({
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
+  const isTour = categoryCode === 'tour'
 
   const gallerySlugBase = slug.trim() ? slugifyMediaSegment(slug) : 'yeni-ilan'
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
@@ -3352,7 +3353,7 @@ export default function CatalogNewListingClient({
       className={
         isVilla
           ? 'bg-neutral-50 pb-20 dark:bg-neutral-950 sm:pb-24'
-          : 'pb-16'
+          : 'bg-neutral-50 pb-20 dark:bg-neutral-950 sm:pb-24'
       }
     >
       {isVilla && editListingId && !editListingReady ? (
@@ -3361,7 +3362,7 @@ export default function CatalogNewListingClient({
         </div>
       ) : null}
       {!isVilla ? (
-        <div className="mb-6 space-y-4">
+        <div className={clsx(MANAGE_FORM_CONTAINER_CLASS, 'mb-6 space-y-4 pt-4 sm:pt-5')}>
           <div className="flex flex-wrap items-start gap-3">
           <Link
             href={listHref}
@@ -3593,11 +3594,11 @@ export default function CatalogNewListingClient({
             </div>
           </div>
         ) : null}
-        <div className={clsx(isVilla && MANAGE_FORM_CONTAINER_CLASS)}>
-        <div className={clsx(!isVilla && 'flex flex-wrap gap-6 items-start')}>
+        <div className={MANAGE_FORM_CONTAINER_CLASS}>
+        <div>
 
           {/* ────────── Ana İçerik ────────── */}
-          <div className={clsx('space-y-5', !isVilla ? 'min-w-0 flex-1' : 'w-full')}>
+          <div className="w-full space-y-5">
 
             {/* Admin: Org ID — kilitliyse hesaptan zaten gelir; boş kart göstermeyelim */}
             {needOrg && !orgIdLocked && (
@@ -4170,6 +4171,41 @@ export default function CatalogNewListingClient({
             </Section>
 
             {hotelProfileSection}
+
+            {isTour ? (
+              <Section
+                title="Tur Programı ve Paket Kapsamı"
+                subtitle="Gün gün program, ulaşım türü, dahil/hariç hizmetler ve vize/rehber bilgileri kayıt sonrası Kategori Özellikleri sekmesinden yönetilir."
+              >
+                <div className="grid gap-3 md:grid-cols-3">
+                  {[
+                    ['Program', 'Her gün için başlık ve açıklama girerek vitrin timeline bölümünü besleyin.'],
+                    ['Dahil / Hariç', 'Uçak, transfer, yemek, ekstra tur ve sigorta kapsamını iki listede belirtin.'],
+                    ['Tarih & Fiyat', 'Kalkış dönemlerini takvim ve fiyat sekmelerinden tanımlayın.'],
+                  ].map(([title, text]) => (
+                    <div
+                      key={title}
+                      className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4 text-sm dark:border-neutral-700 dark:bg-neutral-900/40"
+                    >
+                      <p className="font-semibold text-neutral-900 dark:text-neutral-100">{title}</p>
+                      <p className="mt-1 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{text}</p>
+                    </div>
+                  ))}
+                </div>
+                {editListingId ? (
+                  <Link
+                    href={vitrinPath(`/manage/catalog/tour/listings/${encodeURIComponent(editListingId)}?tab=vertical`)}
+                    className="mt-4 inline-flex rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                  >
+                    Kategori Özellikleri sekmesine git
+                  </Link>
+                ) : (
+                  <p className="mt-4 rounded-xl border border-dashed border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-400">
+                    Önce ilanı kaydedin; ardından açılan düzenleme ekranında tur programını ve paket kapsamını ekleyebilirsiniz.
+                  </p>
+                )}
+              </Section>
+            ) : null}
 
             {isVilla && villaThemeCatalog.length > 0 && (
               <Section title="Temalar" subtitle="İlanı arama filtrelerinde öne çıkaracak özellikleri işaretleyin.">
@@ -5963,110 +5999,48 @@ export default function CatalogNewListingClient({
               </div>
             )}
 
-          </div>
-
-          {/* ────────── Sağ Kenar Çubuğu (villa dışı kategoriler) ────────── */}
-          {!isVilla ? (
-          <div className="w-72 shrink-0 space-y-4">
-            {/* Yayınla */}
-            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
-              <div className="border-b border-neutral-100 px-5 py-3 dark:border-neutral-700">
-                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">Yayınla</h3>
-              </div>
-              <div className="space-y-3 p-5">
-                <div className="space-y-2">
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="published"
-                      checked={status === 'published'}
-                      onChange={() => setStatus('published')}
-                      className="h-4 w-4 accent-primary-600"
-                    />
-                    <span className="text-sm text-neutral-700 dark:text-neutral-300">Yayınla</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="draft"
-                      checked={status === 'draft'}
-                      onChange={() => setStatus('draft')}
-                      className="h-4 w-4 accent-primary-600"
-                    />
-                    <span className="text-sm text-neutral-700 dark:text-neutral-300">Taslak</span>
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-3">
-                    <input
-                      type="radio"
-                      name="status"
-                      value="archived"
-                      checked={status === 'archived'}
-                      onChange={() => setStatus('archived')}
-                      className="h-4 w-4 accent-primary-600"
-                    />
-                    <span className="text-sm text-neutral-700 dark:text-neutral-300">Arşivlenmiş</span>
-                  </label>
+            {!isVilla ? (
+              <Section
+                title="Yayın Durumu"
+                subtitle="İlanın kaydedildikten sonra vitrinde nasıl görüneceğini seçin."
+              >
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    { value: 'published', label: 'Yayında', hint: 'Vitrinde görünür.' },
+                    { value: 'draft', label: 'Taslak', hint: 'Hazırlık aşamasında kalır.' },
+                    { value: 'archived', label: 'Arşivlenmiş', hint: 'Vitrinden gizlenir.' },
+                  ].map((item) => (
+                    <label
+                      key={item.value}
+                      className={clsx(
+                        'cursor-pointer rounded-xl border px-4 py-3 transition-colors',
+                        status === item.value
+                          ? 'border-primary-300 bg-primary-50 text-primary-900 dark:border-primary-800 dark:bg-primary-950/30 dark:text-primary-100'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
+                      )}
+                    >
+                      <span className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="status"
+                          value={item.value}
+                          checked={status === item.value}
+                          onChange={() => setStatus(item.value as 'draft' | 'published' | 'archived')}
+                          className="h-4 w-4 accent-primary-600"
+                        />
+                        <span className="text-sm font-semibold">{item.label}</span>
+                      </span>
+                      <span className="mt-1 block text-xs text-neutral-500 dark:text-neutral-400">
+                        {item.hint}
+                      </span>
+                    </label>
+                  ))}
                 </div>
-
-                <ButtonPrimary
-                  type="submit"
-                  form={formId}
-                  disabled={saveLocked}
-                  className="w-full justify-center"
-                >
-                  {busy ? 'Kaydediliyor…' : 'Değişiklikleri Kaydet'}
-                </ButtonPrimary>
-
-                <Link
-                  href={listHref}
-                  className="block text-center text-xs text-neutral-400 underline hover:text-neutral-600 dark:hover:text-neutral-200"
-                >
-                  {t('catalog.cancel')}
-                </Link>
-              </div>
-            </div>
-
-            {/* Varsayılan Durum */}
-            <div className="rounded-2xl border border-neutral-200 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
-              <div className="border-b border-neutral-100 px-5 py-3 dark:border-neutral-700">
-                <h3 className="text-sm font-semibold text-neutral-700 dark:text-neutral-200">
-                  Varsayılan Durum
-                </h3>
-              </div>
-              <div className="p-5">
-                <select
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value as 'draft' | 'published' | 'archived')}
-                  className={selectCls}
-                >
-                  <option value="draft">Yalnızca belirli tarihlerle</option>
-                  <option value="published">Her zaman müsait</option>
-                  <option value="archived">Arşivlenmiş (gizle)</option>
-                </select>
-                <p className="mt-2 text-xs text-neutral-400">
-                  Takvim yönetimi için ilan oluşturduktan sonra Takvim sekmesini kullanın.
-                </p>
-              </div>
-            </div>
-
-            {/* Oluşturma sonrası ipuçları */}
-            <div className="rounded-2xl border border-blue-100 bg-blue-50 p-5 dark:border-blue-900/40 dark:bg-blue-950/20">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
-                Oluşturma Sonrası
-              </h3>
-              <ul className="space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
-                <li>• <strong>Galeri</strong> — Fotoğrafları ekleyin</li>
-                <li>• <strong>Takvim</strong> — Müsaitlik ve fiyat ayarlayın</li>
-                <li>• <strong>Çeviriler</strong> — Çok dil desteği ekleyin</li>
-                <li>• <strong>Kategori Özellikleri</strong> — Villa temaları, ev kuralları (havuz/ek ücret kaydı oluşturma sırasında da yazılır)</li>
-                <li>• <strong>iCal</strong> — Harici takvim bağlayın</li>
-              </ul>
-            </div>
+              </Section>
+            ) : null}
 
           </div>
-          ) : null}
+
         </div>
         </div>
 
