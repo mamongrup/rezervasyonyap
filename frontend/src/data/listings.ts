@@ -29,6 +29,7 @@ import {
   searchPublicListings,
 } from '@/lib/travel-api'
 import type { FilterOption, MealPlanSummary, TListingBase } from '@/types/listing-types'
+import { getMessages } from '@/utils/getT'
 
 /** SectionHost vitrin tipi — konaklama birleştirmesi ve araç / deneyim kısmi host bilgisi */
 export type StayListingHost = {
@@ -536,166 +537,167 @@ export async function getStayListingFilterOptions(): Promise<FilterOption[]> {
     },
   ]
 }
-export async function getExperienceListingFilterOptions(): Promise<FilterOption[]> {
+export async function getExperienceListingFilterOptions(locale?: string): Promise<FilterOption[]> {
+  const m = getMessages(locale)
+  const filters = m.categoryPage.listingFilters
   return [
     {
-      label: 'Exprience type',
+      label: filters.experienceTypeLabel,
       name: 'experienceType',
       tabUIType: 'checkbox',
       options: [
         {
-          name: 'Food & drink',
+          name: filters.expFoodDrink,
           value: 'food_drink',
-          description: 'Try local cooking classes, and more.',
+          description: filters.expFoodDrinkDesc,
           defaultChecked: true,
         },
         {
-          name: 'Outdoor',
+          name: filters.expOutdoor,
           value: 'outdoor',
-          description: 'Explore nature, and outdoor activities.',
+          description: filters.expOutdoorDesc,
           defaultChecked: true,
         },
         {
-          name: 'Arts & culture',
+          name: filters.expArtsCulture,
           value: 'arts_culture',
-          description: 'Discover local art experiences.',
+          description: filters.expArtsCultureDesc,
         },
-
         {
-          name: 'Adventure',
+          name: filters.expAdventure,
           value: 'adventure',
-          description: 'Experience thrilling activities.',
+          description: filters.expAdventureDesc,
         },
       ],
     },
     {
-      label: 'Price range',
+      label: filters.priceRangeLabel,
       name: 'priceRange',
       tabUIType: 'price-range',
       min: 0,
       max: 1000,
     },
     {
-      label: 'Duration',
+      label: filters.durationLabel,
       name: 'duration',
       tabUIType: 'checkbox',
       options: [
         {
-          name: 'Less than 1 hour',
+          name: filters.expLess1Hour,
           value: 'less_than_1_hour',
-          description: 'Experience activities that last less than 1 hour.',
+          description: filters.expLess1HourDesc,
           defaultChecked: true,
         },
         {
-          name: '1-2 hours',
+          name: filters.exp1_2Hours,
           value: '1_2_hours',
-          description: 'Experience activities that last 1-2 hours.',
+          description: filters.exp1_2HoursDesc,
           defaultChecked: true,
         },
         {
-          name: '2-4 hours',
+          name: filters.exp2_4Hours,
           value: '2_4_hours',
-          description: 'Experience activities that last 2-4 hours.',
+          description: filters.exp2_4HoursDesc,
         },
         {
-          name: 'More than 4 hours',
+          name: filters.expMore4Hours,
           value: 'more_than_4_hours',
-          description: 'Experience activities that last more than 4 hours.',
+          description: filters.expMore4HoursDesc,
         },
       ],
     },
     {
-      label: 'Time of day',
+      label: filters.timeOfDayLabel,
       name: 'timeOfDay',
       tabUIType: 'checkbox',
       options: [
         {
-          name: 'Morning',
+          name: filters.timeMorning,
           value: 'morning',
-          description: 'Experience activities in the morning.',
+          description: filters.timeMorningDesc,
           defaultChecked: true,
         },
         {
-          name: 'Afternoon',
+          name: filters.timeAfternoon,
           value: 'afternoon',
-          description: 'Experience activities in the afternoon.',
+          description: filters.timeAfternoonDesc,
           defaultChecked: true,
         },
         {
-          name: 'Evening',
+          name: filters.timeEvening,
           value: 'evening',
-          description: 'Experience activities in the evening.',
+          description: filters.timeEveningDesc,
         },
         {
-          name: 'Night',
+          name: filters.timeNight,
           value: 'night',
-          description: 'Experience activities at night.',
+          description: filters.timeNightDesc,
         },
       ],
     },
     {
-      label: 'Amenities',
+      label: filters.amenitiesLabel,
       name: 'amenities',
       tabUIType: 'checkbox',
       options: [
         {
-          name: 'Kitchen',
+          name: filters.amenityKitchen,
           value: 'kitchen',
-          description: 'Have a place to yourself',
+          description: filters.amenityKitchenDesc,
           defaultChecked: true,
         },
         {
-          name: 'Air conditioning',
+          name: filters.amenityAc,
           value: 'air_conditioning',
-          description: 'Have your own room and share some common spaces',
+          description: filters.amenityAcDesc,
           defaultChecked: true,
         },
         {
-          name: 'Heating',
+          name: filters.amenityHeating,
           value: 'heating',
-          description: 'Have a private or shared room in a boutique hotel, hostel, and more',
+          description: filters.amenityHeatingDesc,
         },
         {
-          name: 'Dryer',
+          name: filters.amenityDryer,
           value: 'dryer',
-          description: 'Stay in a shared space, like a common room',
+          description: filters.amenityDryerDesc,
         },
         {
-          name: 'Washer',
+          name: filters.amenityWasher,
           value: 'washer',
-          description: 'Stay in a shared space, like a common room',
+          description: filters.amenityWasherDesc,
         },
       ],
     },
     {
-      label: 'Facilities',
+      label: filters.facilitiesLabel,
       name: 'facilities',
       tabUIType: 'checkbox',
       options: [
         {
-          name: 'Free parking on premise',
+          name: filters.facilityParking,
           value: 'free_parking_on_premise',
-          description: 'Have a place to yourself',
+          description: filters.facilityParkingDesc,
         },
         {
-          name: 'Hot tub',
+          name: filters.facilityHotTub,
           value: 'hot_tub',
-          description: 'Have your own room and share some common spaces',
+          description: filters.facilityHotTubDesc,
         },
         {
-          name: 'Gym',
+          name: filters.facilityGym,
           value: 'gym',
-          description: 'Have a private or shared room in a boutique hotel, hostel, and more',
+          description: filters.facilityGymDesc,
         },
         {
-          name: 'Pool',
+          name: filters.facilityPool,
           value: 'pool',
-          description: 'Stay in a shared space, like a common room',
+          description: filters.facilityPoolDesc,
         },
         {
-          name: 'EV charger',
+          name: filters.facilityEvCharger,
           value: 'ev_charger',
-          description: 'Stay in a shared space, like a common room',
+          description: filters.facilityEvChargerDesc,
         },
       ],
     },

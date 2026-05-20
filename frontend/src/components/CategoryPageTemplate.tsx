@@ -388,7 +388,7 @@ export default async function CategoryPageTemplate({
             />
           </Suspense>
         ) : (
-          <ListingFilterTabs filterOptions={filterOptions} />
+          <ListingFilterTabs filterOptions={filterOptions} locale={locale} />
         ))}
 
       <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:mt-10 lg:grid-cols-3 xl:grid-cols-4">

@@ -39,7 +39,7 @@ export default async function Page({
   )
 
   const [filterOptions, heroOverride] = await Promise.all([
-    getExperienceListingFilterOptions(),
+    getExperienceListingFilterOptions(locale),
     getRegionHeroConfig('sinema-biletleri', currentHandle ?? ''),
   ])
 

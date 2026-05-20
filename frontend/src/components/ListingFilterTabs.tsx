@@ -6,7 +6,7 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonThird from '@/shared/ButtonThird'
 import { Checkbox, CheckboxField, CheckboxGroup } from '@/shared/Checkbox'
 import { Description, Fieldset, Label } from '@/shared/fieldset'
-import T from '@/utils/getT'
+import { getMessages } from '@/utils/getT'
 import {
   CloseButton,
   Dialog,
@@ -113,9 +113,12 @@ const NumberSelectPanel = ({ filterOption: { name, options } }: { filterOption: 
 
 const ListingFilterTabs = ({
   filterOptions = [],
+  locale,
 }: {
   filterOptions?: FilterOption[]
+  locale?: string
 }) => {
+  const m = getMessages(locale)
   const [showAllFilter, setShowAllFilter] = useState(false)
   const router = useRouter()
   const pathname = usePathname() ?? ''
@@ -163,7 +166,7 @@ const ListingFilterTabs = ({
           className={clsx(filterPillBase, filterPillEmphasis, 'w-full md:w-auto')}
         >
           <HugeiconsIcon icon={FilterVerticalIcon} size={16} color="currentColor" strokeWidth={1.5} />
-          <span>{T['common']['All filters']}</span>
+          <span>{m.common['All filters']}</span>
           {filterOptions.length > 0 ? (
             <span className="absolute -top-1.5 -right-1 flex size-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-neutral-950 px-0.5 text-[0.625rem] leading-none font-semibold text-white ring-2 ring-white dark:bg-white dark:text-neutral-950 dark:ring-neutral-900">
               {Math.min(filterOptions.length, 99)}
@@ -189,7 +192,7 @@ const ListingFilterTabs = ({
             >
               <div className="relative shrink-0 border-b border-neutral-200 p-4 text-center sm:px-8 dark:border-neutral-800">
                 <DialogTitle as="h3" className="text-lg leading-6 font-medium text-gray-900">
-                  {T['common']['Filters']}
+                  {m.common['Filters']}
                 </DialogTitle>
                 <div className="absolute end-2 top-2">
                   <ButtonClose plain onClick={() => setShowAllFilter(false)} />
@@ -221,10 +224,10 @@ const ListingFilterTabs = ({
 
               <div className="flex shrink-0 items-center justify-between bg-neutral-50 p-4 sm:px-8 dark:border-t dark:border-neutral-800 dark:bg-neutral-900">
                 <ButtonThird className="-mx-3" onClick={() => setShowAllFilter(false)} type="button">
-                  {T['common']['Clear All']}
+                  {m.common['Clear All']}
                 </ButtonThird>
                 <ButtonPrimary type="submit" onClick={() => setShowAllFilter(false)}>
-                  {T['common']['Apply filters']}
+                  {m.common['Apply filters']}
                 </ButtonPrimary>
               </div>
             </DialogPanel>
@@ -294,10 +297,10 @@ const ListingFilterTabs = ({
 
                   <div className="flex items-center justify-between rounded-b-2xl bg-neutral-50 p-5 dark:border-t dark:border-neutral-800 dark:bg-neutral-900">
                     <CloseButton className="-mx-3" as={ButtonThird} type="button">
-                      {T['common']['Clear']}
+                      {m.common['Clear']}
                     </CloseButton>
                     <CloseButton type="submit" as={ButtonPrimary}>
-                      {T['common']['Apply']}
+                      {m.common['Apply']}
                     </CloseButton>
                   </div>
                 </div>

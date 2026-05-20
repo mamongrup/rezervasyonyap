@@ -6,6 +6,7 @@ import {
   TOUR_TRAVEL_TYPE_OPTIONS,
 } from '@/lib/tour-filter-options'
 import type { FilterOption } from '@/types/listing-types'
+import { getMessages } from '@/utils/getT'
 
 type CodeLabel = { code: string; label: string }
 
@@ -45,6 +46,9 @@ function checkboxFilter(
 }
 
 export async function getHotelCategoryFilterOptions(locale: string): Promise<FilterOption[]> {
+  const m = getMessages(locale)
+  const filters = m.categoryPage.listingFilters
+
   const [types, themes, accommodations] = await Promise.all([
     getFacetOptions('hotel', 'hotel_type', locale, HOTEL_TYPE_OPTIONS),
     getFacetOptions('hotel', 'theme', locale, HOTEL_THEME_OPTIONS),
@@ -52,20 +56,20 @@ export async function getHotelCategoryFilterOptions(locale: string): Promise<Fil
   ])
 
   return [
-    checkboxFilter('Otel tipi', 'hotel_type', types),
-    checkboxFilter('Tema', 'hotel_theme', themes),
-    checkboxFilter('Konaklama tipi', 'hotel_accommodation', accommodations),
+    checkboxFilter(filters.hotelTypeLabel, 'hotel_type', types),
+    checkboxFilter(filters.themeLabel, 'hotel_theme', themes),
+    checkboxFilter(filters.accommodationTypeLabel, 'hotel_accommodation', accommodations),
     {
-      label: 'Yıldız',
+      label: filters.starsLabel,
       name: 'hotel_stars',
       tabUIType: 'checkbox',
       options: [5, 4, 3, 2, 1].map((star) => ({
-        name: `${star} yıldız`,
+        name: `${star} ${filters.starSuffix}`,
         value: String(star),
       })),
     },
     {
-      label: 'Fiyat aralığı',
+      label: filters.priceRangeLabel,
       name: 'price',
       tabUIType: 'price-range',
       min: 0,
@@ -75,27 +79,30 @@ export async function getHotelCategoryFilterOptions(locale: string): Promise<Fil
 }
 
 export async function getTourCategoryFilterOptions(locale: string): Promise<FilterOption[]> {
+  const m = getMessages(locale)
+  const filters = m.categoryPage.listingFilters
+
   const [travelTypes, accommodationTypes] = await Promise.all([
     getFacetOptions('tour', 'travel_type', locale, TOUR_TRAVEL_TYPE_OPTIONS),
     getFacetOptions('tour', 'accommodation', locale, TOUR_ACCOMMODATION_OPTIONS),
   ])
 
   return [
-    checkboxFilter('Ulaşım türü', 'tour_travel_type', travelTypes),
-    checkboxFilter('Konaklama tipi', 'tour_accommodation', accommodationTypes),
+    checkboxFilter(filters.travelTypeLabel, 'tour_travel_type', travelTypes),
+    checkboxFilter(filters.accommodationTypeLabel, 'tour_accommodation', accommodationTypes),
     {
-      label: 'Süre',
+      label: filters.durationLabel,
       name: 'tour_duration',
       tabUIType: 'checkbox',
       options: [
-        { name: '1 gün', value: '1' },
-        { name: '2-3 gün', value: '2-3' },
-        { name: '4-7 gün', value: '4-7' },
-        { name: '8+ gün', value: '8+' },
+        { name: filters.duration1Day, value: '1' },
+        { name: filters.duration2_3Days, value: '2-3' },
+        { name: filters.duration4_7Days, value: '4-7' },
+        { name: filters.duration8PlusDays, value: '8+' },
       ],
     },
     {
-      label: 'Fiyat aralığı',
+      label: filters.priceRangeLabel,
       name: 'price',
       tabUIType: 'price-range',
       min: 0,
