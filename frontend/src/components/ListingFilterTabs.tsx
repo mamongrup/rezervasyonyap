@@ -119,6 +119,14 @@ const ListingFilterTabs = ({
   locale?: string
 }) => {
   const m = getMessages(locale)
+  const filters = m.categoryPage?.listingFilters
+  const allFiltersText = filters?.allFilters ?? m.common['All filters'] ?? 'All filters'
+  const filtersTitleText = filters?.filtersTitle ?? m.common['Filters'] ?? 'Filters'
+  const clearAllText = filters?.clearAll ?? m.common['Clear All'] ?? 'Clear all'
+  const applyFiltersText = filters?.apply ?? m.common['Apply filters'] ?? 'Apply filters'
+  const clearText = filters?.clear ?? m.common['Clear'] ?? 'Clear'
+  const applyText = filters?.apply ?? m.common['Apply'] ?? 'Apply'
+
   const [showAllFilter, setShowAllFilter] = useState(false)
   const router = useRouter()
   const pathname = usePathname() ?? ''
@@ -166,7 +174,7 @@ const ListingFilterTabs = ({
           className={clsx(filterPillBase, filterPillEmphasis, 'w-full md:w-auto')}
         >
           <HugeiconsIcon icon={FilterVerticalIcon} size={16} color="currentColor" strokeWidth={1.5} />
-          <span>{m.common['All filters']}</span>
+          <span>{allFiltersText}</span>
           {filterOptions.length > 0 ? (
             <span className="absolute -top-1.5 -right-1 flex size-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full bg-neutral-950 px-0.5 text-[0.625rem] leading-none font-semibold text-white ring-2 ring-white dark:bg-white dark:text-neutral-950 dark:ring-neutral-900">
               {Math.min(filterOptions.length, 99)}
@@ -192,7 +200,7 @@ const ListingFilterTabs = ({
             >
               <div className="relative shrink-0 border-b border-neutral-200 p-4 text-center sm:px-8 dark:border-neutral-800">
                 <DialogTitle as="h3" className="text-lg leading-6 font-medium text-gray-900">
-                  {m.common['Filters']}
+                  {filtersTitleText}
                 </DialogTitle>
                 <div className="absolute end-2 top-2">
                   <ButtonClose plain onClick={() => setShowAllFilter(false)} />
@@ -224,10 +232,10 @@ const ListingFilterTabs = ({
 
               <div className="flex shrink-0 items-center justify-between bg-neutral-50 p-4 sm:px-8 dark:border-t dark:border-neutral-800 dark:bg-neutral-900">
                 <ButtonThird className="-mx-3" onClick={() => setShowAllFilter(false)} type="button">
-                  {m.common['Clear All']}
+                  {clearAllText}
                 </ButtonThird>
                 <ButtonPrimary type="submit" onClick={() => setShowAllFilter(false)}>
-                  {m.common['Apply filters']}
+                  {applyFiltersText}
                 </ButtonPrimary>
               </div>
             </DialogPanel>
@@ -297,10 +305,10 @@ const ListingFilterTabs = ({
 
                   <div className="flex items-center justify-between rounded-b-2xl bg-neutral-50 p-5 dark:border-t dark:border-neutral-800 dark:bg-neutral-900">
                     <CloseButton className="-mx-3" as={ButtonThird} type="button">
-                      {m.common['Clear']}
+                      {clearText}
                     </CloseButton>
                     <CloseButton type="submit" as={ButtonPrimary}>
-                      {m.common['Apply']}
+                      {applyText}
                     </CloseButton>
                   </div>
                 </div>
