@@ -122,6 +122,7 @@ import {
 } from '@/components/manage/ManageFormShell'
 import { HeroSlotPickerModal } from '@/components/manage/HeroSlotPickerModal'
 import { ManageListingGalleryHeroPreview } from '@/components/manage/ManageListingGalleryHeroPreview'
+import { HotelFacetSelectPanels } from '@/components/catalog/HotelFacetSelectPanels'
 import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
 import { ManageAiMagicTextButton } from '@/components/manage/ManageAiMagicTextButton'
 import { ManageAiTranslateToolbar } from '@/components/manage/ManageAiTranslateToolbar'
@@ -240,6 +241,7 @@ function buildRuleJson(
 }
 
 const MEAL_PLAN_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
+const STAY_ACCOMMODATION_RULE_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
 
 /** `listing_meal_plans` güncellemesi için güvenli JSON dizi (PG jsonb + decode uyumu) */
 function coerceMealPlanCodeArray(raw: unknown): string[] {
@@ -1091,11 +1093,13 @@ export default function CatalogNewListingClient({
           setAttributeDefsByGroup({})
         }
       })
-    // Ev kuralları + tema kataloğu (holiday_home için)
-    if (categoryCode === 'holiday_home') {
+    // Konaklama kuralları (hotel / holiday_home / yacht_charter) + villa tema kataloğu
+    if (STAY_ACCOMMODATION_RULE_CATS.has(categoryCode)) {
       void getManageCategoryAccommodationRules(token, categoryCode, orgParam)
         .then((r) => { if (!cancelled) setAccRules(r) })
         .catch(() => { if (!cancelled) setAccRules([]) })
+    }
+    if (categoryCode === 'holiday_home') {
       void listPublicCategoryThemeItems({ categoryCode: 'holiday_home', locale })
         .then((r) => {
           if (cancelled) return
@@ -3303,6 +3307,42 @@ export default function CatalogNewListingClient({
     </Section>
   ) : null
 
+  const hotelProfileSection =
+    categoryCode === 'hotel' ? (
+      <Section
+        title="Otel Profili"
+        subtitle="Referans otel sitelerindeki tip, tema, konaklama konsepti ve yıldız bilgilerini bu ilanla eşleştirin."
+      >
+        <HotelFacetSelectPanels
+          locale={locale}
+          selectCls={selectCls}
+          hotelTypeCode={attributeValues['hotel.hotel_type_code'] ?? ''}
+          setHotelTypeCode={(v) => setAttributeValue('hotel', 'hotel_type_code', v)}
+          hotelThemeCode={attributeValues['hotel.theme_code'] ?? ''}
+          setHotelThemeCode={(v) => setAttributeValue('hotel', 'theme_code', v)}
+          hotelAccommodation={attributeValues['hotel.accommodation_code'] ?? ''}
+          setHotelAccommodation={(v) => setAttributeValue('hotel', 'accommodation_code', v)}
+          hotelStar={starRating}
+          setHotelStar={setStarRating}
+        />
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {[
+            ['Tesis Özellikleri', 'Wi‑Fi, spa, otopark, aile, plaj gibi öne çıkanları özniteliklerden işaretleyin.'],
+            ['Konsept & Kampanya', 'Her şey dahil, balayı, ultra lüks gibi sınıfları konaklama/tema alanlarıyla eşleyin.'],
+            ['Odalar', editListingId ? 'Kaydettikten sonra otel detay ekranındaki Odalar sekmesinden oda kartlarını yönetin.' : 'İlanı kaydedince Otel sekmesinde oda tipleri ve görselleri açılır.'],
+          ].map(([title, text]) => (
+            <div
+              key={title}
+              className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4 text-sm dark:border-neutral-700 dark:bg-neutral-900/40"
+            >
+              <p className="font-semibold text-neutral-900 dark:text-neutral-100">{title}</p>
+              <p className="mt-1 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{text}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+    ) : null
+
   const formId = 'catalog-new-listing-form'
 
   const saveLocked = busy || (Boolean(editListingId) && !editListingReady)
@@ -4129,6 +4169,8 @@ export default function CatalogNewListingClient({
               )}
             </Section>
 
+            {hotelProfileSection}
+
             {isVilla && villaThemeCatalog.length > 0 && (
               <Section title="Temalar" subtitle="İlanı arama filtrelerinde öne çıkaracak özellikleri işaretleyin.">
                 <div className="flex flex-wrap gap-3">
@@ -4160,8 +4202,15 @@ export default function CatalogNewListingClient({
               </Section>
             ) : null}
 
-            {isVilla && accRules.length > 0 && (
-              <Section title="Ev Kuralları" subtitle="Havuz saatleri, evcil hayvan politikası ve diğer konaklama kurallarını seçin.">
+            {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) && accRules.length > 0 && (
+              <Section
+                title={isVilla ? 'Ev Kuralları' : 'Konaklama Kuralları'}
+                subtitle={
+                  isVilla
+                    ? 'Havuz saatleri, evcil hayvan politikası ve diğer konaklama kurallarını seçin.'
+                    : 'Evcil hayvan, çocuk, konsept ve tesis kullanım kurallarını misafire açık şekilde seçin.'
+                }
+              >
                 <div className="flex flex-wrap gap-3">
                   {accRules.map((r) => {
                     const raw = attributeValues['catalog.accommodation_rule_ids'] ?? '[]'

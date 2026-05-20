@@ -100,6 +100,7 @@ import {
   ListChecks,
   ScrollText,
   ClipboardList,
+  Info,
 } from 'lucide-react'
 import { VerticalDetailsSection } from '../../../VerticalDetailsSection'
 import ListingImagesSection from '../../../ListingImagesSection'
@@ -113,6 +114,18 @@ function verticalSectionTitle(verticalTitles: CatalogListingUi['verticalTitles']
 
 /** Konaklama vitrininde kural seçimi — otel / tatil evi / yat */
 const STAY_ACCOMMODATION_RULE_CATS = new Set(['hotel', 'holiday_home', 'yacht_charter'])
+const HOTEL_ROOM_META_EXAMPLE = JSON.stringify(
+  {
+    beds: 2,
+    bed_type: '1 çift kişilik + 1 tek kişilik',
+    size_m2: 32,
+    description: 'Balkonlu, deniz veya bahçe manzaralı oda.',
+    amenities: ['Minibar', 'Klima', 'Wi‑Fi'],
+    image: '',
+  },
+  null,
+  2,
+)
 
 /** `options_json` bozuk olsa bile UI'yi crash ettirmemek için güvenli parse. */
 function parseOptionsJsonSafe(raw: string | null | undefined): string[] {
@@ -1576,10 +1589,17 @@ export default function CatalogListingDetailClient({
     e.preventDefault()
     const token = getStoredAuthToken()
     if (!token || !roomName.trim()) return
+    const meta = roomMeta.trim() || '{}'
+    try {
+      JSON.parse(meta)
+    } catch {
+      setErr(formatManageApiError('room_meta_json_invalid'))
+      return
+    }
     setBusy('room-add')
     setErr(null)
     try {
-      await addManageHotelRoom(token, listingId, { name: roomName.trim(), capacity: roomCap.trim() || undefined, board_type: roomBoard.trim() || undefined, meta_json: roomMeta.trim() || '{}' }, orgQ)
+      await addManageHotelRoom(token, listingId, { name: roomName.trim(), capacity: roomCap.trim() || undefined, board_type: roomBoard.trim() || undefined, meta_json: meta }, orgQ)
       setRoomName(''); setRoomCap(''); setRoomBoard(''); setRoomMeta('{}')
       await loadHotel()
     } catch (e) {
@@ -3167,7 +3187,17 @@ export default function CatalogListingDetailClient({
 
           {/* Odalar */}
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.hotel.roomsHeading}</h2>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.hotel.roomsHeading}</h2>
+                <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
+                  Oda kartları vitrindeki “Odalar” bölümünü besler. `meta_json` içinde yatak, m², açıklama, özellik ve görsel alanları varsa kart tasarımı zenginleşir.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                <Info className="h-3.5 w-3.5" /> Vitrin ile aynı veri
+              </span>
+            </div>
             <div className="mt-4 overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-neutral-50 dark:bg-neutral-800/50">
@@ -3216,7 +3246,17 @@ export default function CatalogListingDetailClient({
               <Field className="block">
                 <Label>{ui.hotel.metaJson}</Label>
                 <Textarea className="mt-1 font-mono text-sm" rows={3} value={roomMeta} onChange={(e) => setRoomMeta(e.target.value)} />
+                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+                  Örnek alanlar: `beds`, `bed_type`, `size_m2`, `description`, `amenities`, `image`.
+                </p>
               </Field>
+              <button
+                type="button"
+                className="w-fit text-xs font-medium text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:text-primary-700 dark:text-primary-400"
+                onClick={() => setRoomMeta(HOTEL_ROOM_META_EXAMPLE)}
+              >
+                Örnek oda JSON’unu doldur
+              </button>
               <ButtonPrimary type="submit" disabled={busy === 'room-add'}>
                 {busy === 'room-add' ? ui.common.ellipsis : ui.hotel.addRoom}
               </ButtonPrimary>

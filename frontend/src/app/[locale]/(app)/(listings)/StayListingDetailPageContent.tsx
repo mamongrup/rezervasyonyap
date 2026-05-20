@@ -70,8 +70,10 @@ import clsx from 'clsx'
 import HeaderGallery from './components/HeaderGallery'
 import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
+import HotelLocationInfoSection from './HotelLocationInfoSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
+import HotelSectionNav, { type HotelSectionNavItem } from './HotelSectionNav'
 import ListingAmenitiesSection from './ListingAmenitiesSection'
 import ListingSleepingSection from './ListingSleepingSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
@@ -471,6 +473,20 @@ export default async function StayListingDetailPageContent({
       prepaymentNoteText?.trim() ||
       listingContractHref,
   )
+  const hotelSectionNavItems: HotelSectionNavItem[] =
+    vertical === 'hotel'
+      ? [
+          amenityKeys.length > 0
+            ? { id: 'stay-section-amenities', label: 'Tesis Özellikleri' }
+            : null,
+          realHotelRooms.length > 0
+            ? { id: 'stay-section-rooms', label: 'Odalar', eyebrow: String(realHotelRooms.length) }
+            : null,
+          mealPlans.length > 0 ? { id: 'stay-section-meal-plans', label: 'Konsept' } : null,
+          { id: 'stay-section-location', label: 'Konum Bilgileri' },
+          hasPoliciesSection ? { id: 'stay-section-policies', label: 'Önemli Notlar' } : null,
+        ].filter((item): item is HotelSectionNavItem => item !== null)
+      : []
   const regionName = isHolidayHome
     ? normalizeHolidayHomeLocationPin(listing.city ?? listing.address)
     : null
@@ -893,6 +909,7 @@ export default async function StayListingDetailPageContent({
         {/* LEFT COLUMN */}
         <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
+          {vertical === 'hotel' ? <HotelSectionNav items={hotelSectionNavItems} /> : null}
           {perksBadges}
           {socialProof}
           {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
@@ -978,24 +995,28 @@ export default async function StayListingDetailPageContent({
           {/* Oteller için Booking/ETStur tarzı oda kartı gösterimi; yat için
               mevcut özet tablosu korunur. Tatil evinde oda listesi yok. */}
           {vertical === 'hotel' && realHotelRooms.length > 0 ? (
-            <HotelRoomShowcase
-              locale={locale}
-              rooms={realHotelRooms}
-              reservationAnchorId="stay-reservation-card"
-              currencySymbol={
-                priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
-              }
-            />
+            <div id="stay-section-rooms" className="scroll-mt-28">
+              <HotelRoomShowcase
+                locale={locale}
+                rooms={realHotelRooms}
+                reservationAnchorId="stay-reservation-card"
+                currencySymbol={
+                  priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
+                }
+              />
+            </div>
           ) : (
             !isHolidayHome && vertical !== 'hotel' && renderSectionRoomTypes()
           )}
           {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && (
-            <SectionMealPlans
-              mealPlans={mealPlans}
-              locale={locale}
-              holidayHome={isHolidayHome}
-              maxGuests={maxGuests}
-            />
+            <div id={vertical === 'hotel' ? 'stay-section-meal-plans' : undefined} className="scroll-mt-28">
+              <SectionMealPlans
+                mealPlans={mealPlans}
+                locale={locale}
+                holidayHome={isHolidayHome}
+                maxGuests={maxGuests}
+              />
+            </div>
           )}
           <div id="stay-section-calendar" className="scroll-mt-28">
           <StayListingCalendarBookingBlock
@@ -1074,13 +1095,20 @@ export default async function StayListingDetailPageContent({
               />
             )
           })()}
-          <div id="stay-section-location" className="scroll-mt-28">
-          <SectionMap
-            lat={map?.lat}
-            lng={map?.lng}
-            address={address}
-            heading={dp.location}
-          />
+          <div id="stay-section-location" className="scroll-mt-28 space-y-5">
+            {vertical === 'hotel' ? (
+              <HotelLocationInfoSection
+                address={address}
+                city={listing.city}
+                transport={servicePois.transport}
+              />
+            ) : null}
+            <SectionMap
+              lat={map?.lat}
+              lng={map?.lng}
+              address={address}
+              heading={dp.location}
+            />
           </div>
           <ListingServicePoisSection
             amenities={servicePois.amenities}
