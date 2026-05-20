@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const key = await resolveGoogleMapsApiKey(apiKey)
     if (!key) {
-      return NextResponse.json({ error: 'Google Maps API anahtarı bulunamadı (ayarlar veya env).' }, { status: 400 })
+      return NextResponse.json({ error: 'Google Maps API anahtarı bulunamadı. Yönetim → Ayarlar → Google sekmesinden tanımlayın.' }, { status: 400 })
     }
 
     const originStr = `${origin.lat},${origin.lng}`

@@ -4,8 +4,6 @@ import clsx from 'clsx'
 import {
   ChevronDown,
   ChevronRight,
-  Eye,
-  EyeOff,
   Pencil,
   Plus,
   Save,
@@ -92,7 +90,6 @@ const DEFAULT_CATEGORIES: PlaceCategory[] = [
 ]
 
 const STORAGE_KEY_CONFIG = 'region_places_config_v1'
-const STORAGE_KEY_APIKEY = 'region_places_apikey_v1'
 
 function loadConfig(): PlaceCategory[] {
   try {
@@ -305,16 +302,9 @@ function CategoryConfigPanel({
 export default function RegionPlacesClient() {
   const [categories, setCategories] = useState<PlaceCategory[]>([])
   const [configDirty, setConfigDirty] = useState(false)
-  const [apiKey, setApiKey] = useState('')
-  const [showKey, setShowKey] = useState(false)
-  const [keySaved, setKeySaved] = useState(false)
 
   useEffect(() => {
     setCategories(loadConfig())
-    try {
-      const k = localStorage.getItem(STORAGE_KEY_APIKEY)
-      if (k) setApiKey(k)
-    } catch { /* ignore */ }
   }, [])
 
   const handleCategoriesChange = (cats: PlaceCategory[]) => {
@@ -325,14 +315,6 @@ export default function RegionPlacesClient() {
   const saveConfigNow = () => {
     saveConfig(categories)
     setConfigDirty(false)
-  }
-
-  const saveApiKey = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY_APIKEY, apiKey)
-      setKeySaved(true)
-      setTimeout(() => setKeySaved(false), 2000)
-    } catch { /* ignore */ }
   }
 
   const enabledCount = categories.flatMap((c) => c.types.filter((t) => t.enabled)).length
@@ -356,45 +338,10 @@ export default function RegionPlacesClient() {
           <Settings2 className="h-5 w-5 text-[color:var(--manage-primary)]" />
           Google Maps API Ayarları
         </h2>
-        <div className="max-w-lg space-y-3">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-neutral-600 dark:text-neutral-400">
-              API Anahtarı
-            </label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="AIzaSy… (boş bırakılırsa .env kullanılır)"
-                  className="w-full rounded-xl border border-neutral-200 px-3 py-2 font-mono text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
-                />
-                <button type="button" onClick={() => setShowKey((v) => !v)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400">
-                  {showKey ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              <button type="button" onClick={saveApiKey}
-                className={clsx(
-                  'flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-colors',
-                  keySaved
-                    ? 'bg-emerald-500 text-white'
-                    : 'border border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300',
-                )}>
-                <Save className="h-3.5 w-3.5" />
-                {keySaved ? 'Kaydedildi' : 'Kaydet'}
-              </button>
-            </div>
-            <p className="mt-1.5 text-xs text-neutral-400">
-              Places API etkinleştirilmiş anahtar gereklidir.{' '}
-              <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer"
-                className="text-[color:var(--manage-primary)] underline">
-                Google Cloud Console →
-              </a>
-            </p>
-          </div>
-        </div>
+        <p className="max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
+          Google Maps API anahtarı tek yerden yönetilir: Yönetim → Ayarlar → Google. Bu sayfada yalnızca
+          bölge mekan türleri ve yarıçapları yapılandırılır.
+        </p>
       </section>
 
       {/* Sorgulanacak Mekan Türleri */}

@@ -3,7 +3,7 @@ import { apiOriginForFetch } from '@/lib/api-origin'
 /**
  * Google Maps anahtarı çözümleme sırası:
  * 1) İstek gövdesi / çağıranın verdiği anahtar
- * 2) Yönetim → Genel ayarlar / Yapay zeka → `platform.maps` (public-config)
+ * 2) Yönetim → Ayarlar → Google → `platform.maps` (public-config)
  * 3) GOOGLE_MAPS_API_KEY / NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
  */
 export async function resolveGoogleMapsApiKey(explicit?: string): Promise<string> {

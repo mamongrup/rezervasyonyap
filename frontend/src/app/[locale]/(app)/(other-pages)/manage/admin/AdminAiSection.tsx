@@ -47,6 +47,7 @@ import {
   postRegionPlacesJson,
 } from '@/lib/build-region-places-from-google'
 import { parseLenientJson } from '@/lib/json-parse'
+import { buildPlacePhotoProxySrc } from '@/lib/nearby-poi-image'
 import { regionPlacesSlugFromSlugPath } from '@/lib/region-places-slug'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -141,8 +142,6 @@ export default function AdminAiSection() {
   const [mapsLog, setMapsLog] = useState<string[]>([])
   const [mapsErr, setMapsErr] = useState<string | null>(null)
   const [mapsApiKey, setMapsApiKey] = useState<string>('')
-  const [mapsKeySaving, setMapsKeySaving] = useState(false)
-  const [mapsKeySaved, setMapsKeySaved] = useState(false)
   const mapsStopRef = useRef(false)
   /** Maps iş akışı: gezi fikirleri kaydından sonra region-places JSON (vitrin + mesafeler) */
   const [mapsAlsoWriteRegionPlaces, setMapsAlsoWriteRegionPlaces] = useState(true)
@@ -193,7 +192,7 @@ export default function AdminAiSection() {
   const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
   const [notFoundExpanded, setNotFoundExpanded] = useState(false)
 
-  // DB'de kalıcı tut: maps + pexels keyleri (site_settings, platform scope).
+  // DB'de kalıcı tut: maps ayarları + pexels keyleri (site_settings, platform scope).
   useEffect(() => {
     const token = getStoredAuthToken()
     if (!token) return
@@ -240,35 +239,6 @@ export default function AdminAiSection() {
       }
     })()
   }, [])
-
-  async function saveMapsKeyToDb(silent = false) {
-    const token = getStoredAuthToken()
-    if (!token) {
-      if (!silent) setMapsErr('Kaydetmek için yönetici oturumu gerekli.')
-      return
-    }
-    const key = mapsApiKey.trim()
-    if (!key) {
-      if (!silent) setMapsErr('Google Maps API anahtarı gerekli.')
-      return
-    }
-    setMapsKeySaving(true)
-    setMapsKeySaved(false)
-    setMapsErr(null)
-    try {
-      const existing = await listSiteSettings(token, { scope: 'platform', key: 'maps' }).catch(() => ({ settings: [] as any[] }))
-      const raw = existing.settings?.[0]?.value_json?.trim() ?? ''
-      const base = raw ? (parseLenientJson(raw) as Record<string, unknown>) : {}
-      const next = { ...base, google_maps_api_key: key }
-      await upsertSiteSetting(token, { key: 'maps', value_json: JSON.stringify(next) })
-      setMapsKeySaved(true)
-      setTimeout(() => setMapsKeySaved(false), 2500)
-    } catch (e) {
-      setMapsErr(formatManageApiCatch(e, 'Kayıt başarısız'))
-    } finally {
-      setMapsKeySaving(false)
-    }
-  }
 
   async function savePexelsKeysToDb() {
     const token = getStoredAuthToken()
@@ -793,7 +763,7 @@ export default function AdminAiSection() {
     if (!token) return
     const key = mapsApiKey.trim()
     if (!key) {
-      setMapsErr('Google Maps API anahtarı gerekli.')
+      setMapsErr('Google Maps API anahtarı gerekli. Yönetim → Ayarlar → Google sekmesinden kaydedin.')
       return
     }
     mapsStopRef.current = false
@@ -919,9 +889,7 @@ export default function AdminAiSection() {
             ]
               .filter(Boolean)
               .join(' — '),
-            image: p.photoRef
-              ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${key}`
-              : undefined,
+            image: p.photoRef ? buildPlacePhotoProxySrc(p.photoRef, 800) : undefined,
             link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
             lat: p.lat,
             lng: p.lng,
@@ -1122,7 +1090,7 @@ export default function AdminAiSection() {
   async function onStartSvcPois() {
     const token = getStoredAuthToken()
     if (!token || !mapsApiKey.trim()) {
-      setSvcPoisErr('Google Maps API anahtarı gerekli.')
+      setSvcPoisErr('Google Maps API anahtarı gerekli. Yönetim → Ayarlar → Google sekmesinden kaydedin.')
       return
     }
     svcPoisStopRef.current = false
@@ -1161,9 +1129,18 @@ export default function AdminAiSection() {
         for (const def of servicePoiTypes) {
           if (svcPoisStopRef.current) break
           try {
-            const res = await fetch(
-              `/api/places-nearby?lat=${lat}&lng=${lng}&type=${encodeURIComponent(def.googleType)}&radius=${def.radius}&apiKey=${encodeURIComponent(mapsApiKey)}&maxCount=1&lang=tr`,
-            )
+            const res = await fetch('/api/places-nearby', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                lat,
+                lng,
+                googleType: def.googleType,
+                radiusM: def.radius,
+                maxCount: 1,
+                language: 'tr',
+              }),
+            })
             if (!res.ok) continue
             const data = await res.json() as { places?: { name?: string; lat?: number; lng?: number }[] }
             const place = data.places?.[0]
@@ -1971,29 +1948,14 @@ export default function AdminAiSection() {
           </div>
         ) : null}
 
-        <div className="mb-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-[260px] flex-1">
-            <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
-              Google Maps API Anahtarı
-            </label>
-            <input
-              type="password"
-              value={mapsApiKey}
-              onChange={(e) => { setMapsApiKey(e.target.value); setMapsKeySaved(false) }}
-              onBlur={() => { if (mapsApiKey.trim()) void saveMapsKeyToDb(true) }}
-              placeholder="AIzaSy..."
-              className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 font-mono text-sm text-neutral-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-white"
-              disabled={mapsRunning || mapsKeySaving}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => void saveMapsKeyToDb()}
-            disabled={mapsRunning || mapsKeySaving}
-            className="rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
-          >
-            {mapsKeySaving ? 'Kaydediliyor…' : mapsKeySaved ? '✓ Kaydedildi' : 'Kaydet'}
-          </button>
+        <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:border-neutral-700 dark:bg-neutral-950/40 dark:text-neutral-300">
+          {mapsApiKey.trim() ? (
+            <span>Google Maps anahtarı Ayarlar → Google sekmesinden okunuyor.</span>
+          ) : (
+            <span>
+              Google Maps anahtarı eksik. Yönetim → Ayarlar → Google sekmesinden kaydedin.
+            </span>
+          )}
         </div>
 
         <label className="mb-4 flex cursor-pointer items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
@@ -2308,7 +2270,9 @@ export default function AdminAiSection() {
             <span className="text-sm text-neutral-500">{svcPoisProcessed} ilçe işlendi</span>
           )}
           {!mapsApiKey.trim() && (
-            <span className="text-xs text-red-500">⚠ Google Maps API anahtarı girilmeli.</span>
+            <span className="text-xs text-red-500">
+              ⚠ Google Maps API anahtarı Yönetim → Ayarlar → Google sekmesinden kaydedilmeli.
+            </span>
           )}
         </div>
         {svcPoisErr && (

@@ -1066,14 +1066,15 @@ export default function CatalogNewListingClient({
     const token = getStoredAuthToken()
     if (!token) return
     let cancelled = false
-    void listAttributeGroups(token, { categoryCode, locale })
+    const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
+    void listAttributeGroups(token, { categoryCode, locale, ...orgParam })
       .then(async (gRes) => {
         if (cancelled) return
         setAttributeGroups(gRes.groups)
         const defsMap: Record<string, AttributeDef[]> = {}
         await Promise.all(
           gRes.groups.map((g) =>
-            listAttributeDefs(token, g.id, { locale })
+            listAttributeDefs(token, g.id, { locale, ...orgParam })
               .then((r) => {
                 defsMap[g.id] = r.defs.filter((d) => d.is_active)
               })
@@ -1092,7 +1093,7 @@ export default function CatalogNewListingClient({
       })
     // Ev kuralları + tema kataloğu (holiday_home için)
     if (categoryCode === 'holiday_home') {
-      void getManageCategoryAccommodationRules(token, categoryCode)
+      void getManageCategoryAccommodationRules(token, categoryCode, orgParam)
         .then((r) => { if (!cancelled) setAccRules(r) })
         .catch(() => { if (!cancelled) setAccRules([]) })
       void listPublicCategoryThemeItems({ categoryCode: 'holiday_home', locale })
@@ -1108,7 +1109,7 @@ export default function CatalogNewListingClient({
     return () => {
       cancelled = true
     }
-  }, [categoryCode, locale])
+  }, [categoryCode, locale, needOrg, orgId])
 
   /** Kayıtlı ilan: sistem üretimi .ics dışa aktarım URL’si (herkese açık takvim akışı) */
   useEffect(() => {
@@ -1653,7 +1654,7 @@ export default function CatalogNewListingClient({
         }
       } else {
         googleError =
-          'Google Maps API anahtarı yok. Yönetim → Genel ayarlar veya Yapay zeka bölümünden anahtar ekleyin.'
+          'Google Maps API anahtarı yok. Yönetim → Ayarlar → Google sekmesinden anahtar ekleyin.'
       }
 
       // Yedek: bölge/ilçe travel_ideas — önce form koordinatlarını DB'ye yaz
@@ -3230,6 +3231,78 @@ export default function CatalogNewListingClient({
     </Section>
   )
 
+  const attributeSection = attributeGroups.length > 0 ? (
+    <Section
+      title="Öznitelikler"
+      subtitle="Kategoriye ait özellikleri ilan oluştururken işaretleyin."
+    >
+      <div className="space-y-5">
+        {attributeGroups.map((g) => {
+          const defs = attributeDefsByGroup[g.id] ?? []
+          if (defs.length === 0) return null
+          return (
+            <div key={g.id} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+              <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{g.name}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {defs.map((d) => {
+                  const k = `${g.code}.${d.code}`
+                  const v = attributeValues[k] ?? ''
+                  const options = parseOptionsJsonSafe(d.options_json)
+                  if (d.field_type === 'boolean') {
+                    return (
+                      <label
+                        key={d.id}
+                        className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={v === 'true'}
+                          onChange={(e) => setAttributeValue(g.code, d.code, e.target.checked ? 'true' : '')}
+                          className="h-4 w-4 accent-primary-600"
+                        />
+                        <span>{d.label}</span>
+                      </label>
+                    )
+                  }
+                  if (d.field_type === 'select') {
+                    return (
+                      <Field key={d.id} className="block">
+                        <Label>{d.label}</Label>
+                        <select
+                          className={`mt-1 ${selectCls}`}
+                          value={v}
+                          onChange={(e) => setAttributeValue(g.code, d.code, e.target.value)}
+                        >
+                          <option value="">— Seçin —</option>
+                          {options.map((o) => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    )
+                  }
+                  return (
+                    <Field key={d.id} className="block">
+                      <Label>{d.label}</Label>
+                      <Input
+                        type={d.field_type === 'number' ? 'number' : 'text'}
+                        className="mt-1"
+                        value={v}
+                        onChange={(e) => setAttributeValue(g.code, d.code, e.target.value)}
+                      />
+                    </Field>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </Section>
+  ) : null
+
   const formId = 'catalog-new-listing-form'
 
   const saveLocked = busy || (Boolean(editListingId) && !editListingReady)
@@ -3709,6 +3782,7 @@ export default function CatalogNewListingClient({
                 </div>
               </Section>
             ) : null}
+            {attributeSection}
             </>
             )}
 
@@ -4108,78 +4182,6 @@ export default function CatalogNewListingClient({
                           <span className="text-xs text-neutral-400">({r.severity === 'warn' ? 'uyarı' : 'bilgi'})</span>
                         </span>
                       </label>
-                    )
-                  })}
-                </div>
-              </Section>
-            )}
-
-            {attributeGroups.length > 0 && (
-              <Section
-                title="Öznitelikler"
-                subtitle="Kategoriye ait özellikleri ilan oluştururken işaretleyin."
-              >
-                <div className="space-y-5">
-                  {attributeGroups.map((g) => {
-                    const defs = attributeDefsByGroup[g.id] ?? []
-                    if (defs.length === 0) return null
-                    return (
-                      <div key={g.id} className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
-                        <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-100">{g.name}</p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                          {defs.map((d) => {
-                            const k = `${g.code}.${d.code}`
-                            const v = attributeValues[k] ?? ''
-                            const options = parseOptionsJsonSafe(d.options_json)
-                            if (d.field_type === 'boolean') {
-                              return (
-                                <label
-                                  key={d.id}
-                                  className="flex items-center gap-2 rounded-lg border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={v === 'true'}
-                                    onChange={(e) => setAttributeValue(g.code, d.code, e.target.checked ? 'true' : '')}
-                                    className="h-4 w-4 accent-primary-600"
-                                  />
-                                  <span>{d.label}</span>
-                                </label>
-                              )
-                            }
-                            if (d.field_type === 'select') {
-                              return (
-                                <Field key={d.id} className="block">
-                                  <Label>{d.label}</Label>
-                                  <select
-                                    className={`mt-1 ${selectCls}`}
-                                    value={v}
-                                    onChange={(e) => setAttributeValue(g.code, d.code, e.target.value)}
-                                  >
-                                    <option value="">— Seçin —</option>
-                                    {options.map((o) => (
-                                      <option key={o} value={o}>
-                                        {o}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </Field>
-                              )
-                            }
-                            return (
-                              <Field key={d.id} className="block">
-                                <Label>{d.label}</Label>
-                                <Input
-                                  type={d.field_type === 'number' ? 'number' : 'text'}
-                                  className="mt-1"
-                                  value={v}
-                                  onChange={(e) => setAttributeValue(g.code, d.code, e.target.value)}
-                                />
-                              </Field>
-                            )
-                          })}
-                        </div>
-                      </div>
                     )
                   })}
                 </div>

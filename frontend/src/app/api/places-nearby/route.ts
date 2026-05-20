@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error:
-            'Google Maps API anahtarı bulunamadı. Yönetim → Genel ayarlar (Harita) veya GOOGLE_MAPS_API_KEY env tanımlayın.',
+            'Google Maps API anahtarı bulunamadı. Yönetim → Ayarlar → Google sekmesinden tanımlayın.',
         },
         { status: 400 },
       )
