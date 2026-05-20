@@ -49,6 +49,7 @@ import {
 import { parseLenientJson } from '@/lib/json-parse'
 import { buildPlacePhotoProxySrc } from '@/lib/nearby-poi-image'
 import { regionPlacesSlugFromSlugPath } from '@/lib/region-places-slug'
+import { DEFAULT_SERVICE_POI_TYPES, type ServicePoiTypeDef } from '@/lib/service-poi-types'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -164,22 +165,7 @@ export default function AdminAiSection() {
   const pexelsStopRef = useRef(false)
   const pexelsKeyIndexRef = useRef(0)
 
-  // ─── Mesafe türleri yapılandırması ───────────────────────────────────────────
-  type ServicePoiTypeDef = { type: string; label: string; googleType: string; radius: number; category: 'amenity' | 'transport' }
-  const DEFAULT_SERVICE_POI_TYPES: ServicePoiTypeDef[] = [
-    { type: 'market',     label: 'Market',                   googleType: 'grocery_or_supermarket', radius: 5000,   category: 'amenity'   },
-    { type: 'restoran',   label: 'Restoran',                 googleType: 'restaurant',             radius: 5000,   category: 'amenity'   },
-    { type: 'eczane',     label: 'Eczane',                   googleType: 'pharmacy',               radius: 15000,  category: 'amenity'   },
-    { type: 'havalimani', label: 'Havalimanı',               googleType: 'airport',                radius: 200000, category: 'transport' },
-    { type: 'otogar',     label: 'Otogar / Otobüs Terminali',googleType: 'bus_station',            radius: 50000,  category: 'transport' },
-    { type: 'minibus',    label: 'Minibüs / Dolmuş',         googleType: 'transit_station',        radius: 5000,   category: 'transport' },
-  ]
   const [servicePoiTypes, setServicePoiTypes] = useState<ServicePoiTypeDef[]>(DEFAULT_SERVICE_POI_TYPES)
-  const [servicePoiSaving, setServicePoiSaving] = useState(false)
-  const [servicePoiSaved, setServicePoiSaved] = useState(false)
-  const [newServicePoiDef, setNewServicePoiDef] = useState<ServicePoiTypeDef>({
-    type: '', label: '', googleType: '', radius: 10000, category: 'amenity',
-  })
   // ─── Servis Mekan Koordinatları batch (287) ───────────────────────────────
   const [svcPoisRunning, setSvcPoisRunning] = useState(false)
   const [svcPoisLog, setSvcPoisLog] = useState<string[]>([])
@@ -1186,6 +1172,35 @@ export default function AdminAiSection() {
     }
   }
 
+  const districtEmptyCount = districtStats?.districts_travel_ideas_empty ?? 0
+  const districtPlaceholderCount = districtStats?.districts_placeholder_guess ?? 0
+  const districtFailedCount = districtStats?.jobs.failed ?? 0
+  const districtSucceededCount = districtStats?.jobs.succeeded ?? districtStats?.jobs.success ?? 0
+  const districtActiveJobs = Object.entries(districtStats?.jobs ?? {}).filter(
+    ([status, cnt]) => cnt > 0 && ['queued', 'pending', 'running'].includes(status.toLowerCase()),
+  )
+  const districtNeedsContentWork = districtEmptyCount > 0 || districtPlaceholderCount > 0
+
+  const regionMissingDescriptions = regionContentStats
+    ? Math.max(0, regionContentStats.total_regions - regionContentStats.regions_with_description)
+    : 0
+  const regionMissingBlogs = regionContentStats
+    ? Math.max(0, regionContentStats.total_regions - regionContentStats.generated_blog_posts)
+    : 0
+  const regionMissingPlaceBlogs = regionContentStats
+    ? Math.max(0, regionContentStats.place_blog_candidates - regionContentStats.generated_place_blog_posts)
+    : 0
+  const regionFailedCount = regionContentStats?.batches.failed ?? 0
+  const placeBlogFailedCount = regionContentStats?.place_blog_batches.failed ?? 0
+  const regionActiveJobs = Object.entries(regionContentStats?.batches ?? {}).filter(
+    ([status, cnt]) => cnt > 0 && ['queued', 'pending', 'running'].includes(status.toLowerCase()),
+  )
+  const placeBlogActiveJobs = Object.entries(regionContentStats?.place_blog_batches ?? {}).filter(
+    ([status, cnt]) => cnt > 0 && ['queued', 'pending', 'running'].includes(status.toLowerCase()),
+  )
+  const regionNeedsContentWork =
+    regionMissingDescriptions > 0 || regionMissingBlogs > 0 || regionMissingPlaceBlogs > 0
+
   return (
     <div id="admin-ai-block" className="space-y-8">
       <header className="rounded-2xl border border-neutral-200 bg-gradient-to-br from-white to-violet-50/50 p-6 dark:border-neutral-800 dark:from-neutral-900/80 dark:to-violet-950/20">
@@ -1542,16 +1557,27 @@ export default function AdminAiSection() {
                 Yer tutucu (tahmini): <strong>{districtStats.districts_placeholder_guess}</strong>
               </span>
             ) : null}
-            {Object.entries(districtStats.jobs).map(([status, cnt]) => (
+            {districtActiveJobs.map(([status, cnt]) => (
               <span key={status} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
                 {status}: <strong>{cnt}</strong>
               </span>
             ))}
           </div>
         ) : null}
-        {districtStats && (districtStats.jobs['failed'] ?? 0) > 0 ? (
-          <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
-            <strong>{districtStats.jobs['failed']} başarısız iş</strong> var. Bunları yeniden işlemek için: «Yer tutucuları da kuyruğa al» seçeneğini işaretleyip <strong>1. Kuyruğa Al</strong> → <strong>N ilçe işle</strong>.
+        {districtStats && districtNeedsContentWork ? (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            {districtEmptyCount > 0 ? (
+              <span><strong>{districtEmptyCount} ilçe listesi boş</strong>; <strong>1. Kuyruğa Al</strong> ile kuyruğa ekleyip işleyin. </span>
+            ) : null}
+            {districtPlaceholderCount > 0 ? (
+              <span><strong>{districtPlaceholderCount} yer tutucu kayıt</strong>; DeepSeek ile gerçek liste üretmek için “Yer tutucuları da kuyruğa al” seçeneğini işaretleyin.</span>
+            ) : null}
+          </div>
+        ) : null}
+        {districtStats && !districtNeedsContentWork && districtFailedCount > 0 ? (
+          <div className="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400">
+            Geçmiş iş kaydı: <strong>{districtFailedCount} başarısız</strong>
+            {districtSucceededCount > 0 ? <> / <strong>{districtSucceededCount} başarılı</strong></> : null}. İlçe içerik kapsamı tamamlanmış görünüyor; yeni işlem gerekirse yeniden kuyruğa alabilirsiniz.
           </div>
         ) : null}
 
@@ -1706,12 +1732,12 @@ export default function AdminAiSection() {
             <span className="rounded-full bg-pink-100 px-3 py-1 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300">
               Mekan blog: <strong>{regionContentStats.generated_place_blog_posts}</strong>
             </span>
-            {Object.entries(regionContentStats.batches).map(([status, cnt]) => (
+            {regionActiveJobs.map(([status, cnt]) => (
               <span key={`region-${status}`} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
                 bölge {status}: <strong>{cnt}</strong>
               </span>
             ))}
-            {Object.entries(regionContentStats.place_blog_batches).map(([status, cnt]) => (
+            {placeBlogActiveJobs.map(([status, cnt]) => (
               <span key={`place-${status}`} className={clsx('rounded-full px-3 py-1', jobStatusBadge(status))}>
                 mekan {status}: <strong>{cnt}</strong>
               </span>
@@ -1719,14 +1745,26 @@ export default function AdminAiSection() {
           </div>
         ) : null}
 
-        {regionContentStats && ((regionContentStats.batches['failed'] ?? 0) > 0 || (regionContentStats.place_blog_batches['failed'] ?? 0) > 0) ? (
-          <div className="mb-3 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs text-orange-800 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
-            {(regionContentStats.batches['failed'] ?? 0) > 0 && (
-              <span><strong>{regionContentStats.batches['failed']} başarısız bölge işi</strong> — <strong>1. Bölge İçeriklerini Kuyruğa Al</strong> ile yeniden kuyruğa alın. </span>
-            )}
-            {(regionContentStats.place_blog_batches['failed'] ?? 0) > 0 && (
-              <span><strong>{regionContentStats.place_blog_batches['failed']} başarısız mekan blog işi</strong> — <strong>Mekan Bloglarını Kuyruğa Al</strong> ile yeniden kuyruğa alın.</span>
-            )}
+        {regionContentStats && regionNeedsContentWork ? (
+          <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            {regionMissingDescriptions > 0 ? (
+              <span><strong>{regionMissingDescriptions} bölgenin tanıtımı eksik</strong>; bölge içeriklerini kuyruğa alın. </span>
+            ) : null}
+            {regionMissingBlogs > 0 ? (
+              <span><strong>{regionMissingBlogs} bölge blog yazısı eksik</strong>; bölge içeriklerini kuyruğa alın. </span>
+            ) : null}
+            {regionMissingPlaceBlogs > 0 ? (
+              <span><strong>{regionMissingPlaceBlogs} mekan blog yazısı eksik</strong>; mekan bloglarını kuyruğa alın.</span>
+            ) : null}
+          </div>
+        ) : null}
+        {regionContentStats && !regionNeedsContentWork && (regionFailedCount > 0 || placeBlogFailedCount > 0) ? (
+          <div className="mb-3 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-600 dark:border-neutral-800 dark:bg-neutral-950/40 dark:text-neutral-400">
+            Geçmiş iş kaydı:
+            {regionFailedCount > 0 ? <> <strong>{regionFailedCount} başarısız bölge işi</strong></> : null}
+            {regionFailedCount > 0 && placeBlogFailedCount > 0 ? ' / ' : ' '}
+            {placeBlogFailedCount > 0 ? <><strong>{placeBlogFailedCount} başarısız mekan blog işi</strong></> : null}
+            . İçerik kapsamı tamamlanmış görünüyor; yeni deneme gerekirse ilgili kuyruğu yeniden başlatabilirsiniz.
           </div>
         ) : null}
         {regionContentErr || placeBlogsErr ? (
@@ -2161,29 +2199,32 @@ export default function AdminAiSection() {
           </button>
           {coverStats && (
             <span className="text-xs text-neutral-500">
-              Toplam: <b>{coverStats.total}</b> · Resimli: <b className="text-emerald-600">{coverStats.has_cover}</b> · Boş: <b className="text-amber-600">{coverStats.empty}</b> · Bulunamadı: <b className="text-red-600">{coverStats.not_found}</b>
+              Toplam: <b>{coverStats.total}</b> · Resimli: <b className="text-emerald-600">{coverStats.has_cover}</b> · Boş: <b className="text-amber-600">{coverStats.empty}</b> · Pexels sonucu yok: <b className="text-amber-600">{coverStats.not_found}</b>
             </span>
           )}
         </div>
 
         {notFoundCovers && notFoundCovers.length > 0 && (
-          <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900/50 dark:bg-red-950/20">
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
             <button
               type="button"
               onClick={() => setNotFoundExpanded((v) => !v)}
-              className="flex w-full items-center justify-between text-sm font-semibold text-red-700 dark:text-red-300"
+              className="flex w-full items-center justify-between text-sm font-semibold text-amber-800 dark:text-amber-200"
             >
-              <span>⚠️ Pexels&apos;te resim bulunamayan {notFoundCovers.length} lokasyon</span>
+              <span>Pexels&apos;te otomatik resim bulunamayan {notFoundCovers.length} lokasyon</span>
               <span className="text-xs">{notFoundExpanded ? '▲ Gizle' : '▼ Göster'}</span>
             </button>
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+              Bu bir sistem hatası olmayabilir; Pexels sonuç döndürmemiştir. İsterseniz yeniden deneyin veya ilgili lokasyona manuel kapak ekleyin.
+            </p>
             {notFoundExpanded && (
               <ul className="mt-3 max-h-64 overflow-y-auto space-y-1">
                 {notFoundCovers.map((item) => (
-                  <li key={item.id} className="flex items-center gap-2 text-xs text-red-700 dark:text-red-300">
-                    <span className="rounded bg-red-100 px-1.5 py-0.5 font-mono dark:bg-red-900/40">{item.region_type}</span>
+                  <li key={item.id} className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200">
+                    <span className="rounded bg-amber-100 px-1.5 py-0.5 font-mono dark:bg-amber-900/40">{item.region_type}</span>
                     <span className="font-medium">{item.location_name}</span>
-                    {item.parent_name && <span className="text-red-400">/ {item.parent_name}</span>}
-                    <span className="ml-auto font-mono text-[10px] text-red-400">{item.slug_path}</span>
+                    {item.parent_name && <span className="text-amber-500">/ {item.parent_name}</span>}
+                    <span className="ml-auto font-mono text-[10px] text-amber-500">{item.slug_path}</span>
                   </li>
                 ))}
               </ul>
@@ -2232,9 +2273,12 @@ export default function AdminAiSection() {
           Servis Mekan Koordinatları — İlçe Bazlı Toplu Çekme
         </h2>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Her ilçe için aşağıdaki &quot;Mesafe Türleri&quot;nden birer mekanın koordinatını Google Places&apos;ten alıp
+          Her ilçe için Yakın mekanlar sayfasındaki mesafe türlerinden birer mekanın koordinatını Google Places&apos;ten alıp
           ilçeye kaydeder. İlan sayfasında ilan ile mekan arasındaki mesafe Haversine ile ücretsiz hesaplanır
           (Google API artık her ilan için çağrılmaz).
+        </p>
+        <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
+          Mekan etiketi, Google tipi ve mesafe ayarları <strong>Yönetim → Bölgeler → Yakın mekanlar (Google Maps)</strong> sayfasından yönetilir.
         </p>
         <div className="mt-4 flex flex-wrap items-end gap-3">
           <div>
@@ -2287,151 +2331,6 @@ export default function AdminAiSection() {
         )}
       </div>
 
-      {/* ── Mesafe Türleri Yapılandırması ───────────────────────────────── */}
-      <div className="mt-10">
-        <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">
-          Mesafe Türleri Yapılandırması
-        </h2>
-        <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          İlan sayfasında &quot;Mesafeler&quot; bölümünde hangi POI tiplerinin gösterileceğini yönetin.
-          Kategori: <strong>amenity</strong> → Temel İhtiyaçlar, <strong>transport</strong> → Ulaşım.
-        </p>
-
-        <div className="mt-4 space-y-2">
-          {servicePoiTypes.map((def, i) => (
-            <div
-              key={def.type + i}
-              className="flex flex-wrap items-center gap-2 rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900/40"
-            >
-              <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${def.category === 'transport' ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'}`}>
-                {def.category}
-              </span>
-              <input
-                className="w-28 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-                value={def.label}
-                onChange={(e) => {
-                  const next = [...servicePoiTypes]
-                  next[i] = { ...next[i], label: e.target.value }
-                  setServicePoiTypes(next)
-                }}
-                placeholder="Etiket"
-              />
-              <input
-                className="w-40 rounded-lg border border-neutral-300 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
-                value={def.googleType}
-                onChange={(e) => {
-                  const next = [...servicePoiTypes]
-                  next[i] = { ...next[i], googleType: e.target.value }
-                  setServicePoiTypes(next)
-                }}
-                placeholder="Google Places tipi"
-              />
-              <input
-                type="number"
-                className="w-24 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-                value={def.radius}
-                onChange={(e) => {
-                  const next = [...servicePoiTypes]
-                  next[i] = { ...next[i], radius: Number(e.target.value) }
-                  setServicePoiTypes(next)
-                }}
-                placeholder="Yarıçap (m)"
-              />
-              <select
-                className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-                value={def.category}
-                onChange={(e) => {
-                  const next = [...servicePoiTypes]
-                  next[i] = { ...next[i], category: e.target.value as 'amenity' | 'transport' }
-                  setServicePoiTypes(next)
-                }}
-              >
-                <option value="amenity">amenity</option>
-                <option value="transport">transport</option>
-              </select>
-              <div className="ml-auto flex items-center gap-1">
-                <button type="button" onClick={() => { const n=[...servicePoiTypes]; if(i>0){[n[i-1],n[i]]=[n[i],n[i-1]]; setServicePoiTypes(n)} }} disabled={i===0} className="rounded px-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800">▲</button>
-                <button type="button" onClick={() => { const n=[...servicePoiTypes]; if(i<n.length-1){[n[i],n[i+1]]=[n[i+1],n[i]]; setServicePoiTypes(n)} }} disabled={i===servicePoiTypes.length-1} className="rounded px-1 text-neutral-400 hover:bg-neutral-100 disabled:opacity-30 dark:hover:bg-neutral-800">▼</button>
-                <button type="button" onClick={() => setServicePoiTypes(servicePoiTypes.filter((_,j)=>j!==i))} className="rounded px-1 text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30">✕</button>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Yeni tip ekle */}
-        <div className="mt-3 flex flex-wrap gap-2 rounded-xl border border-dashed border-neutral-300 p-3 dark:border-neutral-700">
-          <input
-            className="w-28 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-            value={newServicePoiDef.label}
-            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, label: e.target.value, type: e.target.value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') })}
-            placeholder="Etiket"
-          />
-          <input
-            className="w-40 rounded-lg border border-neutral-300 bg-white px-2 py-1 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-900"
-            value={newServicePoiDef.googleType}
-            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, googleType: e.target.value })}
-            placeholder="Google Places tipi"
-          />
-          <input
-            type="number"
-            className="w-24 rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-            value={newServicePoiDef.radius}
-            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, radius: Number(e.target.value) })}
-            placeholder="Yarıçap (m)"
-          />
-          <select
-            className="rounded-lg border border-neutral-300 bg-white px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900"
-            value={newServicePoiDef.category}
-            onChange={(e) => setNewServicePoiDef({ ...newServicePoiDef, category: e.target.value as 'amenity' | 'transport' })}
-          >
-            <option value="amenity">amenity</option>
-            <option value="transport">transport</option>
-          </select>
-          <button
-            type="button"
-            disabled={!newServicePoiDef.label.trim() || !newServicePoiDef.googleType.trim()}
-            onClick={() => {
-              setServicePoiTypes([...servicePoiTypes, newServicePoiDef])
-              setNewServicePoiDef({ type: '', label: '', googleType: '', radius: 10000, category: 'amenity' })
-            }}
-            className="rounded-lg bg-neutral-800 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-40 dark:bg-neutral-200 dark:text-neutral-900"
-          >
-            + Ekle
-          </button>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <button
-            type="button"
-            disabled={servicePoiSaving}
-            onClick={async () => {
-              const token = getStoredAuthToken()
-              if (!token) return
-              setServicePoiSaving(true)
-              try {
-                await upsertSiteSetting(token, { key: 'service_poi_types', value_json: JSON.stringify(servicePoiTypes) })
-                setServicePoiSaved(true)
-                setTimeout(() => setServicePoiSaved(false), 2000)
-              } finally {
-                setServicePoiSaving(false)
-              }
-            }}
-            className="rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-          >
-            {servicePoiSaving ? 'Kaydediliyor…' : servicePoiSaved ? '✓ Kaydedildi' : 'Ayarları Kaydet'}
-          </button>
-          <button
-            type="button"
-            onClick={() => setServicePoiTypes(DEFAULT_SERVICE_POI_TYPES)}
-            className="rounded-xl border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-          >
-            Varsayılana Dön
-          </button>
-        </div>
-        <p className="mt-2 text-xs text-neutral-400">
-          Kaydettikten sonra yukarıdaki &quot;Servis Mekan Koordinatları&quot; batch ile ilçe verilerini yeniden çekin.
-        </p>
-      </div>
     </div>
   )
 }
