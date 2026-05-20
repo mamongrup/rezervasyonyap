@@ -187,6 +187,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "availability-calendar"] ->
       catalog_http.list_public_listing_availability_calendar(req, ctx, lid)
 
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "activity-sessions"] ->
+      catalog_http.list_public_activity_sessions(req, ctx, lid)
+
+    http.Post, ["api", "v1", "catalog", "public", "listings", lid, "activity-quote"] ->
+      catalog_http.quote_public_activity(req, ctx, lid)
+
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "bedrooms"] ->
       catalog_http.list_public_listing_bedrooms(req, ctx, lid)
 
@@ -207,6 +213,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Put, ["api", "v1", "catalog", "listings", lid, "availability-calendar"] ->
       catalog_http.put_listing_availability_calendar(req, ctx, lid)
+
+    http.Get, ["api", "v1", "catalog", "listings", lid, "activity-sessions"] ->
+      catalog_http.list_manage_activity_sessions(req, ctx, lid)
+
+    http.Put, ["api", "v1", "catalog", "listings", lid, "activity-sessions"] ->
+      catalog_http.put_manage_activity_sessions(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "listings", lid, "price-rules"] ->
       catalog_http.list_listing_price_rules(req, ctx, lid)

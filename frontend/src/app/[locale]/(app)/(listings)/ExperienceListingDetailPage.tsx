@@ -27,6 +27,7 @@ import {
   fetchPublicListingAvailabilityDaysSafe,
   getPublicListingPriceLines,
   getVerticalMeta,
+  listPublicActivitySessions,
   resolvePublishedListingIdForStayPage,
 } from '@/lib/travel-api'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
@@ -45,6 +46,8 @@ import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
+import ActivityBookingPanel from './ActivityBookingPanel'
+import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
   TourIncludedExcludedSection,
   TourItinerarySection,
@@ -69,6 +72,20 @@ type TourMeta = {
   includes?: string[]
   excludes?: string[]
   itinerary?: TourItineraryDay[]
+}
+
+type ActivityMeta = {
+  session_based?: boolean
+  full_day?: boolean
+  duration_hours?: string
+  min_age?: string
+  max_participants?: string
+  meeting_point?: string
+  equipment_included?: string
+  language?: string
+  preview_url?: string
+  includes?: string[]
+  excludes?: string[]
 }
 
 function textFromMeta(value: unknown): string {
@@ -160,6 +177,23 @@ function parseTourMeta(raw: unknown): TourMeta {
   }
 }
 
+function parseActivityMeta(raw: unknown): ActivityMeta {
+  const data = unwrapVerticalMetaPayload(raw)
+  return {
+    session_based: data.session_based === true,
+    full_day: data.full_day === true,
+    duration_hours: textFromMeta(data.duration_hours),
+    min_age: textFromMeta(data.min_age),
+    max_participants: textFromMeta(data.max_participants),
+    meeting_point: textFromMeta(data.meeting_point),
+    equipment_included: textFromMeta(data.equipment_included),
+    language: textFromMeta(data.language),
+    preview_url: textFromMeta(data.preview_url),
+    includes: splitMetaList(data.includes as string[] | string | undefined),
+    excludes: splitMetaList(data.excludes as string[] | string | undefined),
+  }
+}
+
 export async function generateExperienceListingMetadata({
   params,
 }: {
@@ -235,14 +269,21 @@ export default async function ExperienceListingDetailPage({
   }
 
   const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
-  const [availabilityCalendarDays, rawTourMeta, priceLines] = await Promise.all([
+  const activityInitialDate = new Date().toISOString().slice(0, 10)
+  const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions] = await Promise.all([
     fetchPublicListingAvailabilityDaysSafe(catalogListingId),
     vertical === 'tour'
       ? getVerticalMeta(catalogListingId, 'tour').catch(() => null)
       : Promise.resolve(null),
+    vertical === 'activity'
+      ? getVerticalMeta(catalogListingId, 'activity').catch(() => null)
+      : Promise.resolve(null),
     vertical === 'tour'
       ? getPublicListingPriceLines(catalogListingId, locale).catch(() => null)
       : Promise.resolve(null),
+    vertical === 'activity'
+      ? listPublicActivitySessions(catalogListingId, activityInitialDate).catch(() => ({ sessions: [] }))
+      : Promise.resolve({ sessions: [] }),
   ])
 
   const {
@@ -265,7 +306,9 @@ export default async function ExperienceListingDetailPage({
   const city = (listing as TListingBase).city
   const dp = getMessages(locale).listing.detailPage
   const isTour = vertical === 'tour'
+  const isActivity = vertical === 'activity'
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
+  const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
   const tourLanguages = splitMetaList(tourMeta?.languages)
   const tourDurationLine = tourMeta?.duration_days
     ? `${tourMeta.duration_days} gün`
@@ -324,6 +367,28 @@ export default async function ExperienceListingDetailPage({
         tourNotes.length > 0 ? { id: 'tour-section-notes', label: 'Önemli Notlar' } : null,
         { id: 'tour-section-location', label: 'Konum' },
       ].filter((item): item is TourSectionNavItem => item !== null)
+    : []
+  const activityOverviewItems: ActivityOverviewItem[] = isActivity
+    ? [
+        activityMeta?.duration_hours
+          ? { label: 'Süre', value: `${activityMeta.duration_hours} saat`, icon: 'duration' }
+          : null,
+        activityMeta?.min_age
+          ? { label: 'Minimum yaş', value: `${activityMeta.min_age}+`, icon: 'age' }
+          : null,
+        activityMeta?.max_participants
+          ? { label: 'Kapasite', value: `Maks. ${activityMeta.max_participants} kişi`, icon: 'capacity' }
+          : null,
+        activityMeta?.language
+          ? { label: 'Dil', value: activityMeta.language, icon: 'language' }
+          : null,
+        activityMeta?.meeting_point
+          ? { label: 'Buluşma noktası', value: activityMeta.meeting_point, icon: 'meeting' }
+          : null,
+        activityMeta?.equipment_included
+          ? { label: 'Dahil ekipman', value: activityMeta.equipment_included, icon: 'equipment' }
+          : null,
+      ].filter((item): item is ActivityOverviewItem => item !== null)
     : []
 
   const handleSubmitForm = async (formData: FormData) => {
@@ -455,13 +520,25 @@ export default async function ExperienceListingDetailPage({
               </div>
             </>
           ) : null}
-          <div id={isTour ? 'tour-section-dates' : undefined} className="scroll-mt-28">
-            <SectionDateRange
-              locale={locale}
-              initialDays={availabilityCalendarDays}
-              initialMonthsShown={calendarMonthsShown}
+          {isActivity ? (
+            <ActivityOverviewSection
+              items={activityOverviewItems}
+              description={
+                description?.trim() ? (
+                  <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description) }} />
+                ) : null
+              }
             />
-          </div>
+          ) : null}
+          {!isActivity ? (
+            <div id={isTour ? 'tour-section-dates' : undefined} className="scroll-mt-28">
+              <SectionDateRange
+                locale={locale}
+                initialDays={availabilityCalendarDays}
+                initialMonthsShown={calendarMonthsShown}
+              />
+            </div>
+          ) : null}
           {isTour ? (
             <div id="tour-section-notes" className="scroll-mt-28">
               <TourNotesSection notes={tourNotes} />
@@ -470,7 +547,18 @@ export default async function ExperienceListingDetailPage({
         </div>
 
         <div className="grow">
-          <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
+          <div className="sticky top-5">
+            {isActivity ? (
+              <ActivityBookingPanel
+                listingId={catalogListingId}
+                initialDate={activityInitialDate}
+                initialSessions={initialActivitySessions.sessions}
+                fallbackPrice={price}
+              />
+            ) : (
+              renderSidebarPriceAndForm()
+            )}
+          </div>
         </div>
       </main>
 

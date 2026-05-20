@@ -35,6 +35,13 @@ fn read_body_string(req: Request) -> Result(String, Nil) {
   bit_array.to_string(bits)
 }
 
+fn json_opt_str(s: String) -> json.Json {
+  case string.trim(s) == "" {
+    True -> json.null()
+    False -> json.string(s)
+  }
+}
+
 fn category_row() -> decode.Decoder(#(Int, String, String, String, Int, Bool, Bool, Bool)) {
   use id <- decode.field(0, decode.int)
   use code <- decode.field(1, decode.string)
@@ -1830,6 +1837,353 @@ pub fn patch_manage_hotel_details(req: Request, ctx: Context, listing_id: String
                           }
                       }
                     }
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn activity_session_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, Bool, String, String, String, String),
+) {
+  use id <- decode.field(0, decode.string)
+  use valid_from <- decode.field(1, decode.string)
+  use valid_to <- decode.field(2, decode.string)
+  use start_time <- decode.field(3, decode.string)
+  use duration_minutes <- decode.field(4, decode.string)
+  use capacity <- decode.field(5, decode.string)
+  use is_active <- decode.field(6, decode.bool)
+  use sort_order <- decode.field(7, decode.string)
+  use adult_price <- decode.field(8, decode.string)
+  use child_price <- decode.field(9, decode.string)
+  use currency_code <- decode.field(10, decode.string)
+  decode.success(#(
+    id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
+    sort_order, adult_price, child_price, currency_code,
+  ))
+}
+
+fn activity_session_json(
+  row: #(String, String, String, String, String, String, Bool, String, String, String, String),
+) -> json.Json {
+  let #(
+    id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
+    sort_order, adult_price, child_price, currency_code,
+  ) = row
+  json.object([
+    #("id", json.string(id)),
+    #("valid_from", json.string(valid_from)),
+    #("valid_to", json.string(valid_to)),
+    #("start_time", json.string(start_time)),
+    #("duration_minutes", json_opt_str(duration_minutes)),
+    #("capacity", json_opt_str(capacity)),
+    #("is_active", json.bool(is_active)),
+    #("sort_order", json_opt_str(sort_order)),
+    #("adult_price", json_opt_str(adult_price)),
+    #("child_price", json_opt_str(child_price)),
+    #("currency_code", json.string(currency_code)),
+  ])
+}
+
+fn activity_sessions_sql(public_only: Bool) -> String {
+  let active_where = case public_only {
+    True -> " and s.is_active = true "
+    False -> ""
+  }
+  "select s.id::text, s.valid_from::text, s.valid_to::text, to_char(s.start_time, 'HH24:MI'), s.duration_minutes::text, s.capacity::text, s.is_active, s.sort_order::text, "
+  <> "coalesce(max(case when f.fare_type = 'adult' then f.price_amount::text end), ''), "
+  <> "coalesce(max(case when f.fare_type = 'child' then f.price_amount::text end), ''), "
+  <> "coalesce(max(f.currency_code), 'TRY') "
+  <> "from listing_activity_sessions s "
+  <> "left join listing_activity_session_fares f on f.session_id = s.id "
+  <> "where s.listing_id = $1::uuid "
+  <> active_where
+  <> "and ($2::text is null or $2::text = '' or ($2::date >= s.valid_from and $2::date <= s.valid_to)) "
+  <> "group by s.id, s.valid_from, s.valid_to, s.start_time, s.duration_minutes, s.capacity, s.is_active, s.sort_order "
+  <> "order by s.valid_from asc, s.start_time asc, s.sort_order asc"
+}
+
+fn list_activity_sessions_response(
+  ctx: Context,
+  listing_id: String,
+  date_raw: String,
+  public_only: Bool,
+) -> Response {
+  let date_param = case string.trim(date_raw) == "" {
+    True -> pog.null()
+    False -> pog.text(string.trim(date_raw))
+  }
+  case
+    pog.query(activity_sessions_sql(public_only))
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(date_param)
+    |> pog.returning(activity_session_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "activity_sessions_query_failed")
+    Ok(ret) -> {
+      let arr = list.map(ret.rows, activity_session_json)
+      json.object([#("sessions", json.array(from: arr, of: fn(x) { x }))])
+      |> json.to_string
+      |> wisp.json_response(200)
+    }
+  }
+}
+
+pub fn list_manage_activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) -> list_activity_sessions_response(ctx, listing_id, "", False)
+      }
+  }
+}
+
+pub fn list_public_activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let date_raw =
+    list.key_find(qs, "date")
+    |> result.unwrap("")
+    |> string.trim
+  list_activity_sessions_response(ctx, listing_id, date_raw, True)
+}
+
+fn activity_session_patch_decoder() -> decode.Decoder(
+  #(String, String, String, String, String, String, Bool, String, String, String, String),
+) {
+  decode.optional_field("id", "", decode.string, fn(id) {
+    decode.field("valid_from", decode.string, fn(valid_from) {
+      decode.field("valid_to", decode.string, fn(valid_to) {
+        decode.field("start_time", decode.string, fn(start_time) {
+          decode.optional_field("duration_minutes", "", decode.string, fn(duration_minutes) {
+            decode.optional_field("capacity", "", decode.string, fn(capacity) {
+              decode.optional_field("is_active", True, decode.bool, fn(is_active) {
+                decode.optional_field("sort_order", "0", decode.string, fn(sort_order) {
+                  decode.optional_field("adult_price", "", decode.string, fn(adult_price) {
+                    decode.optional_field("child_price", "", decode.string, fn(child_price) {
+                      decode.optional_field("currency_code", "TRY", decode.string, fn(currency_code) {
+                        decode.success(#(
+                          id, valid_from, valid_to, start_time, duration_minutes,
+                          capacity, is_active, sort_order, adult_price, child_price,
+                          currency_code,
+                        ))
+                      })
+                    })
+                  })
+                })
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+fn put_activity_sessions_body_decoder() -> decode.Decoder(
+  List(#(String, String, String, String, String, String, Bool, String, String, String, String)),
+) {
+  decode.field("sessions", decode.list(activity_session_patch_decoder()), fn(sessions) {
+    decode.success(sessions)
+  })
+}
+
+fn opt_text_param(raw: String) -> pog.Value {
+  case string.trim(raw) == "" {
+    True -> pog.null()
+    False -> pog.text(string.trim(raw))
+  }
+}
+
+fn insert_activity_fare(
+  conn: pog.Connection,
+  session_id: String,
+  fare_type: String,
+  price_raw: String,
+  currency_code: String,
+) -> Result(Nil, String) {
+  case string.trim(price_raw) == "" {
+    True -> Ok(Nil)
+    False ->
+      case
+        pog.query(
+          "insert into listing_activity_session_fares (session_id, fare_type, price_amount, currency_code) values ($1::uuid, $2, replace($3::text, ',', '.')::numeric, $4)",
+        )
+        |> pog.parameter(pog.text(session_id))
+        |> pog.parameter(pog.text(fare_type))
+        |> pog.parameter(pog.text(string.trim(price_raw)))
+        |> pog.parameter(pog.text(string.trim(currency_code)))
+        |> pog.execute(conn)
+      {
+        Error(_) -> Error("activity_fare_insert_failed")
+        Ok(_) -> Ok(Nil)
+      }
+  }
+}
+
+fn insert_activity_sessions(
+  conn: pog.Connection,
+  listing_id: String,
+  sessions: List(#(String, String, String, String, String, String, Bool, String, String, String, String)),
+) -> Result(Nil, String) {
+  case sessions {
+    [] -> Ok(Nil)
+    [first, ..rest] -> {
+      let #(
+        _, valid_from, valid_to, start_time, duration_minutes, capacity, is_active,
+        sort_order, adult_price, child_price, currency_code,
+      ) = first
+      case parse_iso_date_ymd(valid_from), parse_iso_date_ymd(valid_to) {
+        Ok(from_date), Ok(to_date) ->
+          case
+            pog.query(
+              "insert into listing_activity_sessions (listing_id, valid_from, valid_to, start_time, duration_minutes, capacity, is_active, sort_order) values ($1::uuid, $2::date, $3::date, $4::time, case when trim(coalesce($5::text,'')) = '' then 0 else $5::int end, case when trim(coalesce($6::text,'')) = '' then 0 else $6::int end, $7, case when trim(coalesce($8::text,'')) = '' then 0 else $8::int end) returning id::text",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.parameter(pog.calendar_date(from_date))
+            |> pog.parameter(pog.calendar_date(to_date))
+            |> pog.parameter(pog.text(string.trim(start_time)))
+            |> pog.parameter(opt_text_param(duration_minutes))
+            |> pog.parameter(opt_text_param(capacity))
+            |> pog.parameter(pog.bool(is_active))
+            |> pog.parameter(opt_text_param(sort_order))
+            |> pog.returning(one_string_row())
+            |> pog.execute(conn)
+          {
+            Error(_) -> Error("activity_session_insert_failed")
+            Ok(ret) ->
+              case ret.rows {
+                [session_id] ->
+                  case insert_activity_fare(conn, session_id, "adult", adult_price, currency_code) {
+                    Error(e) -> Error(e)
+                    Ok(Nil) ->
+                      case insert_activity_fare(conn, session_id, "child", child_price, currency_code) {
+                        Error(e) -> Error(e)
+                        Ok(Nil) -> insert_activity_sessions(conn, listing_id, rest)
+                      }
+                  }
+                _ -> Error("activity_session_missing_id")
+              }
+          }
+        _, _ -> Error("invalid_activity_session_date")
+      }
+    }
+  }
+}
+
+pub fn put_manage_activity_sessions(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, put_activity_sessions_body_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(sessions) ->
+                  case pog.transaction(ctx.db, fn(conn) {
+                    case
+                      pog.query("delete from listing_activity_sessions where listing_id = $1::uuid")
+                      |> pog.parameter(pog.text(listing_id))
+                      |> pog.execute(conn)
+                    {
+                      Error(_) -> Error("activity_sessions_delete_failed")
+                      Ok(_) -> insert_activity_sessions(conn, listing_id, sessions)
+                    }
+                  }) {
+                    Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
+                    Error(pog.TransactionQueryError(_)) ->
+                      json_err(500, "activity_sessions_transaction_failed")
+                    Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn activity_quote_decoder() -> decode.Decoder(#(String, String, Int, Int)) {
+  decode.field("date", decode.string, fn(date) {
+    decode.field("session_id", decode.string, fn(session_id) {
+      decode.field("adults", decode.int, fn(adults) {
+        decode.field("children", decode.int, fn(children) {
+          decode.success(#(date, session_id, adults, children))
+        })
+      })
+    })
+  })
+}
+
+fn activity_quote_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+  use adult_unit <- decode.field(0, decode.string)
+  use child_unit <- decode.field(1, decode.string)
+  use currency <- decode.field(2, decode.string)
+  use total <- decode.field(3, decode.string)
+  use capacity <- decode.field(4, decode.string)
+  use start_time <- decode.field(5, decode.string)
+  decode.success(#(adult_unit, child_unit, currency, total, capacity, start_time))
+}
+
+pub fn quote_public_activity(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case read_body_string(req) {
+    Error(_) -> json_err(400, "empty_body")
+    Ok(body) ->
+      case json.parse(body, activity_quote_decoder()) {
+        Error(_) -> json_err(400, "invalid_json")
+        Ok(#(date_raw, session_id, adults, children)) ->
+          case adults < 0 || children < 0 || adults + children <= 0 {
+            True -> json_err(400, "invalid_participant_count")
+            False ->
+              case parse_iso_date_ymd(date_raw) {
+                Error(_) -> json_err(400, "invalid_date")
+                Ok(date_cal) ->
+                  case
+                    pog.query(
+                      "select coalesce(ad.price_amount::text, '0'), coalesce(ch.price_amount::text, '0'), coalesce(ad.currency_code, ch.currency_code, 'TRY'), ((coalesce(ad.price_amount, 0) * $4::int) + (coalesce(ch.price_amount, 0) * $5::int))::text, s.capacity::text, to_char(s.start_time, 'HH24:MI') from listing_activity_sessions s left join listing_activity_session_fares ad on ad.session_id = s.id and ad.fare_type = 'adult' left join listing_activity_session_fares ch on ch.session_id = s.id and ch.fare_type = 'child' where s.id = $1::uuid and s.listing_id = $2::uuid and s.is_active = true and $3::date >= s.valid_from and $3::date <= s.valid_to limit 1",
+                    )
+                    |> pog.parameter(pog.text(string.trim(session_id)))
+                    |> pog.parameter(pog.text(listing_id))
+                    |> pog.parameter(pog.calendar_date(date_cal))
+                    |> pog.parameter(pog.int(adults))
+                    |> pog.parameter(pog.int(children))
+                    |> pog.returning(activity_quote_row())
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "activity_quote_failed")
+                    Ok(ret) ->
+                      case ret.rows {
+                        [#(adult_unit, child_unit, currency, total, capacity, start_time)] -> {
+                          let body =
+                            json.object([
+                              #("currency_code", json.string(currency)),
+                              #("adult_unit", json.string(adult_unit)),
+                              #("child_unit", json.string(child_unit)),
+                              #("line_total", json.string(total)),
+                              #("capacity", json.string(capacity)),
+                              #("remaining_hint", json.string(capacity)),
+                              #("start_time", json.string(start_time)),
+                            ])
+                            |> json.to_string
+                          wisp.json_response(body, 200)
+                        }
+                        [] -> json_err(404, "activity_session_not_available")
+                        _ -> json_err(500, "unexpected")
+                      }
                   }
               }
           }
