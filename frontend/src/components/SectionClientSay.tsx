@@ -64,13 +64,24 @@ function FeaturedAvatar({ src, alt }: { src: StaticImageData | string; alt: stri
         aria-hidden
       />
       <div className="relative z-10 overflow-hidden rounded-full bg-white p-1 shadow-lg ring-4 ring-white dark:bg-neutral-900 dark:ring-neutral-800">
-        <div className="relative size-28 overflow-hidden rounded-full md:size-32">
-          {isRemote ? (
-            <img src={src} alt={alt} className="absolute inset-0 size-full object-cover" />
-          ) : (
-            <Image src={src} alt={alt} fill className="object-cover" sizes="(max-width: 767px) 112px, 128px" />
-          )}
-        </div>
+        {isRemote ? (
+          <img
+            src={src}
+            alt={alt}
+            width={128}
+            height={128}
+            className="size-28 rounded-full object-cover md:size-32"
+          />
+        ) : (
+          <Image
+            src={src}
+            alt={alt}
+            width={128}
+            height={128}
+            className="size-28 rounded-full object-cover md:size-32"
+            sizes="128px"
+          />
+        )}
       </div>
     </div>
   )
@@ -134,7 +145,7 @@ const SectionClientSayInner: FC<SectionClientSayProps & { items: ClientSaySlideI
   const featuredSrc = current ? resolveSlideAvatar(current, selectedIndex) : userImage1
 
   return (
-    <div className={clsx('relative flow-root', className)}>
+    <div className={clsx('relative flow-root overflow-hidden pb-24 md:pb-0', className)}>
       <HeadingWithSub subheading={subHeading} isCenter>
         {heading}
       </HeadingWithSub>
@@ -154,7 +165,7 @@ const SectionClientSayInner: FC<SectionClientSayProps & { items: ClientSaySlideI
                 )}
               />
               <div className="relative size-14 overflow-hidden rounded-full ring-2 ring-white shadow-md dark:ring-neutral-800">
-                <Image src={f.src} alt="" fill className="object-cover" sizes="56px" />
+                <Image src={f.src} alt="" width={56} height={56} className="size-14 object-cover" sizes="56px" />
               </div>
             </div>
           ))}
@@ -168,14 +179,22 @@ const SectionClientSayInner: FC<SectionClientSayProps & { items: ClientSaySlideI
         {/* Alıntı + carousel */}
         <div className="relative z-[1] mt-2 md:mt-4">
           <div className="relative px-2 pt-2">
-            <span className="pointer-events-none absolute top-3 right-full z-0 -mr-8 block size-10 opacity-70 sm:-mr-12 md:-mr-16 md:size-12 md:opacity-100">
-              <Image className="object-contain" src={qlImage} alt="" fill sizes="(max-width: 767px) 40px, 48px" />
-            </span>
-            <span className="pointer-events-none absolute top-3 left-full z-0 -ml-8 block size-10 opacity-70 sm:-ml-12 md:-ml-16 md:size-12 md:opacity-100">
-              <Image className="object-contain" src={qrImage} alt="" fill sizes="(max-width: 767px) 40px, 48px" />
-            </span>
+            <Image
+              className="pointer-events-none absolute top-3 right-full z-0 -mr-8 size-10 object-contain opacity-70 sm:-mr-12 md:-mr-16 md:size-12 md:opacity-100"
+              src={qlImage}
+              alt=""
+              width={48}
+              height={48}
+            />
+            <Image
+              className="pointer-events-none absolute top-3 left-full z-0 -ml-8 size-10 object-contain opacity-70 sm:-ml-12 md:-ml-16 md:size-12 md:opacity-100"
+              src={qrImage}
+              alt=""
+              width={48}
+              height={48}
+            />
             <div className="embla overflow-hidden" ref={emblaRef}>
-              <ul className="embla__container">
+              <ul className="embla__container flex">
                 {slides.map((item) => (
                   <li
                     key={item.id}
