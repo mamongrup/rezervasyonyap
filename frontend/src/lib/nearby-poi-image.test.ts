@@ -6,12 +6,12 @@ import {
 } from './nearby-poi-image'
 
 describe('nearby-poi-image', () => {
-  it('rejects Google Place Photo URLs', () => {
+  it('proxies Google Place Photo URLs', () => {
     const url =
       'https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=abc&key=secret'
     expect(isGooglePlacePhotoUrl(url)).toBe(true)
-    expect(isClientRenderablePoiImageUrl(url)).toBe(false)
-    expect(resolveNearbyPoiImageSrc(url)).toBeNull()
+    expect(isClientRenderablePoiImageUrl(url)).toBe(true)
+    expect(resolveNearbyPoiImageSrc(url)).toBe('/api/place-photo?maxwidth=800&photo_reference=abc')
   })
 
   it('accepts uploads and https', () => {

@@ -132,6 +132,7 @@ modules/287_location_pages_service_pois.sql
 modules/288_manage_catalog_holiday_home_faq_hub_i18n.sql
 modules/289_listing_availability_day_status.sql
 modules/290_listing_bedrooms.sql
+modules/291_location_pages_google_poi_center_backfill.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

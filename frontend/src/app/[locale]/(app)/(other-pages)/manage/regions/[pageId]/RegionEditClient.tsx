@@ -225,6 +225,8 @@ function buildGeocodeHintAddressCandidates(
 type DeriveMapGeoOpts = {
   /** slug/ilçe adından forward geocode — gezi fikirleri anchor + son düşüş */
   geoHint?: { lat: number; lng: number } | null
+  /** Kayıtlı pin üst bölge merkezine sapmışsa onu gerçek pin gibi kullanma. */
+  ignoreSavedPin?: boolean
 }
 
 /** Harita formunun merkezi: önce kayıtlı pin, sonra ilçe/il düşüşleri */
@@ -257,13 +259,42 @@ function deriveMapPresentation(
       : ''
   const regLat = coordFieldToString(p.region_center_lat)
   const regLng = coordFieldToString(p.region_center_lng)
+  const hint =
+    opts?.geoHint &&
+    Number.isFinite(opts.geoHint.lat) &&
+    Number.isFinite(opts.geoHint.lng)
+      ? opts.geoHint
+      : null
+  const regAnchor =
+    regLat && regLng
+      ? (() => {
+          const la = parseFloat(regLat)
+          const lo = parseFloat(regLng)
+          return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo } : null
+        })()
+      : null
+  const distAnchor =
+    (distLat && distLng) || (luLat && luLng)
+      ? (() => {
+          const la = parseFloat(distLat || luLat)
+          const lo = parseFloat(distLng || luLng)
+          return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo } : null
+        })()
+      : null
 
   let source: MapCoordSource = 'none'
   let pair: { lat: string; lng: string } | null = null
+  const ideaPtWithAnchor = pickTravelIdeasMapCoords(p.travel_ideas_json as unknown, distAnchor ?? regAnchor)
 
-  if (pinLat && pinLng) {
+  if (pinLat && pinLng && !opts?.ignoreSavedPin) {
     source = 'saved_pin'
     pair = { lat: pinLat, lng: pinLng }
+  } else if (hint) {
+    source = 'geocode_hint'
+    pair = { lat: hint.lat.toFixed(6), lng: hint.lng.toFixed(6) }
+  } else if (ideaPtWithAnchor) {
+    source = 'travel_ideas_fallback'
+    pair = { lat: ideaPtWithAnchor.lat.toFixed(6), lng: ideaPtWithAnchor.lng.toFixed(6) }
   } else if (distLat && distLng) {
     source = 'district_table'
     pair = { lat: distLat, lng: distLng }
@@ -271,29 +302,12 @@ function deriveMapPresentation(
     source = 'district_lookup'
     pair = { lat: luLat, lng: luLng }
   } else {
-    const hint =
-      opts?.geoHint &&
-      Number.isFinite(opts.geoHint.lat) &&
-      Number.isFinite(opts.geoHint.lng)
-        ? opts.geoHint
-        : null
-    const regAnchor =
-      regLat && regLng
-        ? (() => {
-            const la = parseFloat(regLat)
-            const lo = parseFloat(regLng)
-            return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo } : null
-          })()
-        : null
     const anchorForIdeas = hint ?? regAnchor
 
     const ideaPt = pickTravelIdeasMapCoords(p.travel_ideas_json as unknown, anchorForIdeas)
     if (ideaPt) {
       source = 'travel_ideas_fallback'
       pair = { lat: ideaPt.lat.toFixed(6), lng: ideaPt.lng.toFixed(6) }
-    } else if (hint) {
-      source = 'geocode_hint'
-      pair = { lat: hint.lat.toFixed(6), lng: hint.lng.toFixed(6) }
     } else if (regLat && regLng) {
       source = 'region_center'
       pair = { lat: regLat, lng: regLng }
@@ -304,6 +318,20 @@ function deriveMapPresentation(
 }
 
 const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+function coordPairFromStrings(lat: string, lng: string): { lat: number; lng: number } | null {
+  const la = parseFloat(lat)
+  const lo = parseFloat(lng)
+  return Number.isFinite(la) && Number.isFinite(lo) ? { lat: la, lng: lo } : null
+}
+
+function isSavedPinProbablyParentRegionCenter(p: LocationPage): boolean {
+  if (p.region_type !== 'district' && p.region_type !== 'destination') return false
+  const pin = coordPairFromStrings(coordFieldToString(p.map_lat), coordFieldToString(p.map_lng))
+  const reg = coordPairFromStrings(coordFieldToString(p.region_center_lat), coordFieldToString(p.region_center_lng))
+  if (!pin || !reg) return false
+  return haversineKm(pin.lat, pin.lng, reg.lat, reg.lng) <= 2
+}
 
 type PlacesNearbyHit = {
   placeId: string
@@ -387,10 +415,11 @@ async function maybePersistDerivedMapPinFromLoad(opts: {
   setCiEmergencyNumbers: (v: { label: string; number: string }[]) => void
   setCiFlagEmoji: (v: string) => void
   setCiFlagUrl: (v: string) => void
+  replaceExistingParentPin?: boolean
 }): Promise<boolean> {
   const dbEmpty = !coordFieldToString(opts.p.map_lat) && !coordFieldToString(opts.p.map_lng)
   const { lat, lng, source } = opts.mapPres
-  if (!dbEmpty || !lat || !lng || source === 'none') return false
+  if ((!dbEmpty && !opts.replaceExistingParentPin) || !lat || !lng || source === 'none' || source === 'region_center') return false
 
   let label = ''
   const la = parseFloat(lat)
@@ -751,11 +780,10 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           districtLookup?.district.center_lng != null
             ? coordFieldToString(districtLookup.district.center_lng)
             : ''
+        const savedPinLooksLikeParentCenter = isSavedPinProbablyParentRegionCenter(p)
         const needGeocodeHint =
-          !coordFieldToString(p.map_lat) &&
-          !coordFieldToString(p.map_lng) &&
-          !(distLatG && distLngG) &&
-          !(luLatG && luLngG)
+          (!coordFieldToString(p.map_lat) && !coordFieldToString(p.map_lng)) ||
+          savedPinLooksLikeParentCenter
 
         let trPrimaryForGeocode = asTrimmedString(p.title)
         try {
@@ -811,7 +839,9 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             districtLookup,
             geoRegionType,
             pageDistrictId,
-            geoHintCoords ? { geoHint: geoHintCoords } : undefined,
+            geoHintCoords
+              ? { geoHint: geoHintCoords, ignoreSavedPin: savedPinLooksLikeParentCenter }
+              : { ignoreSavedPin: savedPinLooksLikeParentCenter },
           )
           setMapLat(initialMapPresentation.lat)
           setMapLng(initialMapPresentation.lng)
@@ -915,6 +945,7 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
               setCiEmergencyNumbers,
               setCiFlagEmoji,
               setCiFlagUrl,
+              replaceExistingParentPin: savedPinLooksLikeParentCenter,
             })
             if (did) {
               setSaveMsg({
@@ -1194,7 +1225,11 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         })
       }
 
-      setSaveMsg({ ok: true, text: '✅ Tanıtım, çeviriler ve gezilecek yerler oluşturuldu. Kaydetmeyi unutmayın.' })
+      setSaveMsg({
+        ok: true,
+        text:
+          'Tanıtım, çeviriler ve gezilecek yerler oluşturuldu. Mesafe hesabı için Google’dan gezilecek yer çekip koordinatlı kayıtlarla kaydedin.',
+      })
     } catch {
       setSaveMsg({ ok: false, text: 'AI içerik oluşturulurken hata oluştu.' })
     } finally {
@@ -1609,13 +1644,28 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
         existing.add(p.placeId)
       }
 
+      const canUsePlacesAsPagePin =
+        additions.length > 0 &&
+        (!coordFieldToString(page?.map_lat) ||
+          mapCoordSource === 'none' ||
+          mapCoordSource === 'region_center' ||
+          mapCoordSource === 'travel_ideas_fallback')
+      if (canUsePlacesAsPagePin) {
+        const pin = pickTravelIdeasMapCoords(additions, null)
+        if (pin) {
+          setMapLat(pin.lat.toFixed(6))
+          setMapLng(pin.lng.toFixed(6))
+          setMapCoordSource('travel_ideas_fallback')
+        }
+      }
+
       setTravelIdeas((prev) => [...prev, ...additions])
       setSaveMsg({
         ok: true,
         text:
           additions.length === 0
             ? 'Tüm öneriler zaten listede (place_id ile eşleşti).'
-            : `${additions.length} gezi fikri eklendi (ilk 3 «Favori» rozeti ile). Kaydet ile saklayın.`,
+            : `${additions.length} gezi fikri eklendi (ilk 3 «Favori» rozeti ile). Koordinat boş/il merkezindeyse harita pini de Google mekan kümesine göre güncellendi; Kaydet ile saklayın.`,
       })
     } catch (e) {
       setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'Gezi önerileri alınamadı') })

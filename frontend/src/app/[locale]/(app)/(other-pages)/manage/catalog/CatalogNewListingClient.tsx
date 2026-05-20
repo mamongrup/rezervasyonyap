@@ -114,6 +114,7 @@ import {
   type HolidayHomePropertyTypeItem,
 } from '@/lib/holiday-property-type-options'
 import { listingImageSubPath, slugifyMediaSegment } from '@/lib/upload-media-paths'
+import { buildPlacePhotoProxySrc } from '@/lib/nearby-poi-image'
 import { slugifyListingSlug } from '@/lib/slug-latin-tr'
 import {
   MANAGE_FORM_CONTAINER_CLASS,
@@ -1553,7 +1554,7 @@ export default function CatalogNewListingClient({
         distanceKm: number
       }
 
-      const placeRowToPoi = (p: PlaceRow, apiKey: string): NearbyPoi => ({
+      const placeRowToPoi = (p: PlaceRow): NearbyPoi => ({
         title: p.name,
         summary: [
           p.address,
@@ -1567,7 +1568,7 @@ export default function CatalogNewListingClient({
           .filter(Boolean)
           .join(' — '),
         image: p.photoRef
-          ? `https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference=${p.photoRef}&key=${apiKey}`
+          ? buildPlacePhotoProxySrc(p.photoRef, 800)
           : undefined,
         link: `https://www.google.com/maps/place/?q=place_id:${p.placeId}`,
         place_id: p.placeId,
@@ -1648,7 +1649,7 @@ export default function CatalogNewListingClient({
           next = [...byPlaceId.values()]
             .sort((a, b) => a.distanceKm - b.distanceKm)
             .slice(0, 20)
-            .map((p) => placeRowToPoi(p, apiKey))
+            .map((p) => placeRowToPoi(p))
         }
       } else {
         googleError =

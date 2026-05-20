@@ -111,21 +111,26 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
     ),
     travel_pois AS (
       SELECT
-        elem->>'title'     AS title,
+        coalesce(NULLIF(trim(elem->>'title'), ''), NULLIF(trim(elem->>'name'), ''), 'Mekân') AS title,
         elem->>'summary'   AS summary,
         coalesce(elem->>'image', '')   AS image,
         coalesce(elem->>'link',  '')   AS link,
         coalesce(elem->>'place_id', '') AS place_id,
         (elem->>'lat')::float8         AS poi_lat,
         (elem->>'lng')::float8         AS poi_lng,
-        NULLIF(elem->>'distance_km_from_district', '')::numeric AS district_distance_km
+        CASE
+          WHEN trim(coalesce(elem->>'distance_km_from_district', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+          THEN (elem->>'distance_km_from_district')::numeric
+          ELSE NULL::numeric
+        END AS district_distance_km
       FROM   location_pages lp,
              jsonb_array_elements(lp.travel_ideas_json) elem
       WHERE  lp.region_type IN ('district', 'destination')
-        AND  elem->>'lat'      IS NOT NULL
-        AND  elem->>'lng'      IS NOT NULL
+        AND  trim(coalesce(elem->>'lat', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+        AND  trim(coalesce(elem->>'lng', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
-        AND  NULLIF(elem->>'place_id', '') IS NOT NULL
+        AND  jsonb_typeof(elem->'lng') IN ('number','string')
+        AND  NULLIF(trim(elem->>'place_id'), '') IS NOT NULL
     ),
     nearest_svc_page AS (
       SELECT lp.service_pois_json
@@ -138,11 +143,11 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         AND  lp.service_pois_json IS NOT NULL
         AND  jsonb_array_length(lp.service_pois_json) > 0
       ORDER  BY
-        (6371.0 * acos(LEAST(1.0,
+        (6371.0 * acos(GREATEST(-1.0, LEAST(1.0,
           cos(radians(lc.mlat)) * cos(radians(COALESCE(lp.map_lat, d.center_lat)::float8))
           * cos(radians(COALESCE(lp.map_lng, d.center_lng)::float8) - radians(lc.mlng))
           + sin(radians(lc.mlat)) * sin(radians(COALESCE(lp.map_lat, d.center_lat)::float8))
-        )))
+        ))))
       LIMIT  1
     ),
     service_pois AS (
@@ -175,8 +180,11 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
              ) elem
       WHERE  elem->>'lat' IS NOT NULL
         AND  elem->>'lng' IS NOT NULL
+        AND  trim(coalesce(elem->>'lat', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
+        AND  trim(coalesce(elem->>'lng', '')) ~ '^-?[0-9]+(\\.[0-9]+)?$'
         AND  jsonb_typeof(elem->'lat') IN ('number','string')
         AND  jsonb_typeof(elem->'lng') IN ('number','string')
+        AND  NULLIF(trim(elem->>'place_id'), '') IS NOT NULL
     ),
     pois AS (
       SELECT * FROM travel_pois
@@ -190,15 +198,17 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
         p.district_distance_km,
         ROUND(
           (6371.0 * acos(
-            LEAST(1.0,
+            GREATEST(-1.0, LEAST(1.0,
               cos(radians(lc.mlat)) * cos(radians(p.poi_lat))
               * cos(radians(p.poi_lng) - radians(lc.mlng))
               + sin(radians(lc.mlat)) * sin(radians(p.poi_lat))
-            )
+            ))
           ))::numeric, 1
         ) AS distance_km
       FROM   pois p
       CROSS  JOIN listing_coords lc
+      WHERE  p.poi_lat BETWEEN -90 AND 90
+        AND  p.poi_lng BETWEEN -180 AND 180
     ),
     topn AS (
       SELECT *,
