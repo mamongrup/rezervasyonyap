@@ -47,9 +47,17 @@ try {
 }
 
 const args = process.argv.slice(2)
+const isBuild = args.includes('build')
+// Yerel: 8192. Küçük VPS (ENOMEM): NEXT_NODE_HEAP_MB=3072 veya 2048 + 4G swap.
+const heapMb = Number.parseInt(
+  process.env.NEXT_NODE_HEAP_MB ?? (isBuild ? '4096' : '8192'),
+  10,
+)
+const heap = Number.isFinite(heapMb) && heapMb >= 512 ? heapMb : isBuild ? 4096 : 8192
+
 const result = spawnSync(
   process.execPath,
-  ['--max-old-space-size=8192', nextBin, ...args],
+  [`--max-old-space-size=${heap}`, nextBin, ...args],
   { stdio: 'inherit', cwd: process.cwd(), shell: false },
 )
 

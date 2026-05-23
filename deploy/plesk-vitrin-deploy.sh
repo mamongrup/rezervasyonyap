@@ -91,6 +91,13 @@ main() {
 
   step "Frontend: temiz kurulum ve production build"
   cd "$FRONTEND_DIR"
+  if [[ -f /etc/rezervasyonyap/frontend.env ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source /etc/rezervasyonyap/frontend.env
+    set +a
+  fi
+  export NEXT_NODE_HEAP_MB="${NEXT_NODE_HEAP_MB:-4096}"
   rm -rf node_modules .next
   npm ci
   npm run build

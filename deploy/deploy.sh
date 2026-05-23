@@ -158,6 +158,7 @@ main() {
     source /etc/rezervasyonyap/frontend.env
     set +a
   fi
+  # Küçük VPS: ENOMEM önlemek için NEXT_NODE_HEAP_MB=3072 (veya 4G swap) — deploy/PLESK_VITRIN.md
   (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build)
   ok "frontend build tamam"
 

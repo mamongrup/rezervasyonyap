@@ -40,6 +40,30 @@ Vitrin **stabil `next@16.2.x`** ile sabitlenir; canary sunucu/os uyumsuzluğunda
 
 Repoda **`.github/workflows/frontend-ci.yml`** var: **`ubuntu-latest`** + Node 20 ile `frontend` içinde **`npm ci`** ve **`npm run build`** çalışır. Push sonrası Actions yeşilse kod tarafı üretime uygun derleniyor demektir; sunucuda yalnızca eski **GLIBC / ortam** sorunu kalabilir — o zaman OS yükseltmesi veya `plesk-vitrin-deploy.sh` ile eşleştirilmiş disk/cache kontrolü gerekir.
 
+## Build `spawn ENOMEM` (bellek yetersiz)
+
+Derleme “Compiled successfully” sonrası `Error: spawn ENOMEM` ise sunucu RAM’i yetmiyor (çoğu VPS 2–4 GB).
+
+**1) Swap (önerilen, kalıcı):**
+
+```bash
+fallocate -l 4G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+grep -q '^/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+free -h
+```
+
+**2) Daha düşük Node heap ile build:**
+
+```bash
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs/frontend
+set -a && source /etc/rezervasyonyap/frontend.env && set +a
+export NEXT_NODE_HEAP_MB=3072
+rm -rf .next node_modules && npm ci && npm run build
+systemctl restart travel-web.service
+```
+
+**3) Script izinleri:** `chmod +x deploy/*.sh` veya `bash deploy/apply-sql.sh ...` ( `./` yerine).
+
 ## Ayrıca bkz.
 
 - [DEPLOY_CHECKLIST.md](./DEPLOY_CHECKLIST.md) — tam checklist, env, smoke test.
