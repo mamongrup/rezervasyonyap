@@ -95,12 +95,13 @@ export default function ListingAmenitiesSection({
   const iconFor = (id: string) => {
     const customSrc = customIcons?.[id]?.trim()
     if (customSrc) {
+      const iconSrc: string = customSrc
       function CustomAmenityIconSlot(props: {
         className?: string
         strokeWidth?: number
         'aria-hidden'?: boolean
       }) {
-        return <CustomAmenityIcon src={customSrc} className={props.className ?? AMENITY_ICON_CLASS} />
+        return <CustomAmenityIcon src={iconSrc} className={props.className ?? AMENITY_ICON_CLASS} />
       }
       return CustomAmenityIconSlot
     }
