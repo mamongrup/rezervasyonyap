@@ -650,7 +650,7 @@ export const tr = {
       showLess: 'Daha az göster',
       demoBadge: 'Örnek fiyat bilgisi',
       defaultPeriod: 'Tüm tarihler',
-      rangeSep: '–',
+      rangeSep: ' - ',
       rangeFromOpen: 've sonrası',
       rangeUntil: 'Şu tarihe kadar:',
       extraChargesTitle: 'Ek ücretler',
@@ -868,6 +868,7 @@ export const tr = {
     ...en.avatarMenu,
     adminPanel: 'Yönetim Paneli',
     admin: 'Yönetici',
+    memberLabel: 'Üye',
     profile: 'Profilim',
     reservations: 'Rezervasyonlarım',
     favorites: 'Favorilerim',
@@ -1315,6 +1316,13 @@ export const tr = {
     villaHouseRulesHeading: 'Ev kuralları',
     villaHouseRulesIntro:
       'Katalog → Kurallar sayfasındaki şablonlardan seçin (otel ve yat ilanlarıyla aynı havuz). Eski sabit villa çipleri kaldırıldı.',
+    holidayHome: {
+      amenitiesTitle: 'Tesis özellikleri',
+      amenitiesIntro:
+        'İç ve dış olanaklar (havuz, klima, jakuzi vb.). İlan tipi ve tema ayrı «Tatil evi — ilan tipi ve temalar» sekmesindedir.',
+      priceLinesIntro:
+        'Fiyata dahil ve hariç kalemleri (elektrik, temizlik, havlu vb.) vitrinde fiyat bölümünde gösterilir.',
+    },
     calendar: {
       ...en.manageCatalogListing.calendar,
       title: 'Günlük Müsaitlik ve Fiyat',
@@ -1390,6 +1398,10 @@ export const tr = {
     attr: {
       emptyGroupsTitle: 'Bu kategori için öznitelik grubu tanımlanmamış',
       emptyGroupsHint: 'Katalog → Öznitelikler sayfasından gruplar ve öznitelikler oluşturabilirsiniz.',
+      emptyAmenityGroupsTitle: 'İç / dış olanak grubu tanımlanmamış',
+      emptyAmenityGroupsHint:
+        'Katalog → Öznitelikler sayfasında «İç olanaklar» ve «Dış olanaklar» gruplarını kontrol edin.',
+      saveAmenitiesBtn: 'Olanakları kaydet',
       selectPlaceholder: '— Seçin —',
       yes: 'Evet',
       no: 'Hayır',
@@ -1416,7 +1428,7 @@ export const tr = {
       badgeWeekly: 'Haftalık:',
       minNightsSuffix: 'min {n} gece',
       newPeriodTitle: 'Yeni Dönem Ekle',
-      seasonLabel: 'Sezon Adı / Etiket',
+      seasonLabel: 'Dönem başlığı (isteğe bağlı)',
       seasonPlaceholder: 'Örn: Yaz Sezonu, Yılbaşı',
       minNightsLabel: 'Minimum Konaklama (gece)',
       baseNightlyLabel: 'Gecelik baz (opsiyonel)',

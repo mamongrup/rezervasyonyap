@@ -35,12 +35,20 @@ function groupTitle(messages: ReturnType<typeof getMessages>, groupId: AmenityGr
   return g[groupId] ?? groupId
 }
 
+function CustomAmenityIcon({ src, className }: { src: string; className: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- panelden yüklenen SVG/AVIF; harici domain yok
+    <img src={src} alt="" className={className} loading="lazy" decoding="async" />
+  )
+}
+
 export default function ListingAmenitiesSection({
   locale,
   variant,
   className,
   customSelectedIds,
   customLabels,
+  customIcons,
 }: {
   locale: string
   variant: 'hotel' | 'villa'
@@ -50,6 +58,8 @@ export default function ListingAmenitiesSection({
   customSelectedIds?: readonly string[]
   /** Bilinmeyen key'ler için tedarikçi etiket map'i (örn. {"private_chef":"Özel şef"}). */
   customLabels?: Record<string, string>
+  /** Öznitelik tanımından yüklenen vitrin ikonları (`/uploads/...`). */
+  customIcons?: Record<string, string>
 }) {
   const messages = getMessages(locale)
 
@@ -82,8 +92,20 @@ export default function ListingAmenitiesSection({
   const labelOf = (id: string): string =>
     KNOWN_AMENITY_IDS.has(id) ? labelFor(messages, id) : (customLabels?.[id] ?? id.replace(/_/g, ' '))
 
-  const iconFor = (id: string) =>
-    KNOWN_AMENITY_IDS.has(id) ? getListingAmenityIcon(id as ListingAmenityId) : Sparkles
+  const iconFor = (id: string) => {
+    const customSrc = customIcons?.[id]?.trim()
+    if (customSrc) {
+      function CustomAmenityIconSlot(props: {
+        className?: string
+        strokeWidth?: number
+        'aria-hidden'?: boolean
+      }) {
+        return <CustomAmenityIcon src={customSrc} className={props.className ?? AMENITY_ICON_CLASS} />
+      }
+      return CustomAmenityIconSlot
+    }
+    return KNOWN_AMENITY_IDS.has(id) ? getListingAmenityIcon(id as ListingAmenityId) : Sparkles
+  }
 
   return (
     <div className={clsx('listingSection__wrap', className)}>

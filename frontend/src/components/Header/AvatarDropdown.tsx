@@ -1,6 +1,18 @@
 'use client'
 
-import { getStoredAuthProfile, getStoredAuthToken, clearStoredAuthToken } from '@/lib/auth-storage'
+import {
+  authIdentityInitial,
+  authIdentityLabel,
+  trimAuthField,
+} from '@/lib/auth-display'
+import {
+  AUTH_CHANGED_EVENT,
+  AUTH_PROFILE_STORAGE_KEY,
+  AUTH_TOKEN_STORAGE_KEY,
+  getStoredAuthProfile,
+  getStoredAuthToken,
+  clearStoredAuthToken,
+} from '@/lib/auth-storage'
 import { clearHeroSearchUserIdCache } from '@/lib/hero-search-plan'
 import { getAuthMe, logoutUser } from '@/lib/travel-api'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
@@ -22,7 +34,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { LayoutDashboard } from 'lucide-react'
 import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 interface Props {
   className?: string
@@ -47,28 +59,58 @@ export default function AvatarDropdown({ className }: Props) {
     roles?: { role_code: string }[]
     permissions?: string[]
   }) {
-    setDisplayName(me.display_name ?? null)
-    setEmail(me.email ?? null)
+    setDisplayName(trimAuthField(me.display_name))
+    setEmail(trimAuthField(me.email))
     setIsAdmin(Boolean(
       me.roles?.some((r) => r.role_code === 'admin') ||
-      me.permissions?.some((p) => p.startsWith('admin.')),
+      me.permissions?.some((perm) => perm.startsWith('admin.')),
     ))
   }
 
-  useEffect(() => {
+  const refreshAuth = useCallback(async () => {
     const token = getStoredAuthToken()
-    if (!token) { setIsLoggedIn(false); return }
+    if (!token) {
+      setIsLoggedIn(false)
+      setIsAdmin(false)
+      setDisplayName(null)
+      setEmail(null)
+      return
+    }
     setIsLoggedIn(true)
     const cached = getStoredAuthProfile()
     if (cached) applyProfile(cached)
-    getAuthMe(token)
-      .then(applyProfile)
-      .catch(() => {
-        clearStoredAuthToken()
-        setIsLoggedIn(false)
-        setIsAdmin(false)
-      })
+    try {
+      const me = await getAuthMe(token)
+      applyProfile(me)
+    } catch {
+      clearStoredAuthToken()
+      setIsLoggedIn(false)
+      setIsAdmin(false)
+      setDisplayName(null)
+      setEmail(null)
+    }
   }, [])
+
+  useEffect(() => {
+    void refreshAuth()
+  }, [refreshAuth])
+
+  useEffect(() => {
+    function onAuthChanged() {
+      void refreshAuth()
+    }
+    function onStorage(e: StorageEvent) {
+      if (e.key === AUTH_TOKEN_STORAGE_KEY || e.key === AUTH_PROFILE_STORAGE_KEY) {
+        void refreshAuth()
+      }
+    }
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged)
+      window.removeEventListener('storage', onStorage)
+    }
+  }, [refreshAuth])
 
   async function handleLogout() {
     const token = getStoredAuthToken()
@@ -84,16 +126,13 @@ export default function AvatarDropdown({ className }: Props) {
 
   function handleLoginSuccess() {
     setLoginModalOpen(false)
-    const token = getStoredAuthToken()
-    if (!token) return
-    setIsLoggedIn(true)
-    getAuthMe(token)
-      .then(applyProfile)
-      .catch(() => { /* ignore */ })
+    void refreshAuth()
+    router.refresh()
   }
 
-  const avatarInitial = displayName?.[0]?.toUpperCase() ?? email?.[0]?.toUpperCase() ?? '?'
-  const avatarLabel = displayName || email || T.profile
+  const primaryLabel = authIdentityLabel(displayName, email, T.memberLabel)
+  const secondaryEmail = displayName && email ? email : null
+  const avatarInitial = authIdentityInitial(displayName, email)
 
   return (
     <div className={className}>
@@ -103,11 +142,20 @@ export default function AvatarDropdown({ className }: Props) {
         locale={locale}
       />
       <Popover>
-        <PopoverButton className="-m-2.5 flex cursor-pointer items-center justify-center rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800">
+        <PopoverButton
+          title={isLoggedIn ? primaryLabel : T.loginButton}
+          aria-label={isLoggedIn ? primaryLabel : T.loginButton}
+          className="-m-2.5 flex max-w-[min(100%,14rem)] cursor-pointer items-center gap-2 rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800"
+        >
           {isLoggedIn ? (
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white">
-              {avatarInitial}
-            </div>
+            <>
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-600 text-xs font-semibold text-white">
+                {avatarInitial}
+              </div>
+              <span className="hidden max-w-[9rem] truncate text-sm font-medium text-neutral-800 sm:inline dark:text-neutral-100">
+                {primaryLabel}
+              </span>
+            </>
           ) : (
             <HugeiconsIcon
               icon={UserCircleIcon}
@@ -129,13 +177,13 @@ export default function AvatarDropdown({ className }: Props) {
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary-600 text-lg font-semibold text-white">
                     {avatarInitial}
                   </div>
-                  <div className="grow min-w-0">
-                    <h4 className="truncate font-semibold">{avatarLabel}</h4>
-                    {email && displayName && (
-                      <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{email}</p>
-                    )}
+                  <div className="min-w-0 grow">
+                    <h4 className="truncate font-semibold">{primaryLabel}</h4>
+                    {secondaryEmail ? (
+                      <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{secondaryEmail}</p>
+                    ) : null}
                     {isAdmin && (
-                      <span className="mt-0.5 inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
+                      <span className="mt-1 inline-flex items-center rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
                         {T.admin}
                       </span>
                     )}

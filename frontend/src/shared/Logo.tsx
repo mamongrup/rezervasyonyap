@@ -1,6 +1,11 @@
 'use client'
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import {
+  resolveSiteLogoUrl,
+  pickEffectiveSiteLogoUrls,
+  normalizeSiteLogoUrl,
+} from '@/lib/resolve-site-logo-url'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getSitePublicConfig } from '@/lib/travel-api'
 import Link from 'next/link'
@@ -74,16 +79,21 @@ function writeCachedBranding(b: BrandingConfig) {
   } catch { /* ignore */ }
 }
 
+/** API/cache güncellemesinde geçerli logoyu silme — önceki oturumdaki gerçek URL korunur */
+function mergeBrandingLogos(prev: BrandingConfig, next: BrandingConfig): BrandingConfig {
+  const prevPicked = pickEffectiveSiteLogoUrls(prev.logo_url, prev.logo_url_dark)
+  const nextPicked = pickEffectiveSiteLogoUrls(next.logo_url, next.logo_url_dark)
+  return {
+    ...next,
+    logo_url: nextPicked.light ?? prevPicked.light ?? undefined,
+    logo_url_dark: nextPicked.dark ?? prevPicked.dark ?? undefined,
+  }
+}
+
 function logoImageFallback(src: string | null): string | null {
   if (!src) return null
   if (src.endsWith('.avif')) return `${src.slice(0, -'.avif'.length)}.webp`
   return null
-}
-
-/** Vitrin: panel dosyaları `/uploads/site/**` → `/api/site-upload/**` (bkz. site-upload-browser-href) */
-function vitrinImgSrc(raw: string | null | undefined): string {
-  if (!raw?.trim()) return ''
-  return siteUploadBrowserHref(raw.trim())
 }
 
 /** Metin logosu — logo URL yokken veya yüklenirken gösterilir */
@@ -106,16 +116,26 @@ function TextLogoFallback({ siteName, className }: { siteName?: string; classNam
 const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) => {
   const pathname = usePathname() ?? ''
   const vitrinPath = useVitrinHref()
-  /** Sunucuda eksik dosya (404) — kırık görsel yerine metin logosu */
-  const [imageFailed, setImageFailed] = useState(false)
-  const [imageOverride, setImageOverride] = useState<string | null>(null)
+  /** Açık/koyu ayrı — gizli koyu tema img 404 verince açık logoyu düşürmez */
+  const [lightFailed, setLightFailed] = useState(false)
+  const [darkFailed, setDarkFailed] = useState(false)
+  const [iconFailed, setIconFailed] = useState(false)
+  const [lightOverride, setLightOverride] = useState<string | null>(null)
+  const [darkOverride, setDarkOverride] = useState<string | null>(null)
 
   /**
    * Hydration güvenliği: sunucu ve ilk istemci render AYNI başlangıç değerini
    * kullanmalı. localStorage sadece useEffect içinde okunur.
    */
   const [branding, setBranding] = useState<BrandingConfig>(() => {
-    if (src) return { logo_url: src, logo_url_dark: darkSrc ?? src, site_name: alt ?? 'Logo' }
+    if (src) {
+      const picked = pickEffectiveSiteLogoUrls(src, darkSrc ?? src)
+      return {
+        logo_url: picked.light ?? undefined,
+        logo_url_dark: picked.dark ?? undefined,
+        site_name: alt ?? 'Logo',
+      }
+    }
     return { site_name: alt ?? '' }
   })
   const [categoryLogos, setCategoryLogos] = useState<Record<string, CategoryLogo>>({})
@@ -145,8 +165,11 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
           site_name: b.site_name ?? (cfg as { site_name?: string }).site_name,
           category_logos: b.category_logos as Record<string, CategoryLogo> | undefined,
         }
-        setBranding(next)
-        writeCachedBranding(next)
+        setBranding((prev) => {
+          const merged = mergeBrandingLogos(prev, next)
+          writeCachedBranding(merged)
+          return merged
+        })
         if (b.category_logos && typeof b.category_logos === 'object') {
           setCategoryLogos(b.category_logos as Record<string, CategoryLogo>)
         }
@@ -157,31 +180,57 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   const catCode = detectCategoryCode(pathname)
   const catLogo = catCode ? categoryLogos[catCode] : null
 
-  const activeLogoUrl = catLogo?.logo_url || branding.logo_url || null
-  const activeDarkUrl = catLogo?.logo_url_dark || branding.logo_url_dark || catLogo?.logo_url || branding.logo_url || null
-  const renderedLogoUrl = imageOverride ?? activeLogoUrl
+  const propsPicked = src ? pickEffectiveSiteLogoUrls(src, darkSrc ?? src) : null
+  const categoryPicked = pickEffectiveSiteLogoUrls(catLogo?.logo_url, catLogo?.logo_url_dark)
+  const sitePicked =
+    propsPicked ?? pickEffectiveSiteLogoUrls(branding.logo_url, branding.logo_url_dark)
+  const activeLogoUrl = categoryPicked.light ?? sitePicked.light
+  const activeDarkUrl = categoryPicked.dark ?? sitePicked.dark
+  const renderedLightUrl = lightOverride ?? activeLogoUrl
+  const renderedDarkUrl = darkOverride ?? activeDarkUrl ?? activeLogoUrl
+  const sameLogoAsset =
+    !!renderedLightUrl &&
+    !!renderedDarkUrl &&
+    resolveSiteLogoUrl(renderedLightUrl) === resolveSiteLogoUrl(renderedDarkUrl)
   const altText = alt ?? branding.site_name ?? 'Logo'
 
   useEffect(() => {
-    setImageFailed(false)
-    setImageOverride(null)
+    setLightFailed(false)
+    setDarkFailed(false)
+    setIconFailed(false)
+    setLightOverride(null)
+    setDarkOverride(null)
   }, [activeLogoUrl, activeDarkUrl])
 
-  function handleImageError(src: string | null) {
-    const fallback = logoImageFallback(src)
-    if (fallback && fallback !== imageOverride) {
-      setImageOverride(fallback)
+  function handleLightImageError(raw: string | null) {
+    const fallback = logoImageFallback(raw)
+    if (fallback && fallback !== lightOverride) {
+      setLightOverride(fallback)
       return
     }
-    setImageFailed(true)
+    setLightFailed(true)
+  }
+
+  function handleDarkImageError(raw: string | null) {
+    const fallback = logoImageFallback(raw)
+    if (fallback && fallback !== darkOverride) {
+      setDarkOverride(fallback)
+      return
+    }
+    setDarkFailed(true)
+  }
+
+  function logoImgSrc(resolvedPath: string): string {
+    if (!resolvedPath) return ''
+    return siteUploadBrowserHref(resolvedPath)
   }
 
   // ── Icon + Text mode ──────────────────────────────────────────────────────
-  if (!activeLogoUrl && !catLogo && branding.logo_mode === 'icon_text' && branding.logo_icon_url && !imageFailed) {
+  const iconUrl = normalizeSiteLogoUrl(branding.logo_icon_url)
+  if (!activeLogoUrl && !catLogo && branding.logo_mode === 'icon_text' && iconUrl && !iconFailed) {
     const line1 = branding.logo_text_line1 || branding.site_name || ''
     const line2 = branding.logo_text_line2 || ''
     const line2Color = branding.logo_text_line2_color || '#f97316'
-    const iconSrc = imageOverride ?? branding.logo_icon_url
 
     return (
       <Link
@@ -189,11 +238,11 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
         className={`inline-flex items-center gap-2.5 focus:ring-0 focus:outline-hidden ${className}`}
       >
         <img
-          src={vitrinImgSrc(iconSrc)}
+          src={logoImgSrc(resolveSiteLogoUrl(iconUrl))}
           alt={altText}
           className="h-14 w-14 shrink-0 object-contain"
           style={{ imageRendering: '-webkit-optimize-contrast' }}
-          onError={() => handleImageError(iconSrc)}
+          onError={() => setIconFailed(true)}
         />
         <span className="flex flex-col leading-none">
           {line1 && (
@@ -212,30 +261,68 @@ const Logo: React.FC<LogoProps> = ({ className = 'w-auto', src, darkSrc, alt }) 
   }
 
   // ── Full image mode ───────────────────────────────────────────────────────
+  const canShowLight = !!renderedLightUrl && !lightFailed
+  const canShowDark = !!renderedDarkUrl && !darkFailed
+  const logoSrcLight = canShowLight
+    ? logoImgSrc(resolveSiteLogoUrl(renderedLightUrl))
+    : ''
+  const logoSrcDark = canShowDark
+    ? logoImgSrc(resolveSiteLogoUrl(renderedDarkUrl))
+    : ''
+
+  if (!canShowLight && !canShowDark) {
+    return (
+      <Link
+        href={vitrinPath('/')}
+        className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
+      >
+        <TextLogoFallback siteName={branding.site_name} />
+      </Link>
+    )
+  }
+
   return (
     <Link
       href={vitrinPath('/')}
       className={`inline-flex items-center text-primary-600 focus:ring-0 focus:outline-hidden ${className}`}
     >
-      {renderedLogoUrl && !imageFailed ? (
-        <>
-          <img
-            src={vitrinImgSrc(renderedLogoUrl)}
-            alt={altText}
-            className="block max-h-[56px] w-auto dark:hidden"
-            style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={() => handleImageError(renderedLogoUrl)}
-          />
-          <img
-            src={vitrinImgSrc(activeDarkUrl ?? renderedLogoUrl)}
-            alt={altText}
-            className="hidden max-h-[56px] w-auto dark:block"
-            style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
-            onError={() => handleImageError(activeDarkUrl ?? renderedLogoUrl)}
-          />
-        </>
+      {sameLogoAsset ? (
+        <img
+          src={logoSrcLight || logoSrcDark}
+          alt={altText}
+          className="block max-h-[56px] w-auto"
+          style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+          onError={() => handleLightImageError(renderedLightUrl)}
+        />
       ) : (
-        <TextLogoFallback siteName={branding.site_name} />
+        <>
+          {canShowLight ? (
+            <img
+              src={logoSrcLight}
+              alt={altText}
+              className="block max-h-[56px] w-auto dark:hidden"
+              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+              onError={() => handleLightImageError(renderedLightUrl)}
+            />
+          ) : canShowDark ? (
+            <img
+              src={logoSrcDark}
+              alt={altText}
+              className="block max-h-[56px] w-auto dark:hidden"
+              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+              onError={() => handleDarkImageError(renderedDarkUrl)}
+            />
+          ) : null}
+          {canShowDark ? (
+            <img
+              src={logoSrcDark}
+              alt={altText}
+              className="hidden max-h-[56px] w-auto dark:block"
+              style={{ objectFit: 'contain', imageRendering: '-webkit-optimize-contrast' }}
+              onError={() => handleDarkImageError(renderedDarkUrl)}
+            />
+          ) : null}
+        </>
       )}
     </Link>
   )

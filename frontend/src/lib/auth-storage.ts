@@ -15,6 +15,13 @@
 
 export const AUTH_TOKEN_STORAGE_KEY = 'travel_auth_token'
 export const AUTH_PROFILE_STORAGE_KEY = 'travel_auth_profile'
+/** Aynı sekmede giriş/çıkış sonrası header menüsünü yenilemek için */
+export const AUTH_CHANGED_EVENT = 'travel-auth-changed'
+
+export function notifyAuthChanged(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT))
+}
 
 const AUTH_TOKEN_KEY = AUTH_TOKEN_STORAGE_KEY
 const AUTH_PROFILE_KEY = AUTH_PROFILE_STORAGE_KEY

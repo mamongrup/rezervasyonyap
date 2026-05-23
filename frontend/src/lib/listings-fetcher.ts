@@ -488,7 +488,7 @@ export async function fetchCategoryListings(
 ): Promise<ListingsResult> {
   const categoryCode = SLUG_TO_CODE[categorySlug]
   const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
-  const perPage = 12
+  const perPage = categoryCode === 'holiday_home' ? 48 : 12
 
   const region = opts.regionHandle
   const regionAsLocation =
@@ -544,7 +544,7 @@ export async function fetchCategoryListings(
       listings: rows,
       total: apiResult.total,
       page,
-      perPage: apiResult.per_page,
+      perPage: apiResult.per_page ?? perPage,
       fromApi: true,
     }
   }

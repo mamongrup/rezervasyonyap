@@ -280,6 +280,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "catalog", "attribute-defs", did] ->
       catalog_http.delete_attribute_def(req, ctx, did)
 
+    http.Patch, ["api", "v1", "catalog", "attribute-defs", did] ->
+      catalog_http.patch_attribute_def(req, ctx, did)
+
     http.Get, ["api", "v1", "catalog", "listings", lid, "attribute-values"] ->
       catalog_http.get_listing_attribute_values(req, ctx, lid)
 
@@ -1337,6 +1340,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "region-tasks", "generate-provinces"] ->
       ai_http.generate_provinces_sync(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "region-tasks", "generate-districts"] ->
+      ai_http.generate_districts_sync(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "region-tasks", "generate-destinations"] ->
+      ai_http.generate_destinations_sync(req, ctx)
 
     http.Post, ["api", "v1", "ai", "region-tasks"] ->
       ai_http.create_region_task(req, ctx)

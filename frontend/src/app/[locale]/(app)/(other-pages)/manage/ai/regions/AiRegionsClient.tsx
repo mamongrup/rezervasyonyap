@@ -2,12 +2,15 @@
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
-  createAiRegionTask,
+  generateAiDestinationsSync,
+  generateAiDistrictsSync,
   generateAiProvincesSync,
   listAiRegionTasks,
   listLocationCountries,
+  listLocationDistricts,
   listLocationRegions,
   type LocationCountry,
+  type LocationDistrict,
   type LocationRegion,
 } from '@/lib/travel-api'
 import clsx from 'clsx'
@@ -20,8 +23,6 @@ import {
   Clock,
   Loader2,
   MapPin,
-  Plus,
-  RefreshCw,
   Sparkles,
   X,
 } from 'lucide-react'
@@ -42,26 +43,37 @@ function statusBadge(status: unknown) {
   return <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-500 dark:bg-neutral-800">{s}</span>
 }
 
+function slugToLabel(slug: string): string {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1))
+    .join(' ')
+}
+
 export default function AiRegionsClient() {
   const [countries, setCountries] = useState<LocationCountry[]>([])
   const [tasks, setTasks] = useState<AiTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Create cities form
   const [countryName, setCountryName] = useState('')
   const [selectedCountryId, setSelectedCountryId] = useState('')
   const [creatingCities, setCreatingCities] = useState(false)
   const [provincesOk, setProvincesOk] = useState<string | null>(null)
 
-  // Create districts
   const [expandedCountry, setExpandedCountry] = useState<string | null>(null)
   const [regionsFor, setRegionsFor] = useState<LocationRegion[]>([])
   const [loadingRegions, setLoadingRegions] = useState(false)
+  const [expandedRegion, setExpandedRegion] = useState<string | null>(null)
+  const [districtsFor, setDistrictsFor] = useState<LocationDistrict[]>([])
+  const [loadingDistricts, setLoadingDistricts] = useState(false)
   const [creatingDistricts, setCreatingDistricts] = useState<string | null>(null)
+  const [districtsOk, setDistrictsOk] = useState<string | null>(null)
+  const [creatingDestinations, setCreatingDestinations] = useState<string | null>(null)
+  const [destinationsOk, setDestinationsOk] = useState<string | null>(null)
 
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
   const token = getStoredAuthToken() ?? ''
 
   const loadData = useCallback(async () => {
@@ -85,18 +97,6 @@ export default function AiRegionsClient() {
     return () => { if (pollRef.current) clearTimeout(pollRef.current) }
   }, [loadData])
 
-  // Auto-refresh tasks every 5s if any are running
-  useEffect(() => {
-    const hasRunning = tasks.some((t) => {
-      const s = String(t.step ?? t.status ?? '')
-      return s === 'running' || s === 'processing' || s === 'pending'
-    })
-    if (hasRunning) {
-      pollRef.current = setTimeout(() => void loadData(), 5000)
-    }
-    return () => { if (pollRef.current) clearTimeout(pollRef.current) }
-  }, [tasks, loadData])
-
   const handleCreateCities = useCallback(async () => {
     if (!countryName.trim()) return
     setCreatingCities(true)
@@ -107,7 +107,7 @@ export default function AiRegionsClient() {
         country_id: selectedCountryId || undefined,
         country_name: countryName.trim(),
       })
-      setProvincesOk(`${out.created} il eklendi, ${out.skipped} atlandı (yinelenen veya boş). İş no: ${out.job_id.slice(0, 8)}…`)
+      setProvincesOk(`${out.created} il eklendi, ${out.skipped} atlandı.`)
       setCountryName('')
       setSelectedCountryId('')
       await loadData()
@@ -121,9 +121,11 @@ export default function AiRegionsClient() {
   const handleExpandCountry = useCallback(async (countryId: string) => {
     if (expandedCountry === countryId) {
       setExpandedCountry(null)
+      setExpandedRegion(null)
       return
     }
     setExpandedCountry(countryId)
+    setExpandedRegion(null)
     setLoadingRegions(true)
     try {
       const res = await listLocationRegions(countryId)
@@ -133,22 +135,56 @@ export default function AiRegionsClient() {
     }
   }, [expandedCountry])
 
+  const handleExpandRegion = useCallback(async (regionId: string) => {
+    if (expandedRegion === regionId) {
+      setExpandedRegion(null)
+      return
+    }
+    setExpandedRegion(regionId)
+    setLoadingDistricts(true)
+    setDistrictsOk(null)
+    setDestinationsOk(null)
+    try {
+      const res = await listLocationDistricts(regionId)
+      setDistrictsFor(res.districts)
+    } finally {
+      setLoadingDistricts(false)
+    }
+  }, [expandedRegion])
+
   const handleCreateDistricts = useCallback(async (region: LocationRegion) => {
     setCreatingDistricts(region.id)
     setError(null)
+    setDistrictsOk(null)
     try {
-      await createAiRegionTask(token, {
-        country_name: countries.find((c) => c.id === region.country_id)?.name ?? '',
-        step: 'districts',
-        parent_region_id: region.id,
-      })
+      const out = await generateAiDistrictsSync(token, { region_id: region.id })
+      setDistrictsOk(`${region.name}: ${out.created} ilçe eklendi, ${out.skipped} atlandı.`)
+      const res = await listLocationDistricts(region.id)
+      setDistrictsFor(res.districts)
       await loadData()
     } catch (e) {
-      setError(formatManageApiCatch(e, 'Görev oluşturulamadı'))
+      setError(formatManageApiCatch(e, 'İlçeler oluşturulamadı'))
     } finally {
       setCreatingDistricts(null)
     }
-  }, [token, countries, loadData])
+  }, [token, loadData])
+
+  const handleCreateDestinations = useCallback(async (district: LocationDistrict, region: LocationRegion) => {
+    setCreatingDestinations(district.id)
+    setError(null)
+    setDestinationsOk(null)
+    try {
+      const out = await generateAiDestinationsSync(token, { district_id: district.id })
+      setDestinationsOk(
+        `${district.name} (${region.name}): ${out.created} destinasyon eklendi, ${out.skipped} atlandı.`,
+      )
+      await loadData()
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'Destinasyonlar oluşturulamadı'))
+    } finally {
+      setCreatingDestinations(null)
+    }
+  }, [token, loadData])
 
   return (
     <div className="pt-2">
@@ -161,7 +197,7 @@ export default function AiRegionsClient() {
             AI Bölge Oluşturucu
           </h1>
           <p className="mt-1 text-sm text-neutral-500">
-            Ülke adı girin — yapay zeka otomatik olarak iller ve ilçeleri koordinatlarıyla oluşturur.
+            Ülke → il → ilçe → popüler destinasyon (Kalkan, Ölüdeniz…). DeepSeek API ayarları açık olmalı.
           </p>
         </div>
       </div>
@@ -174,82 +210,66 @@ export default function AiRegionsClient() {
           </button>
         </div>
       ) : null}
+      {districtsOk ? (
+        <p className="mb-3 text-xs text-emerald-600 dark:text-emerald-400">{districtsOk}</p>
+      ) : null}
+      {destinationsOk ? (
+        <p className="mb-3 text-xs text-emerald-600 dark:text-emerald-400">{destinationsOk}</p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* ── İl/Bölge Oluşturma Kartı ── */}
         <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <div className="mb-4 flex items-center gap-2">
             <Building2 className="h-5 w-5 text-violet-500" />
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Adım 1 — İller oluştur
-            </h2>
+            <h2 className="text-base font-semibold">Adım 1 — İller</h2>
           </div>
           <p className="mb-4 text-sm text-neutral-500">
-            Ülke adını yazın — istek tek seferde işlenir; iller veritabanına yazılır (ülke kaydı önceden{' '}
-            <span className="font-medium">Ülkeler &amp; şehirler</span> ekranında olmalı veya adı eşleşmeli).
+            Örn. Türkiye → Antalya, Muğla…
           </p>
           <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500">
-                Ülke adı <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="ör. Türkiye"
-                value={countryName}
-                onChange={(e) => setCountryName(e.target.value)}
-                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-violet-500 focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-500">
-                Mevcut ülkeye bağla (isteğe bağlı)
-              </label>
-              <select
-                value={selectedCountryId}
-                onChange={(e) => setSelectedCountryId(e.target.value)}
-                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
-              >
-                <option value="">Yeni oluştur</option>
-                {countries.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.iso2})</option>
-                ))}
-              </select>
-            </div>
+            <input
+              type="text"
+              placeholder="Ülke adı (ör. Türkiye)"
+              value={countryName}
+              onChange={(e) => setCountryName(e.target.value)}
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+            />
+            <select
+              value={selectedCountryId}
+              onChange={(e) => setSelectedCountryId(e.target.value)}
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800"
+            >
+              <option value="">Mevcut ülkeye bağla (isteğe bağlı)</option>
+              {countries.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
             <button
               type="button"
               disabled={!countryName.trim() || creatingCities}
               onClick={() => void handleCreateCities()}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 py-2.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
             >
-              {creatingCities
-                ? <><Loader2 className="h-4 w-4 animate-spin" />Oluşturuluyor…</>
-                : <><Sparkles className="h-4 w-4" />İlleri oluştur</>}
+              {creatingCities ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              İlleri oluştur
             </button>
-            {provincesOk ? (
-              <p className="text-xs text-emerald-600 dark:text-emerald-400">{provincesOk}</p>
-            ) : null}
+            {provincesOk ? <p className="text-xs text-emerald-600">{provincesOk}</p> : null}
           </div>
         </div>
 
-        {/* ── İlçe Oluşturma Kartı ── */}
         <div className="rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
           <div className="mb-4 flex items-center gap-2">
             <MapPin className="h-5 w-5 text-violet-500" />
-            <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-              Adım 2 — İlçeler oluştur
-            </h2>
+            <h2 className="text-base font-semibold">Adım 2–3 — İlçe & destinasyon</h2>
           </div>
           <p className="mb-4 text-sm text-neutral-500">
-            Bir ülke seçin, ardından her ilin yanındaki butonla ilçelerini oluşturun.
+            Ülke aç → il seç → <strong>İlçeler</strong> → ilçe altında <strong>Destinasyonlar</strong> (popüler semtler).
           </p>
 
           {loading ? (
-            <div className="flex items-center gap-2 text-sm text-neutral-400">
-              <Loader2 className="h-4 w-4 animate-spin" />Yükleniyor…
-            </div>
+            <Loader2 className="h-4 w-4 animate-spin text-neutral-400" />
           ) : (
-            <div className="space-y-1 max-h-72 overflow-y-auto">
+            <div className="max-h-96 space-y-1 overflow-y-auto">
               {countries.map((c) => (
                 <div key={c.id}>
                   <button
@@ -257,32 +277,63 @@ export default function AiRegionsClient() {
                     onClick={() => void handleExpandCountry(c.id)}
                     className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800"
                   >
-                    <span className="font-medium text-neutral-800 dark:text-neutral-200">{c.name}</span>
-                    {expandedCountry === c.id
-                      ? <ChevronDown className="h-4 w-4 text-neutral-400" />
-                      : <ChevronRight className="h-4 w-4 text-neutral-400" />}
+                    <span className="font-medium">{c.name}</span>
+                    {expandedCountry === c.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                   </button>
                   {expandedCountry === c.id ? (
-                    <div className="ml-4 border-l border-neutral-100 pl-3 dark:border-neutral-800">
+                    <div className="ml-3 border-l pl-2">
                       {loadingRegions ? (
-                        <p className="py-2 text-xs text-neutral-400"><Loader2 className="inline h-3 w-3 animate-spin" /> Yükleniyor…</p>
+                        <p className="py-2 text-xs text-neutral-400">İller yükleniyor…</p>
                       ) : regionsFor.length === 0 ? (
-                        <p className="py-2 text-xs text-neutral-400">İl bulunamadı. Önce Adım 1 ile oluşturun.</p>
+                        <p className="py-2 text-xs text-neutral-400">Önce Adım 1 ile il oluşturun.</p>
                       ) : (
                         regionsFor.map((r) => (
-                          <div key={r.id} className="flex items-center justify-between py-1">
-                            <span className="text-xs text-neutral-600 dark:text-neutral-400">{r.name}</span>
-                            <button
-                              type="button"
-                              disabled={creatingDistricts === r.id}
-                              onClick={() => void handleCreateDistricts(r)}
-                              className="flex items-center gap-1 rounded-lg bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50 dark:bg-violet-950/30 dark:text-violet-300"
-                            >
-                              {creatingDistricts === r.id
-                                ? <Loader2 className="h-3 w-3 animate-spin" />
-                                : <Plus className="h-3 w-3" />}
-                              İlçeler
-                            </button>
+                          <div key={r.id} className="py-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void handleExpandRegion(r.id)}
+                                className="text-left text-xs font-medium text-neutral-700 dark:text-neutral-300"
+                              >
+                                {r.name}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={creatingDistricts === r.id}
+                                onClick={() => void handleCreateDistricts(r)}
+                                className="shrink-0 rounded bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-950/40 dark:text-violet-300"
+                              >
+                                {creatingDistricts === r.id ? <Loader2 className="inline h-3 w-3 animate-spin" /> : 'İlçeler'}
+                              </button>
+                            </div>
+                            {expandedRegion === r.id ? (
+                              <div className="mt-1 space-y-1 border-l border-neutral-100 pl-2 dark:border-neutral-800">
+                                {loadingDistricts ? (
+                                  <p className="text-[10px] text-neutral-400">İlçeler…</p>
+                                ) : districtsFor.length === 0 ? (
+                                  <p className="text-[10px] text-neutral-400">İlçe yok — «İlçeler» ile üretin.</p>
+                                ) : (
+                                  districtsFor.map((d) => (
+                                    <div key={d.id} className="flex items-center justify-between gap-1 py-0.5">
+                                      <span className="text-[10px] text-neutral-600 dark:text-neutral-400">{d.name}</span>
+                                      <button
+                                        type="button"
+                                        disabled={creatingDestinations === d.id}
+                                        onClick={() => void handleCreateDestinations(d, r)}
+                                        className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] text-amber-800 dark:bg-amber-950/30 dark:text-amber-200"
+                                        title={`${slugToLabel(d.slug)} için popüler alt bölgeler`}
+                                      >
+                                        {creatingDestinations === d.id ? (
+                                          <Loader2 className="inline h-3 w-3 animate-spin" />
+                                        ) : (
+                                          'Destinasyon'
+                                        )}
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            ) : null}
                           </div>
                         ))
                       )}
@@ -290,79 +341,20 @@ export default function AiRegionsClient() {
                   ) : null}
                 </div>
               ))}
-              {countries.length === 0 && (
-                <p className="text-sm text-neutral-400">Henüz ülke yok. Önce Ülkeler sayfasından ekleyin.</p>
-              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Görev Geçmişi ── */}
-      <div className="mt-8">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-            AI Görev Geçmişi
-          </h2>
-          <button
-            type="button"
-            onClick={() => void loadData()}
-            className="flex items-center gap-1.5 rounded-xl border border-neutral-200 px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-400"
-          >
-            <RefreshCw className={clsx('h-3.5 w-3.5', loading && 'animate-spin')} />
-            Yenile
-          </button>
-        </div>
-
-        <div className="overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
-          {tasks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-neutral-400">
-              <Bot className="mb-2 h-8 w-8 opacity-40" />
-              <p className="text-sm">Henüz görev yok.</p>
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral-50 bg-neutral-50 text-xs font-semibold uppercase tracking-wide text-neutral-400 dark:border-neutral-800 dark:bg-neutral-800/50">
-                  <th className="py-3 pl-5 text-left">Ülke</th>
-                  <th className="py-3 text-left">Adım</th>
-                  <th className="py-3 text-left">Durum</th>
-                  <th className="py-3 pr-5 text-right">Oluşturulma</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
-                {tasks.map((t, idx) => (
-                  <tr key={String(t.id ?? idx)} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/40">
-                    <td className="py-3 pl-5 font-medium text-neutral-800 dark:text-neutral-200">
-                      {String(t.country_name ?? '—')}
-                    </td>
-                    <td className="py-3 text-xs text-neutral-500">
-                      {String(t.step ?? '—') === 'generate_regions' ? (
-                        <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />İller</span>
-                      ) : (
-                        <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />İlçeler</span>
-                      )}
-                    </td>
-                    <td className="py-3">
-                      {statusBadge(t.step)}
-                    </td>
-                    <td className="py-3 pr-5 text-right text-xs text-neutral-400">
-                      {t.created_at ? new Date(String(t.created_at)).toLocaleString('tr-TR') : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        <div className="mt-3 flex items-start gap-2 rounded-xl bg-violet-50 p-4 text-sm text-violet-700 dark:bg-violet-950/20 dark:text-violet-300">
-          <Check className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
-            Görev tamamlandığında oluşturulan il/ilçeler otomatik olarak sisteme kaydedilir.
-            <a href="../regions/countries" className="ml-1 underline">Ülkeler & İlçeler</a> sayfasında görüntüleyebilirsiniz.
-          </p>
-        </div>
+      <div className="mt-6 flex items-start gap-2 rounded-xl bg-violet-50 p-4 text-sm text-violet-700 dark:bg-violet-950/20 dark:text-violet-300">
+        <Check className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          Destinasyonlar vitrinde ilan kartında görünür (ör. «Kalkan, Kaş, Antalya»). İlan başına atama: katalog → ilan düzenle → vitrin konumu alanları.
+          {' '}
+          <a href="../regions" className="underline">Bölgeler</a>
+          {' · '}
+          <a href="../regions/countries" className="underline">Ülkeler</a>
+        </p>
       </div>
     </div>
   )

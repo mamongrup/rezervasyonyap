@@ -27,9 +27,11 @@ import {
   getAuthMe,
   listAttributeDefs,
   listAttributeGroups,
+  patchAttributeDef,
   putAttributeDefTranslations,
   putAttributeGroupTranslations,
 } from '@/lib/travel-api'
+import { uploadAttributeDefIcon } from '@/lib/upload-attribute-def-icon'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
@@ -479,6 +481,84 @@ function GroupPanel({
   )
 }
 
+function AttributeDefIconUpload({
+  def,
+  orgParam,
+  onUpdated,
+}: {
+  def: AttributeDef
+  orgParam?: string
+  onUpdated: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function applyIconUrl(url: string) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    await patchAttributeDef(token, def.id, { icon_url: url }, orgParam)
+    onUpdated()
+  }
+
+  async function onPick(file: File | undefined) {
+    if (!file) return
+    setBusy(true)
+    try {
+      const url = await uploadAttributeDefIcon(file, def.code)
+      await applyIconUrl(url)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'İkon yüklenemedi')
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      {def.icon_url?.trim() ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={def.icon_url}
+          alt=""
+          className="h-8 w-8 shrink-0 rounded border border-neutral-200 object-contain p-0.5 dark:border-neutral-600"
+        />
+      ) : (
+        <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-dashed border-neutral-300 text-[10px] text-neutral-400 dark:border-neutral-600">
+          —
+        </span>
+      )}
+      <div className="flex flex-col gap-0.5">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+          className="text-xs font-medium text-primary-600 hover:underline disabled:opacity-50 dark:text-primary-400"
+        >
+          {busy ? '…' : def.icon_url ? 'Değiştir' : 'Yükle'}
+        </button>
+        {def.icon_url?.trim() ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void applyIconUrl('').catch((e) => alert(e instanceof Error ? e.message : 'Silinemedi'))}
+            className="text-left text-[10px] text-neutral-400 hover:text-red-600 dark:hover:text-red-400"
+          >
+            Kaldır
+          </button>
+        ) : null}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
+        className="sr-only"
+        onChange={(e) => void onPick(e.target.files?.[0])}
+      />
+    </div>
+  )
+}
+
 // ─── Öznitelik Paneli ─────────────────────────────────────────────────────────
 function DefsPanel({
   group,
@@ -730,6 +810,7 @@ function DefsPanel({
               <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                 <tr>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Öznitelik</th>
+                  <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">İkon</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Tür</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Seçenekler</th>
                   <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-neutral-500">Zorunlu</th>
@@ -742,6 +823,10 @@ function DefsPanel({
                   <tr key={d.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/30">
                     <td className="px-4 py-3">
                       <p className="font-medium text-neutral-800 dark:text-neutral-200">{d.label}</p>
+                      <p className="mt-0.5 font-mono text-[10px] text-neutral-400">{d.code}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <AttributeDefIconUpload def={d} orgParam={orgParam} onUpdated={load} />
                     </td>
                     <td className="px-4 py-3">
                       <Badge color={d.field_type === 'boolean' ? 'green' : d.field_type.includes('select') ? 'blue' : 'neutral'}>

@@ -1,6 +1,7 @@
 import { getCatalogMenuForLocale } from '@/data/catalog-menu'
 import { resolveMegaMenuFeatured } from '@/data/mega-menu-sidebar'
 import { getNavMegaMenuLocalized, resolveHeaderCurrencies } from '@/data/navigation'
+import { pickEffectiveSiteLogoUrls } from '@/lib/resolve-site-logo-url'
 import { vitrinHref } from '@/lib/vitrin-href'
 import Logo from '@/shared/Logo'
 import clsx from 'clsx'
@@ -29,8 +30,12 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
     getCatalogMenuForLocale(locale),
   ])
   const branding = siteConfig?.branding as Record<string, unknown> | null ?? null
-  const logoSrc = typeof branding?.logo_url === 'string' && branding.logo_url ? branding.logo_url : undefined
-  const logoDarkSrc = typeof branding?.logo_url_dark === 'string' && branding.logo_url_dark ? branding.logo_url_dark : undefined
+  const pickedLogos = pickEffectiveSiteLogoUrls(
+    typeof branding?.logo_url === 'string' ? branding.logo_url : null,
+    typeof branding?.logo_url_dark === 'string' ? branding.logo_url_dark : null,
+  )
+  const logoSrc = pickedLogos.light ?? undefined
+  const logoDarkSrc = pickedLogos.dark ?? undefined
   const siteName = typeof branding?.site_name === 'string' ? branding.site_name : 'Logo'
 
   const resolvedCatalogItems = await Promise.all(

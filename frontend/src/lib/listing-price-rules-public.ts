@@ -142,6 +142,17 @@ export type SeasonalPricingBuildOptions = {
   preferDualMealColumns?: boolean
 }
 
+const PERIOD_TITLE_DATE_SEP = ' - '
+
+/** İçe aktarma / eski kayıtlardaki otomatik etiketleri vitrinde gösterme */
+export function sanitizeSeasonPeriodLabel(label: string): string {
+  const t = label.trim()
+  if (!t) return ''
+  if (/^bravo\s+dönem\b/i.test(t)) return ''
+  if (/^dönem\s+\d{4}-\d{2}-\d{2}/i.test(t)) return ''
+  return t
+}
+
 function formatPeriodLabel(
   r: ListingPriceRuleRow,
   parsed: ParsedPriceRuleJson,
@@ -150,7 +161,7 @@ function formatPeriodLabel(
 ): string {
   const vf = r.valid_from ?? null
   const vt = r.valid_to ?? null
-  const label = parsed.label.trim()
+  const label = sanitizeSeasonPeriodLabel(parsed.label)
   const dateParts: string[] = []
   if (vf && vt) {
     dateParts.push(`${formatLongDate(vf, locale)} ${msg.rangeSep} ${formatLongDate(vt, locale)}`)
@@ -159,10 +170,19 @@ function formatPeriodLabel(
   } else if (!vf && vt) {
     dateParts.push(`${msg.rangeUntil} ${formatLongDate(vt, locale)}`)
   }
-  if (label && dateParts.length) return `${label} — ${dateParts[0]}`
+  if (label && dateParts.length) return `${label}${PERIOD_TITLE_DATE_SEP}${dateParts[0]}`
   if (label) return label
   if (dateParts.length) return dateParts[0]
   return msg.defaultPeriod
+}
+
+/** Vitrin ve yönetim özet tablosu — dönem sütunu metni */
+export function formatListingSeasonPeriodLabel(
+  r: ListingPriceRuleRow,
+  locale: string,
+  msg: SeasonalPricingCopy,
+): string {
+  return formatPeriodLabel(r, parseListingPriceRuleJson(r.rule_json), locale, msg)
 }
 
 function resolveCompareAtNightly(

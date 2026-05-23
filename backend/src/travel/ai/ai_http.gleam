@@ -13,6 +13,7 @@ import gleam/string
 import pog
 import travel/ai/ai_job_run
 import travel/ai/ops_agent_enqueue
+import travel/ai/region_hierarchy_sync
 import travel/ai/region_provinces_sync
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
@@ -403,6 +404,26 @@ fn gen_prov_decoder() -> decode.Decoder(#(String, Option(String))) {
   })
 }
 
+fn gen_region_id_decoder() -> decode.Decoder(String) {
+  decode.field("region_id", decode.string, fn(rid) {
+    decode.success(string.trim(rid))
+  })
+}
+
+fn gen_district_id_decoder() -> decode.Decoder(String) {
+  decode.field("district_id", decode.string, fn(did) {
+    decode.success(string.trim(did))
+  })
+}
+
+fn gen_outcome_json(out: region_hierarchy_sync.GenOutcome) -> json.Json {
+  json.object([
+    #("job_id", json.string(out.job_id)),
+    #("created", json.int(out.created)),
+    #("skipped", json.int(out.skipped)),
+  ])
+}
+
 /// POST /api/v1/ai/region-tasks/generate-provinces — `admin.users.read` — ülke için illeri AI ile üretir ve DB’ye yazar (senkron).
 pub fn generate_provinces_sync(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
@@ -430,6 +451,58 @@ pub fn generate_provinces_sync(req: Request, ctx: Context) -> Response {
                         |> json.to_string
                       wisp.json_response(body, 200)
                     }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// POST /api/v1/ai/region-tasks/generate-districts — il için ilçeleri AI ile üretir (senkron).
+pub fn generate_districts_sync(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, gen_region_id_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(rid) ->
+              case rid == "" {
+                True -> json_err(400, "region_id_required")
+                False ->
+                  case region_hierarchy_sync.generate_and_insert_districts(ctx, rid) {
+                    Error(e) -> json_err(400, e)
+                    Ok(out) ->
+                      wisp.json_response(gen_outcome_json(out) |> json.to_string, 200)
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// POST /api/v1/ai/region-tasks/generate-destinations — ilçe için popüler alt bölgeleri AI ile üretir (senkron).
+pub fn generate_destinations_sync(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, gen_district_id_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(did) ->
+              case did == "" {
+                True -> json_err(400, "district_id_required")
+                False ->
+                  case region_hierarchy_sync.generate_and_insert_destinations(ctx, did) {
+                    Error(e) -> json_err(400, e)
+                    Ok(out) ->
+                      wisp.json_response(gen_outcome_json(out) |> json.to_string, 200)
                   }
               }
           }

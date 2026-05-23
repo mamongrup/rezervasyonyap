@@ -33,3 +33,7 @@ desktop-tutorial/
 
 # Panelden yüklenen görseller (yerel disk; GitHub’a ve üretim deploy’a taşınmamalı)
 frontend/public/uploads/
+
+# Bravo aktarım yedekleri (dump / SQL — repoya gitmez)
+backups/
+scripts/old-detail-*.json

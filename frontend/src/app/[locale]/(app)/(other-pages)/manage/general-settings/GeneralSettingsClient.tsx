@@ -39,6 +39,7 @@ import {
 } from '@/lib/site-branding-seo'
 import { parseLenientJson } from '@/lib/json-parse'
 import type { BrandingUploadPurpose } from '@/lib/upload-branding-asset'
+import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
 import CurrencyReorderTable from './CurrencyReorderTable'
 import TravelHomeCategoryOrderPanel from './TravelHomeCategoryOrderPanel'
 import { normalizeTravelCategoryHomeOrder } from '@/data/category-registry'
@@ -92,22 +93,22 @@ function BrandingImageUploadRow({
     [purpose],
   )
 
+  const previewSrc = url ? managePanelUploadPreviewSrc(url) : ''
+
   const previewBox =
     preview === 'favicon' ? (
       <div className="mt-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
-        {url ? (
-           
-          <img src={url} alt="" className="h-9 w-9 object-contain" />
+        {previewSrc ? (
+          <img src={previewSrc} alt="" className="h-9 w-9 object-contain" />
         ) : (
           <span className="text-[10px] text-neutral-400">—</span>
         )}
       </div>
     ) : preview === 'logo-dark' ? (
       <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 bg-neutral-900 p-3 dark:border-neutral-800">
-        {url ? (
+        {previewSrc ? (
           <>
-            { }
-            <img src={url} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
+            <img src={previewSrc} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
             <span className="text-xs text-neutral-500">Koyu tema önizleme</span>
           </>
         ) : (
@@ -116,10 +117,9 @@ function BrandingImageUploadRow({
       </div>
     ) : (
       <div className="mt-3 flex items-center gap-3 rounded-xl border border-neutral-100 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900">
-        {url ? (
+        {previewSrc ? (
           <>
-            { }
-            <img src={url} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
+            <img src={previewSrc} alt="" className="h-10 w-auto max-w-[200px] object-contain" />
             <span className="text-xs text-neutral-400">Önizleme</span>
           </>
         ) : (
@@ -1116,7 +1116,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="PNG, JPEG, WebP, AVIF veya SVG. En fazla 2 MB."
                   url={logoUrl}
                   onChange={setLogoUrl}
-                  purpose="logo-light"
+                  purpose="brand-logo-light"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
                   preview="logo-light"
                 />
@@ -1125,7 +1125,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="Koyu arka planda okunaklı bir varyant."
                   url={logoDarkUrl}
                   onChange={setLogoDarkUrl}
-                  purpose="logo-dark"
+                  purpose="brand-logo-dark"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.svg"
                   preview="logo-dark"
                 />
@@ -1231,7 +1231,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                   hint="PNG, ICO, WebP veya SVG. En fazla 2 MB."
                   url={faviconUrl}
                   onChange={setFaviconUrl}
-                  purpose="favicon"
+                  purpose="brand-favicon"
                   accept="image/png,image/jpeg,image/webp,image/avif,image/svg+xml,.ico,image/x-icon"
                   preview="favicon"
                 />

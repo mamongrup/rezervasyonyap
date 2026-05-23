@@ -907,6 +907,8 @@ export const en = {
   avatarMenu: {
     adminPanel: 'Admin Panel',
     admin: 'Admin',
+    /** Header menüsü — ad ve e-posta yokken (kimlik bilinmiyor) */
+    memberLabel: 'Member',
     profile: 'My Profile',
     reservations: 'My Reservations',
     favorites: 'My Favorites',
@@ -1129,7 +1131,7 @@ export const en = {
       showLess: 'Show less',
       demoBadge: 'Illustrative example rates',
       defaultPeriod: 'All dates',
-      rangeSep: '–',
+      rangeSep: ' - ',
       rangeFromOpen: 'onwards',
       rangeUntil: 'Until',
       extraChargesTitle: 'Additional fees',
@@ -1373,6 +1375,13 @@ export const en = {
     villaHouseRulesHeading: 'House rules',
     villaHouseRulesIntro:
       'Select templates from Catalog → Rules (same pool as hotel / yacht listings). These replace the old fixed villa chips.',
+    holidayHome: {
+      amenitiesTitle: 'Property amenities',
+      amenitiesIntro:
+        'Indoor and outdoor features (pool, A/C, jacuzzi, etc.). Listing type and theme are on the Holiday home — type & themes tab.',
+      priceLinesIntro:
+        'Included and excluded price lines (electricity, cleaning, towels, etc.) appear in the public price section.',
+    },
     calendar: {
       title: 'Daily availability & price',
       intro:
@@ -1447,6 +1456,10 @@ export const en = {
     attr: {
       emptyGroupsTitle: 'No attribute groups are defined for this category',
       emptyGroupsHint: 'Create groups and attributes from Catalog → Attributes.',
+      emptyAmenityGroupsTitle: 'Indoor / outdoor amenity groups are not configured',
+      emptyAmenityGroupsHint:
+        'Check «Indoor amenities» and «Outdoor amenities» groups under Catalog → Attributes.',
+      saveAmenitiesBtn: 'Save amenities',
       selectPlaceholder: '— Select —',
       yes: 'Yes',
       no: 'No',

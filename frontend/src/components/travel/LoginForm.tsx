@@ -3,7 +3,8 @@
 import { formatAuthApiError } from '@/lib/auth-error-messages'
 import { resolvePostLoginPath } from '@/lib/post-login-redirect'
 import { getAuthMe, loginUser } from '@/lib/travel-api'
-import { setStoredAuthToken } from '@/lib/auth-storage'
+import { profileFieldsFromAuthUser } from '@/lib/auth-display'
+import { notifyAuthChanged, setStoredAuthProfile, setStoredAuthToken } from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -41,13 +42,18 @@ export default function LoginForm({ locale, onSuccess }: LoginFormProps) {
     try {
       const res = await loginUser({ email, password })
       setStoredAuthToken(res.token)
+      setStoredAuthProfile(profileFieldsFromAuthUser(res.user))
+      notifyAuthChanged()
+      const me = await getAuthMe(res.token).catch(() => null)
       if (onSuccess) {
         onSuccess()
         router.refresh()
-      } else {
-        const me = await getAuthMe(res.token)
+      } else if (me) {
         const path = resolvePostLoginPath(me.permissions ?? [], me.roles ?? [])
         router.push(vitrinPath(path))
+        router.refresh()
+      } else {
+        router.push(vitrinPath('/account'))
         router.refresh()
       }
     } catch (err) {

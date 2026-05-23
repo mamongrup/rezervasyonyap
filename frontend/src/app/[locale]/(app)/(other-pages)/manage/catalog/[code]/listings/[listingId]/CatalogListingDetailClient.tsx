@@ -12,7 +12,10 @@ import {
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
-import { listingRuleCompareAtNightly } from '@/lib/listing-price-rules-public'
+import {
+  formatListingSeasonPeriodLabel,
+  listingRuleCompareAtNightly,
+} from '@/lib/listing-price-rules-public'
 import {
   addManageHotelRoom,
   patchListingBasics,
@@ -70,6 +73,7 @@ import {
   type MealPlanCode,
   type PriceLineItem,
   type ListingMeta,
+  listLocationPages,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { HolidayHomeIcalManagedRow } from '@/components/manage/HolidayHomeIcalManagedRow'
@@ -101,7 +105,9 @@ import {
   ScrollText,
   ClipboardList,
   Info,
+  Sparkles,
 } from 'lucide-react'
+import { filterHolidayHomeAttributeGroups } from '@/lib/holiday-home-listing-fields'
 import { VerticalDetailsSection } from '../../../VerticalDetailsSection'
 import ListingImagesSection from '../../../ListingImagesSection'
 import PlacesAutocompleteInput from '@/components/editor/PlacesAutocompleteInput'
@@ -272,26 +278,6 @@ function formatManageListingMoney(amount: number, currencyCode: string, locale: 
   }
 }
 
-function formatSeasonalPeriodLabel(
-  from: string | null,
-  to: string | null,
-  locale: string,
-  fallback: string,
-): string {
-  const f = from?.trim()
-  const t = to?.trim()
-  if (!f || !t) return fallback
-  const ds = new Date(`${f}T12:00:00`)
-  const de = new Date(`${t}T12:00:00`)
-  if (Number.isNaN(ds.getTime()) || Number.isNaN(de.getTime())) return fallback
-  const fmt = new Intl.DateTimeFormat(locale === 'tr' ? 'tr-TR' : 'en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-  return `${fmt.format(ds)} – ${fmt.format(de)}`
-}
-
 /** Tatil evi — Müsaitlik sekmesinin altında dönemsel fiyat özet tablosu */
 function HolidayHomeSeasonalPricingCalendarSummary({
   rules,
@@ -357,12 +343,12 @@ function HolidayHomeSeasonalPricingCalendarSummary({
                 const weeklyStored = parseWeeklyFromRuleObject(obj)
                 const weeklyNum = weeklyStored ?? (baseNum != null ? baseNum * 7 : null)
 
-                const periodLabel = formatSeasonalPeriodLabel(
-                  r.valid_from,
-                  r.valid_to,
-                  locale,
-                  seasonalUi.calendarSummaryDefaultPeriod,
-                )
+                const periodLabel = formatListingSeasonPeriodLabel(r, locale, {
+                  defaultPeriod: seasonalUi.calendarSummaryDefaultPeriod,
+                  rangeSep: ' - ',
+                  rangeFromOpen: 've sonrası',
+                  rangeUntil: 'Şu tarihe kadar:',
+                })
 
                 const compareNightly =
                   baseNum != null ? listingRuleCompareAtNightly(baseNum, r.rule_json) : null
@@ -483,7 +469,7 @@ function ListingAttributeValuesSection({
       getListingAttributeValues(token, listingId),
     ])
       .then(async ([gRes, vRes]) => {
-        const gs = gRes.groups
+        const gs = filterHolidayHomeAttributeGroups(gRes.groups, categoryCode)
         setGroups(gs)
         // load defs for each group
         const dm: Record<string, AttributeDef[]> = {}
@@ -545,14 +531,14 @@ function ListingAttributeValuesSection({
   if (loading) return <p className="text-sm text-neutral-400">{ui.common.loading}</p>
 
   if (groups.length === 0) {
+    const emptyHint =
+      categoryCode === 'holiday_home' ? ui.attr.emptyAmenityGroupsHint : ui.attr.emptyGroupsHint
+    const emptyTitle =
+      categoryCode === 'holiday_home' ? ui.attr.emptyAmenityGroupsTitle : ui.attr.emptyGroupsTitle
     return (
       <div className="rounded-2xl border border-dashed border-neutral-300 p-10 text-center dark:border-neutral-700">
-        <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">
-          {ui.attr.emptyGroupsTitle}
-        </p>
-        <p className="mt-1 text-xs text-neutral-400">
-          {ui.attr.emptyGroupsHint}
-        </p>
+        <p className="text-sm font-medium text-neutral-600 dark:text-neutral-300">{emptyTitle}</p>
+        <p className="mt-1 text-xs text-neutral-400">{emptyHint}</p>
       </div>
     )
   }
@@ -635,7 +621,7 @@ function ListingAttributeValuesSection({
       )}
 
       <ButtonPrimary type="button" disabled={busy} onClick={() => void save()}>
-        {busy ? ui.common.ellipsis : ui.attrSaveBtn}
+        {busy ? ui.common.ellipsis : categoryCode === 'holiday_home' ? ui.attr.saveAmenitiesBtn : ui.attrSaveBtn}
       </ButtonPrimary>
     </div>
   )
@@ -1085,6 +1071,12 @@ export default function CatalogListingDetailClient({
   const [squareMeters, setSquareMeters] = useState('')
   const [maxGuests, setMaxGuests] = useState('')
   const [address, setAddress] = useState('')
+  const [districtLabel, setDistrictLabel] = useState('')
+  const [cityDisplay, setCityDisplay] = useState('')
+  const [provinceCity, setProvinceCity] = useState('')
+  const [destinationOptions, setDestinationOptions] = useState<
+    { id: string; title: string; districtName: string; regionName: string }[]
+  >([])
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [minAdvanceBookingDays, setMinAdvanceBookingDays] = useState('')
@@ -1225,6 +1217,9 @@ export default function CatalogListingDetailClient({
         setSquareMeters(meta.square_meters ?? '')
         setMaxGuests(meta.max_guests ?? '')
         setAddress(meta.address ?? '')
+        setDistrictLabel(meta.district_label ?? '')
+        setCityDisplay(meta.city ?? '')
+        setProvinceCity(meta.province_city ?? '')
         setLat(metaTxt(meta.lat))
         setLng(metaTxt(meta.lng))
         setMinAdvanceBookingDays(meta.min_advance_booking_days ?? '')
@@ -1235,6 +1230,36 @@ export default function CatalogListingDetailClient({
       /* ignore */
     }
   }, [listingId, needOrg, orgId, orgQ])
+
+  useEffect(() => {
+    if (categoryCode !== 'holiday_home') return
+    void listLocationPages({ limit: 400 })
+      .then((res) => {
+        const opts = res.pages
+          .filter((p) => p.region_type === 'destination')
+          .map((p) => {
+            const parts = p.slug_path.split('/').filter(Boolean)
+            const regionSlug = parts.length >= 2 ? parts[1]! : ''
+            const districtSlug = parts.length >= 3 ? parts[2]! : ''
+            const tail = parts.length >= 4 ? parts[3]! : parts[parts.length - 1] ?? ''
+            const title = (p.title ?? '').trim() || tail.replace(/-/g, ' ')
+            const slugLabel = (s: string) =>
+              s
+                .split('-')
+                .filter(Boolean)
+                .map((w) => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1))
+                .join(' ')
+            return {
+              id: p.id,
+              title,
+              districtName: slugLabel(districtSlug),
+              regionName: slugLabel(regionSlug),
+            }
+          })
+        setDestinationOptions(opts)
+      })
+      .catch(() => {})
+  }, [categoryCode])
 
   // ── Yükle: Takvim ──
   const loadCalendar = useCallback(async () => {
@@ -1413,6 +1438,9 @@ export default function CatalogListingDetailClient({
       assignTrim('square_meters', squareMeters)
       assignTrim('max_guests', maxGuests)
       assignTrim('address', address)
+      assignTrim('district_label', districtLabel)
+      assignTrim('city', cityDisplay)
+      assignTrim('province_city', provinceCity)
       assignTrim('lat', String(lat ?? ''))
       assignTrim('lng', String(lng ?? ''))
       assignTrim('min_advance_booking_days', minAdvanceBookingDays)
@@ -2145,6 +2173,55 @@ export default function CatalogListingDetailClient({
                 <Input className="mt-1" value={lng} onChange={(e) => setLng(e.target.value)} />
               </Field>
             </div>
+            {categoryCode === 'holiday_home' ? (
+              <div className="mt-4 space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+                <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+                  Vitrin konumu (kartta görünen)
+                </p>
+                <p className="text-xs text-neutral-500">
+                  Örnek: Ölüdeniz, Fethiye, Muğla — destinasyon listesinden seçebilir veya elle yazabilirsiniz.
+                </p>
+                {destinationOptions.length > 0 ? (
+                  <Field className="block">
+                    <Label>Destinasyondan doldur</Label>
+                    <select
+                      className="mt-1 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                      defaultValue=""
+                      onChange={(e) => {
+                        const id = e.target.value
+                        if (!id) return
+                        const d = destinationOptions.find((x) => x.id === id)
+                        if (!d) return
+                        setDistrictLabel(d.title)
+                        setCityDisplay(d.districtName)
+                        setProvinceCity(d.regionName)
+                      }}
+                    >
+                      <option value="">— Seçin —</option>
+                      {destinationOptions.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.title}, {d.districtName}, {d.regionName}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : null}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field className="block">
+                    <Label>Semt / mahalle</Label>
+                    <Input className="mt-1" value={districtLabel} onChange={(e) => setDistrictLabel(e.target.value)} placeholder="Ölüdeniz" />
+                  </Field>
+                  <Field className="block">
+                    <Label>İlçe</Label>
+                    <Input className="mt-1" value={cityDisplay} onChange={(e) => setCityDisplay(e.target.value)} placeholder="Fethiye" />
+                  </Field>
+                  <Field className="block">
+                    <Label>İl</Label>
+                    <Input className="mt-1" value={provinceCity} onChange={(e) => setProvinceCity(e.target.value)} placeholder="Muğla" />
+                  </Field>
+                </div>
+              </div>
+            ) : null}
             <Field className="mt-4 block">
               <Label>{ui.listingForm.address}</Label>
               <div className="mt-1">
@@ -3066,88 +3143,153 @@ export default function CatalogListingDetailClient({
         </div>
       )}
 
-      {/* ═══ SEKME: ÖZELLİKLER (tatil evde: tip/tema → öznitelik → kurallar → dahil/hariç; diğer: öznitelik → kurallar → kategori alanları → dahil/hariç) ═══ */}
+      {/* ═══ SEKME: ÖZELLİKLER — tatil evi: tip → tema → olanaklar → kurallar → dahil/hariç ═══ */}
       {activeTab === 'vertical' && (
         <div className="mt-6 space-y-10">
           {categoryCode === 'holiday_home' ? (
-            <VerticalDetailsSection
-              categoryCode={categoryCode}
-              listingId={listingId}
-              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-              holidayHomeLayout="split_cards"
-            />
-          ) : null}
-
-          <section aria-labelledby="listing-attrs-heading">
-            <h3
-              id="listing-attrs-heading"
-              className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
-            >
-              <Layers className="h-5 w-5 shrink-0 text-primary-600" />
-              {ui.tabs.attributes}
-            </h3>
-            <ListingAttributeValuesSection
-              listingId={listingId}
-              categoryCode={categoryCode}
-              token={getStoredAuthToken() ?? ''}
-              organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-            />
-          </section>
-
-          {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) ? (
-            <section aria-labelledby="listing-acc-rules-heading">
-              <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-                <h3
-                  id="listing-acc-rules-heading"
-                  className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
-                >
-                  <ScrollText className="h-5 w-5 shrink-0 text-primary-600" />
-                  {categoryCode === 'holiday_home' ? ui.villaHouseRulesHeading : ui.tabs.accommodation_rules}
-                </h3>
-                <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
-                  {categoryCode === 'holiday_home' ? ui.villaHouseRulesIntro : ui.accommodationRules.panelIntro}
-                </p>
-                <ListingAccommodationRulesSection
-                  listingId={listingId}
-                  categoryCode={categoryCode}
-                  token={getStoredAuthToken() ?? ''}
-                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
-                  embedded
-                />
-              </div>
-            </section>
-          ) : null}
-
-          {categoryCode !== 'holiday_home' ? (
-            <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
-              <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
-                <Settings2 className="h-5 w-5 text-primary-600" />
-                {verticalSectionTitle(ui.verticalTitles, categoryCode)}
-              </h2>
+            <>
               <VerticalDetailsSection
                 categoryCode={categoryCode}
                 listingId={listingId}
                 organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                holidayHomeLayout="split_cards"
               />
-            </div>
-          ) : null}
 
-          <section aria-labelledby="listing-price-lines-heading">
-            <h3
-              id="listing-price-lines-heading"
-              className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
-            >
-              <ListChecks className="h-5 w-5 shrink-0 text-primary-600" />
-              {ui.tabs.price_lines}
-            </h3>
-            <ListingPriceLinesSection
-              listingId={listingId}
-              categoryCode={categoryCode}
-              token={getStoredAuthToken() ?? ''}
-              requireOrganizationId={needOrg}
-              organizationId={orgId.trim() || undefined}
-            />
-          </section>
+              <section aria-labelledby="listing-amenities-heading">
+                <h3
+                  id="listing-amenities-heading"
+                  className="mb-1 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                >
+                  <Sparkles className="h-5 w-5 shrink-0 text-primary-600" />
+                  {ui.holidayHome.amenitiesTitle}
+                </h3>
+                <p className="mb-4 max-w-3xl text-xs text-neutral-500 dark:text-neutral-400">
+                  {ui.holidayHome.amenitiesIntro}
+                </p>
+                <ListingAttributeValuesSection
+                  listingId={listingId}
+                  categoryCode={categoryCode}
+                  token={getStoredAuthToken() ?? ''}
+                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                />
+              </section>
+
+              {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) ? (
+                <section aria-labelledby="listing-acc-rules-heading">
+                  <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+                    <h3
+                      id="listing-acc-rules-heading"
+                      className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                    >
+                      <ScrollText className="h-5 w-5 shrink-0 text-primary-600" />
+                      {ui.villaHouseRulesHeading}
+                    </h3>
+                    <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+                      {ui.villaHouseRulesIntro}
+                    </p>
+                    <ListingAccommodationRulesSection
+                      listingId={listingId}
+                      categoryCode={categoryCode}
+                      token={getStoredAuthToken() ?? ''}
+                      organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                      embedded
+                    />
+                  </div>
+                </section>
+              ) : null}
+
+              <section aria-labelledby="listing-price-lines-heading">
+                <h3
+                  id="listing-price-lines-heading"
+                  className="mb-1 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                >
+                  <ListChecks className="h-5 w-5 shrink-0 text-primary-600" />
+                  {ui.tabs.price_lines}
+                </h3>
+                <p className="mb-4 max-w-3xl text-xs text-neutral-500 dark:text-neutral-400">
+                  {ui.holidayHome.priceLinesIntro}
+                </p>
+                <ListingPriceLinesSection
+                  listingId={listingId}
+                  categoryCode={categoryCode}
+                  token={getStoredAuthToken() ?? ''}
+                  requireOrganizationId={needOrg}
+                  organizationId={orgId.trim() || undefined}
+                />
+              </section>
+            </>
+          ) : (
+            <>
+              <section aria-labelledby="listing-attrs-heading">
+                <h3
+                  id="listing-attrs-heading"
+                  className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                >
+                  <Layers className="h-5 w-5 shrink-0 text-primary-600" />
+                  {ui.tabs.attributes}
+                </h3>
+                <ListingAttributeValuesSection
+                  listingId={listingId}
+                  categoryCode={categoryCode}
+                  token={getStoredAuthToken() ?? ''}
+                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                />
+              </section>
+
+              {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) ? (
+                <section aria-labelledby="listing-acc-rules-heading">
+                  <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+                    <h3
+                      id="listing-acc-rules-heading"
+                      className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                    >
+                      <ScrollText className="h-5 w-5 shrink-0 text-primary-600" />
+                      {ui.tabs.accommodation_rules}
+                    </h3>
+                    <p className="mb-4 text-xs text-neutral-500 dark:text-neutral-400">
+                      {ui.accommodationRules.panelIntro}
+                    </p>
+                    <ListingAccommodationRulesSection
+                      listingId={listingId}
+                      categoryCode={categoryCode}
+                      token={getStoredAuthToken() ?? ''}
+                      organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                      embedded
+                    />
+                  </div>
+                </section>
+              ) : null}
+
+              <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+                <h2 className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+                  <Settings2 className="h-5 w-5 text-primary-600" />
+                  {verticalSectionTitle(ui.verticalTitles, categoryCode)}
+                </h2>
+                <VerticalDetailsSection
+                  categoryCode={categoryCode}
+                  listingId={listingId}
+                  organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                />
+              </div>
+
+              <section aria-labelledby="listing-price-lines-heading">
+                <h3
+                  id="listing-price-lines-heading"
+                  className="mb-4 flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white"
+                >
+                  <ListChecks className="h-5 w-5 shrink-0 text-primary-600" />
+                  {ui.tabs.price_lines}
+                </h3>
+                <ListingPriceLinesSection
+                  listingId={listingId}
+                  categoryCode={categoryCode}
+                  token={getStoredAuthToken() ?? ''}
+                  requireOrganizationId={needOrg}
+                  organizationId={orgId.trim() || undefined}
+                />
+              </section>
+            </>
+          )}
         </div>
       )}
 

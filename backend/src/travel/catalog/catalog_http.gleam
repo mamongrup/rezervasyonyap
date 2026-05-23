@@ -3929,7 +3929,7 @@ pub fn delete_attribute_group(
 
 // ─── Öznitelik Tanımları ──────────────────────────────────────────────────────
 
-fn attr_def_row() -> decode.Decoder(#(String, String, String, String, String, Int, Bool, Bool)) {
+fn attr_def_row() -> decode.Decoder(#(String, String, String, String, String, Int, Bool, Bool, String)) {
   use id <- decode.field(0, decode.string)
   use code <- decode.field(1, decode.string)
   use label <- decode.field(2, decode.string)
@@ -3938,7 +3938,8 @@ fn attr_def_row() -> decode.Decoder(#(String, String, String, String, String, In
   use sort <- decode.field(5, decode.int)
   use req_f <- decode.field(6, decode.bool)
   use active <- decode.field(7, decode.bool)
-  decode.success(#(id, code, label, ft, opts, sort, req_f, active))
+  use icon <- decode.field(8, decode.string)
+  decode.success(#(id, code, label, ft, opts, sort, req_f, active, icon))
 }
 
 fn group_belongs_to_org(
@@ -3994,7 +3995,8 @@ pub fn list_attribute_defs(
               <> "where dt.def_id = d.id and lower(loc.code) = lower($2) limit 1), "
               <> "(select dt.label from listing_attribute_def_translations dt where dt.def_id = d.id order by dt.locale_id limit 1), "
               <> "d.label, d.code), "
-              <> "d.field_type, coalesce(d.options_json::text,'null'), d.sort_order, d.is_required, d.is_active "
+              <> "d.field_type, coalesce(d.options_json::text,'null'), d.sort_order, d.is_required, d.is_active, "
+              <> "coalesce(d.icon_url, '') "
               <> "from listing_attribute_defs d where d.group_id=$1::uuid order by d.sort_order, d.code",
             )
             |> pog.parameter(pog.text(gid))
@@ -4006,7 +4008,7 @@ pub fn list_attribute_defs(
             Ok(ret) -> {
               let rows =
                 list.map(ret.rows, fn(r) {
-                  let #(id, code, label, ft, opts, sort, req_f, active) = r
+                  let #(id, code, label, ft, opts, sort, req_f, active, icon) = r
                   json.object([
                     #("id", json.string(id)),
                     #("code", json.string(code)),
@@ -4019,6 +4021,10 @@ pub fn list_attribute_defs(
                     #("sort_order", json.int(sort)),
                     #("is_required", json.bool(req_f)),
                     #("is_active", json.bool(active)),
+                    #("icon_url", case string.trim(icon) == "" {
+                      True -> json.null()
+                      False -> json.string(string.trim(icon))
+                    }),
                   ])
                 })
               let body =
@@ -4153,6 +4159,57 @@ pub fn delete_attribute_def(
   }
 }
 
+
+
+fn patch_attr_def_icon_decoder() -> decode.Decoder(String) {
+  decode.field("icon_url", decode.string, fn(icon_url) {
+    decode.success(icon_url)
+  })
+}
+
+/// PATCH /api/v1/catalog/attribute-defs/:did — { "icon_url": "/uploads/..." | "" }
+pub fn patch_attribute_def(
+  req: Request,
+  ctx: Context,
+  did: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case def_belongs_to_org(ctx.db, string.trim(did), org_id) {
+        Error(_) -> json_err(500, "def_scope_check_failed")
+        Ok(False) -> json_err(404, "not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, patch_attr_def_icon_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(icon_raw) -> {
+                  let icon_t = string.trim(icon_raw)
+                  let icon_param = case icon_t == "" {
+                    True -> pog.null()
+                    False -> pog.text(icon_t)
+                  }
+                  case
+                    pog.query(
+                      "update listing_attribute_defs set icon_url = $2 where id = $1::uuid",
+                    )
+                    |> pog.parameter(pog.text(string.trim(did)))
+                    |> pog.parameter(icon_param)
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "attr_def_patch_failed")
+                    Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
+                  }
+                }
+              }
+          }
+      }
+  }
+}
+
 // ─── Listing Öznitelik Değerleri ─────────────────────────────────────────────
 
 fn attr_value_row() -> decode.Decoder(#(String, String, String)) {
@@ -4160,6 +4217,12 @@ fn attr_value_row() -> decode.Decoder(#(String, String, String)) {
   use k <- decode.field(1, decode.string)
   use v <- decode.field(2, decode.string)
   decode.success(#(gc, k, v))
+}
+
+fn attr_icon_pair_row() -> decode.Decoder(#(String, String)) {
+  use k <- decode.field(0, decode.string)
+  use icon <- decode.field(1, decode.string)
+  decode.success(#(k, icon))
 }
 
 /// GET /api/v1/catalog/listings/:id/attribute-values
@@ -4213,11 +4276,12 @@ pub fn get_public_listing_attributes(
   listing_id: String,
 ) -> Response {
   use <- wisp.require_method(req, http.Get)
+  let lid = string.trim(listing_id)
   case
     pog.query(
       "select group_code, key, value_json::text from listing_attributes where listing_id=$1::uuid and group_code != 'listing_meta'",
     )
-    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(lid))
     |> pog.returning(attr_value_row())
     |> pog.execute(ctx.db)
   {
@@ -4232,8 +4296,40 @@ pub fn get_public_listing_attributes(
             #("value_json", json.string(v)),
           ])
         })
+      let icons_json = case
+        pog.query(
+          "select la.key, max(btrim(d.icon_url)) "
+          <> "from listing_attributes la "
+          <> "inner join listing_attribute_groups g on g.code = la.group_code "
+          <> "inner join listing_attribute_defs d on d.group_id = g.id and d.code = la.key "
+          <> "where la.listing_id = $1::uuid and la.group_code != 'listing_meta' "
+          <> "and d.icon_url is not null and btrim(d.icon_url) <> '' "
+          <> "group by la.key",
+        )
+        |> pog.parameter(pog.text(lid))
+        |> pog.returning(attr_icon_pair_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json.object([])
+        Ok(icon_ret) -> {
+          let icon_fields =
+            list.filter_map(icon_ret.rows, fn(pair) {
+              let #(k, icon) = pair
+              let t = string.trim(icon)
+              case t == "" {
+                True -> Error(Nil)
+                False -> Ok(#(k, json.string(t)))
+              }
+            })
+
+          json.object(icon_fields)
+        }
+      }
       let body =
-        json.object([#("values", json.array(rows, fn(x) { x }))])
+        json.object([
+          #("values", json.array(rows, fn(x) { x })),
+          #("icons", icons_json),
+        ])
         |> json.to_string
       wisp.json_response(body, 200)
     }

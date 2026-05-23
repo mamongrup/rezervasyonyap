@@ -1,7 +1,8 @@
 /** Genel ayarlar — logo / favicon için `public/uploads/site` yüklemesi */
 import { uploadFetch } from '@/lib/upload-fetch'
 
-export type BrandingUploadPurpose = 'logo-light' | 'logo-dark' | 'favicon'
+/** `logo-light` gibi sabit adlar önyüzde şablon sanılır; yükleme dosya adı farklı olmalı */
+export type BrandingUploadPurpose = 'brand-logo-light' | 'brand-logo-dark' | 'brand-favicon'
 
 export async function uploadBrandingAsset(file: File, purpose: BrandingUploadPurpose): Promise<string> {
   const form = new FormData()

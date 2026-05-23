@@ -456,9 +456,11 @@ export async function POST(req: NextRequest) {
     // Göreli yol (public/uploads/... — Next.js statik servis eder)
     const publicRel = path.relative(path.join(process.cwd(), 'public'), resolvedOut).replace(/\\/g, '/')
 
+    const publicUrl = `/${publicRel}`
     return NextResponse.json({
       ok: true,
-      path: `/${publicRel}`,
+      path: publicUrl,
+      url: publicUrl,
       thumb: thumbPath
         ? `/${path.relative(path.join(process.cwd(), 'public'), thumbPath).replace(/\\/g, '/')}`
         : undefined,

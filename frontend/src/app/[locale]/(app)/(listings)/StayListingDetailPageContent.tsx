@@ -230,12 +230,14 @@ export default async function StayListingDetailPageContent({
 
   // listing_attributes (admin EAV) → vitrin amenity listesi
   let amenityKeys: string[] = []
+  let amenityIcons: Record<string, string> = {}
   try {
     const attrs = await getPublicListingAttributes(catalogListingId ?? listing.id)
     amenityKeys = attrs.values
       .filter((a) => isAttributeValueTrue(a.value_json))
       .map((a) => a.key)
     amenityKeys = Array.from(new Set(amenityKeys))
+    amenityIcons = attrs.icons ?? {}
   } catch {
     /* attributes API yok — boş liste */
   }
@@ -948,6 +950,7 @@ export default async function StayListingDetailPageContent({
                 locale={locale}
                 variant={isHolidayHome ? 'villa' : 'hotel'}
                 customSelectedIds={amenityKeys}
+                customIcons={amenityIcons}
               />
             </div>
           )}

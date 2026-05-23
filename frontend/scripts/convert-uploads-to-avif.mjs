@@ -15,6 +15,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
+sharp.cache(false)
+sharp.concurrency(1)
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const defaultRoot = path.resolve(__dirname, '..', 'public', 'uploads')
 
@@ -26,11 +29,12 @@ const root = positional[0] ? path.resolve(positional[0]) : defaultRoot
 const CONVERT_EXTS = new Set(['.webp', '.jpg', '.jpeg', '.png', '.jfif'])
 const SKIP_EXTS = new Set(['.avif', '.svg', '.ico', '.pdf', '.gif'])
 
-/** Upload pipeline ile aynı kalite. hero/listings/etc. ayrımı burada yok; tek global değer. */
-const AVIF_QUALITY = 72
-const AVIF_EFFORT = 4
+/** Upload pipeline ile aynı kalite. Büyük görsellerde bellek için max genişlik. */
+const AVIF_QUALITY = Number(process.env.AVIF_QUALITY || 72)
+const AVIF_EFFORT = Number(process.env.AVIF_EFFORT || 3)
+const MAX_WIDTH = Number(process.env.MAX_WIDTH || 1920)
 
-let stats = { converted: 0, skipped: 0, failed: 0, savedBytes: 0 }
+let stats = { converted: 0, skipped: 0, failed: 0, savedBytes: 0, busyKept: 0 }
 
 async function walk(dir) {
   let entries
@@ -87,15 +91,32 @@ async function handleFile(file) {
 
   try {
     const statBefore = await fs.stat(file)
-    const buffer = await sharp(file).avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toBuffer()
+    let pipeline = sharp(file, { failOn: 'none', limitInputPixels: false }).rotate()
+    const meta = await pipeline.metadata()
+    if (meta.width && meta.width > MAX_WIDTH) {
+      pipeline = pipeline.resize({ width: MAX_WIDTH, withoutEnlargement: true })
+    }
+    const buffer = await pipeline.avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toBuffer()
     await fs.writeFile(targetFile, buffer)
-    await fs.unlink(file)
+    let keptOriginal = false
+    try {
+      await fs.unlink(file)
+    } catch (unlinkErr) {
+      if (unlinkErr?.code === 'EBUSY' || unlinkErr?.code === 'EPERM') {
+        keptOriginal = true
+        stats.busyKept++
+      } else {
+        throw unlinkErr
+      }
+    }
     const saved = statBefore.size - buffer.length
     stats.converted++
     stats.savedBytes += saved
     const kb = (saved / 1024).toFixed(1)
+    const tag = keptOriginal ? 'OK*' : 'OK '
+    const note = keptOriginal ? ' (orijinal kilitli)' : ''
     console.log(
-      `OK    ${statBefore.size.toString().padStart(8)}B -> ${buffer.length.toString().padStart(8)}B  (-${kb}KB)  ${path.relative(root, file)}`,
+      `${tag}   ${statBefore.size.toString().padStart(8)}B -> ${buffer.length.toString().padStart(8)}B  (-${kb}KB)${note}  ${path.relative(root, file)}`,
     )
   } catch (err) {
     stats.failed++
@@ -106,5 +127,5 @@ async function handleFile(file) {
 console.log(`[convert-avif] root=${root} dryRun=${dryRun}`)
 await walk(root)
 console.log(
-  `\n[convert-avif] done — converted=${stats.converted} skipped=${stats.skipped} failed=${stats.failed} saved=${(stats.savedBytes / 1024 / 1024).toFixed(2)}MB`,
+  `\n[convert-avif] done — converted=${stats.converted} skipped=${stats.skipped} failed=${stats.failed} busyKeptOriginal=${stats.busyKept} saved=${(stats.savedBytes / 1024 / 1024).toFixed(2)}MB`,
 )

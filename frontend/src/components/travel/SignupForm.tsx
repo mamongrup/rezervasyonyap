@@ -2,7 +2,13 @@
 
 import { formatAuthApiError } from '@/lib/auth-error-messages'
 import { getAuthMe, registerUser } from '@/lib/travel-api'
-import { getStoredAuthToken, setStoredAuthToken } from '@/lib/auth-storage'
+import { profileFieldsFromAuthUser } from '@/lib/auth-display'
+import {
+  getStoredAuthToken,
+  notifyAuthChanged,
+  setStoredAuthProfile,
+  setStoredAuthToken,
+} from '@/lib/auth-storage'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeHrefForLocale } from '@/lib/i18n-config'
 import { TcKimlikWidget } from '@/components/travel/TcKimlikWidget'
@@ -63,6 +69,8 @@ export default function SignupForm({ locale }: { locale: string }) {
         ...(display_name ? { display_name } : {}),
       })
       setStoredAuthToken(res.token)
+      setStoredAuthProfile(profileFieldsFromAuthUser(res.user))
+      notifyAuthChanged()
       // Go to TC verification step instead of directly to account
       setStep('tc-verify')
     } catch (err) {

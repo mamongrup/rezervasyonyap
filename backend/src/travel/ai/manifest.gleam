@@ -8,7 +8,7 @@ pub type AiCapability {
 pub fn capabilities() -> List(AiCapability) {
   [
     AiCapability("deepseek_settings", "DeepSeek API / model ayarları"),
-    AiCapability("region_hierarchy", "Ülke → il → ilçe + koordinat üretimi"),
+    AiCapability("region_hierarchy", "Ülke → il → ilçe → destinasyon + koordinat üretimi"),
     AiCapability("content_writer", "Bölge, blog, sayfa, ilan gövde metni"),
     AiCapability("seo_pack", "Tüm diller için SEO başlık/açıklama/meta"),
     AiCapability("translator", "Dil kuralları + SEO uyumlu çeviri"),

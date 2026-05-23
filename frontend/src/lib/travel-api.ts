@@ -5,6 +5,7 @@
 
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { MAX_AI_UPSTREAM_MS } from '@/lib/ai-upstream-timeouts'
+import { profileFieldsFromAuthUser } from '@/lib/auth-display'
 import { setStoredAuthProfile } from '@/lib/auth-storage'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { parseLenientJson } from '@/lib/json-parse'
@@ -281,7 +282,7 @@ export type PublicListingAttribute = {
 /** Vitrin için listing_attributes satırlarını çeker (auth gerektirmez). */
 export async function getPublicListingAttributes(
   listingId: string,
-): Promise<{ values: PublicListingAttribute[] }> {
+): Promise<{ values: PublicListingAttribute[]; icons?: Record<string, string> }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(
@@ -2219,8 +2220,7 @@ export async function getAuthMe(
   }
   const me = await json<AuthUser & { preferred_locale: string; roles: RoleAssignment[]; permissions: string[] }>(res)
   setStoredAuthProfile({
-    display_name: me.display_name,
-    email: me.email,
+    ...profileFieldsFromAuthUser(me),
     roles: me.roles,
     permissions: me.permissions,
   })
@@ -8215,6 +8215,44 @@ export async function generateAiProvincesSync(
   return json(res)
 }
 
+/** İl için ilçeleri AI ile üretir (`districts` + ilçe `location_pages`). */
+export async function generateAiDistrictsSync(
+  token: string,
+  body: { region_id: string },
+): Promise<{ job_id: string; created: number; skipped: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/region-tasks/generate-districts`, {
+    method: 'POST',
+    headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_generate_districts_${res.status}`)
+  }
+  return json(res)
+}
+
+/** İlçe için popüler destinasyonları AI ile üretir (`location_pages` destination). */
+export async function generateAiDestinationsSync(
+  token: string,
+  body: { district_id: string },
+): Promise<{ job_id: string; created: number; skipped: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/ai/region-tasks/generate-destinations`, {
+    method: 'POST',
+    headers: { ...locJson(), Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `ai_generate_destinations_${res.status}`)
+  }
+  return json(res)
+}
+
 export async function listAiRegionTasks(token: string): Promise<{ tasks: Record<string, unknown>[] }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
@@ -9008,6 +9046,12 @@ export interface ListingMeta {
   tourism_cert_no?: string
   short_stay_fee?: string
   min_short_stay_nights?: string
+  /** Vitrin konum: semt / mahalle (ör. Ölüdeniz, Kalkan) */
+  district_label?: string
+  /** Vitrin konum: ilçe (ör. Fethiye, Kaş) */
+  city?: string
+  /** Vitrin konum: il (ör. Muğla, Antalya) */
+  province_city?: string
 }
 
 /** PostgreSQL jsonb, string değerlerde U+0000 kabul etmez; kayıt öncesi tüm düğümlerde çıkarılır. */
@@ -9049,6 +9093,9 @@ const LISTING_META_PUT_KEYS = new Set([
   'tourism_cert_no',
   'short_stay_fee',
   'min_short_stay_nights',
+  'district_label',
+  'city',
+  'province_city',
 ])
 
 /** listings.map_lat / map_lng = NUMERIC(10,7); aralık dışı veya aşırı hassas değerler PG güncellemesini düşürür */
@@ -9163,6 +9210,7 @@ export interface AttributeDef {
   sort_order: number
   is_required: boolean
   is_active: boolean
+  icon_url?: string | null
 }
 
 function catalogOrgQueryParam(organizationId?: string): string {
@@ -9300,6 +9348,30 @@ export async function deleteAttributeDef(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `attr_def_delete_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchAttributeDef(
+  token: string,
+  defId: string,
+  body: { icon_url: string },
+  organizationId?: string,
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const oq = catalogOrgQueryParam(organizationId)
+  const res = await fetch(
+    `${b}/api/v1/catalog/attribute-defs/${encodeURIComponent(defId)}${oq ? `?${oq}` : ''}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `attr_def_patch_${res.status}`)
   }
   return json(res)
 }

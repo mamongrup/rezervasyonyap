@@ -390,6 +390,15 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     Ok(n) -> case n > 100 { True -> 100  False -> case n < 1 { True -> 20  False -> n } }
     Error(_) -> 20
   }
+  let page_raw =
+    list.key_find(qs, "page")
+    |> result.unwrap("1")
+    |> string.trim
+  let page_num = case int.parse(page_raw) {
+    Ok(n) -> case n < 1 { True -> 1  False -> n }
+    Error(_) -> 1
+  }
+  let offset = int.multiply(page_num - 1, lim)
   // Comma-separated UUID list: listing_ids=uuid1,uuid2,...
   let ids_raw =
     list.key_find(qs, "listing_ids")
@@ -663,11 +672,21 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "     or (bucket.v = '4-7' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 4 and 7) "
     <> "     or (bucket.v = '8+' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int >= 8) "
     <> ")) "
-    <> order_sql
-    <> "limit $5"
 
-  case
-    pog.query(sql)
+  let sql_core = sql <> order_sql
+  // Count subquery must reference $5 and $21 so PostgreSQL can infer parameter types.
+  let count_sql =
+    "select count(*)::int from ("
+    <> sql_core
+    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off) __pg_params"
+  let sql_paged = sql_core <> " offset $21 limit $5"
+  let int_col0 = {
+    use n <- decode.field(0, decode.int)
+    decode.success(n)
+  }
+
+  let run_params = fn(q) {
+    q
     |> pog.parameter(q_param)
     |> pog.parameter(cat_param)
     |> pog.parameter(loc_param)
@@ -688,25 +707,53 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.parameter(tour_travel_type_param)
     |> pog.parameter(tour_accommodation_param)
     |> pog.parameter(tour_duration_param)
-    |> pog.returning(pub_listing_row())
+    |> pog.parameter(pog.int(offset))
+  }
+
+  case
+    pog.query(count_sql)
+    |> run_params
+    |> pog.returning(int_col0)
     |> pog.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.public.listings] " <> pog_errors.query_error_to_string(e),
+          "[catalog.public.listings:count] "
+            <> pog_errors.query_error_to_string(e),
         )
       json_err(500, "search_failed")
     }
-    Ok(ret) -> {
-      let arr = list.map(ret.rows, pub_listing_json)
-      let body =
-        json.object([
-          #("listings", json.array(from: arr, of: fn(x) { x })),
-          #("total", json.int(list.length(arr))),
-        ])
-        |> json.to_string
-      wisp.json_response(body, 200)
+    Ok(count_ret) -> {
+      let total_count = case count_ret.rows {
+        [n] -> n
+        _ -> 0
+      }
+      case
+        pog.query(sql_paged)
+        |> run_params
+        |> pog.returning(pub_listing_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(e) -> {
+          let _ =
+            io.println(
+              "[catalog.public.listings] "
+                <> pog_errors.query_error_to_string(e),
+            )
+          json_err(500, "search_failed")
+        }
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, pub_listing_json)
+          let body =
+            json.object([
+              #("listings", json.array(from: arr, of: fn(x) { x })),
+              #("total", json.int(total_count)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
     }
   }
 }
