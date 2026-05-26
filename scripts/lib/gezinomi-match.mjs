@@ -3,6 +3,7 @@
 import { wtatilSlugBase } from './gezinomi-gallery.mjs'
 
 const API = 'https://apigezinomi.gezinomi.com/api/Tour/SearchAutoComplate'
+const MIN_ACCEPT_SCORE = 62
 
 export function normalizeForMatch(s) {
   return String(s || '')
@@ -39,6 +40,35 @@ export function slugMatchScore(listingSlug, candidateLink) {
   return Math.round((common / Math.max(a.length, b.length)) * 100)
 }
 
+/** Başlık ↔ Gezinomi tur adı benzerliği (link farklı olsa bile) */
+export function titleMatchScore(listingTitle, candidateName) {
+  const a = normalizeForMatch(listingTitle)
+  const b = normalizeForMatch(candidateName)
+  if (!a || !b) return 0
+  if (a === b) return 100
+  const shorter = a.length <= b.length ? a : b
+  const longer = a.length > b.length ? a : b
+  if (shorter.length >= 14 && longer.includes(shorter)) return 88
+
+  const words = String(listingTitle || '')
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => normalizeForMatch(w))
+    .filter((w) => w.length >= 4)
+  if (!words.length) return 0
+  let hits = 0
+  for (const w of words) {
+    if (b.includes(w)) hits++
+  }
+  return Math.round((hits / words.length) * 100)
+}
+
+function combinedScore(slug, title, row) {
+  const slugScore = slugMatchScore(slug, row.link)
+  const titleScore = titleMatchScore(title, row.name)
+  return Math.max(slugScore, titleScore, Math.round(slugScore * 0.45 + titleScore * 0.55))
+}
+
 export async function searchGezinomiTours(query) {
   const q = String(query || '').trim()
   if (!q) return []
@@ -49,7 +79,7 @@ export async function searchGezinomiTours(query) {
   })
   if (!r.ok) throw new Error(`SearchAutoComplate HTTP ${r.status}`)
   const j = await r.json()
-  return (j.data || []).filter((x) => x.type === 'Tour' && x.link)
+  return (j.data || []).filter((x) => x.type === 'Tour' && x.link && x.productId)
 }
 
 export function gezinomiLinkFromWtatilSlug(slug) {
@@ -62,11 +92,14 @@ export function gezinomiLinkFromWtatilSlug(slug) {
 
 export async function matchListingToGezinomi({ slug, title }) {
   const derivedLink = gezinomiLinkFromWtatilSlug(slug)
+  const slugWords = wtatilSlugBase(slug).replace(/-/g, ' ')
   const queries = [
     title,
     derivedLink.replace(/-/g, ' '),
-    wtatilSlugBase(slug).replace(/-/g, ' '),
-    wtatilSlugBase(slug).split('-').slice(0, 8).join(' '),
+    slugWords,
+    slugWords.split(' ').slice(0, 10).join(' '),
+    slugWords.split(' ').slice(0, 6).join(' '),
+    slugWords.split(' ').slice(0, 4).join(' '),
   ].filter(Boolean)
 
   let best = null
@@ -82,10 +115,13 @@ export async function matchListingToGezinomi({ slug, title }) {
     for (const row of results) {
       if (seenLinks.has(row.link)) continue
       seenLinks.add(row.link)
-      const score = slugMatchScore(slug, row.link)
+      const score = combinedScore(slug, title, row)
+      if (score < MIN_ACCEPT_SCORE) continue
       if (!best || score > best.score) {
         best = {
           score,
+          slugScore: slugMatchScore(slug, row.link),
+          titleScore: titleMatchScore(title, row.name),
           link: row.link,
           name: row.name,
           productId: row.productId,
@@ -97,44 +133,9 @@ export async function matchListingToGezinomi({ slug, title }) {
         }
       }
     }
-    if (best?.score >= 95) break
+    if (best?.score >= 92) break
   }
 
-  const derivedScore = slugMatchScore(slug, derivedLink)
-  if (derivedScore >= 85 && (!best || derivedScore > best.score)) {
-    best = {
-      score: derivedScore,
-      link: derivedLink,
-      name: title,
-      productId: null,
-      picture: null,
-      query: 'slug-derived',
-    }
-  }
-
-  if (!best || best.score < 55) return null
-
-  if (!best.productId) {
-    for (const q of [best.link.replace(/-/g, ' '), best.link, title].filter(Boolean)) {
-      let results
-      try {
-        results = await searchGezinomiTours(q)
-      } catch {
-        continue
-      }
-      const exact = results.find((r) => r.link === best.link)
-      if (exact?.productId) {
-        best = {
-          ...best,
-          productId: exact.productId,
-          picture: exact.picture,
-          typeId: exact.typeId,
-          pk: exact.pk,
-        }
-        break
-      }
-    }
-  }
-
+  if (!best?.productId) return null
   return best
 }

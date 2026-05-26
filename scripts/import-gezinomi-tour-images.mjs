@@ -22,7 +22,7 @@ import { matchListingToGezinomi } from './lib/gezinomi-match.mjs'
 import { fetchGezinomiGalleryViaApi } from './lib/gezinomi-api.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
-const IMPORT_VERSION = 'api-v4'
+const IMPORT_VERSION = 'api-v5'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -248,7 +248,7 @@ async function main() {
 
     if (DRY_RUN) {
       console.log(
-        `dry-run tur=${scraped.tourCode} imgs=${scraped.urls.length} score=${match.score} link=${match.link}`,
+        `dry-run tur=${scraped.tourCode} imgs=${scraped.urls.length} score=${match.score} title=${match.titleScore ?? '-'} link=${match.link}`,
       )
       await sleep(DELAY_MS)
       continue

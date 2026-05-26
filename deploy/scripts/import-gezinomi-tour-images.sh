@@ -22,7 +22,7 @@ fi
 
 cd "$APP_ROOT"
 
-if ! grep -q 'IMPORT_VERSION.*api-v4' "$APP_ROOT/scripts/import-gezinomi-tour-images.mjs" 2>/dev/null; then
+if ! grep -q 'IMPORT_VERSION.*api-v5' "$APP_ROOT/scripts/import-gezinomi-tour-images.mjs" 2>/dev/null; then
   echo "[FAIL] Eski kod — şunu çalıştırın:" >&2
   echo "  cd $APP_ROOT && git fetch origin main && git reset --hard origin/main" >&2
   exit 1
