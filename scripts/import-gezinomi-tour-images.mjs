@@ -17,12 +17,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
 import { matchListingToGezinomi } from './lib/gezinomi-match.mjs'
-import {
-  launchGezinomiBrowser,
-  newGezinomiPage,
-  scrapeGezinomiTourGalleryAuto,
-} from './lib/gezinomi-scrape.mjs'
+import { fetchGezinomiTourGallery } from './lib/gezinomi-scrape.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+
+const IMPORT_VERSION = 'fetch-v3'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -156,7 +154,17 @@ async function loadListings(pgClient) {
   return rows
 }
 
+async function scrapeGallery(ctx, { link, title }) {
+  if (USE_PLAYWRIGHT) {
+    const { scrapeGezinomiTourGallery } = await import('./lib/gezinomi-scrape.mjs')
+    return scrapeGezinomiTourGallery(ctx.page, { link, title })
+  }
+  return fetchGezinomiTourGallery({ link, title })
+}
+
 async function main() {
+  console.log(`[gezinomi-import ${IMPORT_VERSION}] Playwright=${USE_PLAYWRIGHT ? 'evet' : 'hayır (HTTP fetch)'}`)
+
   const pgClient = createPgClient()
   await pgClient.connect()
 
@@ -169,9 +177,12 @@ async function main() {
 
   let browser = null
   let page = null
+  const ctx = { page: null }
   if (USE_PLAYWRIGHT) {
+    const { launchGezinomiBrowser, newGezinomiPage } = await import('./lib/gezinomi-scrape.mjs')
     browser = await launchGezinomiBrowser()
     page = await newGezinomiPage(browser)
+    ctx.page = page
   }
 
   for (let i = 0; i < listings.length; i++) {
@@ -201,11 +212,7 @@ async function main() {
     }
     stats.matched++
 
-    const scraped = await scrapeGezinomiTourGalleryAuto(
-      { page },
-      { link: match.link, title: row.title },
-      { usePlaywright: USE_PLAYWRIGHT },
-    )
+    const scraped = await scrapeGallery(ctx, { link: match.link, title: row.title })
     if (!scraped.tourCode || !scraped.urls.length) {
       stats.noGallery++
       console.log(`scrape fail (${scraped.error || 'no urls'}) link=${match.link}`)
