@@ -1,0 +1,23 @@
+[
+  {
+    "origin": "ESB",
+    "destination": "IST",
+    "originIsCity": false,
+    "destinationIsCity": true,
+    "label": "Ankara — İstanbul"
+  },
+  {
+    "origin": "AYT",
+    "destination": "SAW",
+    "originIsCity": true,
+    "destinationIsCity": true,
+    "label": "Antalya — İstanbul Sabiha Gökçen"
+  },
+  {
+    "origin": "IST",
+    "destination": "AYT",
+    "originIsCity": true,
+    "destinationIsCity": true,
+    "label": "İstanbul — Antalya"
+  }
+]
