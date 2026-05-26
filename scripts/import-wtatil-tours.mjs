@@ -17,12 +17,11 @@
  *   WTATIL_ORG_ID — varsayılan a0000000-0000-4000-8000-000000000001
  *   WTATIL_PAGE_SIZE — varsayılan 50
  *   WTATIL_STATUS — draft | published (varsayılan draft)
- *   PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE — PostgreSQL
+ *   DATABASE_URL veya PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE — PostgreSQL
  */
 
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRequire } from 'node:module'
 import {
   fetchWtatilToken,
   fetchAllTours,
@@ -34,11 +33,10 @@ import {
   loadWtatilConfig,
 } from './lib/wtatil-api.mjs'
 import { resolveImportContext, upsertWtatilTourListing } from './lib/wtatil-listing-db.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
-const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
-const pg = require('pg')
 
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
 
@@ -53,13 +51,7 @@ const pageSizeIdx = process.argv.indexOf('--page-size')
 const PAGE_SIZE = pageSizeIdx >= 0 ? Number(process.argv[pageSizeIdx + 1]) : Number(process.env.WTATIL_PAGE_SIZE || 50)
 
 function pgClient() {
-  return new pg.Client({
-    host: process.env.PGHOST || '127.0.0.1',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || '',
-    database: process.env.PGDATABASE || 'travel',
-  })
+  return createPgClient()
 }
 
 async function enrichTour(userName, token, tour, agencyId) {

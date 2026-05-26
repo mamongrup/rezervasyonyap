@@ -11,7 +11,6 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRequire } from 'node:module'
 import {
   avifFileName,
   downloadAndSaveAvif,
@@ -19,12 +18,11 @@ import {
   isExternalImageKey,
   isLocalAvifKey,
 } from './lib/wtatil-image-download.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
 const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings', 'wtatil')
-const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
-const pg = require('pg')
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
@@ -41,13 +39,7 @@ const stats = {
 }
 
 async function main() {
-  const pgClient = new pg.Client({
-    host: process.env.PGHOST || '127.0.0.1',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || '',
-    database: process.env.PGDATABASE || 'travel',
-  })
+  const pgClient = createPgClient()
   await pgClient.connect()
 
   const { rows } = await pgClient.query(
