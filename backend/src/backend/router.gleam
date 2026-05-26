@@ -16,6 +16,7 @@ import travel/identity/identity_http
 import travel/integrations/netgsm_http
 import travel/integrations/paratika_http
 import travel/integrations/paytr_http
+import travel/integrations/travelrobot_http
 import travel/module_tree
 import travel/payments/payment_settings_http
 import travel/site/site_settings_http
@@ -785,6 +786,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "integrations", "netgsm", "sms"] ->
       netgsm_http.send_sms(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "travelrobot", "ping"] ->
+      travelrobot_http.post_ping(req, ctx)
 
     http.Get, ["api", "v1", "social", "templates"] ->
       social_http.list_templates(req, ctx)
