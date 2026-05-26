@@ -7,7 +7,8 @@
  *
  *   node scripts/import-gezinomi-tour-images.mjs --dry-run --limit 3
  *   node scripts/import-gezinomi-tour-images.mjs --limit 10
- *   node scripts/import-gezinomi-tour-images.mjs --skip-existing
+ *   node scripts/import-gezinomi-tour-images.mjs --few-only --skip-existing
+ *   node scripts/import-gezinomi-tour-images.mjs --min-images 4 --limit 50
  *   node scripts/import-gezinomi-tour-images.mjs --slug kosoval-buyuk-balkanlar-turu-ajet-ile-extra-turlar-ve-aksam-yemekleri-dahil-sjj-sjj-wt-7360
  *
  * Ortam: AVIF_QUALITY=90, MAX_WIDTH=1600, PG*, GEIZINOMI_DELAY_MS=800
@@ -16,25 +17,30 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createRequire } from 'node:module'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
 import { matchListingToGezinomi } from './lib/gezinomi-match.mjs'
 import { launchGezinomiBrowser, newGezinomiPage, scrapeGezinomiTourGallery } from './lib/gezinomi-scrape.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
 const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings', 'wtatil')
 
-const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
-const pg = require('pg')
-
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_EXISTING = args.has('--skip-existing')
+const FEW_ONLY = args.has('--few-only')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const slugIdx = process.argv.indexOf('--slug')
 const SLUG_FILTER = slugIdx >= 0 ? process.argv[slugIdx + 1] : ''
+const minImagesIdx = process.argv.indexOf('--min-images')
+const MIN_IMAGES =
+  minImagesIdx >= 0
+    ? Number(process.argv[minImagesIdx + 1])
+    : FEW_ONLY
+      ? 4
+      : 0
 const DELAY_MS = Number(process.env.GEIZINOMI_DELAY_MS || 800)
 
 const stats = {
@@ -125,7 +131,8 @@ async function replaceListingImages(pgClient, listingId, slug, imageUrls, { dryR
 
 async function loadListings(pgClient) {
   let sql = `
-    SELECT l.id::text AS listing_id, l.slug, lt.title
+    SELECT l.id::text AS listing_id, l.slug, lt.title,
+           (SELECT count(*)::int FROM listing_images li WHERE li.listing_id = l.id) AS image_count
     FROM listings l
     JOIN listing_translations lt ON lt.listing_id = l.id
     JOIN locales loc ON loc.id = lt.locale_id AND loc.code = 'tr'
@@ -136,24 +143,23 @@ async function loadListings(pgClient) {
     params.push(SLUG_FILTER)
     sql += ` AND l.slug = $${params.length}`
   }
-  sql += ` ORDER BY l.slug`
+  if (MIN_IMAGES > 0) {
+    sql += ` AND (SELECT count(*) FROM listing_images li WHERE li.listing_id = l.id) < $${params.length + 1}`
+    params.push(MIN_IMAGES)
+  }
+  sql += ` ORDER BY image_count ASC, l.slug`
   if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
   const { rows } = await pgClient.query(sql, params)
   return rows
 }
 
 async function main() {
-  const pgClient = new pg.Client({
-    host: process.env.PGHOST || '127.0.0.1',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'postgres',
-    password: process.env.PGPASSWORD || '',
-    database: process.env.PGDATABASE || 'travel',
-  })
+  const pgClient = createPgClient()
   await pgClient.connect()
 
   const listings = await loadListings(pgClient)
-  console.log(`Gezinomi → AVIF import — ${listings.length} ilan, dry-run=${DRY_RUN}`)
+  const minLabel = MIN_IMAGES > 0 ? `, min-images<${MIN_IMAGES}` : ''
+  console.log(`Gezinomi → AVIF import — ${listings.length} ilan, dry-run=${DRY_RUN}${minLabel}`)
 
   const browser = await launchGezinomiBrowser()
   const page = await newGezinomiPage(browser)
@@ -161,7 +167,7 @@ async function main() {
   for (let i = 0; i < listings.length; i++) {
     const row = listings[i]
     stats.listings++
-    process.stdout.write(`[${i + 1}/${listings.length}] ${row.slug} … `)
+    process.stdout.write(`[${i + 1}/${listings.length}] ${row.slug} (${row.image_count} img) … `)
 
     if (SKIP_EXISTING && (await alreadyImported(pgClient, row.listing_id))) {
       stats.skipped++
