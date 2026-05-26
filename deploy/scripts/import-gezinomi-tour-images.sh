@@ -22,6 +22,11 @@ fi
 
 cd "$APP_ROOT"
 
+if ! grep -q 'USE_PLAYWRIGHT' "$APP_ROOT/scripts/import-gezinomi-tour-images.mjs" 2>/dev/null; then
+  echo "[FAIL] Eski kod — git pull yapın (Playwright'siz fetch modu gerekli)." >&2
+  exit 1
+fi
+
 echo "→ PostgreSQL bağlantı testi…"
 node scripts/test-pg-env.mjs || exit 1
 

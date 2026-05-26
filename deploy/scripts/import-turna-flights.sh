@@ -37,6 +37,14 @@ if [[ -z "${TURNA_API_KEY:-}" ]]; then
   exit 1
 fi
 
+# Canlı ApiKey + apitest URL → 403 (daha önce doğrulandı)
+if [[ "${TURNA_BASE_URL:-}" == *apitest* ]]; then
+  echo "[UYARI] turna.env test URL kullanıyor: $TURNA_BASE_URL" >&2
+  echo "  Canlı key için: TURNA_BASE_URL=https://api.turna.com" >&2
+  export TURNA_BASE_URL="https://api.turna.com"
+  echo "  → Canlı URL'ye geçildi: $TURNA_BASE_URL"
+fi
+
 export TURNA_BASE_URL="${TURNA_BASE_URL:-https://api.turna.com}"
 export TURNA_STATUS="${TURNA_STATUS:-published}"
 
