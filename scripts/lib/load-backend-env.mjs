@@ -7,6 +7,16 @@ import fs from 'node:fs'
 
 const DEFAULT_ENV_FILE = '/etc/rezervasyonyap/backend.env'
 
+/** travel-api backend.env ile aynı anahtarlar — dosyadan her zaman okunur. */
+const DB_ENV_KEYS = new Set([
+  'DATABASE_URL',
+  'PGPASSWORD',
+  'PGHOST',
+  'PGPORT',
+  'PGUSER',
+  'PGDATABASE',
+])
+
 function stripQuotes(value) {
   const v = String(value ?? '').trim()
   if (
@@ -22,18 +32,24 @@ function expandEnvRefs(value, env) {
   return String(value).replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, key) => env[key] ?? '')
 }
 
+function parseEnvLine(rawLine) {
+  let line = rawLine.replace(/\r$/, '').trim()
+  if (!line || line.startsWith('#')) return null
+  if (line.startsWith('export ')) line = line.slice(7).trim()
+  const eq = line.indexOf('=')
+  if (eq <= 0) return null
+  const key = line.slice(0, eq).trim()
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return null
+  return [key, stripQuotes(line.slice(eq + 1))]
+}
+
 export function loadBackendEnvFile(filePath = process.env.TRAVEL_DB_ENV || DEFAULT_ENV_FILE) {
   if (!filePath || !fs.existsSync(filePath)) return { filePath, loaded: 0 }
   const text = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '')
   const parsed = []
   for (const rawLine of text.split('\n')) {
-    const line = rawLine.replace(/\r$/, '').trim()
-    if (!line || line.startsWith('#')) continue
-    const eq = line.indexOf('=')
-    if (eq <= 0) continue
-    const key = line.slice(0, eq).trim()
-    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) continue
-    parsed.push([key, stripQuotes(line.slice(eq + 1))])
+    const row = parseEnvLine(rawLine)
+    if (row) parsed.push(row)
   }
 
   let loaded = 0
@@ -41,11 +57,12 @@ export function loadBackendEnvFile(filePath = process.env.TRAVEL_DB_ENV || DEFAU
   for (const [key, rawValue] of parsed) {
     draft[key] = expandEnvRefs(rawValue, draft)
   }
-  for (const [key, value] of parsed) {
-    const resolved = expandEnvRefs(value, draft)
-    if (process.env[key] == null || process.env[key] === '') {
+  for (const [key] of parsed) {
+    const resolved = draft[key] ?? ''
+    const forceFromFile = DB_ENV_KEYS.has(key)
+    if (forceFromFile || process.env[key] == null || process.env[key] === '') {
+      if (process.env[key] !== resolved) loaded += 1
       process.env[key] = resolved
-      loaded += 1
     }
   }
   return { filePath, loaded }

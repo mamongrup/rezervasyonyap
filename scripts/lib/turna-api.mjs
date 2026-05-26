@@ -10,7 +10,7 @@
  *   TURNA_LANGUAGE_CODE (varsayılan tr)
  */
 
-const DEFAULT_BASE = 'https://apitest.turna.com'
+const DEFAULT_BASE = 'https://api.turna.com'
 
 export function loadTurnaConfig() {
   const baseUrl = (process.env.TURNA_BASE_URL || DEFAULT_BASE).replace(/\/+$/, '')
