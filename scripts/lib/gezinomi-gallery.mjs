@@ -12,6 +12,14 @@ export function wtatilSlugBase(slug) {
     .replace(/-wt-\d+$/, '')
 }
 
+/** Gezinomi link karşılaştırması — uçuş/route sayıları (ör. `-16486-21164`) temizlenir */
+export function wtatilSlugForMatch(slug) {
+  let base = wtatilSlugBase(slug)
+  if (base.startsWith('kosoval-')) base = `kosovali-${base.slice(8)}`
+  base = base.replace(/(?:-\d{4,6})+$/g, '')
+  return base
+}
+
 export function normalizeGezinomiAssetUrl(url) {
   let u = String(url || '').trim()
   if (!u) return ''
@@ -63,19 +71,25 @@ export function toFullSizeAssetUrl(url) {
   return `${GEIZINOMI_CDN}/${u.replace(/^\//, '')}`
 }
 
-/** TourDetail tourPictures[].name → indirme URL adayları (jpeg/jpg/webp) */
+/** API `name` alanı uzantısız; CDN'de `-b0.jpg` (bazen `-b1.jpg`) kullanılır */
+export function gezinomiPictureBaseName(name) {
+  return String(name || '')
+    .trim()
+    .replace(/-b[01]\.(jpe?g|webp)$/i, '')
+    .replace(/\.(jpe?g|webp)$/i, '')
+}
+
+/** TourDetail tourPictures[].name → indirme URL adayları */
 export function gezinomiPictureDownloadUrls(name) {
-  const n = String(name || '').trim()
+  const n = gezinomiPictureBaseName(name)
   if (!n) return []
-  const bases = [
-    `${GEIZINOMI_CDN}/fit-in/1600x900/filters:quality(90)/assets/${n}`,
-    `${GEIZINOMI_CDN}/fit-in/1200x800/assets/${n}`,
-    `${GEIZINOMI_CDN}/assets/${n}`,
+  const direct = [
+    `${GEIZINOMI_CDN}/assets/${n}-b0.jpg`,
+    `${GEIZINOMI_CDN}/assets/${n}-b1.jpg`,
   ]
-  const exts = ['.jpeg', '.jpg', '.webp']
-  const out = []
-  for (const base of bases) {
-    for (const ext of exts) out.push(`${base}${ext}`)
-  }
-  return out
+  const fit = [
+    `${GEIZINOMI_CDN}/fit-in/1600x900/filters:quality(90)/assets/${n}-b0.jpg`,
+    `${GEIZINOMI_CDN}/fit-in/1200x800/assets/${n}-b0.jpg`,
+  ]
+  return [...direct, ...fit]
 }

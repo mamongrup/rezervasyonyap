@@ -1,6 +1,6 @@
 /** Wtatil ilanı → Gezinomi tur link eşleştirmesi (SearchAutoComplate API) */
 
-import { wtatilSlugBase } from './gezinomi-gallery.mjs'
+import { wtatilSlugBase, wtatilSlugForMatch } from './gezinomi-gallery.mjs'
 
 const API = 'https://apigezinomi.gezinomi.com/api/Tour/SearchAutoComplate'
 const MIN_ACCEPT_SCORE = 62
@@ -26,7 +26,7 @@ function fixKosovalTypo(s) {
 }
 
 export function slugMatchScore(listingSlug, candidateLink) {
-  const a = fixKosovalTypo(wtatilSlugBase(listingSlug))
+  const a = fixKosovalTypo(wtatilSlugForMatch(listingSlug))
   const b = fixKosovalTypo(candidateLink)
   if (!a || !b) return 0
   if (a === b) return 100
@@ -83,16 +83,46 @@ export async function searchGezinomiTours(query) {
 }
 
 export function gezinomiLinkFromWtatilSlug(slug) {
-  let base = wtatilSlugBase(slug)
-  if (base.startsWith('kosoval-')) {
-    base = `kosovali-${base.slice(8)}`
+  return wtatilSlugForMatch(slug)
+}
+
+/** Gezinomi sayfasındaki "Tur Kodu" (productId) — resim adında olmasa da API ile bulunur */
+async function matchByGezinomiProductId(slug) {
+  const nums = [...new Set((wtatilSlugBase(slug).match(/\d{4,6}/g) || []))]
+  for (const num of nums) {
+    if (num.length < 5) continue
+    let results
+    try {
+      results = await searchGezinomiTours(num)
+    } catch {
+      continue
+    }
+    const exact = results.find((r) => String(r.productId) === num)
+    if (exact) {
+      return {
+        score: 100,
+        slugScore: slugMatchScore(slug, exact.link),
+        titleScore: 0,
+        link: exact.link,
+        name: exact.name,
+        productId: exact.productId,
+        picture: exact.picture,
+        query: `productId:${num}`,
+        typeId: exact.typeId,
+        pk: exact.pk,
+        apiRow: exact,
+      }
+    }
   }
-  return base
+  return null
 }
 
 export async function matchListingToGezinomi({ slug, title }) {
+  const byProductId = await matchByGezinomiProductId(slug)
+  if (byProductId) return byProductId
+
   const derivedLink = gezinomiLinkFromWtatilSlug(slug)
-  const slugWords = wtatilSlugBase(slug).replace(/-/g, ' ')
+  const slugWords = wtatilSlugForMatch(slug).replace(/-/g, ' ')
   const queries = [
     title,
     derivedLink.replace(/-/g, ' '),

@@ -16,13 +16,13 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
-import { gezinomiPictureDownloadUrls } from './lib/gezinomi-gallery.mjs'
+import { gezinomiPictureBaseName, gezinomiPictureDownloadUrls } from './lib/gezinomi-gallery.mjs'
 import { gezinomiRefererHeaders } from './lib/gezinomi-api.mjs'
 import { matchListingToGezinomi } from './lib/gezinomi-match.mjs'
 import { fetchGezinomiGalleryViaApi } from './lib/gezinomi-api.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
-const IMPORT_VERSION = 'api-v5'
+const IMPORT_VERSION = 'api-v6'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -65,13 +65,10 @@ function sleep(ms) {
 
 async function downloadGezinomiAvif(sourceUrl, destAbs, { dryRun }) {
   const headers = gezinomiRefererHeaders()
-  const candidates = [sourceUrl]
-  const nameMatch = String(sourceUrl).match(/assets\/([^/?]+)\.(jpe?g|webp)/i)
-  if (nameMatch) {
-    for (const u of gezinomiPictureDownloadUrls(nameMatch[1])) {
-      if (!candidates.includes(u)) candidates.push(u)
-    }
-  }
+  const assetMatch = String(sourceUrl).match(/\/assets\/([^/?]+)/i)
+  const baseName = assetMatch ? gezinomiPictureBaseName(assetMatch[1]) : ''
+  const candidates = baseName ? gezinomiPictureDownloadUrls(baseName) : [sourceUrl]
+  if (sourceUrl && !candidates.includes(sourceUrl)) candidates.unshift(sourceUrl)
   let lastErr = null
   for (const url of candidates) {
     try {

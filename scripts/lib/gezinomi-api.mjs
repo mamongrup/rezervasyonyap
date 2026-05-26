@@ -64,8 +64,20 @@ export async function enrichMatchWithProductId(match) {
 
 export async function resolveGezinomiTourPagePath(match) {
   if (match.pagePath) return match.pagePath
-  const probe = await postTourDetail(match.apiRow || { link: match.link, productId: match.productId })
-  return tourPagePathFromCrumbs(probe.data?.breadCrumbs, match.link)
+  const link = match.link
+  const typeId = match.typeId ?? match.tourTypeId ?? 4
+  const probePaths = [
+    match.apiRow?.path ? `/${String(match.apiRow.path).replace(/^\/+/, '')}` : null,
+    `/${link}`,
+    `/yurtdisi-turlari/${link}`,
+    `/kapadokya-turlari/${link}`,
+  ].filter(Boolean)
+  for (const path of probePaths) {
+    const probe = await postTourDetail({ link, productId: match.productId, path, tourTypeId: typeId })
+    const pagePath = tourPagePathFromCrumbs(probe.data?.breadCrumbs, link)
+    if (pagePath) return pagePath
+  }
+  return null
 }
 
 export async function fetchGezinomiGalleryViaApi(match) {
