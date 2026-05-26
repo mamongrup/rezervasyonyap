@@ -91,6 +91,9 @@ export async function matchListingToGezinomi({ slug, title }) {
           productId: row.productId,
           picture: row.picture,
           query,
+          typeId: row.typeId,
+          pk: row.pk,
+          apiRow: row,
         }
       }
     }
@@ -110,5 +113,28 @@ export async function matchListingToGezinomi({ slug, title }) {
   }
 
   if (!best || best.score < 55) return null
+
+  if (!best.productId) {
+    for (const q of [best.link.replace(/-/g, ' '), best.link, title].filter(Boolean)) {
+      let results
+      try {
+        results = await searchGezinomiTours(q)
+      } catch {
+        continue
+      }
+      const exact = results.find((r) => r.link === best.link)
+      if (exact?.productId) {
+        best = {
+          ...best,
+          productId: exact.productId,
+          picture: exact.picture,
+          typeId: exact.typeId,
+          pk: exact.pk,
+        }
+        break
+      }
+    }
+  }
+
   return best
 }

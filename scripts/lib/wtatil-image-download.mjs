@@ -49,14 +49,20 @@ export function avifFileName(sortOrder, sourceUrl) {
   return `${String(sortOrder).padStart(2, '0')}-${safe || 'img'}.avif`
 }
 
-export function fetchBuffer(url) {
+export function fetchBuffer(url, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http
     lib
-      .get(url, { timeout: 90000, headers: { 'User-Agent': 'TravelWtatilImport/1.0' } }, (res) => {
+      .get(
+        url,
+        {
+          timeout: 90000,
+          headers: { 'User-Agent': 'TravelWtatilImport/1.0', ...extraHeaders },
+        },
+        (res) => {
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           res.resume()
-          fetchBuffer(normalizeDownloadUrl(res.headers.location)).then(resolve, reject)
+          fetchBuffer(normalizeDownloadUrl(res.headers.location), extraHeaders).then(resolve, reject)
           return
         }
         if (res.statusCode !== 200) {
@@ -81,14 +87,14 @@ export async function bufferToAvif(buffer) {
   return pipeline.avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toBuffer()
 }
 
-export async function downloadAndSaveAvif(sourceUrl, destAbsPath, { dryRun = false } = {}) {
+export async function downloadAndSaveAvif(sourceUrl, destAbsPath, { dryRun = false, headers = {} } = {}) {
   if (dryRun) return { ok: true, dryRun: true, bytes: 0 }
   if (existsSync(destAbsPath)) {
     const buf = await readFile(destAbsPath)
     return { ok: true, skipped: true, bytes: buf.length }
   }
   await mkdir(path.dirname(destAbsPath), { recursive: true })
-  const raw = await fetchBuffer(normalizeDownloadUrl(sourceUrl))
+  const raw = await fetchBuffer(normalizeDownloadUrl(sourceUrl), headers)
   const avif = await bufferToAvif(raw)
   await writeFile(destAbsPath, avif)
   return { ok: true, bytes: avif.length, sourceBytes: raw.length }

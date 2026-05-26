@@ -62,3 +62,20 @@ export function toFullSizeAssetUrl(url) {
   if (u.startsWith('http')) return u
   return `${GEIZINOMI_CDN}/${u.replace(/^\//, '')}`
 }
+
+/** TourDetail tourPictures[].name → indirme URL adayları (jpeg/jpg/webp) */
+export function gezinomiPictureDownloadUrls(name) {
+  const n = String(name || '').trim()
+  if (!n) return []
+  const bases = [
+    `${GEIZINOMI_CDN}/fit-in/1600x900/filters:quality(90)/assets/${n}`,
+    `${GEIZINOMI_CDN}/fit-in/1200x800/assets/${n}`,
+    `${GEIZINOMI_CDN}/assets/${n}`,
+  ]
+  const exts = ['.jpeg', '.jpg', '.webp']
+  const out = []
+  for (const base of bases) {
+    for (const ext of exts) out.push(`${base}${ext}`)
+  }
+  return out
+}

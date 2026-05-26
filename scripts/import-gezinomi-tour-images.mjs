@@ -16,11 +16,13 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
+import { gezinomiPictureDownloadUrls } from './lib/gezinomi-gallery.mjs'
+import { gezinomiRefererHeaders } from './lib/gezinomi-api.mjs'
 import { matchListingToGezinomi } from './lib/gezinomi-match.mjs'
-import { fetchGezinomiTourGallery } from './lib/gezinomi-scrape.mjs'
+import { fetchGezinomiGalleryViaApi } from './lib/gezinomi-api.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
-const IMPORT_VERSION = 'fetch-v3'
+const IMPORT_VERSION = 'api-v4'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -61,6 +63,26 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+async function downloadGezinomiAvif(sourceUrl, destAbs, { dryRun }) {
+  const headers = gezinomiRefererHeaders()
+  const candidates = [sourceUrl]
+  const nameMatch = String(sourceUrl).match(/assets\/([^/?]+)\.(jpe?g|webp)/i)
+  if (nameMatch) {
+    for (const u of gezinomiPictureDownloadUrls(nameMatch[1])) {
+      if (!candidates.includes(u)) candidates.push(u)
+    }
+  }
+  let lastErr = null
+  for (const url of candidates) {
+    try {
+      return await downloadAndSaveAvif(url, destAbs, { dryRun, headers })
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw lastErr || new Error('gezinomi indirme başarısız')
+}
+
 async function alreadyImported(pgClient, listingId) {
   const { rows } = await pgClient.query(
     `SELECT 1 FROM listing_attributes
@@ -94,8 +116,8 @@ async function replaceListingImages(pgClient, listingId, slug, imageUrls, { dryR
       continue
     }
 
-    try {
-      const res = await downloadAndSaveAvif(sourceUrl, destAbs, { dryRun })
+      try {
+        const res = await downloadGezinomiAvif(sourceUrl, destAbs, { dryRun })
       if (res.ok) {
         saved.push({ sort: i, storageKey })
         stats.imagesOk++
@@ -154,23 +176,24 @@ async function loadListings(pgClient) {
   return rows
 }
 
-async function scrapeGallery(ctx, { link, title }) {
-  if (USE_PLAYWRIGHT) {
-    const { scrapeGezinomiTourGallery } = await import('./lib/gezinomi-scrape.mjs')
-    return scrapeGezinomiTourGallery(ctx.page, { link, title })
-  }
-  return fetchGezinomiTourGallery({ link, title })
+async function scrapeGallery(ctx, match, title) {
+  const api = await fetchGezinomiGalleryViaApi({ ...match, title })
+  if (api.urls?.length || !USE_PLAYWRIGHT) return api
+  if (!ctx?.page) return api
+  const { scrapeGezinomiTourGallery } = await import('./lib/gezinomi-scrape.mjs')
+  const pw = await scrapeGezinomiTourGallery(ctx.page, { link: match.link, title })
+  return pw.urls?.length > (api.urls?.length || 0) ? pw : api
 }
 
 async function main() {
-  console.log(`[gezinomi-import ${IMPORT_VERSION}] Playwright=${USE_PLAYWRIGHT ? 'evet' : 'hayır (HTTP fetch)'}`)
+  console.log(`[gezinomi-import ${IMPORT_VERSION}] kaynak=TourDetail API, Playwright=${USE_PLAYWRIGHT ? 'evet' : 'hayır'}`)
 
   const pgClient = createPgClient()
   await pgClient.connect()
 
   const listings = await loadListings(pgClient)
   const minLabel = MIN_IMAGES > 0 ? `, min-images<${MIN_IMAGES}` : ''
-  const modeLabel = USE_PLAYWRIGHT ? ', playwright' : ', fetch'
+  const modeLabel = USE_PLAYWRIGHT ? ', playwright-fallback' : ', api'
   console.log(
     `Gezinomi → AVIF import — ${listings.length} ilan, dry-run=${DRY_RUN}${minLabel}${modeLabel}`,
   )
@@ -212,10 +235,12 @@ async function main() {
     }
     stats.matched++
 
-    const scraped = await scrapeGallery(ctx, { link: match.link, title: row.title })
+    const scraped = await scrapeGallery(ctx, match, row.title)
     if (!scraped.tourCode || !scraped.urls.length) {
       stats.noGallery++
-      console.log(`scrape fail (${scraped.error || 'no urls'}) link=${match.link}`)
+      console.log(
+        `scrape fail (${scraped.error || 'no urls'}) link=${match.link}${match.productId ? ` pid=${match.productId}` : ''}`,
+      )
       await sleep(DELAY_MS)
       continue
     }
