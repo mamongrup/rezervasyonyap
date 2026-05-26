@@ -77,7 +77,10 @@ export async function turnaRequest(method, path, body = null, extraHeaders = {})
     try {
       json = JSON.parse(text)
     } catch {
-      throw new Error(`Turna ${path}: geçersiz JSON (HTTP ${res.status})`)
+      const snippet = text.replace(/\s+/g, ' ').slice(0, 240)
+      throw new Error(
+        `Turna ${path}: geçersiz JSON (HTTP ${res.status})${snippet ? ` — ${snippet}` : ''}`,
+      )
     }
   }
   const session = readSessionFromHeaders(res.headers)

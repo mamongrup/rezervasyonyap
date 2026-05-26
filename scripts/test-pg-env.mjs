@@ -7,6 +7,9 @@ const boot = loadBackendEnvFile()
 const info = describePgEnv()
 console.log('backend.env:', boot.filePath, `(+${boot.loaded} anahtar)`)
 console.log('pg config:', JSON.stringify(info))
+if (info.mode === 'DATABASE_URL' && info.hasPassword === false) {
+  console.warn('[UYARI] DATABASE_URL şifresiz — PGPASSWORD birleştirmesi denenecek.')
+}
 
 try {
   const row = await testPgConnection()

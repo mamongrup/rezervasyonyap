@@ -22,15 +22,40 @@ function ensureBackendEnv() {
 export function createPgClient() {
   ensureBackendEnv()
   const url = (process.env.DATABASE_URL || '').trim()
+  const pgPassword =
+    process.env.PGPASSWORD == null ? '' : String(process.env.PGPASSWORD)
+
   if (url) {
-    return new pg.Client({ connectionString: url })
+    try {
+      const u = new URL(url)
+      const user = decodeURIComponent(u.username || process.env.PGUSER || 'postgres')
+      const database =
+        u.pathname.replace(/^\//, '') || process.env.PGDATABASE || 'travel'
+      const passwordFromUrl = u.password ? decodeURIComponent(u.password) : ''
+      const password = passwordFromUrl || pgPassword
+      if (!password) {
+        throw new Error(
+          'DATABASE_URL içinde şifre yok ve PGPASSWORD boş — backend.env kontrol edin.',
+        )
+      }
+      return new pg.Client({
+        host: u.hostname || process.env.PGHOST || '127.0.0.1',
+        port: Number(u.port || process.env.PGPORT || 5432),
+        user,
+        password: String(password),
+        database,
+      })
+    } catch (e) {
+      if (e.message?.includes('backend.env')) throw e
+      return new pg.Client({ connectionString: url })
+    }
   }
-  const password = process.env.PGPASSWORD
+
   return new pg.Client({
     host: process.env.PGHOST || '127.0.0.1',
     port: Number(process.env.PGPORT || 5432),
     user: process.env.PGUSER || 'postgres',
-    password: password == null ? '' : String(password),
+    password: pgPassword,
     database: process.env.PGDATABASE || 'travel',
   })
 }
