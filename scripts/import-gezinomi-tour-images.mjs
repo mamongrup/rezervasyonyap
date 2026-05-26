@@ -3,11 +3,9 @@
  *
  * Akış: Gezinomi sayfasından tur kodu + galeri URL → reklam filtresi → AVIF → DB
  *
- *   cd frontend && npm install -D playwright && npx playwright install chromium
- *
  *   node scripts/import-gezinomi-tour-images.mjs --dry-run --limit 3
- *   node scripts/import-gezinomi-tour-images.mjs --limit 10
  *   node scripts/import-gezinomi-tour-images.mjs --few-only --skip-existing
+ *   node scripts/import-gezinomi-tour-images.mjs --playwright   # isteğe bağlı (Debian/Ubuntu)
  *   node scripts/import-gezinomi-tour-images.mjs --min-images 4 --limit 50
  *   node scripts/import-gezinomi-tour-images.mjs --slug kosoval-buyuk-balkanlar-turu-ajet-ile-extra-turlar-ve-aksam-yemekleri-dahil-sjj-sjj-wt-7360
  *
@@ -19,7 +17,11 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
 import { matchListingToGezinomi } from './lib/gezinomi-match.mjs'
-import { launchGezinomiBrowser, newGezinomiPage, scrapeGezinomiTourGallery } from './lib/gezinomi-scrape.mjs'
+import {
+  launchGezinomiBrowser,
+  newGezinomiPage,
+  scrapeGezinomiTourGalleryAuto,
+} from './lib/gezinomi-scrape.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -30,6 +32,7 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_EXISTING = args.has('--skip-existing')
 const FEW_ONLY = args.has('--few-only')
+const USE_PLAYWRIGHT = args.has('--playwright')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const slugIdx = process.argv.indexOf('--slug')
@@ -159,10 +162,17 @@ async function main() {
 
   const listings = await loadListings(pgClient)
   const minLabel = MIN_IMAGES > 0 ? `, min-images<${MIN_IMAGES}` : ''
-  console.log(`Gezinomi → AVIF import — ${listings.length} ilan, dry-run=${DRY_RUN}${minLabel}`)
+  const modeLabel = USE_PLAYWRIGHT ? ', playwright' : ', fetch'
+  console.log(
+    `Gezinomi → AVIF import — ${listings.length} ilan, dry-run=${DRY_RUN}${minLabel}${modeLabel}`,
+  )
 
-  const browser = await launchGezinomiBrowser()
-  const page = await newGezinomiPage(browser)
+  let browser = null
+  let page = null
+  if (USE_PLAYWRIGHT) {
+    browser = await launchGezinomiBrowser()
+    page = await newGezinomiPage(browser)
+  }
 
   for (let i = 0; i < listings.length; i++) {
     const row = listings[i]
@@ -191,7 +201,11 @@ async function main() {
     }
     stats.matched++
 
-    const scraped = await scrapeGezinomiTourGallery(page, { link: match.link, title: row.title })
+    const scraped = await scrapeGezinomiTourGalleryAuto(
+      { page },
+      { link: match.link, title: row.title },
+      { usePlaywright: USE_PLAYWRIGHT },
+    )
     if (!scraped.tourCode || !scraped.urls.length) {
       stats.noGallery++
       console.log(`scrape fail (${scraped.error || 'no urls'}) link=${match.link}`)

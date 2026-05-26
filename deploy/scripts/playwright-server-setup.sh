@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Linux sunucuda Playwright (Gezinomi scrape) — bir kez çalıştırın (root).
+# Playwright (yalnızca --playwright ile Gezinomi import) — Debian/Ubuntu.
+# AlmaLinux/RHEL: fetch modu kullanın; dnf paketleri aşağıda.
+#
+# AlmaLinux örneği:
+#   dnf install -y alsa-lib atk at-spi2-atk cups-libs libdrm libXcomposite libXdamage \
+#     libXrandr mesa-libgbm nss pango cairo libxkbcommon liberation-fonts
 #
 #   cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
 #   chmod +x deploy/scripts/playwright-server-setup.sh
