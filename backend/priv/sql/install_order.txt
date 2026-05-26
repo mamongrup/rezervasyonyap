@@ -136,6 +136,8 @@ modules/291_location_pages_google_poi_center_backfill.sql
 modules/292_activity_sessions_and_fares.sql
 modules/293_listing_attribute_def_icon_url.sql
 modules/294_holiday_home_amenity_attribute_groups.sql
+modules/295_social_share_jobs_network.sql
+modules/296_gtc_provider_refs.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

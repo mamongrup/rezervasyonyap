@@ -39,6 +39,7 @@ import travel/catalog/collections_http
 import travel/cms/cms_http
 import travel/seo/seo_http
 import travel/social/social_http
+import travel/social/social_worker_http
 import travel/support/ticket_http
 import travel/support/chat_http
 import travel/support/helpdesk_catalog_http
@@ -809,6 +810,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Delete, ["api", "v1", "social", "instagram-shop-links", islid] ->
       social_http.delete_instagram_shop_link(req, ctx, islid)
+
+    http.Get, ["api", "v1", "social", "worker", "pending"] ->
+      social_worker_http.get_worker_pending(req, ctx)
+
+    http.Post, ["api", "v1", "social", "worker", "caption"] ->
+      social_worker_http.post_worker_caption(req, ctx)
+
+    http.Patch, ["api", "v1", "social", "worker", "jobs", jobid] ->
+      social_worker_http.patch_worker_job(req, ctx, jobid)
 
     http.Get, ["api", "v1", "media", "cdn"] -> media_http.get_cdn(req, ctx)
 

@@ -18,6 +18,23 @@ const c = new pg.Client({
 })
 await c.connect()
 
+const schema = await c.query(`
+  SELECT
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'listing_availability_calendar' AND column_name = 'day_status'
+    ) AS has_day_status,
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_name = 'listing_availability_calendar' AND column_name = 'am_available'
+    ) AS has_half_days
+`)
+console.log('=== Takvim şeması ===')
+console.log(schema.rows[0])
+if (!schema.rows[0].has_day_status || !schema.rows[0].has_half_days) {
+  console.log('UYARI: 242/289 migration eksik — vitrin takvimi API hata verir (public_availability_query_failed).')
+}
+
 const r = await c.query(`
   SELECT
     (SELECT count(*)::int FROM listings WHERE external_listing_ref IS NOT NULL) AS imported,

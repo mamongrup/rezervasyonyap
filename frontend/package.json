@@ -79,6 +79,7 @@
     "beasties": "^0.4.1",
     "mysql2": "^3.22.3",
     "pg": "^8.13.1",
+    "playwright": "^1.52.0",
     "prettier": "^3.3.2",
     "prettier-plugin-organize-imports": "^4.0.0",
     "prettier-plugin-tailwindcss": "^0.6.11",

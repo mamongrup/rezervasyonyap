@@ -1,16 +1,18 @@
-import CatalogListingDetailClient from './CatalogListingDetailClient'
 import CatalogNewListingClient from '../../../CatalogNewListingClient'
+import { parseCatalogCategoryCodeParam } from '@/lib/catalog-category-ui'
+import { notFound } from 'next/navigation'
 
+/** Tüm kategoriler: yeni ilan sihirbazı + sabit üst (dil/çeviri) / alt (kaydet) çubukları. */
 export default async function CatalogListingDetailPage({
   params,
 }: {
   params: Promise<{ code: string; listingId: string }>
 }) {
   const { code, listingId } = await params
-  const cat = decodeURIComponent(code)
-  const id = decodeURIComponent(listingId)
-  if (cat === 'holiday_home') {
-    return <CatalogNewListingClient categoryCode={cat} editListingId={id} />
+  const categoryCode = parseCatalogCategoryCodeParam(code)
+  if (!categoryCode) {
+    return notFound()
   }
-  return <CatalogListingDetailClient categoryCode={cat} listingId={id} />
+  const id = decodeURIComponent(listingId)
+  return <CatalogNewListingClient categoryCode={categoryCode} editListingId={id} />
 }

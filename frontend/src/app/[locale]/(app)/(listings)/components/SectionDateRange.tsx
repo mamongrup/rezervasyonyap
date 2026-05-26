@@ -23,6 +23,7 @@ import type { ListingAvailabilityDay } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import { Divider } from '@/shared/divider'
+import clsx from 'clsx'
 import { getMessages } from '@/utils/getT'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DatePicker from 'react-datepicker'
@@ -164,7 +165,7 @@ function SectionDateRangeCalendar({
 
   return (
     <>
-      <div className={datepickerStyles.datepickerScope}>
+      <div className={clsx(datepickerStyles.datepickerScope, 'listing-availability-calendar')}>
         <div className="listing-datepicker-hide-outside-month">
         <DatePicker
           locale={pickerLocale}
@@ -276,7 +277,12 @@ export default function SectionDateRange({
           {copy.legendAvailable}
         </li>
         <li className="flex items-center gap-2">
-          <span className="inline-block size-3 rounded-sm bg-neutral-200 opacity-60 dark:bg-neutral-700" />
+          <span
+            aria-hidden
+            className="inline-flex min-w-[1.25rem] items-center justify-center text-sm font-normal text-neutral-300 line-through decoration-neutral-300 dark:text-neutral-500 dark:decoration-neutral-500"
+          >
+            12
+          </span>
           {copy.legendBlocked}
         </li>
         <li className="flex items-center gap-2">

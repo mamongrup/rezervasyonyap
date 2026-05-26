@@ -193,6 +193,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'reserwation.com',
+        port: '',
+        pathname: '/**',
+      },
       ...extraImageHost,
     ],
   },

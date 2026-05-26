@@ -210,3 +210,24 @@
 :global(.dark) .datepickerScope :global(.addListingDatePickerExclude .react-datepicker__day--disabled::after) {
   border-left-color: rgb(55 65 81);
 }
+
+/* Vitrin konaklama müsaitlik — dolu günler (Airbnb: gri + üstü çizili, hover yok) */
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--disabled) {
+  cursor: default;
+  pointer-events: none;
+}
+
+.datepickerScope :global(.listing-availability-calendar .react-datepicker__day--disabled span:hover) {
+  background-color: transparent !important;
+}
+
+.datepickerScope
+  :global(
+    .listing-availability-calendar
+      .react-datepicker__day--disabled:not(.react-datepicker__day--in-range):not(
+        .react-datepicker__day--range-start
+      ):not(.react-datepicker__day--range-end)
+      .react-datepicker__day_span
+  ) {
+  border-radius: 0;
+}
