@@ -100,7 +100,17 @@ export async function launchGezinomiBrowser() {
       'playwright yüklü değil. frontend dizininde: npm install -D playwright && npx playwright install chromium',
     )
   }
-  return chromium.launch({ headless: true })
+  try {
+    return await chromium.launch({ headless: true })
+  } catch (e) {
+    const msg = String(e?.message || e)
+    if (/missing dependencies|install-deps|libatk|libgbm|libasound/i.test(msg)) {
+      throw new Error(
+        `${msg}\n\nSunucuda (root): ./deploy/scripts/playwright-server-setup.sh\nveya: cd frontend && npx playwright install-deps chromium`,
+      )
+    }
+    throw e
+  }
 }
 
 export async function newGezinomiPage(browser) {

@@ -29,7 +29,19 @@ node scripts/test-pg-env.mjs || exit 1
 
 if [[ ! -d "$APP_ROOT/frontend/node_modules/playwright" ]]; then
   echo "[FAIL] Playwright yüklü değil. Bir kez çalıştırın:" >&2
-  echo "  cd frontend && npm install && npx playwright install chromium" >&2
+  echo "  ./deploy/scripts/playwright-server-setup.sh" >&2
+  exit 1
+fi
+
+echo "→ Playwright Chromium smoke test…"
+if ! (
+  cd "$APP_ROOT/frontend"
+  node -e "const {chromium}=require('playwright');(async()=>{const b=await chromium.launch({headless:true});await b.close();})().catch(e=>{console.error(e.message||e);process.exit(1)})"
+); then
+  echo "" >&2
+  echo "[FAIL] Chromium başlatılamadı — sistem kütüphaneleri eksik." >&2
+  echo "  root ile: ./deploy/scripts/playwright-server-setup.sh" >&2
+  echo "  veya: cd frontend && npx playwright install-deps chromium" >&2
   exit 1
 fi
 
