@@ -13,6 +13,8 @@ import {
   getAgencyBrowseListings,
   getAgencyMe,
   getAgencyReservations,
+  getAgencyApiSettings,
+  patchAgencyApiSettings,
   getAgencyInvoiceDetail,
   getAgencySalesSummary,
   listAgentReservations,
@@ -114,6 +116,40 @@ export default function AgencyManageClient() {
   const [browseListings, setBrowseListings] = useState<AgencyBrowseListingRow[]>([])
   const [browseLoading, setBrowseLoading] = useState(false)
   const [browseErr, setBrowseErr] = useState<string | null>(null)
+  const [webhookUrl, setWebhookUrl] = useState('')
+  const [webhookSecret, setWebhookSecret] = useState('')
+  const [webhookSaving, setWebhookSaving] = useState(false)
+  const [webhookMsg, setWebhookMsg] = useState<string | null>(null)
+  const [agentTestCats, setAgentTestCats] = useState<unknown>(null)
+
+  useEffect(() => {
+    if (state.kind !== 'ok') return
+    const token = getStoredAuthToken()
+    if (!token) return
+    void getAgencyApiSettings(token)
+      .then((s) => setWebhookUrl(s.webhook_url ?? ''))
+      .catch(() => {})
+  }, [state])
+
+  async function saveWebhookSettings(e: FormEvent) {
+    e.preventDefault()
+    const token = getStoredAuthToken()
+    if (!token) return
+    setWebhookSaving(true)
+    setWebhookMsg(null)
+    try {
+      await patchAgencyApiSettings(token, {
+        webhook_url: webhookUrl.trim(),
+        ...(webhookSecret.trim() ? { webhook_secret: webhookSecret.trim() } : {}),
+      })
+      setWebhookSecret('')
+      setWebhookMsg('Webhook ayarları kaydedildi.')
+    } catch (err) {
+      setWebhookMsg(formatManageApiCatch(err, 'webhook_save_failed'))
+    } finally {
+      setWebhookSaving(false)
+    }
+  }
 
   const load = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -320,19 +356,29 @@ export default function AgencyManageClient() {
     setAgentTestMe(null)
     setAgentTestResv(null)
     setAgentTestSales(null)
+    setAgentTestCats(null)
     try {
+      const b = typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') : ''
       const q = {
         ...(agentTestFrom.trim() ? { from: agentTestFrom.trim() } : {}),
         ...(agentTestTo.trim() ? { to: agentTestTo.trim() } : {}),
       }
-      const [me, resv, sales] = await Promise.all([
+      const catsPromise =
+        b ?
+          fetch(`${b}/api/v1/agent/catalog/categories`, {
+            headers: { Authorization: `Bearer ${key}`, Accept: 'application/json' },
+          }).then(async (r) => (r.ok ? r.json() : null))
+        : Promise.resolve(null)
+      const [me, resv, sales, cats] = await Promise.all([
         getAgentMe(key),
         listAgentReservations(key),
         getAgentSalesSummary(key, q),
+        catsPromise,
       ])
       setAgentTestMe(me)
       setAgentTestResv(resv.reservations)
       setAgentTestSales(sales)
+      setAgentTestCats(cats)
     } catch (e) {
       setAgentTestErr(formatManageApiCatch(e, 'agent_test_failed'))
     } finally {
@@ -1252,6 +1298,43 @@ export default function AgencyManageClient() {
       </section>
 
       <section className="mt-10 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900/40">
+        <h2 className="text-lg font-medium">Partner API webhook</h2>
+        <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+          API ile oluşturulan rezervasyonlarda <code className="text-xs">reservation.created</code> olayı HTTPS
+          adresinize POST edilir.{' '}
+          <Link href={vitrinPath('/developer')} className="text-primary-600 underline dark:text-primary-400">
+            API dokümantasyonu
+          </Link>
+        </p>
+        <form onSubmit={(e) => void saveWebhookSettings(e)} className="mt-4 max-w-xl space-y-4">
+          <Field>
+            <Label>Webhook URL (https)</Label>
+            <Input
+              className="mt-1 font-mono text-xs"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              placeholder="https://partner.example/hooks/travel"
+            />
+          </Field>
+          <Field>
+            <Label>Webhook secret (isteğe bağlı, değiştirmek için doldurun)</Label>
+            <Input
+              type="password"
+              className="mt-1 font-mono text-xs"
+              value={webhookSecret}
+              onChange={(e) => setWebhookSecret(e.target.value)}
+              placeholder="Bearer olarak gönderilir"
+              autoComplete="new-password"
+            />
+          </Field>
+          <ButtonPrimary type="submit" disabled={webhookSaving}>
+            {webhookSaving ? '…' : 'Webhook kaydet'}
+          </ButtonPrimary>
+          {webhookMsg ? <p className="text-sm text-neutral-600 dark:text-neutral-400">{webhookMsg}</p> : null}
+        </form>
+      </section>
+
+      <section className="mt-10 rounded-xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900/40">
         <h2 className="text-lg font-medium">Agent API sınama (`trk_live_…`)</h2>
         <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
           Yeni oluşturduğunuz tam gizli anahtarı buraya yapıştırıp `/api/v1/agent/me`, rezervasyonlar ve satış özetini doğrulayın.
@@ -1311,6 +1394,14 @@ export default function AgencyManageClient() {
                 {JSON.stringify(agentTestSales, null, 2)}
               </pre>
             </div>
+            {agentTestCats ? (
+              <div>
+                <div className="font-medium text-neutral-800 dark:text-neutral-200">GET /agent/catalog/categories</div>
+                <pre className="mt-2 max-h-32 overflow-auto rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-xs dark:border-neutral-700 dark:bg-neutral-950/50">
+                  {JSON.stringify(agentTestCats, null, 2)}
+                </pre>
+              </div>
+            ) : null}
           </div>
         ) : null}
       </section>

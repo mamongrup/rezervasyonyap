@@ -357,6 +357,19 @@ fn pub_listing_json(
 
 /// GET /api/v1/catalog/public/listings?q=&category_code=&location=&limit=&locale=&listing_ids=id1,id2
 pub fn search_public_listings(req: Request, ctx: Context) -> Response {
+  search_listings_impl(req, ctx, None)
+}
+
+/// GET /api/v1/agent/catalog/search — acente kategori grant filtresi ile aynı arama.
+pub fn search_agent_listings(req: Request, ctx: Context, agency_org_id: String) -> Response {
+  search_listings_impl(req, ctx, Some(agency_org_id))
+}
+
+fn search_listings_impl(
+  req: Request,
+  ctx: Context,
+  agency_org_opt: Option(String),
+) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
     Ok(q) -> q
@@ -672,6 +685,8 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     <> "     or (bucket.v = '4-7' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 4 and 7) "
     <> "     or (bucket.v = '8+' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int >= 8) "
     <> ")) "
+    <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
+    <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
 
   let sql_core = sql <> order_sql
   // Count subquery must reference $5 and $21 so PostgreSQL can infer parameter types.
@@ -683,6 +698,11 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   let int_col0 = {
     use n <- decode.field(0, decode.int)
     decode.success(n)
+  }
+
+  let agency_param = case agency_org_opt {
+    None -> pog.null()
+    Some(id) -> pog.text(id)
   }
 
   let run_params = fn(q) {
@@ -708,6 +728,7 @@ pub fn search_public_listings(req: Request, ctx: Context) -> Response {
     |> pog.parameter(tour_accommodation_param)
     |> pog.parameter(tour_duration_param)
     |> pog.parameter(pog.int(offset))
+    |> pog.parameter(agency_param)
   }
 
   case

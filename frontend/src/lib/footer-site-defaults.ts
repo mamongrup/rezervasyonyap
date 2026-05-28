@@ -132,6 +132,7 @@ export const DEFAULT_FOOTER_SITE_CONFIG: FooterSiteConfig = {
       { tr: 'Ortaklar İçin', en: 'For Partners', de: 'Für Partner', ru: 'Для партнёров', zh: '合作伙伴', fr: 'Partenaires' },
       [
         link('/tedarikci-ol',           { tr: 'Tedarikçi Olun',           en: 'Become a Supplier',  de: 'Anbieter werden',  ru: 'Стать поставщиком', zh: '成为供应商', fr: 'Devenir fournisseur' }),
+        link('/tesis-yonetimi',         { tr: 'Tesis Yönetimi',           en: 'Property Management', de: 'Objektverwaltung', ru: 'Управление объектом', zh: '物业托管', fr: 'Gestion d\'établissement' }),
         link('/manage',                 { tr: 'Tedarikçi Girişi',         en: 'Supplier Login',     de: 'Anbieter-Login',   ru: 'Вход поставщика',   zh: '供应商登录', fr: 'Connexion fournisseur' }),
         link('/tedarikci-ol#faydalar',  { tr: 'Tedarikçi Faydaları',      en: 'Supplier Benefits',  de: 'Anbieter-Vorteile', ru: 'Преимущества',      zh: '供应商权益', fr: 'Avantages fournisseurs' }),
         link('/acente-ol',              { tr: 'Acente Olun',              en: 'Become an Agency',   de: 'Agentur werden',   ru: 'Стать агентством',  zh: '成为代理',   fr: 'Devenir agence' }),

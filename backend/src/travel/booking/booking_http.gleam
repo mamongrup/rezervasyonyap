@@ -1711,3 +1711,200 @@ pub fn list_my_reservations(req: Request, ctx: Context) -> Response {
       }
   }
 }
+
+/// Partner API — tek istekte sepet + satır + checkout (`agency_organization_id` = API anahtarı kurumu).
+pub fn agent_booking_from_api(
+  db: pog.Connection,
+  agency_org_id: String,
+  listing_id: String,
+  quantity: Int,
+  starts_on: String,
+  ends_on: String,
+  unit_price: String,
+  currency_code: String,
+  guest_email: String,
+  guest_name: String,
+  guest_phone: Option(String),
+  hold_minutes: Int,
+  payment_type: String,
+  installments: Int,
+) -> Result(#(String, String, String, String), String) {
+  case
+    pog.transaction(db, fn(conn) {
+      case
+        pog.query(
+          "insert into carts (currency_code, session_key) values ($1, null) returning id::text",
+        )
+        |> pog.parameter(pog.text(currency_code))
+        |> pog.returning(row_dec.col0_string())
+        |> pog.execute(conn)
+      {
+        Error(_) -> Error("cart_create_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [cart_id] -> {
+              let _ = cart_fx.lock_cart_fx(conn, cart_id)
+              case
+                pog.query(
+                  "select c.currency_code::text, l.currency_code::text, l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                )
+                |> pog.parameter(pog.text(cart_id))
+                |> pog.parameter(pog.text(listing_id))
+                |> pog.returning({
+                  use a <- decode.field(0, decode.string)
+                  use b <- decode.field(1, decode.string)
+                  use st <- decode.field(2, decode.string)
+                  decode.success(#(a, b, st))
+                })
+                |> pog.execute(conn)
+              {
+                Error(_) -> Error("cart_or_listing")
+                Ok(rows) ->
+                  case rows.rows {
+                    [#(cc, lc, st)] ->
+                      case st == "published" && cc == lc {
+                        False -> Error("listing_unavailable_or_currency_mismatch")
+                        True ->
+                          case validate_agency_org(conn, agency_org_id) {
+                            False -> Error("invalid_agency_organization")
+                            True ->
+                              case assert_agency_document_approved_for_org(conn, agency_org_id) {
+                                Error(e) -> Error(e)
+                                Ok(Nil) ->
+                                  case assert_agency_listing_category_allowed(
+                                    conn,
+                                    listing_id,
+                                    agency_org_id,
+                                  ) {
+                                    Error(e) -> Error(e)
+                                    Ok(Nil) -> {
+                                      let meta =
+                                        json.object([])
+                                        |> json.to_string
+                                      case
+                                        pog.query(
+                                          "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, flexible_dates, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, false, $6::numeric, 0, 0, $7::jsonb) returning id::text",
+                                        )
+                                        |> pog.parameter(pog.text(cart_id))
+                                        |> pog.parameter(pog.text(listing_id))
+                                        |> pog.parameter(pog.int(quantity))
+                                        |> pog.parameter(pog.text(starts_on))
+                                        |> pog.parameter(pog.text(ends_on))
+                                        |> pog.parameter(pog.text(unit_price))
+                                        |> pog.parameter(pog.text(meta))
+                                        |> pog.returning(row_dec.col0_string())
+                                        |> pog.execute(conn)
+                                      {
+                                        Error(_) -> Error("insert_line_failed")
+                                        Ok(_) ->
+                                          do_checkout(
+                                            conn,
+                                            cart_id,
+                                            guest_email,
+                                            guest_name,
+                                            guest_phone,
+                                            hold_minutes,
+                                            Some(agency_org_id),
+                                            True,
+                                            "tr",
+                                            True,
+                                            True,
+                                            payment_type,
+                                            installments,
+                                          )
+                                      }
+                                    }
+                                  }
+                              }
+                          }
+                      }
+                    _ -> Error("cart_or_listing_not_found")
+                  }
+              }
+            }
+            _ -> Error("cart_create_failed")
+          }
+      }
+    })
+  {
+    Ok(v) -> Ok(v)
+    Error(pog.TransactionQueryError(_)) -> Error("database_error")
+    Error(pog.TransactionRolledBack(msg)) -> Error(msg)
+  }
+}
+
+/// Partner API — acente rezervasyon iptali (ödeme yakalanmamış, held/inquiry).
+pub fn agent_cancel_reservation(
+  db: pog.Connection,
+  agency_org_id: String,
+  public_code: String,
+) -> Result(#(String, String, String), String) {
+  case
+    pog.transaction(db, fn(conn) {
+      case
+        pog.query(
+          "select r.id::text, r.listing_id::text, r.status::text "
+          <> "from reservations r "
+          <> "where r.public_code = $1 and r.agency_organization_id = $2::uuid "
+          <> "and r.status in ('held', 'inquiry') "
+          <> "and not exists ( "
+          <> "  select 1 from payments p where p.reservation_id = r.id and p.status = 'captured' "
+          <> ") limit 1",
+        )
+        |> pog.parameter(pog.text(public_code))
+        |> pog.parameter(pog.text(agency_org_id))
+        |> pog.returning({
+          use rid <- decode.field(0, decode.string)
+          use lid <- decode.field(1, decode.string)
+          use st <- decode.field(2, decode.string)
+          decode.success(#(rid, lid, st))
+        })
+        |> pog.execute(conn)
+      {
+        Error(_) -> Error("load_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [#(rid, lid, _st)] -> {
+              let _ =
+                pog.query(
+                  "update inventory_holds set status = 'released' "
+                  <> "where reservation_id = $1::uuid and status = 'active'",
+                )
+                |> pog.parameter(pog.text(rid))
+                |> pog.execute(conn)
+              let _ =
+                pog.query(
+                  "insert into reservation_events (reservation_id, event_type, payload_json) "
+                  <> "values ($1::uuid, 'agent_api_cancelled', '{\"source\":\"agent_api\"}'::jsonb)",
+                )
+                |> pog.parameter(pog.text(rid))
+                |> pog.execute(conn)
+              case
+                pog.query(
+                  "update reservations set status = 'cancelled' "
+                  <> "where id = $1::uuid and status in ('held', 'inquiry') "
+                  <> "returning public_code",
+                )
+                |> pog.parameter(pog.text(rid))
+                |> pog.returning(row_dec.col0_string())
+                |> pog.execute(conn)
+              {
+                Error(_) -> Error("cancel_failed")
+                Ok(upd) ->
+                  case upd.rows {
+                    [code] -> Ok(#(rid, code, lid))
+                    _ -> Error("cancel_failed")
+                  }
+              }
+            }
+            [] -> Error("not_cancellable")
+            _ -> Error("not_cancellable")
+          }
+      }
+    })
+  {
+    Ok(v) -> Ok(v)
+    Error(pog.TransactionQueryError(_)) -> Error("database_error")
+    Error(pog.TransactionRolledBack(msg)) -> Error(msg)
+  }
+}

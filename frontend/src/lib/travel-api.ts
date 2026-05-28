@@ -2649,6 +2649,48 @@ export async function deleteAgencyApiKey(token: string, keyId: string): Promise<
   return json(res)
 }
 
+export type AgencyApiSettings = {
+  webhook_url: string
+  webhook_secret_set: boolean
+  webhook_secret: string | null
+  updated_at: string
+  rate_limit_per_minute: number
+}
+
+export async function getAgencyApiSettings(token: string): Promise<AgencyApiSettings> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agency/api-settings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agency_api_settings_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function patchAgencyApiSettings(
+  token: string,
+  body: { webhook_url?: string; webhook_secret?: string },
+): Promise<{ ok: boolean; webhook_url: string; webhook_secret_set: boolean; updated_at: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agency/api-settings`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `agency_api_settings_patch_${res.status}`)
+  }
+  return json(res)
+}
+
 export type AgencyCommissionRateRow = {
   id: string
   supplier_organization_id: string
@@ -3890,6 +3932,7 @@ export async function getAgentMe(apiKey: string): Promise<{
   organization_id: string
   key_prefix: string
   scopes: string[]
+  catalog_categories?: string[]
 }> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')

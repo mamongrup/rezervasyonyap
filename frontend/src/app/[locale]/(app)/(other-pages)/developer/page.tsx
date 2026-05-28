@@ -58,16 +58,30 @@ const FEATURES = [
 ]
 
 const ENDPOINTS = [
-  { method: 'GET',    path: '/v1/catalog/listings',           desc: 'Tüm ilanları listele & filtrele' },
-  { method: 'GET',    path: '/v1/catalog/listings/:slug',     desc: 'Tekil ilan detayları' },
-  { method: 'GET',    path: '/v1/catalog/categories',         desc: 'Kategori listesi' },
-  { method: 'GET',    path: '/v1/search?q=antalya',           desc: 'Serbest metin arama' },
-  { method: 'GET',    path: '/v1/availability/:id',           desc: 'Anlık müsaitlik sorgusu' },
-  { method: 'POST',   path: '/v1/bookings',                   desc: 'Yeni rezervasyon oluştur' },
-  { method: 'GET',    path: '/v1/bookings/:id',               desc: 'Rezervasyon durumu sorgula' },
-  { method: 'DELETE', path: '/v1/bookings/:id',               desc: 'Rezervasyon iptali' },
-  { method: 'GET',    path: '/v1/collections',                desc: 'Kuratoryal koleksiyonlar' },
-  { method: 'GET',    path: '/v1/regions',                    desc: 'Destinasyon & bölge verisi' },
+  { method: 'GET',    path: '/api/v1/agent/openapi.json',                            desc: 'OpenAPI 3.0 özet şema' },
+  { method: 'GET',    path: '/api/v1/agent/me',                                      desc: 'API anahtarı doğrulama + kapsamlar' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/categories',                      desc: 'Otel, tatil evi, yat, aktivite' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/search?category_code=hotel',      desc: 'İlan arama (vitrin filtreleri)' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/listings/:id',                    desc: 'İlan detayı' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/listings/:id/images',             desc: 'Galeri' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/listings/:id/meal-plans',         desc: 'Pansiyon planları' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/listings/:id/price-lines',        desc: 'Fiyat satırları' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/listings/:id/availability-calendar', desc: 'Müsaitlik takvimi' },
+  { method: 'GET',    path: '/api/v1/agent/catalog/listings/:id/activity-sessions',  desc: 'Aktivite seansları' },
+  { method: 'POST',   path: '/api/v1/agent/catalog/listings/:id/activity-quote',     desc: 'Aktivite fiyat teklifi' },
+  { method: 'POST',   path: '/api/v1/agent/catalog/listings/:id/stay-quote',         desc: 'Konaklama fiyat teklifi' },
+  { method: 'POST',   path: '/api/v1/agent/bookings',                                desc: 'Rezervasyon oluştur (held)' },
+  { method: 'GET',    path: '/api/v1/agent/bookings',                                desc: 'Rezervasyon listesi' },
+  { method: 'GET',    path: '/api/v1/agent/bookings/:public_code',                   desc: 'Rezervasyon durumu' },
+  { method: 'DELETE', path: '/api/v1/agent/bookings/:public_code',                   desc: 'Rezervasyon iptali' },
+  { method: 'GET',    path: '/api/v1/agent/reservations',                            desc: 'Acente rezervasyon listesi' },
+  { method: 'GET',    path: '/api/v1/agent/sales-summary',                           desc: 'Satış özeti' },
+]
+
+const SCOPES = [
+  { code: 'listings.read', desc: 'Arama, detay, müsaitlik, galeri, aktivite teklifi' },
+  { code: 'bookings.write', desc: 'Rezervasyon oluşturma ve iptal (held/inquiry)' },
+  { code: 'reservations.read', desc: 'Rezervasyon listesi ve sorgu' },
 ]
 
 const METHOD_COLORS: Record<string, string> = {
@@ -141,20 +155,39 @@ const PLANS = [
   },
 ]
 
-const CODE_SAMPLE = `// Listing arama örneği
+const CODE_SAMPLE = `// Otel arama (Partner API)
 const response = await fetch(
-  'https://api.seyahat.com/v1/catalog/listings' +
-  '?category_code=hotel&location=Antalya&locale=tr&per_page=10',
+  'https://rezervasyonyap.tr/api/v1/agent/catalog/search' +
+  '?category_code=hotel&location=Antalya&locale=tr&limit=10',
   {
     headers: {
-      'Authorization': 'Bearer YOUR_API_KEY',
-      'Content-Type': 'application/json',
+      'Authorization': 'Bearer trk_live_YOUR_API_KEY',
+      'Accept': 'application/json',
     },
   }
 )
 
 const { listings, total } = await response.json()
-// listings[0] → { id, slug, title, price_from, location, ... }`
+
+// Rezervasyon (otel / tatil evi / yat / aktivite)
+await fetch('https://rezervasyonyap.tr/api/v1/agent/bookings', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer trk_live_YOUR_API_KEY',
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    listing_id: listings[0].id,
+    quantity: 1,
+    starts_on: '2026-07-01',
+    ends_on: '2026-07-05',
+    unit_price: '4500.00',
+    currency_code: 'TRY',
+    guest_email: 'misafir@ornek.com',
+    guest_name: 'Ad Soyad',
+    contract_accepted: true,
+  }),
+})`
 
 export default function DeveloperPage() {
   return (
@@ -192,8 +225,8 @@ export default function DeveloperPage() {
             </span>
           </h1>
           <p className="mb-10 max-w-2xl text-lg text-neutral-400">
-            Tur, otel, yat, uçuş ve daha fazlası — tek bir REST API ile uygulamanıza entegre edin.
-            Kapsamlı dökümantasyon, SDK&apos;lar ve sandbox ortamı ile dakikalar içinde başlayın.
+            Tur, otel, tatil evi, yat ve aktivite — Partner API ile kendi uygulamanızdan satın.
+            API anahtarı acente panelinden oluşturulur; vitrin ile aynı envanter kullanılır.
           </p>
           <div className="flex flex-wrap gap-4">
             <a
@@ -203,13 +236,19 @@ export default function DeveloperPage() {
               <Terminal className="h-4 w-4" />
               Ücretsiz API Key Al
             </a>
-            <a
-              href="#endpoints"
+            <Link
+              href="/developer/swagger"
               className="flex items-center gap-2 rounded-2xl border border-white/10 px-7 py-3.5 text-sm font-medium backdrop-blur-sm transition hover:bg-white/5"
             >
               <BookOpen className="h-4 w-4" />
-              Dökümantasyon
-            </a>
+              Swagger UI
+            </Link>
+            <Link
+              href="/tesis-yonetimi"
+              className="flex items-center gap-2 rounded-2xl border border-white/10 px-7 py-3.5 text-sm font-medium backdrop-blur-sm transition hover:bg-white/5"
+            >
+              Tesis sahibi misiniz?
+            </Link>
           </div>
 
           {/* Code preview */}
@@ -274,6 +313,31 @@ export default function DeveloperPage() {
         </div>
       </section>
 
+      {/* ── Kapsamlar ───────────────────────────────────────────────────── */}
+      <section className="border-b border-neutral-100 py-16 dark:border-neutral-800">
+        <div className="container mx-auto max-w-5xl px-4">
+          <h2 className="text-2xl font-bold text-neutral-900 dark:text-white">API kapsamları</h2>
+          <p className="mt-2 text-sm text-neutral-500">
+            Anahtar oluşturulurken otomatik atanır. Rate limit: 300 istek/dakika/kurum.
+          </p>
+          <ul className="mt-6 space-y-3">
+            {SCOPES.map((s) => (
+              <li key={s.code} className="flex gap-3 text-sm">
+                <code className="shrink-0 rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs dark:bg-neutral-800">
+                  {s.code}
+                </code>
+                <span className="text-neutral-600 dark:text-neutral-400">{s.desc}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 text-sm text-neutral-500">
+            Tam referans: repo içi{' '}
+            <code className="text-xs">docs/API-PARTNER.md</code> · OpenAPI:{' '}
+            <code className="text-xs">GET /api/v1/agent/openapi.json</code>
+          </p>
+        </div>
+      </section>
+
       {/* ── Endpoint referans ──────────────────────────────────────────── */}
       <section id="endpoints" className="bg-neutral-50 py-20 dark:bg-neutral-900">
         <div className="container mx-auto max-w-5xl px-4">
@@ -286,7 +350,7 @@ export default function DeveloperPage() {
           <div className="overflow-hidden rounded-2xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800">
             <div className="border-b border-neutral-100 px-5 py-3 dark:border-neutral-700">
               <span className="text-xs font-semibold uppercase tracking-wider text-neutral-500">
-                Base URL: <code className="text-primary-600 dark:text-primary-400">https://api.seyahat.com</code>
+                Base URL: <code className="text-primary-600 dark:text-primary-400">https://rezervasyonyap.tr</code>
               </span>
             </div>
             <div className="divide-y divide-neutral-100 dark:divide-neutral-700">
@@ -303,9 +367,9 @@ export default function DeveloperPage() {
               ))}
             </div>
             <div className="border-t border-neutral-100 px-5 py-3 dark:border-neutral-700">
-              <a href="#basvuru" className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline">
-                Tam dökümantasyona erişin <ArrowRight className="h-3.5 w-3.5" />
-              </a>
+              <Link href="/developer/swagger" className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline">
+                Swagger UI ile tam dökümantasyon <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </div>
           </div>
         </div>
@@ -484,12 +548,12 @@ export default function DeveloperPage() {
                 Teknik sorularınız mı var?
               </h3>
               <p className="mt-1 text-sm text-neutral-500">
-                developer@seyahat.com adresinden bize yazın.
+                developer@rezervasyonyap.tr adresinden bize yazın.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <a
-                href="mailto:developer@seyahat.com"
+                href="mailto:developer@rezervasyonyap.tr"
                 className="flex items-center gap-2 rounded-xl border border-neutral-200 px-5 py-2.5 text-sm font-medium text-neutral-700 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:text-neutral-300"
               >
                 <Mail className="h-4 w-4" />

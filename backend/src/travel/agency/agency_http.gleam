@@ -259,7 +259,7 @@ pub fn create_api_key(req: Request, ctx: Context) -> Response {
                 string.append("trk_live_", bit_array.base16_encode(crypto.strong_random_bytes(24)))
               let prefix = slice_prefix(secret, 14)
               let hash = api_key.hash_api_secret(secret)
-              let scopes = ["listings.read", "reservations.read"]
+              let scopes = ["listings.read", "bookings.write", "reservations.read"]
               case
                 pog.query(
                   "insert into api_keys (organization_id, key_prefix, key_hash, label, scopes) values ($1::uuid, $2, $3, $4, $5::text[]) returning id::text",
@@ -647,6 +647,131 @@ pub fn patch_invoice_notes(req: Request, ctx: Context, invoice_id: String) -> Re
             Error(_) -> json_err(400, "invalid_json")
             Ok(notes) ->
               agency_invoices.patch_notes_response(ctx.db, oid, invoice_id, notes)
+          }
+      }
+  }
+}
+
+fn api_settings_decoder() -> decode.Decoder(#(String, String)) {
+  decode.optional_field("webhook_url", "", decode.string, fn(url) {
+    decode.optional_field("webhook_secret", "", decode.string, fn(secret) {
+      decode.success(#(url, secret))
+    })
+  })
+}
+
+/// GET /api/v1/agency/api-settings — Partner API webhook ayarları.
+pub fn get_api_settings(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case auth_agency_portal(req, ctx.db) {
+    Error(r) -> r
+    Ok(#(_, oid, _, _, _, _)) ->
+      case
+        pog.query(
+          "select coalesce(webhook_url, ''), coalesce(webhook_secret, ''), "
+          <> "to_char(coalesce(updated_at, now()), 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') "
+          <> "from agency_api_settings where organization_id = $1::uuid limit 1",
+        )
+        |> pog.parameter(pog.text(oid))
+        |> pog.returning({
+          use u <- decode.field(0, decode.string)
+          use s <- decode.field(1, decode.string)
+          use ts <- decode.field(2, decode.string)
+          decode.success(#(u, s, ts))
+        })
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "settings_load_failed")
+        Ok(ret) -> {
+          let #(url, secret, updated) = case ret.rows {
+            [#(u, s, t)] -> #(u, s, t)
+            _ -> #("", "", "")
+          }
+          let secret_out = case string.trim(secret) == "" {
+            True -> json.null()
+            False -> json.string("••••••••")
+          }
+          let body =
+            json.object([
+              #("webhook_url", json.string(string.trim(url))),
+              #("webhook_secret_set", json.bool(string.trim(secret) != "")),
+              #("webhook_secret", secret_out),
+              #("updated_at", json.string(updated)),
+              #(
+                "rate_limit_per_minute",
+                json.int(300),
+              ),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+  }
+}
+
+/// PATCH /api/v1/agency/api-settings — { webhook_url, webhook_secret? }
+pub fn patch_api_settings(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Patch)
+  case auth_agency_portal(req, ctx.db) {
+    Error(r) -> r
+    Ok(#(_, oid, _, _, _, _)) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, api_settings_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(#(url_raw, secret_raw)) -> {
+              let url = string.trim(url_raw)
+              let secret_trim = string.trim(secret_raw)
+              case url != "" && !string.starts_with(url, "https://") {
+                True -> json_err(400, "webhook_url_must_be_https")
+                False ->
+                  case
+                    pog.query(
+                      "insert into agency_api_settings (organization_id, webhook_url, webhook_secret, updated_at) "
+                      <> "values ($1::uuid, "
+                      <> "case when $2 = '' then null else $2 end, "
+                      <> "case when $3 = '' then null else $3 end, now()) "
+                      <> "on conflict (organization_id) do update set "
+                      <> "webhook_url = case when $2 = '' then agency_api_settings.webhook_url else excluded.webhook_url end, "
+                      <> "webhook_secret = case when $3 = '' then agency_api_settings.webhook_secret else excluded.webhook_secret end, "
+                      <> "updated_at = now() "
+                      <> "returning coalesce(webhook_url, ''), coalesce(webhook_secret, ''), "
+                      <> "to_char(updated_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"')",
+                    )
+                    |> pog.parameter(pog.text(oid))
+                    |> pog.parameter(pog.text(url))
+                    |> pog.parameter(pog.text(secret_trim))
+                    |> pog.returning({
+                      use u <- decode.field(0, decode.string)
+                      use s <- decode.field(1, decode.string)
+                      use t <- decode.field(2, decode.string)
+                      decode.success(#(u, s, t))
+                    })
+                    |> pog.execute(ctx.db)
+                  {
+                    Error(_) -> json_err(500, "settings_save_failed")
+                    Ok(ret) ->
+                      case ret.rows {
+                        [#(u, s, t)] -> {
+                          let body =
+                            json.object([
+                              #("ok", json.bool(True)),
+                              #("webhook_url", json.string(string.trim(u))),
+                              #(
+                                "webhook_secret_set",
+                                json.bool(string.trim(s) != ""),
+                              ),
+                              #("updated_at", json.string(t)),
+                            ])
+                            |> json.to_string
+                          wisp.json_response(body, 200)
+                        }
+                        _ -> json_err(500, "unexpected")
+                      }
+                  }
+              }
+            }
           }
       }
   }

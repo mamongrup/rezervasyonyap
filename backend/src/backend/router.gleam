@@ -7,6 +7,10 @@ import travel/banners/banner_http
 import travel/i18n/i18n_http
 import travel/i18n/localized_routes_http
 import travel/agent/agent_http
+import travel/agent/agent_catalog_http
+import travel/agent/agent_booking_http
+import travel/agent/agent_stay_quote
+import travel/agent/agent_openapi_http
 import travel/agency/agency_http
 import travel/staff/staff_http
 import travel/supplier/supplier_http
@@ -429,6 +433,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Patch, ["api", "v1", "admin", "agency-profiles"] ->
       identity_http.admin_patch_agency_profiles(req, ctx)
 
+    http.Get, ["api", "v1", "agent", "openapi.json"] ->
+      agent_openapi_http.openapi(req, ctx)
+
     http.Get, ["api", "v1", "agent", "me"] -> agent_http.me(req, ctx)
 
     http.Get, ["api", "v1", "agent", "reservations"] ->
@@ -436,6 +443,57 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "agent", "sales-summary"] ->
       agent_http.sales_summary(req, ctx)
+
+    http.Get, ["api", "v1", "agent", "catalog", "categories"] ->
+      agent_catalog_http.list_categories(req, ctx)
+
+    http.Get, ["api", "v1", "agent", "catalog", "search"] ->
+      agent_catalog_http.search(req, ctx)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid] ->
+      agent_catalog_http.get_listing(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "availability-calendar"] ->
+      agent_catalog_http.availability_calendar(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "activity-sessions"] ->
+      agent_catalog_http.activity_sessions(req, ctx, lid)
+
+    http.Post, ["api", "v1", "agent", "catalog", "listings", lid, "activity-quote"] ->
+      agent_catalog_http.activity_quote(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "images"] ->
+      agent_catalog_http.listing_images(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "meal-plans"] ->
+      agent_catalog_http.meal_plans(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "price-rules"] ->
+      agent_catalog_http.price_rules(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "price-lines"] ->
+      agent_catalog_http.price_lines(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "accommodation-rules"] ->
+      agent_catalog_http.accommodation_rules(req, ctx, lid)
+
+    http.Get, ["api", "v1", "agent", "catalog", "listings", lid, "bedrooms"] ->
+      agent_catalog_http.bedrooms(req, ctx, lid)
+
+    http.Post, ["api", "v1", "agent", "catalog", "listings", lid, "stay-quote"] ->
+      agent_stay_quote.stay_quote(req, ctx, lid)
+
+    http.Post, ["api", "v1", "agent", "bookings"] ->
+      agent_booking_http.create_booking(req, ctx)
+
+    http.Get, ["api", "v1", "agent", "bookings"] ->
+      agent_booking_http.list_bookings(req, ctx)
+
+    http.Get, ["api", "v1", "agent", "bookings", code] ->
+      agent_booking_http.get_booking(req, ctx, code)
+
+    http.Delete, ["api", "v1", "agent", "bookings", code] ->
+      agent_booking_http.cancel_booking(req, ctx, code)
 
     http.Get, ["api", "v1", "staff", "me"] -> staff_http.me(req, ctx)
 
@@ -482,6 +540,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Delete, ["api", "v1", "agency", "api-keys", kid] ->
       agency_http.delete_api_key(req, ctx, kid)
+
+    http.Get, ["api", "v1", "agency", "api-settings"] ->
+      agency_http.get_api_settings(req, ctx)
+
+    http.Patch, ["api", "v1", "agency", "api-settings"] ->
+      agency_http.patch_api_settings(req, ctx)
 
     http.Get, ["api", "v1", "agency", "commission-rates"] ->
       agency_http.commission_rates(req, ctx)
@@ -1515,6 +1579,8 @@ fn api_meta(req: Request) -> Response {
             "roles_catalog",
             "agency_portal_api_keys",
             "agent_api_key_auth",
+            "agent_catalog_api",
+            "agent_bookings_api",
             "agency_sales_summary",
             "commission_accruals_live",
             "commission_accrual_lines_persisted",
