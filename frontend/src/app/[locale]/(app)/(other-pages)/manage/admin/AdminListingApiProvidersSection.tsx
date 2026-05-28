@@ -144,7 +144,7 @@ export default function AdminListingApiProvidersSection() {
       }
       setMsg({ type: 'ok', text: 'Kaydedildi. Token testi ile bağlantıyı doğrulayın.' })
     } catch (e) {
-      setMsg({ type: 'err', text: formatManageApiCatch(e) })
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
     } finally {
       setSaving(false)
     }
@@ -178,7 +178,7 @@ export default function AdminListingApiProvidersSection() {
         text: `Travelrobot bağlantısı OK${data.token_preview ? ` (token: ${data.token_preview})` : ''}`,
       })
     } catch (e) {
-      setMsg({ type: 'err', text: formatManageApiCatch(e) })
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Bağlantı testi başarısız') })
     } finally {
       setTesting(false)
     }
