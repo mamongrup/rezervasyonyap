@@ -1,5 +1,6 @@
 import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.tr'
+import { checkoutTr } from './checkout'
 
 /** Varsayılan arayüz dili: Türkçe — `HeroSearchForm` ve ortak anahtarlar */
 export const tr = {
@@ -1652,4 +1653,5 @@ export const tr = {
       no: 'Hayır',
     },
   },
+  checkout: checkoutTr,
 } satisfies AppMessages

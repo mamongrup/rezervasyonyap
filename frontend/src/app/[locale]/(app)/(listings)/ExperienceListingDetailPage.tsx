@@ -271,7 +271,9 @@ export default async function ExperienceListingDetailPage({
   const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
   const activityInitialDate = new Date().toISOString().slice(0, 10)
   const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions] = await Promise.all([
-    fetchPublicListingAvailabilityDaysSafe(catalogListingId),
+    vertical === 'tour'
+      ? Promise.resolve([])
+      : fetchPublicListingAvailabilityDaysSafe(catalogListingId),
     vertical === 'tour'
       ? getVerticalMeta(catalogListingId, 'tour').catch(() => null)
       : Promise.resolve(null),
@@ -321,8 +323,6 @@ export default async function ExperienceListingDetailPage({
   const tourDescriptionHtml = description?.trim() ? sanitizeRichCmsHtml(description) : ''
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
-        tourDurationLine ? { label: 'Süre', value: tourDurationLine, icon: 'duration' } : null,
-        tourGroupLine ? { label: 'Katılım', value: tourGroupLine, icon: 'group' } : null,
         tourMeta?.travel_type && travelTypeLabel(tourMeta.travel_type)
           ? { label: 'Ulaşım', value: travelTypeLabel(tourMeta.travel_type), icon: 'transport' }
           : null,
@@ -356,16 +356,13 @@ export default async function ExperienceListingDetailPage({
   ])
   const tourNavItems: TourSectionNavItem[] = isTour
     ? [
-        tourOverviewItems.length > 0 || tourDescriptionHtml ? { id: 'tour-section-overview', label: 'Genel Bilgiler' } : null,
         (tourMeta?.itinerary ?? []).length > 0
           ? { id: 'tour-section-program', label: 'Program', eyebrow: String(tourMeta?.itinerary?.length ?? '') }
           : null,
         tourIncludedLines.length > 0 || tourExcludedLines.length > 0
           ? { id: 'tour-section-services', label: 'Dahil/Hariç' }
           : null,
-        { id: 'tour-section-dates', label: 'Tarih ve Fiyat' },
         tourNotes.length > 0 ? { id: 'tour-section-notes', label: 'Önemli Notlar' } : null,
-        { id: 'tour-section-location', label: 'Konum' },
       ].filter((item): item is TourSectionNavItem => item !== null)
     : []
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
@@ -500,18 +497,18 @@ export default async function ExperienceListingDetailPage({
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
           {renderSectionHeader()}
           {isTour ? <TourSectionNav items={tourNavItems} /> : null}
+          {isTour && (tourOverviewItems.length > 0 || tourDescriptionHtml) ? (
+            <TourOverviewSection
+              items={tourOverviewItems}
+              description={
+                tourDescriptionHtml ? (
+                  <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
+                ) : null
+              }
+            />
+          ) : null}
           {isTour ? (
             <>
-              <div id="tour-section-overview" className="scroll-mt-28">
-                <TourOverviewSection
-                  items={tourOverviewItems}
-                  description={
-                    tourDescriptionHtml ? (
-                      <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
-                    ) : null
-                  }
-                />
-              </div>
               <div id="tour-section-program" className="scroll-mt-28">
                 <TourItinerarySection days={tourMeta?.itinerary ?? []} />
               </div>
@@ -530,8 +527,8 @@ export default async function ExperienceListingDetailPage({
               }
             />
           ) : null}
-          {!isActivity ? (
-            <div id={isTour ? 'tour-section-dates' : undefined} className="scroll-mt-28">
+          {!isActivity && !isTour ? (
+            <div className="scroll-mt-28">
               <SectionDateRange
                 locale={locale}
                 initialDays={availabilityCalendarDays}
@@ -580,9 +577,11 @@ export default async function ExperienceListingDetailPage({
           </div>
         </div>
 
-        <div id={isTour ? 'tour-section-location' : undefined} className="scroll-mt-28">
-          <SectionMap />
-        </div>
+        {!isTour ? (
+          <div className="scroll-mt-28">
+            <SectionMap />
+          </div>
+        ) : null}
 
         <NearbyPlacesSection
           locale={locale}

@@ -1,5 +1,6 @@
 'use client'
 
+import { checkoutT, fmtCheckout } from '@/lib/checkout-i18n'
 import { getPublicCheckoutContractsBundle, type PublicContractBlock } from '@/lib/travel-api'
 import { Description, Field, Label } from '@/shared/fieldset'
 import React from 'react'
@@ -14,7 +15,6 @@ export type CheckoutContractAcceptancePayload = {
 type Props = {
   listingId: string | undefined
   locale: string
-  /** İlan yoksa veya API kapalıysa true sayılır (demo modu). */
   optional?: boolean
   onValidityChange: (payload: CheckoutContractAcceptancePayload) => void
 }
@@ -25,24 +25,29 @@ function ContractSection({
   onChange,
   inputId,
   label,
+  locale,
 }: {
   block: PublicContractBlock
   checked: boolean
   onChange: (v: boolean) => void
   inputId: string
   label: string
+  locale: string
 }) {
+  const C = checkoutT(locale)
   return (
     <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
       <div>
         <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">{block.title}</h3>
-        <p className="text-xs text-neutral-500 dark:text-neutral-400">Sözleşme sürümü: {block.version}</p>
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          {fmtCheckout(C.contractVersion, { version: block.version })}
+        </p>
       </div>
       <div
         className="max-h-48 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-3 text-sm leading-relaxed whitespace-pre-wrap text-neutral-800 dark:border-neutral-600 dark:bg-neutral-950 dark:text-neutral-200"
         tabIndex={0}
         role="region"
-        aria-label="Sözleşme metni"
+        aria-label={C.contractBodyAria}
       >
         {block.body_text}
       </div>
@@ -58,25 +63,24 @@ function ContractSection({
           <Label htmlFor={inputId} className="!text-sm font-medium cursor-pointer">
             {label}
           </Label>
-          <Description className="!mt-1">Rezervasyon için bu metni onaylamanız gerekir.</Description>
+          <Description className="!mt-1">{C.contractAcceptHint}</Description>
         </div>
       </Field>
     </div>
   )
 }
 
-/**
- * Checkout: yayın ilanı için genel + satış + kategori sözleşmelerini tek pakette yükler;
- * yalnızca API’de dönen bloklar için onay kutusu gösterilir.
- */
 export default function CheckoutContractAcceptance({
   listingId,
   locale,
   optional = false,
   onValidityChange,
 }: Props) {
+  const C = checkoutT(locale)
   const notify = React.useRef(onValidityChange)
-  notify.current = onValidityChange
+  React.useEffect(() => {
+    notify.current = onValidityChange
+  }, [onValidityChange])
 
   const [loading, setLoading] = React.useState(Boolean(listingId))
   const [err, setErr] = React.useState<string | null>(null)
@@ -166,40 +170,27 @@ export default function CheckoutContractAcceptance({
       general_contract_accepted,
       sales_contract_accepted,
     })
-  }, [
-    listingId,
-    optional,
-    loading,
-    err,
-    bundle,
-    catAccepted,
-    genAccepted,
-    salAccepted,
-  ])
+  }, [listingId, optional, loading, err, bundle, catAccepted, genAccepted, salAccepted])
 
   if (!listingId) {
     if (optional) return null
     return (
       <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-        Checkout için geçerli bir ilan kimliği (NEXT_PUBLIC_CHECKOUT_LISTING_ID) tanımlı değil; sözleşme adımı
-        atlanamaz.
+        {C.contractsMissingListing}
       </p>
     )
   }
 
   if (loading) {
-    return <p className="text-sm text-neutral-500 dark:text-neutral-400">Sözleşmeler yükleniyor…</p>
+    return <p className="text-sm text-neutral-500 dark:text-neutral-400">{C.contractsLoading}</p>
   }
 
   if (err) {
     return (
       <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
-        <p className="font-medium">Sözleşmeler yüklenemedi</p>
+        <p className="font-medium">{C.contractsLoadFailed}</p>
         <p className="mt-1 font-mono text-xs opacity-90">{err}</p>
-        <p className="mt-2 text-xs">
-          İlan yayında olmalı; kategori sözleşmesi, gerekirse genel ve satış şablonları yönetim panelinden
-          tanımlanır.
-        </p>
+        <p className="mt-2 text-xs">{C.contractsLoadFailedHint}</p>
       </div>
     )
   }
@@ -211,10 +202,8 @@ export default function CheckoutContractAcceptance({
   if (missingCategory) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
-        <p className="font-medium">Bu ilana atanmış kategori sözleşmesi yok</p>
-        <p className="mt-1 text-xs">
-          Checkout tamamlanamaz. Yönetimden kategori sözleşmesi oluşturup ilanı bu şablona bağlayın.
-        </p>
+        <p className="font-medium">{C.contractsMissingCategory}</p>
+        <p className="mt-1 text-xs">{C.contractsMissingCategoryHint}</p>
       </div>
     )
   }
@@ -227,7 +216,8 @@ export default function CheckoutContractAcceptance({
           checked={genAccepted}
           onChange={setGenAccepted}
           inputId="checkout-contract-general"
-          label="Genel şartları okudum ve kabul ediyorum"
+          label={C.contractGeneralLabel}
+          locale={locale}
         />
       ) : null}
       {bundle.sales ? (
@@ -236,7 +226,8 @@ export default function CheckoutContractAcceptance({
           checked={salAccepted}
           onChange={setSalAccepted}
           inputId="checkout-contract-sales"
-          label="Satış sözleşmesini okudum ve kabul ediyorum"
+          label={C.contractSalesLabel}
+          locale={locale}
         />
       ) : null}
       {bundle.category ? (
@@ -245,7 +236,8 @@ export default function CheckoutContractAcceptance({
           checked={catAccepted}
           onChange={setCatAccepted}
           inputId="checkout-contract-category"
-          label="Ürün / kategori sözleşmesini okudum ve kabul ediyorum"
+          label={C.contractCategoryLabel}
+          locale={locale}
         />
       ) : null}
     </div>

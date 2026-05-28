@@ -1,50 +1,32 @@
 'use client'
 
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import {
+  checkoutStatusLabel,
+  checkoutT,
+  formatCheckoutDate,
+  formatCheckoutMoney,
+} from '@/lib/checkout-i18n'
+import { getReservationByPublicCode, type ReservationDetail } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
-import { getReservationByPublicCode, type ReservationDetail } from '@/lib/travel-api'
-import T from '@/utils/getT'
 import { Calendar04Icon, Home01Icon, UserIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import React from 'react'
 
-function formatDate(iso: string): string {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function formatCurrency(amountStr: string, currency: string): string {
-  const num = parseFloat(amountStr)
-  if (Number.isNaN(num)) return amountStr
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: currency || 'TRY',
-    minimumFractionDigits: 2,
-  }).format(num)
-}
-
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
-    held: 'Beklemede',
-    confirmed: 'Onaylandı',
-    completed: 'Tamamlandı',
-    cancelled: 'İptal',
-    paid: 'Ödendi',
-  }
-  return map[status] ?? status
-}
-
 export default function PayDoneView() {
+  const vitrinHref = useVitrinHref()
+  const params = useParams()
   const searchParams = useSearchParams()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
+  const C = checkoutT(locale)
+  const PD = C.payDone
   const publicCode = searchParams.get('code')
 
   const [reservation, setReservation] = React.useState<ReservationDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' })
@@ -66,29 +48,20 @@ export default function PayDoneView() {
         localStorage.removeItem('travel_paydone_email')
       })
       .catch(() => {
-        /* Sessizce geç — statik fallback göster */
+        /* statik fallback */
       })
       .finally(() => setLoading(false))
   }, [publicCode])
 
   const totalFromLines = React.useMemo(() => {
     if (!reservation?.lines.length) return null
-    const sum = reservation.lines.reduce((acc, l) => acc + parseFloat(l.line_total || '0'), 0)
-    return sum
+    return reservation.lines.reduce((acc, l) => acc + parseFloat(l.line_total || '0'), 0)
   }, [reservation])
 
   if (loading) {
     return (
       <main className="container mt-10 mb-24">
-        <p className="text-neutral-500 dark:text-neutral-400">Rezervasyon yükleniyor…</p>
-      </main>
-    )
-  }
-
-  if (error) {
-    return (
-      <main className="container mt-10 mb-24 max-w-lg">
-        <p className="text-red-600 dark:text-red-400">{error}</p>
+        <p className="text-neutral-500 dark:text-neutral-400">{PD.loading}</p>
       </main>
     )
   }
@@ -96,7 +69,9 @@ export default function PayDoneView() {
   return (
     <main className="container mt-10 mb-24 sm:mt-16 lg:mb-32">
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-y-12 px-0 sm:rounded-2xl sm:p-6 xl:p-8">
-        <h1 className="text-4xl font-semibold sm:text-5xl">{T['common']['Congratulation']} 🎉</h1>
+        <h1 className="text-4xl font-semibold sm:text-5xl">
+          {PD.congratulation} 🎉
+        </h1>
         <Divider />
 
         {reservation && (
@@ -104,16 +79,17 @@ export default function PayDoneView() {
             <div className="flex flex-1 gap-x-4 p-5">
               <HugeiconsIcon icon={Calendar04Icon} size={32} strokeWidth={1.5} />
               <div className="flex flex-col">
-                <span className="text-sm text-neutral-400">Tarih</span>
+                <span className="text-sm text-neutral-400">{PD.dateLabel}</span>
                 <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                  {formatDate(reservation.starts_on)} – {formatDate(reservation.ends_on)}
+                  {formatCheckoutDate(locale, reservation.starts_on)} –{' '}
+                  {formatCheckoutDate(locale, reservation.ends_on)}
                 </span>
               </div>
             </div>
             <div className="flex flex-1 gap-x-4 p-5">
               <HugeiconsIcon icon={UserIcon} size={32} strokeWidth={1.5} />
               <div className="flex flex-col">
-                <span className="text-sm text-neutral-400">Misafir</span>
+                <span className="text-sm text-neutral-400">{PD.guestLabel}</span>
                 <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
                   {reservation.guest_name || reservation.guest_email}
                 </span>
@@ -123,9 +99,9 @@ export default function PayDoneView() {
         )}
 
         <div>
-          <h3 className="text-2xl font-semibold">{T['common']['Your booking']}</h3>
+          <h3 className="text-2xl font-semibold">{PD.yourBooking}</h3>
           <DescriptionList className="mt-5">
-            <DescriptionTerm>Rezervasyon kodu</DescriptionTerm>
+            <DescriptionTerm>{PD.codeLabel}</DescriptionTerm>
             <DescriptionDetails>
               <span className="font-mono text-neutral-900 dark:text-neutral-100">
                 {reservation?.public_code ?? publicCode ?? '—'}
@@ -134,58 +110,46 @@ export default function PayDoneView() {
 
             {reservation && (
               <>
-                <DescriptionTerm>Durum</DescriptionTerm>
-                <DescriptionDetails>{statusLabel(reservation.status)}</DescriptionDetails>
+                <DescriptionTerm>{PD.statusLabel}</DescriptionTerm>
+                <DescriptionDetails>{checkoutStatusLabel(locale, reservation.status)}</DescriptionDetails>
 
-                <DescriptionTerm>Giriş tarihi</DescriptionTerm>
-                <DescriptionDetails>{formatDate(reservation.starts_on)}</DescriptionDetails>
+                <DescriptionTerm>{PD.checkInLabel}</DescriptionTerm>
+                <DescriptionDetails>{formatCheckoutDate(locale, reservation.starts_on)}</DescriptionDetails>
 
-                <DescriptionTerm>Çıkış tarihi</DescriptionTerm>
-                <DescriptionDetails>{formatDate(reservation.ends_on)}</DescriptionDetails>
+                <DescriptionTerm>{PD.checkOutLabel}</DescriptionTerm>
+                <DescriptionDetails>{formatCheckoutDate(locale, reservation.ends_on)}</DescriptionDetails>
 
                 {totalFromLines !== null && (
                   <>
-                    <DescriptionTerm>Toplam</DescriptionTerm>
+                    <DescriptionTerm>{PD.totalLabel}</DescriptionTerm>
                     <DescriptionDetails>
-                      {formatCurrency(
-                        totalFromLines.toString(),
-                        reservation.lines[0]
-                          ? (() => {
-                              try {
-                                const pb = JSON.parse(reservation.price_breakdown_json) as {
-                                  currency?: string
-                                }
-                                return pb.currency ?? 'TRY'
-                              } catch {
-                                return 'TRY'
-                              }
-                            })()
-                          : 'TRY',
+                      {formatCheckoutMoney(
+                        locale,
+                        totalFromLines,
+                        (() => {
+                          try {
+                            const pb = JSON.parse(reservation.price_breakdown_json) as { currency?: string }
+                            return pb.currency ?? 'TRY'
+                          } catch {
+                            return 'TRY'
+                          }
+                        })(),
                       )}
                     </DescriptionDetails>
                   </>
                 )}
 
-                <DescriptionTerm>Oluşturma tarihi</DescriptionTerm>
-                <DescriptionDetails>{formatDate(reservation.created_at)}</DescriptionDetails>
-              </>
-            )}
-
-            {!reservation && publicCode && (
-              <>
-                <DescriptionTerm>Rezervasyon kodu</DescriptionTerm>
-                <DescriptionDetails>
-                  <span className="font-mono">{publicCode}</span>
-                </DescriptionDetails>
+                <DescriptionTerm>{PD.createdAtLabel}</DescriptionTerm>
+                <DescriptionDetails>{formatCheckoutDate(locale, reservation.created_at)}</DescriptionDetails>
               </>
             )}
           </DescriptionList>
         </div>
 
         <div>
-          <ButtonPrimary href="/">
+          <ButtonPrimary href={vitrinHref('/')}>
             <HugeiconsIcon icon={Home01Icon} className="size-5" strokeWidth={1.75} />
-            Ana sayfaya dön
+            {PD.homeButton}
           </ButtonPrimary>
         </div>
       </div>

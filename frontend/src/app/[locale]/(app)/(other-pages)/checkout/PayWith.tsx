@@ -1,5 +1,6 @@
 'use client'
 
+import { checkoutT } from '@/lib/checkout-i18n'
 import { Description, Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
@@ -8,17 +9,19 @@ import { MasterCardIcon, PaypalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import React from 'react'
 
-const PayWith = () => {
+type Props = {
+  locale: string
+}
+
+const PayWith = ({ locale }: Props) => {
+  const C = checkoutT(locale)
   const [paymentMethod, setPaymentMethod] = React.useState('paypal')
 
   return (
     <div className="pt-5">
-      <h3 className="text-2xl font-semibold">Pay with</h3>
-      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
-        Canlı ortamda ödeme PayTR iFrame üzerinden backend ile yapılır (kart bilgisi sunucuya gönderilmez). Bu ekran
-        taslağıdır.
-      </p>
-      <div className="my-5 w-14 border-b border-neutral-200 dark:border-neutral-700"></div>
+      <h3 className="text-2xl font-semibold">{C.payWithTitle}</h3>
+      <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">{C.payWithNote}</p>
+      <div className="my-5 w-14 border-b border-neutral-200 dark:border-neutral-700" />
 
       <TabGroup
         className="mt-6"
@@ -28,12 +31,12 @@ const PayWith = () => {
       >
         <TabList className="my-5 flex gap-1 text-sm">
           <Tab className="flex items-center gap-x-2 rounded-full px-4 py-2.5 leading-none font-medium data-hover:bg-black/5 data-[selected]:bg-neutral-900 data-[selected]:text-white sm:px-6 dark:data-[selected]:bg-neutral-100 dark:data-[selected]:text-neutral-900">
-            Paypal
+            {C.payWithPaypalTab}
             <HugeiconsIcon icon={PaypalIcon} size={20} strokeWidth={1.5} />
           </Tab>
           <Tab className="flex items-center gap-x-2 rounded-full px-4 py-2.5 leading-none font-medium data-hover:bg-black/5 data-[selected]:bg-neutral-900 data-[selected]:text-white sm:px-6 dark:data-[selected]:bg-neutral-100 dark:data-[selected]:text-neutral-900">
             <div className="flex items-center gap-x-2">
-              Credit card
+              {C.payWithCardTab}
               <HugeiconsIcon icon={MasterCardIcon} size={20} strokeWidth={1.5} />
             </div>
           </Tab>
@@ -42,44 +45,42 @@ const PayWith = () => {
         <TabPanels>
           <TabPanel className="flex flex-col gap-y-5">
             <Field>
-              <Label>Card number </Label>
-              <Input name="card-number" className="mt-1.5" defaultValue="111 112 222 999" />
+              <Label>{C.cardNumber}</Label>
+              <Input name="card-number" className="mt-1.5" autoComplete="cc-number" />
             </Field>
             <Field>
-              <Label>Card holder </Label>
-              <Input name="card-holder" defaultValue="JOHN DOE" />
+              <Label>{C.cardHolder}</Label>
+              <Input name="card-holder" autoComplete="cc-name" />
             </Field>
             <div className="flex gap-x-5">
               <Field>
-                <Label>Expiration date </Label>
-                <Input name="expiration-date" className="mt-1.5" type="date" defaultValue="MM/YY" />
+                <Label>{C.expirationDate}</Label>
+                <Input name="expiration-date" className="mt-1.5" type="date" autoComplete="cc-exp" />
               </Field>
               <Field>
-                <Label>CVC </Label>
-                <Input name="CVC" className="mt-1.5" />
+                <Label>{C.cvc}</Label>
+                <Input name="CVC" className="mt-1.5" autoComplete="cc-csc" />
               </Field>
             </div>
             <Field>
-              <Label>Messager for author </Label>
+              <Label>{C.messageForHost}</Label>
               <Textarea name="message" className="mt-1.5" placeholder="..." />
-              <Description>Write a few sentences about yourself.</Description>
+              <Description>{C.writeAboutYourself}</Description>
             </Field>
           </TabPanel>
           <TabPanel className="flex flex-col gap-y-5">
             <Field>
-              <Label>Email </Label>
-              <Input name="email" className="mt-1.5" type="email" defaultValue="example@gmail.com" />
+              <Label>{C.emailLabel}</Label>
+              <Input name="email" className="mt-1.5" type="email" autoComplete="email" />
             </Field>
             <Field>
-              <Label>Password </Label>
-              <Input name="password" className="mt-1.5" type="password" defaultValue="***" />
+              <Label>{C.payWithPassword}</Label>
+              <Input name="password" className="mt-1.5" type="password" autoComplete="off" />
             </Field>
             <Field>
-              <Label>Messager for author </Label>
+              <Label>{C.messageForHost}</Label>
               <Textarea name="message" className="mt-1.5" placeholder="..." />
-              <Description className="block text-sm text-neutral-500">
-                Write a few sentences about yourself.
-              </Description>
+              <Description className="block text-sm text-neutral-500">{C.writeAboutYourself}</Description>
             </Field>
           </TabPanel>
         </TabPanels>

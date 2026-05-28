@@ -1,5 +1,6 @@
 import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.zh'
+import { checkoutZh } from './checkout'
 
 /** Basitleştirilmiş Çince (zh) */
 export const zh: AppMessages = {
@@ -632,6 +633,7 @@ export const zh: AppMessages = {
     showAll: '显示全部 {count} 条评论',
     showLess: '收起',
   },
+  checkout: checkoutZh,
 }
 
 export type { AppMessages }

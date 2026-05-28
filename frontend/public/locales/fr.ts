@@ -1,5 +1,6 @@
 import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.fr'
+import { checkoutFr } from './checkout'
 
 /** Français */
 export const fr: AppMessages = {
@@ -643,6 +644,7 @@ export const fr: AppMessages = {
     showAll: 'Afficher tous les avis ({count})',
     showLess: 'Afficher moins',
   },
+  checkout: checkoutFr,
 }
 
 export type { AppMessages }

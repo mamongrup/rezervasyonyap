@@ -1,5 +1,6 @@
 import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.de'
+import { checkoutDe } from './checkout'
 
 /** Almanca — kademeli çeviri; `accountPage` öncelikli. */
 export const de: AppMessages = {
@@ -643,6 +644,7 @@ export const de: AppMessages = {
     showAll: 'Alle Bewertungen anzeigen ({count})',
     showLess: 'Weniger anzeigen',
   },
+  checkout: checkoutDe,
 }
 
 export type { AppMessages }

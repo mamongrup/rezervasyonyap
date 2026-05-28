@@ -1,8 +1,10 @@
 'use client'
 
 import React from 'react'
+import { checkoutT, fmtCheckout, formatCheckoutMoney } from '@/lib/checkout-i18n'
 
 interface PaymentTypeSelectorProps {
+  locale: string
   totalPrice: number
   commissionPercent: number
   prepaymentPercent: number
@@ -11,15 +13,8 @@ interface PaymentTypeSelectorProps {
   onChange: (type: 'full' | 'partial') => void
 }
 
-function fmt(n: number, currency = 'TRY') {
-  return new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 2,
-  }).format(n)
-}
-
 export default function PaymentTypeSelector({
+  locale,
   totalPrice,
   commissionPercent,
   prepaymentPercent,
@@ -27,11 +22,12 @@ export default function PaymentTypeSelector({
   value,
   onChange,
 }: PaymentTypeSelectorProps) {
+  const C = checkoutT(locale)
   const commission = Math.round(totalPrice * commissionPercent) / 100
   const rawPrepay = Math.round(totalPrice * prepaymentPercent) / 100
-  // Ön ödeme, komisyon kadar veya daha fazla olmalı
   const partialAmount = Math.max(rawPrepay, commission)
   const remainder = totalPrice - partialAmount
+  const remainderFmt = formatCheckoutMoney(locale, remainder, currencyCode)
 
   const options: Array<{
     id: 'full' | 'partial'
@@ -43,28 +39,24 @@ export default function PaymentTypeSelector({
   }> = [
     {
       id: 'full',
-      label: 'Tüm ödemeyi yap',
-      sublabel: 'Rezervasyonu şimdi tam öde, girişte ek ödeme yok',
+      label: C.payFullLabel,
+      sublabel: C.payFullSublabel,
       amount: totalPrice,
     },
     {
       id: 'partial',
-      label: `Sadece ön ödeme yap (${prepaymentPercent}%)`,
-      sublabel: `Kalan ${fmt(remainder, currencyCode)} tutarı girişte tesise öde`,
+      label: fmtCheckout(C.payPartialLabel, { prepaymentPercent }),
+      sublabel: fmtCheckout(C.payPartialSublabel, { remainder: remainderFmt }),
       amount: partialAmount,
-      badge: 'Esnek',
+      badge: C.payPartialBadge,
       note:
-        remainder > 0
-          ? `Girişte tesise: ${fmt(remainder, currencyCode)} (nakit veya kart)`
-          : undefined,
+        remainder > 0 ? fmtCheckout(C.payAtPropertyNote, { remainder: remainderFmt }) : undefined,
     },
   ]
 
   return (
     <div className="space-y-3">
-      <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
-        Ödeme Seçeneği
-      </h3>
+      <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">{C.paymentOptionTitle}</h3>
 
       <div className="grid gap-3 sm:grid-cols-2">
         {options.map((opt) => (
@@ -79,7 +71,6 @@ export default function PaymentTypeSelector({
                 : 'border-neutral-200 bg-white hover:border-neutral-300 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-neutral-600',
             ].join(' ')}
           >
-            {/* Seçim indikatörü */}
             <span
               className={[
                 'absolute right-4 top-4 flex h-5 w-5 items-center justify-center rounded-full border-2',
@@ -90,7 +81,14 @@ export default function PaymentTypeSelector({
             >
               {value === opt.id && (
                 <svg className="h-3 w-3 text-white" fill="currentColor" viewBox="0 0 12 12">
-                  <path d="M3.5 6.5L5 8l3.5-4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                  <path
+                    d="M3.5 6.5L5 8l3.5-4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    fill="none"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               )}
             </span>
@@ -101,22 +99,21 @@ export default function PaymentTypeSelector({
               </span>
             )}
 
-            <span className="pr-6 text-sm font-semibold text-neutral-800 dark:text-neutral-100">
-              {opt.label}
-            </span>
+            <span className="pr-6 text-sm font-semibold text-neutral-800 dark:text-neutral-100">{opt.label}</span>
 
             <span className="text-2xl font-bold text-neutral-900 dark:text-white">
-              {fmt(opt.amount, currencyCode)}
+              {formatCheckoutMoney(locale, opt.amount, currencyCode)}
             </span>
 
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {opt.sublabel}
-            </span>
+            <span className="text-xs text-neutral-500 dark:text-neutral-400">{opt.sublabel}</span>
 
             {opt.note && (
               <span className="mt-1 inline-flex items-center gap-1 rounded-lg bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
                 <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 16 16">
-                  <path d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 11a.75.75 0 110-1.5A.75.75 0 018 12zm.75-3.5v-3a.75.75 0 00-1.5 0v3a.75.75 0 001.5 0z" fill="currentColor" />
+                  <path
+                    d="M8 1a7 7 0 100 14A7 7 0 008 1zm0 11a.75.75 0 110-1.5A.75.75 0 018 12zm.75-3.5v-3a.75.75 0 00-1.5 0v3a.75.75 0 001.5 0z"
+                    fill="currentColor"
+                  />
                 </svg>
                 {opt.note}
               </span>

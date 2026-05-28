@@ -1,37 +1,47 @@
 'use client'
 
+import CouponBox from '@/components/checkout/CouponBox'
+import PaymentTypeSelector from '@/components/checkout/PaymentTypeSelector'
+import CheckoutContractAcceptance, {
+  type CheckoutContractAcceptancePayload,
+} from '@/components/CheckoutContractAcceptance'
+import { CrossSellSuggestions } from '@/components/CrossSellSuggestions'
 import StartRating from '@/components/StartRating'
-import ButtonPrimary from '@/shared/ButtonPrimary'
-import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
-import { Divider } from '@/shared/divider'
-import { Description, Field, Label } from '@/shared/fieldset'
-import Input from '@/shared/Input'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import {
+  checkoutT,
+  fmtCheckout,
+  formatCheckoutMoney,
+} from '@/lib/checkout-i18n'
+import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
+import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
+import {
+  resolveCheckoutCurrency,
+  resolveCheckoutListingId,
+  resolveCheckoutUnitPrice,
+} from '@/lib/stay-checkout-url'
 import {
   addCartLine,
   applyCouponToCart,
   checkoutCart,
   createCart,
   getActivePaymentProvider,
+  getPublicListingImages,
+  getPublicListingVitrine,
   type CouponPreview,
   type FxLockSnapshot,
 } from '@/lib/travel-api'
-import CouponBox from '@/components/checkout/CouponBox'
+import ButtonPrimary from '@/shared/ButtonPrimary'
+import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
+import { Divider } from '@/shared/divider'
+import { Description, Field, Label } from '@/shared/fieldset'
+import Input from '@/shared/Input'
 import Form from 'next/form'
 import Image from 'next/image'
-import {
-  resolveCheckoutCurrency,
-  resolveCheckoutListingId,
-  resolveCheckoutUnitPrice,
-} from '@/lib/stay-checkout-url'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense } from 'react'
-import CheckoutContractAcceptance, {
-  type CheckoutContractAcceptancePayload,
-} from '@/components/CheckoutContractAcceptance'
-import { CrossSellSuggestions } from '@/components/CrossSellSuggestions'
 import PayWith from './PayWith'
 import YourTrip from './YourTrip'
-import PaymentTypeSelector from '@/components/checkout/PaymentTypeSelector'
 
 const checkoutCrossSellTrigger =
   typeof process !== 'undefined' && process.env.NEXT_PUBLIC_CHECKOUT_CROSS_SELL_TRIGGER
@@ -44,11 +54,23 @@ function toYmd(iso: string): string {
   return d.toISOString().slice(0, 10)
 }
 
+function nightsBetween(startIso: string | null, endIso: string | null): number {
+  const s = startIso ? new Date(startIso) : null
+  const e = endIso ? new Date(endIso) : null
+  if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 0
+  const diff = Math.round((e.getTime() - s.getTime()) / 86400000)
+  return diff > 0 ? diff : 0
+}
+
 function CheckoutPageContent() {
   const router = useRouter()
+  const vitrinHref = useVitrinHref()
   const params = useParams()
   const searchParams = useSearchParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
+  const C = checkoutT(locale)
+  const paymentFailed = searchParams.get('pay') === 'failed'
+
   const checkoutListingId = resolveCheckoutListingId(
     searchParams.get('listingId'),
     process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID,
@@ -61,9 +83,15 @@ function CheckoutPageContent() {
     searchParams.get('unitPrice'),
     process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE,
   )
+  const nights = nightsBetween(searchParams.get('startDate'), searchParams.get('endDate'))
+
   const [pending, setPending] = React.useState(false)
-  /** G2.1 — sepet oluşturulunca API’den gelen kur kilidi (gösterim) */
   const [fxLockInfo, setFxLockInfo] = React.useState<FxLockSnapshot | null>(null)
+  const [listingTitle, setListingTitle] = React.useState<string | null>(null)
+  const [listingLocation, setListingLocation] = React.useState<string | null>(null)
+  const [listingImage, setListingImage] = React.useState<string | null>(null)
+  const [listingLoading, setListingLoading] = React.useState(Boolean(checkoutListingId))
+
   const contractRef = React.useRef<CheckoutContractAcceptancePayload>({
     ok: false,
     contract_accepted: false,
@@ -88,11 +116,36 @@ function CheckoutPageContent() {
   const grandTotal = Math.max(0, totalPrice - couponDiscount)
 
   React.useEffect(() => {
-    document.documentElement.scrollTo({
-      top: 0,
-      behavior: 'instant',
-    })
+    document.documentElement.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
+
+  React.useEffect(() => {
+    if (!checkoutListingId) {
+      setListingLoading(false)
+      return
+    }
+    let cancelled = false
+    setListingLoading(true)
+    void (async () => {
+      const [vitrine, images] = await Promise.all([
+        getPublicListingVitrine(checkoutListingId, locale),
+        getPublicListingImages(checkoutListingId),
+      ])
+      if (cancelled) return
+      setListingTitle(vitrine?.title?.trim() || null)
+      setListingLocation(vitrine?.location_label?.trim() || null)
+      const first = images?.images?.[0]
+      setListingImage(
+        first?.storage_key
+          ? preferListingGalleryFullAsset(storageKeyToPublicUrl(first.storage_key))
+          : null,
+      )
+      setListingLoading(false)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [checkoutListingId, locale])
 
   const handleSubmitForm = async (formData: FormData) => {
     const formObject = Object.fromEntries(formData.entries())
@@ -104,18 +157,20 @@ function CheckoutPageContent() {
       try {
         const currency = checkoutCurrency
         const unitPrice =
-          checkoutUnitPrice > 0 ? checkoutUnitPrice.toFixed(2) : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
+          checkoutUnitPrice > 0
+            ? checkoutUnitPrice.toFixed(2)
+            : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
         const start = toYmd(String(formObject.startDate ?? ''))
         const end = toYmd(String(formObject.endDate ?? ''))
         const email = String(formObject.guest_email ?? '').trim()
         const name = String(formObject.guest_name ?? '').trim()
         if (!start || !end || !email || !name) {
-          window.alert('Tarih aralığı ve misafir e-posta / ad gerekli.')
+          window.alert(C.errors.datesGuestRequired)
           setPending(false)
           return
         }
         if (!contractRef.current.ok) {
-          window.alert('Gerekli tüm sözleşmeleri okuyup onaylamanız gerekir.')
+          window.alert(C.errors.contractsRequired)
           setPending(false)
           return
         }
@@ -132,7 +187,7 @@ function CheckoutPageContent() {
           try {
             await applyCouponToCart(cart.id, coupon.code)
           } catch (err) {
-            console.warn('Kupon uygulanamadı, devam ediliyor:', err)
+            console.warn('Coupon apply skipped:', err)
           }
         }
         const cx = contractRef.current
@@ -159,7 +214,7 @@ function CheckoutPageContent() {
           const ap = await getActivePaymentProvider()
           if (ap.active === 'paytr' || ap.active === 'paratika') provider = ap.active
         } catch {
-          /* API yoksa env’e düş */
+          /* env fallback */
         }
         if (provider === 'none' && process.env.NEXT_PUBLIC_PAYTR_CHECKOUT !== '0') {
           provider = 'paytr'
@@ -167,48 +222,61 @@ function CheckoutPageContent() {
         localStorage.setItem('travel_paydone_email', email)
         if (provider === 'paytr') {
           sessionStorage.setItem('travel_paytr_checkout', JSON.stringify(payload))
-          router.push('/checkout/paytr')
+          router.push(vitrinHref('/checkout/paytr'))
         } else if (provider === 'paratika') {
           sessionStorage.setItem('travel_paratika_checkout', JSON.stringify(payload))
-          router.push('/checkout/paratika')
+          router.push(vitrinHref('/checkout/paratika'))
         } else {
-          router.push(`/pay-done?code=${encodeURIComponent(out.public_code)}`)
+          router.push(vitrinHref(`/pay-done?code=${encodeURIComponent(out.public_code)}`))
         }
       } catch (e) {
         console.error(e)
-        window.alert(e instanceof Error ? e.message : 'Rezervasyon oluşturulamadı')
+        window.alert(e instanceof Error ? e.message : C.errors.bookingFailed)
       } finally {
         setPending(false)
       }
       return
     }
 
-    console.log('Form submitted (API kapalı — .env ile NEXT_PUBLIC_API_URL + CHECKOUT_LISTING_ID):', formObject)
-    router.push('/pay-done')
+    console.log('Form submitted (API off):', formObject)
+    router.push(vitrinHref('/pay-done'))
   }
 
   const renderSidebar = () => {
+    const imageSrc = listingImage || '/uploads/external/8081091c1bed4d7ee13a.avif'
+    const lineLabel =
+      nights > 0 && totalPrice > 0
+        ? fmtCheckout(C.sidebarNightsLine, {
+            unitPrice: formatCheckoutMoney(locale, totalPrice / nights, checkoutCurrency),
+            nights,
+          })
+        : null
+
     return (
       <div className="flex w-full flex-col gap-y-6 border-neutral-200 px-0 sm:gap-y-8 sm:rounded-4xl sm:p-6 lg:border xl:p-8 dark:border-neutral-700">
         <div className="flex flex-col sm:flex-row sm:items-center">
           <div className="w-full shrink-0 sm:w-40">
             <div className="aspect-w-4 overflow-hidden rounded-2xl aspect-h-3 sm:aspect-h-4">
-              <Image
-                alt=""
-                fill
-                sizes="200px"
-                src="/uploads/external/8081091c1bed4d7ee13a.avif"
-              />
+              <Image alt="" fill sizes="200px" src={imageSrc} />
             </div>
           </div>
           <div className="flex flex-col gap-y-3 py-5 text-start sm:ps-5">
             <div>
-              <span className="line-clamp-1 text-sm text-neutral-500 dark:text-neutral-400">
-                Hotel room in Tokyo, Jappan
-              </span>
-              <span className="mt-1 block text-base font-medium">The Lounge & Bar</span>
+              {listingLoading ? (
+                <span className="text-sm text-neutral-500 dark:text-neutral-400">{C.sidebarLoading}</span>
+              ) : (
+                <>
+                  {listingLocation ? (
+                    <span className="line-clamp-1 text-sm text-neutral-500 dark:text-neutral-400">
+                      {listingLocation}
+                    </span>
+                  ) : null}
+                  <span className="mt-1 block text-base font-medium">
+                    {listingTitle || '—'}
+                  </span>
+                </>
+              )}
             </div>
-            <p className="block text-sm text-neutral-500 dark:text-neutral-400">2 beds · 2 baths</p>
             <Divider className="w-10!" />
             <StartRating />
           </div>
@@ -218,41 +286,57 @@ function CheckoutPageContent() {
 
         {fxLockInfo && (
           <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
-            <span className="font-medium text-neutral-800 dark:text-neutral-200">Kur referansı (G2.1):</span>{' '}
-            TRY karşılıkları {fxLockInfo.locked_at} UTC anında sabitlendi; gösterim / denetim içindir. Rezervasyon tutarı
-            ilan para birimindedir (
-            {Object.entries(fxLockInfo.rates_to_try || {})
-              .map(([c, r]) => `${c}: ${r}`)
-              .join(', ')}
-            ).
+            <span className="font-medium text-neutral-800 dark:text-neutral-200">{C.fxLockTitle}:</span>{' '}
+            {fmtCheckout(C.fxLockBody, {
+              lockedAt: fxLockInfo.locked_at,
+              rates: Object.entries(fxLockInfo.rates_to_try || {})
+                .map(([c, r]) => `${c}: ${r}`)
+                .join(', '),
+            })}
           </p>
         )}
 
         <DescriptionList>
-          <DescriptionTerm>$19.00 x 3 day</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">$57.00</DescriptionDetails>
-          <DescriptionTerm>Service charge</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">$0.00</DescriptionDetails>
-          <DescriptionTerm>Fee</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">$0.00</DescriptionDetails>
-          <DescriptionTerm>Tax</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">$0.00</DescriptionDetails>
+          {lineLabel ? (
+            <>
+              <DescriptionTerm>{lineLabel}</DescriptionTerm>
+              <DescriptionDetails className="sm:text-right">
+                {formatCheckoutMoney(locale, totalPrice, checkoutCurrency)}
+              </DescriptionDetails>
+            </>
+          ) : null}
+          <DescriptionTerm>{C.serviceCharge}</DescriptionTerm>
+          <DescriptionDetails className="sm:text-right">
+            {formatCheckoutMoney(locale, 0, checkoutCurrency)}
+          </DescriptionDetails>
+          <DescriptionTerm>{C.fee}</DescriptionTerm>
+          <DescriptionDetails className="sm:text-right">
+            {formatCheckoutMoney(locale, 0, checkoutCurrency)}
+          </DescriptionDetails>
+          <DescriptionTerm>{C.tax}</DescriptionTerm>
+          <DescriptionDetails className="sm:text-right">
+            {formatCheckoutMoney(locale, 0, checkoutCurrency)}
+          </DescriptionDetails>
           {coupon && couponDiscount > 0 && (
             <>
-              <DescriptionTerm className="text-emerald-700">Kupon ({coupon.code})</DescriptionTerm>
+              <DescriptionTerm className="text-emerald-700">
+                {fmtCheckout(C.couponLine, { code: coupon.code })}
+              </DescriptionTerm>
               <DescriptionDetails className="text-emerald-700 sm:text-right">
-                -{couponDiscount.toFixed(2)}
+                -{formatCheckoutMoney(locale, couponDiscount, checkoutCurrency)}
               </DescriptionDetails>
             </>
           )}
-          <DescriptionTerm className="font-semibold text-neutral-900">Total</DescriptionTerm>
+          <DescriptionTerm className="font-semibold text-neutral-900">{C.total}</DescriptionTerm>
           <DescriptionDetails className="font-semibold sm:text-right">
-            {totalPrice > 0 ? grandTotal.toFixed(2) : '$57.00'}
+            {totalPrice > 0
+              ? formatCheckoutMoney(locale, grandTotal, checkoutCurrency)
+              : formatCheckoutMoney(locale, 57, checkoutCurrency)}
           </DescriptionDetails>
         </DescriptionList>
 
         <Suspense fallback={<div className="min-h-[48px]" aria-hidden />}>
-          <CouponBox subtotal={totalPrice > 0 ? totalPrice : 0} onCouponChange={setCoupon} />
+          <CouponBox locale={locale} subtotal={totalPrice > 0 ? totalPrice : 0} onCouponChange={setCoupon} />
         </Suspense>
       </div>
     )
@@ -264,17 +348,27 @@ function CheckoutPageContent() {
         action={handleSubmitForm}
         className="flex w-full flex-col gap-y-8 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700"
       >
-        <h1 className="text-3xl font-semibold lg:text-4xl">Rezervasyonu Onayla</h1>
+        <h1 className="text-3xl font-semibold lg:text-4xl">{C.title}</h1>
+
+        {paymentFailed && (
+          <div
+            role="alert"
+            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
+          >
+            {C.paymentFailedBanner}
+          </div>
+        )}
+
         <Divider />
         <Suspense fallback={<div className="min-h-[200px]" aria-hidden />}>
-          <YourTrip />
+          <YourTrip locale={locale} />
         </Suspense>
 
-        {/* Ön ödeme / tam ödeme — API ile checkout’ta tutar veya demo ilan kimliği varsa */}
         {prepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing) && (
           <>
             <Divider />
             <PaymentTypeSelector
+              locale={locale}
               totalPrice={totalPrice}
               commissionPercent={commissionPercent}
               prepaymentPercent={prepaymentPercent}
@@ -293,19 +387,19 @@ function CheckoutPageContent() {
         <CrossSellSuggestions triggerCategory={checkoutCrossSellTrigger} className="mt-2" />
         <div className="grid gap-5 sm:grid-cols-2">
           <Field>
-            <Label>E-posta</Label>
+            <Label>{C.emailLabel}</Label>
             <Input className="mt-1.5" name="guest_email" type="email" required autoComplete="email" />
-            <Description>Rezervasyon onayı ve destek için.</Description>
+            <Description>{C.emailHint}</Description>
           </Field>
           <Field>
-            <Label>Ad soyad</Label>
+            <Label>{C.guestNameLabel}</Label>
             <Input className="mt-1.5" name="guest_name" required autoComplete="name" />
           </Field>
         </div>
-        <PayWith />
+        <PayWith locale={locale} />
         <div>
           <ButtonPrimary type="submit" className="mt-10 text-base/6!" disabled={pending}>
-            {pending ? 'İşleniyor…' : 'Confirm and pay'}
+            {pending ? C.processing : C.confirmPay}
           </ButtonPrimary>
         </div>
       </Form>

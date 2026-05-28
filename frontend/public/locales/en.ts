@@ -1,4 +1,5 @@
 import { navMenus } from './navMenus.en'
+import { checkoutEn } from './checkout'
 
 export const en = {
   common: {
@@ -1715,6 +1716,7 @@ export const en = {
       no: 'No',
     },
   },
+  checkout: checkoutEn,
 }
 
 /**

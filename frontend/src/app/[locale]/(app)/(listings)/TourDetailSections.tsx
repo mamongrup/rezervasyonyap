@@ -80,7 +80,9 @@ export function TourOverviewSection({
     <section className="listingSection__wrap">
       <div>
         <SectionHeading>Tur Hakkında</SectionHeading>
-        <SectionSubheading>Program, ulaşım ve katılım bilgileri.</SectionSubheading>
+        {items.length > 0 ? (
+          <SectionSubheading>Program, ulaşım ve katılım bilgileri.</SectionSubheading>
+        ) : null}
       </div>
       <Divider className="w-14!" />
       {items.length > 0 ? (

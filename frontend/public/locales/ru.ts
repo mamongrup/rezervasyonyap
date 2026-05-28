@@ -1,5 +1,6 @@
 import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.ru'
+import { checkoutRu } from './checkout'
 
 /** Rusça */
 export const ru: AppMessages = {
@@ -642,6 +643,7 @@ export const ru: AppMessages = {
     showAll: 'Показать все отзывы ({count})',
     showLess: 'Свернуть',
   },
+  checkout: checkoutRu,
 }
 
 export type { AppMessages }
