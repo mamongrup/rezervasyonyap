@@ -17,7 +17,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/http
 import gleam/list
-import gleam/option.{None, Some}
+import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
