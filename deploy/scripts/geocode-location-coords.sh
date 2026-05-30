@@ -26,6 +26,11 @@ fi
 
 cd "$APP_ROOT"
 
+if [[ ! -d "$APP_ROOT/frontend/node_modules/pg" ]]; then
+  echo "→ frontend/node_modules eksik — pg için npm ci (production)…"
+  (cd "$APP_ROOT/frontend" && npm ci --omit=dev 2>/dev/null || npm ci)
+fi
+
 echo "→ PostgreSQL bağlantı testi…"
 node scripts/test-pg-env.mjs || exit 1
 

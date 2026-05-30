@@ -278,6 +278,7 @@ async function printStats(client) {
 }
 
 async function main() {
+  console.log('→ geocode-location-coords başlıyor…')
   loadBackendEnvFile()
   const client = createPgClient()
   await client.connect()

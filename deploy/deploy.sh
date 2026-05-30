@@ -151,6 +151,9 @@ main() {
   ok "backend build tamam"
 
   step "Frontend install + clean build"
+  if [[ "${SKIP_FRONTEND_BUILD:-0}" == "1" ]]; then
+    warn "SKIP_FRONTEND_BUILD=1 — frontend npm ci/build atlandı (mevcut .next kullanılır)."
+  else
   # NEXT_PUBLIC_* build sirasinda gomulur; ayni env travel-web.service ile tanimli olmali.
   if [[ -f /etc/rezervasyonyap/frontend.env ]]; then
     set -a
@@ -161,6 +164,7 @@ main() {
   # Küçük VPS: ENOMEM önlemek için NEXT_NODE_HEAP_MB=3072 (veya 4G swap) — deploy/PLESK_VITRIN.md
   (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build)
   ok "frontend build tamam"
+  fi
 
   step "Servis restart"
   systemctl daemon-reload
