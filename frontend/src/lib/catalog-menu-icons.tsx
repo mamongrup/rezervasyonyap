@@ -6,6 +6,7 @@ import {
   Car03Icon,
   Compass01Icon,
   HotAirBalloonIcon,
+  Home01Icon,
   House04Icon,
   MapPinpoint02Icon,
 } from '@hugeicons/core-free-icons'
@@ -13,6 +14,7 @@ import type { CatalogMenuIconKey } from '@/types/catalog-menu'
 
 export const CATALOG_MENU_ICON_MAP = {
   house: House04Icon,
+  home: Home01Icon,
   anchor: AnchorIcon,
   car: Car03Icon,
   hot_air_balloon: HotAirBalloonIcon,
@@ -25,6 +27,7 @@ export const CATALOG_MENU_ICON_MAP = {
 
 export const CATALOG_MENU_ICON_OPTIONS: { key: CatalogMenuIconKey; label: string }[] = [
   { key: 'house', label: 'Konaklama / ev' },
+  { key: 'home', label: 'Tatil evi / villa' },
   { key: 'anchor', label: 'Çapa (yat)' },
   { key: 'car', label: 'Araç' },
   { key: 'hot_air_balloon', label: 'Balon (tur)' },

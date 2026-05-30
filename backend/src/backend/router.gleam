@@ -1687,15 +1687,22 @@ fn with_cors(resp: Response, req: Request) -> Response {
     Error(_) -> "*"
   }
 
-  resp
-  |> response.set_header("access-control-allow-origin", allow_origin)
-  |> response.set_header(
-    "access-control-allow-methods",
-    "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-  )
-  |> response.set_header(
-    "access-control-allow-headers",
-    "content-type, authorization, x-api-key",
-  )
-  |> response.set_header("access-control-max-age", "86400")
+  let resp =
+    resp
+    |> response.set_header("access-control-allow-origin", allow_origin)
+    |> response.set_header(
+      "access-control-allow-methods",
+      "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+    )
+    |> response.set_header(
+      "access-control-allow-headers",
+      "content-type, authorization, x-api-key",
+    )
+    |> response.set_header("access-control-max-age", "86400")
+
+  // Panel fetch'leri `credentials: 'include'` kullanır; bu başlık olmadan tarayıcı yanıtı reddeder.
+  case request.get_header(req, "origin") {
+    Ok(_) -> response.set_header(resp, "access-control-allow-credentials", "true")
+    Error(_) -> resp
+  }
 }

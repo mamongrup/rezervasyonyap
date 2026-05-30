@@ -9,8 +9,12 @@ export const navMenus = {
     footerDescription: 'Discover stays, car hire, tours, and experiences in one place',
     items: {
       '1': {
-        title: 'Hotels & holiday homes',
-        description: 'Hotels, villas, and vacation rentals',
+        title: 'Hotels',
+        description: 'Boutique stays to full-service hotels',
+      },
+      '11': {
+        title: 'Holiday homes',
+        description: 'Villas, chalets, and vacation rentals',
       },
       '2': {
         title: 'Yacht charter',
@@ -21,8 +25,12 @@ export const navMenus = {
         description: 'Find the right car for your trip',
       },
       '4': {
-        title: 'Tours & activities',
-        description: 'Guided tours and things to do',
+        title: 'Tours',
+        description: 'Day trips and guided city tours',
+      },
+      '12': {
+        title: 'Activities',
+        description: 'Diving, water sports, and experiences',
       },
       '5': {
         title: 'Cruises',

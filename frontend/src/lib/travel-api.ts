@@ -6855,6 +6855,8 @@ export type LocationRegion = {
   slug: string
   center_lat: string | null
   center_lng: string | null
+  /** GET /locations/regions — bağlı ilçe sayısı */
+  district_count?: number
 }
 
 export async function listLocationRegions(countryId: string): Promise<{ regions: LocationRegion[] }> {

@@ -6,8 +6,12 @@ export const navMenus = {
     footerDescription: 'Hébergements, location auto, circuits et activités au même endroit',
     items: {
       '1': {
-        title: 'Hôtels & maisons de vacances',
-        description: 'Hôtels, villas et locations saisonnières',
+        title: 'Hôtels',
+        description: 'Du boutique hôtel à l\'établissement 5 étoiles',
+      },
+      '11': {
+        title: 'Maisons de vacances',
+        description: 'Villas, chalets et locations saisonnières',
       },
       '2': {
         title: 'Location de yachts',
@@ -18,8 +22,12 @@ export const navMenus = {
         description: 'Trouvez le véhicule adapté à votre séjour',
       },
       '4': {
-        title: 'Circuits & activités',
-        description: 'Visites guidées et loisirs',
+        title: 'Circuits',
+        description: 'Excursions d\'une journée et visites guidées',
+      },
+      '12': {
+        title: 'Activités',
+        description: 'Plongée, sports nautiques et expériences',
       },
       '5': {
         title: 'Croisières',

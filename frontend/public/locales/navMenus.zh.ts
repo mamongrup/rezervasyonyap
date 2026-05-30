@@ -6,8 +6,12 @@ export const navMenus = {
     footerDescription: '住宿、租车、跟团与体验，一站浏览',
     items: {
       '1': {
-        title: '酒店与度假屋',
-        description: '酒店、别墅与日租民宿',
+        title: '酒店',
+        description: '精品酒店至五星级住宿',
+      },
+      '11': {
+        title: '度假屋',
+        description: '别墅、木屋与日租民宿',
       },
       '2': {
         title: '游艇租赁',
@@ -18,8 +22,12 @@ export const navMenus = {
         description: '为行程挑选合适车辆',
       },
       '4': {
-        title: '旅游与活动',
-        description: '跟团游与休闲体验',
+        title: '旅游',
+        description: '一日游与城市跟团游',
+      },
+      '12': {
+        title: '活动',
+        description: '潜水、水上运动与体验项目',
       },
       '5': {
         title: '邮轮',

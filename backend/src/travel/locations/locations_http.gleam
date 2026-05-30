@@ -146,18 +146,23 @@ pub fn create_country(req: Request, ctx: Context) -> Response {
 
 // --- regions ---
 
-fn region_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
+fn region_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use cid <- decode.field(1, decode.string)
   use name <- decode.field(2, decode.string)
   use slug <- decode.field(3, decode.string)
   use lat <- decode.field(4, decode.string)
   use lng <- decode.field(5, decode.string)
-  decode.success(#(id, cid, name, slug, lat, lng))
+  use district_count <- decode.field(6, decode.string)
+  decode.success(#(id, cid, name, slug, lat, lng, district_count))
 }
 
-fn region_json(row: #(String, String, String, String, String, String)) -> json.Json {
-  let #(id, cid, name, slug, lat, lng) = row
+fn region_json(row: #(String, String, String, String, String, String, String)) -> json.Json {
+  let #(id, cid, name, slug, lat, lng, district_count) = row
+  let dc = case int.parse(district_count) {
+    Ok(n) -> n
+    Error(_) -> 0
+  }
   let latj = case lat == "" {
     True -> json.null()
     False -> json.string(lat)
@@ -173,6 +178,7 @@ fn region_json(row: #(String, String, String, String, String, String)) -> json.J
     #("slug", json.string(slug)),
     #("center_lat", latj),
     #("center_lng", lngj),
+    #("district_count", json.int(dc)),
   ])
 }
 
@@ -200,7 +206,7 @@ pub fn list_regions(req: Request, ctx: Context) -> Response {
             False ->
               case
                 pog.query(
-                  "select id::text, country_id::text, name, slug, coalesce(center_lat::text,''), coalesce(center_lng::text,'') from regions where country_id = $1 order by name limit 500",
+                  "select id::text, country_id::text, name, slug, coalesce(center_lat::text,''), coalesce(center_lng::text,''), (select count(*)::text from districts d where d.region_id = regions.id) from regions where country_id = $1 order by name limit 500",
                 )
                 |> pog.parameter(pog.int(cid_raw))
                 |> pog.returning(region_row())

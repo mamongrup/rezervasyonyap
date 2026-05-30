@@ -6,8 +6,12 @@ export const navMenus = {
     footerDescription: 'Unterkünfte, Mietwagen, Touren und Erlebnisse an einem Ort',
     items: {
       '1': {
-        title: 'Hotels & Ferienunterkünfte',
-        description: 'Hotels, Villen und Ferienwohnungen',
+        title: 'Hotels',
+        description: 'Boutique-Hotels bis hin zu 5-Sterne-Häusern',
+      },
+      '11': {
+        title: 'Ferienunterkünfte',
+        description: 'Villen, Chalets und Ferienwohnungen',
       },
       '2': {
         title: 'Yachtcharter',
@@ -18,8 +22,12 @@ export const navMenus = {
         description: 'Das passende Fahrzeug für Ihre Reise',
       },
       '4': {
-        title: 'Touren & Aktivitäten',
-        description: 'Geführte Touren und Erlebnisse',
+        title: 'Touren',
+        description: 'Tagesausflüge und Stadtführungen',
+      },
+      '12': {
+        title: 'Aktivitäten',
+        description: 'Tauchen, Wassersport und Erlebnisse',
       },
       '5': {
         title: 'Kreuzfahrten',

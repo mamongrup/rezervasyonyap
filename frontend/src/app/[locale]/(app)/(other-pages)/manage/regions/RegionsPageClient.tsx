@@ -3,6 +3,7 @@ import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createLocationPage,
   deleteLocationPage,
+  getLocationPageBySlug,
   listLocationCountries,
   listLocationDistricts,
   listLocationPages,
@@ -37,7 +38,7 @@ import {
   X,
 } from 'lucide-react'
 import Link from 'next/link'
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
 const REGION_LIST_PAGE_SIZE = 200
@@ -326,6 +327,9 @@ export default function RegionsPageClient() {
   const [bulkPublishing, setBulkPublishing] = useState(false)
   /** Tek seferde bir il açık (accordion) */
   const [expandedProvinceKey, setExpandedProvinceKey] = useState<string | null>(null)
+  /** Sayfa sınırında kalan il satırları — slug ile tamamlanır (pagination + gruplama) */
+  const [provincePageByKey, setProvincePageByKey] = useState<Record<string, LocationPage | null>>({})
+  const fetchedProvinceKeysRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchInput.trim()), 350)
@@ -384,6 +388,30 @@ export default function RegionsPageClient() {
     () => groupLocationPagesByProvince(pages),
     [pages],
   )
+
+  useEffect(() => {
+    const missing = provinceGroups
+      .filter((g) => !g.provincePage)
+      .map((g) => g.key)
+      .filter((key) => !fetchedProvinceKeysRef.current.has(key))
+    if (missing.length === 0) return
+    for (const key of missing) fetchedProvinceKeysRef.current.add(key)
+    let cancelled = false
+    void Promise.all(
+      missing.map(async (key) => {
+        const page = await getLocationPageBySlug(key)
+        if (cancelled) return
+        setProvincePageByKey((prev) => ({ ...prev, [key]: page }))
+      }),
+    )
+    return () => {
+      cancelled = true
+    }
+  }, [provinceGroups])
+
+  function resolveProvincePage(group: ProvinceGroup): LocationPage | null {
+    return group.provincePage ?? provincePageByKey[group.key] ?? null
+  }
 
   function toggleProvinceAccordion(provinceKey: string) {
     setExpandedProvinceKey((prev) => (prev === provinceKey ? null : provinceKey))
@@ -666,11 +694,14 @@ export default function RegionsPageClient() {
             <tbody className="divide-y divide-neutral-50 dark:divide-neutral-800">
               {countryPages.map((page) => renderPageRow(page, {}))}
               {provinceGroups.map((group) => {
-                const prov = group.provincePage
+                const prov = resolveProvincePage(group)
                 const provinceTitle = prov
                   ? locationPageListTitle(prov)
                   : fallbackProvinceLabel(group.key)
                 const expanded = expandedProvinceKey === group.key
+                const provincePending =
+                  !group.provincePage &&
+                  !Object.prototype.hasOwnProperty.call(provincePageByKey, group.key)
                 return (
                   <Fragment key={group.key}>
                     <tr className="bg-neutral-50/60 dark:bg-neutral-800/30">
@@ -693,7 +724,7 @@ export default function RegionsPageClient() {
                             <p className="text-sm font-semibold text-neutral-800 dark:text-neutral-200">
                               {provinceTitle}
                               <span className="ms-2 align-middle text-xs font-normal text-neutral-400">
-                                ({group.districts.length} ilçe)
+                                ({group.districts.length} ilçe bu sayfada)
                               </span>
                             </p>
                             <div className="mt-0.5 flex items-center gap-1.5">
@@ -724,7 +755,12 @@ export default function RegionsPageClient() {
                         )}
                       </td>
                       <td className="py-3 pr-5">
-                        {prov ? (
+                        {provincePending ? (
+                          <span className="flex justify-end text-xs text-neutral-400">
+                            <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />
+                            Yükleniyor…
+                          </span>
+                        ) : prov ? (
                           <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                             <a
                               href={regionPublicHref(routeLocale, prov.slug_path)}

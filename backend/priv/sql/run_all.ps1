@@ -2,7 +2,7 @@
 # Kullanım (Laragon): .\run_all.ps1
 # Ortam: $env:PGDATABASE (varsayılan travel), $env:PGUSER (varsayılan postgres)
 $ErrorActionPreference = 'Stop'
-$psql = if ($env:PSQL) { $env:PSQL } else { 'C:\laragon\bin\postgresql\postgresql\bin\psql.exe' }
+$psql = if ($env:PSQL) { $env:PSQL } else { 'C:\laragon\bin\postgresql\postgresql-18.2\bin\psql.exe' }
 if (-not (Test-Path $psql)) { $psql = 'psql' }
 $base = Split-Path -Parent $MyInvocation.MyCommand.Path
 $db = if ($env:PGDATABASE) { $env:PGDATABASE } else { 'travel' }

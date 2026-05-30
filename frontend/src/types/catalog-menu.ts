@@ -2,6 +2,7 @@
 
 export type CatalogMenuIconKey =
   | 'house'
+  | 'home'
   | 'anchor'
   | 'car'
   | 'hot_air_balloon'

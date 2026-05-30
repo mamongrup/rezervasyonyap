@@ -6,8 +6,12 @@ export const navMenus = {
     footerDescription: 'Konaklama, araç kiralama, tur ve deneyimleri tek yerden keşfedin',
     items: {
       '1': {
-        title: 'Oteller ve tatil evleri',
-        description: 'Otel, villa ve günlük kiralık konaklama',
+        title: 'Oteller',
+        description: 'Butik otelden 5 yıldızlı tesislere konaklama',
+      },
+      '11': {
+        title: 'Tatil evleri',
+        description: 'Villa, dağ evi ve günlük kiralık konaklama',
       },
       '2': {
         title: 'Yat kiralama',
@@ -18,8 +22,12 @@ export const navMenus = {
         description: 'Yolculuğunuza uygun aracı bulun',
       },
       '4': {
-        title: 'Turlar ve aktiviteler',
-        description: 'Rehberli turlar ve yapılacaklar',
+        title: 'Turlar',
+        description: 'Günübirlik ve rehberli şehir turları',
+      },
+      '12': {
+        title: 'Aktiviteler',
+        description: 'Dalış, su sporları ve deneyimler',
       },
       '5': {
         title: 'Kruvaziyer',

@@ -7,6 +7,7 @@ import {
   Bus01Icon,
   Car05Icon,
   Compass01Icon,
+  Home01Icon,
   FerryBoatIcon,
   HotAirBalloonFreeIcons,
   LegalDocument01Icon,
@@ -23,6 +24,7 @@ type Props = {
 
 const ICONS: Record<string, IconSvgElement> = {
   house: Building03Icon,
+  home: Home01Icon,
   anchor: AnchorIcon,
   car: Car05Icon,
   hot_air_balloon: HotAirBalloonFreeIcons,

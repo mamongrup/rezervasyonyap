@@ -12,7 +12,7 @@ function isWtatilThumbnailUrl(url) {
 }
 
 /** Tam boy galeri önce; API kapak genelde `-thumbnail` döner. */
-function imageUrls(tour) {
+export function imageUrlsFromWtatilTour(tour) {
   const raw = [tour?.coverPhoto, ...(tour?.galleryPhotos || [])]
     .map(normalizeWtatilImageUrl)
     .filter(Boolean)
@@ -185,7 +185,7 @@ export async function upsertWtatilTourListing(
     [listingId, JSON.stringify(attrPayload)],
   )
 
-  const urls = imageUrls(tour)
+  const urls = imageUrlsFromWtatilTour(tour)
   await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
   let sort = 0
   for (const url of urls) {

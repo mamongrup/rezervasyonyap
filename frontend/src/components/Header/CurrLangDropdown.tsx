@@ -22,8 +22,9 @@ import {
   TabPanels,
 } from '@headlessui/react'
 import { getMessages } from '@/utils/getT'
-import { CurrencyStackDollarIcon } from '@/components/Header/CurrencyStackDollarIcon'
-import { ChevronDown, Globe } from 'lucide-react'
+import { Globe02Icon, Money01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ChevronDown } from 'lucide-react'
 import clsx from 'clsx'
 import { usePathname } from 'next/navigation'
 import { FC, useEffect, useMemo, useState } from 'react'
@@ -162,16 +163,23 @@ const CurrLangDropdown: FC<Props> = ({
   return (
     <Popover className={clsx('group', className)}>
       <PopoverButton
-        className="-m-2.5 flex items-center gap-x-0.5 p-2.5 text-sm font-medium text-neutral-600 group-hover:text-neutral-950 focus:outline-hidden focus-visible:outline-hidden dark:text-neutral-200 dark:group-hover:text-neutral-100"
+        className="-m-2.5 flex items-center gap-x-0.5 rounded-full p-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 focus:outline-hidden focus-visible:outline-hidden group-hover:text-neutral-950 dark:text-neutral-300 dark:hover:bg-neutral-800 dark:group-hover:text-neutral-100"
         aria-label={currLang.openSwitcher}
       >
-        <Globe className="size-[19px] shrink-0 stroke-[1.75]" aria-hidden />
+        <HugeiconsIcon icon={Globe02Icon} size={20} color="currentColor" strokeWidth={1.75} aria-hidden />
         <span className="shrink-0 px-0.5 text-sm text-neutral-400 dark:text-neutral-500" aria-hidden>
           /
         </span>
-        <CurrencyStackDollarIcon className="size-[18px] max-h-[18px] max-w-[18px] translate-x-px" />
+        <HugeiconsIcon
+          icon={Money01Icon}
+          size={20}
+          color="currentColor"
+          strokeWidth={1.75}
+          className="translate-x-px"
+          aria-hidden
+        />
         <ChevronDown
-          className="ms-0.5 size-4 shrink-0 group-data-open:rotate-180 transition-transform stroke-[1.75]"
+          className="ms-0.5 size-4 shrink-0 text-current group-data-open:rotate-180 transition-transform stroke-[1.75]"
           aria-hidden
         />
       </PopoverButton>

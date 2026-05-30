@@ -2,6 +2,7 @@ import type { CatalogMenuStoredEntry } from '@/types/catalog-menu'
 
 const VALID_ICONS = new Set<string>([
   'house',
+  'home',
   'anchor',
   'car',
   'hot_air_balloon',
@@ -20,9 +21,11 @@ export function normalizeCatalogMenuIconKey(icon: string): string {
 /** Varsayılan sıra ve yollar — başlıklar dil dosyalarında `navMenus.catalogMenu.items[id]` */
 export const DEFAULT_CATALOG_MENU_STRUCTURE: CatalogMenuStoredEntry[] = [
   { id: '1', icon: 'house', href: '/oteller/all' },
+  { id: '11', icon: 'home', href: '/tatil-evleri/all' },
   { id: '2', icon: 'anchor', href: '/yat-kiralama/all' },
   { id: '3', icon: 'car', href: '/arac-kiralama/all' },
   { id: '4', icon: 'hot_air_balloon', href: '/turlar/all' },
+  { id: '12', icon: 'compass', href: '/aktiviteler/all' },
   { id: '5', icon: 'boat', href: '/kruvaziyer/all' },
   { id: '6', icon: 'boat', href: '/feribot/all' },
   { id: '7', icon: 'bus', href: '/transfer/all' },

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Playwright (yalnızca --playwright ile Gezinomi import) — Debian/Ubuntu.
+# Playwright (isteğe bağlı tarayıcı testleri) — Debian/Ubuntu.
 # AlmaLinux/RHEL: fetch modu kullanın; dnf paketleri aşağıda.
 #
 # AlmaLinux örneği:
@@ -60,5 +60,4 @@ const { chromium } = require('playwright')
 })
 NODE
 
-echo "→ Hazır. Gezinomi import:"
-echo "  cd $APP_ROOT && ./deploy/scripts/import-gezinomi-tour-images.sh --dry-run --limit 3"
+echo "→ Hazır. Playwright test tamamlandı."
