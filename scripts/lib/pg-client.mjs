@@ -8,8 +8,27 @@ import { fileURLToPath } from 'node:url'
 import { loadBackendEnvFile } from './load-backend-env.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const require = createRequire(path.join(__dirname, '..', '..', 'frontend', 'package.json'))
-const pg = require('pg')
+
+function loadPgModule() {
+  const roots = [
+    path.join(__dirname, '..'), // scripts/ (scripts/package.json)
+    path.join(__dirname, '..', '..', 'frontend'),
+  ]
+  let lastErr
+  for (const root of roots) {
+    const pkg = path.join(root, 'package.json')
+    try {
+      return createRequire(pkg)('pg')
+    } catch (e) {
+      lastErr = e
+    }
+  }
+  throw new Error(
+    `pg modülü bulunamadı — cd scripts && npm install (veya frontend npm ci). ${lastErr?.message || ''}`,
+  )
+}
+
+const pg = loadPgModule()
 
 let envBootstrapped = false
 

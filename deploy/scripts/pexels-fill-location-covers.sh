@@ -18,5 +18,11 @@ if [[ -f "$BACKEND_ENV" ]]; then
 fi
 
 cd "$APP_ROOT"
+
+if [[ ! -d "$APP_ROOT/scripts/node_modules/pg" ]]; then
+  echo "→ scripts/node_modules/pg yok — npm install (scripts/)…"
+  (cd "$APP_ROOT/scripts" && npm install --omit=dev)
+fi
+
 node scripts/test-pg-env.mjs
 node scripts/pexels-fill-location-covers.mjs "$@"
