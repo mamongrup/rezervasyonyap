@@ -38,7 +38,7 @@ function slugToLabel(slug: string): string {
 
 async function countDestinationsForDistrict(districtId: string): Promise<number> {
   try {
-    const res = await listLocationPages({ district_id: districtId, limit: 500 })
+    const res = await listLocationPages({ districtId, limit: 500 })
     return res.pages.filter((p) => p.region_type === 'destination').length
   } catch {
     return 0
