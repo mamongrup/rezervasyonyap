@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pexels → location_pages (kapak + gallery_json). Panel alternatifi.
+# Pexels → location_pages (kapak + gallery_json). npm/pg gerekmez — yalnızca psql.
 #
 #   chmod +x deploy/scripts/pexels-fill-location-covers.sh
 #   ./deploy/scripts/pexels-fill-location-covers.sh --dry-run --limit 3
@@ -10,6 +10,9 @@ set -euo pipefail
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BACKEND_ENV="${TRAVEL_DB_ENV:-/etc/rezervasyonyap/backend.env}"
 
+command -v psql >/dev/null 2>&1 || { echo "[FAIL] psql bulunamadı"; exit 1; }
+command -v node >/dev/null 2>&1 || { echo "[FAIL] node bulunamadı"; exit 1; }
+
 if [[ -f "$BACKEND_ENV" ]]; then
   set -a
   # shellcheck disable=SC1090
@@ -19,10 +22,8 @@ fi
 
 cd "$APP_ROOT"
 
-if [[ ! -d "$APP_ROOT/scripts/node_modules/pg" ]]; then
-  echo "→ scripts/node_modules/pg yok — npm install (scripts/)…"
-  (cd "$APP_ROOT/scripts" && npm install --omit=dev)
-fi
+echo "→ PostgreSQL bağlantı testi…"
+DBINFO=$(psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -t -A -c "SELECT current_database() || ' user=' || current_user")
+echo "[OK] PostgreSQL: $DBINFO"
 
-node scripts/test-pg-env.mjs
 node scripts/pexels-fill-location-covers.mjs "$@"

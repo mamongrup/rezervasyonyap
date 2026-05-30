@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 /**
  * Kapak + 3 mozaik — Pexels → location_pages (panel batch ile aynı mantık).
+ * npm/pg modülü gerekmez — yalnızca psql CLI.
  *
  *   set -a && source /etc/rezervasyonyap/backend.env && set +a
  *   node scripts/pexels-fill-location-covers.mjs --dry-run --limit 3
- *   node scripts/pexels-fill-location-covers.mjs --limit 50
- *   node scripts/pexels-fill-location-covers.mjs
  */
-import { createPgClient } from './lib/pg-client.mjs'
+import {
+  execSql,
+  queryRows,
+  queryScalar,
+  sqlJson,
+  sqlLiteral,
+} from './lib/psql-exec.mjs'
 import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
+
+const SCRIPT_VERSION = 'psql-v1'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -21,8 +28,8 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-async function loadPexelsKeys(client) {
-  const { rows } = await client.query(
+function loadPexelsKeys() {
+  const rows = queryRows(
     `SELECT coalesce(value_json->'api_keys', '[]'::jsonb) AS keys
      FROM site_settings WHERE key = 'pexels' AND organization_id IS NULL
      ORDER BY id DESC LIMIT 1`,
@@ -87,77 +94,69 @@ async function fetchGalleryUrls(keys, queries, want = 3) {
   return urls.slice(0, want)
 }
 
-async function saveCover(client, id, cover, gallery) {
-  const galleryJson = JSON.stringify(gallery)
-  await client.query(
+function saveCover(id, cover, gallery) {
+  execSql(
     `UPDATE location_pages
-     SET cover_image = $2,
-         featured_image_url = $2,
-         gallery_json = $3::jsonb,
+     SET cover_image = ${sqlLiteral(cover)},
+         featured_image_url = ${sqlLiteral(cover)},
+         gallery_json = ${sqlJson(gallery)},
          updated_at = now()
-     WHERE id = $1::uuid`,
-    [id, cover, galleryJson],
+     WHERE id = ${sqlLiteral(id)}::uuid`,
   )
 }
 
+function markNotFound(id) {
+  execSql(`UPDATE location_pages SET cover_image = 'not_found' WHERE id = ${sqlLiteral(id)}::uuid`)
+}
+
 async function main() {
-  console.log('→ pexels-fill-location-covers başlıyor…')
+  console.log(`→ pexels-fill-location-covers (${SCRIPT_VERSION}) başlıyor…`)
   loadBackendEnvFile()
-  const client = createPgClient()
-  await client.connect()
-  try {
-    const keys = await loadPexelsKeys(client)
-    console.log(`→ ${keys.length} Pexels key yüklendi`)
 
-    const { rows } = await client.query(
-      `SELECT lp.id::text AS id, lp.slug_path,
-              coalesce(lp.region_type, 'district') AS region_type,
-              coalesce(d.name, r2.name, co2.name, lp.title, lp.slug_path) AS location_name,
-              coalesce(r3.name, '') AS parent_name
-       FROM location_pages lp
-       LEFT JOIN districts d ON d.id = lp.district_id
-       LEFT JOIN regions r2 ON r2.id = lp.region_id
-       LEFT JOIN countries co2 ON co2.id = lp.country_id
-       LEFT JOIN regions r3 ON r3.id = d.region_id
-       WHERE coalesce(lp.cover_image, '') = ''
-       ORDER BY CASE coalesce(lp.region_type, 'district')
-                  WHEN 'country' THEN 1 WHEN 'province' THEN 2
-                  WHEN 'district' THEN 3 ELSE 4 END,
-                lp.slug_path`,
-    )
+  const keys = loadPexelsKeys()
+  console.log(`→ ${keys.length} Pexels key yüklendi`)
 
-    const todo = maxItems > 0 ? rows.slice(0, maxItems) : rows
-    console.log(`→ Hedef: ${todo.length} / ${rows.length} kapaksız lokasyon`)
-    if (dryRun) console.log('[dry-run] DB yazılmayacak')
+  const rows = queryRows(
+    `SELECT lp.id::text AS id, lp.slug_path,
+            coalesce(lp.region_type, 'district') AS region_type,
+            coalesce(d.name, r2.name, co2.name, lp.title, lp.slug_path) AS location_name,
+            coalesce(r3.name, '') AS parent_name
+     FROM location_pages lp
+     LEFT JOIN districts d ON d.id = lp.district_id
+     LEFT JOIN regions r2 ON r2.id = lp.region_id
+     LEFT JOIN countries co2 ON co2.id = lp.country_id
+     LEFT JOIN regions r3 ON r3.id = d.region_id
+     WHERE coalesce(lp.cover_image, '') = ''
+     ORDER BY CASE coalesce(lp.region_type, 'district')
+                WHEN 'country' THEN 1 WHEN 'province' THEN 2
+                WHEN 'district' THEN 3 ELSE 4 END,
+              lp.slug_path`,
+  )
 
-    let ok = 0
-    let fail = 0
-    for (const row of todo) {
-      const gallery = await fetchGalleryUrls(keys, queriesFor(row), 3)
-      if (gallery.length === 0) {
-        console.log(`  ✗ ${row.slug_path} — Pexels sonuç yok`)
-        if (!dryRun) {
-          await client.query(
-            `UPDATE location_pages SET cover_image = 'not_found' WHERE id = $1::uuid`,
-            [row.id],
-          )
-        }
-        fail++
-        continue
-      }
-      console.log(`  ✓ ${row.slug_path} (${row.region_type})`)
-      if (!dryRun) await saveCover(client, row.id, gallery[0], gallery)
-      ok++
+  const todo = maxItems > 0 ? rows.slice(0, maxItems) : rows
+  console.log(`→ Hedef: ${todo.length} / ${rows.length} kapaksız lokasyon`)
+  if (dryRun) console.log('[dry-run] DB yazılmayacak')
+
+  let ok = 0
+  let fail = 0
+  for (const row of todo) {
+    const gallery = await fetchGalleryUrls(keys, queriesFor(row), 3)
+    if (gallery.length === 0) {
+      console.log(`  ✗ ${row.slug_path} — Pexels sonuç yok`)
+      if (!dryRun) markNotFound(row.id)
+      fail++
+      continue
     }
-
-    const stat = await client.query(
-      `SELECT count(*)::int AS n FROM location_pages
-       WHERE cover_image <> '' AND cover_image <> 'not_found'`,
-    )
-    console.log(`→ Özet: ${ok} başarılı, ${fail} başarısız | toplam kapaklı: ${stat.rows[0].n}`)
-  } finally {
-    await client.end()
+    console.log(`  ✓ ${row.slug_path} (${row.region_type})`)
+    if (!dryRun) saveCover(row.id, gallery[0], gallery)
+    ok++
   }
+
+  const total = queryScalar(
+    `SELECT count(*)::text FROM location_pages
+     WHERE cover_image <> '' AND cover_image <> 'not_found'`,
+  )
+  console.log(`→ Özet: ${ok} başarılı, ${fail} başarısız | toplam kapaklı: ${total}`)
 }
 
 main().catch((e) => {
