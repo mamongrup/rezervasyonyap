@@ -6997,6 +6997,7 @@ export type LocationPage = {
   featured_image_url: string | null
   hero_image_url: string | null
   travel_ideas_image_url: string | null
+  cover_image?: string | null
   travel_ideas_json: string
   translations_json: string
   poi_manual_json: string
@@ -10983,18 +10984,25 @@ export async function getNotFoundCovers(token: string): Promise<NotFoundCoverIte
   return data as NotFoundCoverItem[]
 }
 
-/** İlçe kapak resmini kaydeder. */
+/** İlçe kapak + isteğe bağlı mozaik galerisi kaydeder. */
 export async function saveDistrictCover(
   token: string,
   locationPageId: string,
   coverImage: string,
+  opts?: { featured_image_url?: string; gallery_json?: string },
 ): Promise<void> {
   const b = base()
   if (!b) throw new Error('api_not_configured')
+  const body: Record<string, string> = {
+    location_page_id: locationPageId,
+    cover_image: coverImage,
+  }
+  if (opts?.featured_image_url?.trim()) body.featured_image_url = opts.featured_image_url.trim()
+  if (opts?.gallery_json?.trim()) body.gallery_json = opts.gallery_json.trim()
   const res = await fetch(`${b}/api/v1/ai/district-ideas/save-cover`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ location_page_id: locationPageId, cover_image: coverImage }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error(`save_cover_${res.status}`)
 }

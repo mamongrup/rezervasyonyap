@@ -31,6 +31,7 @@ import {
   saveDistrictCover,
   saveDistrictPlaces,
   searchPexelsImage,
+  listLocationPages,
   upsertSiteSetting,
   type DistrictServicePoi,
   type AgentOverview,
@@ -47,6 +48,8 @@ import {
   postRegionPlacesJson,
 } from '@/lib/build-region-places-from-google'
 import { parseLenientJson } from '@/lib/json-parse'
+import { parseGalleryBundle } from '@/lib/hero-gallery-slots'
+import { regionHeroKeyFromSlugPath } from '@/lib/region-handle-path'
 import { buildPlacePhotoProxySrc } from '@/lib/nearby-poi-image'
 import { regionPlacesSlugFromSlugPath } from '@/lib/region-places-slug'
 import { DEFAULT_SERVICE_POI_TYPES, type ServicePoiTypeDef } from '@/lib/service-poi-types'
@@ -90,6 +93,46 @@ function jobStatusBadge(status: string) {
   if (s === 'queued' || s === 'running' || s === 'pending')
     return 'bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
   return 'bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300'
+}
+
+/** Kategori sayfası mozaik JSON dosyaları (`public/region-hero/*`) */
+const REGION_HERO_SYNC_CATEGORIES = [
+  'oteller',
+  'tatil-evleri',
+  'turlar',
+  'aktiviteler',
+  'yat-kiralama',
+  'ucak-bileti',
+  'arac-kiralama',
+] as const
+
+async function fetchPexelsGalleryUrls(
+  queries: string[],
+  nextKey: () => string,
+  want = 3,
+): Promise<string[]> {
+  const urls: string[] = []
+  const seen = new Set<string>()
+  for (const q of queries) {
+    if (urls.length >= want) break
+    try {
+      const photos = await searchPexelsImage(q, nextKey(), Math.min(15, want + 4))
+      for (const p of photos) {
+        const u = p?.src?.large?.trim()
+        if (!u || seen.has(u)) continue
+        seen.add(u)
+        urls.push(u)
+        if (urls.length >= want) break
+      }
+    } catch {
+      /* sonraki sorgu */
+    }
+  }
+  if (urls.length === 0) return []
+  while (urls.length < want) {
+    urls.push(urls[urls.length % urls.length]!)
+  }
+  return urls.slice(0, want)
 }
 
 export default function AdminAiSection() {
@@ -177,6 +220,8 @@ export default function AdminAiSection() {
   const [coverStats, setCoverStats] = useState<CoverStats | null>(null)
   const [notFoundCovers, setNotFoundCovers] = useState<NotFoundCoverItem[] | null>(null)
   const [notFoundExpanded, setNotFoundExpanded] = useState(false)
+  const [heroSyncRunning, setHeroSyncRunning] = useState(false)
+  const [heroSyncLog, setHeroSyncLog] = useState<string[]>([])
 
   // DB'de kalıcı tut: maps ayarları + pexels keyleri (site_settings, platform scope).
   useEffect(() => {
@@ -1014,22 +1059,37 @@ export default function AdminAiSection() {
                   'Turkey nature landscape',
                 ]
         let coverUrl = ''
+        let galleryUrls: string[] = []
         try {
-          for (const q of queries) {
-            const photos = await searchPexelsImage(q, nextKey(), 1)
-            if (photos.length > 0) {
-              coverUrl = photos[0]?.src.large ?? ''
-              break
+          galleryUrls = await fetchPexelsGalleryUrls(queries, nextKey, 3)
+          coverUrl = galleryUrls[0] ?? ''
+          if (!coverUrl) {
+            for (const q of queries) {
+              const photos = await searchPexelsImage(q, nextKey(), 1)
+              if (photos.length > 0) {
+                coverUrl = photos[0]?.src.large ?? ''
+                break
+              }
             }
           }
         } catch {
           coverUrl = ''
         }
         if (coverUrl) {
-          await saveDistrictCover(token, location_page_id, coverUrl)
+          const mosaic =
+            galleryUrls.length >= 3
+              ? galleryUrls
+              : [coverUrl, galleryUrls[1] ?? coverUrl, galleryUrls[2] ?? coverUrl]
+          await saveDistrictCover(token, location_page_id, coverUrl, {
+            featured_image_url: coverUrl,
+            gallery_json: JSON.stringify(mosaic),
+          })
           done++
           const keyNum = (pexelsKeyIndexRef.current % activeKeys.length) + 1
-          setPexelsLog((l) => [...l, `✓ [${done}] ${location_name} (${region_type}) [key ${keyNum}/${activeKeys.length}]`])
+          setPexelsLog((l) => [
+            ...l,
+            `✓ [${done}] ${location_name} (${region_type}) — kapak + 3 mozaik [key ${keyNum}/${activeKeys.length}]`,
+          ])
         } else {
           await saveDistrictCover(token, location_page_id, 'not_found')
           setPexelsLog((l) => [...l, `– ${location_name}: resim bulunamadı, atlandı`])
@@ -1069,6 +1129,62 @@ export default function AdminAiSection() {
       setNotFoundCovers(nf)
     } catch (e) {
       setPexelsErr(formatManageApiCatch(e, 'stats_load_failed'))
+    }
+  }
+
+  /** DB galeri → kategori sayfası mozaik dosyaları (`public/region-hero/oteller--agri.json` vb.) */
+  async function onSyncRegionHeroMosaics() {
+    setHeroSyncRunning(true)
+    setHeroSyncLog(['İl kayıtları okunuyor…'])
+    setPexelsErr(null)
+    try {
+      let offset = 0
+      let synced = 0
+      let skipped = 0
+      while (true) {
+        const batch = await listLocationPages({ limit: 100, offset })
+        if (batch.pages.length === 0) break
+        for (const p of batch.pages) {
+          if (p.region_type !== 'province') continue
+          const cover = (p.cover_image ?? '').trim()
+          const { urls } = parseGalleryBundle(p.gallery_json as unknown)
+          const imgs: [string, string, string] = [
+            urls[0]?.trim() || p.featured_image_url?.trim() || cover || '',
+            urls[1]?.trim() || urls[0]?.trim() || p.featured_image_url?.trim() || cover || '',
+            urls[2]?.trim() || urls[0]?.trim() || p.featured_image_url?.trim() || cover || '',
+          ]
+          if (!imgs[0]) {
+            skipped++
+            continue
+          }
+          const regionKey = regionHeroKeyFromSlugPath(p.slug_path)
+          for (const cat of REGION_HERO_SYNC_CATEGORIES) {
+            const res = await fetch('/api/region-hero', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                category: cat,
+                region: regionKey,
+                heading: '',
+                subheading: '',
+                images: imgs,
+              }),
+            })
+            if (!res.ok) {
+              throw new Error(`region_hero_sync_${cat}_${regionKey}_${res.status}`)
+            }
+          }
+          synced++
+          setHeroSyncLog((l) => [...l, `✓ ${regionKey} → ${REGION_HERO_SYNC_CATEGORIES.length} kategori`])
+        }
+        offset += batch.pages.length
+        if (batch.pages.length < 100) break
+      }
+      setHeroSyncLog((l) => [...l, `Tamam: ${synced} il yazıldı, ${skipped} il atlandı (görsel yok).`])
+    } catch (e) {
+      setPexelsErr(formatManageApiCatch(e, 'region_hero_sync_failed'))
+    } finally {
+      setHeroSyncRunning(false)
     }
   }
 
@@ -2084,8 +2200,11 @@ export default function AdminAiSection() {
           Pexels — Lokasyon Kapak Resimleri
         </h2>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Kapak resmi olmayan her lokasyon (ülke, il, ilçe, belde) için Pexels&apos;ten otomatik fotoğraf çeker ve kaydeder.
-          API anahtarı ücretsiz: <a href="https://www.pexels.com/api/" target="_blank" rel="noopener noreferrer" className="text-pink-600 hover:underline">pexels.com/api</a>
+          Kapak resmi olmayan her lokasyon için Pexels&apos;ten <strong>1 kapak + 3 mozaik</strong> fotoğraf çeker;
+          <code className="mx-1 rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">cover_image</code>,
+          <code className="mx-1 rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">featured_image_url</code> ve
+          <code className="mx-1 rounded bg-neutral-100 px-1 text-xs dark:bg-neutral-800">gallery_json</code> alanlarına yazar.
+          Anasayfa bölge kartları kapaktan; kategori sayfası mozaiği için alttaki «Kategori mozaiğine yaz» adımını çalıştırın.
         </p>
 
         {pexelsErr ? (
@@ -2138,6 +2257,14 @@ export default function AdminAiSection() {
               >
                 Bitene kadar sürdür
               </ButtonPrimary>
+              <button
+                type="button"
+                onClick={() => void onSyncRegionHeroMosaics()}
+                disabled={heroSyncRunning || pexelsRunning}
+                className="rounded-xl border border-violet-300 bg-violet-50 px-4 py-2 text-sm font-medium text-violet-800 hover:bg-violet-100 disabled:opacity-60 dark:border-violet-800 dark:bg-violet-950/30 dark:text-violet-200"
+              >
+                {heroSyncRunning ? 'Kategori mozaiği yazılıyor…' : 'Kategori mozaiğine yaz (81 il)'}
+              </button>
               {coverStats && coverStats.not_found > 0 && (
                 <button
                   type="button"
@@ -2177,6 +2304,16 @@ export default function AdminAiSection() {
         <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
           Tek lokasyon: sıradaki kapaksız kayıt için bir deneme. Bitene kadar sürdür: tüm sıra işlenene veya «Durdur»a basılana dek devam eder (saatlik Pexels kota).
         </p>
+
+        {heroSyncLog.length > 0 && (
+          <div className="mt-4 max-h-40 overflow-y-auto rounded-xl border border-violet-100 bg-violet-50/50 p-3 dark:border-violet-900 dark:bg-violet-950/20">
+            <ul className="space-y-0.5 font-mono text-[11px] text-violet-800 dark:text-violet-300">
+              {heroSyncLog.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {pexelsLog.length > 0 && (
           <div className="mt-4 max-h-48 overflow-y-auto rounded-xl border border-neutral-100 bg-neutral-50 p-3 dark:border-neutral-800 dark:bg-neutral-950/40">

@@ -3,6 +3,7 @@ import { EventTicketCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getExperienceListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -24,7 +25,7 @@ export default async function Page({
 }) {
   const { handle, locale } = await params
   const sp = await searchParams
-  const currentHandle = handle?.[0]
+  const currentHandle = regionHandleFromParams(handle)
   const category = getCategoryBySlug('etkinlikler')
   if (!category) return redirect('/')
 

@@ -850,10 +850,12 @@ pub fn save_places(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn cover_body_decoder() -> decode.Decoder(#(String, String)) {
+fn cover_body_decoder() -> decode.Decoder(#(String, String, Option(String), Option(String))) {
   use lp_id <- decode.field("location_page_id", decode.string)
   use cover <- decode.field("cover_image", decode.string)
-  decode.success(#(lp_id, cover))
+  use featured <- decode.optional_field("featured_image_url", None, decode.optional(decode.string))
+  use gallery <- decode.optional_field("gallery_json", None, decode.optional(decode.string))
+  decode.success(#(lp_id, cover, featured, gallery))
 }
 
 fn no_cover_row() -> decode.Decoder(#(String, String, String, String, String)) {
@@ -939,13 +941,50 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
         Ok(body_str) ->
           case json.parse(body_str, cover_body_decoder()) {
             Error(_) -> json_err(400, "invalid_json_body")
-            Ok(#(lp_id, cover_url)) -> {
+            Ok(#(lp_id, cover_url, featured_opt, gallery_opt)) -> {
               let clean_lp_id = string.trim(lp_id)
               let clean_cover = string.trim(cover_url)
+              let feat_param = case featured_opt {
+                None -> pog.null()
+                Some(s) ->
+                  case string.trim(s) {
+                    "" -> pog.null()
+                    t -> pog.text(t)
+                  }
+              }
+              let gallery_param = case gallery_opt {
+                None -> pog.null()
+                Some(s) ->
+                  case string.trim(s) {
+                    "" -> pog.null()
+                    t -> pog.text(t)
+                  }
+              }
               case
-                pog.query("update location_pages set cover_image = $2 where id = $1::uuid")
+                pog.query(
+                  "
+                  update location_pages
+                  set    cover_image = $2,
+                         featured_image_url = case
+                           when $3::text is not null and trim($3::text) <> '' then $3::text
+                           when $2 <> '' and $2 <> 'not_found' then $2
+                           else featured_image_url
+                         end,
+                         gallery_json = case
+                           when $4::text is not null and trim($4::text) <> '' then $4::jsonb
+                           when $2 <> '' and $2 <> 'not_found'
+                             and coalesce(jsonb_array_length(gallery_json), 0) = 0
+                           then jsonb_build_array($2::text, $2::text, $2::text)
+                           else gallery_json
+                         end,
+                         updated_at = now()
+                  where  id = $1::uuid
+                  ",
+                )
                 |> pog.parameter(pog.text(clean_lp_id))
                 |> pog.parameter(pog.text(clean_cover))
+                |> pog.parameter(feat_param)
+                |> pog.parameter(gallery_param)
                 |> pog.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "cover_update_failed")

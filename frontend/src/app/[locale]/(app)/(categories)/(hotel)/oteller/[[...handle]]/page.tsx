@@ -2,6 +2,7 @@ import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { HotelCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { Metadata } from 'next'
@@ -21,7 +22,7 @@ export default async function Page({
 }) {
   const { handle, locale } = await params
   const sp = await searchParams
-  const currentHandle = handle?.[0]
+  const currentHandle = regionHandleFromParams(handle)
 
   const category = getCategoryBySlug('oteller')
   if (!category) return redirect('/')
