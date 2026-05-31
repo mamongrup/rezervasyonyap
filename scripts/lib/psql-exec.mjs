@@ -57,7 +57,7 @@ export function queryScalar(sql) {
 }
 
 export function execSql(sql) {
-  runPsql(['-c', sql])
+  return runPsql(['-c', sql])
 }
 
 export function sqlLiteral(value) {

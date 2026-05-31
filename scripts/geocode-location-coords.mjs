@@ -1,22 +1,22 @@
 #!/usr/bin/env node
 /**
  * Eksik lokasyon koordinatlarını Google Geocoding ile doldurur.
+ * npm/pg modülü gerekmez — yalnızca psql CLI.
  *
- * Sıra:
- *   1) districts.center_lat/lng (961 ilçe)
- *   2) location_pages.map_* — province/district/destination
- *   3) 302_sync_hierarchy_coords.sql mantığı (script içinde)
- *
- * Sunucu:
  *   set -a && source /etc/rezervasyonyap/backend.env && set +a
  *   node scripts/geocode-location-coords.mjs --dry-run --limit 5
  *   node scripts/geocode-location-coords.mjs --only districts
  *   node scripts/geocode-location-coords.mjs
- *
- * Google anahtarı: GOOGLE_MAPS_API_KEY ortam değişkeni veya site_settings.key = 'maps'
  */
-import { createPgClient } from './lib/pg-client.mjs'
+import {
+  execSql,
+  queryRows,
+  queryScalar,
+  sqlLiteral,
+} from './lib/psql-exec.mjs'
 import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
+
+const SCRIPT_VERSION = 'psql-v1'
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -55,10 +55,10 @@ function inTurkey(lat, lng) {
   )
 }
 
-async function resolveGoogleKey(client) {
+function resolveGoogleKey() {
   const fromEnv = (process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '').trim()
   if (fromEnv) return fromEnv
-  const { rows } = await client.query(
+  const rows = queryRows(
     `SELECT coalesce(value_json::text, '{}') AS j
      FROM site_settings
      WHERE key = 'maps' AND organization_id IS NULL
@@ -133,7 +133,12 @@ async function geocodeWithFallback(apiKey, queries, regionLat, regionLng) {
   return null
 }
 
-async function syncHierarchyPages(client) {
+function updateRowCount(out) {
+  const m = String(out || '').match(/UPDATE\s+(\d+)/i)
+  return m ? Number(m[1]) : 0
+}
+
+function syncHierarchyPages() {
   const steps = [
     {
       label: 'province pages ← regions',
@@ -163,16 +168,16 @@ async function syncHierarchyPages(client) {
       console.log(`[dry-run] sync: ${step.label}`)
       continue
     }
-    const r = await client.query(step.sql)
-    console.log(`✓ sync ${step.label}: ${r.rowCount} satır`)
+    const n = updateRowCount(execSql(step.sql))
+    console.log(`✓ sync ${step.label}: ${n} satır`)
   }
 }
 
-async function geocodeDistricts(client, apiKey) {
+async function geocodeDistricts(apiKey) {
   const missingClause = force
     ? 'TRUE'
     : '(d.center_lat IS NULL OR d.center_lng IS NULL)'
-  const { rows } = await client.query(
+  const rows = queryRows(
     `SELECT d.id, d.name AS district_name, r.name AS region_name,
             r.center_lat::float8 AS region_lat, r.center_lng::float8 AS region_lng,
             d.center_lat, d.center_lng
@@ -201,16 +206,14 @@ async function geocodeDistricts(client, apiKey) {
     }
     console.log(`  ✓ ${row.district_name} (${row.region_name}) → ${hit.lat}, ${hit.lng}`)
     if (!dryRun) {
-      await client.query(
-        `UPDATE districts SET center_lat = $2, center_lng = $3 WHERE id = $1`,
-        [row.id, hit.lat, hit.lng],
+      execSql(
+        `UPDATE districts SET center_lat = ${hit.lat}, center_lng = ${hit.lng} WHERE id = ${Number(row.id)}`,
       )
-      await client.query(
+      execSql(
         `UPDATE location_pages lp
-         SET map_lat = $2, map_lng = $3, updated_at = now()
-         WHERE lp.district_id = $1 AND lp.region_type = 'district'
-           AND (lp.map_lat IS NULL OR lp.map_lng IS NULL OR $4::boolean)`,
-        [row.id, hit.lat, hit.lng, force],
+         SET map_lat = ${hit.lat}, map_lng = ${hit.lng}, updated_at = now()
+         WHERE lp.district_id = ${Number(row.id)} AND lp.region_type = 'district'
+           AND (lp.map_lat IS NULL OR lp.map_lng IS NULL OR ${force ? 'TRUE' : 'FALSE'})`,
       )
     }
     ok++
@@ -218,10 +221,10 @@ async function geocodeDistricts(client, apiKey) {
   console.log(`→ İlçe özeti: ${ok} başarılı, ${fail} başarısız`)
 }
 
-async function geocodeDestinations(client, apiKey) {
+async function geocodeDestinations(apiKey) {
   const missingFilter = force ? 'TRUE' : '(lp.map_lat IS NULL OR lp.map_lng IS NULL)'
-  const { rows } = await client.query(
-    `SELECT lp.id::text, lp.slug_path, coalesce(nullif(lp.title, ''), lp.slug_path) AS title,
+  const rows = queryRows(
+    `SELECT lp.id::text AS id, lp.slug_path, coalesce(nullif(lp.title, ''), lp.slug_path) AS title,
             d.name AS district_name, r.name AS region_name,
             r.center_lat::float8 AS region_lat, r.center_lng::float8 AS region_lng
      FROM location_pages lp
@@ -251,9 +254,9 @@ async function geocodeDestinations(client, apiKey) {
     }
     console.log(`  ✓ ${row.slug_path} → ${hit.lat}, ${hit.lng}`)
     if (!dryRun) {
-      await client.query(
-        `UPDATE location_pages SET map_lat = $2, map_lng = $3, updated_at = now() WHERE id = $1::uuid`,
-        [row.id, hit.lat, hit.lng],
+      execSql(
+        `UPDATE location_pages SET map_lat = ${hit.lat}, map_lng = ${hit.lng}, updated_at = now()
+         WHERE id = ${sqlLiteral(row.id)}::uuid`,
       )
     }
     ok++
@@ -261,46 +264,40 @@ async function geocodeDestinations(client, apiKey) {
   console.log(`→ Belde özeti: ${ok} başarılı, ${fail} başarısız`)
 }
 
-async function printStats(client) {
-  const d = await client.query(`
-    SELECT count(*)::int AS n FROM districts d
+function printStats() {
+  const d = queryScalar(`
+    SELECT count(*)::text FROM districts d
     JOIN regions r ON r.id = d.region_id
     JOIN countries c ON c.id = r.country_id
     WHERE c.iso2 = 'TR' AND (d.center_lat IS NULL OR d.center_lng IS NULL)
   `)
-  const p = await client.query(`
-    SELECT count(*)::int AS n FROM location_pages lp
+  const p = queryScalar(`
+    SELECT count(*)::text FROM location_pages lp
     WHERE lp.region_type IN ('province', 'district', 'destination')
       AND lp.slug_path LIKE 'tr/%'
       AND (lp.map_lat IS NULL OR lp.map_lng IS NULL)
   `)
-  console.log(`→ Eksik: ${d.rows[0].n} ilçe merkezi, ${p.rows[0].n} sayfa pini`)
+  console.log(`→ Eksik: ${d} ilçe merkezi, ${p} sayfa pini`)
 }
 
 async function main() {
-  console.log('→ geocode-location-coords başlıyor…')
+  console.log(`→ geocode-location-coords (${SCRIPT_VERSION}) başlıyor…`)
   loadBackendEnvFile()
-  const client = createPgClient()
-  await client.connect()
-  try {
-    await printStats(client)
-    const apiKey = await resolveGoogleKey(client)
-    console.log(`→ Google API anahtarı: ${apiKey.slice(0, 8)}…`)
-    if (dryRun) console.log('[dry-run] Veritabanı yazılmayacak.')
+  printStats()
+  const apiKey = resolveGoogleKey()
+  console.log(`→ Google API anahtarı: ${apiKey.slice(0, 8)}…`)
+  if (dryRun) console.log('[dry-run] Veritabanı yazılmayacak.')
 
-    const runDistricts = onlyArg === 'all' || onlyArg === 'districts'
-    const runDestinations = onlyArg === 'all' || onlyArg === 'destinations'
-    const runSync = onlyArg === 'all' || onlyArg === 'sync'
+  const runDistricts = onlyArg === 'all' || onlyArg === 'districts'
+  const runDestinations = onlyArg === 'all' || onlyArg === 'destinations'
+  const runSync = onlyArg === 'all' || onlyArg === 'sync'
 
-    if (runDistricts) await geocodeDistricts(client, apiKey)
-    if (runSync || onlyArg === 'all') await syncHierarchyPages(client)
-    if (runDestinations) await geocodeDestinations(client, apiKey)
-    if (onlyArg === 'sync') await syncHierarchyPages(client)
+  if (runDistricts) await geocodeDistricts(apiKey)
+  if (runSync || onlyArg === 'all') syncHierarchyPages()
+  if (runDestinations) await geocodeDestinations(apiKey)
+  if (onlyArg === 'sync') syncHierarchyPages()
 
-    await printStats(client)
-  } finally {
-    await client.end()
-  }
+  printStats()
 }
 
 main().catch((e) => {
