@@ -24,6 +24,10 @@ import type { FilterOption, PageBuilderModule, TListingBase } from '@/types/list
 import type { TAuthor } from '@/data/authors'
 import { getPublicRegionStats, listPublicThemeItems } from '@/lib/travel-api'
 import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
+import {
+  filterRegionsForHandle,
+  regionsWithListings,
+} from '@/lib/region-stats-display'
 import { getCategoryPageBuilderConfig } from '@/data/page-builder-config'
 import { Button } from '@/shared/Button'
 import { Divider } from '@/shared/divider'
@@ -187,15 +191,17 @@ export default async function CategoryPageTemplate({
     category.slug === 'tatil-evleri'
       ? (await listPublicThemeItems({ categoryCode: 'holiday_home', locale }))?.items ?? []
       : []
-  const resolvedRegionStats: RegionSliderItem[] =
-    regionStats ??
-    (isAll
-      ? await getPublicRegionStats(
+  const resolvedRegionStats: RegionSliderItem[] = regionsWithListings(
+    filterRegionsForHandle(
+      regionStats ??
+        (await getPublicRegionStats(
           categoryCode,
           12,
           { next: { revalidate: 300 } } as RequestInit,
-        ).catch(() => [])
-      : [])
+        ).catch(() => [])),
+      currentHandle,
+    ),
+  )
 
   /** Page builder (client) modüllerine fonksiyon yerine id → kart node geçir */
   const listingCardsById: Record<string, ReactNode> | undefined =
@@ -422,7 +428,7 @@ export default async function CategoryPageTemplate({
     </div>
   )
 
-  const regionSlider = resolvedRegionStats.length > 0 && isAll ? (
+  const regionSlider = resolvedRegionStats.length > 0 ? (
     <div className="container mt-16">
       <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
         {cat.exploreByRegion}

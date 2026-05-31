@@ -6,6 +6,7 @@ import BecomeProviderModule from '@/components/page-builder/modules/BecomeProvid
 import NewsletterModule from '@/components/page-builder/modules/NewsletterModule'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
 
 interface Props {
   modules: PageBuilderModule[]
@@ -66,7 +67,16 @@ export default async function SearchPageRenderer({
             return (
               <div key={module.id} className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
                 <DestinationCardsModule
-                  config={cfg as Parameters<typeof DestinationCardsModule>[0]['config']}
+                  config={{
+                    ...(cfg as Parameters<typeof DestinationCardsModule>[0]['config']),
+                    categoryCode:
+                      activeCategory !== 'all'
+                        ? SLUG_TO_CODE[activeCategory] ?? activeCategory
+                        : undefined,
+                    categoryRoute:
+                      activeCategory !== 'all' ? activeCategory : undefined,
+                  }}
+                  locale={locale}
                 />
               </div>
             )

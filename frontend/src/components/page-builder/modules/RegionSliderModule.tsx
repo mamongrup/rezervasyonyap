@@ -2,6 +2,7 @@ import SectionSliderRegions from '@/components/SectionSliderRegions'
 import { getPublicRegionStats } from '@/lib/travel-api'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { regionsWithListings } from '@/lib/region-stats-display'
 import HeadingWithSub from '@/shared/Heading'
 
 export interface RegionSliderModuleConfig {
@@ -30,11 +31,15 @@ export default async function RegionSliderModule({
 
   let regions: { name: string; slug: string; count: number; thumbnail: string }[] = []
   try {
-    regions = await getPublicRegionStats(
-      config.categoryCode ?? '',
-      limit,
-      withDevNoStore({ next: { revalidate: 300 } }),
-    )
+    if (config.categoryCode?.trim()) {
+      regions = regionsWithListings(
+        await getPublicRegionStats(
+          config.categoryCode.trim(),
+          limit,
+          withDevNoStore({ next: { revalidate: 300 } }),
+        ),
+      )
+    }
   } catch {
     // API yoksa boş — modül render edilmez
   }

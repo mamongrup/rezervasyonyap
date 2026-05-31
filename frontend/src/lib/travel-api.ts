@@ -5984,7 +5984,7 @@ export type PublicRegionStatItem = {
 
 /**
  * GET /api/v1/catalog/public/region-stats?category_code=&limit=
- * Beklenen gövde: `{ regions: { name, slug, count, thumbnail }[] }`
+ * Kategoriye göre yayımlı ilan sayısı (hotel/holiday_home → TR illeri; tour → yurtdışı öncelikli destinasyonlar).
  */
 export async function getPublicRegionStats(
   categoryCode: string,

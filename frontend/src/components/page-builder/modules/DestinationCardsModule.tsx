@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getPublicRegionStats } from '@/lib/travel-api'
 import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { regionsWithListings } from '@/lib/region-stats-display'
 
 export interface DestinationCard {
   name: string
@@ -20,8 +21,10 @@ export interface DestinationCardsModuleConfig {
   layout?: 'grid' | 'masonry'
   columns?: 2 | 3 | 4
   cards?: DestinationCard[]
-  /** Backend'den çekilecek kategori kodu (boş = tümü) */
+  /** Backend kategori kodu: hotel, holiday_home, tour, … */
   categoryCode?: string
+  /** Kategori vitrin yolu — ör. `oteller` → `/oteller/TR/antalya` */
+  categoryRoute?: string
   /** Gösterilecek maksimum bölge sayısı (varsayılan 6) */
   limit?: number
 }
@@ -118,33 +121,37 @@ export default async function DestinationCardsModule({
   // Panelde manuel kart tanımlanmışsa onları kullan
   let cards: DestinationCard[] = config.cards?.length ? config.cards : []
 
-  // Manuel kart yok → API'den gerçek bölgeleri çek
-  if (cards.length === 0) {
+  // Manuel kart yok → API'den kategoriye özgü bölgeleri çek
+  if (cards.length === 0 && config.categoryCode?.trim()) {
     try {
       const limit = config.limit ?? 6
-      const apiRegions = await getPublicRegionStats(
-        config.categoryCode ?? '',
-        limit,
-        withDevNoStore({ next: { revalidate: 300 } }),
+      const apiRegions = regionsWithListings(
+        await getPublicRegionStats(
+          config.categoryCode.trim(),
+          limit,
+          withDevNoStore({ next: { revalidate: 300 } }),
+        ),
       )
+      const categoryBase = config.categoryRoute?.trim()
+        ? await vitrinHref(locale, `/${config.categoryRoute.trim()}`)
+        : null
       if (apiRegions.length > 0) {
-        cards = await Promise.all(
-          apiRegions
-            .filter((r) => r.thumbnail.trim() !== '')
-            .map(async (r) => ({
-              name: r.name,
-              imageUrl: r.thumbnail,
-              href: await vitrinHref(locale, `/location/${r.slug}`),
-              listingCount: r.count,
-            })),
-        )
+        cards = apiRegions
+          .filter((r) => r.thumbnail.trim() !== '')
+          .map((r) => ({
+            name: r.name,
+            imageUrl: r.thumbnail,
+            href: categoryBase ? `${categoryBase}/${r.slug}` : undefined,
+            listingCount: r.count,
+          }))
       }
     } catch {
-      // API yoksa hardcoded fallback
+      // API yoksa aşağıdaki fallback
     }
   }
 
-  if (cards.length === 0) cards = DEFAULT_CARDS
+  if (cards.length === 0 && !config.categoryCode?.trim()) cards = DEFAULT_CARDS
+  if (cards.length === 0) return null
 
   const cols = config.columns ?? 3
 

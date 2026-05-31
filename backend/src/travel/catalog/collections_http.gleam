@@ -1133,7 +1133,7 @@ fn region_stats_row() -> decode.Decoder(#(String, String, Int, String)) {
 }
 
 /// GET /api/v1/catalog/public/region-stats?category_code=&limit=
-/// Yayımlanan ilanların location_name'e göre bölge sayılarını döner.
+/// Kategoriye göre yayımlı ilanların bulunduğu bölgeler (ilan sayısına göre sıralı).
 pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let qs = case request.get_query(req) {
@@ -1152,43 +1152,180 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
       }
     Error(_) -> 12
   }
-  let sql =
-    "select "
-    <> "  coalesce(lp.slug_path, r.slug) as slug, "
-    <> "  r.name, "
-    <> "  0::int as cnt, "
-    <> "  coalesce(nullif(lp.cover_image, ''), nullif(lp.featured_image_url, ''), nullif(lp.hero_image_url, ''), nullif(lp.travel_ideas_image_url, ''), '') as thumbnail "
-    <> "from regions r "
-    <> "left join countries c on c.id = r.country_id "
-    <> "left join location_pages lp on lp.region_id = r.id and coalesce(lp.region_type, 'province') = 'province' "
-    <> "order by r.name "
-    <> "limit $1"
-  case
-    pog.query(sql)
-    |> pog.parameter(pog.int(lim))
-    |> pog.returning(region_stats_row())
-    |> pog.execute(ctx.db)
-  {
-    Error(_) -> json_err(500, "region_stats_failed")
-    Ok(ret) -> {
-      let rows =
-        list.map(ret.rows, fn(row) {
-          let #(slug, name, cnt, thumbnail) = row
-          json.object([
-            #("slug", json.string(slug)),
-            #("name", json.string(name)),
-            #("count", json.int(cnt)),
-            #("thumbnail", json.string(thumbnail)),
-          ])
-        })
+  let cat_raw =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  case cat_raw == "" {
+    True -> {
       let body =
         json.object([
-          #("regions", json.array(from: rows, of: fn(x) { x })),
+          #("regions", json.array(from: [], of: fn(x) { x })),
         ])
         |> json.to_string
       wisp.json_response(body, 200)
     }
+    False -> {
+      let is_tour = cat_raw == "tour"
+      let sql = case is_tour {
+        True -> region_stats_tour_sql()
+        False -> region_stats_domestic_sql()
+      }
+      case
+        pog.query(sql)
+        |> pog.parameter(pog.int(lim))
+        |> pog.parameter(pog.text(cat_raw))
+        |> pog.returning(region_stats_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "region_stats_failed")
+        Ok(ret) -> {
+          let rows =
+            list.map(ret.rows, fn(row) {
+              let #(slug, name, cnt, thumbnail) = row
+              json.object([
+                #("slug", json.string(slug)),
+                #("name", json.string(name)),
+                #("count", json.int(cnt)),
+                #("thumbnail", json.string(thumbnail)),
+              ])
+            })
+          let body =
+            json.object([
+              #("regions", json.array(from: rows, of: fn(x) { x })),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+    }
   }
+}
+
+fn region_stats_domestic_sql() -> String {
+  "with base as ( "
+  <> "  select l.id, "
+  <> "    lower(coalesce(nullif(trim(l.location_name), ''), '')) as location_name, "
+  <> "    lower(coalesce(lm.value_json->>'province_city', '')) as province_city, "
+  <> "    lower(coalesce(lm.value_json->>'city', '')) as city, "
+  <> "    lower(coalesce(lm.value_json->>'district_label', '')) as district_label, "
+  <> "    lower(coalesce(lm.value_json->>'region_display', '')) as region_display, "
+  <> "    lower(coalesce(lm.value_json->>'address', '')) as address "
+  <> "  from listings l "
+  <> "  join product_categories pc on pc.id = l.category_id "
+  <> "  left join listing_attributes lm on lm.listing_id = l.id "
+  <> "    and lm.group_code = 'listing_meta' and lm.key = 'v1' "
+  <> "  where l.status = 'published' and pc.code = $2 "
+  <> "), matched as ( "
+  <> "  select distinct on (b.id) "
+  <> "    b.id as listing_id, r.id as region_id, r.slug, r.name "
+  <> "  from base b "
+  <> "  join regions r on ( "
+  <> "    b.location_name like '%' || lower(r.name) || '%' "
+  <> "    or b.province_city like '%' || lower(r.name) || '%' "
+  <> "    or b.city like '%' || lower(r.name) || '%' "
+  <> "    or b.region_display like '%' || lower(r.name) || '%' "
+  <> "    or b.district_label like '%' || lower(r.name) || '%' "
+  <> "    or b.address like '%' || lower(r.name) || '%' "
+  <> "    or replace(b.location_name, ' ', '-') = r.slug "
+  <> "  ) "
+  <> "  join countries c on c.id = r.country_id and c.iso2 = 'TR' "
+  <> "  order by b.id, length(r.name) desc, r.name "
+  <> ") "
+  <> "select "
+  <> "  'TR/' || m.slug as slug, "
+  <> "  m.name, "
+  <> "  count(*)::int as cnt, "
+  <> "  coalesce( "
+  <> "    max(nullif(lp.cover_image, '')), "
+  <> "    max(nullif(lp.featured_image_url, '')), "
+  <> "    max(nullif(lp.hero_image_url, '')), "
+  <> "    '' "
+  <> "  ) as thumbnail "
+  <> "from matched m "
+  <> "left join location_pages lp on lp.region_id = m.region_id "
+  <> "  and coalesce(lp.region_type, 'province') = 'province' "
+  <> "group by m.region_id, m.slug, m.name "
+  <> "having count(*) > 0 "
+  <> "order by count(*) desc, m.name asc "
+  <> "limit $1"
+}
+
+fn region_stats_tour_sql() -> String {
+  "with tour_base as ( "
+  <> "  select l.id, "
+  <> "    lower(coalesce(nullif(trim(l.location_name), ''), '')) as location_name, "
+  <> "    coalesce(w.value_json->'catalog'->'countries', w.value_json->'countries', '[]'::jsonb) as countries_json, "
+  <> "    trim(coalesce( "
+  <> "      w.value_json->'catalog'->'tourArea'->>'name', "
+  <> "      w.value_json->'catalog'->'tourArea'->>'text', "
+  <> "      '' "
+  <> "    )) as tour_area "
+  <> "  from listings l "
+  <> "  join product_categories pc on pc.id = l.category_id "
+  <> "  left join listing_attributes w on w.listing_id = l.id "
+  <> "    and w.group_code = 'wtatil' and w.key = 'snapshot' "
+  <> "  where l.status = 'published' and pc.code = 'tour' "
+  <> "), tour_dest as ( "
+  <> "  select distinct on (tb.id) "
+  <> "    tb.id as listing_id, "
+  <> "    coalesce( "
+  <> "      nullif(trim(elem->>'code'), ''), "
+  <> "      nullif(trim(elem->>'name'), ''), "
+  <> "      nullif(tb.tour_area, ''), "
+  <> "      nullif(initcap(trim(tb.location_name)), ''), "
+  <> "      'Diger' "
+  <> "    ) as dest_label, "
+  <> "    case "
+  <> "      when nullif(trim(elem->>'code'), '') is not null "
+  <> "        then upper(trim(elem->>'code')) "
+  <> "      when nullif(trim(co.iso2), '') is not null "
+  <> "        then upper(co.iso2) "
+  <> "      else lower(regexp_replace( "
+  <> "        coalesce(nullif(trim(elem->>'name'), ''), nullif(tb.tour_area, ''), trim(tb.location_name), 'diger'), "
+  <> "        '[^a-zA-Z0-9]+', '-', 'g' "
+  <> "      )) "
+  <> "    end as dest_slug, "
+  <> "    case "
+  <> "      when coalesce(c_tr.iso2, '') = 'TR' then 1 "
+  <> "      when lower(coalesce(nullif(trim(elem->>'name'), ''), tb.tour_area, tb.location_name, '')) "
+  <> "        in ('türkiye', 'turkiye', 'turkey', 'tr') then 1 "
+  <> "      else 0 "
+  <> "    end as is_domestic "
+  <> "  from tour_base tb "
+  <> "  left join lateral jsonb_array_elements( "
+  <> "    case when jsonb_array_length(tb.countries_json) > 0 then tb.countries_json else '[{}]'::jsonb end "
+  <> "  ) elem on true "
+  <> "  left join countries co on co.iso2 is not null and ( "
+  <> "    lower(trim(coalesce(elem->>'code', ''))) = lower(co.iso2) "
+  <> "    or lower(trim(coalesce(elem->>'name', ''))) = lower(co.name) "
+  <> "    or (trim(coalesce(elem->>'name', '')) <> '' and lower(co.name) like '%' || lower(trim(elem->>'name')) || '%') "
+  <> "  ) "
+  <> "  left join countries c_tr on c_tr.id = co.id and c_tr.iso2 = 'TR' "
+  <> "  order by tb.id, "
+  <> "    case when jsonb_array_length(tb.countries_json) > 0 and elem != '{}'::jsonb then 0 else 1 end, "
+  <> "    length(coalesce(nullif(trim(elem->>'name'), ''), tb.tour_area, '')) desc "
+  <> ") "
+  <> "select "
+  <> "  td.dest_slug as slug, "
+  <> "  td.dest_label as name, "
+  <> "  count(*)::int as cnt, "
+  <> "  coalesce( "
+  <> "    max(nullif(lp.cover_image, '')), "
+  <> "    max(nullif(lp.featured_image_url, '')), "
+  <> "    max(nullif(lp.hero_image_url, '')), "
+  <> "    '' "
+  <> "  ) as thumbnail "
+  <> "from tour_dest td "
+  <> "left join location_pages lp on ( "
+  <> "  lower(lp.slug_path) = lower(td.dest_slug) "
+  <> "  or lower(lp.slug_path) = 'tr/' || lower(td.dest_slug) "
+  <> ") "
+  <> "group by td.dest_slug, td.dest_label "
+  <> "having count(*) > 0 "
+  <> "order by min(td.is_domestic) asc, count(*) desc, td.dest_label asc "
+  <> "limit $1"
 }
 
 // ─── Collections CRUD ─────────────────────────────────────────────────────────
