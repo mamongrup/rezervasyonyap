@@ -153,13 +153,14 @@ async function main() {
     if (writePath) {
       const abs = path.resolve(writePath)
       const lines = [
-        '# mamon.com.tr Booking Core → otomatik (gitignore edin)',
-        `WTATIL_BASE_URL=${merged.WTATIL_BASE_URL}`,
+        '# mamon.com.tr Booking Core → otomatik (chmod 600, git’e koymayın)',
+        `WTATIL_BASE_URL=${merged.WTATIL_BASE_URL || 'https://tour-api.reserwation.com'}`,
         `WTATIL_APPLICATION_SECRET_KEY=${merged.WTATIL_APPLICATION_SECRET_KEY}`,
         `WTATIL_USERNAME=${merged.WTATIL_USERNAME}`,
         `WTATIL_PASSWORD=${merged.WTATIL_PASSWORD}`,
       ]
       if (merged.WTATIL_AGENCY_ID) lines.push(`WTATIL_AGENCY_ID=${merged.WTATIL_AGENCY_ID}`)
+      lines.push('WTATIL_STATUS=published')
       fs.mkdirSync(path.dirname(abs), { recursive: true })
       fs.writeFileSync(abs, lines.join('\n') + '\n', 'utf8')
       console.log(`Yazıldı: ${abs}`)
