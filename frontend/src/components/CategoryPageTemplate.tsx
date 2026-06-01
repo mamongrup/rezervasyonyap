@@ -43,6 +43,7 @@ import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-default
 import { MapsLocation01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import SectionSubcategories from '@/components/SectionSubcategories'
+import TourHubCategoryGrid from '@/components/tours/TourHubCategoryGrid'
 import { getSubcategoriesByParent } from '@/data/subcategory-registry'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
@@ -441,9 +442,11 @@ export default async function CategoryPageTemplate({
     </div>
   ) : null
 
-  // Alt kategoriler (hero altında ikon grid)
+  // Alt kategoriler (hero altında ikon grid) — turlar hub'da Etstur tarzı kart grid kullanılır
   const subcategoryItems = getSubcategoriesByParent(category.slug)
-  const subcategorySection = isAll && subcategoryItems.length > 0 ? (
+  const isTourHubLanding = category.slug === 'turlar' && isAll && !hasActiveSearch
+  const subcategorySection =
+    isAll && subcategoryItems.length > 0 && !isTourHubLanding ? (
     <div className="container mt-10">
       <SectionSubcategories
         parentCategorySlug={category.slug}
@@ -455,6 +458,8 @@ export default async function CategoryPageTemplate({
       />
     </div>
   ) : null
+
+  const tourHubSection = isTourHubLanding ? <TourHubCategoryGrid locale={locale} /> : null
 
   // Category landing view: hero + builder modules (her zaman resolvedModules var)
   if (isAll) {
@@ -487,9 +492,11 @@ export default async function CategoryPageTemplate({
 
         {subcategorySection}
 
-        {searchResultsSection}
+        {tourHubSection}
 
-        {regionSlider}
+        {!isTourHubLanding ? searchResultsSection : null}
+
+        {!isTourHubLanding ? regionSlider : null}
 
         <PageBuilderRenderer
           modules={nonHeroModules}
