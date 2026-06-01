@@ -1307,6 +1307,29 @@ export type PublicListingPriceLines = {
   excluded: { label: string }[]
 }
 
+export type PublicTourPeriodsResponse = {
+  currency_code: string
+  periods: unknown[]
+  period_prices: unknown[]
+}
+
+export async function getPublicTourPeriods(
+  listingId: string,
+): Promise<PublicTourPeriodsResponse | null> {
+  const b = base()
+  if (!b) return null
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/tour-periods`,
+      typeof window === 'undefined' ? { next: { revalidate: 120 } } : {},
+    )
+    if (!res.ok) return null
+    return json<PublicTourPeriodsResponse>(res)
+  } catch {
+    return null
+  }
+}
+
 export async function getPublicListingPriceLines(
   listingId: string,
   locale?: string,

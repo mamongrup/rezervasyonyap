@@ -26,10 +26,12 @@ import { vitrinHref } from '@/lib/vitrin-href'
 import {
   fetchPublicListingAvailabilityDaysSafe,
   getPublicListingPriceLines,
+  getPublicTourPeriods,
   getVerticalMeta,
   listPublicActivitySessions,
   resolvePublishedListingIdForStayPage,
 } from '@/lib/travel-api'
+import { mergeTourPeriodOptions } from '@/lib/tour-periods'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
@@ -47,6 +49,7 @@ import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
 import ActivityBookingPanel from './ActivityBookingPanel'
+import TourBookingSidebar from './TourBookingSidebar'
 import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
   TourIncludedExcludedSection,
@@ -270,7 +273,8 @@ export default async function ExperienceListingDetailPage({
 
   const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
   const activityInitialDate = new Date().toISOString().slice(0, 10)
-  const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions] = await Promise.all([
+  const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions, rawTourPeriods] =
+    await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
       : fetchPublicListingAvailabilityDaysSafe(catalogListingId),
@@ -286,6 +290,9 @@ export default async function ExperienceListingDetailPage({
     vertical === 'activity'
       ? listPublicActivitySessions(catalogListingId, activityInitialDate).catch(() => ({ sessions: [] }))
       : Promise.resolve({ sessions: [] }),
+    vertical === 'tour'
+      ? getPublicTourPeriods(catalogListingId).catch(() => null)
+      : Promise.resolve(null),
   ])
 
   const {
@@ -310,6 +317,7 @@ export default async function ExperienceListingDetailPage({
   const isTour = vertical === 'tour'
   const isActivity = vertical === 'activity'
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
+  const tourPeriodOptions = isTour && rawTourPeriods ? mergeTourPeriodOptions(rawTourPeriods) : []
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
   const tourLanguages = splitMetaList(tourMeta?.languages)
   const tourDurationLine = tourMeta?.duration_days
@@ -456,6 +464,18 @@ export default async function ExperienceListingDetailPage({
   }
 
   const renderSidebarPriceAndForm = () => {
+    if (isTour) {
+      return (
+        <TourBookingSidebar
+          action={handleSubmitForm}
+          periods={tourPeriodOptions}
+          fallbackPrice={price}
+          reviewStart={reviewStart ?? 0}
+          reviewCount={reviewCount ?? 0}
+        />
+      )
+    }
+
     return (
       <div className="listingSection__wrap sm:shadow-xl">
         <div className="flex justify-between">

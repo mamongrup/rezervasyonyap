@@ -187,6 +187,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-lines"] ->
       catalog_http.list_public_listing_price_lines(req, ctx, lid)
 
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "tour-periods"] ->
+      catalog_http.list_public_tour_periods(req, ctx, lid)
+
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "accommodation-rules"] ->
       catalog_http.get_public_listing_accommodation_rules(req, ctx, lid)
 

@@ -4548,6 +4548,62 @@ pub fn list_public_listing_price_lines(
   }
 }
 
+fn public_tour_periods_row() -> decode.Decoder(#(String, String, String)) {
+  use periods <- decode.field(0, decode.string)
+  use prices <- decode.field(1, decode.string)
+  use currency <- decode.field(2, decode.string)
+  decode.success(#(periods, prices, currency))
+}
+
+/// GET /api/v1/catalog/public/listings/:id/tour-periods — yayında tur dönemleri + fiyat tablosu (wtatil program_days_json)
+pub fn list_public_tour_periods(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select coalesce(ltd.program_days_json->'periods', '[]'::jsonb)::text, "
+      <> "coalesce(ltd.program_days_json->'period_prices', '[]'::jsonb)::text, "
+      <> "coalesce(nullif(trim(l.currency_code), ''), 'TRY') "
+      <> "from listing_tour_details ltd "
+      <> "inner join listings l on l.id = ltd.listing_id and l.status = 'published' "
+      <> "where ltd.listing_id = $1::uuid",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(public_tour_periods_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "public_tour_periods_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> {
+          let body =
+            json.object([
+              #("currency_code", json.string("TRY")),
+              #("periods", json.array(from: [], of: fn(x) { x })),
+              #("period_prices", json.array(from: [], of: fn(x) { x })),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+        [#(periods_raw, prices_raw, currency)] -> {
+          let body =
+            "{\"currency_code\":\""
+            <> currency
+            <> "\",\"periods\":"
+            <> periods_raw
+            <> ",\"period_prices\":"
+            <> prices_raw
+            <> "}"
+          wisp.json_response(body, 200)
+        }
+        _ -> json_err(500, "unexpected")
+      }
+  }
+}
+
 /// GET /api/v1/catalog/public/listings/:id/availability-calendar?from=YYYY-MM-DD&to=YYYY-MM-DD — vitrin (yayında ilan)
 pub fn list_public_listing_availability_calendar(
   req: Request,
