@@ -39,6 +39,11 @@ done
 
 cd "$APP_ROOT"
 
+if [[ ! -d "$APP_ROOT/scripts/node_modules/pg" ]]; then
+  echo "→ scripts/pg bağımlılığı (bir kez)…"
+  (cd "$APP_ROOT/scripts" && npm install --no-audit --no-fund)
+fi
+
 echo "→ PostgreSQL bağlantı testi…"
 node scripts/test-pg-env.mjs || exit 1
 

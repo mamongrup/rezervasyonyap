@@ -48,7 +48,10 @@ fn tour_listing_vitrin_price_sql() -> String {
   <> "nullif(trim(tour_det.program_days_json->'cheapest_price'->>'price'), ''), "
   <> "nullif(trim(tour_det.program_days_json->'cheapest_price'->>'totalPrice'), '') "
   <> ") else null end, "
-  <> "(select min(pp.n)::text from jsonb_array_elements(coalesce(tour_det.program_days_json->'period_prices', '[]'::jsonb)) elem "
+  <> "(select min(pp.n)::text from jsonb_array_elements("
+  <> "case jsonb_typeof(tour_det.program_days_json->'period_prices') "
+  <> "when 'array' then tour_det.program_days_json->'period_prices' else '[]'::jsonb end"
+  <> ") elem "
   <> "cross join lateral (select case when replace(trim(coalesce("
   <> "nullif(trim(elem->>'price'), ''), nullif(trim(elem->>'amount'), ''), "
   <> "nullif(trim(elem->>'adultPrice'), ''), nullif(trim(elem->>'doublePrice'), ''), "
@@ -59,6 +62,16 @@ fn tour_listing_vitrin_price_sql() -> String {
   <> "nullif(trim(elem->>'singlePrice'), ''), '')), ',', '.')::numeric else null end as n) pp "
   <> "where pp.n is not null and pp.n > 0), "
   <> "'')), '')"
+}
+
+/// Filtre alt sorgusu — geçersiz metin `::numeric` patlatmasın.
+fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
+  "left join lateral (select case when px.v is null or trim(px.v) = '' then null "
+  <> "when replace(trim(px.v), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' "
+  <> "then replace(trim(px.v), ',', '.')::numeric else null end as tour_vitrin_price "
+  <> "from (select "
+  <> tour_listing_vitrin_price_sql()
+  <> " as v) px) tour_price_row on true "
 }
 
 // ─── Public Listing Search ────────────────────────────────────────────────────
@@ -657,9 +670,7 @@ fn search_listings_impl(
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
     <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
-    <> "left join lateral (select "
-    <> tour_listing_vitrin_price_sql()
-    <> "::numeric as tour_vitrin_price) tour_price_row on true "
+    <> tour_listing_vitrin_price_numeric_lateral_sql()
     <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
     <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
