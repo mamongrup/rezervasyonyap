@@ -61,6 +61,31 @@ function locationLabel(tour) {
   return [area, countries].filter(Boolean).join(' · ') || null
 }
 
+function normalizeCheapestPrice(raw) {
+  if (raw == null) return null
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) return raw
+  if (typeof raw === 'object') {
+    const n = raw.value ?? raw.amount ?? raw.price ?? raw.totalPrice
+    const num = Number(n)
+    return Number.isFinite(num) && num > 0 ? num : null
+  }
+  const num = parseFloat(String(raw).replace(/\s/g, '').replace(',', '.'))
+  return Number.isFinite(num) && num > 0 ? num : null
+}
+
+function minPeriodPrice(periodPrices) {
+  if (!Array.isArray(periodPrices) || periodPrices.length === 0) return null
+  let min = null
+  for (const row of periodPrices) {
+    const candidates = [row?.price, row?.amount, row?.adultPrice, row?.doublePrice, row?.singlePrice]
+    for (const c of candidates) {
+      const num = Number(c)
+      if (Number.isFinite(num) && num > 0 && (min == null || num < min)) min = num
+    }
+  }
+  return min
+}
+
 export async function resolveImportContext(pgClient, orgId) {
   const cat = await pgClient.query(`SELECT id FROM product_categories WHERE code = 'tour' LIMIT 1`)
   if (!cat.rows[0]) throw new Error("product_categories.code = 'tour' bulunamadı")
@@ -142,6 +167,10 @@ export async function upsertWtatilTourListing(
     [listingId, ctx.localeTrId, title, description || null],
   )
 
+  const cheapestFromEnrich =
+    normalizeCheapestPrice(enrich?.cheapestPrice) ??
+    minPeriodPrice(enrich?.periodPrices)
+
   const programJson = {
     source: PROVIDER,
     wtatil_tour_id: Number(tour.id),
@@ -150,7 +179,7 @@ export async function upsertWtatilTourListing(
     periods: enrich?.periods ?? null,
     period_prices: enrich?.periodPrices ?? null,
     transport: enrich?.transport ?? null,
-    cheapest_price: enrich?.cheapestPrice ?? null,
+    cheapest_price: cheapestFromEnrich,
   }
 
   await pgClient.query(

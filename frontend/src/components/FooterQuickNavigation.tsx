@@ -104,8 +104,12 @@ const FooterQuickNavigation = () => {
           type="button"
           key={item.name}
           onClick={item.onClick}
+          onTouchEnd={(e) => {
+            e.preventDefault()
+            item.onClick?.()
+          }}
           aria-label={item.name}
-          className={clsx(navItemClass, activeCls)}
+          className={clsx(navItemClass, 'touch-manipulation cursor-pointer', activeCls)}
         >
           <FooterBarIcon
             lucide={'lucide' in item ? (item as { lucide?: LucideIcon }).lucide : undefined}
@@ -142,7 +146,7 @@ const FooterQuickNavigation = () => {
           Bizde 5 öğe (ortada sohbet): aynı max-w-lg + explicit minmax sütun — 400px taşmaz.
         */}
         <nav
-          className="mx-auto grid w-full min-w-0 max-w-lg grid-cols-[repeat(5,minmax(0,1fr))] items-end justify-items-center"
+          className="mx-auto grid w-full min-w-0 max-w-lg touch-manipulation grid-cols-[repeat(5,minmax(0,1fr))] items-end justify-items-center"
           role="navigation"
         >
           <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[0])}</div>
@@ -151,8 +155,12 @@ const FooterQuickNavigation = () => {
             <button
               type="button"
               onClick={openChat}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                openChat()
+              }}
               aria-label={bn.assistantAria}
-              className="relative -mt-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 dark:ring-neutral-950"
+              className="relative -mt-2 flex h-11 w-11 shrink-0 touch-manipulation cursor-pointer items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 dark:ring-neutral-950"
             >
               <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
                 <path d="M12 2C6.477 2 2 6.164 2 11.299c0 2.862 1.388 5.415 3.567 7.12L4.5 22l4.29-2.123A10.854 10.854 0 0012 20.598c5.523 0 10-4.164 10-9.299S17.523 2 12 2z" />

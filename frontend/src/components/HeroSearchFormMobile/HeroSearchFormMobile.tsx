@@ -16,6 +16,12 @@ const HeroSearchFormMobileDialog = dynamic(() => import('./HeroSearchFormMobileD
   ssr: false,
 })
 
+/** iOS Safari: `click` bazen fixed header içinde kaybolur — `touchend` ile yedekle. */
+function openModalFromTouch(e: React.TouchEvent, open: () => void) {
+  e.preventDefault()
+  open()
+}
+
 type HeroBarMessages = {
   defaultLocation: string
   defaultWeek: string
@@ -161,6 +167,10 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
     if (isControlled) setShowModal(openProp)
   }, [isControlled, openProp])
 
+  useEffect(() => {
+    void import('./HeroSearchFormMobileDialog')
+  }, [])
+
   const pathname = usePathname() ?? ''
   const params = useParams()
   const locale = localeProp ?? (typeof params?.locale === 'string' ? params.locale : 'tr')
@@ -203,7 +213,8 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
     <button
       type="button"
       onClick={openModal}
-      className="relative flex w-full items-center rounded-full border border-neutral-200 bg-white px-4 py-2 pe-11 shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
+      onTouchEnd={(e) => openModalFromTouch(e, openModal)}
+      className="relative flex w-full cursor-pointer touch-manipulation items-center rounded-full border border-neutral-200 bg-white px-4 py-2 pe-11 shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
     >
       <HugeiconsIcon icon={Search01Icon} size={20} color="currentColor" strokeWidth={1.5} className="shrink-0 text-primary-600 dark:text-primary-400" />
       <div className="ms-4 min-w-0 flex-1 overflow-hidden text-start">
