@@ -441,13 +441,21 @@ export default async function CategoryPageTemplate({
     </div>
   ) : null
 
-  // Alt kategoriler (hero altında ikon grid) — turlar hub'da Etstur tarzı kart grid kullanılır
+  // Alt kategoriler (hero altında ikon grid) — aktif hub vitrininde kart grid kullanılır
   const subcategoryItems = getSubcategoriesByParent(category.slug)
-  // Hub yalnızca /turlar kökünde; /turlar/all → tam ilan listesi (Popüler «Tümünü gör» hedefi)
+  const hasEnabledCategoryHub = resolvedModules.some(
+    (m) => m.type === 'category_hub_grid' && m.enabled,
+  )
+  // Hub yalnızca modül açıkken /turlar kökünde; modül kapalı/kaldırılırsa tam liste dökülür
   const isTourHubLanding =
-    category.slug === 'turlar' && !currentHandle && !hasActiveSearch
-  const isTourListingsPage =
-    category.slug === 'turlar' && currentHandle === 'all' && !hasActiveSearch
+    category.slug === 'turlar' &&
+    !currentHandle &&
+    !hasActiveSearch &&
+    hasEnabledCategoryHub
+  const isTourFullListingsView =
+    category.slug === 'turlar' &&
+    !hasActiveSearch &&
+    (currentHandle === 'all' || !hasEnabledCategoryHub)
   const subcategorySection =
     isAll && subcategoryItems.length > 0 && !isTourHubLanding ? (
     <div className="container mt-10">
@@ -468,7 +476,8 @@ export default async function CategoryPageTemplate({
       .filter((m) => m.type !== 'hero')
       .filter(
         (m) =>
-          !isTourListingsPage || (m.type !== 'listings_slider' && m.type !== 'listings_grid'),
+          !isTourFullListingsView ||
+          (m.type !== 'listings_slider' && m.type !== 'listings_grid'),
       )
       .filter((m) => m.type !== 'category_hub_grid' || (!currentHandle && !hasActiveSearch))
       .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))

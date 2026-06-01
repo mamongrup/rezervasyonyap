@@ -140,6 +140,10 @@ export function CategoryHubGridConfigEditor({
           </p>
         )}
 
+        <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          Modülü gizlerseniz veya kaldırırsanız tur vitrininde hub yerine tam ilan listesi (filtre + grid) gösterilir.
+        </p>
+
         {cards.map((card, i) => (
           <div
             key={card.id || i}
