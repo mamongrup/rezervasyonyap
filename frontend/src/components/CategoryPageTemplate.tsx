@@ -444,7 +444,11 @@ export default async function CategoryPageTemplate({
 
   // Alt kategoriler (hero altında ikon grid) — turlar hub'da Etstur tarzı kart grid kullanılır
   const subcategoryItems = getSubcategoriesByParent(category.slug)
-  const isTourHubLanding = category.slug === 'turlar' && isAll && !hasActiveSearch
+  // Hub yalnızca /turlar kökünde; /turlar/all → tam ilan listesi (Popüler «Tümünü gör» hedefi)
+  const isTourHubLanding =
+    category.slug === 'turlar' && !currentHandle && !hasActiveSearch
+  const isTourListingsPage =
+    category.slug === 'turlar' && currentHandle === 'all' && !hasActiveSearch
   const subcategorySection =
     isAll && subcategoryItems.length > 0 && !isTourHubLanding ? (
     <div className="container mt-10">
@@ -465,6 +469,10 @@ export default async function CategoryPageTemplate({
   if (isAll) {
     const nonHeroModules = resolvedModules
       .filter((m) => m.type !== 'hero')
+      .filter(
+        (m) =>
+          !isTourListingsPage || (m.type !== 'listings_slider' && m.type !== 'listings_grid'),
+      )
       .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
 
     return (
@@ -514,6 +522,7 @@ export default async function CategoryPageTemplate({
           priceUnit={priceUnit}
           authors={authors}
           listingCardsById={listingCardsById}
+          listingsBrowseHref={categoryPageHref}
         />
       </div>
     )

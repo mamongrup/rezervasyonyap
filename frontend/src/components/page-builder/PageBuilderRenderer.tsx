@@ -144,6 +144,8 @@ interface PageBuilderRendererProps {
    * Fonksiyon client bileşenine geçirilemediği için burada yalnızca Record kullanılır.
    */
   listingCardsById?: Record<string, ReactNode>
+  /** «Tümünü gör» — locale dahil vitrin yolu (örn. /tr/turlar/all) */
+  listingsBrowseHref?: string
   /** Varsayılan `div` — anasayfada `section` ile ek sarmalayıcı olmadan semantik + daha az DOM */
   rootAs?: 'div' | 'section'
   /** Kök öğeye (örn. `contentVisibility` — PSI DOM/style maliyeti) */
@@ -171,6 +173,7 @@ export default async function PageBuilderRenderer({
   locale = 'tr',
   authors = [],
   listingCardsById,
+  listingsBrowseHref,
   searchContext,
   pageKey,
   rootAs = 'div',
@@ -181,6 +184,8 @@ export default async function PageBuilderRenderer({
   const isRegionDetailLayout = layoutVariant === 'region_detail'
   const defaultSliderPageKey = pageKey ?? (isRegionDetailLayout ? 'bolge-detay' : category.slug)
   const messages = getMessages(locale)
+  const defaultListingsBrowseHref =
+    listingsBrowseHref ?? `${category.categoryRoute}/all`
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
 
   // Metin alanları artık `{ tr: "...", en: "...", ... }` olarak saklanabilir.
@@ -305,7 +310,7 @@ export default async function PageBuilderRenderer({
                 showTabs: cfg.showTabs ?? false,
                 layout: module.type === 'listings_slider' ? 'slider' : 'grid',
                 count: cfg.count ?? 8,
-                viewAllHref: cfg.viewAllHref ?? `${category.categoryRoute}/all`,
+                viewAllHref: cfg.viewAllHref ?? defaultListingsBrowseHref,
                 viewAllLabel: cfg.viewAllLabel ?? messages.common['View all'],
               }
               return (
@@ -439,7 +444,7 @@ export default async function PageBuilderRenderer({
                 ? {
                     heading: cfg.heading || messages.homePage.featuredStay.heading,
                     subheading: cfg.subheading || '',
-                    viewAllHref: cfg.viewAllHref || `${category.categoryRoute}/all`,
+                    viewAllHref: cfg.viewAllHref || defaultListingsBrowseHref,
                     regions: cfg.regions,
                   }
                 : buildDefaultFeaturedRegionConfig(allListings, {
@@ -447,7 +452,7 @@ export default async function PageBuilderRenderer({
                       cfg.heading ||
                       interpolate(messages.categoryPage.featuredDefaultHeading, { category: category.name }),
                     subheading: cfg.subheading || messages.categoryPage.featuredDefaultSubheading,
-                    viewAllHref: cfg.viewAllHref || `${category.categoryRoute}/all`,
+                    viewAllHref: cfg.viewAllHref || defaultListingsBrowseHref,
                   })
             return (
               <SectionFeaturedByRegion
