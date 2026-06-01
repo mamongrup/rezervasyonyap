@@ -243,6 +243,65 @@ export async function upsertWtatilTourListing(
   return { action: isNew ? 'created' : 'updated', listingId, tourId, slug }
 }
 
+/**
+ * Yalnızca fiyat — status, başlık, snapshot, Pexels görselleri dokunulmaz.
+ * Vitrin `price_from` → program_days_json.cheapest_price / period_prices.
+ */
+export async function updateWtatilTourPricesOnly(
+  pgClient,
+  listingId,
+  tourId,
+  enrich,
+  { currencyCode = null } = {},
+) {
+  const cheapestFromEnrich =
+    normalizeCheapestPrice(enrich?.cheapestPrice) ??
+    minPeriodPrice(enrich?.periodPrices)
+
+  const prevRes = await pgClient.query(
+    `SELECT program_days_json FROM listing_tour_details WHERE listing_id = $1::uuid`,
+    [listingId],
+  )
+  const prev =
+    prevRes.rows[0]?.program_days_json && typeof prevRes.rows[0].program_days_json === 'object'
+      ? prevRes.rows[0].program_days_json
+      : {}
+
+  const patch = {
+    source: PROVIDER,
+    wtatil_tour_id: Number(tourId),
+    price_synced_at: new Date().toISOString(),
+  }
+  if (enrich?.periods != null) patch.periods = enrich.periods
+  if (enrich?.periodPrices != null) patch.period_prices = enrich.periodPrices
+  if (cheapestFromEnrich != null) patch.cheapest_price = cheapestFromEnrich
+
+  const merged = { ...prev, ...patch }
+
+  await pgClient.query(
+    `INSERT INTO listing_tour_details (listing_id, wtatil_package_ref, is_manual, program_days_json, tour_format)
+     VALUES ($1::uuid, $2, false, $3::jsonb, 'package')
+     ON CONFLICT (listing_id) DO UPDATE SET
+       program_days_json = EXCLUDED.program_days_json`,
+    [listingId, String(tourId), JSON.stringify(merged)],
+  )
+
+  if (currencyCode) {
+    await pgClient.query(
+      `UPDATE listings SET currency_code = $2, last_synced_at = now(), updated_at = now()
+       WHERE id = $1::uuid`,
+      [listingId, currencyCode],
+    )
+  } else {
+    await pgClient.query(
+      `UPDATE listings SET last_synced_at = now(), updated_at = now() WHERE id = $1::uuid`,
+      [listingId],
+    )
+  }
+
+  return { listingId, tourId, cheapest_price: cheapestFromEnrich }
+}
+
 /** Credential doğrulama — token alınabiliyor mu */
 export async function pingWtatil() {
   const { fetchWtatilToken } = await import('./wtatil-api.mjs')
