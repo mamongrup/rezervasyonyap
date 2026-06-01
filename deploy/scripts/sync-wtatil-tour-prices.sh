@@ -7,22 +7,13 @@
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# shellcheck source=deploy/scripts/lib/load-env-file.sh
+source "$APP_ROOT/deploy/scripts/lib/load-env-file.sh"
 BACKEND_ENV="${TRAVEL_DB_ENV:-/etc/rezervasyonyap/backend.env}"
 WTATIL_ENV="${WTATIL_ENV_FILE:-/etc/rezervasyonyap/wtatil.env}"
 
-if [[ -f "$BACKEND_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$BACKEND_ENV"
-  set +a
-fi
-
-if [[ -f "$WTATIL_ENV" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$WTATIL_ENV"
-  set +a
-fi
+load_env_file "$BACKEND_ENV"
+load_env_file "$WTATIL_ENV"
 
 for v in WTATIL_APPLICATION_SECRET_KEY WTATIL_USERNAME WTATIL_PASSWORD WTATIL_AGENCY_ID; do
   if [[ -z "${!v:-}" ]]; then
