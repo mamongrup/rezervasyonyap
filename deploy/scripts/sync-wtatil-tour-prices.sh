@@ -2,8 +2,12 @@
 # Wtatil → yalnızca tur fiyatları (Pexels görselleri + published status korunur).
 #
 #   chmod +x deploy/scripts/sync-wtatil-tour-prices.sh
+#   ./deploy/scripts/sync-wtatil-tour-prices.sh
 #   nohup ./deploy/scripts/sync-wtatil-tour-prices.sh > /tmp/wtatil-prices.log 2>&1 &
-#   tail -f /tmp/wtatil-prices.log
+#
+# 3 günde bir otomatik:
+#   sudo cp deploy/systemd/travel-wtatil-price-sync.{service,timer} /etc/systemd/system/
+#   sudo systemctl enable --now travel-wtatil-price-sync.timer
 set -euo pipefail
 
 APP_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

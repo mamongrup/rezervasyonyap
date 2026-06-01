@@ -5,6 +5,10 @@
  *   node scripts/sync-wtatil-tour-prices.mjs --dry-run --limit 5
  *   node scripts/sync-wtatil-tour-prices.mjs
  *
+ * Sunucu zamanlayıcı (3 günde bir):
+ *   sudo cp deploy/systemd/travel-wtatil-price-sync.{service,timer} /etc/systemd/system/
+ *   sudo systemctl enable --now travel-wtatil-price-sync.timer
+ *
  * Gerekli env: DATABASE_URL, WTATIL_* + WTATIL_AGENCY_ID (search-tour cheapestPrice)
  */
 import {

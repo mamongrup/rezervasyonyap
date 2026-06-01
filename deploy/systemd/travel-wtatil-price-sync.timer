@@ -1,0 +1,15 @@
+# travel-wtatil-price-sync.service ile birlikte — 3 günde bir fiyat çekimi.
+
+[Unit]
+Description=Travel Wtatil fiyat senkronu (3 günde bir)
+
+[Timer]
+OnBootSec=45min
+OnUnitActiveSec=3d
+AccuracySec=1h
+RandomizedDelaySec=30min
+Persistent=true
+Unit=travel-wtatil-price-sync.service
+
+[Install]
+WantedBy=timers.target

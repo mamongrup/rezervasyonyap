@@ -74,6 +74,11 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> " as v) px) tour_price_row on true "
 }
 
+/// Vitrinde fiyatsız turlar listelenmesin — Wtatil fiyat senkronu sonrası otomatik görünür.
+fn tour_public_must_have_price_sql() -> String {
+  "and (pc.code != 'tour' or (tour_price_row.tour_vitrin_price is not null and tour_price_row.tour_vitrin_price > 0)) "
+}
+
 // ─── Public Listing Search ────────────────────────────────────────────────────
 
 fn pub_listing_row() -> decode.Decoder(
@@ -725,6 +730,7 @@ fn search_listings_impl(
     <> "     or (bucket.v = '4-7' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 4 and 7) "
     <> "     or (bucket.v = '8+' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int >= 8) "
     <> ")) "
+    <> tour_public_must_have_price_sql()
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
 
@@ -1304,9 +1310,12 @@ fn region_stats_tour_sql() -> String {
   <> "    )) as tour_area "
   <> "  from listings l "
   <> "  join product_categories pc on pc.id = l.category_id "
+  <> "  left join listing_tour_details tour_det on tour_det.listing_id = l.id "
+  <> tour_listing_vitrin_price_numeric_lateral_sql()
   <> "  left join listing_attributes w on w.listing_id = l.id "
   <> "    and w.group_code = 'wtatil' and w.key = 'snapshot' "
   <> "  where l.status = 'published' and pc.code = 'tour' "
+  <> "    and tour_price_row.tour_vitrin_price is not null and tour_price_row.tour_vitrin_price > 0 "
   <> "), tour_dest as ( "
   <> "  select distinct on (tb.id) "
   <> "    tb.id as listing_id, "
