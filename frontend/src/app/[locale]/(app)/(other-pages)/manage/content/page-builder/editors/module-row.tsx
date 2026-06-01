@@ -12,6 +12,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useState } from 'react'
+import { CategoryHubGridConfigEditor } from './category-hub-grid-editor'
 import { CategoryCardsConfigEditor, RegionSliderConfigEditor } from './category-region-editors'
 import { ConfigEditor } from './generic-config-editor'
 import { FeaturedByRegionConfigEditor } from './featured-by-region-editor'
@@ -217,6 +218,12 @@ export function ModuleRow({
           ) : module.type === 'region_slider' ? (
             <RegionSliderConfigEditor
               config={module.config}
+              onChange={(updated) => onConfigChange(module.id, updated)}
+            />
+          ) : module.type === 'category_hub_grid' ? (
+            <CategoryHubGridConfigEditor
+              config={module.config}
+              categorySlug={categorySlug}
               onChange={(updated) => onConfigChange(module.id, updated)}
             />
           ) : module.type === 'category_slider' || module.type === 'category_grid' ? (

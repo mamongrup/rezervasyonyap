@@ -2,6 +2,7 @@
 
 import type { PageBuilderModule, PageBuilderModuleType } from '@/types/listing-types'
 import type { PageBuilderModuleConfigByType } from '@/types/page-builder-module'
+import { buildTurlarCategoryHubGridConfig } from '@/data/tour-hub-categories'
 import { patchModuleConfigById } from '@/lib/page-builder/module-state'
 import { Eye, Loader2, Plus, RotateCcw, Save } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -204,6 +205,10 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
         featured_places: { heading: '', subHeading: '', viewAllHref: `/${selectedSlug}/all` },
         how_it_works: { title: '', subheading: '' },
         category_grid: { heading: '', subheading: '', categoryThumbnails: {} },
+        category_hub_grid:
+          selectedSlug === 'turlar'
+            ? buildTurlarCategoryHubGridConfig('tr')
+            : { heading: '', headingEn: '', subheading: '', subheadingEn: '', cards: [] },
         section_videos: { heading: '', subheading: '', videos: [] },
         client_say: { heading: '', subHeading: '' },
         search_results: { perPage: 24 },

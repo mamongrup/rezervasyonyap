@@ -19,9 +19,21 @@
       "id": "turlar-module-0"
     },
     {
-      "type": "listings_slider",
+      "type": "category_hub_grid",
       "enabled": true,
       "order": 2,
+      "config": {
+        "heading": "Yurt içi ve yurt dışı turlar",
+        "headingEn": "International & domestic tours",
+        "subheading": "Bölge, kalkış noktası, süre ve ulaşım tipine göre tur seçeneklerini keşfedin; kategoriye tıklayarak ilgili programları listeleyin.",
+        "subheadingEn": "Browse tours by region, departure city, duration and travel style — pick a category to see matching programs."
+      },
+      "id": "turlar-module-hub"
+    },
+    {
+      "type": "listings_slider",
+      "enabled": true,
+      "order": 3,
       "config": {
         "title": "Popüler Seçenekler",
         "count": 8
@@ -31,7 +43,7 @@
     {
       "type": "promo_banner",
       "enabled": true,
-      "order": 3,
+      "order": 4,
       "config": {
         "title": "Erken Rezervasyon İndirimi",
         "description": "Planlarınızı erkenden yapın, %20'ye kadar tasarruf edin.",
@@ -43,21 +55,21 @@
     {
       "type": "testimonials",
       "enabled": true,
-      "order": 4,
+      "order": 5,
       "config": {},
       "id": "turlar-module-3"
     },
     {
       "type": "newsletter",
       "enabled": true,
-      "order": 5,
+      "order": 6,
       "config": {},
       "id": "turlar-module-4"
     },
     {
       "type": "video_gallery",
       "enabled": false,
-      "order": 6,
+      "order": 7,
       "config": {
         "title": "🎬 Videolar",
         "subtitle": "En iyi deneyim videolarını izleyin.",
@@ -66,5 +78,5 @@
       "id": "turlar-module-5"
     }
   ],
-  "updatedAt": "2026-04-15T14:22:46.179Z"
+  "updatedAt": "2026-05-29T12:00:00.000Z"
 }

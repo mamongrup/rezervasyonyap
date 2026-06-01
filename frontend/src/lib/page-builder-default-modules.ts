@@ -1,5 +1,6 @@
 import { getCategoryBySlug } from '@/data/category-registry'
 import type { PageBuilderModule } from '@/types/listing-types'
+import { buildTurlarCategoryHubGridConfig } from '@/data/tour-hub-categories'
 import type { AppMessages } from '../../public/locales/en'
 import { interpolate } from '@/utils/interpolate'
 
@@ -121,8 +122,20 @@ function stayModules(slug: string, m: AppMessages, categoryName: string): Omit<P
   ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 
-function experienceModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
+function experienceModules(m: AppMessages, slug?: string): Omit<PageBuilderModule, 'id'>[] {
   const e = m.pageBuilderDefaults.experience
+  const hubModule =
+    slug === 'turlar'
+      ? ([
+          {
+            type: 'category_hub_grid' as const,
+            enabled: true,
+            order: 2,
+            config: buildTurlarCategoryHubGridConfig('tr'),
+          },
+        ] satisfies Omit<PageBuilderModule, 'id'>[])
+      : []
+
   return [
     {
       type: 'hero',
@@ -130,11 +143,17 @@ function experienceModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
       order: 1,
       config: { showSearchForm: true, style: 'full', heading: '', subheading: '', images: ['', '', ''] },
     },
-    { type: 'listings_slider', enabled: true, order: 2, config: { title: e.popular.title, count: 8 } },
+    ...hubModule.map((mod, i) => ({ ...mod, order: 2 + i })),
+    {
+      type: 'listings_slider',
+      enabled: true,
+      order: 2 + hubModule.length,
+      config: { title: e.popular.title, count: 8 },
+    },
     {
       type: 'promo_banner',
       enabled: true,
-      order: 3,
+      order: 3 + hubModule.length,
       config: {
         title: e.promoBanner.title,
         description: e.promoBanner.description,
@@ -142,12 +161,12 @@ function experienceModules(m: AppMessages): Omit<PageBuilderModule, 'id'>[] {
         ctaHref: '#',
       },
     },
-    { type: 'testimonials', enabled: true, order: 4, config: {} },
-    { type: 'newsletter', enabled: true, order: 5, config: {} },
+    { type: 'testimonials', enabled: true, order: 4 + hubModule.length, config: {} },
+    { type: 'newsletter', enabled: true, order: 5 + hubModule.length, config: {} },
     {
       type: 'video_gallery',
       enabled: false,
-      order: 6,
+      order: 6 + hubModule.length,
       config: { title: '🎬 Videolar', subtitle: 'En iyi deneyim videolarını izleyin.', videos: [] },
     },
   ] satisfies Omit<PageBuilderModule, 'id'>[]
@@ -246,7 +265,7 @@ export function getLocalizedDefaultModules(slug: string, m: AppMessages): Omit<P
   const categoryName = cat?.name ?? slug
 
   if (STAY_SLUGS.has(slug)) return stayModules(slug, m, categoryName)
-  if (EXPERIENCE_SLUGS.has(slug)) return experienceModules(m)
+  if (EXPERIENCE_SLUGS.has(slug)) return experienceModules(m, slug)
   if (slug === 'hac-umre') return hajjModules(m)
   if (slug === 'vize') return visaModules(m)
   if (slug === 'ucak-bileti') return flightModules(m)

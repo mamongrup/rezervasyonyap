@@ -43,7 +43,6 @@ import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-default
 import { MapsLocation01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import SectionSubcategories from '@/components/SectionSubcategories'
-import TourHubCategoryGrid from '@/components/tours/TourHubCategoryGrid'
 import { getSubcategoriesByParent } from '@/data/subcategory-registry'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
@@ -463,8 +462,6 @@ export default async function CategoryPageTemplate({
     </div>
   ) : null
 
-  const tourHubSection = isTourHubLanding ? <TourHubCategoryGrid locale={locale} /> : null
-
   // Category landing view: hero + builder modules (her zaman resolvedModules var)
   if (isAll) {
     const nonHeroModules = resolvedModules
@@ -473,6 +470,7 @@ export default async function CategoryPageTemplate({
         (m) =>
           !isTourListingsPage || (m.type !== 'listings_slider' && m.type !== 'listings_grid'),
       )
+      .filter((m) => m.type !== 'category_hub_grid' || (!currentHandle && !hasActiveSearch))
       .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
 
     return (
@@ -499,8 +497,6 @@ export default async function CategoryPageTemplate({
         </div>
 
         {subcategorySection}
-
-        {tourHubSection}
 
         {!isTourHubLanding ? searchResultsSection : null}
 

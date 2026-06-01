@@ -265,6 +265,7 @@ export type PageBuilderModuleType =
   | 'featured_places'
   | 'how_it_works'
   | 'category_grid'
+  | 'category_hub_grid'
   | 'section_videos'
   | 'client_say'
   | 'search_results'

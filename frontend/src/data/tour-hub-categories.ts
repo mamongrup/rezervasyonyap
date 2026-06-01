@@ -277,3 +277,25 @@ export function tourHubCategoryTitle(cat: TourHubCategory, locale: string): stri
   const isEn = locale === 'en' || locale.startsWith('en-')
   return isEn ? cat.titleEn : cat.title
 }
+
+/** Page builder `category_hub_grid` modülü için turlar varsayılan config */
+export function buildTurlarCategoryHubGridConfig(locale = 'tr') {
+  const isEn = locale === 'en' || locale.startsWith('en-')
+  return {
+    heading: isEn ? 'International & domestic tours' : 'Yurt içi ve yurt dışı turlar',
+    headingEn: 'International & domestic tours',
+    subheading: isEn
+      ? 'Browse tours by region, departure city, duration and travel style — pick a category to see matching programs.'
+      : 'Bölge, kalkış noktası, süre ve ulaşım tipine göre tur seçeneklerini keşfedin; kategoriye tıklayarak ilgili programları listeleyin.',
+    subheadingEn:
+      'Browse tours by region, departure city, duration and travel style — pick a category to see matching programs.',
+    cards: getTourHubCategories(locale).map((cat) => ({
+      id: cat.id,
+      title: cat.title,
+      titleEn: cat.titleEn,
+      image: cat.image,
+      path: cat.path,
+      links: cat.links.map((l) => ({ label: l.label, path: l.path })),
+    })),
+  }
+}

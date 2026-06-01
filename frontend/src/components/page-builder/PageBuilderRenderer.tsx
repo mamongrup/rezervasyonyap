@@ -31,6 +31,7 @@ import GeziOnerileriModule from './modules/GeziOnerileriModule'
 import FeaturedPlacesModule from './modules/FeaturedPlacesModule'
 import HowItWorksModule from './modules/HowItWorksModule'
 import CategoryGridModule from './modules/CategoryGridModule'
+import CategoryHubGridModule from './modules/CategoryHubGridModule'
 import SectionVideosModule from './modules/SectionVideosModule'
 import ClientSayModule from './modules/ClientSayModule'
 import SearchResultsModule from './modules/SearchResultsModule'
@@ -596,6 +597,18 @@ export default async function PageBuilderRenderer({
                   ...gridCfg,
                   categoryThumbnails: mergeRawThumbnailMaps(sharedCategoryThumbnails, gridCfg.categoryThumbnails ?? {}),
                 }}
+              />
+            )
+          }
+
+          case 'category_hub_grid': {
+            const hubCfg = module.config
+            return (
+              <CategoryHubGridModule
+                key={module.id}
+                config={hubCfg}
+                locale={locale}
+                categorySlug={category.slug}
               />
             )
           }

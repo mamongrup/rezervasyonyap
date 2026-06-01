@@ -1,5 +1,6 @@
 import type { ActiveCampaignsConfig } from '@/components/page-builder/modules/ActiveCampaignsModule'
 import type { BecomeProviderModuleConfig } from '@/components/page-builder/modules/BecomeProviderModule'
+import type { CategoryHubGridModuleConfig } from '@/components/page-builder/modules/CategoryHubGridModule'
 import type { CategoryGridModuleConfig } from '@/components/page-builder/modules/CategoryGridModule'
 import type { CategorySliderModuleConfig } from '@/components/page-builder/modules/CategorySliderModule'
 import type { ClientSayModuleConfig } from '@/components/page-builder/modules/ClientSayModule'
@@ -80,6 +81,7 @@ export interface PageBuilderModuleConfigByType {
   featured_places: FeaturedPlacesModuleConfig
   how_it_works: HowItWorksModuleConfig
   category_grid: CategoryGridModuleConfig
+  category_hub_grid: CategoryHubGridModuleConfig
   section_videos: SectionVideosModuleConfig
   client_say: ClientSayModuleConfig
   search_results: SearchResultsModuleConfig
