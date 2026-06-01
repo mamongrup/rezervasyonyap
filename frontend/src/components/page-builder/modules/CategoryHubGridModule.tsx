@@ -27,9 +27,11 @@ export interface CategoryHubGridModuleConfig {
   cards?: CategoryHubGridCard[]
 }
 
-type ResolvedCard = CategoryHubGridCard & {
+type ResolvedCategoryHubGridLink = CategoryHubGridLink & { href: string }
+
+type ResolvedCategoryHubGridCard = Omit<CategoryHubGridCard, 'links'> & {
   href: string
-  links: (CategoryHubGridLink & { href: string })[]
+  links: ResolvedCategoryHubGridLink[]
 }
 
 function isEnLocale(locale: string) {
@@ -40,13 +42,13 @@ function cardTitle(card: CategoryHubGridCard, locale: string) {
   return isEnLocale(locale) && card.titleEn?.trim() ? card.titleEn : card.title
 }
 
-async function resolveCards(locale: string, cards: CategoryHubGridCard[]): Promise<ResolvedCard[]> {
+async function resolveCards(locale: string, cards: CategoryHubGridCard[]): Promise<ResolvedCategoryHubGridCard[]> {
   return Promise.all(
-    cards.map(async (cat) => ({
+    cards.map(async (cat): Promise<ResolvedCategoryHubGridCard> => ({
       ...cat,
       href: await vitrinHref(locale, cat.path),
       links: await Promise.all(
-        cat.links.map(async (link) => ({
+        cat.links.map(async (link): Promise<ResolvedCategoryHubGridLink> => ({
           ...link,
           href: await vitrinHref(locale, link.path),
         })),
