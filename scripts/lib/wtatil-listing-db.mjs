@@ -138,9 +138,14 @@ export async function upsertWtatilTourListing(
   const isNew = !listingId
 
   if (listingId) {
+    // Mevcut yayında ilanı import sırasında draft'a düşürme (WTATIL_STATUS unutulunca vitrin boşalır).
+    const statusClause =
+      status === 'published'
+        ? 'status = $3,'
+        : 'status = CASE WHEN status = \'published\' THEN status ELSE $3 END,'
     await pgClient.query(
       `UPDATE listings SET
-         slug = $2, status = $3, currency_code = $4, location_name = $5,
+         slug = $2, ${statusClause} currency_code = $4, location_name = $5,
          listing_source = 'api', external_provider_code = $6, external_listing_ref = $7,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
@@ -215,15 +220,24 @@ export async function upsertWtatilTourListing(
   )
 
   const urls = imageUrlsFromWtatilTour(tour)
-  await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
-  let sort = 0
-  for (const url of urls) {
-    await pgClient.query(
-      `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
-       VALUES ($1::uuid, $2, $3, 'image/jpeg')`,
-      [listingId, sort, url],
-    )
-    sort += 1
+  const pexelsGuard = await pgClient.query(
+    `SELECT 1 FROM listing_attributes
+     WHERE listing_id = $1::uuid AND group_code = 'pexels' AND key = 'gallery_imported_at'
+     LIMIT 1`,
+    [listingId],
+  )
+  const skipImages = pexelsGuard.rows.length > 0 && process.env.WTATIL_REPLACE_PEXELS_IMAGES !== '1'
+  if (!skipImages) {
+    await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
+    let sort = 0
+    for (const url of urls) {
+      await pgClient.query(
+        `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
+         VALUES ($1::uuid, $2, $3, 'image/jpeg')`,
+        [listingId, sort, url],
+      )
+      sort += 1
+    }
   }
 
   return { action: isNew ? 'created' : 'updated', listingId, tourId, slug }
