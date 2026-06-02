@@ -59,6 +59,16 @@ const FLIGHT_FOOTNOTE_LINES = [
 
 const DAY_HEADING_RE = /(?:^|\n)\s*(\d+)\.?\s*Gün\s+([^\n]+)/gi
 
+/** Wtatil marka adını sitede gösterilecek alan adıyla değiştirir. */
+export function replaceTourBrandName(text: string): string {
+  return text
+    .replace(
+      /Wtatil\s*[''´`]\s*(den|dan|de|da|nin|nın|nun|nün|yi|yı|yu|yü)/gi,
+      "rezervasyonyap.com.tr'$1",
+    )
+    .replace(/Wtatil/gi, 'rezervasyonyap.com.tr')
+}
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -68,12 +78,14 @@ function escapeHtml(text: string): string {
 }
 
 function normalizePlain(raw: string): string {
-  return raw
-    .replace(/\r/g, '')
-    .replace(/\t/g, ' ')
-    .replace(/[ \u00a0]+/g, ' ')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  return replaceTourBrandName(
+    raw
+      .replace(/\r/g, '')
+      .replace(/\t/g, ' ')
+      .replace(/[ \u00a0]+/g, ' ')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim(),
+  )
 }
 
 function stripHtmlTags(raw: string): string {
@@ -137,19 +149,20 @@ function extractFlightFootnotes(text: string): { body: string; footnotes: string
   return { body: kept.join('\n').replace(/\n{3,}/g, '\n\n').trim(), footnotes }
 }
 
+function stripLeadingClauseNumber(text: string): string {
+  return text.replace(/^\d+\-\s*/, '').trim()
+}
+
 function splitNumberedClauses(body: string, sectionTitle: string): string[] {
   const plain = normalizePlain(body)
   if (!plain) return []
 
-  let rest = plain
-  const titleRe = new RegExp(`^\\d+\\-\\s*${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*`, 'i')
-  rest = rest.replace(titleRe, '').trim()
-  rest = rest.replace(new RegExp(`^${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*`, 'i'), '').trim()
+  let rest = plain.replace(new RegExp(`^${sectionTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*`, 'i'), '').trim()
 
   const parts = rest.split(/\s+(?=\d+\-\s)/).map((p) => p.trim()).filter(Boolean)
-  if (parts.length <= 1) return parts.length === 1 ? [parts[0]] : []
+  if (parts.length === 0) return []
 
-  return parts.map((part) => part.replace(/^\d+\-\s*/, '').trim()).filter(Boolean)
+  return parts.map((part) => stripLeadingClauseNumber(part)).filter(Boolean)
 }
 
 function splitLineList(body: string, sectionTitle: string): string[] {
@@ -209,7 +222,9 @@ function formatProgramHtml(raw: string): string {
 
   for (let i = 0; i < matches.length; i++) {
     const match = matches[i]
+    const dayNum = (match[1] ?? '').trim()
     const title = (match[2] ?? '').trim()
+    const dayHeading = dayNum ? `${dayNum}.Gün ${title}` : title
     const start = (match.index ?? 0) + match[0].length
     const end = i + 1 < matches.length ? (matches[i + 1].index ?? plain.length) : plain.length
     let dayBody = normalizePlain(plain.slice(start, end))
@@ -218,7 +233,7 @@ function formatProgramHtml(raw: string): string {
     }
 
     articles.push(
-      `<article class="space-y-2"><h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">${escapeHtml(title)}</h3>${
+      `<article class="space-y-2"><h3 class="text-base font-semibold text-neutral-900 dark:text-neutral-100">${escapeHtml(dayHeading)}</h3>${
         dayBody
           ? `<p class="text-sm leading-snug text-neutral-700 dark:text-neutral-300">${escapeHtml(dayBody)}</p>`
           : ''

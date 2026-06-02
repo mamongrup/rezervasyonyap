@@ -26,6 +26,8 @@ interface Props {
   themePills?: string[]
   /** Şehir / bölge (ör. Kapadokya) — konum ikonunun yanında gösterilir */
   regionName?: string | null
+  /** Yıldız puanı satırını gizle (tur vb.) */
+  showReviews?: boolean
 }
 
 const SectionHeader = ({
@@ -42,6 +44,7 @@ const SectionHeader = ({
   listingId,
   referenceCode,
   referenceCodeLabel,
+  showReviews = true,
 }: Props) => {
   const region = regionName?.trim() ?? ''
   const addr = address?.trim() ?? ''
@@ -91,10 +94,10 @@ const SectionHeader = ({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
-          <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} />
+          {showReviews ? <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} /> : null}
           {pinPrimary ? (
             <>
-              <span className="text-neutral-400 dark:text-neutral-500">·</span>
+              {showReviews ? <span className="text-neutral-400 dark:text-neutral-500">·</span> : null}
               <div className="flex min-w-0 items-center">
                 <HugeiconsIcon
                   icon={Location06Icon}

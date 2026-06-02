@@ -19,7 +19,8 @@ describe('parseTourDescription', () => {
     const parsed = parseTourDescription(raw)
 
     expect(parsed.programHtml).toContain('İstanbul – Paris')
-    expect(parsed.programHtml).toContain('Paris')
+    expect(parsed.programHtml).toContain('1.Gün İstanbul – Paris')
+    expect(parsed.programHtml).toContain('2.Gün Paris')
     expect(parsed.programHtml).not.toContain('GENEL ŞARTLAR')
     expect(parsed.infoSections.map((s) => s.title)).toEqual([
       'Genel Şartlar',
@@ -39,11 +40,31 @@ describe('parseTourDescription', () => {
   })
 
   it('formats numbered clauses without leading numbers in list items', () => {
-    const raw = `1.Gün Test\nBody.\nGENEL ŞARTLAR 1- Birinci madde. 2- İkinci madde.`
+    const raw = `1.Gün Test\nBody.\nGENEL ŞARTLAR 1- Genel Şartlar tur programının ayrılmaz bir parçasıdır. 2- İkinci madde.`
     const parsed = parseTourDescription(raw)
     const general = parsed.infoSections.find((s) => s.id === 'tour-section-general-terms')
 
-    expect(general?.html).toContain('Birinci madde')
-    expect(general?.html).not.toMatch(/1-\s*Birinci/)
+    expect(general?.html).toContain('Genel Şartlar tur programının')
+    expect(general?.html).toContain('İkinci madde')
+    expect(general?.html).not.toMatch(/1-\s*Genel/)
+    expect(general?.html).not.toMatch(/2-\s*İkinci/)
+  })
+
+  it('strips leading numbers from İptal ve değişiklik', () => {
+    const raw = `1.Gün Test\nBody.\nGENEL ŞARTLAR 1- Madde.\nİptal ve değişiklik 4- Misafirler tur çıkış tarihinden 30 gün öncesine kadar iptal edebilir.`
+    const parsed = parseTourDescription(raw)
+    const cancel = parsed.infoSections.find((s) => s.id === 'tour-section-cancellation')
+
+    expect(cancel?.html).toContain('Misafirler tur çıkış tarihinden')
+    expect(cancel?.html).not.toMatch(/4-\s*Misafirler/)
+  })
+
+  it('replaces Wtatil with rezervasyonyap.com.tr', () => {
+    const raw = `1.Gün Test\nBody.\nGENEL ŞARTLAR 1- Wtatil gezi iptal edebilir. 2- Wtatil'den alınmış uçuş iade edilir.`
+    const parsed = parseTourDescription(raw)
+    const general = parsed.infoSections.find((s) => s.id === 'tour-section-general-terms')
+
+    expect(general?.html).toContain('rezervasyonyap.com.tr')
+    expect(general?.html).not.toMatch(/wtatil/i)
   })
 })

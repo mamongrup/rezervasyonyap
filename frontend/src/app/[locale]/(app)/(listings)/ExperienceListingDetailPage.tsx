@@ -36,7 +36,7 @@ import {
   parseTourFlightSchedulesFromDescription,
   stripFlightScheduleBlockFromDescription,
 } from '@/lib/tour-flight-schedule'
-import { parseTourDescription } from '@/lib/tour-description-parser'
+import { parseTourDescription, replaceTourBrandName } from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
@@ -64,10 +64,8 @@ import {
   TourItinerarySection,
   TourNotesSection,
   TourOverviewSection,
-  TourSectionNav,
   type TourItineraryDay,
   type TourOverviewItem,
-  type TourSectionNavItem,
 } from './TourDetailSections'
 
 type TourMeta = {
@@ -374,11 +372,11 @@ export default async function ExperienceListingDetailPage({
   const tourIncludedLines = uniqueLines([
     ...(tourMeta?.includes ?? []),
     ...(priceLines?.included ?? []).map((line) => line.label),
-  ])
+  ]).map(replaceTourBrandName)
   const tourExcludedLines = uniqueLines([
     ...(tourMeta?.excludes ?? []),
     ...(priceLines?.excluded ?? []).map((line) => line.label),
-  ])
+  ]).map(replaceTourBrandName)
   const listingBase = listing as TListingBase
   const tourNotes = uniqueLines([
     tourMeta?.min_day_before_booking
@@ -388,27 +386,7 @@ export default async function ExperienceListingDetailPage({
       ? `Ön ödeme oranı: %${listingBase.prepaymentPercent.trim()}.`
       : '',
     listingBase.cancellationPolicyText?.trim() ?? '',
-  ])
-  const tourNavItems: TourSectionNavItem[] = isTour
-    ? [
-        tourProgramHtml ? { id: 'tour-section-about', label: 'Tur Hakkında' } : null,
-        (tourMeta?.itinerary ?? []).length > 0
-          ? { id: 'tour-section-program', label: 'Program', eyebrow: String(tourMeta?.itinerary?.length ?? '') }
-          : null,
-        tourFlightSchedules.length > 0
-          ? {
-              id: 'tour-section-flights',
-              label: 'Kalkış tarihleri',
-              eyebrow: String(tourFlightSchedules.length),
-            }
-          : null,
-        ...tourInfoSections.map((section) => ({ id: section.id, label: section.title })),
-        tourIncludedLines.length > 0 || tourExcludedLines.length > 0
-          ? { id: 'tour-section-services', label: 'Dahil/Hariç' }
-          : null,
-        tourNotes.length > 0 ? { id: 'tour-section-notes', label: 'Önemli Notlar' } : null,
-      ].filter((item): item is TourSectionNavItem => item !== null)
-    : []
+  ]).map(replaceTourBrandName)
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
     ? [
         activityMeta?.duration_hours
@@ -476,6 +454,7 @@ export default async function ExperienceListingDetailPage({
         listingCategory={listingCategory ?? ''}
         reviewCount={reviewCount ?? 0}
         reviewStart={reviewStart ?? 0}
+        showReviews={!isTour}
         title={title}
         shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       >
@@ -507,12 +486,7 @@ export default async function ExperienceListingDetailPage({
   const renderSidebarPriceAndForm = () => {
     if (isTour) {
       return (
-        <TourBookingSidebar
-          action={handleSubmitForm}
-          fallbackPrice={price}
-          reviewStart={reviewStart ?? 0}
-          reviewCount={reviewCount ?? 0}
-        />
+        <TourBookingSidebar action={handleSubmitForm} fallbackPrice={price} />
       )
     }
 
@@ -547,7 +521,6 @@ export default async function ExperienceListingDetailPage({
     <>
       <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
         {renderSectionHeader()}
-        <TourSectionNav items={tourNavItems} />
         {tourOverviewItems.length > 0 || tourProgramHtml ? (
           <TourOverviewSection items={tourOverviewItems} programHtml={tourProgramHtml} locale={locale} />
         ) : null}
@@ -646,11 +619,13 @@ export default async function ExperienceListingDetailPage({
             <SectionHost {...listingHostForSection(title, host)} locale={locale} />
           </div>
           <div className="w-full lg:w-2/3">
-            <SectionListingReviews
-              listingId={listing.id}
-              reviewCount={reviewCount ?? 0}
-              reviewStart={reviewStart ?? 0}
-            />
+            {!isTour ? (
+              <SectionListingReviews
+                listingId={listing.id}
+                reviewCount={reviewCount ?? 0}
+                reviewStart={reviewStart ?? 0}
+              />
+            ) : null}
           </div>
         </div>
 

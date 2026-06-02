@@ -1,6 +1,5 @@
 'use client'
 
-import StartRating from '@/components/StartRating'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import T from '@/utils/getT'
 import {
@@ -15,13 +14,9 @@ import { useTourPeriodSelection } from './TourPeriodContext'
 export default function TourBookingSidebar({
   action,
   fallbackPrice,
-  reviewStart,
-  reviewCount,
 }: {
   action: (formData: FormData) => Promise<void>
   fallbackPrice?: string
-  reviewStart: number
-  reviewCount: number
 }) {
   const { options, selected, setSelected } = useTourPeriodSelection()
 
@@ -35,14 +30,13 @@ export default function TourBookingSidebar({
 
   return (
     <div className="listingSection__wrap sm:shadow-xl">
-      <div className="flex justify-between">
+      <div>
         <span className="text-3xl font-semibold">
           {bookable ? displayPrice : '—'}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
             {bookable ? '/kişi' : ''}
           </span>
         </span>
-        <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} />
       </div>
 
       <Form
