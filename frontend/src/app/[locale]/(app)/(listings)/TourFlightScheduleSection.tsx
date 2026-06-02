@@ -4,6 +4,7 @@ import {
   formatTourFlightDate,
   type TourFlightScheduleRow,
 } from '@/lib/tour-flight-schedule'
+import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { useTourPeriodSelection } from './TourPeriodContext'
 import { SectionHeading } from './components/SectionHeading'
 
@@ -23,7 +24,7 @@ export default function TourFlightScheduleSection() {
   const highlightDate = selected?.startDate ?? null
 
   return (
-    <section id="tour-section-flights" className="listingSection__wrap scroll-mt-28">
+    <section id="tour-section-flights" className={LISTING_SECTION_STACKED}>
       <SectionHeading>Uçuş bilgisi</SectionHeading>
       <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
         Tarih seçimindeki satırla eşleşen uçuş vurgulanır.{' '}

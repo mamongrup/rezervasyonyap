@@ -1,3 +1,4 @@
+import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { Divider } from '@/shared/divider'
 import { Clock3, Languages, MapPin, PackageCheck, Users } from 'lucide-react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
@@ -27,7 +28,7 @@ export default function ActivityOverviewSection({
   if (items.length === 0 && !description) return null
 
   return (
-    <section className="listingSection__wrap">
+    <section className={LISTING_SECTION_STACKED}>
       <div>
         <SectionHeading>Aktivite Hakkında</SectionHeading>
         <SectionSubheading>Süre, buluşma noktası ve katılım bilgileri.</SectionSubheading>

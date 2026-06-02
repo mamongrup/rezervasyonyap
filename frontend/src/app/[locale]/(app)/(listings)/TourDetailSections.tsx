@@ -1,5 +1,7 @@
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
+import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { Divider } from '@/shared/divider'
+import { Fragment, type ReactNode } from 'react'
 import {
   Bus,
   CheckCircle2,
@@ -85,7 +87,7 @@ export function TourOverviewSection({
   if (items.length === 0 && !programHtml?.trim()) return null
 
   return (
-    <section id="tour-section-about" className="listingSection__wrap scroll-mt-28">
+    <section id="tour-section-about" className={LISTING_SECTION_STACKED}>
       <SectionHeading>Tur Hakkında</SectionHeading>
       <Divider className="w-14!" />
       {items.length > 0 ? (
@@ -116,20 +118,42 @@ export function TourOverviewSection({
   )
 }
 
-export function TourInfoSections({ sections }: { sections: TourInfoSection[] }) {
-  if (sections.length === 0) return null
+export function TourInfoSections({
+  sections,
+  insertAfterSectionId,
+  insertNode,
+}: {
+  sections: TourInfoSection[]
+  /** Örn. `tour-section-flights-info` sonrası uçuş tablosu */
+  insertAfterSectionId?: string
+  insertNode?: ReactNode
+}) {
+  if (sections.length === 0) {
+    return insertNode ?? null
+  }
 
-  return (
-    <>
-      {sections.map((section) => (
-        <section key={section.id} id={section.id} className="listingSection__wrap scroll-mt-28">
-          <SectionHeading>{section.title}</SectionHeading>
-          <Divider className="w-14!" />
-          <div dangerouslySetInnerHTML={{ __html: section.html }} />
-        </section>
-      ))}
-    </>
-  )
+  const nodes: ReactNode[] = []
+  let inserted = false
+
+  for (const section of sections) {
+    nodes.push(
+      <section key={section.id} id={section.id} className={LISTING_SECTION_STACKED}>
+        <SectionHeading>{section.title}</SectionHeading>
+        <Divider className="w-14!" />
+        <div dangerouslySetInnerHTML={{ __html: section.html }} />
+      </section>,
+    )
+    if (insertAfterSectionId === section.id && insertNode) {
+      nodes.push(<Fragment key="tour-insert-after-info">{insertNode}</Fragment>)
+      inserted = true
+    }
+  }
+
+  if (insertNode && insertAfterSectionId && !inserted && !sections.some((s) => s.id === insertAfterSectionId)) {
+    nodes.push(<Fragment key="tour-insert-fallback">{insertNode}</Fragment>)
+  }
+
+  return <>{nodes}</>
 }
 
 export function TourItinerarySection({ days }: { days: TourItineraryDay[] }) {
@@ -137,7 +161,7 @@ export function TourItinerarySection({ days }: { days: TourItineraryDay[] }) {
   if (visibleDays.length === 0) return null
 
   return (
-    <section className="listingSection__wrap">
+    <section id="tour-section-program" className={LISTING_SECTION_STACKED}>
       <div>
         <SectionHeading>Tur Programı</SectionHeading>
         <SectionSubheading>Gün gün gezi akışı ve önemli duraklar.</SectionSubheading>
@@ -178,7 +202,7 @@ export function TourIncludedExcludedSection({
   if (included.length === 0 && excluded.length === 0) return null
 
   return (
-    <section className="listingSection__wrap">
+    <section id="tour-section-services" className={LISTING_SECTION_STACKED}>
       <div>
         <SectionHeading>Dahil Olan / Olmayan Hizmetler</SectionHeading>
         <SectionSubheading>Tur paketinin kapsamını hızlıca karşılaştırın.</SectionSubheading>
@@ -207,7 +231,7 @@ export function TourNotesSection({ notes }: { notes: string[] }) {
   if (visibleNotes.length === 0) return null
 
   return (
-    <section className="listingSection__wrap">
+    <section id="tour-section-notes" className={LISTING_SECTION_STACKED}>
       <div>
         <SectionHeading>Önemli Notlar</SectionHeading>
         <SectionSubheading>Rezervasyon öncesi bilinmesi gereken koşullar.</SectionSubheading>

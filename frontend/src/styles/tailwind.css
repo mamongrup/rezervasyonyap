@@ -224,6 +224,10 @@
   @apply flex w-full flex-col gap-y-6 border-b border-neutral-200 px-0 pb-10 leading-relaxed sm:gap-y-8 sm:rounded-2xl sm:border sm:p-4 xl:p-8 dark:border-neutral-700;
 }
 
+@utility listingSection__wrap--stacked {
+  @apply flex w-full flex-col gap-y-6 px-0 leading-relaxed sm:gap-y-8 sm:rounded-2xl sm:border sm:p-4 xl:p-8 dark:border-neutral-700;
+}
+
 @utility menuIsNew_lv1 {
   > a::before {
     content: 'New!';

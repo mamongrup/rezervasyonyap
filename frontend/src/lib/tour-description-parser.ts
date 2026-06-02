@@ -17,6 +17,18 @@ type SectionDef = {
   pattern: RegExp
 }
 
+/** Tur detay sayfasında bilgi bölümlerinin gösterim sırası */
+export const TOUR_INFO_SECTION_DISPLAY_ORDER = [
+  'tour-section-general-terms',
+  'tour-section-cancellation',
+  'tour-section-guide-extras',
+  'tour-section-paid',
+  'tour-section-free',
+  'tour-section-visa',
+  'tour-section-flights-info',
+  'tour-section-other',
+] as const
+
 const INFO_SECTION_DEFS: SectionDef[] = [
   {
     id: 'tour-section-general-terms',
@@ -33,6 +45,17 @@ const INFO_SECTION_DEFS: SectionDef[] = [
     title: 'Rehberlik Hizmetleri ve Ekstra Turlar',
     pattern: /(?:^|\s|[.)])\s*Rehberlik\s*Hizmetleri\s*ve\s*Ekstra\s*Turlar/i,
   },
+  { id: 'tour-section-paid', title: 'Ücretli', pattern: /(?:^|\n)\s*Ücretli\s*:/i },
+  {
+    id: 'tour-section-free',
+    title: 'Ücretsiz',
+    pattern: /(?:^|\n)\s*(?:Ücretsiz|Dahil)\s*:/i,
+  },
+  {
+    id: 'tour-section-visa',
+    title: 'Vize ve Pasaport',
+    pattern: /(?:^|\s|[.)])\s*Vize\s*ve\s*Pasaport/i,
+  },
   {
     id: 'tour-section-flights-info',
     title: 'Uçuşlar Hakkında',
@@ -43,14 +66,27 @@ const INFO_SECTION_DEFS: SectionDef[] = [
     title: 'Diğer Hususlar',
     pattern: /(?:^|\s|[.)])\s*Diğer\s*Hususlar/i,
   },
-  {
-    id: 'tour-section-visa',
-    title: 'Vize ve Pasaport',
-    pattern: /(?:^|\s|[.)])\s*Vize\s*ve\s*Pasaport/i,
-  },
-  { id: 'tour-section-paid', title: 'Ücretli', pattern: /(?:^|\n)\s*Ücretli\s*:/i },
-  { id: 'tour-section-included', title: 'Dahil', pattern: /(?:^|\n)\s*Dahil\s*:/i },
 ]
+
+/** Uçuş tablosu: «Uçuşlar Hakkında» varsa hemen sonra, yoksa «Diğer Hususlar» öncesi */
+export function tourFlightScheduleInsertAfterSectionId(
+  sections: Pick<TourInfoSection, 'id'>[],
+): string | undefined {
+  if (sections.some((s) => s.id === 'tour-section-flights-info')) return 'tour-section-flights-info'
+  const otherIdx = sections.findIndex((s) => s.id === 'tour-section-other')
+  if (otherIdx > 0) return sections[otherIdx - 1]?.id
+  if (sections.length > 0) return sections[sections.length - 1]?.id
+  return undefined
+}
+
+export function sortTourInfoSections(sections: TourInfoSection[]): TourInfoSection[] {
+  const order = TOUR_INFO_SECTION_DISPLAY_ORDER as readonly string[]
+  return [...sections].sort((a, b) => {
+    const ia = order.indexOf(a.id)
+    const ib = order.indexOf(b.id)
+    return (ia === -1 ? order.length : ia) - (ib === -1 ? order.length : ib)
+  })
+}
 
 const FLIGHT_FOOTNOTE_LINES = [
   /^Kalkış ve varış saatleri yerel saatlerdir/i,
@@ -279,7 +315,7 @@ export function parseTourDescription(raw: string): ParsedTourDescription {
     const bodyEnd = i + 1 < markers.length ? markers[i + 1].index : infoPlain.length
     const body = infoPlain.slice(bodyStart, bodyEnd).trim()
     const kind =
-      marker.def.id === 'tour-section-paid' || marker.def.id === 'tour-section-included' ? 'list' : 'numbered'
+      marker.def.id === 'tour-section-paid' || marker.def.id === 'tour-section-free' ? 'list' : 'numbered'
     let html = formatInfoSectionBody(body, marker.def.title, kind)
 
     if (marker.def.id === 'tour-section-flights-info' && footnotes.length > 0) {
@@ -312,6 +348,6 @@ export function parseTourDescription(raw: string): ParsedTourDescription {
 
   return {
     programHtml: formatProgramHtml(programRaw),
-    infoSections: sections,
+    infoSections: sortTourInfoSections(sections),
   }
 }

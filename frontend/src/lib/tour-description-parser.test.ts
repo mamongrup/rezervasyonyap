@@ -26,7 +26,7 @@ describe('parseTourDescription', () => {
       'Genel Şartlar',
       'İptal ve değişiklik',
       'Ücretli',
-      'Dahil',
+      'Ücretsiz',
     ])
   })
 

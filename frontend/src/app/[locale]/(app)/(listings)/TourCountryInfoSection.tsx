@@ -1,3 +1,4 @@
+import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { countryTourInfoHasContent, countryTourInfoRows } from '@/lib/country-tour-info'
 import { regionPublicHref } from '@/lib/region-public-path'
 import type { TourCountryCard } from '@/lib/tour-countries-resolve'
@@ -54,7 +55,10 @@ export default function TourCountryInfoSection({
   if (visible.length === 0) return null
 
   return (
-    <section id="tour-section-countries" className="listingSection__wrap scroll-mt-28">
+    <section
+      id="tour-section-countries"
+      className={`${LISTING_SECTION_STACKED} border-t border-neutral-200 pt-10 dark:border-neutral-700`}
+    >
       <SectionHeading>Bölge Hakkında</SectionHeading>
       <Divider className="w-14!" />
       <p className="text-sm leading-snug text-neutral-600 dark:text-neutral-400">

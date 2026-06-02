@@ -28,6 +28,8 @@ interface Props {
   regionName?: string | null
   /** Yıldız puanı satırını gizle (tur vb.) */
   showReviews?: boolean
+  /** `true`: alt çizgi/padding yok; üst kapsayıcı `gap-y-10` ile boşluk verir */
+  stackedSections?: boolean
 }
 
 const SectionHeader = ({
@@ -45,6 +47,7 @@ const SectionHeader = ({
   referenceCode,
   referenceCodeLabel,
   showReviews = true,
+  stackedSections = false,
 }: Props) => {
   const region = regionName?.trim() ?? ''
   const addr = address?.trim() ?? ''
@@ -53,7 +56,11 @@ const SectionHeader = ({
   const categorySr = listingCategory?.trim() ?? ''
 
   return (
-    <div className="relative listingSection__wrap">
+    <div
+      className={
+        stackedSections ? 'relative listingSection__wrap--stacked' : 'relative listingSection__wrap'
+      }
+    >
       <div className="flex flex-col items-stretch gap-y-4">
         {categorySr ? <span className="sr-only">{categorySr}</span> : null}
 

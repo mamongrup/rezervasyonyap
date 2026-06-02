@@ -300,6 +300,8 @@ interface NearbyPlacesSectionProps {
    */
   overrideLat?: number
   overrideLng?: number
+  /** Varsayılan `listingSection__wrap`; ilan detay yığınında `listingSection__wrap--stacked` */
+  sectionClassName?: string
 }
 
 export default function NearbyPlacesSection({
@@ -312,6 +314,7 @@ export default function NearbyPlacesSection({
   maxPlaces = 12,
   overrideLat,
   overrideLng,
+  sectionClassName = 'listingSection__wrap',
 }: NearbyPlacesSectionProps) {
   const copy = useMemo(() => getMessages(locale).site.region, [locale])
 
@@ -417,7 +420,7 @@ export default function NearbyPlacesSection({
     const heading = title ?? copy.nearbyPlacesFlatHeadingFallback
     const savedFmt = data.savedAt ? formatSavedDate(data.savedAt, locale) : ''
     return (
-      <section className="listingSection__wrap">
+      <section className={sectionClassName}>
         <div className="overflow-hidden rounded-2xl border border-neutral-200/90 bg-white shadow-sm ring-1 ring-black/[0.03] dark:border-neutral-700 dark:bg-neutral-900 dark:ring-white/5">
           <div className="border-b border-neutral-100 bg-gradient-to-r from-neutral-50/90 to-white px-4 py-3.5 dark:border-neutral-800 dark:from-neutral-900 dark:to-neutral-950">
             <div className="flex items-start gap-3">
@@ -455,7 +458,7 @@ export default function NearbyPlacesSection({
   const savedFmtGrid = data.savedAt ? formatSavedDate(data.savedAt, locale) : ''
 
   return (
-    <section className="listingSection__wrap">
+    <section className={sectionClassName}>
       {/* Başlık */}
       <div>
         <h2 className="text-2xl font-semibold text-neutral-900 dark:text-white">

@@ -30,6 +30,8 @@ interface Props {
   perNightSuffix?: string
   ariaPrev?: string
   ariaNext?: string
+  /** Varsayılan `listingSection__wrap` */
+  sectionClassName?: string
 }
 
 const SimilarListings = ({
@@ -38,6 +40,7 @@ const SimilarListings = ({
   perNightSuffix = '/ night',
   ariaPrev = 'Previous',
   ariaNext = 'Next',
+  sectionClassName = 'listingSection__wrap',
 }: Props) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const stepRef = useRef(280)
@@ -117,7 +120,7 @@ const SimilarListings = ({
   if (!listings.length) return null
 
   return (
-    <div className="listingSection__wrap min-w-0">
+    <div className={clsx(sectionClassName, 'min-w-0')}>
       <h2 className="text-2xl font-semibold">{title}</h2>
 
       <div className="relative mt-4 min-w-0">
@@ -211,7 +214,9 @@ const SimilarListings = ({
                     </div>
                     <p className="shrink-0 font-semibold text-neutral-900 dark:text-white">
                       <span>{item.price}</span>
-                      <span className="text-sm font-normal text-neutral-500"> {perNightSuffix}</span>
+                      {perNightSuffix ? (
+                        <span className="text-sm font-normal text-neutral-500"> {perNightSuffix}</span>
+                      ) : null}
                     </p>
                   </div>
                 </div>

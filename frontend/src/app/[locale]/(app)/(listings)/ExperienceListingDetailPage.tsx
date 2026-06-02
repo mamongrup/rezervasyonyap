@@ -1,7 +1,6 @@
 import StartRating from '@/components/StartRating'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Divider } from '@/shared/divider'
 import T from '@/utils/getT'
 import {
   Clock01Icon,
@@ -13,6 +12,7 @@ import { Metadata } from 'next'
 import Form from 'next/form'
 import { redirect } from 'next/navigation'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
+import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getSitePublicConfig } from '@/lib/site-public-config'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
@@ -25,7 +25,6 @@ import {
 import { vitrinHref } from '@/lib/vitrin-href'
 import {
   fetchPublicListingAvailabilityDaysSafe,
-  getPublicListingPriceLines,
   getPublicTourPeriods,
   getVerticalMeta,
   listPublicActivitySessions,
@@ -37,7 +36,11 @@ import {
   stripFlightScheduleBlockFromDescription,
 } from '@/lib/tour-flight-schedule'
 import { resolveTourCountryCards } from '@/lib/tour-countries-resolve'
-import { parseTourDescription, replaceTourBrandName } from '@/lib/tour-description-parser'
+import {
+  parseTourDescription,
+  replaceTourBrandName,
+  tourFlightScheduleInsertAfterSectionId,
+} from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
@@ -52,19 +55,22 @@ import SectionDateRange from './components/SectionDateRange'
 import SectionHeader from './components/SectionHeader'
 import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
+import SimilarListings from './components/SimilarListings'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
 import ActivityBookingPanel from './ActivityBookingPanel'
 import TourCountryInfoSection from './TourCountryInfoSection'
+import {
+  LISTING_DETAIL_SECTION_GAP,
+  LISTING_DETAIL_SECTION_GAP_Y,
+  LISTING_SECTION_SHELL,
+} from './listing-section-classes'
 import TourBookingSidebar from './TourBookingSidebar'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
 import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
   TourInfoSections,
-  TourIncludedExcludedSection,
-  TourItinerarySection,
-  TourNotesSection,
   TourOverviewSection,
   type TourItineraryDay,
   type TourOverviewItem,
@@ -281,8 +287,15 @@ export default async function ExperienceListingDetailPage({
 
   const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
   const activityInitialDate = new Date().toISOString().slice(0, 10)
-  const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions, rawTourPeriods, tourCountryCards] =
-    await Promise.all([
+  const [
+    availabilityCalendarDays,
+    rawTourMeta,
+    rawActivityMeta,
+    initialActivitySessions,
+    rawTourPeriods,
+    tourCountryCards,
+    similarToursRes,
+  ] = await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
       : fetchPublicListingAvailabilityDaysSafe(catalogListingId),
@@ -291,9 +304,6 @@ export default async function ExperienceListingDetailPage({
       : Promise.resolve(null),
     vertical === 'activity'
       ? getVerticalMeta(catalogListingId, 'activity').catch(() => null)
-      : Promise.resolve(null),
-    vertical === 'tour'
-      ? getPublicListingPriceLines(catalogListingId, locale).catch(() => null)
       : Promise.resolve(null),
     vertical === 'activity'
       ? listPublicActivitySessions(catalogListingId, activityInitialDate).catch(() => ({ sessions: [] }))
@@ -304,6 +314,9 @@ export default async function ExperienceListingDetailPage({
     vertical === 'tour'
       ? resolveTourCountryCards(catalogListingId).catch(() => [])
       : Promise.resolve([]),
+    vertical === 'tour'
+      ? fetchCategoryListings('turlar', {}, {}, locale).catch(() => ({ listings: [] }))
+      : Promise.resolve({ listings: [] }),
   ])
 
   const {
@@ -374,24 +387,24 @@ export default async function ExperienceListingDetailPage({
           : null,
       ].filter((item): item is TourOverviewItem => item !== null)
     : []
-  const tourIncludedLines = uniqueLines([
-    ...(tourMeta?.includes ?? []),
-    ...(priceLines?.included ?? []).map((line) => line.label),
-  ]).map(replaceTourBrandName)
-  const tourExcludedLines = uniqueLines([
-    ...(tourMeta?.excludes ?? []),
-    ...(priceLines?.excluded ?? []).map((line) => line.label),
-  ]).map(replaceTourBrandName)
-  const listingBase = listing as TListingBase
-  const tourNotes = uniqueLines([
-    tourMeta?.min_day_before_booking
-      ? `Rezervasyon en az ${tourMeta.min_day_before_booking} gün önceden yapılmalıdır.`
-      : '',
-    listingBase.prepaymentPercent?.trim()
-      ? `Ön ödeme oranı: %${listingBase.prepaymentPercent.trim()}.`
-      : '',
-    listingBase.cancellationPolicyText?.trim() ?? '',
-  ]).map(replaceTourBrandName)
+  const tourLinkBase = detailPathForVertical('tour')
+  const similarTourListings = isTour
+    ? similarToursRes.listings
+        .filter((l) => l.handle !== handle)
+        .slice(0, 8)
+        .map((l) => ({
+          id: l.id,
+          title: l.title,
+          handle: l.handle,
+          address: l.address ?? '',
+          price: l.price ?? '',
+          reviewStart: l.reviewStart ?? 0,
+          reviewCount: l.reviewCount ?? 0,
+          featuredImage: l.featuredImage ?? '',
+          listingCategory: l.listingCategory ?? '',
+          linkBase: tourLinkBase,
+        }))
+    : []
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
     ? [
         activityMeta?.duration_hours
@@ -460,6 +473,7 @@ export default async function ExperienceListingDetailPage({
         reviewCount={reviewCount ?? 0}
         reviewStart={reviewStart ?? 0}
         showReviews={!isTour}
+        stackedSections
         title={title}
         shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       >
@@ -524,23 +538,16 @@ export default async function ExperienceListingDetailPage({
 
   const renderTourMainContent = () => (
     <>
-      <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
+      <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
         {renderSectionHeader()}
         {tourOverviewItems.length > 0 || tourProgramHtml ? (
           <TourOverviewSection items={tourOverviewItems} programHtml={tourProgramHtml} locale={locale} />
         ) : null}
-        {tourFlightSchedules.length > 0 ? <TourFlightScheduleSection /> : null}
-        <TourInfoSections sections={tourInfoSections} />
-        <TourCountryInfoSection countries={tourCountryCards} locale={locale} />
-        <div id="tour-section-program" className="scroll-mt-28">
-          <TourItinerarySection days={tourMeta?.itinerary ?? []} />
-        </div>
-        <div id="tour-section-services" className="scroll-mt-28">
-          <TourIncludedExcludedSection included={tourIncludedLines} excluded={tourExcludedLines} />
-        </div>
-        <div id="tour-section-notes" className="scroll-mt-28">
-          <TourNotesSection notes={tourNotes} />
-        </div>
+        <TourInfoSections
+          sections={tourInfoSections}
+          insertAfterSectionId={tourFlightScheduleInsertAfterSectionId(tourInfoSections)}
+          insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection /> : null}
+        />
       </div>
       <div className="grow">
         <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
@@ -550,7 +557,7 @@ export default async function ExperienceListingDetailPage({
 
   const renderNonTourMainContent = () => (
     <>
-      <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
+      <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
         {renderSectionHeader()}
         {isActivity ? (
           <ActivityOverviewSection
@@ -599,54 +606,59 @@ export default async function ExperienceListingDetailPage({
       )}
       <HeaderGallery gridType="grid4" images={galleryImgs ?? []} />
 
-      {isTour ? (
-        <TourPeriodProvider
-          bookablePeriods={tourPeriodOptions}
-          flightSchedules={tourFlightSchedules}
-          currencyCode={tourPeriodCurrency}
-        >
-          <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
-            {renderTourMainContent()}
-          </main>
-        </TourPeriodProvider>
-      ) : (
-        <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
-          {renderNonTourMainContent()}
-        </main>
-      )}
+      <div className={`relative z-[1] mt-10 ${LISTING_DETAIL_SECTION_GAP}`}>
+        {isTour ? (
+          <TourPeriodProvider
+            bookablePeriods={tourPeriodOptions}
+            flightSchedules={tourFlightSchedules}
+            currencyCode={tourPeriodCurrency}
+          >
+            <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderTourMainContent()}</main>
+          </TourPeriodProvider>
+        ) : (
+          <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>
+        )}
 
-      <ListingDetailOurFeatures locale={locale} city={city} />
+        {!isTour ? <ListingDetailOurFeatures locale={locale} city={city} /> : null}
 
-      <Divider className="my-16" />
-
-      <div className="flex flex-col gap-y-10">
-        {!isTour ? (
-          <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
-            <div className="w-full lg:w-4/9 xl:w-1/3">
-              <SectionHost {...listingHostForSection(title, host)} locale={locale} />
+        {isTour ? (
+          <>
+            <TourCountryInfoSection countries={tourCountryCards} locale={locale} />
+            <SimilarListings
+              listings={similarTourListings}
+              title={dp.similarListings}
+              sectionClassName={LISTING_SECTION_SHELL}
+              perNightSuffix=""
+            />
+          </>
+        ) : (
+          <>
+            <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+              <div className="w-full lg:w-4/9 xl:w-1/3">
+                <SectionHost {...listingHostForSection(title, host)} locale={locale} />
+              </div>
+              <div className="w-full lg:w-2/3">
+                <SectionListingReviews
+                  listingId={listing.id}
+                  reviewCount={reviewCount ?? 0}
+                  reviewStart={reviewStart ?? 0}
+                />
+              </div>
             </div>
-            <div className="w-full lg:w-2/3">
-              <SectionListingReviews
-                listingId={listing.id}
-                reviewCount={reviewCount ?? 0}
-                reviewStart={reviewStart ?? 0}
-              />
+
+            <div className="scroll-mt-28">
+              <SectionMap />
             </div>
-          </div>
-        ) : null}
 
-        {!isTour ? (
-          <div className="scroll-mt-28">
-            <SectionMap />
-          </div>
-        ) : null}
-
-        <NearbyPlacesSection
-          locale={locale}
-          regionSlug={regionPlacesSlugFromCity(city)}
-          title={dp.nearbyPlaces}
-          maxCategories={3}
-        />
+            <NearbyPlacesSection
+              locale={locale}
+              regionSlug={regionPlacesSlugFromCity(city)}
+              title={dp.nearbyPlaces}
+              maxCategories={3}
+              sectionClassName={LISTING_SECTION_SHELL}
+            />
+          </>
+        )}
       </div>
     </div>
   )
