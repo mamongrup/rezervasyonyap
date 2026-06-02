@@ -304,6 +304,7 @@ fn pub_listing_json(
     String,
     String,
     String,
+    String,
   ),
 ) -> json.Json {
   let #(
