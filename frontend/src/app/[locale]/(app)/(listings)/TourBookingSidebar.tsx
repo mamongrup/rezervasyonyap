@@ -5,44 +5,43 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import T from '@/utils/getT'
 import {
   formatTourPeriodPrice,
-  type TourPeriodOption,
+  isTourPeriodBookable,
 } from '@/lib/tour-periods'
+import { formatTourFlightDate } from '@/lib/tour-flight-schedule'
 import Form from 'next/form'
-import { useState } from 'react'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
+import { useTourPeriodSelection } from './TourPeriodContext'
 
 export default function TourBookingSidebar({
   action,
-  periods,
-  plannedDepartureCount = 0,
   fallbackPrice,
   reviewStart,
   reviewCount,
 }: {
   action: (formData: FormData) => Promise<void>
-  periods: TourPeriodOption[]
-  plannedDepartureCount?: number
   fallbackPrice?: string
   reviewStart: number
   reviewCount: number
 }) {
-  const [selected, setSelected] = useState<TourPeriodOption | null>(periods[0] ?? null)
+  const { options, selected, setSelected, selectedFlight } = useTourPeriodSelection()
 
+  const bookable = isTourPeriodBookable(selected)
   const displayPrice =
     selected?.price != null
       ? formatTourPeriodPrice(selected.price, selected.currencyCode)
-      : fallbackPrice ?? '—'
-
-  const showPeriodMismatchNote =
-    plannedDepartureCount > periods.length && periods.length > 0 && plannedDepartureCount > 1
+      : bookable
+        ? fallbackPrice ?? '—'
+        : '—'
 
   return (
     <div className="listingSection__wrap sm:shadow-xl">
       <div className="flex justify-between">
         <span className="text-3xl font-semibold">
-          {displayPrice}
-          <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">/kişi</span>
+          {bookable ? displayPrice : '—'}
+          <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
+            {bookable ? '/kişi' : ''}
+          </span>
         </span>
         <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} />
       </div>
@@ -52,25 +51,49 @@ export default function TourBookingSidebar({
         className="flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700"
         id="booking-form"
       >
-        <TourPeriodSelect className="z-11 flex-1" periods={periods} onChange={setSelected} />
-        {showPeriodMismatchNote ? (
-          <p className="border-b border-neutral-200 px-4 py-3 text-xs leading-relaxed text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
-            Programda {plannedDepartureCount} kalkış tarihi listelenir; şu an{' '}
-            {periods.length === 1 ? 'yalnızca 1 dönem' : `${periods.length} dönem`} online
-            rezervasyona açık (Wtatil satış takvimi). Diğer tarihler için{' '}
-            <a href="#tour-section-flights" className="underline">
-              planlanan kalkışlar
-            </a>
-            .
-          </p>
+        <TourPeriodSelect
+          className="z-11 flex-1"
+          periods={options}
+          selectedId={selected?.id}
+          onChange={setSelected}
+        />
+
+        {selectedFlight ? (
+          <div className="border-b border-neutral-200 px-4 py-3 text-sm dark:border-neutral-700">
+            <p className="mb-1 font-medium text-neutral-900 dark:text-neutral-100">Uçuş özeti</p>
+            <p className="text-neutral-600 dark:text-neutral-400">
+              Gidiş ({formatTourFlightDate(selectedFlight.departureDate)}):{' '}
+              {[selectedFlight.departureFrom, selectedFlight.departureTo, selectedFlight.departureFlightNo]
+                .filter(Boolean)
+                .join(' → ') || '—'}
+            </p>
+            <p className="mt-1 text-neutral-600 dark:text-neutral-400">
+              Dönüş ({formatTourFlightDate(selectedFlight.returnDate)}):{' '}
+              {[selectedFlight.returnFrom, selectedFlight.returnTo, selectedFlight.returnFlightNo]
+                .filter(Boolean)
+                .join(' → ') || '—'}
+            </p>
+            {!bookable ? (
+              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                Bu kalkış planlanmıştır; online rezervasyon henüz açılmamış olabilir.
+              </p>
+            ) : null}
+          </div>
         ) : null}
+
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
         <GuestsInputPopover className="flex-1" />
       </Form>
 
-      <ButtonPrimary form="booking-form" type="submit">
-        {T['common']['Reserve']}
-      </ButtonPrimary>
+      {bookable ? (
+        <ButtonPrimary form="booking-form" type="submit">
+          {T['common']['Reserve']}
+        </ButtonPrimary>
+      ) : (
+        <ButtonPrimary type="button" disabled className="cursor-not-allowed opacity-60">
+          Satışa kapalı
+        </ButtonPrimary>
+      )}
     </div>
   )
 }

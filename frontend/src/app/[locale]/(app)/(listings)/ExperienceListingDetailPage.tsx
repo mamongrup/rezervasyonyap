@@ -55,6 +55,7 @@ import SectionMap from './components/SectionMap'
 import ActivityBookingPanel from './ActivityBookingPanel'
 import TourBookingSidebar from './TourBookingSidebar'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
+import { TourPeriodProvider } from './TourPeriodContext'
 import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
   TourIncludedExcludedSection,
@@ -488,13 +489,16 @@ export default async function ExperienceListingDetailPage({
     )
   }
 
+  const tourPeriodCurrency =
+    rawTourPeriods?.currency_code?.trim() ||
+    (listing as TListingBase & { currencyCode?: string }).currencyCode?.trim() ||
+    'TRY'
+
   const renderSidebarPriceAndForm = () => {
     if (isTour) {
       return (
         <TourBookingSidebar
           action={handleSubmitForm}
-          periods={tourPeriodOptions}
-          plannedDepartureCount={tourFlightSchedules.length}
           fallbackPrice={price}
           reviewStart={reviewStart ?? 0}
           reviewCount={reviewCount ?? 0}
@@ -529,6 +533,79 @@ export default async function ExperienceListingDetailPage({
     )
   }
 
+  const renderTourMainContent = () => (
+    <>
+      <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
+        {renderSectionHeader()}
+        <TourSectionNav items={tourNavItems} />
+        {tourOverviewItems.length > 0 || tourDescriptionHtml ? (
+          <TourOverviewSection
+            items={tourOverviewItems}
+            description={
+              tourDescriptionHtml ? (
+                <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
+              ) : null
+            }
+          />
+        ) : null}
+        {tourFlightSchedules.length > 0 ? <TourFlightScheduleSection /> : null}
+        <div id="tour-section-program" className="scroll-mt-28">
+          <TourItinerarySection days={tourMeta?.itinerary ?? []} />
+        </div>
+        <div id="tour-section-services" className="scroll-mt-28">
+          <TourIncludedExcludedSection included={tourIncludedLines} excluded={tourExcludedLines} />
+        </div>
+        <div id="tour-section-notes" className="scroll-mt-28">
+          <TourNotesSection notes={tourNotes} />
+        </div>
+      </div>
+      <div className="grow">
+        <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
+      </div>
+    </>
+  )
+
+  const renderNonTourMainContent = () => (
+    <>
+      <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
+        {renderSectionHeader()}
+        {isActivity ? (
+          <ActivityOverviewSection
+            items={activityOverviewItems}
+            description={
+              description?.trim() ? (
+                <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description) }} />
+              ) : null
+            }
+          />
+        ) : null}
+        {!isActivity ? (
+          <div className="scroll-mt-28">
+            <SectionDateRange
+              locale={locale}
+              initialDays={availabilityCalendarDays}
+              initialMonthsShown={calendarMonthsShown}
+            />
+          </div>
+        ) : null}
+      </div>
+      <div className="grow">
+        <div className="sticky top-5">
+          {isActivity ? (
+            <ActivityBookingPanel
+              listingId={catalogListingId}
+              initialDate={activityInitialDate}
+              initialSessions={initialActivitySessions.sessions}
+              fallbackPrice={price}
+            />
+          ) : (
+            renderSidebarPriceAndForm()
+          )}
+        </div>
+      </div>
+    </>
+  )
+
   return (
     <div>
       {detailJsonLd && (
@@ -539,77 +616,21 @@ export default async function ExperienceListingDetailPage({
       )}
       <HeaderGallery gridType="grid4" images={galleryImgs ?? []} />
 
-      <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
-        <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
-          {renderSectionHeader()}
-          {isTour ? <TourSectionNav items={tourNavItems} /> : null}
-          {isTour && (tourOverviewItems.length > 0 || tourDescriptionHtml) ? (
-            <TourOverviewSection
-              items={tourOverviewItems}
-              description={
-                tourDescriptionHtml ? (
-                  <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
-                ) : null
-              }
-            />
-          ) : null}
-          {isTour && tourFlightSchedules.length > 0 ? (
-            <TourFlightScheduleSection
-              rows={tourFlightSchedules}
-              bookablePeriodCount={tourPeriodOptions.length}
-            />
-          ) : null}
-          {isTour ? (
-            <>
-              <div id="tour-section-program" className="scroll-mt-28">
-                <TourItinerarySection days={tourMeta?.itinerary ?? []} />
-              </div>
-              <div id="tour-section-services" className="scroll-mt-28">
-                <TourIncludedExcludedSection included={tourIncludedLines} excluded={tourExcludedLines} />
-              </div>
-            </>
-          ) : null}
-          {isActivity ? (
-            <ActivityOverviewSection
-              items={activityOverviewItems}
-              description={
-                description?.trim() ? (
-                  <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description) }} />
-                ) : null
-              }
-            />
-          ) : null}
-          {!isActivity && !isTour ? (
-            <div className="scroll-mt-28">
-              <SectionDateRange
-                locale={locale}
-                initialDays={availabilityCalendarDays}
-                initialMonthsShown={calendarMonthsShown}
-              />
-            </div>
-          ) : null}
-          {isTour ? (
-            <div id="tour-section-notes" className="scroll-mt-28">
-              <TourNotesSection notes={tourNotes} />
-            </div>
-          ) : null}
-        </div>
-
-        <div className="grow">
-          <div className="sticky top-5">
-            {isActivity ? (
-              <ActivityBookingPanel
-                listingId={catalogListingId}
-                initialDate={activityInitialDate}
-                initialSessions={initialActivitySessions.sessions}
-                fallbackPrice={price}
-              />
-            ) : (
-              renderSidebarPriceAndForm()
-            )}
-          </div>
-        </div>
-      </main>
+      {isTour ? (
+        <TourPeriodProvider
+          bookablePeriods={tourPeriodOptions}
+          flightSchedules={tourFlightSchedules}
+          currencyCode={tourPeriodCurrency}
+        >
+          <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
+            {renderTourMainContent()}
+          </main>
+        </TourPeriodProvider>
+      ) : (
+        <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
+          {renderNonTourMainContent()}
+        </main>
+      )}
 
       <ListingDetailOurFeatures locale={locale} city={city} />
 

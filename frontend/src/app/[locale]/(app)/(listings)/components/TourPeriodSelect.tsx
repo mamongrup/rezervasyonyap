@@ -3,12 +3,13 @@
 import {
   formatTourPeriodDateRange,
   formatTourPeriodPrice,
+  isTourPeriodBookable,
   type TourPeriodOption,
 } from '@/lib/tour-periods'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { ArrowDown01Icon, Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { FC, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo } from 'react'
 
 interface Props {
   className?: string
@@ -18,19 +19,19 @@ interface Props {
 }
 
 const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId, onChange }) => {
-  const [internalId, setInternalId] = useState(periods[0]?.id ?? '')
-
-  const activeId = selectedId ?? internalId
   const selected = useMemo(
-    () => periods.find((p) => p.id === activeId) ?? periods[0] ?? null,
-    [activeId, periods],
+    () => periods.find((p) => p.id === selectedId) ?? periods.find((p) => p.bookable !== false) ?? periods[0] ?? null,
+    [selectedId, periods],
   )
 
-  const setSelected = (period: TourPeriodOption | null) => {
-    if (period) {
-      if (selectedId == null) setInternalId(period.id)
-      onChange?.(period)
+  useEffect(() => {
+    if (selectedId == null && selected && onChange) {
+      onChange(selected)
     }
+  }, [selected, selectedId, onChange])
+
+  const setSelected = (period: TourPeriodOption | null) => {
+    if (period) onChange?.(period)
   }
 
   if (periods.length === 0) {
@@ -55,6 +56,9 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
     ? formatTourPeriodDateRange(selected.startDate, selected.endDate)
     : 'Tarih seçin'
 
+  const triggerSub =
+    selected && !isTourPeriodBookable(selected) ? 'Planlanmış — satışa kapalı' : 'Tarih seçimi'
+
   return (
     <>
       <Popover className={`group relative z-50 flex ${className}`}>
@@ -69,7 +73,7 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
                   {triggerLabel}
                 </span>
                 <span className="mt-1 block text-sm leading-none font-normal text-neutral-400 dark:text-neutral-500">
-                  Tarih seçimi
+                  {triggerSub}
                 </span>
               </div>
               <HugeiconsIcon
@@ -85,6 +89,7 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
             >
               {periods.map((period) => {
                 const isActive = selected?.id === period.id
+                const canBook = isTourPeriodBookable(period)
                 return (
                   <button
                     key={period.id}
@@ -96,14 +101,27 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
                     className={`flex w-full items-center justify-between gap-4 px-4 py-3 text-left text-sm transition-colors ${
                       isActive
                         ? 'border-s-2 border-primary-600 bg-neutral-50 text-neutral-900 dark:border-primary-400 dark:bg-neutral-800 dark:text-neutral-100'
-                        : 'border-s-2 border-transparent text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                        : canBook
+                          ? 'border-s-2 border-transparent text-neutral-700 hover:bg-neutral-50 dark:text-neutral-300 dark:hover:bg-neutral-800'
+                          : 'border-s-2 border-transparent text-neutral-400 hover:bg-neutral-50 dark:text-neutral-500 dark:hover:bg-neutral-800/60'
                     }`}
                   >
-                    <span className="font-medium">
+                    <span className={`font-medium ${!canBook ? 'opacity-75' : ''}`}>
                       {formatTourPeriodDateRange(period.startDate, period.endDate)}
+                      {!canBook ? (
+                        <span className="ms-2 text-xs font-normal text-neutral-400">Pasif</span>
+                      ) : null}
                     </span>
-                    <span className="shrink-0 font-semibold tabular-nums text-neutral-900 dark:text-neutral-100">
-                      {formatTourPeriodPrice(period.price, period.currencyCode)}
+                    <span
+                      className={`shrink-0 text-end text-xs font-semibold tabular-nums sm:text-sm ${
+                        canBook
+                          ? 'text-neutral-900 dark:text-neutral-100'
+                          : 'text-neutral-400 dark:text-neutral-500'
+                      }`}
+                    >
+                      {canBook
+                        ? formatTourPeriodPrice(period.price, period.currencyCode)
+                        : 'Satışa kapalı'}
                     </span>
                   </button>
                 )
@@ -113,7 +131,7 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
         )}
       </Popover>
 
-      {selected ? (
+      {selected && isTourPeriodBookable(selected) ? (
         <>
           <input type="hidden" name="tourPeriodId" value={selected.id} />
           <input type="hidden" name="startDate" value={selected.startDate} />

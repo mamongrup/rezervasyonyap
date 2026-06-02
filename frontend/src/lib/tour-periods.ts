@@ -10,6 +10,8 @@ export type TourPeriodOption = {
   endDate: string
   price: number | null
   currencyCode: string
+  /** false = planlanmış kalkış, henüz online satışa kapalı */
+  bookable?: boolean
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -96,11 +98,74 @@ export function mergeTourPeriodOptions(data: PublicTourPeriodsResponse): TourPer
       endDate: endDate || startDate,
       price,
       currencyCode: currency,
+      bookable: true,
     })
   }
 
   options.sort((a, b) => a.startDate.localeCompare(b.startDate))
   return options
+}
+
+/** Uçuş programı + satışa açık Wtatil dönemlerini tek listede birleştirir. */
+export function buildTourPeriodSelectOptions(
+  bookablePeriods: TourPeriodOption[],
+  flightSchedules: { departureDate: string; returnDate: string }[],
+  currencyCode: string,
+): TourPeriodOption[] {
+  const today = new Date().toISOString().slice(0, 10)
+  const currency = currencyCode.trim() || 'TRY'
+
+  if (flightSchedules.length === 0) {
+    return bookablePeriods.map((p) => ({ ...p, bookable: p.bookable !== false }))
+  }
+
+  const bookableByStart = new Map<string, TourPeriodOption>()
+  for (const p of bookablePeriods) {
+    if (p.startDate) bookableByStart.set(p.startDate, { ...p, bookable: true })
+  }
+
+  const merged: TourPeriodOption[] = []
+  const seenStarts = new Set<string>()
+
+  const sortedFlights = [...flightSchedules].sort((a, b) =>
+    a.departureDate.localeCompare(b.departureDate),
+  )
+
+  for (const flight of sortedFlights) {
+    if (flight.departureDate < today) continue
+    seenStarts.add(flight.departureDate)
+
+    const bookable = bookableByStart.get(flight.departureDate)
+    if (bookable) {
+      merged.push({
+        ...bookable,
+        endDate: bookable.endDate || flight.returnDate,
+        bookable: true,
+      })
+      bookableByStart.delete(flight.departureDate)
+    } else {
+      merged.push({
+        id: `planned-${flight.departureDate}`,
+        startDate: flight.departureDate,
+        endDate: flight.returnDate,
+        price: null,
+        currencyCode: currency,
+        bookable: false,
+      })
+    }
+  }
+
+  for (const p of bookableByStart.values()) {
+    if (p.endDate && p.endDate < today) continue
+    merged.push({ ...p, bookable: true })
+  }
+
+  merged.sort((a, b) => a.startDate.localeCompare(b.startDate))
+  return merged
+}
+
+export function isTourPeriodBookable(period: TourPeriodOption | null | undefined): boolean {
+  return period != null && period.bookable !== false
 }
 
 export function formatTourPeriodDateRange(start: string, end: string): string {

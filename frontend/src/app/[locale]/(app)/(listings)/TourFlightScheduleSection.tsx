@@ -1,31 +1,39 @@
+'use client'
+
 import {
   formatTourFlightDate,
   type TourFlightScheduleRow,
 } from '@/lib/tour-flight-schedule'
+import { useTourPeriodSelection } from './TourPeriodContext'
 import { SectionHeading } from './components/SectionHeading'
 
-export default function TourFlightScheduleSection({
-  rows,
-  bookablePeriodCount,
-}: {
-  rows: TourFlightScheduleRow[]
-  bookablePeriodCount: number
-}) {
-  if (rows.length === 0) return null
+function flightLegLabel(row: TourFlightScheduleRow, leg: 'out' | 'back'): string {
+  if (leg === 'out') {
+    return [row.departureFrom, row.departureTo, row.departureFlightNo].filter(Boolean).join(' · ') || '—'
+  }
+  return [row.returnFrom, row.returnTo, row.returnFlightNo].filter(Boolean).join(' · ') || '—'
+}
 
-  const showBookingNote = bookablePeriodCount > 0 && rows.length > bookablePeriodCount
+export default function TourFlightScheduleSection() {
+  const { flightSchedules, selected, options } = useTourPeriodSelection()
+
+  if (flightSchedules.length === 0) return null
+
+  const bookableCount = options.filter((p) => p.bookable !== false).length
+  const highlightDate = selected?.startDate ?? null
 
   return (
     <section id="tour-section-flights" className="listingSection__wrap scroll-mt-28">
-      <SectionHeading>Planlanan kalkış tarihleri</SectionHeading>
-      {showBookingNote ? (
-        <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
-          Bu tablo tur programındaki <strong>tüm planlanan uçuş kalkışlarını</strong> listeler (
-          {rows.length} tarih). Online rezervasyon kutusunda yalnızca Wtatil&apos;de{' '}
-          <strong>satışa açık dönemler</strong> görünür
-          {bookablePeriodCount === 1 ? ' (şu an 1 dönem)' : ` (${bookablePeriodCount} dönem)`}.
-        </p>
-      ) : null}
+      <SectionHeading>Uçuş bilgisi</SectionHeading>
+      <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
+        Tarih seçimindeki satırla eşleşen uçuş vurgulanır.{' '}
+        {bookableCount < flightSchedules.length ? (
+          <>
+            <span className="text-neutral-500">Gri satırlar</span> henüz online rezervasyona
+            kapalı planlanan kalkışlardır.
+          </>
+        ) : null}
+      </p>
       <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-neutral-700">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-neutral-600 dark:bg-neutral-800/80 dark:text-neutral-300">
@@ -37,25 +45,35 @@ export default function TourFlightScheduleSection({
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
-            {rows.map((row) => (
-              <tr key={`${row.departureDate}-${row.returnDate}`}>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {formatTourFlightDate(row.departureDate)}
-                </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
-                  {[row.departureFrom, row.departureTo, row.departureFlightNo]
-                    .filter(Boolean)
-                    .join(' · ') || '—'}
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  {formatTourFlightDate(row.returnDate)}
-                </td>
-                <td className="px-4 py-3 text-neutral-600 dark:text-neutral-400">
-                  {[row.returnFrom, row.returnTo, row.returnFlightNo].filter(Boolean).join(' · ') ||
-                    '—'}
-                </td>
-              </tr>
-            ))}
+            {flightSchedules.map((row) => {
+              const isSelected = highlightDate === row.departureDate
+              const periodOpt = options.find((p) => p.startDate === row.departureDate)
+              const isPassive = periodOpt?.bookable === false
+              return (
+                <tr
+                  key={`${row.departureDate}-${row.returnDate}`}
+                  className={
+                    isSelected
+                      ? 'bg-primary-50/80 dark:bg-primary-950/40'
+                      : isPassive
+                        ? 'text-neutral-400 dark:text-neutral-500'
+                        : undefined
+                  }
+                >
+                  <td className="px-4 py-3 whitespace-nowrap font-medium">
+                    {formatTourFlightDate(row.departureDate)}
+                    {isPassive ? (
+                      <span className="ms-2 text-xs font-normal text-neutral-400">(pasif)</span>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3">{flightLegLabel(row, 'out')}</td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {formatTourFlightDate(row.returnDate)}
+                  </td>
+                  <td className="px-4 py-3">{flightLegLabel(row, 'back')}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
