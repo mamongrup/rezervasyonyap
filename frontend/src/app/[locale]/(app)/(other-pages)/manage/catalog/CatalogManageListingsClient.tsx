@@ -14,7 +14,7 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
