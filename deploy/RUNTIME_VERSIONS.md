@@ -20,18 +20,25 @@ erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell  #
 
 ---
 
-## Sunucu (tek komut)
+## Sunucu (Windows → SSH)
 
-SSH ile root (veya sudo):
+Plesk SSH kullanıcısı ile (root değilse `-User` değiştirin):
+
+```powershell
+cd C:\laragon\www\travel
+.\scripts\upgrade-server-runtime.ps1 -Server 50.114.185.100 -User root
+```
+
+Sadece runtime, deploy yok: `-Rebuild 0`
+
+Manuel (Plesk Web SSH):
 
 ```bash
 cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
 git pull
 chmod +x deploy/scripts/upgrade-runtime.sh
-sudo ./deploy/scripts/upgrade-runtime.sh
+sudo APP_ROOT=$PWD ./deploy/scripts/upgrade-runtime.sh
 ```
-
-Sadece deploy (runtime zaten güncelse): `./deploy/deploy.sh`
 
 ---
 

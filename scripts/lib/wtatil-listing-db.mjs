@@ -1,3 +1,5 @@
+import { mergePeriodsById } from './wtatil-enrich.mjs'
+
 const PROVIDER = 'wtatil'
 
 function normalizeWtatilImageUrl(url) {
@@ -272,8 +274,19 @@ export async function updateWtatilTourPricesOnly(
     wtatil_tour_id: Number(tourId),
     price_synced_at: new Date().toISOString(),
   }
-  if (enrich?.periods != null) patch.periods = enrich.periods
-  if (enrich?.periodPrices != null) patch.period_prices = enrich.periodPrices
+  if (enrich?.periods != null) {
+    patch.periods = mergePeriodsById(prev.periods, enrich.periods)
+  }
+  if (enrich?.periodPrices != null) {
+    const prevPrices = Array.isArray(prev.period_prices) ? prev.period_prices : []
+    const byPid = new Map()
+    for (const p of [...prevPrices, ...enrich.periodPrices]) {
+      if (!p || typeof p !== 'object') continue
+      const pid = p.periodId ?? p.tourPeriodId ?? p.id
+      if (pid != null) byPid.set(Number(pid), p)
+    }
+    patch.period_prices = [...byPid.values()]
+  }
   if (cheapestFromEnrich != null) patch.cheapest_price = cheapestFromEnrich
 
   const merged = { ...prev, ...patch }

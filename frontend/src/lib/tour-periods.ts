@@ -41,7 +41,7 @@ function pickDate(row: Record<string, unknown>, keys: string[]): string {
 }
 
 function pickPrice(row: Record<string, unknown>): number | null {
-  const keys = ['price', 'amount', 'adultPrice', 'doublePrice', 'singlePrice', 'totalPrice']
+  const keys = ['price', 'amount', 'adultPrice', 'doublePrice', 'singlePrice', 'totalPrice', 'tourPrice', 'double']
   for (const key of keys) {
     const raw = row[key]
     if (raw == null || raw === '') continue

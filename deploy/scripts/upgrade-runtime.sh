@@ -11,6 +11,7 @@ set -euo pipefail
 UPGRADE_NODE="${UPGRADE_NODE:-1}"
 UPGRADE_PG="${UPGRADE_PG:-1}"
 UPGRADE_GLEAM="${UPGRADE_GLEAM:-1}"
+REBUILD="${REBUILD:-1}"
 APP_ROOT="${APP_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 
 ok() { echo "[OK] $*"; }
@@ -121,6 +122,10 @@ upgrade_gleam_otp() {
 }
 
 rebuild_app() {
+  if [[ "$REBUILD" != "1" ]]; then
+    warn "REBUILD=0 — deploy atlandı"
+    return 0
+  fi
   step "Deploy (git pull + build)"
   cd "$APP_ROOT"
   chmod +x deploy/deploy.sh deploy/verify.sh 2>/dev/null || true

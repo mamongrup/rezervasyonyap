@@ -3,7 +3,7 @@ param(
     [string]$Server,
     [string]$User = 'root',
     [int]$Port = 22,
-    [string]$AppRoot = '/opt/rezervasyonyap',
+    [string]$AppRoot = '/var/www/vhosts/rezervasyonyap.tr/httpdocs',
     [string]$Ref = 'main',
     [ValidateSet('0', '1')]
     [string]$RestartWeb = '1',

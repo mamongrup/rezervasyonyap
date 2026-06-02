@@ -14,12 +14,9 @@
 import {
   fetchWtatilToken,
   fetchAllTours,
-  fetchTourPeriods,
-  fetchTourPeriodPrices,
-  searchTours,
-  defaultSearchWindow,
   loadWtatilConfig,
 } from './lib/wtatil-api.mjs'
+import { enrichWtatilTour } from './lib/wtatil-enrich.mjs'
 import {
   resolveImportContext,
   findListingByWtatilRef,
@@ -51,40 +48,7 @@ function pickCurrency(tour) {
 }
 
 async function enrichPrices(userName, token, tour, agencyId) {
-  const tourId = Number(tour.id)
-  const enrich = {}
-
-  try {
-    enrich.periods = await fetchTourPeriods(userName, token, tourId)
-    const periodIds = (enrich.periods || []).map((p) => p.id).filter(Boolean)
-    if (periodIds.length) {
-      enrich.periodPrices = await fetchTourPeriodPrices(userName, token, periodIds)
-    }
-  } catch (e) {
-    console.warn(`  [uyarı] dönem/fiyat tur ${tourId}: ${e.message}`)
-  }
-
-  if (agencyId) {
-    try {
-      const { startDate, endDate } = defaultSearchWindow(14, 90)
-      const hits = await searchTours(userName, token, {
-        agencyId,
-        tourId,
-        startDate,
-        endDate,
-        adultCount: 2,
-        childCount: 0,
-        detail: 0,
-      })
-      const row = hits.find((h) => Number(h.id) === tourId) || hits[0]
-      if (row?.cheapestPrice) enrich.cheapestPrice = row.cheapestPrice
-      if (row?.periods?.length && !enrich.periods?.length) enrich.periods = row.periods
-    } catch (e) {
-      console.warn(`  [uyarı] search-tour tur ${tourId}: ${e.message}`)
-    }
-  }
-
-  return enrich
+  return enrichWtatilTour(userName, token, tour, agencyId, { withPrices: Boolean(agencyId) })
 }
 
 async function main() {
