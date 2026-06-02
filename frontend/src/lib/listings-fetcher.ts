@@ -306,9 +306,17 @@ export function mapPublicListingItemToListingBase(
     const hotelStars = parseMetaFloat(item.hotel_star_rating ?? undefined)
     const tourDurationDays = parseMetaInt(item.tour_duration_days ?? undefined)
     const tourMaxPeople = parseMetaInt(item.tour_max_people ?? undefined)
+    const tourNights = parseMetaInt(item.tour_nights ?? undefined)
     const tourTravelType = item.tour_travel_type?.trim()
+    const tourTransportType = item.tour_transport_type?.trim()
+    const tourMealType = item.tour_meal_type?.trim()
     const tourAccommodationType = item.tour_accommodation_type?.trim()
     const tourLanguages = splitCsvText(item.tour_languages)
+    const tourVisaRaw = item.tour_visa_required?.trim().toLowerCase()
+    const tourVisaRequired =
+      tourVisaRaw === 'true' ? true : tourVisaRaw === 'false' ? false : undefined
+    const resolvedDurationDays =
+      tourDurationDays ?? (tourNights != null && tourNights > 0 ? tourNights + 1 : undefined)
     return {
       ...base,
       maxGuests: parseMetaInt(item.max_guests ?? undefined),
@@ -317,9 +325,13 @@ export function mapPublicListingItemToListingBase(
       beds: parseMetaInt(metaRoomCountForDisplay(item)),
       ...(vertical === 'hotel' && hotelTypeTrim ? { hotelTypeCode: hotelTypeTrim } : {}),
       ...(vertical === 'hotel' && hotelStars != null ? { stars: hotelStars } : {}),
-      ...(vertical === 'tour' && tourDurationDays != null ? { durationDays: tourDurationDays } : {}),
+      ...(vertical === 'tour' && resolvedDurationDays != null ? { durationDays: resolvedDurationDays } : {}),
+      ...(vertical === 'tour' && tourNights != null ? { durationNights: tourNights } : {}),
       ...(vertical === 'tour' && tourMaxPeople != null ? { maxGroupSize: tourMaxPeople } : {}),
       ...(vertical === 'tour' && tourTravelType ? { travelType: tourTravelType } : {}),
+      ...(vertical === 'tour' && tourTransportType ? { transportType: tourTransportType } : {}),
+      ...(vertical === 'tour' && tourMealType ? { mealType: tourMealType } : {}),
+      ...(vertical === 'tour' && tourVisaRequired != null ? { visaRequired: tourVisaRequired } : {}),
       ...(vertical === 'tour' && tourAccommodationType ? { accommodationType: tourAccommodationType } : {}),
       ...(vertical === 'tour' && tourLanguages ? { languages: tourLanguages } : {}),
     } as TListingBase

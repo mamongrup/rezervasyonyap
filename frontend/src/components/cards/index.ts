@@ -18,6 +18,7 @@ export { default as FlightCard } from '@/components/FlightCard'
 // ─── Card config factory functions ───────────────────────────────────────────
 
 import ListingCard from './ListingCard'
+import { buildTourListingCardMetaLines } from '@/lib/tour-listing-card-meta'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { getMessages } from '@/utils/getT'
 import type {
@@ -90,33 +91,7 @@ export const TourCard = makeCard({
   priceUnit: '/kişi',
   ratioClass: 'aspect-w-3 aspect-h-3',
   categoryLabel: 'Tur',
-  extraInfo: (d, _locale) => {
-    const {
-      durationDays: days,
-      maxGroupSize: group,
-      travelType,
-      accommodationType,
-    } = d as TListingTour
-    const travelLabel =
-      travelType === 'plane'
-        ? 'Uçaklı'
-        : travelType === 'bus'
-          ? 'Otobüslü'
-          : travelType === 'both'
-            ? 'Uçak + otobüs'
-            : travelType === 'own'
-              ? 'Kendi araçlı'
-              : null
-    const accommodationLabel =
-      accommodationType === 'hotel'
-        ? 'Otel konaklamalı'
-        : accommodationType === 'none'
-          ? 'Konaklamasız'
-          : null
-    return [days && `${days} gün`, travelLabel, accommodationLabel, group && `Maks ${group} kişi`]
-      .filter(Boolean)
-      .join(' · ') || null
-  },
+  metaLines: (d, locale) => buildTourListingCardMetaLines(d as TListingTour, locale),
 })
 
 export const ActivityCard = makeCard({

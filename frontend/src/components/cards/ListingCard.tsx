@@ -84,6 +84,7 @@ const ListingCard: FC<ListingCardProps> = ({
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
   const priceUnit = config.priceUnit ?? ''
   const extraInfo = config.extraInfo ? config.extraInfo(data, locale) : null
+  const metaLines = config.metaLines ? config.metaLines(data, locale).filter(Boolean) : []
   const isHolidayHomeCard =
     data.listingVertical === 'holiday_home' || config.linkBase.includes('/tatil-evi')
   const normalizedAddress =
@@ -169,6 +170,15 @@ const ListingCard: FC<ListingCardProps> = ({
             )}
             {extraInfo && (
               <div className="text-sm text-neutral-500 dark:text-neutral-400">{extraInfo}</div>
+            )}
+            {metaLines.length > 0 && (
+              <ul className="space-y-0.5 text-sm text-neutral-600 dark:text-neutral-400">
+                {metaLines.map((line) => (
+                  <li key={line} className="line-clamp-1">
+                    {line}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
           <div className="w-14 border-b border-neutral-100 dark:border-neutral-800" />

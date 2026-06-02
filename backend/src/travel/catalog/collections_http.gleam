@@ -167,6 +167,10 @@ fn pub_listing_row() -> decode.Decoder(
   use tour_travel_type <- decode.field(38, decode.string)
   use tour_accommodation_type <- decode.field(39, decode.string)
   use tour_languages <- decode.field(40, decode.string)
+  use tour_nights <- decode.field(41, decode.string)
+  use tour_meal_type <- decode.field(42, decode.string)
+  use tour_transport_type <- decode.field(43, decode.string)
+  use tour_visa_required <- decode.field(44, decode.string)
   decode.success(#(
     id,
     slug,
@@ -209,6 +213,10 @@ fn pub_listing_row() -> decode.Decoder(
     tour_travel_type,
     tour_accommodation_type,
     tour_languages,
+    tour_nights,
+    tour_meal_type,
+    tour_transport_type,
+    tour_visa_required,
   ))
 }
 
@@ -333,6 +341,10 @@ fn pub_listing_json(
     tour_travel_type,
     tour_accommodation_type,
     tour_languages,
+    tour_nights,
+    tour_meal_type,
+    tour_transport_type,
+    tour_visa_required,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -395,6 +407,10 @@ fn pub_listing_json(
     #("tour_travel_type", json_opt_str(tour_travel_type)),
     #("tour_accommodation_type", json_opt_str(tour_accommodation_type)),
     #("tour_languages", json_opt_str(tour_languages)),
+    #("tour_nights", json_opt_str(tour_nights)),
+    #("tour_meal_type", json_opt_str(tour_meal_type)),
+    #("tour_transport_type", json_opt_str(tour_transport_type)),
+    #("tour_visa_required", json_opt_str(tour_visa_required)),
   ])
 }
 
@@ -670,6 +686,15 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'travel_type'), ''), nullif(trim(tour_attr.value_json->>'travel_type'), ''), '') "
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'accommodation_type'), ''), nullif(trim(tour_attr.value_json->>'accommodation_type'), ''), '') "
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'languages'), ''), nullif(trim(tour_attr.value_json->>'languages'), ''), '') "
+    <> ", coalesce(nullif(trim(tour_det.program_days_json->>'number_of_nights'), ''), nullif(trim(wtatil_snap.value_json->'catalog'->>'numberOfNights'), ''), '') "
+    <> ", coalesce(nullif(trim(wtatil_snap.value_json->>'meal_type'), ''), nullif(trim(wtatil_snap.value_json->'catalog'->>'mealType'), ''), '') "
+    <> ", coalesce(nullif(trim(wtatil_snap.value_json->>'transport_type'), ''), nullif(trim(wtatil_snap.value_json->'catalog'->>'transportType'), ''), '') "
+    <> ", coalesce(case "
+    <> "  when lower(coalesce(tour_attr.value_json->'data'->>'visa_required', tour_attr.value_json->>'visa_required', '')) in ('true','1','yes') then 'true' "
+    <> "  when lower(coalesce(tour_attr.value_json->'data'->>'visa_required', tour_attr.value_json->>'visa_required', '')) in ('false','0','no') then 'false' "
+    <> "  when wtatil_snap.value_json->'visa_detail' is not null and wtatil_snap.value_json->'visa_detail' != 'null'::jsonb "
+    <> "       and wtatil_snap.value_json->'visa_detail'::text not in ('null','{}','\"\"') then 'true' "
+    <> "  else 'false' end, '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
@@ -684,6 +709,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'theme_code' limit 1) hotel_theme_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'accommodation_code' limit 1) hotel_acc_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
+    <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "where l.status = 'published' "
     <> "and ($1::text is null or lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug)) ilike $1 or lower(l.slug) ilike $1) "
     <> "and ($2::text is null or pc.code = $2) "

@@ -8788,6 +8788,14 @@ export interface PublicListingItem {
   tour_accommodation_type?: string | null
   /** Tur detay — `vertical_tour.languages` */
   tour_languages?: string | null
+  /** Tur — `program_days_json.number_of_nights` veya Wtatil katalog */
+  tour_nights?: string | null
+  /** Tur — Wtatil `mealType` */
+  tour_meal_type?: string | null
+  /** Tur — Wtatil `transportType` */
+  tour_transport_type?: string | null
+  /** Tur — vize gerekli mi (`true` / `false`) */
+  tour_visa_required?: string | null
   /** Kültür ve Turizm Bakanlığı / tesis belge no — `listings.ministry_license_ref` */
   ministry_license_ref?: string | null
   /** Ön ödeme yüzdesi — `listings.prepayment_percent` */

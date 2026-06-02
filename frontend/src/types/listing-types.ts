@@ -121,8 +121,12 @@ export interface TListingYacht extends TListingBase {
 
 export interface TListingTour extends TListingBase {
   durationDays?: number
+  durationNights?: number
   maxGroupSize?: number
   travelType?: string
+  transportType?: string
+  mealType?: string
+  visaRequired?: boolean
   accommodationType?: string
   languages?: string[]
   difficulty?: 'easy' | 'moderate' | 'hard'
@@ -230,6 +234,8 @@ export interface CardConfig {
   ratioClass?: string
   /** Function to extract an extra info line from the listing */
   extraInfo?: (data: TListingBase, locale: string) => string | null
+  /** Çok satırlı meta (tur kartı: vize, ulaşım, süre, pansiyon) */
+  metaLines?: (data: TListingBase, locale: string) => string[]
   /** Badge text for the listing category label override */
   categoryLabel?: string
 }
