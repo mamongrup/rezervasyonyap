@@ -2415,10 +2415,16 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                             flag_emoji: ciFlagEmoji,
                             flag_url: ciFlagUrl,
                           }),
+                          existingTranslations: JSON.stringify(translations),
                         }),
                       })
                       if (!res.ok) throw new Error(`AI HTTP ${res.status}`)
-                      const data = (await res.json()) as { country_info?: Record<string, unknown> }
+                      const data = (await res.json()) as {
+                        country_info?: Record<string, unknown>
+                        description_html?: string
+                        meta_title?: string
+                        meta_description?: string
+                      }
                       const info = data.country_info ?? {}
                       if (Array.isArray(info.languages)) setCiLanguages(info.languages.map(String))
                       if (Array.isArray(info.currencies)) setCiCurrencies(info.currencies.map(String))
@@ -2429,7 +2435,15 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                       if (typeof info.general_description === 'string') setCiGeneralDescription(info.general_description)
                       if (typeof info.taxes === 'string') setCiTaxes(info.taxes)
                       if (typeof info.tipping === 'string') setCiTipping(info.tipping)
-                      setSaveMsg({ ok: true, text: 'Tur ülke bilgileri AI ile üretildi. Kaydet ile kalıcılaştırın.' })
+                      if (data.description_html?.trim()) {
+                        setTransField(primaryLocale, 'description', data.description_html)
+                        if (data.meta_title?.trim()) setMetaTitle(data.meta_title)
+                        if (data.meta_description?.trim()) setMetaDesc(data.meta_description)
+                      }
+                      setSaveMsg({
+                        ok: true,
+                        text: 'Tur bilgileri ve tanıtım yazısı üretildi. Kaydet ile kalıcılaştırın.',
+                      })
                     } catch (e) {
                       setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'AI üretimi başarısız') })
                     } finally {

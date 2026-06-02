@@ -1,11 +1,8 @@
 /**
- * Tüm ülke location_pages kayıtları için tur pratik bilgilerini AI ile üretir.
+ * Ülke location_pages: pratik bilgiler + tanıtım yazısı (HTML) AI ile üretir.
  *
- * Kullanım:
- *   TRAVEL_AUTH_TOKEN=... API_URL=https://rezervasyonyap.tr WEB_URL=https://rezervasyonyap.tr \
- *     node scripts/generate-country-tour-info.mjs --save
- *
- *   node scripts/generate-country-tour-info.mjs --limit=5 --save
+ *   TRAVEL_AUTH_TOKEN=... API_URL=... WEB_URL=... node scripts/generate-country-tour-info.mjs --save
+ *   node scripts/generate-country-tour-info.mjs --intro-only --save
  *   node scripts/generate-country-tour-info.mjs --force --save
  */
 import { readFileSync } from 'fs'
@@ -40,6 +37,7 @@ const webBase = (process.env.WEB_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'htt
 const token = process.env.TRAVEL_AUTH_TOKEN ?? ''
 const save = process.argv.includes('--save')
 const force = process.argv.includes('--force')
+const introOnly = process.argv.includes('--intro-only')
 const limitArg = process.argv.find((a) => a.startsWith('--limit='))
 const limit = limitArg ? Number(limitArg.split('=')[1]) : 0
 
@@ -92,9 +90,18 @@ async function main() {
     }
 
     const existing = parseCountryTourInfo(page.country_info_json)
-    if (!force && existing.general_description && existing.taxes && existing.tipping) {
-      console.log(`⏭ ${iso2} — zaten dolu`)
-      continue
+    const hasIntro = String(page.description ?? '').replace(/<[^>]+>/g, '').trim().length > 80
+    const hasInfo = Boolean(existing.general_description && existing.taxes && existing.tipping)
+
+    if (!force) {
+      if (introOnly && hasIntro) {
+        console.log(`⏭ ${iso2} — tanıtım zaten var`)
+        continue
+      }
+      if (!introOnly && hasIntro && hasInfo) {
+        console.log(`⏭ ${iso2} — tanıtım ve bilgiler dolu`)
+        continue
+      }
     }
 
     console.log(`🤖 ${iso2} ${name}…`)
@@ -109,7 +116,10 @@ async function main() {
         iso2,
         pageId: page.id,
         save,
+        introOnly,
+        skipIntro: false,
         existingCountryInfo: page.country_info_json ?? '{}',
+        existingTranslations: page.translations_json ?? '{}',
       }),
     })
     if (!genRes.ok) {
