@@ -48,7 +48,7 @@ function mapMealLabel(mealRaw?: string): string | null {
     raw === 'bb' ||
     raw === 'bed_breakfast'
   ) {
-    return 'Oda + Kahvaltı'
+    return 'Oda - Kahvaltı'
   }
   if (
     raw.includes('yarim') ||
@@ -84,27 +84,32 @@ function mapVisaLabel(visaRequired?: boolean): string | null {
 function formatDuration(nights?: number, days?: number): string | null {
   const n = nights != null && nights > 0 ? nights : null
   const d = days != null && days > 0 ? days : n != null ? n + 1 : null
-  if (n != null && d != null) return `${n} Gece · ${d} Gün`
+  if (n != null && d != null) return `${n} Gece - ${d} Gündüz`
   if (n != null) return `${n} Gece`
-  if (d != null) return `${d} Gün`
+  if (d != null) return `${d} Gündüz`
   return null
 }
 
-/** Tur vitrin kartı — bölge satırından sonra gösterilecek meta satırları */
+function joinMetaParts(parts: Array<string | null>): string | null {
+  const visible = parts.filter((part): part is string => Boolean(part))
+  return visible.length > 0 ? visible.join(' | ') : null
+}
+
+/** Tur vitrin kartı — bölge satırından sonra en fazla 2 kompakt meta satırı */
 export function buildTourListingCardMetaLines(tour: TListingTour, _locale = 'tr'): string[] {
   const lines: string[] = []
 
-  const visa = mapVisaLabel(tour.visaRequired)
-  if (visa) lines.push(visa)
+  const rowOne = joinMetaParts([
+    mapVisaLabel(tour.visaRequired),
+    mapTravelLabel(tour.travelType, tour.transportType),
+  ])
+  if (rowOne) lines.push(rowOne)
 
-  const travel = mapTravelLabel(tour.travelType, tour.transportType)
-  if (travel) lines.push(travel)
-
-  const duration = formatDuration(tour.durationNights, tour.durationDays)
-  if (duration) lines.push(duration)
-
-  const meal = mapMealLabel(tour.mealType)
-  if (meal) lines.push(`Konaklama: ${meal}`)
+  const rowTwo = joinMetaParts([
+    formatDuration(tour.durationNights, tour.durationDays),
+    mapMealLabel(tour.mealType),
+  ])
+  if (rowTwo) lines.push(rowTwo)
 
   return lines
 }

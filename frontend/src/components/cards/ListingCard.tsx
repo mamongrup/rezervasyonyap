@@ -172,7 +172,7 @@ const ListingCard: FC<ListingCardProps> = ({
               <div className="text-sm text-neutral-500 dark:text-neutral-400">{extraInfo}</div>
             )}
             {metaLines.length > 0 && (
-              <ul className="space-y-0.5 text-sm text-neutral-600 dark:text-neutral-400">
+              <ul className="space-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
                 {metaLines.map((line) => (
                   <li key={line} className="line-clamp-1">
                     {line}
