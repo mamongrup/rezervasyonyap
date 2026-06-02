@@ -20,12 +20,12 @@ type SectionDef = {
 /** Tur detay sayfasında bilgi bölümlerinin gösterim sırası */
 export const TOUR_INFO_SECTION_DISPLAY_ORDER = [
   'tour-section-general-terms',
-  'tour-section-cancellation',
   'tour-section-guide-extras',
   'tour-section-paid',
   'tour-section-free',
   'tour-section-visa',
   'tour-section-flights-info',
+  'tour-section-cancellation',
   'tour-section-other',
 ] as const
 
@@ -34,11 +34,6 @@ const INFO_SECTION_DEFS: SectionDef[] = [
     id: 'tour-section-general-terms',
     title: 'Genel Şartlar',
     pattern: /(?:^|\s|[.)])\s*(?:GENEL\s*ŞARTLAR|Genel\s*Şartlar)/i,
-  },
-  {
-    id: 'tour-section-cancellation',
-    title: 'İptal ve değişiklik',
-    pattern: /(?:^|\s|[.)])\s*İptal\s*ve\s*değişiklik/i,
   },
   {
     id: 'tour-section-guide-extras',
@@ -60,6 +55,11 @@ const INFO_SECTION_DEFS: SectionDef[] = [
     id: 'tour-section-flights-info',
     title: 'Uçuşlar Hakkında',
     pattern: /(?:^|\s|[.)])\s*Uçuşlar\s*Hakkında/i,
+  },
+  {
+    id: 'tour-section-cancellation',
+    title: 'İptal ve değişiklik',
+    pattern: /(?:^|\s|[.)])\s*İptal\s*ve\s*değişiklik/i,
   },
   {
     id: 'tour-section-other',

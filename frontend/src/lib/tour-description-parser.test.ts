@@ -24,9 +24,9 @@ describe('parseTourDescription', () => {
     expect(parsed.programHtml).not.toContain('GENEL ŞARTLAR')
     expect(parsed.infoSections.map((s) => s.title)).toEqual([
       'Genel Şartlar',
-      'İptal ve değişiklik',
       'Ücretli',
       'Ücretsiz',
+      'İptal ve değişiklik',
     ])
   })
 
