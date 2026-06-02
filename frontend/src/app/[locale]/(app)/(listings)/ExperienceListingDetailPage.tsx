@@ -36,6 +36,7 @@ import {
   parseTourFlightSchedulesFromDescription,
   stripFlightScheduleBlockFromDescription,
 } from '@/lib/tour-flight-schedule'
+import { parseTourDescription } from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
@@ -58,6 +59,7 @@ import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
 import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
+  TourInfoSections,
   TourIncludedExcludedSection,
   TourItinerarySection,
   TourNotesSection,
@@ -341,13 +343,19 @@ export default async function ExperienceListingDetailPage({
     : maxGuests
       ? `Maks. ${maxGuests} kişi`
       : 'Kapasite belirtilmedi'
-  const tourDescriptionRaw =
-    isTour && description && tourFlightSchedules.length > 0
-      ? stripFlightScheduleBlockFromDescription(description)
-      : description
-  const tourDescriptionHtml = tourDescriptionRaw?.trim()
-    ? sanitizeRichCmsHtml(tourDescriptionRaw)
+  const tourDescriptionStripped =
+    isTour && description?.trim() ? stripFlightScheduleBlockFromDescription(description) : description
+  const parsedTourDescription =
+    isTour && tourDescriptionStripped?.trim()
+      ? parseTourDescription(tourDescriptionStripped)
+      : { programHtml: '', infoSections: [] }
+  const tourProgramHtml = parsedTourDescription.programHtml.trim()
+    ? sanitizeRichCmsHtml(parsedTourDescription.programHtml)
     : ''
+  const tourInfoSections = parsedTourDescription.infoSections.map((section) => ({
+    ...section,
+    html: sanitizeRichCmsHtml(section.html),
+  }))
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
         tourMeta?.travel_type && travelTypeLabel(tourMeta.travel_type)
@@ -383,6 +391,7 @@ export default async function ExperienceListingDetailPage({
   ])
   const tourNavItems: TourSectionNavItem[] = isTour
     ? [
+        tourProgramHtml ? { id: 'tour-section-about', label: 'Tur Hakkında' } : null,
         (tourMeta?.itinerary ?? []).length > 0
           ? { id: 'tour-section-program', label: 'Program', eyebrow: String(tourMeta?.itinerary?.length ?? '') }
           : null,
@@ -393,6 +402,7 @@ export default async function ExperienceListingDetailPage({
               eyebrow: String(tourFlightSchedules.length),
             }
           : null,
+        ...tourInfoSections.map((section) => ({ id: section.id, label: section.title })),
         tourIncludedLines.length > 0 || tourExcludedLines.length > 0
           ? { id: 'tour-section-services', label: 'Dahil/Hariç' }
           : null,
@@ -538,17 +548,11 @@ export default async function ExperienceListingDetailPage({
       <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
         {renderSectionHeader()}
         <TourSectionNav items={tourNavItems} />
-        {tourOverviewItems.length > 0 || tourDescriptionHtml ? (
-          <TourOverviewSection
-            items={tourOverviewItems}
-            description={
-              tourDescriptionHtml ? (
-                <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
-              ) : null
-            }
-          />
+        {tourOverviewItems.length > 0 || tourProgramHtml ? (
+          <TourOverviewSection items={tourOverviewItems} programHtml={tourProgramHtml} locale={locale} />
         ) : null}
         {tourFlightSchedules.length > 0 ? <TourFlightScheduleSection /> : null}
+        <TourInfoSections sections={tourInfoSections} />
         <div id="tour-section-program" className="scroll-mt-28">
           <TourItinerarySection days={tourMeta?.itinerary ?? []} />
         </div>

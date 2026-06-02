@@ -7,7 +7,6 @@ import {
   formatTourPeriodPrice,
   isTourPeriodBookable,
 } from '@/lib/tour-periods'
-import { formatTourFlightDate } from '@/lib/tour-flight-schedule'
 import Form from 'next/form'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
@@ -24,7 +23,7 @@ export default function TourBookingSidebar({
   reviewStart: number
   reviewCount: number
 }) {
-  const { options, selected, setSelected, selectedFlight } = useTourPeriodSelection()
+  const { options, selected, setSelected } = useTourPeriodSelection()
 
   const bookable = isTourPeriodBookable(selected)
   const displayPrice =
@@ -57,30 +56,6 @@ export default function TourBookingSidebar({
           selectedId={selected?.id}
           onChange={setSelected}
         />
-
-        {selectedFlight ? (
-          <div className="border-b border-neutral-200 px-4 py-3 text-sm dark:border-neutral-700">
-            <p className="mb-1 font-medium text-neutral-900 dark:text-neutral-100">Uçuş özeti</p>
-            <p className="text-neutral-600 dark:text-neutral-400">
-              Gidiş ({formatTourFlightDate(selectedFlight.departureDate)}):{' '}
-              {[selectedFlight.departureFrom, selectedFlight.departureTo, selectedFlight.departureFlightNo]
-                .filter(Boolean)
-                .join(' → ') || '—'}
-            </p>
-            <p className="mt-1 text-neutral-600 dark:text-neutral-400">
-              Dönüş ({formatTourFlightDate(selectedFlight.returnDate)}):{' '}
-              {[selectedFlight.returnFrom, selectedFlight.returnTo, selectedFlight.returnFlightNo]
-                .filter(Boolean)
-                .join(' → ') || '—'}
-            </p>
-            {!bookable ? (
-              <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                Bu kalkış planlanmıştır; online rezervasyon henüz açılmamış olabilir.
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
         <GuestsInputPopover className="flex-1" />
       </Form>

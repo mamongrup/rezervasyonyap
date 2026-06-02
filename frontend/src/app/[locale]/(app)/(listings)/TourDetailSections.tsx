@@ -1,3 +1,4 @@
+import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
 import { Divider } from '@/shared/divider'
 import {
   Bus,
@@ -11,7 +12,6 @@ import {
   Users,
   XCircle,
 } from 'lucide-react'
-import type { ReactNode } from 'react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 export type TourItineraryDay = {
@@ -67,23 +67,26 @@ export function TourSectionNav({ items }: { items: TourSectionNavItem[] }) {
   )
 }
 
+export type TourInfoSection = {
+  id: string
+  title: string
+  html: string
+}
+
 export function TourOverviewSection({
   items,
-  description,
+  programHtml,
+  locale,
 }: {
   items: TourOverviewItem[]
-  description?: ReactNode
+  programHtml?: string
+  locale?: string
 }) {
-  if (items.length === 0 && !description) return null
+  if (items.length === 0 && !programHtml?.trim()) return null
 
   return (
-    <section className="listingSection__wrap">
-      <div>
-        <SectionHeading>Tur Hakkında</SectionHeading>
-        {items.length > 0 ? (
-          <SectionSubheading>Program, ulaşım ve katılım bilgileri.</SectionSubheading>
-        ) : null}
-      </div>
+    <section id="tour-section-about" className="listingSection__wrap scroll-mt-28">
+      <SectionHeading>Tur Hakkında</SectionHeading>
       <Divider className="w-14!" />
       {items.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -106,8 +109,26 @@ export function TourOverviewSection({
           })}
         </div>
       ) : null}
-      {description ? <div className="prose prose-neutral mt-5 max-w-none dark:prose-invert">{description}</div> : null}
+      {programHtml?.trim() && locale ? (
+        <ListingDescriptionExpandable locale={locale} html={programHtml} />
+      ) : null}
     </section>
+  )
+}
+
+export function TourInfoSections({ sections }: { sections: TourInfoSection[] }) {
+  if (sections.length === 0) return null
+
+  return (
+    <>
+      {sections.map((section) => (
+        <section key={section.id} id={section.id} className="listingSection__wrap scroll-mt-28">
+          <SectionHeading>{section.title}</SectionHeading>
+          <Divider className="w-14!" />
+          <div dangerouslySetInnerHTML={{ __html: section.html }} />
+        </section>
+      ))}
+    </>
   )
 }
 

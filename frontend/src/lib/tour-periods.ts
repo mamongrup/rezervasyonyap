@@ -42,8 +42,20 @@ function pickDate(row: Record<string, unknown>, keys: string[]): string {
   return ''
 }
 
-function pickPrice(row: Record<string, unknown>): number | null {
-  const keys = ['price', 'amount', 'adultPrice', 'doublePrice', 'singlePrice', 'totalPrice', 'tourPrice', 'double']
+function pickTourPeriodPersonPrice(row: Record<string, unknown>): number | null {
+  // Wtatil: `double` = kişi başı (çift kişilik odada); `totalPrice`/`tourPrice` çoğu zaman 2 kişi toplamı.
+  const keys = [
+    'double',
+    'triple',
+    'child_1',
+    'adultPrice',
+    'doublePrice',
+    'price',
+    'amount',
+    'singlePrice',
+    'tourPrice',
+    'totalPrice',
+  ]
   for (const key of keys) {
     const raw = row[key]
     if (raw == null || raw === '') continue
@@ -51,6 +63,10 @@ function pickPrice(row: Record<string, unknown>): number | null {
     if (Number.isFinite(num) && num > 0) return num
   }
   return null
+}
+
+function pickPrice(row: Record<string, unknown>): number | null {
+  return pickTourPeriodPersonPrice(row)
 }
 
 function periodRowId(row: Record<string, unknown>): string {
