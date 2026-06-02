@@ -116,7 +116,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const rangeEnd = Math.min(totalCount, (pageIndex + 1) * pageSize)
 
   const pageSizeSelectClass =
-    'rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
+    'min-w-[4.25rem] appearance-none rounded-lg border border-neutral-200 bg-white py-1.5 pl-3 pr-8 text-sm tabular-nums text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
 
   return (
     <div>
@@ -228,20 +228,26 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
           </p>
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
-              <span className="text-xs text-neutral-500">Sayfa başına</span>
-              <select
-                value={pageSize}
-                disabled={loading}
-                onChange={(e) => setPageSize(Number(e.target.value) as PageSizeOption)}
-                className={pageSizeSelectClass}
-                aria-label="Sayfa başına ilan sayısı"
-              >
-                {PAGE_SIZE_OPTIONS.map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+              <span className="shrink-0 text-xs text-neutral-500">Sayfa başına</span>
+              <span className="relative inline-block">
+                <select
+                  value={pageSize}
+                  disabled={loading}
+                  onChange={(e) => setPageSize(Number(e.target.value) as PageSizeOption)}
+                  className={pageSizeSelectClass}
+                  aria-label="Sayfa başına ilan sayısı"
+                >
+                  {PAGE_SIZE_OPTIONS.map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 dark:text-neutral-400"
+                  aria-hidden
+                />
+              </span>
             </label>
             <span className="text-xs text-neutral-500">
               Sayfa {pageIndex + 1} / {totalPages}
