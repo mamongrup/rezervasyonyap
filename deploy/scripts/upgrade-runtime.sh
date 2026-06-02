@@ -115,6 +115,16 @@ upgrade_gleam_otp() {
       install -m 755 "$tmp/gleam" /usr/local/bin/gleam
       rm -rf "$tmp"
     fi
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y erlang || true
+    if ! command -v gleam >/dev/null 2>&1 || ! gleam_version_ok; then
+      GLEAM_VERSION="1.16.0"
+      tmp="$(mktemp -d)"
+      curl -fsSL "https://github.com/gleam-lang/gleam/releases/download/v${GLEAM_VERSION}/gleam-${GLEAM_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
+        | tar -xz -C "$tmp"
+      install -m 755 "$tmp/gleam" /usr/local/bin/gleam
+      rm -rf "$tmp"
+    fi
   else
     warn "Gleam/OTP — asdf, kerl veya distro paketleriyle kurun (hedef: Gleam 1.16, OTP 29)"
   fi
@@ -135,6 +145,19 @@ rebuild_app() {
 main() {
   require_root
   echo "APP_ROOT=$APP_ROOT"
+
+  if [[ -d "$APP_ROOT/.git" ]]; then
+    step "Git pull ($APP_ROOT)"
+    git -C "$APP_ROOT" fetch origin main
+    git -C "$APP_ROOT" pull --ff-only origin main || warn "git pull atlandi — elle kontrol edin"
+  fi
+
+  if command -v plesk >/dev/null 2>&1 && [[ "${UPGRADE_PG}" == "1" ]]; then
+    warn "Plesk tespit edildi — PostgreSQL yukseltmesi Plesk panelinden yapilmali."
+    warn "Devam icin: UPGRADE_PG=0 ./deploy/scripts/upgrade-runtime.sh"
+    UPGRADE_PG=0
+  fi
+
   [[ "$UPGRADE_NODE" == "1" ]] && upgrade_node
   [[ "$UPGRADE_PG" == "1" ]] && upgrade_postgresql
   [[ "$UPGRADE_GLEAM" == "1" ]] && upgrade_gleam_otp

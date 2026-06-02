@@ -31,13 +31,23 @@ cd C:\laragon\www\travel
 
 Sadece runtime, deploy yok: `-Rebuild 0`
 
-Manuel (Plesk Web SSH):
+Manuel (Plesk Web SSH — **root**, tek blok yapıştırın):
 
 ```bash
 cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
 git pull
-chmod +x deploy/scripts/upgrade-runtime.sh
-sudo APP_ROOT=$PWD ./deploy/scripts/upgrade-runtime.sh
+chmod +x deploy/scripts/upgrade-runtime.sh deploy/deploy.sh deploy/verify.sh
+APP_ROOT=$PWD UPGRADE_PG=0 ./deploy/scripts/upgrade-runtime.sh
+```
+
+> **PostgreSQL:** Plesk sunucuda `UPGRADE_PG=0` kullanın; PG sürümünü **Plesk → Araçlar ve Ayarlar → Güncellemeler** veya PostgreSQL eklentisinden yükseltin. Uygulama şema olarak PG 14+ ile uyumludur; 18.4 hedef minor yükseltmedir.
+
+Runtime + deploy bittikten sonra (isteğe bağlı tur dönem denetimi):
+
+```bash
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+set -a && source /etc/rezervasyonyap/wtatil.env && source /etc/rezervasyonyap/backend.env && set +a
+node scripts/audit-wtatil-tour-periods.mjs --tour-id 10011 --apply
 ```
 
 ---
