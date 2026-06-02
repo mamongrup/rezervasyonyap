@@ -19,6 +19,11 @@ import http from 'node:http'
 import { createRequire } from 'node:module'
 import { mediaUrlCandidates } from './lib/bravo-media.mjs'
 import { importBravoSeasonalPriceRules } from './lib/bravo-seasonal-prices.mjs'
+import {
+  applyListingPropertyType,
+  resolveHolidayPropertyType,
+} from './lib/bravo-property-type.mjs'
+import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -63,6 +68,7 @@ const THEME_SLUG_TO_TEMA = {
   'kampanyali-villalar': 'kampanyali',
 }
 
+/** @deprecated use bravo-property-type.mjs */
 const PROPERTY_SLUG_TO_ILAN_TIPI = {
   villa: 'villa',
   apart: 'apart',
@@ -479,6 +485,10 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
       [listingId, LOCALE_TR, space.title || slug, space.content || ''],
     )
 
+    const terms = await loadTermsForSpace(mysql, legacyId)
+    const propertyType = resolveHolidayPropertyType(terms, space)
+    if (propertyType) meta.property_type = propertyType
+
     await pgClient.query(
       `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
        VALUES ($1::uuid, 'listing_meta', 'v1', $2::jsonb)
@@ -486,7 +496,8 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
       [listingId, JSON.stringify(meta)],
     )
 
-    const terms = await loadTermsForSpace(mysql, legacyId)
+    if (propertyType) await applyListingPropertyType(pgClient, listingId, propertyType)
+
     await upsertAttributes(pgClient, listingId, terms, space.ical_import_url)
 
     const seasonal = await importBravoSeasonalPriceRules(
@@ -534,12 +545,7 @@ async function main() {
   log('=== import-bravo-spaces start ===')
   log('skip-images=', SKIP_IMAGES, 'dry-run=', DRY_RUN, 'limit=', LIMIT || 'all')
 
-  const mysqlConn = await mysql.createConnection({
-    host: '127.0.0.1',
-    user: 'root',
-    password: '',
-    database: 'rezervasyonyap',
-  })
+  const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
 
   const pgClient = new pg.Client({
     host: '127.0.0.1',
