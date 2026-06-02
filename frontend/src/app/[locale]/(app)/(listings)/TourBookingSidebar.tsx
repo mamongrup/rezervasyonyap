@@ -15,12 +15,14 @@ import TourPeriodSelect from './components/TourPeriodSelect'
 export default function TourBookingSidebar({
   action,
   periods,
+  plannedDepartureCount = 0,
   fallbackPrice,
   reviewStart,
   reviewCount,
 }: {
   action: (formData: FormData) => Promise<void>
   periods: TourPeriodOption[]
+  plannedDepartureCount?: number
   fallbackPrice?: string
   reviewStart: number
   reviewCount: number
@@ -31,6 +33,9 @@ export default function TourBookingSidebar({
     selected?.price != null
       ? formatTourPeriodPrice(selected.price, selected.currencyCode)
       : fallbackPrice ?? '—'
+
+  const showPeriodMismatchNote =
+    plannedDepartureCount > periods.length && periods.length > 0 && plannedDepartureCount > 1
 
   return (
     <div className="listingSection__wrap sm:shadow-xl">
@@ -48,6 +53,17 @@ export default function TourBookingSidebar({
         id="booking-form"
       >
         <TourPeriodSelect className="z-11 flex-1" periods={periods} onChange={setSelected} />
+        {showPeriodMismatchNote ? (
+          <p className="border-b border-neutral-200 px-4 py-3 text-xs leading-relaxed text-neutral-500 dark:border-neutral-700 dark:text-neutral-400">
+            Programda {plannedDepartureCount} kalkış tarihi listelenir; şu an{' '}
+            {periods.length === 1 ? 'yalnızca 1 dönem' : `${periods.length} dönem`} online
+            rezervasyona açık (Wtatil satış takvimi). Diğer tarihler için{' '}
+            <a href="#tour-section-flights" className="underline">
+              planlanan kalkışlar
+            </a>
+            .
+          </p>
+        ) : null}
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
         <GuestsInputPopover className="flex-1" />
       </Form>

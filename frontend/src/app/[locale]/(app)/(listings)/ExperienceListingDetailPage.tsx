@@ -32,6 +32,10 @@ import {
   resolvePublishedListingIdForStayPage,
 } from '@/lib/travel-api'
 import { mergeTourPeriodOptions } from '@/lib/tour-periods'
+import {
+  parseTourFlightSchedulesFromDescription,
+  stripFlightScheduleBlockFromDescription,
+} from '@/lib/tour-flight-schedule'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
@@ -50,6 +54,7 @@ import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
 import ActivityBookingPanel from './ActivityBookingPanel'
 import TourBookingSidebar from './TourBookingSidebar'
+import TourFlightScheduleSection from './TourFlightScheduleSection'
 import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
   TourIncludedExcludedSection,
@@ -318,17 +323,30 @@ export default async function ExperienceListingDetailPage({
   const isActivity = vertical === 'activity'
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
   const tourPeriodOptions = isTour && rawTourPeriods ? mergeTourPeriodOptions(rawTourPeriods) : []
+  const tourFlightSchedules =
+    isTour && description ? parseTourFlightSchedulesFromDescription(description) : []
+  const listingTour = listing as TListingBase & { durationNights?: number }
+  const tourNights = listingTour.durationNights
+  const tourDurationLine =
+    tourMeta?.duration_days
+      ? `${tourMeta.duration_days} gün`
+      : tourNights != null && tourNights > 0
+        ? `${tourNights} Gece${tourNights + 1 > tourNights ? ` ${tourNights + 1} Gün` : ''}`
+        : durationTime || 'Süre belirtilmedi'
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
   const tourLanguages = splitMetaList(tourMeta?.languages)
-  const tourDurationLine = tourMeta?.duration_days
-    ? `${tourMeta.duration_days} gün`
-    : durationTime || 'Süre belirtilmedi'
   const tourGroupLine = tourMeta?.max_people
     ? `Maks. ${tourMeta.max_people} kişi`
     : maxGuests
       ? `Maks. ${maxGuests} kişi`
       : 'Kapasite belirtilmedi'
-  const tourDescriptionHtml = description?.trim() ? sanitizeRichCmsHtml(description) : ''
+  const tourDescriptionRaw =
+    isTour && description && tourFlightSchedules.length > 0
+      ? stripFlightScheduleBlockFromDescription(description)
+      : description
+  const tourDescriptionHtml = tourDescriptionRaw?.trim()
+    ? sanitizeRichCmsHtml(tourDescriptionRaw)
+    : ''
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
         tourMeta?.travel_type && travelTypeLabel(tourMeta.travel_type)
@@ -366,6 +384,13 @@ export default async function ExperienceListingDetailPage({
     ? [
         (tourMeta?.itinerary ?? []).length > 0
           ? { id: 'tour-section-program', label: 'Program', eyebrow: String(tourMeta?.itinerary?.length ?? '') }
+          : null,
+        tourFlightSchedules.length > 0
+          ? {
+              id: 'tour-section-flights',
+              label: 'Kalkış tarihleri',
+              eyebrow: String(tourFlightSchedules.length),
+            }
           : null,
         tourIncludedLines.length > 0 || tourExcludedLines.length > 0
           ? { id: 'tour-section-services', label: 'Dahil/Hariç' }
@@ -469,6 +494,7 @@ export default async function ExperienceListingDetailPage({
         <TourBookingSidebar
           action={handleSubmitForm}
           periods={tourPeriodOptions}
+          plannedDepartureCount={tourFlightSchedules.length}
           fallbackPrice={price}
           reviewStart={reviewStart ?? 0}
           reviewCount={reviewCount ?? 0}
@@ -525,6 +551,12 @@ export default async function ExperienceListingDetailPage({
                   <div dangerouslySetInnerHTML={{ __html: tourDescriptionHtml }} />
                 ) : null
               }
+            />
+          ) : null}
+          {isTour && tourFlightSchedules.length > 0 ? (
+            <TourFlightScheduleSection
+              rows={tourFlightSchedules}
+              bookablePeriodCount={tourPeriodOptions.length}
             />
           ) : null}
           {isTour ? (
