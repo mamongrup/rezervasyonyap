@@ -4,7 +4,7 @@
   "version": "2.2.0",
   "private": true,
   "engines": {
-    "node": ">=20.9.0"
+    "node": ">=24.14.0"
   },
   "scripts": {
     "dev": "node ./scripts/next-with-heap.mjs dev --webpack",
@@ -40,7 +40,6 @@
     "@tiptap/react": "^3.22.3",
     "@tiptap/starter-kit": "^3.22.3",
     "@types/lodash": "^4.17.13",
-    "@types/node": "20.9.2",
     "@types/react": "19.2.14",
     "@types/react-datepicker": "^4.19.6",
     "@types/react-dom": "19.2.3",
@@ -77,6 +76,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/node": "^24.12.4",
     "beasties": "^0.4.1",
     "mysql2": "^3.22.3",
     "pg": "^8.13.1",

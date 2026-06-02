@@ -5,7 +5,7 @@
 # Loglar: scripts/cron/logs/<YYYY-MM-DD>.log
 
 param(
-    [string]$PsqlPath = 'C:\laragon\bin\postgresql\postgresql-18.2\bin\psql.exe',
+    [string]$PsqlPath = 'C:\laragon\bin\postgresql\postgresql-18.4\bin\psql.exe',
     [string]$DbHost   = '127.0.0.1',
     [int]$DbPort      = 5432,
     [string]$DbUser   = 'postgres',
