@@ -315,6 +315,7 @@ export function mapPublicListingItemToListingBase(
     const tourVisaRaw = item.tour_visa_required?.trim().toLowerCase()
     const tourVisaRequired =
       tourVisaRaw === 'true' ? true : tourVisaRaw === 'false' ? false : undefined
+    const tourDeparturePlace = item.tour_departure_place?.trim()
     const resolvedDurationDays =
       tourDurationDays ?? (tourNights != null && tourNights > 0 ? tourNights + 1 : undefined)
     return {
@@ -332,6 +333,7 @@ export function mapPublicListingItemToListingBase(
       ...(vertical === 'tour' && tourTransportType ? { transportType: tourTransportType } : {}),
       ...(vertical === 'tour' && tourMealType ? { mealType: tourMealType } : {}),
       ...(vertical === 'tour' && tourVisaRequired != null ? { visaRequired: tourVisaRequired } : {}),
+      ...(vertical === 'tour' && tourDeparturePlace ? { departureCity: tourDeparturePlace } : {}),
       ...(vertical === 'tour' && tourAccommodationType ? { accommodationType: tourAccommodationType } : {}),
       ...(vertical === 'tour' && tourLanguages ? { languages: tourLanguages } : {}),
     } as TListingBase

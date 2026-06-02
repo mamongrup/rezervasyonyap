@@ -8796,6 +8796,8 @@ export interface PublicListingItem {
   tour_transport_type?: string | null
   /** Tur — vize gerekli mi (`true` / `false`) */
   tour_visa_required?: string | null
+  /** Tur — kalkış noktası (dönem ulaşım detayı, havalimanı kodu veya şehir) */
+  tour_departure_place?: string | null
   /** Kültür ve Turizm Bakanlığı / tesis belge no — `listings.ministry_license_ref` */
   ministry_license_ref?: string | null
   /** Ön ödeme yüzdesi — `listings.prepayment_percent` */

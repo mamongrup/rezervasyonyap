@@ -81,6 +81,69 @@ function mapVisaLabel(visaRequired?: boolean): string | null {
   return null
 }
 
+const AIRPORT_DEPARTURE_CITIES: Record<string, string> = {
+  saw: 'İstanbul',
+  ist: 'İstanbul',
+  esb: 'Ankara',
+  adb: 'İzmir',
+  diy: 'Diyarbakır',
+  szf: 'Samsun',
+  gzt: 'Gaziantep',
+  ayt: 'Antalya',
+  dlm: 'Dalaman',
+  bod: 'Bodrum',
+  tzx: 'Trabzon',
+  erz: 'Erzurum',
+  vas: 'Sivas',
+  asr: 'Kayseri',
+}
+
+function normalizeAirportNameToCity(name: string): string | null {
+  const raw = normKey(name)
+  if (!raw) return null
+  if (raw.includes('sabiha') || raw.includes('ataturk') || raw.includes('istanbul')) return 'İstanbul'
+  if (raw.includes('esenboga') || raw.includes('ankara')) return 'Ankara'
+  if (raw.includes('adnan menderes') || raw.includes('izmir')) return 'İzmir'
+  if (raw.includes('diyarbakir')) return 'Diyarbakır'
+  if (raw.includes('samsun') || raw.includes('carsamba')) return 'Samsun'
+  if (raw.includes('antalya')) return 'Antalya'
+  if (raw.includes('trabzon')) return 'Trabzon'
+  if (raw.includes('gaziantep')) return 'Gaziantep'
+
+  const cleaned = name
+    .replace(/\b(international|havaliman[iı]|airport)\b/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+  return cleaned.length > 0 && cleaned.length <= 32 ? cleaned : null
+}
+
+/** Wtatil dönem / snapshot ham kalkış değerini vitrin etiketine çevirir */
+export function mapTourDepartureCityLabel(raw?: string | null): string | null {
+  const text = String(raw ?? '').trim()
+  if (!text) return null
+
+  if (text.includes('||')) {
+    const [namePart, codePart] = text.split('||')
+    const code = normKey(codePart)
+    if (code && AIRPORT_DEPARTURE_CITIES[code]) return AIRPORT_DEPARTURE_CITIES[code]
+    const fromName = normalizeAirportNameToCity(namePart)
+    if (fromName) return fromName
+  }
+
+  if (/^[A-Za-z]{3}$/.test(text)) {
+    const fromCode = AIRPORT_DEPARTURE_CITIES[normKey(text)]
+    if (fromCode) return fromCode
+  }
+
+  if (text.length <= 40 && !text.startsWith('{')) return text
+  return null
+}
+
+function mapDepartureMetaLabel(departureRaw?: string): string | null {
+  const city = mapTourDepartureCityLabel(departureRaw)
+  return city ? `Kalkış: ${city}` : null
+}
+
 function formatDuration(nights?: number, days?: number): string | null {
   const n = nights != null && nights > 0 ? nights : null
   const d = days != null && days > 0 ? days : n != null ? n + 1 : null
@@ -100,6 +163,7 @@ export function buildTourListingCardMetaLines(tour: TListingTour, _locale = 'tr'
   const lines: string[] = []
 
   const rowOne = joinMetaParts([
+    mapDepartureMetaLabel(tour.departureCity),
     mapVisaLabel(tour.visaRequired),
     mapTravelLabel(tour.travelType, tour.transportType),
   ])

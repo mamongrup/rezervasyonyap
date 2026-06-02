@@ -128,6 +128,7 @@ fn pub_listing_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
   ),
 ) {
   use id <- decode.field(0, decode.string)
@@ -175,6 +176,7 @@ fn pub_listing_row() -> decode.Decoder(
   use tour_meal_type <- decode.field(42, decode.string)
   use tour_transport_type <- decode.field(43, decode.string)
   use tour_visa_required <- decode.field(44, decode.string)
+  use tour_departure_place <- decode.field(45, decode.string)
   decode.success(#(
     id,
     slug,
@@ -221,6 +223,7 @@ fn pub_listing_row() -> decode.Decoder(
     tour_meal_type,
     tour_transport_type,
     tour_visa_required,
+    tour_departure_place,
   ))
 }
 
@@ -260,6 +263,7 @@ fn gallery_urls_json(raw: String) -> json.Json {
 
 fn pub_listing_json(
   row: #(
+    String,
     String,
     String,
     String,
@@ -353,6 +357,7 @@ fn pub_listing_json(
     tour_meal_type,
     tour_transport_type,
     tour_visa_required,
+    tour_departure_place,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -419,6 +424,7 @@ fn pub_listing_json(
     #("tour_meal_type", json_opt_str(tour_meal_type)),
     #("tour_transport_type", json_opt_str(tour_transport_type)),
     #("tour_visa_required", json_opt_str(tour_visa_required)),
+    #("tour_departure_place", json_opt_str(tour_departure_place)),
   ])
 }
 
@@ -703,6 +709,13 @@ fn search_listings_impl(
     <> "  when wtatil_snap.value_json->'visa_detail' is not null and wtatil_snap.value_json->'visa_detail' != 'null'::jsonb "
     <> "       and wtatil_snap.value_json->'visa_detail'::text not in ('null','{}','\"\"') then 'true' "
     <> "  else 'false' end, '') "
+    <> ", coalesce(nullif(trim(("
+    <> "  select pd.item->>'departureTransportDetail' "
+    <> "  from jsonb_array_elements(coalesce(tour_det.program_days_json->'periods', '[]'::jsonb)) pd(item) "
+    <> "  where nullif(trim(pd.item->>'departureTransportDetail'), '') is not null "
+    <> "  limit 1)), ''), nullif(trim(tour_det.program_days_json->'transport'->>'departureTransportDetail'), ''), "
+    <> "nullif(trim(tour_attr.value_json->'data'->>'departure_city'), ''), nullif(trim(tour_attr.value_json->>'departure_city'), ''), "
+    <> "nullif(trim((regexp_match(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', ''), '\\(([A-Z]{3})\\)'))[1]), ''), '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
