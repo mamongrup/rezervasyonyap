@@ -36,6 +36,7 @@ import {
   parseTourFlightSchedulesFromDescription,
   stripFlightScheduleBlockFromDescription,
 } from '@/lib/tour-flight-schedule'
+import { resolveTourCountryCards } from '@/lib/tour-countries-resolve'
 import { parseTourDescription, replaceTourBrandName } from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -54,6 +55,7 @@ import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SectionListingReviews from './components/SectionListingReviews'
 import SectionMap from './components/SectionMap'
 import ActivityBookingPanel from './ActivityBookingPanel'
+import TourCountryInfoSection from './TourCountryInfoSection'
 import TourBookingSidebar from './TourBookingSidebar'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
@@ -279,7 +281,7 @@ export default async function ExperienceListingDetailPage({
 
   const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
   const activityInitialDate = new Date().toISOString().slice(0, 10)
-  const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions, rawTourPeriods] =
+  const [availabilityCalendarDays, rawTourMeta, rawActivityMeta, priceLines, initialActivitySessions, rawTourPeriods, tourCountryCards] =
     await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
@@ -299,6 +301,9 @@ export default async function ExperienceListingDetailPage({
     vertical === 'tour'
       ? getPublicTourPeriods(catalogListingId).catch(() => null)
       : Promise.resolve(null),
+    vertical === 'tour'
+      ? resolveTourCountryCards(catalogListingId).catch(() => [])
+      : Promise.resolve([]),
   ])
 
   const {
@@ -526,6 +531,7 @@ export default async function ExperienceListingDetailPage({
         ) : null}
         {tourFlightSchedules.length > 0 ? <TourFlightScheduleSection /> : null}
         <TourInfoSections sections={tourInfoSections} />
+        <TourCountryInfoSection countries={tourCountryCards} locale={locale} />
         <div id="tour-section-program" className="scroll-mt-28">
           <TourItinerarySection days={tourMeta?.itinerary ?? []} />
         </div>
@@ -614,20 +620,20 @@ export default async function ExperienceListingDetailPage({
       <Divider className="my-16" />
 
       <div className="flex flex-col gap-y-10">
-        <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
-          <div className="w-full lg:w-4/9 xl:w-1/3">
-            <SectionHost {...listingHostForSection(title, host)} locale={locale} />
-          </div>
-          <div className="w-full lg:w-2/3">
-            {!isTour ? (
+        {!isTour ? (
+          <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
+            <div className="w-full lg:w-4/9 xl:w-1/3">
+              <SectionHost {...listingHostForSection(title, host)} locale={locale} />
+            </div>
+            <div className="w-full lg:w-2/3">
               <SectionListingReviews
                 listingId={listing.id}
                 reviewCount={reviewCount ?? 0}
                 reviewStart={reviewStart ?? 0}
               />
-            ) : null}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {!isTour ? (
           <div className="scroll-mt-28">

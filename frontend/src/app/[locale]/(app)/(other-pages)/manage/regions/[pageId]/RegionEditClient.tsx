@@ -594,6 +594,13 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
   const [ciFlagUrl, setCiFlagUrl] = useState('')
   const [ciLangInput, setCiLangInput] = useState('')
   const [ciCurrInput, setCiCurrInput] = useState('')
+  const [ciCountryPhoneCode, setCiCountryPhoneCode] = useState('')
+  const [ciTimeDifference, setCiTimeDifference] = useState('')
+  const [ciVoltage, setCiVoltage] = useState('')
+  const [ciGeneralDescription, setCiGeneralDescription] = useState('')
+  const [ciTaxes, setCiTaxes] = useState('')
+  const [ciTipping, setCiTipping] = useState('')
+  const [ciAiBusy, setCiAiBusy] = useState(false)
 
   // Per-language content
   const [translations, setTranslations] = useState<LocationTranslations>({})
@@ -914,6 +921,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
             languages?: string[]
             currencies?: string[]
             consulate_phone?: string
+            country_phone_code?: string
+            time_difference?: string
+            voltage?: string
+            general_description?: string
+            taxes?: string
+            tipping?: string
             emergency_numbers?: { label: string; number: string }[]
             flag_emoji?: string
             flag_url?: string
@@ -921,6 +934,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           setCiLanguages(ci.languages ?? [])
           setCiCurrencies(ci.currencies ?? [])
           setCiConsulatePhone(ci.consulate_phone ?? '')
+          setCiCountryPhoneCode(ci.country_phone_code ?? '')
+          setCiTimeDifference(ci.time_difference ?? '')
+          setCiVoltage(ci.voltage ?? '')
+          setCiGeneralDescription(ci.general_description ?? '')
+          setCiTaxes(ci.taxes ?? '')
+          setCiTipping(ci.tipping ?? '')
           setCiEmergencyNumbers(normalizeEmergencyNumbers(ci.emergency_numbers))
           setCiFlagEmoji(ci.flag_emoji ?? '')
           setCiFlagUrl(ci.flag_url ?? '')
@@ -1424,6 +1443,12 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           languages: ciLanguages,
           currencies: ciCurrencies,
           consulate_phone: ciConsulatePhone,
+          country_phone_code: ciCountryPhoneCode,
+          time_difference: ciTimeDifference,
+          voltage: ciVoltage,
+          general_description: ciGeneralDescription,
+          taxes: ciTaxes,
+          tipping: ciTipping,
           emergency_numbers: ciEmergencyNumbers,
           flag_emoji: ciFlagEmoji,
           flag_url: ciFlagUrl,
@@ -2352,6 +2377,71 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
           {/* ── Ülke Bilgileri (yalnızca ülke tipinde) ───────────────────── */}
           {regionType === 'country' && (
             <Card plain title="🌍 Ülke Bilgileri">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                  Tur detay sayfalarında «Bölge Hakkında» kartlarında gösterilir.
+                </p>
+                <button
+                  type="button"
+                  disabled={ciAiBusy}
+                  onClick={() => void (async () => {
+                    const name = asTrimmedString(translations[primaryLocale]?.name)
+                    if (!name) {
+                      alert('Önce ülke adını (Türkçe) girin.')
+                      return
+                    }
+                    setCiAiBusy(true)
+                    setSaveMsg(null)
+                    try {
+                      const res = await fetch('/api/ai-country-tour-info-generate', {
+                        method: 'POST',
+                        credentials: 'include',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          countryName: name,
+                          iso2: slugPath.trim().toUpperCase(),
+                          pageId,
+                          save: false,
+                          existingCountryInfo: JSON.stringify({
+                            languages: ciLanguages,
+                            currencies: ciCurrencies,
+                            consulate_phone: ciConsulatePhone,
+                            country_phone_code: ciCountryPhoneCode,
+                            time_difference: ciTimeDifference,
+                            voltage: ciVoltage,
+                            general_description: ciGeneralDescription,
+                            taxes: ciTaxes,
+                            tipping: ciTipping,
+                            flag_emoji: ciFlagEmoji,
+                            flag_url: ciFlagUrl,
+                          }),
+                        }),
+                      })
+                      if (!res.ok) throw new Error(`AI HTTP ${res.status}`)
+                      const data = (await res.json()) as { country_info?: Record<string, unknown> }
+                      const info = data.country_info ?? {}
+                      if (Array.isArray(info.languages)) setCiLanguages(info.languages.map(String))
+                      if (Array.isArray(info.currencies)) setCiCurrencies(info.currencies.map(String))
+                      if (typeof info.consulate_phone === 'string') setCiConsulatePhone(info.consulate_phone)
+                      if (typeof info.country_phone_code === 'string') setCiCountryPhoneCode(info.country_phone_code)
+                      if (typeof info.time_difference === 'string') setCiTimeDifference(info.time_difference)
+                      if (typeof info.voltage === 'string') setCiVoltage(info.voltage)
+                      if (typeof info.general_description === 'string') setCiGeneralDescription(info.general_description)
+                      if (typeof info.taxes === 'string') setCiTaxes(info.taxes)
+                      if (typeof info.tipping === 'string') setCiTipping(info.tipping)
+                      setSaveMsg({ ok: true, text: 'Tur ülke bilgileri AI ile üretildi. Kaydet ile kalıcılaştırın.' })
+                    } catch (e) {
+                      setSaveMsg({ ok: false, text: formatManageApiCatch(e, 'AI üretimi başarısız') })
+                    } finally {
+                      setCiAiBusy(false)
+                    }
+                  })()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[color:var(--manage-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {ciAiBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  Tur bilgilerini AI ile üret
+                </button>
+              </div>
               <div className="space-y-5">
 
                 {/* Bayrak */}
@@ -2507,17 +2597,83 @@ export default function RegionEditClient({ pageId }: { pageId: string }) {
                   <p className={hintCls}>ISO para birimi kodları (ör: TRY, EUR)</p>
                 </div>
 
-                {/* Konsolosluk Telefonu */}
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Saat Farkı (Türkiye&apos;ye göre)</label>
+                    <input
+                      type="text"
+                      value={ciTimeDifference}
+                      onChange={(e) => setCiTimeDifference(e.target.value)}
+                      placeholder="ör: -1, +2, aynı"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Voltaj</label>
+                    <input
+                      type="text"
+                      value={ciVoltage}
+                      onChange={(e) => setCiVoltage(e.target.value)}
+                      placeholder="ör: 220"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className={labelCls}>Konsolosluk / Büyükelçilik Telefonu</label>
-                  <input
-                    type="text"
-                    value={ciConsulatePhone}
-                    onChange={(e) => setCiConsulatePhone(e.target.value)}
-                    placeholder="+90 312 000 0000"
+                  <label className={labelCls}>Genel (kısa açıklama)</label>
+                  <textarea
+                    value={ciGeneralDescription}
+                    onChange={(e) => setCiGeneralDescription(e.target.value)}
+                    rows={4}
+                    placeholder="Başkent, komşular, iklim — 2-3 cümle"
                     className={inputCls}
                   />
-                  <p className={hintCls}>Türkiye&apos;nin ilgili ülkedeki konsolosluğu veya tersi</p>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className={labelCls}>Ülke Telefon Kodu</label>
+                    <input
+                      type="text"
+                      value={ciCountryPhoneCode}
+                      onChange={(e) => setCiCountryPhoneCode(e.target.value)}
+                      placeholder="ör: 33"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Konsolosluk / Büyükelçilik Telefonu</label>
+                    <input
+                      type="text"
+                      value={ciConsulatePhone}
+                      onChange={(e) => setCiConsulatePhone(e.target.value)}
+                      placeholder="+90 312 000 0000"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className={labelCls}>Vergiler</label>
+                  <textarea
+                    value={ciTaxes}
+                    onChange={(e) => setCiTaxes(e.target.value)}
+                    rows={2}
+                    placeholder="KDV / vergi uygulaması"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <label className={labelCls}>Bahşiş</label>
+                  <textarea
+                    value={ciTipping}
+                    onChange={(e) => setCiTipping(e.target.value)}
+                    rows={2}
+                    placeholder="Restoran, bar, taksi bahşişi"
+                    className={inputCls}
+                  />
                 </div>
 
                 {/* Acil Numaralar */}
