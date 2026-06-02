@@ -124,6 +124,10 @@ fn pub_listing_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
+    String,
+    String,
+    String,
   ),
 ) {
   use id <- decode.field(0, decode.string)
@@ -256,6 +260,9 @@ fn gallery_urls_json(raw: String) -> json.Json {
 
 fn pub_listing_json(
   row: #(
+    String,
+    String,
+    String,
     String,
     String,
     String,
