@@ -12,6 +12,7 @@ import { parseLenientJson } from '@/lib/json-parse'
 import {
   parseHolidayHomeFaqTemplatePayload,
   type HolidayHomeFaqTemplatePayload,
+  withHolidayHomeFaqTemplateDefaults,
 } from '@/lib/holiday-home-faq-merge'
 import {
   type HolidayHomePropertyTypeItem,
@@ -698,6 +699,13 @@ export type ManageListingRow = {
   category_contract_id: string
 }
 
+export type ManageCatalogListingsResult = {
+  listings: ManageListingRow[]
+  total: number
+  page: number
+  per_page: number
+}
+
 /** Katalog yönetim listesi — tedarikçi / personel / acente kendi kurumu; yönetici `organizationId` zorunlu. */
 export async function listManageCatalogListings(
   token: string,
@@ -707,8 +715,12 @@ export async function listManageCatalogListings(
     organizationId?: string
     /** Panel dili ile uyumlu başlık (`listing_translations`). Varsayılan: tr */
     titleLocale?: string
+    /** Sayfa (1 tabanlı). API varsayılanı 1. */
+    page?: number
+    /** Sayfa başına kayıt. API varsayılanı 200 (üst sınır 500). */
+    perPage?: number
   },
-): Promise<{ listings: ManageListingRow[] }> {
+): Promise<ManageCatalogListingsResult> {
   const b = base()
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const u = new URLSearchParams()
@@ -716,6 +728,8 @@ export async function listManageCatalogListings(
   if (params.search?.trim()) u.set('search', params.search.trim())
   if (params.organizationId?.trim()) u.set('organization_id', params.organizationId.trim())
   if (params.titleLocale?.trim()) u.set('title_locale', params.titleLocale.trim().toLowerCase())
+  if (params.page != null && params.page >= 1) u.set('page', String(Math.floor(params.page)))
+  if (params.perPage != null && params.perPage >= 1) u.set('per_page', String(Math.floor(params.perPage)))
   const qs = u.toString()
   const res = await fetch(`${b}/api/v1/catalog/manage-listings${qs ? `?${qs}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -724,7 +738,19 @@ export async function listManageCatalogListings(
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `manage_listings_${res.status}`)
   }
-  return json<{ listings: ManageListingRow[] }>(res)
+  const data = await json<{
+    listings: ManageListingRow[]
+    total?: number
+    page?: number
+    per_page?: number
+  }>(res)
+  const listings = data.listings ?? []
+  return {
+    listings,
+    total: data.total ?? listings.length,
+    page: data.page ?? 1,
+    per_page: data.per_page ?? listings.length,
+  }
 }
 
 export async function createManageCatalogListing(
@@ -6065,7 +6091,7 @@ export async function fetchPublicHolidayHomeFaqTemplate(
   const res = await fetch(`${b}/api/v1/catalog/public/holiday-home-faq-template`, init)
   if (!res.ok) throw new Error(`holiday_home_faq_template_${res.status}`)
   const raw: unknown = await json(res)
-  return parseHolidayHomeFaqTemplatePayload(raw)
+  return withHolidayHomeFaqTemplateDefaults(parseHolidayHomeFaqTemplatePayload(raw))
 }
 
 /** `catalog.holiday_home_property_types` — kimlik gerekmez (ilan sahibi + admin aynı liste). */

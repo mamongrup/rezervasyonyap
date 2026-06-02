@@ -141,6 +141,7 @@ modules/296_gtc_provider_refs.sql
 modules/297_travelrobot_provider_refs.sql
 modules/298_api_keys_bookings_write_scope.sql
 modules/299_agency_api_settings.sql
+modules/302_holiday_home_default_faq_common_seed.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

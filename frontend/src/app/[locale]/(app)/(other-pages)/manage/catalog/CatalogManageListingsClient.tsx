@@ -14,8 +14,12 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
 import Link from 'next/link'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
+
+const PAGE_SIZE_OPTIONS = [50, 100, 200] as const
+type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number]
 
 export default function CatalogManageListingsClient({ categoryCode }: { categoryCode: string }) {
   const t = useManageT()
@@ -23,6 +27,9 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
   const [rows, setRows] = useState<ManageListingRow[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [pageIndex, setPageIndex] = useState(0)
+  const [pageSize, setPageSize] = useState<PageSizeOption>(50)
   const [search, setSearch] = useState('')
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
@@ -53,6 +60,10 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
       .finally(() => setScopeReady(true))
   }, [])
 
+  useEffect(() => {
+    setPageIndex(0)
+  }, [search, pageSize])
+
   const load = useCallback(async () => {
     const token = getStoredAuthToken()
     if (!token) {
@@ -75,15 +86,19 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
         search: search.trim() || undefined,
         organizationId: needOrg ? orgId.trim() : undefined,
         titleLocale: locale,
+        page: pageIndex + 1,
+        perPage: pageSize,
       })
       setRows(r.listings)
+      setTotalCount(r.total)
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : t('catalog.list_error'))
       setRows([])
+      setTotalCount(0)
     } finally {
       setLoading(false)
     }
-  }, [categoryCode, needOrg, orgId, search, t, locale])
+  }, [categoryCode, needOrg, orgId, search, t, locale, pageIndex, pageSize])
 
   useEffect(() => {
     if (!scopeReady) return
@@ -96,6 +111,12 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   }
 
   const base = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+  const rangeStart = totalCount === 0 ? 0 : pageIndex * pageSize + 1
+  const rangeEnd = Math.min(totalCount, (pageIndex + 1) * pageSize)
+
+  const pageSizeSelectClass =
+    'rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
 
   return (
     <div>
@@ -192,6 +213,60 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
           </tbody>
         </table>
       </div>
+
+      {!loading && totalCount > 0 ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-100 bg-neutral-50/80 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            <span className="font-medium text-neutral-800 dark:text-neutral-200">
+              {rangeStart}–{rangeEnd}
+            </span>
+            {' · '}
+            Toplam {totalCount} ilan
+            {search.trim() ? (
+              <span className="text-neutral-400">{` (arama: "${search.trim()}")`}</span>
+            ) : null}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-sm text-neutral-600 dark:text-neutral-400">
+              <span className="text-xs text-neutral-500">Sayfa başına</span>
+              <select
+                value={pageSize}
+                disabled={loading}
+                onChange={(e) => setPageSize(Number(e.target.value) as PageSizeOption)}
+                className={pageSizeSelectClass}
+                aria-label="Sayfa başına ilan sayısı"
+              >
+                {PAGE_SIZE_OPTIONS.map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span className="text-xs text-neutral-500">
+              Sayfa {pageIndex + 1} / {totalPages}
+            </span>
+            <button
+              type="button"
+              disabled={pageIndex === 0 || loading}
+              onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Önceki
+            </button>
+            <button
+              type="button"
+              disabled={(pageIndex + 1) * pageSize >= totalCount || loading}
+              onClick={() => setPageIndex((p) => p + 1)}
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            >
+              Sonraki
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <Link
         href={vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)}

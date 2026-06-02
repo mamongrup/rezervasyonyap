@@ -13,6 +13,7 @@ import {
   parseHolidayHomeFaqListingOverlay,
   parseHolidayHomeFaqTemplatePayload,
   pickHolidayHomeFaqText,
+  withHolidayHomeFaqTemplateDefaults,
 } from '@/lib/holiday-home-faq-merge'
 import {
   defaultHeroKeysFromSort,
@@ -1019,12 +1020,11 @@ export default function CatalogNewListingClient({
       .then((res) => {
         if (cancelled) return
         const rrow = res.settings[0]
-        if (!rrow?.value_json?.trim()) {
-          setFaqTemplateRows([])
-          return
-        }
         try {
-          const payload = parseHolidayHomeFaqTemplatePayload(JSON.parse(rrow.value_json) as unknown)
+          const raw = rrow?.value_json?.trim()
+            ? parseHolidayHomeFaqTemplatePayload(JSON.parse(rrow.value_json) as unknown)
+            : { items: [] }
+          const payload = withHolidayHomeFaqTemplateDefaults(raw)
           setFaqTemplateRows(
             payload.items.map((it) => ({
               id: it.id,
@@ -1033,7 +1033,14 @@ export default function CatalogNewListingClient({
             })),
           )
         } catch {
-          setFaqTemplateRows([])
+          const payload = withHolidayHomeFaqTemplateDefaults({ items: [] })
+          setFaqTemplateRows(
+            payload.items.map((it) => ({
+              id: it.id,
+              q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+              a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+            })),
+          )
         }
       })
       .catch(() => {})
@@ -1219,7 +1226,7 @@ export default function CatalogNewListingClient({
             search: lid,
             organizationId: orgParam?.organizationId,
             titleLocale: locale,
-          }).catch(() => ({ listings: [] as ManageListingRow[] })),
+          }).catch(() => ({ listings: [] as ManageListingRow[], total: 0, page: 1, per_page: 0 })),
           getManageListingTranslations(token, lid, orgParam).catch(() => ({ translations: [] })),
           getListingBasics(token, lid, orgParam).catch(() => null),
           getListingOwnerContact(token, lid, orgParam).catch(() => null),
@@ -1251,23 +1258,27 @@ export default function CatalogNewListingClient({
             : {}
 
         const faqSiteRow = faqTplRes.settings[0]
-        if (faqSiteRow?.value_json?.trim()) {
-          try {
-            const payload = parseHolidayHomeFaqTemplatePayload(
-              JSON.parse(faqSiteRow.value_json) as unknown,
-            )
-            setFaqTemplateRows(
-              payload.items.map((it) => ({
-                id: it.id,
-                q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
-                a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
-              })),
-            )
-          } catch {
-            setFaqTemplateRows([])
-          }
-        } else {
-          setFaqTemplateRows([])
+        try {
+          const raw = faqSiteRow?.value_json?.trim()
+            ? parseHolidayHomeFaqTemplatePayload(JSON.parse(faqSiteRow.value_json) as unknown)
+            : { items: [] }
+          const payload = withHolidayHomeFaqTemplateDefaults(raw)
+          setFaqTemplateRows(
+            payload.items.map((it) => ({
+              id: it.id,
+              q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+              a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+            })),
+          )
+        } catch {
+          const payload = withHolidayHomeFaqTemplateDefaults({ items: [] })
+          setFaqTemplateRows(
+            payload.items.map((it) => ({
+              id: it.id,
+              q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+              a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+            })),
+          )
         }
 
         const row = rowsRes.listings.find((x) => x.id === lid)
@@ -3772,7 +3783,8 @@ export default function CatalogNewListingClient({
                 </div>
               </Section>
             ) : null}
-            {attributeSection}
+            {/* Tatil evi: ilan tipi / tema adım 2’de (propertyType, villaThemes); buradaki öznitelik grupları yinelenirdi */}
+            {!isVilla && attributeSection}
             </>
             )}
 

@@ -319,6 +319,44 @@ fn manage_listing_row() -> decode.Decoder(
   decode.success(#(id, slug, st, cur, cat, title, comm, prep_a, prep_p, ts, src, sh, ai, cc))
 }
 
+fn manage_listings_count_row() -> decode.Decoder(String) {
+  use s <- decode.field(0, decode.string)
+  decode.success(s)
+}
+
+fn parse_manage_listings_page(raw: String) -> Int {
+  case int.parse(string.trim(raw)) {
+    Ok(n) ->
+      case n < 1 {
+        True -> 1
+        False -> n
+      }
+    Error(_) -> 1
+  }
+}
+
+fn parse_manage_listings_per_page(raw: String) -> Int {
+  case int.parse(string.trim(raw)) {
+    Ok(n) ->
+      case n < 1 {
+        True -> 200
+        False ->
+          case n > 500 {
+            True -> 500
+            False -> n
+          }
+      }
+    Error(_) -> 200
+  }
+}
+
+const manage_listings_scope_sql: String =
+  "from listings l "
+  <> "join product_categories pc on pc.id = l.category_id "
+  <> "where l.organization_id = $1::uuid "
+  <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2) "
+  <> "and ($3::text is null or pc.code = $3)"
+
 /// GET /api/v1/catalog/product-categories?active_only=true — yalnızca yayında kategoriler.
 pub fn list_product_categories(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -371,7 +409,8 @@ pub fn list_product_categories(req: Request, ctx: Context) -> Response {
   }
 }
 
-/// GET /api/v1/catalog/manage-listings?category_code=&search=&organization_id= (organization_id yalnız yönetici)
+/// GET /api/v1/catalog/manage-listings?category_code=&search=&organization_id=&page=&per_page=
+/// organization_id yalnız yönetici. Sayfalama: page (1 tabanlı), per_page (varsayılan 200, üst sınır 500).
 pub fn list_manage_listings(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   case resolve_manage_listings_scope(req, ctx) {
@@ -407,70 +446,104 @@ pub fn list_manage_listings(req: Request, ctx: Context) -> Response {
         True -> "tr"
         False -> title_loc_raw
       }
+      let page_n =
+        list.key_find(qs, "page")
+        |> result.unwrap("1")
+        |> parse_manage_listings_page
+      let per_page_n =
+        list.key_find(qs, "per_page")
+        |> result.unwrap("200")
+        |> parse_manage_listings_per_page
+      let offset_n = { page_n - 1 } * per_page_n
 
-      let sql =
+      let count_sql = "select count(*)::text " <> manage_listings_scope_sql
+
+      let list_sql =
         "select l.id::text, l.slug, l.status::text, l.currency_code::text, pc.code::text, "
         <> "coalesce((select lt.title from listing_translations lt join locales loc on loc.id = lt.locale_id where lt.listing_id = l.id and lower(loc.code) = lower($4::text) limit 1), ''), "
         <> "coalesce(l.commission_percent::text, ''), coalesce(l.prepayment_amount::text, ''), coalesce(l.prepayment_percent::text, ''), "
         <> "to_char(l.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), coalesce(l.listing_source::text, 'manual'), "
         <> "coalesce(l.share_to_social, false), coalesce(l.allow_ai_caption, false), coalesce(l.category_contract_id::text, '') "
-        <> "from listings l "
-        <> "join product_categories pc on pc.id = l.category_id "
-        <> "where l.organization_id = $1::uuid "
-        <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2) "
-        <> "and ($3::text is null or pc.code = $3) "
-        <> "order by l.created_at desc limit 200"
+        <> manage_listings_scope_sql
+        <> "order by l.created_at desc limit $5::int offset $6::int"
 
       case
-        pog.query(sql)
+        pog.query(count_sql)
         |> pog.parameter(pog.text(org_id))
         |> pog.parameter(like_param)
         |> pog.parameter(cat_param)
-        |> pog.parameter(pog.text(title_loc))
-        |> pog.returning(manage_listing_row())
+        |> pog.returning(manage_listings_count_row())
         |> pog.execute(ctx.db)
       {
         Error(_) -> json_err(500, "manage_listings_query_failed")
-        Ok(ret) -> {
-          let arr =
-            list.map(ret.rows, fn(row) {
-              let #(
-                id,
-                slug,
-                st,
-                cur,
-                cat,
-                title,
-                comm,
-                prep_a,
-                prep_p,
-                ts,
-                src,
-                sh,
-                ai,
-                cc_id,
-              ) = row
-              json.object([
-                #("id", json.string(id)),
-                #("slug", json.string(slug)),
-                #("status", json.string(st)),
-                #("currency_code", json.string(cur)),
-                #("category_code", json.string(cat)),
-                #("title", json.string(title)),
-                #("commission_percent", json.string(comm)),
-                #("prepayment_amount", json.string(prep_a)),
-                #("prepayment_percent", json.string(prep_p)),
-                #("created_at", json.string(ts)),
-                #("listing_source", json.string(src)),
-                #("share_to_social", json.bool(sh)),
-                #("allow_ai_caption", json.bool(ai)),
-                #("category_contract_id", json.string(cc_id)),
-              ])
-            })
-          let body =
-            json.object([#("listings", json.preprocessed_array(arr))])
-            |> json.to_string
-          wisp.json_response(body, 200)
+        Ok(count_ret) -> {
+          let total_n = case count_ret.rows {
+            [] -> 0
+            [total_row, ..] ->
+              case int.parse(total_row) {
+                Ok(n) -> n
+                Error(_) -> 0
+              }
+          }
+          case
+            pog.query(list_sql)
+            |> pog.parameter(pog.text(org_id))
+            |> pog.parameter(like_param)
+            |> pog.parameter(cat_param)
+            |> pog.parameter(pog.text(title_loc))
+            |> pog.parameter(pog.int(per_page_n))
+            |> pog.parameter(pog.int(offset_n))
+            |> pog.returning(manage_listing_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "manage_listings_query_failed")
+            Ok(ret) -> {
+              let arr =
+                list.map(ret.rows, fn(row) {
+                  let #(
+                    id,
+                    slug,
+                    st,
+                    cur,
+                    cat,
+                    title,
+                    comm,
+                    prep_a,
+                    prep_p,
+                    ts,
+                    src,
+                    sh,
+                    ai,
+                    cc_id,
+                  ) = row
+                  json.object([
+                    #("id", json.string(id)),
+                    #("slug", json.string(slug)),
+                    #("status", json.string(st)),
+                    #("currency_code", json.string(cur)),
+                    #("category_code", json.string(cat)),
+                    #("title", json.string(title)),
+                    #("commission_percent", json.string(comm)),
+                    #("prepayment_amount", json.string(prep_a)),
+                    #("prepayment_percent", json.string(prep_p)),
+                    #("created_at", json.string(ts)),
+                    #("listing_source", json.string(src)),
+                    #("share_to_social", json.bool(sh)),
+                    #("allow_ai_caption", json.bool(ai)),
+                    #("category_contract_id", json.string(cc_id)),
+                  ])
+                })
+              let body =
+                json.object([
+                  #("listings", json.preprocessed_array(arr)),
+                  #("total", json.int(total_n)),
+                  #("page", json.int(page_n)),
+                  #("per_page", json.int(per_page_n)),
+                ])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
         }
       }
     }

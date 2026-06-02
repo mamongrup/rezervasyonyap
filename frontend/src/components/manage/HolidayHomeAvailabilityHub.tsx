@@ -145,6 +145,8 @@ export default function HolidayHomeAvailabilityHub() {
         search: search.trim() || undefined,
         organizationId: needOrg ? orgId.trim() : undefined,
         titleLocale: locale,
+        page: 1,
+        perPage: 500,
       })
       setRows(r.listings)
       setSelectedId((prev) => {

@@ -3,6 +3,8 @@
  * + ilan bazlı dikey meta (`vertical_holiday_home.data.faq`).
  */
 
+import { holidayHomeDefaultFaqPayload } from '@/data/holiday-home-default-faq'
+
 export type HolidayHomeFaqLocalizedMap = Record<string, string>
 
 export type HolidayHomeFaqStoredItem = {
@@ -71,6 +73,14 @@ export function parseHolidayHomeFaqTemplatePayload(raw: unknown): HolidayHomeFaq
   if (!Array.isArray(arr)) return { items: [] }
   const items = arr.map(normalizeStoredItem).filter((x): x is HolidayHomeFaqStoredItem => x != null)
   return { items }
+}
+
+/** Boş şablon → platform varsayılan 10 SSS (vitrin + ilan kaydı). */
+export function withHolidayHomeFaqTemplateDefaults(
+  payload: HolidayHomeFaqTemplatePayload,
+): HolidayHomeFaqTemplatePayload {
+  if (payload.items.length > 0) return payload
+  return holidayHomeDefaultFaqPayload()
 }
 
 export function parseHolidayHomeFaqListingOverlay(raw: unknown): HolidayHomeFaqListingOverlay {

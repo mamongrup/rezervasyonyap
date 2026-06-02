@@ -1,9 +1,11 @@
 'use client'
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { HOLIDAY_HOME_DEFAULT_FAQ_ITEMS } from '@/data/holiday-home-default-faq'
 import {
   parseHolidayHomeFaqTemplatePayload,
   pickHolidayHomeFaqText,
+  withHolidayHomeFaqTemplateDefaults,
   type HolidayHomeFaqStoredItem,
 } from '@/lib/holiday-home-faq-merge'
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
@@ -56,17 +58,14 @@ export default function HolidayHomeFaqManageClient() {
       .then((res) => {
         if (cancelled) return
         const row = res.settings[0]
-        if (!row?.value_json?.trim()) {
-          setItems([])
-          setLoaded(true)
-          return
-        }
         try {
-          const parsed = JSON.parse(row.value_json) as unknown
-          const payload = parseHolidayHomeFaqTemplatePayload(parsed)
-          setItems(payload.items.length > 0 ? payload.items : [])
+          const parsed = row?.value_json?.trim()
+            ? (JSON.parse(row.value_json) as unknown)
+            : { items: [] }
+          const payload = withHolidayHomeFaqTemplateDefaults(parseHolidayHomeFaqTemplatePayload(parsed))
+          setItems(payload.items)
         } catch {
-          setItems([])
+          setItems([...HOLIDAY_HOME_DEFAULT_FAQ_ITEMS])
         }
         setLoaded(true)
       })
