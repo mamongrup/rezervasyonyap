@@ -15,16 +15,17 @@ function parseWtatilCountries(raw: string): WtatilCountryRef[] {
     const j = JSON.parse(raw) as { countries?: unknown; catalog?: { countries?: unknown } }
     const list = j.countries ?? j.catalog?.countries
     if (!Array.isArray(list)) return []
-    return list
-      .map((item) => {
-        if (!item || typeof item !== 'object') return null
-        const o = item as Record<string, unknown>
-        const name = String(o.name ?? o.text ?? '').trim()
-        const code = String(o.code ?? o.iso2 ?? o.countryCode ?? '').trim().toUpperCase()
-        if (!name && !code) return null
-        return { name, code }
-      })
-      .filter((x): x is WtatilCountryRef => x != null)
+
+    const refs: WtatilCountryRef[] = []
+    for (const item of list) {
+      if (!item || typeof item !== 'object') continue
+      const o = item as Record<string, unknown>
+      const name = String(o.name ?? o.text ?? '').trim()
+      const code = String(o.code ?? o.iso2 ?? o.countryCode ?? '').trim().toUpperCase()
+      if (!name && !code) continue
+      refs.push({ name, code })
+    }
+    return refs
   } catch {
     return []
   }
