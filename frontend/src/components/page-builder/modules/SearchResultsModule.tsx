@@ -4,7 +4,13 @@ import {
   type PublicListingItem,
   type ListingCollection,
 } from '@/lib/travel-api'
+import {
+  categoryLabelForSearch,
+  dedupeSearchListings,
+  publicListingDetailPath,
+} from '@/lib/search-listings-display'
 import { toIntlLocale } from '@/lib/intl-locale'
+import { vitrinHref } from '@/lib/vitrin-href'
 import { getMessages } from '@/utils/getT'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -22,10 +28,22 @@ interface Props {
   page?: number
 }
 
-function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?: string }) {
+function ListingCard({
+  item,
+  locale = 'tr',
+  href,
+}: {
+  item: PublicListingItem
+  locale?: string
+  href: string
+}) {
   const img = item.featured_image_url ?? item.thumbnail_url
   const price = item.price_from ? parseFloat(item.price_from) : null
   const m = getMessages(locale)
+  const catLabel = categoryLabelForSearch(
+    item.category_code,
+    m.listing.browseCategory as Record<string, string>,
+  )
 
   const mealBadge =
     item.meal_plan_summary === 'meal_only' ? (
@@ -40,7 +58,7 @@ function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?
 
   return (
     <Link
-      href={`/listing/${item.slug}`}
+      href={href}
       className="group flex gap-4 rounded-2xl border border-neutral-200 bg-white p-4 transition-all hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
     >
       {/* Görsel */}
@@ -62,14 +80,14 @@ function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?
 
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-400">
-          <span className="capitalize">{item.category_code}</span>
-          {item.location && (
+          {catLabel ? <span>{catLabel}</span> : null}
+          {item.location ? (
             <>
-              <span>·</span>
+              {catLabel ? <span>·</span> : null}
               <MapPin className="h-3 w-3" />
               <span>{item.location}</span>
             </>
-          )}
+          ) : null}
           {mealBadge}
         </div>
         <h3 className="line-clamp-1 font-semibold text-neutral-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
@@ -155,8 +173,8 @@ export default async function SearchResultsModule({ config, query, categoryFilte
     ])
 
     if (listRes.status === 'fulfilled' && listRes.value) {
-      total = listRes.value.total
-      listings = listRes.value.listings
+      listings = dedupeSearchListings(listRes.value.listings)
+      total = listings.length
     }
 
     if (colRes.status === 'fulfilled') {
@@ -199,8 +217,14 @@ export default async function SearchResultsModule({ config, query, categoryFilte
     )
   }
 
+  const listingHrefs = await Promise.all(
+    listings.map((item) =>
+      vitrinHref(locale, publicListingDetailPath(item.category_code, item.slug)),
+    ),
+  )
+
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       {collections.length > 0 && (
         <section>
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-neutral-900 dark:text-white">
@@ -221,9 +245,9 @@ export default async function SearchResultsModule({ config, query, categoryFilte
             <Tag className="h-5 w-5 text-primary-500" />
             İlanlar{total > 0 && ` (${total})`}
           </h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {listings.map((item) => (
-              <ListingCard key={item.id} item={item} locale={locale} />
+          <div className="grid grid-cols-1 gap-3">
+            {listings.map((item, i) => (
+              <ListingCard key={item.id} item={item} locale={locale} href={listingHrefs[i]!} />
             ))}
           </div>
         </section>

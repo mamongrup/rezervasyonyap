@@ -285,7 +285,7 @@ export function getSearchPageDefaultModules(): Omit<PageBuilderModule, 'id'>[] {
     },
     {
       type: 'destination_cards',
-      enabled: true,
+      enabled: false,
       order: 2,
       config: {
         title: 'Popüler Destinasyonlar',
@@ -294,7 +294,7 @@ export function getSearchPageDefaultModules(): Omit<PageBuilderModule, 'id'>[] {
     },
     {
       type: 'become_provider',
-      enabled: true,
+      enabled: false,
       order: 3,
       config: {
         heading: 'İlan Vermek İster misiniz?',
@@ -304,7 +304,7 @@ export function getSearchPageDefaultModules(): Omit<PageBuilderModule, 'id'>[] {
         bgVariant: 'gradient',
       },
     },
-    { type: 'newsletter', enabled: true, order: 4, config: {} },
+    { type: 'newsletter', enabled: false, order: 4, config: {} },
   ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
 

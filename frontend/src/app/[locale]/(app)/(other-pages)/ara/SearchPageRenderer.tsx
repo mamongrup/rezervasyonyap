@@ -30,8 +30,15 @@ export default async function SearchPageRenderer({
   buildUrl,
   // messages is available for future module use
 }: Props) {
-  const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
   const categoryFilter = activeCategory !== 'all' ? activeCategory : undefined
+  const hasQuery = query.trim().length > 0
+  const enabled = [...modules]
+    .filter((m) => m.enabled)
+    .filter((m) => {
+      if (!hasQuery) return true
+      return m.type === 'search_results'
+    })
+    .sort((a, b) => a.order - b.order)
 
   // search_results modülünden total almak için önce render edip sayfalama bilgisini çıkaralım
   // Bunu SearchResultsModule ayrı render ediyor; pagination için de aynı sorguyu yaparız

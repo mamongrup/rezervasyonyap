@@ -35,6 +35,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { getMessages } from '@/utils/getT'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import CurrLangDropdown from '../CurrLangDropdown'
+import ListingSearchSuggestions from '@/components/search/ListingSearchSuggestions'
+import { SEARCH_MIN_QUERY_LEN } from '@/lib/search-listings-display'
 
 /** Mobil çekmece — mavi üst kartlar (API menüsü UUID id kullanır; href ile eşleştir) */
 const SIDEBAR_HIDDEN_TOP_IDS = new Set(['1', '2', '4', '6'])
@@ -104,6 +106,8 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
   const stayBrowseHref = vitrinPath('/oteller/all')
   const s = getMessages(effectiveLocale).sidebar
   const [role, setRole] = useState<UserRole>('guest')
+  const [searchQuery, setSearchQuery] = useState('')
+  const showLiveSearch = searchQuery.trim().length >= SEARCH_MIN_QUERY_LEN
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -274,6 +278,8 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
           <input
             type="search"
             name="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             autoComplete="off"
             aria-label={s.searchAria}
             placeholder={s.searchPlaceholder}
@@ -283,8 +289,16 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
         <input type="submit" hidden value="" />
       </Form>
 
+      {showLiveSearch ? (
+        <ListingSearchSuggestions
+          query={searchQuery}
+          locale={effectiveLocale}
+          onNavigate={handleClose}
+        />
+      ) : null}
+
       {/* 1 — Kategoriler (mega menü) üstte, tek başlık; kök “Kategoriler” satırı yok */}
-      {megaRoot?.children?.length ? (
+      {!showLiveSearch && megaRoot?.children?.length ? (
         <section aria-labelledby="sidebar-categories-heading">
           <div className="mb-3">
             <h2 id="sidebar-categories-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
@@ -299,7 +313,9 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
       ) : null}
 
       {/* İlan ver vb. mega dışı üst öğeler */}
-      {extraMenuItems.length > 0 ? <div className="space-y-2">{extraMenuItems.map((item, i) => renderExtraTopLevel(item, i))}</div> : null}
+      {!showLiveSearch && extraMenuItems.length > 0 ? (
+        <div className="space-y-2">{extraMenuItems.map((item, i) => renderExtraTopLevel(item, i))}</div>
+      ) : null}
 
       {/* Rol bazlı bildirimler */}
       <section aria-labelledby="sidebar-notif-heading">

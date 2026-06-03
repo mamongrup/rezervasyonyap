@@ -4,6 +4,13 @@
  * İlan başlığına + koleksiyonlara göre autocomplete sonuçları döner.
  */
 import { apiOriginForFetch } from '@/lib/api-origin'
+import {
+  categoryLabelForSearch,
+  dedupeSearchListings,
+  publicListingDetailPath,
+  SEARCH_MIN_QUERY_LEN,
+} from '@/lib/search-listings-display'
+import type { PublicListingItem } from '@/lib/travel-api'
 import { NextRequest, NextResponse } from 'next/server'
 
 export interface SearchSuggestion {
@@ -21,9 +28,12 @@ export async function GET(req: NextRequest) {
   const locale = (req.nextUrl.searchParams.get('locale') ?? 'tr').trim()
   const limit = Math.min(Number(req.nextUrl.searchParams.get('limit') ?? '8'), 20)
 
-  if (q.length < 3) {
+  if (q.length < SEARCH_MIN_QUERY_LEN) {
     return NextResponse.json({ suggestions: [] })
   }
+
+  const { getMessages } = await import('@/utils/getT')
+  const categoryLabels = getMessages(locale).listing.browseCategory as Record<string, string>
 
   const apiBase =
     apiOriginForFetch() || (process.env.API_URL ?? '').replace(/\/$/, '')
@@ -38,16 +48,18 @@ export async function GET(req: NextRequest) {
         { next: { revalidate: 30 } },
       )
         .then((r) => r.json())
-        .then((data: { listings?: { id: string; slug: string; title: string; category_code: string; featured_image_url: string | null; location: string | null }[] }) => {
-          for (const item of data.listings ?? []) {
+        .then((data: { listings?: PublicListingItem[] }) => {
+          const deduped = dedupeSearchListings(data.listings ?? [])
+          for (const item of deduped) {
+            const catLabel = categoryLabelForSearch(item.category_code, categoryLabels)
             suggestions.push({
               type: 'listing',
               id: item.id,
               slug: item.slug,
               title: item.title,
-              subtitle: item.location ?? item.category_code,
-              image: item.featured_image_url ?? undefined,
-              href: `/listing/${item.slug}`,
+              subtitle: [catLabel, item.location].filter(Boolean).join(' · ') || undefined,
+              image: item.featured_image_url ?? item.thumbnail_url ?? undefined,
+              href: publicListingDetailPath(item.category_code, item.slug),
             })
           }
         })

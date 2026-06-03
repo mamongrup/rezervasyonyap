@@ -8,6 +8,7 @@ import { getSearchPageDefaultModules } from '@/lib/page-builder-default-modules'
 import { getCategoryPageBuilderConfig } from '@/data/page-builder-config'
 import type { PageBuilderModule } from '@/types/listing-types'
 import SearchPageRenderer from './SearchPageRenderer'
+import AraPageSearch from './AraPageSearch'
 
 interface Props {
   params: Promise<{ locale: string }>
@@ -86,6 +87,8 @@ export default async function SearchPage({ params, searchParams }: Props) {
               )}
             </h1>
           </div>
+
+          <AraPageSearch locale={locale} initialQuery={query} />
 
           {/* ── Kategori sekmeleri ──────────────────────────────────── */}
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
