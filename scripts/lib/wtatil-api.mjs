@@ -53,7 +53,14 @@ export async function wtatilRequest(method, path, body = null, query = null) {
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
   }
   if (body != null) init.body = JSON.stringify(body)
-  const res = await fetch(url, init)
+  let res
+  try {
+    res = await fetch(url, init)
+  } catch (e) {
+    const cause = e?.cause?.message || e?.cause?.code || ''
+    const hint = cause ? ` (${cause})` : ''
+    throw new Error(`Wtatil ${path}: fetch failed${hint} — ${e.message}`)
+  }
   const text = await res.text()
   let json = null
   if (text.trim()) {
