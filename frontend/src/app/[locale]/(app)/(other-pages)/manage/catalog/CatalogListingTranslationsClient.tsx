@@ -67,6 +67,7 @@ export default function CatalogListingTranslationsClient({
   const [seoDraft, setSeoDraft] = useState<Record<string, SeoDraftRow>>({})
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
+  const [scopeReady, setScopeReady] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [ok, setOk] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -79,7 +80,10 @@ export default function CatalogListingTranslationsClient({
 
   useEffect(() => {
     const token = getStoredAuthToken()
-    if (!token) return
+    if (!token) {
+      setScopeReady(true)
+      return
+    }
     void getAuthMe(token)
       .then((me) => {
         const perms = Array.isArray(me.permissions) ? me.permissions : []
@@ -87,15 +91,19 @@ export default function CatalogListingTranslationsClient({
         const admin =
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
-        setNeedOrg(admin)
-        if (admin && typeof window !== 'undefined') {
-          setOrgId(initCatalogManageOrganizationFromMe(me))
+        if (admin) {
+          const resolved = initCatalogManageOrganizationFromMe(me)
+          setOrgId(resolved)
+          // Org ID otomatik çözüldüyse alanı gösterme
+          setNeedOrg(!resolved.trim())
         }
       })
       .catch(() => {})
+      .finally(() => setScopeReady(true))
   }, [])
 
   const load = useCallback(async () => {
+    if (!scopeReady) return
     const token = getStoredAuthToken()
     if (!token) {
       setErr(t('catalog.session_missing'))
@@ -114,7 +122,7 @@ export default function CatalogListingTranslationsClient({
     setOk(null)
     try {
       const r = await getManageListingTranslations(token, listingId, {
-        organizationId: needOrg ? orgId.trim() : undefined,
+        organizationId: orgId.trim() || undefined,
       })
       setRows(r.translations)
       const d: Record<string, { title: string; description: string }> = {}
@@ -155,11 +163,12 @@ export default function CatalogListingTranslationsClient({
     } finally {
       setLoading(false)
     }
-  }, [listingId, needOrg, orgId, t])
+  }, [listingId, needOrg, orgId, scopeReady, t])
 
   useEffect(() => {
+    if (!scopeReady) return
     void load()
-  }, [load])
+  }, [load, scopeReady])
 
   async function onSave() {
     const token = getStoredAuthToken()
@@ -185,7 +194,7 @@ export default function CatalogListingTranslationsClient({
         }
       })
       await putManageListingTranslations(token, listingId, { entries }, {
-        organizationId: needOrg ? orgId.trim() : undefined,
+        organizationId: orgId.trim() || undefined,
       })
       await Promise.all(
         entries.map((e) => {

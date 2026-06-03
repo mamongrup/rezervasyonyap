@@ -136,8 +136,12 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
         const admin =
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
-        setNeedOrg(admin)
-        if (admin) setOrgId(initCatalogManageOrganizationFromMe(me))
+        if (admin) {
+          const resolved = initCatalogManageOrganizationFromMe(me)
+          setOrgId(resolved)
+          // Org ID otomatik çözüldüyse alanı gösterme
+          setNeedOrg(!resolved.trim())
+        }
       })
       .catch(() => setNeedOrg(false))
       .finally(() => setScopeReady(true))
@@ -172,7 +176,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
       const r = await listManageCatalogListings(token, {
         categoryCode,
         search: debouncedSearch || undefined,
-        organizationId: needOrg ? orgId.trim() : undefined,
+        organizationId: orgId.trim() || undefined,
         titleLocale: locale,
         page: pageIndex + 1,
         perPage: pageSize,
