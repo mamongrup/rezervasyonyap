@@ -21,6 +21,7 @@ import travel/integrations/netgsm_http
 import travel/integrations/paratika_http
 import travel/integrations/paytr_http
 import travel/integrations/travelrobot_http
+import travel/integrations/yolcu360_http
 import travel/module_tree
 import travel/payments/payment_settings_http
 import travel/site/site_settings_http
@@ -856,6 +857,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "integrations", "travelrobot", "ping"] ->
       travelrobot_http.post_ping(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "yolcu360", "ping"] ->
+      yolcu360_http.post_ping(req, ctx)
+
+    http.Get, ["api", "v1", "integrations", "yolcu360", "locations"] ->
+      yolcu360_http.get_locations(req, ctx)
 
     http.Get, ["api", "v1", "social", "templates"] ->
       social_http.list_templates(req, ctx)

@@ -20,8 +20,16 @@ interface TravelrobotSettings {
   import_car_rental: boolean
 }
 
+interface Yolcu360Settings {
+  enabled: boolean
+  base_url: string
+  api_key: string
+  api_secret: string
+}
+
 interface ListingApiProvidersSettings {
   travelrobot: TravelrobotSettings
+  yolcu360: Yolcu360Settings
 }
 
 const EMPTY_TRAVELROBOT: TravelrobotSettings = {
@@ -36,8 +44,16 @@ const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   import_car_rental: false,
 }
 
+const EMPTY_YOLCU360: Yolcu360Settings = {
+  enabled: false,
+  base_url: 'https://staging.api.pro.yolcu360.com/api/v1',
+  api_key: '',
+  api_secret: '',
+}
+
 const EMPTY: ListingApiProvidersSettings = {
   travelrobot: EMPTY_TRAVELROBOT,
+  yolcu360: EMPTY_YOLCU360,
 }
 
 function Field({
@@ -90,13 +106,20 @@ export default function AdminListingApiProvidersSection() {
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [testing, setTesting] = React.useState(false)
+  const [testingY360, setTestingY360] = React.useState(false)
+  const [locationQuery, setLocationQuery] = React.useState('istanbul')
   const [msg, setMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const token = getStoredAuthToken()
   const tr = settings.travelrobot
+  const y360 = settings.yolcu360
 
   const setTr = (patch: Partial<TravelrobotSettings>) => {
     setSettings((prev) => ({ ...prev, travelrobot: { ...prev.travelrobot, ...patch } }))
+  }
+
+  const setY360 = (patch: Partial<Yolcu360Settings>) => {
+    setSettings((prev) => ({ ...prev, yolcu360: { ...prev.yolcu360, ...patch } }))
   }
 
   React.useEffect(() => {
@@ -115,6 +138,7 @@ export default function AdminListingApiProvidersSection() {
           setSettings((prev) => ({
             ...prev,
             travelrobot: { ...prev.travelrobot, ...(v.travelrobot ?? {}) },
+            yolcu360: { ...prev.yolcu360, ...(v.yolcu360 ?? {}) },
           }))
         }
       })
@@ -184,6 +208,70 @@ export default function AdminListingApiProvidersSection() {
     }
   }
 
+  const testYolcu360 = async () => {
+    if (!token) return
+    setTestingY360(true)
+    setMsg(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/integrations/yolcu360/ping`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          base_url: y360.base_url,
+          api_key: y360.api_key,
+          api_secret: y360.api_secret,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        access_token_preview?: string
+        locations_preview?: string
+      }
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setMsg({
+        type: 'ok',
+        text: `Yolcu360 OK — JWT: ${data.access_token_preview ?? '—'} · Konum önizleme alındı (istanbul).`,
+      })
+    } catch (e) {
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Yolcu360 bağlantı testi başarısız') })
+    } finally {
+      setTestingY360(false)
+    }
+  }
+
+  const searchYolcu360Locations = async () => {
+    if (!token || !locationQuery.trim()) return
+    setTestingY360(true)
+    setMsg(null)
+    try {
+      const q = encodeURIComponent(locationQuery.trim())
+      const res = await fetch(`${API_BASE}/api/v1/integrations/yolcu360/locations?query=${q}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const text = await res.text()
+      if (!res.ok) {
+        let err = `HTTP ${res.status}`
+        try {
+          const j = JSON.parse(text) as { error?: string }
+          if (j.error) err = j.error
+        } catch {
+          /* ham metin */
+        }
+        throw new Error(err)
+      }
+      const preview = text.length > 500 ? `${text.slice(0, 500)}…` : text
+      setMsg({ type: 'ok', text: `Konum araması (${locationQuery}): ${preview}` })
+    } catch (e) {
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Konum araması başarısız') })
+    } finally {
+      setTestingY360(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 text-neutral-500">
@@ -197,8 +285,17 @@ export default function AdminListingApiProvidersSection() {
       <div>
         <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">İlan API sağlayıcıları</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Travelrobot (KPlus) ChannelCode / Password — turlar ve diğer kategoriler için ayrı ilan akışı.
-          GTC, Wtatil, Turna import script’leri ortam dosyasından; Travelrobot panelden okunur.
+          Travelrobot (KPlus) ve Yolcu360 Agency API — araç kiralama ve tur import ayarları.
+          Yolcu360:{' '}
+          <a
+            href="https://apidocs.yolcu360.com/getting-started"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary-600 underline"
+          >
+            apidocs.yolcu360.com
+          </a>
+          {' '}· API anahtarı: pro.yolcu360.com → API Keys.
         </p>
       </div>
 
@@ -302,10 +399,91 @@ export default function AdminListingApiProvidersSection() {
         </div>
       </div>
 
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Yolcu360 — Araç kiralama</h2>
+            <p className="text-xs text-neutral-500">
+              Staging: staging.api.pro.yolcu360.com · Canlı: api.pro.yolcu360.com/api/v1
+            </p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={y360.enabled}
+              onChange={(e) => setY360({ enabled: e.target.checked })}
+              className="rounded border-neutral-300"
+            />
+            Aktif
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          <Field
+            label="API Base URL"
+            hint="Sondaki /api/v1 dahil; örn. https://staging.api.pro.yolcu360.com/api/v1"
+            value={y360.base_url}
+            onChange={(v) => setY360({ base_url: v })}
+            placeholder="https://staging.api.pro.yolcu360.com/api/v1"
+          />
+          <Field
+            label="API Key"
+            value={y360.api_key}
+            onChange={(v) => setY360({ api_key: v })}
+          />
+          <Field
+            label="API Secret"
+            value={y360.api_secret}
+            onChange={(v) => setY360({ api_secret: v })}
+            type="password"
+          />
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="text"
+              value={locationQuery}
+              onChange={(e) => setLocationQuery(e.target.value)}
+              placeholder="Konum ara (ör. istanbul)"
+              className="min-w-[12rem] flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+            />
+            <button
+              type="button"
+              onClick={() => void searchYolcu360Locations()}
+              disabled={testingY360 || !y360.api_key || !y360.api_secret}
+              className="rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+            >
+              Konum ara
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet
+          </button>
+          <button
+            type="button"
+            onClick={() => void testYolcu360()}
+            disabled={testingY360 || !y360.api_key || !y360.api_secret}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {testingY360 ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+            Bağlantı testi (login + istanbul)
+          </button>
+        </div>
+      </div>
+
       <p className="text-xs text-neutral-500">
         Sunucuda tur import:{' '}
         <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --ping</code>
-        (panelde kayıtlı kimlik bilgilerini okur)
+        · Yolcu360 env: <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_KEY</code>,{' '}
+        <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_SECRET</code>,{' '}
+        <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_BASE_URL</code>
       </p>
     </div>
   )
