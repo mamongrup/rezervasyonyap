@@ -73,8 +73,34 @@ function defaultSuggestions(): LocationSuggestion[] {
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
+/** Yolcu360 locations proxy — araç kiralama için teslim/iade noktaları */
+async function yolcu360Suggestions(q: string, apiBase: string): Promise<LocationSuggestion[]> {
+  try {
+    const res = await fetch(
+      `${apiBase}/api/v1/integrations/yolcu360/locations?query=${encodeURIComponent(q)}`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) return []
+    const raw = (await res.json()) as unknown
+    const items: { id: string; name: string }[] = Array.isArray(raw)
+      ? (raw as { id: string; name: string }[])
+      : Array.isArray((raw as Record<string, unknown>)['data'])
+        ? ((raw as Record<string, unknown>)['data'] as { id: string; name: string }[])
+        : []
+    return items.slice(0, 8).map((item) => ({
+      id: `yolcu360-${item.id}`,
+      name: item.name,
+      type: 'region' as const,
+    }))
+  } catch {
+    return []
+  }
+}
+
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
+  const type = (req.nextUrl.searchParams.get('type') ?? '').trim()
+  const isCarSearch = type === 'car'
 
   // Sorgu yoksa popüler şehirleri döndür
   if (!q) {
@@ -83,12 +109,19 @@ export async function GET(req: NextRequest) {
 
   const apiBase = apiOriginForFetch()
   if (!apiBase) {
-    // API URL tanımlı değil — statik fallback
+    return NextResponse.json({ suggestions: staticFallback(q) })
+  }
+
+  // Araç kiralama için Yolcu360 konum önerileri
+  if (isCarSearch) {
+    const yolcuSuggestions = await yolcu360Suggestions(q, apiBase)
+    if (yolcuSuggestions.length > 0) {
+      return NextResponse.json({ suggestions: yolcuSuggestions })
+    }
     return NextResponse.json({ suggestions: staticFallback(q) })
   }
 
   try {
-    // Backend'de arama: önce bölgelerde ara
     const url = `${apiBase}/api/v1/locations/regions?search=${encodeURIComponent(q)}&per_page=8`
     const res = await fetch(url, { next: { revalidate: 60 } })
 
@@ -113,7 +146,6 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ suggestions })
   } catch {
-    // API erişilemez — statik fallback
     return NextResponse.json({ suggestions: staticFallback(q) })
   }
 }

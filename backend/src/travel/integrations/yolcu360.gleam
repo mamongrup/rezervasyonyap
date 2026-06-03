@@ -16,6 +16,14 @@ pub type LocationsResult {
   LocationsResult(raw_response: String)
 }
 
+pub type CarsResult {
+  CarsResult(raw_response: String)
+}
+
+pub type LocationIdResult {
+  LocationIdResult(id: String, name: String)
+}
+
 fn login_body(cfg: Yolcu360Config) -> String {
   json.object([
     #("key", json.string(cfg.api_key)),
@@ -96,6 +104,96 @@ pub fn search_locations(
       case http_client.get_url_with_auth(url, bearer) {
         Error(e) -> Error("yolcu360_http_failed:" <> e)
         Ok(raw) -> Ok(LocationsResult(raw_response: raw))
+      }
+    }
+  }
+}
+
+/// Konumlar JSON'ından ilk sonucun id ve name alanlarını çöz.
+pub fn first_location_id(raw: String) -> Result(LocationIdResult, Nil) {
+  let item_dec =
+    decode.field("id", decode.string, fn(id) {
+      decode.field("name", decode.string, fn(name) {
+        decode.success(LocationIdResult(id: id, name: name))
+      })
+    })
+  // [{ id, name, ... }, ...]
+  let from_arr = case json.parse(raw, decode.list(item_dec)) {
+    Ok([first, ..]) -> Ok(first)
+    _ -> Error(Nil)
+  }
+  case from_arr {
+    Ok(r) -> Ok(r)
+    Error(_) -> {
+      // { "data": [{ id, name }, ...] }
+      let data_dec =
+        decode.field("data", decode.list(item_dec), fn(items) {
+          decode.success(items)
+        })
+      case json.parse(raw, data_dec) {
+        Ok([first, ..]) -> Ok(first)
+        _ -> Error(Nil)
+      }
+    }
+  }
+}
+
+/// Konum adından ID'yi çözerek araç araması yapar.
+/// pickup_query / return_query: kullanıcının girdiği metin (ör. "Istanbul")
+/// checkin / checkout: ISO datetime string (ör. "2024-06-10T10:00")
+pub fn search_cars(
+  cfg: Yolcu360Config,
+  pickup_query: String,
+  return_query: String,
+  checkin: String,
+  checkout: String,
+) -> Result(CarsResult, String) {
+  case login(cfg) {
+    Error(e) -> Error(e)
+    Ok(auth) -> {
+      let bearer = "Bearer " <> auth.access_token
+      // 1. pickup location ID
+      let pickup_url = yolcu360_config.locations_url(cfg, pickup_query)
+      case http_client.get_url_with_auth(pickup_url, bearer) {
+        Error(e) -> Error("yolcu360_http_failed:" <> e)
+        Ok(pickup_raw) ->
+          case first_location_id(pickup_raw) {
+            Error(_) -> Error("yolcu360_location_not_found:" <> pickup_query)
+            Ok(pickup_loc) -> {
+              // 2. return location ID (aynı nokta ise tekrar aramaya gerek yok)
+              let return_id = case
+                string.trim(return_query) == ""
+                || string.trim(return_query) == string.trim(pickup_query)
+              {
+                True -> pickup_loc.id
+                False -> {
+                  let ret_url =
+                    yolcu360_config.locations_url(cfg, return_query)
+                  case http_client.get_url_with_auth(ret_url, bearer) {
+                    Error(_) -> pickup_loc.id
+                    Ok(ret_raw) ->
+                      case first_location_id(ret_raw) {
+                        Ok(r) -> r.id
+                        Error(_) -> pickup_loc.id
+                      }
+                  }
+                }
+              }
+              // 3. araç araması
+              let cars_url =
+                yolcu360_config.cars_search_url(
+                  cfg,
+                  pickup_loc.id,
+                  return_id,
+                  checkin,
+                  checkout,
+                )
+              case http_client.get_url_with_auth(cars_url, bearer) {
+                Error(e) -> Error("yolcu360_http_failed:" <> e)
+                Ok(raw) -> Ok(CarsResult(raw_response: raw))
+              }
+            }
+          }
       }
     }
   }

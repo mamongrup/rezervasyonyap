@@ -159,3 +159,28 @@ pub fn locations_url(cfg: Yolcu360Config, query: String) -> String {
     |> string.replace("=", "%3D")
   join_path(cfg.base_url, "/locations?query=" <> encoded)
 }
+
+fn encode_param(s: String) -> String {
+  string.replace(s, " ", "+")
+  |> string.replace(":", "%3A")
+  |> string.replace("+", "%2B")
+}
+
+/// GET /cars/available?pickupLocationId=&returnLocationId=&checkInDateTime=&checkOutDateTime=
+/// Endpoint path tahminidir; Yolcu360 staging/prod'da doğrulanmalı.
+pub fn cars_search_url(
+  cfg: Yolcu360Config,
+  pickup_id: String,
+  return_id: String,
+  checkin: String,
+  checkout: String,
+) -> String {
+  join_path(
+    cfg.base_url,
+    "/cars/available"
+      <> "?pickupLocationId=" <> encode_param(pickup_id)
+      <> "&returnLocationId=" <> encode_param(return_id)
+      <> "&checkInDateTime=" <> encode_param(checkin)
+      <> "&checkOutDateTime=" <> encode_param(checkout),
+  )
+}

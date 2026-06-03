@@ -111,6 +111,55 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
   }
 }
 
+/// GET /api/v1/public/yolcu360/cars
+///   ?pickup=Istanbul&dropoff=Istanbul&checkin=2024-06-10T10:00&checkout=2024-06-15T10:00
+/// Kimlik doğrulama gerekmez — vitrin araç arama proxy'si.
+/// Yolcu360 etkin değilse 503 döner.
+pub fn get_cars_public(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let cfg = yolcu360_config.load(ctx.db)
+  case cfg.enabled && yolcu360_config.credentials_ready(cfg) {
+    False -> json_err(503, "yolcu360_not_enabled")
+    True -> {
+      let qs = case request.get_query(req) {
+        Ok(q) -> q
+        Error(_) -> []
+      }
+      let pickup =
+        list.key_find(qs, "pickup")
+        |> result.unwrap("")
+        |> string.trim
+      let dropoff =
+        list.key_find(qs, "dropoff")
+        |> result.unwrap("")
+        |> string.trim
+      let checkin =
+        list.key_find(qs, "checkin")
+        |> result.unwrap("")
+        |> string.trim
+      let checkout =
+        list.key_find(qs, "checkout")
+        |> result.unwrap("")
+        |> string.trim
+      case pickup == "" || checkin == "" || checkout == "" {
+        True -> json_err(400, "pickup_checkin_checkout_required")
+        False -> {
+          let effective_dropoff = case dropoff == "" {
+            True -> pickup
+            False -> dropoff
+          }
+          case
+            yolcu360.search_cars(cfg, pickup, effective_dropoff, checkin, checkout)
+          {
+            Error(e) -> json_err(502, e)
+            Ok(cars) -> wisp.json_response(cars.raw_response, 200)
+          }
+        }
+      }
+    }
+  }
+}
+
 /// GET /api/v1/integrations/yolcu360/locations?query= — konum araması (ham JSON proxy)
 pub fn get_locations(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
