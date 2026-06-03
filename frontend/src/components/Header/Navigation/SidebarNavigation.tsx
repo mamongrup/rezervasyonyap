@@ -36,8 +36,8 @@ import { getMessages } from '@/utils/getT'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import CurrLangDropdown from '../CurrLangDropdown'
 
-/** Oteller / tatil evi / araç — hızlı erişim çipleri */
-const QUICK_NAV_IDS = new Set(['1', '2', '4'])
+/** Mobil çekmece — üstte ayrı kart olarak gösterilmeyecek (mega içinde kalabilir) */
+const SIDEBAR_HIDDEN_TOP_IDS = new Set(['1', '2', '4', '6'])
 
 interface Props {
   data: TNavigationItem[]
@@ -96,10 +96,10 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
       .catch(() => setRole('guest'))
   }, [])
 
-  const quickItems = data.filter((item) => item.id && QUICK_NAV_IDS.has(String(item.id)))
-
   const { megaRoot, extraMenuItems } = useMemo(() => {
-    const menuItems = data.filter((item) => item.id && !QUICK_NAV_IDS.has(String(item.id)))
+    const menuItems = data.filter(
+      (item) => item.id && !SIDEBAR_HIDDEN_TOP_IDS.has(String(item.id)),
+    )
     const mega = menuItems.find((it) => it.type === 'mega-menu' && it.children?.length)
     const extra = mega ? menuItems.filter((it) => it !== mega) : menuItems
     return { megaRoot: mega, extraMenuItems: extra }
@@ -282,27 +282,6 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
       {/* İlan ver vb. mega dışı üst öğeler */}
       {extraMenuItems.length > 0 ? <div className="space-y-2">{extraMenuItems.map((item, i) => renderExtraTopLevel(item, i))}</div> : null}
 
-      {/* Hızlı erişim */}
-      {quickItems.length > 0 ? (
-        <section aria-labelledby="sidebar-quick-heading">
-          <h2 id="sidebar-quick-heading" className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
-            {s.popularShortcuts}
-          </h2>
-          <div className="flex flex-col gap-2">
-            {quickItems.map((item) => (
-              <Link
-                key={item.id}
-                href={navItemHref(effectiveLocale, vitrinPath, item.href)}
-                onClick={handleClose}
-                className="rounded-xl border border-neutral-200/90 bg-white px-3 py-2.5 text-center text-sm font-semibold text-neutral-900 shadow-sm transition hover:border-primary-400/50 hover:bg-primary-50/50 dark:border-neutral-600 dark:bg-neutral-800/80 dark:text-neutral-100 dark:hover:border-primary-500/40 dark:hover:bg-primary-950/30"
-              >
-                {item.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
       {/* Rol bazlı bildirimler */}
       <section aria-labelledby="sidebar-notif-heading">
         <h2 id="sidebar-notif-heading" className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
@@ -346,40 +325,17 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
         </div>
       </section>
 
-      {/* Hesap — misafirler için giriş/kayıt, üyeler için hesabım */}
-      <section aria-labelledby="sidebar-account-heading">
-        <h2 id="sidebar-account-heading" className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500 dark:text-neutral-400">
-          {s.quickLinksTitle}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {role === 'guest' ? (
-            <>
-              <Link
-                href={navItemHref(effectiveLocale, vitrinPath, '/login')}
-                onClick={handleClose}
-                className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
-              >
-                {s.login}
-              </Link>
-              <Link
-                href={navItemHref(effectiveLocale, vitrinPath, '/signup')}
-                onClick={handleClose}
-                className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
-              >
-                {s.signup}
-              </Link>
-            </>
-          ) : (
-            <Link
-              href={navItemHref(effectiveLocale, vitrinPath, '/account')}
-              onClick={handleClose}
-              className="rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
-            >
-              {s.account}
-            </Link>
-          )}
-        </div>
-      </section>
+      {role !== 'guest' ? (
+        <section aria-label={s.account}>
+          <Link
+            href={navItemHref(effectiveLocale, vitrinPath, '/account')}
+            onClick={handleClose}
+            className="inline-flex rounded-full border border-neutral-200 px-3 py-1.5 text-sm font-medium text-neutral-800 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          >
+            {s.account}
+          </Link>
+        </section>
+      ) : null}
 
       <Divider className="my-1" />
 
