@@ -48,25 +48,30 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "  bravo_spaces (publish): $countOut"
 
-Write-Host '=== Uretim PostgreSQL baglantisi (backend.env) ===' -ForegroundColor Cyan
-$envRemote = & ssh -p $SshPort "${User}@${Server}" "grep -E '^DATABASE_URL=' '$RemoteBackendEnv' | head -1"
+Write-Host '=== Uretim PostgreSQL baglantisi (backend.env PG*) ===' -ForegroundColor Cyan
+# backend.env artik DATABASE_URL yerine PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD kullaniyor.
+$envRemote = & ssh -p $SshPort "${User}@${Server}" "grep -E '^(PGHOST|PGPORT|PGDATABASE|PGUSER|PGPASSWORD)=' '$RemoteBackendEnv'"
 if ($LASTEXITCODE -ne 0) { Write-Error 'SSH veya backend.env okunamadi.' }
-if (-not $envRemote -or $envRemote -notmatch '^DATABASE_URL=(.+)$') {
-    Write-Error "Sunucuda DATABASE_URL okunamadi: $RemoteBackendEnv"
-}
-$prodUrl = $matches[1].Trim().Trim('"').Trim("'")
-$uri = [Uri]$prodUrl
-$pgRemotePort = if ($uri.Port -gt 0) { $uri.Port } else { 5432 }
-$pgUser = [Uri]::UnescapeDataString($uri.UserInfo.Split(':')[0])
-$pgPass = [Uri]::UnescapeDataString($uri.UserInfo.Split(':')[1])
-$pgDb = $uri.AbsolutePath.TrimStart('/')
-Write-Host "  hedef DB: $pgDb @ $($uri.Host):$pgRemotePort (kullanici: $pgUser)"
 
-Write-Host "=== SSH tunel (localhost:$TunnelLocalPort -> $($uri.Host):$pgRemotePort) ===" -ForegroundColor Cyan
+$pg = @{}
+foreach ($line in ($envRemote -split "`n")) {
+    if ($line -match '^(PG[A-Z]+)=(.*)$') {
+        $pg[$matches[1]] = $matches[2].Trim().Trim('"').Trim("'")
+    }
+}
+$pgUser = $pg['PGUSER']
+$pgPass = $pg['PGPASSWORD']
+$pgDb = $pg['PGDATABASE']
+$pgRemoteHost = if ($pg['PGHOST']) { $pg['PGHOST'] } else { '127.0.0.1' }
+$pgRemotePort = if ($pg['PGPORT']) { $pg['PGPORT'] } else { '5432' }
+if (-not $pgUser -or -not $pgDb) { Write-Error "backend.env PG* eksik (PGUSER/PGDATABASE): $RemoteBackendEnv" }
+Write-Host "  hedef DB: $pgDb @ ${pgRemoteHost}:$pgRemotePort (kullanici: $pgUser)"
+
+Write-Host "=== SSH tunel (localhost:$TunnelLocalPort -> ${pgRemoteHost}:$pgRemotePort) ===" -ForegroundColor Cyan
 $tunnel = Start-Process -FilePath 'ssh' -ArgumentList @(
     '-p', "$SshPort",
     '-N',
-    '-L', "${TunnelLocalPort}:$($uri.Host):$pgRemotePort",
+    '-L', "${TunnelLocalPort}:${pgRemoteHost}:$pgRemotePort",
     '-o', 'ExitOnForwardFailure=yes',
     "${User}@${Server}"
 ) -PassThru -WindowStyle Hidden
@@ -75,12 +80,16 @@ if ($tunnel.HasExited) {
     Write-Error 'SSH tunel acilamadi. OpenSSH ve sunucu erisimi kontrol edin.'
 }
 
-$tunnelDbUrl = "postgres://${pgUser}:$([Uri]::EscapeDataString($pgPass))@127.0.0.1:${TunnelLocalPort}/${pgDb}"
-
 try {
     Push-Location $travelRoot
-    $env:DATABASE_URL = $tunnelDbUrl
+    # PG* ile baglan (DATABASE_URL bos -> sync-excalibur PG* kullanir; backend.env PC'de yok).
+    $env:DATABASE_URL = ''
     $env:TRAVEL_DB_ENV = ''
+    $env:PGHOST = '127.0.0.1'
+    $env:PGPORT = "$TunnelLocalPort"
+    $env:PGUSER = $pgUser
+    $env:PGPASSWORD = $pgPass
+    $env:PGDATABASE = $pgDb
     $env:MYSQL_HOST = $MysqlHost
     $env:MYSQL_USER = $MysqlUser
     $env:MYSQL_PASSWORD = $MysqlPassword
