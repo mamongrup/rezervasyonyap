@@ -1,16 +1,18 @@
 /**
- * Mevcut wtatil tur ilanları — yalnızca fiyat senkronu (Pexels / status / görseller dokunulmaz).
- *
- *   node scripts/sync-wtatil-tour-prices.mjs --ping
- *   node scripts/sync-wtatil-tour-prices.mjs --dry-run --limit 5
- *   node scripts/sync-wtatil-tour-prices.mjs
- *
- * Sunucu zamanlayıcı (3 günde bir):
- *   sudo cp deploy/systemd/travel-wtatil-price-sync.{service,timer} /etc/systemd/system/
- *   sudo systemctl enable --now travel-wtatil-price-sync.timer
- *
- * Gerekli env: DATABASE_URL, WTATIL_* + WTATIL_AGENCY_ID (search-tour cheapestPrice)
+ * @deprecated Günlük iş için sync-wtatil-auto.mjs kullanın (dönem replace + yeni tur).
+ * Bu script geriye dönük uyumluluk için auto'ya yönlendirir.
  */
+import { spawn } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const auto = path.join(path.dirname(fileURLToPath(import.meta.url)), 'sync-wtatil-auto.mjs')
+const child = spawn(process.execPath, [auto, ...process.argv.slice(2)], {
+  stdio: 'inherit',
+  env: process.env,
+})
+child.on('exit', (code) => process.exit(code ?? 1))
+
 import {
   fetchWtatilToken,
   fetchAllTours,

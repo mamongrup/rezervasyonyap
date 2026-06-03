@@ -1,4 +1,4 @@
-# Wtatil tur fiyat senkronu — 3 günde bir (travel-wtatil-price-sync.timer).
+# Wtatil otomatik senkron — travel-wtatil-sync.timer tercih edilir.
 #
 # Kurulum:
 #   sudo cp deploy/systemd/travel-wtatil-price-sync.service /etc/systemd/system/
@@ -10,14 +10,14 @@
 # Log: journalctl -u travel-wtatil-price-sync.service -n 100 --no-pager
 
 [Unit]
-Description=Travel — Wtatil tur fiyat senkronu (oneshot)
+Description=Travel — Wtatil tur otomatik senkron (oneshot, legacy)
 After=network-online.target travel-api.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
-ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-wtatil-tour-prices.sh
+ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-wtatil-auto.sh
 Nice=10
 IOSchedulingClass=best-effort
 

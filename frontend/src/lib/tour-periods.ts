@@ -74,6 +74,15 @@ function periodRowId(row: Record<string, unknown>): string {
   return raw != null ? String(raw).trim() : ''
 }
 
+/** Wtatil dönem satışa kapalı mı (Stop&Sale, kota dolu vb.) */
+function isWtatilPeriodSellable(row: Record<string, unknown>): boolean {
+  if (row.isStopSale === true || row.stopSale === true || row.is_stop_sale === true) return false
+  if (row.askSell === true) return false
+  const quota = row.quota
+  if (quota != null && quota !== '' && Number(quota) === 0) return false
+  return true
+}
+
 function priceRowPeriodId(row: Record<string, unknown>): string {
   const raw = row.periodId ?? row.tourPeriodId ?? row.id
   return raw != null ? String(raw).trim() : ''
@@ -101,6 +110,7 @@ export function mergeTourPeriodOptions(data: PublicTourPeriodsResponse): TourPer
   for (const item of periods) {
     const row = asRecord(item)
     if (!row) continue
+    if (!isWtatilPeriodSellable(row)) continue
     const id = periodRowId(row)
     const startDate = pickDate(row, ['startDate', 'periodStartDate', 'beginDate', 'fromDate', 'start'])
     const endDate = pickDate(row, ['endDate', 'periodEndDate', 'finishDate', 'toDate', 'end'])

@@ -113,6 +113,26 @@ node scripts/import-wtatil-tours.mjs --enrich             # + dönem, fiyat tabl
 node scripts/import-wtatil-tours.mjs --full               # enrich + search-tour cheapestPrice (WTATIL_AGENCY_ID gerekir)
 ```
 
+### Otomatik senkron (üretim)
+
+Günlük: dönem listesi API kaynağı (**replace** — Stop&Sale ile kalkan tarihler DB'den düşer), fiyat, günde en fazla 10 yeni tur.
+
+```bash
+chmod +x deploy/scripts/sync-wtatil-auto.sh
+./deploy/scripts/sync-wtatil-auto.sh
+# Tek tur: node scripts/sync-wtatil-auto.mjs yok — audit için:
+node scripts/audit-wtatil-tour-periods.mjs --tour-id 9526 --apply
+```
+
+Systemd:
+
+```bash
+sudo cp deploy/systemd/travel-wtatil-sync.{service,timer} /etc/systemd/system/
+sudo chmod +x .../deploy/scripts/sync-wtatil-auto.sh
+sudo systemctl daemon-reload && sudo systemctl enable --now travel-wtatil-sync.timer
+journalctl -u travel-wtatil-sync.service -n 80 --no-pager
+```
+
 ### Akış
 
 ```

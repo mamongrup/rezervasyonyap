@@ -1,13 +1,13 @@
-# travel-wtatil-price-sync.service ile birlikte — 3 günde bir fiyat çekimi.
+# @deprecated travel-wtatil-sync.timer kullanın. Bu timer aynı auto script'i çağırır.
 
 [Unit]
-Description=Travel Wtatil fiyat senkronu (3 günde bir)
+Description=Travel Wtatil senkron (günlük, legacy unit adı)
 
 [Timer]
-OnBootSec=45min
-OnUnitActiveSec=3d
-AccuracySec=1h
-RandomizedDelaySec=30min
+OnBootSec=20min
+OnCalendar=*-*-* 02:30:00
+AccuracySec=15min
+RandomizedDelaySec=45min
 Persistent=true
 Unit=travel-wtatil-price-sync.service
 

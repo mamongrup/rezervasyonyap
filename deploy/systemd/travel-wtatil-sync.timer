@@ -1,0 +1,15 @@
+# travel-wtatil-sync.service — her gün ~05:30 TR (02:30 UTC)
+
+[Unit]
+Description=Travel Wtatil otomatik senkron (günlük)
+
+[Timer]
+OnBootSec=20min
+OnCalendar=*-*-* 02:30:00
+AccuracySec=15min
+RandomizedDelaySec=45min
+Persistent=true
+Unit=travel-wtatil-sync.service
+
+[Install]
+WantedBy=timers.target

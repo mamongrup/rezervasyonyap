@@ -246,15 +246,15 @@ export async function upsertWtatilTourListing(
 }
 
 /**
- * Yalnızca fiyat — status, başlık, snapshot, Pexels görselleri dokunulmaz.
- * Vitrin `price_from` → program_days_json.cheapest_price / period_prices.
+ * Dönem + fiyat senkronu — status, başlık, snapshot, Pexels görselleri dokunulmaz.
+ * replacePeriods: true → API kaynağı (Stop&Sale ile kalkan dönemler DB'den silinir).
  */
 export async function updateWtatilTourPricesOnly(
   pgClient,
   listingId,
   tourId,
   enrich,
-  { currencyCode = null } = {},
+  { currencyCode = null, replacePeriods = false } = {},
 ) {
   const cheapestFromEnrich =
     normalizeCheapestPrice(enrich?.cheapestPrice) ??
@@ -275,17 +275,26 @@ export async function updateWtatilTourPricesOnly(
     price_synced_at: new Date().toISOString(),
   }
   if (enrich?.periods != null) {
-    patch.periods = mergePeriodsById(prev.periods, enrich.periods)
+    patch.periods = replacePeriods
+      ? enrich.periods
+      : mergePeriodsById(prev.periods, enrich.periods)
   }
   if (enrich?.periodPrices != null) {
-    const prevPrices = Array.isArray(prev.period_prices) ? prev.period_prices : []
-    const byPid = new Map()
-    for (const p of [...prevPrices, ...enrich.periodPrices]) {
-      if (!p || typeof p !== 'object') continue
-      const pid = p.periodId ?? p.tourPeriodId ?? p.id
-      if (pid != null) byPid.set(Number(pid), p)
+    if (replacePeriods) {
+      patch.period_prices = enrich.periodPrices
+    } else {
+      const prevPrices = Array.isArray(prev.period_prices) ? prev.period_prices : []
+      const byPid = new Map()
+      for (const p of [...prevPrices, ...enrich.periodPrices]) {
+        if (!p || typeof p !== 'object') continue
+        const pid = p.periodId ?? p.tourPeriodId ?? p.id
+        if (pid != null) byPid.set(Number(pid), p)
+      }
+      patch.period_prices = [...byPid.values()]
     }
-    patch.period_prices = [...byPid.values()]
+  }
+  if (enrich?.transport != null) {
+    patch.transport = enrich.transport
   }
   if (cheapestFromEnrich != null) patch.cheapest_price = cheapestFromEnrich
 
