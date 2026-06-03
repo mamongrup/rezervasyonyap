@@ -21,6 +21,14 @@ import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { TListingBase } from '@/types/listing-types'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 
+/** Tatil evi "Türe Göre Gözat" URL slug → API property_type değeri */
+export const HOLIDAY_TYPE_HANDLE_MAP: Record<string, string> = {
+  villalar:    'villa',
+  apartlar:    'apart',
+  daireler:    'daire',
+  bungalovlar: 'bungalov',
+}
+
 export const SLUG_TO_CODE: Record<string, string> = {
   oteller:        'hotel',
   'tatil-evleri': 'holiday_home',
@@ -451,8 +459,10 @@ export async function fetchFlexibleHolidayListings(
 ): Promise<TListingBase[]> {
   const relaxed = relaxedHolidaySearchQuery(query)
   const region = opts.regionHandle
+  const regionPropertyType =
+    region && region !== 'all' ? HOLIDAY_TYPE_HANDLE_MAP[region] : undefined
   const regionAsLocation =
-    region && region !== 'all' ? region.replace(/-/g, ' ') : undefined
+    region && region !== 'all' && !regionPropertyType ? region.replace(/-/g, ' ') : undefined
   const apiLocation = query.location?.trim() || regionAsLocation || undefined
 
   const [apiResult, ptItems] = await Promise.all([
@@ -460,6 +470,7 @@ export async function fetchFlexibleHolidayListings(
       {
         categoryCode: 'holiday_home',
         location: apiLocation,
+        propertyType: regionPropertyType || undefined,
         checkin: relaxed.checkin,
         checkout: relaxed.checkout,
         guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
@@ -505,8 +516,10 @@ export async function fetchCategoryListings(
   const perPage = categoryCode === 'holiday_home' ? 48 : 12
 
   const region = opts.regionHandle
+  const regionPropertyType =
+    region && region !== 'all' ? HOLIDAY_TYPE_HANDLE_MAP[region] : undefined
   const regionAsLocation =
-    region && region !== 'all' ? region.replace(/-/g, ' ') : undefined
+    region && region !== 'all' && !regionPropertyType ? region.replace(/-/g, ' ') : undefined
   const apiLocation =
     query.location?.trim() || regionAsLocation || undefined
 
@@ -514,6 +527,7 @@ export async function fetchCategoryListings(
     {
       categoryCode,
       location: apiLocation,
+      propertyType: regionPropertyType || undefined,
       checkin: query.checkin,
       checkout: query.checkout,
       guests: query.guests ? parseInt(query.guests, 10) : undefined,

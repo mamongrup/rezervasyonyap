@@ -8749,6 +8749,8 @@ export interface PublicListingSearchParams {
   tourTravelType?: string
   tourAccommodation?: string
   tourDuration?: string
+  /** Tatil evi ilan tipi: villa | apart | daire | bungalov */
+  propertyType?: string
 }
 
 export type MealPlanSummary = 'room_only' | 'meal_only' | 'both'
@@ -8891,6 +8893,7 @@ export async function searchPublicListings(
   if (params.tourTravelType?.trim()) u.set('tour_travel_type', params.tourTravelType.trim())
   if (params.tourAccommodation?.trim()) u.set('tour_accommodation', params.tourAccommodation.trim())
   if (params.tourDuration?.trim()) u.set('tour_duration', params.tourDuration.trim())
+  if (params.propertyType?.trim()) u.set('property_type', params.propertyType.trim())
 
   try {
     const init: RequestInit =
