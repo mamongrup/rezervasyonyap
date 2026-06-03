@@ -12,7 +12,9 @@ import {
   fetchCategoryListings,
   fetchFlexibleHolidayListings,
   parseSearchParamsFromUrl,
+  HOLIDAY_TYPE_HANDLE_MAP,
 } from '@/lib/listings-fetcher'
+import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import type { TListingBase } from '@/types/listing-types'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -61,8 +63,15 @@ export default async function Page({
     getRegionHeroConfig('tatil-evleri', currentHandle ?? ''),
   ])
 
+  const isPropertyTypeHandle =
+    currentHandle && currentHandle !== 'all' && !!HOLIDAY_TYPE_HANDLE_MAP[currentHandle]
+  const propertyTypeLabel = isPropertyTypeHandle
+    ? (getSubcategoryBySlug(currentHandle!)?.name ?? currentHandle)
+    : undefined
   const regionLabel =
-    currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
+    !isPropertyTypeHandle && currentHandle && currentHandle !== 'all'
+      ? currentHandle.replace(/-/g, ' ')
+      : undefined
 
   const themeLabelMap = await getHolidayThemeLabelMap(locale)
   function withHolidayThemeChips<L extends TListingBase>(l: L): L {
@@ -99,6 +108,7 @@ export default async function Page({
         checkout: query.checkout,
         guests: query.guests,
         regionLabel,
+        propertyTypeLabel,
         fromApi,
       }}
       flexibleListingCards={

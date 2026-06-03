@@ -63,6 +63,8 @@ export interface ActiveSearchSummary {
   checkout?: string
   guests?: string
   regionLabel?: string
+  /** Tatil evi tur tipi etiketi (villalar → Villalar). Varsa "Bölge" yerine "Tür" rozeti */
+  propertyTypeLabel?: string
   drop_off?: string
   from?: string
   to?: string
@@ -302,6 +304,7 @@ export default async function CategoryPageTemplate({
       activeSearch.checkout ||
       activeSearch.guests ||
       activeSearch.regionLabel ||
+      activeSearch.propertyTypeLabel ||
       activeSearch.drop_off ||
       activeSearch.from ||
       activeSearch.to)
@@ -316,10 +319,15 @@ export default async function CategoryPageTemplate({
                   count: convertNumbThousand(count),
                   category: category.name,
                 })
-              : interpolate(cat.listingsHeadingFiltered, {
-                  count: convertNumbThousand(count),
-                  handle: currentHandle ?? '',
-                })}
+              : activeSearch?.propertyTypeLabel
+                ? interpolate(cat.listingsHeadingPropertyType ?? '{count}+ {label}', {
+                    count: convertNumbThousand(count),
+                    label: activeSearch.propertyTypeLabel,
+                  })
+                : interpolate(cat.listingsHeadingFiltered, {
+                    count: convertNumbThousand(count),
+                    handle: currentHandle ?? '',
+                  })}
           </h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             {interpolate(cat.pricesDisclaimer, {
@@ -329,6 +337,11 @@ export default async function CategoryPageTemplate({
           {hasActiveSearch && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{cat.activeSearch}</span>
+              {activeSearch?.propertyTypeLabel && (
+                <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
+                  {cat.badgePropertyType ?? 'Tür:'} {activeSearch.propertyTypeLabel}
+                </span>
+              )}
               {activeSearch?.regionLabel && (
                 <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
                   {cat.badgeRegion} {activeSearch.regionLabel}

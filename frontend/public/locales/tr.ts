@@ -255,6 +255,8 @@ export const tr = {
     pricesDisclaimer: 'Fiyatlar kişi başı ve {unit} için geçerlidir.',
     activeSearch: 'Aktif arama:',
     badgeRegion: 'Bölge:',
+    badgePropertyType: 'Tür:',
+    listingsHeadingPropertyType: '{count}+ {label}',
     badgeLocation: 'Konum:',
     badgeGuests: '{count} misafir',
     badgeDropOff: 'İade:',

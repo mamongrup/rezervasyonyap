@@ -476,6 +476,8 @@ export const en = {
     pricesDisclaimer: 'Prices are per person and valid per {unit}.',
     activeSearch: 'Active search:',
     badgeRegion: 'Region:',
+    badgePropertyType: 'Type:',
+    listingsHeadingPropertyType: '{count}+ {label}',
     badgeLocation: 'Location:',
     badgeGuests: '{count} guests',
     badgeDropOff: 'Drop-off:',
