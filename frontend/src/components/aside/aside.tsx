@@ -23,6 +23,7 @@ export function Aside({
   type,
   contentMaxWidthClassName = 'max-w-lg',
   showHeading = true,
+  stackZIndexClass = 'z-50',
 }: {
   heading?: string
   logoOnHeading?: boolean
@@ -31,6 +32,7 @@ export function Aside({
   type: AsideType
   contentMaxWidthClassName?: string
   showHeading?: boolean
+  stackZIndexClass?: string
 }) {
   const { type: activeType, close } = useAside()
   const open = type === activeType
@@ -40,7 +42,7 @@ export function Aside({
   const hasHeading = !!heading || logoOnHeading
 
   return (
-    <Dialog as="div" className="relative z-50" onClose={onClose} open={open}>
+    <Dialog as="div" className={clsx('relative', stackZIndexClass)} onClose={onClose} open={open}>
       <DialogBackdrop
         transition
         className="fixed inset-0 bg-neutral-900/50 duration-300 ease-out data-closed:opacity-0"
@@ -59,7 +61,7 @@ export function Aside({
               transition
               className={clsx(
                 contentMaxWidthClassName,
-                'h-screen w-screen translate-x-0 overflow-hidden bg-white text-start align-middle shadow-xl transition duration-200 ease-in-out dark:bg-neutral-800',
+                'h-dvh w-screen max-h-dvh translate-x-0 overflow-hidden bg-white pt-[env(safe-area-inset-top,0px)] text-start align-middle shadow-xl transition duration-200 ease-in-out dark:bg-neutral-800',
                 openFrom === 'left' && 'data-closed:-translate-x-20 data-closed:opacity-0',
                 openFrom === 'right' && 'data-closed:translate-x-20 data-closed:opacity-0'
               )}
@@ -82,12 +84,17 @@ export function Aside({
                       </>
                     )}
 
-                    <button type="button" className="group -m-4 cursor-pointer p-4" onClick={onClose}>
+                    <button
+                      type="button"
+                      className="group flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-neutral-100 transition hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
+                      onClick={onClose}
+                      aria-label="Kapat"
+                    >
                       <HugeiconsIcon
-                        className="transition-transform duration-200 group-hover:rotate-90"
+                        className="text-neutral-700 transition-transform duration-200 group-hover:rotate-90 dark:text-neutral-200"
                         icon={Cancel01Icon}
-                        size={24}
-                        strokeWidth={1}
+                        size={22}
+                        strokeWidth={1.5}
                       />
                     </button>
                   </header>

@@ -18,6 +18,7 @@ const AsideSidebarNavigation = async ({ className, locale = 'tr' }: Props) => {
       type="sidebar-navigation"
       logoOnHeading
       contentMaxWidthClassName="max-w-md"
+      stackZIndexClass="z-[80]"
     >
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain py-6 pb-8 [scrollbar-gutter:stable]">
