@@ -6,6 +6,7 @@ import ButtonThird from '@/shared/ButtonThird'
 import { getMessages } from '@/utils/getT'
 import { Cancel01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 import { Dialog, DialogPanel } from '@headlessui/react'
 import { useState } from 'react'
 import StaySearchFormMobile from './stay-search-form/StaySearchFormMobile'
@@ -17,6 +18,7 @@ type Props = {
 }
 
 export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Props) {
+  useRegisterVitrinOverlay(open)
   const [contentKey, setContentKey] = useState(0)
   const msg = getMessages(locale)
 

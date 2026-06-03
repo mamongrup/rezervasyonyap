@@ -1,5 +1,6 @@
 'use client'
 
+import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 import Image from 'next/image'
 import Link from 'next/link'
 import { X } from 'lucide-react'
@@ -23,6 +24,7 @@ interface Props {
 }
 
 export default function PopupView({ popup, locale, onClose, onDismissForever }: Props) {
+  useRegisterVitrinOverlay(true)
   const eyebrow = pickLocalized(popup.eyebrow, locale)
   const title = pickLocalized(popup.title, locale)
   const body = pickLocalized(popup.body, locale)

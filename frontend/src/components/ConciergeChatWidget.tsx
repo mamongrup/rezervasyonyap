@@ -11,6 +11,7 @@ import { SITE_LOCALE_CATALOG, type SiteLocaleCode } from '@/lib/i18n-catalog-loc
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import clsx from 'clsx'
 import { usePathname } from 'next/navigation'
+import { useFloatingWidgetsSuppressed } from '@/components/aside/aside'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 const AI_MODES = [
@@ -30,6 +31,7 @@ export default function ConciergeChatWidget() {
   const pathname = usePathname()
   const uiLocale = normalizeChatLocale(useLocaleSegment())
   const hideOnManage = pathname?.includes('/manage')
+  const floatingSuppressed = useFloatingWidgetsSuppressed()
   const [open, setOpen] = useState(false)
   const [aiMode, setAiMode] = useState<string>('concierge')
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -46,6 +48,10 @@ export default function ConciergeChatWidget() {
   useEffect(() => {
     if (open) scrollToBottom()
   }, [messages, open, scrollToBottom])
+
+  useEffect(() => {
+    if (floatingSuppressed) setOpen(false)
+  }, [floatingSuppressed])
 
   const refreshMessages = useCallback(async (sid: string) => {
     const r = await listSupportChatMessages(sid)
@@ -115,6 +121,7 @@ export default function ConciergeChatWidget() {
   return (
     <>
       {/* Floating button — sadece lg+ ekranlarda görünür (mobilde bottom nav'da yer alıyor) */}
+      {!floatingSuppressed ? (
       <button
         type="button"
         onClick={onToggle}
@@ -140,6 +147,7 @@ export default function ConciergeChatWidget() {
           </span>
         )}
       </button>
+      ) : null}
 
       {open ? (
         <div className="fixed bottom-20 end-4 lg:bottom-24 lg:end-6 z-[100] flex w-[min(100vw-2rem,22rem)] flex-col overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">

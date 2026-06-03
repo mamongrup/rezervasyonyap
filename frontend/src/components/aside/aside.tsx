@@ -5,7 +5,7 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/re
 import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
-import { createContext, useContext, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 /**
  * Drawer component that opens on user click.
@@ -137,6 +137,9 @@ type AsideContextValue = {
   close: () => void
   productQuickViewHandle?: string
   setProductQuickViewHandle: (handle: string) => void
+  /** Çekmece / tam ekran modal / site popup açıkken WhatsApp ve AI float gizlensin */
+  floatingWidgetsSuppressed: boolean
+  registerModalOverlay: () => () => void
 }
 //
 const AsideContext = createContext<AsideContextValue | null>(null)
@@ -144,20 +147,38 @@ const AsideContext = createContext<AsideContextValue | null>(null)
 export function AsideProvider({ children }: { children: ReactNode }) {
   const [type, setType] = useState<AsideType>('closed')
   const [productQuickViewHandle, setProductQuickViewHandle] = useState<string>()
+  const [modalOverlayCount, setModalOverlayCount] = useState(0)
 
-  return (
-    <AsideContext.Provider
-      value={{
-        type,
-        open: setType,
-        close: () => setType('closed'),
-        productQuickViewHandle,
-        setProductQuickViewHandle,
-      }}
-    >
-      {children}
-    </AsideContext.Provider>
+  const registerModalOverlay = useCallback(() => {
+    setModalOverlayCount((n) => n + 1)
+    return () => setModalOverlayCount((n) => Math.max(0, n - 1))
+  }, [])
+
+  const floatingWidgetsSuppressed = type !== 'closed' || modalOverlayCount > 0
+
+  const value = useMemo(
+    () => ({
+      type,
+      open: setType,
+      close: () => setType('closed'),
+      productQuickViewHandle,
+      setProductQuickViewHandle,
+      floatingWidgetsSuppressed,
+      registerModalOverlay,
+    }),
+    [type, productQuickViewHandle, floatingWidgetsSuppressed, registerModalOverlay],
   )
+
+  return <AsideContext.Provider value={value}>{children}</AsideContext.Provider>
+}
+
+/** Tam ekran arama, konaklama arama diyaloğu, site popup vb. */
+export function useRegisterVitrinOverlay(active: boolean) {
+  const ctx = useContext(AsideContext)
+  useEffect(() => {
+    if (!ctx || !active) return
+    return ctx.registerModalOverlay()
+  }, [active, ctx])
 }
 
 export function useAside() {
@@ -166,4 +187,8 @@ export function useAside() {
     throw new Error('useAside must be used within an AsideProvider')
   }
   return aside
+}
+
+export function useFloatingWidgetsSuppressed() {
+  return useContext(AsideContext)?.floatingWidgetsSuppressed ?? false
 }

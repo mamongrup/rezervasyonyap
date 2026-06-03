@@ -7,6 +7,7 @@ import { Search, X, Loader2, Tag, Layers } from 'lucide-react'
 import Link from 'next/link'
 import clsx from 'clsx'
 import type { SearchSuggestion } from '@/app/api/listing-search/route'
+import { useRegisterVitrinOverlay } from '@/components/aside/aside'
 
 const CATEGORY_LABELS: Record<string, string> = {
   hotel: 'Otel',
@@ -26,6 +27,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // ─── Overlay search modal ─────────────────────────────────────────────────────
 export function SearchModal({ onClose, locale }: { onClose: () => void; locale: string }) {
+  useRegisterVitrinOverlay(true)
   const inputRef = useRef<HTMLInputElement>(null)
   const [query, setQuery] = useState('')
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([])

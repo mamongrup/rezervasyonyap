@@ -2,10 +2,12 @@
 
 import { getSitePublicConfig, mergeBrandingIntoEnvContact } from '@/lib/site-public-config'
 import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
+import { useFloatingWidgetsSuppressed } from '@/components/aside/aside'
 import { useEffect, useState } from 'react'
 
 /** Sol altta sabit WhatsApp; AI sohbet sağda (çakışmayı önlemek için). */
 export default function WhatsAppFloatButton() {
+  const suppressed = useFloatingWidgetsSuppressed()
   const [wa, setWa] = useState(() => getSitePublicConfig().whatsappE164)
   useEffect(() => {
     let c = false
@@ -18,7 +20,7 @@ export default function WhatsAppFloatButton() {
       c = true
     }
   }, [])
-  if (!wa) return null
+  if (!wa || suppressed) return null
 
   const href = `https://wa.me/${wa}`
 
