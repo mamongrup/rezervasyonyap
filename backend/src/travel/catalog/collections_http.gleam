@@ -1274,14 +1274,24 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
     }
     False -> {
       let is_tour = cat_raw == "tour"
+      let property_type_raw =
+        list.key_find(qs, "property_type")
+        |> result.unwrap("")
+        |> string.trim
+        |> string.lowercase
+      let property_type_param = case property_type_raw == "" {
+        True -> pog.null()
+        False -> pog.text(property_type_raw)
+      }
       let sql = case is_tour {
         True -> region_stats_tour_sql()
-        False -> region_stats_domestic_sql()
+        False -> region_stats_domestic_district_sql()
       }
       case
         pog.query(sql)
         |> pog.parameter(pog.int(lim))
         |> pog.parameter(pog.text(cat_raw))
+        |> pog.parameter(property_type_param)
         |> pog.returning(region_stats_row())
         |> pog.execute(ctx.db)
       {
@@ -1309,7 +1319,8 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn region_stats_domestic_sql() -> String {
+/// TR ilçeleri — listing_meta (district_label, city, property_type) ile eşleşir; slug: TR/{il}/{ilce}
+fn region_stats_domestic_district_sql() -> String {
   "with base as ( "
   <> "  select l.id, "
   <> "    lower(coalesce(nullif(trim(l.location_name), ''), '')) as location_name, "
@@ -1323,25 +1334,32 @@ fn region_stats_domestic_sql() -> String {
   <> "  left join listing_attributes lm on lm.listing_id = l.id "
   <> "    and lm.group_code = 'listing_meta' and lm.key = 'v1' "
   <> "  where l.status = 'published' and pc.code = $2 "
+  <> "    and ($3::text is null or lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3) "
   <> "), matched as ( "
   <> "  select distinct on (b.id) "
-  <> "    b.id as listing_id, r.id as region_id, r.slug, r.name "
+  <> "    b.id as listing_id, d.id as district_id, r.slug as region_slug, d.slug as district_slug, d.name as district_name "
   <> "  from base b "
-  <> "  join regions r on ( "
-  <> "    b.location_name like '%' || lower(r.name) || '%' "
+  <> "  join districts d on ( "
+  <> "    b.district_label like '%' || lower(d.name) || '%' "
+  <> "    or b.location_name like '%' || lower(d.name) || '%' "
+  <> "    or b.address like '%' || lower(d.name) || '%' "
+  <> "    or replace(b.location_name, ' ', '-') = d.slug "
+  <> "  ) "
+  <> "  join regions r on r.id = d.region_id and ( "
+  <> "    b.city like '%' || lower(r.name) || '%' "
   <> "    or b.province_city like '%' || lower(r.name) || '%' "
-  <> "    or b.city like '%' || lower(r.name) || '%' "
+  <> "    or b.location_name like '%' || lower(r.name) || '%' "
   <> "    or b.region_display like '%' || lower(r.name) || '%' "
-  <> "    or b.district_label like '%' || lower(r.name) || '%' "
   <> "    or b.address like '%' || lower(r.name) || '%' "
-  <> "    or replace(b.location_name, ' ', '-') = r.slug "
+  <> "    or b.district_label like '%' || lower(r.name) || '%' "
+  <> "    or replace(b.city, ' ', '-') = r.slug "
   <> "  ) "
   <> "  join countries c on c.id = r.country_id and c.iso2 = 'TR' "
-  <> "  order by b.id, length(r.name) desc, r.name "
+  <> "  order by b.id, length(d.name) desc, d.name "
   <> ") "
   <> "select "
-  <> "  'TR/' || m.slug as slug, "
-  <> "  m.name, "
+  <> "  'TR/' || m.region_slug || '/' || m.district_slug as slug, "
+  <> "  m.district_name as name, "
   <> "  count(*)::int as cnt, "
   <> "  coalesce( "
   <> "    max(nullif(lp.cover_image, '')), "
@@ -1350,11 +1368,11 @@ fn region_stats_domestic_sql() -> String {
   <> "    '' "
   <> "  ) as thumbnail "
   <> "from matched m "
-  <> "left join location_pages lp on lp.region_id = m.region_id "
-  <> "  and coalesce(lp.region_type, 'province') = 'province' "
-  <> "group by m.region_id, m.slug, m.name "
+  <> "left join location_pages lp on lp.district_id = m.district_id "
+  <> "  and coalesce(lp.region_type, 'district') = 'district' "
+  <> "group by m.district_id, m.region_slug, m.district_slug, m.district_name "
   <> "having count(*) > 0 "
-  <> "order by count(*) desc, m.name asc "
+  <> "order by count(*) desc, m.district_name asc "
   <> "limit $1"
 }
 

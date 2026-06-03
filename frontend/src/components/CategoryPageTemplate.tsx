@@ -23,7 +23,7 @@ import type { HeroOverride } from '@/data/region-hero-config'
 import type { FilterOption, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { TAuthor } from '@/data/authors'
 import { getPublicRegionStats, listPublicThemeItems } from '@/lib/travel-api'
-import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
+import { HOLIDAY_TYPE_HANDLE_MAP, SLUG_TO_CODE } from '@/lib/listings-fetcher'
 import {
   filterRegionsForHandle,
   regionsWithListings,
@@ -193,6 +193,10 @@ export default async function CategoryPageTemplate({
     category.slug === 'tatil-evleri'
       ? (await listPublicThemeItems({ categoryCode: 'holiday_home', locale }))?.items ?? []
       : []
+  const holidayPropertyTypeForRegions =
+    category.slug === 'tatil-evleri' && currentHandle && currentHandle !== 'all'
+      ? HOLIDAY_TYPE_HANDLE_MAP[currentHandle]
+      : undefined
   const resolvedRegionStats: RegionSliderItem[] = regionsWithListings(
     filterRegionsForHandle(
       regionStats ??
@@ -200,6 +204,9 @@ export default async function CategoryPageTemplate({
           categoryCode,
           12,
           { next: { revalidate: 300 } } as RequestInit,
+          holidayPropertyTypeForRegions
+            ? { propertyType: holidayPropertyTypeForRegions }
+            : undefined,
         ).catch(() => [])),
       currentHandle,
     ),

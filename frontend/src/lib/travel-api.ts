@@ -6031,14 +6031,20 @@ export type PublicRegionStatItem = {
   thumbnail: string
 }
 
+export type PublicRegionStatsOpts = {
+  /** Tatil evi alt kategori: villa | apart | daire | bungalov — ilçe sayıları buna göre filtrelenir */
+  propertyType?: string
+}
+
 /**
- * GET /api/v1/catalog/public/region-stats?category_code=&limit=
- * Kategoriye göre yayımlı ilan sayısı (hotel/holiday_home → TR illeri; tour → yurtdışı öncelikli destinasyonlar).
+ * GET /api/v1/catalog/public/region-stats?category_code=&limit=&property_type=
+ * Kategoriye göre yayımlı ilan sayısı (konaklama → TR ilçeleri; tour → destinasyonlar).
  */
 export async function getPublicRegionStats(
   categoryCode: string,
   limit: number,
   init?: RequestInit,
+  opts?: PublicRegionStatsOpts,
 ): Promise<PublicRegionStatItem[]> {
   const b = base()
   if (!b) return []
@@ -6046,6 +6052,7 @@ export async function getPublicRegionStats(
     const q = new URLSearchParams()
     q.set('category_code', categoryCode)
     q.set('limit', String(limit))
+    if (opts?.propertyType?.trim()) q.set('property_type', opts.propertyType.trim())
     const res = await fetch(`${b}/api/v1/catalog/public/region-stats?${q}`, init)
     if (!res.ok) return []
     const data = (await json(res)) as {
