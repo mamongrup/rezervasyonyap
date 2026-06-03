@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import T from '@/utils/getT'
 import clsx from 'clsx'
@@ -58,6 +59,7 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
         className="hero-search-form__field-before flex-4/12"
         clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
         fieldStyle={formStyle}
+        guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
       />
 
       <ButtonSubmit fieldStyle={formStyle} className="z-10" />

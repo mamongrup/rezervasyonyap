@@ -1,3 +1,4 @@
+import RegionHeroCollage from '@/components/hero-sections/RegionHeroCollage'
 import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -52,45 +53,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
-// ─── Hero Section (3-image mosaic like region page) ────────────────────────────
 function BlogHero({ images, title }: { images: string[]; title: string }) {
   const [img1, img2, img3] = images
   if (!img1 && !img2 && !img3) return null
 
   if (images.length >= 3 && img2 && img3) {
     return (
-      <div className="relative w-full h-[60vh] min-h-[400px] max-h-[600px] overflow-hidden rounded-none lg:rounded-3xl">
-        <div className="grid grid-cols-4 grid-rows-2 h-full gap-1.5">
-          <div className="col-span-3 row-span-2 relative overflow-hidden">
-            <Image
-              src={img1}
-              alt={title}
-              fill
-              priority
-              sizes="(max-width: 1024px) 100vw, 75vw"
-              className="object-cover"
-            />
-          </div>
-          <div className="col-span-1 row-span-1 relative overflow-hidden">
-            <Image
-              src={img2}
-              alt=""
-              fill
-              sizes="(max-width: 1024px) 50vw, 25vw"
-              className="object-cover"
-            />
-          </div>
-          <div className="col-span-1 row-span-1 relative overflow-hidden">
-            <Image
-              src={img3}
-              alt=""
-              fill
-              sizes="(max-width: 1024px) 50vw, 25vw"
-              className="object-cover"
-            />
-          </div>
-        </div>
-      </div>
+      <RegionHeroCollage
+        panelImages={[img1, img2, img3]}
+        alt={title}
+        className="rounded-none lg:rounded-3xl"
+      />
     )
   }
 

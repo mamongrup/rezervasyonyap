@@ -1,6 +1,7 @@
 'use client'
 
 import NcInputNumber from '@/components/NcInputNumber'
+import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { GuestsObject } from '@/type'
 import T from '@/utils/getT'
@@ -44,9 +45,9 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
   const [tripType, setTripType] = useState<'roundTrip' | 'oneWay'>('roundTrip')
   const [flightClassState, setFlightClassState] = useState('Economy')
 
-  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(2)
-  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(1)
-  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(1)
+  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(DEFAULT_GUESTS_STAY.guestAdults)
+  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(DEFAULT_GUESTS_STAY.guestChildren)
+  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(DEFAULT_GUESTS_STAY.guestInfants)
   const router = useRouter()
 
   useEffect(() => {
@@ -94,7 +95,11 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
     router.push('/ucak-bileti/all' + (qs ? `?${qs}` : ''))
   }
 
-  const totalGuests = guestChildrenInputValue + guestAdultsInputValue + guestInfantsInputValue
+  const totalGuests = totalGuestCount({
+    guestAdults: guestAdultsInputValue,
+    guestChildren: guestChildrenInputValue,
+    guestInfants: guestInfantsInputValue,
+  })
 
   const renderGuest = () => {
     return (

@@ -1,7 +1,8 @@
 'use client'
 
 import NcInputNumber from '@/components/NcInputNumber'
-import { GuestsObject } from '@/type'
+import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
+import type { GuestsObject } from '@/type'
 import T from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { UserAdd01Icon } from '@hugeicons/core-free-icons'
@@ -32,16 +33,19 @@ interface Props {
   fieldStyle: 'default' | 'small'
   className?: string
   clearDataButtonClassName?: string
+  /** Varsayılan: konaklama (2 yetişkin); aktivite/etkinlik için `DEFAULT_GUESTS_EXPERIENCE` */
+  guestDefaults?: GuestsObject
 }
 
 export const GuestNumberField: FC<Props> = ({
   fieldStyle = 'default',
   className = 'flex-1',
   clearDataButtonClassName,
+  guestDefaults = DEFAULT_GUESTS_STAY,
 }) => {
-  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(2)
-  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(0)
-  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(0)
+  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(guestDefaults.guestAdults ?? 2)
+  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(guestDefaults.guestChildren ?? 0)
+  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(guestDefaults.guestInfants ?? 0)
 
   const handleChangeData = (value: number, type: keyof GuestsObject) => {
     let newValue = {
@@ -63,7 +67,11 @@ export const GuestNumberField: FC<Props> = ({
     }
   }
 
-  const totalGuests = guestChildrenInputValue + guestAdultsInputValue + guestInfantsInputValue
+  const totalGuests = totalGuestCount({
+    guestAdults: guestAdultsInputValue,
+    guestChildren: guestChildrenInputValue,
+    guestInfants: guestInfantsInputValue,
+  })
   return (
     <Popover className={`group relative z-10 flex ${className}`}>
       {({ open: showPopover }) => (
@@ -92,9 +100,9 @@ export const GuestNumberField: FC<Props> = ({
           <ClearDataButton
             className={clsx(!totalGuests && 'sr-only', clearDataButtonClassName)}
             onClick={() => {
-              setGuestAdultsInputValue(0)
-              setGuestChildrenInputValue(0)
-              setGuestInfantsInputValue(0)
+              setGuestAdultsInputValue(guestDefaults.guestAdults ?? 2)
+              setGuestChildrenInputValue(guestDefaults.guestChildren ?? 0)
+              setGuestInfantsInputValue(guestDefaults.guestInfants ?? 0)
             }}
           />
 

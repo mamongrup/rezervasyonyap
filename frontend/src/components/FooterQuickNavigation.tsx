@@ -104,10 +104,6 @@ const FooterQuickNavigation = () => {
           type="button"
           key={item.name}
           onClick={item.onClick}
-          onTouchEnd={(e) => {
-            e.preventDefault()
-            item.onClick?.()
-          }}
           aria-label={item.name}
           className={clsx(navItemClass, 'touch-manipulation cursor-pointer', activeCls)}
         >
@@ -139,7 +135,7 @@ const FooterQuickNavigation = () => {
   return (
     <>
       <div
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-6 bg-white/90 px-2.5 py-4 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm transition-transform lg:hidden dark:bg-neutral-950/90"
+        className="pointer-events-auto fixed inset-x-0 bottom-0 z-[70] flex items-center gap-6 bg-white/90 px-2.5 py-4 shadow ring-1 shadow-slate-200/80 ring-slate-900/5 backdrop-blur-sm lg:hidden dark:bg-neutral-950/90"
       >
         {/*
           Chisfis: `mx-auto flex w-full max-w-lg justify-around`.
@@ -155,10 +151,6 @@ const FooterQuickNavigation = () => {
             <button
               type="button"
               onClick={openChat}
-              onTouchEnd={(e) => {
-                e.preventDefault()
-                openChat()
-              }}
               aria-label={bn.assistantAria}
               className="relative -mt-2 flex h-11 w-11 shrink-0 touch-manipulation cursor-pointer items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 dark:ring-neutral-950"
             >

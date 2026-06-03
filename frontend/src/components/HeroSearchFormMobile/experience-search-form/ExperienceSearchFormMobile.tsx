@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
@@ -17,11 +18,7 @@ const ExperienceSearchFormMobile = () => {
   const [fieldNameShow, setFieldNameShow] = useState<'location' | 'dates' | 'guests'>('location')
   //
   const [locationInputTo, setLocationInputTo] = useState('')
-  const [guestInput, setGuestInput] = useState<GuestsObject>({
-    guestAdults: 2,
-    guestChildren: 0,
-    guestInfants: 0,
-  })
+  const [guestInput, setGuestInput] = useState<GuestsObject>({ ...DEFAULT_GUESTS_EXPERIENCE })
   const [startDate, setStartDate] = useState<Date | null>(null)
   const [endDate, setEndDate] = useState<Date | null>(null)
   const router = useRouter()
@@ -54,7 +51,7 @@ const ExperienceSearchFormMobile = () => {
   }
 
   //
-  const totalGuests = (guestInput.guestAdults || 0) + (guestInput.guestChildren || 0) + (guestInput.guestInfants || 0)
+  const totalGuests = totalGuestCount(guestInput)
   const guestStringConverted = totalGuests
     ? `${totalGuests} ${m.HeroSearchForm['Guests']}`
     : m.HeroSearchForm['Add guests']
@@ -93,7 +90,11 @@ const ExperienceSearchFormMobile = () => {
         headingTitle={m.HeroSearchForm['Who']}
         headingValue={guestStringConverted}
       >
-        <GuestsInput defaultValue={guestInput} onChange={setGuestInput} />
+          <GuestsInput
+            defaultValue={guestInput}
+            onChange={setGuestInput}
+            guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
+          />
       </FieldPanelContainer>
     </Form>
   )

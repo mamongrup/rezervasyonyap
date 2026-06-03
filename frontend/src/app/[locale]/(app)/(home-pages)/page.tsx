@@ -14,6 +14,7 @@ import { getFeaturedRegionConfig, getHomepageConfig } from '@/data/page-builder-
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
+import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
@@ -96,11 +97,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         mosaicRaw[2] || defaultHeroSrc,
       ]
     : [defaultHeroSrc, defaultHeroSrc, defaultHeroSrc]
-  const mosaicForRegionHero: [string, string, string] = [
-    mosaicGrid[2],
-    mosaicGrid[0],
-    mosaicGrid[1],
-  ]
+  const mosaicForRegionHero = panelImagesToFreeformUrls(mosaicGrid)
 
   /** Freeform’daki gerçek LCP URL’si dizinin ilk elemanı olmayabilir — önce onu preload et. */
   const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero)

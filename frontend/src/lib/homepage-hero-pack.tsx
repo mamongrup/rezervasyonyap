@@ -5,6 +5,7 @@ import {
 } from '@/components/hero-sections/hero-link-classes'
 import { CATEGORY_REGISTRY } from '@/data/category-registry'
 import { getHomepageConfig } from '@/data/page-builder-config'
+import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
 import { getHomepageDefaultModules } from '@/lib/page-builder-default-modules'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
@@ -74,11 +75,7 @@ export async function loadHomepageHeroPack(locale: string, m: AppMessages): Prom
         mosaicRaw[2] || defaultHeroSrc,
       ]
     : [defaultHeroSrc, defaultHeroSrc, defaultHeroSrc]
-  const mosaicForRegionHero: [string, string, string] = [
-    mosaicGrid[2],
-    mosaicGrid[0],
-    mosaicGrid[1],
-  ]
+  const mosaicForRegionHero = panelImagesToFreeformUrls(mosaicGrid)
 
   const lcpHeroUrl = resolveHeroLcpImageUrl(DEFAULT_REGION_HERO_FREEFORM, mosaicForRegionHero) ?? null
 

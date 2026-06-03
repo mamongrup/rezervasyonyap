@@ -188,7 +188,7 @@ const CurrLangDropdown: FC<Props> = ({
         anchor={panelAnchor}
         transition
         className={clsx(
-          'z-40 rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/[0.06] transition duration-200 ease-in-out data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800 dark:ring-white/10',
+          'z-40 rounded-3xl bg-white p-6 shadow-[0_8px_30px_rgba(15,23,42,0.08)] ring-1 ring-black/[0.06] transition duration-200 ease-in-out data-closed:pointer-events-none data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800 dark:ring-white/10',
           panelClassName
         )}
       >

@@ -87,7 +87,7 @@ const NotifyDropdown: FC<Props> = ({ className = '' }) => {
         <PopoverPanel
           transition
           anchor={{ to: 'bottom end', gap: 16 }}
-          className="z-40 w-96 rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-200 ease-in-out data-closed:translate-y-1 data-closed:opacity-0"
+          className="z-40 w-96 rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-200 ease-in-out data-closed:pointer-events-none data-closed:translate-y-1 data-closed:opacity-0"
         >
           <div className="relative bg-white dark:bg-neutral-800">
             {/* Header */}

@@ -168,7 +168,7 @@ export default function AvatarDropdown({ className }: Props) {
         <PopoverPanel
           transition
           anchor={{ to: 'bottom end', gap: 16 }}
-          className="z-40 w-80 rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-200 ease-in-out data-closed:translate-y-1 data-closed:opacity-0"
+          className="z-40 w-80 rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-200 ease-in-out data-closed:pointer-events-none data-closed:translate-y-1 data-closed:opacity-0"
         >
           <div className="relative grid grid-cols-1 gap-6 bg-white px-6 py-7 dark:bg-neutral-800">
             {isLoggedIn ? (

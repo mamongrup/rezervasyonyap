@@ -4,6 +4,7 @@ import ModalSelectDate from '@/components/ModalSelectDate'
 import ModalSelectGuests from '@/components/ModalSelectGuests'
 import { checkoutT, fmtCheckout } from '@/lib/checkout-i18n'
 import { getMessages } from '@/utils/getT'
+import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { PencilEdit02Icon } from '@hugeicons/core-free-icons'
@@ -37,13 +38,9 @@ const YourTrip = ({ locale }: Props) => {
     }
   }, [searchParams])
 
-  const [guests, setGuests] = useState<GuestsObject>({
-    guestAdults: 2,
-    guestChildren: 1,
-    guestInfants: 1,
-  })
+  const [guests, setGuests] = useState<GuestsObject>({ ...DEFAULT_GUESTS_STAY })
 
-  const guestCount = (guests.guestAdults || 0) + (guests.guestChildren || 0)
+  const guestCount = totalGuestCount(guests)
 
   return (
     <div>

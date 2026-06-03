@@ -1,7 +1,8 @@
 'use client'
 
 import NcInputNumber from '@/components/NcInputNumber'
-import { GuestsObject } from '@/type'
+import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
+import type { GuestsObject } from '@/type'
 import T from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { UserAdd01Icon } from '@hugeicons/core-free-icons'
@@ -10,34 +11,36 @@ import { FC, useState } from 'react'
 
 interface Props {
   className?: string
+  /** Konaklama: 2 yetişkin; aktivite/etkinlik/tur: `DEFAULT_GUESTS_EXPERIENCE` */
+  guestDefaults?: GuestsObject
 }
 
-const GuestsInputPopover: FC<Props> = ({ className = 'flex-1' }) => {
-  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(2)
-  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(0)
-  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(0)
+const GuestsInputPopover: FC<Props> = ({
+  className = 'flex-1',
+  guestDefaults = DEFAULT_GUESTS_STAY,
+}) => {
+  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(guestDefaults.guestAdults ?? 2)
+  const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(guestDefaults.guestChildren ?? 0)
+  const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(guestDefaults.guestInfants ?? 0)
 
   const handleChangeData = (value: number, type: keyof GuestsObject) => {
-    let newValue = {
-      guestAdults: guestAdultsInputValue,
-      guestChildren: guestChildrenInputValue,
-      guestInfants: guestInfantsInputValue,
-    }
     if (type === 'guestAdults') {
       setGuestAdultsInputValue(value)
-      newValue.guestAdults = value
     }
     if (type === 'guestChildren') {
       setGuestChildrenInputValue(value)
-      newValue.guestChildren = value
     }
     if (type === 'guestInfants') {
       setGuestInfantsInputValue(value)
-      newValue.guestInfants = value
     }
   }
 
-  const totalGuests = guestChildrenInputValue + guestAdultsInputValue + guestInfantsInputValue
+  const totalGuests = totalGuestCount({
+    guestAdults: guestAdultsInputValue,
+    guestChildren: guestChildrenInputValue,
+    guestInfants: guestInfantsInputValue,
+  })
+
   return (
     <Popover className={`relative flex ${className}`}>
       {({ open }) => (
@@ -49,10 +52,10 @@ const GuestsInputPopover: FC<Props> = ({ className = 'flex-1' }) => {
               </div>
               <div className="grow">
                 <span className="block font-semibold xl:text-lg">
-                  {totalGuests || ''} {T['HeroSearchForm']['Guests']}
+                  {totalGuests} {T['HeroSearchForm']['Guests']}
                 </span>
                 <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">
-                  {totalGuests ? T['HeroSearchForm']['Guests'] : T['HeroSearchForm']['Add guests']}
+                  {T['HeroSearchForm']['Guests']}
                 </span>
               </div>
             </PopoverButton>

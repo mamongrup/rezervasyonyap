@@ -37,25 +37,22 @@ function unionLayerBounds(layers: FreeformBannerDocV2['layers']): {
 
 /**
  * `FreeformBannerDocV2` (version 2) — editördeki yüzde yerleşimi.
- * `imageUrls[i]` sırası `doc.layers[i]` ile eşleşir; `guides` yalnızca editör içindir, burada çizilmez.
+ * Mobil ve masaüstü aynı katman geometrisi; mobilde kutu daralınca kolaj küçülür.
  */
 export default function FreeformBannerView({
   doc,
   imageUrls,
   alt,
   className,
-  /** true: katmanların birleşim kutusuna göre kırp + ölçek (sağ yarı vb. boşluklar küçültülmez) */
   fitContentBounds = true,
 }: {
   doc: FreeformBannerDocV2
-  /** Katman sırasıyla URL; eksikse `layer.src` kullanılır */
   imageUrls: string[]
   alt: string
   className?: string
   fitContentBounds?: boolean
 }) {
   const bounds = fitContentBounds ? unionLayerBounds(doc.layers) : null
-  /** Tuval 16:9 iken x,y 0–1 kare normalize; fiziksel en/boy oranı (width/height) = bw*16/(bh*9) */
   const ar =
     bounds != null
       ? `${(bounds.bw * 16) / (bounds.bh * 9)} / 1`
@@ -69,18 +66,6 @@ export default function FreeformBannerView({
     const u = (imageUrls[urlIdx] ?? layer.src ?? '').trim()
     return u !== ''
   })
-  const firstPriorityLayer =
-    firstPriorityIdx >= 0 ? layers[firstPriorityIdx] : null
-  const firstPriorityUrl = firstPriorityLayer
-    ? (() => {
-        const si = firstPriorityLayer.slotIndex
-        const urlIdx =
-          typeof si === 'number' && Number.isFinite(si)
-            ? Math.min(2, Math.max(0, Math.round(si)))
-            : firstPriorityIdx
-        return (imageUrls[urlIdx] ?? firstPriorityLayer.src ?? '').trim()
-      })()
-    : ''
 
   return (
     <div
@@ -90,30 +75,7 @@ export default function FreeformBannerView({
       )}
       style={{ aspectRatio: ar }}
     >
-      <div className="relative h-full w-full overflow-hidden rounded-xl md:hidden">
-        {firstPriorityUrl ? (
-          <Image
-            src={firstPriorityUrl}
-            alt={`${alt} — 1`}
-            fill
-            sizes="100vw"
-            className="object-cover"
-            style={{
-              objectPosition: firstPriorityLayer
-                ? `${firstPriorityLayer.focusX}% ${firstPriorityLayer.focusY}%`
-                : '50% 50%',
-            }}
-            fetchPriority="high"
-            priority
-            loading="eager"
-            decoding="async"
-            unoptimized={slotUnopt(firstPriorityUrl)}
-          />
-        ) : (
-          <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-        )}
-      </div>
-      <div className="relative hidden h-full w-full overflow-hidden rounded-xl md:block">
+      <div className="relative h-full w-full overflow-hidden rounded-xl">
         {layers.map((layer, i) => {
           const si = layer.slotIndex
           const urlIdx =
@@ -132,7 +94,6 @@ export default function FreeformBannerView({
           const slotSizes = `(max-width: 768px) ${Math.ceil(bwPct)}vw, ${Math.ceil(
             bwPct * 0.58,
           )}vw`
-          /** slotIndex küçük = üstte (0 sağ uzun); üst üste binmede yanlış kesilmesin */
           const zSlot =
             typeof si === 'number' && Number.isFinite(si) ? Math.min(2, Math.max(0, Math.round(si))) : i
           const zIndex = 30 - zSlot * 8

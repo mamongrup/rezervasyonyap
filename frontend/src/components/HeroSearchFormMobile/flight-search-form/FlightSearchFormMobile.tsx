@@ -1,5 +1,6 @@
 'use client'
 
+import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
@@ -33,11 +34,7 @@ const FlightSearchFormMobile = () => {
   const [dropOffLocationType, setDropOffLocationType] = useState(dropOffLocationTypes[0])
   const [flightClassState, setFlightClassState] = useState(flightClasses[0])
 
-  const [guestInput, setGuestInput] = useState<GuestsObject>({
-    guestAdults: 2,
-    guestChildren: 0,
-    guestInfants: 0,
-  })
+  const [guestInput, setGuestInput] = useState<GuestsObject>({ ...DEFAULT_GUESTS_STAY })
   const router = useRouter()
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
@@ -45,8 +42,7 @@ const FlightSearchFormMobile = () => {
 
   const handleFormSubmit = (formData: FormData) => {
     const formDataEntries = Object.fromEntries(formData.entries())
-    const totalG =
-      (guestInput.guestAdults || 0) + (guestInput.guestChildren || 0) + (guestInput.guestInfants || 0)
+    const totalG = totalGuestCount(guestInput)
     const params = {
       ...formDataToStringRecord(formData),
       trip_type: dropOffLocationType,
@@ -185,7 +181,7 @@ const FlightSearchFormMobile = () => {
 
   const renderInputGuests = () => {
     const isActive = fieldNameShow === 'guests'
-    const totalGuests = (guestInput.guestAdults || 0) + (guestInput.guestChildren || 0) + (guestInput.guestInfants || 0)
+    const totalGuests = totalGuestCount(guestInput)
     const guestStringConverted = totalGuests
       ? `${totalGuests} ${m.HeroSearchForm['Guests']}`
       : m.HeroSearchForm['Add guests']

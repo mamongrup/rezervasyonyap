@@ -49,6 +49,7 @@ import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jso
 import type { TListingBase } from '@/types/listing-types'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
+import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
@@ -526,7 +527,7 @@ export default async function ExperienceListingDetailPage({
         >
           <DatesRangeInputPopover className="z-11 flex-1" locale={locale} />
           <div className="w-full border-b border-neutral-200 dark:border-neutral-700"></div>
-          <GuestsInputPopover className="flex-1" />
+          <GuestsInputPopover className="flex-1" guestDefaults={DEFAULT_GUESTS_EXPERIENCE} />
         </Form>
 
         <ButtonPrimary form="booking-form" type="submit">

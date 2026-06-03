@@ -7,6 +7,7 @@ import {
   isTourPeriodBookable,
 } from '@/lib/tour-periods'
 import Form from 'next/form'
+import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
 import { useTourPeriodSelection } from './TourPeriodContext'
@@ -51,7 +52,7 @@ export default function TourBookingSidebar({
           onChange={setSelected}
         />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-        <GuestsInputPopover className="flex-1" />
+        <GuestsInputPopover className="flex-1" guestDefaults={DEFAULT_GUESTS_EXPERIENCE} />
       </Form>
 
       {bookable ? (

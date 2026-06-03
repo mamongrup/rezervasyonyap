@@ -42,7 +42,7 @@ export function Aside({
   const hasHeading = !!heading || logoOnHeading
 
   return (
-    <Dialog as="div" className={clsx('relative', stackZIndexClass)} onClose={onClose} open={open}>
+    <Dialog as="div" className={clsx('fixed inset-0', stackZIndexClass)} onClose={onClose} open={open}>
       <DialogBackdrop
         transition
         className="fixed inset-0 bg-neutral-900/50 duration-300 ease-out data-closed:opacity-0"

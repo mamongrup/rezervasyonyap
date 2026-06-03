@@ -49,7 +49,7 @@ export default function MegaMenuPopover({
 
         <PopoverPanel
           transition
-          className="header-popover-full-panel absolute inset-x-0 top-full z-40 w-full transition duration-200 data-closed:translate-y-1 data-closed:opacity-0"
+          className="header-popover-full-panel absolute inset-x-0 top-full z-40 w-full transition duration-200 data-closed:pointer-events-none data-closed:translate-y-1 data-closed:opacity-0"
         >
           <div className="bg-white shadow-lg dark:bg-neutral-900">
             <div className="container">

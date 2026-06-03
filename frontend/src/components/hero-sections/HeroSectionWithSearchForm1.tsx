@@ -11,8 +11,7 @@ type HeroImageDims = { src: string; width: number; height: number }
 /**
  * 3 görsel:
  * - `bleed !== 'region'`: md+ üstte geniş [0], altta [1]|[2]; mobilde solda [0], sağda [1][2].
- * - `bleed === 'region'` (bölge / anasayfa / kategori hero): md+ **sol sütun** [0] üst + [1] alt,
- *   **sağ sütun** [2]; mobilde solda [0], sağda [1][2].
+ * - `bleed === 'region'`: sol [0] üst + [1] alt, sağ [2] uzun — tüm kırılımlarda aynı grid (mobil küçültülmüş).
  */
 function MosaicSlot({
   src,
@@ -90,40 +89,9 @@ function HeroImageMosaic({
       'relative lg:-ml-2 lg:w-[calc(100%+0.5rem)] lg:max-w-none lg:min-w-0 lg:pb-[50px] lg:overflow-visible'
     return (
       <div className={clsx('w-full min-h-0', flush ? 'mb-0' : 'mb-5', regionBleedWrap)}>
-        {/* Mobil: solda [0], sağda [1] + [2] üst üste */}
-        <div className={clsx('flex min-h-0 w-full min-w-0 flex-row md:hidden', gap)}>
-          <div className={clsx(slot, 'aspect-[4/3] min-h-0 min-w-0 flex-1 basis-0')}>
-            <MosaicSlot
-              src={images[0]}
-              alt={`${alt} — 1`}
-              sizes={sizesTop}
-              priority={firstPriorityIdx === 0}
-            />
-          </div>
-          <div className={clsx('flex min-h-0 min-w-0 flex-1 flex-col', gap)}>
-            <div className={clsx(slot, 'aspect-[4/3] min-h-0 w-full min-w-0')}>
-              <MosaicSlot
-                src={images[1]}
-                alt={`${alt} — 2`}
-                sizes={sizesPair}
-                priority={firstPriorityIdx === 1}
-              />
-            </div>
-            <div className={clsx(slot, 'aspect-[4/3] min-h-0 w-full min-w-0')}>
-              <MosaicSlot
-                src={images[2]}
-                alt={`${alt} — 3`}
-                sizes={sizesPair}
-                priority={firstPriorityIdx === 2}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* md+: sol üst/alt iki kare, sağ sütun (bölge sayfası referansı) */}
         <div
           className={clsx(
-            'hidden min-h-0 w-full md:grid md:grid-cols-2 md:grid-rows-2 md:items-stretch',
+            'grid min-h-0 w-full grid-cols-2 grid-rows-2 items-stretch',
             gap,
           )}
         >
@@ -164,18 +132,12 @@ function HeroImageMosaic({
   return (
     <div
       className={clsx(
-        'flex min-h-0 w-full min-w-0 flex-row md:flex-col',
+        'flex min-h-0 w-full min-w-0 flex-col',
         gap,
         flush ? 'mb-0' : 'mb-5',
       )}
     >
-      {/* [0]: mobilde sol sütun, md+ tam genişlik üst */}
-      <div
-        className={clsx(
-          slot,
-          'aspect-[4/3] min-h-0 min-w-0 flex-1 basis-0 md:aspect-[2/1] md:w-full md:flex-none',
-        )}
-      >
+      <div className={clsx(slot, 'aspect-[2/1] min-h-0 w-full')}>
         <MosaicSlot
           src={images[0]}
           alt={`${alt} — 1`}
@@ -183,10 +145,8 @@ function HeroImageMosaic({
           priority={firstPriorityIdx === 0}
         />
       </div>
-
-      {/* [1] + [2]: mobilde sağ kolon (column); md+ alt satır (row) */}
-      <div className={clsx('flex min-h-0 min-w-0 flex-1 flex-col md:w-full md:flex-none md:flex-row', gap)}>
-        <div className={clsx(slot, 'aspect-[4/3] min-h-0 w-full min-w-0 md:flex-1')}>
+      <div className={clsx('flex min-h-0 w-full min-w-0 flex-row', gap)}>
+        <div className={clsx(slot, 'aspect-[4/3] min-h-0 min-w-0 flex-1')}>
           <MosaicSlot
             src={images[1]}
             alt={`${alt} — 2`}
@@ -194,7 +154,7 @@ function HeroImageMosaic({
             priority={firstPriorityIdx === 1}
           />
         </div>
-        <div className={clsx(slot, 'aspect-[4/3] min-h-0 w-full min-w-0 md:flex-1')}>
+        <div className={clsx(slot, 'aspect-[4/3] min-h-0 min-w-0 flex-1')}>
           <MosaicSlot
             src={images[2]}
             alt={`${alt} — 3`}

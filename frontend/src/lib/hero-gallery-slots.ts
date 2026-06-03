@@ -13,6 +13,16 @@ import {
  *
  * Dizi asla `filter` ile kısaltılmaz; API bazen string JSON, bazen parse dizi döndürebilir.
  */
+/**
+ * Panel / page-builder sırası `[0]` sol üst, `[1]` sol alt, `[2]` sağ uzun →
+ * `FreeformBannerView` / `DEFAULT_REGION_HERO_FREEFORM` slot URL dizisi.
+ */
+export function panelImagesToFreeformUrls(
+  panel: [string, string, string],
+): [string, string, string] {
+  return [panel[2], panel[0], panel[1]]
+}
+
 export function normalizeHeroGalleryThree(raw: unknown): [string, string, string] {
   const empty: [string, string, string] = ['', '', '']
   if (raw == null) return empty

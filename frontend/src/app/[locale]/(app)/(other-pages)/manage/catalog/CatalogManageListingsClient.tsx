@@ -13,13 +13,96 @@ import { getAuthMe, listManageCatalogListings, type ManageListingRow } from '@/l
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
+import clsx from 'clsx'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Languages,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Search,
+  X,
+} from 'lucide-react'
 import { useParams } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 const PAGE_SIZE_OPTIONS = [50, 100, 200] as const
 type PageSizeOption = (typeof PAGE_SIZE_OPTIONS)[number]
+
+const STATUS_LABEL: Record<string, string> = {
+  published: 'Yayında',
+  draft: 'Taslak',
+  archived: 'Arşiv',
+  inactive: 'Pasif',
+  pending: 'Beklemede',
+}
+
+const STATUS_CLASS: Record<string, string> = {
+  published: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300',
+  draft: 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300',
+  archived: 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
+  inactive: 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-500',
+  pending: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-300',
+}
+
+const SOURCE_LABEL: Record<string, string> = {
+  manual: 'Manuel',
+  api: 'API',
+  wtatil: 'Wtatil',
+  excalibur: 'Excalibur',
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const key = status.toLowerCase()
+  return (
+    <span
+      className={clsx(
+        'inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium',
+        STATUS_CLASS[key] ?? 'bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400',
+      )}
+    >
+      {STATUS_LABEL[key] ?? status}
+    </span>
+  )
+}
+
+function formatListingDate(iso: string): string {
+  if (!iso?.trim()) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString('tr-TR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function listingInitial(title: string, slug: string): string {
+  const t = (title || slug || '?').trim()
+  return (t[0] ?? '?').toLocaleUpperCase('tr-TR')
+}
+
+function avatarHue(id: string): string {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h + id.charCodeAt(i) * 17) % 360
+  return `hsl(${h} 45% 42%)`
+}
+
+function KpiCard({ label, value, accent }: { label: string; value: number; accent: string }) {
+  return (
+    <div className="rounded-2xl border border-neutral-100 bg-white p-4 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+      <p className="text-2xl font-bold tabular-nums text-neutral-900 dark:text-neutral-100">{value}</p>
+      <p className="mt-0.5 text-xs text-neutral-500">{label}</p>
+      <div className="mt-2 h-1 w-8 rounded-full" style={{ backgroundColor: accent }} />
+    </div>
+  )
+}
 
 export default function CatalogManageListingsClient({ categoryCode }: { categoryCode: string }) {
   const t = useManageT()
@@ -31,9 +114,9 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = useState<PageSizeOption>(50)
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [orgId, setOrgId] = useState('')
   const [needOrg, setNeedOrg] = useState(false)
-  /** Yönetici mi / org gerekli mi — getAuthMe bitmeden API çağrılmasın; yoksa ilk istek organization_id olmadan gider. */
   const [scopeReady, setScopeReady] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -61,8 +144,13 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   }, [])
 
   useEffect(() => {
+    const id = window.setTimeout(() => setDebouncedSearch(search.trim()), 350)
+    return () => window.clearTimeout(id)
+  }, [search])
+
+  useEffect(() => {
     setPageIndex(0)
-  }, [search, pageSize])
+  }, [debouncedSearch, pageSize])
 
   const load = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -83,7 +171,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
     try {
       const r = await listManageCatalogListings(token, {
         categoryCode,
-        search: search.trim() || undefined,
+        search: debouncedSearch || undefined,
         organizationId: needOrg ? orgId.trim() : undefined,
         titleLocale: locale,
         page: pageIndex + 1,
@@ -98,7 +186,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
     } finally {
       setLoading(false)
     }
-  }, [categoryCode, needOrg, orgId, search, t, locale, pageIndex, pageSize])
+  }, [categoryCode, needOrg, orgId, debouncedSearch, t, locale, pageIndex, pageSize])
 
   useEffect(() => {
     if (!scopeReady) return
@@ -115,17 +203,54 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const rangeStart = totalCount === 0 ? 0 : pageIndex * pageSize + 1
   const rangeEnd = Math.min(totalCount, (pageIndex + 1) * pageSize)
 
+  const pageStats = useMemo(() => {
+    let published = 0
+    let draft = 0
+    for (const r of rows) {
+      const s = r.status.toLowerCase()
+      if (s === 'published') published++
+      else if (s === 'draft') draft++
+    }
+    return { published, draft }
+  }, [rows])
+
   const pageSizeSelectClass =
     'min-w-[4.25rem] appearance-none rounded-lg border border-neutral-200 bg-white py-1.5 pl-3 pr-8 text-sm tabular-nums text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
 
   return (
-    <div>
-      <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-        {t('catalog.listings_label')} — {categoryLabelTr(categoryCode)}
-      </h1>
+    <div className="min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+            {t('catalog.listings_label')}
+          </h1>
+          <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+            {categoryLabelTr(categoryCode)} · {totalCount > 0 ? `${totalCount} kayıt` : 'Kayıt yok'}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            aria-label={t('catalog.refresh')}
+          >
+            <RefreshCw className={clsx('h-4 w-4', loading && 'animate-spin')} />
+            {t('catalog.refresh')}
+          </button>
+          <Link
+            href={`${base}/listings/new`}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600"
+          >
+            <Plus className="h-4 w-4" />
+            {t('catalog.new_listing')}
+          </Link>
+        </div>
+      </div>
 
       {needOrg ? (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
+        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/30">
           <Field className="block max-w-xl">
             <Label>{t('catalog.org_uuid_label')}</Label>
             <div className="mt-1 flex flex-wrap gap-2">
@@ -144,86 +269,154 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
         </div>
       ) : null}
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        <Field className="block min-w-[200px]">
-          <Label>{t('catalog.search_placeholder')}</Label>
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} className="mt-1" />
-        </Field>
-        <ButtonPrimary type="button" onClick={() => void load()} disabled={loading}>
-          {loading ? '…' : t('catalog.refresh')}
-        </ButtonPrimary>
-        <Link
-          href={`${base}/listings/new`}
-          className="inline-flex items-center rounded-xl bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 dark:bg-primary-500"
-        >
-          {t('catalog.new_listing')}
-        </Link>
+      <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <KpiCard label="Toplam (veritabanı)" value={totalCount} accent="#6366f1" />
+        <KpiCard label="Yayında (bu sayfa)" value={pageStats.published} accent="#10b981" />
+        <KpiCard label="Taslak (bu sayfa)" value={pageStats.draft} accent="#f59e0b" />
       </div>
 
-      {err ? <p className="mt-4 text-sm text-red-600 dark:text-red-400">{err}</p> : null}
+      <div className="mt-4 flex flex-wrap items-end gap-3">
+        <div className="relative min-w-[min(100%,280px)] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('catalog.search_placeholder')}
+            className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2.5 pl-10 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
+          />
+        </div>
+      </div>
 
-      <div className="mt-6 overflow-x-auto rounded-xl border border-neutral-200 dark:border-neutral-700">
-        <table className="min-w-full text-left text-sm">
-          <thead className="bg-neutral-50 dark:bg-neutral-900">
-            <tr>
-              <th className="px-3 py-2 font-medium">{t('catalog.col_title')}</th>
-              <th className="px-3 py-2 font-medium">{t('catalog.col_slug')}</th>
-              <th className="px-3 py-2 font-medium">{t('catalog.col_status')}</th>
-              <th className="px-3 py-2 font-medium">{t('catalog.col_currency')}</th>
-              <th className="px-3 py-2 font-medium">{t('catalog.col_source')}</th>
-              <th className="px-3 py-2 font-medium">{t('catalog.col_created')}</th>
-              <th className="px-3 py-2 font-medium">Detay</th>
-              <th className="px-3 py-2 font-medium">{t('catalog.translations_link')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && !loading ? (
-              <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-neutral-500">
-                  {t('catalog.no_rows')}
-                </td>
-              </tr>
-            ) : null}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-neutral-100 dark:border-neutral-800">
-                <td className="max-w-[220px] truncate px-3 py-2">{r.title || '—'}</td>
-                <td className="px-3 py-2 font-mono text-xs">{r.slug}</td>
-                <td className="px-3 py-2">{r.status}</td>
-                <td className="px-3 py-2">{r.currency_code}</td>
-                <td className="px-3 py-2">{r.listing_source}</td>
-                <td className="px-3 py-2 text-xs text-neutral-500">{r.created_at}</td>
-                <td className="px-3 py-2">
-                  <Link
-                    href={`${base}/listings/${encodeURIComponent(r.id)}`}
-                    className="text-primary-600 underline dark:text-primary-400"
-                  >
-                    Aç
-                  </Link>
-                </td>
-                <td className="px-3 py-2">
-                  <Link
-                    href={`${base}/listings/${encodeURIComponent(r.id)}/translations`}
-                    className="text-primary-600 underline dark:text-primary-400"
-                  >
-                    {t('catalog.translations_link')}
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {err ? (
+        <div className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300">
+          <span className="min-w-0 flex-1">{err}</span>
+          <button type="button" onClick={() => setErr(null)} className="shrink-0 text-red-500 hover:text-red-700">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+
+      <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        {loading ? (
+          <div className="flex items-center justify-center gap-2 py-20 text-sm text-neutral-500">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Yükleniyor…
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+            <FileText className="mb-3 h-12 w-12 text-neutral-300 dark:text-neutral-600" />
+            <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300">{t('catalog.no_rows')}</p>
+            <p className="mt-1 max-w-sm text-xs text-neutral-500">
+              {debouncedSearch
+                ? 'Arama kriterlerini değiştirin veya yeni ilan ekleyin.'
+                : 'İlk ilanı oluşturmak için «Yeni ilan» düğmesini kullanın.'}
+            </p>
+            <Link
+              href={`${base}/listings/new`}
+              className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+            >
+              <Plus className="h-4 w-4" />
+              {t('catalog.new_listing')}
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-neutral-100 bg-neutral-50/90 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400">
+                  <th className="px-4 py-3">{t('catalog.col_title')}</th>
+                  <th className="px-4 py-3">{t('catalog.col_status')}</th>
+                  <th className="px-4 py-3">{t('catalog.col_source')}</th>
+                  <th className="px-4 py-3">{t('catalog.col_currency')}</th>
+                  <th className="px-4 py-3">{t('catalog.col_created')}</th>
+                  <th className="px-4 py-3 text-end">İşlem</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
+                {rows.map((r) => {
+                  const detailHref = `${base}/listings/${encodeURIComponent(r.id)}`
+                  const title = r.title?.trim() || '—'
+                  return (
+                    <tr
+                      key={r.id}
+                      className="transition-colors hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div
+                            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
+                            style={{ backgroundColor: avatarHue(r.id) }}
+                            aria-hidden
+                          >
+                            {listingInitial(title, r.slug)}
+                          </div>
+                          <div className="min-w-0">
+                            <Link
+                              href={detailHref}
+                              className="font-medium text-neutral-900 hover:text-primary-600 dark:text-neutral-100 dark:hover:text-primary-400"
+                            >
+                              <span className="line-clamp-2">{title}</span>
+                            </Link>
+                            <p className="mt-0.5 truncate font-mono text-xs text-neutral-400 dark:text-neutral-500">
+                              {r.slug}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <StatusBadge status={r.status} />
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <span className="inline-flex rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
+                          {SOURCE_LABEL[r.listing_source?.toLowerCase()] ?? r.listing_source ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <span className="font-mono text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                          {r.currency_code || '—'}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-neutral-500 dark:text-neutral-400">
+                        {formatListingDate(r.created_at)}
+                      </td>
+                      <td className="px-4 py-3 align-middle">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Link
+                            href={detailHref}
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-primary-400"
+                          >
+                            <FileText className="h-3.5 w-3.5" />
+                            Detay
+                          </Link>
+                          <Link
+                            href={`${detailHref}/translations`}
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-primary-400"
+                          >
+                            <Languages className="h-3.5 w-3.5" />
+                            {t('catalog.translations_link')}
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {!loading && totalCount > 0 ? (
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-100 bg-neutral-50/80 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/40">
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-100 bg-neutral-50/90 px-4 py-3 dark:border-neutral-800 dark:bg-neutral-900/50">
           <p className="text-sm text-neutral-600 dark:text-neutral-400">
             <span className="font-medium text-neutral-800 dark:text-neutral-200">
               {rangeStart}–{rangeEnd}
             </span>
-            {' · '}
-            Toplam {totalCount} ilan
-            {search.trim() ? (
-              <span className="text-neutral-400">{` (arama: "${search.trim()}")`}</span>
+            {' / '}
+            {totalCount} ilan
+            {debouncedSearch ? (
+              <span className="text-neutral-400">{` · «${debouncedSearch}»`}</span>
             ) : null}
           </p>
           <div className="flex flex-wrap items-center gap-2">
@@ -244,19 +437,19 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                   ))}
                 </select>
                 <ChevronDown
-                  className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500 dark:text-neutral-400"
+                  className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500"
                   aria-hidden
                 />
               </span>
             </label>
-            <span className="text-xs text-neutral-500">
-              Sayfa {pageIndex + 1} / {totalPages}
+            <span className="text-xs tabular-nums text-neutral-500">
+              {pageIndex + 1} / {totalPages}
             </span>
             <button
               type="button"
               disabled={pageIndex === 0 || loading}
               onClick={() => setPageIndex((p) => Math.max(0, p - 1))}
-              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
             >
               <ChevronLeft className="h-4 w-4" />
               Önceki
@@ -265,7 +458,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
               type="button"
               disabled={(pageIndex + 1) * pageSize >= totalCount || loading}
               onClick={() => setPageIndex((p) => p + 1)}
-              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-neutral-800"
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200"
             >
               Sonraki
               <ChevronRight className="h-4 w-4" />
@@ -276,9 +469,9 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
 
       <Link
         href={vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)}
-        className="mt-6 inline-block text-sm text-primary-600 underline dark:text-primary-400"
+        className="mt-6 inline-flex text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
       >
-        {t('catalog.back_hub')}
+        ← {t('catalog.back_hub')}
       </Link>
     </div>
   )

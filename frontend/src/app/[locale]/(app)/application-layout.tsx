@@ -1,3 +1,4 @@
+import AsideSidebarNavigation from '@/components/aside-sidebar-navigation'
 import { DeferredLayoutWidgets } from '@/components/DeferredLayoutWidgets'
 import { DeferredFooterWidgets } from '@/components/DeferredFooterWidgets'
 import Header from '@/components/Header/Header'
@@ -5,6 +6,7 @@ import MobileFixedTopBar from '@/components/MobileFixedTopBar'
 import MobileLayoutSpacer from '@/components/MobileLayoutSpacer'
 import Aside from '@/components/aside'
 import type { ReactNode } from 'react'
+import { Suspense } from 'react'
 
 interface Props {
   children: ReactNode
@@ -26,6 +28,9 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
       <MobileFixedTopBar locale={locale} />
       <MobileLayoutSpacer />
       {children}
+      <Suspense fallback={null}>
+        <AsideSidebarNavigation locale={locale} />
+      </Suspense>
       {/* Non-critical widgets deferred until after hydration for better LCP/TTI */}
       <DeferredFooterWidgets locale={locale} />
       <DeferredLayoutWidgets locale={locale} />

@@ -6,6 +6,7 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import T from '@/utils/getT'
 import { CloseButton, Dialog, DialogPanel } from '@headlessui/react'
 import React, { FC, useState } from 'react'
+import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
 import GuestsInput from './HeroSearchFormMobile/GuestsInput'
 
 interface Props {
@@ -15,11 +16,7 @@ interface Props {
 
 const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
   const [showModal, setShowModal] = useState(false)
-  const [guests, setGuests] = useState({
-    guestAdults: 2,
-    guestChildren: 1,
-    guestInfants: 1,
-  })
+  const [guests, setGuests] = useState({ ...DEFAULT_GUESTS_STAY })
 
   function closeModal() {
     setShowModal(false)
@@ -73,11 +70,7 @@ const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
                 className="shrink-0 font-semibold underline"
                 plain
                 onClick={() => {
-                  setGuests({
-                    guestAdults: 0,
-                    guestChildren: 0,
-                    guestInfants: 0,
-                  })
+                  setGuests({ ...DEFAULT_GUESTS_STAY })
                 }}
               >
                 {T['common']['Clear']}
