@@ -36,8 +36,29 @@ import { getMessages } from '@/utils/getT'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import CurrLangDropdown from '../CurrLangDropdown'
 
-/** Mobil çekmece — üstte ayrı kart olarak gösterilmeyecek (mega içinde kalabilir) */
+/** Mobil çekmece — mavi üst kartlar (API menüsü UUID id kullanır; href ile eşleştir) */
 const SIDEBAR_HIDDEN_TOP_IDS = new Set(['1', '2', '4', '6'])
+const SIDEBAR_HIDDEN_PATH_PREFIXES = ['/oteller', '/tatil-evleri', '/arac-kiralama', '/ilan-ver']
+
+function normalizeNavPath(href: string | undefined): string {
+  if (!href) return ''
+  try {
+    const raw = href.startsWith('http') ? new URL(href).pathname : href
+    return raw.replace(/^\/(tr|en|de|ru|zh|fr)(?=\/|$)/i, '').toLowerCase()
+  } catch {
+    return href.toLowerCase()
+  }
+}
+
+function isSidebarHiddenTopItem(item: TNavigationItem): boolean {
+  if (item.type === 'mega-menu') return false
+  const id = String(item.id ?? '')
+  if (SIDEBAR_HIDDEN_TOP_IDS.has(id)) return true
+  const path = normalizeNavPath(item.href)
+  return SIDEBAR_HIDDEN_PATH_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+  )
+}
 
 interface Props {
   data: TNavigationItem[]
@@ -97,9 +118,7 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
   }, [])
 
   const { megaRoot, extraMenuItems } = useMemo(() => {
-    const menuItems = data.filter(
-      (item) => item.id && !SIDEBAR_HIDDEN_TOP_IDS.has(String(item.id)),
-    )
+    const menuItems = data.filter((item) => !isSidebarHiddenTopItem(item))
     const mega = menuItems.find((it) => it.type === 'mega-menu' && it.children?.length)
     const extra = mega ? menuItems.filter((it) => it !== mega) : menuItems
     return { megaRoot: mega, extraMenuItems: extra }
