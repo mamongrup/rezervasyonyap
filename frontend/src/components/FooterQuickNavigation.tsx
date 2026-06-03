@@ -14,7 +14,7 @@ import { useEffect, useState } from 'react'
 const DEFAULT_ACCOUNT_PATH = '/account'
 import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
 import { useAside } from './aside'
-import HeroSearchFormMobile from './HeroSearchFormMobile/HeroSearchFormMobile'
+import { SearchModal } from '@/components/search/GlobalSearch'
 
 function FooterBarIcon({
   lucide,
@@ -65,7 +65,7 @@ const FooterQuickNavigation = () => {
 
   const sideItems = [
     {
-      name: 'Ara',
+      name: bn.search,
       lucide: Search,
       onClick: () => setSearchOpen(true),
     },
@@ -172,12 +172,8 @@ const FooterQuickNavigation = () => {
         </nav>
       </div>
 
-      {/* Masaüstü ile aynı tam arama formu — mobil bottom nav'dan açılır */}
-      <HeroSearchFormMobile
-        open={searchOpen}
-        onClose={() => setSearchOpen(false)}
-        locale={loc}
-      />
+      {/* İlan adı / özellik araması — 3+ harfte canlı öneri, /ara tam sonuç */}
+      {searchOpen ? <SearchModal onClose={() => setSearchOpen(false)} locale={loc} /> : null}
     </>
   )
 }
