@@ -17,7 +17,7 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
-ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-wtatil-auto.sh
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-wtatil-auto.sh
 Nice=10
 IOSchedulingClass=best-effort
 
