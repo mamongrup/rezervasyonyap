@@ -1,18 +1,18 @@
 import type { GuestsObject } from '@/type'
 
 /** Konaklama, tur, otel, araç vb. — 2 yetişkin */
-export const DEFAULT_GUESTS_STAY = {
+export const DEFAULT_GUESTS_STAY: GuestsObject = {
   guestAdults: 2,
   guestChildren: 0,
   guestInfants: 0,
-} as const satisfies GuestsObject
+}
 
 /** Aktivite ve etkinlik — 1 yetişkin */
-export const DEFAULT_GUESTS_EXPERIENCE = {
+export const DEFAULT_GUESTS_EXPERIENCE: GuestsObject = {
   guestAdults: 1,
   guestChildren: 0,
   guestInfants: 0,
-} as const satisfies GuestsObject
+}
 
 export function mergeGuestDefaults(
   partial?: GuestsObject,

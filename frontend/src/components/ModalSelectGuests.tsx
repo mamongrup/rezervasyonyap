@@ -14,9 +14,19 @@ interface Props {
   onChangeGuests?: (guests: { guestAdults: number; guestChildren: number; guestInfants: number }) => void
 }
 
+type GuestCounts = { guestAdults: number; guestChildren: number; guestInfants: number }
+
+function guestCountsFromDefaults(d: typeof DEFAULT_GUESTS_STAY = DEFAULT_GUESTS_STAY): GuestCounts {
+  return {
+    guestAdults: d.guestAdults ?? 2,
+    guestChildren: d.guestChildren ?? 0,
+    guestInfants: d.guestInfants ?? 0,
+  }
+}
+
 const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
   const [showModal, setShowModal] = useState(false)
-  const [guests, setGuests] = useState({ ...DEFAULT_GUESTS_STAY })
+  const [guests, setGuests] = useState<GuestCounts>(guestCountsFromDefaults())
 
   function closeModal() {
     setShowModal(false)
@@ -70,7 +80,7 @@ const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
                 className="shrink-0 font-semibold underline"
                 plain
                 onClick={() => {
-                  setGuests({ ...DEFAULT_GUESTS_STAY })
+                  setGuests(guestCountsFromDefaults())
                 }}
               >
                 {T['common']['Clear']}

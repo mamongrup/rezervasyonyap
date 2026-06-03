@@ -39,6 +39,14 @@ const EMPTY: IntegrationSettings = {
   site_url: '',
 }
 
+/** Vitrin kökü — `/api/v1` veya sondaki `/` buraya yazılmamalı (AI paneli bunu kullanmaz). */
+function normalizeIntegrationSiteUrl(raw: string): { value: string; strippedApiPath: boolean } {
+  let s = raw.trim()
+  const strippedApiPath = /\/api\/v1\/?$/i.test(s)
+  s = s.replace(/\/api\/v1\/?$/i, '').replace(/\/+$/, '')
+  return { value: s, strippedApiPath }
+}
+
 type Tab = 'sms' | 'email' | 'whatsapp' | 'general'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
@@ -161,6 +169,8 @@ export default function AdminIntegrationsSettingsSection() {
     if (!token) return
     setSaving(true)
     setMsg(null)
+    const { value: siteUrl, strippedApiPath } = normalizeIntegrationSiteUrl(settings.site_url)
+    const payload = { ...settings, site_url: siteUrl }
     try {
       const res = await fetch(`${API_BASE}/api/v1/site/settings`, {
         method: 'PUT',
@@ -168,10 +178,16 @@ export default function AdminIntegrationsSettingsSection() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ key: 'integrations', value_json: JSON.stringify(settings) }),
+        body: JSON.stringify({ key: 'integrations', value_json: JSON.stringify(payload) }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      setMsg({ type: 'ok', text: 'Ayarlar kaydedildi.' })
+      setSettings(payload)
+      setMsg({
+        type: 'ok',
+        text: strippedApiPath
+          ? 'Ayarlar kaydedildi. Site URL sonundaki /api/v1 kaldırıldı — bu alan yalnızca vitrin adresidir.'
+          : 'Ayarlar kaydedildi.',
+      })
     } catch (e) {
       setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız.') })
     } finally {
@@ -458,13 +474,17 @@ export default function AdminIntegrationsSettingsSection() {
             subtitle="Bildirim e-postalarındaki tedarikçi onay linkini oluşturmak için kullanılır"
           >
             <Field
-              label="Site URL"
+              label="Site URL (vitrin)"
               name="site_url"
               value={settings.site_url}
               onChange={change}
-              placeholder="https://rezervasyonyap.com.tr"
-              hint="Trailing slash olmadan girin. Tedarikçi onay linki: {site_url}/provizyon/{token}"
+              placeholder="https://rezervasyonyap.tr"
+              hint="Sadece site kökü; /api/v1 eklemeyin. Örnek link: https://rezervasyonyap.tr/provizyon/{token}. Yapay zeka ve panel API’si NEXT_PUBLIC_API_URL / sunucu env ile çalışır."
             />
+            <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+              Tarayıcıda açtığınız alan adıyla aynı olmalı (ör. <strong>rezervasyonyap.tr</strong>, farklı TLD veya www değil).
+              Bu alan SMS/e-posta tedarikçi linkleri içindir; AI uçları <span className="font-mono">/api/v1/ai/…</span> panelin API köküne gider.
+            </p>
           </SectionCard>
 
           <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-neutral-700 dark:bg-neutral-800/50">
