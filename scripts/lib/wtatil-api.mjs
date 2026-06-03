@@ -90,16 +90,9 @@ function authBody(userName, token, extra = {}) {
   }
 }
 
-/** JSON body ile GET; bazı ortamlarda POST yedek. */
-async function wtatilGetWithBody(path, body) {
-  try {
-    return await wtatilRequest('GET', path, body)
-  } catch (e) {
-    if (String(e.message).includes('HTTP 405') || String(e.message).includes('HTTP 404')) {
-      return wtatilRequest('POST', path, body)
-    }
-    throw e
-  }
+/** Auth gövdesi gerektiren katalog uçları — Wtatil v2 POST (GET+body Node fetch’te reddedilir). */
+async function wtatilPostAuth(path, body) {
+  return wtatilRequest('POST', path, body)
 }
 
 /** POST /api/TourCatalog/getall-tour-async — tek sayfa */
@@ -133,7 +126,7 @@ export async function fetchAllTours(userName, token, pageSize = 50, ids = null) 
 }
 
 export async function fetchTourCategories(userName, token) {
-  const json = await wtatilGetWithBody('/api/TourCatalog/getall-tour-category-async', authBody(userName, token))
+  const json = await wtatilPostAuth('/api/TourCatalog/getall-tour-category-async', authBody(userName, token))
   return unwrapData(json) || []
 }
 
@@ -142,7 +135,7 @@ export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) 
   let pageNumber = 1
   let pageCount = 1
   while (pageNumber <= pageCount) {
-    const json = await wtatilGetWithBody(
+    const json = await wtatilPostAuth(
       '/api/TourCatalog/getall-tour-period-by-tour-id-async',
       authBody(userName, token, { tourId, pageNumber, pageSize }),
     )
@@ -158,7 +151,7 @@ export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) 
 
 export async function fetchTourPeriodPrices(userName, token, periodIds, pageSize = 200) {
   if (!periodIds?.length) return []
-  const json = await wtatilGetWithBody(
+  const json = await wtatilPostAuth(
     '/api/TourCatalog/getall-tour-period-price-async',
     authBody(userName, token, { ids: periodIds, pageNumber: 1, pageSize }),
   )
@@ -167,7 +160,7 @@ export async function fetchTourPeriodPrices(userName, token, periodIds, pageSize
 }
 
 export async function fetchTourTransportDetail(userName, token, tourId) {
-  const json = await wtatilGetWithBody(
+  const json = await wtatilPostAuth(
     '/api/TourCatalog/get-tour-transport-detail-by-tour-id-async',
     authBody(userName, token, { tourId }),
   )
