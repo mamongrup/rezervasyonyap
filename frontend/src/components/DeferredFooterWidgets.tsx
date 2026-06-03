@@ -2,7 +2,7 @@ import CookieConsentBanner from '@/components/CookieConsentBanner'
 import Footer2 from '@/components/Footer2'
 import FooterQuickNavigation from '@/components/FooterQuickNavigation'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
-import { use } from 'react'
+import { Suspense } from 'react'
 
 /**
  * Non-critical layout widgets deferred until after hydration.
@@ -11,7 +11,7 @@ import { use } from 'react'
 type Props = { locale: string }
 
 async function FooterConfigWidgets({ locale }: Props) {
-  const config = use(getCachedSiteConfig())
+  const config = await getCachedSiteConfig()
   const ui = config?.ui as Record<string, unknown> | null | undefined
   const cc = ui?.cookie_consent as Record<string, unknown> | undefined
   const bannerEnabled = cc?.banner_enabled !== false
@@ -28,7 +28,9 @@ export function DeferredFooterWidgets({ locale }: Props) {
   return (
     <>
       <FooterQuickNavigation />
-      <FooterConfigWidgets locale={locale} />
+      <Suspense fallback={null}>
+        <FooterConfigWidgets locale={locale} />
+      </Suspense>
     </>
   )
 }
