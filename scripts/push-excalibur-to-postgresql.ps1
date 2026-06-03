@@ -38,8 +38,9 @@ if (-not $mysqlExe) {
 
 Write-Host '=== Yerel MySQL (dump kaynagi) ===' -ForegroundColor Cyan
 $countSql = "SELECT COUNT(*) AS c FROM bravo_spaces WHERE deleted_at IS NULL AND status='publish';"
-$mysqlArgs = @('-h', $MysqlHost, '-u', $MysqlUser, $MysqlDatabase, '-N', '-e', $countSql)
-if ($MysqlPassword) { $mysqlArgs = @('-h', $MysqlHost, '-u', $MysqlUser, "-p$MysqlPassword") + $mysqlArgs[4..($mysqlArgs.Length - 1)] }
+$mysqlArgs = @('-h', $MysqlHost, '-u', $MysqlUser)
+if ($MysqlPassword) { $mysqlArgs += "-p$MysqlPassword" }
+$mysqlArgs += @($MysqlDatabase, '-N', '-e', $countSql)
 $countOut = & $mysqlExe.FullName @mysqlArgs 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host $countOut
