@@ -5,6 +5,11 @@ CREATE TABLE IF NOT EXISTS countries (
   name TEXT NOT NULL
 );
 
+-- Türkiye (id=1) — 262_turkey_regions_seed.sql country_id=1 bunu bekler.
+INSERT INTO countries (id, iso2, name)
+VALUES (1, 'TR', 'Türkiye')
+ON CONFLICT (iso2) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS regions (
   id SERIAL PRIMARY KEY,
   country_id SMALLINT NOT NULL REFERENCES countries (id) ON DELETE CASCADE,
