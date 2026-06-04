@@ -16,8 +16,8 @@ import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
 import travel/integrations/paratika.{
-  type SessionTokenInput, SessionTokenInput, load_config, payment_page_url,
-  request_session_token,
+  type ParatikaConfig, type SessionTokenInput, ParatikaConfig, SessionTokenInput,
+  payment_page_url, request_session_token,
 }
 import travel/integrations/paratika_notify
 
@@ -31,6 +31,123 @@ fn json_err(status: Int, msg: String) -> Response {
     json.object([#("error", json.string(msg))])
     |> json.to_string
   wisp.json_response(body, status)
+}
+
+fn env_or(key: String, fallback: String) -> String {
+  case envoy.get(key) {
+    Ok(v) ->
+      case string.trim(v) {
+        "" -> fallback
+        s -> s
+      }
+    Error(_) -> fallback
+  }
+}
+
+/// payment_gateways site_settings satırından Paratika alt-objesini okur.
+/// Döner: (merchant_id, merchant_key, merchant_salt, merchant_sd_secret)  —  bulunamazsa boş string.
+fn paratika_settings_from_db(
+  db: pog.Connection,
+) -> #(String, String, String, String) {
+  let raw =
+    case
+      pog.query(
+        "select value_json::text from site_settings"
+        <> " where key = 'payment_gateways' and organization_id is null limit 1",
+      )
+      |> pog.returning({
+        use a <- decode.field(0, decode.string)
+        decode.success(a)
+      })
+      |> pog.execute(db)
+    {
+      Ok(ret) ->
+        case ret.rows {
+          [r] -> r
+          _ -> ""
+        }
+      Error(_) -> ""
+    }
+
+  let decoder =
+    decode.field(
+      "paratika",
+      {
+        use mid <- decode.optional_field("merchant_id", "", decode.string)
+        use mkey <- decode.optional_field("merchant_key", "", decode.string)
+        use msalt <- decode.optional_field("merchant_salt", "", decode.string)
+        use msd <- decode.optional_field(
+          "merchant_sd_secret",
+          "",
+          decode.string,
+        )
+        decode.success(#(mid, mkey, msalt, msd))
+      },
+      fn(v) { decode.success(v) },
+    )
+
+  case json.parse(raw, decoder) {
+    Ok(#(mid, mkey, msalt, msd)) -> #(
+      string.trim(mid),
+      string.trim(mkey),
+      string.trim(msalt),
+      string.trim(msd),
+    )
+    Error(_) -> #("", "", "", "")
+  }
+}
+
+/// DB-first, env fallback ile ParatikaConfig yükler.
+/// Panel → DB → env var sırasıyla okunur.
+fn load_config_db_first(db: pog.Connection) -> Result(ParatikaConfig, String) {
+  let #(db_merchant, db_user, db_salt, db_sd) = paratika_settings_from_db(db)
+  let merchant = case db_merchant {
+    "" -> env_or("PARATIKA_MERCHANT", "")
+    v -> v
+  }
+  let merchant_user = case db_user {
+    "" -> env_or("PARATIKA_MERCHANT_USER", "")
+    v -> v
+  }
+  let merchant_password = case db_salt {
+    "" -> env_or("PARATIKA_MERCHANT_PASSWORD", "")
+    v -> v
+  }
+  // SD Secret: önce ayrı alan, yoksa merchant_salt, yoksa env.
+  let sd_secret = case db_sd {
+    "" ->
+      case db_salt {
+        "" -> env_or("PARATIKA_SD_SECRET", "")
+        v -> v
+      }
+    v -> v
+  }
+  let api_base = env_or(
+    "PARATIKA_API_BASE",
+    "https://entegrasyon.paratika.com.tr/paratika/api/v2",
+  )
+  let hpp_base = env_or(
+    "PARATIKA_HPP_BASE",
+    "https://entegrasyon.paratika.com.tr/merchant/payment/",
+  )
+  case
+    merchant != ""
+    && merchant_user != ""
+    && merchant_password != ""
+    && sd_secret != ""
+  {
+    True ->
+      Ok(ParatikaConfig(
+        merchant:,
+        merchant_user:,
+        merchant_password:,
+        api_base:,
+        hpp_base:,
+        sd_secret:,
+      ))
+    False ->
+      Error("paratika_not_configured_set_PARATIKA_MERCHANT_USER_PASSWORD_SD_SECRET")
+  }
 }
 
 fn session_input_decoder() -> decode.Decoder(SessionTokenInput) {
@@ -85,7 +202,7 @@ fn api_public_base() -> String {
 }
 
 /// POST /api/v1/integrations/paratika/session-token
-pub fn session_token(req: Request, _ctx: Context) -> Response {
+pub fn session_token(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
@@ -93,7 +210,8 @@ pub fn session_token(req: Request, _ctx: Context) -> Response {
       case json.parse(body, session_input_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(input_base) -> {
-          let return_url = api_public_base() <> "/api/v1/integrations/paratika/return"
+          let return_url =
+            api_public_base() <> "/api/v1/integrations/paratika/return"
           let input =
             SessionTokenInput(
               merchant_payment_id: input_base.merchant_payment_id,
@@ -107,12 +225,8 @@ pub fn session_token(req: Request, _ctx: Context) -> Response {
               return_url: return_url,
               order_title: input_base.order_title,
             )
-          case load_config() {
-            Error(_) ->
-              json_err(
-                503,
-                "paratika_not_configured_set_PARATIKA_MERCHANT_USER_PASSWORD_SD_SECRET",
-              )
+          case load_config_db_first(ctx.db) {
+            Error(e) -> json_err(503, e)
             Ok(cfg) ->
               case request_session_token(cfg, input) {
                 Ok(#(token, _raw)) -> {
@@ -157,7 +271,7 @@ pub fn payment_return(req: Request, ctx: Context) -> Response {
       case uri.parse_query(body) {
         Error(_) -> html_err("bad_form")
         Ok(pairs) ->
-          case load_config() {
+          case load_config_db_first(ctx.db) {
             Error(_) -> html_err("no_config")
             Ok(cfg) -> {
               case

@@ -21,12 +21,14 @@ interface GatewayConfig {
   merchant_id: string
   merchant_key: string
   merchant_salt: string
+  /** Paratika: sdSha512 imza anahtarı. Boşsa merchant_salt kullanılır. */
+  merchant_sd_secret?: string
   mode: 'sandbox' | 'production'
 }
 
 const INITIAL: Record<GatewayId, GatewayConfig> = {
   paytr: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', mode: 'sandbox' },
-  paratika: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', mode: 'sandbox' },
+  paratika: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', merchant_sd_secret: '', mode: 'sandbox' },
 }
 
 const GATEWAY_INFO: Record<GatewayId, { name: string; logo: string; desc: string; docsUrl: string }> = {
@@ -228,7 +230,7 @@ export default function PaymentGatewaysClient() {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className={clsx('grid gap-4', gw === 'paratika' ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
                     <div>
                       <label className="mb-1 block text-xs font-medium text-neutral-500">Merchant ID</label>
                       <input
@@ -240,21 +242,37 @@ export default function PaymentGatewaysClient() {
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">Merchant Key</label>
+                      <label className="mb-1 block text-xs font-medium text-neutral-500">
+                        {gw === 'paratika' ? 'Merchant User (e-posta)' : 'Merchant Key'}
+                      </label>
                       <SecretInput
                         value={cfg.merchant_key}
                         onChange={(v) => update(gw, 'merchant_key', v)}
-                        placeholder="gizli anahtar..."
+                        placeholder={gw === 'paratika' ? 'e-posta veya kullanıcı adı...' : 'gizli anahtar...'}
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-xs font-medium text-neutral-500">Merchant Salt</label>
+                      <label className="mb-1 block text-xs font-medium text-neutral-500">
+                        {gw === 'paratika' ? 'Merchant Password (şifre)' : 'Merchant Salt'}
+                      </label>
                       <SecretInput
                         value={cfg.merchant_salt}
                         onChange={(v) => update(gw, 'merchant_salt', v)}
-                        placeholder="güvenlik tuzu..."
+                        placeholder={gw === 'paratika' ? 'şifre...' : 'güvenlik tuzu...'}
                       />
                     </div>
+                    {gw === 'paratika' && (
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-neutral-500">
+                          SD Secret (imza anahtarı)
+                        </label>
+                        <SecretInput
+                          value={cfg.merchant_sd_secret ?? ''}
+                          onChange={(v) => update(gw, 'merchant_sd_secret', v)}
+                          placeholder="gizli imza anahtarı..."
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {cfg.mode === 'production' ? (
