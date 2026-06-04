@@ -48,6 +48,8 @@ import {
   searchFlightItinerary,
   pickFlightRows,
   pickFirstFareLegKey,
+  pickFareAlternativeLegKeys,
+  pickHotelRoomOfferKeys,
   getFlightBrandedFares,
   getFareRules,
   validateFlight,
@@ -80,7 +82,7 @@ const getArg = (flag) => {
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04b'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04c'
 
 const CREDS = {
   baseUrl: getArg('--base-url') ?? process.env.TRAVELROBOT_BASE_URL ?? '',
@@ -237,10 +239,12 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   section(`${scenarioName}`)
   let resultKey = null
   let systemPnr = null
+  let searchPayload = null
 
-  // Adım 1: SearchItinerary
+  // Adım 1: SearchAvailability
   try {
     const payload = await searchFlightItinerary(cfg, tokenCode, opts)
+    searchPayload = payload
     const rows = pickFlightRows(payload)
     log(scenarioName, 'SearchItinerary', '/Flight.svc/Rest/Json/SearchItinerary', opts, payload, rows.length >= 0)
 
@@ -269,40 +273,43 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
     return
   }
 
-  if (!resultKey) {
-    console.log(`  ⚠️  ResultKey alınamadı — sonraki adımlar atlanıyor`)
+  let fareLegKeys = pickFareAlternativeLegKeys(searchPayload)
+  if (!fareLegKeys.length) {
+    console.log(`  ⚠️  FareAlternativeLeg Key alınamadı — sonraki adımlar atlanıyor`)
     return
   }
 
   // Adım 2: GetBrandedFares
-  let brandedFareResultKey = resultKey
   try {
-    const payload = await getFlightBrandedFares(cfg, tokenCode, { resultKey, languageCode: opts.languageCode ?? 'tr' })
-    log(scenarioName, 'GetBrandedFares', '/Flight.svc/Rest/Json/GetBrandedFares', { resultKey }, payload, !payload?.HasError)
+    const payload = await getFlightBrandedFares(cfg, tokenCode, {
+      fareAlternativeLegKeys: fareLegKeys,
+    })
+    log(scenarioName, 'GetBrandedFares', '/Air.svc/Rest/Json/GetBrandedFares',
+      { fareAlternativeLegKeys: fareLegKeys.map((k) => k.slice(0, 40) + '…') }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      ok(`[${scenarioName}] GetBrandedFares`, preview(payload, 150))
-      // Mevcut key veya branded fare key
-      const bf = payload?.Result ?? payload?.result
-      if (bf?.ResultKey) brandedFareResultKey = bf.ResultKey
+      ok(`[${scenarioName}] GetBrandedFares`, `${fareLegKeys.length} bacak key ile OK`)
+      const brandedKeys = pickFareAlternativeLegKeys(payload)
+      if (brandedKeys.length) fareLegKeys = brandedKeys
     } else {
       fail(`[${scenarioName}] GetBrandedFares`, payload?.ErrorMessage ?? 'Hata')
     }
   } catch (e) {
-    log(scenarioName, 'GetBrandedFares', '/Flight.svc/Rest/Json/GetBrandedFares', { resultKey }, String(e), false)
+    log(scenarioName, 'GetBrandedFares', '/Air.svc/Rest/Json/GetBrandedFares', { keys: fareLegKeys.length }, String(e), false)
     fail(`[${scenarioName}] GetBrandedFares`, e)
   }
 
   // Adım 3: ValidateFlight
-  let validateResultKey = brandedFareResultKey
+  let validateResultKey = fareLegKeys[0]
   try {
-    const resultKeys = [validateResultKey]
-    const payload = await validateFlight(cfg, tokenCode, { resultKeys, languageCode: opts.languageCode ?? 'tr' })
-    log(scenarioName, 'ValidateFlight', '/Flight.svc/Rest/Json/ValidateFlight', { resultKeys }, payload, !payload?.HasError)
+    const payload = await validateFlight(cfg, tokenCode, { fareAlternativeLegKeys: fareLegKeys })
+    log(scenarioName, 'ValidateFlight', '/Air.svc/Rest/Json/Validate', { keys: fareLegKeys.length }, payload, !payload?.HasError)
     if (!payload?.HasError) {
       ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı`)
       // Validate sonrası yeni resultKey olabilir
       const res = payload?.Result ?? payload?.result
-      if (res?.ResultKey) validateResultKey = res.ResultKey
+      const afterValidate = pickFareAlternativeLegKeys(payload)
+      if (afterValidate.length) validateResultKey = afterValidate[0]
+      else if (res?.ResultKey) validateResultKey = res.ResultKey
       else if (Array.isArray(res?.ResultKeys) && res.ResultKeys[0]) validateResultKey = res.ResultKeys[0]
     } else {
       fail(`[${scenarioName}] ValidateFlight`, payload?.ErrorMessage ?? 'Hata')
@@ -460,8 +467,8 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     fail(`[${scenarioName}] GetHotelDetails`, e)
   }
 
-  // Adım 3: GetHotelRooms
-  let roomPackageId = packageId
+  // Adım 3: GetHotelRoomPrices
+  let roomOfferKeys = []
   try {
     const payload = await getHotelRooms(cfg, tokenCode, {
       productCode: foundHotelCode,
@@ -471,43 +478,42 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       checkOutDate: checkout,
       rooms: roomOpts,
     })
-    log(scenarioName, 'GetHotelRooms', '/Hotel.svc/Rest/Json/GetHotelRooms',
+    log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices',
       { hotelCode: foundHotelCode, checkin, checkout }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      const res = payload?.Result ?? payload?.Rooms ?? payload?.rooms ?? []
-      const count = Array.isArray(res) ? res.length : Object.keys(res).length
-      ok(`[${scenarioName}] GetHotelRooms`, `${count} oda tipi`)
-      // PackageId güncelle
-      if (Array.isArray(res) && res[0]?.PackageId) roomPackageId = res[0].PackageId
+      roomOfferKeys = pickHotelRoomOfferKeys(payload)
+      ok(`[${scenarioName}] GetHotelRoomPrices`, `${roomOfferKeys.length} oda teklifi (Key)`)
     } else {
-      fail(`[${scenarioName}] GetHotelRooms`, payload?.ErrorMessage ?? 'Hata')
+      fail(`[${scenarioName}] GetHotelRoomPrices`, payload?.ErrorMessage ?? 'Hata')
       return
     }
   } catch (e) {
-    log(scenarioName, 'GetHotelRooms', '/Hotel.svc/Rest/Json/GetHotelRooms', { hotelCode: foundHotelCode }, String(e), false)
-    fail(`[${scenarioName}] GetHotelRooms`, e)
+    log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices', { hotelCode: foundHotelCode }, String(e), false)
+    fail(`[${scenarioName}] GetHotelRoomPrices`, e)
     return
   }
 
-  if (!roomPackageId) {
-    console.log(`  ⚠️  PackageId alınamadı — GetHotelFinalPrice atlanıyor`)
+  if (!roomOfferKeys.length) {
+    console.log(`  ⚠️  Oda Key alınamadı — ValidateHotelRoomsV2 atlanıyor`)
     return
   }
 
-  // Adım 4: GetHotelFinalPrice
+  // Adım 4: ValidateHotelRoomsV2 (eski GetHotelFinalPrice yok — resmi akış)
+  const roomKey = roomOfferKeys[0]
   try {
-    const payload = await getHotelFinalPrice(cfg, tokenCode, { packageId: roomPackageId, languageCode: 'tr' })
-    log(scenarioName, 'GetHotelFinalPrice', '/Hotel.svc/Rest/Json/GetHotelFinalPrice',
-      { packageId: roomPackageId }, payload, !payload?.HasError)
+    const payload = await getHotelFinalPrice(cfg, tokenCode, {
+      rooms: [{ Key: roomKey, Paxes: [{ PaxType: 0 }] }],
+    })
+    log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2',
+      { roomKey: roomKey.slice(0, 50) + '…' }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      const price = payload?.Result?.TotalPrice ?? payload?.TotalPrice ?? '?'
-      ok(`[${scenarioName}] GetHotelFinalPrice`, `Toplam: ${price}`)
+      ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
     } else {
-      fail(`[${scenarioName}] GetHotelFinalPrice`, payload?.ErrorMessage ?? 'Hata')
+      fail(`[${scenarioName}] ValidateHotelRoomsV2`, payload?.ErrorMessage ?? 'Hata')
     }
   } catch (e) {
-    log(scenarioName, 'GetHotelFinalPrice', '/Hotel.svc/Rest/Json/GetHotelFinalPrice', { packageId: roomPackageId }, String(e), false)
-    fail(`[${scenarioName}] GetHotelFinalPrice`, e)
+    log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2', { roomKey }, String(e), false)
+    fail(`[${scenarioName}] ValidateHotelRoomsV2`, e)
   }
 
   if (SKIP_BOOKING) {

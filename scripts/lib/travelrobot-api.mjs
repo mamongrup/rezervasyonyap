@@ -499,13 +499,8 @@ export async function getHotelRooms(cfg, tokenCode, opts = {}) {
  * opts: { packageId, languageCode }
  */
 export async function getHotelFinalPrice(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelFinalPrice', {
-    request: {
-      Token: tokenObj(tokenCode),
-      PackageId: opts.packageId,
-      LanguageCode: opts.languageCode ?? 'tr',
-    },
-  })
+  const rooms = opts.rooms ?? (opts.roomKey ? [{ Key: opts.roomKey, Paxes: [{ PaxType: 0 }] }] : [])
+  return validateHotelRooms(cfg, tokenCode, { rooms })
 }
 
 /**
@@ -1001,18 +996,71 @@ export function pickFlightRows(payload) {
   return []
 }
 
-/** İlk uçuş sonucundan FareAlternativeLeg Key (GetBrandedFares / Validate için). */
-export function pickFirstFareLegKey(payload) {
+/**
+ * SearchAvailability / GetBrandedFares yanıtından FareAlternativeLeg Key listesi.
+ * Yol: Result > SearchResults > Results > Fares > FareAlternativeLegs > Key
+ * Roundtrip için tüm bacakların key'leri gerekir (yalnızca ilki yetmez).
+ */
+export function pickFareAlternativeLegKeys(payload) {
+  const p = payload?.Result ?? payload?.result ?? payload
+  const blocks = p?.SearchResults ?? p?.searchResults
+  if (Array.isArray(blocks) && blocks[0]) {
+    const results = blocks[0]?.Results ?? blocks[0]?.results
+    // Separated: her Results[] elemanı ayrı bacak — bacak başına bir key
+    if (Array.isArray(results) && results.length > 1) {
+      const perLeg = []
+      for (const res of results) {
+        const fares = res?.Fares ?? res?.fares
+        const legs = fares?.[0]?.FareAlternativeLegs ?? fares?.[0]?.fareAlternativeLegs
+        const k = legs?.[0]?.Key
+        if (k) perLeg.push(String(k))
+      }
+      if (perLeg.length) return perLeg
+    }
+  }
+
   const rows = pickFlightRows(payload)
   const first = rows[0]
-  if (!first) return null
+  if (!first) return []
   const fares = first?.Fares ?? first?.fares
-  if (!Array.isArray(fares)) return first?.ResultKey ?? first?.resultKey ?? first?.Key ?? null
+  if (!Array.isArray(fares) || !fares.length) return []
+
+  const keys = []
   for (const fare of fares) {
     const legs = fare?.FareAlternativeLegs ?? fare?.fareAlternativeLegs
-    if (Array.isArray(legs) && legs[0]?.Key) return legs[0].Key
+    if (!Array.isArray(legs)) continue
+    for (const leg of legs) {
+      if (leg?.Key) keys.push(String(leg.Key))
+    }
+    if (keys.length) break
   }
-  return first?.ResultKey ?? first?.resultKey ?? null
+  return keys
+}
+
+/** Geriye uyumluluk — ilk key. */
+export function pickFirstFareLegKey(payload) {
+  const keys = pickFareAlternativeLegKeys(payload)
+  return keys[0] ?? null
+}
+
+/** GetHotelRoomPrices yanıtından oda teklif Key (RoomCode). */
+export function pickHotelRoomOfferKeys(payload) {
+  const p = payload?.Result ?? payload?.result ?? payload
+  const hotels = p?.Hotels ?? p?.hotels
+  if (!Array.isArray(hotels) || !hotels[0]) return []
+  const rooms = hotels[0]?.Rooms ?? hotels[0]?.rooms
+  if (!Array.isArray(rooms)) return []
+  const keys = []
+  for (const room of rooms) {
+    const alts = room?.RoomAlternatives ?? room?.roomAlternatives
+    if (!Array.isArray(alts)) continue
+    for (const alt of alts) {
+      const k = alt?.Key ?? alt?.RoomCode ?? alt?.roomCode
+      if (k) keys.push(String(k))
+    }
+    if (keys.length) break
+  }
+  return keys
 }
 
 // ─── TRANSFER ─────────────────────────────────────────────────────────────────
