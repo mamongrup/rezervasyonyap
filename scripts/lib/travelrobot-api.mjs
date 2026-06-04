@@ -438,9 +438,12 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
         Rooms: normalizeRooms(opts.rooms),
         NationalityCode: opts.nationalityCode ?? 'TR',
         AdvancedOptions: {
+          Hotel: { OnRequest: true },
           ProviderType: 0,
-          LanguageCode: opts.languageCode ?? 'tr',
+          PriceCalculationType: 0,
+          SearchModuleType: 0,
           MaxResponseTime: 0,
+          LanguageCode: opts.languageCode ?? 'tr',
         },
       },
     },
@@ -799,9 +802,18 @@ export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
         CabinClass: opts.cabinClass ?? 0,
         OnlyDirects: opts.onlyDirects ?? false,
         AdvancedOptions: {
+          // SearchTour yanıtı AdvancedOptions içinde Air/Hotel/Tour alt nesneleri
+          // gösterdi; Air aramasında sunucu AdvancedOptions.Air'ı dereference
+          // ediyor → null ise "Object reference not set". Bu yüzden Air objesi şart.
+          Air: {
+            OnlyDirects: opts.onlyDirects ?? false,
+            CabinClass: opts.cabinClass ?? 0,
+          },
           ProviderType: 0,
-          LanguageCode: opts.languageCode ?? 'tr',
+          PriceCalculationType: 0,
+          SearchModuleType: 0,
           MaxResponseTime: 0,
+          LanguageCode: opts.languageCode ?? 'tr',
         },
       },
     },
@@ -970,9 +982,12 @@ export async function searchTransfer(cfg, tokenCode, opts = {}) {
       PaxCount: opts.paxCount ?? 2,
       FlightNumber: opts.flightNumber ?? null,
       AdvancedOptions: {
+        Transfer: {},
         ProviderType: 0,
-        LanguageCode: opts.languageCode ?? 'tr',
+        PriceCalculationType: 0,
+        SearchModuleType: 0,
         MaxResponseTime: 0,
+        LanguageCode: opts.languageCode ?? 'tr',
       },
     },
   })
