@@ -776,7 +776,13 @@ export function pickHotelRows(payload) {
         ...h,
         HotelCode: h.HotelCode ?? h.hotelCode ?? row.HotelCode,
         HotelName: h.HotelName ?? h.hotelName ?? row.HotelName,
-        SearchKey: row.SearchKey ?? p?.SearchKey ?? row.Data?.SearchKey,
+        SearchKey:
+          row.SearchKey ??
+          row.searchKey ??
+          row.Data?.SearchKey ??
+          row.data?.searchKey ??
+          p?.SearchKey ??
+          p?.searchKey,
         ProductCode: h.HotelCode ?? h.ProductCode ?? row.ProductCode,
       }
     }
@@ -1081,10 +1087,28 @@ export function pickFirstFareLegKey(payload, opts = {}) {
   return keys[0] ?? null
 }
 
-/** ValidateHotelRoomsV2 — arama ile aynı yolcu dağılımı (Count → tekil PaxType satırları). */
-export function buildHotelValidateRooms(roomOpts, roomKeys) {
-  const rooms = normalizeRooms(roomOpts)
+/** SearchHotel / otel satırından GetHotelRoomPrices için SearchKey. */
+export function pickHotelSearchKey(searchPayload, hotelRow = null) {
+  const p = searchPayload?.Result ?? searchPayload?.result ?? searchPayload
+  const row = hotelRow ?? {}
+  return (
+    row.SearchKey ??
+    row.searchKey ??
+    row.Data?.SearchKey ??
+    row.data?.searchKey ??
+    p?.SearchKey ??
+    p?.searchKey ??
+    null
+  )
+}
+
+/** ValidateHotelRoomsV2 — RoomCode (result key). Paxes yalnızca ek hizmet varsa gerekir. */
+export function buildHotelValidateRooms(roomOpts, roomKeys, opts = {}) {
   const keys = roomKeys ?? []
+  if (!opts.includePaxes) {
+    return keys.map((key) => ({ Key: String(key) }))
+  }
+  const rooms = normalizeRooms(roomOpts)
   return keys.map((key, idx) => {
     const paxes = rooms[idx]?.Paxes ?? rooms[0]?.Paxes ?? [{ PaxType: 0, Count: 1 }]
     const expanded = []
@@ -1096,30 +1120,52 @@ export function buildHotelValidateRooms(roomOpts, roomKeys) {
   })
 }
 
-/** GetHotelRoomPrices yanıtından oda teklif Key (RoomCode). */
-export function pickHotelRoomOfferKeys(payload, roomCount = 1) {
+function roomCodeFromAlt(alt) {
+  const k = alt?.RoomCode ?? alt?.roomCode ?? alt?.Key ?? alt?.key
+  return k != null && String(k).includes('@') ? String(k) : null
+}
+
+/** GetHotelRoomPrices yanıtından validate için RoomCode adayları. */
+export function pickHotelRoomOfferKeyCandidates(payload, roomOpts = [{}]) {
+  const roomCount = Array.isArray(roomOpts) ? roomOpts.length : 1
+  const minAdults = roomOpts.reduce((m, r) => Math.max(m, r.Adults ?? r.adults ?? 1), 1)
   const p = payload?.Result ?? payload?.result ?? payload
   const hotels = p?.Hotels ?? p?.hotels
   if (!Array.isArray(hotels) || !hotels[0]) return []
+
   const hotel = hotels[0]
   const combos = hotel?.Data?.RoomCombinations ?? hotel?.data?.roomCombinations
-  if (roomCount > 1 && Array.isArray(combos) && combos[0]?.RoomCodes) {
-    const codes = combos[0].RoomCodes
-    if (codes.length >= roomCount) return codes.slice(0, roomCount).map(String)
+  if (roomCount > 1 && Array.isArray(combos)) {
+    for (const combo of combos) {
+      const codes = combo?.RoomCodes ?? combo?.roomCodes
+      if (Array.isArray(codes) && codes.length >= roomCount) {
+        return codes.slice(0, roomCount).map(String)
+      }
+    }
   }
+
   const rooms = hotel?.Rooms ?? hotel?.rooms
   if (!Array.isArray(rooms)) return []
-  const keys = []
+  const candidates = []
   for (const room of rooms) {
     const alts = room?.RoomAlternatives ?? room?.roomAlternatives
     if (!Array.isArray(alts)) continue
     for (const alt of alts) {
-      const k = alt?.Key ?? alt?.RoomCode ?? alt?.roomCode
-      if (k) keys.push(String(k))
+      const code = roomCodeFromAlt(alt)
+      if (!code) continue
+      const allotment = Number(alt?.Allotment ?? alt?.allotment ?? 9)
+      if (allotment >= minAdults) candidates.push(code)
     }
-    if (keys.length) break
+    if (candidates.length) break
   }
-  return keys
+  return [...new Set(candidates)]
+}
+
+/** İlk uygun teklif(ler) — çok odada kombinasyon, tek odada ilk aday. */
+export function pickHotelRoomOfferKeys(payload, roomCount = 1, roomOpts = [{}]) {
+  const c = pickHotelRoomOfferKeyCandidates(payload, roomOpts)
+  if (roomCount > 1) return c.slice(0, roomCount)
+  return c.length ? [c[0]] : []
 }
 
 // ─── TRANSFER ─────────────────────────────────────────────────────────────────

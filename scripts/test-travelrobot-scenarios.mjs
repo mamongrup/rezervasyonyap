@@ -50,7 +50,9 @@ import {
   pickFirstFareLegKey,
   pickFareAlternativeLegKeys,
   countFlightOfferSlots,
+  pickHotelSearchKey,
   pickHotelRoomOfferKeys,
+  pickHotelRoomOfferKeyCandidates,
   buildHotelValidateRooms,
   getFlightBrandedFares,
   getFareRules,
@@ -84,7 +86,14 @@ const getArg = (flag) => {
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04e'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04f'
+
+/** KPlus sandbox dokümanındaki örnek otel kodları (destination araması yerine). */
+const CERT_HOTEL_BY_DESTINATION = {
+  10033097: 'KTR431805', // Istanbul
+  531096: 'KCZ466838', // Prague
+  587926: 'KDE646930', // Berlin
+}
 
 const CREDS = {
   baseUrl: getArg('--base-url') ?? process.env.TRAVELROBOT_BASE_URL ?? '',
@@ -448,29 +457,40 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   const checkin = addDays(30)
   const checkout = addDays(37)
 
+  const destId = hotelOpts.destinationId
+  const certHotel = destId != null ? CERT_HOTEL_BY_DESTINATION[destId] : null
+  const searchOpts = {
+    checkInDate: checkin,
+    checkOutDate: checkout,
+    ...hotelOpts,
+    rooms: roomOpts,
+  }
+  if (certHotel) {
+    delete searchOpts.destinationId
+    searchOpts.hotelCode = certHotel
+  }
+
   // Adım 1: SearchHotel
   let packageId = null
   let foundHotelCode = null
   let hotelSearchKey = null
+  let selectedRow = null
 
   try {
-    const payload = await searchHotel(cfg, tokenCode, {
-      checkInDate: checkin,
-      checkOutDate: checkout,
-      ...hotelOpts,
-      rooms: roomOpts,
-    })
+    const payload = await searchHotel(cfg, tokenCode, searchOpts)
     const rows = pickHotelRows(payload)
     log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
       { checkin, checkout, ...hotelOpts }, payload, rows.length >= 0)
 
     if (rows.length > 0) {
       ok(`[${scenarioName}] SearchHotel`, `${rows.length} otel (${checkin} → ${checkout})`)
-      const first = rows[0]
-      foundHotelCode = first?.HotelCode ?? first?.hotelCode ?? first?.ProductCode ?? first?.Code ?? null
-      packageId = first?.PackageId ?? first?.packageId ?? null
-      hotelSearchKey = payload?.Result?.SearchKey ?? first?.SearchKey ?? null
-      ok(`[${scenarioName}] İlk otel`, `${foundHotelCode} — ${first?.HotelName ?? first?.Name ?? '?'}`)
+      selectedRow =
+        (certHotel && rows.find((r) => (r.HotelCode ?? r.hotelCode) === certHotel)) ?? rows[0]
+      foundHotelCode =
+        selectedRow?.HotelCode ?? selectedRow?.hotelCode ?? selectedRow?.ProductCode ?? certHotel ?? null
+      packageId = selectedRow?.PackageId ?? selectedRow?.packageId ?? null
+      hotelSearchKey = pickHotelSearchKey(payload, selectedRow)
+      ok(`[${scenarioName}] İlk otel`, `${foundHotelCode} — ${selectedRow?.HotelName ?? selectedRow?.Name ?? '?'}`)
     } else {
       fail(`[${scenarioName}] SearchHotel`, `Sonuç yok — ${preview(payload, 400)}`)
       return
@@ -501,6 +521,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
 
   // Adım 3: GetHotelRoomPrices
   let roomOfferKeys = []
+  let roomPricesPayload = null
   try {
     const payload = await getHotelRooms(cfg, tokenCode, {
       productCode: foundHotelCode,
@@ -513,7 +534,10 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices',
       { hotelCode: foundHotelCode, checkin, checkout }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      roomOfferKeys = pickHotelRoomOfferKeys(payload, roomOpts.length)
+      roomPricesPayload = payload
+      const priceSearchKey = pickHotelSearchKey(payload) ?? hotelSearchKey
+      if (priceSearchKey) hotelSearchKey = priceSearchKey
+      roomOfferKeys = pickHotelRoomOfferKeys(payload, roomOpts.length, roomOpts)
       ok(`[${scenarioName}] GetHotelRoomPrices`, `${roomOfferKeys.length} oda teklifi (Key)`)
     } else {
       fail(`[${scenarioName}] GetHotelRoomPrices`, payload?.ErrorMessage ?? 'Hata')
@@ -530,22 +554,54 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     return
   }
 
-  // Adım 4: ValidateHotelRoomsV2 (eski GetHotelFinalPrice yok — resmi akış)
-  const validateRooms = buildHotelValidateRooms(roomOpts, roomOfferKeys)
-  try {
+  // Adım 4: ValidateHotelRoomsV2 — RoomCode (result key); tek odada alternatif dene
+  const candidates = pickHotelRoomOfferKeyCandidates(roomPricesPayload, roomOpts)
+  let validated = false
+  let lastValErr = ''
+
+  const attemptValidate = async (keys, attemptLabel) => {
+    const validateRooms = buildHotelValidateRooms(roomOpts, keys)
     const payload = await getHotelFinalPrice(cfg, tokenCode, { rooms: validateRooms })
     log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2',
-      { rooms: validateRooms.length, paxCounts: validateRooms.map((r) => r.Paxes.length) },
+      { attempt: attemptLabel, roomCount: validateRooms.length },
       payload, !payload?.HasError)
-    if (!payload?.HasError) {
-      ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
-    } else {
-      fail(`[${scenarioName}] ValidateHotelRoomsV2`, payload?.ErrorMessage ?? 'Hata')
+    return payload
+  }
+
+  if (roomOpts.length > 1) {
+    const keys =
+      candidates.length >= roomOpts.length ? candidates.slice(0, roomOpts.length) : roomOfferKeys
+    try {
+      const payload = await attemptValidate(keys, 'multi-room')
+      if (!payload?.HasError) {
+        ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
+        validated = true
+      } else {
+        lastValErr = payload?.ErrorMessage ?? 'Hata'
+      }
+    } catch (e) {
+      lastValErr = String(e)
     }
-  } catch (e) {
-    log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2',
-      { rooms: validateRooms?.length }, String(e), false)
-    fail(`[${scenarioName}] ValidateHotelRoomsV2`, e)
+  } else {
+    const tryList = [...new Set([...roomOfferKeys, ...candidates])].slice(0, 12)
+    for (let i = 0; i < tryList.length; i++) {
+      try {
+        const payload = await attemptValidate([tryList[i]], i + 1)
+        if (!payload?.HasError) {
+          ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
+          validated = true
+          break
+        }
+        lastValErr = payload?.ErrorMessage ?? 'Hata'
+        if (!/invalid result key/i.test(lastValErr)) break
+      } catch (e) {
+        lastValErr = String(e)
+        if (!/invalid result key/i.test(lastValErr)) break
+      }
+    }
+  }
+  if (!validated && lastValErr) {
+    fail(`[${scenarioName}] ValidateHotelRoomsV2`, lastValErr)
   }
 
   if (SKIP_BOOKING) {
