@@ -604,3 +604,91 @@ export function pickFlightRows(payload) {
   }
   return []
 }
+
+/**
+ * Fare kuralları — seçilen uçuş için taşıyıcı kural metinleri.
+ * opts: { resultKey, languageCode }
+ */
+export async function getFareRules(cfg, tokenCode, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/GetFareRules', {
+    request: {
+      Token: tokenObj(tokenCode),
+      ResultKey: opts.resultKey,
+      LanguageCode: opts.languageCode ?? 'tr',
+    },
+  })
+}
+
+/**
+ * Ödeme seçenekleri — rezervasyon öncesi mevcut ödeme yöntemleri.
+ * opts: { resultKeys, languageCode }
+ */
+export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/GetPaymentOptions', {
+    request: {
+      Token: tokenObj(tokenCode),
+      ResultKeys: opts.resultKeys ?? [],
+      LanguageCode: opts.languageCode ?? 'tr',
+    },
+  })
+}
+
+/**
+ * Rezervasyon getir — sistemdeki mevcut rezervasyon bilgisi.
+ * opts: { systemPnr, pnr, languageCode }
+ */
+export async function getReservation(cfg, tokenCode, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetReservation', {
+    request: {
+      Token: tokenObj(tokenCode),
+      SystemPnr: opts.systemPnr ?? null,
+      Pnr: opts.pnr ?? null,
+      LanguageCode: opts.languageCode ?? 'tr',
+    },
+  })
+}
+
+/**
+ * Uçuş rezervasyonu iptal — bilet kesilmeden önce.
+ * opts: { tokenCode, systemPnr, languageCode }
+ */
+export async function cancelFlightReservation(cfg, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/CancelReservation', {
+    request: {
+      TokenCode: opts.tokenCode,
+      SystemPnr: opts.systemPnr,
+      LanguageCode: opts.languageCode ?? 'tr',
+    },
+  })
+}
+
+/**
+ * Bilet iptali (void) — bilet kesildikten sonra iptal.
+ * opts: { tokenCode, systemPnr, ticketNumbers, languageCode }
+ */
+export async function voidTicket(cfg, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/VoidTicket', {
+    request: {
+      TokenCode: opts.tokenCode,
+      SystemPnr: opts.systemPnr,
+      TicketNumbers: opts.ticketNumbers ?? [],
+      LanguageCode: opts.languageCode ?? 'tr',
+    },
+  })
+}
+
+/**
+ * Rezervasyon/booking sorgula — genel (tüm ürün tipleri).
+ * opts: { systemPnr, pnr, productType, languageCode }
+ */
+export async function getBooking(cfg, tokenCode, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetBooking', {
+    request: {
+      Token: tokenObj(tokenCode),
+      SystemPnr: opts.systemPnr ?? null,
+      Pnr: opts.pnr ?? null,
+      ProductType: opts.productType ?? 0,
+      LanguageCode: opts.languageCode ?? 'tr',
+    },
+  })
+}
