@@ -3,7 +3,7 @@
  * Travel frontend güvenlik kontrol listesi (8 madde).
  *
  * Next.js 16: edge giriş noktası `frontend/src/proxy.ts` (`export function proxy`).
- * `frontend/src/middleware.ts` yalnızca köprüdür — ikisi de geçerli sayılır.
+ * Next.js 16: yalnızca `proxy.ts` — `middleware.ts` ile birlikte build kırılır.
  *
  *   node scripts/security-audit.mjs
  *   cd frontend && npm run security:audit
@@ -78,13 +78,10 @@ function check(id, label, ok, detail) {
   )
 }
 
-// 3 — Middleware / proxy (Next.js 16)
+// 3 — Proxy edge güvenlik (Next.js 16; middleware.ts ile birlikte OLMAMALI)
 {
-  const middlewarePath = exists('frontend/src/middleware.ts')
-    ? 'frontend/src/middleware.ts'
-    : exists('frontend/middleware.ts')
-      ? 'frontend/middleware.ts'
-      : null
+  const middlewareConflict =
+    exists('frontend/src/middleware.ts') || exists('frontend/middleware.ts')
   const proxyPath = exists('frontend/src/proxy.ts')
     ? 'frontend/src/proxy.ts'
     : exists('frontend/proxy.ts')
@@ -92,7 +89,6 @@ function check(id, label, ok, detail) {
       : null
   const httpSec = read('frontend/src/lib/http-security.ts')
   const proxySrc = proxyPath ? read(proxyPath) : ''
-  const mwSrc = middlewarePath ? read(middlewarePath) : ''
 
   const hasEdgeEntry =
     Boolean(proxyPath) &&
@@ -108,18 +104,19 @@ function check(id, label, ok, detail) {
   const combined = `${proxySrc}\n${httpSec}`
   const missingSignals = securitySignals.filter(([, re]) => !re.test(combined)).map(([name]) => name)
 
-  const ok = hasEdgeEntry && missingSignals.length === 0
+  const ok = !middlewareConflict && hasEdgeEntry && missingSignals.length === 0
 
-  const paths = [proxyPath, middlewarePath].filter(Boolean).join(' + ')
   check(
     '3',
-    'Middleware / proxy güvenlik',
+    'Proxy güvenlik (Next 16)',
     ok,
-    ok
-      ? `${paths || 'proxy.ts'} — ${securitySignals.length} kontrol`
-      : !hasEdgeEntry
-        ? 'proxy.ts ve `export function proxy` bulunamadı'
-        : `Eksik: ${missingSignals.join(', ')} (${paths || 'dosya yok'})`,
+    middlewareConflict
+      ? 'middleware.ts + proxy.ts birlikte — middleware.ts silin (build hatası)'
+      : ok
+        ? `${proxyPath} — ${securitySignals.length} kontrol`
+        : !hasEdgeEntry
+          ? 'proxy.ts ve `export function proxy` bulunamadı'
+          : `Eksik: ${missingSignals.join(', ')}`,
   )
 }
 
@@ -210,7 +207,7 @@ const failed = results.filter((r) => !r.ok)
 console.log('')
 console.log('=== Travel güvenlik denetimi ===')
 console.log(`Kök: ${root}`)
-console.log(`Next.js 16 notu: edge = src/proxy.ts (middleware.ts köprü olabilir)`)
+console.log(`Next.js 16 notu: yalnızca src/proxy.ts (middleware.ts aynı anda olamaz)`)
 console.log('')
 
 const col = (s, w) => (s.length >= w ? s.slice(0, w - 1) + '…' : s.padEnd(w))

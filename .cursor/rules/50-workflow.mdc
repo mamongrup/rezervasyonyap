@@ -14,7 +14,7 @@ alwaysApply: true
 ## Güvenlik denetimi (8 kontrol)
 
 - Komut: `node scripts/security-audit.mjs` veya `cd frontend && npm run security:audit`
-- Next.js 16: edge katmanı `frontend/src/proxy.ts` (`middleware.ts` köprü); eski “middleware.ts yok” uyarıları yanlış negatif olabilir — ayrıntı: `docs/SECURITY-AUDIT.md`
+- Next.js 16: edge yalnızca `frontend/src/proxy.ts` — `middleware.ts` ile birlikte build kırılır; denetim: `docs/SECURITY-AUDIT.md`
 
 ## Cevap formatı (özet)
 
