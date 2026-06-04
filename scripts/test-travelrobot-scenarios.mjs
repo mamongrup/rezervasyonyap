@@ -86,13 +86,28 @@ const getArg = (flag) => {
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04g'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04h'
 
-/** KPlus sandbox dokümanındaki örnek otel kodları (destination araması yerine). */
+/** KPlus sandbox dokümanındaki örnek otel kodları. */
 const CERT_HOTEL_BY_DESTINATION = {
   10033097: 'KTR431805', // Istanbul
   531096: 'KCZ466838', // Prague
   587926: 'KDE646930', // Berlin
+}
+
+const CERT_HOTEL_FALLBACKS = {
+  10033097: ['KTR672265'],
+  531096: ['KCZ639147'],
+  587926: ['KDE393226'],
+}
+
+function rankHotelRowsForPricing(rows, preferredHotel, fallbackCodes = []) {
+  const prefer = new Set([preferredHotel, ...fallbackCodes].filter(Boolean))
+  return [...rows].sort((a, b) => {
+    const ac = prefer.has(a.HotelCode ?? a.hotelCode) ? 0 : 1
+    const bc = prefer.has(b.HotelCode ?? b.hotelCode) ? 0 : 1
+    return ac - bc
+  })
 }
 
 const CREDS = {
@@ -285,7 +300,7 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   }
 
   const keyOpts = { resultType: opts.resultType, offerIndex: 0 }
-  const offerSlots = Math.min(countFlightOfferSlots(searchPayload, keyOpts), 8)
+  const offerSlots = Math.min(countFlightOfferSlots(searchPayload, keyOpts), 20)
   let fareLegKeys = []
   let brandedOk = false
   let validateOk = false
@@ -353,6 +368,33 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
     console.log(`  ⚠️  FareAlternativeLeg Key alınamadı — sonraki adımlar atlanıyor`)
     return
   }
+  if (!brandedOk && opts.resultType === 0 && (opts.flightType === 2 || (opts.legs?.length ?? 0) > 2)) {
+    const sepOpts = { resultType: 1, offerIndex: 0 }
+    const sepSlots = Math.min(countFlightOfferSlots(searchPayload, sepOpts), 12)
+    for (let offerIndex = 0; offerIndex < sepSlots && !brandedOk; offerIndex++) {
+      fareLegKeys = pickFareAlternativeLegKeys(searchPayload, { ...sepOpts, offerIndex })
+      if (!fareLegKeys.length) continue
+      try {
+        const brandedPayload = await getFlightBrandedFares(cfg, tokenCode, { fareAlternativeLegKeys: fareLegKeys })
+        if (!brandedPayload?.HasError) {
+          brandedOk = true
+          const brandedKeys = pickFareAlternativeLegKeys(brandedPayload, sepOpts)
+          if (brandedKeys.length) fareLegKeys = brandedKeys
+          const valPayload = await validateFlight(cfg, tokenCode, { fareAlternativeLegKeys: fareLegKeys })
+          if (!valPayload?.HasError) {
+            validateOk = true
+            ok(`[${scenarioName}] GetBrandedFares`, `Separated fallback, teklif #${offerIndex + 1}`)
+            ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı`)
+            break
+          }
+          brandedOk = false
+        }
+      } catch {
+        /* next */
+      }
+    }
+  }
+
   if (!brandedOk) {
     fail(`[${scenarioName}] GetBrandedFares`, lastBrandedErr || 'Uygun teklif bulunamadı')
     return
@@ -465,6 +507,8 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   let foundHotelCode = null
   let hotelSearchKey = null
   let selectedRow = null
+  let searchPayload = null
+  let searchRows = []
   const baseSearch = {
     checkInDate: checkin,
     checkOutDate: checkout,
@@ -488,18 +532,13 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       searchMode = 'hotelCode-fallback'
     }
 
+    searchPayload = payload
+    searchRows = rows
     log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
       { checkin, checkout, searchMode, preferredHotel }, payload, rows.length >= 0)
 
     if (rows.length > 0) {
       ok(`[${scenarioName}] SearchHotel`, `${rows.length} otel (${checkin} → ${checkout}, ${searchMode})`)
-      selectedRow =
-        (preferredHotel && rows.find((r) => (r.HotelCode ?? r.hotelCode) === preferredHotel)) ?? rows[0]
-      foundHotelCode =
-        selectedRow?.HotelCode ?? selectedRow?.hotelCode ?? selectedRow?.ProductCode ?? preferredHotel ?? null
-      packageId = selectedRow?.PackageId ?? selectedRow?.packageId ?? null
-      hotelSearchKey = pickHotelSearchKey(payload, selectedRow)
-      ok(`[${scenarioName}] İlk otel`, `${foundHotelCode} — ${selectedRow?.HotelName ?? selectedRow?.Name ?? '?'}`)
     } else {
       fail(`[${scenarioName}] SearchHotel`, `Sonuç yok — ${preview(payload, 400)}`)
       return
@@ -510,16 +549,59 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     return
   }
 
-  if (!foundHotelCode) return
+  const fallbacks = destId != null ? CERT_HOTEL_FALLBACKS[destId] ?? [] : []
+  const tryHotels = rankHotelRowsForPricing(searchRows, preferredHotel, fallbacks).slice(0, 18)
 
-  // Adım 2: GetHotelDetails
+  let roomOfferKeys = []
+  let roomPricesPayload = null
+  let triedHotels = 0
+
+  for (const row of tryHotels) {
+    const code = row?.HotelCode ?? row?.hotelCode ?? row?.ProductCode ?? null
+    if (!code) continue
+    triedHotels++
+    const sk = pickHotelSearchKey(searchPayload, row)
+    try {
+      const payload = await getHotelRooms(cfg, tokenCode, {
+        productCode: code,
+        hotelCode: code,
+        searchKey: sk,
+        checkInDate: checkin,
+        checkOutDate: checkout,
+        rooms: roomOpts,
+      })
+      log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices',
+        { hotelCode: code, try: triedHotels }, payload, !payload?.HasError)
+      if (payload?.HasError) continue
+      const keys = pickHotelRoomOfferKeys(payload, roomOpts.length, roomOpts)
+      if (!keys.length) continue
+      foundHotelCode = code
+      selectedRow = row
+      hotelSearchKey = pickHotelSearchKey(payload) ?? sk
+      roomPricesPayload = payload
+      roomOfferKeys = keys
+      packageId = row?.PackageId ?? row?.packageId ?? null
+      ok(`[${scenarioName}] İlk otel (oda teklifi)`, `${code} — ${row?.HotelName ?? row?.Name ?? '?'} (${triedHotels}. deneme)`)
+      break
+    } catch {
+      continue
+    }
+  }
+
+  if (!roomOfferKeys.length) {
+    fail(
+      `[${scenarioName}] GetHotelRoomPrices`,
+      `${triedHotels} otelde oda teklifi yok (sandbox stoğu)`,
+    )
+    return
+  }
+
   try {
     const payload = await getHotelDetails(cfg, tokenCode, foundHotelCode, { languageCode: 'tr' })
     log(scenarioName, 'GetHotelDetails', '/Hotel.svc/Rest/Json/GetHotelDetails',
       { hotelCode: foundHotelCode }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      const name = payload?.Result?.HotelName ?? payload?.HotelName ?? foundHotelCode
-      ok(`[${scenarioName}] GetHotelDetails`, name)
+      ok(`[${scenarioName}] GetHotelDetails`, payload?.Result?.HotelName ?? foundHotelCode)
     } else {
       fail(`[${scenarioName}] GetHotelDetails`, payload?.ErrorMessage ?? 'Hata')
     }
@@ -528,48 +610,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     fail(`[${scenarioName}] GetHotelDetails`, e)
   }
 
-  // Adım 3: GetHotelRoomPrices
-  let roomOfferKeys = []
-  let roomPricesPayload = null
-  try {
-    const payload = await getHotelRooms(cfg, tokenCode, {
-      productCode: foundHotelCode,
-      hotelCode: foundHotelCode,
-      searchKey: hotelSearchKey,
-      checkInDate: checkin,
-      checkOutDate: checkout,
-      rooms: roomOpts,
-    })
-    log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices',
-      { hotelCode: foundHotelCode, checkin, checkout }, payload, !payload?.HasError)
-    if (!payload?.HasError) {
-      roomPricesPayload = payload
-      const priceSearchKey = pickHotelSearchKey(payload) ?? hotelSearchKey
-      if (priceSearchKey) hotelSearchKey = priceSearchKey
-      roomOfferKeys = pickHotelRoomOfferKeys(payload, roomOpts.length, roomOpts)
-      if (roomOfferKeys.length) {
-        ok(`[${scenarioName}] GetHotelRoomPrices`, `${roomOfferKeys.length} oda teklifi (Key)`)
-      } else {
-        fail(
-          `[${scenarioName}] GetHotelRoomPrices`,
-          'Oda teklifi yok (sandbox stoğu / SearchKey uyumsuz — destination araması denendi)',
-        )
-        return
-      }
-    } else {
-      fail(`[${scenarioName}] GetHotelRoomPrices`, payload?.ErrorMessage ?? 'Hata')
-      return
-    }
-  } catch (e) {
-    log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices', { hotelCode: foundHotelCode }, String(e), false)
-    fail(`[${scenarioName}] GetHotelRoomPrices`, e)
-    return
-  }
-
-  if (!roomOfferKeys.length) {
-    console.log(`  ⚠️  Oda Key alınamadı — ValidateHotelRoomsV2 atlanıyor`)
-    return
-  }
+  ok(`[${scenarioName}] GetHotelRoomPrices`, `${roomOfferKeys.length} oda teklifi (Key)`)
 
   // Adım 4: ValidateHotelRoomsV2 — RoomCode (result key); tek odada alternatif dene
   const candidates = pickHotelRoomOfferKeyCandidates(roomPricesPayload, roomOpts)
