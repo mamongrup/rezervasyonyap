@@ -95,6 +95,32 @@ function tokenObj(tokenCode) {
   return { TokenCode: tokenCode }
 }
 
+/**
+ * Otel oda listesini KPlus'ın beklediği Paxes yapısına çevirir.
+ * Çalışan Tour GetTourPrices yapısı baz alındı:
+ *   Rooms: [{ Index, Paxes: [{ PaxType: 0=ADT/1=CHD, Count, ChildAgeList }] }]
+ *
+ * Girdi formatları desteklenir:
+ *   - { Index, Paxes: [...] }                  → olduğu gibi kullanılır
+ *   - { RoomIndex, Adults, Children, ChildAges } → Paxes yapısına dönüştürülür
+ */
+function normalizeRooms(rooms) {
+  const list = rooms ?? [{ RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null }]
+  return list.map((r, i) => {
+    if (Array.isArray(r?.Paxes)) {
+      return { Index: r.Index ?? r.RoomIndex ?? i, Paxes: r.Paxes }
+    }
+    const adults = r.Adults ?? r.adults ?? 1
+    const children = r.Children ?? r.children ?? 0
+    const childAges = r.ChildAges ?? r.childAges ?? null
+    const paxes = [{ PaxType: 0, Count: adults, ChildAgeList: null }]
+    if (children > 0) {
+      paxes.push({ PaxType: 1, Count: children, ChildAgeList: childAges })
+    }
+    return { Index: r.RoomIndex ?? r.Index ?? i, Paxes: paxes }
+  })
+}
+
 // ─── GENEL (General API) ──────────────────────────────────────────────────────
 // Stoplight: https://kplus.stoplight.io/docs/travelrobot/7ba5b63ea6573-travelrobot-general-api
 
@@ -409,9 +435,7 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
         CheckOutDate: checkout,
         ...(opts.destinationId != null && { DestinationId: opts.destinationId }),
         ...(opts.hotelCode && { HotelCode: opts.hotelCode }),
-        Rooms: opts.rooms ?? [
-          { RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null },
-        ],
+        Rooms: normalizeRooms(opts.rooms),
         AdvancedOptions: {
           ProviderType: 0,
           LanguageCode: opts.languageCode ?? 'tr',
@@ -452,9 +476,7 @@ export async function getHotelRooms(cfg, tokenCode, opts = {}) {
       HotelCode: opts.hotelCode,
       CheckInDate: checkin,
       CheckOutDate: checkout,
-      Rooms: opts.rooms ?? [
-        { RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null },
-      ],
+      Rooms: normalizeRooms(opts.rooms),
       NationalityCode: opts.nationalityCode ?? null,
       LanguageCode: opts.languageCode ?? 'tr',
     },
@@ -543,7 +565,7 @@ export async function getRoomOffers(cfg, tokenCode, opts = {}) {
       HotelCode: opts.hotelCode,
       CheckInDate: checkin,
       CheckOutDate: checkout,
-      Rooms: opts.rooms ?? [{ RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null }],
+      Rooms: normalizeRooms(opts.rooms),
       NationalityCode: opts.nationalityCode ?? null,
       LanguageCode: opts.languageCode ?? 'tr',
     },
@@ -651,7 +673,7 @@ export async function bookRoomOffers(cfg, opts = {}) {
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getHotelReservation(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetReservation', {
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/RetrieveReservation', {
     request: {
       Token: tokenObj(tokenCode),
       SystemPnr: opts.systemPnr ?? null,
@@ -765,7 +787,7 @@ export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
 
   return kplusPost(
     cfg.baseUrl,
-    opts.endpoint ?? '/Flight.svc/Rest/Json/SearchItinerary',
+    opts.endpoint ?? '/Flight.svc/Rest/Json/SearchAvailability',
     {
       filter: {
         Token: tokenObj(tokenCode),
@@ -807,7 +829,8 @@ export async function getFlightBrandedFares(cfg, tokenCode, opts = {}) {
  * opts: { resultKeys: [...], languageCode }
  */
 export async function validateFlight(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/ValidateFlight', {
+  // Stoplight slug: /docs/travelrobot/7d4b0c33836d3-validate
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/Validate', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKeys: opts.resultKeys ?? [],
@@ -825,7 +848,8 @@ export async function validateFlight(cfg, tokenCode, opts = {}) {
  * }
  */
 export async function createFlightReservation(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/CreateReservation', {
+  // Stoplight slug: /docs/travelrobot/9f0551f752760-book-flight
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/BookFlight', {
     request: {
       ProcessId: null,
       Version: '2.0',
@@ -859,7 +883,8 @@ export async function createFlightReservation(cfg, opts = {}) {
  * opts: { tokenCode, systemPnr, languageCode }
  */
 export async function issueTicketFromReservation(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/IssueTicketFromReservation', {
+  // Stoplight slug: /docs/travelrobot/66a6648e7506e-reservation-to-ticket
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/ReservationToTicket', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
@@ -1071,7 +1096,8 @@ export async function getFareRules(cfg, tokenCode, opts = {}) {
  * opts: { resultKeys, languageCode }
  */
 export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/GetPaymentOptions', {
+  // Stoplight slug: /docs/travelrobot/faec77bc3ea78-payment-options
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/PaymentOptions', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKeys: opts.resultKeys ?? [],
@@ -1081,11 +1107,12 @@ export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
 }
 
 /**
- * Rezervasyon getir — sistemdeki mevcut rezervasyon bilgisi.
+ * Uçuş rezervasyonu getir — sistemdeki mevcut rezervasyon bilgisi.
+ * Stoplight slug: /docs/travelrobot/98490cfda1311-retrieve-reservation
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getReservation(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetReservation', {
+  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/RetrieveReservation', {
     request: {
       Token: tokenObj(tokenCode),
       SystemPnr: opts.systemPnr ?? null,
