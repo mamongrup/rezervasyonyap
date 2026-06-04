@@ -343,6 +343,17 @@ export async function getFlightListings(): Promise<TFlightListing[]> {
   return []
 }
 
+export const getFlightListingByHandle = async (
+  handle: string,
+  locale?: string,
+): Promise<TFlightListing | null> => {
+  const row = await getStayListingByHandle(handle, locale)
+  if (!row) return null
+  const v = normalizeCatalogVertical(row.listingVertical)
+  if (v !== 'flight') return null
+  return row as TFlightListing
+}
+
 // get Filter Options
 export async function getStayListingFilterOptions(): Promise<FilterOption[]> {
   return [

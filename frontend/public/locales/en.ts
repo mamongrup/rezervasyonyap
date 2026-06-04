@@ -610,6 +610,21 @@ export const en = {
     toLabel: 'To',
     noImage: 'Flight route',
   },
+  flightDetail: {
+    searchTitle: 'Search flights on this route',
+    priceFrom: 'From',
+    priceNote: 'Includes taxes and fees',
+    routeInfo: 'Route information',
+    departure: 'Departure',
+    arrival: 'Arrival',
+    directFlight: 'Direct flight',
+    backToFlights: 'Back to flights',
+    searchButton: 'Search flights',
+    similarRoutes: 'Similar routes',
+    routeNotFound: 'Flight route not found.',
+    bookCtaTitle: 'Ready to fly?',
+    bookCtaDesc: 'Search flights on this route and find the best price.',
+  },
   pageBuilderDefaults: {
     stay: {
       featuredByRegion: {

@@ -644,6 +644,21 @@ export const zh: AppMessages = {
     toLabel: '到达',
     noImage: '航线',
   },
+  flightDetail: {
+    searchTitle: '搜索此航线的航班',
+    priceFrom: '起价',
+    priceNote: '含税费',
+    routeInfo: '航线信息',
+    departure: '出发',
+    arrival: '到达',
+    directFlight: '直飞',
+    backToFlights: '返回航班列表',
+    searchButton: '搜索航班',
+    similarRoutes: '相似航线',
+    routeNotFound: '未找到航线。',
+    bookCtaTitle: '准备好出发了吗？',
+    bookCtaDesc: '搜索此航线的航班，找到最优价格。',
+  },
   checkout: checkoutZh,
 }
 

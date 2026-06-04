@@ -386,6 +386,21 @@ export const tr = {
     toLabel: 'Varış',
     noImage: 'Uçuş güzergahı',
   },
+  flightDetail: {
+    searchTitle: 'Bu güzergahta uçuş ara',
+    priceFrom: 'Başlangıç fiyatı',
+    priceNote: 'Vergiler ve ücretler dahil',
+    routeInfo: 'Güzergah bilgisi',
+    departure: 'Kalkış',
+    arrival: 'Varış',
+    directFlight: 'Direkt uçuş',
+    backToFlights: 'Uçuşlara dön',
+    searchButton: 'Uçuş ara',
+    similarRoutes: 'Benzer güzergahlar',
+    routeNotFound: 'Uçuş güzergahı bulunamadı.',
+    bookCtaTitle: 'Uçmaya hazır mısın?',
+    bookCtaDesc: 'Bu güzergahta uçuş ara ve en iyi fiyatı bul.',
+  },
   pageBuilderDefaults: {
     stay: {
       featuredByRegion: {

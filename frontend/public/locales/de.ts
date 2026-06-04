@@ -655,6 +655,21 @@ export const de: AppMessages = {
     toLabel: 'Nach',
     noImage: 'Flugroute',
   },
+  flightDetail: {
+    searchTitle: 'Flüge auf dieser Route suchen',
+    priceFrom: 'Ab',
+    priceNote: 'Inkl. Steuern und Gebühren',
+    routeInfo: 'Routeninformation',
+    departure: 'Abflug',
+    arrival: 'Ankunft',
+    directFlight: 'Direktflug',
+    backToFlights: 'Zurück zu Flügen',
+    searchButton: 'Flüge suchen',
+    similarRoutes: 'Ähnliche Routen',
+    routeNotFound: 'Flugroute nicht gefunden.',
+    bookCtaTitle: 'Bereit zu fliegen?',
+    bookCtaDesc: 'Suche Flüge auf dieser Route und finde den besten Preis.',
+  },
   checkout: checkoutDe,
 }
 

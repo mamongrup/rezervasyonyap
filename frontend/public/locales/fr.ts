@@ -655,6 +655,21 @@ export const fr: AppMessages = {
     toLabel: 'Arrivée',
     noImage: 'Itinéraire de vol',
   },
+  flightDetail: {
+    searchTitle: 'Rechercher des vols sur cet itinéraire',
+    priceFrom: 'À partir de',
+    priceNote: 'Taxes et frais inclus',
+    routeInfo: 'Informations sur l\'itinéraire',
+    departure: 'Départ',
+    arrival: 'Arrivée',
+    directFlight: 'Vol direct',
+    backToFlights: 'Retour aux vols',
+    searchButton: 'Rechercher des vols',
+    similarRoutes: 'Itinéraires similaires',
+    routeNotFound: 'Itinéraire de vol introuvable.',
+    bookCtaTitle: 'Prêt à voler ?',
+    bookCtaDesc: 'Recherchez des vols sur cet itinéraire et trouvez le meilleur prix.',
+  },
   checkout: checkoutFr,
 }
 

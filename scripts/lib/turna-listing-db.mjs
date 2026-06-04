@@ -1,5 +1,38 @@
 const PROVIDER = 'turna'
 
+/**
+ * Turna arama yanıtından minimum fiyatı çeker.
+ * Desteklenen yapılar:
+ *   json.FlightLegs[].Packages[].TotalPrice
+ *   json.Data.FlightLegs[].Packages[].TotalPrice
+ *   json.Packages[].Price.Total  / json.Packages[].TotalPrice
+ */
+export function extractMinPriceFromTurnaSearch(json) {
+  if (!json || typeof json !== 'object') return null
+  const candidates = []
+
+  function walkPrice(obj) {
+    if (!obj || typeof obj !== 'object') return
+    if (Array.isArray(obj)) {
+      for (const item of obj) walkPrice(item)
+      return
+    }
+    for (const key of ['TotalPrice', 'totalPrice', 'GrandTotal', 'grandTotal']) {
+      if (typeof obj[key] === 'number' && obj[key] > 0) candidates.push(obj[key])
+    }
+    if (obj.Price && typeof obj.Price === 'object' && typeof obj.Price.Total === 'number' && obj.Price.Total > 0) {
+      candidates.push(obj.Price.Total)
+    }
+    for (const key of ['Packages', 'FlightLegs', 'Legs', 'Offers', 'Results', 'Data']) {
+      if (obj[key]) walkPrice(obj[key])
+    }
+  }
+
+  walkPrice(json)
+  if (candidates.length === 0) return null
+  return Math.min(...candidates)
+}
+
 function slugify(text, fallback) {
   let base = String(text || fallback || '')
     .trim()
@@ -134,5 +167,14 @@ export async function upsertTurnaFlightListing(
     [core.listingId, JSON.stringify({ route, search: searchPayload })],
   )
 
-  return { ...core, action: core.created ? 'created' : 'updated', kind: 'flight' }
+  // Turna search yanıtından min fiyat çek → listings.price_from güncelle
+  const minPrice = extractMinPriceFromTurnaSearch(searchPayload)
+  if (minPrice != null) {
+    await pgClient.query(
+      `UPDATE listings SET price_from = $2, currency_code = 'TRY', updated_at = now() WHERE id = $1::uuid`,
+      [core.listingId, String(minPrice)],
+    )
+  }
+
+  return { ...core, action: core.created ? 'created' : 'updated', kind: 'flight', price: minPrice }
 }

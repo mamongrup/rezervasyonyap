@@ -83,7 +83,8 @@ async function main() {
       const out = await upsertTurnaFlightListing(client, ctx, route, searchPayload, { status, dryRun: DRY_RUN })
       if (out.created) created += 1
       else if (!DRY_RUN && out.action === 'updated') updated += 1
-      console.log(out.action + (out.slug ? ` (${out.slug})` : ''))
+      const priceNote = out.price != null ? ` ₺${out.price}` : ''
+      console.log(out.action + (out.slug ? ` (${out.slug})` : '') + priceNote)
     }
 
     console.log(`\nBitti: ${created} yeni, ${updated} güncelleme${DRY_RUN ? ' (dry-run)' : ''}.`)

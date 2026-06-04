@@ -654,6 +654,21 @@ export const ru: AppMessages = {
     toLabel: 'Куда',
     noImage: 'Авиамаршрут',
   },
+  flightDetail: {
+    searchTitle: 'Поиск рейсов по этому маршруту',
+    priceFrom: 'От',
+    priceNote: 'Включая налоги и сборы',
+    routeInfo: 'Информация о маршруте',
+    departure: 'Отправление',
+    arrival: 'Прибытие',
+    directFlight: 'Прямой рейс',
+    backToFlights: 'Назад к рейсам',
+    searchButton: 'Найти рейсы',
+    similarRoutes: 'Похожие маршруты',
+    routeNotFound: 'Авиамаршрут не найден.',
+    bookCtaTitle: 'Готовы лететь?',
+    bookCtaDesc: 'Найдите рейсы по этому маршруту и выберите лучшую цену.',
+  },
   checkout: checkoutRu,
 }
 
