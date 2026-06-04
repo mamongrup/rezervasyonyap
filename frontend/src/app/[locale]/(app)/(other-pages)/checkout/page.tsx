@@ -318,15 +318,19 @@ function CheckoutPageContent() {
         const msg =
           code === 'insert_line_failed'
             ? C.errors.insertLineFailed
-            : code === 'dates_required'
-              ? C.errors.datesRequired
-              : code === 'listing_contract_required'
-                ? C.errors.listingContractRequired
-                : code === 'listing_unavailable_or_currency_mismatch'
-                ? C.errors.currencyMismatch
-                : code === 'invalid_dates'
-                  ? C.errors.datesRequired
-                  : code || C.errors.bookingFailed
+            : code === 'cart_line_schema_incomplete'
+              ? C.errors.cartLineSchemaIncomplete
+              : code === 'dates_required' || code === 'invalid_dates'
+                ? C.errors.datesRequired
+                : code === 'invalid_date_range'
+                  ? C.errors.invalidDateRange
+                  : code === 'listing_contract_required'
+                    ? C.errors.listingContractRequired
+                    : code === 'listing_unavailable_or_currency_mismatch'
+                      ? C.errors.currencyMismatch
+                      : code === 'cart_or_listing_not_found'
+                        ? C.errors.cartOrListingNotFound
+                        : code || C.errors.bookingFailed
         window.alert(msg)
         setFxLockInfo(null)
       } finally {

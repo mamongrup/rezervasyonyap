@@ -21,6 +21,7 @@ import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
+import travel/db/sql_dates
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -99,25 +100,6 @@ pub fn create_cart(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn is_ymd_date(s: String) -> Bool {
-  case string.split(s, on: "-") {
-    [y, m, d] ->
-      case int.parse(y), int.parse(m), int.parse(d) {
-        Ok(_), Ok(mo), Ok(day) -> mo >= 1 && mo <= 12 && day >= 1 && day <= 31
-        _, _, _ -> False
-      }
-    _ -> False
-  }
-}
-
-/// ISO datetime veya YYYY-MM-DD → tarih kısmı (PostgreSQL date için).
-fn normalize_date_param(s: String) -> String {
-  case string.split(string.trim(s), on: "T") {
-    [ymd, ..] -> ymd
-    _ -> string.trim(s)
-  }
-}
-
 fn stay_range_invalid(start: String, end: String) -> Bool {
   case string.compare(start, end) {
     order.Lt -> False
@@ -154,8 +136,8 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
             True -> json_err(400, "invalid_quantity")
             False -> {
               let price_trim = string.trim(unit_price)
-              let starts_trim = normalize_date_param(starts_on)
-              let ends_trim = normalize_date_param(ends_on)
+              let starts_trim = sql_dates.normalize_date_param(starts_on)
+              let ends_trim = sql_dates.normalize_date_param(ends_on)
               let agency_for_line = string.trim(aid_raw)
               case price_trim == "" {
                 True -> json_err(400, "unit_price_required")
@@ -166,9 +148,12 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                       case stay_range_invalid(starts_trim, ends_trim) {
                         True -> json_err(400, "invalid_date_range")
                         False ->
-                          case is_ymd_date(starts_trim) && is_ymd_date(ends_trim) {
-                            False -> json_err(400, "invalid_dates")
-                            True -> {
+                          case
+                            sql_dates.parse_iso_date_ymd(starts_trim),
+                            sql_dates.parse_iso_date_ymd(ends_trim)
+                          {
+                            Error(_), _ | _, Error(_) -> json_err(400, "invalid_dates")
+                            Ok(start_date), Ok(end_date) -> {
                           let agency_opt = case agency_for_line == "" {
                             True -> None
                             False -> Some(agency_for_line)
@@ -254,8 +239,12 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                     |> pog.parameter(pog.text(cart_id))
                                                     |> pog.parameter(pog.text(listing_id))
                                                     |> pog.parameter(pog.int(quantity))
-                                                    |> pog.parameter(pog.text(starts_trim))
-                                                    |> pog.parameter(pog.text(ends_trim))
+                                                    |> pog.parameter(pog.calendar_date(
+                                                      start_date,
+                                                    ))
+                                                    |> pog.parameter(pog.calendar_date(
+                                                      end_date,
+                                                    ))
                                                     |> pog.parameter(pog.text(price_trim))
                                                     |> pog.returning(row_dec.col0_string())
                                                     |> pog.execute(conn)
@@ -267,7 +256,11 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                             e,
                                                           ),
                                                       )
-                                                      Error("insert_line_failed")
+                                                      Error(
+                                                        pog_errors.cart_line_insert_error_code(
+                                                          e,
+                                                        ),
+                                                      )
                                                     }
                                                     Ok(r) ->
                                                       case r.rows {
@@ -303,8 +296,8 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                     _ -> json_err(400, msg)
                                   }
                               }
+                            }
                           }
-                        }
                         }
                   }
                 }
@@ -1853,8 +1846,16 @@ pub fn agent_booking_from_api(
   payment_type: String,
   installments: Int,
 ) -> Result(#(String, String, String, String), String) {
+  let starts_trim = sql_dates.normalize_date_param(starts_on)
+  let ends_trim = sql_dates.normalize_date_param(ends_on)
   case
-    pog.transaction(db, fn(conn) {
+    sql_dates.parse_iso_date_ymd(starts_trim),
+    sql_dates.parse_iso_date_ymd(ends_trim)
+  {
+    Error(_), _ | _, Error(_) -> Error("invalid_dates")
+    Ok(start_date), Ok(end_date) ->
+      case
+        pog.transaction(db, fn(conn) {
       case
         pog.query(
           "insert into carts (currency_code, session_key) values ($1, null) returning id::text",
@@ -1909,13 +1910,21 @@ pub fn agent_booking_from_api(
                                         |> pog.parameter(pog.text(cart_id))
                                         |> pog.parameter(pog.text(listing_id))
                                         |> pog.parameter(pog.int(quantity))
-                                        |> pog.parameter(pog.text(starts_on))
-                                        |> pog.parameter(pog.text(ends_on))
+                                        |> pog.parameter(pog.calendar_date(start_date))
+                                        |> pog.parameter(pog.calendar_date(end_date))
                                         |> pog.parameter(pog.text(unit_price))
                                         |> pog.returning(row_dec.col0_string())
                                         |> pog.execute(conn)
                                       {
-                                        Error(_) -> Error("insert_line_failed")
+                                        Error(e) -> {
+                                          io.println(
+                                            "[cart_line] "
+                                              <> pog_errors.query_error_to_string(e),
+                                          )
+                                          Error(
+                                            pog_errors.cart_line_insert_error_code(e),
+                                          )
+                                        }
                                         Ok(_) ->
                                           do_checkout(
                                             conn,
@@ -1947,10 +1956,11 @@ pub fn agent_booking_from_api(
           }
       }
     })
-  {
-    Ok(v) -> Ok(v)
-    Error(pog.TransactionQueryError(_)) -> Error("database_error")
-    Error(pog.TransactionRolledBack(msg)) -> Error(msg)
+      {
+        Ok(v) -> Ok(v)
+        Error(pog.TransactionQueryError(_)) -> Error("database_error")
+        Error(pog.TransactionRolledBack(msg)) -> Error(msg)
+      }
   }
 }
 

@@ -251,6 +251,10 @@ export const checkoutEn: CheckoutMessages = {
       'You accepted the general and sales terms, but this listing has no category contract linked in admin — checkout cannot continue until it is assigned.',
     insertLineFailed:
       'Could not add the booking to the cart. Check dates and try again, or contact support.',
+    cartLineSchemaIncomplete:
+      'The booking database schema is outdated on the server. Ask support to run migration 305_cart_lines_schema_guard.sql and restart travel-api.',
+    invalidDateRange: 'Check-out must be after check-in.',
+    cartOrListingNotFound: 'Cart or listing not found. Restart checkout from the property page.',
     datesRequired: 'Check-in and check-out dates are required.',
     currencyMismatch:
       'Currency does not match the listing. Restart checkout from the property page.',
@@ -424,6 +428,11 @@ export const checkoutTr: CheckoutMessages = {
       'Genel ve satış sözleşmelerini onayladınız; ödeme için bu ilana kategori sözleşmesi bağlanmalı (yönetim → ilan düzenle).',
     insertLineFailed:
       'Sepete ilan eklenemedi. Tarihleri kontrol edip tekrar deneyin; sorun sürerse destek ile iletişime geçin.',
+    cartLineSchemaIncomplete:
+      'Sunucudaki rezervasyon veritabanı şeması güncel değil. Yönetici: 305_cart_lines_schema_guard.sql migration\'ını uygulayıp travel-api servisini yeniden başlatmalı.',
+    invalidDateRange: 'Çıkış tarihi, giriş tarihinden sonra olmalıdır.',
+    cartOrListingNotFound:
+      'Sepet veya ilan bulunamadı. Lütfen ilan sayfasından ödemeye yeniden başlayın.',
     datesRequired: 'Giriş ve çıkış tarihleri zorunludur.',
     currencyMismatch:
       'Para birimi ilanla uyuşmuyor. Lütfen ilan sayfasından checkout\'a yeniden girin.',

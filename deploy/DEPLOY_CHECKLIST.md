@@ -190,7 +190,42 @@ Degisiklikten sonra web sunucusunu/yapilandirmayi yeniden yukleyin (Plesk’te g
 cd /path/to/repo/backend && gleam build && sudo systemctl restart travel-api.service
 ```
 
-## 10) Tarayici kontrolu
+## 10) Checkout: «Sepete ilan eklenemedi» (`insert_line_failed`)
+
+Bu uyarı, API’nin `cart_lines` tablosuna INSERT yapamadığı anlamına gelir (tarih/sözleşme değil, çoğunlukla **veritabanı şeması**).
+
+1. **Şema** (API ile aynı DB — `backend.env`):
+
+```bash
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+./deploy/apply-sql.sh backend/priv/sql/modules/305_cart_lines_schema_guard.sql
+```
+
+2. **Teşhis + canlı API testi**:
+
+```bash
+chmod +x deploy/scripts/verify-cart-checkout.sh
+LISTING_ID=<ilan-uuid> ./deploy/scripts/verify-cart-checkout.sh
+```
+
+3. **Gerçek PostgreSQL hatası** (log satırı `[cart_line]` ile yazılır):
+
+```bash
+grep '\[cart_line\]' /var/log/travel-api.log | tail -10
+```
+
+`column "tax_amount" does not exist` → 305 migration uygulanmamış veya **yanlış veritabanı**.
+
+4. **API binary** güncel olmalı (`/opt/rezervasyonyap/.../erlang-shipment`):
+
+```bash
+./deploy/deploy.sh   # veya en azından backend gleam build + restart travel-api
+sudo systemctl restart travel-api.service
+```
+
+5. Tarayıcıda checkout’u **ilan sayfasından** yeniden açın (`checkIn` / `checkOut` query ile).
+
+## 11) Tarayici kontrolu
 
 - Hard refresh: `Ctrl + Shift + R`
 - Ana sayfada hero kategori ikonlari gorunmeli.

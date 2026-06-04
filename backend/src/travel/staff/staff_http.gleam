@@ -9,11 +9,14 @@ import gleam/dynamic/decode
 import gleam/http
 import gleam/http/request
 import gleam/json
+import gleam/io
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/pog_errors
+import travel/db/sql_dates
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -513,9 +516,20 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                 True -> json_err(400, "invalid_quantity")
                 False -> {
                   let price_trim = string.trim(unit_price)
+                  let starts_trim = sql_dates.normalize_date_param(starts_on)
+                  let ends_trim = sql_dates.normalize_date_param(ends_on)
                   case price_trim == "" {
                     True -> json_err(400, "unit_price_required")
-                    False -> {
+                    False ->
+                      case starts_trim == "" || ends_trim == "" {
+                        True -> json_err(400, "dates_required")
+                        False ->
+                          case
+                            sql_dates.parse_iso_date_ymd(starts_trim),
+                            sql_dates.parse_iso_date_ymd(ends_trim)
+                          {
+                            Error(_), _ | _, Error(_) -> json_err(400, "invalid_dates")
+                            Ok(start_date), Ok(end_date) -> {
                       case
                         pog.transaction(ctx.db, fn(conn) {
                           case
@@ -553,13 +567,21 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                                             |> pog.parameter(pog.text(cart_id))
                                             |> pog.parameter(pog.text(listing_id))
                                             |> pog.parameter(pog.int(quantity))
-                                            |> pog.parameter(pog.text(starts_on))
-                                            |> pog.parameter(pog.text(ends_on))
+                                            |> pog.parameter(pog.calendar_date(start_date))
+                                            |> pog.parameter(pog.calendar_date(end_date))
                                             |> pog.parameter(pog.text(price_trim))
                                             |> pog.returning(decode_one_string())
                                             |> pog.execute(conn)
                                           {
-                                            Error(_) -> Error("insert_line_failed")
+                                            Error(e) -> {
+                                              io.println(
+                                                "[cart_line] "
+                                                  <> pog_errors.query_error_to_string(e),
+                                              )
+                                              Error(
+                                                pog_errors.cart_line_insert_error_code(e),
+                                              )
+                                            }
                                             Ok(r) ->
                                               case r.rows {
                                                 [lid] -> Ok(lid)
@@ -595,7 +617,9 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                             _ -> json_err(400, msg)
                           }
                       }
-                    }
+                            }
+                          }
+                        }
                   }
                 }
               }
