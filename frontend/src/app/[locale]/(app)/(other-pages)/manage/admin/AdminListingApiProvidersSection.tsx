@@ -20,6 +20,15 @@ interface TravelrobotSettings {
   import_car_rental: boolean
 }
 
+interface TurnaSettings {
+  enabled: boolean
+  base_url: string
+  api_key: string
+  country_code: string
+  currency_code: string
+  language_code: string
+}
+
 interface Yolcu360Settings {
   enabled: boolean
   base_url: string
@@ -29,6 +38,7 @@ interface Yolcu360Settings {
 
 interface ListingApiProvidersSettings {
   travelrobot: TravelrobotSettings
+  turna: TurnaSettings
   yolcu360: Yolcu360Settings
 }
 
@@ -44,6 +54,15 @@ const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   import_car_rental: false,
 }
 
+const EMPTY_TURNA: TurnaSettings = {
+  enabled: false,
+  base_url: 'https://api.turna.com',
+  api_key: '',
+  country_code: 'TR',
+  currency_code: 'TRY',
+  language_code: 'tr',
+}
+
 const EMPTY_YOLCU360: Yolcu360Settings = {
   enabled: false,
   base_url: 'https://staging.api.pro.yolcu360.com/api/v1',
@@ -53,6 +72,7 @@ const EMPTY_YOLCU360: Yolcu360Settings = {
 
 const EMPTY: ListingApiProvidersSettings = {
   travelrobot: EMPTY_TRAVELROBOT,
+  turna: EMPTY_TURNA,
   yolcu360: EMPTY_YOLCU360,
 }
 
@@ -106,16 +126,22 @@ export default function AdminListingApiProvidersSection() {
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [testing, setTesting] = React.useState(false)
+  const [testingTurna, setTestingTurna] = React.useState(false)
   const [testingY360, setTestingY360] = React.useState(false)
   const [locationQuery, setLocationQuery] = React.useState('istanbul')
   const [msg, setMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const token = getStoredAuthToken()
   const tr = settings.travelrobot
+  const turna = settings.turna
   const y360 = settings.yolcu360
 
   const setTr = (patch: Partial<TravelrobotSettings>) => {
     setSettings((prev) => ({ ...prev, travelrobot: { ...prev.travelrobot, ...patch } }))
+  }
+
+  const setTurna = (patch: Partial<TurnaSettings>) => {
+    setSettings((prev) => ({ ...prev, turna: { ...prev.turna, ...patch } }))
   }
 
   const setY360 = (patch: Partial<Yolcu360Settings>) => {
@@ -138,6 +164,7 @@ export default function AdminListingApiProvidersSection() {
           setSettings((prev) => ({
             ...prev,
             travelrobot: { ...prev.travelrobot, ...(v.travelrobot ?? {}) },
+            turna: { ...prev.turna, ...(v.turna ?? {}) },
             yolcu360: { ...prev.yolcu360, ...(v.yolcu360 ?? {}) },
           }))
         }
@@ -205,6 +232,39 @@ export default function AdminListingApiProvidersSection() {
       setMsg({ type: 'err', text: formatManageApiCatch(e, 'Bağlantı testi başarısız') })
     } finally {
       setTesting(false)
+    }
+  }
+
+  const testTurna = async () => {
+    if (!token) return
+    setTestingTurna(true)
+    setMsg(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/integrations/turna/ping`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          base_url: turna.base_url,
+          api_key: turna.api_key,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        session_preview?: string
+      }
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setMsg({
+        type: 'ok',
+        text: `Turna bağlantısı OK${data.session_preview ? ` (session: ${data.session_preview})` : ''}`,
+      })
+    } catch (e) {
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Turna bağlantı testi başarısız') })
+    } finally {
+      setTestingTurna(false)
     }
   }
 
@@ -402,6 +462,81 @@ export default function AdminListingApiProvidersSection() {
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Turna — Uçak bileti</h2>
+            <p className="text-xs text-neutral-500">API: api.turna.com · Test: apitest.turna.com</p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={turna.enabled}
+              onChange={(e) => setTurna({ enabled: e.target.checked })}
+              className="rounded border-neutral-300"
+            />
+            Aktif
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          <Field
+            label="API Base URL"
+            hint="Canlı: https://api.turna.com · Test: https://apitest.turna.com"
+            value={turna.base_url}
+            onChange={(v) => setTurna({ base_url: v })}
+            placeholder="https://api.turna.com"
+          />
+          <Field
+            label="API Key"
+            value={turna.api_key}
+            onChange={(v) => setTurna({ api_key: v })}
+            type="password"
+          />
+          <div className="grid grid-cols-3 gap-3">
+            <Field
+              label="Country Code"
+              value={turna.country_code}
+              onChange={(v) => setTurna({ country_code: v })}
+              placeholder="TR"
+            />
+            <Field
+              label="Currency"
+              value={turna.currency_code}
+              onChange={(v) => setTurna({ currency_code: v })}
+              placeholder="TRY"
+            />
+            <Field
+              label="Language"
+              value={turna.language_code}
+              onChange={(v) => setTurna({ language_code: v })}
+              placeholder="tr"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet
+          </button>
+          <button
+            type="button"
+            onClick={() => void testTurna()}
+            disabled={testingTurna || !turna.api_key}
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {testingTurna ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+            Bağlantı testi (anonymousLogin)
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Yolcu360 — Araç kiralama</h2>
             <p className="text-xs text-neutral-500">
               Staging: staging.api.pro.yolcu360.com · Canlı: api.pro.yolcu360.com/api/v1
@@ -491,8 +626,15 @@ export default function AdminListingApiProvidersSection() {
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5</code>
         </p>
         <p>
-          Uçak:{' '}
+          Travelrobot Uçak:{' '}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-flights.mjs --dry-run --limit 5</code>
+        </p>
+        <p>
+          Turna Uçak:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-turna-flights.mjs --ping</code>
+          {' / '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-turna-flights.mjs --dry-run</code>
+          {' (rota: scripts/config/turna-flight-routes.json)'}
         </p>
         <p>
           Yolcu360 env:{' '}

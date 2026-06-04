@@ -15,7 +15,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fetchFlightSearch, loadTurnaConfig, pingTurnaLogin } from './lib/turna-api.mjs'
+import { fetchFlightSearch, loadTurnaConfigAsync, pingTurnaLogin } from './lib/turna-api.mjs'
 import { resolveImportContext, upsertTurnaFlightListing } from './lib/turna-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
@@ -39,7 +39,7 @@ function loadFlightRoutes() {
 }
 
 async function main() {
-  loadTurnaConfig()
+  await loadTurnaConfigAsync()
 
   if (PING) {
     const { json, session } = await pingTurnaLogin()

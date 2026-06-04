@@ -2,15 +2,21 @@
  * Turna uçak API — Postman: Desktop/turna/
  * Docs: docs/API-PROVIDERS-NOTES.md § Turna
  *
+ * Config kaynağı önceliği: panel site_settings → TURNA_* env
  * Ortam:
- *   TURNA_BASE_URL   (varsayılan https://apitest.turna.com)
- *   TURNA_API_KEY
- *   TURNA_COUNTRY_CODE (varsayılan TR)
- *   TURNA_CURRENCY_CODE (varsayılan TRY)
- *   TURNA_LANGUAGE_CODE (varsayılan tr)
+ *   TURNA_BASE_URL, TURNA_API_KEY (zorunlu)
+ *   TURNA_COUNTRY_CODE, TURNA_CURRENCY_CODE, TURNA_LANGUAGE_CODE
  */
 
+import { loadTurnaConfigFromDb } from './listing-api-providers-db.mjs'
+
 const DEFAULT_BASE = 'https://api.turna.com'
+
+export async function loadTurnaConfigAsync() {
+  const cfg = await loadTurnaConfigFromDb()
+  if (!cfg.apiKey) throw new Error('TURNA_API_KEY yok — panel: /manage/admin/settings/listing-api veya TURNA_API_KEY env')
+  return cfg
+}
 
 export function loadTurnaConfig() {
   const baseUrl = (process.env.TURNA_BASE_URL || DEFAULT_BASE).replace(/\/+$/, '')
@@ -25,8 +31,7 @@ export function loadTurnaConfig() {
   }
 }
 
-export function loginForm(extra = {}) {
-  const cfg = loadTurnaConfig()
+export function loginForm(cfg, extra = {}) {
   return {
     ApiKey: cfg.apiKey,
     CountryCode: cfg.countryCode,
@@ -34,6 +39,12 @@ export function loginForm(extra = {}) {
     LanguageCode: cfg.languageCode,
     ...extra,
   }
+}
+
+/** Geriye dönük uyumluluk — env tabanlı (DB yoksa) */
+function loginFormFromEnv(extra = {}) {
+  const cfg = loadTurnaConfig()
+  return loginForm(cfg, extra)
 }
 
 function joinUrl(base, path) {
@@ -102,16 +113,18 @@ export function turnaPost(path, body, extraHeaders = {}) {
 }
 
 /** POST /v1/accounts/auth/anonymousLogin — bağlantı testi */
-export async function pingTurnaLogin() {
-  const { json, session } = await turnaPost('/v1/accounts/auth/anonymousLogin', loginForm())
+export async function pingTurnaLogin(cfg = null) {
+  const form = cfg ? loginForm(cfg) : loginFormFromEnv()
+  const { json, session } = await turnaPost('/v1/accounts/auth/anonymousLogin', form)
   return { json, session }
 }
 
 /** POST /v1/flight/booking/search — rota arama */
 export async function fetchFlightSearch(route, opts = {}) {
+  const cfg = opts.cfg ?? null
   const departureDay = opts.departureDay || addDaysISO(opts.daysAhead ?? 14)
   const body = {
-    LoginForm: loginForm(),
+    LoginForm: cfg ? loginForm(cfg) : loginFormFromEnv(),
     SearchForm: {
       Legs: [
         {

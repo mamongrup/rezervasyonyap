@@ -24,6 +24,20 @@ export async function loadListingApiProvidersFromDb() {
   }
 }
 
+export async function loadTurnaConfigFromDb() {
+  const all = await loadListingApiProvidersFromDb()
+  const t = all.turna ?? {}
+  return {
+    enabled: Boolean(t.enabled),
+    baseUrl: String(t.base_url || process.env.TURNA_BASE_URL || 'https://api.turna.com').replace(/\/+$/, ''),
+    apiKey: String(t.api_key || process.env.TURNA_API_KEY || ''),
+    countryCode: String(t.country_code || process.env.TURNA_COUNTRY_CODE || 'TR'),
+    currencyCode: String(t.currency_code || process.env.TURNA_CURRENCY_CODE || 'TRY'),
+    languageCode: String(t.language_code || process.env.TURNA_LANGUAGE_CODE || 'tr'),
+    listingStatus: String(t.listing_status || process.env.TURNA_STATUS || 'published'),
+  }
+}
+
 export async function loadTravelrobotConfigFromDb() {
   const all = await loadListingApiProvidersFromDb()
   const tr = all.travelrobot ?? {}
