@@ -959,6 +959,52 @@ fn contract_public_row() -> decode.Decoder(#(String, String, String, String)) {
   decode.success(#(a, b, c, d))
 }
 
+/// İlan FK veya kategori havuzundan (tek aktif şablon) kategori sözleşmesi.
+fn fetch_listing_category_contract(
+  db: pog.Connection,
+  listing_id: String,
+  locale: String,
+) -> Result(Option(#(String, String, String, String)), Nil) {
+  let sql =
+    "select cc.id::text, cc.version::text, "
+    <> "coalesce((select t.title from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = lower($2) limit 1), "
+    <> "(select t.title from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = 'en' limit 1), "
+    <> "(select t.title from category_contract_translations t where t.contract_id = cc.id limit 1), ''), "
+    <> "coalesce((select t.body_text from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = lower($2) limit 1), "
+    <> "(select t.body_text from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = 'en' limit 1), "
+    <> "(select t.body_text from category_contract_translations t where t.contract_id = cc.id limit 1), '') "
+    <> "from listings l "
+    <> "inner join category_contracts cc on cc.is_active = true and cc.contract_scope = 'category' "
+    <> "and ( "
+    <> "(l.category_contract_id is not null and cc.id = l.category_contract_id) "
+    <> "or ( "
+    <> "l.category_contract_id is null "
+    <> "and cc.category_id = l.category_id "
+    <> "and (cc.organization_id is null or cc.organization_id = l.organization_id) "
+    <> ") "
+    <> ") "
+    <> "where l.id = $1::uuid and l.status = 'published' "
+    <> "order by "
+    <> "case when l.category_contract_id is not null and cc.id = l.category_contract_id then 0 else 1 end, "
+    <> "case when cc.organization_id is not null then 0 else 1 end, cc.sort_order, cc.code "
+    <> "limit 1"
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(locale))
+    |> pog.returning(contract_public_row())
+    |> pog.execute(db)
+  {
+    Error(_) -> Error(Nil)
+    Ok(ret) ->
+      case ret.rows {
+        [] -> Ok(None)
+        [row] -> Ok(Some(row))
+        _ -> Error(Nil)
+      }
+  }
+}
+
 fn manage_contract_row() -> decode.Decoder(
   #(String, String, String, String, String, String, String),
 ) {
@@ -1075,12 +1121,6 @@ pub fn get_public_listing_contract(
   }
 }
 
-fn listing_org_and_category_contract_row() -> decode.Decoder(#(String, String)) {
-  use a <- decode.field(0, decode.string)
-  use b <- decode.field(1, decode.string)
-  decode.success(#(a, b))
-}
-
 fn json_optional_contract_block(row: Option(#(String, String, String, String))) -> json.Json {
   case row {
     None -> json.null()
@@ -1149,51 +1189,28 @@ pub fn get_public_checkout_contract_bundle(req: Request, ctx: Context) -> Respon
     False ->
       case
         pog.query(
-          "select coalesce(l.organization_id::text, ''), coalesce(l.category_contract_id::text, '') "
+          "select coalesce(l.organization_id::text, '') "
           <> "from listings l where l.id = $1::uuid and l.status = 'published' limit 1",
         )
         |> pog.parameter(pog.text(lid_raw))
-        |> pog.returning(listing_org_and_category_contract_row())
+        |> pog.returning({
+          use a <- decode.field(0, decode.string)
+          decode.success(a)
+        })
         |> pog.execute(ctx.db)
       {
         Error(_) -> json_err(500, "checkout_contracts_query_failed")
         Ok(ret) ->
           case ret.rows {
             [] -> json_err(404, "listing_not_found")
-            [#(org_text, cc_id_raw)] -> {
-              let category_block = case string.trim(cc_id_raw) == "" {
-                True -> Ok(None)
-                False ->
-                  case
-                    pog.query(
-                      "select cc.id::text, cc.version::text, "
-                      <> "coalesce((select t.title from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = lower($2) limit 1), "
-                      <> "(select t.title from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = 'en' limit 1), "
-                      <> "(select t.title from category_contract_translations t where t.contract_id = cc.id limit 1), ''), "
-                      <> "coalesce((select t.body_text from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = lower($2) limit 1), "
-                      <> "(select t.body_text from category_contract_translations t join locales loc on loc.id = t.locale_id where t.contract_id = cc.id and lower(loc.code) = 'en' limit 1), "
-                      <> "(select t.body_text from category_contract_translations t where t.contract_id = cc.id limit 1), '') "
-                      <> "from category_contracts cc where cc.id = $1::uuid and cc.is_active = true and cc.contract_scope = 'category' limit 1",
-                    )
-                    |> pog.parameter(pog.text(string.trim(cc_id_raw)))
-                    |> pog.parameter(pog.text(loc_use))
-                    |> pog.returning(contract_public_row())
-                    |> pog.execute(ctx.db)
-                  {
-                    Error(_) -> Error(Nil)
-                    Ok(cr) ->
-                      case cr.rows {
-                        [] -> Ok(None)
-                        [r] -> Ok(Some(r))
-                        _ -> Error(Nil)
-                      }
-                  }
-              }
-              case category_block {
+            [org_text] -> {
+              case fetch_listing_category_contract(ctx.db, lid_raw, loc_use) {
                 Error(_) -> json_err(500, "checkout_contracts_category_failed")
                 Ok(cat_opt) -> {
-                  let gen_res = fetch_scoped_contract_for_org(ctx.db, org_text, loc_use, "general")
-                  let sal_res = fetch_scoped_contract_for_org(ctx.db, org_text, loc_use, "sales")
+                  let gen_res =
+                    fetch_scoped_contract_for_org(ctx.db, org_text, loc_use, "general")
+                  let sal_res =
+                    fetch_scoped_contract_for_org(ctx.db, org_text, loc_use, "sales")
                   case gen_res, sal_res {
                     Ok(gen_opt), Ok(sal_opt) -> {
                       let body =

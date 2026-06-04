@@ -434,13 +434,19 @@ fn assert_cart_contracts_valid(
       "select count(*)::text from cart_lines cl "
       <> "inner join listings l on l.id = cl.listing_id "
       <> "where cl.cart_id = $1::uuid "
-      <> "and ( l.category_contract_id is null "
-      <> "  or not exists ( "
-      <> "    select 1 from category_contracts c "
-      <> "    where c.id = l.category_contract_id and c.contract_scope = 'category' "
-      <> "    and c.is_active = true "
-      <> "    and (c.organization_id is null or c.organization_id = l.organization_id) "
-      <> "  ) )",
+      <> "and not exists ( "
+      <> "  select 1 from category_contracts c "
+      <> "  where c.contract_scope = 'category' and c.is_active = true "
+      <> "  and ( "
+      <> "    (l.category_contract_id is not null and c.id = l.category_contract_id "
+      <> "      and (c.organization_id is null or c.organization_id = l.organization_id)) "
+      <> "    or ( "
+      <> "      l.category_contract_id is null "
+      <> "      and c.category_id = l.category_id "
+      <> "      and (c.organization_id is null or c.organization_id = l.organization_id) "
+      <> "    ) "
+      <> "  ) "
+      <> ")",
     )
     |> pog.parameter(pog.text(cart_id))
     |> pog.returning(row_dec.col0_string())
@@ -475,10 +481,19 @@ fn build_contract_snapshots(
     <> "(select t.body_text from category_contract_translations t where t.contract_id = cc.id limit 1), '') "
     <> "from cart_lines cl "
     <> "inner join listings l on l.id = cl.listing_id "
-    <> "inner join category_contracts cc on cc.id = l.category_contract_id "
-    <> "and cc.is_active = true and cc.contract_scope = 'category' "
+    <> "inner join category_contracts cc on cc.is_active = true and cc.contract_scope = 'category' "
+    <> "and ( "
+    <> "(l.category_contract_id is not null and cc.id = l.category_contract_id) "
+    <> "or ( "
+    <> "l.category_contract_id is null "
+    <> "and cc.category_id = l.category_id "
+    <> "and (cc.organization_id is null or cc.organization_id = l.organization_id) "
+    <> ") "
+    <> ") "
     <> "where cl.cart_id = $1::uuid "
-    <> "order by l.id"
+    <> "order by l.id, "
+    <> "case when l.category_contract_id is not null and cc.id = l.category_contract_id then 0 else 1 end, "
+    <> "case when cc.organization_id is not null then 0 else 1 end, cc.sort_order, cc.code"
   case
     pog.query(sql)
     |> pog.parameter(pog.text(cart_id))
