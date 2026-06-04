@@ -1,4 +1,4 @@
-//// Provizyon (Escrow) Yönetimi — Tedarikçi onayı, eskalasyon, transfer takibi.
+﻿//// Provizyon (Escrow) Yönetimi — Tedarikçi onayı, eskalasyon, transfer takibi.
 ////
 //// Endpoint gruplaması:
 ////   Tedarikçi (token tabanlı, auth gerektirmez):
@@ -407,23 +407,39 @@ pub fn admin_list(req: Request, ctx: Context) -> Response {
     Ok(s) -> string.trim(s)
     Error(_) -> ""
   }
-  let where_clause = case status_filter == "" {
-    True -> " where r.payment_status in ('held', 'pending_confirm', 'supplier_notified') "
-    False -> " where r.payment_status = '" <> status_filter <> "' "
+  let allowed_statuses = [
+    "held", "pending_confirm", "supplier_notified", "confirmed",
+    "cancelled", "completed", "failed", "refunded",
+  ]
+  case status_filter != "" && !list.contains(allowed_statuses, status_filter) {
+    True -> json_err(400, "invalid_status_filter")
+    False -> admin_list_query(ctx, status_filter)
   }
-  let sql =
+}
+
+fn admin_list_query(ctx: Context, status_filter: String) -> Response {
+  let base =
     "select "
     <> provizyon_sql_columns()
     <> " from reservations r "
     <> " join listings l on l.id = r.listing_id "
     <> listing_title_left_join_tr()
-    <> where_clause
-    <> " order by r.created_at desc limit 200"
-  case
-    pog.query(sql)
-    |> pog.returning(provizyon_row())
-    |> pog.execute(ctx.db)
-  {
+  let result = case status_filter == "" {
+    True ->
+      pog.query(
+        base
+        <> " where r.payment_status in ('held', 'pending_confirm', 'supplier_notified') "
+        <> " order by r.created_at desc limit 200",
+      )
+      |> pog.returning(provizyon_row())
+      |> pog.execute(ctx.db)
+    False ->
+      pog.query(base <> " where r.payment_status = $1 order by r.created_at desc limit 200")
+      |> pog.parameter(pog.text(status_filter))
+      |> pog.returning(provizyon_row())
+      |> pog.execute(ctx.db)
+  }
+  case result {
     Error(_) -> json_err(500, "list_failed")
     Ok(ret) -> {
       let arr = list.map(ret.rows, row_to_json)

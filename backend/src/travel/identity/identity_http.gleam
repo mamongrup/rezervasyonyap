@@ -374,57 +374,67 @@ pub fn forgot_password(req: Request, ctx: Context) -> Response {
         Error(_) -> json_err(400, "invalid_json")
         Ok(email_raw) -> {
           let email = string.lowercase(string.trim(email_raw))
-          case
-            pog.query("select id::text from users where email = $1 limit 1")
-            |> pog.parameter(pog.text(email))
-            |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
-          {
-            Error(e) -> {
-              let _ =
-                io.println(
-                  "forgot_password users select: "
-                  <> pog_errors.query_error_to_string(e),
-                )
-              json_err(500, "db_error")
-            }
-            Ok(ret) ->
-              case ret.rows {
-                // Kullanıcı bulunamasa da "ok" döndür (güvenlik: e-posta ifşa etme)
-                [] ->
-                  wisp.json_response(
-                    json.object([#("ok", json.bool(True))]) |> json.to_string,
-                    200,
-                  )
-                [uid] -> {
-                  let reset_token =
-                    crypto.strong_random_bytes(32)
-                    |> bit_array.base16_encode
-                    |> string.lowercase
-                  case
-                    pog.query(
-                      "insert into password_reset_tokens (token, user_id, expires_at) values ($1, $2::uuid, now() + interval '1 hour')",
-                    )
-                    |> pog.parameter(pog.text(reset_token))
-                    |> pog.parameter(pog.text(uid))
-                    |> pog.execute(ctx.db)
-                  {
-                    Error(_) -> json_err(500, "token_create_failed")
-                    Ok(_) ->
-                      wisp.json_response(
-                        json.object([
-                          #("ok", json.bool(True)),
-                          #("reset_token", json.string(reset_token)),
-                        ])
-                        |> json.to_string,
-                        200,
-                      )
-                  }
-                }
-                _ -> json_err(500, "unexpected")
-              }
+          let rkey = rate_key(client_ip(req), email)
+          case rate_limit.check(ctx, "forgot", rkey) {
+            rate_limit.Blocked(secs) -> json_too_many(secs)
+            rate_limit.Allowed ->
+              forgot_password_do(ctx, email, rkey)
           }
         }
+      }
+  }
+}
+
+fn forgot_password_do(ctx: Context, email: String, rkey: String) -> Response {
+  case
+    pog.query("select id::text from users where email = $1 limit 1")
+    |> pog.parameter(pog.text(email))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ =
+        io.println(
+          "forgot_password users select: "
+          <> pog_errors.query_error_to_string(e),
+        )
+      json_err(500, "db_error")
+    }
+    Ok(ret) ->
+      case ret.rows {
+        // Kullanıcı bulunamasa da "ok" döndür (güvenlik: e-posta ifşa etme)
+        [] -> {
+          rate_limit.record_failure(ctx, "forgot", rkey)
+          wisp.json_response(
+            json.object([#("ok", json.bool(True))]) |> json.to_string,
+            200,
+          )
+        }
+        [uid] -> {
+          let reset_token =
+            crypto.strong_random_bytes(32)
+            |> bit_array.base16_encode
+            |> string.lowercase
+          case
+            pog.query(
+              "insert into password_reset_tokens (token, user_id, expires_at) values ($1, $2::uuid, now() + interval '1 hour')",
+            )
+            |> pog.parameter(pog.text(reset_token))
+            |> pog.parameter(pog.text(uid))
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "token_create_failed")
+            Ok(_) -> {
+              rate_limit.record_success(ctx, "forgot", rkey)
+              wisp.json_response(
+                json.object([#("ok", json.bool(True))])
+                |> json.to_string,
+                200,
+              )
+            }
+          }
+        }
+        _ -> json_err(500, "unexpected")
       }
   }
 }

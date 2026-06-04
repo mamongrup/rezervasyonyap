@@ -64,10 +64,12 @@ import gleam/http
 import gleam/http/request
 import gleam/http/response
 import gleam/json
+import envoy
 import gleam/list
 import gleam/otp/actor
 import pog
 import gleam/result
+import gleam/string
 import wisp.{type Request, type Response}
 
 pub fn create_context(cfg: AppConfig) -> Result(Context, String) {
@@ -1699,9 +1701,28 @@ fn cors_preflight_response() -> Response {
 }
 
 fn with_cors(resp: Response, req: Request) -> Response {
-  let allow_origin = case request.get_header(req, "origin") {
-    Ok(origin) -> origin
-    Error(_) -> "*"
+  // CORS_ALLOWED_ORIGINS: virgülle ayrılmış izinli origin listesi.
+  // Boşsa "*" ile herkese açık (credentials olmadan).
+  let allowed_origins =
+    envoy.get("CORS_ALLOWED_ORIGINS")
+    |> result.map(fn(v) { string.split(string.trim(v), ",") |> list.map(string.trim) })
+    |> result.unwrap([])
+
+  let req_origin = request.get_header(req, "origin")
+
+  let #(allow_origin, send_credentials) = case req_origin {
+    Error(_) -> #("*", False)
+    Ok(origin) ->
+      case allowed_origins {
+        // Allowlist tanımlı → yalnızca eşleşen origin'e echo et
+        [_, ..] ->
+          case list.contains(allowed_origins, origin) {
+            True -> #(origin, True)
+            False -> #("null", False)
+          }
+        // Allowlist tanımlı değil → dev/internal mod: origin'i echo et (credentials ile)
+        [] -> #(origin, True)
+      }
   }
 
   let resp =
@@ -1717,9 +1738,8 @@ fn with_cors(resp: Response, req: Request) -> Response {
     )
     |> response.set_header("access-control-max-age", "86400")
 
-  // Panel fetch'leri `credentials: 'include'` kullanır; bu başlık olmadan tarayıcı yanıtı reddeder.
-  case request.get_header(req, "origin") {
-    Ok(_) -> response.set_header(resp, "access-control-allow-credentials", "true")
-    Error(_) -> resp
+  case send_credentials {
+    True -> response.set_header(resp, "access-control-allow-credentials", "true")
+    False -> resp
   }
 }

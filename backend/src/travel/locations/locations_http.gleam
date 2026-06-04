@@ -15,6 +15,7 @@ import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
 import travel/ical/ical_sync
+import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -22,6 +23,13 @@ fn json_err(status: Int, msg: String) -> Response {
     json.object([#("error", json.string(msg))])
     |> json.to_string
   wisp.json_response(body, status)
+}
+
+fn require_admin(req: Request, ctx: Context, next: fn() -> Response) -> Response {
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> next()
+  }
 }
 
 /// CDN / ara proxy `GET` önbelleğinde eski harita koordinatı kalmayı engeller.
@@ -109,6 +117,7 @@ fn country_create_decoder() -> decode.Decoder(#(String, String)) {
 /// POST /api/v1/locations/countries
 pub fn create_country(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -253,6 +262,7 @@ fn region_create_decoder() -> decode.Decoder(
 /// POST /api/v1/locations/regions
 pub fn create_region(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -494,6 +504,7 @@ fn district_create_decoder() -> decode.Decoder(
 /// POST /api/v1/locations/districts
 pub fn create_district(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1000,6 +1011,7 @@ fn page_create_decoder() -> decode.Decoder(PageCreateBody) {
 /// POST /api/v1/locations/pages
 pub fn create_location_page(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1139,6 +1151,7 @@ fn page_patch_decoder() -> decode.Decoder(PagePatch) {
 /// PATCH /api/v1/locations/pages/:page_id
 pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Response {
   use <- wisp.require_method(req, http.Patch)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1224,6 +1237,7 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
 /// DELETE /api/v1/locations/pages/:page_id
 pub fn delete_location_page(req: Request, ctx: Context, page_id: String) -> Response {
   use <- wisp.require_method(req, http.Delete)
+  use <- require_admin(req, ctx)
   case
     pog.query("delete from location_pages where id = $1::uuid")
     |> pog.parameter(pog.text(string.trim(page_id)))
@@ -1292,6 +1306,7 @@ fn poi_put_decoder() -> decode.Decoder(#(List(String), Int, Int)) {
 /// PUT /api/v1/locations/pages/:page_id/poi-settings — sayfa başına tek kayıt
 pub fn put_poi_settings(req: Request, ctx: Context, page_id: String) -> Response {
   use <- wisp.require_method(req, http.Put)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1436,6 +1451,7 @@ fn poi_cache_insert_decoder() -> decode.Decoder(
 /// POST /api/v1/locations/pages/:page_id/poi-cache
 pub fn add_poi_cache_row(req: Request, ctx: Context, page_id: String) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1494,6 +1510,7 @@ pub fn add_poi_cache_row(req: Request, ctx: Context, page_id: String) -> Respons
 /// DELETE /api/v1/locations/pages/:page_id/poi-cache — sayfadaki tüm önbellek
 pub fn clear_poi_cache(req: Request, ctx: Context, page_id: String) -> Response {
   use <- wisp.require_method(req, http.Delete)
+  use <- require_admin(req, ctx)
   case
     pog.query(
       "delete from location_poi_cache where location_page_id = $1::uuid",
@@ -1568,6 +1585,7 @@ fn ical_json(row: IcalRow) -> json.Json {
 /// GET /api/v1/locations/ical-feeds?listing_id=
 pub fn list_ical_feeds(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
+  use <- require_admin(req, ctx)
   let qs = case request.get_query(req) {
     Ok(q) -> q
     Error(_) -> []
@@ -1615,6 +1633,7 @@ fn ical_create_decoder() -> decode.Decoder(#(String, String, Int, Int)) {
 /// POST /api/v1/locations/ical-feeds
 pub fn create_ical_feed(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1672,6 +1691,7 @@ fn ical_patch_decoder() -> decode.Decoder(
 /// PATCH /api/v1/locations/ical-feeds/:feed_id
 pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response {
   use <- wisp.require_method(req, http.Patch)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -1749,6 +1769,7 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
 /// DELETE /api/v1/locations/ical-feeds/:feed_id
 pub fn delete_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response {
   use <- wisp.require_method(req, http.Delete)
+  use <- require_admin(req, ctx)
   case
     pog.query("delete from ical_feeds where id = $1::uuid")
     |> pog.parameter(pog.text(string.trim(feed_id)))
@@ -1774,6 +1795,7 @@ pub fn sync_ical_feed(
   feed_id: String,
 ) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case ical_sync.sync_feed(ctx, string.trim(feed_id)) {
     Error("feed_not_found") -> json_err(404, "feed_not_found")
     Error("feed_inactive") -> json_err(409, "feed_inactive")

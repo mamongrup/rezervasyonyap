@@ -12,6 +12,7 @@ import gleam/result
 import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
+import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -19,6 +20,13 @@ fn json_err(status: Int, msg: String) -> Response {
     json.object([#("error", json.string(msg))])
     |> json.to_string
   wisp.json_response(body, status)
+}
+
+fn require_admin(req: Request, ctx: Context, next: fn() -> Response) -> Response {
+  case admin_gate.require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) -> next()
+  }
 }
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
@@ -44,6 +52,7 @@ fn cdn_full_row() -> decode.Decoder(#(String, String, Bool, String)) {
 /// GET /api/v1/media/cdn — aktif CDN ve çekme adresi.
 pub fn get_cdn(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
+  use <- require_admin(req, ctx)
   case
     pog.query(
       "select provider_code::text, coalesce(pull_zone_url, ''), is_active from cdn_connections where is_active = true limit 1",
@@ -82,6 +91,7 @@ pub fn get_cdn(req: Request, ctx: Context) -> Response {
 /// POST /api/v1/media/cdn/deactivate — tüm sağlayıcıları pasif yapar.
 pub fn deactivate_cdn(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case
     pog.query("update cdn_connections set is_active = false")
     |> pog.execute(ctx.db)
@@ -115,6 +125,7 @@ fn update_cdn_config_decoder() -> decode.Decoder(#(String, String, String)) {
 /// GET /api/v1/media/cdn/all — tüm sağlayıcıları config ile döner (admin).
 pub fn get_cdn_all(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
+  use <- require_admin(req, ctx)
   case
     pog.query(
       "select provider_code::text, coalesce(pull_zone_url,''), is_active, coalesce(config_json::text,'{}') from cdn_connections order by provider_code",
@@ -145,6 +156,7 @@ pub fn get_cdn_all(req: Request, ctx: Context) -> Response {
 /// PATCH /api/v1/media/cdn/config — `{ "code": "bunny|cloudflare", "pull_zone_url": "...", "config_json": "{...}" }`
 pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Patch)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -189,6 +201,7 @@ pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
 /// PATCH /api/v1/media/cdn/url — `{ "code": "bunny|cloudflare", "pull_zone_url": "https://..." }`
 pub fn update_cdn_url(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Patch)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -231,6 +244,7 @@ pub fn update_cdn_url(req: Request, ctx: Context) -> Response {
 /// POST /api/v1/media/cdn/active — `{ "code": "bunny" | "cloudflare" }`
 pub fn set_cdn_active(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -325,6 +339,7 @@ fn register_file_decoder() -> decode.Decoder(
 /// POST /api/v1/media/files — yükleme sonrası kayıt (AVIF worker güncelleyecek).
 pub fn register_file(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
@@ -457,6 +472,7 @@ fn image_profile_row() -> decode.Decoder(
 /// GET /api/v1/media/image-profiles — yükleme profilleri (admin).
 pub fn get_image_profiles(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
+  use <- require_admin(req, ctx)
   case
     pog.query(
       "select folder, width, height, fit, vivid, quality, effort, thumb_size, coalesce(description,''), display_order from image_upload_profiles order by display_order, folder",
@@ -511,6 +527,7 @@ fn within(value: Int, lo: Int, hi: Int) -> Bool {
 /// PATCH /api/v1/media/image-profiles — tek bir klasörün profilini günceller.
 pub fn update_image_profile(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Patch)
+  use <- require_admin(req, ctx)
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
