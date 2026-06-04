@@ -161,13 +161,23 @@ pub fn locations_url(cfg: Yolcu360Config, query: String) -> String {
 }
 
 fn encode_param(s: String) -> String {
-  string.replace(s, " ", "+")
+  string.replace(s, " ", "%20")
   |> string.replace(":", "%3A")
   |> string.replace("+", "%2B")
+  |> string.replace("&", "%26")
 }
 
-/// GET /cars/available?pickupLocationId=&returnLocationId=&checkInDateTime=&checkOutDateTime=
-/// Endpoint path tahminidir; Yolcu360 staging/prod'da doğrulanmalı.
+/// ISO tarihine saat ekler: "2026-07-17" → "2026-07-17T10:00:00Z"
+/// Zaten datetime içeriyorsa (T harfi varsa) olduğu gibi bırakır.
+fn ensure_datetime(date_str: String) -> String {
+  case string.contains(date_str, "T") {
+    True -> date_str
+    False -> date_str <> "T10:00:00Z"
+  }
+}
+
+/// GET /cars?pickUpLocationId=&returnLocationId=&checkInDateTime=&checkOutDateTime=
+/// Yolcu360 Agency API v1 — doğrulanmış endpoint ve parametre adları.
 pub fn cars_search_url(
   cfg: Yolcu360Config,
   pickup_id: String,
@@ -177,10 +187,10 @@ pub fn cars_search_url(
 ) -> String {
   join_path(
     cfg.base_url,
-    "/cars/available"
-      <> "?pickupLocationId=" <> encode_param(pickup_id)
+    "/cars"
+      <> "?pickUpLocationId=" <> encode_param(pickup_id)
       <> "&returnLocationId=" <> encode_param(return_id)
-      <> "&checkInDateTime=" <> encode_param(checkin)
-      <> "&checkOutDateTime=" <> encode_param(checkout),
+      <> "&checkInDateTime=" <> encode_param(ensure_datetime(checkin))
+      <> "&checkOutDateTime=" <> encode_param(ensure_datetime(checkout)),
   )
 }
