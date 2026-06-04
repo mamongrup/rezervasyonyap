@@ -5,7 +5,59 @@
  * - sanitizeFilename: path traversal ve null-byte saldırılarına karşı
  * - getErrorMessage: hassas detay sızdırmayan hata mesajı çıkarıcı
  * - isAllowedRevalidatePath: Next.js revalidatePath whitelist
+ * - verifyAdminToken: backend /auth/me ile JWT doğrulama + izin kontrolü
  */
+
+import { apiOriginForFetch } from '@/lib/api-origin'
+
+// ---------------------------------------------------------------------------
+// JWT doğrulama (server-side API route'ları için)
+// ---------------------------------------------------------------------------
+
+export interface TokenVerifyResult {
+  ok: boolean
+  userId?: string
+  permissions?: string[]
+  /** 401 = token yok/geçersiz, 403 = izin yok */
+  status: 200 | 401 | 403
+}
+
+/**
+ * Cookie'deki token'ı backend /api/v1/auth/me ile doğrular.
+ * `requiredPermission` belirtilmişse kullanıcı o izne sahip olmalıdır.
+ *
+ * Kullanım (API route içinde):
+ *   const auth = await verifyAdminToken(token, 'admin.media.write')
+ *   if (!auth.ok) return NextResponse.json({ error: 'unauthorized' }, { status: auth.status })
+ */
+export async function verifyAdminToken(
+  token: string | undefined,
+  requiredPermission?: string,
+): Promise<TokenVerifyResult> {
+  if (!token || !token.trim()) return { ok: false, status: 401 }
+
+  const apiBase = apiOriginForFetch()
+  if (!apiBase) return { ok: false, status: 401 }
+
+  try {
+    const r = await fetch(`${apiBase}/api/v1/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+    if (!r.ok) return { ok: false, status: 401 }
+
+    const data = (await r.json()) as { id?: string; permissions?: string[] }
+    const permissions = Array.isArray(data.permissions) ? data.permissions : []
+
+    if (requiredPermission && !permissions.includes(requiredPermission)) {
+      return { ok: false, status: 403, userId: data.id, permissions }
+    }
+
+    return { ok: true, status: 200, userId: data.id, permissions }
+  } catch {
+    return { ok: false, status: 401 }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Şifre politikası

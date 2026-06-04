@@ -10984,13 +10984,13 @@ export interface PexelsPhoto {
   src: { large: string; medium: string; small: string }
 }
 
-/** Pexels proxy üzerinden arama yapar. apiKey: Pexels API anahtarı. */
+/** Pexels proxy üzerinden arama yapar. apiKey artık URL'de gönderilmez; sunucu tarafında yüklenir. */
 export async function searchPexelsImage(
   query: string,
-  apiKey: string,
+  _apiKey: string,
   perPage = 1,
 ): Promise<PexelsPhoto[]> {
-  const params = new URLSearchParams({ q: query, per_page: String(perPage), apiKey })
+  const params = new URLSearchParams({ q: query, per_page: String(perPage) })
   const res = await fetch(`/api/pexels-search?${params}`)
   if (!res.ok) throw new Error(`pexels_${res.status}`)
   const data = await res.json() as { photos: PexelsPhoto[]; total: number }

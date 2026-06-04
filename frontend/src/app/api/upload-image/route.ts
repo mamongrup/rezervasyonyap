@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { constants as fsConstants, promises as fs } from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
-import { sanitizeFilename } from '@/lib/security'
+import { sanitizeFilename, verifyAdminToken } from '@/lib/security'
 
 /** Sharp + `node:fs`; Edge'de çalışmaz. */
 export const runtime = 'nodejs'
@@ -263,10 +263,12 @@ async function processImage(
 }
 
 export async function POST(req: NextRequest) {
-  // Auth guard — middleware zaten yakalamalı; bu ikinci savunma katmanı
+  // JWT doğrulaması — backend /auth/me ile token geçerliliği kontrol edilir
   const cookieStore = await cookies()
-  if (!cookieStore.get('travel_auth_token')?.value) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  const token = cookieStore.get('travel_auth_token')?.value
+  const auth = await verifyAdminToken(token, 'admin.media.write')
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: auth.status })
   }
 
   try {
