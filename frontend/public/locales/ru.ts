@@ -643,6 +643,17 @@ export const ru: AppMessages = {
     showAll: 'Показать все отзывы ({count})',
     showLess: 'Свернуть',
   },
+  flightCard: {
+    nonStop: 'Без пересадок',
+    stop: '1 пересадка',
+    stops: '{n} пересадки',
+    includesTaxes: 'Включая налоги и сборы',
+    transitTime: 'Время пересадки',
+    viewDetails: 'Подробнее',
+    fromLabel: 'Откуда',
+    toLabel: 'Куда',
+    noImage: 'Авиамаршрут',
+  },
   checkout: checkoutRu,
 }
 

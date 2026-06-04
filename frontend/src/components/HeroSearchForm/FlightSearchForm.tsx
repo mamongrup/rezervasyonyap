@@ -26,24 +26,15 @@ interface Props {
   formStyle: 'default' | 'small'
 }
 
-const flightClass = [
-  {
-    name: 'Economy',
-    href: '#',
-  },
-  {
-    name: 'Business',
-    href: '#',
-  },
-  {
-    name: 'Multiple',
-    href: '#',
-  },
+const FLIGHT_CLASS_KEYS = [
+  { key: 'Economy' as const, value: 'Economy' },
+  { key: 'Business' as const, value: 'Business' },
+  { key: 'Multiple' as const, value: 'Multiple' },
 ]
 
 export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }) => {
   const [tripType, setTripType] = useState<'roundTrip' | 'oneWay'>('roundTrip')
-  const [flightClassState, setFlightClassState] = useState('Economy')
+  const [flightClassState, setFlightClassState] = useState<'Economy' | 'Business' | 'Multiple'>('Economy')
 
   const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(DEFAULT_GUESTS_STAY.guestAdults)
   const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(DEFAULT_GUESTS_STAY.guestChildren)
@@ -159,7 +150,7 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
       <>
         <Popover className="group relative">
           <PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
-            <span>{flightClassState}</span>
+            <span>{T['HeroSearchForm'][flightClassState]}</span>
             <HugeiconsIcon
             icon={ArrowDown01Icon}
             className="-me-1 size-3.5 group-data-open:rotate-180"
@@ -172,15 +163,13 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
             className="absolute top-full left-1/2 z-20 mt-3 w-56 -translate-x-1/2 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0"
           >
             <div className="relative grid gap-7 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
-              {flightClass.map((item) => (
+              {FLIGHT_CLASS_KEYS.map((item) => (
                 <CloseButton
-                  key={item.name}
-                  onClick={() => {
-                    setFlightClassState(item.name)
-                  }}
+                  key={item.value}
+                  onClick={() => setFlightClassState(item.key)}
                   className="-m-3 flex cursor-pointer items-center rounded-lg p-2 text-sm font-medium hover:bg-gray-50 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-orange-500/50 dark:hover:bg-gray-700"
                 >
-                  {item.name}
+                  {T['HeroSearchForm'][item.key]}
                 </CloseButton>
               ))}
             </div>

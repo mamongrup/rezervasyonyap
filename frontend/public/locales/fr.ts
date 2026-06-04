@@ -644,6 +644,17 @@ export const fr: AppMessages = {
     showAll: 'Afficher tous les avis ({count})',
     showLess: 'Afficher moins',
   },
+  flightCard: {
+    nonStop: 'Sans escale',
+    stop: '1 escale',
+    stops: '{n} escales',
+    includesTaxes: 'Taxes et frais inclus',
+    transitTime: 'Temps de transit',
+    viewDetails: 'Voir les détails',
+    fromLabel: 'Départ',
+    toLabel: 'Arrivée',
+    noImage: 'Itinéraire de vol',
+  },
   checkout: checkoutFr,
 }
 

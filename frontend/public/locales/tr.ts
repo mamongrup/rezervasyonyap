@@ -374,6 +374,17 @@ export const tr = {
       restaurant_table: 'Restoranda masa',
     },
   },
+  flightCard: {
+    nonStop: 'Aktarmasız',
+    stop: '1 aktarma',
+    stops: '{n} aktarma',
+    includesTaxes: 'Vergiler ve ücretler dahil',
+    transitTime: 'Aktarma süresi',
+    viewDetails: 'Detayları gör',
+    fromLabel: 'Kalkış',
+    toLabel: 'Varış',
+    noImage: 'Uçuş güzergahı',
+  },
   pageBuilderDefaults: {
     stay: {
       featuredByRegion: {

@@ -598,6 +598,17 @@ export const en = {
       restaurant_table: 'Restaurant',
     },
   },
+  flightCard: {
+    nonStop: 'Non-stop',
+    stop: '1 stop',
+    stops: '{n} stops',
+    includesTaxes: 'Includes taxes and fees',
+    transitTime: 'Transit time',
+    viewDetails: 'View details',
+    fromLabel: 'From',
+    toLabel: 'To',
+    noImage: 'Flight route',
+  },
   pageBuilderDefaults: {
     stay: {
       featuredByRegion: {

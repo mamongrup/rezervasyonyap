@@ -633,6 +633,17 @@ export const zh: AppMessages = {
     showAll: '显示全部 {count} 条评论',
     showLess: '收起',
   },
+  flightCard: {
+    nonStop: '直飞',
+    stop: '1次中转',
+    stops: '{n}次中转',
+    includesTaxes: '含税费',
+    transitTime: '中转时间',
+    viewDetails: '查看详情',
+    fromLabel: '出发',
+    toLabel: '到达',
+    noImage: '航线',
+  },
   checkout: checkoutZh,
 }
 

@@ -5,12 +5,22 @@ import { getFlightFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-export async function generateMetadata(): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale?: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const msgs = getMessages(locale)
   const category = getCategoryBySlug('ucak-bileti')
-  return { title: category?.name ?? 'Uçak Bileti', description: category?.heroSubheading }
+  return {
+    title: category?.name ?? msgs.Header.DropdownTravelers.Flights,
+    description: category?.heroSubheading ?? msgs.Header.DropdownTravelers['Flight description'],
+  }
 }
 
 export default async function Page({
@@ -22,6 +32,7 @@ export default async function Page({
 }) {
   const { handle, locale } = await params
   const sp = await searchParams
+  const msgs = getMessages(locale)
   const currentHandle = regionHandleFromParams(handle)
   const category = getCategoryBySlug('ucak-bileti')
   if (!category) return redirect('/')
@@ -46,8 +57,7 @@ export default async function Page({
       listingCards={
         <div className="flex w-full flex-col gap-4 sm:col-span-2 lg:col-span-3 xl:col-span-4">
           {listings.map((l) => (
-             
-            <FlightCard key={l.id} data={l as any} />
+            <FlightCard key={l.id} data={l as any} msgs={msgs.flightCard} />
           ))}
         </div>
       }

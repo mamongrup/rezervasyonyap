@@ -644,6 +644,17 @@ export const de: AppMessages = {
     showAll: 'Alle Bewertungen anzeigen ({count})',
     showLess: 'Weniger anzeigen',
   },
+  flightCard: {
+    nonStop: 'Nonstop',
+    stop: '1 Zwischenstopp',
+    stops: '{n} Zwischenstopps',
+    includesTaxes: 'Inkl. Steuern und Gebühren',
+    transitTime: 'Transitzeit',
+    viewDetails: 'Details anzeigen',
+    fromLabel: 'Von',
+    toLabel: 'Nach',
+    noImage: 'Flugroute',
+  },
   checkout: checkoutDe,
 }
 
