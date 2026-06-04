@@ -84,7 +84,7 @@ const getArg = (flag) => {
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04d'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04e'
 
 const CREDS = {
   baseUrl: getArg('--base-url') ?? process.env.TRAVELROBOT_BASE_URL ?? '',
@@ -543,7 +543,8 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       fail(`[${scenarioName}] ValidateHotelRoomsV2`, payload?.ErrorMessage ?? 'Hata')
     }
   } catch (e) {
-    log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2', { roomKey }, String(e), false)
+    log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2',
+      { rooms: validateRooms?.length }, String(e), false)
     fail(`[${scenarioName}] ValidateHotelRoomsV2`, e)
   }
 
