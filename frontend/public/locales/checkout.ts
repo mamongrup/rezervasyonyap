@@ -77,6 +77,8 @@ const checkoutBase = {
     datesGuestRequired: '',
     contractsRequired: '',
     listingContractRequired: '',
+    insertLineFailed: '',
+    datesRequired: '',
     bookingFailed: '',
   },
   payDone: {
@@ -209,6 +211,9 @@ export const checkoutEn: CheckoutMessages = {
     contractsRequired: 'You must read and accept all required contracts.',
     listingContractRequired:
       'You accepted the general and sales terms, but this listing has no category contract linked in admin — checkout cannot continue until it is assigned.',
+    insertLineFailed:
+      'Could not add the booking to the cart. Check dates and try again, or contact support.',
+    datesRequired: 'Check-in and check-out dates are required.',
     bookingFailed: 'Could not create the reservation.',
   },
   payDone: {
@@ -339,6 +344,9 @@ export const checkoutTr: CheckoutMessages = {
     contractsRequired: 'Görünen sözleşmelerin tümünü işaretlemeniz gerekir.',
     listingContractRequired:
       'Genel ve satış sözleşmelerini onayladınız; ödeme için bu ilana kategori sözleşmesi bağlanmalı (yönetim → ilan düzenle).',
+    insertLineFailed:
+      'Sepete ilan eklenemedi. Tarihleri kontrol edip tekrar deneyin; sorun sürerse destek ile iletişime geçin.',
+    datesRequired: 'Giriş ve çıkış tarihleri zorunludur.',
     bookingFailed: 'Rezervasyon oluşturulamadı.',
   },
   payDone: {

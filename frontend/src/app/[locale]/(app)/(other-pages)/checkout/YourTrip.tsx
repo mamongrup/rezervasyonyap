@@ -26,16 +26,18 @@ const YourTrip = ({ locale }: Props) => {
   const C = checkoutT(locale)
   const H = getMessages(locale).HeroSearchForm
   const searchParams = useSearchParams()
-  const [startDate, setStartDate] = useState<Date | null>(new Date('2025/02/06'))
-  const [endDate, setEndDate] = useState<Date | null>(new Date('2025/02/23'))
+  const [startDate, setStartDate] = useState<Date | null>(() =>
+    parseTripDate(searchParams.get('startDate')),
+  )
+  const [endDate, setEndDate] = useState<Date | null>(() =>
+    parseTripDate(searchParams.get('endDate')),
+  )
 
   useEffect(() => {
     const st = parseTripDate(searchParams.get('startDate'))
     const en = parseTripDate(searchParams.get('endDate'))
-    if (st && en) {
-      setStartDate(st)
-      setEndDate(en)
-    }
+    if (st) setStartDate(st)
+    if (en) setEndDate(en)
   }, [searchParams])
 
   const [guests, setGuests] = useState<GuestsObject>({ ...DEFAULT_GUESTS_STAY })

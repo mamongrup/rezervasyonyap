@@ -125,10 +125,15 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
             True -> json_err(400, "invalid_quantity")
             False -> {
               let price_trim = string.trim(unit_price)
+              let starts_trim = string.trim(starts_on)
+              let ends_trim = string.trim(ends_on)
               let agency_for_line = string.trim(aid_raw)
               case price_trim == "" {
                 True -> json_err(400, "unit_price_required")
-                False -> {
+                False ->
+                  case starts_trim == "" || ends_trim == "" {
+                    True -> json_err(400, "dates_required")
+                    False -> {
                   let agency_opt = case agency_for_line == "" {
                     True -> None
                     False -> Some(agency_for_line)
@@ -202,8 +207,8 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                         |> pog.parameter(pog.text(cart_id))
                                         |> pog.parameter(pog.text(listing_id))
                                         |> pog.parameter(pog.int(quantity))
-                                        |> pog.parameter(pog.text(starts_on))
-                                        |> pog.parameter(pog.text(ends_on))
+                                        |> pog.parameter(pog.text(starts_trim))
+                                        |> pog.parameter(pog.text(ends_trim))
                                         |> pog.parameter(pog.text(price_trim))
                                         |> pog.parameter(pog.text(meta))
                                         |> pog.returning(row_dec.col0_string())
@@ -244,6 +249,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                         _ -> json_err(400, msg)
                       }
                   }
+                    }
                   }
                 }
               }

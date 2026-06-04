@@ -167,8 +167,12 @@ function CheckoutPageContent() {
           checkoutUnitPrice > 0
             ? checkoutUnitPrice.toFixed(2)
             : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
-        const start = toYmd(String(formObject.startDate ?? ''))
-        const end = toYmd(String(formObject.endDate ?? ''))
+        const start =
+          toYmd(String(formObject.startDate ?? '')) ||
+          toYmd(searchParams.get('startDate') ?? '')
+        const end =
+          toYmd(String(formObject.endDate ?? '')) ||
+          toYmd(searchParams.get('endDate') ?? '')
         const email = String(formObject.guest_email ?? '').trim()
         const name = String(formObject.guest_name ?? '').trim()
         if (!start || !end || !email || !name) {
@@ -238,7 +242,18 @@ function CheckoutPageContent() {
         }
       } catch (e) {
         console.error(e)
-        window.alert(e instanceof Error ? e.message : C.errors.bookingFailed)
+        const code = e instanceof Error ? e.message : ''
+        const msg =
+          code === 'insert_line_failed'
+            ? C.errors.insertLineFailed
+            : code === 'dates_required'
+              ? C.errors.datesRequired
+              : code === 'listing_contract_required'
+                ? C.errors.listingContractRequired
+                : code === 'listing_unavailable_or_currency_mismatch'
+                  ? C.errors.bookingFailed
+                  : code || C.errors.bookingFailed
+        window.alert(msg)
       } finally {
         setPending(false)
       }
@@ -366,6 +381,12 @@ function CheckoutPageContent() {
           </div>
         )}
 
+        {searchParams.get('startDate') ? (
+          <input type="hidden" name="startDate" value={searchParams.get('startDate') ?? ''} />
+        ) : null}
+        {searchParams.get('endDate') ? (
+          <input type="hidden" name="endDate" value={searchParams.get('endDate') ?? ''} />
+        ) : null}
         <Divider />
         <Suspense fallback={<div className="min-h-[200px]" aria-hidden />}>
           <YourTrip locale={locale} />
