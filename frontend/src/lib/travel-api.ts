@@ -399,6 +399,10 @@ export async function checkoutCart(
     contract_locale?: string
     /** Provizyon: 'full' | 'partial' (varsayılan 'full') */
     payment_type?: 'full' | 'partial'
+    /** card | bank_transfer | western_union | ria */
+    payment_channel?: string
+    /** Misafir listesi, fatura, ödeme kanalı JSON */
+    checkout_meta_json?: string
     /** Taksit sayısı (1-12, varsayılan 1) */
     installments?: number
   },

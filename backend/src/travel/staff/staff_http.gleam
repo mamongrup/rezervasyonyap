@@ -653,6 +653,7 @@ pub fn pos_checkout(req: Request, ctx: Context, cart_id: String) -> Response {
                         sales_contract_accepted,
                         "full",
                         1,
+                        "",
                       )
                   }
                 })

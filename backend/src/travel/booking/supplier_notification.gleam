@@ -8,6 +8,7 @@
 ////
 //// API kimlik bilgileri: DB site_settings["integrations"] → env fallback
 
+import envoy
 import gleam/dynamic/decode
 import gleam/string
 import pog
@@ -271,6 +272,89 @@ fn guest_email_body(d: ReservationNotifData) -> String {
     "\nTedarikçi onayı bekleniyor. Onay gelince bildirim alacaksınız.\n\n",
     "Saygılarımızla,\nRezervasyonYap.com.tr\n",
   ])
+}
+
+fn env_or(key: String, default: String) -> String {
+  case envoy.get(key) {
+    Ok(v) ->
+      case string.trim(v) {
+        "" -> default
+        s -> s
+      }
+    Error(_) -> default
+  }
+}
+
+fn platform_ops_email(cfg: IntegrationConfig) -> String {
+  case string.trim(cfg.invoice_notify_from) {
+    "" -> env_or("PLATFORM_OPS_EMAIL", "")
+    e -> e
+  }
+}
+
+fn platform_ops_phone(_cfg: IntegrationConfig) -> String {
+  env_or("PLATFORM_OPS_PHONE", "")
+}
+
+fn platform_sms(d: ReservationNotifData) -> String {
+  string.concat([
+    "Yeni rezervasyon ",
+    d.public_code,
+    " — ",
+    d.listing_title,
+    " (",
+    d.starts_on,
+    ")",
+  ])
+}
+
+fn platform_email_body(d: ReservationNotifData) -> String {
+  string.concat([
+    "Yeni rezervasyon\n\nKod: ",
+    d.public_code,
+    "\nMisafir: ",
+    d.guest_name,
+    " / ",
+    d.guest_email,
+    "\nİlan: ",
+    d.listing_title,
+    "\nTarih: ",
+    d.starts_on,
+    " — ",
+    d.ends_on,
+    "\nÖdeme tipi: ",
+    d.payment_type,
+    "\n",
+  ])
+}
+
+/// Site operasyon ekibine SMS + e-posta (integrations / env).
+pub fn notify_platform_ops(
+  db: pog.Connection,
+  reservation_id: String,
+) -> Nil {
+  let cfg = integration_config.load(db)
+  case fetch_notif_data(db, reservation_id) {
+    Error(e) -> notification_channels.log_notif("Platform bildirim veri: " <> e)
+    Ok(d) -> {
+      let email = platform_ops_email(cfg)
+      let phone = platform_ops_phone(cfg)
+      case email != "" {
+        True ->
+          notification_channels.send_email(
+            cfg,
+            email,
+            "Yeni rezervasyon — " <> d.public_code,
+            platform_email_body(d),
+          )
+        False -> Nil
+      }
+      case phone != "" {
+        True -> notification_channels.send_sms(cfg, phone, platform_sms(d))
+        False -> Nil
+      }
+    }
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

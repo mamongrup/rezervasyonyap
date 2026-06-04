@@ -2,6 +2,7 @@
 
 import backend/context.{type Context}
 import travel/booking/cart_fx
+import travel/booking/supplier_notification
 import travel/messaging/notification_runtime
 import travel/identity/admin_gate
 import gleam/bit_array
@@ -320,7 +321,21 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
 }
 
 fn checkout_decoder() -> decode.Decoder(
-  #(String, String, Option(String), Int, Option(String), Bool, String, Bool, Bool, String, Int),
+  #(
+    String,
+    String,
+    Option(String),
+    Int,
+    Option(String),
+    Bool,
+    String,
+    Bool,
+    Bool,
+    String,
+    Int,
+    String,
+    String,
+  ),
 ) {
   decode.field("guest_email", decode.string, fn(guest_email) {
     decode.field("guest_name", decode.string, fn(guest_name) {
@@ -341,35 +356,49 @@ fn checkout_decoder() -> decode.Decoder(
                   ) {
                     decode.optional_field("payment_type", "full", decode.string, fn(pt_raw) {
                       decode.optional_field("installments", 1, decode.int, fn(inst_raw) {
-                        let phone = case string.trim(phone_raw) {
-                          "" -> None
-                          p -> Some(p)
-                        }
-                        let agency = case string.trim(aid_raw) {
-                          "" -> None
-                          a -> Some(a)
-                        }
-                        let payment_type = case string.trim(pt_raw) {
-                          "partial" -> "partial"
-                          _ -> "full"
-                        }
-                        let installments = case inst_raw < 1 || inst_raw > 12 {
-                          True -> 1
-                          False -> inst_raw
-                        }
-                        decode.success(#(
-                          guest_email,
-                          guest_name,
-                          phone,
-                          hold_minutes,
-                          agency,
-                          contract_accepted,
-                          contract_locale,
-                          general_contract_accepted,
-                          sales_contract_accepted,
-                          payment_type,
-                          installments,
-                        ))
+                        decode.optional_field("payment_channel", "card", decode.string, fn(
+                          ch_raw,
+                        ) {
+                          decode.optional_field("checkout_meta_json", "", decode.string, fn(
+                            meta_raw,
+                          ) {
+                            let phone = case string.trim(phone_raw) {
+                              "" -> None
+                              p -> Some(p)
+                            }
+                            let agency = case string.trim(aid_raw) {
+                              "" -> None
+                              a -> Some(a)
+                            }
+                            let payment_type = case string.trim(pt_raw) {
+                              "partial" -> "partial"
+                              _ -> "full"
+                            }
+                            let installments = case inst_raw < 1 || inst_raw > 12 {
+                              True -> 1
+                              False -> inst_raw
+                            }
+                            let payment_channel = case string.trim(ch_raw) {
+                              "" -> "card"
+                              c -> c
+                            }
+                            decode.success(#(
+                              guest_email,
+                              guest_name,
+                              phone,
+                              hold_minutes,
+                              agency,
+                              contract_accepted,
+                              contract_locale,
+                              general_contract_accepted,
+                              sales_contract_accepted,
+                              payment_type,
+                              installments,
+                              payment_channel,
+                              string.trim(meta_raw),
+                            ))
+                          })
+                        })
                       })
                     })
                   })
@@ -913,6 +942,7 @@ fn complete_checkout_with_snapshot(
   agency_id_opt: Option(String),
   payment_type: String,
   installments: Int,
+  checkout_meta_json: String,
 ) -> Result(#(String, String, String, String), String) {
   let agency_param = case agency_id_opt {
     None -> pog.null()
@@ -1037,6 +1067,13 @@ fn complete_checkout_with_snapshot(
     False -> breakdown_base
   }
   let breakdown_base = list.append(breakdown_base, [fx_lock_field])
+  let breakdown_base = case string.trim(checkout_meta_json) == "" {
+    True -> breakdown_base
+    False ->
+      list.append(breakdown_base, [
+        #("checkout_meta", json.string(checkout_meta_json)),
+      ])
+  }
   let breakdown = json.object(breakdown_base) |> json.to_string
   case
     pog.query(
@@ -1187,6 +1224,7 @@ pub fn do_checkout(
   sales_contract_accepted: Bool,
   payment_type: String,
   installments: Int,
+  checkout_meta_json: String,
 ) -> Result(#(String, String, String, String), String) {
   let email = string.lowercase(string.trim(guest_email))
   let name = string.trim(guest_name)
@@ -1269,6 +1307,7 @@ pub fn do_checkout(
                                                 agency_id_opt,
                                                 payment_type,
                                                 installments,
+                                                checkout_meta_json,
                                               )
                                           }
                                       }
@@ -1392,6 +1431,8 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
           sales_contract_accepted,
           payment_type,
           installments,
+          payment_channel,
+          checkout_meta_json,
         )) -> {
           let hm = case hold_minutes < 5 || hold_minutes > 120 {
             True -> 15
@@ -1427,12 +1468,19 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
                 sales_contract_accepted,
                 payment_type,
                 installments,
+                checkout_meta_json,
               )
             })
           {
             Ok(#(rid, pcode, pay_kurus, cur)) -> {
-              // İlan sahibi bildirimi ödeme başarılı olduktan sonra (PayTR/Paratika callback).
               let _ = notification_runtime.dispatch_agency_reservation_created(ctx.db, rid)
+              case string.lowercase(string.trim(payment_channel)) {
+                "card" -> Nil
+                _ -> {
+                  supplier_notification.notify_new_reservation(ctx.db, rid)
+                  supplier_notification.notify_platform_ops(ctx.db, rid)
+                }
+              }
               let out =
                 json.object([
                   #("reservation_id", json.string(rid)),
@@ -1891,6 +1939,7 @@ pub fn agent_booking_from_api(
                                             True,
                                             payment_type,
                                             installments,
+                                            "",
                                           )
                                       }
                                     }

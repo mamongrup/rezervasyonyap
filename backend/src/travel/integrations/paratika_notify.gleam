@@ -176,6 +176,7 @@ fn capture_paratika(
             Error(_) -> Error("event_insert_failed")
             Ok(_) -> {
               let _ = supplier_notification.notify_new_reservation(conn, reservation_id)
+              let _ = supplier_notification.notify_platform_ops(conn, reservation_id)
               Ok(Nil)
             }
           }

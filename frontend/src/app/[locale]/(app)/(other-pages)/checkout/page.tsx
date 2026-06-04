@@ -1,10 +1,13 @@
 'use client'
 
+import CheckoutContractWizard from '@/components/checkout/CheckoutContractWizard'
+import CheckoutGuestForms from '@/components/checkout/CheckoutGuestForms'
+import CheckoutInvoiceForm from '@/components/checkout/CheckoutInvoiceForm'
+import CheckoutPaymentMethods from '@/components/checkout/CheckoutPaymentMethods'
+import CheckoutSection from '@/components/checkout/CheckoutSection'
 import CouponBox from '@/components/checkout/CouponBox'
 import PaymentTypeSelector from '@/components/checkout/PaymentTypeSelector'
-import CheckoutContractAcceptance, {
-  type CheckoutContractAcceptancePayload,
-} from '@/components/CheckoutContractAcceptance'
+import type { CheckoutContractAcceptancePayload } from '@/components/CheckoutContractAcceptance'
 import { CrossSellSuggestions } from '@/components/CrossSellSuggestions'
 import StartRating from '@/components/StartRating'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -35,13 +38,19 @@ import {
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
-import { Description, Field, Label } from '@/shared/fieldset'
-import Input from '@/shared/Input'
 import Form from 'next/form'
 import Image from 'next/image'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense } from 'react'
-import PayWith from './PayWith'
+import {
+  checkoutMetaPayload,
+  emptyGuestRow,
+  invoiceFromPrimaryGuest,
+  type CheckoutGuestRow,
+  type CheckoutInvoice,
+  type CheckoutPaymentChannel,
+} from '@/lib/checkout-guest-types'
+import type { GuestsObject } from '@/type'
 import YourTrip from './YourTrip'
 
 const checkoutCrossSellTrigger =
@@ -141,6 +150,35 @@ function CheckoutPageContent() {
     return Number.isFinite(n) ? n : 0
   }, [coupon])
   const grandTotal = Math.max(0, totalPrice - couponDiscount)
+  const [stayGuests, setStayGuests] = React.useState<GuestsObject>({
+    guestAdults: 2,
+    guestChildren: 0,
+    guestInfants: 0,
+  })
+  const [guestRows, setGuestRows] = React.useState<CheckoutGuestRow[]>([emptyGuestRow()])
+  const [contactEmail, setContactEmail] = React.useState('')
+  const [contactPhone, setContactPhone] = React.useState('')
+  const [invoice, setInvoice] = React.useState<CheckoutInvoice>({
+    full_name: '',
+    national_id: '',
+    address: '',
+    city: '',
+    email: '',
+    phone: '',
+  })
+  const [invoiceTouched, setInvoiceTouched] = React.useState(false)
+  const [paymentChannel, setPaymentChannel] = React.useState<CheckoutPaymentChannel>('card')
+
+  const commission = Math.round(grandTotal * commissionPercent) / 100
+  const rawPrepay = Math.round(grandTotal * prepaymentPercent) / 100
+  const partialDue = Math.max(rawPrepay, commission)
+  const amountDueNow = paymentType === 'partial' ? partialDue : grandTotal
+  const amountRemaining = Math.max(0, grandTotal - amountDueNow)
+
+  React.useEffect(() => {
+    if (invoiceTouched || guestRows.length === 0) return
+    setInvoice(invoiceFromPrimaryGuest(guestRows[0]!, contactEmail, contactPhone))
+  }, [guestRows, contactEmail, contactPhone, invoiceTouched])
 
   React.useEffect(() => {
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' })
@@ -189,9 +227,12 @@ function CheckoutPageContent() {
             : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
         const start = stayDates.start
         const end = stayDates.end
-        const email = String(formObject.guest_email ?? '').trim()
-        const name = String(formObject.guest_name ?? '').trim()
-        if (!start || !end || !email || !name) {
+        const email = contactEmail.trim() || String(formObject.guest_email ?? '').trim()
+        const primary = guestRows[0]
+        const name =
+          [primary?.first_name, primary?.last_name].filter(Boolean).join(' ').trim() ||
+          String(formObject.guest_name ?? '').trim()
+        if (!start || !end || !email || !name || !primary?.national_id?.trim()) {
           window.alert(C.errors.datesGuestRequired)
           setPending(false)
           return
@@ -218,14 +259,18 @@ function CheckoutPageContent() {
           }
         }
         const cx = contractRef.current
+        const meta = checkoutMetaPayload(guestRows, invoice, paymentChannel)
         const out = await checkoutCart(cart.id, {
           guest_email: email,
           guest_name: name,
+          guest_phone: contactPhone.trim() || undefined,
           contract_accepted: cx.contract_accepted,
           general_contract_accepted: cx.general_contract_accepted,
           sales_contract_accepted: cx.sales_contract_accepted,
           contract_locale: locale,
           payment_type: paymentType,
+          payment_channel: paymentChannel,
+          checkout_meta_json: JSON.stringify(meta),
           installments: 1,
         })
         const payload = {
@@ -247,10 +292,21 @@ function CheckoutPageContent() {
           provider = 'paytr'
         }
         localStorage.setItem('travel_paydone_email', email)
-        if (provider === 'paytr') {
+        sessionStorage.setItem(
+          'travel_checkout_confirm',
+          JSON.stringify({
+            listing_title: listingTitle,
+            listing_location: listingLocation,
+            amount_total: grandTotal,
+            amount_paid: amountDueNow,
+            amount_remaining: amountRemaining,
+            payment_channel: paymentChannel,
+          }),
+        )
+        if (paymentChannel === 'card' && provider === 'paytr') {
           sessionStorage.setItem('travel_paytr_checkout', JSON.stringify(payload))
           router.push(vitrinHref('/checkout/paytr'))
-        } else if (provider === 'paratika') {
+        } else if (paymentChannel === 'card' && provider === 'paratika') {
           sessionStorage.setItem('travel_paratika_checkout', JSON.stringify(payload))
           router.push(vitrinHref('/checkout/paratika'))
         } else {
@@ -402,69 +458,107 @@ function CheckoutPageContent() {
 
         {stayDates.start ? <input type="hidden" name="checkIn" value={stayDates.start} /> : null}
         {stayDates.end ? <input type="hidden" name="checkOut" value={stayDates.end} /> : null}
-        <Divider />
-        <Suspense fallback={<div className="min-h-[200px]" aria-hidden />}>
-          <YourTrip locale={locale} />
-        </Suspense>
+        <CheckoutSection step={1} title={C.sectionReservation}>
+          <Suspense fallback={<div className="min-h-[200px]" aria-hidden />}>
+            <YourTrip locale={locale} onGuestsChange={setStayGuests} />
+          </Suspense>
 
-        {prepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing) && (
-          <>
-            <Divider />
+          {prepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing) ? (
             <PaymentTypeSelector
               locale={locale}
-              totalPrice={totalPrice}
+              totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
               commissionPercent={commissionPercent}
               prepaymentPercent={prepaymentPercent}
               currencyCode={checkoutCurrency}
               value={paymentType}
               onChange={setPaymentType}
             />
-          </>
-        )}
+          ) : null}
 
-        <CheckoutContractAcceptance
-          listingId={checkoutListingId || undefined}
-          locale={locale}
-          onValidityChange={onContractValidity}
-        />
-        {hasCheckoutListing && !contractsOk && contractBlocking === 'acceptance_pending' ? (
-          <p
-            role="status"
-            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
-          >
-            {C.errors.contractsRequired}
-          </p>
-        ) : null}
-        {hasCheckoutListing && contractBlocking === 'listing_contract_missing' ? (
-          <p
-            role="status"
-            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
-          >
-            {C.errors.listingContractRequired}
-          </p>
-        ) : null}
+          {grandTotal > 0 ? (
+            <div className="grid gap-3 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 sm:grid-cols-2 dark:border-neutral-700 dark:bg-neutral-900/30">
+              <div>
+                <p className="text-xs text-neutral-500">{C.amountDueNowLabel}</p>
+                <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                  {formatCheckoutMoney(locale, amountDueNow, checkoutCurrency)}
+                </p>
+              </div>
+              {amountRemaining > 0 ? (
+                <div>
+                  <p className="text-xs text-neutral-500">{C.amountRemainingLabel}</p>
+                  <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
+                    {formatCheckoutMoney(locale, amountRemaining, checkoutCurrency)}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          <CheckoutGuestForms
+            locale={locale}
+            guests={stayGuests}
+            contactEmail={contactEmail}
+            contactPhone={contactPhone}
+            onContactEmailChange={setContactEmail}
+            onContactPhoneChange={setContactPhone}
+            rows={guestRows}
+            onRowsChange={setGuestRows}
+          />
+
+          <CheckoutInvoiceForm
+            locale={locale}
+            invoice={invoice}
+            onChange={(inv) => {
+              setInvoiceTouched(true)
+              setInvoice(inv)
+            }}
+            autoFilled={!invoiceTouched}
+          />
+        </CheckoutSection>
+
+        <CheckoutSection step={2} title={C.sectionPayment}>
+          <CheckoutPaymentMethods
+            locale={locale}
+            value={paymentChannel}
+            onChange={setPaymentChannel}
+          />
+
+          <CheckoutContractWizard
+            listingId={checkoutListingId || undefined}
+            locale={locale}
+            onValidityChange={onContractValidity}
+          />
+          {hasCheckoutListing && !contractsOk && contractBlocking === 'acceptance_pending' ? (
+            <p
+              role="status"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+            >
+              {C.errors.contractsRequired}
+            </p>
+          ) : null}
+          {hasCheckoutListing && contractBlocking === 'listing_contract_missing' ? (
+            <p
+              role="status"
+              className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+            >
+              {C.errors.listingContractRequired}
+            </p>
+          ) : null}
+
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{C.sectionConfirmationNote}</p>
+
+          <div>
+            <ButtonPrimary
+              type="submit"
+              className="text-base/6!"
+              disabled={pending || (hasCheckoutListing && !contractsOk)}
+            >
+              {pending ? C.processing : C.confirmPay}
+            </ButtonPrimary>
+          </div>
+        </CheckoutSection>
+
         <CrossSellSuggestions triggerCategory={checkoutCrossSellTrigger} className="mt-2" />
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field>
-            <Label>{C.emailLabel}</Label>
-            <Input className="mt-1.5" name="guest_email" type="email" required autoComplete="email" />
-            <Description>{C.emailHint}</Description>
-          </Field>
-          <Field>
-            <Label>{C.guestNameLabel}</Label>
-            <Input className="mt-1.5" name="guest_name" required autoComplete="name" />
-          </Field>
-        </div>
-        <PayWith locale={locale} />
-        <div>
-          <ButtonPrimary
-            type="submit"
-            className="mt-10 text-base/6!"
-            disabled={pending || (hasCheckoutListing && !contractsOk)}
-          >
-            {pending ? C.processing : C.confirmPay}
-          </ButtonPrimary>
-        </div>
       </Form>
     )
   }

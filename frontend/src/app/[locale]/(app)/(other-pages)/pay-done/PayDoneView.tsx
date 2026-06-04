@@ -27,9 +27,25 @@ export default function PayDoneView() {
 
   const [reservation, setReservation] = React.useState<ReservationDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
+  const [confirmExtra, setConfirmExtra] = React.useState<{
+    listing_title?: string | null
+    listing_location?: string | null
+    amount_total?: number
+    amount_paid?: number
+    amount_remaining?: number
+  } | null>(null)
 
   React.useEffect(() => {
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' })
+    try {
+      const raw = sessionStorage.getItem('travel_checkout_confirm')
+      if (raw) {
+        setConfirmExtra(JSON.parse(raw) as typeof confirmExtra)
+        sessionStorage.removeItem('travel_checkout_confirm')
+      }
+    } catch {
+      /* ignore */
+    }
   }, [])
 
   React.useEffect(() => {
@@ -72,6 +88,10 @@ export default function PayDoneView() {
         <h1 className="text-4xl font-semibold sm:text-5xl">
           {PD.congratulation} 🎉
         </h1>
+        <p className="text-lg text-neutral-600 dark:text-neutral-400">{PD.sectionTitle}</p>
+        {PD.notifyNote ? (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{PD.notifyNote}</p>
+        ) : null}
         <Divider />
 
         {reservation && (
@@ -101,6 +121,29 @@ export default function PayDoneView() {
         <div>
           <h3 className="text-2xl font-semibold">{PD.yourBooking}</h3>
           <DescriptionList className="mt-5">
+            {reservation?.id ? (
+              <>
+                <DescriptionTerm>{PD.reservationIdLabel}</DescriptionTerm>
+                <DescriptionDetails>
+                  <span className="font-mono text-xs text-neutral-700 dark:text-neutral-300">
+                    {reservation.id}
+                  </span>
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {(confirmExtra?.listing_title || confirmExtra?.listing_location) && (
+              <>
+                <DescriptionTerm>{PD.listingTitleLabel}</DescriptionTerm>
+                <DescriptionDetails>
+                  {confirmExtra.listing_title ?? '—'}
+                  {confirmExtra.listing_location ? (
+                    <span className="mt-1 block text-sm text-neutral-500">
+                      {confirmExtra.listing_location}
+                    </span>
+                  ) : null}
+                </DescriptionDetails>
+              </>
+            )}
             <DescriptionTerm>{PD.codeLabel}</DescriptionTerm>
             <DescriptionDetails>
               <span className="font-mono text-neutral-900 dark:text-neutral-100">
@@ -125,7 +168,7 @@ export default function PayDoneView() {
                     <DescriptionDetails>
                       {formatCheckoutMoney(
                         locale,
-                        totalFromLines,
+                        confirmExtra?.amount_total ?? totalFromLines,
                         (() => {
                           try {
                             const pb = JSON.parse(reservation.price_breakdown_json) as { currency?: string }
@@ -136,6 +179,30 @@ export default function PayDoneView() {
                         })(),
                       )}
                     </DescriptionDetails>
+                    {confirmExtra?.amount_paid != null ? (
+                      <>
+                        <DescriptionTerm>{PD.paidLabel}</DescriptionTerm>
+                        <DescriptionDetails>
+                          {formatCheckoutMoney(
+                            locale,
+                            confirmExtra.amount_paid,
+                            'TRY',
+                          )}
+                        </DescriptionDetails>
+                      </>
+                    ) : null}
+                    {confirmExtra?.amount_remaining != null && confirmExtra.amount_remaining > 0 ? (
+                      <>
+                        <DescriptionTerm>{PD.remainingLabel}</DescriptionTerm>
+                        <DescriptionDetails>
+                          {formatCheckoutMoney(
+                            locale,
+                            confirmExtra.amount_remaining,
+                            'TRY',
+                          )}
+                        </DescriptionDetails>
+                      </>
+                    ) : null}
                   </>
                 )}
 

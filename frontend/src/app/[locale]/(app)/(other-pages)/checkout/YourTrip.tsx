@@ -14,9 +14,6 @@ import { useEffect, useMemo, useState } from 'react'
 
 const CHECKOUT_DATE_PANEL =
   'absolute start-0 top-full z-[100] mt-3 w-[min(100vw-2rem,42rem)] transition duration-150 data-closed:translate-y-1 data-closed:opacity-0'
-const CHECKOUT_GUESTS_PANEL =
-  'absolute end-0 top-full z-[100] mt-3 w-full transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:min-w-[340px]'
-
 function parseTripDate(s: string | null): Date | null {
   if (!s?.trim()) return null
   const d = new Date(s)
@@ -43,9 +40,10 @@ function guestsFromSearchParams(sp: URLSearchParams): GuestsObject {
 
 type Props = {
   locale: string
+  onGuestsChange?: (guests: GuestsObject) => void
 }
 
-const YourTrip = ({ locale }: Props) => {
+const YourTrip = ({ locale, onGuestsChange }: Props) => {
   const C = checkoutT(locale)
   const H = getMessages(locale).HeroSearchForm
   const searchParams = useSearchParams()
@@ -64,6 +62,10 @@ const YourTrip = ({ locale }: Props) => {
     if (en) setEndDate(en)
     setGuests(guestsFromSearchParams(searchParams))
   }, [searchParams])
+
+  useEffect(() => {
+    onGuestsChange?.(guests)
+  }, [guests, onGuestsChange])
 
   const guestSummary = useMemo(() => formatStayGuestSummary(locale, guests), [locale, guests])
 
@@ -108,7 +110,6 @@ const YourTrip = ({ locale }: Props) => {
           value={guests}
           onChange={setGuests}
           guestDefaults={DEFAULT_GUESTS_STAY}
-          panelClassName={CHECKOUT_GUESTS_PANEL}
           renderTrigger={() => (
             <span className={checkoutTriggerClass}>
               <span className="flex flex-col">
