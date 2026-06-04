@@ -2,7 +2,7 @@
 
 import { checkoutT } from '@/lib/checkout-i18n'
 import type { CheckoutInvoice } from '@/lib/checkout-guest-types'
-import { Description, Field, Label } from '@/shared/fieldset'
+import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import Textarea from '@/shared/Textarea'
 
@@ -84,7 +84,7 @@ export default function CheckoutInvoiceForm({ locale, invoice, onChange, autoFil
           />
         </Field>
       </div>
-      <Description>{C.invoiceEditHint}</Description>
+      <p className="text-sm text-neutral-500 dark:text-neutral-400">{C.invoiceEditHint}</p>
     </div>
   )
 }
