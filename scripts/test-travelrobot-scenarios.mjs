@@ -49,7 +49,9 @@ import {
   pickFlightRows,
   pickFirstFareLegKey,
   pickFareAlternativeLegKeys,
+  countFlightOfferSlots,
   pickHotelRoomOfferKeys,
+  buildHotelValidateRooms,
   getFlightBrandedFares,
   getFareRules,
   validateFlight,
@@ -82,7 +84,7 @@ const getArg = (flag) => {
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04c'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04d'
 
 const CREDS = {
   baseUrl: getArg('--base-url') ?? process.env.TRAVELROBOT_BASE_URL ?? '',
@@ -250,7 +252,7 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
 
     if (rows.length > 0) {
       ok(`[${scenarioName}] SearchItinerary`, `${rows.length} sonuç`)
-      resultKey = pickFirstFareLegKey(payload)
+      resultKey = pickFirstFareLegKey(payload, { resultType: opts.resultType })
       const first = rows[0]
       const airline = first?.AirlineName ?? first?.airlineName ?? first?.Airline ?? '?'
       const price = first?.TotalPrice ?? first?.totalPrice ?? first?.Price ?? '?'
@@ -273,51 +275,81 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
     return
   }
 
-  let fareLegKeys = pickFareAlternativeLegKeys(searchPayload)
+  const keyOpts = { resultType: opts.resultType, offerIndex: 0 }
+  const offerSlots = Math.min(countFlightOfferSlots(searchPayload, keyOpts), 8)
+  let fareLegKeys = []
+  let brandedOk = false
+  let validateOk = false
+  let validateResultKey = null
+  let lastBrandedErr = ''
+  let lastValidateErr = ''
+
+  for (let offerIndex = 0; offerIndex < offerSlots; offerIndex++) {
+    fareLegKeys = pickFareAlternativeLegKeys(searchPayload, { ...keyOpts, offerIndex })
+    if (!fareLegKeys.length) continue
+
+    let brandedPayload = null
+    try {
+      brandedPayload = await getFlightBrandedFares(cfg, tokenCode, {
+        fareAlternativeLegKeys: fareLegKeys,
+      })
+      log(scenarioName, 'GetBrandedFares', '/Air.svc/Rest/Json/GetBrandedFares',
+        { offerIndex, keys: fareLegKeys.length }, brandedPayload, !brandedPayload?.HasError)
+      if (!brandedPayload?.HasError) {
+        brandedOk = true
+        const brandedKeys = pickFareAlternativeLegKeys(brandedPayload, keyOpts)
+        if (brandedKeys.length) fareLegKeys = brandedKeys
+      } else {
+        lastBrandedErr = brandedPayload?.ErrorMessage ?? 'Hata'
+        if (/minimum 2 hours|invalid key/i.test(lastBrandedErr)) continue
+        fail(`[${scenarioName}] GetBrandedFares`, lastBrandedErr)
+        break
+      }
+    } catch (e) {
+      lastBrandedErr = String(e)
+      log(scenarioName, 'GetBrandedFares', '/Air.svc/Rest/Json/GetBrandedFares', { offerIndex }, lastBrandedErr, false)
+      if (/minimum 2 hours|invalid key/i.test(lastBrandedErr)) continue
+      fail(`[${scenarioName}] GetBrandedFares`, e)
+      break
+    }
+
+    try {
+      const payload = await validateFlight(cfg, tokenCode, { fareAlternativeLegKeys: fareLegKeys })
+      log(scenarioName, 'ValidateFlight', '/Air.svc/Rest/Json/Validate', { offerIndex, keys: fareLegKeys.length }, payload, !payload?.HasError)
+      if (!payload?.HasError) {
+        validateOk = true
+        ok(`[${scenarioName}] GetBrandedFares`, `teklif #${offerIndex + 1}, ${fareLegKeys.length} bacak key`)
+        ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı`)
+        const res = payload?.Result ?? payload?.result
+        const afterValidate = pickFareAlternativeLegKeys(payload, keyOpts)
+        if (afterValidate.length) validateResultKey = afterValidate[0]
+        else if (res?.ResultKey) validateResultKey = res.ResultKey
+        else if (Array.isArray(res?.ResultKeys) && res.ResultKeys[0]) validateResultKey = res.ResultKeys[0]
+        else validateResultKey = fareLegKeys[0]
+        break
+      }
+      lastValidateErr = payload?.ErrorMessage ?? 'Hata'
+      if (/invalid key/i.test(lastValidateErr)) continue
+      fail(`[${scenarioName}] ValidateFlight`, lastValidateErr)
+      return
+    } catch (e) {
+      lastValidateErr = String(e)
+      if (/invalid key/i.test(lastValidateErr)) continue
+      fail(`[${scenarioName}] ValidateFlight`, e)
+      return
+    }
+  }
+
   if (!fareLegKeys.length) {
     console.log(`  ⚠️  FareAlternativeLeg Key alınamadı — sonraki adımlar atlanıyor`)
     return
   }
-
-  // Adım 2: GetBrandedFares
-  try {
-    const payload = await getFlightBrandedFares(cfg, tokenCode, {
-      fareAlternativeLegKeys: fareLegKeys,
-    })
-    log(scenarioName, 'GetBrandedFares', '/Air.svc/Rest/Json/GetBrandedFares',
-      { fareAlternativeLegKeys: fareLegKeys.map((k) => k.slice(0, 40) + '…') }, payload, !payload?.HasError)
-    if (!payload?.HasError) {
-      ok(`[${scenarioName}] GetBrandedFares`, `${fareLegKeys.length} bacak key ile OK`)
-      const brandedKeys = pickFareAlternativeLegKeys(payload)
-      if (brandedKeys.length) fareLegKeys = brandedKeys
-    } else {
-      fail(`[${scenarioName}] GetBrandedFares`, payload?.ErrorMessage ?? 'Hata')
-    }
-  } catch (e) {
-    log(scenarioName, 'GetBrandedFares', '/Air.svc/Rest/Json/GetBrandedFares', { keys: fareLegKeys.length }, String(e), false)
-    fail(`[${scenarioName}] GetBrandedFares`, e)
+  if (!brandedOk) {
+    fail(`[${scenarioName}] GetBrandedFares`, lastBrandedErr || 'Uygun teklif bulunamadı')
+    return
   }
-
-  // Adım 3: ValidateFlight
-  let validateResultKey = fareLegKeys[0]
-  try {
-    const payload = await validateFlight(cfg, tokenCode, { fareAlternativeLegKeys: fareLegKeys })
-    log(scenarioName, 'ValidateFlight', '/Air.svc/Rest/Json/Validate', { keys: fareLegKeys.length }, payload, !payload?.HasError)
-    if (!payload?.HasError) {
-      ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı`)
-      // Validate sonrası yeni resultKey olabilir
-      const res = payload?.Result ?? payload?.result
-      const afterValidate = pickFareAlternativeLegKeys(payload)
-      if (afterValidate.length) validateResultKey = afterValidate[0]
-      else if (res?.ResultKey) validateResultKey = res.ResultKey
-      else if (Array.isArray(res?.ResultKeys) && res.ResultKeys[0]) validateResultKey = res.ResultKeys[0]
-    } else {
-      fail(`[${scenarioName}] ValidateFlight`, payload?.ErrorMessage ?? 'Hata')
-      return // Validate olmadan booking yapma
-    }
-  } catch (e) {
-    log(scenarioName, 'ValidateFlight', '/Flight.svc/Rest/Json/ValidateFlight', { resultKeys: [validateResultKey] }, String(e), false)
-    fail(`[${scenarioName}] ValidateFlight`, e)
+  if (!validateOk) {
+    fail(`[${scenarioName}] ValidateFlight`, lastValidateErr || 'Uygun teklif bulunamadı')
     return
   }
 
@@ -481,7 +513,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     log(scenarioName, 'GetHotelRoomPrices', '/Hotel.svc/Rest/Json/GetHotelRoomPrices',
       { hotelCode: foundHotelCode, checkin, checkout }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      roomOfferKeys = pickHotelRoomOfferKeys(payload)
+      roomOfferKeys = pickHotelRoomOfferKeys(payload, roomOpts.length)
       ok(`[${scenarioName}] GetHotelRoomPrices`, `${roomOfferKeys.length} oda teklifi (Key)`)
     } else {
       fail(`[${scenarioName}] GetHotelRoomPrices`, payload?.ErrorMessage ?? 'Hata')
@@ -499,13 +531,12 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   }
 
   // Adım 4: ValidateHotelRoomsV2 (eski GetHotelFinalPrice yok — resmi akış)
-  const roomKey = roomOfferKeys[0]
+  const validateRooms = buildHotelValidateRooms(roomOpts, roomOfferKeys)
   try {
-    const payload = await getHotelFinalPrice(cfg, tokenCode, {
-      rooms: [{ Key: roomKey, Paxes: [{ PaxType: 0 }] }],
-    })
+    const payload = await getHotelFinalPrice(cfg, tokenCode, { rooms: validateRooms })
     log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2',
-      { roomKey: roomKey.slice(0, 50) + '…' }, payload, !payload?.HasError)
+      { rooms: validateRooms.length, paxCounts: validateRooms.map((r) => r.Paxes.length) },
+      payload, !payload?.HasError)
     if (!payload?.HasError) {
       ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
     } else {

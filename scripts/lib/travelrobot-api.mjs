@@ -845,6 +845,7 @@ export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
             OnlyBestFares: opts.onlyBestFares ?? false,
             OnlyDirectFlights: opts.onlyDirects ?? false,
             OnlyRefundableFlights: opts.onlyRefundable ?? false,
+            ...(opts.resultType != null ? { ResultType: opts.resultType } : {}),
             ...(opts.permittedAirlineCodes ? { PermittedAirlineCodes: opts.permittedAirlineCodes } : {}),
           },
         },
@@ -1001,54 +1002,112 @@ export function pickFlightRows(payload) {
  * Yol: Result > SearchResults > Results > Fares > FareAlternativeLegs > Key
  * Roundtrip için tüm bacakların key'leri gerekir (yalnızca ilki yetmez).
  */
-export function pickFareAlternativeLegKeys(payload) {
+function fareKeysFromResultRow(res) {
+  if (!res) return []
+  const fares = res?.Fares ?? res?.fares
+  if (!Array.isArray(fares) || !fares.length) return []
+  const legs = fares[0]?.FareAlternativeLegs ?? fares[0]?.fareAlternativeLegs
+  if (!Array.isArray(legs)) return []
+  return legs.map((leg) => leg?.Key).filter(Boolean).map(String)
+}
+
+/** @returns {'combined'|'separated'} */
+export function airKeyPickMode(opts = {}) {
+  if (opts.mode === 'combined' || opts.mode === 'separated') return opts.mode
+  return opts.resultType === 1 ? 'separated' : 'combined'
+}
+
+/**
+ * SearchAvailability / GetBrandedFares / Validate yanıtından FareAlternativeLeg Key listesi.
+ * Combined (ResultType 2): tek Results[i] içindeki tüm bacak key'leri.
+ * Separated (ResultType 1): her yön SearchResults bloğundan bir key (offerIndex ile hizalı).
+ */
+export function pickFareAlternativeLegKeys(payload, opts = {}) {
+  const mode = airKeyPickMode(opts)
+  const offerIndex = opts.offerIndex ?? 0
   const p = payload?.Result ?? payload?.result ?? payload
   const blocks = p?.SearchResults ?? p?.searchResults
-  if (Array.isArray(blocks) && blocks[0]) {
-    const results = blocks[0]?.Results ?? blocks[0]?.results
-    // Separated: her Results[] elemanı ayrı bacak — bacak başına bir key
-    if (Array.isArray(results) && results.length > 1) {
-      const perLeg = []
-      for (const res of results) {
-        const fares = res?.Fares ?? res?.fares
-        const legs = fares?.[0]?.FareAlternativeLegs ?? fares?.[0]?.fareAlternativeLegs
-        const k = legs?.[0]?.Key
-        if (k) perLeg.push(String(k))
+
+  if (Array.isArray(blocks) && blocks.length) {
+    if (mode === 'separated') {
+      const sepBlocks = blocks.filter((b) => Number(b?.ResultType ?? b?.resultType) === 1)
+      const targets = sepBlocks.length ? sepBlocks : blocks
+      const keys = []
+      for (const block of targets) {
+        const results = block?.Results ?? block?.results
+        const res = results?.[offerIndex] ?? results?.[0]
+        const rowKeys = fareKeysFromResultRow(res)
+        if (rowKeys[0]) keys.push(rowKeys[0])
       }
-      if (perLeg.length) return perLeg
+      if (keys.length) return keys
+    } else {
+      const combBlock =
+        blocks.find((b) => Number(b?.ResultType ?? b?.resultType) === 2) ??
+        blocks[0]
+      const results = combBlock?.Results ?? combBlock?.results
+      const res = results?.[offerIndex] ?? results?.[0]
+      const keys = fareKeysFromResultRow(res)
+      if (keys.length) return keys
     }
   }
 
   const rows = pickFlightRows(payload)
-  const first = rows[0]
-  if (!first) return []
-  const fares = first?.Fares ?? first?.fares
-  if (!Array.isArray(fares) || !fares.length) return []
+  const res = rows[offerIndex] ?? rows[0]
+  return fareKeysFromResultRow(res)
+}
 
-  const keys = []
-  for (const fare of fares) {
-    const legs = fare?.FareAlternativeLegs ?? fare?.fareAlternativeLegs
-    if (!Array.isArray(legs)) continue
-    for (const leg of legs) {
-      if (leg?.Key) keys.push(String(leg.Key))
-    }
-    if (keys.length) break
+/** Separated aramada denenecek teklif sayısı (her yön Results uzunluğunun minimumu). */
+export function countFlightOfferSlots(payload, opts = {}) {
+  const mode = airKeyPickMode(opts)
+  const p = payload?.Result ?? payload?.result ?? payload
+  const blocks = p?.SearchResults ?? p?.searchResults
+  if (!Array.isArray(blocks)) return Math.max(1, pickFlightRows(payload).length)
+
+  if (mode === 'separated') {
+    const sepBlocks = blocks.filter((b) => Number(b?.ResultType ?? b?.resultType) === 1)
+    const targets = sepBlocks.length ? sepBlocks : blocks
+    const lengths = targets.map((b) => (b?.Results ?? b?.results ?? []).length).filter((n) => n > 0)
+    return lengths.length ? Math.min(...lengths) : 1
   }
-  return keys
+
+  const combBlock =
+    blocks.find((b) => Number(b?.ResultType ?? b?.resultType) === 2) ?? blocks[0]
+  return (combBlock?.Results ?? combBlock?.results ?? []).length || 1
 }
 
 /** Geriye uyumluluk — ilk key. */
-export function pickFirstFareLegKey(payload) {
-  const keys = pickFareAlternativeLegKeys(payload)
+export function pickFirstFareLegKey(payload, opts = {}) {
+  const keys = pickFareAlternativeLegKeys(payload, opts)
   return keys[0] ?? null
 }
 
+/** ValidateHotelRoomsV2 — arama ile aynı yolcu dağılımı (Count → tekil PaxType satırları). */
+export function buildHotelValidateRooms(roomOpts, roomKeys) {
+  const rooms = normalizeRooms(roomOpts)
+  const keys = roomKeys ?? []
+  return keys.map((key, idx) => {
+    const paxes = rooms[idx]?.Paxes ?? rooms[0]?.Paxes ?? [{ PaxType: 0, Count: 1 }]
+    const expanded = []
+    for (const p of paxes) {
+      const n = Number(p.Count ?? 1)
+      for (let i = 0; i < n; i++) expanded.push({ PaxType: p.PaxType })
+    }
+    return { Key: String(key), Paxes: expanded }
+  })
+}
+
 /** GetHotelRoomPrices yanıtından oda teklif Key (RoomCode). */
-export function pickHotelRoomOfferKeys(payload) {
+export function pickHotelRoomOfferKeys(payload, roomCount = 1) {
   const p = payload?.Result ?? payload?.result ?? payload
   const hotels = p?.Hotels ?? p?.hotels
   if (!Array.isArray(hotels) || !hotels[0]) return []
-  const rooms = hotels[0]?.Rooms ?? hotels[0]?.rooms
+  const hotel = hotels[0]
+  const combos = hotel?.Data?.RoomCombinations ?? hotel?.data?.roomCombinations
+  if (roomCount > 1 && Array.isArray(combos) && combos[0]?.RoomCodes) {
+    const codes = combos[0].RoomCodes
+    if (codes.length >= roomCount) return codes.slice(0, roomCount).map(String)
+  }
+  const rooms = hotel?.Rooms ?? hotel?.rooms
   if (!Array.isArray(rooms)) return []
   const keys = []
   for (const room of rooms) {
