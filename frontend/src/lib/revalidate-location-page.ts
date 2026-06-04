@@ -1,5 +1,6 @@
 import { revalidatePath } from 'next/cache'
 import { fallbackLocaleCodes } from '@/lib/i18n-config'
+import { isSafeSlugPath } from '@/lib/security'
 
 /** `(app)/bolge|region|location|diqu/[...slug]` — aynı sayfa bileşeni, farklı vitrin segmentleri */
 const REGION_ROUTE_SEGMENTS = ['bolge', 'region', 'location', 'diqu'] as const
@@ -9,7 +10,9 @@ const REGION_ROUTE_SEGMENTS = ['bolge', 'region', 'location', 'diqu'] as const
  */
 export function revalidateLocationPagePaths(slugPathRaw: string): void {
   const slugPath = slugPathRaw.trim().replace(/^\/+/, '').replace(/\/+$/g, '')
-  if (!slugPath) return
+  if (!slugPath || !isSafeSlugPath(slugPath)) {
+    throw new Error('invalid_slug_path')
+  }
 
   const seen = new Set<string>()
   for (const loc of fallbackLocaleCodes) {

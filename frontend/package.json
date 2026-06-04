@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "test:contracts": "vitest run src/lib/site-upload-browser-href.test.ts",
     "test:page-builder": "vitest run src/lib/page-builder/config-pipeline.test.ts",
+    "security:audit": "node ../scripts/security-audit.mjs",
     "ensure-images": "node scripts/ensure-placeholder-images.mjs",
     "optimize:uploads": "node scripts/optimize-upload-performance.mjs",
     "recompress:external": "node scripts/recompress-external-avif.mjs",

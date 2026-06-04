@@ -11,6 +11,11 @@ alwaysApply: true
 2. **Frontend** dosyası değişti mi? → `ReadLints` ve mümkünse `cd frontend && npx tsc --noEmit`; pre-existing olmayan hataları düzelt.
 3. **SQL** dosyası eklediysen → Manuel çalıştırma komutunu cevaba ekle (`psql ... -f modules/NNN_*.sql`).
 
+## Güvenlik denetimi (8 kontrol)
+
+- Komut: `node scripts/security-audit.mjs` veya `cd frontend && npm run security:audit`
+- Next.js 16: edge katmanı `frontend/src/proxy.ts` (`middleware.ts` köprü); eski “middleware.ts yok” uyarıları yanlış negatif olabilir — ayrıntı: `docs/SECURITY-AUDIT.md`
+
 ## Cevap formatı (özet)
 
 Bir feature tamamlanınca cevabı şu sırayla yaz:

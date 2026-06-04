@@ -201,6 +201,14 @@ const ALLOWED_REVALIDATE_PREFIXES = [
  * Dışarıdan gelen revalidate path isteğinin izin verilen öneklerden
  * biriyle başlayıp başlamadığını kontrol eder.
  */
+/** Bölge `slug_path` — path traversal ve kontrolsüz karakterleri reddeder. */
+export function isSafeSlugPath(slugPath: string): boolean {
+  const slug = slugPath.trim().replace(/^\/+/, '').replace(/\/+$/g, '')
+  if (!slug || slug.length > 500) return false
+  if (slug.includes('..') || slug.includes('\0') || slug.includes('%00')) return false
+  return /^[a-zA-Z0-9ğüşıöçĞÜŞİÖÇ\-_/]+$/.test(slug)
+}
+
 export function isAllowedRevalidatePath(path: string): boolean {
   if (!path || typeof path !== 'string') return false
   // Path traversal girişimlerini reddet

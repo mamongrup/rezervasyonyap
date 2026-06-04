@@ -7,7 +7,16 @@ import {
   applyCorsHeaders,
   isAllowedHost,
 } from '@/lib/http-security'
-import { isRateLimited, recordAuthAttempt } from '@/lib/auth-rate-limit'
+import {
+  AUTH_BRUTE_RATE_BLOCK_MS,
+  AUTH_BRUTE_RATE_MAX,
+  AUTH_BRUTE_RATE_WINDOW_MS,
+  GLOBAL_API_RATE_BLOCK_MS,
+  GLOBAL_API_RATE_MAX,
+  GLOBAL_API_RATE_WINDOW_MS,
+  isRequestRateLimited,
+  recordRequest,
+} from '@/lib/auth-rate-limit'
 
 const AUTH_COOKIE = 'travel_auth_token'
 
@@ -19,6 +28,7 @@ const PROTECTED: RegExp[] = [
   /^\/manage(\/|$)/,
   /^\/[a-z]{2}(-[a-z0-9]+)?\/manage(\/|$)/i,
   /^\/api\/upload-image(\/|$)/,
+  /^\/api\/manage(\/|$)/,
 ]
 
 function isProtected(pathname: string): boolean {
@@ -136,7 +146,14 @@ function applyGlobalApiRateLimit(
   const ip = getClientIp(request)
   const limitKey = `global:${ip}`
 
-  if (isRateLimited('global_api', limitKey)) {
+  if (
+    isRequestRateLimited(
+      'global_api',
+      limitKey,
+      GLOBAL_API_RATE_MAX,
+      GLOBAL_API_RATE_WINDOW_MS,
+    )
+  ) {
     const res = NextResponse.json(
       { error: 'too_many_requests' },
       { status: 429 },
@@ -146,7 +163,13 @@ function applyGlobalApiRateLimit(
     return res
   }
 
-  recordAuthAttempt('global_api', limitKey, true)
+  recordRequest(
+    'global_api',
+    limitKey,
+    GLOBAL_API_RATE_MAX,
+    GLOBAL_API_RATE_WINDOW_MS,
+    GLOBAL_API_RATE_BLOCK_MS,
+  )
   return null
 }
 
@@ -161,7 +184,14 @@ function applyAuthBruteForceLimit(
   const ip = getClientIp(request)
   const bruteKey = `brute:${ip}`
 
-  if (isRateLimited('auth_brute', bruteKey)) {
+  if (
+    isRequestRateLimited(
+      'auth_brute',
+      bruteKey,
+      AUTH_BRUTE_RATE_MAX,
+      AUTH_BRUTE_RATE_WINDOW_MS,
+    )
+  ) {
     const res = NextResponse.json(
       { error: 'too_many_attempts' },
       { status: 429 },
@@ -171,6 +201,13 @@ function applyAuthBruteForceLimit(
     return res
   }
 
+  recordRequest(
+    'auth_brute',
+    bruteKey,
+    AUTH_BRUTE_RATE_MAX,
+    AUTH_BRUTE_RATE_WINDOW_MS,
+    AUTH_BRUTE_RATE_BLOCK_MS,
+  )
   return null
 }
 

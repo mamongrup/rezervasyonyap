@@ -2,6 +2,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { AUTH_COOKIE_NAME } from '@/lib/auth-cookie'
 import { revalidateLocationPagePaths } from '@/lib/revalidate-location-page'
+import { isSafeSlugPath, verifyAdminToken } from '@/lib/security'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,8 +12,10 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(req: NextRequest) {
   const jar = await cookies()
-  if (!jar.get(AUTH_COOKIE_NAME)?.value) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+  const token = jar.get(AUTH_COOKIE_NAME)?.value
+  const auth = await verifyAdminToken(token, 'admin.users.read')
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: auth.status })
   }
 
   let body: unknown
@@ -30,7 +33,7 @@ export async function POST(req: NextRequest) {
       ? (body as { slug_path: string }).slug_path.trim()
       : ''
 
-  if (!slug_path) {
+  if (!slug_path || !isSafeSlugPath(slug_path)) {
     return NextResponse.json({ ok: false, error: 'slug_path_required' }, { status: 400 })
   }
 
