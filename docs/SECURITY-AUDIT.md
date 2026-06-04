@@ -28,7 +28,7 @@ Güvenlik (CORS, rate limit, Host, korumalı rotalar) tamamen `proxy.ts` + `http
 |---|-----------|
 | 1 | `.gitignore` → `.env` |
 | 2 | `frontend/src/lib/security.ts` → `validatePassword`, `sanitizeFilename`, `getErrorMessage`, `verifyAdminToken`, `isAllowedRevalidatePath` |
-| 3 | `proxy.ts` + `http-security.ts`; **middleware.ts yok** |
+| 3 | `proxy.ts` + `http-security.ts`; `middleware.ts` yok veya yalnızca `@/proxy` köprüsü |
 | 4 | `next.config.mjs` → `remotePatterns`, `hostname: '*'` yok |
 | 5 | `api/ai-translate` → `admin.users.read` veya `verifyAdminToken` |
 | 6 | Backend `catalog/public/listings` → `status = 'published'` |
