@@ -29,6 +29,10 @@ import { fileURLToPath } from 'url'
 import {
   createTravelrobotToken,
   loadTravelrobotConfig,
+  // General
+  refreshToken,
+  getCurrencies,
+  getCountries,
   // Tour
   searchTours,
   pickTourRows,
@@ -37,6 +41,8 @@ import {
   pickHotelRows,
   getHotelDetails,
   getHotelRooms,
+  getRoomOffers,
+  validateHotelRooms,
   getHotelFinalPrice,
   // Flight
   searchFlightItinerary,
@@ -48,7 +54,18 @@ import {
   createFlightReservation,
   issueTicketFromReservation,
   issueTicketDirect,
+  // Transfer
+  searchTransfer,
+  pickTransferRows,
 } from './lib/travelrobot-api.mjs'
+
+import {
+  authenticateStatic,
+  getAllHotelCodes,
+  getHotelCodes,
+  getDestinations,
+  getStaticCountries,
+} from './lib/travelrobot-static-api.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -553,6 +570,52 @@ async function main() {
     return
   }
 
+  // ── General API: RefreshToken ─────────────────────────────────────────────
+  section('S0b — RefreshToken (Token Yenileme)')
+  try {
+    const result = await refreshToken(cfg, { tokenCode })
+    log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken',
+      { TokenCode: '(current)' }, result.raw, true)
+    ok('RefreshToken', `Yeni TokenCode uzunluğu: ${result.tokenCode.length} karakter`)
+    tokenCode = result.tokenCode // yenilenen token ile devam et
+  } catch (e) {
+    log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken', {}, String(e), false)
+    fail('RefreshToken', e)
+    // Hata kritik değil — eski token ile devam et
+  }
+
+  // ── General API: GetCurrencies ────────────────────────────────────────────
+  section('S0c — GetCurrencies (Para Birimleri)')
+  try {
+    const payload = await getCurrencies(cfg, tokenCode, { languageCode: 'tr' })
+    log('S0c-GetCurrencies', 'GetCurrencies', '/General.svc/Rest/Json/GetCurrencies', {}, payload, !payload?.HasError)
+    const list = payload?.Result ?? payload?.Currencies ?? []
+    if (!payload?.HasError) {
+      ok('GetCurrencies', `${Array.isArray(list) ? list.length : '?'} para birimi`)
+    } else {
+      fail('GetCurrencies', payload?.ErrorMessage ?? 'Hata')
+    }
+  } catch (e) {
+    log('S0c-GetCurrencies', 'GetCurrencies', '/General.svc/Rest/Json/GetCurrencies', {}, String(e), false)
+    fail('GetCurrencies', e)
+  }
+
+  // ── General API: GetCountries ─────────────────────────────────────────────
+  section('S0d — GetCountries (Ülkeler — General API)')
+  try {
+    const payload = await getCountries(cfg, tokenCode, { languageCode: 'tr' })
+    log('S0d-GetCountries', 'GetCountries', '/General.svc/Rest/Json/GetCountries', {}, payload, !payload?.HasError)
+    const list = payload?.Result ?? payload?.Countries ?? []
+    if (!payload?.HasError) {
+      ok('GetCountries', `${Array.isArray(list) ? list.length : '?'} ülke`)
+    } else {
+      fail('GetCountries', payload?.ErrorMessage ?? 'Hata')
+    }
+  } catch (e) {
+    log('S0d-GetCountries', 'GetCountries', '/General.svc/Rest/Json/GetCountries', {}, String(e), false)
+    fail('GetCountries', e)
+  }
+
   // ── Tur Arama ─────────────────────────────────────────────────────────────
   section('S1 — SearchTour (Tur Katalog)')
   try {
@@ -699,6 +762,103 @@ async function main() {
     ],
     flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
   })
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TRANSFER SENARYOLARI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  section('Transfer-S1: SearchTransfer (Havalimanı → Otel)')
+  try {
+    const transferDate = addDays(7)
+    const payload = await searchTransfer(cfg, tokenCode, {
+      pickupLocationCode: 'IST', // Istanbul havalimanı
+      dropoffLocationCode: 'KTR431805', // Radisson Blu Istanbul (otel kodu)
+      pickupType: 0, // Airport
+      dropoffType: 1, // Hotel
+      transferDate,
+      paxCount: 2,
+      languageCode: 'tr',
+    })
+    const rows = pickTransferRows(payload)
+    log('Transfer-S1', 'SearchTransfer', '/Transfer.svc/Rest/Json/SearchTransfer',
+      { pickupLocationCode: 'IST', dropoffLocationCode: 'KTR431805', transferDate }, payload, rows.length >= 0)
+    if (rows.length > 0) {
+      ok('SearchTransfer IST→Otel', `${rows.length} teklif bulundu`)
+      const first = rows[0]
+      const offerId = first?.OfferId ?? first?.offerId ?? first?.Id ?? null
+      ok('İlk transfer teklifi', `OfferId: ${offerId} — ${preview(first, 150)}`)
+    } else {
+      fail('SearchTransfer IST→Otel', `Sonuç yok (sandbox kısıtlı olabilir) — ${preview(payload, 400)}`)
+    }
+  } catch (e) {
+    log('Transfer-S1', 'SearchTransfer', '/Transfer.svc/Rest/Json/SearchTransfer', {}, String(e), false)
+    fail('SearchTransfer IST→Otel', e)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // STATIC CONTENT API SENARYOLARI
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  section('StaticContent-S1: Authentication')
+  let staticToken = null
+  try {
+    const result = await authenticateStatic(cfg)
+    staticToken = result.tokenCode
+    log('StaticContent-S1', 'Authenticate', '/General.svc/Rest/Json/CreateTokenV2 (static)',
+      { ChannelCode: cfg.channelCode }, result.raw, true)
+    ok('StaticContent Auth', `Token: ${staticToken.length} karakter`)
+  } catch (e) {
+    log('StaticContent-S1', 'Authenticate', '/General.svc/Rest/Json/CreateTokenV2', {}, String(e), false)
+    fail('StaticContent Auth', e)
+  }
+
+  if (staticToken) {
+    section('StaticContent-S2: GetCountries (Statik)')
+    try {
+      const payload = await getStaticCountries(cfg, staticToken, { languageCode: 'tr' })
+      log('StaticContent-S2', 'GetCountries', '/StaticContent.svc/Rest/Json/GetCountries', {}, payload, true)
+      const list = payload?.Result ?? payload?.Countries ?? payload ?? []
+      ok('GetCountries (Static)', `${Array.isArray(list) ? list.length : '?'} ülke`)
+    } catch (e) {
+      log('StaticContent-S2', 'GetCountries', '/StaticContent.svc/Rest/Json/GetCountries', {}, String(e), false)
+      fail('GetCountries (Static)', e)
+    }
+
+    section('StaticContent-S3: GetDestinations (Destinasyonlar)')
+    try {
+      const payload = await getDestinations(cfg, staticToken, { languageCode: 'tr' })
+      log('StaticContent-S3', 'GetDestinations', '/StaticContent.svc/Rest/Json/GetDestinations', {}, payload, true)
+      const list = payload?.Result ?? payload?.Destinations ?? payload ?? []
+      ok('GetDestinations', `${Array.isArray(list) ? list.length : '?'} destinasyon`)
+    } catch (e) {
+      log('StaticContent-S3', 'GetDestinations', '/StaticContent.svc/Rest/Json/GetDestinations', {}, String(e), false)
+      fail('GetDestinations', e)
+    }
+
+    section('StaticContent-S4: GetAllHotelCodes (Tüm Otel Kodları)')
+    try {
+      const payload = await getAllHotelCodes(cfg, staticToken, { pageNumber: 1, pageSize: 100 })
+      log('StaticContent-S4', 'GetAllHotelCodes', '/StaticContent.svc/Rest/Json/GetAllHotelCodes',
+        { PageNumber: 1, PageSize: 100 }, payload, true)
+      const list = payload?.Result ?? payload?.HotelCodes ?? payload ?? []
+      ok('GetAllHotelCodes', `${Array.isArray(list) ? list.length : '?'} kod (sayfa 1/100)`)
+    } catch (e) {
+      log('StaticContent-S4', 'GetAllHotelCodes', '/StaticContent.svc/Rest/Json/GetAllHotelCodes', {}, String(e), false)
+      fail('GetAllHotelCodes', e)
+    }
+
+    section('StaticContent-S5: GetHotelCodes (Destinasyona göre — Istanbul)')
+    try {
+      const payload = await getHotelCodes(cfg, staticToken, { destinationId: 10033097, languageCode: 'tr' })
+      log('StaticContent-S5', 'GetHotelCodes', '/StaticContent.svc/Rest/Json/GetHotelCodes',
+        { DestinationId: 10033097 }, payload, true)
+      const list = payload?.Result ?? payload?.HotelCodes ?? payload ?? []
+      ok('GetHotelCodes Istanbul', `${Array.isArray(list) ? list.length : '?'} otel kodu`)
+    } catch (e) {
+      log('StaticContent-S5', 'GetHotelCodes', '/StaticContent.svc/Rest/Json/GetHotelCodes', {}, String(e), false)
+      fail('GetHotelCodes Istanbul', e)
+    }
+  }
 
   saveLogs()
   printSummary()
