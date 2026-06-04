@@ -170,8 +170,10 @@ export async function refreshToken(cfg, opts = {}) {
  */
 export async function getCurrencies(cfg, tokenCode, opts = {}) {
   // Gerçek şema (General.json): düz { tokenCode } — request sarmalayıcı yok
+  const code = opts.tokenCode ?? tokenCode
   return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetCurrencies', {
-    tokenCode,
+    tokenCode: code,
+    TokenCode: code,
   })
 }
 
@@ -182,8 +184,10 @@ export async function getCurrencies(cfg, tokenCode, opts = {}) {
  */
 export async function getCountries(cfg, tokenCode, opts = {}) {
   // Gerçek şema: { tokenCode, culture } — culture zorunlu, spec'te yalnızca "en"
+  const code = opts.tokenCode ?? tokenCode
   return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetCountries', {
-    tokenCode,
+    tokenCode: code,
+    TokenCode: code,
     culture: opts.culture ?? opts.languageCode ?? 'en',
   })
 }
@@ -406,6 +410,10 @@ export function pickTourRows(payload) {
   if (!p || typeof p !== 'object') return []
   for (const k of ['SearchResult', 'searchResult', 'Tours', 'tours', 'Items', 'items', 'SearchResults', 'searchResults']) {
     if (Array.isArray(p[k])) return p[k]
+  }
+  // Bazen SearchResult tek nesne döner
+  if (p.SearchResult && typeof p.SearchResult === 'object' && !Array.isArray(p.SearchResult)) {
+    return [p.SearchResult]
   }
   return []
 }

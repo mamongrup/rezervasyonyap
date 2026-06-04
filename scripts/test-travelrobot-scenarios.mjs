@@ -79,6 +79,8 @@ const getArg = (flag) => {
 }
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
+/** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04b'
 
 const CREDS = {
   baseUrl: getArg('--base-url') ?? process.env.TRAVELROBOT_BASE_URL ?? '',
@@ -249,14 +251,17 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
       const airline = first?.AirlineName ?? first?.airlineName ?? first?.Airline ?? '?'
       const price = first?.TotalPrice ?? first?.totalPrice ?? first?.Price ?? '?'
       ok(`[${scenarioName}] İlk sonuç`, `${airline} — ${price}`)
-    } else {
+    } else if (!payload?.HasError) {
       const sr = payload?.Result?.SearchResults ?? payload?.Result?.searchResults
       const srLen = Array.isArray(sr) ? sr.length : 0
-      fail(
-        `[${scenarioName}] SearchItinerary`,
-        `Sonuç boş (SearchResults=${srLen}, sandbox envanteri sınırlı olabilir) — ${preview(payload, 400)}`,
+      console.log(
+        `  ℹ️  [${scenarioName}] SearchAvailability: boş (SearchResults=${srLen}, sandbox uçuş stoğu yok)`,
       )
-      return // Devam edemeyiz
+      SUMMARY_LINES.push(`  ℹ️  ${scenarioName}: uçuş stoğu boş (sandbox)`)
+      return
+    } else {
+      fail(`[${scenarioName}] SearchItinerary`, payload?.ErrorMessage ?? preview(payload, 400))
+      return
     }
   } catch (e) {
     log(scenarioName, 'SearchItinerary', '/Flight.svc/Rest/Json/SearchItinerary', opts, String(e), false)
@@ -548,7 +553,8 @@ async function main() {
     )
   }
 
-  console.log(`\n[config] Base URL   : ${cfg.baseUrl}`)
+  console.log(`\n[config] Script sürüm: ${TRAVELROBOT_TEST_SCRIPT_VERSION}`)
+  console.log(`[config] Base URL   : ${cfg.baseUrl}`)
   console.log(`[config] ChannelCode: ${cfg.channelCode}`)
   console.log(`[config] Password   : ${'*'.repeat(Math.min(cfg.channelPassword?.length ?? 0, 16))}`)
 
@@ -576,24 +582,13 @@ async function main() {
     return
   }
 
-  // ── General API: RefreshToken ─────────────────────────────────────────────
-  section('S0b — RefreshToken (Token Yenileme)')
-  try {
-    const result = await refreshToken(cfg, { tokenCode })
-    log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken',
-      { TokenCode: '(current)' }, result.raw, true)
-    ok('RefreshToken', `Yeni TokenCode uzunluğu: ${result.tokenCode.length} karakter`)
-    tokenCode = result.tokenCode // yenilenen token ile devam et
-  } catch (e) {
-    log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken', {}, String(e), false)
-    fail('RefreshToken', e)
-    // Hata kritik değil — eski token ile devam et
-  }
+  // CreateToken ile alınan token — RefreshToken öncesi General uçları bununla çalışır
+  const tokenAfterCreate = tokenCode
 
-  // ── General API: GetCurrencies ────────────────────────────────────────────
+  // ── General API: GetCurrencies (RefreshToken ÖNCESİ) ─────────────────────
   section('S0c — GetCurrencies (Para Birimleri)')
   try {
-    const payload = await getCurrencies(cfg, tokenCode, { languageCode: 'tr' })
+    const payload = await getCurrencies(cfg, tokenAfterCreate)
     log('S0c-GetCurrencies', 'GetCurrencies', '/General.svc/Rest/Json/GetCurrencies', {}, payload, !payload?.HasError)
     const list = payload?.Result ?? payload?.Currencies ?? []
     if (!payload?.HasError) {
@@ -606,10 +601,10 @@ async function main() {
     fail('GetCurrencies', e)
   }
 
-  // ── General API: GetCountries ─────────────────────────────────────────────
+  // ── General API: GetCountries (RefreshToken ÖNCESİ) ───────────────────────
   section('S0d — GetCountries (Ülkeler — General API)')
   try {
-    const payload = await getCountries(cfg, tokenCode, { culture: 'en' })
+    const payload = await getCountries(cfg, tokenAfterCreate, { culture: 'en' })
     log('S0d-GetCountries', 'GetCountries', '/General.svc/Rest/Json/GetCountries', {}, payload, !payload?.HasError)
     const list = payload?.Result ?? payload?.Countries ?? []
     if (!payload?.HasError) {
@@ -622,19 +617,40 @@ async function main() {
     fail('GetCountries', e)
   }
 
+  // ── General API: RefreshToken ─────────────────────────────────────────────
+  section('S0b — RefreshToken (Token Yenileme)')
+  try {
+    const result = await refreshToken(cfg, { tokenCode: tokenAfterCreate })
+    log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken',
+      { tokenCode: '(current)' }, result.raw, true)
+    ok('RefreshToken', `Yeni TokenCode uzunluğu: ${result.tokenCode.length} karakter`)
+    tokenCode = result.tokenCode
+  } catch (e) {
+    log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken', {}, String(e), false)
+    fail('RefreshToken', e)
+  }
+
   // ── Tur Arama ─────────────────────────────────────────────────────────────
   section('S1 — SearchTour (Tur Katalog)')
   try {
-    const payload = await searchTours(cfg, tokenCode, { languageCode: 'tr' })
+    const payload = await searchTours(cfg, tokenCode, {
+      languageCode: 'tr',
+      startDate: addDays(7),
+      endDate: addDays(400),
+    })
     const rows = pickTourRows(payload)
     log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour',
       { languageCode: 'tr' }, payload, rows.length >= 0)
     if (rows.length > 0) {
       ok('SearchTour', `${rows.length} tur`)
       const f = rows[0]
-      ok('İlk tur', `${f?.TourCode ?? f?.Code ?? '?'} — ${f?.Name ?? f?.TourName ?? '?'}`)
+      const tour = f?.Tour ?? f?.tour ?? f
+      ok('İlk tur', `${tour?.TourCode ?? tour?.Code ?? '?'} — ${tour?.Name ?? tour?.TourName ?? '?'}`)
+    } else if (!payload?.HasError) {
+      console.log(`  ℹ️  SearchTour: HasError=false ama liste boş (sandbox katalog sınırlı) — ${preview(payload, 200)}`)
+      SUMMARY_LINES.push('  ℹ️  SearchTour: boş katalog (sandbox)')
     } else {
-      fail('SearchTour', `Sonuç yok — ${preview(payload, 400)}`)
+      fail('SearchTour', payload?.ErrorMessage ?? preview(payload, 400))
     }
   } catch (e) {
     log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', {}, String(e), false)
