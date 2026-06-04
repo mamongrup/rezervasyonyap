@@ -17,6 +17,20 @@ type Stored = {
 
 const STORAGE_KEY = 'travel_paratika_checkout'
 
+function formatParatikaError(raw: string, C: ReturnType<typeof checkoutT>['paratika']): string {
+  if (
+    raw.includes('ERR10020') ||
+    raw.includes('MERCHANTUSER') ||
+    raw.includes('Geçersiz kullanıcı')
+  ) {
+    return `${C.invalidMerchantUser}\n\n${C.invalidMerchantUserHint}`
+  }
+  if (raw.startsWith('paratika_session_error:')) {
+    return C.sessionFailed
+  }
+  return raw
+}
+
 export default function ParatikaCheckoutPage() {
   const router = useRouter()
   const vitrinHref = useVitrinHref()
@@ -57,7 +71,8 @@ export default function ParatikaCheckoutPage() {
         sessionStorage.removeItem(STORAGE_KEY)
         window.location.href = res.payment_url
       } catch (e) {
-        setErr(e instanceof Error ? e.message : C.sessionFailed)
+        const raw = e instanceof Error ? e.message : C.sessionFailed
+        setErr(formatParatikaError(raw, C))
       }
     }
     void run()
@@ -67,7 +82,7 @@ export default function ParatikaCheckoutPage() {
   if (err) {
     return (
       <main className="container mt-10 mb-24 max-w-lg">
-        <p className="text-red-600 dark:text-red-400">{err}</p>
+        <p className="whitespace-pre-line text-red-600 dark:text-red-400">{err}</p>
         <button
           type="button"
           className="mt-6 text-sm font-medium text-neutral-900 underline dark:text-neutral-100"

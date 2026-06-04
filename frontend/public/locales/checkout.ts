@@ -129,6 +129,8 @@ const checkoutBase = {
     sessionMissing: '',
     invalidSession: '',
     sessionFailed: '',
+    invalidMerchantUser: '',
+    invalidMerchantUserHint: '',
     redirecting: '',
     backToCheckout: '',
   },
@@ -308,6 +310,10 @@ export const checkoutEn: CheckoutMessages = {
     sessionMissing: 'Payment session not found. Please start again from checkout.',
     invalidSession: 'Invalid session data.',
     sessionFailed: 'Could not open Paratika payment session.',
+    invalidMerchantUser:
+      'Paratika rejected the API user (MERCHANTUSER). Check Merchant ID, API user email, and password in admin → Payment gateways.',
+    invalidMerchantUserHint:
+      'Sandbox credentials only work in Test mode; live credentials only in Production. Each environment has its own API user in the Paratika panel.',
     redirecting: 'Redirecting to Paratika payment page…',
     backToCheckout: 'Back to checkout',
   },
@@ -515,6 +521,10 @@ export const checkoutTr: CheckoutMessages = {
     sessionMissing: 'Ödeme oturumu bulunamadı. Lütfen checkout’tan yeniden başlayın.',
     invalidSession: 'Geçersiz oturum verisi.',
     sessionFailed: 'Paratika oturumu açılamadı.',
+    invalidMerchantUser:
+      'Paratika API kullanıcı bilgileri geçersiz (MERCHANTUSER). Yönetim → Ödeme altyapıları bölümünde Merchant ID, API kullanıcı e-postası ve şifresini kontrol edin.',
+    invalidMerchantUserHint:
+      'Test (sandbox) bilgileri yalnızca Test modunda, canlı bilgiler yalnızca Canlı modda çalışır. Paratika panelinde her ortam için ayrı API kullanıcısı oluşturulmalıdır.',
     redirecting: 'Paratika ödeme sayfasına yönlendiriliyorsunuz…',
     backToCheckout: 'Checkout’a dön',
   },

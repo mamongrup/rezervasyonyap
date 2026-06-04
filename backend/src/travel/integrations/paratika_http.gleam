@@ -44,11 +44,25 @@ fn env_or(key: String, fallback: String) -> String {
   }
 }
 
+/// Sandbox / canlı API ve HPP kök URL'leri (Paratika dokümanı).
+fn paratika_bases_for_mode(mode: String) -> #(String, String) {
+  case string.lowercase(string.trim(mode)) {
+    "production" | "live" | "prod" -> #(
+      "https://vpos.paratika.com.tr/paratika/api/v2",
+      "https://vpos.paratika.com.tr/payment/",
+    )
+    _ -> #(
+      "https://entegrasyon.paratika.com.tr/paratika/api/v2",
+      "https://entegrasyon.paratika.com.tr/payment/",
+    )
+  }
+}
+
 /// payment_gateways site_settings satırından Paratika alt-objesini okur.
-/// Döner: (merchant_id, merchant_key, merchant_salt, merchant_sd_secret)  —  bulunamazsa boş string.
+/// Döner: (merchant_id, merchant_user_key, merchant_password_salt, sd_secret, mode).
 fn paratika_settings_from_db(
   db: pog.Connection,
-) -> #(String, String, String, String) {
+) -> #(String, String, String, String, String) {
   let raw =
     case
       pog.query(
@@ -81,26 +95,29 @@ fn paratika_settings_from_db(
           "",
           decode.string,
         )
-        decode.success(#(mid, mkey, msalt, msd))
+        use mode <- decode.optional_field("mode", "sandbox", decode.string)
+        decode.success(#(mid, mkey, msalt, msd, mode))
       },
       fn(v) { decode.success(v) },
     )
 
   case json.parse(raw, decoder) {
-    Ok(#(mid, mkey, msalt, msd)) -> #(
+    Ok(#(mid, mkey, msalt, msd, mode)) -> #(
       string.trim(mid),
       string.trim(mkey),
       string.trim(msalt),
       string.trim(msd),
+      string.trim(mode),
     )
-    Error(_) -> #("", "", "", "")
+    Error(_) -> #("", "", "", "", "")
   }
 }
 
 /// DB-first, env fallback ile ParatikaConfig yükler.
 /// Panel → DB → env var sırasıyla okunur.
 fn load_config_db_first(db: pog.Connection) -> Result(ParatikaConfig, String) {
-  let #(db_merchant, db_user, db_salt, db_sd) = paratika_settings_from_db(db)
+  let #(db_merchant, db_user, db_salt, db_sd, db_mode) =
+    paratika_settings_from_db(db)
   let merchant = case db_merchant {
     "" -> env_or("PARATIKA_MERCHANT", "")
     v -> v
@@ -122,14 +139,15 @@ fn load_config_db_first(db: pog.Connection) -> Result(ParatikaConfig, String) {
       }
     v -> v
   }
-  let api_base = env_or(
-    "PARATIKA_API_BASE",
-    "https://entegrasyon.paratika.com.tr/paratika/api/v2",
-  )
-  let hpp_base = env_or(
-    "PARATIKA_HPP_BASE",
-    "https://entegrasyon.paratika.com.tr/merchant/payment/",
-  )
+  let #(mode_api, mode_hpp) = paratika_bases_for_mode(db_mode)
+  let api_base = case string.trim(env_or("PARATIKA_API_BASE", "")) {
+    "" -> mode_api
+    v -> v
+  }
+  let hpp_base = case string.trim(env_or("PARATIKA_HPP_BASE", "")) {
+    "" -> mode_hpp
+    v -> v
+  }
   case
     merchant != ""
     && merchant_user != ""

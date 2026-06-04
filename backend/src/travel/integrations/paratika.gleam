@@ -35,9 +35,7 @@ pub fn load_config() -> Result(ParatikaConfig, Nil) {
     |> result.unwrap("https://entegrasyon.paratika.com.tr/paratika/api/v2")
   let hpp_base =
     envoy.get("PARATIKA_HPP_BASE")
-    |> result.unwrap(
-      "https://entegrasyon.paratika.com.tr/merchant/payment/",
-    )
+    |> result.unwrap("https://entegrasyon.paratika.com.tr/payment/")
   Ok(ParatikaConfig(
     merchant:,
     merchant_user:,
