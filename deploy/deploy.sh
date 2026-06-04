@@ -7,6 +7,9 @@
 # Opsiyonel:
 #   DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh
 #   DEPLOY_REF=main RESTART_API=0 ./deploy/deploy.sh
+#   SKIP_FRONTEND_BUILD=1 RESTART_WEB=0 ./deploy/deploy.sh   # yalniz API (~dakikalar)
+#   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
+#   ./deploy/deploy-api-only.sh                               # API-only kisa yol
 #   TRAVEL_API_DEPLOY_LOCK=/run/travel-shipment.lock (flock dosyasi; varsayilan: APP_ROOT/.travel-deploy-shipment.lock)
 set -euo pipefail
 
@@ -176,8 +179,12 @@ main() {
   fi
   ok "servis restart tamam"
 
-  step "Deploy dogrulama"
-  VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" bash "$APP_ROOT/deploy/verify.sh"
+  if [[ "${SKIP_VERIFY:-0}" == "1" ]]; then
+    warn "SKIP_VERIFY=1 — verify.sh atlandi (API curl testini elle yapin)."
+  else
+    step "Deploy dogrulama"
+    VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" bash "$APP_ROOT/deploy/verify.sh"
+  fi
 }
 
 main "$@"

@@ -71,6 +71,36 @@ chmod +x deploy/deploy.sh deploy/verify.sh
 ./deploy/deploy.sh
 ```
 
+### Hizli deploy (yalniz API degisti)
+
+Tam `deploy.sh` en cok **frontend** adiminda uzar: `rm -rf node_modules .next && npm ci && npm run build` (genelde 5–15+ dk).
+
+Backend / checkout API duzeltmesi icin (bu oturumdaki `calendar_date` gibi):
+
+```bash
+chmod +x deploy/deploy-api-only.sh
+./deploy/deploy-api-only.sh
+```
+
+Ayni sey elle:
+
+```bash
+SKIP_FRONTEND_BUILD=1 RESTART_WEB=0 ./deploy/deploy.sh
+```
+
+Daha da kisa (verify bekleme yok; curl testini siz yapin):
+
+```bash
+SKIP_FRONTEND_BUILD=1 RESTART_WEB=0 SKIP_VERIFY=1 ./deploy/deploy.sh
+```
+
+**Ne zaman tam deploy?**
+
+- `frontend/**` veya `NEXT_PUBLIC_*` / `frontend.env` degisti → tam `./deploy/deploy.sh` (frontend build sart).
+- Yalniz `backend/**` veya SQL → API-only yeterli.
+
+**Calisan tam deploy’u durdurmak:** Ctrl+C, sonra `./deploy/deploy-api-only.sh` (veya yukaridaki env ile).
+
 Notlar:
 
 - Varsayılan `DEPLOY_REF` **main**. Eski sabit nokta için: `DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh`.
