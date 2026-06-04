@@ -275,7 +275,7 @@ export default async function CategoryPageTemplate({
         <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
           <i className="las la-map-marked me-2 text-2xl" />
           <span>
-            {cat.nationwide} &nbsp;
+            {category.listingType === 'flight' ? cat.flightNationwide : cat.nationwide} &nbsp;
             <span className="text-neutral-900 dark:text-neutral-100">
               {countFormatted}+ {category.namePlural}
             </span>

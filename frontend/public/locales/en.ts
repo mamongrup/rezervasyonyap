@@ -468,6 +468,7 @@ export const en = {
   },
   categoryPage: {
     nationwide: 'Nationwide',
+    flightNationwide: 'Worldwide',
     /** Tatil evleri kategori kahramanı — sayım + Türkçe/İngilizce tam cümle için iki parça */
     holidayHomesHeroLead: 'Nationwide',
     holidayHomesHeroHighlight: '{count}+ holiday homes',

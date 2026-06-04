@@ -228,7 +228,7 @@ export const CATEGORY_REGISTRY: CategoryRegistryEntry[] = [
   {
     slug: 'ucak-bileti',
     name: 'Uçak Bileti',
-    namePlural: 'Flights',
+    namePlural: 'Uçuş',
     listingType: 'flight',
     categoryRoute: '/ucak-bileti',
     detailRoute: '/ucak-ilan',

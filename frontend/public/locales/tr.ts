@@ -248,6 +248,7 @@ export const tr = {
   },
   categoryPage: {
     nationwide: 'Türkiye geneli',
+    flightNationwide: 'Dünya geneli',
     holidayHomesHeroLead: 'Türkiye genelinde',
     holidayHomesHeroHighlight: '{count}+ tatil evi',
     listingsHeadingAll: '{count}+ {category} ilanı',
