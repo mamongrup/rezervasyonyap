@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Travelrobot / KPlus API istemcisi.
  *
  * Sandbox base URL: http://sandbox.kplus.com.tr/kplus/v0
@@ -436,6 +436,7 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
         ...(opts.destinationId != null && { DestinationId: opts.destinationId }),
         ...(opts.hotelCode && { HotelCode: opts.hotelCode }),
         Rooms: normalizeRooms(opts.rooms),
+        NationalityCode: opts.nationalityCode ?? 'TR',
         AdvancedOptions: {
           ProviderType: 0,
           LanguageCode: opts.languageCode ?? 'tr',
@@ -477,7 +478,7 @@ export async function getHotelRooms(cfg, tokenCode, opts = {}) {
       CheckInDate: checkin,
       CheckOutDate: checkout,
       Rooms: normalizeRooms(opts.rooms),
-      NationalityCode: opts.nationalityCode ?? null,
+      NationalityCode: opts.nationalityCode ?? 'TR',
       LanguageCode: opts.languageCode ?? 'tr',
     },
   })
@@ -566,7 +567,7 @@ export async function getRoomOffers(cfg, tokenCode, opts = {}) {
       CheckInDate: checkin,
       CheckOutDate: checkout,
       Rooms: normalizeRooms(opts.rooms),
-      NationalityCode: opts.nationalityCode ?? null,
+      NationalityCode: opts.nationalityCode ?? 'TR',
       LanguageCode: opts.languageCode ?? 'tr',
     },
   })
@@ -787,7 +788,7 @@ export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
 
   return kplusPost(
     cfg.baseUrl,
-    opts.endpoint ?? '/Flight.svc/Rest/Json/SearchAvailability',
+    opts.endpoint ?? '/Air.svc/Rest/Json/SearchAvailability',
     {
       filter: {
         Token: tokenObj(tokenCode),
@@ -815,7 +816,7 @@ export const searchFlights = searchFlightItinerary
  * opts: { resultKey, languageCode }
  */
 export async function getFlightBrandedFares(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/GetBrandedFares', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/GetBrandedFares', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKey: opts.resultKey,
@@ -830,7 +831,7 @@ export async function getFlightBrandedFares(cfg, tokenCode, opts = {}) {
  */
 export async function validateFlight(cfg, tokenCode, opts = {}) {
   // Stoplight slug: /docs/travelrobot/7d4b0c33836d3-validate
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/Validate', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/Validate', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKeys: opts.resultKeys ?? [],
@@ -849,7 +850,7 @@ export async function validateFlight(cfg, tokenCode, opts = {}) {
  */
 export async function createFlightReservation(cfg, opts = {}) {
   // Stoplight slug: /docs/travelrobot/9f0551f752760-book-flight
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/BookFlight', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/BookFlight', {
     request: {
       ProcessId: null,
       Version: '2.0',
@@ -884,7 +885,7 @@ export async function createFlightReservation(cfg, opts = {}) {
  */
 export async function issueTicketFromReservation(cfg, opts = {}) {
   // Stoplight slug: /docs/travelrobot/66a6648e7506e-reservation-to-ticket
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/ReservationToTicket', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/ReservationToTicket', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
@@ -898,7 +899,7 @@ export async function issueTicketFromReservation(cfg, opts = {}) {
  * opts: { tokenCode, resultKeys, flightPaxes, contactInfo, invoiceInfo, paymentInfo, languageCode }
  */
 export async function issueTicketDirect(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/IssueTicketDirect', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/IssueTicketDirect', {
     request: {
       ProcessId: null,
       Version: '2.0',
@@ -1082,7 +1083,7 @@ export function pickTransferRows(payload) {
  * opts: { resultKey, languageCode }
  */
 export async function getFareRules(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/GetFareRules', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/GetFareRules', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKey: opts.resultKey,
@@ -1097,7 +1098,7 @@ export async function getFareRules(cfg, tokenCode, opts = {}) {
  */
 export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
   // Stoplight slug: /docs/travelrobot/faec77bc3ea78-payment-options
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/PaymentOptions', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/PaymentOptions', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKeys: opts.resultKeys ?? [],
@@ -1112,7 +1113,7 @@ export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getReservation(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/RetrieveReservation', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/RetrieveReservation', {
     request: {
       Token: tokenObj(tokenCode),
       SystemPnr: opts.systemPnr ?? null,
@@ -1127,7 +1128,7 @@ export async function getReservation(cfg, tokenCode, opts = {}) {
  * opts: { tokenCode, systemPnr, languageCode }
  */
 export async function cancelFlightReservation(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/CancelReservation', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/CancelReservation', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
@@ -1141,7 +1142,7 @@ export async function cancelFlightReservation(cfg, opts = {}) {
  * opts: { tokenCode, systemPnr, ticketNumbers, languageCode }
  */
 export async function voidTicket(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Flight.svc/Rest/Json/VoidTicket', {
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/VoidTicket', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
