@@ -187,7 +187,8 @@ function CheckoutPageContent() {
           checkoutUnitPrice > 0
             ? checkoutUnitPrice.toFixed(2)
             : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
-        const { start, end } = resolveCheckoutStayDates(searchParams, String(formObject.checkIn ?? formObject.startDate ?? ''), String(formObject.checkOut ?? formObject.endDate ?? ''))
+        const start = stayDates.start
+        const end = stayDates.end
         const email = String(formObject.guest_email ?? '').trim()
         const name = String(formObject.guest_name ?? '').trim()
         if (!start || !end || !email || !name) {

@@ -109,6 +109,21 @@ fn is_ymd_date(s: String) -> Bool {
   }
 }
 
+/// ISO datetime veya YYYY-MM-DD → tarih kısmı (PostgreSQL date için).
+fn normalize_date_param(s: String) -> String {
+  case string.split(string.trim(s), on: "T") {
+    [ymd, ..] -> ymd
+    _ -> string.trim(s)
+  }
+}
+
+fn stay_range_invalid(start: String, end: String) -> Bool {
+  case string.compare(start, end) {
+    order.Lt -> False
+    _ -> True
+  }
+}
+
 fn add_line_decoder() -> decode.Decoder(#(String, Int, String, String, String, String)) {
   decode.field("listing_id", decode.string, fn(listing_id) {
     decode.field("quantity", decode.int, fn(quantity) {
@@ -138,8 +153,8 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
             True -> json_err(400, "invalid_quantity")
             False -> {
               let price_trim = string.trim(unit_price)
-              let starts_trim = string.trim(starts_on)
-              let ends_trim = string.trim(ends_on)
+              let starts_trim = normalize_date_param(starts_on)
+              let ends_trim = normalize_date_param(ends_on)
               let agency_for_line = string.trim(aid_raw)
               case price_trim == "" {
                 True -> json_err(400, "unit_price_required")
@@ -147,9 +162,12 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                   case starts_trim == "" || ends_trim == "" {
                     True -> json_err(400, "dates_required")
                     False ->
-                      case is_ymd_date(starts_trim) && is_ymd_date(ends_trim) {
-                        False -> json_err(400, "invalid_dates")
-                        True -> {
+                      case stay_range_invalid(starts_trim, ends_trim) {
+                        True -> json_err(400, "invalid_date_range")
+                        False ->
+                          case is_ymd_date(starts_trim) && is_ymd_date(ends_trim) {
+                            False -> json_err(400, "invalid_dates")
+                            True -> {
                           let agency_opt = case agency_for_line == "" {
                             True -> None
                             False -> Some(agency_for_line)
@@ -172,7 +190,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                 pog.transaction(ctx.db, fn(conn) {
                                   case
                                     pog.query(
-                                      "select c.currency_code::text, l.currency_code::text, l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                                      "select upper(trim(c.currency_code::text)), upper(trim(l.currency_code::text)), l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
                                     )
                                     |> pog.parameter(pog.text(cart_id))
                                     |> pog.parameter(pog.text(listing_id))
@@ -188,7 +206,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                     Ok(rows) ->
                                       case rows.rows {
                                         [#(cc, lc, st)] ->
-                                          case st == "published" && cc == lc {
+                                          case st == "published" && string.uppercase(cc) == string.uppercase(lc) {
                                             False ->
                                               Error(
                                                 "listing_unavailable_or_currency_mismatch",
@@ -289,6 +307,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                   }
                               }
                           }
+                        }
                         }
                   }
                 }

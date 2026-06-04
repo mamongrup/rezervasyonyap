@@ -18,7 +18,7 @@ import { getMessages } from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Calendar04Icon, Cancel01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { FC, useCallback, useMemo, useState } from 'react'
+import React, { FC, useCallback, useMemo, useState } from 'react'
 import DatePicker from 'react-datepicker'
 import datepickerStyles from '@/styles/react-datepicker.module.css'
 
@@ -40,6 +40,14 @@ interface Props {
   onRangeChange?: (dates: [Date | null, Date | null]) => void
   /** Konaklama rezervasyon kuralları (min. gece, önceden rezervasyon) */
   bookingRules?: StayBookingRules
+  /** Takvim paneli konumu / genişliği (checkout vb.) */
+  panelClassName?: string
+  /** Varsayılan düğme yerine özel tetikleyici (checkout kalem satırı) */
+  renderTrigger?: (ctx: {
+    open: boolean
+    startDate: Date | null
+    endDate: Date | null
+  }) => React.ReactNode
 }
 
 const DatesRangeInputPopover: FC<Props> = ({
@@ -49,6 +57,8 @@ const DatesRangeInputPopover: FC<Props> = ({
   rangeEnd: rangeEndProp,
   onRangeChange,
   bookingRules,
+  panelClassName,
+  renderTrigger,
 }) => {
   const controlled = typeof onRangeChange === 'function'
   const [internalStart, setInternalStart] = useState<Date | null>(() =>
@@ -141,9 +151,15 @@ const DatesRangeInputPopover: FC<Props> = ({
       <Popover className={`group relative z-50 flex ${className}`}>
         {({ open }) => (
           <>
-            <PopoverButton className="relative flex flex-1 cursor-pointer items-center gap-x-3 p-3 group-data-open:shadow-lg focus:outline-hidden">
-              {renderInput()}
-              {startDate && open && (
+            <PopoverButton
+              className={
+                renderTrigger
+                  ? 'relative w-full flex flex-1 cursor-pointer text-start focus:outline-hidden'
+                  : 'relative flex flex-1 cursor-pointer items-center gap-x-3 p-3 group-data-open:shadow-lg focus:outline-hidden'
+              }
+            >
+              {renderTrigger ? renderTrigger({ open, startDate, endDate }) : renderInput()}
+              {!renderTrigger && startDate && open && (
                 <span
                   className={
                     'absolute end-1 top-1/2 z-10 flex h-5 w-5 -translate-y-1/2 transform items-center justify-center rounded-full bg-neutral-100 text-sm text-neutral-500 lg:end-3 lg:h-6 lg:w-6 dark:bg-neutral-800 dark:text-neutral-400'
@@ -156,7 +172,10 @@ const DatesRangeInputPopover: FC<Props> = ({
 
             <PopoverPanel
               transition
-              className="absolute start-auto -end-2 top-full z-[100] mt-3 w-[calc(100%+1rem)] transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 lg:w-3xl xl:-end-10"
+              className={
+                panelClassName ??
+                'absolute start-auto -end-2 top-full z-[100] mt-3 w-[calc(100%+1rem)] transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 lg:w-3xl xl:-end-10'
+              }
             >
               <div className="rounded-3xl bg-white py-5 shadow-lg ring-1 ring-black/5 sm:p-8 dark:bg-neutral-800 dark:ring-white/10">
                 <div className={datepickerStyles.datepickerScope}>
