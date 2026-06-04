@@ -247,12 +247,9 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                               case gate {
                                                 Error(e) -> Error(e)
                                                 Ok(Nil) -> {
-                                                  let meta =
-                                                    json.object([])
-                                                    |> json.to_string
                                                   case
                                                     pog.query(
-                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, flexible_dates, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, false, $6::numeric, 0, 0, $7::jsonb) returning id::text",
+                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
                                                     )
                                                     |> pog.parameter(pog.text(cart_id))
                                                     |> pog.parameter(pog.text(listing_id))
@@ -260,7 +257,6 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                     |> pog.parameter(pog.text(starts_trim))
                                                     |> pog.parameter(pog.text(ends_trim))
                                                     |> pog.parameter(pog.text(price_trim))
-                                                    |> pog.parameter(pog.text(meta))
                                                     |> pog.returning(row_dec.col0_string())
                                                     |> pog.execute(conn)
                                                   {
@@ -1906,12 +1902,9 @@ pub fn agent_booking_from_api(
                                   ) {
                                     Error(e) -> Error(e)
                                     Ok(Nil) -> {
-                                      let meta =
-                                        json.object([])
-                                        |> json.to_string
                                       case
                                         pog.query(
-                                          "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, flexible_dates, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, false, $6::numeric, 0, 0, $7::jsonb) returning id::text",
+                                          "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
                                         )
                                         |> pog.parameter(pog.text(cart_id))
                                         |> pog.parameter(pog.text(listing_id))
@@ -1919,7 +1912,6 @@ pub fn agent_booking_from_api(
                                         |> pog.parameter(pog.text(starts_on))
                                         |> pog.parameter(pog.text(ends_on))
                                         |> pog.parameter(pog.text(unit_price))
-                                        |> pog.parameter(pog.text(meta))
                                         |> pog.returning(row_dec.col0_string())
                                         |> pog.execute(conn)
                                       {

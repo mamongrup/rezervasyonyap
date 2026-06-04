@@ -9,7 +9,8 @@ import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { PencilEdit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useSearchParams } from 'next/navigation'
+import { checkoutDateYmd } from '@/lib/stay-checkout-url'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 const CHECKOUT_DATE_PANEL =
@@ -46,6 +47,8 @@ type Props = {
 const YourTrip = ({ locale, onGuestsChange }: Props) => {
   const C = checkoutT(locale)
   const H = getMessages(locale).HeroSearchForm
+  const router = useRouter()
+  const pathname = usePathname()
   const searchParams = useSearchParams()
   const [startDate, setStartDate] = useState<Date | null>(() =>
     parseTripDate(searchParams.get('startDate')),
@@ -87,6 +90,23 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
           onRangeChange={([start, end]) => {
             setStartDate(start)
             setEndDate(end)
+            const params = new URLSearchParams(searchParams.toString())
+            if (start) {
+              params.set('startDate', start.toISOString())
+              params.set('checkIn', checkoutDateYmd(start))
+            } else {
+              params.delete('startDate')
+              params.delete('checkIn')
+            }
+            if (end) {
+              params.set('endDate', end.toISOString())
+              params.set('checkOut', checkoutDateYmd(end))
+            } else {
+              params.delete('endDate')
+              params.delete('checkOut')
+            }
+            const qs = params.toString()
+            router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
           }}
           panelClassName={CHECKOUT_DATE_PANEL}
           renderTrigger={() => (

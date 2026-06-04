@@ -546,12 +546,9 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                                             "listing_unavailable_or_currency_mismatch",
                                           )
                                         True -> {
-                                          let meta =
-                                            json.object([])
-                                            |> json.to_string
                                           case
                                             pog.query(
-                                              "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, flexible_dates, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, false, $6::numeric, 0, 0, $7::jsonb) returning id::text",
+                                              "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
                                             )
                                             |> pog.parameter(pog.text(cart_id))
                                             |> pog.parameter(pog.text(listing_id))
@@ -559,7 +556,6 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                                             |> pog.parameter(pog.text(starts_on))
                                             |> pog.parameter(pog.text(ends_on))
                                             |> pog.parameter(pog.text(price_trim))
-                                            |> pog.parameter(pog.text(meta))
                                             |> pog.returning(decode_one_string())
                                             |> pog.execute(conn)
                                           {
