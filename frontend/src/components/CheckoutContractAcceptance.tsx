@@ -5,8 +5,15 @@ import { getPublicCheckoutContractsBundle, type PublicContractBlock } from '@/li
 import { Description, Field, Label } from '@/shared/fieldset'
 import React from 'react'
 
+export type CheckoutContractBlockingReason =
+  | 'none'
+  | 'loading'
+  | 'listing_contract_missing'
+  | 'acceptance_pending'
+
 export type CheckoutContractAcceptancePayload = {
   ok: boolean
+  blocking_reason: CheckoutContractBlockingReason
   contract_accepted: boolean
   general_contract_accepted: boolean
   sales_contract_accepted: boolean
@@ -102,6 +109,7 @@ export default function CheckoutContractAcceptance({
       setSalAccepted(true)
       notify.current({
         ok: optional,
+        blocking_reason: optional ? 'none' : 'listing_contract_missing',
         contract_accepted: optional,
         general_contract_accepted: true,
         sales_contract_accepted: true,
@@ -137,17 +145,7 @@ export default function CheckoutContractAcceptance({
     if (loading || err || !bundle) {
       notify.current({
         ok: false,
-        contract_accepted: false,
-        general_contract_accepted: false,
-        sales_contract_accepted: false,
-      })
-      return
-    }
-
-    const catMissing = bundle.category === null
-    if (catMissing && !optional) {
-      notify.current({
-        ok: false,
+        blocking_reason: 'loading',
         contract_accepted: false,
         general_contract_accepted: false,
         sales_contract_accepted: false,
@@ -158,14 +156,28 @@ export default function CheckoutContractAcceptance({
     const needCat = bundle.category !== null
     const needGen = bundle.general !== null
     const needSal = bundle.sales !== null
-
-    const contract_accepted = !needCat || catAccepted
     const general_contract_accepted = !needGen || genAccepted
     const sales_contract_accepted = !needSal || salAccepted
-    const ok = contract_accepted && general_contract_accepted && sales_contract_accepted
+    const contract_accepted = !needCat || catAccepted
+
+    const catMissing = bundle.category === null && !optional
+    if (catMissing) {
+      notify.current({
+        ok: false,
+        blocking_reason: 'listing_contract_missing',
+        contract_accepted: false,
+        general_contract_accepted,
+        sales_contract_accepted,
+      })
+      return
+    }
+
+    const ok =
+      contract_accepted && general_contract_accepted && sales_contract_accepted
 
     notify.current({
       ok,
+      blocking_reason: ok ? 'none' : 'acceptance_pending',
       contract_accepted,
       general_contract_accepted,
       sales_contract_accepted,

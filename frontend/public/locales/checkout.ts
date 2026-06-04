@@ -76,6 +76,7 @@ const checkoutBase = {
   errors: {
     datesGuestRequired: '',
     contractsRequired: '',
+    listingContractRequired: '',
     bookingFailed: '',
   },
   payDone: {
@@ -206,6 +207,8 @@ export const checkoutEn: CheckoutMessages = {
   errors: {
     datesGuestRequired: 'Date range and guest email / name are required.',
     contractsRequired: 'You must read and accept all required contracts.',
+    listingContractRequired:
+      'You accepted the general and sales terms, but this listing has no category contract linked in admin — checkout cannot continue until it is assigned.',
     bookingFailed: 'Could not create the reservation.',
   },
   payDone: {
@@ -333,7 +336,9 @@ export const checkoutTr: CheckoutMessages = {
   },
   errors: {
     datesGuestRequired: 'Tarih aralığı ve misafir e-posta / ad gerekli.',
-    contractsRequired: 'Gerekli tüm sözleşmeleri okuyup onaylamanız gerekir.',
+    contractsRequired: 'Görünen sözleşmelerin tümünü işaretlemeniz gerekir.',
+    listingContractRequired:
+      'Genel ve satış sözleşmelerini onayladınız; ödeme için bu ilana kategori sözleşmesi bağlanmalı (yönetim → ilan düzenle).',
     bookingFailed: 'Rezervasyon oluşturulamadı.',
   },
   payDone: {

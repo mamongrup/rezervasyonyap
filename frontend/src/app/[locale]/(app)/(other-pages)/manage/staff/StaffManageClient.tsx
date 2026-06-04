@@ -76,6 +76,7 @@ export default function StaffManageClient() {
   const [posLastCheckout, setPosLastCheckout] = useState<string | null>(null)
   const posContractRef = useRef<CheckoutContractAcceptancePayload>({
     ok: false,
+    blocking_reason: 'loading',
     contract_accepted: false,
     general_contract_accepted: true,
     sales_contract_accepted: true,

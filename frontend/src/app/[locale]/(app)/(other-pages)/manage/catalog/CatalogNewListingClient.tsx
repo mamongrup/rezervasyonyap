@@ -81,6 +81,7 @@ import {
   patchListingBasics,
   patchListingSlug,
   patchListingPerks,
+  patchManageListingContract,
   patchManageHotelDetails,
   putListingAttributeValues,
   putListingMeta,
@@ -2595,6 +2596,17 @@ export default function CatalogNewListingClient({
       let lid: string
       if (editListingId) {
         lid = editListingId
+        if (contractId.trim()) {
+          await saveRequiredStep(
+            'Kategori sözleşmesi',
+            patchManageListingContract(
+              token,
+              lid,
+              { category_contract_id: contractId.trim() },
+              orgParam,
+            ),
+          )
+        }
       } else {
         const body: Parameters<typeof createManageCatalogListing>[1] = {
           category_code: categoryCode,

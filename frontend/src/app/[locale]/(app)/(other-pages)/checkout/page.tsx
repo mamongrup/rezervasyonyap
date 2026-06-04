@@ -93,8 +93,12 @@ function CheckoutPageContent() {
   const [listingLoading, setListingLoading] = React.useState(Boolean(checkoutListingId))
 
   const [contractsOk, setContractsOk] = React.useState(false)
+  const [contractBlocking, setContractBlocking] = React.useState<
+    CheckoutContractAcceptancePayload['blocking_reason']
+  >('loading')
   const contractRef = React.useRef<CheckoutContractAcceptancePayload>({
     ok: false,
+    blocking_reason: 'loading',
     contract_accepted: false,
     general_contract_accepted: true,
     sales_contract_accepted: true,
@@ -102,6 +106,7 @@ function CheckoutPageContent() {
   const onContractValidity = React.useCallback((p: CheckoutContractAcceptancePayload) => {
     contractRef.current = p
     setContractsOk(p.ok)
+    setContractBlocking(p.blocking_reason)
   }, [])
 
   const commissionPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_COMMISSION_PERCENT ?? 20)
@@ -386,12 +391,20 @@ function CheckoutPageContent() {
           locale={locale}
           onValidityChange={onContractValidity}
         />
-        {hasCheckoutListing && !contractsOk ? (
+        {hasCheckoutListing && !contractsOk && contractBlocking === 'acceptance_pending' ? (
           <p
             role="status"
             className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
           >
             {C.errors.contractsRequired}
+          </p>
+        ) : null}
+        {hasCheckoutListing && contractBlocking === 'listing_contract_missing' ? (
+          <p
+            role="status"
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            {C.errors.listingContractRequired}
           </p>
         ) : null}
         <CrossSellSuggestions triggerCategory={checkoutCrossSellTrigger} className="mt-2" />

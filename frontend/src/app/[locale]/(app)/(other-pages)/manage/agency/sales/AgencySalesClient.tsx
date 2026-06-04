@@ -71,6 +71,7 @@ export default function AgencySalesClient() {
   const [submitting, setSubmitting] = useState(false)
   const agencyContractRef = useRef<CheckoutContractAcceptancePayload>({
     ok: false,
+    blocking_reason: 'loading',
     contract_accepted: false,
     general_contract_accepted: true,
     sales_contract_accepted: true,
