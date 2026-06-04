@@ -169,11 +169,9 @@ export async function refreshToken(cfg, opts = {}) {
  * opts: { tokenCode, languageCode }
  */
 export async function getCurrencies(cfg, tokenCode, opts = {}) {
+  // Gerçek şema (General.json): düz { tokenCode } — request sarmalayıcı yok
   return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetCurrencies', {
-    request: {
-      Token: tokenObj(tokenCode),
-      LanguageCode: opts.languageCode ?? 'tr',
-    },
+    tokenCode,
   })
 }
 
@@ -183,11 +181,10 @@ export async function getCurrencies(cfg, tokenCode, opts = {}) {
  * opts: { tokenCode, languageCode }
  */
 export async function getCountries(cfg, tokenCode, opts = {}) {
+  // Gerçek şema: { tokenCode, culture } — culture zorunlu, spec'te yalnızca "en"
   return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetCountries', {
-    request: {
-      Token: tokenObj(tokenCode),
-      LanguageCode: opts.languageCode ?? 'tr',
-    },
+    tokenCode,
+    culture: opts.culture ?? opts.languageCode ?? 'en',
   })
 }
 
@@ -407,7 +404,7 @@ export function pickTourRows(payload) {
   const p = payload?.Result ?? payload?.result ?? payload
   if (Array.isArray(p)) return p
   if (!p || typeof p !== 'object') return []
-  for (const k of ['Tours', 'tours', 'Items', 'items', 'SearchResults', 'searchResults']) {
+  for (const k of ['SearchResult', 'searchResult', 'Tours', 'tours', 'Items', 'items', 'SearchResults', 'searchResults']) {
     if (Array.isArray(p[k])) return p[k]
   }
   return []
@@ -757,12 +754,31 @@ export async function getHotelBooking(cfg, tokenCode, opts = {}) {
 
 export function pickHotelRows(payload) {
   const p = payload?.Result ?? payload?.result ?? payload
-  if (Array.isArray(p)) return p
-  if (!p || typeof p !== 'object') return []
-  for (const k of ['Hotels', 'hotels', 'HotelList', 'hotelList', 'Items', 'items', 'Results', 'results']) {
-    if (Array.isArray(p[k])) return p[k]
+  let rows = []
+  if (Array.isArray(p)) rows = p
+  else if (p && typeof p === 'object') {
+    for (const k of ['Hotels', 'hotels', 'HotelList', 'hotelList', 'Items', 'items', 'Results', 'results']) {
+      if (Array.isArray(p[k])) {
+        rows = p[k]
+        break
+      }
+    }
   }
-  return []
+  // SearchHotel: Hotels[] = { Hotel: { HotelCode, HotelName, ... }, Rooms, Data }
+  return rows.map((row) => {
+    const h = row?.Hotel ?? row?.hotel
+    if (h && typeof h === 'object') {
+      return {
+        ...row,
+        ...h,
+        HotelCode: h.HotelCode ?? h.hotelCode ?? row.HotelCode,
+        HotelName: h.HotelName ?? h.hotelName ?? row.HotelName,
+        SearchKey: row.SearchKey ?? p?.SearchKey ?? row.Data?.SearchKey,
+        ProductCode: h.HotelCode ?? h.ProductCode ?? row.ProductCode,
+      }
+    }
+    return row
+  })
 }
 
 // ─── UÇUŞ ─────────────────────────────────────────────────────────────────────
@@ -959,10 +975,36 @@ export function pickFlightRows(payload) {
   const p = payload?.Result ?? payload?.result ?? payload
   if (Array.isArray(p)) return p
   if (!p || typeof p !== 'object') return []
+
+  // SearchAvailability: Result.SearchResults[].Results[] (Fares, Legs, …)
+  const blocks = p.SearchResults ?? p.searchResults
+  if (Array.isArray(blocks)) {
+    const flat = []
+    for (const block of blocks) {
+      const results = block?.Results ?? block?.results
+      if (Array.isArray(results)) flat.push(...results)
+    }
+    if (flat.length) return flat
+  }
+
   for (const k of ['Flights', 'flights', 'FlightList', 'flightList', 'Items', 'items', 'Results', 'results', 'Itineraries', 'itineraries']) {
     if (Array.isArray(p[k])) return p[k]
   }
   return []
+}
+
+/** İlk uçuş sonucundan FareAlternativeLeg Key (GetBrandedFares / Validate için). */
+export function pickFirstFareLegKey(payload) {
+  const rows = pickFlightRows(payload)
+  const first = rows[0]
+  if (!first) return null
+  const fares = first?.Fares ?? first?.fares
+  if (!Array.isArray(fares)) return first?.ResultKey ?? first?.resultKey ?? first?.Key ?? null
+  for (const fare of fares) {
+    const legs = fare?.FareAlternativeLegs ?? fare?.fareAlternativeLegs
+    if (Array.isArray(legs) && legs[0]?.Key) return legs[0].Key
+  }
+  return first?.ResultKey ?? first?.resultKey ?? null
 }
 
 // ─── TRANSFER ─────────────────────────────────────────────────────────────────

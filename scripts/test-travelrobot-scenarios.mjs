@@ -47,6 +47,7 @@ import {
   // Flight
   searchFlightItinerary,
   pickFlightRows,
+  pickFirstFareLegKey,
   getFlightBrandedFares,
   getFareRules,
   validateFlight,
@@ -243,17 +244,18 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
 
     if (rows.length > 0) {
       ok(`[${scenarioName}] SearchItinerary`, `${rows.length} sonuç`)
-      // İlk sonucun result key'ini al
+      resultKey = pickFirstFareLegKey(payload)
       const first = rows[0]
-      resultKey =
-        first?.ResultKey ?? first?.resultKey ?? first?.Key ?? first?.key ??
-        (Array.isArray(first?.ResultKeys) ? first.ResultKeys[0] : null) ??
-        null
       const airline = first?.AirlineName ?? first?.airlineName ?? first?.Airline ?? '?'
       const price = first?.TotalPrice ?? first?.totalPrice ?? first?.Price ?? '?'
       ok(`[${scenarioName}] İlk sonuç`, `${airline} — ${price}`)
     } else {
-      fail(`[${scenarioName}] SearchItinerary`, `Sonuç boş (sandbox kısıtlı olabilir) — ${preview(payload, 400)}`)
+      const sr = payload?.Result?.SearchResults ?? payload?.Result?.searchResults
+      const srLen = Array.isArray(sr) ? sr.length : 0
+      fail(
+        `[${scenarioName}] SearchItinerary`,
+        `Sonuç boş (SearchResults=${srLen}, sandbox envanteri sınırlı olabilir) — ${preview(payload, 400)}`,
+      )
       return // Devam edemeyiz
     }
   } catch (e) {
@@ -405,6 +407,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   // Adım 1: SearchHotel
   let packageId = null
   let foundHotelCode = null
+  let hotelSearchKey = null
 
   try {
     const payload = await searchHotel(cfg, tokenCode, {
@@ -420,8 +423,9 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     if (rows.length > 0) {
       ok(`[${scenarioName}] SearchHotel`, `${rows.length} otel (${checkin} → ${checkout})`)
       const first = rows[0]
-      foundHotelCode = first?.HotelCode ?? first?.hotelCode ?? first?.Code ?? null
+      foundHotelCode = first?.HotelCode ?? first?.hotelCode ?? first?.ProductCode ?? first?.Code ?? null
       packageId = first?.PackageId ?? first?.packageId ?? null
+      hotelSearchKey = payload?.Result?.SearchKey ?? first?.SearchKey ?? null
       ok(`[${scenarioName}] İlk otel`, `${foundHotelCode} — ${first?.HotelName ?? first?.Name ?? '?'}`)
     } else {
       fail(`[${scenarioName}] SearchHotel`, `Sonuç yok — ${preview(payload, 400)}`)
@@ -455,7 +459,9 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   let roomPackageId = packageId
   try {
     const payload = await getHotelRooms(cfg, tokenCode, {
+      productCode: foundHotelCode,
       hotelCode: foundHotelCode,
+      searchKey: hotelSearchKey,
       checkInDate: checkin,
       checkOutDate: checkout,
       rooms: roomOpts,
@@ -603,7 +609,7 @@ async function main() {
   // ── General API: GetCountries ─────────────────────────────────────────────
   section('S0d — GetCountries (Ülkeler — General API)')
   try {
-    const payload = await getCountries(cfg, tokenCode, { languageCode: 'tr' })
+    const payload = await getCountries(cfg, tokenCode, { culture: 'en' })
     log('S0d-GetCountries', 'GetCountries', '/General.svc/Rest/Json/GetCountries', {}, payload, !payload?.HasError)
     const list = payload?.Result ?? payload?.Countries ?? []
     if (!payload?.HasError) {
@@ -820,7 +826,15 @@ async function main() {
     ok('StaticContent Auth', `Token: ${staticToken.length} karakter`)
   } catch (e) {
     log('StaticContent-S1', 'Authenticate', 'https://static.travelchain.online/api/token/authenticate', {}, String(e), false)
-    fail('StaticContent Auth', e)
+    const msg = String(e)
+    if (msg.includes('401') || msg.includes('Credentials')) {
+      console.log(
+        '  ℹ️  Static Content API, KPlus ChannelCode/Password ile çalışmaz — ayrı static user/pwd gerekir (TRAVELROBOT_STATIC_USER/PASSWORD).',
+      )
+      SUMMARY_LINES.push('  ℹ️  StaticContent Auth atlandı (ayrı kimlik bilgisi gerekli)')
+    } else {
+      fail('StaticContent Auth', e)
+    }
   }
 
   if (staticToken) {
