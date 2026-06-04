@@ -433,8 +433,8 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
         SearchType: 0,
         CheckInDate: checkin,
         CheckOutDate: checkout,
-        ...(opts.destinationId != null && { DestinationId: opts.destinationId }),
-        ...(opts.hotelCode && { HotelCode: opts.hotelCode }),
+        ...(opts.destinationId != null && { Destinations: [opts.destinationId] }),
+        ...(opts.hotelCode && { Hotels: [opts.hotelCode] }),
         Rooms: normalizeRooms(opts.rooms),
         NationalityCode: opts.nationalityCode ?? 'TR',
         AdvancedOptions: {
