@@ -47,6 +47,7 @@ const checkoutBase = {
   contractsLoadFailed: '',
   contractsLoadFailedHint: '',
   contractsMissingListing: '',
+  contractsSectionTitle: '',
   contractsMissingCategory: '',
   contractsMissingCategoryHint: '',
   contractVersion: '',
@@ -175,6 +176,7 @@ export const checkoutEn: CheckoutMessages = {
     'The listing must be published; category, general and sales contract templates must be configured in the admin panel.',
   contractsMissingListing:
     'No valid listing ID for checkout; contract step cannot be skipped.',
+  contractsSectionTitle: 'Agreements',
   contractsMissingCategory: 'No category contract is assigned to this listing',
   contractsMissingCategoryHint:
     'Checkout cannot be completed. Create a category contract in admin and link this listing to it.',
@@ -302,6 +304,7 @@ export const checkoutTr: CheckoutMessages = {
     'İlan yayında olmalı; kategori, genel ve satış sözleşme şablonları yönetim panelinden tanımlanır.',
   contractsMissingListing:
     'Checkout için geçerli bir ilan kimliği yok; sözleşme adımı atlanamaz.',
+  contractsSectionTitle: 'Sözleşmeler',
   contractsMissingCategory: 'Bu ilana atanmış kategori sözleşmesi yok',
   contractsMissingCategoryHint:
     'Checkout tamamlanamaz. Yönetimden kategori sözleşmesi oluşturup ilanı bu şablona bağlayın.',

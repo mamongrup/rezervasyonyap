@@ -198,8 +198,9 @@ export default function CheckoutContractAcceptance({
   if (!bundle) return null
 
   const missingCategory = bundle.category === null && !optional
+  const hasAnyBlock = Boolean(bundle.general || bundle.sales || bundle.category)
 
-  if (missingCategory) {
+  if (!hasAnyBlock && missingCategory) {
     return (
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
         <p className="font-medium">{C.contractsMissingCategory}</p>
@@ -209,7 +210,16 @@ export default function CheckoutContractAcceptance({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <h3 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">
+        {C.contractsSectionTitle ?? 'Sözleşmeler'}
+      </h3>
+      {missingCategory ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+          <p className="font-medium">{C.contractsMissingCategory}</p>
+          <p className="mt-1 text-xs">{C.contractsMissingCategoryHint}</p>
+        </div>
+      ) : null}
       {bundle.general ? (
         <ContractSection
           block={bundle.general}

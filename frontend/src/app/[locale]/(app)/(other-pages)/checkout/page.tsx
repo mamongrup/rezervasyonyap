@@ -92,6 +92,7 @@ function CheckoutPageContent() {
   const [listingImage, setListingImage] = React.useState<string | null>(null)
   const [listingLoading, setListingLoading] = React.useState(Boolean(checkoutListingId))
 
+  const [contractsOk, setContractsOk] = React.useState(false)
   const contractRef = React.useRef<CheckoutContractAcceptancePayload>({
     ok: false,
     contract_accepted: false,
@@ -100,6 +101,7 @@ function CheckoutPageContent() {
   })
   const onContractValidity = React.useCallback((p: CheckoutContractAcceptancePayload) => {
     contractRef.current = p
+    setContractsOk(p.ok)
   }, [])
 
   const commissionPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_COMMISSION_PERCENT ?? 20)
@@ -384,6 +386,14 @@ function CheckoutPageContent() {
           locale={locale}
           onValidityChange={onContractValidity}
         />
+        {hasCheckoutListing && !contractsOk ? (
+          <p
+            role="status"
+            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100"
+          >
+            {C.errors.contractsRequired}
+          </p>
+        ) : null}
         <CrossSellSuggestions triggerCategory={checkoutCrossSellTrigger} className="mt-2" />
         <div className="grid gap-5 sm:grid-cols-2">
           <Field>
@@ -398,7 +408,11 @@ function CheckoutPageContent() {
         </div>
         <PayWith locale={locale} />
         <div>
-          <ButtonPrimary type="submit" className="mt-10 text-base/6!" disabled={pending}>
+          <ButtonPrimary
+            type="submit"
+            className="mt-10 text-base/6!"
+            disabled={pending || (hasCheckoutListing && !contractsOk)}
+          >
             {pending ? C.processing : C.confirmPay}
           </ButtonPrimary>
         </div>
