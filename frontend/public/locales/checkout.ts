@@ -79,6 +79,7 @@ const checkoutBase = {
     listingContractRequired: '',
     insertLineFailed: '',
     datesRequired: '',
+    currencyMismatch: '',
     bookingFailed: '',
   },
   payDone: {
@@ -214,6 +215,8 @@ export const checkoutEn: CheckoutMessages = {
     insertLineFailed:
       'Could not add the booking to the cart. Check dates and try again, or contact support.',
     datesRequired: 'Check-in and check-out dates are required.',
+    currencyMismatch:
+      'Currency does not match the listing. Restart checkout from the property page.',
     bookingFailed: 'Could not create the reservation.',
   },
   payDone: {
@@ -347,6 +350,8 @@ export const checkoutTr: CheckoutMessages = {
     insertLineFailed:
       'Sepete ilan eklenemedi. Tarihleri kontrol edip tekrar deneyin; sorun sürerse destek ile iletişime geçin.',
     datesRequired: 'Giriş ve çıkış tarihleri zorunludur.',
+    currencyMismatch:
+      'Para birimi ilanla uyuşmuyor. Lütfen ilan sayfasından checkout\'a yeniden girin.',
     bookingFailed: 'Rezervasyon oluşturulamadı.',
   },
   payDone: {

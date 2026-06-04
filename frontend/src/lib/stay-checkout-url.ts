@@ -1,3 +1,14 @@
+/** ISO veya Date → yerel takvim YYYY-MM-DD (konaklama giriş/çıkış). */
+export function checkoutDateYmd(isoOrDate: string | Date | null | undefined): string {
+  if (!isoOrDate) return ''
+  const d = isoOrDate instanceof Date ? isoOrDate : new Date(String(isoOrDate).trim())
+  if (Number.isNaN(d.getTime())) return ''
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 /** Vitrin konaklama detayı → checkout: ilan, tarih ve tutar query ile taşınır. */
 export function buildStayCheckoutUrl(
   checkoutPath: string,
@@ -13,6 +24,8 @@ export function buildStayCheckoutUrl(
   u.set('listingId', params.listingId.trim())
   u.set('startDate', params.startDate.toISOString())
   u.set('endDate', params.endDate.toISOString())
+  u.set('checkIn', checkoutDateYmd(params.startDate))
+  u.set('checkOut', checkoutDateYmd(params.endDate))
   u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
   const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
   u.set('unitPrice', price.toFixed(2))

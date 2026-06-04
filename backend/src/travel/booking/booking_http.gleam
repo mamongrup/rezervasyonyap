@@ -15,9 +15,11 @@ import gleam/list
 import gleam/order
 import gleam/option.{type Option, None, Some}
 import gleam/result
+import gleam/io
 import gleam/string
 import pog
 import travel/db/decode_helpers as row_dec
+import travel/db/pog_errors
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -96,6 +98,17 @@ pub fn create_cart(req: Request, ctx: Context) -> Response {
   }
 }
 
+fn is_ymd_date(s: String) -> Bool {
+  case string.split(s, on: "-") {
+    [y, m, d] ->
+      case int.parse(y), int.parse(m), int.parse(d) {
+        Ok(_), Ok(mo), Ok(day) -> mo >= 1 && mo <= 12 && day >= 1 && day <= 31
+        _, _, _ -> False
+      }
+    _ -> False
+  }
+}
+
 fn add_line_decoder() -> decode.Decoder(#(String, Int, String, String, String, String)) {
   decode.field("listing_id", decode.string, fn(listing_id) {
     decode.field("quantity", decode.int, fn(quantity) {
@@ -133,123 +146,150 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                 False ->
                   case starts_trim == "" || ends_trim == "" {
                     True -> json_err(400, "dates_required")
-                    False -> {
-                  let agency_opt = case agency_for_line == "" {
-                    True -> None
-                    False -> Some(agency_for_line)
-                  }
-                  case maybe_assert_agency_session(ctx.db, session_token, agency_opt) {
-                    Error(e) ->
-                      case e {
-                        "agency_session_required" -> json_err(401, e)
-                        "agency_membership_required" -> json_err(403, e)
-                        _ -> json_err(500, e)
-                      }
-                    Ok(Nil) ->
-                  case
-                    pog.transaction(ctx.db, fn(conn) {
-                      case
-                        pog.query(
-                          "select c.currency_code::text, l.currency_code::text, l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
-                        )
-                        |> pog.parameter(pog.text(cart_id))
-                        |> pog.parameter(pog.text(listing_id))
-                        |> pog.returning({
-                          use a <- decode.field(0, decode.string)
-                          use b <- decode.field(1, decode.string)
-                          use st <- decode.field(2, decode.string)
-                          decode.success(#(a, b, st))
-                        })
-                        |> pog.execute(conn)
-                      {
-                        Error(_) -> Error("cart_or_listing")
-                        Ok(rows) ->
-                          case rows.rows {
-                            [#(cc, lc, st)] ->
-                              case st == "published" && cc == lc {
-                                False ->
-                                  Error(
-                                    "listing_unavailable_or_currency_mismatch",
-                                  )
-                                True -> {
-                                  let gate = case agency_for_line == "" {
-                                    True -> Ok(Nil)
-                                    False ->
-                                      case validate_agency_org(conn, agency_for_line) {
-                                        False -> Error("invalid_agency_organization")
-                                        True ->
-                                          case
-                                            assert_agency_document_approved_for_org(
-                                              conn,
-                                              agency_for_line,
-                                            )
-                                          {
-                                            Error(e) -> Error(e)
-                                            Ok(Nil) ->
-                                              assert_agency_listing_category_allowed(
-                                                conn,
-                                                listing_id,
-                                                agency_for_line,
-                                              )
-                                          }
-                                      }
-                                  }
-                                  case gate {
-                                    Error(e) -> Error(e)
-                                    Ok(Nil) -> {
-                                      let meta =
-                                        json.object([])
-                                        |> json.to_string
-                                      case
-                                        pog.query(
-                                          "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, flexible_dates, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, false, $6::numeric, 0, 0, $7::jsonb) returning id::text",
-                                        )
-                                        |> pog.parameter(pog.text(cart_id))
-                                        |> pog.parameter(pog.text(listing_id))
-                                        |> pog.parameter(pog.int(quantity))
-                                        |> pog.parameter(pog.text(starts_trim))
-                                        |> pog.parameter(pog.text(ends_trim))
-                                        |> pog.parameter(pog.text(price_trim))
-                                        |> pog.parameter(pog.text(meta))
-                                        |> pog.returning(row_dec.col0_string())
-                                        |> pog.execute(conn)
-                                      {
-                                        Error(_) -> Error("insert_line_failed")
-                                        Ok(r) ->
-                                          case r.rows {
-                                            [lid] -> Ok(lid)
-                                            _ -> Error("unexpected")
-                                          }
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            _ -> Error("cart_or_listing_not_found")
+                    False ->
+                      case is_ymd_date(starts_trim) && is_ymd_date(ends_trim) {
+                        False -> json_err(400, "invalid_dates")
+                        True -> {
+                          let agency_opt = case agency_for_line == "" {
+                            True -> None
+                            False -> Some(agency_for_line)
                           }
-                      }
-                    })
-                  {
-                    Ok(lid) -> {
-                      let out =
-                        json.object([
-                          #("id", json.string(lid)),
-                          #("cart_id", json.string(cart_id)),
-                        ])
-                        |> json.to_string
-                      wisp.json_response(out, 201)
-                    }
-                    Error(pog.TransactionQueryError(_)) ->
-                      json_err(500, "cart_or_listing_not_found")
-                    Error(pog.TransactionRolledBack(msg)) ->
-                      case msg {
-                        "listing_unavailable_or_currency_mismatch" ->
-                          json_err(400, msg)
-                        "cart_or_listing_not_found" -> json_err(404, msg)
-                        _ -> json_err(400, msg)
-                      }
-                  }
-                    }
+                          case
+                            maybe_assert_agency_session(
+                              ctx.db,
+                              session_token,
+                              agency_opt,
+                            )
+                          {
+                            Error(e) ->
+                              case e {
+                                "agency_session_required" -> json_err(401, e)
+                                "agency_membership_required" -> json_err(403, e)
+                                _ -> json_err(500, e)
+                              }
+                            Ok(Nil) ->
+                              case
+                                pog.transaction(ctx.db, fn(conn) {
+                                  case
+                                    pog.query(
+                                      "select c.currency_code::text, l.currency_code::text, l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                                    )
+                                    |> pog.parameter(pog.text(cart_id))
+                                    |> pog.parameter(pog.text(listing_id))
+                                    |> pog.returning({
+                                      use a <- decode.field(0, decode.string)
+                                      use b <- decode.field(1, decode.string)
+                                      use st <- decode.field(2, decode.string)
+                                      decode.success(#(a, b, st))
+                                    })
+                                    |> pog.execute(conn)
+                                  {
+                                    Error(_) -> Error("cart_or_listing")
+                                    Ok(rows) ->
+                                      case rows.rows {
+                                        [#(cc, lc, st)] ->
+                                          case st == "published" && cc == lc {
+                                            False ->
+                                              Error(
+                                                "listing_unavailable_or_currency_mismatch",
+                                              )
+                                            True -> {
+                                              let gate =
+                                                case agency_for_line == "" {
+                                                  True -> Ok(Nil)
+                                                  False ->
+                                                    case
+                                                      validate_agency_org(
+                                                        conn,
+                                                        agency_for_line,
+                                                      )
+                                                    {
+                                                      False ->
+                                                        Error(
+                                                          "invalid_agency_organization",
+                                                        )
+                                                      True ->
+                                                        case
+                                                          assert_agency_document_approved_for_org(
+                                                            conn,
+                                                            agency_for_line,
+                                                          )
+                                                        {
+                                                          Error(e) -> Error(e)
+                                                          Ok(Nil) ->
+                                                            assert_agency_listing_category_allowed(
+                                                              conn,
+                                                              listing_id,
+                                                              agency_for_line,
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                              case gate {
+                                                Error(e) -> Error(e)
+                                                Ok(Nil) -> {
+                                                  let meta =
+                                                    json.object([])
+                                                    |> json.to_string
+                                                  case
+                                                    pog.query(
+                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, flexible_dates, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, false, $6::numeric, 0, 0, $7::jsonb) returning id::text",
+                                                    )
+                                                    |> pog.parameter(pog.text(cart_id))
+                                                    |> pog.parameter(pog.text(listing_id))
+                                                    |> pog.parameter(pog.int(quantity))
+                                                    |> pog.parameter(pog.text(starts_trim))
+                                                    |> pog.parameter(pog.text(ends_trim))
+                                                    |> pog.parameter(pog.text(price_trim))
+                                                    |> pog.parameter(pog.text(meta))
+                                                    |> pog.returning(row_dec.col0_string())
+                                                    |> pog.execute(conn)
+                                                  {
+                                                    Error(e) -> {
+                                                      io.println(
+                                                        "[cart_line] "
+                                                          <> pog_errors.query_error_to_string(
+                                                            e,
+                                                          ),
+                                                      )
+                                                      Error("insert_line_failed")
+                                                    }
+                                                    Ok(r) ->
+                                                      case r.rows {
+                                                        [lid] -> Ok(lid)
+                                                        _ -> Error("unexpected")
+                                                      }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        _ -> Error("cart_or_listing_not_found")
+                                      }
+                                  }
+                                })
+                              {
+                                Ok(lid) -> {
+                                  let out =
+                                    json.object([
+                                      #("id", json.string(lid)),
+                                      #("cart_id", json.string(cart_id)),
+                                    ])
+                                    |> json.to_string
+                                  wisp.json_response(out, 201)
+                                }
+                                Error(pog.TransactionQueryError(_)) ->
+                                  json_err(500, "cart_or_listing_not_found")
+                                Error(pog.TransactionRolledBack(msg)) ->
+                                  case msg {
+                                    "listing_unavailable_or_currency_mismatch" ->
+                                      json_err(400, msg)
+                                    "cart_or_listing_not_found" -> json_err(404, msg)
+                                    _ -> json_err(400, msg)
+                                  }
+                              }
+                          }
+                        }
                   }
                 }
               }

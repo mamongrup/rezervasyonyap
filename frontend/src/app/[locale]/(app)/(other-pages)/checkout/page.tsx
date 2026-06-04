@@ -16,6 +16,7 @@ import {
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import {
+  checkoutDateYmd,
   resolveCheckoutCurrency,
   resolveCheckoutListingId,
   resolveCheckoutUnitPrice,
@@ -48,10 +49,25 @@ const checkoutCrossSellTrigger =
     ? process.env.NEXT_PUBLIC_CHECKOUT_CROSS_SELL_TRIGGER
     : 'holiday_home'
 
-function toYmd(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
+function resolveCheckoutStayDates(
+  searchParams: URLSearchParams,
+  formStart?: string,
+  formEnd?: string,
+): { start: string; end: string } {
+  const fromQueryIn = searchParams.get('checkIn')?.trim()
+  const fromQueryOut = searchParams.get('checkOut')?.trim()
+  if (fromQueryIn && fromQueryOut) {
+    return { start: fromQueryIn, end: fromQueryOut }
+  }
+  const start =
+    checkoutDateYmd(searchParams.get('startDate')) ||
+    checkoutDateYmd(formStart) ||
+    ''
+  const end =
+    checkoutDateYmd(searchParams.get('endDate')) ||
+    checkoutDateYmd(formEnd) ||
+    ''
+  return { start, end }
 }
 
 function nightsBetween(startIso: string | null, endIso: string | null): number {
@@ -82,6 +98,10 @@ function CheckoutPageContent() {
   const checkoutUnitPrice = resolveCheckoutUnitPrice(
     searchParams.get('unitPrice'),
     process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE,
+  )
+  const stayDates = React.useMemo(
+    () => resolveCheckoutStayDates(searchParams),
+    [searchParams],
   )
   const nights = nightsBetween(searchParams.get('startDate'), searchParams.get('endDate'))
 
@@ -167,12 +187,7 @@ function CheckoutPageContent() {
           checkoutUnitPrice > 0
             ? checkoutUnitPrice.toFixed(2)
             : (process.env.NEXT_PUBLIC_CHECKOUT_UNIT_PRICE ?? '100.00')
-        const start =
-          toYmd(String(formObject.startDate ?? '')) ||
-          toYmd(searchParams.get('startDate') ?? '')
-        const end =
-          toYmd(String(formObject.endDate ?? '')) ||
-          toYmd(searchParams.get('endDate') ?? '')
+        const { start, end } = resolveCheckoutStayDates(searchParams, String(formObject.checkIn ?? formObject.startDate ?? ''), String(formObject.checkOut ?? formObject.endDate ?? ''))
         const email = String(formObject.guest_email ?? '').trim()
         const name = String(formObject.guest_name ?? '').trim()
         if (!start || !end || !email || !name) {
@@ -186,7 +201,6 @@ function CheckoutPageContent() {
           return
         }
         const cart = await createCart(currency)
-        setFxLockInfo(cart.fx_lock ?? null)
         await addCartLine(cart.id, {
           listing_id: listingId,
           quantity: 1,
@@ -194,6 +208,7 @@ function CheckoutPageContent() {
           ends_on: end,
           unit_price: unitPrice,
         })
+        setFxLockInfo(cart.fx_lock ?? null)
         if (coupon?.code) {
           try {
             await applyCouponToCart(cart.id, coupon.code)
@@ -251,9 +266,12 @@ function CheckoutPageContent() {
               : code === 'listing_contract_required'
                 ? C.errors.listingContractRequired
                 : code === 'listing_unavailable_or_currency_mismatch'
-                  ? C.errors.bookingFailed
+                ? C.errors.currencyMismatch
+                : code === 'invalid_dates'
+                  ? C.errors.datesRequired
                   : code || C.errors.bookingFailed
         window.alert(msg)
+        setFxLockInfo(null)
       } finally {
         setPending(false)
       }
@@ -307,7 +325,7 @@ function CheckoutPageContent() {
         <Divider className="block lg:hidden" />
 
         {fxLockInfo && (
-          <p className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
+          <p className="max-w-full break-words rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
             <span className="font-medium text-neutral-800 dark:text-neutral-200">{C.fxLockTitle}:</span>{' '}
             {fmtCheckout(C.fxLockBody, {
               lockedAt: fxLockInfo.locked_at,
@@ -381,12 +399,8 @@ function CheckoutPageContent() {
           </div>
         )}
 
-        {searchParams.get('startDate') ? (
-          <input type="hidden" name="startDate" value={searchParams.get('startDate') ?? ''} />
-        ) : null}
-        {searchParams.get('endDate') ? (
-          <input type="hidden" name="endDate" value={searchParams.get('endDate') ?? ''} />
-        ) : null}
+        {stayDates.start ? <input type="hidden" name="checkIn" value={stayDates.start} /> : null}
+        {stayDates.end ? <input type="hidden" name="checkOut" value={stayDates.end} /> : null}
         <Divider />
         <Suspense fallback={<div className="min-h-[200px]" aria-hidden />}>
           <YourTrip locale={locale} />
@@ -455,10 +469,10 @@ function CheckoutPageContent() {
   }
 
   return (
-    <main className="container mt-10 mb-24 flex flex-col gap-14 lg:mb-32 lg:flex-row lg:gap-10">
-      <div className="w-full lg:w-3/5 xl:w-2/3">{renderMain()}</div>
+    <main className="container mt-10 mb-24 flex flex-col gap-14 lg:mb-32 lg:flex-row lg:items-start lg:gap-10">
+      <div className="min-w-0 w-full shrink-0 lg:flex-[3] lg:max-w-3xl">{renderMain()}</div>
       <Divider className="block lg:hidden" />
-      <div className="grow">{renderSidebar()}</div>
+      <div className="min-w-0 w-full shrink-0 lg:flex-[2] lg:max-w-md">{renderSidebar()}</div>
     </main>
   )
 }
