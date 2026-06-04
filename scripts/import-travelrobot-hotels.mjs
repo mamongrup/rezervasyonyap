@@ -5,8 +5,8 @@
  *   node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/import-travelrobot-hotels.mjs --org-id <uuid>
  *
- * Not: KPlus otel endpoint adı sağlayıcıya göre değişebilir.
- * Farklı endpoint için: --endpoint /Hotel.svc/Rest/Json/SearchHotel
+ * Not: Default endpoint /Hotel.svc/Rest/Json/SearchHotel
+ * Farklı endpoint için: --endpoint /Hotel.svc/Rest/Json/GetHotelList
  */
 
 import { createTravelrobotToken, loadTravelrobotConfig, searchHotels, pickHotelRows } from './lib/travelrobot-api.mjs'

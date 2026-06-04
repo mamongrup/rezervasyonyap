@@ -5,7 +5,7 @@
  *   node scripts/import-travelrobot-flights.mjs --dry-run --limit 5
  *   node scripts/import-travelrobot-flights.mjs --org-id <uuid>
  *
- * Not: KPlus uçuş endpoint adı sağlayıcıya göre değişebilir.
+ * Not: Default endpoint /Flight.svc/Rest/Json/SearchItinerary
  * Farklı endpoint için: --endpoint /Flight.svc/Rest/Json/SearchFlight
  */
 

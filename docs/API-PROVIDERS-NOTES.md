@@ -1,4 +1,4 @@
-# API sağlayıcı notları (entegrasyon planı)
+﻿# API sağlayıcı notları (entegrasyon planı)
 
 > Kenara alınan kararlar — GTC + Travelrobot + Turna ayrı ilan akışı.
 
@@ -42,14 +42,49 @@ $env:TRAVELROBOT_CHANNEL_CODE = "..."
 $env:TRAVELROBOT_CHANNEL_PASSWORD = "..."
 ```
 
+## Travelrobot sandbox test verileri
+
+| Tip | Kod | Açıklama |
+|-----|-----|----------|
+| Destination | 531096 | Prague |
+| Destination | 587926 | Berlin |
+| Destination | 10033097 | Istanbul |
+| Hotel | KCZ466838 | Cosmopolitan Hotel Prague |
+| Hotel | KCZ639147 | Hilton Prague |
+| Hotel | KDE646930 | Pullman Berlin Schweizerhof |
+| Hotel | KDE393226 | Sheraton Berlin Grand Hotel Esplanade |
+| Hotel | KTR431805 | Radisson Blu Hotel (Istanbul) |
+| Hotel | KTR672265 | Hilton Istanbul Bomonti |
+
+## Travelrobot API akışları (tam)
+
+### Tur
+`
+createToken → searchTours → getTourPrices → getTourExtras
+→ getTourFinalPrice → getPickupPoints → bookTour
+`
+Postman koleksiyonu: D:\agora\Travelrobot Tour API.postman_collection (1).json
+
+### Otel
+`
+createToken → searchHotel → getHotelDetails → getHotelRooms
+→ getHotelFinalPrice → bookHotel
+`
+Test: 1 Oda/2 Yetişkin/Istanbul — 1 Oda/2Y+1Ç(5)/herhangi — 2 Oda/3Y+2Ç(2,4)/herhangi
+
+### Uçuş
+`
+createToken → searchFlightItinerary → getFlightBrandedFares
+→ validateFlight → createFlightReservation → issueTicketFromReservation
+(veya tek adım: issueTicketDirect)
+`
+Test: Oneway 1ADT IST→LHR, Roundtrip LHR→DXB, Multiple CDG→FCO→LHR→BCN, LCC AYT→TZX
+
 ## Sıradaki teknik adımlar
 
-1. GTC import script’lerini tamamla (`import-gtc-listings.mjs`, `gtc-listing-db.mjs`).
-2. Travelrobot client: `scripts/lib/travelrobot-api.mjs` (ortak token + servis çağrıları).
-3. Travelrobot import: `scripts/import-travelrobot-listings.mjs`.
-4. Migration `297_*`: Travelrobot referans kolonları (otel kodu, tur kodu, araç result key vb.).
-5. Runtime rezervasyon: listing `external_provider_code` → GTC veya Travelrobot modülü.
-
+1. GTC import script'lerini tamamla (import-gtc-listings.mjs, gtc-listing-db.mjs).
+2. Runtime rezervasyon: listing external_provider_code = 'travelrobot' → ookTour/ookHotel/createFlightReservation.
+3. Canlı API bilgileri alındıktan sonra: panel'e channel_code + channel_password gir, ase_url canlı URL ile güncelle.
 ## Masaüstü kaynak klasörleri
 
 | Klasör | İçerik |
