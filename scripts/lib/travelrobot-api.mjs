@@ -447,6 +447,7 @@ export async function searchHotel(cfg, tokenCode, opts = {}) {
           Hotels: (Array.isArray(opts.hotelCode) ? opts.hotelCode : [opts.hotelCode]).map((c) => ({ HotelCode: c })),
         }),
         Rooms: normalizeRooms(opts.rooms).map((r) => ({ Paxes: r.Paxes })),
+        ...(opts.showMultipleRate != null && { ShowMultipleRate: String(opts.showMultipleRate) }),
         NationalityCode: opts.nationalityCode ?? 'TR',
         AdvancedOptions: {
           Hotel: {
