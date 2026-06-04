@@ -9,6 +9,8 @@ const checkoutBase = {
   guestsSummary: '',
   payWithTitle: '',
   payWithNote: '',
+  payWithSecureNote: '',
+  payWithRedirectNote: '',
   payWithCardTab: '',
   payWithPaypalTab: '',
   payWithPassword: '',
@@ -131,6 +133,9 @@ export const checkoutEn: CheckoutMessages = {
   payWithTitle: 'Payment',
   payWithNote:
     'In production, payment is processed securely via PayTR or Paratika (card details are not stored on our servers).',
+  payWithSecureNote: 'Secure 3D payment',
+  payWithRedirectNote:
+    'After clicking "Confirm & Pay" you will be redirected to the secure payment page. Your card details are never stored on our servers.',
   payWithCardTab: 'Credit card',
   payWithPaypalTab: 'PayPal',
   payWithPassword: 'Password',
@@ -255,6 +260,9 @@ export const checkoutTr: CheckoutMessages = {
   payWithTitle: 'Ödeme',
   payWithNote:
     'Canlı ortamda ödeme PayTR veya Paratika ile güvenli şekilde yapılır; kart bilgileri sitemizde saklanmaz.',
+  payWithSecureNote: 'Güvenli 3D Secure ödeme',
+  payWithRedirectNote:
+    '"Onayla ve öde" butonuna bastıktan sonra güvenli ödeme sayfasına yönlendirileceksiniz. Kart bilgileriniz sitemizde saklanmaz.',
   payWithCardTab: 'Kredi kartı',
   payWithPaypalTab: 'PayPal',
   payWithPassword: 'Şifre',
@@ -379,6 +387,9 @@ export const checkoutDe: CheckoutMessages = {
   payWithTitle: 'Zahlung',
   payWithNote:
     'In der Produktion erfolgt die Zahlung sicher über PayTR oder Paratika; Kartendaten werden nicht auf unseren Servern gespeichert.',
+  payWithSecureNote: 'Sichere 3D-Zahlung',
+  payWithRedirectNote:
+    'Nach dem Klick auf „Bestätigen und bezahlen" werden Sie zur sicheren Zahlungsseite weitergeleitet. Ihre Kartendaten werden nicht gespeichert.',
   emailLabel: 'E-Mail',
   emailHint: 'Für Buchungsbestätigung und Support.',
   guestNameLabel: 'Vollständiger Name',
