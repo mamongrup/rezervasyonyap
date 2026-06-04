@@ -39,10 +39,12 @@ function loadFlightRoutes() {
 }
 
 async function main() {
-  await loadTurnaConfigAsync()
+  // DB'den config yükle — API key ve baseUrl buradan alınır (panel > env)
+  const cfg = await loadTurnaConfigAsync()
+  console.log(`[turna] baseUrl=${cfg.baseUrl} enabled=${cfg.enabled}`)
 
   if (PING) {
-    const { json, session } = await pingTurnaLogin()
+    const { json, session } = await pingTurnaLogin(cfg)
     console.log('Turna login OK', {
       sessionId: session.sessionId || '(header yok)',
       keys: json && typeof json === 'object' ? Object.keys(json).slice(0, 8) : [],
@@ -51,7 +53,7 @@ async function main() {
   }
 
   const orgId = process.env.TURNA_ORG_ID || DEFAULT_ORG
-  const status = (process.env.TURNA_STATUS || 'published').toLowerCase() === 'draft' ? 'draft' : 'published'
+  const status = (process.env.TURNA_STATUS || cfg.listingStatus || 'published').toLowerCase() === 'draft' ? 'draft' : 'published'
   const routes = loadFlightRoutes()
   const slice = LIMIT > 0 ? routes.slice(0, LIMIT) : routes
 
@@ -70,7 +72,8 @@ async function main() {
 
       let searchPayload = null
       try {
-        const { json } = await fetchFlightSearch(route)
+        // cfg geçiriliyor: panelden kaydedilen baseUrl + apiKey kullanılır
+        const { json } = await fetchFlightSearch(route, { cfg })
         searchPayload = json
       } catch (e) {
         console.log(`atlandı (${e.message})`)

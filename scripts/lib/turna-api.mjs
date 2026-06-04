@@ -69,8 +69,12 @@ function readSessionFromHeaders(headers) {
   }
 }
 
-export async function turnaRequest(method, path, body = null, extraHeaders = {}) {
-  const { baseUrl } = loadTurnaConfig()
+/**
+ * cfg: loadTurnaConfigAsync() / loadTurnaConfig() sonucu.
+ * Yoksa env fallback'e düşer.
+ */
+export async function turnaRequest(method, path, body = null, extraHeaders = {}, cfg = null) {
+  const baseUrl = cfg?.baseUrl ?? loadTurnaConfig().baseUrl
   const url = joinUrl(baseUrl, path)
   const init = {
     method,
@@ -108,14 +112,14 @@ export async function turnaRequest(method, path, body = null, extraHeaders = {})
   return { json, session, status: res.status }
 }
 
-export function turnaPost(path, body, extraHeaders = {}) {
-  return turnaRequest('POST', path, body, extraHeaders)
+export function turnaPost(path, body, extraHeaders = {}, cfg = null) {
+  return turnaRequest('POST', path, body, extraHeaders, cfg)
 }
 
 /** POST /v1/accounts/auth/anonymousLogin — bağlantı testi */
 export async function pingTurnaLogin(cfg = null) {
   const form = cfg ? loginForm(cfg) : loginFormFromEnv()
-  const { json, session } = await turnaPost('/v1/accounts/auth/anonymousLogin', form)
+  const { json, session } = await turnaPost('/v1/accounts/auth/anonymousLogin', form, {}, cfg)
   return { json, session }
 }
 
@@ -143,7 +147,8 @@ export async function fetchFlightSearch(route, opts = {}) {
     },
     ResponseMask: { FlightLegMask: opts.flightLegMask ?? 109 },
   }
-  return turnaPost('/v1/flight/booking/search', body)
+  // cfg'i turnaPost'a geçiriyoruz ki doğru baseUrl kullanılsın
+  return turnaPost('/v1/flight/booking/search', body, {}, cfg)
 }
 
 function addDaysISO(daysAhead) {
