@@ -7,6 +7,7 @@ import T from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { UserAdd01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import clsx from 'clsx'
 import React, { FC, useEffect, useState } from 'react'
 import { formatStayGuestSummary } from '@/lib/guest-search-defaults'
 
@@ -78,6 +79,11 @@ const GuestsInputPopover: FC<Props> = ({
   const totalGuests = totalGuestCount(guests)
   const guestSummary = formatStayGuestSummary(locale, guests)
 
+  const panelClasses = clsx(
+    'absolute end-0 top-full z-[100] mt-3 w-full rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:min-w-[340px] sm:px-8 sm:py-6 dark:bg-neutral-800 dark:ring-white/10',
+    panelClassName,
+  )
+
   return (
     <Popover className={`relative flex ${className}`}>
       {({ open }) => (
@@ -116,14 +122,7 @@ const GuestsInputPopover: FC<Props> = ({
             </PopoverButton>
           </div>
 
-          <PopoverPanel
-            transition
-            unmount={false}
-            className={
-              panelClassName ??
-              'absolute end-0 top-full z-10 mt-3 w-full rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:min-w-[340px] sm:px-8 sm:py-6 dark:bg-neutral-800'
-            }
-          >
+          <PopoverPanel transition unmount={false} className={panelClasses}>
             <NcInputNumber
               className="w-full"
               defaultValue={guestAdultsInputValue}
