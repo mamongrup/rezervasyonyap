@@ -1,13 +1,16 @@
 /**
- * Travelrobot tur import — panel kimlik bilgilerini DB'den okur.
+ * Travelrobot otel import — panel kimlik bilgilerini DB'den okur.
  *
- *   node scripts/import-travelrobot-tours.mjs --ping
- *   node scripts/import-travelrobot-tours.mjs --dry-run --limit 5
- *   node scripts/import-travelrobot-tours.mjs --org-id <uuid>
+ *   node scripts/import-travelrobot-hotels.mjs --ping
+ *   node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5
+ *   node scripts/import-travelrobot-hotels.mjs --org-id <uuid>
+ *
+ * Not: KPlus otel endpoint adı sağlayıcıya göre değişebilir.
+ * Farklı endpoint için: --endpoint /Hotel.svc/Rest/Json/SearchHotel
  */
 
-import { createTravelrobotToken, loadTravelrobotConfig, pickTourRows, searchTours } from './lib/travelrobot-api.mjs'
-import { resolveImportContext, upsertTravelrobotTourListing } from './lib/travelrobot-listing-db.mjs'
+import { createTravelrobotToken, loadTravelrobotConfig, searchHotels, pickHotelRows } from './lib/travelrobot-api.mjs'
+import { resolveImportContext, upsertTravelrobotHotelListing } from './lib/travelrobot-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
 const args = new Set(process.argv.slice(2))
@@ -17,6 +20,8 @@ const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const orgIdIdx = process.argv.indexOf('--org-id')
 const ORG_ID = orgIdIdx >= 0 ? process.argv[orgIdIdx + 1] : (process.env.IMPORT_ORG_ID ?? '')
+const endpointIdx = process.argv.indexOf('--endpoint')
+const ENDPOINT = endpointIdx >= 0 ? process.argv[endpointIdx + 1] : undefined
 
 async function resolveOrgId(pgClient) {
   if (ORG_ID) return ORG_ID
@@ -32,8 +37,8 @@ async function main() {
   if (!cfg.enabled && !PING) {
     console.warn('[uyarı] Travelrobot panelde kapalı (enabled=false) — yine de devam ediliyor')
   }
-  if (!cfg.importTours && !PING) {
-    console.warn('[uyarı] import_tours=false — yine de devam ediliyor')
+  if (!cfg.importHotels && !PING) {
+    console.warn('[uyarı] import_hotels=false — panelden etkinleştirin veya yine de devam ediliyor')
   }
 
   const { tokenCode } = await createTravelrobotToken(cfg)
@@ -42,14 +47,28 @@ async function main() {
     return
   }
 
-  console.log('SearchTour çağrılıyor…')
-  const payload = await searchTours(cfg, tokenCode)
-  let rows = pickTourRows(payload)
-  console.log(`API: ${rows.length} tur adayı`)
+  console.log('GetHotelList çağrılıyor…')
+  let payload
+  try {
+    payload = await searchHotels(cfg, tokenCode, { endpoint: ENDPOINT })
+  } catch (e) {
+    console.error('[hata]', e.message)
+    console.error(
+      'Endpoint adını doğrulayın: --endpoint /Hotel.svc/Rest/Json/<MethodAdı>',
+      '\nAlternatifler: SearchHotel, GetHotels, GetHotelList, HotelSearch',
+    )
+    process.exit(1)
+  }
+
+  let rows = pickHotelRows(payload)
+  console.log(`API: ${rows.length} otel adayı`)
   if (LIMIT > 0) rows = rows.slice(0, LIMIT)
 
   if (DRY_RUN) {
     console.log('Dry-run — DB yazılmadı. İlk kayıt:', rows[0] ? JSON.stringify(rows[0]).slice(0, 300) : '(boş)')
+    if (rows.length === 0) {
+      console.log('Ham yanıt önizleme:', JSON.stringify(payload).slice(0, 500))
+    }
     return
   }
 
@@ -57,19 +76,19 @@ async function main() {
   await client.connect()
   try {
     const orgId = await resolveOrgId(client)
-    const ctx = await resolveImportContext(client, orgId, 'tour')
+    const ctx = await resolveImportContext(client, orgId, 'hotel')
     const status = cfg.listingStatus || 'draft'
 
     let created = 0, updated = 0, skipped = 0
-    for (const tour of rows) {
+    for (const hotel of rows) {
       try {
-        const result = await upsertTravelrobotTourListing(client, ctx, tour, { status })
+        const result = await upsertTravelrobotHotelListing(client, ctx, hotel, { status })
         if (result.action === 'created') created++
         else updated++
         process.stdout.write('.')
       } catch (e) {
         skipped++
-        console.error(`\n[hata] ${e.message} — kayıt:`, JSON.stringify(tour).slice(0, 120))
+        console.error(`\n[hata] ${e.message} — kayıt:`, JSON.stringify(hotel).slice(0, 120))
       }
     }
     console.log(`\nTamamlandı: ${created} yeni, ${updated} güncellendi, ${skipped} atlandı`)

@@ -34,5 +34,8 @@ export async function loadTravelrobotConfigFromDb() {
     channelPassword: String(tr.channel_password || process.env.TRAVELROBOT_CHANNEL_PASSWORD || ''),
     listingStatus: String(tr.listing_status || process.env.TRAVELROBOT_LISTING_STATUS || 'published'),
     importTours: tr.import_tours !== false,
+    importHotels: Boolean(tr.import_hotels),
+    importFlights: Boolean(tr.import_flights),
+    importCarRental: Boolean(tr.import_car_rental),
   }
 }

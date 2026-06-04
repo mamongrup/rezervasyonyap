@@ -110,3 +110,105 @@ export function pickTourRows(payload) {
   }
   return []
 }
+
+// ── Otel arama ────────────────────────────────────────────────────────────
+
+/**
+ * KPlus Hotel.svc/Rest/Json/GetHotelList — otel listesi.
+ * Endpoint adı sağlayıcıya göre değişebilir; alternatifler:
+ *   /Hotel.svc/Rest/Json/SearchHotel
+ *   /Hotel.svc/Rest/Json/GetHotels
+ *   /Hotel.svc/Rest/Json/GetHotelList
+ */
+export async function searchHotels(cfg, tokenCode, opts = {}) {
+  const url = joinUrl(cfg.baseUrl, opts.endpoint ?? '/Hotel.svc/Rest/Json/GetHotelList')
+  const checkin = opts.checkInDate || formatDate(addDays(30))
+  const checkout = opts.checkOutDate || formatDate(addDays(37))
+  const body = {
+    filter: {
+      Token: { TokenCode: tokenCode },
+      SearchType: 0,
+      CheckInDate: checkin,
+      CheckOutDate: checkout,
+      ...(opts.destinationId != null && { DestinationId: opts.destinationId }),
+      AdvancedOptions: {
+        ProviderType: 0,
+        LanguageCode: opts.languageCode ?? 'tr',
+        MaxResponseTime: 0,
+      },
+    },
+  }
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const text = await res.text()
+  let json = null
+  if (text.trim()) json = JSON.parse(text)
+  if (!res.ok || json?.HasError) {
+    const msg = json?.ErrorMessage || text.slice(0, 200) || res.statusText
+    throw new Error(`GetHotelList: ${msg}`)
+  }
+  return json
+}
+
+export function pickHotelRows(payload) {
+  const p = payload?.Result ?? payload?.result ?? payload
+  if (Array.isArray(p)) return p
+  if (!p || typeof p !== 'object') return []
+  for (const k of ['Hotels', 'hotels', 'HotelList', 'hotelList', 'Items', 'items', 'Results', 'results']) {
+    if (Array.isArray(p[k])) return p[k]
+  }
+  return []
+}
+
+// ── Uçuş arama ────────────────────────────────────────────────────────────
+
+/**
+ * KPlus Flight.svc/Rest/Json/GetFlightList — uçuş listesi.
+ * Alternatif endpoint adları:
+ *   /Flight.svc/Rest/Json/SearchFlight
+ *   /Flight.svc/Rest/Json/GetAvailableFlights
+ */
+export async function searchFlights(cfg, tokenCode, opts = {}) {
+  const url = joinUrl(cfg.baseUrl, opts.endpoint ?? '/Flight.svc/Rest/Json/GetFlightList')
+  const departure = opts.departureDate || formatDate(addDays(30))
+  const body = {
+    filter: {
+      Token: { TokenCode: tokenCode },
+      SearchType: 0,
+      DepartureDate: departure,
+      ...(opts.originCode && { OriginCode: opts.originCode }),
+      ...(opts.destinationCode && { DestinationCode: opts.destinationCode }),
+      AdvancedOptions: {
+        ProviderType: 0,
+        LanguageCode: opts.languageCode ?? 'tr',
+        MaxResponseTime: 0,
+      },
+    },
+  }
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const text = await res.text()
+  let json = null
+  if (text.trim()) json = JSON.parse(text)
+  if (!res.ok || json?.HasError) {
+    const msg = json?.ErrorMessage || text.slice(0, 200) || res.statusText
+    throw new Error(`GetFlightList: ${msg}`)
+  }
+  return json
+}
+
+export function pickFlightRows(payload) {
+  const p = payload?.Result ?? payload?.result ?? payload
+  if (Array.isArray(p)) return p
+  if (!p || typeof p !== 'object') return []
+  for (const k of ['Flights', 'flights', 'FlightList', 'flightList', 'Items', 'items', 'Results', 'results']) {
+    if (Array.isArray(p[k])) return p[k]
+  }
+  return []
+}

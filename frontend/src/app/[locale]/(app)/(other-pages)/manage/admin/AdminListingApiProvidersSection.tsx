@@ -359,19 +359,19 @@ export default function AdminListingApiProvidersSection() {
           </div>
 
           <div className="rounded-xl bg-neutral-50 p-3 dark:bg-neutral-900/40">
-            <p className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">Import kategorileri (ileride)</p>
+            <p className="mb-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">Import kategorileri</p>
             <div className="flex flex-wrap gap-4 text-sm">
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={tr.import_tours} onChange={(e) => setTr({ import_tours: e.target.checked })} />
                 Tur
               </label>
-              <label className="flex items-center gap-2 opacity-60">
-                <input type="checkbox" checked={tr.import_hotels} disabled onChange={() => {}} />
-                Otel (yakında)
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={tr.import_hotels} onChange={(e) => setTr({ import_hotels: e.target.checked })} />
+                Otel
               </label>
-              <label className="flex items-center gap-2 opacity-60">
-                <input type="checkbox" checked={tr.import_flights} disabled onChange={() => {}} />
-                Uçak (yakında)
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={tr.import_flights} onChange={(e) => setTr({ import_flights: e.target.checked })} />
+                Uçak
               </label>
             </div>
           </div>
@@ -478,13 +478,29 @@ export default function AdminListingApiProvidersSection() {
         </div>
       </div>
 
-      <p className="text-xs text-neutral-500">
-        Sunucuda tur import:{' '}
-        <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --ping</code>
-        · Yolcu360 env: <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_KEY</code>,{' '}
-        <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_SECRET</code>,{' '}
-        <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_BASE_URL</code>
-      </p>
+      <div className="space-y-1 text-xs text-neutral-500">
+        <p>Sunucuda import (repo kökünden):</p>
+        <p>
+          Tur:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --ping</code>
+          {' / '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --dry-run --limit 5</code>
+        </p>
+        <p>
+          Otel:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5</code>
+        </p>
+        <p>
+          Uçak:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-flights.mjs --dry-run --limit 5</code>
+        </p>
+        <p>
+          Yolcu360 env:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_KEY</code>,{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_SECRET</code>,{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_BASE_URL</code>
+        </p>
+      </div>
     </div>
   )
 }
