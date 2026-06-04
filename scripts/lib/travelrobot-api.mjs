@@ -152,10 +152,11 @@ export async function createTravelrobotToken(cfg) {
  * opts: { tokenCode }
  */
 export async function refreshToken(cfg, opts = {}) {
+  // Gerçek şema (düz): { channelCode, channelPassword, tokenCode }
   const json = await kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/RefreshToken', {
-    request: {
-      TokenCode: opts.tokenCode,
-    },
+    channelCode: cfg.channelCode,
+    channelPassword: cfg.channelPassword,
+    tokenCode: opts.tokenCode,
   })
   const token = json?.Result?.TokenCode || json?.TokenCode || json?.tokenCode || ''
   if (!token) throw new Error('RefreshToken: TokenCode yok yanıtta')
@@ -306,14 +307,14 @@ export async function getTourExtras(cfg, tokenCode, opts = {}) {
  * opts: { packageId, productType, resultKeys, rooms, additionalServices }
  */
 export async function getTourFinalPrice(cfg, tokenCode, opts = {}) {
+  // Gerçek şema (Tour.json /GetTourFinalPrice + Postman):
+  //   request.{ Token, PackageId, TourRooms:[{ BedType, Paxes:[{TourPaxType}], AdditionalServices }], AdditionalServices }
   return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetTourFinalPrice', {
     request: {
       Token: tokenObj(tokenCode),
       PackageId: opts.packageId,
-      ProductType: opts.productType ?? 2,
-      ResultKeys: opts.resultKeys ?? null,
-      Rooms: opts.rooms ?? [
-        { Index: 0, Paxes: [{ PaxType: 0, Count: 2, ChildAgeList: null }] },
+      TourRooms: opts.tourRooms ?? opts.rooms ?? [
+        { BedType: 0, Paxes: [{ TourPaxType: 0 }, { TourPaxType: 0 }], AdditionalServices: [] },
       ],
       AdditionalServices: opts.additionalServices ?? [],
     },
@@ -424,26 +425,30 @@ export function pickTourRows(payload) {
 export async function searchHotel(cfg, tokenCode, opts = {}) {
   const checkin = opts.checkInDate || formatDate(addDays(30))
   const checkout = opts.checkOutDate || formatDate(addDays(37))
+  // Gerçek şema (Hotel.json /SearchHotel):
+  //   filter.Destinations[] = { DestinationId }, filter.Hotels[] = { HotelCode }
+  //   filter.Rooms[] = { Paxes:[{ Count, PaxType, ChildAgeList }] }
+  //   filter.AdvancedOptions.Hotel = { OnRequest, IsAsync, IsForCms } (string)
   return kplusPost(
     cfg.baseUrl,
     opts.endpoint ?? '/Hotel.svc/Rest/Json/SearchHotel',
     {
       filter: {
         Token: tokenObj(tokenCode),
-        SearchType: 0,
         CheckInDate: checkin,
         CheckOutDate: checkout,
-        ...(opts.destinationId != null && { Destinations: [opts.destinationId] }),
-        ...(opts.hotelCode && { Hotels: [opts.hotelCode] }),
-        Rooms: normalizeRooms(opts.rooms),
+        ...(opts.destinationId != null && { Destinations: [{ DestinationId: String(opts.destinationId) }] }),
+        ...(opts.hotelCode && {
+          Hotels: (Array.isArray(opts.hotelCode) ? opts.hotelCode : [opts.hotelCode]).map((c) => ({ HotelCode: c })),
+        }),
+        Rooms: normalizeRooms(opts.rooms).map((r) => ({ Paxes: r.Paxes })),
         NationalityCode: opts.nationalityCode ?? 'TR',
         AdvancedOptions: {
-          Hotel: { OnRequest: true },
-          ProviderType: 0,
-          PriceCalculationType: 0,
-          SearchModuleType: 0,
-          MaxResponseTime: 0,
-          LanguageCode: opts.languageCode ?? 'tr',
+          Hotel: {
+            OnRequest: String(opts.onRequest ?? true),
+            IsAsync: String(opts.isAsync ?? false),
+            IsForCms: String(opts.isForCms ?? false),
+          },
         },
       },
     },
@@ -457,12 +462,12 @@ export const searchHotels = searchHotel
  * Otel detayı — tesis bilgileri, görseller, açıklamalar.
  * opts: { hotelCode, languageCode }
  */
-export async function getHotelDetails(cfg, tokenCode, hotelCode, opts = {}) {
+export async function getHotelDetails(cfg, tokenCode, productCode, opts = {}) {
+  // Gerçek şema: request.{ ProductCode, TokenCode }
   return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelDetails', {
     request: {
-      Token: tokenObj(tokenCode),
-      HotelCode: hotelCode,
-      LanguageCode: opts.languageCode ?? 'tr',
+      ProductCode: productCode ?? opts.productCode,
+      TokenCode: tokenCode,
     },
   })
 }
@@ -472,17 +477,14 @@ export async function getHotelDetails(cfg, tokenCode, hotelCode, opts = {}) {
  * opts: { hotelCode, checkInDate, checkOutDate, rooms, nationalityCode, languageCode }
  */
 export async function getHotelRooms(cfg, tokenCode, opts = {}) {
-  const checkin = opts.checkInDate || formatDate(addDays(30))
-  const checkout = opts.checkOutDate || formatDate(addDays(37))
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelRooms', {
+  // Gerçek endpoint: Hotel.svc /GetHotelRoomPrices
+  //   request.{ ProductCode, SearchKey, LanguageCode, TokenCode }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelRoomPrices', {
     request: {
-      Token: tokenObj(tokenCode),
-      HotelCode: opts.hotelCode,
-      CheckInDate: checkin,
-      CheckOutDate: checkout,
-      Rooms: normalizeRooms(opts.rooms),
-      NationalityCode: opts.nationalityCode ?? 'TR',
+      ProductCode: opts.productCode ?? opts.hotelCode,
+      SearchKey: opts.searchKey,
       LanguageCode: opts.languageCode ?? 'tr',
+      TokenCode: tokenCode,
     },
   })
 }
@@ -546,11 +548,13 @@ export async function bookHotel(cfg, opts = {}) {
  * opts: { searchId, languageCode }
  */
 export async function getHotelAsyncResults(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetAsyncResults', {
+  // Gerçek endpoint: Hotel.svc /GetAsyncHotels
+  //   request.{ SearchId, ReturnNewResult, Token:{TokenCode} }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetAsyncHotels', {
     request: {
       Token: tokenObj(tokenCode),
       SearchId: opts.searchId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      ReturnNewResult: String(opts.returnNewResult ?? true),
     },
   })
 }
@@ -561,17 +565,14 @@ export async function getHotelAsyncResults(cfg, tokenCode, opts = {}) {
  * opts: { hotelCode, checkInDate, checkOutDate, rooms, nationalityCode, languageCode }
  */
 export async function getRoomOffers(cfg, tokenCode, opts = {}) {
-  const checkin = opts.checkInDate || formatDate(addDays(30))
-  const checkout = opts.checkOutDate || formatDate(addDays(37))
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetRoomOffers', {
+  // Oda teklif fiyatları: Hotel.svc /GetHotelRoomPrices
+  //   request.{ ProductCode, SearchKey, LanguageCode, TokenCode }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelRoomPrices', {
     request: {
-      Token: tokenObj(tokenCode),
-      HotelCode: opts.hotelCode,
-      CheckInDate: checkin,
-      CheckOutDate: checkout,
-      Rooms: normalizeRooms(opts.rooms),
-      NationalityCode: opts.nationalityCode ?? 'TR',
+      ProductCode: opts.productCode ?? opts.hotelCode,
+      SearchKey: opts.searchKey,
       LanguageCode: opts.languageCode ?? 'tr',
+      TokenCode: tokenCode,
     },
   })
 }
@@ -582,11 +583,12 @@ export async function getRoomOffers(cfg, tokenCode, opts = {}) {
  * opts: { packageId, languageCode }
  */
 export async function getRoomCancellationPolicies(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetRoomCancellationPolicies', {
+  // Gerçek endpoint: Hotel.svc /GetHotelRoomCancellationPolicies
+  //   request.{ ResultKeys[], TokenCode }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelRoomCancellationPolicies', {
     request: {
-      Token: tokenObj(tokenCode),
-      PackageId: opts.packageId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      ResultKeys: opts.resultKeys ?? (opts.resultKey ? [opts.resultKey] : []),
+      TokenCode: tokenCode,
     },
   })
 }
@@ -597,11 +599,11 @@ export async function getRoomCancellationPolicies(cfg, tokenCode, opts = {}) {
  * opts: { packageId, languageCode }
  */
 export async function getRoomRemarks(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetRoomRemarks', {
+  // Gerçek endpoint: Hotel.svc /GetHotelRoomRemarks → request.{ ResultKeys[], TokenCode }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelRoomRemarks', {
     request: {
-      Token: tokenObj(tokenCode),
-      PackageId: opts.packageId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      ResultKeys: opts.resultKeys ?? (opts.resultKey ? [opts.resultKey] : []),
+      TokenCode: tokenCode,
     },
   })
 }
@@ -612,11 +614,14 @@ export async function getRoomRemarks(cfg, tokenCode, opts = {}) {
  * opts: { packageId, languageCode }
  */
 export async function validateHotelRooms(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/ValidateHotelRooms', {
+  // Gerçek endpoint: Hotel.svc /ValidateHotelRoomsV2
+  //   request.{ Token:{TokenCode}, Hotel:{ Rooms:[{ Key, Paxes:[{PaxType,AdditionalServices}], AdditionalServices }] } }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2', {
     request: {
       Token: tokenObj(tokenCode),
-      PackageId: opts.packageId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      Hotel: {
+        Rooms: opts.rooms ?? [],
+      },
     },
   })
 }
@@ -629,9 +634,8 @@ export async function validateHotelRooms(cfg, tokenCode, opts = {}) {
 export async function getHotelPaymentOptions(cfg, tokenCode, opts = {}) {
   return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetPaymentOptions', {
     request: {
-      Token: tokenObj(tokenCode),
-      PackageId: opts.packageId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      TokenCode: tokenCode,
+      ResultKeys: opts.resultKeys ?? (opts.resultKey ? [opts.resultKey] : []),
     },
   })
 }
@@ -642,7 +646,8 @@ export async function getHotelPaymentOptions(cfg, tokenCode, opts = {}) {
  * opts: { tokenCode, packageId, hotelRoomPaxes, contactInfo, invoiceInfo, paymentInfo, languageCode }
  */
 export async function bookRoomOffers(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookRoomOffers', {
+  // Gerçek endpoint: Hotel.svc /BookHotel
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookHotel', {
     request: {
       ProcessId: null,
       Version: '2.0',
@@ -677,12 +682,12 @@ export async function bookRoomOffers(cfg, opts = {}) {
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getHotelReservation(cfg, tokenCode, opts = {}) {
+  // Gerçek şema: request.{ TokenCode, SystemPnr, LastName }
   return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/RetrieveReservation', {
     request: {
-      Token: tokenObj(tokenCode),
+      TokenCode: tokenCode,
       SystemPnr: opts.systemPnr ?? null,
-      Pnr: opts.pnr ?? null,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -693,11 +698,13 @@ export async function getHotelReservation(cfg, tokenCode, opts = {}) {
  * opts: { tokenCode, systemPnr, languageCode }
  */
 export async function confirmHotelReservation(cfg, opts = {}) {
+  // Gerçek şema: request.{ TokenCode, SystemPnr, LastName, PaymentInfo }
   return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/ConfirmReservation', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
+      ...(opts.paymentInfo ? { PaymentInfo: opts.paymentInfo } : {}),
     },
   })
 }
@@ -712,7 +719,7 @@ export async function cancelHotelReservation(cfg, opts = {}) {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -727,7 +734,7 @@ export async function voidHotelReservation(cfg, opts = {}) {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -738,13 +745,12 @@ export async function voidHotelReservation(cfg, opts = {}) {
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getHotelBooking(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetBooking', {
+  // Gerçek endpoint: Hotel.svc /GetHotelBooking → request.{ TokenCode, SystemPnr, LastName }
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelBooking', {
     request: {
-      Token: tokenObj(tokenCode),
+      TokenCode: tokenCode,
       SystemPnr: opts.systemPnr ?? null,
-      Pnr: opts.pnr ?? null,
-      ProductType: 1, // Hotel
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -777,43 +783,51 @@ export function pickHotelRows(payload) {
  * }
  */
 export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
-  const legs = (opts.legs ?? [{ originCode: 'IST', destinationCode: 'LHR', departureDate: formatDate(addDays(30)) }])
-    .map((l) => ({
-      OriginCode: l.originCode,
-      DestinationCode: l.destinationCode,
-      DepartureDate: l.departureDate,
-    }))
+  // Gerçek şema (Air.json /SearchAvailability):
+  //   request.Legs[].DeparturePoint/ArrivalPoint = { Code, HotpointType }, Date = "DD.MM.YYYY"
+  //   request.Passengers[] = { PaxType: "0"=ADT/"1"=CHD/"2"=INF, Count } (string)
+  //   request.SearchType: "0"=Oneway / "1"=Roundtrip / "2"=Multiple
+  //   request.AdvancedOptions.Air = { OnlyBestFares, OnlyDirectFlights, OnlyRefundableFlights, PermittedAirlineCodes }
+  const rawLegs = opts.legs ?? [
+    { originCode: 'IST', destinationCode: 'LHR', departureDate: formatDate(addDays(30)) },
+  ]
+  const legs = rawLegs.map((l) => ({
+    DeparturePoint: { Code: l.originCode ?? l.departurePointCode, HotpointType: String(l.departureHotpointType ?? 1) },
+    ArrivalPoint: { Code: l.destinationCode ?? l.arrivalPointCode, HotpointType: String(l.arrivalHotpointType ?? 1) },
+    Date: l.departureDate ?? l.date,
+  }))
 
-  const paxes = []
-  if ((opts.adults ?? 1) > 0) paxes.push({ PaxType: 0, Count: opts.adults ?? 1 }) // ADT
-  if ((opts.children ?? 0) > 0) paxes.push({ PaxType: 1, Count: opts.children, ChildAgeList: opts.childAges ?? null })
-  if ((opts.infants ?? 0) > 0) paxes.push({ PaxType: 2, Count: opts.infants })
+  const passengers = []
+  if ((opts.adults ?? 1) > 0) passengers.push({ PaxType: '0', Count: String(opts.adults ?? 1) })
+  if ((opts.children ?? 0) > 0) passengers.push({ PaxType: '1', Count: String(opts.children) })
+  if ((opts.infants ?? 0) > 0) passengers.push({ PaxType: '2', Count: String(opts.infants) })
+
+  // SearchType: tek bacak=Oneway(0), iki bacak=Roundtrip(1), >2=Multiple(2)
+  const searchType =
+    opts.searchType != null
+      ? String(opts.searchType)
+      : legs.length <= 1
+        ? '0'
+        : legs.length === 2
+          ? '1'
+          : '2'
 
   return kplusPost(
     cfg.baseUrl,
     opts.endpoint ?? '/Air.svc/Rest/Json/SearchAvailability',
     {
-      filter: {
+      request: {
         Token: tokenObj(tokenCode),
-        FlightType: opts.flightType ?? 0,
-        ResultType: opts.resultType ?? 0,
+        SearchType: searchType,
         Legs: legs,
-        Paxes: paxes,
-        CabinClass: opts.cabinClass ?? 0,
-        OnlyDirects: opts.onlyDirects ?? false,
+        Passengers: passengers,
         AdvancedOptions: {
-          // SearchTour yanıtı AdvancedOptions içinde Air/Hotel/Tour alt nesneleri
-          // gösterdi; Air aramasında sunucu AdvancedOptions.Air'ı dereference
-          // ediyor → null ise "Object reference not set". Bu yüzden Air objesi şart.
           Air: {
-            OnlyDirects: opts.onlyDirects ?? false,
-            CabinClass: opts.cabinClass ?? 0,
+            OnlyBestFares: opts.onlyBestFares ?? false,
+            OnlyDirectFlights: opts.onlyDirects ?? false,
+            OnlyRefundableFlights: opts.onlyRefundable ?? false,
+            ...(opts.permittedAirlineCodes ? { PermittedAirlineCodes: opts.permittedAirlineCodes } : {}),
           },
-          ProviderType: 0,
-          PriceCalculationType: 0,
-          SearchModuleType: 0,
-          MaxResponseTime: 0,
-          LanguageCode: opts.languageCode ?? 'tr',
         },
       },
     },
@@ -831,8 +845,7 @@ export async function getFlightBrandedFares(cfg, tokenCode, opts = {}) {
   return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/GetBrandedFares', {
     request: {
       Token: tokenObj(tokenCode),
-      ResultKey: opts.resultKey,
-      LanguageCode: opts.languageCode ?? 'tr',
+      FareAlternativeLegKeys: opts.fareAlternativeLegKeys ?? (opts.resultKey ? [opts.resultKey] : []),
     },
   })
 }
@@ -842,12 +855,13 @@ export async function getFlightBrandedFares(cfg, tokenCode, opts = {}) {
  * opts: { resultKeys: [...], languageCode }
  */
 export async function validateFlight(cfg, tokenCode, opts = {}) {
-  // Stoplight slug: /docs/travelrobot/7d4b0c33836d3-validate
+  // Gerçek şema: request.Air.FareAlternativeLegKeys[], request.Token.TokenCode
   return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/Validate', {
     request: {
       Token: tokenObj(tokenCode),
-      ResultKeys: opts.resultKeys ?? [],
-      LanguageCode: opts.languageCode ?? 'tr',
+      Air: {
+        FareAlternativeLegKeys: opts.fareAlternativeLegKeys ?? opts.resultKeys ?? [],
+      },
     },
   })
 }
@@ -861,8 +875,8 @@ export async function validateFlight(cfg, tokenCode, opts = {}) {
  * }
  */
 export async function createFlightReservation(cfg, opts = {}) {
-  // Stoplight slug: /docs/travelrobot/9f0551f752760-book-flight
-  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/BookFlight', {
+  // Gerçek endpoint: Air.svc /Book
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/Book', {
     request: {
       ProcessId: null,
       Version: '2.0',
@@ -896,12 +910,13 @@ export async function createFlightReservation(cfg, opts = {}) {
  * opts: { tokenCode, systemPnr, languageCode }
  */
 export async function issueTicketFromReservation(cfg, opts = {}) {
-  // Stoplight slug: /docs/travelrobot/66a6648e7506e-reservation-to-ticket
+  // Gerçek şema: request.{ TokenCode, SystemPnr, LastName, PaymentInfo }
   return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/ReservationToTicket', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName,
+      ...(opts.paymentInfo ? { PaymentInfo: opts.paymentInfo } : {}),
     },
   })
 }
@@ -966,29 +981,39 @@ export function pickFlightRows(payload) {
  * }
  */
 export async function searchTransfer(cfg, tokenCode, opts = {}) {
+  // Gerçek şema (Transfer.json /SearchTransfer):
+  //   request.Paxes[] = { PaxType: "0"=ADT/"1"=CHD, Count, ChildAgeList? }
+  //   request.Points[] = { Date: "DD.MM.YYYY HH:mm",
+  //                        PickUpPoint/DropOffPoint = { PlaceId, GeoLocation:{Latitude,Longitude} } }
+  //   request.SearchType: "0"=Oneway / "1"=Roundtrip
+  const paxes = opts.paxes ?? (() => {
+    const out = [{ PaxType: '0', Count: String(opts.adults ?? 2) }]
+    if ((opts.children ?? 0) > 0) {
+      out.push({ PaxType: '1', Count: String(opts.children), ChildAgeList: opts.childAges ?? [] })
+    }
+    return out
+  })()
+
+  const points = opts.points ?? [
+    {
+      Date: opts.transferDate || `${formatDate(addDays(7))} 14:00`,
+      PickUpPoint: {
+        PlaceId: opts.pickupPlaceId,
+        GeoLocation: { Latitude: opts.pickupLat, Longitude: opts.pickupLng },
+      },
+      DropOffPoint: {
+        PlaceId: opts.dropoffPlaceId,
+        GeoLocation: { Latitude: opts.dropoffLat, Longitude: opts.dropoffLng },
+      },
+    },
+  ]
+
   return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/SearchTransfer', {
-    filter: {
+    request: {
       Token: tokenObj(tokenCode),
-      PickupLocation: {
-        Code: opts.pickupLocationCode,
-        LocationType: opts.pickupType ?? 0, // 0=Airport, 1=Hotel, 2=Address
-      },
-      DropoffLocation: {
-        Code: opts.dropoffLocationCode,
-        LocationType: opts.dropoffType ?? 1,
-      },
-      TransferDate: opts.transferDate || formatDate(addDays(7)),
-      ReturnDate: opts.returnDate ?? null,
-      PaxCount: opts.paxCount ?? 2,
-      FlightNumber: opts.flightNumber ?? null,
-      AdvancedOptions: {
-        Transfer: {},
-        ProviderType: 0,
-        PriceCalculationType: 0,
-        SearchModuleType: 0,
-        MaxResponseTime: 0,
-        LanguageCode: opts.languageCode ?? 'tr',
-      },
+      SearchType: opts.searchType != null ? String(opts.searchType) : '0',
+      Paxes: paxes,
+      Points: points,
     },
   })
 }
@@ -999,11 +1024,11 @@ export async function searchTransfer(cfg, tokenCode, opts = {}) {
  * opts: { offerId, languageCode }
  */
 export async function validateTransferOffer(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/ValidateOffer', {
+  // Gerçek endpoint: Transfer.svc /Validate → request.Transfer.ResultKey, request.Token
+  return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/Validate', {
     request: {
       Token: tokenObj(tokenCode),
-      OfferId: opts.offerId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      Transfer: { ResultKey: opts.resultKey ?? opts.offerId },
     },
   })
 }
@@ -1014,11 +1039,11 @@ export async function validateTransferOffer(cfg, tokenCode, opts = {}) {
  * opts: { offerId, languageCode }
  */
 export async function getTransferPaymentOptions(cfg, tokenCode, opts = {}) {
+  // Gerçek şema: request.{ ResultKeys[], TokenCode }
   return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/GetPaymentOptions', {
     request: {
-      Token: tokenObj(tokenCode),
-      OfferId: opts.offerId,
-      LanguageCode: opts.languageCode ?? 'tr',
+      TokenCode: tokenCode,
+      ResultKeys: opts.resultKeys ?? (opts.resultKey ? [opts.resultKey] : []),
     },
   })
 }
@@ -1033,32 +1058,19 @@ export async function getTransferPaymentOptions(cfg, tokenCode, opts = {}) {
  * }
  */
 export async function bookTransfer(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/BookTransfer', {
+  // Gerçek endpoint: Transfer.svc /Book
+  //   request.{ ContactInfo, ExtraInfo:{TransferMeeting:{Points,WelComeName}},
+  //             InvoiceInfo, PaxInfo:{TransferPaxes:[{Pax,TransferPaxType}]},
+  //             PaymentInfo:{PaymentType}, ResultKeys[], TokenCode }
+  return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/Book', {
     request: {
-      ProcessId: null,
-      Version: '2.0',
-      ProductType: 3, // Transfer
       TokenCode: opts.tokenCode,
-      OfferId: opts.offerId,
-      PaxInfo: {
-        HotelRoomPaxes: null,
-        FlightPaxes: null,
-        CarPax: null,
-        TourRoomPaxes: null,
-        TransferPaxes: opts.paxes ?? [],
-        PackagePaxes: null,
-        VisaPaxes: null,
-        ActivityPaxes: null,
-      },
-      FlightNumber: opts.flightNumber ?? null,
+      ResultKeys: opts.resultKeys ?? (opts.resultKey ? [opts.resultKey] : []),
       ContactInfo: opts.contactInfo,
       InvoiceInfo: opts.invoiceInfo,
-      CorporateInfo: null,
-      BookingNote: opts.bookingNote ?? null,
-      AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      PaymentInfo: opts.paymentInfo,
-      LanguageCode: opts.languageCode ?? 'tr',
-      WithPrice: false,
+      PaxInfo: { TransferPaxes: opts.transferPaxes ?? opts.paxes ?? [] },
+      ...(opts.extraInfo ? { ExtraInfo: opts.extraInfo } : {}),
+      PaymentInfo: opts.paymentInfo ?? { PaymentType: '2' },
     },
   })
 }
@@ -1069,13 +1081,12 @@ export async function bookTransfer(cfg, opts = {}) {
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getTransferBooking(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetBooking', {
+  // Gerçek endpoint: Transfer.svc /GetBooking → request.{ TokenCode, SystemPnr, LastName }
+  return kplusPost(cfg.baseUrl, '/Transfer.svc/Rest/Json/GetBooking', {
     request: {
-      Token: tokenObj(tokenCode),
+      TokenCode: tokenCode,
       SystemPnr: opts.systemPnr ?? null,
-      Pnr: opts.pnr ?? null,
-      ProductType: 3, // Transfer
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -1112,12 +1123,11 @@ export async function getFareRules(cfg, tokenCode, opts = {}) {
  * opts: { resultKeys, languageCode }
  */
 export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
-  // Stoplight slug: /docs/travelrobot/faec77bc3ea78-payment-options
-  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/PaymentOptions', {
+  // Gerçek endpoint: Air.svc /GetPaymentOptions
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/GetPaymentOptions', {
     request: {
       Token: tokenObj(tokenCode),
       ResultKeys: opts.resultKeys ?? [],
-      LanguageCode: opts.languageCode ?? 'tr',
     },
   })
 }
@@ -1128,12 +1138,12 @@ export async function getPaymentOptions(cfg, tokenCode, opts = {}) {
  * opts: { systemPnr, pnr, languageCode }
  */
 export async function getReservation(cfg, tokenCode, opts = {}) {
+  // Gerçek şema: request.{ TokenCode, SystemPnr, LastName }
   return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/RetrieveReservation', {
     request: {
-      Token: tokenObj(tokenCode),
+      TokenCode: tokenCode,
       SystemPnr: opts.systemPnr ?? null,
-      Pnr: opts.pnr ?? null,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -1147,7 +1157,7 @@ export async function cancelFlightReservation(cfg, opts = {}) {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -1157,12 +1167,12 @@ export async function cancelFlightReservation(cfg, opts = {}) {
  * opts: { tokenCode, systemPnr, ticketNumbers, languageCode }
  */
 export async function voidTicket(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/VoidTicket', {
+  // Gerçek endpoint: Air.svc /Void → request.{ TokenCode, SystemPnr, LastName }
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/Void', {
     request: {
       TokenCode: opts.tokenCode,
       SystemPnr: opts.systemPnr,
-      TicketNumbers: opts.ticketNumbers ?? [],
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }
@@ -1172,13 +1182,14 @@ export async function voidTicket(cfg, opts = {}) {
  * opts: { systemPnr, pnr, productType, languageCode }
  */
 export async function getBooking(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/General.svc/Rest/Json/GetBooking', {
+  // GetBooking her serviste ayrı: Air.svc/Transfer.svc /GetBooking, Hotel.svc /GetHotelBooking.
+  // Genel kullanımda servis seçilebilir; varsayılan Air.
+  const svc = opts.svcPath ?? '/Air.svc/Rest/Json/GetBooking'
+  return kplusPost(cfg.baseUrl, svc, {
     request: {
-      Token: tokenObj(tokenCode),
+      TokenCode: tokenCode,
       SystemPnr: opts.systemPnr ?? null,
-      Pnr: opts.pnr ?? null,
-      ProductType: opts.productType ?? 0,
-      LanguageCode: opts.languageCode ?? 'tr',
+      LastName: opts.lastName ?? null,
     },
   })
 }

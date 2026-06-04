@@ -38,3 +38,6 @@ frontend/public/uploads/
 # Bravo aktarım yedekleri (dump / SQL — repoya gitmez)
 backups/
 scripts/old-detail-*.json
+
+# Travelrobot OpenAPI spec dump (referans; ~12MB, repoya gitmez)
+scripts/.travelrobot-spec/

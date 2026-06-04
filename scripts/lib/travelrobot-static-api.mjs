@@ -1,62 +1,48 @@
 /**
  * Travelrobot Static Content API istemcisi.
  *
- * Bu, ana Travelrobot API'den AYRI bir API'dir.
- * Statik içerik (otel kodları, destinasyonlar, ülkeler) döndürür.
- * İmport scriptlerinde otel/destinasyon katalog senkronizasyonu için kullanılır.
+ * Bu, ana Travelrobot (KPlus) API'sinden TAMAMEN AYRI bir API'dir:
+ *   - Base URL: https://static.travelchain.online/api  (cfg.staticBaseUrl ile override edilebilir)
+ *   - Kimlik: POST /token/authenticate  → header'da `user` ve `pwd`, yanıtta { token, expiration }
+ *   - Diğer uçlar: header `Authorization: Bearer <token>`
  *
  * Stoplight: https://kplus.stoplight.io/docs/travelrobot/cuy9w274y7z9q-travelrobot-static-content-api
  *
- * Akış:
- *   authenticate → getCountries / getDestinations / getAllHotelCodes / getHotelCodes / getHotelContent
- *
- * Not: Bu API farklı bir base URL veya auth mekanizması kullanabilir.
- * Sandbox'ta muhtemelen aynı base URL + farklı servis path'i.
+ * Uçlar:
+ *   POST /token/authenticate            (header: user, pwd)
+ *   GET  /country/getCountries          (Bearer)
+ *   POST /hotel/getDestinations         { CountryCode, Codes[] } (Bearer)
+ *   GET  /hotel/getAllHotelCodes        (Bearer)
+ *   POST /hotel/getHotelCodes           { LastUpdateDateTime }   (Bearer)
+ *   POST /hotel/getHotels               { Codes[] }              (Bearer)
  */
 
 import { loadTravelrobotConfigFromDb } from './listing-api-providers-db.mjs'
+
+const DEFAULT_STATIC_BASE_URL = 'https://static.travelchain.online/api'
 
 export async function loadTravelrobotConfig() {
   return loadTravelrobotConfigFromDb()
 }
 
+function staticBaseUrl(cfg) {
+  return cfg.staticBaseUrl || DEFAULT_STATIC_BASE_URL
+}
+
 function joinUrl(base, path) {
   const p = path.startsWith('/') ? path : `/${path}`
-  return `${base}${p}`
+  return `${base.replace(/\/$/, '')}${p}`
 }
 
-async function staticPost(baseUrl, svcPath, body) {
-  const url = joinUrl(baseUrl, svcPath)
+async function staticFetch(cfg, svcPath, { method = 'GET', token, body, headers = {} } = {}) {
+  const url = joinUrl(staticBaseUrl(cfg), svcPath)
+  const h = { Accept: 'application/json', ...headers }
+  if (token) h.Authorization = `Bearer ${token}`
+  if (body !== undefined) h['Content-Type'] = 'application/json'
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const text = await res.text()
-  let json = null
-  if (text.trim()) {
-    try {
-      json = JSON.parse(text)
-    } catch {
-      throw new Error(`${svcPath}: geçersiz JSON (HTTP ${res.status}) — ${text.slice(0, 200)}`)
-    }
-  }
-  if (!res.ok || json?.HasError) {
-    const msg = json?.ErrorMessage || json?.Message || text.slice(0, 300) || res.statusText
-    throw new Error(`${svcPath}: ${msg}`)
-  }
-  return json
-}
-
-async function staticGet(baseUrl, svcPath, params = {}) {
-  const qs = Object.entries(params)
-    .filter(([, v]) => v != null)
-    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&')
-  const url = `${joinUrl(baseUrl, svcPath)}${qs ? `?${qs}` : ''}`
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: { Accept: 'application/json' },
+    method,
+    headers: h,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   })
   const text = await res.text()
   let json = null
@@ -68,8 +54,8 @@ async function staticGet(baseUrl, svcPath, params = {}) {
     }
   }
   if (!res.ok) {
-    const msg = json?.ErrorMessage || json?.Message || text.slice(0, 300) || res.statusText
-    throw new Error(`${svcPath}: ${msg}`)
+    const msg = json?.message || json?.Message || json?.error || text.slice(0, 300) || res.statusText
+    throw new Error(`${svcPath}: ${msg} (HTTP ${res.status})`)
   }
   return json
 }
@@ -78,110 +64,103 @@ async function staticGet(baseUrl, svcPath, params = {}) {
 
 /**
  * Static Content API kimlik doğrulama.
- * Stoplight: /docs/travelrobot/534aa6e611ab3-authentication
- * Ana API'den farklı bir endpoint veya aynı CreateTokenV2 olabilir.
- * opts: { channelCode, channelPassword }
+ * POST /token/authenticate — kullanıcı adı/şifre header'da (user / pwd).
+ * Yanıt: { token, expiration }
+ * opts: { user, password }  (yoksa cfg.staticUser/staticPassword, o da yoksa channelCode/Password)
  */
 export async function authenticateStatic(cfg, opts = {}) {
-  const channelCode = opts.channelCode ?? cfg.channelCode
-  const channelPassword = opts.channelPassword ?? cfg.channelPassword
-  const json = await staticPost(cfg.baseUrl, '/General.svc/Rest/Json/CreateTokenV2', {
-    channelCredential: {
-      ChannelCode: channelCode,
-      ChannelPassword: channelPassword,
-    },
+  const user = opts.user ?? cfg.staticUser ?? cfg.channelCode
+  const pwd = opts.password ?? cfg.staticPassword ?? cfg.channelPassword
+  const json = await staticFetch(cfg, '/token/authenticate', {
+    method: 'POST',
+    headers: { user, pwd },
   })
-  const token = json?.Result?.TokenCode || json?.TokenCode || json?.tokenCode || ''
-  if (!token) throw new Error('Static Auth: TokenCode yok')
-  return { tokenCode: String(token), raw: json }
+  const token = json?.token || json?.Token || ''
+  if (!token) throw new Error('Static Auth: token yok yanıtta')
+  return { token: String(token), expiration: json?.expiration ?? null, raw: json }
 }
 
 // ─── Ülkeler ──────────────────────────────────────────────────────────────────
 
 /**
- * Tüm ülkeleri listele (statik katalog).
- * Stoplight: /docs/travelrobot/d2aa388ae2dfc-get-countries
- * opts: { tokenCode, languageCode }
+ * Tüm ülkeleri listele.
+ * GET /country/getCountries  (Bearer)
  */
-export async function getStaticCountries(cfg, tokenCode, opts = {}) {
-  return staticGet(cfg.baseUrl, '/StaticContent.svc/Rest/Json/GetCountries', {
-    TokenCode: tokenCode,
-    LanguageCode: opts.languageCode ?? 'tr',
-  })
+export async function getStaticCountries(cfg, token) {
+  return staticFetch(cfg, '/country/getCountries', { method: 'GET', token })
 }
 
 // ─── Destinasyonlar ───────────────────────────────────────────────────────────
 
 /**
- * Tüm destinasyonları/şehirleri listele.
- * Stoplight: /docs/travelrobot/cb085ab4bc2d1-get-destinations
- * opts: { tokenCode, countryCode, languageCode }
+ * Destinasyonları listele.
+ * POST /hotel/getDestinations  { CountryCode, Codes[] }  (Bearer)
+ * opts: { countryCode, codes }
  */
-export async function getDestinations(cfg, tokenCode, opts = {}) {
-  return staticGet(cfg.baseUrl, '/StaticContent.svc/Rest/Json/GetDestinations', {
-    TokenCode: tokenCode,
-    CountryCode: opts.countryCode ?? null,
-    LanguageCode: opts.languageCode ?? 'tr',
+export async function getDestinations(cfg, token, opts = {}) {
+  return staticFetch(cfg, '/hotel/getDestinations', {
+    method: 'POST',
+    token,
+    body: {
+      CountryCode: opts.countryCode ?? null,
+      Codes: opts.codes ?? [],
+    },
   })
 }
 
 // ─── Otel kodları ─────────────────────────────────────────────────────────────
 
 /**
- * Tüm otel kodlarını listele (sayfalı).
- * Stoplight: /docs/travelrobot/f3e5e8201a190-get-all-hotel-codes
- * GET endpoint — tüm sisteme ait otel kodu listesi.
- * opts: { tokenCode, pageNumber, pageSize }
+ * Tüm otel kodlarını al.
+ * GET /hotel/getAllHotelCodes  (Bearer)
  */
-export async function getAllHotelCodes(cfg, tokenCode, opts = {}) {
-  return staticGet(cfg.baseUrl, '/StaticContent.svc/Rest/Json/GetAllHotelCodes', {
-    TokenCode: tokenCode,
-    PageNumber: opts.pageNumber ?? 1,
-    PageSize: opts.pageSize ?? 1000,
-  })
+export async function getAllHotelCodes(cfg, token) {
+  return staticFetch(cfg, '/hotel/getAllHotelCodes', { method: 'GET', token })
 }
 
 /**
- * Belirli destinasyon/ülkeye göre otel kodları.
- * Stoplight: /docs/travelrobot/12374e0c84115-get-hotel-codes
- * opts: { tokenCode, destinationId, countryCode, languageCode }
+ * Belirli tarihten sonra güncellenen otel kodları (incremental).
+ * POST /hotel/getHotelCodes  { LastUpdateDateTime }  (Bearer)
+ * opts: { lastUpdateDateTime }
  */
-export async function getHotelCodes(cfg, tokenCode, opts = {}) {
-  return staticGet(cfg.baseUrl, '/StaticContent.svc/Rest/Json/GetHotelCodes', {
-    TokenCode: tokenCode,
-    DestinationId: opts.destinationId ?? null,
-    CountryCode: opts.countryCode ?? null,
-    LanguageCode: opts.languageCode ?? 'tr',
+export async function getHotelCodes(cfg, token, opts = {}) {
+  return staticFetch(cfg, '/hotel/getHotelCodes', {
+    method: 'POST',
+    token,
+    body: { LastUpdateDateTime: opts.lastUpdateDateTime ?? null },
   })
 }
 
 // ─── Otel içeriği ─────────────────────────────────────────────────────────────
 
 /**
- * Otel detay içeriği — statik bilgiler (adı, tesisleri, görseller).
- * Stoplight: /docs/travelrobot/f25b7fabfcfae-get-hotel-s-content
- * opts: { tokenCode, hotelCode, languageCode }
+ * Belirli otel kodları için tam içerik (adı, tesisler, görseller).
+ * POST /hotel/getHotels  { Codes[] }  (Bearer)
+ * hotelCodes: string[]
  */
-export async function getHotelContent(cfg, tokenCode, hotelCode, opts = {}) {
-  return staticGet(cfg.baseUrl, '/StaticContent.svc/Rest/Json/GetHotelContent', {
-    TokenCode: tokenCode,
-    HotelCode: hotelCode,
-    LanguageCode: opts.languageCode ?? 'tr',
+export async function getHotelContent(cfg, token, hotelCodes = []) {
+  const codes = Array.isArray(hotelCodes) ? hotelCodes : [hotelCodes]
+  return staticFetch(cfg, '/hotel/getHotels', {
+    method: 'POST',
+    token,
+    body: { Codes: codes },
   })
 }
 
 /**
- * Birden fazla otelin içeriğini toplu al.
- * opts: { tokenCode, hotelCodes: string[], languageCode }
+ * Çok sayıda otel içeriğini parçalar halinde al (getHotels chunk'lanır).
+ * opts: { chunkSize }
  */
-export async function getBulkHotelContent(cfg, tokenCode, hotelCodes = [], opts = {}) {
+export async function getBulkHotelContent(cfg, token, hotelCodes = [], opts = {}) {
+  const chunkSize = opts.chunkSize ?? 50
   const results = []
-  for (const code of hotelCodes) {
+  for (let i = 0; i < hotelCodes.length; i += chunkSize) {
+    const chunk = hotelCodes.slice(i, i + chunkSize)
     try {
-      const data = await getHotelContent(cfg, tokenCode, code, opts)
-      results.push({ code, data })
+      const data = await getHotelContent(cfg, token, chunk)
+      results.push({ codes: chunk, data })
     } catch (e) {
-      results.push({ code, error: String(e) })
+      results.push({ codes: chunk, error: String(e) })
     }
   }
   return results

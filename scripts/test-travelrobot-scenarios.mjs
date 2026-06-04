@@ -62,9 +62,9 @@ import {
 import {
   authenticateStatic,
   getAllHotelCodes,
-  getHotelCodes,
   getDestinations,
   getStaticCountries,
+  getHotelContent,
 } from './lib/travelrobot-static-api.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -767,32 +767,43 @@ async function main() {
   // TRANSFER SENARYOLARI
   // ═══════════════════════════════════════════════════════════════════════════
 
-  section('Transfer-S1: SearchTransfer (Havalimanı → Otel)')
+  section('Transfer-S1: SearchTransfer (Taksim → IST Havalimanı)')
   try {
-    const transferDate = addDays(7)
+    // Gerçek şema: Points[].PickUpPoint/DropOffPoint = { PlaceId, GeoLocation }
+    // Örnek noktalar Stoplight Transfer örneğinden (Taksim ↔ IST Havalimanı).
+    const transferPoints = [
+      {
+        Date: `${addDays(7)} 14:00`,
+        PickUpPoint: {
+          PlaceId: 'ChIJY71WBmW3yhQRw7YgjLJYoIw',
+          GeoLocation: { Latitude: 41.0370014, Longitude: 28.9763369 },
+        },
+        DropOffPoint: {
+          PlaceId: 'ChIJqZW8Cvb_n0ARBuUkyCzgDDg',
+          GeoLocation: { Latitude: 41.2567349, Longitude: 28.740408 },
+        },
+      },
+    ]
     const payload = await searchTransfer(cfg, tokenCode, {
-      pickupLocationCode: 'IST', // Istanbul havalimanı
-      dropoffLocationCode: 'KTR431805', // Radisson Blu Istanbul (otel kodu)
-      pickupType: 0, // Airport
-      dropoffType: 1, // Hotel
-      transferDate,
-      paxCount: 2,
+      points: transferPoints,
+      searchType: 0,
+      adults: 2,
       languageCode: 'tr',
     })
     const rows = pickTransferRows(payload)
     log('Transfer-S1', 'SearchTransfer', '/Transfer.svc/Rest/Json/SearchTransfer',
-      { pickupLocationCode: 'IST', dropoffLocationCode: 'KTR431805', transferDate }, payload, rows.length >= 0)
+      { points: transferPoints }, payload, rows.length >= 0)
     if (rows.length > 0) {
-      ok('SearchTransfer IST→Otel', `${rows.length} teklif bulundu`)
+      ok('SearchTransfer Taksim→IST', `${rows.length} teklif bulundu`)
       const first = rows[0]
-      const offerId = first?.OfferId ?? first?.offerId ?? first?.Id ?? null
-      ok('İlk transfer teklifi', `OfferId: ${offerId} — ${preview(first, 150)}`)
+      const resultKey = first?.ResultKey ?? first?.resultKey ?? first?.OfferId ?? null
+      ok('İlk transfer teklifi', `ResultKey: ${String(resultKey).slice(0, 40)}…`)
     } else {
-      fail('SearchTransfer IST→Otel', `Sonuç yok (sandbox kısıtlı olabilir) — ${preview(payload, 400)}`)
+      fail('SearchTransfer Taksim→IST', `Sonuç yok (sandbox kısıtlı olabilir) — ${preview(payload, 400)}`)
     }
   } catch (e) {
     log('Transfer-S1', 'SearchTransfer', '/Transfer.svc/Rest/Json/SearchTransfer', {}, String(e), false)
-    fail('SearchTransfer IST→Otel', e)
+    fail('SearchTransfer Taksim→IST', e)
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -803,60 +814,61 @@ async function main() {
   let staticToken = null
   try {
     const result = await authenticateStatic(cfg)
-    staticToken = result.tokenCode
-    log('StaticContent-S1', 'Authenticate', '/General.svc/Rest/Json/CreateTokenV2 (static)',
-      { ChannelCode: cfg.channelCode }, result.raw, true)
+    staticToken = result.token
+    log('StaticContent-S1', 'Authenticate', 'https://static.travelchain.online/api/token/authenticate',
+      { user: cfg.staticUser ?? cfg.channelCode }, result.raw, true)
     ok('StaticContent Auth', `Token: ${staticToken.length} karakter`)
   } catch (e) {
-    log('StaticContent-S1', 'Authenticate', '/General.svc/Rest/Json/CreateTokenV2', {}, String(e), false)
+    log('StaticContent-S1', 'Authenticate', 'https://static.travelchain.online/api/token/authenticate', {}, String(e), false)
     fail('StaticContent Auth', e)
   }
 
   if (staticToken) {
-    section('StaticContent-S2: GetCountries (Statik)')
+    const STATIC_BASE = 'https://static.travelchain.online/api'
+
+    section('StaticContent-S2: getCountries (Statik)')
     try {
-      const payload = await getStaticCountries(cfg, staticToken, { languageCode: 'tr' })
-      log('StaticContent-S2', 'GetCountries', '/StaticContent.svc/Rest/Json/GetCountries', {}, payload, true)
+      const payload = await getStaticCountries(cfg, staticToken)
+      log('StaticContent-S2', 'GET', `${STATIC_BASE}/country/getCountries`, {}, payload, true)
       const list = payload?.Result ?? payload?.Countries ?? payload ?? []
-      ok('GetCountries (Static)', `${Array.isArray(list) ? list.length : '?'} ülke`)
+      ok('getCountries (Static)', `${Array.isArray(list) ? list.length : '?'} ülke`)
     } catch (e) {
-      log('StaticContent-S2', 'GetCountries', '/StaticContent.svc/Rest/Json/GetCountries', {}, String(e), false)
-      fail('GetCountries (Static)', e)
+      log('StaticContent-S2', 'GET', `${STATIC_BASE}/country/getCountries`, {}, String(e), false)
+      fail('getCountries (Static)', e)
     }
 
-    section('StaticContent-S3: GetDestinations (Destinasyonlar)')
+    section('StaticContent-S3: getDestinations (Destinasyonlar)')
     try {
-      const payload = await getDestinations(cfg, staticToken, { languageCode: 'tr' })
-      log('StaticContent-S3', 'GetDestinations', '/StaticContent.svc/Rest/Json/GetDestinations', {}, payload, true)
+      const payload = await getDestinations(cfg, staticToken, { countryCode: 'TR' })
+      log('StaticContent-S3', 'POST', `${STATIC_BASE}/hotel/getDestinations`, { CountryCode: 'TR' }, payload, true)
       const list = payload?.Result ?? payload?.Destinations ?? payload ?? []
-      ok('GetDestinations', `${Array.isArray(list) ? list.length : '?'} destinasyon`)
+      ok('getDestinations', `${Array.isArray(list) ? list.length : '?'} destinasyon`)
     } catch (e) {
-      log('StaticContent-S3', 'GetDestinations', '/StaticContent.svc/Rest/Json/GetDestinations', {}, String(e), false)
-      fail('GetDestinations', e)
+      log('StaticContent-S3', 'POST', `${STATIC_BASE}/hotel/getDestinations`, {}, String(e), false)
+      fail('getDestinations', e)
     }
 
-    section('StaticContent-S4: GetAllHotelCodes (Tüm Otel Kodları)')
+    section('StaticContent-S4: getAllHotelCodes (Tüm Otel Kodları)')
     try {
-      const payload = await getAllHotelCodes(cfg, staticToken, { pageNumber: 1, pageSize: 100 })
-      log('StaticContent-S4', 'GetAllHotelCodes', '/StaticContent.svc/Rest/Json/GetAllHotelCodes',
-        { PageNumber: 1, PageSize: 100 }, payload, true)
+      const payload = await getAllHotelCodes(cfg, staticToken)
+      log('StaticContent-S4', 'GET', `${STATIC_BASE}/hotel/getAllHotelCodes`, {}, payload, true)
       const list = payload?.Result ?? payload?.HotelCodes ?? payload ?? []
-      ok('GetAllHotelCodes', `${Array.isArray(list) ? list.length : '?'} kod (sayfa 1/100)`)
+      ok('getAllHotelCodes', `${Array.isArray(list) ? list.length : '?'} kod`)
     } catch (e) {
-      log('StaticContent-S4', 'GetAllHotelCodes', '/StaticContent.svc/Rest/Json/GetAllHotelCodes', {}, String(e), false)
-      fail('GetAllHotelCodes', e)
+      log('StaticContent-S4', 'GET', `${STATIC_BASE}/hotel/getAllHotelCodes`, {}, String(e), false)
+      fail('getAllHotelCodes', e)
     }
 
-    section('StaticContent-S5: GetHotelCodes (Destinasyona göre — Istanbul)')
+    section('StaticContent-S5: getHotels (Otel içeriği — test kodları)')
     try {
-      const payload = await getHotelCodes(cfg, staticToken, { destinationId: 10033097, languageCode: 'tr' })
-      log('StaticContent-S5', 'GetHotelCodes', '/StaticContent.svc/Rest/Json/GetHotelCodes',
-        { DestinationId: 10033097 }, payload, true)
-      const list = payload?.Result ?? payload?.HotelCodes ?? payload ?? []
-      ok('GetHotelCodes Istanbul', `${Array.isArray(list) ? list.length : '?'} otel kodu`)
+      const codes = ['KTR431805', 'KTR672265']
+      const payload = await getHotelContent(cfg, staticToken, codes)
+      log('StaticContent-S5', 'POST', `${STATIC_BASE}/hotel/getHotels`, { Codes: codes }, payload, true)
+      const list = payload?.Result ?? payload?.Hotels ?? payload ?? []
+      ok('getHotels', `${Array.isArray(list) ? list.length : '?'} otel içeriği`)
     } catch (e) {
-      log('StaticContent-S5', 'GetHotelCodes', '/StaticContent.svc/Rest/Json/GetHotelCodes', {}, String(e), false)
-      fail('GetHotelCodes Istanbul', e)
+      log('StaticContent-S5', 'POST', `${STATIC_BASE}/hotel/getHotels`, {}, String(e), false)
+      fail('getHotels', e)
     }
   }
 
