@@ -77,7 +77,7 @@ function defaultSuggestions(): LocationSuggestion[] {
 async function yolcu360Suggestions(q: string, apiBase: string): Promise<LocationSuggestion[]> {
   try {
     const res = await fetch(
-      `${apiBase}/api/v1/integrations/yolcu360/locations?query=${encodeURIComponent(q)}`,
+      `${apiBase}/api/v1/public/yolcu360/locations?query=${encodeURIComponent(q)}`,
       { cache: 'no-store' },
     )
     if (!res.ok) return []

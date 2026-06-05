@@ -9,41 +9,10 @@
  */
 
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { normalizeYolcu360Cars, type Yolcu360Car } from '@/lib/yolcu360-cars'
 import { NextRequest, NextResponse } from 'next/server'
 
-export interface Yolcu360Car {
-  id: string
-  vehicleClass?: string
-  brand?: string
-  model?: string
-  imageUrl?: string
-  thumbnailUrl?: string
-  dailyPrice?: number
-  totalPrice?: number
-  currency?: string
-  transmission?: string
-  seats?: number
-  fuelType?: string
-  bags?: number
-  vendorName?: string
-  vendorLogo?: string
-  requiresFindeks?: boolean
-  pickupLocationId?: string
-  returnLocationId?: string
-  [key: string]: unknown
-}
-
-function normalizeCars(raw: unknown): Yolcu360Car[] {
-  if (Array.isArray(raw)) return raw as Yolcu360Car[]
-  if (raw && typeof raw === 'object') {
-    const r = raw as Record<string, unknown>
-    if (Array.isArray(r['data'])) return r['data'] as Yolcu360Car[]
-    if (Array.isArray(r['cars'])) return r['cars'] as Yolcu360Car[]
-    if (Array.isArray(r['vehicles'])) return r['vehicles'] as Yolcu360Car[]
-    if (Array.isArray(r['results'])) return r['results'] as Yolcu360Car[]
-  }
-  return []
-}
+export type { Yolcu360Car }
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
@@ -84,7 +53,7 @@ export async function GET(req: NextRequest) {
     }
 
     const raw = await res.json()
-    const cars = normalizeCars(raw)
+    const cars = normalizeYolcu360Cars(raw)
     return NextResponse.json({ cars })
   } catch {
     return NextResponse.json({ error: 'yolcu360_http_failed' }, { status: 502 })

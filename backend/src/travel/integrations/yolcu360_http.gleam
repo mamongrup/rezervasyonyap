@@ -118,7 +118,7 @@ pub fn post_ping(req: Request, ctx: Context) -> Response {
 pub fn get_cars_public(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
   let cfg = yolcu360_config.load(ctx.db)
-  case cfg.enabled && yolcu360_config.credentials_ready(cfg) {
+  case yolcu360_config.credentials_ready(cfg) {
     False -> json_err(503, "yolcu360_not_enabled")
     True -> {
       let qs = case request.get_query(req) {
@@ -155,6 +155,33 @@ pub fn get_cars_public(req: Request, ctx: Context) -> Response {
             Ok(cars) -> wisp.json_response(cars.raw_response, 200)
           }
         }
+      }
+    }
+  }
+}
+
+/// GET /api/v1/public/yolcu360/locations?query= — vitrin konum araması (kimlik gerekmez)
+pub fn get_locations_public(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let cfg = yolcu360_config.load(ctx.db)
+  case yolcu360_config.credentials_ready(cfg) {
+    False -> json_err(503, "yolcu360_not_enabled")
+    True -> {
+      let qs = case request.get_query(req) {
+        Ok(q) -> q
+        Error(_) -> []
+      }
+      let query =
+        list.key_find(qs, "query")
+        |> result.unwrap("")
+        |> string.trim
+      case query == "" {
+        True -> json_err(400, "query_required")
+        False ->
+          case yolcu360.search_locations(cfg, query) {
+            Error(e) -> json_err(502, e)
+            Ok(loc) -> wisp.json_response(loc.raw_response, 200)
+          }
       }
     }
   }

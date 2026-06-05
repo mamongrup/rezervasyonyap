@@ -262,6 +262,8 @@ const TR_BY_CODE: Record<string, string> = {
   travelrobot_token_parse_failed: 'Travelrobot token yanıtı okunamadı.',
   travelrobot_http_failed: 'Travelrobot API’ye bağlanılamadı.',
   yolcu360_credentials_missing: 'Yolcu360 API Key / Secret eksik.',
+  yolcu360_not_enabled: 'Yolcu360 API Key / Secret kayıtlı değil. Yönetim → API sağlayıcıları bölümünden kaydedin.',
+  yolcu360_location_not_found: 'Yolcu360 bu konumu bulamadı. Listeden bir teslim noktası seçin.',
   yolcu360_api_error: 'Yolcu360 API hata döndü.',
   yolcu360_http_failed: 'Yolcu360 API’ye bağlanılamadı.',
   forbidden: 'Bu işlem için yetkiniz yok (admin.integrations.write).',

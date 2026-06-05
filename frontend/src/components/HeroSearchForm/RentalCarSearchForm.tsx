@@ -28,10 +28,14 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
     const params = { ...formDataToStringRecord(formData), drop_off_mode: dropOffLocationType }
     runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
     const location = formDataEntries['pickup-location'] as string
+    const dropoffLocation = formDataEntries['dropoff-location'] as string
     const checkin = formDataEntries['checkin'] as string
     const checkout = formDataEntries['checkout'] as string
     const searchParams = new URLSearchParams()
     if (location) searchParams.set('location', location)
+    if (dropOffLocationType === 'different' && dropoffLocation) {
+      searchParams.set('drop_off_location', dropoffLocation)
+    }
     if (checkin) searchParams.set('checkin', checkin)
     if (checkout) searchParams.set('checkout', checkout)
     searchParams.set('drop_off', dropOffLocationType)
@@ -85,6 +89,7 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
           className="hero-search-form__field-after flex-1"
           inputName="pickup-location"
           fieldStyle={formStyle}
+          locationSearchType="car"
         />
         {isDdropOffdifferent && (
           <>
@@ -95,6 +100,7 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
               className="hero-search-form__field-before hero-search-form__field-after flex-1"
               inputName="dropoff-location"
               fieldStyle={formStyle}
+              locationSearchType="car"
             />
           </>
         )}

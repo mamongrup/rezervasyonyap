@@ -178,6 +178,18 @@ export default function AdminListingApiProvidersSection() {
     setSaving(true)
     setMsg(null)
     try {
+      const payload: ListingApiProvidersSettings = {
+        ...settings,
+        yolcu360: {
+          ...settings.yolcu360,
+          enabled:
+            settings.yolcu360.enabled
+            || (
+              settings.yolcu360.api_key.trim() !== ''
+              && settings.yolcu360.api_secret.trim() !== ''
+            ),
+        },
+      }
       const res = await fetch(`${API_BASE}/api/v1/site/settings`, {
         method: 'PUT',
         headers: {
@@ -186,14 +198,20 @@ export default function AdminListingApiProvidersSection() {
         },
         body: JSON.stringify({
           key: SETTINGS_KEY,
-          value_json: JSON.stringify(settings),
+          value_json: JSON.stringify(payload),
         }),
       })
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))
         throw new Error((e as { error?: string }).error ?? `HTTP ${res.status}`)
       }
-      setMsg({ type: 'ok', text: 'Kaydedildi. Token testi ile bağlantıyı doğrulayın.' })
+      setSettings(payload)
+      setMsg({
+        type: 'ok',
+        text: payload.yolcu360.enabled && payload.yolcu360.api_key && payload.yolcu360.api_secret
+          ? 'Kaydedildi. Yolcu360 etkin — araç araması için teslim tarihi + konum ile arama yapın.'
+          : 'Kaydedildi. Token testi ile bağlantıyı doğrulayın.',
+      })
     } catch (e) {
       setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
     } finally {

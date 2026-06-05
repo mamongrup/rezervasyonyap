@@ -889,6 +889,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "public", "yolcu360", "cars"] ->
       yolcu360_http.get_cars_public(req, ctx)
 
+    http.Get, ["api", "v1", "public", "yolcu360", "locations"] ->
+      yolcu360_http.get_locations_public(req, ctx)
+
     http.Get, ["api", "v1", "social", "templates"] ->
       social_http.list_templates(req, ctx)
 

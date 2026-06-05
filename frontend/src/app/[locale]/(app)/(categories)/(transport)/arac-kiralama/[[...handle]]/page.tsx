@@ -7,44 +7,13 @@ import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { apiOriginForFetch } from '@/lib/api-origin'
 import type { TListingBase } from '@/types/listing-types'
-import type { Yolcu360Car } from '@/app/api/yolcu360-cars/route'
+import { mapYolcu360CarToListing, normalizeYolcu360Cars } from '@/lib/yolcu360-cars'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata(): Promise<Metadata> {
   const category = getCategoryBySlug('arac-kiralama')
   return { title: category?.name ?? 'Araç Kiralama', description: category?.heroSubheading }
-}
-
-/** Yolcu360 araç yanıtını TListingBase'e dönüştürür */
-function mapYolcu360Car(car: Yolcu360Car, index: number): TListingBase & {
-  seats?: number; gearshift?: string
-} {
-  const brand = String(car.brand ?? '')
-  const model = String(car.model ?? '')
-  const title = [brand, model].filter(Boolean).join(' ') || `Araç ${index + 1}`
-  const slug = `yolcu360-${String(car.id ?? index)}`
-  const price = car.dailyPrice
-    ? new Intl.NumberFormat('tr-TR', { style: 'decimal', maximumFractionDigits: 0 })
-        .format(car.dailyPrice) + ' ' + (car.currency ?? 'TRY')
-    : undefined
-
-  return {
-    id: slug,
-    handle: slug,
-    title,
-    price,
-    priceAmount: car.dailyPrice,
-    priceCurrency: car.currency ?? 'TRY',
-    featuredImage: car.imageUrl ?? car.thumbnailUrl ?? '',
-    listingCategory: 'Araç Kiralama',
-    listingVertical: 'car_rental',
-    reviewStart: 0,
-    reviewCount: 0,
-    seats: typeof car.seats === 'number' ? car.seats : undefined,
-    gearshift: car.transmission,
-    isNew: false,
-  }
 }
 
 async function fetchYolcu360Cars(
@@ -64,12 +33,9 @@ async function fetchYolcu360Cars(
     if (res.status === 503) return null // etkin değil — DB'ye düş
     if (!res.ok) return null
     const data = (await res.json()) as unknown
-    // Dizi ya da obje içindeki dizi
-    const raw: Yolcu360Car[] = Array.isArray(data)
-      ? (data as Yolcu360Car[])
-      : (data as Record<string, unknown>)['cars'] as Yolcu360Car[] ?? []
-    if (!Array.isArray(raw) || raw.length === 0) return null
-    return raw.map((c, i) => mapYolcu360Car(c, i))
+    const raw = normalizeYolcu360Cars(data)
+    if (raw.length === 0) return null
+    return raw.map((c, i) => mapYolcu360CarToListing(c, i))
   } catch {
     return null
   }

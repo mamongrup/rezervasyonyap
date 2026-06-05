@@ -72,6 +72,8 @@ interface Props {
   initSuggests?: Suggest[]
   searchingSuggests?: Suggest[]
   fieldStyle: 'default' | 'small'
+  /** Araç kiralama: Yolcu360 konum önerileri (`/api/location-search?type=car`) */
+  locationSearchType?: 'car'
 }
 
 export const LocationInputField: FC<Props> = ({
@@ -80,6 +82,7 @@ export const LocationInputField: FC<Props> = ({
   className = 'flex-1',
   inputName = 'location',
   fieldStyle = 'default',
+  locationSearchType,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,16 +91,19 @@ export const LocationInputField: FC<Props> = ({
   const [searchResults, setSearchResults] = useState<Suggest[]>([])
   const [loadingSearch, setLoadingSearch] = useState(false)
 
+  const locationSearchQs =
+    locationSearchType === 'car' ? '?type=car' : ''
+
   // Açılışta popüler şehirleri yükle
   const [initSuggests, setInitSuggests] = useState<Suggest[]>(POPULAR_SUGGESTS)
   useEffect(() => {
-    fetch('/api/location-search')
+    fetch(`/api/location-search${locationSearchQs}`)
       .then((r) => r.json())
       .then((d: { suggestions: LocationSuggestion[] }) => {
         if (d.suggestions?.length) setInitSuggests(d.suggestions.map(apiToSuggest))
       })
       .catch(() => {/* sessiz hata — statik liste kalır */})
-  }, [])
+  }, [locationSearchQs])
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -118,7 +124,8 @@ export const LocationInputField: FC<Props> = ({
     }
     setLoadingSearch(true)
     try {
-      const r = await fetch(`/api/location-search?q=${encodeURIComponent(q)}`)
+      const typeQs = locationSearchType === 'car' ? '&type=car' : ''
+      const r = await fetch(`/api/location-search?q=${encodeURIComponent(q)}${typeQs}`)
       const d = (await r.json()) as { suggestions: LocationSuggestion[] }
       setSearchResults((d.suggestions ?? []).map(apiToSuggest))
     } catch {
@@ -126,7 +133,7 @@ export const LocationInputField: FC<Props> = ({
     } finally {
       setLoadingSearch(false)
     }
-  }, [])
+  }, [locationSearchType])
 
   useEffect(
     () => () => {
