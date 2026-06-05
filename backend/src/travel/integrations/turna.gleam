@@ -446,6 +446,7 @@ pub fn search_response_url_from_raw(raw: String) -> String {
   }
 }
 
+/// Postman / Node import: Search gövdesinde gömülü `LoginForm`; ön login ve oturum başlığı gerekmez.
 pub fn flight_search(
   cfg: TurnaConfig,
   p: FlightSearchParams,
@@ -453,18 +454,48 @@ pub fn flight_search(
   case turna_config.credentials_ready(cfg) {
     False -> Error("turna_api_key_missing")
     True ->
-      case login_turna_result(cfg) {
-        Error(e) -> Error(e)
-        Ok(login_result) -> {
-          let session = session_from_result(login_result)
-          flight_search_try_masks(
-            cfg,
-            p,
-            session,
-            alternate_flight_masks(cfg.flight_leg_mask),
-          )
+      flight_search_try_masks(
+        cfg,
+        p,
+        TurnaSession("", ""),
+        alternate_flight_masks(cfg.flight_leg_mask),
+      )
+  }
+}
+
+pub fn turna_has_error_flag(raw: String) -> Bool {
+  has_error(raw)
+}
+
+pub fn turna_message_from_raw(raw: String) -> String {
+  let msg_decoder = {
+    use v <- decode.field("Message", decode.string)
+    decode.success(v)
+  }
+  let err_decoder = {
+    use v <- decode.field("ErrorMessage", decode.string)
+    decode.success(v)
+  }
+  let primary =
+    case json.parse(raw, msg_decoder) {
+      Ok(m) ->
+        case string.trim(m) {
+          "" -> ""
+          t -> t
         }
+      Error(_) -> ""
+    }
+  case primary {
+    "" ->
+      case json.parse(raw, err_decoder) {
+        Ok(m) ->
+          case string.trim(m) {
+            "" -> ""
+            t -> t
+          }
+        Error(_) -> ""
       }
+    other -> other
   }
 }
 

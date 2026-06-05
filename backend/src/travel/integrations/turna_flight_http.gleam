@@ -194,6 +194,11 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                             "" -> json.null()
                             u -> json.string(u)
                           }
+                          let turna_msg = turna.turna_message_from_raw(result.body)
+                          let turna_msg_j = case turna_msg {
+                            "" -> json.null()
+                            m -> json.string(m)
+                          }
                           let out =
                             json.object([
                               #("ok", json.bool(True)),
@@ -225,6 +230,12 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                                     "flight_leg_mask",
                                     json.int(cfg.flight_leg_mask),
                                   ),
+                                  #(
+                                    "turna_has_error",
+                                    json.bool(turna.turna_has_error_flag(result.body)),
+                                  ),
+                                  #("turna_message", turna_msg_j),
+                                  #("enabled", json.bool(cfg.enabled)),
                                 ]),
                               ),
                             ])
