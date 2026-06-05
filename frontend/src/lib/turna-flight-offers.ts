@@ -169,6 +169,73 @@ function parseLegOffer(
   }
 }
 
+function collectLegOffers(
+  searchRoot: Record<string, unknown>,
+  legSources: unknown[],
+  startIdx: number,
+): { offers: TurnaFlightOffer[]; nextIdx: number } {
+  const offers: TurnaFlightOffer[] = []
+  let idx = startIdx
+  for (const legRaw of legSources) {
+    const leg = asRecord(legRaw)
+    if (!leg) continue
+
+    const packages = walkArrays(leg, ['Packages', 'Fares', 'BrandedFares', 'PackageList'])
+    if (packages.length === 0) {
+      const o = parseLegOffer(searchRoot, leg, null, idx++)
+      if (o) offers.push(o)
+      continue
+    }
+
+    for (const pkgRaw of packages) {
+      const pkg = asRecord(pkgRaw)
+      const o = parseLegOffer(searchRoot, leg, pkg, idx++)
+      if (o) offers.push(o)
+    }
+  }
+  return { offers, nextIdx: idx }
+}
+
+function parseCombinableLegsList(
+  searchRoot: Record<string, unknown>,
+  root: Record<string, unknown>,
+): TurnaFlightOffer[] {
+  const combos = root.CombinableLegsList
+  if (!Array.isArray(combos)) return []
+
+  const offers: TurnaFlightOffer[] = []
+  let idx = 0
+  for (const combo of combos) {
+    const c = asRecord(combo)
+    if (!c) continue
+
+    const legSources = walkArrays(c, [
+      'Legs',
+      'FlightLegs',
+      'OutboundLegs',
+      'Segments',
+      'Items',
+    ])
+    if (legSources.length === 0 && pickStr(c, ['Origin', 'origin', 'Id', 'id'])) {
+      legSources.push(c)
+    }
+    const batch = collectLegOffers(searchRoot, legSources, idx)
+    offers.push(...batch.offers)
+    idx = batch.nextIdx
+  }
+  return offers
+}
+
+export function parseTurnaSearchResponseUrl(turnaRaw: string): string {
+  try {
+    const r = asRecord(JSON.parse(turnaRaw))
+    const u = pickStr(r, ['SearchResponseUrl', 'searchResponseUrl'])
+    return u
+  } catch {
+    return ''
+  }
+}
+
 /** Turna search JSON → teklif listesi */
 export function parseTurnaSearchOffers(turnaRaw: string): TurnaFlightOffer[] {
   if (!turnaRaw?.trim()) return []
@@ -185,29 +252,17 @@ export function parseTurnaSearchOffers(turnaRaw: string): TurnaFlightOffer[] {
     asRecord(r.SearchForm) ??
     asRecord(r.Data) ??
     asRecord(r.Result) ??
+    asRecord(r.SearchResponse) ??
     r
 
+  let offers: TurnaFlightOffer[] = []
+
+  const combinable = parseCombinableLegsList(searchRoot, r)
+  if (combinable.length > 0) offers.push(...combinable)
+
   const legs = walkArrays(root, ['FlightLegs', 'Legs', 'Offers', 'Results', 'Items'])
-  const offers: TurnaFlightOffer[] = []
-  let idx = 0
-
-  for (const legRaw of legs) {
-    const leg = asRecord(legRaw)
-    if (!leg) continue
-
-    const packages = walkArrays(leg, ['Packages', 'Fares', 'BrandedFares'])
-    if (packages.length === 0) {
-      const o = parseLegOffer(searchRoot, leg, null, idx++)
-      if (o) offers.push(o)
-      continue
-    }
-
-    for (const pkgRaw of packages) {
-      const pkg = asRecord(pkgRaw)
-      const o = parseLegOffer(searchRoot, leg, pkg, idx++)
-      if (o) offers.push(o)
-    }
-  }
+  const batch = collectLegOffers(searchRoot, legs, offers.length)
+  offers.push(...batch.offers)
 
   // Fiyata göre sırala
   offers.sort((a, b) => (a.price ?? 9e15) - (b.price ?? 9e15))

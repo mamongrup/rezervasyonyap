@@ -102,7 +102,8 @@ export default async function Page({
         regionLabel,
         fromApi,
       }}
-      listingPagination={{ page, total, perPage }}
+      listingSectionTitle={showLiveSearch ? msgs.flightLiveSearch?.resultsHeading : undefined}
+      listingPagination={showLiveSearch ? undefined : { page, total, perPage }}
     />
   )
 }

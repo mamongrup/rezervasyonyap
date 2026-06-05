@@ -29,16 +29,28 @@ fn route_ref(origin: String, destination: String) -> String {
   string.lowercase(string.trim(origin)) <> "-" <> string.lowercase(string.trim(destination))
 }
 
-/// Turna rota şablonlarıyla uyumlu: yalnızca İstanbul metro kodu `IST` şehir sayılır.
+fn turna_origin_is_city(code: String) -> Bool {
+  case string.uppercase(string.trim(code)) {
+    "IST" | "AYT" | "LON" | "MAD" | "BER" | "AMS" | "KWI" | "DXB" -> True
+    _ -> False
+  }
+}
+
+fn turna_destination_is_city(code: String) -> Bool {
+  case string.uppercase(string.trim(code)) {
+    "IST" | "LON" | "MAD" | "BER" | "AMS" | "KWI" | "DXB" -> True
+    _ -> False
+  }
+}
+
+/// Postman sertifikasyon koleksiyonlarına göre şehir bayrakları (sunucu tek kaynak).
 fn normalize_city_flags(p: turna.FlightSearchParams) -> turna.FlightSearchParams {
-  let o = string.uppercase(string.trim(p.origin))
-  let d = string.uppercase(string.trim(p.destination))
   turna.FlightSearchParams(
     origin: p.origin,
     destination: p.destination,
     departure_day: p.departure_day,
-    origin_is_city: o == "IST",
-    destination_is_city: d == "IST",
+    origin_is_city: turna_origin_is_city(p.origin),
+    destination_is_city: turna_destination_is_city(p.destination),
     adult_count: p.adult_count,
     child_count: p.child_count,
     infant_count: p.infant_count,
@@ -176,6 +188,12 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                             option.Some(id) -> json.string(id)
                             option.None -> json.null()
                           }
+                          let search_url =
+                            turna.search_response_url_from_raw(result.body)
+                          let search_url_j = case search_url {
+                            "" -> json.null()
+                            u -> json.string(u)
+                          }
                           let out =
                             json.object([
                               #("ok", json.bool(True)),
@@ -185,6 +203,29 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                               #(
                                 "route_ref",
                                 json.string(route_ref(params.origin, params.destination)),
+                              ),
+                              #("search_response_url", search_url_j),
+                              #(
+                                "has_inventory",
+                                json.bool(turna.has_flight_inventory(result.body)),
+                              ),
+                              #(
+                                "search_meta",
+                                json.object([
+                                  #(
+                                    "origin_is_city",
+                                    json.bool(params.origin_is_city),
+                                  ),
+                                  #(
+                                    "destination_is_city",
+                                    json.bool(params.destination_is_city),
+                                  ),
+                                  #("base_url", json.string(cfg.base_url)),
+                                  #(
+                                    "flight_leg_mask",
+                                    json.int(cfg.flight_leg_mask),
+                                  ),
+                                ]),
                               ),
                             ])
                             |> json.to_string

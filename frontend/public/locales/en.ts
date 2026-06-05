@@ -611,6 +611,7 @@ export const en = {
     noImage: 'Flight route',
   },
   flightLiveSearch: {
+    resultsHeading: 'Live flight results',
     searching: 'Searching live flights…',
     noResults: 'No flights found for this route and date.',
     error: 'Flight search failed.',
@@ -619,6 +620,9 @@ export const en = {
     select: 'Select and continue',
     configuring: 'Checking price…',
     needListing: 'No route listing in catalog. Run Turna import.',
+    noInventory:
+      'Turna API returned no flight inventory for this route. Confirm your API key has live flight search access with Turna.',
+    viewOnTurna: 'View on Turna.com',
   },
   flightDetail: {
     searchTitle: 'Search flights on this route',

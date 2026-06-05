@@ -376,6 +376,8 @@ export type TurnaFlightSearchResult = {
   session: TurnaFlightSession
   listing_id: string | null
   route_ref: string
+  search_response_url?: string | null
+  has_inventory?: boolean
 }
 
 async function turnaFlightPost<T>(path: string, body: unknown): Promise<T> {

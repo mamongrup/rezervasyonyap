@@ -387,6 +387,7 @@ export const tr = {
     noImage: 'Uçuş güzergahı',
   },
   flightLiveSearch: {
+    resultsHeading: 'Canlı uçuş sonuçları',
     searching: 'Canlı uçuşlar aranıyor…',
     noResults: 'Bu tarih ve rota için uçuş bulunamadı.',
     error: 'Uçuş araması başarısız oldu.',
@@ -395,6 +396,9 @@ export const tr = {
     select: 'Seç ve devam et',
     configuring: 'Fiyat kontrol ediliyor…',
     needListing: 'Bu rota için vitrin ilanı yok. Turna import çalıştırın.',
+    noInventory:
+      'Turna API bu rota için envanter döndürmedi. API anahtarınızın uçuş arama yetkisini Turna ile doğrulayın.',
+    viewOnTurna: 'Turna.com’da görüntüle',
   },
   flightDetail: {
     searchTitle: 'Bu güzergahta uçuş ara',

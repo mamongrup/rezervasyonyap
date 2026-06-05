@@ -5,10 +5,15 @@ import { allocateTurnaFlight, searchTurnaFlights, type TurnaFlightSession } from
 import { TURNA_FLIGHT_BOOKING_KEY } from '@/lib/turna-flight-booking'
 import {
   parseTurnaSearchOffers,
+  parseTurnaSearchResponseUrl,
   offerDurationLabel,
   type TurnaFlightOffer,
 } from '@/lib/turna-flight-offers'
-import { resolveFlightAirportCode } from '@/lib/flight-airports'
+import {
+  resolveFlightAirportCode,
+  turnaDestinationIsCity,
+  turnaOriginIsCity,
+} from '@/lib/flight-airports'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import T from '@/utils/getT'
 import { useRouter } from 'next/navigation'
@@ -30,11 +35,6 @@ type FlightLiveSearchProps = {
   locale?: string
   /** Statik rota ilanları yerine canlı arama göster */
   enabled?: boolean
-}
-
-/** Turna import rotalarıyla uyumlu: yalnızca İstanbul metro kodu şehir sayılır. */
-function airportIsCity(code: string): boolean {
-  return code.trim().toUpperCase() === 'IST'
 }
 
 function formatTurnaSearchError(
@@ -69,6 +69,9 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
     select: 'Seç ve devam et',
     configuring: 'Fiyat kontrol ediliyor…',
     needListing: 'Rota ilanı bulunamadı — yönetimden Turna import çalıştırın.',
+    noInventory:
+      'Turna API bu rota için envanter döndürmedi. API anahtarınızın uçuş arama yetkisini Turna ile doğrulayın.',
+    viewOnTurna: 'Turna.com’da görüntüle',
   }
 
   const [loading, setLoading] = useState(false)
@@ -77,6 +80,8 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
   const [offers, setOffers] = useState<TurnaFlightOffer[]>([])
   const [session, setSession] = useState<TurnaFlightSession | null>(null)
   const [listingId, setListingId] = useState<string | null>(null)
+  const [searchResponseUrl, setSearchResponseUrl] = useState<string | null>(null)
+  const [hasInventory, setHasInventory] = useState<boolean | null>(null)
 
   const from = resolveFlightAirportCode(params.from ?? '') ?? params.from?.trim().toUpperCase()
   const to = resolveFlightAirportCode(params.to ?? '') ?? params.to?.trim().toUpperCase()
@@ -87,13 +92,15 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
     setLoading(true)
     setError(null)
     setOffers([])
+    setSearchResponseUrl(null)
+    setHasInventory(null)
     try {
       const res = await searchTurnaFlights({
         origin: from,
         destination: to,
         departure_date: date,
-        origin_is_city: airportIsCity(from),
-        destination_is_city: airportIsCity(to),
+        origin_is_city: turnaOriginIsCity(from),
+        destination_is_city: turnaDestinationIsCity(to),
         adults: params.adults ?? 1,
         children: params.children ?? 0,
         infants: params.infants ?? 0,
@@ -101,6 +108,11 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
       })
       setSession(res.session)
       setListingId(res.listing_id)
+      setHasInventory(res.has_inventory ?? null)
+      const turnaUrl =
+        (typeof res.search_response_url === 'string' && res.search_response_url.trim()) ||
+        parseTurnaSearchResponseUrl(res.turna_raw)
+      setSearchResponseUrl(turnaUrl || null)
       setOffers(parseTurnaSearchOffers(res.turna_raw))
     } catch (e) {
       const raw = e instanceof Error ? e.message : m.error
@@ -186,10 +198,26 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
   }
 
   if (offers.length === 0) {
+    const showInventoryHint = hasInventory === false
     return (
-      <p className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-neutral-500 dark:border-neutral-700">
-        {m.noResults}
-      </p>
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-6 text-center text-neutral-600 dark:border-neutral-700 dark:bg-neutral-800/50 dark:text-neutral-400">
+        <p>{m.noResults}</p>
+        {showInventoryHint ? (
+          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-500">{m.noInventory}</p>
+        ) : null}
+        {searchResponseUrl ? (
+          <p className="mt-3">
+            <a
+              href={searchResponseUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+            >
+              {m.viewOnTurna}
+            </a>
+          </p>
+        ) : null}
+      </div>
     )
   }
 

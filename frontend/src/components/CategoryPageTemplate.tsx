@@ -118,6 +118,8 @@ interface CategoryPageTemplateProps {
   flexibleListingCards?: ReactNode
   /** Sayfalama — API toplamı ve sayfa boyutu (1 tabanlı sayfa numarası) */
   listingPagination?: { page: number; total: number; perPage: number }
+  /** Statik ilan sayısı yerine özel başlık (ör. Turna canlı arama) */
+  listingSectionTitle?: string
 }
 
 const heroImages = {
@@ -151,6 +153,7 @@ export default async function CategoryPageTemplate({
   regionStats,
   flexibleListingCards,
   listingPagination,
+  listingSectionTitle,
 }: CategoryPageTemplateProps) {
   const m = getMessages(locale)
   const cat = m.categoryPage
@@ -318,20 +321,22 @@ export default async function CategoryPageTemplate({
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
-            {isAll
-              ? interpolate(cat.listingsHeadingAll, {
-                  count: convertNumbThousand(count),
-                  category: category.name,
-                })
-              : activeSearch?.propertyTypeLabel
-                ? interpolate(cat.listingsHeadingPropertyType ?? '{count}+ {label}', {
+            {listingSectionTitle
+              ? listingSectionTitle
+              : isAll
+                ? interpolate(cat.listingsHeadingAll, {
                     count: convertNumbThousand(count),
-                    label: activeSearch.propertyTypeLabel,
+                    category: category.name,
                   })
-                : interpolate(cat.listingsHeadingFiltered, {
-                    count: convertNumbThousand(count),
-                    handle: currentHandle ?? '',
-                  })}
+                : activeSearch?.propertyTypeLabel
+                  ? interpolate(cat.listingsHeadingPropertyType ?? '{count}+ {label}', {
+                      count: convertNumbThousand(count),
+                      label: activeSearch.propertyTypeLabel,
+                    })
+                  : interpolate(cat.listingsHeadingFiltered, {
+                      count: convertNumbThousand(count),
+                      handle: currentHandle ?? '',
+                    })}
           </h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             {interpolate(cat.pricesDisclaimer, {
@@ -432,16 +437,18 @@ export default async function CategoryPageTemplate({
         </section>
       ) : null}
 
-      <div className="mt-16 flex items-center justify-center">
-        <Suspense fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}>
-          <CategoryListingPagination
-            locale={locale}
-            page={listingPagination?.page}
-            total={listingPagination?.total}
-            perPage={listingPagination?.perPage}
-          />
-        </Suspense>
-      </div>
+      {listingPagination ? (
+        <div className="mt-16 flex items-center justify-center">
+          <Suspense fallback={<div className="h-10 w-40 animate-pulse rounded-lg bg-neutral-100 dark:bg-neutral-800" />}>
+            <CategoryListingPagination
+              locale={locale}
+              page={listingPagination.page}
+              total={listingPagination.total}
+              perPage={listingPagination.perPage}
+            />
+          </Suspense>
+        </div>
+      ) : null}
     </div>
   )
 

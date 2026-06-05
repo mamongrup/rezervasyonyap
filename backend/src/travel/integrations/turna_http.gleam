@@ -50,6 +50,7 @@ fn merge_ping_body(
     country_code: cfg.country_code,
     currency_code: cfg.currency_code,
     language_code: cfg.language_code,
+    flight_leg_mask: cfg.flight_leg_mask,
   )
 }
 

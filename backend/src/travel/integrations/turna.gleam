@@ -3,6 +3,7 @@
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/list
 import gleam/string
 import travel/integrations/turna_config.{type TurnaConfig}
 import travel/net/http_client
@@ -42,13 +43,25 @@ pub fn login_form_object(cfg: TurnaConfig) -> json.Json {
 }
 
 fn session_id_from_raw(raw: String) -> String {
-  let decoder = {
+  let str_decoder = {
     use v <- decode.field("SessionId", decode.string)
     decode.success(v)
   }
-  case json.parse(raw, decoder) {
-    Ok(v) -> string.trim(v)
-    Error(_) -> ""
+  let int_decoder = {
+    use v <- decode.field("SessionId", decode.int)
+    decode.success(int.to_string(v))
+  }
+  case json.parse(raw, str_decoder) {
+    Ok(v) ->
+      case string.trim(v) {
+        "" -> ""
+        s -> s
+      }
+    Error(_) ->
+      case json.parse(raw, int_decoder) {
+        Ok(v) -> string.trim(v)
+        Error(_) -> ""
+      }
   }
 }
 
@@ -82,6 +95,26 @@ fn has_nonempty_flight_legs(raw: String) -> Bool {
         False -> True
       }
   }
+}
+
+fn has_nonempty_combinable_legs(raw: String) -> Bool {
+  case string.contains(raw, "\"CombinableLegsList\":[") {
+    False -> False
+    True ->
+      case string.contains(raw, "\"CombinableLegsList\":[]") {
+        True -> False
+        False -> True
+      }
+  }
+}
+
+pub fn has_flight_inventory(raw: String) -> Bool {
+  has_nonempty_flight_legs(raw) || has_nonempty_combinable_legs(raw)
+}
+
+fn alternate_flight_masks(primary: Int) -> List(Int) {
+  let candidates = [primary, 41, 127, 255, 511, 1023, 109]
+  list.unique(candidates)
 }
 
 fn raw_body_preview(raw: String) -> String {
@@ -253,7 +286,7 @@ fn post_turna(
         Ok(parsed) ->
           case has_error(parsed.body) {
             True ->
-              case has_nonempty_flight_legs(parsed.body) {
+              case has_flight_inventory(parsed.body) {
                 True -> Ok(parsed)
                 False -> Error(error_message_from_raw(parsed.body))
               }
@@ -316,7 +349,11 @@ fn pax_rows(adults: Int, children: Int, infants: Int) -> List(json.Json) {
   }
 }
 
-pub fn flight_search_body(cfg: TurnaConfig, p: FlightSearchParams) -> String {
+pub fn flight_search_body(
+  cfg: TurnaConfig,
+  p: FlightSearchParams,
+  flight_leg_mask: Int,
+) -> String {
   json.object([
     #("LoginForm", login_form_object(cfg)),
     #(
@@ -352,9 +389,61 @@ pub fn flight_search_body(cfg: TurnaConfig, p: FlightSearchParams) -> String {
         ),
       ]),
     ),
-    #("ResponseMask", json.object([#("FlightLegMask", json.int(109))])),
+    #(
+      "ResponseMask",
+      json.object([#("FlightLegMask", json.int(flight_leg_mask))]),
+    ),
   ])
   |> json.to_string
+}
+
+fn flight_search_with_mask(
+  cfg: TurnaConfig,
+  p: FlightSearchParams,
+  session: TurnaSession,
+  flight_leg_mask: Int,
+) -> Result(TurnaHttpResult, String) {
+  let body = flight_search_body(cfg, p, flight_leg_mask)
+  post_turna(cfg, "/v1/flight/booking/search", body, session)
+}
+
+fn flight_search_try_masks(
+  cfg: TurnaConfig,
+  p: FlightSearchParams,
+  session: TurnaSession,
+  masks: List(Int),
+) -> Result(TurnaHttpResult, String) {
+  case masks {
+    [] -> Error("turna_search_empty")
+    [mask, ..rest] ->
+      case flight_search_with_mask(cfg, p, session, mask) {
+        Error(e) ->
+          case rest {
+            [] -> Error(e)
+            _ -> flight_search_try_masks(cfg, p, session, rest)
+          }
+        Ok(result) ->
+          case has_flight_inventory(result.body) {
+            True -> Ok(result)
+            False ->
+              case rest {
+                [] -> Ok(result)
+                _ -> flight_search_try_masks(cfg, p, session, rest)
+              }
+          }
+      }
+  }
+}
+
+pub fn search_response_url_from_raw(raw: String) -> String {
+  let decoder = {
+    use v <- decode.field("SearchResponseUrl", decode.string)
+    decode.success(v)
+  }
+  case json.parse(raw, decoder) {
+    Ok(u) -> string.trim(u)
+    Error(_) -> ""
+  }
 }
 
 pub fn flight_search(
@@ -363,16 +452,19 @@ pub fn flight_search(
 ) -> Result(TurnaHttpResult, String) {
   case turna_config.credentials_ready(cfg) {
     False -> Error("turna_api_key_missing")
-    True -> {
-      let body = flight_search_body(cfg, p)
+    True ->
       case login_turna_result(cfg) {
         Error(e) -> Error(e)
         Ok(login_result) -> {
           let session = session_from_result(login_result)
-          post_turna(cfg, "/v1/flight/booking/search", body, session)
+          flight_search_try_masks(
+            cfg,
+            p,
+            session,
+            alternate_flight_masks(cfg.flight_leg_mask),
+          )
         }
       }
-    }
   }
 }
 

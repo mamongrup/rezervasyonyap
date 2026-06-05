@@ -93,3 +93,22 @@ export function searchFlightAirports(query: string, limit = 12): FlightAirport[]
 }
 
 export const POPULAR_FLIGHT_AIRPORTS = ['IST', 'AYT', 'ESB', 'ADB', 'SAW', 'TZX'] as const
+
+/**
+ * Turna Postman koleksiyonları (OW/RT sertifikasyon) — OriginIsCity.
+ * AYT→IST gibi rotalarda kalkışta `true` gerekir; yalnızca IST=true yeterli değil.
+ */
+export function turnaOriginIsCity(code: string): boolean {
+  const c = code.trim().toUpperCase()
+  if (c === 'IST' || c === 'AYT') return true
+  if (['KWI', 'DXB', 'LON', 'MAD', 'BER', 'AMS'].includes(c)) return true
+  return false
+}
+
+/** Turna Postman — DestinationIsCity (IST→AYT OW: AYT için false). */
+export function turnaDestinationIsCity(code: string): boolean {
+  const c = code.trim().toUpperCase()
+  if (c === 'IST') return true
+  if (['KWI', 'DXB', 'LON', 'MAD', 'BER', 'AMS'].includes(c)) return true
+  return false
+}

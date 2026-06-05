@@ -3,6 +3,7 @@
 
 import envoy
 import gleam/dynamic/decode
+import gleam/int
 import gleam/string
 import pog
 
@@ -14,6 +15,7 @@ pub type TurnaConfig {
     country_code: String,
     currency_code: String,
     language_code: String,
+    flight_leg_mask: Int,
   )
 }
 
@@ -95,6 +97,13 @@ fn normalize_turna_base_url(raw: String) -> String {
   }
 }
 
+fn parse_int_field(raw: String, default: Int) -> Int {
+  case int.parse(string.trim(raw)) {
+    Ok(n) -> n
+    Error(_) -> default
+  }
+}
+
 pub fn load(db: pog.Connection) -> TurnaConfig {
   let get = fn(field: String, env_key: String, default: String) -> String {
     let from_db = fetch_turna_json_text(db, field)
@@ -105,6 +114,7 @@ pub fn load(db: pog.Connection) -> TurnaConfig {
   }
   let enabled = fetch_turna_enabled(db) || env_or("TURNA_ENABLED", "0") == "1"
   let base_raw = get("base_url", "TURNA_BASE_URL", "https://api.turna.com")
+  let mask_raw = get("flight_leg_mask", "TURNA_FLIGHT_LEG_MASK", "109")
   TurnaConfig(
     enabled: enabled,
     base_url: normalize_turna_base_url(base_raw),
@@ -112,6 +122,7 @@ pub fn load(db: pog.Connection) -> TurnaConfig {
     country_code: get("country_code", "TURNA_COUNTRY_CODE", "TR"),
     currency_code: get("currency_code", "TURNA_CURRENCY_CODE", "TRY"),
     language_code: get("language_code", "TURNA_LANGUAGE_CODE", "tr"),
+    flight_leg_mask: parse_int_field(mask_raw, 109),
   )
 }
 
