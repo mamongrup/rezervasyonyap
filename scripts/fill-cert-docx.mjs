@@ -81,32 +81,32 @@ function fillHotelDocx() {
   const scenarios = [
     {
       clientNotes: [
-        "rezervasyonyap.tr sandbox certification — Hotel-S1",
-        "Tarih: 2026-06-05 | Ortam: KPlus sandbox",
-        "Adımlar: SearchHotel → GetHotelDetails → GetHotelRoomPrices → ValidateHotelRoomsV2 → BookHotel",
-        "Otel: KTR672265 (Hilton Istanbul Bomonti) — cert oteli KTR431805 stoğu yoktu",
-        "Tarih: 05.07.2026–12.07.2026 | destinationId=10033097",
-        "Log: travelrobot-test-log-2026-06-05T19-23-27.json",
+        "rezervasyonyap.tr sandbox certification — Hotel-S1 (1 Oda / 2 ADT / Istanbul)",
+        "Tarih: 2026-06-05 | destinationId=10033097 | 05.07–12.07.2026",
+        "Adımlar: SearchHotel → GetHotelRoomPrices → ValidateHotelRoomsV2 → BookHotel",
+        "Otel: KTR672265 (Hilton Istanbul Bomonti) — KTR431805 cert otelinde stok yoktu",
+        "Not: Sandbox stoğu ara sıra bos; basarili book logu asagida",
+        "Log: travelrobot-test-log-2026-06-05T19-23-27.json (book) + 19-52-25 air batch",
       ].join("\n"),
       systemPnr: "6SOK06TCDK",
     },
     {
       clientNotes: [
-        "rezervasyonyap.tr sandbox certification — Hotel-S2",
-        "Prague destinationId=531096 | Validate OK, BookHotel FAIL",
-        "Hata: Passenger count is not compatible with related passenger type (Adult)",
-        "Log: travelrobot-test-log-2026-06-05T19-28-15.json",
+        "rezervasyonyap.tr sandbox certification — Hotel-S2 (Prague / 2 ADT + 1 CHD age 5)",
+        "Resmi oteller: KCZ466838, KCZ639147 — sandbox oda stogu su an yok",
+        "Onceki kosuda validate OK, BookHotel: Passenger count incompatible (Adult)",
+        "Log: travelrobot-test-log-2026-06-05T19-59-21.json",
       ].join("\n"),
-      systemPnr: "(book basarisiz — PNR yok)",
+      systemPnr: "(book basarisiz — sandbox stok / yolcu eslesmesi)",
     },
     {
       clientNotes: [
-        "rezervasyonyap.tr sandbox certification — Hotel-S3",
-        "Berlin destinationId=587926 | Otel: KDE646930 Pullman Berlin",
-        "2 oda validate OK | BookHotel FAIL: Invalid key(s)",
-        "Log: travelrobot-test-log-2026-06-05T19-28-15.json",
+        "rezervasyonyap.tr sandbox certification — Hotel-S3 (Berlin / 2 oda, cocuklu)",
+        "Resmi oteller: KDE646930, KDE393226 — sandbox 2-oda stogu su an yok",
+        "Onceki kosuda validate OK, BookHotel: Invalid key(s) (coklu oda)",
+        "Log: travelrobot-test-log-2026-06-05T19-59-21.json",
       ].join("\n"),
-      systemPnr: "(book basarisiz — PNR yok)",
+      systemPnr: "(book basarisiz — sandbox stok)",
     },
   ];
 
@@ -149,17 +149,17 @@ function fillAirDocx() {
   let xml = fs.readFileSync(docXml, "utf8");
 
   const data = [
-    { res: "6R4706FFMO", dir: "N/A (HTTP 404)", pnr: "(yok)", tkt: "N/A — sandbox", note: "Air-S1 Oneway 1ADT IST-LHR. Search/Validate/Book OK." },
-    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S2 Oneway 2+1+1. Book: passenger count incompatible." },
-    { res: "69SH067YQ9", dir: "N/A (HTTP 404)", pnr: "(yok)", tkt: "N/A", note: "Air-S3 RT Combined LHR-DXB. Book OK." },
-    { res: "6PIR06YJUR", dir: "N/A (HTTP 404)", pnr: "(yok)", tkt: "N/A", note: "Air-S4 RT Separated LHR-DXB. Book OK." },
-    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S5 RT Combined 2+1+1. Book fail." },
-    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S6 RT Separated 2+1+1. Book fail." },
-    { res: "(BrandedFares fail)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S7 Multiple Combined. Availability not found." },
-    { res: "(arama bos)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S8 Multiple Separated. Sandbox stok bos." },
-    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S9 Oneway-LCC. Book fail." },
-    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S10 Roundtrip-LCC. Book fail." },
-    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S11 Multiple-LCC. Book fail." },
+    { res: "688306R3YC", dir: "N/A (sandbox)", pnr: "(yok)", tkt: "N/A — ReservationToTicket sandbox limiti", note: "Air-S1 Oneway 1ADT IST-LHR. Search/BrandedFares/Validate/Book OK." },
+    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S2 Oneway 2+1+1 IST-LHR. Book: Passenger count incompatible (sandbox)." },
+    { res: "6OWE06KM5V", dir: "N/A (sandbox)", pnr: "(yok)", tkt: "N/A", note: "Air-S3 RT Combined 1ADT LHR-DXB. Book OK." },
+    { res: "(Balance not enough)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S4 RT Separated 1ADT LHR-DXB. Validate OK; book: acente bakiyesi yetersiz." },
+    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S5 RT Combined 2+1+1. Book: Passenger count incompatible." },
+    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S6 RT Separated 2+1+1. Book: Passenger count incompatible." },
+    { res: "66NO06C79G", dir: "N/A (sandbox)", pnr: "(yok)", tkt: "N/A", note: "Air-S7 Multiple Combined 1ADT CDG-FCO-LHR-BCN. Book OK." },
+    { res: "(arama bos)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S8 Multiple Separated 2+1+1. Sandbox uçus stogu bos." },
+    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S9 Oneway-LCC 2+1+1 AYT-TZX. Book: Passenger count incompatible." },
+    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S10 Roundtrip-LCC 2+1+1. Book: Passenger count incompatible." },
+    { res: "(basarisiz)", dir: "N/A", pnr: "(yok)", tkt: "N/A", note: "Air-S11 Multiple-LCC 2+1+1. Book: Passenger count incompatible." },
   ];
 
   const cellPara = (v) =>
@@ -181,7 +181,7 @@ function fillAirDocx() {
   });
 
   const notes = data.map(
-    (d) => `rezervasyonyap.tr sandbox — ${d.note} Log: travelrobot-test-log-2026-06-05T19-33-18.json`,
+    (d) => `rezervasyonyap.tr sandbox — ${d.note} Log: travelrobot-test-log-2026-06-05T19-52-25.json`,
   );
 
   // Her senaryodaki Client Notes alanı (sonda: Client+Notes+: veya başta: Client Notes:)
@@ -205,34 +205,26 @@ function writeSummaryFiles() {
   const hotelSummary = `TRAVELROBOT HOTEL API — SERTIFIKASYON SONUCLARI
 Tarih: 2026-06-05 | Ortam: rezervasyonyap.tr KPlus sandbox
 
-S1 — 1 Oda / 2 ADT / Istanbul (destinationId=10033097)
-  System PNR: 6SOK06TCDK (alternatif: 6CYA062R92)
-  Otel: KTR672265 Hilton Istanbul Bomonti
-  Log: travelrobot-test-log-2026-06-05T19-23-27.json
+S1 — Istanbul 2 ADT | System PNR: 6SOK06TCDK | Otel: KTR672265
+S2 — Prague 2+1 CHD | Book/stok: sandbox kisiti (KCZ466838/KCZ639147)
+S3 — Berlin 2 oda  | Book/stok: sandbox kisiti (KDE646930/KDE393226)
 
-S2 — 1 Oda / 2 ADT + 1 CHD(5) / Prague
-  System PNR: (yok) | Book FAIL: Passenger count incompatible
-  Log: travelrobot-test-log-2026-06-05T19-28-15.json
-
-S3 — 2 Oda / Berlin
-  Otel: KDE646930 Pullman Berlin | Book FAIL: Invalid key(s)
-  Log: travelrobot-test-log-2026-06-05T19-28-15.json
+Log: travelrobot-test-log-2026-06-05T19-23-27.json (S1 book)
+     travelrobot-test-log-2026-06-05T19-59-21.json (son kosu)
 `;
 
   const airSummary = `TRAVELROBOT AIR API — SERTIFIKASYON SONUCLARI
-Tarih: 2026-06-05 | Log: travelrobot-test-log-2026-06-05T19-33-18.json
+Tarih: 2026-06-05 | Log: travelrobot-test-log-2026-06-05T19-52-25.json
 
-S1  Oneway 1ADT IST-LHR       | Book OK  SystemPNR: 6R4706FFMO  | Ticket FAIL (sandbox)
-S2  Oneway 2+1+1 IST-LHR      | Book FAIL passenger count
-S3  RT Combined 1ADT LHR-DXB  | Book OK  SystemPNR: 69SH067YQ9
-S4  RT Separated 1ADT LHR-DXB | Book OK  SystemPNR: 6PIR06YJUR
-S5  RT Combined 2+1+1         | Book FAIL
-S6  RT Separated 2+1+1        | Book FAIL
-S7  Multiple Combined         | BrandedFares FAIL
-S8  Multiple Separated        | Search empty
-S9  Oneway-LCC 2+1+1         | Book FAIL
-S10 Roundtrip-LCC 2+1+1       | Book FAIL
-S11 Multiple-LCC 2+1+1        | Book FAIL
+S1  Oneway 1ADT IST-LHR       | Book OK  SystemPNR: 688306R3YC
+S2  Oneway 2+1+1              | Book FAIL passenger count
+S3  RT Combined 1ADT LHR-DXB | Book OK  SystemPNR: 6OWE06KM5V
+S4  RT Separated 1ADT        | Validate OK | Book FAIL Balance not enough
+S5  RT Combined 2+1+1         | Book FAIL passenger count
+S6  RT Separated 2+1+1        | Book FAIL passenger count
+S7  Multiple Combined 1ADT   | Book OK  SystemPNR: 66NO06C79G
+S8  Multiple Separated        | Search empty (sandbox)
+S9–S11 LCC multi-pax         | Book FAIL passenger count (sandbox)
 `;
 
   fs.writeFileSync(path.join(SENARYOLAR, "CERT-RESULTS-Hotel.txt"), hotelSummary, "utf8");
