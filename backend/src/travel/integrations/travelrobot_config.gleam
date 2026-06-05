@@ -2,8 +2,6 @@
 
 import envoy
 import gleam/dynamic/decode
-import gleam/json
-import gleam/list
 import gleam/string
 import pog
 
@@ -32,12 +30,14 @@ fn env_or(key: String, default: String) -> String {
   }
 }
 
-fn fetch_raw(db: pog.Connection) -> String {
+/// `site_settings.value_json->'travelrobot'->>field` — iç içe JSON nesnesi (panel kaydı).
+fn fetch_travelrobot_json_text(db: pog.Connection, field: String) -> String {
   case
     pog.query(
-      "select value_json::text from site_settings"
-      <> " where key = 'listing_api_providers' and organization_id is null limit 1",
+      "select coalesce(trim(value_json->'travelrobot'->>$1), '') from site_settings "
+      <> "where key = 'listing_api_providers' and organization_id is null limit 1",
     )
+    |> pog.parameter(pog.text(field))
     |> pog.returning({
       use a <- decode.field(0, decode.string)
       decode.success(a)
@@ -47,87 +47,52 @@ fn fetch_raw(db: pog.Connection) -> String {
     Error(_) -> ""
     Ok(ret) ->
       case ret.rows {
-        [raw] -> raw
+        [s] -> s
         _ -> ""
       }
   }
 }
 
-fn pick_string(raw: String, path: List(String)) -> String {
-  case path {
-    [] -> ""
-    [field] -> {
-      let decoder = {
-        use v <- decode.field(field, decode.string)
-        decode.success(v)
+fn fetch_travelrobot_bool(db: pog.Connection, field: String, default: Bool) -> Bool {
+  let raw = fetch_travelrobot_json_text(db, field)
+  case raw {
+    "" -> default
+    s ->
+      case s {
+        "true" | "t" | "1" -> True
+        "false" | "f" | "0" -> False
+        _ -> default
       }
-      case json.parse(raw, decoder) {
-        Ok(v) -> string.trim(v)
-        Error(_) -> ""
-      }
-    }
-    [head, ..tail] -> {
-      let decoder = {
-        use nested <- decode.field(head, decode.string)
-        decode.success(nested)
-      }
-      case json.parse(raw, decoder) {
-        Ok(nested) -> pick_string(nested, tail)
-        Error(_) -> ""
-      }
-    }
   }
 }
 
-fn pick_bool(raw: String, path: List(String), default: Bool) -> Bool {
-  case path {
-    [] -> default
-    [field] -> {
-      let decoder = {
-        use v <- decode.field(field, decode.bool)
-        decode.success(v)
-      }
-      case json.parse(raw, decoder) {
-        Ok(v) -> v
-        Error(_) -> default
-      }
-    }
-    [head, ..tail] -> {
-      let decoder = {
-        use nested <- decode.field(head, decode.string)
-        decode.success(nested)
-      }
-      case json.parse(raw, decoder) {
-        Ok(nested) -> pick_bool(nested, tail, default)
-        Error(_) -> default
-      }
-    }
-  }
+fn fetch_travelrobot_enabled(db: pog.Connection) -> Bool {
+  fetch_travelrobot_bool(db, "enabled", False)
+    || env_or("TRAVELROBOT_ENABLED", "0") == "1"
 }
 
 pub fn load(db: pog.Connection) -> TravelrobotConfig {
-  let raw = fetch_raw(db)
-  let tr_path = ["travelrobot"]
   let get = fn(field: String, env_key: String, default: String) -> String {
-    let from_db = pick_string(raw, list.append(tr_path, [field]))
+    let from_db = fetch_travelrobot_json_text(db, field)
     case from_db {
       "" -> env_or(env_key, default)
       v -> v
     }
   }
-  let enabled =
-    pick_bool(raw, list.append(tr_path, ["enabled"]), False)
-    || env_or("TRAVELROBOT_ENABLED", "0") == "1"
   TravelrobotConfig(
-    enabled: enabled,
-    base_url: get("base_url", "TRAVELROBOT_BASE_URL", "http://sandbox.kplus.com.tr/kplus/v0"),
+    enabled: fetch_travelrobot_enabled(db),
+    base_url: get(
+      "base_url",
+      "TRAVELROBOT_BASE_URL",
+      "http://sandbox.kplus.com.tr/kplus/v0",
+    ),
     channel_code: get("channel_code", "TRAVELROBOT_CHANNEL_CODE", ""),
     channel_password: get("channel_password", "TRAVELROBOT_CHANNEL_PASSWORD", ""),
     listing_status: get("listing_status", "TRAVELROBOT_LISTING_STATUS", "published"),
-    import_tours: pick_bool(raw, list.append(tr_path, ["import_tours"]), True),
-    import_hotels: pick_bool(raw, list.append(tr_path, ["import_hotels"]), False),
-    import_flights: pick_bool(raw, list.append(tr_path, ["import_flights"]), False),
-    import_car_rental: pick_bool(raw, list.append(tr_path, ["import_car_rental"]), False),
+    import_tours: fetch_travelrobot_bool(db, "import_tours", True),
+    import_hotels: fetch_travelrobot_bool(db, "import_hotels", False),
+    import_flights: fetch_travelrobot_bool(db, "import_flights", False),
+    import_car_rental: fetch_travelrobot_bool(db, "import_car_rental", False),
   )
 }
 

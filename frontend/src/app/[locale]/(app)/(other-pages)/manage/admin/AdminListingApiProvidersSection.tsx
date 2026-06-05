@@ -180,6 +180,21 @@ export default function AdminListingApiProvidersSection() {
     try {
       const payload: ListingApiProvidersSettings = {
         ...settings,
+        travelrobot: {
+          ...settings.travelrobot,
+          enabled:
+            settings.travelrobot.enabled
+            || (
+              settings.travelrobot.channel_code.trim() !== ''
+              && settings.travelrobot.channel_password.trim() !== ''
+            ),
+        },
+        turna: {
+          ...settings.turna,
+          enabled:
+            settings.turna.enabled
+            || settings.turna.api_key.trim() !== '',
+        },
         yolcu360: {
           ...settings.yolcu360,
           enabled:
@@ -206,10 +221,20 @@ export default function AdminListingApiProvidersSection() {
         throw new Error((e as { error?: string }).error ?? `HTTP ${res.status}`)
       }
       setSettings(payload)
+      const hints: string[] = []
+      if (payload.yolcu360.api_key && payload.yolcu360.api_secret) {
+        hints.push('Yolcu360: araç formunda konum + tarih ile arayın')
+      }
+      if (payload.turna.api_key) {
+        hints.push('Turna: uçak formunda nereden/nereye + tarih ile arayın')
+      }
+      if (payload.travelrobot.channel_code && payload.travelrobot.channel_password) {
+        hints.push('Travelrobot: sunucuda import script çalıştırın (tur/otel)')
+      }
       setMsg({
         type: 'ok',
-        text: payload.yolcu360.enabled && payload.yolcu360.api_key && payload.yolcu360.api_secret
-          ? 'Kaydedildi. Yolcu360 etkin — araç araması için teslim tarihi + konum ile arama yapın.'
+        text: hints.length > 0
+          ? `Kaydedildi. ${hints.join(' · ')}`
           : 'Kaydedildi. Token testi ile bağlantıyı doğrulayın.',
       })
     } catch (e) {
