@@ -172,15 +172,6 @@ export default function ParatikaCheckoutPage() {
       currencyCode={stored?.currency_code}
       publicCode={stored?.public_code}
       onBack={goCheckout}
-      footer={
-        <button
-          type="button"
-          className="text-sm text-neutral-500 underline transition hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
-          onClick={() => setUiMode('hpp_iframe')}
-        >
-          {C.switchToIframe}
-        </button>
-      }
     >
       <ParatikaDirectPostForm
         actionUrl={session.direct_post_3d_url}
