@@ -4921,7 +4921,7 @@ export default function CatalogNewListingClient({
                         onClick={() =>
                           setExtraFees([...extraFees, { label: '', amount: '', unit: 'per_stay' }])
                         }
-                        className="text-sm font-medium text-primary-600 hover:text-primary-700"
+                        className="text-sm text-link-muted"
                       >
                         + Ek ücret satırı ekle
                       </button>
@@ -5137,7 +5137,7 @@ export default function CatalogNewListingClient({
 
                 {!mpFormOpen && (
                   <button type="button" onClick={() => { mpResetForm(); setMpFormOpen(true) }}
-                    className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:border-primary-400 hover:text-primary-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-primary-500 dark:hover:text-primary-400"
+                    className="flex items-center gap-2 rounded-xl border border-dashed border-neutral-300 px-4 py-2.5 text-sm font-medium text-neutral-600 hover:border-primary-400 hover:text-primary-700 dark:border-neutral-600 dark:text-neutral-400 dark:hover:border-primary-500 dark:hover:text-neutral-200"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-4 w-4"><path d="M8.75 3.75a.75.75 0 0 0-1.5 0v3.5h-3.5a.75.75 0 0 0 0 1.5h3.5v3.5a.75.75 0 0 0 1.5 0v-3.5h3.5a.75.75 0 0 0 0-1.5h-3.5v-3.5Z" /></svg>
                     Yeni Plan Ekle

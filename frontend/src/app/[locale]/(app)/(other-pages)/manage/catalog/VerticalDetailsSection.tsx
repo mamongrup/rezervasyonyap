@@ -266,7 +266,7 @@ function VillaSection({
         Tip listesi{' '}
         <Link
           href={holidayHomeTypesHref}
-          className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          className="text-link-inline"
         >
           Katalog → Tatil Evi → Tatil evi tipi
         </Link>{' '}
@@ -343,7 +343,7 @@ function VillaSection({
       Seçenekler{' '}
       <Link
         href={holidayHomeThemeHref}
-        className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+        className="text-link-inline"
       >
         Katalog → Tatil Evi → Tatil evi teması
       </Link>{' '}
@@ -358,7 +358,7 @@ function VillaSection({
       <strong className="font-medium text-neutral-700 dark:text-neutral-300">Görseller</strong> için{' '}
       <Link
         href={holidayHomeFormHref}
-        className="font-medium text-primary-600 underline underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+        className="text-link-inline"
       >
         tatil evi ilan düzenleme formuna
       </Link>{' '}
@@ -859,7 +859,7 @@ function TourSection({ listingId }: { listingId: string }) {
             </div>
           ))}
           <button type="button" onClick={addDay}
-            className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700">
+            className="flex items-center gap-1.5 text-sm text-link-muted">
             <PlusCircle className="h-4 w-4" /> Gün Ekle
           </button>
         </div>
@@ -1310,7 +1310,7 @@ function EventSection({ listingId }: { listingId: string }) {
             </div>
           ))}
           <button type="button" onClick={addTicket}
-            className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700">
+            className="flex items-center gap-1.5 text-sm text-link-muted">
             <PlusCircle className="h-4 w-4" /> Kademe Ekle
           </button>
         </div>
@@ -1940,7 +1940,7 @@ function CinemaSection({ listingId }: { listingId: string }) {
             </div>
           ))}
           <button type="button" onClick={addShowtime}
-            className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700">
+            className="flex items-center gap-1.5 text-sm text-link-muted">
             <PlusCircle className="h-4 w-4" /> Seans Ekle
           </button>
         </div>

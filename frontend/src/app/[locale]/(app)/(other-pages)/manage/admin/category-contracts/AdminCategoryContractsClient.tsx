@@ -122,7 +122,7 @@ export default function AdminCategoryContractsClient() {
     <div className="mx-auto max-w-2xl py-8">
       <Link
         href={vitrinPath('/manage/admin')}
-        className="text-sm font-medium text-primary-600 underline dark:text-primary-400"
+        className="text-sm text-link-inline"
       >
         ← Admin
       </Link>

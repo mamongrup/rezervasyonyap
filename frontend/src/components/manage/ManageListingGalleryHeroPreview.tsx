@@ -194,7 +194,7 @@ export function ManageListingGalleryHeroPreview({
       {main && manageHref ? (
         <p className="border-t border-neutral-200 px-3 py-2 text-[11px] text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
           Tam liste, sıralama ve silme için{' '}
-          <Link href={manageHref} className="font-medium text-primary-600 hover:underline dark:text-primary-400">
+          <Link href={manageHref} className="text-link-muted-underline">
             galeri sayfasına
           </Link>{' '}
           gidin.

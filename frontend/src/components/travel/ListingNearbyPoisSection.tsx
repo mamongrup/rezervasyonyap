@@ -44,7 +44,7 @@ export default function ListingNearbyPoisSection({ pois, title, locale }: Props)
                 {poi.blog_slug ? (
                   <Link
                     href={`/${lang}/blog/${poi.blog_slug}`}
-                    className="text-sm font-semibold leading-tight text-neutral-900 hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+                    className="text-sm font-semibold leading-tight text-neutral-900 hover:text-primary-600 dark:text-white dark:hover:text-neutral-200"
                   >
                     {poi.title}
                   </Link>
@@ -63,7 +63,7 @@ export default function ListingNearbyPoisSection({ pois, title, locale }: Props)
                 {poi.blog_slug ? (
                   <Link
                     href={`/${lang}/blog/${poi.blog_slug}`}
-                    className="inline-flex items-center gap-1 text-[11px] font-medium text-primary-600 hover:underline dark:text-primary-400"
+                    className="inline-flex items-center gap-1 text-[11px] text-link-muted-underline"
                   >
                     <BookOpen className="h-3 w-3" />
                     Devamını Oku

@@ -417,7 +417,7 @@ export function HotelFacetSelectPanels({
       <p className="text-xs text-neutral-500 dark:text-neutral-400">
         <Link
           href={facetOptionsHref}
-          className="font-medium text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+          className="text-link-inline"
         >
           Otel tipi, tema ve konaklama seçeneklerini yönet
         </Link>

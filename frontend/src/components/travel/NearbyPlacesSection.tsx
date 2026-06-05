@@ -107,7 +107,7 @@ function PlaceRow({
       className="group flex items-center justify-between gap-4 rounded-xl px-4 py-3 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+        <p className="truncate text-sm font-medium text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200">
           {place.name}
         </p>
         {place.address ? (
@@ -257,7 +257,7 @@ function FlatPlaceRow({
         {typeEmoji}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+        <p className="truncate text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200">
           {place.name}
         </p>
         <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">{typeName}</p>

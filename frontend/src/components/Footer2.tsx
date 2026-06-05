@@ -83,7 +83,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
   const year = new Date().getFullYear()
   const rights = t.site.footer.rights
 
-  const linkCls = 'text-sm/6 text-gray-600 transition-colors hover:text-primary-600 dark:text-neutral-400 dark:hover:text-neutral-200'
+  const linkCls = 'text-sm/6 text-gray-600 transition-colors hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200'
   const headingCls = 'text-sm font-semibold uppercase tracking-wider text-gray-900 dark:text-neutral-200'
 
   const columns = use(
@@ -126,7 +126,7 @@ export default function Footer2({ locale, branding }: Footer2Props) {
                     href={item.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gray-500 transition-colors hover:text-primary-600 dark:text-neutral-400 dark:hover:text-neutral-200"
+                    className="text-gray-500 transition-colors hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
                   >
                     <span className="sr-only">{item.name}</span>
                     <item.icon aria-hidden="true" className="size-5" />

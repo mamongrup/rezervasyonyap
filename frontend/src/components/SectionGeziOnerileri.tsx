@@ -129,7 +129,7 @@ export default async function SectionGeziOnerileri({ locale, className = '' }: P
                       </div>
                     )}
                     <div className="min-w-0 flex-1">
-                      <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400 transition-colors">
+                      <h3 className="line-clamp-2 text-sm font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200 transition-colors">
                         {post.title ?? post.slug}
                       </h3>
                       <div className="mt-1.5 flex items-center gap-3 text-xs text-neutral-400">

@@ -13,6 +13,10 @@ export type TurnaFlightOffer = {
   referenceId: string
   origin: string
   destination: string
+  originCity: string
+  destinationCity: string
+  originAirportLabel: string
+  destinationAirportLabel: string
   departureTime: string | null
   arrivalTime: string | null
   durationMinutes: number | null
@@ -22,6 +26,13 @@ export type TurnaFlightOffer = {
   price: number | null
   currency: string
   cabinClass: string
+  flightNumber: string
+  baggageLabel: string
+  /** Kabin bagajı (kg metni, örn. "8") */
+  handBaggageKg?: string
+  /** Kayıtlı bagaj (kg metni, örn. "15") */
+  checkedBaggageKg?: string
+  arrivesNextDay: boolean
   /** allocate_form için ham bacak verisi */
   allocateForm: string
 }
@@ -144,19 +155,53 @@ function parseDurationMinutes(leg: Record<string, unknown>): number | null {
   return null
 }
 
+/** Uçuş numarasından IATA (TK2438 → TK) */
+export function airlineCodeFromFlightNumber(flightNumber: string | undefined | null): string {
+  const raw = String(flightNumber ?? '').trim().toUpperCase()
+  const m = raw.match(/^([A-Z]{2,3})\d/)
+  return m?.[1] ?? ''
+}
+
 function airlineFromLeg(leg: Record<string, unknown>): { code: string; name: string } {
   const seg = firstSegment(leg)
   let code =
     pickStr(seg, ['MarketingAirline', 'OperatingAirline']) ||
     pickStr(leg, ['MarketingAirline', 'OperatingAirline', 'AirlineCode', 'airlineCode'])
   const nested =
-    asRecord(leg.Airline) ?? asRecord(leg.Carrier) ?? asRecord(leg.MarketingAirline)
+    asRecord(leg.Airline) ??
+    asRecord(leg.Carrier) ??
+    asRecord(leg.MarketingAirline) ??
+    asRecord(seg?.MarketingAirline) ??
+    asRecord(seg?.OperatingAirline)
   if (!code && nested) code = pickStr(nested, ['Code', 'code', 'Iata', 'IATA'])
+  if (!code && seg) {
+    code = airlineCodeFromFlightNumber(
+      pickStr(seg, ['FlightNo', 'FlightNumber', 'FlightCode', 'Number']),
+    )
+  }
   const name =
     pickStr(nested, ['Name', 'name', 'AirlineName', 'Title']) ||
     pickStr(leg, ['AirlineName', 'airlineName']) ||
     (code ? AIRLINE_NAMES[code.toUpperCase()] ?? code : '')
   return { code: code.toUpperCase(), name: name || code }
+}
+
+/** Arama yanıtından teklif bul (checkout snapshot tamamlama) */
+export function findTurnaOfferInRaw(
+  turnaRaw: string,
+  match?: { id?: string; referenceId?: string },
+): TurnaFlightOffer | null {
+  const offers = parseTurnaSearchOffers(turnaRaw)
+  if (offers.length === 0) return null
+  if (match?.id) {
+    const byId = offers.find((o) => o.id === match.id)
+    if (byId) return byId
+  }
+  if (match?.referenceId) {
+    const byRef = offers.find((o) => o.referenceId === match.referenceId)
+    if (byRef) return byRef
+  }
+  return offers[0] ?? null
 }
 
 function legsFromCombinable(combo: Record<string, unknown>): unknown[] {
@@ -180,6 +225,168 @@ function formatDuration(minutes: number | null): string | undefined {
   const m = minutes % 60
   if (h <= 0) return `${m}dk`
   return m > 0 ? `${h}s ${m}dk` : `${h}s`
+}
+
+/** Turna tarzı süre: 1sa 20dk */
+export function offerDurationLabelTurna(
+  offer: Pick<TurnaFlightOffer, 'durationMinutes'>,
+  locale = 'tr',
+): string | undefined {
+  const minutes = offer.durationMinutes
+  if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return undefined
+  const h = Math.floor(minutes / 60)
+  const m = minutes % 60
+  if (locale === 'tr') {
+    if (h <= 0) return `${m}dk`
+    return m > 0 ? `${h}sa ${m}dk` : `${h}sa`
+  }
+  if (h <= 0) return `${m}m`
+  return m > 0 ? `${h}h ${m}m` : `${h}h`
+}
+
+function parseInstant(value: string): Date | null {
+  const t = value.trim()
+  if (!t) return null
+  const d = new Date(t.includes('T') ? t : t.replace(' ', 'T'))
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+export function formatTurnaClock(value: string | null | undefined): string {
+  if (!value) return '--:--'
+  const d = parseInstant(value)
+  if (!d) {
+    const hm = String(value).match(/(\d{1,2}):(\d{2})/)
+    return hm ? `${hm[1].padStart(2, '0')}:${hm[2]}` : '--:--'
+  }
+  return d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+export function formatTurnaDateLabel(value: string | null | undefined, locale = 'tr'): string {
+  if (!value) return ''
+  const d = parseInstant(value)
+  if (!d) return ''
+  const loc = locale === 'tr' ? 'tr-TR' : 'en-GB'
+  return d.toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function arrivesNextDay(dep: string | null, arr: string | null): boolean {
+  const d0 = dep ? parseInstant(dep) : null
+  const d1 = arr ? parseInstant(arr) : null
+  if (!d0 || !d1) return false
+  return d0.toDateString() !== d1.toDateString()
+}
+
+function airportPoint(
+  seg: Record<string, unknown> | null,
+  leg: Record<string, unknown>,
+  side: 'Origin' | 'Destination',
+): { code: string; city: string; label: string } {
+  const point =
+    asRecord(seg?.[side]) ??
+    asRecord(seg?.[`${side}Point`]) ??
+    asRecord(leg[side]) ??
+    asRecord(leg[`${side}Point`]) ??
+    asRecord(side === 'Origin' ? leg.Departure : leg.Arrival)
+  const code =
+    pickStr(point, ['Code', 'AirportCode', 'Iata', 'IATA']) ||
+    pickStr(seg, [side, `${side}Code`]) ||
+    pickStr(leg, [side, `${side}Code`, side === 'Origin' ? 'From' : 'To'])
+  const city = pickStr(point, ['CityName', 'City', 'city', 'CityTitle', 'Metropolis'])
+  const name = pickStr(point, ['Name', 'AirportName', 'Title', 'Label', 'AirportTitle'])
+  const label = name || city || code
+  return { code: code.toUpperCase(), city, label }
+}
+
+function flightNumberFromLeg(seg: Record<string, unknown> | null, leg: Record<string, unknown>): string {
+  const raw =
+    pickStr(seg, ['FlightNumber', 'FlightNo', 'Number', 'FlightCode']) ||
+    pickStr(leg, ['FlightNumber', 'FlightNo', 'Number'])
+  if (raw) return raw.toUpperCase()
+  const airline = pickStr(seg, ['MarketingAirline', 'OperatingAirline']) || pickStr(leg, ['MarketingAirline'])
+  const num = pickStr(seg, ['FlightNo', 'FlightNumber']) || pickStr(asRecord(seg?.Details), ['FlightNumber'])
+  if (airline && num) return `${airline}${num}`.toUpperCase()
+  return ''
+}
+
+function baggageAllowanceFromLeg(
+  leg: Record<string, unknown>,
+  pkg: Record<string, unknown> | null,
+): { handKg?: string; checkedKg?: string } {
+  const pkgRow =
+    pkg ??
+    (Array.isArray(leg.PackageDetails) && leg.PackageDetails.length > 0
+      ? asRecord(leg.PackageDetails[0])
+      : null)
+
+  if (pkgRow) {
+    const allowances = pkgRow.BaggageAllowances
+    if (Array.isArray(allowances) && allowances.length > 0) {
+      const ba = asRecord(allowances[0])
+      const handKg = pickStr(ba, ['HandBaggageText', 'HandBaggage', 'CabinBaggageText'])
+      const checkedKg = pickStr(ba, ['BaggageText', 'CheckedBaggageText'])
+      if (handKg || checkedKg) return { handKg: handKg || undefined, checkedKg: checkedKg || undefined }
+    }
+  }
+
+  const seg = firstSegment(leg)
+  const details = seg ? asRecord(seg.Details) : null
+  const segAllowances = details?.BaggageAllowance
+  if (Array.isArray(segAllowances) && segAllowances.length > 0) {
+    const ba = asRecord(segAllowances[0])
+    const kg = pickNum(ba, ['Amount', 'AmountNew', 'Weight'])
+    if (kg != null) return { checkedKg: String(kg) }
+  }
+
+  return {}
+}
+
+/** TK + 2438 → TK2438 */
+export function formatFlightNumberDisplay(
+  airlineCode: string | undefined | null,
+  flightNumber: string | undefined | null,
+): string {
+  const fn = String(flightNumber ?? '').trim().toUpperCase()
+  if (!fn) return ''
+  if (/^[A-Z]{2,3}\d/.test(fn)) return fn
+  const ac = String(airlineCode ?? '').trim().toUpperCase()
+  return ac ? `${ac}${fn}` : fn
+}
+
+function baggageLabelFromLeg(
+  leg: Record<string, unknown>,
+  pkg: Record<string, unknown> | null,
+): string {
+  const structured = baggageAllowanceFromLeg(leg, pkg)
+  if (structured.handKg && structured.checkedKg) {
+    return `1x kabin (${structured.handKg} kg) · 1x ${structured.checkedKg} kg`
+  }
+  if (structured.checkedKg) return `1x ${structured.checkedKg} kg`
+  if (structured.handKg) return `1x kabin (${structured.handKg} kg)`
+  const direct =
+    pickStr(pkg ?? leg, [
+      'Baggage',
+      'BaggageAllowance',
+      'BaggageSummary',
+      'AllowedBaggage',
+      'CheckedBaggage',
+    ]) ||
+    pickStr(asRecord(leg.PackageDetails), ['Baggage', 'BaggageAllowance'])
+  if (direct) return direct
+
+  const allowance = asRecord(pkg?.BaggageAllowance) ?? asRecord(leg.BaggageAllowance)
+  if (allowance) {
+    const pieces = pickNum(allowance, ['Piece', 'Pieces', 'Count', 'Quantity'])
+    const kg = pickNum(allowance, ['Weight', 'Kg', 'Kilograms', 'MaxWeight'])
+    if (pieces != null && kg != null) return `${pieces}x${kg}kg`
+    if (kg != null) return `${kg}kg`
+    if (pieces != null) return `${pieces}x`
+  }
+
+  const cabin = pickNum(leg, ['CabinBaggageWeight', 'HandBaggageWeight'])
+  const checked = pickNum(leg, ['CheckedBaggageWeight', 'FreeBaggageWeight'])
+  if (checked != null) return `1x${checked}kg`
+  if (cabin != null) return `1x kabin ${cabin}kg`
+  return ''
 }
 
 function buildAllocateForm(
@@ -221,37 +428,37 @@ function parseLegOffer(
   const segCount = Array.isArray(leg.Segments) ? leg.Segments.length : 0
   const { code: airlineCode, name: airlineName } = airlineFromLeg(leg)
 
+  const fromPoint = airportPoint(seg, leg, 'Origin')
+  const toPoint = airportPoint(seg, leg, 'Destination')
   const origin =
+    fromPoint.code ||
     pickStr(leg, ['Origin', 'origin', 'DepartureAirport', 'From']) ||
-    pickStr(seg, ['Origin', 'origin']) ||
-    pickStr(asRecord(leg.Departure), ['Code', 'AirportCode']) ||
-    pickStr(asRecord(leg.OriginPoint), ['Code'])
+    pickStr(seg, ['Origin', 'origin'])
   const destination =
+    toPoint.code ||
     pickStr(leg, ['Destination', 'destination', 'ArrivalAirport', 'To']) ||
-    pickStr(seg, ['Destination', 'destination']) ||
-    pickStr(asRecord(leg.Arrival), ['Code', 'AirportCode']) ||
-    pickStr(asRecord(leg.DestinationPoint), ['Code'])
+    pickStr(seg, ['Destination', 'destination'])
 
   const price = extractOfferPrice(searchRoot, leg, pkg)
 
   const dep =
     pickStr(leg, [
+      'DepartureDate',
+      'DepartureDateTime',
       'DepartureTime',
       'departureTime',
-      'DepartureDateTime',
-      'DepartureDate',
       'LocalDepartureTime',
     ]) ||
-    pickStr(seg, ['DepartureDate', 'DepartureTime', 'LocalDepartureTime', 'DepartureDateTime'])
+    pickStr(seg, ['DepartureDate', 'DepartureDateTime', 'DepartureTime', 'LocalDepartureTime'])
   const arr =
     pickStr(leg, [
+      'ArrivalDate',
+      'ArrivalDateTime',
       'ArrivalTime',
       'arrivalTime',
-      'ArrivalDateTime',
-      'ArrivalDate',
       'LocalArrivalTime',
     ]) ||
-    pickStr(seg, ['ArrivalDate', 'ArrivalTime', 'LocalArrivalTime', 'ArrivalDateTime'])
+    pickStr(seg, ['ArrivalDate', 'ArrivalDateTime', 'ArrivalTime', 'LocalArrivalTime'])
   const dur = parseDurationMinutes(leg)
 
   const stopsRaw = leg.StopCount ?? leg.stopCount ?? leg.NumberOfStops
@@ -263,13 +470,20 @@ function parseLegOffer(
         : 0
   if (stopCount === 0 && segCount > 1) stopCount = segCount - 1
 
+  const depIso = dep || null
+  const arrIso = arr || null
+
   return {
     id: legId || `offer-${index}`,
     referenceId: legRef,
     origin,
     destination,
-    departureTime: dep || null,
-    arrivalTime: arr || null,
+    originCity: fromPoint.city,
+    destinationCity: toPoint.city,
+    originAirportLabel: fromPoint.label,
+    destinationAirportLabel: toPoint.label,
+    departureTime: depIso,
+    arrivalTime: arrIso,
     durationMinutes: dur,
     airlineName,
     airlineCode,
@@ -280,6 +494,16 @@ function parseLegOffer(
       pickStr(searchRoot, ['Currency', 'currency']) ||
       'TRY',
     cabinClass: pickStr(pkg ?? leg, ['CabinClass', 'cabinClass', 'Class']) || 'Economy',
+    flightNumber: flightNumberFromLeg(seg, leg),
+    ...(() => {
+      const bag = baggageAllowanceFromLeg(leg, pkg)
+      return {
+        baggageLabel: baggageLabelFromLeg(leg, pkg),
+        handBaggageKg: bag.handKg,
+        checkedBaggageKg: bag.checkedKg,
+      }
+    })(),
+    arrivesNextDay: arrivesNextDay(depIso, arrIso),
     allocateForm: buildAllocateForm(searchRoot, leg, pkg),
   }
 }

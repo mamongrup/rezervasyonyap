@@ -35,7 +35,7 @@ function BlogPostCard({ post }: { post: TBlogPost }) {
         </Link>
 
         <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100 sm:text-lg">
-          <Link href={post.detailHref} className="line-clamp-2 hover:text-primary-600 dark:hover:text-primary-400">
+          <Link href={post.detailHref} className="line-clamp-2 hover:text-neutral-700 dark:hover:text-neutral-200">
             {post.title}
           </Link>
         </h3>
@@ -145,7 +145,7 @@ export default function SectionBlogWithCategories({ posts, className = '' }: Pro
         </div>
         <Link
           href={pathname}
-          className="shrink-0 text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+          className="shrink-0 text-sm text-link-muted-underline"
         >
           Tüm yazılar →
         </Link>
@@ -183,7 +183,7 @@ export default function SectionBlogWithCategories({ posts, className = '' }: Pro
           <p className="text-lg">Bu kategoride henüz yazı bulunmuyor.</p>
           <button
             onClick={() => setCategory(ALL_SLUG)}
-            className="mt-4 text-sm text-primary-600 hover:underline dark:text-primary-400"
+            className="mt-4 text-sm text-link-muted-underline"
           >
             Tüm yazıları gör
           </button>

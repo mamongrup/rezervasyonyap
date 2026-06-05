@@ -119,7 +119,7 @@ export default function PageContact() {
                 </p>
                 <button
                   onClick={() => { setSent(false); setName(''); setEmail(''); setMessage('') }}
-                  className="text-sm font-medium text-primary-600 underline dark:text-primary-400"
+                  className="text-sm text-link-inline"
                 >
                   {T.sendAnother}
                 </button>

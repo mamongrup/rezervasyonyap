@@ -134,7 +134,7 @@ function RelatedPosts({
                     {cat.name ?? cat.slug}
                   </span>
                 )}
-                <h3 className="font-semibold text-sm text-neutral-900 dark:text-white line-clamp-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                <h3 className="font-semibold text-sm text-neutral-900 dark:text-white line-clamp-2 group-hover:text-neutral-700 dark:group-hover:text-neutral-200 transition-colors">
                   {post.title ?? post.slug}
                 </h3>
               </div>
@@ -171,7 +171,7 @@ export default async function BlogPostPage({ params }: Props) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <h1 className="text-2xl font-bold">Yazı bulunamadı</h1>
-        <Link href="/blog" className="text-primary-600 hover:underline">Blog'a dön</Link>
+        <Link href="/blog" className="text-link-muted-underline">Blog'a dön</Link>
       </div>
     )
   }
@@ -180,7 +180,7 @@ export default async function BlogPostPage({ params }: Props) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <h1 className="text-2xl font-bold">Yazı bulunamadı</h1>
-        <Link href="/blog" className="text-primary-600 hover:underline">Blog'a dön</Link>
+        <Link href="/blog" className="text-link-muted-underline">Blog'a dön</Link>
       </div>
     )
   }

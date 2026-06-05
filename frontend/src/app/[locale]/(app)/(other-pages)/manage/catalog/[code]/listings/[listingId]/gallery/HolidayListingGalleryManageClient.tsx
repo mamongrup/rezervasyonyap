@@ -88,7 +88,7 @@ export default function HolidayListingGalleryManageClient({ listingId }: { listi
     <div className={`${MANAGE_FORM_CONTAINER_CLASS} py-8`}>
       <Link
         href={backHref}
-        className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+        className="mb-6 text-link-muted inline-flex items-center gap-2"
       >
         <ArrowLeft className="h-4 w-4" />
         İlan formuna dön

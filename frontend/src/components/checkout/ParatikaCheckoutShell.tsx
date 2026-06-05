@@ -70,7 +70,7 @@ export default function ParatikaCheckoutShell({
         <motion.button
           type="button"
           onClick={onBack}
-          className="mb-6 inline-flex items-center gap-2 text-sm font-medium text-neutral-600 transition hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+          className="mb-6 text-link-muted inline-flex items-center gap-2"
           {...fadeUp}
         >
           <ArrowLeft className="h-4 w-4" />

@@ -220,6 +220,19 @@
   @apply rounded-3xl border border-neutral-200/79 bg-white dark:border-neutral-700 dark:bg-neutral-800/30;
 }
 
+/** Vitrin metin linkleri — geri dön, ikincil nav, gövde href (butonlar hariç) */
+@utility text-link-muted {
+  @apply text-sm font-medium text-neutral-500 transition hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200;
+}
+
+@utility text-link-muted-underline {
+  @apply font-medium text-neutral-500 underline-offset-2 transition hover:text-neutral-800 hover:underline dark:text-neutral-400 dark:hover:text-neutral-200;
+}
+
+@utility text-link-inline {
+  @apply font-medium text-neutral-600 underline decoration-neutral-400/60 underline-offset-2 transition hover:text-neutral-900 dark:text-neutral-400 dark:decoration-neutral-500/50 dark:hover:text-neutral-200;
+}
+
 @utility listingSection__wrap {
   @apply flex w-full flex-col gap-y-6 border-b border-neutral-200 px-0 pb-10 leading-relaxed sm:gap-y-8 sm:rounded-2xl sm:border sm:p-4 xl:p-8 dark:border-neutral-700;
 }

@@ -11,7 +11,7 @@ import { getReservationByPublicCode, type ReservationDetail } from '@/lib/travel
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
-import { Calendar04Icon, Home01Icon, UserIcon } from '@hugeicons/core-free-icons'
+import { Airplane01Icon, Calendar04Icon, Home01Icon, UserIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useParams, useSearchParams } from 'next/navigation'
 import React from 'react'
@@ -28,6 +28,10 @@ export default function PayDoneView() {
   const [reservation, setReservation] = React.useState<ReservationDetail | null>(null)
   const [loading, setLoading] = React.useState(true)
   const [confirmExtra, setConfirmExtra] = React.useState<{
+    is_flight?: boolean
+    flight_route?: string
+    flight_departure_date?: string
+    flight_airline?: string
     listing_title?: string | null
     listing_location?: string | null
     amount_total?: number
@@ -74,6 +78,8 @@ export default function PayDoneView() {
     return reservation.lines.reduce((acc, l) => acc + parseFloat(l.line_total || '0'), 0)
   }, [reservation])
 
+  const isFlightBooking = Boolean(confirmExtra?.is_flight)
+
   if (loading) {
     return (
       <main className="container mt-10 mb-24">
@@ -88,38 +94,84 @@ export default function PayDoneView() {
         <h1 className="text-4xl font-semibold sm:text-5xl">
           {PD.congratulation} 🎉
         </h1>
-        <p className="text-lg text-neutral-600 dark:text-neutral-400">{PD.sectionTitle}</p>
-        {PD.notifyNote ? (
+        <p className="text-lg text-neutral-600 dark:text-neutral-400">
+          {isFlightBooking ? PD.flightSectionTitle : PD.sectionTitle}
+        </p>
+        {isFlightBooking && PD.flightNotifyNote ? (
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">{PD.flightNotifyNote}</p>
+        ) : PD.notifyNote ? (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">{PD.notifyNote}</p>
         ) : null}
         <Divider />
 
         {reservation && (
           <div className="flex flex-col divide-y divide-neutral-200 rounded-3xl border border-neutral-200 text-neutral-500 sm:flex-row sm:divide-x sm:divide-y-0 dark:divide-neutral-700 dark:border-neutral-700 dark:text-neutral-400">
-            <div className="flex flex-1 gap-x-4 p-5">
-              <HugeiconsIcon icon={Calendar04Icon} size={32} strokeWidth={1.5} />
-              <div className="flex flex-col">
-                <span className="text-sm text-neutral-400">{PD.dateLabel}</span>
-                <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                  {formatCheckoutDate(locale, reservation.starts_on)} –{' '}
-                  {formatCheckoutDate(locale, reservation.ends_on)}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-1 gap-x-4 p-5">
-              <HugeiconsIcon icon={UserIcon} size={32} strokeWidth={1.5} />
-              <div className="flex flex-col">
-                <span className="text-sm text-neutral-400">{PD.guestLabel}</span>
-                <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                  {reservation.guest_name || reservation.guest_email}
-                </span>
-              </div>
-            </div>
+            {isFlightBooking ? (
+              <>
+                <div className="flex flex-1 gap-x-4 p-5">
+                  <HugeiconsIcon icon={Calendar04Icon} size={32} strokeWidth={1.5} />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-400">{PD.flightDepartureLabel}</span>
+                    <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                      {formatCheckoutDate(
+                        locale,
+                        confirmExtra?.flight_departure_date ?? reservation.starts_on,
+                      )}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-1 gap-x-4 p-5">
+                  <HugeiconsIcon icon={Airplane01Icon} size={32} strokeWidth={1.5} />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-400">{PD.flightRouteLabel}</span>
+                    <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                      {confirmExtra?.flight_route ?? '—'}
+                    </span>
+                    {confirmExtra?.flight_airline ? (
+                      <span className="mt-1 text-sm text-neutral-500">{confirmExtra.flight_airline}</span>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex flex-1 gap-x-4 p-5">
+                  <HugeiconsIcon icon={UserIcon} size={32} strokeWidth={1.5} />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-400">{PD.flightPassengerLabel}</span>
+                    <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                      {reservation.guest_name || reservation.guest_email}
+                    </span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-1 gap-x-4 p-5">
+                  <HugeiconsIcon icon={Calendar04Icon} size={32} strokeWidth={1.5} />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-400">{PD.dateLabel}</span>
+                    <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                      {formatCheckoutDate(locale, reservation.starts_on)} –{' '}
+                      {formatCheckoutDate(locale, reservation.ends_on)}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex flex-1 gap-x-4 p-5">
+                  <HugeiconsIcon icon={UserIcon} size={32} strokeWidth={1.5} />
+                  <div className="flex flex-col">
+                    <span className="text-sm text-neutral-400">{PD.guestLabel}</span>
+                    <span className="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+                      {reservation.guest_name || reservation.guest_email}
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         <div>
-          <h3 className="text-2xl font-semibold">{PD.yourBooking}</h3>
+          <h3 className="text-2xl font-semibold">
+            {isFlightBooking ? PD.flightYourBooking : PD.yourBooking}
+          </h3>
           <DescriptionList className="mt-5">
             {reservation?.id ? (
               <>
@@ -131,7 +183,13 @@ export default function PayDoneView() {
                 </DescriptionDetails>
               </>
             ) : null}
-            {(confirmExtra?.listing_title || confirmExtra?.listing_location) && (
+            {isFlightBooking && confirmExtra?.flight_airline ? (
+              <>
+                <DescriptionTerm>{PD.flightAirlineLabel}</DescriptionTerm>
+                <DescriptionDetails>{confirmExtra.flight_airline}</DescriptionDetails>
+              </>
+            ) : null}
+            {!isFlightBooking && (confirmExtra?.listing_title || confirmExtra?.listing_location) ? (
               <>
                 <DescriptionTerm>{PD.listingTitleLabel}</DescriptionTerm>
                 <DescriptionDetails>
@@ -143,7 +201,7 @@ export default function PayDoneView() {
                   ) : null}
                 </DescriptionDetails>
               </>
-            )}
+            ) : null}
             <DescriptionTerm>{PD.codeLabel}</DescriptionTerm>
             <DescriptionDetails>
               <span className="font-mono text-neutral-900 dark:text-neutral-100">
@@ -156,11 +214,31 @@ export default function PayDoneView() {
                 <DescriptionTerm>{PD.statusLabel}</DescriptionTerm>
                 <DescriptionDetails>{checkoutStatusLabel(locale, reservation.status)}</DescriptionDetails>
 
-                <DescriptionTerm>{PD.checkInLabel}</DescriptionTerm>
-                <DescriptionDetails>{formatCheckoutDate(locale, reservation.starts_on)}</DescriptionDetails>
+                {isFlightBooking ? (
+                  <>
+                    <DescriptionTerm>{PD.flightDepartureLabel}</DescriptionTerm>
+                    <DescriptionDetails>
+                      {formatCheckoutDate(
+                        locale,
+                        confirmExtra?.flight_departure_date ?? reservation.starts_on,
+                      )}
+                    </DescriptionDetails>
+                    {confirmExtra?.flight_route ? (
+                      <>
+                        <DescriptionTerm>{PD.flightRouteLabel}</DescriptionTerm>
+                        <DescriptionDetails>{confirmExtra.flight_route}</DescriptionDetails>
+                      </>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <DescriptionTerm>{PD.checkInLabel}</DescriptionTerm>
+                    <DescriptionDetails>{formatCheckoutDate(locale, reservation.starts_on)}</DescriptionDetails>
 
-                <DescriptionTerm>{PD.checkOutLabel}</DescriptionTerm>
-                <DescriptionDetails>{formatCheckoutDate(locale, reservation.ends_on)}</DescriptionDetails>
+                    <DescriptionTerm>{PD.checkOutLabel}</DescriptionTerm>
+                    <DescriptionDetails>{formatCheckoutDate(locale, reservation.ends_on)}</DescriptionDetails>
+                  </>
+                )}
 
                 {totalFromLines !== null && (
                   <>

@@ -533,7 +533,7 @@ function AttributeDefIconUpload({
           type="button"
           disabled={busy}
           onClick={() => inputRef.current?.click()}
-          className="text-xs font-medium text-primary-600 hover:underline disabled:opacity-50 dark:text-primary-400"
+          className="text-xs font-medium text-link-muted-underline disabled:opacity-50 dark:text-primary-400"
         >
           {busy ? '…' : def.icon_url ? 'Değiştir' : 'Yükle'}
         </button>
@@ -847,7 +847,7 @@ function DefsPanel({
                       <button
                         type="button"
                         onClick={() => setTransDefId(transDefId === d.id ? null : d.id)}
-                        className="text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+                        className="text-xs text-link-muted-underline"
                       >
                         Diller
                       </button>

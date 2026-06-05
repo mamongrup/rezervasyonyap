@@ -21,6 +21,32 @@ interface FlightCardProps {
   hideExpandedPanel?: boolean
 }
 
+/** Google Flights amblemi — 72px'nin 1/4'ü (18px) + sağında boşluk */
+const AIRLINE_LOGO_PX = 18
+
+function AirlineLogoEmblem({ src, alt }: { src: string; alt: string }) {
+  if (!src) {
+    return (
+      <div
+        className="size-[18px] shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700"
+        aria-hidden
+      />
+    )
+  }
+  return (
+    <div className="flex size-[18px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-neutral-100 dark:bg-neutral-800 dark:ring-neutral-700">
+      <Image
+        src={src}
+        alt={alt}
+        width={AIRLINE_LOGO_PX}
+        height={AIRLINE_LOGO_PX}
+        className="size-full object-cover"
+        sizes="18px"
+      />
+    </div>
+  )
+}
+
 function formatListingTime(value: unknown): string {
   if (value == null) return '--:--'
   const d = value instanceof Date ? value : new Date(value as string | number)
@@ -107,12 +133,8 @@ const FlightCard: FC<FlightCardProps> = ({
 
   const renderFlightLeg = () => (
     <div className="flex flex-col md:flex-row">
-      <div className="w-24 shrink-0 md:w-20 md:pt-7 lg:w-24">
-        {logoSrc ? (
-          <Image src={logoSrc} className="w-10" alt={airlineName} sizes="40px" width={40} height={40} />
-        ) : (
-          <div className="h-10 w-10 rounded bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-        )}
+      <div className="me-5 shrink-0 md:pt-7 md:me-6">
+        <AirlineLogoEmblem src={logoSrc} alt={airlineName} />
       </div>
       <div className="my-5 flex md:my-0">
         <div className="flex shrink-0 flex-col items-center py-2">
@@ -164,13 +186,9 @@ const FlightCard: FC<FlightCardProps> = ({
           </div>
         ) : null}
 
-        <div className="flex flex-col gap-y-6 sm:gap-y-0 md:flex-row md:items-center">
-          <div className="w-24 shrink-0 lg:w-32">
-            {logoSrc ? (
-              <Image src={logoSrc} width={40} height={40} className="w-10" alt={airlineName} sizes="40px" />
-            ) : (
-              <div className="h-10 w-10 rounded bg-neutral-200 dark:bg-neutral-700" aria-hidden />
-            )}
+        <div className="flex flex-col gap-y-6 sm:gap-y-0 md:flex-row md:items-center md:gap-x-2">
+          <div className="me-5 shrink-0 md:me-6">
+            <AirlineLogoEmblem src={logoSrc} alt={airlineName} />
           </div>
 
           <div className="block space-y-1 lg:hidden">

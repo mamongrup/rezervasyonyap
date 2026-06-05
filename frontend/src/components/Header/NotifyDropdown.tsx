@@ -218,7 +218,7 @@ const NotifyDropdown: FC<Props> = ({ className = '' }) => {
               <CloseButton
                 as={Link}
                 href={role === 'guest' ? footer.href : vitrinPath(footer.href)}
-                className="flex items-center gap-2 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400"
+                className="flex items-center gap-2 text-sm text-link-muted"
               >
                 <footer.icon className="h-4 w-4" />
                 {footer.label}

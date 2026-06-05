@@ -53,7 +53,7 @@ export default async function StayListingContractPageContent({
       <div className="mb-6">
         <Link
           href={backHref}
-          className="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+          className="text-sm text-link-muted-underline"
         >
           ← {cp.backToListing}
         </Link>

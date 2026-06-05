@@ -97,7 +97,7 @@ function TaskList({
           <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{title}</h2>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{subtitle}</p>
         </div>
-        <Link href={href} className="shrink-0 text-xs font-medium text-primary-600 hover:underline">
+        <Link href={href} className="shrink-0 text-xs font-medium text-link-muted-underline">
           Aç
         </Link>
       </div>

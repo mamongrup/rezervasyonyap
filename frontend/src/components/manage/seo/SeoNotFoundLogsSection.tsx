@@ -39,7 +39,7 @@ export default function SeoNotFoundLogsSection() {
           type="button"
           disabled={nfLoading}
           onClick={() => void reloadNotFoundLogs()}
-          className="text-sm font-medium text-primary-600 underline disabled:opacity-50 dark:text-primary-400"
+          className="text-sm text-link-inline disabled:opacity-50"
         >
           {nfLoading ? '…' : 'Yenile'}
         </button>

@@ -282,7 +282,7 @@ export default function AgencySalesClient() {
                     <td className="px-4 py-2">
                       <button
                         type="button"
-                        className="text-sm font-medium text-primary-600 underline dark:text-primary-400"
+                        className="text-sm text-link-inline"
                         onClick={() => pickListing(row)}
                       >
                         {selected?.id === row.id ? 'Seçili' : 'Seç'}

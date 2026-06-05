@@ -175,7 +175,7 @@ function RegionHeroEditor({
                 href={`/${config.category}/${config.region}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-primary-600 hover:underline"
+                className="text-link-muted-underline"
               >
                 sayfayı görüntüle ↗
               </a>

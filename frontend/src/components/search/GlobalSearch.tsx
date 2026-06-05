@@ -144,7 +144,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                 <Link
                   href={`${vitrinPath('/ara')}?q=${encodeURIComponent(query)}`}
                   onClick={onClose}
-                  className="inline-block mt-3 text-sm text-primary-600 hover:underline"
+                  className="inline-block mt-3 text-sm text-link-muted-underline"
                 >
                   Tüm listelemelerde ara →
                 </Link>
@@ -199,7 +199,7 @@ export function SearchModal({ onClose, locale }: { onClose: () => void; locale: 
                     <Link
                       href={`${vitrinPath('/ara')}?q=${encodeURIComponent(query)}`}
                       onClick={onClose}
-                      className="flex items-center gap-2 px-4 py-3 text-sm text-primary-600 dark:text-primary-400 hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                      className="flex items-center gap-2 px-4 py-3 text-sm text-link-muted hover:bg-neutral-50 dark:hover:bg-neutral-800"
                     >
                       <Search className="w-4 h-4" />
                       &ldquo;{query}&rdquo; için tüm sonuçları gör

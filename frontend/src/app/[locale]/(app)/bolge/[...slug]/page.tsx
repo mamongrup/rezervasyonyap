@@ -445,7 +445,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
         <li className="flex min-w-0 items-center">
           <Link
             href={normalizeHrefForLocale(locale, '/')}
-            className="hover:text-primary-600 dark:hover:text-primary-400"
+            className="hover:text-neutral-700 dark:hover:text-neutral-200"
           >
             {m.site.region.breadcrumbHome}
           </Link>
@@ -469,7 +469,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
               ) : (
                 <Link
                   href={regionBase(segmentPath)}
-                  className="min-w-0 truncate hover:text-primary-600 dark:hover:text-primary-400"
+                  className="min-w-0 truncate hover:text-neutral-700 dark:hover:text-neutral-200"
                 >
                   {label}
                 </Link>

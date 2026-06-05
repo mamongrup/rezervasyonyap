@@ -45,7 +45,7 @@ export default function RegionNearbyPlacesVitrin({
                           href={cell.mapsHref}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="group flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 hover:text-primary-600 dark:hover:text-primary-400"
+                          className="group flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 hover:text-neutral-700 dark:hover:text-neutral-200"
                         >
                           <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 dark:text-white">
                             {cell.placeName}

@@ -280,7 +280,7 @@ export default function HeroMenuManageClient() {
                 <td className="py-2 pe-2 align-top whitespace-nowrap">
                   <button
                     type="button"
-                    className="text-primary-600 hover:underline dark:text-primary-400"
+                    className="text-link-muted-underline"
                     disabled={savingId === row.id}
                     onClick={() => void saveRow(row)}
                   >

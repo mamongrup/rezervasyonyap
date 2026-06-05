@@ -76,13 +76,13 @@ export default function CookieConsentBanner({ locale, bannerEnabled = true }: Pr
               {t.description}
             </p>
             <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs font-medium">
-              <Link href={cookiesHref} className="text-primary-600 underline decoration-primary-400/60 underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+              <Link href={cookiesHref} className="text-link-inline">
                 {t.policyLink}
               </Link>
               <span className="text-neutral-300 dark:text-neutral-600" aria-hidden>
                 ·
               </span>
-              <Link href={privacyHref} className="text-primary-600 underline decoration-primary-400/60 underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300">
+              <Link href={privacyHref} className="text-link-inline">
                 {t.privacyLink}
               </Link>
             </p>

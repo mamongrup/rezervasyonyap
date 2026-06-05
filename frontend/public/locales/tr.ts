@@ -393,8 +393,14 @@ export const tr = {
     error: 'Uçuş araması başarısız oldu.',
     notConfigured:
       'Turna API anahtarı tanımlı değil. Yönetim → API sağlayıcılarından kaydedin veya sunucuda TURNA_API_KEY ayarlayın.',
-    select: 'Seç ve devam et',
+    select: 'Seç',
     configuring: 'Fiyat kontrol ediliyor…',
+    directFlight: 'Direkt uçuş',
+    outbound: 'Gidiş',
+    arrivesNextDay: 'Ertesi gün varış',
+    classLabel: 'Sınıf',
+    flightNo: 'Uçuş No',
+    baggage: 'Bagaj',
     needListing: 'Bu rota için vitrin ilanı yok. Turna import çalıştırın.',
     noInventory:
       'Turna API bu rota için envanter döndürmedi. API anahtarınızın uçuş arama yetkisini Turna ile doğrulayın.',

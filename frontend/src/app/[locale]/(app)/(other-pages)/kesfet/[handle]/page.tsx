@@ -82,7 +82,7 @@ function ListingCard({ item }: { item: PublicListingItem }) {
             </>
           )}
         </div>
-        <h3 className="font-semibold text-neutral-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors line-clamp-2">
+        <h3 className="font-semibold text-neutral-900 dark:text-white group-hover:text-neutral-700 dark:group-hover:text-neutral-200 transition-colors line-clamp-2">
           {item.title}
         </h3>
         <div className="mt-auto flex items-end justify-between pt-2 border-t border-neutral-100 dark:border-neutral-800">

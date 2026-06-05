@@ -469,7 +469,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-4 flex items-center gap-2 text-sm text-primary-600 hover:underline dark:text-primary-400"
+            className="mb-4 flex items-center gap-2 text-sm text-link-muted-underline"
           >
             <Eye className="h-4 w-4" />
             Ana sayfayı önizle →
@@ -485,7 +485,7 @@ export default function CategoryPageBuilderClient({ presetSlug }: { presetSlug?:
             }
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-4 flex items-center gap-2 text-sm text-primary-600 hover:underline dark:text-primary-400"
+            className="mb-4 flex items-center gap-2 text-sm text-link-muted-underline"
           >
             <Eye className="h-4 w-4" />
             {selectedCat.slug === 'homepage'

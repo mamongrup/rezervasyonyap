@@ -24,6 +24,8 @@ type Props = {
   stayDates: { start: string; end: string }
   showPaymentOptions: boolean
   fxLockInfo?: FxLockSnapshot | null
+  /** Sağ panelde özet gösterildiğinde çift tutar kutusunu gizle */
+  hideAmountSummary?: boolean
 }
 
 export default function CheckoutReservationDetails({
@@ -42,6 +44,7 @@ export default function CheckoutReservationDetails({
   stayDates,
   showPaymentOptions,
   fxLockInfo,
+  hideAmountSummary = false,
 }: Props) {
   const C = checkoutT(locale)
 
@@ -77,7 +80,7 @@ export default function CheckoutReservationDetails({
         </p>
       ) : null}
 
-      {grandTotal > 0 ? (
+      {!hideAmountSummary && grandTotal > 0 ? (
         <div className="grid gap-3 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 sm:grid-cols-2 dark:border-neutral-700 dark:bg-neutral-900/30">
           <div>
             <p className="text-xs text-neutral-500">{C.amountDueNowLabel}</p>

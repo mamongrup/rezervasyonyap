@@ -830,7 +830,7 @@ export default async function StayListingDetailPageContent({
             <p>
               <Link
                 href={listingContractHref}
-                className="font-medium text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
+                className="text-link-inline"
               >
                 {messages.listing.policies.contractLink}
               </Link>

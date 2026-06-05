@@ -161,7 +161,7 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
                 key={child.id ?? idx}
                 href={navItemHref(effectiveLocale, vitrinPath, child.href)}
                 onClick={handleClose}
-                className="block rounded-lg py-2 pl-3 text-sm text-neutral-700 hover:bg-white hover:text-primary-700 dark:text-neutral-200 dark:hover:bg-neutral-900 dark:hover:text-primary-300"
+                className="block rounded-lg py-2 pl-3 text-sm text-neutral-700 hover:bg-white hover:text-primary-700 dark:text-neutral-200 dark:hover:bg-neutral-900 dark:hover:text-neutral-200"
               >
                 {child.name}
               </Link>
@@ -391,10 +391,10 @@ const SidebarNavigation: React.FC<Props> = ({ data, currencies, locale }) => {
       </div>
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-        <Link href={navItemHref(effectiveLocale, vitrinPath, '/contact')} onClick={handleClose} className="text-primary-600 hover:underline dark:text-primary-400">
+        <Link href={navItemHref(effectiveLocale, vitrinPath, '/contact')} onClick={handleClose} className="text-link-muted-underline">
           {s.contact}
         </Link>
-        <Link href={navItemHref(effectiveLocale, vitrinPath, '/blog')} onClick={handleClose} className="text-primary-600 hover:underline dark:text-primary-400">
+        <Link href={navItemHref(effectiveLocale, vitrinPath, '/blog')} onClick={handleClose} className="text-link-muted-underline">
           {s.blog}
         </Link>
       </div>

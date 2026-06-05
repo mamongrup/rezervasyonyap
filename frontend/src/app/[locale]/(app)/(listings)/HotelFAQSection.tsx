@@ -44,7 +44,7 @@ export function AccordionFaqSection({
           <Disclosure key={i} as="div" className="py-1">
             {({ open }) => (
               <>
-                <DisclosureButton className="flex w-full items-start justify-between gap-3 py-3 text-start text-sm font-medium text-neutral-800 hover:text-primary-600 dark:text-neutral-200 dark:hover:text-primary-400">
+                <DisclosureButton className="flex w-full items-start justify-between gap-3 py-3 text-start text-sm font-medium text-neutral-800 hover:text-primary-600 dark:text-neutral-200 dark:hover:text-neutral-200">
                   <span className="leading-snug">{it.q}</span>
                   <ChevronDown
                     className={clsx(

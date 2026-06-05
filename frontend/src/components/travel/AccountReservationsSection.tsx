@@ -58,7 +58,7 @@ export function AccountReservationsSection({ locale, reservations, vitrinHref, T
                             row.listing_category_code,
                             vitrinHref,
                           )}
-                          className="font-mono text-xs text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:decoration-primary-600 dark:text-primary-400 dark:decoration-primary-400/30"
+                          className="font-mono text-xs text-link-inline"
                         >
                           {row.listing_slug}
                         </Link>

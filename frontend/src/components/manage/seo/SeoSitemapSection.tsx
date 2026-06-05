@@ -63,7 +63,7 @@ export default function SeoSitemapSection() {
               href={sitemapXmlHref}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium text-primary-600 underline dark:text-primary-400"
+              className="text-sm text-link-inline"
             >
               sitemap.xml (API)
             </a>
@@ -72,7 +72,7 @@ export default function SeoSitemapSection() {
             type="button"
             disabled={smLoading}
             onClick={() => void reloadSitemapPreview()}
-            className="text-sm font-medium text-primary-600 underline disabled:opacity-50 dark:text-primary-400"
+            className="text-sm text-link-inline disabled:opacity-50"
           >
             {smLoading ? '…' : 'Yenile'}
           </button>

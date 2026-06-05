@@ -196,7 +196,7 @@ export function CategoryHubGridConfigEditor({
                 <button
                   type="button"
                   onClick={() => addLink(i)}
-                  className="text-xs text-primary-600 hover:underline dark:text-primary-400"
+                  className="text-xs text-link-muted-underline"
                 >
                   + Link ekle
                 </button>

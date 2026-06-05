@@ -118,7 +118,7 @@ export default async function ActiveCampaignsModule({
         {config.viewAllHref && (
           <Link
             href={config.viewAllHref}
-            className="text-sm font-semibold text-primary-600 hover:underline dark:text-primary-400"
+            className="text-sm font-semibold text-link-muted-underline"
           >
             {viewAllLabel} →
           </Link>

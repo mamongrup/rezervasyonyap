@@ -367,7 +367,7 @@ export default function DeveloperPage() {
               ))}
             </div>
             <div className="border-t border-neutral-100 px-5 py-3 dark:border-neutral-700">
-              <Link href="/developer/swagger" className="flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:underline">
+              <Link href="/developer/swagger" className="flex items-center gap-1.5 text-sm font-medium text-link-muted-underline">
                 Swagger UI ile tam dökümantasyon <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>

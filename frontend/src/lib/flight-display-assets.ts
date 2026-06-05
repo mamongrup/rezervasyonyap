@@ -4,14 +4,42 @@
 
 import { findAirportByCode } from '@/lib/flight-airports'
 
-/** Aviasales / Kiwi uyumlu IATA logo CDN */
+/**
+ * Google Flights — yazısız dairesel havayolu amblemi (ör. THY kırmızı kuş).
+ * @see https://www.gstatic.com/flights/airline_logos/70px/{IATA}.png
+ */
 export function airlineLogoUrl(iataCode: string | undefined | null): string {
   const code = String(iataCode ?? '')
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '')
   if (!code) return ''
-  return `https://pics.avs.io/200/200/${code}.png`
+  return `https://www.gstatic.com/flights/airline_logos/70px/${code}.png`
+}
+
+/** Snapshot / kart — airlineCode, uçuş no veya isimden logo IATA */
+export function resolveAirlineIataCode(input: {
+  airlineCode?: string | null
+  flightNumber?: string | null
+  airlineName?: string | null
+}): string {
+  const direct = String(input.airlineCode ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+  if (direct.length >= 2) return direct.slice(0, 3)
+
+  const fn = String(input.flightNumber ?? '').trim().toUpperCase()
+  const fromFn = fn.match(/^([A-Z]{2,3})\d/)
+  if (fromFn?.[1]) return fromFn[1]
+
+  const name = String(input.airlineName ?? '').toLowerCase()
+  if (name.includes('turkish')) return 'TK'
+  if (name.includes('pegasus')) return 'PC'
+  if (name.includes('sunexpress') || name.includes('sun express')) return 'XQ'
+  if (name.includes('ajet')) return 'VF'
+
+  return ''
 }
 
 /** Varış havalimanı / şehir için vitrin kapak görseli (Unsplash — statik) */

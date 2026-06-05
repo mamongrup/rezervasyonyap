@@ -77,7 +77,7 @@ export default function ForgotPasswordPage() {
           )}
           <Link
             href={vitrinPath('/login')}
-            className="block text-sm font-medium text-primary-600 underline dark:text-primary-400"
+            className="block text-sm text-link-inline"
           >
             {T.backToLogin}
           </Link>

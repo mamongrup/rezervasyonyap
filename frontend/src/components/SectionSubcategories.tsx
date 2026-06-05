@@ -149,7 +149,7 @@ function IconGridVariant({ items, locale, showHeading, categoryRoute }: { items:
               </span>
 
               {/* Yazı */}
-              <p className="text-xs font-medium leading-tight text-neutral-700 group-hover:text-primary-600 dark:text-neutral-300 dark:group-hover:text-primary-400 line-clamp-2">
+              <p className="text-xs font-medium leading-tight text-neutral-700 group-hover:text-primary-600 dark:text-neutral-300 dark:group-hover:text-neutral-200 line-clamp-2">
                 {subcategoryLabelForLocale(sub, locale)}
               </p>
             </Link>

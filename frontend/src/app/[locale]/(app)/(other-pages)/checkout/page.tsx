@@ -3,7 +3,11 @@
 import CheckoutContractWizard from '@/components/checkout/CheckoutContractWizard'
 import CheckoutGuestForms from '@/components/checkout/CheckoutGuestForms'
 import CheckoutInvoiceForm from '@/components/checkout/CheckoutInvoiceForm'
+import CheckoutFlightSummary from '@/components/checkout/CheckoutFlightSummary'
+import CheckoutFlightTrip from '@/components/checkout/CheckoutFlightTrip'
+import PayWith from '@/app/[locale]/(app)/(other-pages)/checkout/PayWith'
 import CheckoutListingSummary from '@/components/checkout/CheckoutListingSummary'
+import CheckoutStaySummary from '@/components/checkout/CheckoutStaySummary'
 import CheckoutCardPayment from '@/components/checkout/CheckoutCardPayment'
 import CheckoutPaymentMethods from '@/components/checkout/CheckoutPaymentMethods'
 import type { ParatikaCheckoutPayload } from '@/components/checkout/CheckoutParatikaInline'
@@ -28,6 +32,7 @@ import {
 import {
   completeTurnaFlightBooking,
   readTurnaFlightBookingDraft,
+  type TurnaFlightBookingDraft,
 } from '@/lib/turna-flight-booking'
 import {
   addCartLine,
@@ -45,6 +50,7 @@ import {
 import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Form from 'next/form'
+import Link from 'next/link'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense } from 'react'
 import {
@@ -56,6 +62,7 @@ import {
   type CheckoutPaymentChannel,
 } from '@/lib/checkout-guest-types'
 import type { GuestsObject } from '@/type'
+import clsx from 'clsx'
 
 function resolveCheckoutStayDates(
   searchParams: URLSearchParams,
@@ -105,6 +112,17 @@ function CheckoutPageContent() {
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const C = checkoutT(locale)
   const paymentFailed = searchParams.get('pay') === 'failed'
+  const isFlightCheckout = searchParams.get('flight') === '1'
+
+  const [flightDraft, setFlightDraft] = React.useState<TurnaFlightBookingDraft | null>(null)
+
+  React.useEffect(() => {
+    if (!isFlightCheckout) {
+      setFlightDraft(null)
+      return
+    }
+    setFlightDraft(readTurnaFlightBookingDraft())
+  }, [isFlightCheckout])
 
   const checkoutListingId = resolveCheckoutListingId(
     searchParams.get('listingId'),
@@ -172,7 +190,9 @@ function CheckoutPageContent() {
   )
 
   const totalPrice = checkoutUnitPrice
-  const [paymentType, setPaymentType] = React.useState<'full' | 'partial'>('partial')
+  const [paymentType, setPaymentType] = React.useState<'full' | 'partial'>(
+    isFlightCheckout ? 'full' : 'partial',
+  )
   const hasCheckoutListing = Boolean(checkoutListingId)
   const [coupon, setCoupon] = React.useState<CouponPreview | null>(null)
   const couponDiscount = React.useMemo(() => {
@@ -206,6 +226,7 @@ function CheckoutPageContent() {
   const [paymentChannel, setPaymentChannel] = React.useState<CheckoutPaymentChannel>('card')
   const [paratikaPayload, setParatikaPayload] = React.useState<ParatikaCheckoutPayload | null>(null)
   const [createdPublicCode, setCreatedPublicCode] = React.useState<string | null>(null)
+  const [invoiceOpen, setInvoiceOpen] = React.useState(!isFlightCheckout)
 
   React.useEffect(() => {
     if (invoiceTouched || guestRows.length === 0) return
@@ -353,10 +374,17 @@ function CheckoutPageContent() {
         }
 
         localStorage.setItem('travel_paydone_email', email)
+        const flightOfferSnap = turnaDraft?.offer
         sessionStorage.setItem(
           'travel_checkout_confirm',
           JSON.stringify({
-            listing_title: listingTitle,
+            is_flight: Boolean(turnaDraft),
+            flight_route: flightOfferSnap
+              ? `${flightOfferSnap.origin} → ${flightOfferSnap.destination}`
+              : undefined,
+            flight_departure_date: turnaDraft?.departure_date,
+            flight_airline: flightOfferSnap?.airlineName,
+            listing_title: flightOfferSnap?.airlineName ?? listingTitle,
             listing_location: listingLocation,
             amount_total: grandTotal,
             amount_paid: amountDueNow,
@@ -412,20 +440,94 @@ function CheckoutPageContent() {
   }
 
   const showPaymentOptions =
-    listingPrepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing)
+    !isFlightCheckout && listingPrepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing)
+
+  const flightOffer = flightDraft?.offer
+  const flightPassengers = {
+    adults: flightDraft?.passengers?.adults ?? stayGuests.guestAdults ?? 1,
+    children: flightDraft?.passengers?.children ?? stayGuests.guestChildren ?? 0,
+    infants: flightDraft?.passengers?.infants ?? stayGuests.guestInfants ?? 0,
+  }
+
+  React.useEffect(() => {
+    if (!isFlightCheckout || !flightDraft?.passengers) return
+    setStayGuests({
+      guestAdults: flightDraft.passengers.adults ?? 1,
+      guestChildren: flightDraft.passengers.children ?? 0,
+      guestInfants: flightDraft.passengers.infants ?? 0,
+    })
+  }, [isFlightCheckout, flightDraft])
+
+  const flightBackHref = React.useMemo(() => {
+    if (!flightOffer) return vitrinHref('/ucak-bileti/all')
+    const qs = new URLSearchParams({
+      from: flightOffer.origin,
+      to: flightOffer.destination,
+      date: flightDraft?.departure_date ?? stayDates.start,
+      trip: 'oneWay',
+      class: 'Economy',
+    })
+    return vitrinHref(`/ucak-bileti/all?${qs.toString()}`)
+  }, [flightOffer, flightDraft?.departure_date, stayDates.start, vitrinHref])
 
   const primaryGuestName = React.useMemo(() => {
     const primary = guestRows[0]
     return [primary?.first_name, primary?.last_name].filter(Boolean).join(' ').trim()
   }, [guestRows])
 
+  const pageTitle = isFlightCheckout ? C.flightTitle : C.title
+  const flightCheckoutReady = isFlightCheckout && Boolean(flightOffer)
+  const flightSessionMissing = isFlightCheckout && !flightOffer
+  const isHolidayHomeCheckout =
+    listingRow?.category_code === 'holiday_home' ||
+    listingRow?.listing_vertical === 'holiday_home'
+  const holidayCheckoutReady =
+    !isFlightCheckout && hasCheckoutListing && isHolidayHomeCheckout && !listingLoading
+  const twoColumnCheckout = flightCheckoutReady || holidayCheckoutReady
+
   return (
     <main className="container mt-10 mb-24 lg:mb-32">
-      <Form
-        action={handleSubmitForm}
-        className="mx-auto flex w-full max-w-3xl flex-col gap-y-10 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700"
+      {isFlightCheckout ? (
+        <Link
+          href={flightBackHref}
+          className="mb-6 inline-flex text-link-muted"
+        >
+          ← {C.flightBackToSearch}
+        </Link>
+      ) : null}
+
+      {flightSessionMissing ? (
+        <div
+          role="alert"
+          className="mx-auto mb-8 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          <p>{C.flightSessionExpired}</p>
+          <Link
+            href={vitrinHref('/ucak-bileti/all')}
+            className="mt-3 inline-flex text-link-muted-underline"
+          >
+            {C.payDone.flightSearchAgain} →
+          </Link>
+        </div>
+      ) : null}
+
+      <div
+        className={
+          twoColumnCheckout
+            ? 'mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start'
+            : 'mx-auto w-full max-w-3xl'
+        }
       >
-        <h1 className="text-3xl font-semibold lg:text-4xl">{C.title}</h1>
+        {flightSessionMissing ? null : (
+        <Form
+          action={handleSubmitForm}
+          className={clsx(
+            'flex w-full min-w-0 flex-col gap-y-10 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700',
+            twoColumnCheckout && 'lg:col-start-1',
+            holidayCheckoutReady && 'max-lg:order-2',
+          )}
+        >
+        <h1 className="text-3xl font-semibold lg:text-4xl">{pageTitle}</h1>
 
         {paymentFailed && (
           <div
@@ -448,40 +550,61 @@ function CheckoutPageContent() {
         {stayDates.start ? <input type="hidden" name="checkIn" value={stayDates.start} /> : null}
         {stayDates.end ? <input type="hidden" name="checkOut" value={stayDates.end} /> : null}
 
-        <CheckoutSection step={1} title={C.sectionListingInfo}>
-          <CheckoutListingSummary
+        {flightCheckoutReady ? (
+          <CheckoutFlightTrip
             locale={locale}
-            loading={listingLoading}
-            title={listingTitle}
-            location={listingLocation}
-            imageUrl={listingImage}
-            maxGuests={listingRow?.max_guests}
-            roomCount={listingRow?.room_count ?? listingRow?.bed_count}
-            bathCount={listingRow?.bath_count}
+            offer={flightOffer!}
+            departureDate={flightDraft?.departure_date ?? stayDates.start}
+            passengers={flightPassengers}
+            backHref={flightBackHref}
           />
-        </CheckoutSection>
+        ) : (
+          <>
+            {!holidayCheckoutReady ? (
+              <CheckoutSection step={1} title={C.sectionListingInfo}>
+                <CheckoutListingSummary
+                  locale={locale}
+                  loading={listingLoading}
+                  title={listingTitle}
+                  location={listingLocation}
+                  imageUrl={listingImage}
+                  maxGuests={listingRow?.max_guests}
+                  roomCount={listingRow?.room_count ?? listingRow?.bed_count}
+                  bathCount={listingRow?.bath_count}
+                />
+              </CheckoutSection>
+            ) : null}
 
-        <CheckoutSection step={2} title={C.sectionReservation}>
-          <CheckoutReservationDetails
-            locale={locale}
-            currencyCode={checkoutCurrency}
-            breakdown={priceBreakdown}
-            grandTotal={grandTotal > 0 ? grandTotal : totalPrice}
-            couponCode={coupon?.code}
-            couponDiscount={couponDiscount}
-            prepaymentPercent={listingPrepaymentPercent}
-            paymentType={paymentType}
-            onPaymentTypeChange={setPaymentType}
-            amountDueNow={amountDueNow}
-            amountRemaining={amountRemaining}
-            onGuestsChange={setStayGuests}
-            stayDates={stayDates}
-            showPaymentOptions={showPaymentOptions}
-            fxLockInfo={fxLockInfo}
-          />
-        </CheckoutSection>
+            <CheckoutSection
+              step={holidayCheckoutReady ? 1 : 2}
+              title={C.sectionReservation}
+            >
+              <CheckoutReservationDetails
+                locale={locale}
+                currencyCode={checkoutCurrency}
+                breakdown={priceBreakdown}
+                grandTotal={grandTotal > 0 ? grandTotal : totalPrice}
+                couponCode={coupon?.code}
+                couponDiscount={couponDiscount}
+                prepaymentPercent={listingPrepaymentPercent}
+                paymentType={paymentType}
+                onPaymentTypeChange={setPaymentType}
+                amountDueNow={amountDueNow}
+                amountRemaining={amountRemaining}
+                onGuestsChange={setStayGuests}
+                stayDates={stayDates}
+                showPaymentOptions={showPaymentOptions}
+                fxLockInfo={fxLockInfo}
+                hideAmountSummary={holidayCheckoutReady}
+              />
+            </CheckoutSection>
+          </>
+        )}
 
-        <CheckoutSection step={3} title={C.sectionGuestInfo}>
+        <CheckoutSection
+          step={isFlightCheckout ? 1 : holidayCheckoutReady ? 2 : 3}
+          title={isFlightCheckout ? C.sectionPassengers : C.sectionGuestInfo}
+        >
           <CheckoutGuestForms
             locale={locale}
             guests={stayGuests}
@@ -491,25 +614,44 @@ function CheckoutPageContent() {
             onContactPhoneChange={setContactPhone}
             rows={guestRows}
             onRowsChange={setGuestRows}
+            formsHint={isFlightCheckout ? C.passengerFormsHint : undefined}
+            personPrimaryLabel={isFlightCheckout ? C.passengerPrimaryLabel : undefined}
+            personLabel={isFlightCheckout ? C.passengerLabel : undefined}
           />
 
           <div className="border-t border-neutral-200 pt-6 dark:border-neutral-700">
-            <h3 className="mb-4 text-base font-semibold text-neutral-800 dark:text-neutral-100">
-              {C.sectionInvoice}
-            </h3>
-            <CheckoutInvoiceForm
-              locale={locale}
-              invoice={invoice}
-              onChange={(inv) => {
-                setInvoiceTouched(true)
-                setInvoice(inv)
-              }}
-              autoFilled={!invoiceTouched}
-            />
+            {isFlightCheckout ? (
+              <button
+                type="button"
+                onClick={() => setInvoiceOpen((v) => !v)}
+                className="mb-4 text-sm text-link-muted-underline"
+              >
+                {invoiceOpen ? C.invoiceToggleHide : C.invoiceToggleShow}
+              </button>
+            ) : (
+              <h3 className="mb-4 text-base font-semibold text-neutral-800 dark:text-neutral-100">
+                {C.sectionInvoice}
+              </h3>
+            )}
+            {(!isFlightCheckout || invoiceOpen) ? (
+              <CheckoutInvoiceForm
+                locale={locale}
+                invoice={invoice}
+                onChange={(inv) => {
+                  setInvoiceTouched(true)
+                  setInvoice(inv)
+                }}
+                autoFilled={!invoiceTouched}
+              />
+            ) : null}
           </div>
         </CheckoutSection>
 
-        <CheckoutSection step={4} title={C.sectionPayment}>
+        <CheckoutSection
+          step={isFlightCheckout ? 2 : holidayCheckoutReady ? 3 : 4}
+          title={isFlightCheckout ? C.payWithTitle : C.sectionPayment}
+        >
+          {isFlightCheckout ? <PayWith locale={locale} showHeading={false} /> : null}
           <CheckoutPaymentMethods
             locale={locale}
             value={paymentChannel}
@@ -555,12 +697,53 @@ function CheckoutPageContent() {
                 className="text-base/6!"
                 disabled={pending || (hasCheckoutListing && !contractsOk)}
               >
-                {pending ? C.processing : C.confirmPay}
+                {pending ? C.processing : isFlightCheckout ? C.confirmPayFlight : C.confirmPay}
               </ButtonPrimary>
             </div>
           ) : null}
         </CheckoutSection>
       </Form>
+        )}
+
+        {flightCheckoutReady ? (
+          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+            <CheckoutFlightSummary
+              locale={locale}
+              offer={flightOffer!}
+              departureDate={flightDraft?.departure_date ?? stayDates.start}
+              currencyCode={checkoutCurrency}
+              totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
+              passengers={flightPassengers}
+            />
+          </aside>
+        ) : null}
+
+        {holidayCheckoutReady ? (
+          <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
+            <CheckoutStaySummary
+              locale={locale}
+              loading={listingLoading}
+              title={listingTitle}
+              location={listingLocation}
+              imageUrl={listingImage}
+              maxGuests={listingRow?.max_guests}
+              roomCount={listingRow?.room_count ?? listingRow?.bed_count}
+              bathCount={listingRow?.bath_count}
+              stayDates={stayDates}
+              currencyCode={checkoutCurrency}
+              breakdown={priceBreakdown}
+              grandTotal={grandTotal > 0 ? grandTotal : totalPrice}
+              couponCode={coupon?.code}
+              couponDiscount={couponDiscount}
+              amountDueNow={amountDueNow}
+              amountRemaining={amountRemaining}
+              showAmountSplit={showPaymentOptions}
+              isHolidayHome
+            />
+          </aside>
+        ) : null}
+      </div>
+
     </main>
   )
 }

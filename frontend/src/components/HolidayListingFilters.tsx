@@ -337,7 +337,7 @@ export default function HolidayListingFilters({
                   <li>
                     <button
                       type="button"
-                      className="text-sm text-primary-600 hover:underline dark:text-primary-400"
+                      className="text-sm text-link-muted-underline"
                       onClick={() => {
                         setQuery({ theme: null })
                         setShowAll(false)
@@ -368,7 +368,7 @@ export default function HolidayListingFilters({
                   <li>
                     <Link
                       href={`${linkBasePath}${querySuffix}`}
-                      className="text-sm text-primary-600 hover:underline dark:text-primary-400"
+                      className="text-sm text-link-muted-underline"
                       onClick={() => setShowAll(false)}
                     >
                       {l.allTypes}
@@ -555,7 +555,7 @@ export default function HolidayListingFilters({
                     <li>
                       <button
                         type="button"
-                        className="text-sm text-primary-600 hover:underline dark:text-primary-400"
+                        className="text-sm text-link-muted-underline"
                         onClick={() => setQuery({ theme: null })}
                       >
                         {l.allTypes}
@@ -580,7 +580,7 @@ export default function HolidayListingFilters({
                     <li>
                       <Link
                         href={`${linkBasePath}${querySuffix}`}
-                        className="text-sm text-primary-600 hover:underline dark:text-primary-400"
+                        className="text-sm text-link-muted-underline"
                       >
                         {l.allTypes}
                       </Link>
@@ -590,7 +590,7 @@ export default function HolidayListingFilters({
                         <Link
                           href={`${linkBasePath}/${s.slug}${querySuffix}`}
                           className={clsx(
-                            'text-sm hover:text-primary-600 dark:hover:text-primary-400',
+                            'text-sm hover:text-neutral-700 dark:hover:text-neutral-200',
                             pathHandle === s.slug ? 'font-semibold text-primary-700 dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-200',
                           )}
                         >

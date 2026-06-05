@@ -151,7 +151,7 @@ export function FeaturedByRegionConfigEditor({
 
         <p className="text-xs text-neutral-400">
           💡 Hangi ilanların görüneceğini detaylı yapılandırmak için{' '}
-          <Link href="/manage/content/featured-regions" className="text-primary-600 hover:underline">
+          <Link href="/manage/content/featured-regions" className="text-link-muted-underline">
             Bölge Vitrin Editörü
           </Link>{' '}
           sayfasını kullanın.

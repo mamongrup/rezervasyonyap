@@ -150,7 +150,7 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
               <li>
                 <Link
                   href={`${prefix}/price-inclusions`}
-                  className="font-medium text-primary-700 hover:underline dark:text-primary-300"
+                  className="text-link-muted-underline"
                 >
                   Fiyat kalemleri
                 </Link>
@@ -161,7 +161,7 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
               <li>
                 <Link
                   href={`${prefix}/accommodation-rules`}
-                  className="font-medium text-primary-700 hover:underline dark:text-primary-300"
+                  className="text-link-muted-underline"
                 >
                   Kurallar
                 </Link>

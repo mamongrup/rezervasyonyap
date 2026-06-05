@@ -160,7 +160,7 @@ export function ListingShareGalleryButton({
                   {sg.title}
                 </DialogTitle>
                 <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{sg.hint}</p>
-                <p className="mt-2 text-sm font-medium text-primary-600 dark:text-primary-400">
+                <p className="mt-2 text-sm font-medium text-neutral-500 dark:text-neutral-400">
                   {selected.size} / {MAX_SELECT} {sg.selected}
                 </p>
               </div>

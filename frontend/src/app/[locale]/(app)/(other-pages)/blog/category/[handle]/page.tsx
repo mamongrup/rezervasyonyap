@@ -150,12 +150,12 @@ export default async function BlogCategoryPage({ params }: Props) {
                   )}
                   <div className="p-5 flex-1 flex flex-col">
                     {postCat && (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-primary-600 dark:text-primary-400 mb-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">
                         <Tag className="w-3 h-3" />
                         {postCat.name ?? postCat.slug}
                       </span>
                     )}
-                    <h3 className="font-semibold text-neutral-900 dark:text-white line-clamp-2 mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                    <h3 className="font-semibold text-neutral-900 dark:text-white line-clamp-2 mb-2 group-hover:text-neutral-700 dark:group-hover:text-neutral-200 transition-colors">
                       {post.title ?? post.slug}
                     </h3>
                     <div className="mt-auto flex items-center gap-3 text-xs text-neutral-400 pt-3 border-t border-neutral-100 dark:border-neutral-800">

@@ -180,7 +180,7 @@ export default async function DestinationCardsModule({
         {config.viewAllHref && (
           <Link
             href={config.viewAllHref}
-            className="shrink-0 text-sm font-medium text-primary-6000 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition"
+            className="shrink-0 text-sm text-link-muted"
           >
             {config.viewAllLabel ?? 'Tümünü Gör'} →
           </Link>

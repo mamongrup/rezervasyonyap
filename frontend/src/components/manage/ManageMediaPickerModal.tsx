@@ -659,7 +659,7 @@ export function ManageMediaPickerModal({
                 href="/manage/media"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:underline dark:text-primary-400"
+                className="mt-1 inline-flex items-center gap-1 text-xs text-link-muted-underline"
               >
                 <FolderOpen className="h-3.5 w-3.5" />
                 Tam medya kütüphanesini yeni sekmede aç
@@ -736,7 +736,7 @@ export function ManageMediaPickerModal({
                     className={
                       idx === breadcrumbSegments.length - 1
                         ? 'max-w-[140px] truncate font-semibold text-neutral-900 dark:text-neutral-100'
-                        : 'max-w-[120px] truncate rounded hover:text-primary-600 dark:hover:text-primary-400'
+                        : 'max-w-[120px] truncate rounded hover:text-neutral-700 dark:hover:text-neutral-200'
                     }
                     title={crumb.prefix}
                     onClick={() => setBrowsePrefix(crumb.prefix)}

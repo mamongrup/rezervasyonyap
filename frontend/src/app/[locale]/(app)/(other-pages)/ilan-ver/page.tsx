@@ -184,7 +184,7 @@ export default function IlanVerPage() {
               >
                 <IlanVerCategoryIcon slug={cat.slug} />
                 <div>
-                  <h3 className="font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-neutral-100 dark:group-hover:text-primary-400">
+                  <h3 className="font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-neutral-100 dark:group-hover:text-neutral-200">
                     {cat.name}
                   </h3>
                   <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">{cat.desc}</p>

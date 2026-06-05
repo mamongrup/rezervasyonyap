@@ -1,12 +1,11 @@
 'use client'
 
-import FlightCard from '@/components/FlightCard'
+import TurnaFlightCard from '@/components/TurnaFlightCard'
 import { allocateTurnaFlight, searchTurnaFlights, type TurnaFlightSession } from '@/lib/travel-api'
-import { TURNA_FLIGHT_BOOKING_KEY } from '@/lib/turna-flight-booking'
+import { snapshotFromTurnaOffer, TURNA_FLIGHT_BOOKING_KEY } from '@/lib/turna-flight-booking'
 import {
   parseTurnaSearchOffers,
   parseTurnaSearchResponseUrl,
-  offerDurationLabel,
   type TurnaFlightOffer,
 } from '@/lib/turna-flight-offers'
 import {
@@ -14,7 +13,7 @@ import {
   turnaDestinationIsCity,
   turnaOriginIsCity,
 } from '@/lib/flight-airports'
-import { airlineLogoUrl, turnaOfferListKey } from '@/lib/flight-display-assets'
+import { turnaOfferListKey } from '@/lib/flight-display-assets'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import T from '@/utils/getT'
 import { useRouter } from 'next/navigation'
@@ -60,7 +59,6 @@ function formatTurnaSearchError(
 
 const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', enabled = true }) => {
   const router = useRouter()
-  const msgs = T.flightCard
   const m = T.flightLiveSearch ?? {
     searching: 'Uçuşlar aranıyor…',
     noResults: 'Bu tarih ve rota için uçuş bulunamadı.',
@@ -83,6 +81,7 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
   const [listingId, setListingId] = useState<string | null>(null)
   const [searchResponseUrl, setSearchResponseUrl] = useState<string | null>(null)
   const [hasInventory, setHasInventory] = useState<boolean | null>(null)
+  const [lastSearchRaw, setLastSearchRaw] = useState<string | null>(null)
 
   const from = resolveFlightAirportCode(params.from ?? '') ?? params.from?.trim().toUpperCase()
   const to = resolveFlightAirportCode(params.to ?? '') ?? params.to?.trim().toUpperCase()
@@ -114,6 +113,10 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
         (typeof res.search_response_url === 'string' && res.search_response_url.trim()) ||
         parseTurnaSearchResponseUrl(res.turna_raw)
       setSearchResponseUrl(turnaUrl || null)
+      setLastSearchRaw(res.turna_raw ?? null)
+      if (res.turna_raw) {
+        sessionStorage.setItem('travel_turna_last_search_raw', res.turna_raw)
+      }
       setOffers(parseTurnaSearchOffers(res.turna_raw))
     } catch (e) {
       const raw = e instanceof Error ? e.message : m.error
@@ -157,13 +160,8 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
           allocate_raw: alloc.turna_raw,
           listing_id: listingId,
           departure_date: date,
-          offer: {
-            id: offer.id,
-            origin: offer.origin,
-            destination: offer.destination,
-            departure_time: offer.departureTime,
-            airline: offer.airlineName,
-          },
+          search_raw: lastSearchRaw ?? undefined,
+          offer: snapshotFromTurnaOffer(offer),
           passengers: {
             adults: params.adults ?? 1,
             children: params.children ?? 0,
@@ -221,7 +219,7 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
               href={searchResponseUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+              className="text-sm text-link-muted-underline"
             >
               {m.viewOnTurna}
             </a>
@@ -244,40 +242,23 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
       {offers.map((offer, index) => {
         const priceLabel =
           offer.price != null ? formatMoneyIntl(offer.price, offer.currency || 'TRY') : undefined
-        const duration = offerDurationLabel(offer)
-        const logo = airlineLogoUrl(offer.airlineCode)
-        const routeName = `${offer.origin} - ${offer.destination}`
         return (
-          <FlightCard
+          <TurnaFlightCard
             key={turnaOfferListKey(offer, index)}
-            hideDetailLink
+            offer={offer}
+            locale={locale}
+            priceLabel={priceLabel}
+            booking={bookingId === offer.id}
             action={
               <button
                 type="button"
                 disabled={bookingId === offer.id || offer.price == null || !listingId}
                 onClick={() => handleSelect(offer)}
-                className="rounded-full bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-primary-700 disabled:opacity-50 sm:text-sm"
+                className="w-full rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow hover:bg-primary-700 disabled:opacity-50 sm:w-auto"
               >
                 {bookingId === offer.id ? m.configuring : m.select}
               </button>
             }
-            data={{
-              id: offer.id,
-              handle: offer.id,
-              title: routeName,
-              name: routeName,
-              departure: offer.origin,
-              arrival: offer.destination,
-              departureTime: offer.departureTime ?? undefined,
-              arrivalTime: offer.arrivalTime ?? undefined,
-              duration,
-              price: priceLabel,
-              stopNumber: offer.stopCount,
-              stopAirport: offer.stopCount > 0 ? offer.destination : undefined,
-              airlines: { name: offer.airlineName, logo },
-              address: routeName,
-            }}
-            msgs={msgs}
           />
         )
       })}

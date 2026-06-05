@@ -313,7 +313,7 @@ export default function AdminAccessSection() {
                   <td className="px-4 py-2">
                     <button type="button" disabled={busy?.startsWith('select-')}
                       onClick={() => void selectUser(u.id)}
-                      className="text-sm font-medium text-primary-600 underline dark:text-primary-400">
+                      className="text-sm text-link-inline">
                       {selectedUserId === u.id ? 'Seçili' : 'Seç'}
                     </button>
                   </td>

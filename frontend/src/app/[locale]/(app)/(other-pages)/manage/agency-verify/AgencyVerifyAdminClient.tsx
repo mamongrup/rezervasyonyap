@@ -381,7 +381,7 @@ export default function AgencyVerifyAdminClient() {
                               <dd>
                                 <a
                                   href={`mailto:${record.userEmail}`}
-                                  className="text-primary-600 hover:underline dark:text-primary-400"
+                                  className="text-link-muted-underline"
                                 >
                                   {record.userEmail}
                                 </a>

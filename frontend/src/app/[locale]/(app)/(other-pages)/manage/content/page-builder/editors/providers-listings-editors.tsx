@@ -74,7 +74,7 @@ export function TopProvidersConfigEditor({
       </div>
       <p className="text-xs text-neutral-400">
         💡 İlan sahipleri puan ortalamasına ve ilan sayısına göre otomatik sıralanır. İlan verilerini{' '}
-        <Link href="/manage/admin" className="text-primary-600 hover:underline">
+        <Link href="/manage/admin" className="text-link-muted-underline">
           Yönetim Paneli
         </Link>{' '}
         üzerinden güncelleyebilirsiniz.

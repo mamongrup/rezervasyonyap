@@ -21,6 +21,9 @@ type Props = {
   onContactPhoneChange: (v: string) => void
   rows: CheckoutGuestRow[]
   onRowsChange: (rows: CheckoutGuestRow[]) => void
+  formsHint?: string
+  personPrimaryLabel?: string
+  personLabel?: string
 }
 
 export default function CheckoutGuestForms({
@@ -32,9 +35,15 @@ export default function CheckoutGuestForms({
   onContactPhoneChange,
   rows,
   onRowsChange,
+  formsHint,
+  personPrimaryLabel,
+  personLabel,
 }: Props) {
   const C = checkoutT(locale)
   const count = guestRowsForStay(guests)
+  const hint = formsHint ?? C.guestFormsHint
+  const primaryLabel = personPrimaryLabel ?? C.guestPersonPrimaryLabel
+  const secondaryLabelTpl = personLabel ?? C.guestPersonLabel
 
   React.useEffect(() => {
     const next = [...rows]
@@ -52,13 +61,13 @@ export default function CheckoutGuestForms({
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">{C.guestFormsHint}</p>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">{hint}</p>
 
       {rows.map((row, index) => {
         const isPrimary = index === 0
         const label = isPrimary
-          ? C.guestPersonPrimaryLabel
-          : fmtCheckout(C.guestPersonLabel, { n: index + 1 })
+          ? primaryLabel
+          : fmtCheckout(secondaryLabelTpl, { n: index + 1 })
         return (
           <div
             key={index}

@@ -80,7 +80,7 @@ export default function ListingSearchSuggestions({
             <Link
               href={`${vitrinPath('/ara')}?q=${encodeURIComponent(trimmed)}`}
               onClick={onNavigate}
-              className="mt-2 block text-primary-600 hover:underline dark:text-primary-400"
+              className="mt-2 block text-link-muted-underline"
             >
               Tüm sonuçlarda ara →
             </Link>
@@ -123,7 +123,7 @@ export default function ListingSearchSuggestions({
                   onNavigate?.()
                   router.push(`${vitrinPath('/ara')}?q=${encodeURIComponent(trimmed)}`)
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-primary-600 hover:bg-neutral-50 dark:text-primary-400 dark:hover:bg-neutral-800/80"
+                className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-link-muted hover:bg-neutral-50 dark:hover:bg-neutral-800/80"
               >
                 <Search className="h-4 w-4 shrink-0" />
                 <span className="truncate">&ldquo;{trimmed}&rdquo; için tüm sonuçlar</span>

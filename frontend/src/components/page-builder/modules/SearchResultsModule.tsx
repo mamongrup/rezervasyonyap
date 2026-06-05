@@ -90,7 +90,7 @@ function ListingCard({
           ) : null}
           {mealBadge}
         </div>
-        <h3 className="line-clamp-1 font-semibold text-neutral-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+        <h3 className="line-clamp-1 font-semibold text-neutral-900 transition-colors group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200">
           {item.title}
         </h3>
         <div className="mt-2 flex items-center justify-between">

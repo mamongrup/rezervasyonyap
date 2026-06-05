@@ -443,7 +443,7 @@ export default function AccountProfile({ locale }: { locale: string }) {
           <button
             type="button"
             onClick={() => void onCreateComparisonSet()}
-            className="text-sm font-medium text-primary-600 underline dark:text-primary-400"
+            className="text-sm text-link-inline"
           >
             {T['New list']}
           </button>
@@ -477,7 +477,7 @@ export default function AccountProfile({ locale }: { locale: string }) {
                       <button
                         type="button"
                         onClick={() => toggleCmpExpand(s.id)}
-                        className="text-sm font-medium text-primary-600 underline dark:text-primary-400"
+                        className="text-sm text-link-inline"
                       >
                         {open ? T['Hide items'] : T['Show items']}
                       </button>

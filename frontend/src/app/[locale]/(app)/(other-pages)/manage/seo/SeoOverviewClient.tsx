@@ -67,7 +67,7 @@ export default function SeoOverviewClient() {
             href={vitrinPath(c.href)}
             className="group rounded-2xl border border-neutral-200 bg-white p-5 transition hover:border-primary-300 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-900/40 dark:hover:border-primary-700"
           >
-            <h2 className="font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
+            <h2 className="font-semibold text-neutral-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-neutral-200">
               {c.title}
             </h2>
             <p className="mt-2 text-sm text-neutral-500">{c.desc}</p>

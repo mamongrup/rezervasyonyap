@@ -615,9 +615,15 @@ export const en = {
     searching: 'Searching live flights…',
     noResults: 'No flights found for this route and date.',
     error: 'Flight search failed.',
+    directFlight: 'Direct flight',
+    outbound: 'Outbound',
+    arrivesNextDay: 'Arrives next day',
+    classLabel: 'Class',
+    flightNo: 'Flight No',
+    baggage: 'Baggage',
     notConfigured:
       'Turna API key is not configured. Save it under Admin → API providers, or set TURNA_API_KEY on the server.',
-    select: 'Select and continue',
+    select: 'Select',
     configuring: 'Checking price…',
     needListing: 'No route listing in catalog. Run Turna import.',
     noInventory:

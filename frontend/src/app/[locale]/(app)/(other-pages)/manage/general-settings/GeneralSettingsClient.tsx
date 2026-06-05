@@ -1067,7 +1067,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <button
                 type="button"
                 onClick={() => setHomePageLinks((prev) => [...prev, { label: '', path: '/' }])}
-                className="mt-2 text-sm font-medium text-primary-600 hover:text-primary-700"
+                className="mt-2 text-sm text-link-muted"
               >
                 + Satır ekle
               </button>

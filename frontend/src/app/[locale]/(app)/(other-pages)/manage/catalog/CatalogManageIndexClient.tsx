@@ -32,7 +32,7 @@ export default function CatalogManageIndexClient() {
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-neutral-100 px-4 pb-4 pt-2 text-[11px] dark:border-neutral-600">
                 <Link
                   href={`${prefix}/${code}/attributes`}
-                  className="font-medium text-primary-600 underline-offset-2 hover:underline dark:text-primary-400"
+                  className="text-link-muted-underline"
                 >
                   Öznitelikler
                 </Link>
@@ -41,7 +41,7 @@ export default function CatalogManageIndexClient() {
                 </span>
                 <Link
                   href={`${prefix}/${code}/price-inclusions`}
-                  className="font-medium text-primary-600 underline-offset-2 hover:underline dark:text-primary-400"
+                  className="text-link-muted-underline"
                 >
                   Dahil / Hariç
                 </Link>
@@ -50,7 +50,7 @@ export default function CatalogManageIndexClient() {
                 </span>
                 <Link
                   href={`${prefix}/${code}/accommodation-rules`}
-                  className="font-medium text-primary-600 underline-offset-2 hover:underline dark:text-primary-400"
+                  className="text-link-muted-underline"
                 >
                   Kurallar
                 </Link>

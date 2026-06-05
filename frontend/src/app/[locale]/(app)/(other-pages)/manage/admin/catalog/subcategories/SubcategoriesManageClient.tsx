@@ -345,7 +345,7 @@ export default function SubcategoriesManageClient() {
           {filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-neutral-200 py-12 text-center dark:border-neutral-700">
               <p className="text-neutral-400">Bu kategoride henüz alt kategori yok.</p>
-              <button onClick={startAdd} className="mt-3 text-sm font-medium text-primary-600 hover:underline">
+              <button onClick={startAdd} className="mt-3 text-sm font-medium text-link-muted-underline">
                 İlk alt kategoriyi ekle
               </button>
             </div>

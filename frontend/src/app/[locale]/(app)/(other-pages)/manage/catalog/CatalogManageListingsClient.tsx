@@ -358,7 +358,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                           <div className="min-w-0">
                             <Link
                               href={detailHref}
-                              className="font-medium text-neutral-900 hover:text-primary-600 dark:text-neutral-100 dark:hover:text-primary-400"
+                              className="font-medium text-neutral-900 hover:text-primary-600 dark:text-neutral-100 dark:hover:text-neutral-200"
                             >
                               <span className="line-clamp-2">{title}</span>
                             </Link>
@@ -388,14 +388,14 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                         <div className="flex items-center justify-end gap-1.5">
                           <Link
                             href={detailHref}
-                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-primary-400"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-neutral-200"
                           >
                             <FileText className="h-3.5 w-3.5" />
                             Detay
                           </Link>
                           <Link
                             href={`${detailHref}/translations`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-primary-400"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-neutral-200"
                           >
                             <Languages className="h-3.5 w-3.5" />
                             {t('catalog.translations_link')}
@@ -473,7 +473,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
 
       <Link
         href={vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)}
-        className="mt-6 inline-flex text-sm font-medium text-primary-600 hover:underline dark:text-primary-400"
+        className="mt-6 inline-flex text-sm text-link-muted-underline"
       >
         ← {t('catalog.back_hub')}
       </Link>
