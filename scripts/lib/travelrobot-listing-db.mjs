@@ -4,6 +4,8 @@
  */
 
 const PROVIDER = 'travelrobot'
+/** Sandbox/API anomali fiyatlarını vitrine taşıma (ör. 3.5B TRY). */
+const MAX_SANE_NIGHTLY_TRY = 500_000
 
 // ── Slug yardımcıları ────────────────────────────────────────────────────────
 
@@ -158,7 +160,14 @@ function extractHotelMinNightlyPrice(hotel) {
       const amount = Number(
         alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount ?? NaN,
       )
-      if (Number.isFinite(amount) && amount > 0 && (min == null || amount < min)) min = amount
+      if (
+        Number.isFinite(amount) &&
+        amount > 0 &&
+        amount <= MAX_SANE_NIGHTLY_TRY &&
+        (min == null || amount < min)
+      ) {
+        min = amount
+      }
     }
   }
   return min
@@ -167,7 +176,7 @@ function extractHotelMinNightlyPrice(hotel) {
 function extractTourPriceAmount(tour) {
   const price = tour?.Price ?? tour?.price
   const amount = Number(price?.TotalAmount ?? price?.totalAmount ?? price?.BaseAmount ?? price?.baseAmount ?? NaN)
-  return Number.isFinite(amount) && amount > 0 ? amount : null
+  return Number.isFinite(amount) && amount > 0 && amount <= MAX_SANE_NIGHTLY_TRY ? amount : null
 }
 
 async function upsertListingCover(pgClient, listingId, imageUrl) {
@@ -186,8 +195,8 @@ async function upsertListingCover(pgClient, listingId, imageUrl) {
 }
 
 async function upsertNightlyPriceRule(pgClient, listingId, amount, currency = 'TRY') {
-  if (amount == null || !Number.isFinite(amount) || amount <= 0) return
   await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return
   await pgClient.query(
     `INSERT INTO listing_price_rules (listing_id, rule_json, valid_from, valid_to)
      VALUES ($1::uuid, $2::jsonb, NULL, NULL)`,
