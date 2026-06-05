@@ -390,6 +390,8 @@ export const tr = {
     searching: 'Canlı uçuşlar aranıyor…',
     noResults: 'Bu tarih ve rota için uçuş bulunamadı.',
     error: 'Uçuş araması başarısız oldu.',
+    notConfigured:
+      'Turna API anahtarı tanımlı değil. Yönetim → API sağlayıcılarından kaydedin veya sunucuda TURNA_API_KEY ayarlayın.',
     select: 'Seç ve devam et',
     configuring: 'Fiyat kontrol ediliyor…',
     needListing: 'Bu rota için vitrin ilanı yok. Turna import çalıştırın.',

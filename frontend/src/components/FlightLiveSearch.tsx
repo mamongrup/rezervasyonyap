@@ -36,6 +36,17 @@ function airportIsCity(code: string): boolean {
   return c === 'IST' || c === 'SAW' || c === 'AYT' || c === 'ADB' || c === 'ESB'
 }
 
+function formatTurnaSearchError(
+  raw: string,
+  fallback: string,
+  notConfigured: string,
+): string {
+  if (raw === 'turna_not_configured' || raw.startsWith('turna_api_key_missing')) {
+    return notConfigured
+  }
+  return raw || fallback
+}
+
 const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', enabled = true }) => {
   const router = useRouter()
   const msgs = T.flightCard
@@ -43,6 +54,8 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
     searching: 'Uçuşlar aranıyor…',
     noResults: 'Bu tarih ve rota için uçuş bulunamadı.',
     error: 'Arama sırasında bir hata oluştu.',
+    notConfigured:
+      'Turna API anahtarı tanımlı değil. Yönetim → API sağlayıcıları bölümünden kaydedin veya sunucuda TURNA_API_KEY ayarlayın.',
     select: 'Seç ve devam et',
     configuring: 'Fiyat kontrol ediliyor…',
     needListing: 'Rota ilanı bulunamadı — yönetimden Turna import çalıştırın.',
@@ -80,11 +93,12 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
       setListingId(res.listing_id)
       setOffers(parseTurnaSearchOffers(res.turna_raw))
     } catch (e) {
-      setError(e instanceof Error ? e.message : m.error)
+      const raw = e instanceof Error ? e.message : m.error
+      setError(formatTurnaSearchError(raw, m.error, m.notConfigured))
     } finally {
       setLoading(false)
     }
-  }, [enabled, from, to, date, params.adults, params.children, params.infants, params.cabinClass, m.error])
+  }, [enabled, from, to, date, params.adults, params.children, params.infants, params.cabinClass, m.error, m.notConfigured])
 
   useEffect(() => {
     runSearch()
@@ -136,7 +150,8 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
       })
       router.push(`/${locale}/checkout?${qs.toString()}`)
     } catch (e) {
-      setError(e instanceof Error ? e.message : m.error)
+      const raw = e instanceof Error ? e.message : m.error
+      setError(formatTurnaSearchError(raw, m.error, m.notConfigured))
     } finally {
       setBookingId(null)
     }

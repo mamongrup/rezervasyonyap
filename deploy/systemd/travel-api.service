@@ -24,6 +24,8 @@ LimitNOFILE=65535
 # WorkingDirectory mutlaka erlang-shipment kok klasoru olmalidir; .../backend (gleam kaynak kok) kullanmayin — deploy senkronu build/shipment'i siler.
 WorkingDirectory=/opt/rezervasyonyap/backend/build/erlang-shipment
 EnvironmentFile=/etc/rezervasyonyap/backend.env
+# Turna uçak (import script ile aynı dosya; yoksa yok sayılır)
+EnvironmentFile=-/etc/rezervasyonyap/turna.env
 ExecStart=/opt/rezervasyonyap/backend/build/erlang-shipment/entrypoint.sh run
 Restart=always
 RestartSec=5
