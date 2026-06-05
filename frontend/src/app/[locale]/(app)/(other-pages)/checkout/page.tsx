@@ -3,21 +3,22 @@
 import CheckoutContractWizard from '@/components/checkout/CheckoutContractWizard'
 import CheckoutGuestForms from '@/components/checkout/CheckoutGuestForms'
 import CheckoutInvoiceForm from '@/components/checkout/CheckoutInvoiceForm'
+import CheckoutListingSummary from '@/components/checkout/CheckoutListingSummary'
+import CheckoutCardPayment from '@/components/checkout/CheckoutCardPayment'
 import CheckoutPaymentMethods from '@/components/checkout/CheckoutPaymentMethods'
+import type { ParatikaCheckoutPayload } from '@/components/checkout/CheckoutParatikaInline'
+import CheckoutReservationDetails from '@/components/checkout/CheckoutReservationDetails'
 import CheckoutSection from '@/components/checkout/CheckoutSection'
-import CouponBox from '@/components/checkout/CouponBox'
-import PaymentTypeSelector from '@/components/checkout/PaymentTypeSelector'
 import type { CheckoutContractAcceptancePayload } from '@/components/CheckoutContractAcceptance'
-import { CrossSellSuggestions } from '@/components/CrossSellSuggestions'
-import StartRating from '@/components/StartRating'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { checkoutT, fmtCheckout } from '@/lib/checkout-i18n'
 import {
-  checkoutT,
-  fmtCheckout,
-  formatCheckoutMoney,
-} from '@/lib/checkout-i18n'
+  computeCheckoutPriceBreakdown,
+  resolveListingPrepaymentPercent,
+} from '@/lib/checkout-price-breakdown'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
+import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 import {
   checkoutDateYmd,
   resolveCheckoutCurrency,
@@ -36,14 +37,14 @@ import {
   getActivePaymentProvider,
   getPublicListingImages,
   getPublicListingVitrine,
+  searchPublicListings,
   type CouponPreview,
   type FxLockSnapshot,
+  type PublicListingItem,
 } from '@/lib/travel-api'
+import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
-import { Divider } from '@/shared/divider'
 import Form from 'next/form'
-import Image from 'next/image'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import React, { Suspense } from 'react'
 import {
@@ -55,12 +56,6 @@ import {
   type CheckoutPaymentChannel,
 } from '@/lib/checkout-guest-types'
 import type { GuestsObject } from '@/type'
-import YourTrip from './YourTrip'
-
-const checkoutCrossSellTrigger =
-  typeof process !== 'undefined' && process.env.NEXT_PUBLIC_CHECKOUT_CROSS_SELL_TRIGGER
-    ? process.env.NEXT_PUBLIC_CHECKOUT_CROSS_SELL_TRIGGER
-    : 'holiday_home'
 
 function resolveCheckoutStayDates(
   searchParams: URLSearchParams,
@@ -89,6 +84,17 @@ function nightsBetween(startIso: string | null, endIso: string | null): number {
   if (!s || !e || Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return 0
   const diff = Math.round((e.getTime() - s.getTime()) / 86400000)
   return diff > 0 ? diff : 0
+}
+
+function parsePoolHeatingFeeFromQuery(
+  searchParams: URLSearchParams,
+  nights: number,
+): number {
+  if (searchParams.get('pool_heating') !== '1' || nights <= 0) return 0
+  const raw = searchParams.get('poolHeatingFee')?.trim()
+  if (!raw) return 0
+  const n = parseFloat(raw.replace(/\s/g, '').replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : 0
 }
 
 function CheckoutPageContent() {
@@ -123,7 +129,11 @@ function CheckoutPageContent() {
   const [listingTitle, setListingTitle] = React.useState<string | null>(null)
   const [listingLocation, setListingLocation] = React.useState<string | null>(null)
   const [listingImage, setListingImage] = React.useState<string | null>(null)
+  const [listingRow, setListingRow] = React.useState<PublicListingItem | null>(null)
   const [listingLoading, setListingLoading] = React.useState(Boolean(checkoutListingId))
+  const [stayBookingRules, setStayBookingRules] = React.useState<StayBookingRules | undefined>(
+    undefined,
+  )
 
   const [contractsOk, setContractsOk] = React.useState(false)
   const [contractBlocking, setContractBlocking] = React.useState<
@@ -142,8 +152,25 @@ function CheckoutPageContent() {
     setContractBlocking(p.blocking_reason)
   }, [])
 
-  const commissionPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_COMMISSION_PERCENT ?? 20)
-  const prepaymentPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_PREPAYMENT_PERCENT ?? 30)
+  const envPrepaymentPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_PREPAYMENT_PERCENT ?? 30)
+  const listingPrepaymentPercent = resolveListingPrepaymentPercent(
+    listingRow?.prepayment_percent,
+    envPrepaymentPercent,
+  )
+
+  const poolHeatingFee = parsePoolHeatingFeeFromQuery(searchParams, nights)
+  const priceBreakdown = React.useMemo(
+    () =>
+      computeCheckoutPriceBreakdown({
+        totalPrice: checkoutUnitPrice,
+        nights,
+        stayBookingRules,
+        cleaningFeeAmount: listingRow?.cleaning_fee_amount,
+        poolHeatingFee,
+      }),
+    [checkoutUnitPrice, nights, stayBookingRules, listingRow?.cleaning_fee_amount, poolHeatingFee],
+  )
+
   const totalPrice = checkoutUnitPrice
   const [paymentType, setPaymentType] = React.useState<'full' | 'partial'>('partial')
   const hasCheckoutListing = Boolean(checkoutListingId)
@@ -154,6 +181,11 @@ function CheckoutPageContent() {
     return Number.isFinite(n) ? n : 0
   }, [coupon])
   const grandTotal = Math.max(0, totalPrice - couponDiscount)
+
+  const partialDue = Math.round(priceBreakdown.lodgingSubtotal * listingPrepaymentPercent) / 100
+  const amountDueNow = paymentType === 'partial' ? partialDue : grandTotal
+  const amountRemaining = Math.max(0, grandTotal - amountDueNow)
+
   const [stayGuests, setStayGuests] = React.useState<GuestsObject>({
     guestAdults: 2,
     guestChildren: 0,
@@ -172,12 +204,8 @@ function CheckoutPageContent() {
   })
   const [invoiceTouched, setInvoiceTouched] = React.useState(false)
   const [paymentChannel, setPaymentChannel] = React.useState<CheckoutPaymentChannel>('card')
-
-  const commission = Math.round(grandTotal * commissionPercent) / 100
-  const rawPrepay = Math.round(grandTotal * prepaymentPercent) / 100
-  const partialDue = Math.max(rawPrepay, commission)
-  const amountDueNow = paymentType === 'partial' ? partialDue : grandTotal
-  const amountRemaining = Math.max(0, grandTotal - amountDueNow)
+  const [paratikaPayload, setParatikaPayload] = React.useState<ParatikaCheckoutPayload | null>(null)
+  const [createdPublicCode, setCreatedPublicCode] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     if (invoiceTouched || guestRows.length === 0) return
@@ -196,9 +224,10 @@ function CheckoutPageContent() {
     let cancelled = false
     setListingLoading(true)
     void (async () => {
-      const [vitrine, images] = await Promise.all([
+      const [vitrine, images, search] = await Promise.all([
         getPublicListingVitrine(checkoutListingId, locale),
         getPublicListingImages(checkoutListingId),
+        searchPublicListings({ listingIds: [checkoutListingId], locale }, { cache: 'no-store' }),
       ])
       if (cancelled) return
       setListingTitle(vitrine?.title?.trim() || null)
@@ -209,6 +238,9 @@ function CheckoutPageContent() {
           ? preferListingGalleryFullAsset(storageKeyToPublicUrl(first.storage_key))
           : null,
       )
+      const row = search?.listings?.[0] ?? null
+      setListingRow(row)
+      setStayBookingRules(row ? parseStayBookingRulesFromPublicItem(row) : undefined)
       setListingLoading(false)
     })()
     return () => {
@@ -217,6 +249,8 @@ function CheckoutPageContent() {
   }, [checkoutListingId, locale])
 
   const handleSubmitForm = async (formData: FormData) => {
+    if (paratikaPayload) return
+
     const formObject = Object.fromEntries(formData.entries())
     const apiBase = process.env.NEXT_PUBLIC_API_URL
     const listingId = checkoutListingId
@@ -298,7 +332,7 @@ function CheckoutPageContent() {
           }
         }
 
-        const payload = {
+        const payload: ParatikaCheckoutPayload = {
           reservation_id: out.reservation_id,
           public_code: out.public_code,
           email,
@@ -306,6 +340,7 @@ function CheckoutPageContent() {
           payment_amount: out.payment_amount,
           currency_code: out.currency_code,
         }
+
         let provider: 'paytr' | 'paratika' | 'none' = 'none'
         try {
           const ap = await getActivePaymentProvider()
@@ -316,6 +351,7 @@ function CheckoutPageContent() {
         if (provider === 'none' && process.env.NEXT_PUBLIC_PAYTR_CHECKOUT !== '0') {
           provider = 'paytr'
         }
+
         localStorage.setItem('travel_paydone_email', email)
         sessionStorage.setItem(
           'travel_checkout_confirm',
@@ -328,15 +364,22 @@ function CheckoutPageContent() {
             payment_channel: paymentChannel,
           }),
         )
+
+        setCreatedPublicCode(out.public_code)
+
+        if (paymentChannel === 'card' && provider === 'paratika') {
+          setParatikaPayload(payload)
+          setPending(false)
+          return
+        }
+
         if (paymentChannel === 'card' && provider === 'paytr') {
           sessionStorage.setItem('travel_paytr_checkout', JSON.stringify(payload))
           router.push(vitrinHref('/checkout/paytr'))
-        } else if (paymentChannel === 'card' && provider === 'paratika') {
-          sessionStorage.setItem('travel_paratika_checkout', JSON.stringify(payload))
-          router.push(vitrinHref('/checkout/paratika'))
-        } else {
-          router.push(vitrinHref(`/pay-done?code=${encodeURIComponent(out.public_code)}`))
+          return
         }
+
+        router.push(vitrinHref(`/pay-done?code=${encodeURIComponent(out.public_code)}`))
       } catch (e) {
         console.error(e)
         const code = e instanceof Error ? e.message : ''
@@ -368,111 +411,19 @@ function CheckoutPageContent() {
     router.push(vitrinHref('/pay-done'))
   }
 
-  const renderSidebar = () => {
-    const imageSrc = listingImage || '/uploads/external/8081091c1bed4d7ee13a.avif'
-    const lineLabel =
-      nights > 0 && totalPrice > 0
-        ? fmtCheckout(C.sidebarNightsLine, {
-            unitPrice: formatCheckoutMoney(locale, totalPrice / nights, checkoutCurrency),
-            nights,
-          })
-        : null
+  const showPaymentOptions =
+    listingPrepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing)
 
-    return (
-      <div className="flex w-full flex-col gap-y-6 border-neutral-200 px-0 sm:gap-y-8 sm:rounded-4xl sm:p-6 lg:border xl:p-8 dark:border-neutral-700">
-        <div className="flex flex-col sm:flex-row sm:items-center">
-          <div className="w-full shrink-0 sm:w-40">
-            <div className="aspect-w-4 overflow-hidden rounded-2xl aspect-h-3 sm:aspect-h-4">
-              <Image alt="" fill sizes="200px" src={imageSrc} />
-            </div>
-          </div>
-          <div className="flex flex-col gap-y-3 py-5 text-start sm:ps-5">
-            <div>
-              {listingLoading ? (
-                <span className="text-sm text-neutral-500 dark:text-neutral-400">{C.sidebarLoading}</span>
-              ) : (
-                <>
-                  {listingLocation ? (
-                    <span className="line-clamp-1 text-sm text-neutral-500 dark:text-neutral-400">
-                      {listingLocation}
-                    </span>
-                  ) : null}
-                  <span className="mt-1 block text-base font-medium">
-                    {listingTitle || '—'}
-                  </span>
-                </>
-              )}
-            </div>
-            <Divider className="w-10!" />
-            <StartRating />
-          </div>
-        </div>
+  const primaryGuestName = React.useMemo(() => {
+    const primary = guestRows[0]
+    return [primary?.first_name, primary?.last_name].filter(Boolean).join(' ').trim()
+  }, [guestRows])
 
-        <Divider className="block lg:hidden" />
-
-        {fxLockInfo && (
-          <p className="max-w-full break-words rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs leading-relaxed text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-300">
-            <span className="font-medium text-neutral-800 dark:text-neutral-200">{C.fxLockTitle}:</span>{' '}
-            {fmtCheckout(C.fxLockBody, {
-              lockedAt: fxLockInfo.locked_at,
-              rates: Object.entries(fxLockInfo.rates_to_try || {})
-                .map(([c, r]) => `${c}: ${r}`)
-                .join(', '),
-            })}
-          </p>
-        )}
-
-        <DescriptionList>
-          {lineLabel ? (
-            <>
-              <DescriptionTerm>{lineLabel}</DescriptionTerm>
-              <DescriptionDetails className="sm:text-right">
-                {formatCheckoutMoney(locale, totalPrice, checkoutCurrency)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          <DescriptionTerm>{C.serviceCharge}</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">
-            {formatCheckoutMoney(locale, 0, checkoutCurrency)}
-          </DescriptionDetails>
-          <DescriptionTerm>{C.fee}</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">
-            {formatCheckoutMoney(locale, 0, checkoutCurrency)}
-          </DescriptionDetails>
-          <DescriptionTerm>{C.tax}</DescriptionTerm>
-          <DescriptionDetails className="sm:text-right">
-            {formatCheckoutMoney(locale, 0, checkoutCurrency)}
-          </DescriptionDetails>
-          {coupon && couponDiscount > 0 && (
-            <>
-              <DescriptionTerm className="text-emerald-700">
-                {fmtCheckout(C.couponLine, { code: coupon.code })}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-emerald-700 sm:text-right">
-                -{formatCheckoutMoney(locale, couponDiscount, checkoutCurrency)}
-              </DescriptionDetails>
-            </>
-          )}
-          <DescriptionTerm className="font-semibold text-neutral-900">{C.total}</DescriptionTerm>
-          <DescriptionDetails className="font-semibold sm:text-right">
-            {totalPrice > 0
-              ? formatCheckoutMoney(locale, grandTotal, checkoutCurrency)
-              : formatCheckoutMoney(locale, 57, checkoutCurrency)}
-          </DescriptionDetails>
-        </DescriptionList>
-
-        <Suspense fallback={<div className="min-h-[48px]" aria-hidden />}>
-          <CouponBox locale={locale} subtotal={totalPrice > 0 ? totalPrice : 0} onCouponChange={setCoupon} />
-        </Suspense>
-      </div>
-    )
-  }
-
-  const renderMain = () => {
-    return (
+  return (
+    <main className="container mt-10 mb-24 lg:mb-32">
       <Form
         action={handleSubmitForm}
-        className="flex w-full flex-col gap-y-8 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700"
+        className="mx-auto flex w-full max-w-3xl flex-col gap-y-10 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700"
       >
         <h1 className="text-3xl font-semibold lg:text-4xl">{C.title}</h1>
 
@@ -485,44 +436,52 @@ function CheckoutPageContent() {
           </div>
         )}
 
+        {createdPublicCode ? (
+          <div
+            role="status"
+            className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-100"
+          >
+            {fmtCheckout(C.reservationCreatedBanner, { code: createdPublicCode })}
+          </div>
+        ) : null}
+
         {stayDates.start ? <input type="hidden" name="checkIn" value={stayDates.start} /> : null}
         {stayDates.end ? <input type="hidden" name="checkOut" value={stayDates.end} /> : null}
-        <CheckoutSection step={1} title={C.sectionReservation}>
-          <Suspense fallback={<div className="min-h-[200px]" aria-hidden />}>
-            <YourTrip locale={locale} onGuestsChange={setStayGuests} />
-          </Suspense>
 
-          {prepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing) ? (
-            <PaymentTypeSelector
-              locale={locale}
-              totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
-              commissionPercent={commissionPercent}
-              prepaymentPercent={prepaymentPercent}
-              currencyCode={checkoutCurrency}
-              value={paymentType}
-              onChange={setPaymentType}
-            />
-          ) : null}
+        <CheckoutSection step={1} title={C.sectionListingInfo}>
+          <CheckoutListingSummary
+            locale={locale}
+            loading={listingLoading}
+            title={listingTitle}
+            location={listingLocation}
+            imageUrl={listingImage}
+            maxGuests={listingRow?.max_guests}
+            roomCount={listingRow?.room_count ?? listingRow?.bed_count}
+            bathCount={listingRow?.bath_count}
+          />
+        </CheckoutSection>
 
-          {grandTotal > 0 ? (
-            <div className="grid gap-3 rounded-2xl border border-neutral-200 bg-neutral-50/80 p-4 sm:grid-cols-2 dark:border-neutral-700 dark:bg-neutral-900/30">
-              <div>
-                <p className="text-xs text-neutral-500">{C.amountDueNowLabel}</p>
-                <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                  {formatCheckoutMoney(locale, amountDueNow, checkoutCurrency)}
-                </p>
-              </div>
-              {amountRemaining > 0 ? (
-                <div>
-                  <p className="text-xs text-neutral-500">{C.amountRemainingLabel}</p>
-                  <p className="text-xl font-bold text-neutral-900 dark:text-neutral-100">
-                    {formatCheckoutMoney(locale, amountRemaining, checkoutCurrency)}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+        <CheckoutSection step={2} title={C.sectionReservation}>
+          <CheckoutReservationDetails
+            locale={locale}
+            currencyCode={checkoutCurrency}
+            breakdown={priceBreakdown}
+            grandTotal={grandTotal > 0 ? grandTotal : totalPrice}
+            couponCode={coupon?.code}
+            couponDiscount={couponDiscount}
+            prepaymentPercent={listingPrepaymentPercent}
+            paymentType={paymentType}
+            onPaymentTypeChange={setPaymentType}
+            amountDueNow={amountDueNow}
+            amountRemaining={amountRemaining}
+            onGuestsChange={setStayGuests}
+            stayDates={stayDates}
+            showPaymentOptions={showPaymentOptions}
+            fxLockInfo={fxLockInfo}
+          />
+        </CheckoutSection>
 
+        <CheckoutSection step={3} title={C.sectionGuestInfo}>
           <CheckoutGuestForms
             locale={locale}
             guests={stayGuests}
@@ -534,23 +493,38 @@ function CheckoutPageContent() {
             onRowsChange={setGuestRows}
           />
 
-          <CheckoutInvoiceForm
-            locale={locale}
-            invoice={invoice}
-            onChange={(inv) => {
-              setInvoiceTouched(true)
-              setInvoice(inv)
-            }}
-            autoFilled={!invoiceTouched}
-          />
+          <div className="border-t border-neutral-200 pt-6 dark:border-neutral-700">
+            <h3 className="mb-4 text-base font-semibold text-neutral-800 dark:text-neutral-100">
+              {C.sectionInvoice}
+            </h3>
+            <CheckoutInvoiceForm
+              locale={locale}
+              invoice={invoice}
+              onChange={(inv) => {
+                setInvoiceTouched(true)
+                setInvoice(inv)
+              }}
+              autoFilled={!invoiceTouched}
+            />
+          </div>
         </CheckoutSection>
 
-        <CheckoutSection step={2} title={C.sectionPayment}>
+        <CheckoutSection step={4} title={C.sectionPayment}>
           <CheckoutPaymentMethods
             locale={locale}
             value={paymentChannel}
             onChange={setPaymentChannel}
+            subtotal={totalPrice > 0 ? totalPrice : 0}
+            onCouponChange={setCoupon}
           />
+
+          {paymentChannel === 'card' ? (
+            <CheckoutCardPayment
+              locale={locale}
+              paratikaPayload={paratikaPayload}
+              defaultCardOwner={primaryGuestName}
+            />
+          ) : null}
 
           <CheckoutContractWizard
             listingId={checkoutListingId || undefined}
@@ -574,29 +548,19 @@ function CheckoutPageContent() {
             </p>
           ) : null}
 
-          <p className="text-sm text-neutral-500 dark:text-neutral-400">{C.sectionConfirmationNote}</p>
-
-          <div>
-            <ButtonPrimary
-              type="submit"
-              className="text-base/6!"
-              disabled={pending || (hasCheckoutListing && !contractsOk)}
-            >
-              {pending ? C.processing : C.confirmPay}
-            </ButtonPrimary>
-          </div>
+          {!paratikaPayload ? (
+            <div>
+              <ButtonPrimary
+                type="submit"
+                className="text-base/6!"
+                disabled={pending || (hasCheckoutListing && !contractsOk)}
+              >
+                {pending ? C.processing : C.confirmPay}
+              </ButtonPrimary>
+            </div>
+          ) : null}
         </CheckoutSection>
-
-        <CrossSellSuggestions triggerCategory={checkoutCrossSellTrigger} className="mt-2" />
       </Form>
-    )
-  }
-
-  return (
-    <main className="container mt-10 mb-24 flex flex-col gap-14 lg:mb-32 lg:flex-row lg:items-start lg:gap-10">
-      <div className="min-w-0 w-full shrink-0 lg:flex-[3] lg:max-w-3xl">{renderMain()}</div>
-      <Divider className="block lg:hidden" />
-      <div className="min-w-0 w-full shrink-0 lg:flex-[2] lg:max-w-md">{renderSidebar()}</div>
     </main>
   )
 }

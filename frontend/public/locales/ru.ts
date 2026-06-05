@@ -525,6 +525,7 @@ export const ru: AppMessages = {
       search: 'Найти',
     },
     bottomNav: {
+      home: 'Главная',
       search: 'Поиск',
       favorites: 'Избранное',
       account: 'Аккаунт',

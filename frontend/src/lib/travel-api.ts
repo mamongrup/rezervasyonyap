@@ -4122,6 +4122,27 @@ export async function getActivePaymentProvider(): Promise<ActivePaymentProviderR
   return json(res)
 }
 
+export type CheckoutPaymentMethodsApiRes = {
+  bank_transfer: {
+    iban_try: string
+    iban_eur: string
+    iban_usd: string
+    iban_gbp: string
+    note: string
+  }
+  western_union: string
+  ria: string
+}
+
+/** Vitrin checkout — havale / Western Union / Ria talimatları (herkese açık) */
+export async function getCheckoutPaymentMethods(): Promise<CheckoutPaymentMethodsApiRes> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/payments/checkout-methods`, { cache: 'no-store' })
+  if (!res.ok) throw new Error(`checkout_payment_methods_${res.status}`)
+  return json(res)
+}
+
 export async function setActivePaymentProvider(
   code: 'paytr' | 'paratika',
   token: string,

@@ -19,7 +19,9 @@ export type ParatikaDirectPostLabels = {
 }
 
 type Props = {
-  actionUrl: string
+  /** `preview` — iç içe form olmaması için sarmalayıcı `div`; ödeme butonu gizlenir */
+  preview?: boolean
+  actionUrl?: string
   defaultCardOwner?: string
   labels: ParatikaDirectPostLabels
   onBeforeSubmit?: () => void
@@ -51,7 +53,8 @@ const fieldMotion = {
 }
 
 export default function ParatikaDirectPostForm({
-  actionUrl,
+  preview = false,
+  actionUrl = '#',
   defaultCardOwner = '',
   labels,
   onBeforeSubmit,
@@ -71,24 +74,15 @@ export default function ParatikaDirectPostForm({
   const expiryPreview =
     expiryMonth && expiryYear ? `${expiryMonth}/${expiryYear.slice(-2)}` : 'MM/YY'
 
-  return (
-    <form
-      action={actionUrl}
-      method="POST"
-      className="space-y-6"
-      onSubmit={(e) => {
-        e.preventDefault()
-        setSubmitting(true)
-        const form = e.currentTarget
-        const panHidden = form.elements.namedItem('pan') as HTMLInputElement
-        panHidden.value = panDigits.replace(/\D/g, '')
-        onBeforeSubmit?.()
-        form.submit()
-      }}
-    >
-      <input type="hidden" name="installmentCount" value="1" />
-      <input type="hidden" name="points" value="" />
-      <input type="hidden" name="pan" value="" />
+  const body = (
+    <>
+      {!preview ? (
+        <>
+          <input type="hidden" name="installmentCount" value="1" />
+          <input type="hidden" name="points" value="" />
+          <input type="hidden" name="pan" value="" />
+        </>
+      ) : null}
 
       <motion.div
         className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-primary-900 p-6 text-white shadow-2xl shadow-slate-900/25"
@@ -239,28 +233,53 @@ export default function ParatikaDirectPostForm({
         <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">{labels.secureNote}</p>
       </motion.div>
 
-      <motion.button
-        type="submit"
-        disabled={submitting}
-        className="relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-neutral-900 text-sm font-semibold text-white shadow-lg shadow-neutral-900/20 transition hover:bg-neutral-800 disabled:opacity-70 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100"
-        whileHover={{ scale: submitting ? 1 : 1.01 }}
-        whileTap={{ scale: submitting ? 1 : 0.99 }}
-        initial={{ opacity: 0, y: 8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        {submitting ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>{labels.processing3d}</span>
-          </>
-        ) : (
-          <>
-            <Lock className="h-4 w-4" />
-            {labels.pay}
-          </>
-        )}
-      </motion.button>
+      {!preview ? (
+        <motion.button
+          type="submit"
+          disabled={submitting}
+          className="relative flex h-12 w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-neutral-900 text-sm font-semibold text-white shadow-lg shadow-neutral-900/20 transition hover:bg-neutral-800 disabled:opacity-70 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-100"
+          whileHover={{ scale: submitting ? 1 : 1.01 }}
+          whileTap={{ scale: submitting ? 1 : 0.99 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>{labels.processing3d}</span>
+            </>
+          ) : (
+            <>
+              <Lock className="h-4 w-4" />
+              {labels.pay}
+            </>
+          )}
+        </motion.button>
+      ) : null}
+    </>
+  )
+
+  if (preview) {
+    return <div className="space-y-6">{body}</div>
+  }
+
+  return (
+    <form
+      action={actionUrl}
+      method="POST"
+      className="space-y-6"
+      onSubmit={(e) => {
+        e.preventDefault()
+        setSubmitting(true)
+        const form = e.currentTarget
+        const panHidden = form.elements.namedItem('pan') as HTMLInputElement
+        panHidden.value = panDigits.replace(/\D/g, '')
+        onBeforeSubmit?.()
+        form.submit()
+      }}
+    >
+      {body}
     </form>
   )
 }

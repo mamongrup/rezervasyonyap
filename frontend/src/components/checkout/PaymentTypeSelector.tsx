@@ -1,39 +1,99 @@
 'use client'
 
-import React from 'react'
+import type { CheckoutPriceBreakdown } from '@/lib/checkout-price-breakdown'
 import { checkoutT, fmtCheckout, formatCheckoutMoney } from '@/lib/checkout-i18n'
 
 interface PaymentTypeSelectorProps {
   locale: string
-  totalPrice: number
-  commissionPercent: number
+  breakdown: CheckoutPriceBreakdown
+  /** Toplam (kupon sonrası) */
+  grandTotal: number
   prepaymentPercent: number
   currencyCode?: string
+  couponCode?: string | null
+  couponDiscount?: number
   value: 'full' | 'partial'
   onChange: (type: 'full' | 'partial') => void
 }
 
+type PriceLine = { label: string; amount: number; muted?: boolean }
+
+function PaymentPriceLines({
+  locale,
+  currencyCode,
+  lines,
+}: {
+  locale: string
+  currencyCode: string
+  lines: PriceLine[]
+}) {
+  if (lines.length === 0) return null
+  return (
+    <ul className="mt-2 w-full space-y-1 border-t border-neutral-200/80 pt-2.5 dark:border-neutral-600/80">
+      {lines.map((line) => (
+        <li
+          key={line.label}
+          className={[
+            'flex items-baseline justify-between gap-2 text-xs',
+            line.muted
+              ? 'text-neutral-400 dark:text-neutral-500'
+              : 'text-neutral-600 dark:text-neutral-300',
+          ].join(' ')}
+        >
+          <span className="min-w-0 leading-snug">{line.label}</span>
+          <span className="shrink-0 font-medium tabular-nums">
+            {line.amount < 0 ? '−' : ''}
+            {formatCheckoutMoney(locale, Math.abs(line.amount), currencyCode)}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function PaymentTypeSelector({
   locale,
-  totalPrice,
-  commissionPercent,
+  breakdown,
+  grandTotal,
   prepaymentPercent,
   currencyCode = 'TRY',
+  couponCode,
+  couponDiscount = 0,
   value,
   onChange,
 }: PaymentTypeSelectorProps) {
   const C = checkoutT(locale)
-  const commission = Math.round(totalPrice * commissionPercent) / 100
-  const rawPrepay = Math.round(totalPrice * prepaymentPercent) / 100
-  const partialAmount = Math.max(rawPrepay, commission)
-  const remainder = totalPrice - partialAmount
+  const { lodgingSubtotal, shortStayFee, poolHeatingFee, cleaningFee } = breakdown
+  const partialAmount = Math.round(lodgingSubtotal * prepaymentPercent) / 100
+  const remainder = grandTotal - partialAmount
   const remainderFmt = formatCheckoutMoney(locale, remainder, currencyCode)
+
+  const sharedLines: PriceLine[] = []
+  if (lodgingSubtotal > 0) {
+    sharedLines.push({ label: C.lodgingLine, amount: lodgingSubtotal })
+  }
+  if (shortStayFee > 0) {
+    sharedLines.push({ label: C.shortStayFee, amount: shortStayFee })
+  }
+  if (poolHeatingFee > 0) {
+    sharedLines.push({ label: C.poolHeatingFee, amount: poolHeatingFee })
+  }
+  if (cleaningFee > 0) {
+    sharedLines.push({ label: C.extraCharges, amount: cleaningFee })
+  }
+  if (couponCode && couponDiscount > 0) {
+    sharedLines.push({
+      label: fmtCheckout(C.couponLine, { code: couponCode }),
+      amount: -couponDiscount,
+    })
+  }
 
   const options: Array<{
     id: 'full' | 'partial'
     label: string
     sublabel: string
     amount: number
+    priceLines: PriceLine[]
     badge?: string
     note?: string
   }> = [
@@ -41,13 +101,15 @@ export default function PaymentTypeSelector({
       id: 'full',
       label: C.payFullLabel,
       sublabel: C.payFullSublabel,
-      amount: totalPrice,
+      amount: grandTotal,
+      priceLines: sharedLines,
     },
     {
       id: 'partial',
       label: fmtCheckout(C.payPartialLabel, { prepaymentPercent }),
       sublabel: fmtCheckout(C.payPartialSublabel, { remainder: remainderFmt }),
       amount: partialAmount,
+      priceLines: sharedLines,
       badge: C.payPartialBadge,
       note:
         remainder > 0 ? fmtCheckout(C.payAtPropertyNote, { remainder: remainderFmt }) : undefined,
@@ -100,6 +162,8 @@ export default function PaymentTypeSelector({
             )}
 
             <span className="pr-6 text-sm font-semibold text-neutral-800 dark:text-neutral-100">{opt.label}</span>
+
+            <PaymentPriceLines locale={locale} currencyCode={currencyCode} lines={opt.priceLines} />
 
             <span className="text-2xl font-bold text-neutral-900 dark:text-white">
               {formatCheckoutMoney(locale, opt.amount, currencyCode)}

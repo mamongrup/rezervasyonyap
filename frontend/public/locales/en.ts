@@ -1316,6 +1316,7 @@ export const en = {
       search: 'Search',
     },
     bottomNav: {
+      home: 'Home',
       search: 'Search',
       favorites: 'Favorites',
       account: 'Account',

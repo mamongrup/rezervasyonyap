@@ -2,7 +2,7 @@
 
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { getMessages } from '@/utils/getT'
-import { FavouriteIcon, Menu01Icon, UserCircleIcon } from '@hugeicons/core-free-icons'
+import { Home01Icon, Menu01Icon, UserCircleIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { Search } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -63,39 +63,43 @@ const FooterQuickNavigation = () => {
     window.dispatchEvent(new CustomEvent('open-chat'))
   }
 
-  const sideItems = [
+  const homeHref = href('/')
+
+  const navItems = [
+    {
+      name: bn.home,
+      link: '/',
+      huge: Home01Icon,
+    },
     {
       name: bn.search,
       lucide: Search,
       onClick: () => setSearchOpen(true),
     },
     {
-      name: 'Favoriler',
-      link: '/account-savelists',
-      huge: FavouriteIcon,
-    },
-  ]
-
-  const sideItemsRight = [
-    {
-      name: 'Hesap',
+      name: bn.account,
       link: accountPath,
       huge: UserCircleIcon,
     },
     {
-      name: 'Menü',
+      name: bn.menu,
       huge: Menu01Icon,
       onClick: () => openAside('sidebar-navigation'),
     },
-  ]
+  ] as const
 
   /** Chisfis FooterQuickNavigation: `-mx-2 … px-2` — 5 öğe için dar ekranda `px-1` */
   const navItemClass =
     '-mx-2 flex min-w-0 max-w-full flex-col items-center justify-between px-1 text-neutral-500 sm:px-2 dark:text-neutral-300'
 
-  function renderSideItem(item: (typeof sideItems)[0] | (typeof sideItemsRight)[0]) {
-    const itemHref = 'link' in item ? href(item.link!) : ''
-    const isActive = 'link' in item && item.link ? pathname === itemHref : false
+  function renderSideItem(item: (typeof navItems)[number]) {
+    const itemHref = 'link' in item ? href(item.link) : ''
+    const isActive =
+      'link' in item && item.link === '/'
+        ? pathname === homeHref
+        : 'link' in item && item.link
+          ? pathname === itemHref
+          : false
     const activeCls = isActive && 'text-primary-600 dark:text-primary-400'
 
     if ('onClick' in item && item.onClick) {
@@ -145,8 +149,8 @@ const FooterQuickNavigation = () => {
           className="mx-auto grid w-full min-w-0 max-w-lg touch-manipulation grid-cols-[repeat(5,minmax(0,1fr))] items-end justify-items-center"
           role="navigation"
         >
-          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[0])}</div>
-          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItems[1])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[0])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[1])}</div>
           <div className="flex w-full min-w-0 justify-center pb-0.5">
             <button
               type="button"
@@ -159,8 +163,8 @@ const FooterQuickNavigation = () => {
               </svg>
             </button>
           </div>
-          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItemsRight[0])}</div>
-          <div className="flex w-full min-w-0 justify-center">{renderSideItem(sideItemsRight[1])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[2])}</div>
+          <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[3])}</div>
         </nav>
       </div>
 

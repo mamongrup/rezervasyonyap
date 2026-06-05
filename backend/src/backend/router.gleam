@@ -841,6 +841,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "payments", "active-provider"] ->
       payment_settings_http.get_active_provider(req, ctx)
 
+    http.Get, ["api", "v1", "payments", "checkout-methods"] ->
+      payment_settings_http.get_checkout_payment_methods(req, ctx)
+
     http.Post, ["api", "v1", "payments", "active-provider"] ->
       payment_settings_http.set_active_provider(req, ctx)
 

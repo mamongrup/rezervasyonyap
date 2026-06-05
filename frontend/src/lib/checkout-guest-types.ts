@@ -4,6 +4,8 @@ export type CheckoutGuestRow = {
   first_name: string
   last_name: string
   national_id: string
+  /** Birinci misafir — fatura adresi ile senkron */
+  address?: string
 }
 
 export type CheckoutInvoice = {
@@ -28,7 +30,7 @@ export function guestRowsForStay(guests: GuestsObject): number {
 }
 
 export function emptyGuestRow(): CheckoutGuestRow {
-  return { first_name: '', last_name: '', national_id: '' }
+  return { first_name: '', last_name: '', national_id: '', address: '' }
 }
 
 export function invoiceFromPrimaryGuest(
@@ -40,7 +42,7 @@ export function invoiceFromPrimaryGuest(
   return {
     full_name: full,
     national_id: row.national_id,
-    address: '',
+    address: row.address?.trim() ?? '',
     city: '',
     email,
     phone,

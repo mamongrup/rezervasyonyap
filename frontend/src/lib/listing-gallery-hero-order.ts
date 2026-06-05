@@ -23,12 +23,50 @@ function normalizeScene(code: string | null | undefined): ListingImageSceneCode 
   return 'unspecified'
 }
 
+function hostApexKey(hostname: string): string {
+  return hostname.replace(/^www\./i, '').toLowerCase()
+}
+
+/**
+ * Yerel `next dev` + uzak API: DB `/uploads/...` yolları localhost'ta 404 verir.
+ * `NEXT_PUBLIC_UPLOADS_ORIGIN` veya (geliştirmede) `NEXT_PUBLIC_API_URL` origin ile tam URL üretir.
+ */
+function listingUploadsOrigin(): string {
+  const explicit = process.env.NEXT_PUBLIC_UPLOADS_ORIGIN?.trim()
+  if (explicit) return explicit.replace(/\/+$/, '')
+
+  const pub = process.env.NEXT_PUBLIC_API_URL?.trim() ?? ''
+  if (!/^https?:\/\//i.test(pub)) return ''
+
+  try {
+    const apiUrl = new URL(pub)
+    const apiHost = hostApexKey(apiUrl.hostname)
+
+    if (typeof window !== 'undefined') {
+      const pageHost = hostApexKey(window.location.hostname)
+      if (pageHost !== apiHost) return apiUrl.origin
+      return ''
+    }
+
+    if (process.env.NODE_ENV === 'development') return apiUrl.origin
+  } catch {
+    return ''
+  }
+  return ''
+}
+
 /** Depo anahtarı → tarayıcıda kullanılan URL */
 export function storageKeyToPublicUrl(storageKey: string): string {
   const k = storageKey.trim()
   if (!k) return ''
-  if (k.startsWith('http://') || k.startsWith('https://') || k.startsWith('/')) return k
-  return `/${k}`
+  if (k.startsWith('http://') || k.startsWith('https://')) return k
+
+  const path = k.startsWith('/') ? k : `/${k}`
+  if (path.startsWith('/uploads/')) {
+    const origin = listingUploadsOrigin()
+    if (origin) return `${origin}${path}`
+  }
+  return path
 }
 
 /** Aynı URL tekrarlarını kaldırır; ilk görünüm sırasını korur (hero grid çift slot önler). */

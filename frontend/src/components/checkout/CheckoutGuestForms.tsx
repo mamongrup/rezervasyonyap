@@ -9,6 +9,7 @@ import {
 import type { GuestsObject } from '@/type'
 import { Description, Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
+import Textarea from '@/shared/Textarea'
 import React from 'react'
 
 type Props = {
@@ -52,36 +53,10 @@ export default function CheckoutGuestForms({
   return (
     <div className="space-y-6">
       <p className="text-sm text-neutral-600 dark:text-neutral-400">{C.guestFormsHint}</p>
-      <div className="grid gap-5 sm:grid-cols-2">
-        <Field>
-          <Label>{C.emailLabel}</Label>
-          <Input
-            className="mt-1.5"
-            name="guest_email"
-            type="email"
-            required
-            autoComplete="email"
-            value={contactEmail}
-            onChange={(e) => onContactEmailChange(e.target.value)}
-          />
-          <Description>{C.emailHint}</Description>
-        </Field>
-        <Field>
-          <Label>{C.contactPhoneLabel}</Label>
-          <Input
-            className="mt-1.5"
-            name="guest_phone"
-            type="tel"
-            autoComplete="tel"
-            value={contactPhone}
-            onChange={(e) => onContactPhoneChange(e.target.value)}
-          />
-        </Field>
-      </div>
 
       {rows.map((row, index) => {
-        const required = index === 0
-        const label = required
+        const isPrimary = index === 0
+        const label = isPrimary
           ? C.guestPersonPrimaryLabel
           : fmtCheckout(C.guestPersonLabel, { n: index + 1 })
         return (
@@ -96,7 +71,7 @@ export default function CheckoutGuestForms({
                 <Input
                   className="mt-1.5"
                   name={`guest_${index}_first_name`}
-                  required={required}
+                  required={isPrimary}
                   value={row.first_name}
                   onChange={(e) => updateRow(index, { first_name: e.target.value })}
                 />
@@ -106,26 +81,64 @@ export default function CheckoutGuestForms({
                 <Input
                   className="mt-1.5"
                   name={`guest_${index}_last_name`}
-                  required={required}
+                  required={isPrimary}
                   value={row.last_name}
                   onChange={(e) => updateRow(index, { last_name: e.target.value })}
                 />
               </Field>
-              <Field className="sm:col-span-2">
-                <Label>{C.guestTcLabel}</Label>
-                <Input
-                  className="mt-1.5"
-                  name={`guest_${index}_national_id`}
-                  inputMode="numeric"
-                  required={required}
-                  maxLength={11}
-                  value={row.national_id}
-                  onChange={(e) => updateRow(index, { national_id: e.target.value.replace(/\D/g, '') })}
-                />
-                {!required ? (
-                  <Description>{C.guestOptionalHint}</Description>
-                ) : null}
-              </Field>
+
+              {isPrimary ? (
+                <>
+                  <Field>
+                    <Label>{C.guestTcLabel}</Label>
+                    <Input
+                      className="mt-1.5"
+                      name={`guest_${index}_national_id`}
+                      inputMode="numeric"
+                      required
+                      maxLength={11}
+                      value={row.national_id}
+                      onChange={(e) =>
+                        updateRow(index, { national_id: e.target.value.replace(/\D/g, '') })
+                      }
+                    />
+                  </Field>
+                  <Field>
+                    <Label>{C.contactPhoneLabel}</Label>
+                    <Input
+                      className="mt-1.5"
+                      name="guest_phone"
+                      type="tel"
+                      autoComplete="tel"
+                      value={contactPhone}
+                      onChange={(e) => onContactPhoneChange(e.target.value)}
+                    />
+                  </Field>
+                  <Field className="sm:col-span-2">
+                    <Label>{C.emailLabel}</Label>
+                    <Input
+                      className="mt-1.5"
+                      name="guest_email"
+                      type="email"
+                      required
+                      autoComplete="email"
+                      value={contactEmail}
+                      onChange={(e) => onContactEmailChange(e.target.value)}
+                    />
+                    <Description>{C.emailHint}</Description>
+                  </Field>
+                  <Field className="sm:col-span-2">
+                    <Label>{C.guestAddressLabel}</Label>
+                    <Textarea
+                      className="mt-1.5"
+                      name={`guest_${index}_address`}
+                      rows={2}
+                      value={row.address ?? ''}
+                      onChange={(e) => updateRow(index, { address: e.target.value })}
+                    />
+                  </Field>
+                </>
+              ) : null}
             </div>
           </div>
         )

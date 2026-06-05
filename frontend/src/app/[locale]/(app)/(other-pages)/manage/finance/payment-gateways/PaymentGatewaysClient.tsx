@@ -12,6 +12,11 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  CHECKOUT_IBAN_ROWS,
+  EMPTY_CHECKOUT_PAYMENT_METHODS,
+  type CheckoutPaymentMethodsConfig,
+} from '@/lib/checkout-payment-methods-config'
 import { listSiteSettings, setActivePaymentProvider, upsertSiteSetting } from '@/lib/travel-api'
 
 type GatewayId = 'paytr' | 'paratika'
@@ -95,6 +100,9 @@ function ToggleSwitch({ enabled, onChange }: { enabled: boolean; onChange: (v: b
 
 export default function PaymentGatewaysClient() {
   const [configs, setConfigs] = useState<Record<GatewayId, GatewayConfig>>(INITIAL)
+  const [checkoutMethods, setCheckoutMethods] = useState<CheckoutPaymentMethodsConfig>(
+    EMPTY_CHECKOUT_PAYMENT_METHODS,
+  )
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -103,9 +111,12 @@ export default function PaymentGatewaysClient() {
   useEffect(() => {
     const token = getStoredAuthToken()
     if (!token) { setLoading(false); return }
-    listSiteSettings(token, { key: 'payment_gateways' })
-      .then((res) => {
-        const row = res.settings.find((s) => s.key === 'payment_gateways')
+    Promise.all([
+      listSiteSettings(token, { key: 'payment_gateways' }),
+      listSiteSettings(token, { key: 'checkout_payment_methods' }),
+    ])
+      .then(([gwRes, cmRes]) => {
+        const row = gwRes.settings.find((s) => s.key === 'payment_gateways')
         if (row?.value_json) {
           try {
             const parsed = JSON.parse(row.value_json) as Partial<Record<GatewayId, GatewayConfig>>
@@ -113,6 +124,20 @@ export default function PaymentGatewaysClient() {
               paytr: { ...prev.paytr, ...(parsed.paytr ?? {}) },
               paratika: { ...prev.paratika, ...(parsed.paratika ?? {}) },
             }))
+          } catch { /* ignore */ }
+        }
+        const cmRow = cmRes.settings.find((s) => s.key === 'checkout_payment_methods')
+        if (cmRow?.value_json) {
+          try {
+            const parsed = JSON.parse(cmRow.value_json) as Partial<CheckoutPaymentMethodsConfig>
+            setCheckoutMethods({
+              bank_transfer: {
+                ...EMPTY_CHECKOUT_PAYMENT_METHODS.bank_transfer,
+                ...(parsed.bank_transfer ?? {}),
+              },
+              western_union: parsed.western_union ?? '',
+              ria: parsed.ria ?? '',
+            })
           } catch { /* ignore */ }
         }
       })
@@ -123,16 +148,34 @@ export default function PaymentGatewaysClient() {
   const update = (gw: GatewayId, field: keyof GatewayConfig, value: string | boolean) =>
     setConfigs((prev) => ({ ...prev, [gw]: { ...prev[gw], [field]: value } }))
 
+  const updateBankField = (
+    field: keyof CheckoutPaymentMethodsConfig['bank_transfer'],
+    value: string,
+  ) =>
+    setCheckoutMethods((prev) => ({
+      ...prev,
+      bank_transfer: { ...prev.bank_transfer, [field]: value },
+    }))
+
+  const updateCheckoutField = (field: 'western_union' | 'ria', value: string) =>
+    setCheckoutMethods((prev) => ({ ...prev, [field]: value }))
+
   const handleSave = async () => {
     const token = getStoredAuthToken()
     if (!token) { setError('Oturum açık değil.'); return }
     setSaving(true)
     setError(null)
     try {
-      await upsertSiteSetting(token, {
-        key: 'payment_gateways',
-        value_json: JSON.stringify(configs),
-      })
+      await Promise.all([
+        upsertSiteSetting(token, {
+          key: 'payment_gateways',
+          value_json: JSON.stringify(configs),
+        }),
+        upsertSiteSetting(token, {
+          key: 'checkout_payment_methods',
+          value_json: JSON.stringify(checkoutMethods),
+        }),
+      ])
       const enabled = (Object.entries(configs) as [GatewayId, GatewayConfig][]).find(([, cfg]) => cfg.enabled)
       if (enabled) {
         await setActivePaymentProvider(enabled[0], token)
@@ -335,6 +378,74 @@ export default function PaymentGatewaysClient() {
           )
         })}
       </div>
+
+      <section className="mt-8 rounded-2xl border border-neutral-100 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+        <h2 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+          Vitrin ödeme bilgileri
+        </h2>
+        <p className="mt-1 text-xs text-neutral-500">
+          Checkout ekranında Havale / EFT, Western Union ve Ria seçildiğinde müşteriye gösterilir.
+          Kredi kartı (Paratika) yukarıdaki sanal POS ayarlarından çalışır.
+        </p>
+
+        <div className="mt-5 space-y-6">
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+              Havale / EFT — IBAN bilgileri
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              {CHECKOUT_IBAN_ROWS.map(({ key, label }) => (
+                <div key={key}>
+                  <label className="mb-1 block text-xs font-medium text-neutral-500">{label}</label>
+                  <input
+                    type="text"
+                    value={checkoutMethods.bank_transfer[key]}
+                    onChange={(e) => updateBankField(key, e.target.value)}
+                    placeholder="TR00 0000 0000 0000 0000 0000 00"
+                    className="w-full rounded-xl border border-neutral-200 px-3 py-2 font-mono text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-4">
+              <label className="mb-1 block text-xs font-medium text-neutral-500">
+                Ek not (isteğe bağlı)
+              </label>
+              <textarea
+                rows={3}
+                value={checkoutMethods.bank_transfer.note}
+                onChange={(e) => updateBankField('note', e.target.value)}
+                placeholder="Açıklama, alıcı adı, referans kodu vb."
+                className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
+              />
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">
+              Western Union
+            </h3>
+            <textarea
+              rows={4}
+              value={checkoutMethods.western_union}
+              onChange={(e) => updateCheckoutField('western_union', e.target.value)}
+              placeholder="Alıcı adı, ülke, referans talimatları…"
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
+            />
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-neutral-800 dark:text-neutral-200">Ria</h3>
+            <textarea
+              rows={4}
+              value={checkoutMethods.ria}
+              onChange={(e) => updateCheckoutField('ria', e.target.value)}
+              placeholder="Alıcı adı, ülke, referans talimatları…"
+              className="w-full rounded-xl border border-neutral-200 px-3 py-2 text-sm focus:border-[color:var(--manage-primary)] focus:outline-none dark:border-neutral-700 dark:bg-neutral-800"
+            />
+          </div>
+        </div>
+      </section>
 
       <div className="mt-6 flex justify-end">
         <button

@@ -526,6 +526,7 @@ export const fr: AppMessages = {
       search: 'Rechercher',
     },
     bottomNav: {
+      home: 'Accueil',
       search: 'Rechercher',
       favorites: 'Favoris',
       account: 'Compte',

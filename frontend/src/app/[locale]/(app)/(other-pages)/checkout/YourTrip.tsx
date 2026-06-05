@@ -2,7 +2,7 @@
 
 import DatesRangeInputPopover from '@/app/[locale]/(app)/(listings)/components/DatesRangeInputPopover'
 import GuestsInputPopover from '@/app/[locale]/(app)/(listings)/components/GuestsInputPopover'
-import { checkoutT } from '@/lib/checkout-i18n'
+import { checkoutT, formatCheckoutDate } from '@/lib/checkout-i18n'
 import { DEFAULT_GUESTS_STAY, formatStayGuestSummary, mergeGuestDefaults } from '@/lib/guest-search-defaults'
 import { getMessages } from '@/utils/getT'
 import { GuestsObject } from '@/type'
@@ -75,12 +75,22 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
   const tripDateLabel =
     startDate != null ? converSelectedDateToString([startDate, endDate]) : C.addDates
 
+  const tripHeadingDates =
+    startDate && endDate
+      ? `${formatCheckoutDate(locale, checkoutDateYmd(startDate))} – ${formatCheckoutDate(locale, checkoutDateYmd(endDate))}`
+      : null
+
   const checkoutTriggerClass =
     'flex w-full flex-1 justify-between gap-x-5 p-5 hover:bg-neutral-50 focus-visible:outline-hidden dark:hover:bg-neutral-800'
 
   return (
     <div>
       <h3 className="text-2xl font-semibold">{C.yourTrip}</h3>
+      {tripHeadingDates ? (
+        <p className="mt-1.5 text-sm font-medium text-neutral-700 dark:text-neutral-200">
+          {tripHeadingDates}
+        </p>
+      ) : null}
       <div className="relative z-10 mt-6 flex flex-col divide-y divide-neutral-200 overflow-visible rounded-3xl border border-neutral-200 sm:flex-row sm:divide-x sm:divide-y-0 sm:rtl:divide-x-reverse dark:divide-neutral-700 dark:border-neutral-700">
         <DatesRangeInputPopover
           className="relative flex min-w-0 flex-1"

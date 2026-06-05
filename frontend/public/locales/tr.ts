@@ -1253,7 +1253,8 @@ export const tr = {
       search: 'Ara',
     },
     bottomNav: {
-      search: 'Ara',
+      home: 'Anasayfa',
+      search: 'Arama',
       favorites: 'Favoriler',
       account: 'Hesap',
       menu: 'Menü',

@@ -6,8 +6,69 @@ import { pathForCrossSellOffer } from '@/lib/cross-sell-storefront-paths'
 import { fetchPublicCrossSellSuggestions, type CrossSellRule } from '@/lib/travel-api'
 import { Link } from '@/shared/link'
 import clsx from 'clsx'
+import {
+  Building2,
+  Bus,
+  Car,
+  ChevronRight,
+  Compass,
+  FileText,
+  Home,
+  Map,
+  Plane,
+  Ship,
+  Sparkles,
+  Ticket,
+  type LucideIcon,
+} from 'lucide-react'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
+
+const OFFER_ICON: Record<string, LucideIcon> = {
+  holiday_home: Home,
+  hotel: Building2,
+  flight: Plane,
+  car_rental: Car,
+  transfer: Bus,
+  activity: Compass,
+  tour: Map,
+  yacht_charter: Ship,
+  ferry: Ship,
+  cruise: Ship,
+  event: Ticket,
+  visa: FileText,
+}
+
+/** İkon rozeti — hafif renk vurgusu */
+const OFFER_ACCENT: Record<string, string> = {
+  holiday_home:
+    'bg-emerald-50 text-emerald-600 ring-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-900/60',
+  hotel:
+    'bg-blue-50 text-blue-600 ring-blue-100 dark:bg-blue-950/50 dark:text-blue-300 dark:ring-blue-900/60',
+  flight:
+    'bg-sky-50 text-sky-600 ring-sky-100 dark:bg-sky-950/50 dark:text-sky-300 dark:ring-sky-900/60',
+  car_rental:
+    'bg-amber-50 text-amber-700 ring-amber-100 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-900/60',
+  transfer:
+    'bg-violet-50 text-violet-600 ring-violet-100 dark:bg-violet-950/50 dark:text-violet-300 dark:ring-violet-900/60',
+  activity:
+    'bg-rose-50 text-rose-600 ring-rose-100 dark:bg-rose-950/50 dark:text-rose-300 dark:ring-rose-900/60',
+  tour:
+    'bg-orange-50 text-orange-600 ring-orange-100 dark:bg-orange-950/50 dark:text-orange-300 dark:ring-orange-900/60',
+  yacht_charter:
+    'bg-cyan-50 text-cyan-600 ring-cyan-100 dark:bg-cyan-950/50 dark:text-cyan-300 dark:ring-cyan-900/60',
+  ferry:
+    'bg-teal-50 text-teal-600 ring-teal-100 dark:bg-teal-950/50 dark:text-teal-300 dark:ring-teal-900/60',
+  cruise:
+    'bg-indigo-50 text-indigo-600 ring-indigo-100 dark:bg-indigo-950/50 dark:text-indigo-300 dark:ring-indigo-900/60',
+  event:
+    'bg-fuchsia-50 text-fuchsia-600 ring-fuchsia-100 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 dark:ring-fuchsia-900/60',
+  visa:
+    'bg-neutral-100 text-neutral-600 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-300 dark:ring-neutral-700',
+}
+
+const DEFAULT_ACCENT =
+  'bg-primary-50 text-primary-600 ring-primary-100 dark:bg-primary-950/50 dark:text-primary-300 dark:ring-primary-900/60'
 
 /** `cross.msg.*` yoksa kısa TR varsayılan */
 const FALLBACK_MSG: Record<string, string> = {
@@ -145,22 +206,47 @@ export function CrossSellSuggestions({ triggerCategory, className, title }: Prop
       {err ? (
         <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{err}</p>
       ) : (
-        <ul className="mt-3 flex flex-wrap gap-2">
+        <ul className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           {rules.map((r) => {
             const href = vitrinPath(pathForCrossSellOffer(r.offer_category_code))
             const label = labelForRule(r, locale)
+            const code = r.offer_category_code
+            const Icon = OFFER_ICON[code] ?? Sparkles
+            const accent = OFFER_ACCENT[code] ?? DEFAULT_ACCENT
             const discount =
               r.discount_percent != null && r.discount_percent !== ''
-                ? ` −%${r.discount_percent}`
-                : ''
+                ? r.discount_percent
+                : null
             return (
               <li key={r.id}>
                 <Link
                   href={href}
-                  className="inline-flex items-center rounded-full border border-primary-200 bg-white px-3 py-1.5 text-xs font-medium text-primary-800 hover:bg-primary-50 dark:border-primary-800 dark:bg-neutral-950 dark:text-primary-200 dark:hover:bg-primary-950/60"
+                  className="group flex items-center gap-3 rounded-xl border border-neutral-200/90 bg-white px-3 py-2.5 shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-neutral-700 dark:bg-neutral-950 dark:hover:border-primary-700"
                 >
-                  {label}
-                  {discount}
+                  <span
+                    className={clsx(
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1',
+                      accent,
+                    )}
+                  >
+                    <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold leading-tight text-neutral-900 dark:text-neutral-100">
+                      {label}
+                    </span>
+                    {discount ? (
+                      <span className="mt-0.5 block text-[11px] font-bold text-rose-600 dark:text-rose-400">
+                        {locale.toLowerCase().startsWith('tr')
+                          ? `%${discount} indirim`
+                          : `Save ${discount}%`}
+                      </span>
+                    ) : null}
+                  </span>
+                  <ChevronRight
+                    className="h-4 w-4 shrink-0 text-neutral-300 transition group-hover:translate-x-0.5 group-hover:text-primary-500 dark:text-neutral-600"
+                    aria-hidden
+                  />
                 </Link>
               </li>
             )

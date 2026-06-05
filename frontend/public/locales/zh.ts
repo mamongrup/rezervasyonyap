@@ -516,6 +516,7 @@ export const zh: AppMessages = {
       search: '搜索',
     },
     bottomNav: {
+      home: '首页',
       search: '搜索',
       favorites: '收藏',
       account: '账户',

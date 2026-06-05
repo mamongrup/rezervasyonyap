@@ -55,7 +55,17 @@ export default function StayListingMobileStickyBar({
   const [rangeEnd] = useState<Date | null>(() => defaultStayDateRange(stayBookingRules)[1])
   const [poolHeatingSelected] = useState(false)
 
-  const { displayMainPrice, grandTotal, currencyCode } = useStayListingQuote({
+  const {
+    nights,
+    displayMainPrice,
+    grandTotal,
+    currencyCode,
+    showDiscountRow,
+    originalPriceNum,
+    basePriceNum,
+    discountPct,
+    formatConverted,
+  } = useStayListingQuote({
     mealPlans,
     price,
     priceAmount,
@@ -73,6 +83,14 @@ export default function StayListingMobileStickyBar({
     ruleFallbackNightly,
     ruleNightlyRange,
   })
+
+  const sidebar = messages.listing.sidebar
+  const showDiscount =
+    showDiscountRow &&
+    originalPriceNum != null &&
+    Number.isFinite(originalPriceNum) &&
+    originalPriceNum > basePriceNum
+  const showStayTotal = nights > 0 && grandTotal > 0
 
   const canCheckout =
     Boolean(listingId?.trim()) && rangeStart != null && rangeEnd != null && grandTotal > 0
@@ -99,20 +117,52 @@ export default function StayListingMobileStickyBar({
   return (
     <div
       className={clsx(
-        'fixed inset-x-0 z-40 border-t border-neutral-200/90 bg-white/95 px-4 py-3 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md lg:hidden dark:border-neutral-700 dark:bg-neutral-900/95',
-        'bottom-[calc(4.25rem+env(safe-area-inset-bottom,0px))]',
+        'fixed inset-x-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 py-3.5 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md lg:hidden dark:border-neutral-700/80 dark:bg-neutral-950/95',
+        'bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]',
       )}
     >
       <div className="mx-auto flex max-w-lg items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
-            {messages.listing.sidebar.perNight}
-          </p>
-          <p className="truncate text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-            {displayMainPrice}
-          </p>
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+            {showDiscount ? (
+              <div className="flex min-w-0 flex-col gap-0.5">
+                {discountPct != null ? (
+                  <span className="inline-flex w-fit items-center rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+                    {sidebar.discountBadge.replace('{percent}', String(discountPct))}
+                  </span>
+                ) : null}
+                <span className="text-xs font-medium tabular-nums leading-none line-through text-neutral-400 dark:text-neutral-500">
+                  {formatConverted(originalPriceNum!, currencyCode)}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <p className="truncate text-xl font-bold tabular-nums tracking-tight text-neutral-900 dark:text-white">
+                {displayMainPrice}
+              </p>
+              <span className="shrink-0 text-xs font-medium text-neutral-500 dark:text-neutral-400">
+                {sidebar.perNight}
+              </span>
+            </div>
+          </div>
+          {showStayTotal ? (
+            <p className="mt-1 text-xs font-medium text-primary-700 dark:text-primary-300">
+              {nights} {sidebar.nightsWord} · {sidebar.total}{' '}
+              <span className="font-semibold tabular-nums text-neutral-900 dark:text-white">
+                {formatConverted(grandTotal, currencyCode)}
+              </span>
+            </p>
+          ) : (
+            <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+              {sidebar.reservationNoFeeNote}
+            </p>
+          )}
         </div>
-        <ButtonPrimary type="button" className="shrink-0 px-5!" onClick={onReserve}>
+        <ButtonPrimary
+          type="button"
+          className="shrink-0 rounded-2xl px-5! py-2.5! text-sm font-semibold shadow-lg shadow-neutral-900/15"
+          onClick={onReserve}
+        >
           {messages.common.Reserve}
         </ButtonPrimary>
       </div>
