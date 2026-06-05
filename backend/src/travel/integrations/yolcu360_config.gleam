@@ -3,8 +3,6 @@
 
 import envoy
 import gleam/dynamic/decode
-import gleam/json
-import gleam/list
 import gleam/string
 import pog
 
@@ -28,12 +26,14 @@ fn env_or(key: String, default: String) -> String {
   }
 }
 
-fn fetch_raw(db: pog.Connection) -> String {
+/// `site_settings.value_json->'yolcu360'->>field` — iç içe JSON nesnesi (panel kaydı).
+fn fetch_yolcu360_json_text(db: pog.Connection, field: String) -> String {
   case
     pog.query(
-      "select value_json::text from site_settings"
-      <> " where key = 'listing_api_providers' and organization_id is null limit 1",
+      "select coalesce(trim(value_json->'yolcu360'->>$1), '') from site_settings "
+      <> "where key = 'listing_api_providers' and organization_id is null limit 1",
     )
+    |> pog.parameter(pog.text(field))
     |> pog.returning({
       use a <- decode.field(0, decode.string)
       decode.success(a)
@@ -43,77 +43,42 @@ fn fetch_raw(db: pog.Connection) -> String {
     Error(_) -> ""
     Ok(ret) ->
       case ret.rows {
-        [raw] -> raw
+        [s] -> s
         _ -> ""
       }
   }
 }
 
-fn pick_string(raw: String, path: List(String)) -> String {
-  case path {
-    [] -> ""
-    [field] -> {
-      let decoder = {
-        use v <- decode.field(field, decode.string)
-        decode.success(v)
+fn fetch_yolcu360_enabled(db: pog.Connection) -> Bool {
+  case
+    pog.query(
+      "select coalesce(value_json->'yolcu360'->>'enabled', 'false') from site_settings "
+      <> "where key = 'listing_api_providers' and organization_id is null limit 1",
+    )
+    |> pog.returning({
+      use a <- decode.field(0, decode.string)
+      decode.success(a)
+    })
+    |> pog.execute(db)
+  {
+    Error(_) -> False
+    Ok(ret) ->
+      case ret.rows {
+        [s] -> s == "true" || s == "t" || s == "1"
+        _ -> False
       }
-      case json.parse(raw, decoder) {
-        Ok(v) -> string.trim(v)
-        Error(_) -> ""
-      }
-    }
-    [head, ..tail] -> {
-      let decoder = {
-        use nested <- decode.field(head, decode.string)
-        decode.success(nested)
-      }
-      case json.parse(raw, decoder) {
-        Ok(nested) -> pick_string(nested, tail)
-        Error(_) -> ""
-      }
-    }
-  }
-}
-
-fn pick_bool(raw: String, path: List(String), default: Bool) -> Bool {
-  case path {
-    [] -> default
-    [field] -> {
-      let decoder = {
-        use v <- decode.field(field, decode.bool)
-        decode.success(v)
-      }
-      case json.parse(raw, decoder) {
-        Ok(v) -> v
-        Error(_) -> default
-      }
-    }
-    [head, ..tail] -> {
-      let decoder = {
-        use nested <- decode.field(head, decode.string)
-        decode.success(nested)
-      }
-      case json.parse(raw, decoder) {
-        Ok(nested) -> pick_bool(nested, tail, default)
-        Error(_) -> default
-      }
-    }
   }
 }
 
 pub fn load(db: pog.Connection) -> Yolcu360Config {
-  let raw = fetch_raw(db)
-  let y_path = ["yolcu360"]
   let get = fn(field: String, env_key: String, default: String) -> String {
-    let from_db = pick_string(raw, list.append(y_path, [field]))
+    let from_db = fetch_yolcu360_json_text(db, field)
     case from_db {
       "" -> env_or(env_key, default)
       v -> v
     }
   }
-  let enabled =
-    pick_bool(raw, list.append(y_path, ["enabled"]), False)
-    || env_or("YOLCU360_ENABLED", "0") == "1"
+  let enabled = fetch_yolcu360_enabled(db) || env_or("YOLCU360_ENABLED", "0") == "1"
   Yolcu360Config(
     enabled: enabled,
     base_url: get(
