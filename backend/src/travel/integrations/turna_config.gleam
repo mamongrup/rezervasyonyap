@@ -72,6 +72,29 @@ fn fetch_turna_enabled(db: pog.Connection) -> Bool {
   }
 }
 
+/// Turna CDN yalnızca HTTPS kabul eder; panelde http:// kayıtlıysa düzelt.
+fn normalize_turna_base_url(raw: String) -> String {
+  let u = trim_trailing_slash(string.trim(raw))
+  let with_scheme = case
+    string.starts_with(u, "http://") || string.starts_with(u, "https://")
+  {
+    True -> u
+    False ->
+      case u == "" {
+        True -> ""
+        False -> "https://" <> u
+      }
+  }
+  case string.starts_with(with_scheme, "http://") {
+    True ->
+      case string.contains(with_scheme, "turna.com") {
+        True -> "https://" <> string.drop_start(with_scheme, 7)
+        False -> with_scheme
+      }
+    False -> with_scheme
+  }
+}
+
 pub fn load(db: pog.Connection) -> TurnaConfig {
   let get = fn(field: String, env_key: String, default: String) -> String {
     let from_db = fetch_turna_json_text(db, field)
@@ -81,9 +104,10 @@ pub fn load(db: pog.Connection) -> TurnaConfig {
     }
   }
   let enabled = fetch_turna_enabled(db) || env_or("TURNA_ENABLED", "0") == "1"
+  let base_raw = get("base_url", "TURNA_BASE_URL", "https://api.turna.com")
   TurnaConfig(
     enabled: enabled,
-    base_url: get("base_url", "TURNA_BASE_URL", "https://api.turna.com"),
+    base_url: normalize_turna_base_url(base_raw),
     api_key: get("api_key", "TURNA_API_KEY", ""),
     country_code: get("country_code", "TURNA_COUNTRY_CODE", "TR"),
     currency_code: get("currency_code", "TURNA_CURRENCY_CODE", "TRY"),

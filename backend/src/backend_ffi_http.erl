@@ -77,14 +77,7 @@ post_json_turna(Url, Body, SessionId, SessionToken, TimeoutMs)
   when is_binary(Url), is_binary(Body), is_binary(SessionId), is_binary(SessionToken), is_integer(TimeoutMs) ->
   {ok, _} = application:ensure_all_started(inets),
   {ok, _} = application:ensure_all_started(ssl),
-  T = case TimeoutMs < 5000 of
-    true -> 5000;
-    false ->
-      case TimeoutMs > 10000000 of
-        true -> 10000000;
-        false -> TimeoutMs
-      end
-  end,
+  T = clamp_timeout_ms(TimeoutMs),
   UrlStr = binary_to_list(Url),
   BodyStr = binary_to_list(Body),
   Extra =
@@ -100,12 +93,18 @@ post_json_turna(Url, Body, SessionId, SessionToken, TimeoutMs)
         {<<"Turna-Session-Token">>, SessionToken}
       ]
     ),
-  Headers = [{"Accept", "application/json"} | Extra],
+  Headers =
+    [
+      {"Accept", "application/json"},
+      {"User-Agent", "RezervasyonYap-travel-api/1.0"},
+      {"Connection", "keep-alive"}
+    ] ++ Extra,
   Request = {UrlStr, Headers, "application/json; charset=UTF-8", BodyStr},
   HttpOptions = [
     {connect_timeout, 60000},
     {timeout, T},
-    {ssl, [{verify, verify_none}]}
+    {ssl, ssl_opts_for_url(UrlStr)},
+    {autoredirect, false}
   ],
   case httpc:request(post, Request, HttpOptions, []) of
     {ok, {{_, Status, _}, RespHeaders, RespBody}} ->
@@ -119,6 +118,25 @@ post_json_turna(Url, Body, SessionId, SessionToken, TimeoutMs)
       end;
     {error, Reason} ->
       {error, iolist_to_binary(io_lib:format("~p", [Reason]))}
+  end.
+
+clamp_timeout_ms(TimeoutMs) ->
+  case TimeoutMs < 5000 of
+    true -> 5000;
+    false ->
+      case TimeoutMs > 10000000 of
+        true -> 10000000;
+        false -> TimeoutMs
+      end
+  end.
+
+%% Akamai / Turna CDN: HTTPS için SNI zorunlu (Node fetch otomatik gönderir; httpc göndermezse Access Denied).
+ssl_opts_for_url(UrlStr) ->
+  case uri_string:parse(UrlStr) of
+    #{scheme := "https", host := Host} when Host =/= "" ->
+      [{verify, verify_none}, {server_name_indication, Host}];
+    _ ->
+      [{verify, verify_none}]
   end.
 
 turna_header_value(Headers, NameLower) ->

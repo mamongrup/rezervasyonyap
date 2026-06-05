@@ -24,12 +24,19 @@ export async function loadListingApiProvidersFromDb() {
   }
 }
 
+function normalizeTurnaBaseUrl(raw) {
+  let u = String(raw || process.env.TURNA_BASE_URL || 'https://api.turna.com').trim().replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`
+  if (/^http:\/\//i.test(u) && /turna\.com/i.test(u)) u = u.replace(/^http:\/\//i, 'https://')
+  return u
+}
+
 export async function loadTurnaConfigFromDb() {
   const all = await loadListingApiProvidersFromDb()
   const t = all.turna ?? {}
   return {
     enabled: Boolean(t.enabled),
-    baseUrl: String(t.base_url || process.env.TURNA_BASE_URL || 'https://api.turna.com').replace(/\/+$/, ''),
+    baseUrl: normalizeTurnaBaseUrl(t.base_url),
     apiKey: String(t.api_key || process.env.TURNA_API_KEY || ''),
     countryCode: String(t.country_code || process.env.TURNA_COUNTRY_CODE || 'TR'),
     currencyCode: String(t.currency_code || process.env.TURNA_CURRENCY_CODE || 'TRY'),
