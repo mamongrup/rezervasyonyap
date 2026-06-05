@@ -84,6 +84,7 @@ const checkoutBase = {
     datesRequired: '',
     currencyMismatch: '',
     bookingFailed: '',
+    turnaBookFailed: '',
   },
   payDone: {
     loading: '',
@@ -285,6 +286,8 @@ export const checkoutEn: CheckoutMessages = {
     currencyMismatch:
       'Currency does not match the listing. Restart checkout from the property page.',
     bookingFailed: 'Could not create the reservation.',
+    turnaBookFailed:
+      'The flight could not be confirmed with Turna. Your hold was created — please contact support.',
   },
   payDone: {
     loading: 'Loading your reservation…',
@@ -489,6 +492,8 @@ export const checkoutTr: CheckoutMessages = {
     currencyMismatch:
       'Para birimi ilanla uyuşmuyor. Lütfen ilan sayfasından checkout\'a yeniden girin.',
     bookingFailed: 'Rezervasyon oluşturulamadı.',
+    turnaBookFailed:
+      'Uçuş rezervasyonu Turna tarafında tamamlanamadı. Yerel kayıt oluştu; destek ile iletişime geçin.',
   },
   payDone: {
     loading: 'Rezervasyon yükleniyor…',

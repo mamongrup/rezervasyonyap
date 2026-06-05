@@ -610,6 +610,14 @@ export const en = {
     toLabel: 'To',
     noImage: 'Flight route',
   },
+  flightLiveSearch: {
+    searching: 'Searching live flights…',
+    noResults: 'No flights found for this route and date.',
+    error: 'Flight search failed.',
+    select: 'Select and continue',
+    configuring: 'Checking price…',
+    needListing: 'No route listing in catalog. Run Turna import.',
+  },
   flightDetail: {
     searchTitle: 'Search flights on this route',
     priceFrom: 'From',

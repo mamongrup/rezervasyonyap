@@ -350,6 +350,87 @@ export async function getCart(cartId: string): Promise<CartDetail> {
   return json(res)
 }
 
+// ─── Turna canlı uçuş ───────────────────────────────────────────────────────
+
+export type TurnaFlightSession = {
+  session_id: string
+  session_token: string
+}
+
+export type TurnaFlightSearchParams = {
+  origin: string
+  destination: string
+  departure_date: string
+  origin_is_city?: boolean
+  destination_is_city?: boolean
+  adults?: number
+  children?: number
+  infants?: number
+  cabin_class?: string
+  only_directs?: boolean
+}
+
+export type TurnaFlightSearchResult = {
+  ok: boolean
+  turna_raw: string
+  session: TurnaFlightSession
+  listing_id: string | null
+  route_ref: string
+}
+
+async function turnaFlightPost<T>(path: string, body: unknown): Promise<T> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/flights/turna/${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error((data as { error?: string }).error ?? `turna_${path}_${res.status}`)
+  }
+  return data as T
+}
+
+export async function searchTurnaFlights(
+  params: TurnaFlightSearchParams,
+): Promise<TurnaFlightSearchResult> {
+  return turnaFlightPost('search', params)
+}
+
+export async function allocateTurnaFlight(body: {
+  session_id: string
+  session_token: string
+  allocate_form: string
+}): Promise<{ ok: boolean; turna_raw: string; session: TurnaFlightSession }> {
+  return turnaFlightPost('allocate', body)
+}
+
+export async function reserveTurnaFlight(body: {
+  session_id: string
+  session_token: string
+  reserve_form: string
+}): Promise<{ ok: boolean; turna_raw: string; session: TurnaFlightSession }> {
+  return turnaFlightPost('reserve', body)
+}
+
+export async function bookTurnaFlight(body: {
+  session_id: string
+  session_token: string
+  reserve_form: string
+  payment_form?: string
+  checkout_form?: string
+}): Promise<{
+  ok: boolean
+  reserve_raw?: string
+  payment_raw?: string
+  checkout_raw?: string
+  session: TurnaFlightSession
+}> {
+  return turnaFlightPost('book', body)
+}
+
 export async function addCartLine(
   cartId: string,
   body: {
@@ -358,6 +439,8 @@ export async function addCartLine(
     starts_on: string
     ends_on: string
     unit_price: string
+    /** Turna allocate snapshot vb. */
+    meta_json?: string
     /** Verilirse ilan kategorisi bu acente için onaylı olmalı (`agency_category_grants`). */
     agency_organization_id?: string
   },

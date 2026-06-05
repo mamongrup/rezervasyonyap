@@ -21,6 +21,7 @@ import travel/integrations/netgsm_http
 import travel/integrations/paratika_http
 import travel/integrations/paytr_http
 import travel/integrations/travelrobot_http
+import travel/integrations/turna_flight_http
 import travel/integrations/turna_http
 import travel/integrations/yolcu360_http
 import travel/module_tree
@@ -863,6 +864,21 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "integrations", "turna", "ping"] ->
       turna_http.post_ping(req, ctx)
+
+    http.Post, ["api", "v1", "flights", "turna", "search"] ->
+      turna_flight_http.post_search(req, ctx)
+
+    http.Post, ["api", "v1", "flights", "turna", "allocate"] ->
+      turna_flight_http.post_allocate(req, ctx)
+
+    http.Post, ["api", "v1", "flights", "turna", "reserve"] ->
+      turna_flight_http.post_reserve(req, ctx)
+
+    http.Post, ["api", "v1", "flights", "turna", "checkout"] ->
+      turna_flight_http.post_checkout(req, ctx)
+
+    http.Post, ["api", "v1", "flights", "turna", "book"] ->
+      turna_flight_http.post_book(req, ctx)
 
     http.Post, ["api", "v1", "integrations", "yolcu360", "ping"] ->
       yolcu360_http.post_ping(req, ctx)

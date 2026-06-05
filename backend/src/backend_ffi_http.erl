@@ -5,6 +5,7 @@
   get_url_with_auth/2,
   post_json/3,
   post_json_with_timeout/4,
+  post_json_turna/5,
   parse_tcmb_xml/1
 ]).
 
@@ -68,6 +69,86 @@ post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
     {error, Reason} ->
       {error, iolist_to_binary(io_lib:format("~p", [Reason]))}
   end.
+
+%% Turna uçak API — opsiyonel Turna-Session-* başlıkları; yanıt gövdesi + oturum başlıkları JSON zarfında.
+%% Başarı: {ok, <<"{\"body\":\"...\",\"session_id\":\"...\",\"session_token\":\"...\"}">>}}
+%% HTTP hata: {error, aynı zarf (body alanında Turna hata JSON'u)}}
+post_json_turna(Url, Body, SessionId, SessionToken, TimeoutMs)
+  when is_binary(Url), is_binary(Body), is_binary(SessionId), is_binary(SessionToken), is_integer(TimeoutMs) ->
+  {ok, _} = application:ensure_all_started(inets),
+  {ok, _} = application:ensure_all_started(ssl),
+  T = case TimeoutMs < 5000 of
+    true -> 5000;
+    false ->
+      case TimeoutMs > 10000000 of
+        true -> 10000000;
+        false -> TimeoutMs
+      end
+  end,
+  UrlStr = binary_to_list(Url),
+  BodyStr = binary_to_list(Body),
+  Extra =
+    lists:filtermap(
+      fun({K, V}) ->
+        case V of
+          <<>> -> false;
+          _ -> {true, {binary_to_list(K), binary_to_list(V)}}
+        end
+      end,
+      [
+        {<<"Turna-Session-Id">>, SessionId},
+        {<<"Turna-Session-Token">>, SessionToken}
+      ]
+    ),
+  Request = {UrlStr, Extra, "application/json; charset=UTF-8", BodyStr},
+  HttpOptions = [
+    {connect_timeout, 60000},
+    {timeout, T},
+    {ssl, [{verify, verify_none}]}
+  ],
+  case httpc:request(post, Request, HttpOptions, []) of
+    {ok, {{_, Status, _}, RespHeaders, RespBody}} ->
+      Bin = iolist_to_binary(RespBody),
+      Sid = turna_header_value(RespHeaders, "turna-session-id"),
+      Stok = turna_header_value(RespHeaders, "turna-session-token"),
+      Envelope = turna_envelope_json(Bin, Sid, Stok),
+      case Status >= 200 andalso Status < 300 of
+        true -> {ok, Envelope};
+        false -> {error, Envelope}
+      end;
+    {error, Reason} ->
+      {error, iolist_to_binary(io_lib:format("~p", [Reason]))}
+  end.
+
+turna_header_value(Headers, NameLower) ->
+  Name = string:lowercase(NameLower),
+  case lists:dropwhile(fun({K, _}) -> string:lowercase(K) =/= Name end, Headers) of
+    [{_, V} | _] -> list_to_binary(V);
+    _ -> <<>>
+  end.
+
+turna_envelope_json(BodyBin, SessionId, SessionToken) ->
+  <<
+    "{\"body\":",
+    (json_string(BodyBin))/binary,
+    ",\"session_id\":",
+    (json_string(SessionId))/binary,
+    ",\"session_token\":",
+    (json_string(SessionToken))/binary,
+    "}"
+  >>.
+
+json_string(Bin) when is_binary(Bin) ->
+  Esc = lists:flatmap(fun json_escape_char/1, binary_to_list(Bin)),
+  <<"\"", (list_to_binary(Esc))/binary, "\"">>.
+
+json_escape_char($") -> "\\\"";
+json_escape_char($\\) -> "\\\\";
+json_escape_char($\n) -> "\\n";
+json_escape_char($\r) -> "\\r";
+json_escape_char($\t) -> "\\t";
+json_escape_char(C) when C < 32 -> [];
+json_escape_char(C) -> [C].
 
 get_url(Url) when is_binary(Url) ->
   get_url_with_auth(Url, <<>>).

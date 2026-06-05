@@ -1,5 +1,6 @@
 import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import FlightCard from '@/components/FlightCard'
+import FlightLiveSearch from '@/components/FlightLiveSearch'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getFlightFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
@@ -50,15 +51,37 @@ export default async function Page({
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
 
+  const liveFrom = query.from?.trim()
+  const liveTo = query.to?.trim()
+  const dateParam = sp.date
+  const liveDate =
+    query.checkin?.trim() ||
+    (Array.isArray(dateParam) ? dateParam[0] : dateParam)?.trim()
+  const showLiveSearch = Boolean(liveFrom && liveTo && liveDate)
+
   return (
     <CategoryPageTemplate
       category={category}
       count={total}
       listingCards={
         <div className="flex w-full flex-col gap-4 sm:col-span-2 lg:col-span-3 xl:col-span-4">
-          {listings.map((l) => (
-            <FlightCard key={l.id} data={l as any} msgs={msgs.flightCard} />
-          ))}
+          {showLiveSearch ? (
+            <FlightLiveSearch
+              locale={locale}
+              params={{
+                from: liveFrom!,
+                to: liveTo!,
+                date: liveDate!,
+                adults: query.guests ? parseInt(String(query.guests), 10) || 1 : 1,
+                cabinClass: query.class,
+                trip: query.trip,
+              }}
+            />
+          ) : (
+            listings.map((l) => (
+              <FlightCard key={l.id} data={l as any} msgs={msgs.flightCard} />
+            ))
+          )}
         </div>
       }
       filterOptions={filterOptions}

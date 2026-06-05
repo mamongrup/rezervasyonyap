@@ -25,6 +25,10 @@ import {
   resolveCheckoutUnitPrice,
 } from '@/lib/stay-checkout-url'
 import {
+  completeTurnaFlightBooking,
+  readTurnaFlightBookingDraft,
+} from '@/lib/turna-flight-booking'
+import {
   addCartLine,
   applyCouponToCart,
   checkoutCart,
@@ -242,13 +246,24 @@ function CheckoutPageContent() {
           setPending(false)
           return
         }
+        const turnaDraft = searchParams.get('flight') === '1' ? readTurnaFlightBookingDraft() : null
         const cart = await createCart(currency)
+        const lineMeta =
+          turnaDraft != null
+            ? JSON.stringify({
+                provider: 'turna',
+                session: turnaDraft.session,
+                allocate_raw: turnaDraft.allocate_raw,
+                departure_date: turnaDraft.departure_date,
+              })
+            : undefined
         await addCartLine(cart.id, {
           listing_id: listingId,
           quantity: 1,
           starts_on: start,
           ends_on: end,
           unit_price: unitPrice,
+          ...(lineMeta ? { meta_json: lineMeta } : {}),
         })
         setFxLockInfo(cart.fx_lock ?? null)
         if (coupon?.code) {
@@ -273,6 +288,16 @@ function CheckoutPageContent() {
           checkout_meta_json: JSON.stringify(meta),
           installments: 1,
         })
+
+        if (turnaDraft) {
+          try {
+            await completeTurnaFlightBooking(turnaDraft, guestRows)
+          } catch (turnaErr) {
+            console.error('Turna book failed:', turnaErr)
+            window.alert(C.errors.turnaBookFailed || C.errors.bookingFailed)
+          }
+        }
+
         const payload = {
           reservation_id: out.reservation_id,
           public_code: out.public_code,

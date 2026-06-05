@@ -107,14 +107,64 @@ fn stay_range_invalid(start: String, end: String) -> Bool {
   }
 }
 
-fn add_line_decoder() -> decode.Decoder(#(String, Int, String, String, String, String)) {
+fn listing_category_code(db: pog.Connection, listing_id: String) -> Result(String, Nil) {
+  case
+    pog.query(
+      "select pc.code::text from listings l "
+        <> "inner join product_categories pc on pc.id = l.category_id "
+        <> "where l.id = $1::uuid limit 1",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning({
+      use a <- decode.field(0, decode.string)
+      decode.success(a)
+    })
+    |> pog.execute(db)
+  {
+    Error(_) -> Error(Nil)
+    Ok(ret) ->
+      case ret.rows {
+        [code] -> Ok(code)
+        _ -> Error(Nil)
+      }
+  }
+}
+
+fn date_range_invalid_for_listing(
+  db: pog.Connection,
+  listing_id: String,
+  start: String,
+  end: String,
+) -> Bool {
+  // Uçak: tek yön — kalkış günü = bitiş günü geçerli
+  case listing_category_code(db, listing_id) {
+    Ok("flight") ->
+      case string.compare(start, end) {
+        order.Gt -> True
+        _ -> False
+      }
+    _ -> stay_range_invalid(start, end)
+  }
+}
+
+fn add_line_decoder() -> decode.Decoder(#(String, Int, String, String, String, String, String)) {
   decode.field("listing_id", decode.string, fn(listing_id) {
     decode.field("quantity", decode.int, fn(quantity) {
       decode.field("starts_on", decode.string, fn(starts_on) {
         decode.field("ends_on", decode.string, fn(ends_on) {
           decode.field("unit_price", decode.string, fn(unit_price) {
             decode.optional_field("agency_organization_id", "", decode.string, fn(aid_raw) {
-              decode.success(#(listing_id, quantity, starts_on, ends_on, unit_price, aid_raw))
+              decode.optional_field("meta_json", "{}", decode.string, fn(meta_json) {
+                decode.success(#(
+                  listing_id,
+                  quantity,
+                  starts_on,
+                  ends_on,
+                  unit_price,
+                  aid_raw,
+                  meta_json,
+                ))
+              })
             })
           })
         })
@@ -131,7 +181,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
     Ok(body) ->
       case json.parse(body, add_line_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
-        Ok(#(listing_id, quantity, starts_on, ends_on, unit_price, aid_raw)) -> {
+        Ok(#(listing_id, quantity, starts_on, ends_on, unit_price, aid_raw, meta_json_raw)) -> {
           case quantity < 1 {
             True -> json_err(400, "invalid_quantity")
             False -> {
@@ -139,13 +189,25 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
               let starts_trim = sql_dates.normalize_date_param(starts_on)
               let ends_trim = sql_dates.normalize_date_param(ends_on)
               let agency_for_line = string.trim(aid_raw)
+              let meta_trim = string.trim(meta_json_raw)
+              let meta_sql = case meta_trim == "" {
+                True -> "{}"
+                False -> meta_trim
+              }
               case price_trim == "" {
                 True -> json_err(400, "unit_price_required")
                 False ->
                   case starts_trim == "" || ends_trim == "" {
                     True -> json_err(400, "dates_required")
                     False ->
-                      case stay_range_invalid(starts_trim, ends_trim) {
+                      case
+                        date_range_invalid_for_listing(
+                          ctx.db,
+                          listing_id,
+                          starts_trim,
+                          ends_trim,
+                        )
+                      {
                         True -> json_err(400, "invalid_date_range")
                         False ->
                           case
@@ -234,7 +296,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                 Ok(Nil) -> {
                                                   case
                                                     pog.query(
-                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, '{}'::jsonb) returning id::text",
+                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, $7::jsonb) returning id::text",
                                                     )
                                                     |> pog.parameter(pog.text(cart_id))
                                                     |> pog.parameter(pog.text(listing_id))
@@ -246,6 +308,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                       end_date,
                                                     ))
                                                     |> pog.parameter(pog.text(price_trim))
+                                                    |> pog.parameter(pog.text(meta_sql))
                                                     |> pog.returning(row_dec.col0_string())
                                                     |> pog.execute(conn)
                                                   {

@@ -386,6 +386,14 @@ export const tr = {
     toLabel: 'Varış',
     noImage: 'Uçuş güzergahı',
   },
+  flightLiveSearch: {
+    searching: 'Canlı uçuşlar aranıyor…',
+    noResults: 'Bu tarih ve rota için uçuş bulunamadı.',
+    error: 'Uçuş araması başarısız oldu.',
+    select: 'Seç ve devam et',
+    configuring: 'Fiyat kontrol ediliyor…',
+    needListing: 'Bu rota için vitrin ilanı yok. Turna import çalıştırın.',
+  },
   flightDetail: {
     searchTitle: 'Bu güzergahta uçuş ara',
     priceFrom: 'Başlangıç fiyatı',
