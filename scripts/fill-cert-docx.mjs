@@ -5,6 +5,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 const SENARYOLAR = "C:/Users/mamon/Desktop/senaryolar";
 
@@ -234,15 +235,18 @@ S9–S11 LCC multi-pax         | Book FAIL passenger count (sandbox)
 
 function repackageDocx(name, extractDir) {
   const outPath = path.join(SENARYOLAR, name);
-  const zipPath = path.join(SENARYOLAR, `_tmp_${name}.zip`);
-  if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+  const backupZip = path.join(
+    SENARYOLAR,
+    name.includes("Air") ? "air-temp.zip" : "hotel-temp.zip",
+  );
+  const docXml = path.join(extractDir, "word/document.xml");
+  const ps1 = path.join(path.dirname(fileURLToPath(import.meta.url)), "repack-docx.ps1");
+  // Orijinal DOCX iskeletini koru; yalnızca document.xml degistir (Word uyumlulugu)
   execSync(
-    `powershell -NoProfile -Command "Compress-Archive -Path '${extractDir.replace(/'/g, "''")}\\*' -DestinationPath '${zipPath.replace(/'/g, "''")}' -Force"`,
+    `powershell -NoProfile -ExecutionPolicy Bypass -File "${ps1}" -BackupDocx "${backupZip}" -DocumentXml "${docXml}" -OutDocx "${outPath}"`,
     { stdio: "inherit" },
   );
-  fs.copyFileSync(zipPath, outPath);
-  fs.unlinkSync(zipPath);
-  console.log(`✓ ${name} paketlendi`);
+  console.log(`✓ ${name} paketlendi (${fs.statSync(outPath).size} byte)`);
 }
 
 const only = process.argv.find((a) => a.startsWith("--only="))?.split("=")[1];
