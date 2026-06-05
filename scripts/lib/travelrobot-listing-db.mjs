@@ -22,8 +22,29 @@ function slugify(text, fallback = 'ilan') {
   return base.slice(0, 120).replace(/-+$/g, '')
 }
 
+function tourNode(tour) {
+  return tour?.Tour ?? tour?.tour ?? null
+}
+
+function normalizeSearchTourRow(raw) {
+  const nested = tourNode(raw)
+  if (!nested || typeof nested !== 'object') return raw
+  return {
+    ...raw,
+    TourCode: raw?.TourCode ?? raw?.tourCode ?? nested.Code ?? nested.code ?? '',
+    TourName: raw?.TourName ?? raw?.tourName ?? nested.Name ?? nested.name ?? '',
+    TourProgram:
+      raw?.TourProgram ?? raw?.tourProgram ?? nested.TourItinerary ?? nested.ShortDescription ?? '',
+    RegionName:
+      raw?.RegionName ?? raw?.regionName ?? nested.Regions?.[0]?.Name ?? nested.Regions?.[0]?.name ?? '',
+    ImageUrl: raw?.ImageUrl ?? raw?.imageUrl ?? nested.Logo ?? nested.logo ?? '',
+    Currency: raw?.Currency ?? raw?.currency ?? raw?.Price?.CurrencyCode ?? '',
+    Tour: nested,
+  }
+}
+
 export function slugForTravelrobotTour(tour) {
-  const code = String(tour?.TourCode ?? tour?.tourCode ?? tour?.ProductCode ?? tour?.id ?? '')
+  const code = String(tour?.TourCode ?? tour?.tourCode ?? tourNode(tour)?.Code ?? tour?.ProductCode ?? tour?.id ?? '')
   const suffix = `-tr-${code || 'tour'}`
   const name = tour?.TourName ?? tour?.tourName ?? tour?.Name ?? tour?.name ?? ''
   const base = slugify(name, `tur-${code || 'x'}`)
@@ -32,7 +53,10 @@ export function slugForTravelrobotTour(tour) {
 }
 
 export function slugForTravelrobotHotel(hotel) {
-  const id = String(hotel?.HotelId ?? hotel?.hotelId ?? hotel?.ItemId ?? hotel?.id ?? '')
+  const nested = hotel?.Hotel ?? hotel?.hotel
+  const id = String(
+    hotel?.HotelId ?? hotel?.hotelId ?? hotel?.HotelCode ?? hotel?.hotelCode ?? nested?.HotelCode ?? hotel?.ItemId ?? hotel?.id ?? '',
+  )
   const suffix = `-tr-${id || 'hotel'}`
   const name = hotel?.HotelName ?? hotel?.hotelName ?? hotel?.Name ?? hotel?.name ?? ''
   const base = slugify(name, `otel-${id || 'x'}`)
@@ -54,17 +78,54 @@ export function slugForTravelrobotFlight(flight) {
 // ── Normalize yardımcıları ──────────────────────────────────────────────────
 
 function tourRef(tour) {
-  return String(tour?.TourCode ?? tour?.tourCode ?? tour?.ProductCode ?? tour?.id ?? '').trim()
+  const nested = tourNode(tour)
+  return String(
+    tour?.TourCode ?? tour?.tourCode ?? nested?.Code ?? nested?.code ?? tour?.ProductCode ?? tour?.id ?? '',
+  ).trim()
 }
 
 function hotelRef(hotel) {
-  return String(hotel?.HotelId ?? hotel?.hotelId ?? hotel?.ItemId ?? hotel?.id ?? '').trim()
+  const nested = hotel?.Hotel ?? hotel?.hotel
+  return String(
+    hotel?.HotelId ??
+      hotel?.hotelId ??
+      hotel?.HotelCode ??
+      hotel?.hotelCode ??
+      nested?.HotelCode ??
+      nested?.hotelCode ??
+      hotel?.ProductCode ??
+      hotel?.ItemId ??
+      hotel?.id ??
+      '',
+  ).trim()
+}
+
+function normalizeFlightRow(raw) {
+  const legs = raw?.Legs ?? raw?.legs ?? []
+  let origin = ''
+  let dest = ''
+  for (const leg of legs) {
+    const alt = leg?.AlternativeLegs?.[0] ?? leg?.alternativeLegs?.[0]
+    const seg = alt?.Segments?.[0] ?? alt?.segments?.[0]
+    if (!seg) continue
+    origin = String(seg?.DepartureAirport?.Code ?? seg?.departureAirport?.code ?? '').trim()
+    dest = String(seg?.ArrivalAirport?.Code ?? seg?.arrivalAirport?.code ?? '').trim()
+    if (origin && dest) break
+  }
+  return {
+    ...raw,
+    OriginCode: raw?.OriginCode ?? raw?.origin ?? origin,
+    DestinationCode: raw?.DestinationCode ?? raw?.destination ?? dest,
+    DepartureAirport: raw?.DepartureAirport ?? origin,
+    ArrivalAirport: raw?.ArrivalAirport ?? dest,
+  }
 }
 
 function flightRouteKey(flight) {
-  const o = String(flight?.OriginCode ?? flight?.origin ?? flight?.DepartureAirport ?? '').trim().toLowerCase()
-  const d = String(flight?.DestinationCode ?? flight?.destination ?? flight?.ArrivalAirport ?? '').trim().toLowerCase()
-  return o && d ? `${o}-${d}` : String(flight?.FlightCode ?? flight?.id ?? '').trim()
+  const row = normalizeFlightRow(flight)
+  const o = String(row?.OriginCode ?? row?.origin ?? row?.DepartureAirport ?? '').trim().toLowerCase()
+  const d = String(row?.DestinationCode ?? row?.destination ?? row?.ArrivalAirport ?? '').trim().toLowerCase()
+  return o && d ? `${o}-${d}` : String(row?.FlightCode ?? row?.id ?? '').trim()
 }
 
 function pickText(obj, ...keys) {
@@ -162,6 +223,7 @@ export async function upsertTravelrobotTourListing(
   tour,
   { status = 'draft', dryRun = false } = {},
 ) {
+  tour = normalizeSearchTourRow(tour)
   const ref = tourRef(tour)
   if (!ref) throw new Error('Travelrobot tur satırında TourCode/id yok')
 
@@ -226,7 +288,11 @@ export async function upsertTravelrobotHotelListing(
   if (!ref) throw new Error('Travelrobot otel satırında HotelId/id yok')
 
   const slug = slugForTravelrobotHotel(hotel)
-  const title = pickText(hotel, 'HotelName', 'hotelName', 'Name', 'name') || `Otel ${ref}`
+  const nested = hotel?.Hotel ?? hotel?.hotel
+  const title =
+    pickText(hotel, 'HotelName', 'hotelName', 'Name', 'name') ||
+    pickText(nested ?? {}, 'HotelName', 'hotelName', 'Name', 'name') ||
+    `Otel ${ref}`
   const description = pickText(hotel, 'Description', 'description', 'Details', 'details')
   const city = pickText(hotel, 'City', 'city', 'CityName', 'cityName')
   const country = pickText(hotel, 'Country', 'country', 'CountryName', 'countryName')
@@ -284,6 +350,7 @@ export async function upsertTravelrobotFlightListing(
   flight,
   { status = 'draft', dryRun = false } = {},
 ) {
+  flight = normalizeFlightRow(flight)
   const routeKey = flightRouteKey(flight)
   if (!routeKey) throw new Error('Travelrobot uçuş satırında origin/destination yok')
 

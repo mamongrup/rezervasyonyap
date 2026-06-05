@@ -50,7 +50,9 @@ async function main() {
   console.log('GetHotelList çağrılıyor…')
   let payload
   try {
-    payload = await searchHotels(cfg, tokenCode, { endpoint: ENDPOINT })
+    const destinationId =
+      process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || '10033097' // Istanbul sandbox
+    payload = await searchHotels(cfg, tokenCode, { endpoint: ENDPOINT, destinationId })
   } catch (e) {
     console.error('[hata]', e.message)
     console.error(
