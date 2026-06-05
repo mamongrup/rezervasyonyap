@@ -17,7 +17,7 @@ import wisp.{type Request, type Response}
 
 import travel/integrations/paratika.{
   type ParatikaConfig, type SessionTokenInput, ParatikaConfig, SessionTokenInput,
-  payment_page_url, request_session_token,
+  direct_post_sale3d_url, payment_page_url, request_session_token,
 }
 import travel/integrations/paratika_notify
 
@@ -59,10 +59,10 @@ fn paratika_bases_for_mode(mode: String) -> #(String, String) {
 }
 
 /// payment_gateways site_settings satırından Paratika alt-objesini okur.
-/// Döner: (merchant_id, merchant_user_key, merchant_password_salt, sd_secret, mode).
+/// Döner: (merchant_id, merchant_user_key, merchant_password_salt, sd_secret, mode, checkout_ui).
 fn paratika_settings_from_db(
   db: pog.Connection,
-) -> #(String, String, String, String, String) {
+) -> #(String, String, String, String, String, String) {
   let raw =
     case
       pog.query(
@@ -96,27 +96,50 @@ fn paratika_settings_from_db(
           decode.string,
         )
         use mode <- decode.optional_field("mode", "sandbox", decode.string)
-        decode.success(#(mid, mkey, msalt, msd, mode))
+        use checkout_ui <- decode.optional_field(
+          "checkout_ui",
+          "direct_post",
+          decode.string,
+        )
+        decode.success(#(mid, mkey, msalt, msd, mode, checkout_ui))
       },
       fn(v) { decode.success(v) },
     )
 
   case json.parse(raw, decoder) {
-    Ok(#(mid, mkey, msalt, msd, mode)) -> #(
+    Ok(#(mid, mkey, msalt, msd, mode, checkout_ui)) -> #(
       string.trim(mid),
       string.trim(mkey),
       string.trim(msalt),
       string.trim(msd),
       string.trim(mode),
+      string.trim(checkout_ui),
     )
-    Error(_) -> #("", "", "", "", "")
+    Error(_) -> #("", "", "", "", "", "")
+  }
+}
+
+fn normalize_checkout_ui(raw: String) -> String {
+  case string.lowercase(string.trim(raw)) {
+    "hpp_iframe" | "iframe" -> "hpp_iframe"
+    "hpp_redirect" | "redirect" | "hpp" -> "hpp_redirect"
+    _ -> "direct_post"
   }
 }
 
 /// DB-first, env fallback ile ParatikaConfig yükler.
 /// Panel → DB → env var sırasıyla okunur.
+fn paratika_checkout_ui(db: pog.Connection) -> String {
+  let #(_, _, _, _, _, db_ui) = paratika_settings_from_db(db)
+  let from_env = env_or("PARATIKA_CHECKOUT_UI", "")
+  case string.trim(from_env) {
+    "" -> normalize_checkout_ui(db_ui)
+    v -> normalize_checkout_ui(v)
+  }
+}
+
 fn load_config_db_first(db: pog.Connection) -> Result(ParatikaConfig, String) {
-  let #(db_merchant, db_user, db_salt, db_sd, db_mode) =
+  let #(db_merchant, db_user, db_salt, db_sd, db_mode, _) =
     paratika_settings_from_db(db)
   let merchant = case db_merchant {
     "" -> env_or("PARATIKA_MERCHANT", "")
@@ -249,11 +272,15 @@ pub fn session_token(req: Request, ctx: Context) -> Response {
               case request_session_token(cfg, input) {
                 Ok(#(token, _raw)) -> {
                   let pay_url = payment_page_url(cfg, token)
+                  let direct_url = direct_post_sale3d_url(cfg, token)
+                  let checkout_ui = paratika_checkout_ui(ctx.db)
                   let out =
                     json.object([
                       #("status", json.string("success")),
                       #("session_token", json.string(token)),
                       #("payment_url", json.string(pay_url)),
+                      #("direct_post_3d_url", json.string(direct_url)),
+                      #("checkout_ui", json.string(checkout_ui)),
                     ])
                     |> json.to_string
                   wisp.json_response(out, 200)

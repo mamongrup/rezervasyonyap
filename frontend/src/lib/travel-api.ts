@@ -4062,6 +4062,9 @@ export type ParatikaSessionRes = {
   status: string
   session_token: string
   payment_url: string
+  direct_post_3d_url: string
+  /** direct_post | hpp_iframe | hpp_redirect */
+  checkout_ui: string
 }
 
 /** Paratika Ortak Ödeme Sayfası — SESSIONTOKEN; `merchant_oid` = rezervasyon UUID. */

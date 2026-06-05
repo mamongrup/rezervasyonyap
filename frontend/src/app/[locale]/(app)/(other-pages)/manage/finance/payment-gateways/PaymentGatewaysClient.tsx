@@ -23,12 +23,22 @@ interface GatewayConfig {
   merchant_salt: string
   /** Paratika: sdSha512 imza anahtarı. Boşsa merchant_salt kullanılır. */
   merchant_sd_secret?: string
+  /** Paratika vitrin: direct_post (kart formu) veya hpp_iframe */
+  checkout_ui?: 'direct_post' | 'hpp_iframe' | 'hpp_redirect'
   mode: 'sandbox' | 'production'
 }
 
 const INITIAL: Record<GatewayId, GatewayConfig> = {
   paytr: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', mode: 'sandbox' },
-  paratika: { enabled: false, merchant_id: '', merchant_key: '', merchant_salt: '', merchant_sd_secret: '', mode: 'sandbox' },
+  paratika: {
+    enabled: false,
+    merchant_id: '',
+    merchant_key: '',
+    merchant_salt: '',
+    merchant_sd_secret: '',
+    checkout_ui: 'direct_post',
+    mode: 'sandbox',
+  },
 }
 
 const GATEWAY_INFO: Record<GatewayId, { name: string; logo: string; desc: string; docsUrl: string }> = {
@@ -229,6 +239,42 @@ export default function PaymentGatewaysClient() {
                       ))}
                     </div>
                   </div>
+
+                  {gw === 'paratika' ? (
+                    <div>
+                      <label className="mb-2 block text-xs font-medium text-neutral-500">
+                        Vitrin ödeme ekranı
+                      </label>
+                      <div className="flex flex-wrap gap-3">
+                        {(
+                          [
+                            ['direct_post', 'Kart formu (Direct POST)'],
+                            ['hpp_iframe', 'Paratika iframe (yedek)'],
+                          ] as const
+                        ).map(([value, label]) => (
+                          <label
+                            key={value}
+                            className={clsx(
+                              'flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-2.5 text-sm transition-colors',
+                              (cfg.checkout_ui ?? 'direct_post') === value
+                                ? 'border-[color:var(--manage-primary)] bg-[color:var(--manage-primary-soft)] text-[color:var(--manage-primary)]'
+                                : 'border-neutral-200 text-neutral-600 hover:border-neutral-300 dark:border-neutral-700',
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="paratika-checkout-ui"
+                              value={value}
+                              checked={(cfg.checkout_ui ?? 'direct_post') === value}
+                              onChange={() => update('paratika', 'checkout_ui', value)}
+                              className="sr-only"
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
 
                   <div className={clsx('grid gap-4', gw === 'paratika' ? 'sm:grid-cols-2' : 'sm:grid-cols-3')}>
                     <div>
