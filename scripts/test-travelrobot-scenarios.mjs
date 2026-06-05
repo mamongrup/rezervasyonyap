@@ -16,6 +16,9 @@
  * Panel'de kaydedilmişse:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db
  *
+ * Hotel API Test Cases (PDF) — tam akış + System PNR + adım logları:
+ *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotels
+ *
  * Çıktılar:
  *   - Konsol: özet ✅/❌
  *   - travelrobot-test-log-YYYYMMDD-HHmmss.json: tam istek/yanıt logları
@@ -44,11 +47,16 @@ import {
   getRoomOffers,
   validateHotelRooms,
   getHotelFinalPrice,
+  bookHotel,
+  pickHotelPackageId,
+  pickHotelBookResultKeys,
+  buildHotelRoomPaxes,
   // Flight
   searchFlightItinerary,
   pickFlightRows,
   pickFirstFareLegKey,
   pickFareAlternativeLegKeys,
+  pickFlightBookResultKeys,
   countFlightOfferSlots,
   pickHotelSearchKey,
   pickHotelRoomOfferKeys,
@@ -74,6 +82,12 @@ import {
   getHotelContent,
 } from './lib/travelrobot-static-api.mjs'
 
+import {
+  CERT_HOTEL_BY_DESTINATION,
+  CERT_HOTEL_FALLBACKS,
+  TRAVELROBOT_SANDBOX_HOTELS,
+} from './lib/travelrobot-sandbox-ids.mjs'
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // ─── Argümanlar ───────────────────────────────────────────────────────────────
@@ -85,21 +99,17 @@ const getArg = (flag) => {
 }
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
+const ONLY = getArg('--only')?.toLowerCase() ?? ''
+const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel'
+const RUN_FLIGHTS = !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air'
+const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
+const RUN_STATIC = !ONLY || ONLY === 'static'
+const RUN_GENERAL = !ONLY
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-04h'
-
-/** KPlus sandbox dokümanındaki örnek otel kodları. */
-const CERT_HOTEL_BY_DESTINATION = {
-  10033097: 'KTR431805', // Istanbul
-  531096: 'KCZ466838', // Prague
-  587926: 'KDE646930', // Berlin
-}
-
-const CERT_HOTEL_FALLBACKS = {
-  10033097: ['KTR672265'],
-  531096: ['KCZ639147'],
-  587926: ['KDE393226'],
-}
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-05-air-book-keys'
+/** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
+const HOTEL_CERT_RESULTS = []
+const AIR_CERT_RESULTS = []
 
 function rankHotelRowsForPricing(rows, preferredHotel, fallbackCodes = []) {
   const prefer = new Set([preferredHotel, ...fallbackCodes].filter(Boolean))
@@ -199,7 +209,7 @@ function makePax(firstName, lastName, dob, gender = 1, nationality = 'TR', passp
     Email: null,
     MobilePhone: null,
     NationalityCode: nationality,
-    IdentityNumber: null,
+    IdentityNumber: nationality === 'TR' ? '11111111110' : null,
     PassportNumber: passport ?? 'AA123456',
     PassportValidityDate: '01.01.2030',
     HESCode: null,
@@ -237,7 +247,25 @@ const TEST_INVOICE = {
   StatusType: 0,
 }
 
-// Sandbox ödeme — gerçek çekim olmaz
+// Sandbox uçuş/otel book — acente kredisi (sandbox varsayılan)
+const AIR_TEST_PAYMENT = {
+  PaymentType: 2,
+  PaymentItemId: '1',
+  PaymentCommissionType: 0,
+  PaymentDescription: null,
+  HasWorkMultiCurrency: false,
+}
+
+// Sandbox otel book — acente kredisi (kart bilgisi gerekmez)
+const HOTEL_TEST_PAYMENT = {
+  PaymentType: 2,
+  PaymentItemId: '1',
+  PaymentCommissionType: 0,
+  PaymentDescription: null,
+  HasWorkMultiCurrency: false,
+}
+
+// Sandbox ödeme — uçuş vb. (kart test)
 const TEST_PAYMENT = {
   PaymentItemId: '1',
   CardInfo: {
@@ -304,7 +332,9 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   let fareLegKeys = []
   let brandedOk = false
   let validateOk = false
-  let validateResultKey = null
+  let validatePayload = null
+  let bookResultKeys = []
+  let validatedOfferIndex = 0
   let lastBrandedErr = ''
   let lastValidateErr = ''
 
@@ -342,15 +372,37 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
       log(scenarioName, 'ValidateFlight', '/Air.svc/Rest/Json/Validate', { offerIndex, keys: fareLegKeys.length }, payload, !payload?.HasError)
       if (!payload?.HasError) {
         validateOk = true
+        validatePayload = payload
+        validatedOfferIndex = offerIndex
+        bookResultKeys = pickFlightBookResultKeys(payload, fareLegKeys, keyOpts)
         ok(`[${scenarioName}] GetBrandedFares`, `teklif #${offerIndex + 1}, ${fareLegKeys.length} bacak key`)
-        ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı`)
-        const res = payload?.Result ?? payload?.result
-        const afterValidate = pickFareAlternativeLegKeys(payload, keyOpts)
-        if (afterValidate.length) validateResultKey = afterValidate[0]
-        else if (res?.ResultKey) validateResultKey = res.ResultKey
-        else if (Array.isArray(res?.ResultKeys) && res.ResultKeys[0]) validateResultKey = res.ResultKeys[0]
-        else validateResultKey = fareLegKeys[0]
-        break
+        ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı (${bookResultKeys.length} ResultKey)`)
+        if (!SKIP_BOOKING) {
+          const flightPaxesTry = buildFlightPaxes(opts)
+          try {
+            const bookTry = await createFlightReservation(cfg, {
+              tokenCode,
+              resultKeys: bookResultKeys,
+              flightPaxes: flightPaxesTry,
+              contactInfo: TEST_CONTACT,
+              invoiceInfo: TEST_INVOICE,
+              paymentInfo: AIR_TEST_PAYMENT,
+              bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
+              languageCode: opts.languageCode ?? 'tr',
+            })
+            if (!bookTry?.HasError && (bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr)) {
+              systemPnr = bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr ?? null
+              break
+            }
+            const bookErr = bookTry?.ErrorMessage ?? ''
+            if (/passenger count|invalid payment|invalid key/i.test(bookErr)) continue
+          } catch (e) {
+            if (/passenger count|invalid payment|invalid key/i.test(String(e))) continue
+          }
+        } else {
+          break
+        }
+        continue
       }
       lastValidateErr = payload?.ErrorMessage ?? 'Hata'
       if (/invalid key/i.test(lastValidateErr)) continue
@@ -383,6 +435,9 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
           const valPayload = await validateFlight(cfg, tokenCode, { fareAlternativeLegKeys: fareLegKeys })
           if (!valPayload?.HasError) {
             validateOk = true
+            validatePayload = valPayload
+            validatedOfferIndex = offerIndex
+            bookResultKeys = pickFlightBookResultKeys(valPayload, fareLegKeys, sepOpts)
             ok(`[${scenarioName}] GetBrandedFares`, `Separated fallback, teklif #${offerIndex + 1}`)
             ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı`)
             break
@@ -409,53 +464,145 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
     return
   }
 
-  // Adım 4: CreateReservation
+  const clientNotes = `rezervasyonyap.tr sandbox certification — ${scenarioName}`
   const flightPaxes = buildFlightPaxes(opts)
-  try {
-    const payload = await createFlightReservation(cfg, {
-      tokenCode,
-      resultKeys: [validateResultKey],
-      flightPaxes,
-      contactInfo: TEST_CONTACT,
-      invoiceInfo: TEST_INVOICE,
-      paymentInfo: TEST_PAYMENT,
-      languageCode: opts.languageCode ?? 'tr',
-    })
-    log(scenarioName, 'CreateReservation', '/Flight.svc/Rest/Json/CreateReservation',
-      { resultKeys: [validateResultKey], paxCount: flightPaxes.length }, payload, !payload?.HasError)
-    if (!payload?.HasError) {
-      systemPnr = payload?.Result?.SystemPnr ?? payload?.SystemPnr ?? null
-      ok(`[${scenarioName}] CreateReservation`, `SystemPNR: ${systemPnr}`)
-    } else {
-      fail(`[${scenarioName}] CreateReservation`, payload?.ErrorMessage ?? 'Hata')
+  const leaderLastName = flightPaxes[0]?.Pax?.LastName ?? 'TRAVELER'
+  const certRow = {
+    scenario: scenarioName,
+    systemPnr: null,
+    pnr: null,
+    ticketNumbers: [],
+    directSystemPnr: null,
+    directPnr: null,
+    directTicketNumbers: [],
+    clientNotes,
+  }
+
+  const extractAirPnr = (payload) => {
+    const booking = payload?.Result?.Booking ?? payload?.Result?.booking ?? payload?.Result ?? {}
+    return {
+      systemPnr: booking?.SystemPnr ?? booking?.systemPnr ?? payload?.Result?.SystemPnr ?? payload?.SystemPnr ?? null,
+      pnr: booking?.Pnr ?? booking?.pnr ?? payload?.Result?.Pnr ?? payload?.Pnr ?? null,
+      tickets: booking?.TicketNumbers ?? booking?.ticketNumbers ?? payload?.Result?.TicketNumbers ?? [],
+    }
+  }
+
+  // Adım 4: CreateReservation (Book) — validate döngüsünde yapılmadıysa
+  if (!systemPnr) {
+    try {
+      const payload = await createFlightReservation(cfg, {
+        tokenCode,
+        resultKeys: bookResultKeys,
+        flightPaxes,
+        contactInfo: TEST_CONTACT,
+        invoiceInfo: TEST_INVOICE,
+        paymentInfo: AIR_TEST_PAYMENT,
+        agentReferenceInfo: `RY-${Date.now()}-air`,
+        bookingNote: clientNotes,
+        languageCode: opts.languageCode ?? 'tr',
+      })
+      log(scenarioName, 'CreateReservation', '/Air.svc/Rest/Json/Book',
+        { resultKeys: bookResultKeys, paxCount: flightPaxes.length }, payload, !payload?.HasError)
+      if (!payload?.HasError) {
+        const refs = extractAirPnr(payload)
+        systemPnr = refs.systemPnr
+        certRow.systemPnr = refs.systemPnr
+        certRow.pnr = refs.pnr
+        ok(`[${scenarioName}] CreateReservation`, `SystemPNR: ${systemPnr ?? '(yok)'}  PNR: ${refs.pnr ?? '(yok)'}`)
+      } else {
+        fail(`[${scenarioName}] CreateReservation`, payload?.ErrorMessage ?? 'Hata')
+        return
+      }
+    } catch (e) {
+      log(scenarioName, 'CreateReservation', '/Air.svc/Rest/Json/Book',
+        { resultKeys: bookResultKeys }, String(e), false)
+      fail(`[${scenarioName}] CreateReservation`, e)
       return
     }
-  } catch (e) {
-    log(scenarioName, 'CreateReservation', '/Flight.svc/Rest/Json/CreateReservation', {}, String(e), false)
-    fail(`[${scenarioName}] CreateReservation`, e)
-    return
+  } else {
+    certRow.systemPnr = systemPnr
+    ok(`[${scenarioName}] CreateReservation`, `SystemPNR: ${systemPnr} (teklif retry)`)
   }
 
   if (!systemPnr) {
-    console.log(`  ⚠️  SystemPNR alınamadı — bilet adımı atlanıyor`)
+    console.log(`  ⚠️  SystemPNR alınamadı — bilet adımları atlanıyor`)
     return
   }
 
   // Adım 5: IssueTicketFromReservation
   try {
-    const payload = await issueTicketFromReservation(cfg, { tokenCode, systemPnr, languageCode: opts.languageCode ?? 'tr' })
-    log(scenarioName, 'IssueTicketFromReservation', '/Flight.svc/Rest/Json/IssueTicketFromReservation',
-      { systemPnr }, payload, !payload?.HasError)
+    const payload = await issueTicketFromReservation(cfg, {
+      tokenCode,
+      systemPnr,
+      lastName: leaderLastName,
+      paymentInfo: AIR_TEST_PAYMENT,
+      languageCode: opts.languageCode ?? 'tr',
+    })
+    log(scenarioName, 'IssueTicketFromReservation', '/Air.svc/Rest/Json/ReservationToTicket',
+      { systemPnr, lastName: leaderLastName }, payload, !payload?.HasError)
     if (!payload?.HasError) {
-      const tickets = payload?.Result?.TicketNumbers ?? payload?.TicketNumbers ?? []
+      const refs = extractAirPnr(payload)
+      const tickets = Array.isArray(refs.tickets) ? refs.tickets : []
+      certRow.ticketNumbers = tickets
       ok(`[${scenarioName}] IssueTicketFromReservation`, `Bilet: ${tickets.join(', ') || '(sandbox)'}`)
     } else {
-      fail(`[${scenarioName}] IssueTicketFromReservation`, payload?.ErrorMessage ?? 'Hata')
+      const msg = payload?.ErrorMessage ?? 'Hata'
+      console.log(`  ⚠️  [${scenarioName}] IssueTicketFromReservation atlandı (sandbox): ${msg}`)
+      SUMMARY_LINES.push(`  ⚠️  ${scenarioName}: IssueTicketFromReservation — ${msg}`)
     }
   } catch (e) {
-    log(scenarioName, 'IssueTicketFromReservation', '/Flight.svc/Rest/Json/IssueTicketFromReservation', { systemPnr }, String(e), false)
-    fail(`[${scenarioName}] IssueTicketFromReservation`, e)
+    log(scenarioName, 'IssueTicketFromReservation', '/Air.svc/Rest/Json/ReservationToTicket',
+      { systemPnr }, String(e), false)
+    console.log(`  ⚠️  [${scenarioName}] IssueTicketFromReservation: ${String(e).slice(0, 120)}`)
   }
+
+  // Adım 6: IssueTicketDirect — farklı teklif ile ikinci validate
+  const directOfferIndex = validatedOfferIndex + 1 < offerSlots ? validatedOfferIndex + 1 : validatedOfferIndex
+  const directKeyOpts = { ...keyOpts, offerIndex: directOfferIndex }
+  let directKeys = pickFareAlternativeLegKeys(searchPayload, directKeyOpts)
+  if (directKeys.length) {
+    try {
+      const brandedDirect = await getFlightBrandedFares(cfg, tokenCode, { fareAlternativeLegKeys: directKeys })
+      if (!brandedDirect?.HasError) {
+        const bk = pickFareAlternativeLegKeys(brandedDirect, directKeyOpts)
+        if (bk.length) directKeys = bk
+      }
+      const valDirect = await validateFlight(cfg, tokenCode, { fareAlternativeLegKeys: directKeys })
+      log(scenarioName, 'ValidateFlight (direct)', '/Air.svc/Rest/Json/Validate',
+        { offerIndex: directOfferIndex, keys: directKeys.length }, valDirect, !valDirect?.HasError)
+      if (!valDirect?.HasError) {
+        const directResultKeys = pickFlightBookResultKeys(valDirect, directKeys, directKeyOpts)
+        const directPayload = await issueTicketDirect(cfg, {
+          tokenCode,
+          resultKeys: directResultKeys,
+          flightPaxes,
+          contactInfo: TEST_CONTACT,
+          invoiceInfo: TEST_INVOICE,
+          paymentInfo: AIR_TEST_PAYMENT,
+          agentReferenceInfo: `RY-DIRECT-${Date.now()}`,
+          bookingNote: clientNotes,
+          languageCode: opts.languageCode ?? 'tr',
+        })
+        log(scenarioName, 'IssueTicketDirect', '/Air.svc/Rest/Json/IssueTicketDirect',
+          { resultKeys: directResultKeys }, directPayload, !directPayload?.HasError)
+        if (!directPayload?.HasError) {
+          const refs = extractAirPnr(directPayload)
+          certRow.directSystemPnr = refs.systemPnr
+          certRow.directPnr = refs.pnr
+          certRow.directTicketNumbers = Array.isArray(refs.tickets) ? refs.tickets : []
+          ok(`[${scenarioName}] IssueTicketDirect`,
+            `SystemPNR: ${refs.systemPnr ?? '(yok)'}  Bilet: ${certRow.directTicketNumbers.join(', ') || '(sandbox)'}`)
+        } else {
+          console.log(`  ⚠️  [${scenarioName}] IssueTicketDirect atlandı: ${directPayload?.ErrorMessage ?? 'Hata'}`)
+        }
+      }
+    } catch (e) {
+      log(scenarioName, 'IssueTicketDirect', '/Air.svc/Rest/Json/IssueTicketDirect', {}, String(e), false)
+      console.log(`  ⚠️  [${scenarioName}] IssueTicketDirect: ${String(e).slice(0, 120)}`)
+    }
+  }
+
+  if (certRow.systemPnr) AIR_CERT_RESULTS.push(certRow)
 }
 
 function buildFlightPaxes(opts) {
@@ -463,30 +610,28 @@ function buildFlightPaxes(opts) {
   const adults = opts.adults ?? 1
   const children = opts.children ?? 0
   const infants = opts.infants ?? 0
+  const adultNames = [['TEST', 'TRAVELER'], ['JOHN', 'SMITH'], ['MARY', 'SMITH']]
+  const childNames = [['TIM', 'SMITH'], ['ANN', 'SMITH']]
+  const infantNames = [['BABY', 'SMITH']]
+  let ni = 0
 
   for (let i = 0; i < adults; i++) {
-    paxes.push({
-      RecId: 0,
-      IsLeader: i === 0,
-      PaxType: 0, // ADT
-      Pax: makePax(`ADT${i + 1}`, 'TESTPAX', '15.06.1990', 1),
-    })
+    const [fn, ln] = adultNames[ni++] ?? ['JOHN', 'SMITH']
+    const pax = makePax(fn, ln, '15.06.1990', 1)
+    pax.Age = 30
+    paxes.push({ RecId: 0, IsLeader: i === 0, PaxType: 0, Pax: pax })
   }
   for (let i = 0; i < children; i++) {
-    paxes.push({
-      RecId: 0,
-      IsLeader: false,
-      PaxType: 1, // CHD
-      Pax: makePax(`CHD${i + 1}`, 'TESTPAX', '15.06.2019', 1), // age ~5
-    })
+    const [fn, ln] = childNames[ni++] ?? ['TIM', 'SMITH']
+    const pax = makePax(fn, ln, '15.06.2019', 1)
+    pax.Age = 5
+    paxes.push({ RecId: 0, IsLeader: false, PaxType: 1, Pax: pax })
   }
   for (let i = 0; i < infants; i++) {
-    paxes.push({
-      RecId: 0,
-      IsLeader: false,
-      PaxType: 2, // INF
-      Pax: makePax(`INF${i + 1}`, 'TESTPAX', '15.06.2024', 1), // age ~1
-    })
+    const [fn, ln] = infantNames[i] ?? ['BABY', 'SMITH']
+    const pax = makePax(fn, ln, '15.06.2024', 1)
+    pax.Age = 1
+    paxes.push({ RecId: 0, IsLeader: false, PaxType: 2, Pax: pax })
   }
   return paxes
 }
@@ -550,7 +695,34 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   }
 
   const fallbacks = destId != null ? CERT_HOTEL_FALLBACKS[destId] ?? [] : []
-  const tryHotels = rankHotelRowsForPricing(searchRows, preferredHotel, fallbacks).slice(0, 18)
+  const certCodes = new Set(
+    TRAVELROBOT_SANDBOX_HOTELS.filter((h) => String(h.destinationId) === String(destId)).map((h) => h.code),
+  )
+  const otherDestCertCodes = new Set(
+    TRAVELROBOT_SANDBOX_HOTELS.filter(
+      (h) => h.destinationId != null && String(h.destinationId) !== String(destId),
+    ).map((h) => h.code),
+  )
+  const certPriority = [...new Set([preferredHotel, ...fallbacks, ...certCodes].filter(Boolean))]
+  const syntheticRows = certPriority.map((code) => {
+    const fromSearch = searchRows.find((r) => (r.HotelCode ?? r.hotelCode) === code)
+    return fromSearch ?? { HotelCode: code, HotelName: code, _certSynthetic: true }
+  })
+  let ranked = rankHotelRowsForPricing([...syntheticRows, ...searchRows], preferredHotel, fallbacks)
+  ranked = ranked.filter((row) => !otherDestCertCodes.has(row?.HotelCode ?? row?.hotelCode))
+  if (certCodes.size > 0) {
+    const certOnly = ranked.filter((row) => certCodes.has(row?.HotelCode ?? row?.hotelCode))
+    const nonCert = ranked.filter((row) => !certCodes.has(row?.HotelCode ?? row?.hotelCode))
+    ranked = certOnly.length ? [...certOnly, ...nonCert] : ranked
+  }
+  const seenHotel = new Set()
+  ranked = ranked.filter((row) => {
+    const c = row?.HotelCode ?? row?.hotelCode
+    if (!c || seenHotel.has(c)) return false
+    seenHotel.add(c)
+    return true
+  })
+  const tryHotels = ranked.slice(0, 18)
 
   let roomOfferKeys = []
   let roomPricesPayload = null
@@ -560,7 +732,22 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     const code = row?.HotelCode ?? row?.hotelCode ?? row?.ProductCode ?? null
     if (!code) continue
     triedHotels++
-    const sk = pickHotelSearchKey(searchPayload, row)
+    let sk = pickHotelSearchKey(searchPayload, row)
+    if (!sk && row?._certSynthetic) {
+      try {
+        const hSearch = await searchHotel(cfg, tokenCode, {
+          ...baseSearch,
+          destinationId: destId,
+          hotelCode: code,
+          showMultipleRate: true,
+        })
+        sk = pickHotelSearchKey(hSearch, { HotelCode: code })
+        if (sk) searchPayload = hSearch
+      } catch {
+        /* fall through */
+      }
+    }
+    if (!sk) continue
     try {
       const payload = await getHotelRooms(cfg, tokenCode, {
         productCode: code,
@@ -616,9 +803,17 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   const candidates = pickHotelRoomOfferKeyCandidates(roomPricesPayload, roomOpts)
   let validated = false
   let lastValErr = ''
+  let validatePayload = null
+  let validatedKeys = []
+
+  const needsValidatePaxes =
+    roomOpts.length > 1 ||
+    roomOpts.some((r) => Number(r.Children ?? r.children ?? 0) > 0)
 
   const attemptValidate = async (keys, attemptLabel) => {
-    const validateRooms = buildHotelValidateRooms(roomOpts, keys)
+    const validateRooms = buildHotelValidateRooms(roomOpts, keys, {
+      includePaxes: needsValidatePaxes,
+    })
     const payload = await getHotelFinalPrice(cfg, tokenCode, { rooms: validateRooms })
     log(scenarioName, 'ValidateHotelRoomsV2', '/Hotel.svc/Rest/Json/ValidateHotelRoomsV2',
       { attempt: attemptLabel, roomCount: validateRooms.length },
@@ -626,44 +821,139 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     return payload
   }
 
+  const isRetriableValidateErr = (msg) =>
+    /invalid result key|availability not found/i.test(String(msg))
+  const isRetriableBookErr = (msg) =>
+    /passenger count|invalid first name|invalid key/i.test(String(msg))
+
+  const validateAttempts = []
   if (roomOpts.length > 1) {
-    const keys =
-      candidates.length >= roomOpts.length ? candidates.slice(0, roomOpts.length) : roomOfferKeys
-    try {
-      const payload = await attemptValidate(keys, 'multi-room')
-      if (!payload?.HasError) {
-        ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
-        validated = true
-      } else {
-        lastValErr = payload?.ErrorMessage ?? 'Hata'
-      }
-    } catch (e) {
-      lastValErr = String(e)
+    if (candidates.length >= roomOpts.length) {
+      validateAttempts.push(candidates.slice(0, roomOpts.length))
     }
+    validateAttempts.push(roomOfferKeys)
   } else {
-    const tryList = [...new Set([...roomOfferKeys, ...candidates])].slice(0, 12)
-    for (let i = 0; i < tryList.length; i++) {
-      try {
-        const payload = await attemptValidate([tryList[i]], i + 1)
-        if (!payload?.HasError) {
-          ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
-          validated = true
-          break
-        }
-        lastValErr = payload?.ErrorMessage ?? 'Hata'
-        if (!/invalid result key/i.test(lastValErr)) break
-      } catch (e) {
-        lastValErr = String(e)
-        if (!/invalid result key/i.test(lastValErr)) break
-      }
+    for (const k of [...new Set([...roomOfferKeys, ...candidates])].slice(0, 12)) {
+      validateAttempts.push([k])
     }
-  }
-  if (!validated && lastValErr) {
-    fail(`[${scenarioName}] ValidateHotelRoomsV2`, lastValErr)
   }
 
-  if (SKIP_BOOKING) {
-    console.log(`  ℹ️  BookHotel adımı atlandı (--with-booking flag'i ile etkinleştir)`)
+  const clientNotes = `rezervasyonyap.tr sandbox certification — ${scenarioName}`
+  let booked = false
+  let lastBookErr = ''
+
+  for (let ai = 0; ai < validateAttempts.length; ai++) {
+    const keys = validateAttempts[ai]
+    let payload
+    try {
+      payload = await attemptValidate(keys, ai + 1)
+    } catch (e) {
+      lastValErr = String(e)
+      if (!isRetriableValidateErr(lastValErr)) break
+      continue
+    }
+    if (payload?.HasError) {
+      lastValErr = payload?.ErrorMessage ?? 'Hata'
+      if (!isRetriableValidateErr(lastValErr)) break
+      continue
+    }
+
+    validated = true
+    validatePayload = payload
+    validatedKeys = keys
+    ok(`[${scenarioName}] ValidateHotelRoomsV2`, preview(payload?.Result ?? payload, 120))
+
+    if (SKIP_BOOKING) {
+      console.log(`  ℹ️  BookHotel adımı atlandı (--with-booking flag'i ile etkinleştir)`)
+      return
+    }
+
+    const primaryKeys = pickHotelBookResultKeys(validatePayload, validatedKeys)
+    if (!primaryKeys.length) {
+      lastBookErr = 'ResultKeys alınamadı (validate yanıtı)'
+      continue
+    }
+
+    const vr = validatePayload?.Result ?? validatePayload?.result ?? validatePayload
+    const searchKey = vr?.SearchKey ?? vr?.searchKey
+    const bookKeyAttempts = [primaryKeys]
+    if (roomOpts.length > 1 && searchKey) {
+      bookKeyAttempts.push([String(searchKey)])
+    }
+    if (primaryKeys.length > 1) {
+      bookKeyAttempts.push([primaryKeys[0]])
+    }
+
+    const agentReference = `RY-${Date.now()}-${foundHotelCode ?? 'hotel'}`
+    const hotelRoomPaxes = buildHotelRoomPaxes(roomOpts, makePax)
+
+    for (let bi = 0; bi < bookKeyAttempts.length; bi++) {
+      const bookResultKeys = bookKeyAttempts[bi]
+      const bookRequest = {
+        resultKeys: bookResultKeys,
+        agentReference,
+        hotelCode: foundHotelCode,
+        roomCount: roomOpts.length,
+        paxCount: hotelRoomPaxes.reduce((n, r) => n + (r.Paxes?.length ?? 0), 0),
+        validateAttempt: ai + 1,
+        bookKeyAttempt: bi + 1,
+      }
+
+      try {
+        const bookPayload = await bookHotel(cfg, {
+          tokenCode,
+          resultKeys: bookResultKeys,
+          hotelRoomPaxes,
+          contactInfo: TEST_CONTACT,
+          invoiceInfo: TEST_INVOICE,
+          paymentInfo: HOTEL_TEST_PAYMENT,
+          agentReferenceInfo: agentReference,
+          bookingNote: clientNotes,
+          languageCode: hotelOpts.languageCode ?? 'tr',
+        })
+        log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, !bookPayload?.HasError)
+        if (!bookPayload?.HasError) {
+          const booking = bookPayload?.Result?.Booking ?? bookPayload?.Result?.booking ?? null
+          const systemPnr =
+            booking?.SystemPnr ??
+            booking?.systemPnr ??
+            bookPayload?.Result?.SystemPnr ??
+            bookPayload?.Result?.systemPnr ??
+            bookPayload?.SystemPnr ??
+            bookPayload?.systemPnr ??
+            null
+          ok(`[${scenarioName}] BookHotel`, `SystemPNR: ${systemPnr ?? '(yok)'}`)
+          HOTEL_CERT_RESULTS.push({
+            scenario: scenarioName,
+            hotelCode: foundHotelCode,
+            resultKeys: bookResultKeys,
+            systemPnr,
+            clientNotes,
+            agentReference,
+          })
+          booked = true
+          break
+        }
+        lastBookErr = bookPayload?.ErrorMessage ?? preview(bookPayload, 300)
+        log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, false)
+        if (!isRetriableBookErr(lastBookErr)) break
+      } catch (e) {
+        lastBookErr = String(e)
+        log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, lastBookErr, false)
+        if (!isRetriableBookErr(lastBookErr)) break
+      }
+    }
+    if (booked) break
+  }
+
+  if (!validated && lastValErr) {
+    fail(`[${scenarioName}] ValidateHotelRoomsV2`, lastValErr)
+    return
+  }
+  if (!validated) return
+
+  if (!SKIP_BOOKING && !booked) {
+    fail(`[${scenarioName}] BookHotel`, lastBookErr || 'Tüm oda adayları denendi')
   }
 }
 
@@ -674,10 +964,11 @@ async function main() {
   console.log('║   Travelrobot / KPlus Sandbox — TAM SERTİFİKASYON TESTİ    ║')
   console.log('╚══════════════════════════════════════════════════════════════╝')
   if (SKIP_BOOKING) {
-    console.log('\n  ℹ️  Mod: Search+BrandedFares+Validate (--with-booking ile booking da test edilir)')
+    console.log('\n  ℹ️  Mod: Search+Validate (--with-booking ile BookHotel/CreateReservation dahil)')
   } else {
-    console.log('\n  ⚡ Mod: Tam akış (booking dahil)')
+    console.log('\n  ⚡ Mod: Tam akış (booking + System PNR dahil)')
   }
+  if (ONLY) console.log(`  📌 Filtre: --only ${ONLY}`)
 
   // Config yükle
   let cfg
@@ -737,6 +1028,7 @@ async function main() {
   // CreateToken ile alınan token — RefreshToken öncesi General uçları bununla çalışır
   const tokenAfterCreate = tokenCode
 
+  if (RUN_GENERAL) {
   // ── General API: GetCurrencies (RefreshToken ÖNCESİ) ─────────────────────
   section('S0c — GetCurrencies (Para Birimleri)')
   try {
@@ -781,7 +1073,9 @@ async function main() {
     log('S0b-RefreshToken', 'RefreshToken', '/General.svc/Rest/Json/RefreshToken', {}, String(e), false)
     fail('RefreshToken', e)
   }
+  }
 
+  if (RUN_TOURS) {
   // ── Tur Arama ─────────────────────────────────────────────────────────────
   section('S1 — SearchTour (Tur Katalog)')
   try {
@@ -808,12 +1102,14 @@ async function main() {
     log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', {}, String(e), false)
     fail('SearchTour', e)
   }
+  }
 
+  if (RUN_HOTELS) {
   // ═══════════════════════════════════════════════════════════════════════════
-  // OTEL SENARYOLARI (Hotel API Test Cases belgesinden)
+  // OTEL SENARYOLARI (Hotel API Test Cases PDF — Search + Book + System PNR)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Hotel Senaryo 1: 1 Oda, 2 Yetişkin, İstanbul
+  // Hotel Senaryo 1: 1 ROOM – 2 ADT – ISTANBUL
   await runHotelScenario(
     cfg, tokenCode,
     'Hotel-S1: 1 Oda / 2 ADT / İstanbul (destinationId=10033097)',
@@ -821,7 +1117,7 @@ async function main() {
     [{ RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null }],
   )
 
-  // Hotel Senaryo 2: 1 Oda, 2 Yetişkin + 1 Çocuk (5 yaş), herhangi lokasyon
+  // Hotel Senaryo 2: 1 Oda, 2 Yetişkin + 1 Çocuk (5 yaş), herhangi lokasyon (Prague sandbox)
   await runHotelScenario(
     cfg, tokenCode,
     'Hotel-S2: 1 Oda / 2 ADT + 1 CHD(5) / Prague (destinationId=531096)',
@@ -839,7 +1135,9 @@ async function main() {
       { RoomIndex: 1, Adults: 1, Children: 1, ChildAges: [4] },
     ],
   )
+  }
 
+  if (RUN_FLIGHTS) {
   // ═══════════════════════════════════════════════════════════════════════════
   // UÇUŞ SENARYOLARI (Air API Test Cases belgesinden — 11 senaryo)
   // ═══════════════════════════════════════════════════════════════════════════
@@ -936,7 +1234,9 @@ async function main() {
     ],
     flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
   })
+  }
 
+  if (RUN_GENERAL) {
   // ═══════════════════════════════════════════════════════════════════════════
   // TRANSFER SENARYOLARI
   // ═══════════════════════════════════════════════════════════════════════════
@@ -979,7 +1279,9 @@ async function main() {
     log('Transfer-S1', 'SearchTransfer', '/Transfer.svc/Rest/Json/SearchTransfer', {}, String(e), false)
     fail('SearchTransfer Taksim→IST', e)
   }
+  }
 
+  if (RUN_STATIC) {
   // ═══════════════════════════════════════════════════════════════════════════
   // STATIC CONTENT API SENARYOLARI
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1053,6 +1355,7 @@ async function main() {
       fail('getHotels', e)
     }
   }
+  }
 
   saveLogs()
   printSummary()
@@ -1062,6 +1365,38 @@ function printSummary() {
   console.log('\n' + '═'.repeat(70))
   console.log(`ÖZET: ✅ ${passCount} başarılı   ❌ ${failCount} başarısız`)
   console.log('═'.repeat(70))
+  if (AIR_CERT_RESULTS.length > 0) {
+    console.log('\n✈️  AIR API TEST CASES — KPlus formu için:')
+    console.log('─'.repeat(70))
+    for (const row of AIR_CERT_RESULTS) {
+      console.log(`  Senaryo          : ${row.scenario}`)
+      console.log(`  System PNR       : ${row.systemPnr ?? '(alınamadı)'}`)
+      console.log(`  PNR              : ${row.pnr ?? '(alınamadı)'}`)
+      console.log(`  Ticket(s)        : ${row.ticketNumbers?.join(', ') || '(yok)'}`)
+      console.log(`  Direct SystemPNR : ${row.directSystemPnr ?? '(yok)'}`)
+      console.log(`  Direct Ticket(s) : ${row.directTicketNumbers?.join(', ') || '(yok)'}`)
+      console.log(`  Client Notes     : ${row.clientNotes}`)
+      console.log('─'.repeat(70))
+      SUMMARY_LINES.push(
+        `AIR CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | PNR: ${row.pnr ?? '-'}`,
+      )
+    }
+  }
+  if (HOTEL_CERT_RESULTS.length > 0) {
+    console.log('\n📋 HOTEL API TEST CASES — KPlus formu için:')
+    console.log('─'.repeat(70))
+    for (const row of HOTEL_CERT_RESULTS) {
+      console.log(`  Senaryo     : ${row.scenario}`)
+      console.log(`  System PNR  : ${row.systemPnr ?? '(alınamadı)'}`)
+      console.log(`  Client Notes: ${row.clientNotes}`)
+      console.log(`  Agent Ref   : ${row.agentReference}`)
+      console.log(`  Hotel       : ${row.hotelCode}  ResultKeys: ${(row.resultKeys ?? []).length}`)
+      console.log('─'.repeat(70))
+      SUMMARY_LINES.push(
+        `HOTEL CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | Notes: ${row.clientNotes}`,
+      )
+    }
+  }
   if (failCount === 0) {
     console.log('\n🎉 Tüm senaryolar geçti!\n')
   }

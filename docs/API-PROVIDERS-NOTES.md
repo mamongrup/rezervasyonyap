@@ -14,7 +14,7 @@
 | Kod | Auth | Kategoriler | Proje durumu |
 |-----|------|-------------|--------------|
 | `gtc` | `AgencyId` + `Password` | Otel, uçak | `scripts/lib/gtc-api.mjs`, `296_gtc_provider_refs.sql`, import iskeleti |
-| `travelrobot` | `ChannelCode` + `ChannelPassword` → Token (~120 dk) | Tur, otel, uçak, araç kiralama | Henüz kod yok; Postman + sandbox dokümanları masaüstünde |
+| `travelrobot` | `ChannelCode` + `ChannelPassword` → Token (~120 dk) | Tur, otel, uçak, araç kiralama | Import + senaryo testi (`scripts/import-travelrobot-*.mjs`, `test-travelrobot-scenarios.mjs`); checkout book henüz yok |
 | `wtatil` | `ApplicationSecretKey` + `UserName` + `Password` → Token (24 saat) | **Tur** (plan: yalnızca tur; v2 API otel/uçak da sunuyor — kullanmayacağız) | `scripts/lib/wtatil-api.mjs`, `scripts/import-wtatil-tours.mjs`; DB hazır (`wtatil_package_ref`, 180) |
 | `turna` | `ApiKey` + `Turna-Session-Id` / `Turna-Session-Token` | **Yalnızca uçak** | `listing_flight_details.turna_route_ref` (180); client/import yok. Otobüs/otel/araç **alınmıyor**. |
 
@@ -53,8 +53,11 @@ $env:TRAVELROBOT_CHANNEL_PASSWORD = "..."
 | Hotel | KCZ639147 | Hilton Prague |
 | Hotel | KDE646930 | Pullman Berlin Schweizerhof |
 | Hotel | KDE393226 | Sheraton Berlin Grand Hotel Esplanade |
-| Hotel | KTR431805 | Radisson Blu Hotel (Istanbul) |
-| Hotel | KTR672265 | Hilton Istanbul Bomonti |
+| Hotel | KTR431805 | Radisson Blu Hotel |
+| Hotel | KTR672265 | Hilton Istanbul Bomonti Hotel & Conference Center |
+| Hotel | KTR3284005 | Ibis Izmir Alsancak Test |
+
+Tek kaynak (kod): `scripts/lib/travelrobot-sandbox-ids.mjs`
 
 ## Travelrobot API akışları (tam)
 
@@ -70,15 +73,49 @@ Postman koleksiyonu: D:\agora\Travelrobot Tour API.postman_collection (1).json
 createToken → searchHotel → getHotelDetails → getHotelRooms
 → getHotelFinalPrice → bookHotel
 `
-Test: 1 Oda/2 Yetişkin/Istanbul — 1 Oda/2Y+1Ç(5)/herhangi — 2 Oda/3Y+2Ç(2,4)/herhangi
+Test (Hotel API Test Cases PDF):
+
+| Senaryo | Oda / kişi | Lokasyon (sandbox) |
+|---------|------------|-------------------|
+| S1 | 1 oda, 2 ADT | Istanbul (`10033097`) |
+| S2 | 1 oda, 2 ADT + 1 CHD (5) | Prague (`531096`) |
+| S3 | 2 oda: (2 ADT+1 CHD(2)) + (1 ADT+1 CHD(4)) | Berlin (`587926`) |
+
+Her adım için istek/yanıt logları + **System PNR** (sunucuda):
+
+```bash
+node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotels
+```
+
+Çıktı: `travelrobot-test-log-*.json` (tam log), özet dosyasında System PNR + Client Notes.
 
 ### Uçuş
 `
 createToken → searchFlightItinerary → getFlightBrandedFares
-→ validateFlight → createFlightReservation → issueTicketFromReservation
-(veya tek adım: issueTicketDirect)
+→ validateFlight → Book (CreateReservation) → ReservationToTicket
+→ IssueTicketDirect (sandbox’ta endpoint 404 olabilir)
 `
-Test: Oneway 1ADT IST→LHR, Roundtrip LHR→DXB, Multiple CDG→FCO→LHR→BCN, LCC AYT→TZX
+Air API Test Cases (PDF) — 11 senaryo:
+
+| # | Tip | Pax | Rota |
+|---|-----|-----|------|
+| S1 | Oneway | 1 ADT | IST→LHR |
+| S2 | Oneway | 2 ADT + 1 CHD + 1 INF | IST→LHR |
+| S3 | RT Combined | 1 ADT | LHR↔DXB |
+| S4 | RT Separated | 1 ADT | LHR↔DXB |
+| S5 | RT Combined | 2 ADT + 1 CHD + 1 INF | LHR↔DXB |
+| S6 | RT Separated | 2 ADT + 1 CHD + 1 INF | LHR↔DXB |
+| S7 | Multiple Combined | 1 ADT | CDG→FCO→LHR→BCN |
+| S8 | Multiple Separated | 2 ADT + 1 CHD + 1 INF | CDG→FCO→LHR→BCN |
+| S9 | Oneway LCC | 2 ADT + 1 CHD + 1 INF | AYT→TZX |
+| S10 | RT LCC | 2 ADT + 1 CHD + 1 INF | AYT↔TZX |
+| S11 | Multiple LCC | 2 ADT + 1 CHD + 1 INF | AYT→TZX→IST→ADB |
+
+```bash
+node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only flights
+```
+
+Book: `ResultKeys` = validate yanıtındaki tüm bacak key’leri (`|||` formatı). Ödeme: sandbox’ta `PaymentType: 2` (acente kredisi).
 
 ## Sıradaki teknik adımlar
 

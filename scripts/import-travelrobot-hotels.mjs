@@ -10,6 +10,7 @@
  */
 
 import { createTravelrobotToken, loadTravelrobotConfig, searchHotels, pickHotelRows } from './lib/travelrobot-api.mjs'
+import { DEFAULT_HOTEL_DESTINATION_ID } from './lib/travelrobot-sandbox-ids.mjs'
 import { resolveImportContext, upsertTravelrobotHotelListing } from './lib/travelrobot-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
@@ -51,7 +52,7 @@ async function main() {
   let payload
   try {
     const destinationId =
-      process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || '10033097' // Istanbul sandbox
+      process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID
     payload = await searchHotels(cfg, tokenCode, { endpoint: ENDPOINT, destinationId })
   } catch (e) {
     console.error('[hata]', e.message)

@@ -422,8 +422,7 @@ export function pickTourRows(payload) {
 
 /**
  * Otel arama — destinasyon + tarih + oda/kişi.
- * Test destinasyonları: 531096=Prague, 587926=Berlin, 10033097=Istanbul
- * Test otel kodları: KTR431805, KTR672265 (Istanbul); KCZ466838, KCZ639147 (Prague); ...
+ * Sandbox test ID listesi: scripts/lib/travelrobot-sandbox-ids.mjs
  *
  * opts: { checkInDate, checkOutDate, destinationId, hotelCode, rooms, languageCode }
  */
@@ -514,13 +513,16 @@ export async function getHotelFinalPrice(cfg, tokenCode, opts = {}) {
  * }
  */
 export async function bookHotel(cfg, opts = {}) {
+  const resultKeys =
+    opts.resultKeys ??
+    (opts.resultKey ? [opts.resultKey] : opts.packageId ? [opts.packageId] : [])
   return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookHotel', {
     request: {
       ProcessId: null,
       Version: '2.0',
       ProductType: 1,
       TokenCode: opts.tokenCode,
-      PackageId: opts.packageId,
+      PackageId: null,
       PaxInfo: {
         HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
         FlightPaxes: null,
@@ -536,6 +538,7 @@ export async function bookHotel(cfg, opts = {}) {
       CorporateInfo: null,
       BookingNote: opts.bookingNote ?? null,
       AgentReferenceInfo: opts.agentReferenceInfo ?? null,
+      ResultKeys: resultKeys,
       PaymentInfo: opts.paymentInfo,
       LanguageCode: opts.languageCode ?? 'tr',
       WithPrice: false,
@@ -647,34 +650,7 @@ export async function getHotelPaymentOptions(cfg, tokenCode, opts = {}) {
  * opts: { tokenCode, packageId, hotelRoomPaxes, contactInfo, invoiceInfo, paymentInfo, languageCode }
  */
 export async function bookRoomOffers(cfg, opts = {}) {
-  // Gerçek endpoint: Hotel.svc /BookHotel
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookHotel', {
-    request: {
-      ProcessId: null,
-      Version: '2.0',
-      ProductType: 1,
-      TokenCode: opts.tokenCode,
-      PackageId: opts.packageId,
-      PaxInfo: {
-        HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
-        FlightPaxes: null,
-        CarPax: null,
-        TourRoomPaxes: null,
-        TransferPaxes: null,
-        PackagePaxes: null,
-        VisaPaxes: null,
-        ActivityPaxes: null,
-      },
-      ContactInfo: opts.contactInfo,
-      InvoiceInfo: opts.invoiceInfo,
-      CorporateInfo: null,
-      BookingNote: opts.bookingNote ?? null,
-      AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      PaymentInfo: opts.paymentInfo,
-      LanguageCode: opts.languageCode ?? 'tr',
-      WithPrice: false,
-    },
-  })
+  return bookHotel(cfg, opts)
 }
 
 /**
@@ -1088,6 +1064,13 @@ export function pickFirstFareLegKey(payload, opts = {}) {
   return keys[0] ?? null
 }
 
+/** Validate yanıtından Book/IssueTicketDirect için ResultKeys (tüm bacaklar). */
+export function pickFlightBookResultKeys(validatePayload, fallbackKeys = [], opts = {}) {
+  const fromValidate = pickFareAlternativeLegKeys(validatePayload, opts)
+  if (fromValidate.length) return fromValidate.map(String)
+  return (fallbackKeys ?? []).map(String).filter(Boolean)
+}
+
 /** SearchHotel / otel satırından GetHotelRoomPrices için SearchKey. */
 export function pickHotelSearchKey(searchPayload, hotelRow = null) {
   const p = searchPayload?.Result ?? searchPayload?.result ?? searchPayload
@@ -1115,7 +1098,14 @@ export function buildHotelValidateRooms(roomOpts, roomKeys, opts = {}) {
     const expanded = []
     for (const p of paxes) {
       const n = Number(p.Count ?? 1)
-      for (let i = 0; i < n; i++) expanded.push({ PaxType: p.PaxType })
+      const ages = p.ChildAgeList ?? p.childAgeList ?? null
+      for (let i = 0; i < n; i++) {
+        const entry = { PaxType: p.PaxType }
+        if (Number(p.PaxType) === 1 && ages) {
+          entry.ChildAge = Number(ages[i] ?? ages[0] ?? 5)
+        }
+        expanded.push(entry)
+      }
     }
     return { Key: String(key), Paxes: expanded }
   })
@@ -1167,6 +1157,113 @@ export function pickHotelRoomOfferKeys(payload, roomCount = 1, roomOpts = [{}]) 
   const c = pickHotelRoomOfferKeyCandidates(payload, roomOpts)
   if (roomCount > 1) return c.slice(0, roomCount)
   return c.length ? [c[0]] : []
+}
+
+/** ValidateHotelRoomsV2 yanıtından BookHotel ResultKeys (|@Hotel@… formatı). */
+export function pickHotelBookResultKeys(validatePayload, fallbackKeys = []) {
+  const r = validatePayload?.Result ?? validatePayload?.result ?? validatePayload
+  const keys = []
+  for (const h of r?.Hotels ?? r?.hotels ?? []) {
+    for (const room of h?.Rooms ?? h?.rooms ?? []) {
+      for (const alt of room?.RoomAlternatives ?? room?.roomAlternatives ?? []) {
+        const code = alt?.RoomCode ?? alt?.roomCode
+        if (code && String(code).includes('@')) keys.push(String(code))
+      }
+    }
+  }
+  if (keys.length) return keys
+  return (fallbackKeys ?? []).map(String).filter(Boolean)
+}
+
+/** ValidateHotelRoomsV2 / SearchHotel sonrası BookHotel için PackageId (RoomCode result key). */
+export function pickHotelPackageId(validatePayload, searchRow = null, validatedKeys = []) {
+  if (validatedKeys.length === 1) return String(validatedKeys[0])
+  if (validatedKeys.length > 1) return String(validatedKeys[0])
+
+  const r = validatePayload?.Result ?? validatePayload?.result ?? validatePayload
+  const hotels = r?.Hotels ?? r?.hotels ?? []
+  for (const h of hotels) {
+    const rooms = h?.Rooms ?? h?.rooms ?? []
+    for (const room of rooms) {
+      const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
+      for (const alt of alts) {
+        const code = alt?.RoomCode ?? alt?.roomCode
+        if (code && String(code).includes('@')) return String(code)
+        const combo = alt?.CombinationId ?? alt?.combinationId
+        if (combo) return String(combo)
+        const pid = alt?.PackageId ?? alt?.packageId ?? alt?.Data?.PackageId
+        if (pid) return String(pid)
+      }
+    }
+  }
+
+  const hotel = r?.Hotel ?? r?.hotel
+  return (
+    r?.PackageId ??
+    r?.packageId ??
+    r?.Id ??
+    r?.id ??
+    hotel?.PackageId ??
+    hotel?.packageId ??
+    searchRow?.PackageId ??
+    searchRow?.packageId ??
+    null
+  )
+}
+
+/** BookHotel — oda/kişi sayısına göre HotelRoomPaxes (sertifikasyon testi). */
+export function buildHotelRoomPaxes(roomOpts, makePaxFn) {
+  const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
+  const out = []
+  const adultNames = [
+    ['TEST', 'TRAVELER'],
+    ['JOHN', 'SMITH'],
+    ['MARY', 'SMITH'],
+    ['ALEX', 'BROWN'],
+  ]
+  const childNames = [
+    ['TIM', 'SMITH'],
+    ['ANN', 'SMITH'],
+    ['KATE', 'BROWN'],
+    ['MAX', 'BROWN'],
+  ]
+  let globalNameIdx = 0
+  for (let ri = 0; ri < rooms.length; ri++) {
+    const r = rooms[ri]
+    const adults = Number(r.Adults ?? r.adults ?? 2)
+    const children = Number(r.Children ?? r.children ?? 0)
+    const childAges = Array.isArray(r.ChildAges) ? r.ChildAges : r.childAges ?? []
+    const paxes = []
+    for (let i = 0; i < adults; i++) {
+      const [fn, ln] = adultNames[globalNameIdx % adultNames.length] ?? ['JOHN', 'SMITH']
+      globalNameIdx++
+      const pax = makePaxFn(fn, ln, '15.06.1990', 1)
+      pax.Age = 30
+      paxes.push({
+        RecId: 0,
+        IsLeader: ri === 0 && i === 0,
+        PaxType: 0,
+        Pax: pax,
+      })
+    }
+    for (let i = 0; i < children; i++) {
+      const age = Number(childAges[i] ?? 5)
+      const y = new Date().getUTCFullYear() - age
+      const [fn, ln] = childNames[globalNameIdx % childNames.length] ?? ['TIM', 'SMITH']
+      globalNameIdx++
+      const pax = makePaxFn(fn, ln, `15.06.${y}`, 1)
+      pax.Age = age
+      paxes.push({
+        RecId: 0,
+        IsLeader: false,
+        PaxType: 1,
+        Pax: pax,
+      })
+    }
+    const roomIndex = Number(r.RoomIndex ?? r.Index ?? ri)
+    out.push({ RoomIndex: roomIndex, Paxes: paxes })
+  }
+  return out
 }
 
 // ─── TRANSFER ─────────────────────────────────────────────────────────────────
