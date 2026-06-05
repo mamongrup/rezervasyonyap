@@ -75,6 +75,63 @@ function walkArrays(root: unknown, keys: string[]): unknown[] {
   return out
 }
 
+const AIRLINE_NAMES: Record<string, string> = {
+  TK: 'Turkish Airlines',
+  PC: 'Pegasus',
+  VF: 'Ajet',
+  XQ: 'SunExpress',
+}
+
+function firstSegment(leg: Record<string, unknown>): Record<string, unknown> | null {
+  const segs = leg.Segments
+  if (!Array.isArray(segs) || segs.length === 0) return null
+  return asRecord(segs[0])
+}
+
+function parseDurationMinutes(leg: Record<string, unknown>): number | null {
+  const n = pickNum(leg, ['DurationMinutes', 'durationMinutes', 'FlightDuration'])
+  if (n != null) return n
+  const raw = pickStr(leg, ['Duration', 'duration'])
+  const hm = raw.match(/^(\d+):(\d{1,2})$/)
+  if (hm) return parseInt(hm[1], 10) * 60 + parseInt(hm[2], 10)
+  const seg = firstSegment(leg)
+  const details = seg ? asRecord(seg.Details) : null
+  const fromDetails = details ? pickStr(details, ['Duration', 'duration']) : ''
+  const hm2 = fromDetails.match(/^(\d+):(\d{1,2})$/)
+  if (hm2) return parseInt(hm2[1], 10) * 60 + parseInt(hm2[2], 10)
+  return null
+}
+
+function airlineFromLeg(leg: Record<string, unknown>): { code: string; name: string } {
+  const seg = firstSegment(leg)
+  let code =
+    pickStr(seg, ['MarketingAirline', 'OperatingAirline']) ||
+    pickStr(leg, ['MarketingAirline', 'OperatingAirline', 'AirlineCode', 'airlineCode'])
+  const nested =
+    asRecord(leg.Airline) ?? asRecord(leg.Carrier) ?? asRecord(leg.MarketingAirline)
+  if (!code && nested) code = pickStr(nested, ['Code', 'code', 'Iata', 'IATA'])
+  const name =
+    pickStr(nested, ['Name', 'name', 'AirlineName', 'Title']) ||
+    pickStr(leg, ['AirlineName', 'airlineName']) ||
+    (code ? AIRLINE_NAMES[code.toUpperCase()] ?? code : '')
+  return { code: code.toUpperCase(), name: name || code }
+}
+
+function legsFromCombinable(combo: Record<string, unknown>): unknown[] {
+  const out: unknown[] = []
+  const opts = combo.LegOptionsList
+  if (Array.isArray(opts)) {
+    for (const optRaw of opts) {
+      const opt = asRecord(optRaw)
+      if (!opt) continue
+      const legs = opt.Legs
+      if (Array.isArray(legs)) out.push(...legs)
+    }
+  }
+  if (out.length > 0) return out
+  return walkArrays(combo, ['Legs', 'FlightLegs', 'OutboundLegs', 'Segments', 'Items'])
+}
+
 function formatDuration(minutes: number | null): string | undefined {
   if (minutes == null || !Number.isFinite(minutes) || minutes <= 0) return undefined
   const h = Math.floor(minutes / 60)
@@ -118,49 +175,52 @@ function parseLegOffer(
   const legRef = pickStr(leg, ['ReferenceId', 'referenceId'])
   if (!legId && !legRef) return null
 
+  const seg = firstSegment(leg)
+  const segCount = Array.isArray(leg.Segments) ? leg.Segments.length : 0
+  const { code: airlineCode, name: airlineName } = airlineFromLeg(leg)
+
   const origin =
     pickStr(leg, ['Origin', 'origin', 'DepartureAirport', 'From']) ||
+    pickStr(seg, ['Origin', 'origin']) ||
     pickStr(asRecord(leg.Departure), ['Code', 'AirportCode']) ||
     pickStr(asRecord(leg.OriginPoint), ['Code'])
   const destination =
     pickStr(leg, ['Destination', 'destination', 'ArrivalAirport', 'To']) ||
+    pickStr(seg, ['Destination', 'destination']) ||
     pickStr(asRecord(leg.Arrival), ['Code', 'AirportCode']) ||
     pickStr(asRecord(leg.DestinationPoint), ['Code'])
-
-  const airline =
-    asRecord(leg.Airline) ??
-    asRecord(leg.Carrier) ??
-    asRecord(leg.MarketingAirline) ??
-    leg
 
   const price =
     pickNum(pkg, ['TotalPrice', 'totalPrice', 'GrandTotal', 'Price', 'TotalFare']) ??
     pickNum(leg, ['TotalPrice', 'totalPrice', 'Price', 'PriceSummary', 'TotalFare']) ??
     pickNum(searchRoot, ['PriceSummary', 'TotalFare', 'totalFare'])
 
-  const dep = pickStr(leg, [
-    'DepartureTime',
-    'departureTime',
-    'DepartureDateTime',
-    'DepartureDate',
-    'LocalDepartureTime',
-  ])
-  const arr = pickStr(leg, [
-    'ArrivalTime',
-    'arrivalTime',
-    'ArrivalDateTime',
-    'ArrivalDate',
-    'LocalArrivalTime',
-  ])
-  const dur = pickNum(leg, ['DurationMinutes', 'durationMinutes', 'FlightDuration', 'Duration'])
+  const dep =
+    pickStr(leg, [
+      'DepartureTime',
+      'departureTime',
+      'DepartureDateTime',
+      'DepartureDate',
+      'LocalDepartureTime',
+    ]) || pickStr(seg, ['DepartureDate', 'DepartureTime'])
+  const arr =
+    pickStr(leg, [
+      'ArrivalTime',
+      'arrivalTime',
+      'ArrivalDateTime',
+      'ArrivalDate',
+      'LocalArrivalTime',
+    ]) || pickStr(seg, ['ArrivalDate', 'ArrivalTime'])
+  const dur = parseDurationMinutes(leg)
 
   const stopsRaw = leg.StopCount ?? leg.stopCount ?? leg.NumberOfStops
-  const stopCount =
+  let stopCount =
     typeof stopsRaw === 'number'
       ? stopsRaw
       : typeof stopsRaw === 'string'
         ? parseInt(stopsRaw, 10) || 0
         : 0
+  if (stopCount === 0 && segCount > 1) stopCount = segCount - 1
 
   return {
     id: legId || `offer-${index}`,
@@ -170,13 +230,14 @@ function parseLegOffer(
     departureTime: dep || null,
     arrivalTime: arr || null,
     durationMinutes: dur,
-    airlineName:
-      pickStr(airline, ['Name', 'name', 'AirlineName', 'Title']) ||
-      pickStr(leg, ['AirlineName', 'airlineName']),
-    airlineCode: pickStr(airline, ['Code', 'code', 'Iata', 'IATA']),
+    airlineName,
+    airlineCode,
     stopCount: Number.isFinite(stopCount) ? stopCount : 0,
     price,
-    currency: pickStr(pkg ?? leg, ['Currency', 'currency', 'CurrencyCode']) || 'TRY',
+    currency:
+      pickStr(pkg ?? leg, ['Currency', 'currency', 'CurrencyCode']) ||
+      pickStr(searchRoot, ['Currency', 'currency']) ||
+      'TRY',
     cabinClass: pickStr(pkg ?? leg, ['CabinClass', 'cabinClass', 'Class']) || 'Economy',
     allocateForm: buildAllocateForm(searchRoot, leg, pkg),
   }
@@ -222,16 +283,9 @@ function parseCombinableLegsList(
     const c = asRecord(combo)
     if (!c) continue
 
-    const legSources = walkArrays(c, [
-      'LegOptionsList',
-      'Legs',
-      'FlightLegs',
-      'OutboundLegs',
-      'Segments',
-      'Items',
-    ])
+    let legSources = legsFromCombinable(c)
     if (legSources.length === 0 && pickStr(c, ['Origin', 'origin', 'Id', 'id'])) {
-      legSources.push(c)
+      legSources = [c]
     }
     // AllocateForm.Id = CombinableLegsList öğesinin Id'si (V5 doküman)
     const batch = collectLegOffers(c, legSources, idx)
