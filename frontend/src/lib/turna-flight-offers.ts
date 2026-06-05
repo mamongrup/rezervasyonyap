@@ -193,7 +193,7 @@ function parseLegOffer(
   const price =
     pickNum(pkg, ['TotalPrice', 'totalPrice', 'GrandTotal', 'Price', 'TotalFare']) ??
     pickNum(leg, ['TotalPrice', 'totalPrice', 'Price', 'PriceSummary', 'TotalFare']) ??
-    pickNum(searchRoot, ['PriceSummary', 'TotalFare', 'totalFare'])
+    pickNum(searchRoot, ['TotalPrice', 'totalPrice', 'GrandTotal', 'PriceSummary', 'TotalFare', 'totalFare'])
 
   const dep =
     pickStr(leg, [
@@ -202,7 +202,8 @@ function parseLegOffer(
       'DepartureDateTime',
       'DepartureDate',
       'LocalDepartureTime',
-    ]) || pickStr(seg, ['DepartureDate', 'DepartureTime'])
+    ]) ||
+    pickStr(seg, ['DepartureDate', 'DepartureTime', 'LocalDepartureTime', 'DepartureDateTime'])
   const arr =
     pickStr(leg, [
       'ArrivalTime',
@@ -210,7 +211,8 @@ function parseLegOffer(
       'ArrivalDateTime',
       'ArrivalDate',
       'LocalArrivalTime',
-    ]) || pickStr(seg, ['ArrivalDate', 'ArrivalTime'])
+    ]) ||
+    pickStr(seg, ['ArrivalDate', 'ArrivalTime', 'LocalArrivalTime', 'ArrivalDateTime'])
   const dur = parseDurationMinutes(leg)
 
   const stopsRaw = leg.StopCount ?? leg.stopCount ?? leg.NumberOfStops
