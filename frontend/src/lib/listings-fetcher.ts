@@ -326,6 +326,32 @@ export function mapPublicListingItemToListingBase(
     const tourDeparturePlace = item.tour_departure_place?.trim()
     const resolvedDurationDays =
       tourDurationDays ?? (tourNights != null && tourNights > 0 ? tourNights + 1 : undefined)
+
+    if (vertical === 'flight') {
+      const routeRaw = (item.location ?? item.title ?? '').trim()
+      const routeSep = routeRaw.includes('→')
+        ? '→'
+        : routeRaw.includes('->')
+          ? '->'
+          : routeRaw.includes('—')
+            ? '—'
+            : routeRaw.includes('-')
+              ? '-'
+              : null
+      let departure: string | undefined
+      let arrival: string | undefined
+      if (routeSep) {
+        const parts = routeRaw.split(routeSep).map((s) => s.trim())
+        departure = parts[0] || undefined
+        arrival = parts[1] || undefined
+      }
+      return {
+        ...base,
+        ...(departure ? { departure } : {}),
+        ...(arrival ? { arrival } : {}),
+      } as TListingBase
+    }
+
     return {
       ...base,
       maxGuests: parseMetaInt(item.max_guests ?? undefined),

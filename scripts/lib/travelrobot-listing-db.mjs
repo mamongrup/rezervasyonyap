@@ -138,6 +138,33 @@ function pickText(obj, ...keys) {
   return ''
 }
 
+/** KPlus CDN bazen `/Assets/Img/no-logo.png` döner — CDN 500 verir, vitrinde boş kalır. */
+function isKplusPlaceholderImage(url) {
+  const u = String(url || '').trim()
+  if (!u) return true
+  if (/no-logo|nologo|no_logo|placeholder/i.test(u)) return true
+  if (u.includes('bm8tbG9nby')) return true
+  return false
+}
+
+function extractTourImageUrl(tour) {
+  const nested = tourNode(tour)
+  const medias = tour?.Medias ?? tour?.medias ?? nested?.Medias ?? nested?.medias ?? []
+  const candidates = []
+  for (const m of medias) {
+    const u = pickText(m, 'Url', 'url', 'MediaUrl', 'mediaUrl', 'ImageUrl', 'imageUrl', 'Path', 'path')
+    if (u) candidates.push(u)
+  }
+  candidates.push(
+    pickText(tour, 'ImageUrl', 'imageUrl', 'LogoUrl', 'logoUrl'),
+    pickText(nested ?? {}, 'Logo', 'logo', 'ImageUrl', 'imageUrl', 'LogoUrl', 'logoUrl'),
+  )
+  for (const c of candidates) {
+    if (c && !isKplusPlaceholderImage(c)) return c
+  }
+  return ''
+}
+
 function normalizeCurrency(raw) {
   const c = String(raw ?? '').trim().toUpperCase()
   return ['TRY', 'EUR', 'USD', 'GBP'].includes(c) ? c : 'TRY'
@@ -173,15 +200,45 @@ function extractHotelMinNightlyPrice(hotel) {
   return min
 }
 
+function extractFlightMinPrice(flight) {
+  const fares = flight?.Fares ?? flight?.fares ?? []
+  let min = null
+  for (const fare of fares) {
+    const paxes = fare?.PassengerFares ?? fare?.passengerFares ?? []
+    for (const pax of paxes) {
+      const amount = Number(
+        pax?.Price?.TotalAmount ?? pax?.price?.totalAmount ?? pax?.Price?.BaseAmount ?? NaN,
+      )
+      if (
+        Number.isFinite(amount) &&
+        amount > 0 &&
+        amount <= MAX_SANE_NIGHTLY_TRY &&
+        (min == null || amount < min)
+      ) {
+        min = amount
+      }
+    }
+  }
+  return min
+}
+
 function extractTourPriceAmount(tour) {
   const price = tour?.Price ?? tour?.price
   const amount = Number(price?.TotalAmount ?? price?.totalAmount ?? price?.BaseAmount ?? price?.baseAmount ?? NaN)
   return Number.isFinite(amount) && amount > 0 && amount <= MAX_SANE_NIGHTLY_TRY ? amount : null
 }
 
+async function clearListingCover(pgClient, listingId) {
+  await pgClient.query(
+    `UPDATE listings SET featured_image_url = NULL, thumbnail_url = NULL, updated_at = now() WHERE id = $1::uuid`,
+    [listingId],
+  )
+  await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
+}
+
 async function upsertListingCover(pgClient, listingId, imageUrl) {
   const url = String(imageUrl || '').trim()
-  if (!url) return
+  if (!url || isKplusPlaceholderImage(url)) return
   await pgClient.query(
     `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
     [listingId, url],
@@ -333,7 +390,12 @@ export async function upsertTravelrobotTourListing(
     [core.listingId, JSON.stringify({ catalog: tour })],
   )
 
-  await upsertListingCover(pgClient, core.listingId, pickText(tour, 'ImageUrl', 'imageUrl', 'Logo', 'logo'))
+  const tourImageUrl = extractTourImageUrl(tour)
+  if (tourImageUrl) {
+    await upsertListingCover(pgClient, core.listingId, tourImageUrl)
+  } else {
+    await clearListingCover(pgClient, core.listingId)
+  }
 
   const tourPrice = extractTourPriceAmount(tour)
   if (tourPrice != null) {
@@ -482,5 +544,8 @@ export async function upsertTravelrobotFlightListing(
     [core.listingId, JSON.stringify({ catalog: flight })],
   )
 
-  return { ...core, action: core.created ? 'created' : 'updated', kind: 'flight' }
+  const flightPrice = extractFlightMinPrice(flight)
+  await upsertNightlyPriceRule(pgClient, core.listingId, flightPrice, 'TRY')
+
+  return { ...core, action: core.created ? 'created' : 'updated', kind: 'flight', price: flightPrice }
 }

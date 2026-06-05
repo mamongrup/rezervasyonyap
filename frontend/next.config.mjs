@@ -199,6 +199,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn.kplus.com.tr',
+        port: '',
+        pathname: '/**',
+      },
       ...extraImageHost,
     ],
   },

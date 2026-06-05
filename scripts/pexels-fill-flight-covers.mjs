@@ -86,7 +86,8 @@ async function main() {
       FROM listings l
       LEFT JOIN flight_legs fl ON fl.listing_id = l.id AND fl.mode = 'flight'
       LEFT JOIN listing_attributes la ON la.listing_id = l.id AND la.group_code = 'turna' AND la.key = 'snapshot'
-      WHERE l.external_provider_code = 'turna'
+      WHERE l.external_provider_code IN ('turna', 'travelrobot')
+        AND l.product_category_id IN (SELECT id FROM product_categories WHERE code = 'flight')
         AND NOT EXISTS (
           SELECT 1 FROM listing_images li WHERE li.listing_id = l.id
         )

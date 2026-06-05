@@ -38,11 +38,31 @@ const imagesArg = args.find((a) => a.startsWith('--images='))?.slice('--images='
 const maxListings = limitArg ? Math.max(1, parseInt(limitArg, 10) || 0) : 0
 const imagesPerTour = Math.min(10, Math.max(3, Number(imagesArg || process.env.PEXELS_IMAGES || 6)))
 const delayMs = Number(process.env.PEXELS_DELAY_MS || 400)
+const providerArg = args.find((a) => a.startsWith('--provider='))?.slice('--provider='.length)
+  ?? (args.includes('--provider') ? args[args.indexOf('--provider') + 1] : null)
+  ?? process.env.PEXELS_TOUR_PROVIDER
+  ?? 'wtatil'
+const provider = String(providerArg).trim().toLowerCase()
+
+function isBadTourCoverUrl(url) {
+  const u = String(url || '').trim()
+  if (!u) return true
+  if (/no-logo|nologo|bm8tbG9nby/i.test(u)) return true
+  return false
+}
 
 function tourMetaFromSnapshot(snapshot) {
   if (!snapshot || typeof snapshot !== 'object') return {}
   const catalog = snapshot.catalog || snapshot
-  const area = catalog?.tourArea?.name || catalog?.tourArea?.text || ''
+  const nested = catalog?.Tour ?? catalog?.tour
+  const area =
+    catalog?.RegionName ||
+    catalog?.regionName ||
+    nested?.Regions?.[0]?.Name ||
+    nested?.Regions?.[0]?.name ||
+    catalog?.tourArea?.name ||
+    catalog?.tourArea?.text ||
+    ''
   const countries = (catalog?.countries || [])
     .map((c) => c?.name || c?.code || '')
     .filter(Boolean)
@@ -53,10 +73,19 @@ function tourMetaFromSnapshot(snapshot) {
 function tourQueries(title, area, countries) {
   const clean = String(title || '')
     .replace(/\d+\s*gece/gi, ' ')
-    .replace(/\b(pegasus|turk\s*air|thy|havayolu|uçak|gidis|dönüş|donus)\b/gi, ' ')
+    .replace(/\b(pegasus|turk\s*air|thy|havayolu|uçak|gidis|dönüş|donus|fly\s*dubai)\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim()
   const qs = []
+  if (/dubai|abu\s*dhabi|emirlik|sharjah/i.test(`${title} ${area} ${countries}`)) {
+    qs.push('Dubai UAE skyline travel')
+    qs.push('Dubai tourism landmark')
+    qs.push('United Arab Emirates vacation')
+  }
+  if (/saraybosna|bosna|balkan/i.test(`${title} ${area}`)) {
+    qs.push('Sarajevo Bosnia travel')
+    qs.push('Bosnia Herzegovina tourism')
+  }
   if (area) {
     qs.push(`${area} Turkey travel tour`)
     qs.push(`${area} landscape tourism`)
@@ -84,11 +113,12 @@ async function downloadPexelsAvif(url, destAbs) {
 }
 
 function loadTourRows() {
+  const snapshotGroup = provider === 'travelrobot' ? 'travelrobot' : 'wtatil'
   let sql = `
-    SELECT l.id::text AS listing_id, l.slug, lt.title,
+    SELECT l.id::text AS listing_id, l.slug, lt.title, l.featured_image_url,
            (SELECT count(*)::int FROM listing_images li WHERE li.listing_id = l.id) AS image_count,
            (SELECT la.value_json FROM listing_attributes la
-            WHERE la.listing_id = l.id AND la.group_code = 'wtatil' AND la.key = 'snapshot'
+            WHERE la.listing_id = l.id AND la.group_code = ${sqlLiteral(snapshotGroup)} AND la.key = 'snapshot'
             LIMIT 1) AS snapshot,
            (SELECT 1 FROM listing_attributes la
             WHERE la.listing_id = l.id AND la.group_code = 'pexels' AND la.key = 'gallery_imported_at'
@@ -96,11 +126,16 @@ function loadTourRows() {
     FROM listings l
     JOIN listing_translations lt ON lt.listing_id = l.id
     JOIN locales loc ON loc.id = lt.locale_id AND loc.code = 'tr'
-    WHERE l.external_provider_code = 'wtatil'
+    JOIN product_categories pc ON pc.id = l.category_id AND pc.code = 'tour'
+    WHERE l.external_provider_code = ${sqlLiteral(provider)}
   `
   if (slugArg) sql += ` AND l.slug = ${sqlLiteral(slugArg)}`
   sql += ` ORDER BY l.slug`
-  return queryRows(sql)
+  const rows = queryRows(sql)
+  if (provider === 'travelrobot') {
+    return rows.filter((r) => isBadTourCoverUrl(r.featured_image_url) || Number(r.image_count) === 0)
+  }
+  return rows
 }
 
 function saveListingImages(listingId, slug, saved) {
@@ -128,7 +163,7 @@ function saveListingImages(listingId, slug, saved) {
 }
 
 async function main() {
-  console.log(`→ pexels-fill-tour-images (${SCRIPT_VERSION}) — tur başına ${imagesPerTour} görsel`)
+  console.log(`→ pexels-fill-tour-images (${SCRIPT_VERSION}) — sağlayıcı: ${provider}, tur başına ${imagesPerTour} görsel`)
   loadBackendEnvFile()
   const keys = loadPexelsKeys()
   console.log(`→ ${keys.length} Pexels key`)
