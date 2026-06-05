@@ -48,7 +48,7 @@ function pickNum(obj: Record<string, unknown> | null, keys: string[]): number | 
     if (Number.isFinite(n) && n > 0) return n
     const nested = asRecord(v)
     if (nested) {
-      const t = pickNum(nested, ['Total', 'total', 'Amount', 'amount'])
+      const t = pickNum(nested, ['TotalFare', 'totalFare', 'Total', 'total', 'Amount', 'amount'])
       if (t != null) return t
     }
   }
@@ -134,11 +134,24 @@ function parseLegOffer(
     leg
 
   const price =
-    pickNum(pkg, ['TotalPrice', 'totalPrice', 'GrandTotal', 'Price']) ??
-    pickNum(leg, ['TotalPrice', 'totalPrice', 'Price'])
+    pickNum(pkg, ['TotalPrice', 'totalPrice', 'GrandTotal', 'Price', 'TotalFare']) ??
+    pickNum(leg, ['TotalPrice', 'totalPrice', 'Price', 'PriceSummary', 'TotalFare']) ??
+    pickNum(searchRoot, ['PriceSummary', 'TotalFare', 'totalFare'])
 
-  const dep = pickStr(leg, ['DepartureTime', 'departureTime', 'DepartureDateTime', 'LocalDepartureTime'])
-  const arr = pickStr(leg, ['ArrivalTime', 'arrivalTime', 'ArrivalDateTime', 'LocalArrivalTime'])
+  const dep = pickStr(leg, [
+    'DepartureTime',
+    'departureTime',
+    'DepartureDateTime',
+    'DepartureDate',
+    'LocalDepartureTime',
+  ])
+  const arr = pickStr(leg, [
+    'ArrivalTime',
+    'arrivalTime',
+    'ArrivalDateTime',
+    'ArrivalDate',
+    'LocalArrivalTime',
+  ])
   const dur = pickNum(leg, ['DurationMinutes', 'durationMinutes', 'FlightDuration', 'Duration'])
 
   const stopsRaw = leg.StopCount ?? leg.stopCount ?? leg.NumberOfStops
@@ -210,6 +223,7 @@ function parseCombinableLegsList(
     if (!c) continue
 
     const legSources = walkArrays(c, [
+      'LegOptionsList',
       'Legs',
       'FlightLegs',
       'OutboundLegs',
@@ -219,7 +233,8 @@ function parseCombinableLegsList(
     if (legSources.length === 0 && pickStr(c, ['Origin', 'origin', 'Id', 'id'])) {
       legSources.push(c)
     }
-    const batch = collectLegOffers(searchRoot, legSources, idx)
+    // AllocateForm.Id = CombinableLegsList öğesinin Id'si (V5 doküman)
+    const batch = collectLegOffers(c, legSources, idx)
     offers.push(...batch.offers)
     idx = batch.nextIdx
   }

@@ -160,7 +160,7 @@ export async function fetchFlightSearch(route, opts = {}) {
         CabinClass: route.cabinClass || 'Any',
       },
     },
-    ResponseMask: { FlightLegMask: opts.flightLegMask ?? 109 },
+    ResponseMask: { FlightLegMask: opts.flightLegMask ?? 105 },
   }
   // cfg'i turnaPost'a geçiriyoruz ki doğru baseUrl kullanılsın
   return turnaPost('/v1/flight/booking/search', body, {}, cfg)

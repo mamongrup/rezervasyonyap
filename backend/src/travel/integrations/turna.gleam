@@ -113,7 +113,7 @@ pub fn has_flight_inventory(raw: String) -> Bool {
 }
 
 fn alternate_flight_masks(primary: Int) -> List(Int) {
-  let candidates = [primary, 41, 127, 255, 511, 1023, 109]
+  let candidates = [primary, 105, 109, 41, 127, 255, 511, 1023]
   list.unique(candidates)
 }
 
