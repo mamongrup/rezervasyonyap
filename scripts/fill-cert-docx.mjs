@@ -185,18 +185,42 @@ function fillAirDocx() {
     (d) => `rezervasyonyap.tr sandbox — ${d.note} Log: travelrobot-test-log-2026-06-05T19-52-25.json`,
   );
 
-  // Her senaryodaki Client Notes alanı (sonda: Client+Notes+: veya başta: Client Notes:)
-  let ni = 0;
-  const notePara = () => filledParagraph(notes[ni++] ?? "", { sz: "16" });
+  // Onceki doldurma kalintilarini temizle
+  xml = xml.replace(/<w:p w:rsidR="00CERT001"[^>]*>[\s\S]*?<\/w:p>/g, "");
 
-  xml = xml.replace(
-    /Client Notes:<\/w:t><\/w:r><\/w:p>/g,
-    (m) => (ni < notes.length ? m + notePara() : m),
-  );
-  xml = xml.replace(
-    /<w:t>Notes<\/w:t><\/w:r><w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t[^>]*>:\s*<\/w:t><\/w:r><\/w:p>/g,
-    (m) => (ni < notes.length ? m + notePara() : m),
-  );
+  // Client Notes markerlari belge sirasinda: S1(split), S2(combined+split), S3-S10(split), S11(tek satir)
+  /** @param {number} markerIndex belgedeki sirali marker indeksi */
+  function airNoteIndexForMarker(markerIndex) {
+    if (markerIndex === 0) return 0;
+    if (markerIndex === 1 || markerIndex === 2) return 1;
+    return markerIndex - 1;
+  }
+
+  const markers = [];
+  const splitRe =
+    /<w:t>Notes<\/w:t><\/w:r><w:r[^>]*>(?:<w:rPr>[\s\S]*?<\/w:rPr>)?<w:t[^>]*>:\s*<\/w:t><\/w:r><\/w:p>/g;
+  const combinedRe = /Client Notes:<\/w:t><\/w:r><\/w:p>/g;
+  const s11Re =
+    /<w:t xml:space="preserve">Client Notes: <\/w:t><\/w:r><\/w:p>/g;
+  for (const m of xml.matchAll(splitRe)) {
+    markers.push({ end: m.index + m[0].length });
+  }
+  for (const m of xml.matchAll(combinedRe)) {
+    markers.push({ end: m.index + m[0].length });
+  }
+  for (const m of xml.matchAll(s11Re)) {
+    markers.push({ end: m.index + m[0].length, noteIdx: 10 });
+  }
+  markers.sort((a, b) => a.end - b.end);
+  markers.forEach((mk, idx) => {
+    if (mk.noteIdx === undefined) mk.noteIdx = airNoteIndexForMarker(idx);
+  });
+  // Sondan basa ekle (index kaymasi olmasin)
+  for (let mi = markers.length - 1; mi >= 0; mi--) {
+    const mk = markers[mi];
+    const para = filledParagraph(notes[mk.noteIdx] ?? "", { sz: "16" });
+    xml = xml.slice(0, mk.end) + para + xml.slice(mk.end);
+  }
 
   fs.writeFileSync(docXml, xml);
   console.log("✓ Air document.xml güncellendi");
