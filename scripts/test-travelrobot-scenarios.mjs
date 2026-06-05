@@ -760,7 +760,14 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     seenHotel.add(c)
     return true
   })
-  const tryHotels = ranked.slice(0, 18)
+  // Sertifikasyon destinasyonunda yalnızca resmi test otellerini dene (yanlış şehir oteli riski)
+  const tryHotels =
+    destId != null && certCodes.size > 0
+      ? certPriority.map((code) => {
+          const fromSearch = searchRows.find((r) => (r.HotelCode ?? r.hotelCode) === code)
+          return fromSearch ?? { HotelCode: code, HotelName: code, _certSynthetic: true }
+        })
+      : ranked.slice(0, 18)
 
   let roomOfferKeys = []
   let roomPricesPayload = null
