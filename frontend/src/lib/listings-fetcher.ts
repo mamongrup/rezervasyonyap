@@ -102,7 +102,7 @@ export function parseSearchParamsFromUrl(
   }
   return {
     location: g('location'),
-    checkin: g('checkin'),
+    checkin: g('checkin') ?? g('date'),
     checkout: g('checkout'),
     guests: g('guests'),
     page: g('page'),

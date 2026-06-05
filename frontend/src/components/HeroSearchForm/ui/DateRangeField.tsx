@@ -7,7 +7,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import dynamic from 'next/dynamic'
-import { FC, useState } from 'react'
+import { FC, useEffect, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
 
 const DateRangePickerPanel = dynamic(() => import('./DateRangePickerPanel'), {
@@ -49,6 +49,9 @@ interface Props {
   description?: string
   panelClassName?: string
   isOnlySingleDate?: boolean
+  /** YYYY-MM-DD — URL arama parametresinden */
+  defaultStartDate?: string
+  defaultEndDate?: string
 }
 
 export const DateRangeField: FC<Props> = ({
@@ -58,10 +61,27 @@ export const DateRangeField: FC<Props> = ({
   description = `${T['HeroSearchForm']['CheckIn']} - ${T['HeroSearchForm']['CheckOut']}`,
   panelClassName,
   isOnlySingleDate = false,
+  defaultStartDate,
+  defaultEndDate,
 }) => {
-  const [startDate, setStartDate] = useState<Date | null>(null)
-  const [endDate, setEndDate] = useState<Date | null>(null)
+  const parseYmd = (s?: string): Date | null => {
+    if (!s?.trim()) return null
+    const d = new Date(`${s.trim()}T12:00:00`)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const [startDate, setStartDate] = useState<Date | null>(() => parseYmd(defaultStartDate))
+  const [endDate, setEndDate] = useState<Date | null>(() => parseYmd(defaultEndDate))
   const monthsShown = useResponsiveCalendarMonthsShown()
+
+  useEffect(() => {
+    const s = parseYmd(defaultStartDate)
+    if (s) setStartDate(s)
+  }, [defaultStartDate])
+
+  useEffect(() => {
+    const e = parseYmd(defaultEndDate)
+    if (e) setEndDate(e)
+  }, [defaultEndDate])
 
   return (
     <>

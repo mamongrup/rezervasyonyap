@@ -17,9 +17,11 @@ import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
-import { ButtonSubmit, DateRangeField, LocationInputField, VerticalDividerLine } from './ui'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { FC, Suspense, useEffect, useMemo, useState } from 'react'
+import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
+import { AirplaneLandingIcon, AirplaneTakeOffIcon } from '@hugeicons/core-free-icons'
+import { ButtonSubmit, DateRangeField, FlightLocationInputField, VerticalDividerLine } from './ui'
 
 interface Props {
   className?: string
@@ -32,14 +34,31 @@ const FLIGHT_CLASS_KEYS = [
   { key: 'Multiple' as const, value: 'Multiple' },
 ]
 
-export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }) => {
-  const [tripType, setTripType] = useState<'roundTrip' | 'oneWay'>('roundTrip')
-  const [flightClassState, setFlightClassState] = useState<'Economy' | 'Business' | 'Multiple'>('Economy')
+const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) => {
+  const searchParams = useSearchParams()
+  const urlTrip = searchParams.get('trip')
+  const urlClass = searchParams.get('class')
+  const urlGuests = searchParams.get('guests')
+  const urlFrom = searchParams.get('from') ?? ''
+  const urlTo = searchParams.get('to') ?? ''
+  const urlDate = searchParams.get('date') ?? searchParams.get('checkin') ?? ''
 
-  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(DEFAULT_GUESTS_STAY.guestAdults)
+  const [tripType, setTripType] = useState<'roundTrip' | 'oneWay'>(
+    urlTrip === 'oneWay' ? 'oneWay' : 'roundTrip',
+  )
+  const [flightClassState, setFlightClassState] = useState<'Economy' | 'Business' | 'Multiple'>(
+    urlClass === 'Business' || urlClass === 'Multiple' ? urlClass : 'Economy',
+  )
+
+  const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(() => {
+    const n = urlGuests ? parseInt(urlGuests, 10) : NaN
+    return Number.isFinite(n) && n > 0 ? n : DEFAULT_GUESTS_STAY.guestAdults
+  })
   const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(DEFAULT_GUESTS_STAY.guestChildren)
   const [guestInfantsInputValue, setGuestInfantsInputValue] = useState(DEFAULT_GUESTS_STAY.guestInfants)
   const router = useRouter()
+
+  const defaultStartDate = useMemo(() => urlDate || undefined, [urlDate])
 
   useEffect(() => {
     router.prefetch('/ucak-bileti/all')
@@ -231,21 +250,25 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
         {renderGuest()}
       </div>
 
-      <div className="relative z-10 flex flex-1 rounded-full">
-        <LocationInputField
+      <div className="relative z-10 flex flex-1 overflow-visible rounded-full">
+        <FlightLocationInputField
           inputName="flying-from-location"
           placeholder={T['HeroSearchForm']['Flying from']}
           description={T['HeroSearchForm']['Where are you flying from?']}
           className="hero-search-form__field-after flex-1"
           fieldStyle={formStyle}
+          defaultValue={urlFrom}
+          icon={AirplaneTakeOffIcon}
         />
         <VerticalDividerLine />
-        <LocationInputField
+        <FlightLocationInputField
           inputName="flying-to-location"
           placeholder={T['HeroSearchForm']['Flying to']}
           description={T['HeroSearchForm']['Where are you flying to?']}
           className="hero-search-form__field-before hero-search-form__field-after flex-1"
           fieldStyle={formStyle}
+          defaultValue={urlTo}
+          icon={AirplaneLandingIcon}
         />
         <VerticalDividerLine />
         <DateRangeField
@@ -254,6 +277,7 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
           panelClassName="sm:start-auto sm:translate-x-0 sm:end-0"
           description={tripType === 'oneWay' ? T['HeroSearchForm']['Flying date'] : T['HeroSearchForm']['Flying dates']}
           isOnlySingleDate={tripType === 'oneWay'}
+          defaultStartDate={defaultStartDate}
           clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
         />
 
@@ -262,3 +286,9 @@ export const FlightSearchForm: FC<Props> = ({ className, formStyle = 'default' }
     </Form>
   )
 }
+
+export const FlightSearchForm: FC<Props> = (props) => (
+  <Suspense fallback={<HeroSearchFormSkeleton />}>
+    <FlightSearchFormInner {...props} />
+  </Suspense>
+)

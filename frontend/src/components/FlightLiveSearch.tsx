@@ -8,6 +8,7 @@ import {
   offerDurationLabel,
   type TurnaFlightOffer,
 } from '@/lib/turna-flight-offers'
+import { resolveFlightAirportCode } from '@/lib/flight-airports'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import T from '@/utils/getT'
 import { useRouter } from 'next/navigation'
@@ -77,8 +78,8 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
   const [session, setSession] = useState<TurnaFlightSession | null>(null)
   const [listingId, setListingId] = useState<string | null>(null)
 
-  const from = params.from?.trim().toUpperCase()
-  const to = params.to?.trim().toUpperCase()
+  const from = resolveFlightAirportCode(params.from ?? '') ?? params.from?.trim().toUpperCase()
+  const to = resolveFlightAirportCode(params.to ?? '') ?? params.to?.trim().toUpperCase()
   const date = params.date?.trim()
 
   const runSearch = useCallback(async () => {

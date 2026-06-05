@@ -4,6 +4,7 @@ import FlightLiveSearch from '@/components/FlightLiveSearch'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getFlightFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { resolveFlightAirportCode } from '@/lib/flight-airports'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { getMessages } from '@/utils/getT'
@@ -51,12 +52,11 @@ export default async function Page({
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
 
-  const liveFrom = query.from?.trim()
-  const liveTo = query.to?.trim()
-  const dateParam = sp.date
-  const liveDate =
-    query.checkin?.trim() ||
-    (Array.isArray(dateParam) ? dateParam[0] : dateParam)?.trim()
+  const liveFromRaw = query.from?.trim()
+  const liveToRaw = query.to?.trim()
+  const liveFrom = liveFromRaw ? resolveFlightAirportCode(liveFromRaw) ?? liveFromRaw.toUpperCase() : ''
+  const liveTo = liveToRaw ? resolveFlightAirportCode(liveToRaw) ?? liveToRaw.toUpperCase() : ''
+  const liveDate = query.checkin?.trim()
   const showLiveSearch = Boolean(liveFrom && liveTo && liveDate)
 
   return (
@@ -69,8 +69,8 @@ export default async function Page({
             <FlightLiveSearch
               locale={locale}
               params={{
-                from: liveFrom!,
-                to: liveTo!,
+                from: liveFrom,
+                to: liveTo,
                 date: liveDate!,
                 adults: query.guests ? parseInt(String(query.guests), 10) || 1 : 1,
                 cabinClass: query.class,
