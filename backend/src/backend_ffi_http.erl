@@ -48,7 +48,12 @@ post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
   UrlStr = binary_to_list(Url),
   BodyStr = binary_to_list(Body),
   Headers =
-    case AuthHeader of
+    [
+      {"Accept", "application/json"},
+      {"User-Agent", "RezervasyonYap-travel-api/1.0"},
+      {"Connection", "keep-alive"}
+    ]
+    ++ case AuthHeader of
       <<>> -> [];
       A -> [{"Authorization", binary_to_list(A)}]
     end,
@@ -56,7 +61,7 @@ post_json_with_timeout(Url, Body, AuthHeader, TimeoutMs)
   HttpOptions = [
     {connect_timeout, 60000},
     {timeout, T},
-    {ssl, [{verify, verify_none}]}
+    {ssl, ssl_opts_for_url(UrlStr)}
   ],
   Options = [],
   case httpc:request(post, Request, HttpOptions, Options) of
@@ -178,11 +183,16 @@ get_url_with_auth(Url, AuthHeader) when is_binary(Url), is_binary(AuthHeader) ->
   {ok, _} = application:ensure_all_started(ssl),
   UrlStr = binary_to_list(Url),
   Headers =
-    case AuthHeader of
+    [
+      {"Accept", "application/json"},
+      {"User-Agent", "RezervasyonYap-travel-api/1.0"},
+      {"Connection", "keep-alive"}
+    ]
+    ++ case AuthHeader of
       <<>> -> [];
       A -> [{"Authorization", binary_to_list(A)}]
     end,
-  HttpOptions = [{timeout, timer:seconds(25)}, {ssl, [{verify, verify_none}]}],
+  HttpOptions = [{timeout, timer:seconds(25)}, {ssl, ssl_opts_for_url(UrlStr)}],
   case httpc:request(get, {UrlStr, Headers}, HttpOptions, []) of
     {ok, {{_, Status, _}, _Headers, RespBody}} ->
       Bin = iolist_to_binary(RespBody),
