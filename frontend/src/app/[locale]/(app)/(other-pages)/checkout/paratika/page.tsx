@@ -1,5 +1,9 @@
 'use client'
 
+import ParatikaCheckoutShell, {
+  ParatikaCheckoutError,
+  ParatikaCheckoutLoading,
+} from '@/components/checkout/ParatikaCheckoutShell'
 import ParatikaDirectPostForm from '@/components/checkout/ParatikaDirectPostForm'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { checkoutT, fmtCheckout } from '@/lib/checkout-i18n'
@@ -51,11 +55,23 @@ export default function ParatikaCheckoutPage() {
   const C = checkoutT(locale).paratika
   const [err, setErr] = React.useState<string | null>(null)
   const [uiMode, setUiMode] = React.useState<UiMode>('direct_post')
+  const [stored, setStored] = React.useState<Stored | null>(null)
   const [session, setSession] = React.useState<{
     payment_url: string
     direct_post_3d_url: string
     guest_name: string
   } | null>(null)
+
+  const goCheckout = () => router.push(vitrinHref('/checkout'))
+
+  const shellLabels = {
+    backToCheckout: C.backToCheckout,
+    secure3dBadge: C.secure3dBadge,
+    encryptedBadge: C.encryptedBadge,
+    poweredBy: C.poweredBy,
+    amountDue: C.amountDue,
+    reservationCode: C.reservationCode,
+  }
 
   React.useEffect(() => {
     const raw = sessionStorage.getItem(STORAGE_KEY)
@@ -70,6 +86,7 @@ export default function ParatikaCheckoutPage() {
       setErr(C.invalidSession)
       return
     }
+    setStored(data)
 
     const run = async () => {
       try {
@@ -106,75 +123,65 @@ export default function ParatikaCheckoutPage() {
   }, [])
 
   if (err) {
-    return (
-      <main className="container mt-10 mb-24 max-w-lg">
-        <p className="whitespace-pre-line text-red-600 dark:text-red-400">{err}</p>
-        <button
-          type="button"
-          className="mt-6 text-sm font-medium text-neutral-900 underline dark:text-neutral-100"
-          onClick={() => router.push(vitrinHref('/checkout'))}
-        >
-          {C.backToCheckout}
-        </button>
-      </main>
-    )
+    return <ParatikaCheckoutError message={err} backLabel={C.backToCheckout} onBack={goCheckout} />
   }
 
   if (!session) {
-    return (
-      <main className="container mt-10 mb-24">
-        <p className="text-neutral-600 dark:text-neutral-400">{C.loading}</p>
-      </main>
-    )
+    return <ParatikaCheckoutLoading message={C.loading} />
   }
+
+  const amountKurus = stored ? parseInt(stored.payment_amount, 10) : undefined
 
   if (uiMode === 'hpp_iframe') {
     return (
-      <main className="container mt-10 mb-24">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-            {C.title}
-          </h1>
+      <ParatikaCheckoutShell
+        locale={locale}
+        title={C.title}
+        subtitle={C.note}
+        labels={shellLabels}
+        amountKurus={Number.isFinite(amountKurus) ? amountKurus : undefined}
+        currencyCode={stored?.currency_code}
+        publicCode={stored?.public_code}
+        onBack={goCheckout}
+        footer={
           <button
             type="button"
-            className="text-sm font-medium text-neutral-600 underline dark:text-neutral-400"
-            onClick={() => router.push(vitrinHref('/checkout'))}
+            className="text-sm text-neutral-500 underline transition hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+            onClick={() => setUiMode('direct_post')}
           >
-            {C.backToCheckout}
+            {C.switchToDirectPost}
           </button>
-        </div>
-        <p className="mb-4 text-sm text-neutral-500 dark:text-neutral-400">{C.note}</p>
+        }
+      >
         <iframe
           title={C.iframeTitle}
           src={session.payment_url}
-          className="min-h-[720px] w-full rounded-2xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900"
+          className="min-h-[640px] w-full rounded-2xl border border-neutral-200 bg-white shadow-inner dark:border-neutral-700 dark:bg-neutral-900"
         />
-        <button
-          type="button"
-          className="mt-4 text-sm text-neutral-500 underline dark:text-neutral-400"
-          onClick={() => setUiMode('direct_post')}
-        >
-          {C.switchToDirectPost}
-        </button>
-      </main>
+      </ParatikaCheckoutShell>
     )
   }
 
   return (
-    <main className="container mt-10 mb-24 max-w-lg">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-          {C.directPostTitle}
-        </h1>
+    <ParatikaCheckoutShell
+      locale={locale}
+      title={C.directPostTitle}
+      subtitle={C.directPostNote}
+      labels={shellLabels}
+      amountKurus={Number.isFinite(amountKurus) ? amountKurus : undefined}
+      currencyCode={stored?.currency_code}
+      publicCode={stored?.public_code}
+      onBack={goCheckout}
+      footer={
         <button
           type="button"
-          className="text-sm font-medium text-neutral-600 underline dark:text-neutral-400"
-          onClick={() => router.push(vitrinHref('/checkout'))}
+          className="text-sm text-neutral-500 underline transition hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
+          onClick={() => setUiMode('hpp_iframe')}
         >
-          {C.backToCheckout}
+          {C.switchToIframe}
         </button>
-      </div>
-      <p className="mb-6 text-sm text-neutral-500 dark:text-neutral-400">{C.directPostNote}</p>
+      }
+    >
       <ParatikaDirectPostForm
         actionUrl={session.direct_post_3d_url}
         defaultCardOwner={session.guest_name}
@@ -188,16 +195,10 @@ export default function ParatikaCheckoutPage() {
           cvv: C.cvv,
           pay: C.confirmPay,
           secureNote: C.secureNote,
+          processing3d: C.processing3d,
         }}
         onBeforeSubmit={() => sessionStorage.removeItem(STORAGE_KEY)}
       />
-      <button
-        type="button"
-        className="mt-6 text-sm text-neutral-500 underline dark:text-neutral-400"
-        onClick={() => setUiMode('hpp_iframe')}
-      >
-        {C.switchToIframe}
-      </button>
-    </main>
+    </ParatikaCheckoutShell>
   )
 }
