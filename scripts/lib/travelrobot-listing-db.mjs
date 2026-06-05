@@ -141,6 +141,68 @@ function normalizeCurrency(raw) {
   return ['TRY', 'EUR', 'USD', 'GBP'].includes(c) ? c : 'TRY'
 }
 
+function extractHotelImageUrl(hotel) {
+  const nested = hotel?.Hotel ?? hotel?.hotel
+  return (
+    pickText(hotel, 'HotelImageURL', 'hotelImageURL', 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl') ||
+    pickText(nested ?? {}, 'HotelImageURL', 'hotelImageURL', 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl')
+  )
+}
+
+function extractHotelMinNightlyPrice(hotel) {
+  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
+  let min = null
+  for (const room of rooms) {
+    const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
+    for (const alt of alts) {
+      const amount = Number(
+        alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount ?? NaN,
+      )
+      if (Number.isFinite(amount) && amount > 0 && (min == null || amount < min)) min = amount
+    }
+  }
+  return min
+}
+
+function extractTourPriceAmount(tour) {
+  const price = tour?.Price ?? tour?.price
+  const amount = Number(price?.TotalAmount ?? price?.totalAmount ?? price?.BaseAmount ?? price?.baseAmount ?? NaN)
+  return Number.isFinite(amount) && amount > 0 ? amount : null
+}
+
+async function upsertListingCover(pgClient, listingId, imageUrl) {
+  const url = String(imageUrl || '').trim()
+  if (!url) return
+  await pgClient.query(
+    `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
+    [listingId, url],
+  )
+  await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
+  await pgClient.query(
+    `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
+     VALUES ($1::uuid, 0, $2, 'image/jpeg')`,
+    [listingId, url],
+  )
+}
+
+async function upsertNightlyPriceRule(pgClient, listingId, amount, currency = 'TRY') {
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return
+  await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])
+  await pgClient.query(
+    `INSERT INTO listing_price_rules (listing_id, rule_json, valid_from, valid_to)
+     VALUES ($1::uuid, $2::jsonb, NULL, NULL)`,
+    [
+      listingId,
+      JSON.stringify({
+        base_nightly: String(amount),
+        base_price: String(amount),
+        source: PROVIDER,
+        currency,
+      }),
+    ],
+  )
+}
+
 // ── Context ─────────────────────────────────────────────────────────────────
 
 export async function resolveImportContext(pgClient, orgId, categoryCode) {
@@ -262,14 +324,20 @@ export async function upsertTravelrobotTourListing(
     [core.listingId, JSON.stringify({ catalog: tour })],
   )
 
-  // Görsel varsa ekle
-  const imageUrl = pickText(tour, 'ImageUrl', 'imageUrl', 'PhotoUrl', 'photoUrl', 'ThumbnailUrl', 'thumbnailUrl')
-  if (imageUrl) {
+  await upsertListingCover(pgClient, core.listingId, pickText(tour, 'ImageUrl', 'imageUrl', 'Logo', 'logo'))
+
+  const tourPrice = extractTourPriceAmount(tour)
+  if (tourPrice != null) {
     await pgClient.query(
-      `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
-       VALUES ($1::uuid, 0, $2, 'image/jpeg')
-       ON CONFLICT DO NOTHING`,
-      [core.listingId, imageUrl],
+      `UPDATE listing_tour_details
+       SET program_days_json = COALESCE(program_days_json, '{}'::jsonb) || $2::jsonb
+       WHERE listing_id = $1::uuid`,
+      [
+        core.listingId,
+        JSON.stringify({
+          cheapest_price: { value: String(tourPrice), currency: normalizeCurrency(tour?.Currency) },
+        }),
+      ],
     )
   }
 
@@ -294,9 +362,16 @@ export async function upsertTravelrobotHotelListing(
     pickText(nested ?? {}, 'HotelName', 'hotelName', 'Name', 'name') ||
     `Otel ${ref}`
   const description = pickText(hotel, 'Description', 'description', 'Details', 'details')
-  const city = pickText(hotel, 'City', 'city', 'CityName', 'cityName')
-  const country = pickText(hotel, 'Country', 'country', 'CountryName', 'countryName')
-  const locName = [city, country].filter(Boolean).join(', ') || null
+  const city = pickText(nested ?? {}, 'City', 'city', 'CityName', 'cityName', 'Location', 'location')
+  const country = pickText(nested ?? {}, 'Country', 'country', 'CountryName', 'countryName', 'CountryCode', 'countryCode')
+  const locName =
+    pickText(nested ?? {}, 'FullLocation', 'fullLocation', 'Location', 'location') ||
+    [city, country].filter(Boolean).join(', ') ||
+    null
+  const nightlyPrice = extractHotelMinNightlyPrice(hotel)
+  const currency = normalizeCurrency(
+    hotel?.Rooms?.[0]?.RoomAlternatives?.[0]?.CurrencyCode ?? nested?.CurrencyCode ?? 'TRY',
+  )
 
   const core = await upsertListingCore(pgClient, ctx, {
     extRef: ref,
@@ -304,13 +379,23 @@ export async function upsertTravelrobotHotelListing(
     title,
     description,
     locName,
-    currency: 'TRY',
+    currency,
     status,
     dryRun,
   })
   if (dryRun) return { ...core, action: 'dry-run', kind: 'hotel' }
 
-  const star = hotel?.StarRating ?? hotel?.starRating ?? hotel?.Stars ?? hotel?.stars ?? null
+  const geo = nested?.GeoLocation ?? nested?.geoLocation
+  const lat = geo?.Latitude ?? geo?.latitude
+  const lng = geo?.Longitude ?? geo?.longitude
+  if (lat != null && lng != null) {
+    await pgClient.query(
+      `UPDATE listings SET map_lat = $2, map_lng = $3, updated_at = now() WHERE id = $1::uuid`,
+      [core.listingId, Number(lat), Number(lng)],
+    )
+  }
+
+  const star = nested?.Star ?? hotel?.Star ?? hotel?.StarRating ?? hotel?.starRating ?? hotel?.Stars ?? hotel?.stars ?? null
   const starNum = star != null ? Number(star) : null
 
   await pgClient.query(
@@ -329,15 +414,8 @@ export async function upsertTravelrobotHotelListing(
     [core.listingId, JSON.stringify({ catalog: hotel })],
   )
 
-  const imageUrl = pickText(hotel, 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl', 'PhotoUrl', 'photoUrl')
-  if (imageUrl) {
-    await pgClient.query(
-      `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
-       VALUES ($1::uuid, 0, $2, 'image/jpeg')
-       ON CONFLICT DO NOTHING`,
-      [core.listingId, imageUrl],
-    )
-  }
+  await upsertListingCover(pgClient, core.listingId, extractHotelImageUrl(hotel))
+  await upsertNightlyPriceRule(pgClient, core.listingId, nightlyPrice, currency)
 
   return { ...core, action: core.created ? 'created' : 'updated', kind: 'hotel' }
 }
