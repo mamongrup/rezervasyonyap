@@ -100,7 +100,8 @@ post_json_turna(Url, Body, SessionId, SessionToken, TimeoutMs)
         {<<"Turna-Session-Token">>, SessionToken}
       ]
     ),
-  Request = {UrlStr, Extra, "application/json; charset=UTF-8", BodyStr},
+  Headers = [{"Accept", "application/json"} | Extra],
+  Request = {UrlStr, Headers, "application/json; charset=UTF-8", BodyStr},
   HttpOptions = [
     {connect_timeout, 60000},
     {timeout, T},

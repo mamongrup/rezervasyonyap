@@ -119,6 +119,7 @@ main() {
   if [[ -f "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" ]]; then
     chmod +x "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" || true
   fi
+  chmod +x "$APP_ROOT/deploy/deploy-api-only.sh" 2>/dev/null || true
 
   step "Backend build + Erlang shipment"
   # travel-api.service genelde httpdocs DIŞINDA bir WorkingDirectory kullanır (ör. /opt/.../erlang-shipment).

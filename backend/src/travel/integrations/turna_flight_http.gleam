@@ -29,6 +29,24 @@ fn route_ref(origin: String, destination: String) -> String {
   string.lowercase(string.trim(origin)) <> "-" <> string.lowercase(string.trim(destination))
 }
 
+/// Turna rota şablonlarıyla uyumlu: yalnızca İstanbul metro kodu `IST` şehir sayılır.
+fn normalize_city_flags(p: turna.FlightSearchParams) -> turna.FlightSearchParams {
+  let o = string.uppercase(string.trim(p.origin))
+  let d = string.uppercase(string.trim(p.destination))
+  turna.FlightSearchParams(
+    origin: p.origin,
+    destination: p.destination,
+    departure_day: p.departure_day,
+    origin_is_city: o == "IST",
+    destination_is_city: d == "IST",
+    adult_count: p.adult_count,
+    child_count: p.child_count,
+    infant_count: p.infant_count,
+    cabin_class: p.cabin_class,
+    only_directs: p.only_directs,
+  )
+}
+
 fn find_turna_listing_id(db: pog.Connection, origin: String, destination: String) -> Option(String) {
   let ref = route_ref(origin, destination)
   case
@@ -143,7 +161,8 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                 False ->
                   case string.trim(params.departure_day) == "" {
                     True -> json_err(400, "departure_date_required")
-                    False ->
+                    False -> {
+                      let params = normalize_city_flags(params)
                       case turna.flight_search(cfg, params) {
                         Error(e) -> json_err(502, e)
                         Ok(result) -> {
@@ -172,6 +191,7 @@ pub fn post_search(req: Request, ctx: Context) -> Response {
                           wisp.json_response(out, 200)
                         }
                       }
+                    }
                   }
               }
           }

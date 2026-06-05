@@ -31,9 +31,9 @@ type FlightLiveSearchProps = {
   enabled?: boolean
 }
 
+/** Turna import rotalarıyla uyumlu: yalnızca İstanbul metro kodu şehir sayılır. */
 function airportIsCity(code: string): boolean {
-  const c = code.trim().toUpperCase()
-  return c === 'IST' || c === 'SAW' || c === 'AYT' || c === 'ADB' || c === 'ESB'
+  return code.trim().toUpperCase() === 'IST'
 }
 
 function formatTurnaSearchError(
@@ -43,6 +43,15 @@ function formatTurnaSearchError(
 ): string {
   if (raw === 'turna_not_configured' || raw.startsWith('turna_api_key_missing')) {
     return notConfigured
+  }
+  if (raw.startsWith('turna_api_error:')) {
+    const detail = raw.slice('turna_api_error:'.length).trim()
+    return detail
+      ? `Turna API hatası: ${detail}`
+      : 'Turna API yanıt vermedi. Yönetim → API sağlayıcıları bölümünde base_url ile api_key aynı ortama (test/canlı) ait olmalı.'
+  }
+  if (raw.startsWith('turna_http_failed:')) {
+    return `Turna bağlantı hatası: ${raw.slice('turna_http_failed:'.length).trim()}`
   }
   return raw || fallback
 }

@@ -109,6 +109,21 @@ export async function turnaRequest(method, path, body = null, extraHeaders = {},
       res.statusText
     throw new Error(`Turna ${path}: HTTP ${res.status} — ${msg}`)
   }
+  const hasErr =
+    json?.HasError === true ||
+    json?.HasError === 'true' ||
+    json?.HasError === 'True' ||
+    json?.HasError === 1
+  if (hasErr) {
+    const msg =
+      json?.Message ||
+      json?.message ||
+      json?.ErrorMessage ||
+      json?.ErrorCode ||
+      text.slice(0, 200) ||
+      'HasError'
+    throw new Error(`Turna ${path}: ${msg}`)
+  }
   return { json, session, status: res.status }
 }
 

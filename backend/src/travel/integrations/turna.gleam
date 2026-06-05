@@ -1,6 +1,7 @@
 //// Turna uçak API — login, search, allocate, reserve, checkout proxy.
 
 import gleam/dynamic/decode
+import gleam/int
 import gleam/json
 import gleam/string
 import travel/integrations/turna_config.{type TurnaConfig}
@@ -52,29 +53,151 @@ fn session_id_from_raw(raw: String) -> String {
 }
 
 fn has_error(raw: String) -> Bool {
-  let decoder = {
+  let bool_decoder = {
     use v <- decode.field("HasError", decode.bool)
     decode.success(v)
   }
-  case json.parse(raw, decoder) {
+  case json.parse(raw, bool_decoder) {
     Ok(True) -> True
-    _ -> False
+    Ok(False) -> False
+    Error(_) -> {
+      let str_decoder = {
+        use v <- decode.field("HasError", decode.string)
+        decode.success(v)
+      }
+      case json.parse(raw, str_decoder) {
+        Ok(s) -> s == "true" || s == "True" || s == "1"
+        Error(_) -> False
+      }
+    }
+  }
+}
+
+fn has_nonempty_flight_legs(raw: String) -> Bool {
+  case string.contains(raw, "\"FlightLegs\":[") {
+    False -> False
+    True ->
+      case string.contains(raw, "\"FlightLegs\":[]") {
+        True -> False
+        False -> True
+      }
+  }
+}
+
+fn raw_body_preview(raw: String) -> String {
+  let compact =
+    raw
+    |> string.replace("\n", "")
+    |> string.replace("\r", "")
+  case string.length(compact) > 240 {
+    True -> string.slice(compact, 0, 240) <> "…"
+    False -> compact
   }
 }
 
 fn error_message_from_raw(raw: String) -> String {
-  let decoder = {
+  let msg_decoder = {
     use v <- decode.field("Message", decode.string)
     decode.success(v)
   }
-  case json.parse(raw, decoder) {
-    Ok(m) ->
-      case string.trim(m) {
-        "" -> "turna_api_error"
-        t -> "turna_api_error:" <> t
-      }
-    Error(_) -> "turna_api_error"
+  let err_decoder = {
+    use v <- decode.field("ErrorMessage", decode.string)
+    decode.success(v)
   }
+  let msg_lower_decoder = {
+    use v <- decode.field("message", decode.string)
+    decode.success(v)
+  }
+  let code_str_decoder = {
+    use v <- decode.field("ErrorCode", decode.string)
+    decode.success(v)
+  }
+  let code_int_decoder = {
+    use v <- decode.field("ErrorCode", decode.int)
+    decode.success(int.to_string(v))
+  }
+  let text =
+    case json.parse(raw, msg_decoder) {
+      Ok(m) ->
+        case string.trim(m) {
+          "" -> ""
+          t -> t
+        }
+      Error(_) -> ""
+    }
+  let text = case text {
+    "" ->
+      case json.parse(raw, err_decoder) {
+        Ok(m) ->
+          case string.trim(m) {
+            "" -> ""
+            t -> t
+          }
+        Error(_) -> ""
+      }
+    _ -> text
+  }
+  let text = case text {
+    "" ->
+      case json.parse(raw, msg_lower_decoder) {
+        Ok(m) ->
+          case string.trim(m) {
+            "" -> ""
+            t -> t
+          }
+        Error(_) -> ""
+      }
+    _ -> text
+  }
+  case text {
+    "" -> {
+      case json.parse(raw, code_str_decoder) {
+        Ok(c) ->
+          case string.trim(c) {
+            "" -> {
+              case json.parse(raw, code_int_decoder) {
+                Ok(ci) ->
+                  case string.trim(ci) {
+                    "" -> "turna_api_error:" <> raw_body_preview(raw)
+                    t -> "turna_api_error:" <> t
+                  }
+                Error(_) -> "turna_api_error:" <> raw_body_preview(raw)
+              }
+            }
+            t -> "turna_api_error:" <> t
+          }
+        Error(_) ->
+          case json.parse(raw, code_int_decoder) {
+            Ok(ci) ->
+              case string.trim(ci) {
+                "" -> "turna_api_error:" <> raw_body_preview(raw)
+                t -> "turna_api_error:" <> t
+              }
+            Error(_) -> "turna_api_error:" <> raw_body_preview(raw)
+          }
+      }
+    }
+    t -> "turna_api_error:" <> t
+  }
+}
+
+fn session_from_result(result: TurnaHttpResult) -> TurnaSession {
+  TurnaSession(
+    session_id: case string.trim(result.session.session_id) {
+      "" -> session_id_from_raw(result.body)
+      s -> s
+    },
+    session_token: result.session.session_token,
+  )
+}
+
+fn login_turna_result(cfg: TurnaConfig) -> Result(TurnaHttpResult, String) {
+  post_turna(
+    cfg,
+    "/v1/accounts/auth/anonymousLogin",
+    login_body(cfg),
+    TurnaSession("", ""),
+  )
 }
 
 fn envelope_decoder() -> decode.Decoder(TurnaHttpResult) {
@@ -129,7 +252,11 @@ fn post_turna(
       case parse_envelope(raw) {
         Ok(parsed) ->
           case has_error(parsed.body) {
-            True -> Error(error_message_from_raw(parsed.body))
+            True ->
+              case has_nonempty_flight_legs(parsed.body) {
+                True -> Ok(parsed)
+                False -> Error(error_message_from_raw(parsed.body))
+              }
             False -> Ok(parsed)
           }
         Error(_) -> Error("turna_envelope_parse_failed")
@@ -140,22 +267,17 @@ fn post_turna(
 pub fn login(cfg: TurnaConfig) -> Result(LoginResult, String) {
   case turna_config.credentials_ready(cfg) {
     False -> Error("turna_api_key_missing")
-    True -> {
-      let url = turna_config.login_url(cfg)
-      let body = login_body(cfg)
-      case http_client.post_json(url, body, "") {
-        Error(e) -> Error("turna_http_failed:" <> e)
-        Ok(raw) -> {
-          case has_error(raw) {
-            True -> Error(error_message_from_raw(raw))
-            False -> {
-              let session_id = session_id_from_raw(raw)
-              Ok(LoginResult(session_id: session_id, raw_response: raw))
-            }
-          }
+    True ->
+      case login_turna_result(cfg) {
+        Error(e) -> Error(e)
+        Ok(result) -> {
+          let session = session_from_result(result)
+          Ok(LoginResult(
+            session_id: session.session_id,
+            raw_response: result.body,
+          ))
         }
       }
-    }
   }
 }
 
@@ -243,7 +365,13 @@ pub fn flight_search(
     False -> Error("turna_api_key_missing")
     True -> {
       let body = flight_search_body(cfg, p)
-      post_turna(cfg, "/v1/flight/booking/search", body, TurnaSession("", ""))
+      case login_turna_result(cfg) {
+        Error(e) -> Error(e)
+        Ok(login_result) -> {
+          let session = session_from_result(login_result)
+          post_turna(cfg, "/v1/flight/booking/search", body, session)
+        }
+      }
     }
   }
 }
