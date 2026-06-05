@@ -172,7 +172,8 @@ main() {
     set +a
   fi
   # Küçük VPS: ENOMEM önlemek için NEXT_NODE_HEAP_MB=3072 (veya 4G swap) — deploy/PLESK_VITRIN.md
-  (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build)
+  # Build icin tum bagimliliklar; canli sunucuda test araclari (playwright/vitest) kalmasin.
+  (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build && npm prune --omit=dev)
   ok "frontend build tamam"
   if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "$RESTART_WEB" != "1" ]]; then
     systemctl start travel-web.service

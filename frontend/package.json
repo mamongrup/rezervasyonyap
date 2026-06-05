@@ -62,9 +62,9 @@
     "postcss": "8.5.12",
     "radix-ui": "^1.4.3",
     "rc-slider": "^11.1.9",
-    "react": "19.2.4",
+    "react": "19.2.6",
     "react-datepicker": "^9.1.0",
-    "react-dom": "19.2.4",
+    "react-dom": "19.2.6",
     "react-swipeable": "^7.0.2",
     "sanitize-html": "2.17.4",
     "shadcn": "^4.1.0",
@@ -81,11 +81,11 @@
     "beasties": "^0.4.1",
     "mysql2": "^3.22.3",
     "pg": "^8.13.1",
-    "playwright": "^1.52.0",
+    "playwright": "^1.55.1",
     "prettier": "^3.3.2",
     "prettier-plugin-organize-imports": "^4.0.0",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.8"
   },
   "overrides": {
     "@types/react": "19.2.14",
