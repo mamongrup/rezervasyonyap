@@ -157,6 +157,13 @@ main() {
   if [[ "${SKIP_FRONTEND_BUILD:-0}" == "1" ]]; then
     warn "SKIP_FRONTEND_BUILD=1 — frontend npm ci/build atlandı (mevcut .next kullanılır)."
   else
+  # Çalışan next start .next/cache dosyalarını kilitler; rm/build yarım kalmasın.
+  WEB_STOPPED_FOR_BUILD=0
+  if systemctl is-active --quiet travel-web.service 2>/dev/null; then
+    systemctl stop travel-web.service
+    WEB_STOPPED_FOR_BUILD=1
+    ok "travel-web durduruldu (.next temizligi icin)"
+  fi
   # NEXT_PUBLIC_* build sirasinda gomulur; ayni env travel-web.service ile tanimli olmali.
   if [[ -f /etc/rezervasyonyap/frontend.env ]]; then
     set -a
@@ -167,6 +174,10 @@ main() {
   # Küçük VPS: ENOMEM önlemek için NEXT_NODE_HEAP_MB=3072 (veya 4G swap) — deploy/PLESK_VITRIN.md
   (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build)
   ok "frontend build tamam"
+  if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "$RESTART_WEB" != "1" ]]; then
+    systemctl start travel-web.service
+    ok "travel-web yeniden baslatildi (RESTART_WEB=0)"
+  fi
   fi
 
   step "Servis restart"
