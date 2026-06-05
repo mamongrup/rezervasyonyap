@@ -80,6 +80,14 @@ git_sync_ref() {
     git checkout HEAD -- frontend/package-lock.json frontend/package.json 2>/dev/null \
       || git restore --source=HEAD --staged --worktree frontend/package-lock.json frontend/package.json 2>/dev/null \
       || true
+    # Onceki deploy'dan kalan izlenmeyen script dosyalari `git checkout`i bloklar
+    # (ornek: scripts/debug-hotel-book.mjs). Checkout oncesi temizle.
+    git clean -fd \
+      --exclude=frontend/public/uploads/ \
+      --exclude=frontend/.env.local \
+      --exclude=frontend/.env.development.local \
+      --exclude=frontend/.env.production.local \
+      --exclude=frontend/.env
   else
     warn "GIT_SYNC_KEEP_LOCAL=1 — yerel degisiklikler korunuyor; checkout takilirsa stash/commit yapin."
   fi
@@ -90,12 +98,7 @@ git_sync_ref() {
     # tag / detached ref fallback
     git checkout --detach "$ref"
   fi
-  # Sunucuda yanlislikla kalan lokal dosyalar pull/build bloklamasin.
-  # Panel yüklemeleri `frontend/public/uploads/` genelde .gitignore'da; `git clean -fd`
-  # normalde ignored içeriği silmez. Yanlislikla `clean -x` veya farkli bir kurulumda
-  # veri kaybini önlemek için uploads kökünü acikça disliyoruz.
-  # Google Maps anahtari icin yazilan frontend/.env.local (gitignored) klasik olarak
-  # burada SILINirdi; frontend env dosyalari da exclude ile korunur.
+  # Checkout sonrasi kalan izlenmeyen dosyalar (or. test loglari).
   git clean -fd \
     --exclude=frontend/public/uploads/ \
     --exclude=frontend/.env.local \

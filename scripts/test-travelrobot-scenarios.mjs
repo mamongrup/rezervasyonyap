@@ -106,7 +106,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-05-air-book-keys'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-05-deploy-fix-v2'
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
 const HOTEL_CERT_RESULTS = []
 const AIR_CERT_RESULTS = []
@@ -384,10 +384,10 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
               tokenCode,
               resultKeys: bookResultKeys,
               flightPaxes: flightPaxesTry,
-              contactInfo: TEST_CONTACT,
-              invoiceInfo: TEST_INVOICE,
-              paymentInfo: AIR_TEST_PAYMENT,
-              bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
+          contactInfo: buildFlightContact(flightPaxesTry),
+          invoiceInfo: TEST_INVOICE,
+          paymentInfo: AIR_TEST_PAYMENT,
+          bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
               languageCode: opts.languageCode ?? 'tr',
             })
             if (!bookTry?.HasError && (bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr)) {
@@ -395,9 +395,9 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
               break
             }
             const bookErr = bookTry?.ErrorMessage ?? ''
-            if (/passenger count|invalid payment|invalid key/i.test(bookErr)) continue
+            if (/passenger count|invalid payment|invalid key|invalid first name/i.test(bookErr)) continue
           } catch (e) {
-            if (/passenger count|invalid payment|invalid key/i.test(String(e))) continue
+            if (/passenger count|invalid payment|invalid key|invalid first name/i.test(String(e))) continue
           }
         } else {
           break
@@ -466,7 +466,8 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
 
   const clientNotes = `rezervasyonyap.tr sandbox certification — ${scenarioName}`
   const flightPaxes = buildFlightPaxes(opts)
-  const leaderLastName = flightPaxes[0]?.Pax?.LastName ?? 'TRAVELER'
+  const flightContact = buildFlightContact(flightPaxes)
+  const leaderLastName = flightPaxes[0]?.Pax?.LastName ?? 'SMITH'
   const certRow = {
     scenario: scenarioName,
     systemPnr: null,
@@ -494,7 +495,7 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         tokenCode,
         resultKeys: bookResultKeys,
         flightPaxes,
-        contactInfo: TEST_CONTACT,
+        contactInfo: flightContact,
         invoiceInfo: TEST_INVOICE,
         paymentInfo: AIR_TEST_PAYMENT,
         agentReferenceInfo: `RY-${Date.now()}-air`,
@@ -576,7 +577,7 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
           tokenCode,
           resultKeys: directResultKeys,
           flightPaxes,
-          contactInfo: TEST_CONTACT,
+          contactInfo: flightContact,
           invoiceInfo: TEST_INVOICE,
           paymentInfo: AIR_TEST_PAYMENT,
           agentReferenceInfo: `RY-DIRECT-${Date.now()}`,
@@ -610,30 +611,49 @@ function buildFlightPaxes(opts) {
   const adults = opts.adults ?? 1
   const children = opts.children ?? 0
   const infants = opts.infants ?? 0
-  const adultNames = [['TEST', 'TRAVELER'], ['JOHN', 'SMITH'], ['MARY', 'SMITH']]
-  const childNames = [['TIM', 'SMITH'], ['ANN', 'SMITH']]
-  const infantNames = [['BABY', 'SMITH']]
-  let ni = 0
+  const adultNames = [
+    ['JOHN', 'SMITH'],
+    ['MARY', 'SMITH'],
+    ['ALEX', 'BROWN'],
+    ['TEST', 'TRAVELER'],
+  ]
+  const childNames = [
+    ['TIM', 'SMITH'],
+    ['ANN', 'SMITH'],
+    ['KATE', 'BROWN'],
+  ]
+  const childAges = opts.childAges ?? [5, 5, 5]
 
   for (let i = 0; i < adults; i++) {
-    const [fn, ln] = adultNames[ni++] ?? ['JOHN', 'SMITH']
+    const [fn, ln] = adultNames[i] ?? ['JOHN', 'SMITH']
     const pax = makePax(fn, ln, '15.06.1990', 1)
     pax.Age = 30
     paxes.push({ RecId: 0, IsLeader: i === 0, PaxType: 0, Pax: pax })
   }
+  const leaderLast = paxes[0]?.Pax?.LastName ?? 'SMITH'
   for (let i = 0; i < children; i++) {
-    const [fn, ln] = childNames[ni++] ?? ['TIM', 'SMITH']
-    const pax = makePax(fn, ln, '15.06.2019', 1)
-    pax.Age = 5
+    const [fn, ln] = childNames[i] ?? ['TIM', leaderLast]
+    const age = Number(childAges[i] ?? 5)
+    const birthYear = new Date().getUTCFullYear() - age
+    const pax = makePax(fn, ln, `15.06.${birthYear}`, 1)
+    pax.Age = age
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 1, Pax: pax })
   }
   for (let i = 0; i < infants; i++) {
-    const [fn, ln] = infantNames[i] ?? ['BABY', 'SMITH']
-    const pax = makePax(fn, ln, '15.06.2024', 1)
+    const pax = makePax('INFANT', leaderLast, '15.06.2024', 1)
     pax.Age = 1
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 2, Pax: pax })
   }
   return paxes
+}
+
+function buildFlightContact(flightPaxes) {
+  const leader = flightPaxes.find((p) => p.IsLeader)?.Pax ?? flightPaxes[0]?.Pax
+  return {
+    ...TEST_CONTACT,
+    FirstName: leader?.FirstName ?? TEST_CONTACT.FirstName,
+    LastName: leader?.LastName ?? TEST_CONTACT.LastName,
+  }
 }
 
 // ─── Otel senaryo çalıştırıcı ─────────────────────────────────────────────────
@@ -662,9 +682,27 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   }
 
   try {
-    let payload = await searchHotel(cfg, tokenCode, baseSearch)
-    let rows = pickHotelRows(payload)
+    let payload = null
+    let rows = []
     let searchMode = 'destination'
+
+    // Sertifikasyon otelini önce doğrudan hotelCode ile ara (yanlış şehir oteli riski azalır)
+    if (preferredHotel) {
+      payload = await searchHotel(cfg, tokenCode, {
+        ...baseSearch,
+        destinationId: destId,
+        hotelCode: preferredHotel,
+        showMultipleRate: true,
+      })
+      rows = pickHotelRows(payload)
+      if (rows.length) searchMode = 'hotelCode-primary'
+    }
+
+    if (!rows.length) {
+      payload = await searchHotel(cfg, tokenCode, baseSearch)
+      rows = pickHotelRows(payload)
+      searchMode = 'destination'
+    }
 
     if (!rows.length && preferredHotel) {
       payload = await searchHotel(cfg, tokenCode, {

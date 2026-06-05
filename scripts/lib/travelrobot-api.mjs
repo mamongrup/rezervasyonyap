@@ -1064,8 +1064,33 @@ export function pickFirstFareLegKey(payload, opts = {}) {
   return keys[0] ?? null
 }
 
+/** Validate yanıtındaki |||VD@… post-validate key'leri (derin tarama). */
+function collectFlightValidateKeysDeep(node, out = []) {
+  if (node == null) return out
+  if (typeof node === 'string') {
+    if (node.includes('|||VD@') && !out.includes(node)) out.push(node)
+    return out
+  }
+  if (Array.isArray(node)) {
+    for (const item of node) collectFlightValidateKeysDeep(item, out)
+    return out
+  }
+  if (typeof node === 'object') {
+    for (const [k, v] of Object.entries(node)) {
+      if ((k === 'Key' || k === 'key') && typeof v === 'string' && v.includes('|||VD@')) {
+        if (!out.includes(v)) out.push(v)
+      }
+      collectFlightValidateKeysDeep(v, out)
+    }
+  }
+  return out
+}
+
 /** Validate yanıtından Book/IssueTicketDirect için ResultKeys (tüm bacaklar). */
 export function pickFlightBookResultKeys(validatePayload, fallbackKeys = [], opts = {}) {
+  const root = validatePayload?.Result ?? validatePayload?.result ?? validatePayload
+  const deepVd = collectFlightValidateKeysDeep(root, [])
+  if (deepVd.length) return deepVd
   const fromValidate = pickFareAlternativeLegKeys(validatePayload, opts)
   if (fromValidate.length) return fromValidate.map(String)
   return (fallbackKeys ?? []).map(String).filter(Boolean)
