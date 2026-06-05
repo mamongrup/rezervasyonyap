@@ -18,7 +18,23 @@ Further documentation can be found at <https://hexdocs.pm/backend>.
 
 ## Development
 
+### Windows / Laragon (yerel öncelik)
+
+```powershell
+# Bir kerelik
+.\scripts\setup-local-windows.ps1
+
+# backend\backend.env → TURNA_API_KEY (ve gerekirse PG*)
+# Terminal 1
+.\scripts\start-travel-api.ps1
+
+# Terminal 2
+.\scripts\start-frontend.ps1
+```
+
+Gereksinimler: **Erlang OTP 26**, **rebar3** (`scripts\bin`), **Gleam**, Laragon PostgreSQL (`travel` DB).
+
 ```sh
-gleam run   # Run the project
-gleam test  # Run the tests
+gleam run   # backend.env ortam değişkenleri yüklüyken
+gleam test
 ```

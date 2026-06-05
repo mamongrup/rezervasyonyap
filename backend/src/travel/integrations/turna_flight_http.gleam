@@ -144,6 +144,29 @@ fn session_action_decoder(
   })
 }
 
+/// Allocate: oturum + allocate_form + arama parametreleri (SearchForm için).
+fn allocate_decoder() -> decode.Decoder(#(
+  turna.TurnaSession,
+  String,
+  turna.FlightSearchParams,
+)) {
+  decode.field("session_id", decode.string, fn(session_id) {
+    decode.field("session_token", decode.string, fn(session_token) {
+      decode.field("allocate_form", decode.string, fn(allocate_form) {
+        use params <- decode.then(search_decoder())
+        decode.success(#(
+          turna.TurnaSession(
+            session_id: session_id,
+            session_token: session_token,
+          ),
+          allocate_form,
+          params,
+        ))
+      })
+    })
+  })
+}
+
 fn turna_proxy_ok(result: turna.TurnaHttpResult) -> Response {
   let out =
     json.object([
@@ -258,13 +281,15 @@ pub fn post_allocate(req: Request, ctx: Context) -> Response {
   case read_body_string(req) {
     Error(_) -> json_err(400, "empty_body")
     Ok(body) ->
-      case json.parse(body, session_action_decoder("allocate_form")) {
+      case json.parse(body, allocate_decoder()) {
         Error(_) -> json_err(400, "invalid_allocate_body")
-        Ok(#(session, form_json)) ->
-          case turna.flight_allocate(cfg, session, form_json) {
+        Ok(#(session, form_json, params)) -> {
+          let params = normalize_city_flags(params)
+          case turna.flight_allocate(cfg, session, params, form_json) {
             Error(e) -> json_err(502, e)
             Ok(result) -> turna_proxy_ok(result)
           }
+        }
       }
   }
 }

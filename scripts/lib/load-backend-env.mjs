@@ -4,8 +4,21 @@
  * bu modül dosyayı doğrudan okur.
  */
 import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const REPO_ROOT = path.resolve(__dirname, '..', '..')
+const LOCAL_BACKEND_ENV = path.join(REPO_ROOT, 'backend', 'backend.env')
 
 const DEFAULT_ENV_FILE = '/etc/rezervasyonyap/backend.env'
+
+function resolveEnvFile(explicit) {
+  if (explicit) return explicit
+  if (fs.existsSync(LOCAL_BACKEND_ENV)) return LOCAL_BACKEND_ENV
+  if (fs.existsSync(DEFAULT_ENV_FILE)) return DEFAULT_ENV_FILE
+  return LOCAL_BACKEND_ENV
+}
 
 /** travel-api backend.env ile aynı anahtarlar — dosyadan her zaman okunur. */
 const DB_ENV_KEYS = new Set([
@@ -43,7 +56,7 @@ function parseEnvLine(rawLine) {
   return [key, stripQuotes(line.slice(eq + 1))]
 }
 
-export function loadBackendEnvFile(filePath = process.env.TRAVEL_DB_ENV || DEFAULT_ENV_FILE) {
+export function loadBackendEnvFile(filePath = resolveEnvFile(process.env.TRAVEL_DB_ENV)) {
   if (!filePath || !fs.existsSync(filePath)) return { filePath, loaded: 0 }
   const text = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '')
   const parsed = []

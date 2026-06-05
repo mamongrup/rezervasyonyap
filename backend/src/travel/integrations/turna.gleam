@@ -349,6 +349,43 @@ fn pax_rows(adults: Int, children: Int, infants: Int) -> List(json.Json) {
   }
 }
 
+fn search_form_object(p: FlightSearchParams) -> json.Json {
+  json.object([
+    #(
+      "Legs",
+      json.array(
+        [
+          json.object([
+            #("Origin", json.string(string.uppercase(string.trim(p.origin)))),
+            #("Destination", json.string(string.uppercase(string.trim(p.destination)))),
+            #("OriginIsCity", json.bool(p.origin_is_city)),
+            #("DestinationIsCity", json.bool(p.destination_is_city)),
+            #("DepartureDay", json.string(string.trim(p.departure_day))),
+          ]),
+        ],
+        fn(x) { x },
+      ),
+    ),
+    #(
+      "Paxes",
+      json.array(pax_rows(p.adult_count, p.child_count, p.infant_count), fn(x) {
+        x
+      }),
+    ),
+    #(
+      "Preferences",
+      json.object([
+        #("OnlyDirects", json.bool(p.only_directs)),
+        #("CabinClass", json.string(p.cabin_class)),
+      ]),
+    ),
+  ])
+}
+
+pub fn search_form_json(p: FlightSearchParams) -> String {
+  search_form_object(p) |> json.to_string
+}
+
 pub fn flight_search_body(
   cfg: TurnaConfig,
   p: FlightSearchParams,
@@ -356,39 +393,7 @@ pub fn flight_search_body(
 ) -> String {
   json.object([
     #("LoginForm", login_form_object(cfg)),
-    #(
-      "SearchForm",
-      json.object([
-        #(
-          "Legs",
-          json.array(
-            [
-              json.object([
-                #("Origin", json.string(string.uppercase(string.trim(p.origin)))),
-                #(
-                  "Destination",
-                  json.string(string.uppercase(string.trim(p.destination))),
-                ),
-                #("OriginIsCity", json.bool(p.origin_is_city)),
-                #("DestinationIsCity", json.bool(p.destination_is_city)),
-                #("DepartureDay", json.string(string.trim(p.departure_day))),
-              ]),
-            ],
-            fn(x) { x },
-          ),
-        ),
-        #("Paxes", json.array(pax_rows(p.adult_count, p.child_count, p.infant_count), fn(x) {
-          x
-        })),
-        #(
-          "Preferences",
-          json.object([
-            #("OnlyDirects", json.bool(p.only_directs)),
-            #("CabinClass", json.string(p.cabin_class)),
-          ]),
-        ),
-      ]),
-    ),
+    #("SearchForm", search_form_object(p)),
     #(
       "ResponseMask",
       json.object([#("FlightLegMask", json.int(flight_leg_mask))]),
@@ -509,9 +514,29 @@ fn merge_login_and_form(
   "{" <> "\"LoginForm\":" <> login <> ",\"" <> top_key <> "\":" <> form <> "}"
 }
 
+/// Turna V5 allocate: LoginForm + SearchForm + AllocateForm (Postman akışı).
+fn merge_login_search_allocate(
+  cfg: TurnaConfig,
+  search_form_json: String,
+  allocate_form_json: String,
+) -> String {
+  let login = login_body(cfg)
+  let search = string.trim(search_form_json)
+  let allocate = string.trim(allocate_form_json)
+  "{"
+    <> "\"LoginForm\":"
+    <> login
+    <> ",\"SearchForm\":"
+    <> search
+    <> ",\"AllocateForm\":"
+    <> allocate
+    <> "}"
+}
+
 pub fn flight_allocate(
   cfg: TurnaConfig,
   session: TurnaSession,
+  search_params: FlightSearchParams,
   allocate_form_json: String,
 ) -> Result(TurnaHttpResult, String) {
   case turna_config.credentials_ready(cfg) {
@@ -520,7 +545,11 @@ pub fn flight_allocate(
       post_turna(
         cfg,
         "/v1/flight/booking/allocate",
-        merge_login_and_form(cfg, "AllocateForm", allocate_form_json),
+        merge_login_search_allocate(
+          cfg,
+          search_form_json(search_params),
+          allocate_form_json,
+        ),
         session,
       )
   }

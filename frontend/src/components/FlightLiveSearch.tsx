@@ -14,6 +14,7 @@ import {
   turnaDestinationIsCity,
   turnaOriginIsCity,
 } from '@/lib/flight-airports'
+import { airlineLogoUrl, turnaOfferListKey } from '@/lib/flight-display-assets'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import T from '@/utils/getT'
 import { useRouter } from 'next/navigation'
@@ -138,6 +139,15 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
         session_id: session.session_id,
         session_token: session.session_token,
         allocate_form: offer.allocateForm,
+        origin: from,
+        destination: to,
+        departure_date: date!,
+        origin_is_city: turnaOriginIsCity(from),
+        destination_is_city: turnaDestinationIsCity(to),
+        adults: params.adults ?? 1,
+        children: params.children ?? 0,
+        infants: params.infants ?? 0,
+        cabin_class: params.cabinClass ?? 'Any',
       })
 
       sessionStorage.setItem(
@@ -189,7 +199,7 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
     )
   }
 
-  if (error) {
+  if (offers.length === 0 && error) {
     return (
       <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
         {error}
@@ -223,43 +233,52 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
 
   return (
     <div className="flex flex-col gap-4">
+      {error ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
+          {error}
+        </p>
+      ) : null}
       <p className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
         {from} → {to} · {date} · {offers.length} uçuş
       </p>
-      {offers.map((offer) => {
+      {offers.map((offer, index) => {
         const priceLabel =
           offer.price != null ? formatMoneyIntl(offer.price, offer.currency || 'TRY') : undefined
         const duration = offerDurationLabel(offer)
+        const logo = airlineLogoUrl(offer.airlineCode)
+        const routeName = `${offer.origin} - ${offer.destination}`
         return (
-          <div key={`${offer.id}-${offer.referenceId}-${offer.price}`} className="relative">
-            <FlightCard
-              data={{
-                id: offer.id,
-                handle: offer.id,
-                title: `${offer.origin} → ${offer.destination}`,
-                departure: offer.origin,
-                arrival: offer.destination,
-                departureTime: offer.departureTime ?? undefined,
-                arrivalTime: offer.arrivalTime ?? undefined,
-                duration,
-                price: priceLabel,
-                stopNumber: offer.stopCount,
-                airlines: { name: offer.airlineName, logo: '' },
-                address: `${offer.origin} → ${offer.destination}`,
-              }}
-              msgs={msgs}
-            />
-            <div className="absolute end-4 bottom-4 z-10 sm:end-6 sm:bottom-6">
+          <FlightCard
+            key={turnaOfferListKey(offer, index)}
+            hideDetailLink
+            action={
               <button
                 type="button"
                 disabled={bookingId === offer.id || offer.price == null || !listingId}
                 onClick={() => handleSelect(offer)}
-                className="rounded-full bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-primary-700 disabled:opacity-50"
+                className="rounded-full bg-primary-600 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-primary-700 disabled:opacity-50 sm:text-sm"
               >
                 {bookingId === offer.id ? m.configuring : m.select}
               </button>
-            </div>
-          </div>
+            }
+            data={{
+              id: offer.id,
+              handle: offer.id,
+              title: routeName,
+              name: routeName,
+              departure: offer.origin,
+              arrival: offer.destination,
+              departureTime: offer.departureTime ?? undefined,
+              arrivalTime: offer.arrivalTime ?? undefined,
+              duration,
+              price: priceLabel,
+              stopNumber: offer.stopCount,
+              stopAirport: offer.stopCount > 0 ? offer.destination : undefined,
+              airlines: { name: offer.airlineName, logo },
+              address: routeName,
+            }}
+            msgs={msgs}
+          />
         )
       })}
     </div>

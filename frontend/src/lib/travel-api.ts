@@ -401,11 +401,13 @@ export async function searchTurnaFlights(
   return turnaFlightPost('search', params)
 }
 
-export async function allocateTurnaFlight(body: {
-  session_id: string
-  session_token: string
-  allocate_form: string
-}): Promise<{ ok: boolean; turna_raw: string; session: TurnaFlightSession }> {
+export async function allocateTurnaFlight(
+  body: TurnaFlightSearchParams & {
+    session_id: string
+    session_token: string
+    allocate_form: string
+  },
+): Promise<{ ok: boolean; turna_raw: string; session: TurnaFlightSession }> {
   return turnaFlightPost('allocate', body)
 }
 

@@ -48,11 +48,53 @@ function pickNum(obj: Record<string, unknown> | null, keys: string[]): number | 
     if (Number.isFinite(n) && n > 0) return n
     const nested = asRecord(v)
     if (nested) {
-      const t = pickNum(nested, ['TotalFare', 'totalFare', 'Total', 'total', 'Amount', 'amount'])
+      const t = pickNum(nested, [
+        'TotalFare',
+        'totalFare',
+        'Total',
+        'total',
+        'Amount',
+        'amount',
+        'GrandTotal',
+        'grandTotal',
+      ])
       if (t != null) return t
     }
   }
   return null
+}
+
+/** Turna V5: fiyat çoğunlukla PriceSummary.TotalFare veya combo/leg kökünde */
+function extractOfferPrice(
+  searchRoot: Record<string, unknown>,
+  leg: Record<string, unknown>,
+  pkg: Record<string, unknown> | null,
+): number | null {
+  const fromPkg = pickNum(pkg, ['TotalPrice', 'totalPrice', 'GrandTotal', 'Price', 'TotalFare'])
+  if (fromPkg != null) return fromPkg
+
+  const fromLeg = pickNum(leg, [
+    'TotalPrice',
+    'totalPrice',
+    'GrandTotal',
+    'Price',
+    'PriceSummary',
+    'TotalFare',
+  ])
+  if (fromLeg != null) return fromLeg
+
+  const fromCombo = pickNum(searchRoot, [
+    'TotalPrice',
+    'totalPrice',
+    'GrandTotal',
+    'PriceSummary',
+    'TotalFare',
+    'totalFare',
+  ])
+  if (fromCombo != null) return fromCombo
+
+  const pkgDetails = asRecord(leg.PackageDetails)
+  return pickNum(pkgDetails, ['TotalPrice', 'totalPrice', 'PriceSummary', 'TotalFare'])
 }
 
 function walkArrays(root: unknown, keys: string[]): unknown[] {
@@ -190,10 +232,7 @@ function parseLegOffer(
     pickStr(asRecord(leg.Arrival), ['Code', 'AirportCode']) ||
     pickStr(asRecord(leg.DestinationPoint), ['Code'])
 
-  const price =
-    pickNum(pkg, ['TotalPrice', 'totalPrice', 'GrandTotal', 'Price', 'TotalFare']) ??
-    pickNum(leg, ['TotalPrice', 'totalPrice', 'Price', 'PriceSummary', 'TotalFare']) ??
-    pickNum(searchRoot, ['TotalPrice', 'totalPrice', 'GrandTotal', 'PriceSummary', 'TotalFare', 'totalFare'])
+  const price = extractOfferPrice(searchRoot, leg, pkg)
 
   const dep =
     pickStr(leg, [

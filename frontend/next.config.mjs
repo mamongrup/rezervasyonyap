@@ -205,6 +205,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'pics.avs.io',
+        port: '',
+        pathname: '/**',
+      },
       ...extraImageHost,
     ],
   },

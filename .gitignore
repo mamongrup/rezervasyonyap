@@ -25,6 +25,8 @@ pnpm-debug.log*
 .env.*
 !.env.example
 !.env.local.example
+backend/backend.env
+scripts/bin/rebar3
 scripts/config/*.local.env
 
 # editor / local
