@@ -1,6 +1,7 @@
 'use client'
 
 import ButtonSecondary from '@/shared/ButtonSecondary'
+import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { getMessages } from '@/utils/getT'
 import { useState } from 'react'
@@ -26,26 +27,27 @@ export default function ListingDescriptionExpandable({
   locale: string
 }) {
   const messages = getMessages(locale)
-  const plain = stripHtml(html)
+  const safeHtml = sanitizeRichCmsHtml(html)
+  const plain = stripHtml(safeHtml)
   const needsClamp = plain.length > PLAIN_PREVIEW_MAX
   const [expanded, setExpanded] = useState(false)
 
   const showMore = messages.listing.detailPage.descriptionShowMore
   const showLess = messages.listing.detailPage.descriptionShowLess
 
-  if (!html.trim()) return null
+  if (!safeHtml.trim()) return null
 
   const prose =
     'prose prose-sm max-w-none leading-relaxed text-neutral-700 dark:text-neutral-300 dark:prose-invert'
 
   if (!needsClamp) {
-    return <div className={prose} dangerouslySetInnerHTML={{ __html: html }} />
+    return <div className={prose} dangerouslySetInnerHTML={{ __html: safeHtml }} />
   }
 
   return (
     <div className="flex flex-col gap-6 sm:gap-8">
       {expanded ? (
-        <div className={prose} dangerouslySetInnerHTML={{ __html: html }} />
+        <div className={prose} dangerouslySetInnerHTML={{ __html: safeHtml }} />
       ) : (
         <p className="text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
           {truncatePlainAtWord(plain, PLAIN_PREVIEW_MAX)}

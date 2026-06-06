@@ -18,7 +18,7 @@ const WINDOW_MS = 15 * 60 * 1000 // 15 dakika
 const MAX_FAILS = 5 // bu kadar başarısız denemeden sonra blok
 const BLOCK_MS = 15 * 60 * 1000 // 15 dakika blok
 
-export type Action = 'login' | 'register' | 'global_api' | 'auth_brute'
+export type Action = 'login' | 'register' | 'global_api' | 'auth_brute' | 'verify_tc' | 'newsletter'
 
 /** `proxy.ts` — tüm `/api/*` istekleri (IP başına, 1 dk pencere). */
 export const GLOBAL_API_RATE_MAX =
@@ -30,6 +30,18 @@ export const GLOBAL_API_RATE_BLOCK_MS = 60_000
 export const AUTH_BRUTE_RATE_MAX = 30
 export const AUTH_BRUTE_RATE_WINDOW_MS = 5 * 60_000
 export const AUTH_BRUTE_RATE_BLOCK_MS = 5 * 60_000
+
+/** `/api/verify-tc` — NVI proxy kötüye kullanımını sınırlar (IP başına, 15 dk). */
+export const TC_VERIFY_RATE_MAX =
+  Number.parseInt(process.env.TC_VERIFY_RATE_LIMIT_PER_15MIN ?? '10', 10) || 10
+export const TC_VERIFY_RATE_WINDOW_MS = 15 * 60_000
+export const TC_VERIFY_RATE_BLOCK_MS = 15 * 60_000
+
+/** `/api/newsletter` — spam/abuse (IP başına, 1 saat). */
+export const NEWSLETTER_RATE_MAX =
+  Number.parseInt(process.env.NEWSLETTER_RATE_LIMIT_PER_HOUR ?? '5', 10) || 5
+export const NEWSLETTER_RATE_WINDOW_MS = 60 * 60_000
+export const NEWSLETTER_RATE_BLOCK_MS = 60 * 60_000
 
 interface Bucket {
   failures: number[] // başarısız deneme zaman damgaları (ms)
@@ -74,7 +86,10 @@ export function rateLimitRetryAfter(action: Action, key: string): number {
   return 0
 }
 
-function requestBucketKey(action: 'global_api' | 'auth_brute', key: string): string {
+function requestBucketKey(
+  action: 'global_api' | 'auth_brute' | 'verify_tc' | 'newsletter',
+  key: string,
+): string {
   return `${action}:req:${key}`
 }
 
@@ -88,7 +103,7 @@ function pruneRequestTimestamps(b: RequestBucket, now: number, windowMs: number)
  * `recordAuthAttempt(..., true)` ile karıştırılmamalı — o yalnızca başarısız giriş sayar.
  */
 export function isRequestRateLimited(
-  action: 'global_api' | 'auth_brute',
+  action: 'global_api' | 'auth_brute' | 'verify_tc' | 'newsletter',
   key: string,
   maxRequests: number,
   windowMs: number,
@@ -103,7 +118,7 @@ export function isRequestRateLimited(
 
 /** Her geçen isteği pencereye ekler; limit aşılınca `blockedUntil` ayarlanır. */
 export function recordRequest(
-  action: 'global_api' | 'auth_brute',
+  action: 'global_api' | 'auth_brute' | 'verify_tc' | 'newsletter',
   key: string,
   maxRequests: number,
   windowMs: number,

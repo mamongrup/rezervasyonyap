@@ -40,6 +40,8 @@ async function readConfigFromDisk(): Promise<PopupsConfig> {
 
 /** GET /api/popups — admin: tüm popup yapılandırması */
 export async function GET() {
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
   const config = await readConfigFromDisk()
   return NextResponse.json({ ok: true, config })
 }

@@ -1,7 +1,6 @@
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { AUTH_COOKIE_NAME } from '@/lib/auth-cookie'
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { requireAdminCookie } from '@/lib/api-require-admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -27,10 +26,8 @@ async function resolveGoogleGeocodeKey(): Promise<string> {
  * Harita pin’i otomatik doldurulurken insan okunur adres satırı için.
  */
 export async function POST(req: NextRequest) {
-  const jar = await cookies()
-  if (!jar.get(AUTH_COOKIE_NAME)?.value) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
 
   let lat: number
   let lng: number

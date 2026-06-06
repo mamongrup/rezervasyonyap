@@ -1,4 +1,33 @@
+import {
+  isRequestRateLimited,
+  recordRequest,
+  TC_VERIFY_RATE_BLOCK_MS,
+  TC_VERIFY_RATE_MAX,
+  TC_VERIFY_RATE_WINDOW_MS,
+} from '@/lib/auth-rate-limit'
+import { getClientIp } from '@/lib/http-security'
 import { NextRequest, NextResponse } from 'next/server'
+
+function applyTcVerifyRateLimit(req: NextRequest): NextResponse | null {
+  const ip = getClientIp(req.headers)
+  const key = `tc:${ip}`
+  if (
+    isRequestRateLimited('verify_tc', key, TC_VERIFY_RATE_MAX, TC_VERIFY_RATE_WINDOW_MS)
+  ) {
+    return NextResponse.json(
+      { verified: false, error: 'Çok fazla doğrulama denemesi. Lütfen daha sonra tekrar deneyin.' },
+      { status: 429, headers: { 'Retry-After': '900' } },
+    )
+  }
+  recordRequest(
+    'verify_tc',
+    key,
+    TC_VERIFY_RATE_MAX,
+    TC_VERIFY_RATE_WINDOW_MS,
+    TC_VERIFY_RATE_BLOCK_MS,
+  )
+  return null
+}
 
 // ─── TC Kimlik No matematiksel doğrulama ─────────────────────────────────────
 // NVI SOAP servisini çağırmadan önce format ve matematiksel kontrol yapar.
@@ -125,6 +154,9 @@ async function callNviSoap(
 
 // ─── Route handler ────────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  const rateLimitRes = applyTcVerifyRateLimit(req)
+  if (rateLimitRes) return rateLimitRes
+
   try {
     const body = await req.json() as {
       tc_no?: string

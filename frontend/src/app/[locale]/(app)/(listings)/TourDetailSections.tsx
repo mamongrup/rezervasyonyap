@@ -1,4 +1,5 @@
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
+import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { Divider } from '@/shared/divider'
 import { Fragment, type ReactNode } from 'react'
@@ -140,7 +141,7 @@ export function TourInfoSections({
       <section key={section.id} id={section.id} className={LISTING_SECTION_STACKED}>
         <SectionHeading>{section.title}</SectionHeading>
         <Divider className="w-14!" />
-        <div dangerouslySetInnerHTML={{ __html: section.html }} />
+        <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(section.html) }} />
       </section>,
     )
     if (insertAfterSectionId === section.id && insertNode) {

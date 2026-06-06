@@ -1,5 +1,5 @@
-import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminPermission } from '@/lib/api-require-admin'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
@@ -44,10 +44,8 @@ function needleForRelPath(relPath: string): string | null {
  * Şimdilik: `public/page-builder/*.json`, `public/sliders/*.json`.
  */
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies()
-  if (!cookieStore.get('travel_auth_token')?.value) {
-    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
-  }
+  const authErr = await requireAdminPermission('admin.media.write')
+  if (authErr) return authErr
 
   let paths: unknown
   try {

@@ -1,8 +1,40 @@
-import { NextResponse } from 'next/server'
+import {
+  isRequestRateLimited,
+  recordRequest,
+  NEWSLETTER_RATE_BLOCK_MS,
+  NEWSLETTER_RATE_MAX,
+  NEWSLETTER_RATE_WINDOW_MS,
+} from '@/lib/auth-rate-limit'
+import { getClientIp } from '@/lib/http-security'
+import { NextRequest, NextResponse } from 'next/server'
 
 const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export async function POST(req: Request) {
+function applyNewsletterRateLimit(req: NextRequest): NextResponse | null {
+  const ip = getClientIp(req.headers)
+  const key = `newsletter:${ip}`
+  if (
+    isRequestRateLimited('newsletter', key, NEWSLETTER_RATE_MAX, NEWSLETTER_RATE_WINDOW_MS)
+  ) {
+    return NextResponse.json(
+      { error: 'Çok fazla istek. Lütfen daha sonra tekrar deneyin.' },
+      { status: 429, headers: { 'Retry-After': '3600' } },
+    )
+  }
+  recordRequest(
+    'newsletter',
+    key,
+    NEWSLETTER_RATE_MAX,
+    NEWSLETTER_RATE_WINDOW_MS,
+    NEWSLETTER_RATE_BLOCK_MS,
+  )
+  return null
+}
+
+export async function POST(req: NextRequest) {
+  const rateLimitRes = applyNewsletterRateLimit(req)
+  if (rateLimitRes) return rateLimitRes
+
   let body: unknown
   try {
     body = await req.json()

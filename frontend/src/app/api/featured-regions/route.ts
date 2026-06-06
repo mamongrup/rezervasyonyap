@@ -22,6 +22,8 @@ async function ensureDir() {
 }
 
 export async function GET(req: NextRequest) {
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
   const pageKey = safePageKey(req.nextUrl.searchParams.get('page'))
   if (!pageKey) return NextResponse.json({ error: 'page param required' }, { status: 400 })
 

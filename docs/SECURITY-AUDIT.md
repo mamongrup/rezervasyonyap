@@ -38,6 +38,16 @@ Güvenlik (CORS, rate limit, Host, korumalı rotalar) tamamen `proxy.ts` + `http
 ## İlgili dosyalar
 
 - `frontend/src/lib/security.ts` — şifre, dosya adı, JWT, revalidate whitelist
+- `frontend/src/lib/api-require-admin.ts` — yönetim API JWT + `admin.users.read` / izin
 - `frontend/src/lib/http-security.ts` — CORS + response başlıkları
 - `frontend/src/proxy.ts` — edge giriş, rate limit, korumalı yollar
 - `frontend/security-headers.mjs` — CSP / HSTS (`next.config.mjs` ile)
+- `backend/src/backend/router.gleam` — API CORS (`CORS_ALLOWED_ORIGINS`)
+
+## Üretim env (özet)
+
+| Dosya | Değişken | Öneri |
+|-------|----------|--------|
+| `frontend.env` | `ALLOWED_HOSTS` | `rezervasyonyap.tr,www.rezervasyonyap.tr,...` |
+| `frontend.env` | `CSP_MODE` | `enforce` (önce `report-only` ile test) |
+| `backend.env` | `CORS_ALLOWED_ORIGINS` | `https://rezervasyonyap.tr,https://www.rezervasyonyap.tr` |

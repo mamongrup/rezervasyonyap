@@ -1726,6 +1726,15 @@ fn cors_preflight_response() -> Response {
   wisp.response(204)
 }
 
+/// Allowlist boşken yalnızca yerel geliştirme origin'lerine credentials ver.
+fn is_local_dev_origin(origin: String) -> Bool {
+  let o = string.lowercase(string.trim(origin))
+  string.starts_with(o, "http://localhost:")
+    || string.starts_with(o, "http://127.0.0.1:")
+    || string.starts_with(o, "https://localhost:")
+    || string.starts_with(o, "https://127.0.0.1:")
+}
+
 fn with_cors(resp: Response, req: Request) -> Response {
   // CORS_ALLOWED_ORIGINS: virgülle ayrılmış izinli origin listesi.
   // Boşsa "*" ile herkese açık (credentials olmadan).
@@ -1746,8 +1755,12 @@ fn with_cors(resp: Response, req: Request) -> Response {
             True -> #(origin, True)
             False -> #("null", False)
           }
-        // Allowlist tanımlı değil → dev/internal mod: origin'i echo et (credentials ile)
-        [] -> #(origin, True)
+        // Allowlist tanımlı değil → yalnızca localhost; üretimde CORS_ALLOWED_ORIGINS zorunlu
+        [] ->
+          case is_local_dev_origin(origin) {
+            True -> #(origin, True)
+            False -> #("null", False)
+          }
       }
   }
 

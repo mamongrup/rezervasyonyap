@@ -75,6 +75,20 @@ check_env() {
   ok "$WEB_SERVICE için gerekli env anahtarları tanımlı (frontend.env)"
 }
 
+check_backend_env() {
+  local f="/etc/rezervasyonyap/backend.env"
+  [[ -f "$f" ]] || warn "$f yok — CORS_ALLOWED_ORIGINS denetimi atlandı"
+  if [[ -f "$f" ]]; then
+    # shellcheck disable=SC1090
+    set -a && source "$f" && set +a
+    if [[ -z "${CORS_ALLOWED_ORIGINS:-}" ]]; then
+      warn "CORS_ALLOWED_ORIGINS boş — üretimde yalnızca localhost origin'lerine credentials verilir. Örnek: CORS_ALLOWED_ORIGINS=https://rezervasyonyap.tr,https://www.rezervasyonyap.tr"
+    else
+      ok "CORS_ALLOWED_ORIGINS tanımlı (backend.env)"
+    fi
+  fi
+}
+
 check_workdir_matches_deploy_root() {
   local wd expected repo_root rwd eexp
   wd="$(systemctl show "$WEB_SERVICE" -p WorkingDirectory --value)"
@@ -208,6 +222,7 @@ main() {
   check_service_active "$API_SERVICE"
   check_working_directory
   check_env
+  check_backend_env
   check_workdir_matches_deploy_root
   wait_travel_web_listening
   check_next_static_chunk

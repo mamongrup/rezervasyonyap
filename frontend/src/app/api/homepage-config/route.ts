@@ -26,6 +26,8 @@ const DEFAULT_CONFIG: Omit<HomepageConfig, 'updatedAt'> = {
 }
 
 export async function GET() {
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
   try {
     const raw = await fs.readFile(FILE_PATH, 'utf-8')
     const config = JSON.parse(raw) as HomepageConfig

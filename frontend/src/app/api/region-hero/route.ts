@@ -51,6 +51,8 @@ async function ensureDir() {
 /** GET /api/region-hero?category=oteller&region=antalya → config
  *  GET /api/region-hero → list all configs */
 export async function GET(req: NextRequest) {
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
   await ensureDir()
   const { searchParams } = new URL(req.url)
   const category = searchParams.get('category')

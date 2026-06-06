@@ -46,6 +46,8 @@ const ALLOWED_PAGE_BUILDER_SLUGS = buildAllowedSlugSet()
 
 /** GET /api/page-builder?slug=oteller — fetch config for a category */
 export async function GET(req: NextRequest) {
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
   const { searchParams } = new URL(req.url)
   const slugParam = searchParams.get('slug')
   const locale = searchParams.get('locale')?.trim() || 'tr'

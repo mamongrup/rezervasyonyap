@@ -64,7 +64,8 @@ export async function GET(req: NextRequest) {
 
   try {
     if (!slug) {
-      // Return list of all saved region slugs
+      const authErr = await requireAdminCookie()
+      if (authErr) return authErr
       const files = await fs.readdir(DATA_DIR)
       const slugs = files
         .filter((f) => f.endsWith('.json'))

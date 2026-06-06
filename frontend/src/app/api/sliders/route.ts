@@ -142,6 +142,8 @@ function sanitizeConfig(body: Record<string, unknown>): Omit<SlidersConfig, 'upd
 
 /** GET /api/sliders?page=homepage */
 export async function GET(req: NextRequest) {
+  const authErr = await requireAdminCookie()
+  if (authErr) return authErr
   const pageKey = safePageKey(req.nextUrl.searchParams.get('page'))
   if (!pageKey) {
     return NextResponse.json({ ok: false, error: 'page param required' }, { status: 400 })
