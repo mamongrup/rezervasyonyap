@@ -7,6 +7,7 @@ import {
 } from '@/data/subcategory-registry'
 import type { SubcategoryEntry } from '@/data/subcategory-registry'
 import { SubcategoryIcon } from '@/lib/subcategory-icons'
+import { getMessages } from '@/utils/getT'
 
 interface Props {
   parentCategorySlug: string
@@ -66,12 +67,13 @@ function PillVariant({ items, locale, categoryRoute }: { items: SubcategoryEntry
 // ── Card ─────────────────────────────────────────────────────────────────────
 
 function CardVariant({ items, locale, showHeading, categoryRoute }: { items: SubcategoryEntry[]; locale: string; showHeading: boolean; categoryRoute?: string }) {
+  const browseByType = getMessages(locale).categoryPage.browseByType
   return (
     <div>
       {showHeading && (
         <div className="mb-6">
           <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-            {locale === 'en' ? 'Browse by Type' : 'Türe Göre Gözat'}
+            {browseByType}
           </h2>
         </div>
       )}
@@ -117,12 +119,13 @@ function CardVariant({ items, locale, showHeading, categoryRoute }: { items: Sub
 // ── Icon Grid (default) ──────────────────────────────────────────────────────
 
 function IconGridVariant({ items, locale, showHeading, categoryRoute }: { items: SubcategoryEntry[]; locale: string; showHeading: boolean; categoryRoute?: string }) {
+  const browseByType = getMessages(locale).categoryPage.browseByType
   return (
     <div>
       {showHeading && (
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-bold text-neutral-900 dark:text-white">
-            {locale === 'en' ? 'Browse by Type' : 'Türe Göre Gözat'}
+            {browseByType}
           </h2>
         </div>
       )}

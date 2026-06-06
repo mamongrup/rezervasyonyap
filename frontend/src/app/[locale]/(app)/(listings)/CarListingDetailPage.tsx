@@ -60,7 +60,8 @@ export default async function CarListingDetailPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>
   linkBase: string
 }) {
-  const { handle, locale } = await params
+  const { handle: rawHandle, locale } = await params
+  const handle = rawHandle.split('?')[0]
   const sp = (await searchParams) ?? {}
   const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
 
@@ -260,11 +261,14 @@ async function renderYolcu360CarDetail({
   const dropoff = firstString(searchParams.drop_off_location) || pickup
 
   const cars = await fetchYolcu360CarListings({ pickup, dropoff, checkin, checkout })
-  const car = cars?.find((item) => item.id === handle || item.handle.split('?')[0] === handle)
+  const car = cars?.find(
+    (item) => item.id === handle || item.handle === handle || item.handle.split('?')[0] === handle,
+  )
   if (!car) return null
 
   const m = getMessages(locale)
   const cd = m.listing.carDetail
+  const y360 = cd.yolcu360
   const query = new URLSearchParams()
   if (pickup) query.set('location', pickup)
   if (checkin) query.set('checkin', checkin)
@@ -281,7 +285,7 @@ async function renderYolcu360CarDetail({
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
           <SectionHeader
             address={pickup}
-            listingCategory={car.listingCategory ?? 'Araç Kiralama'}
+            listingCategory={car.listingCategory ?? m.categoryPage.verticalLabels.car_rental}
             reviewCount={0}
             reviewStart={0}
             title={car.title}
@@ -298,25 +302,25 @@ async function renderYolcu360CarDetail({
           </SectionHeader>
 
           <div className="listingSection__wrap">
-            <SectionHeading>Yolcu360 Araç Bilgisi</SectionHeading>
+            <SectionHeading>{y360.heading}</SectionHeading>
             <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-300">
-              Bu araç canlı Yolcu360 arama sonucundan gösteriliyor. Teslim ve iade tarihi seçili arama üzerinden korunur.
+              {y360.description}
             </p>
             <div className="mt-5 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2 dark:text-neutral-200">
               <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
-                <span className="block text-neutral-500 dark:text-neutral-400">Alış noktası</span>
+                <span className="block text-neutral-500 dark:text-neutral-400">{y360.pickup}</span>
                 <strong>{pickup || '-'}</strong>
               </div>
               <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
-                <span className="block text-neutral-500 dark:text-neutral-400">İade noktası</span>
+                <span className="block text-neutral-500 dark:text-neutral-400">{y360.dropoff}</span>
                 <strong>{dropoff || pickup || '-'}</strong>
               </div>
               <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
-                <span className="block text-neutral-500 dark:text-neutral-400">Alış tarihi</span>
+                <span className="block text-neutral-500 dark:text-neutral-400">{y360.checkin}</span>
                 <strong>{checkin || '-'}</strong>
               </div>
               <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
-                <span className="block text-neutral-500 dark:text-neutral-400">İade tarihi</span>
+                <span className="block text-neutral-500 dark:text-neutral-400">{y360.checkout}</span>
                 <strong>{checkout || '-'}</strong>
               </div>
             </div>
@@ -334,7 +338,7 @@ async function renderYolcu360CarDetail({
               </span>
             </div>
             <ButtonPrimary href={browseHref} className="mt-8 w-full">
-              Arama sonuçlarına dön
+              {y360.backToSearch}
             </ButtonPrimary>
           </div>
         </div>

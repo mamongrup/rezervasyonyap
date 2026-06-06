@@ -25,6 +25,8 @@ export interface TListingBase {
   id: string
   title: string
   handle: string
+  /** Yolcu360 gibi canlı arama sonuçlarında detay sayfası için URL sorgu dizesi */
+  detailSearchQuery?: string
   address?: string
   /** Şehir / bölge adı (ör. "Antalya", "İstanbul") — bölgeye göre gruplamada kullanılır */
   city?: string

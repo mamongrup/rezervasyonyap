@@ -181,7 +181,7 @@ export function mapYolcu360CarToListing(
     vehicleClass ||
     `Araç ${index + 1}`
   const slug = `yolcu360-${String(car.id ?? index)}`
-  const handle = detailQuery ? `${slug}?${detailQuery}` : slug
+  const handle = slug
   const price = car.dailyPrice
     ? new Intl.NumberFormat('tr-TR', { style: 'decimal', maximumFractionDigits: 0 }).format(
         car.dailyPrice,
@@ -195,13 +195,13 @@ export function mapYolcu360CarToListing(
   return {
     id: slug,
     handle,
+    detailSearchQuery: detailQuery,
     title,
     price,
     priceAmount: car.dailyPrice,
     priceCurrency: car.currency ?? 'TRY',
     galleryImgs: img ? [img] : [],
     featuredImage: img,
-    listingCategory: 'Araç Kiralama',
     listingVertical: 'car_rental',
     reviewStart: 0,
     reviewCount: 0,

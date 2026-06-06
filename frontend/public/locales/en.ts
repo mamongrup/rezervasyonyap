@@ -586,7 +586,18 @@ export const en = {
       facilityEvChargerDesc: 'Stay in a shared space, like a common room',
     },
     /** Bölge slider üst başlığı (kategori /all) */
+    browseByType: 'Browse by type',
     exploreByRegion: 'Explore by region',
+    registry: {
+      'arac-kiralama': {
+        name: 'Car rental',
+        namePlural: 'car rentals',
+        heroHeading: 'Car rental',
+        heroSubheading:
+          'Hundreds of vehicles from economy to luxury. Flexible pick-up and drop-off points.',
+        priceUnit: '/day',
+      },
+    },
     /** Tatil evleri: ana ızgaranın altında gevşetilmiş filtrelerle ek ilanlar */
     flexibleSearchHeading: 'Flexible search results',
     flexibleSearchSubheading:
@@ -1394,6 +1405,16 @@ export const en = {
       largeBags: 'Large bags',
       pickUpDropOffTitle: 'Pick up and drop off',
       pricePerDay: '/day',
+      yolcu360: {
+        heading: 'Live car details',
+        description:
+          'This vehicle is shown from a live Yolcu360 search. Pick-up and return dates follow your active search.',
+        pickup: 'Pick-up location',
+        dropoff: 'Drop-off location',
+        checkin: 'Pick-up date',
+        checkout: 'Return date',
+        backToSearch: 'Back to search results',
+      },
     },
     hotelDetail: {
       sectionNavAriaLabel: 'Hotel sections',

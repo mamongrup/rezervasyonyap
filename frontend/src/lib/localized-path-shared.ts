@@ -58,12 +58,15 @@ export function localizeAppPath(pathname: string, locale: string, idx: Localized
   return tail.length > 0 ? `/${seg0}/${tail.join('/')}` : `/${seg0}`
 }
 
-/** `localizeAppPath` + `#fragment` korunur (ör. `/about#kariyer`). */
+/** `localizeAppPath` + `?query` ve `#fragment` korunur. */
 export function localizeAppPathWithHash(pathname: string, locale: string, idx: LocalizedRouteIndexes): string {
   const hashIdx = pathname.indexOf('#')
-  const pathOnly = hashIdx === -1 ? pathname : pathname.slice(0, hashIdx)
   const hash = hashIdx === -1 ? '' : pathname.slice(hashIdx)
-  return localizeAppPath(pathOnly || '/', locale, idx) + hash
+  const beforeHash = hashIdx === -1 ? pathname : pathname.slice(0, hashIdx)
+  const queryIdx = beforeHash.indexOf('?')
+  const pathOnly = queryIdx === -1 ? beforeHash : beforeHash.slice(0, queryIdx)
+  const query = queryIdx === -1 ? '' : beforeHash.slice(queryIdx)
+  return localizeAppPath(pathOnly || '/', locale, idx) + query + hash
 }
 
 export function swapLocaleInLocalizedPath(

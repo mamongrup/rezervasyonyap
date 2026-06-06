@@ -149,7 +149,17 @@ export const zh: AppMessages = {
       facilityEvCharger: '新能源车充电桩',
       facilityEvChargerDesc: '新能源车充电桩（如公共活动室）',
     },
+    browseByType: '按类型浏览',
     exploreByRegion: '按地区探索',
+    registry: {
+      'arac-kiralama': {
+        name: '租车',
+        namePlural: '租车',
+        heroHeading: '租车',
+        heroSubheading: '从经济型到豪华型，数百款车型。灵活的取还车地点。',
+        priceUnit: '/天',
+      },
+    },
     verticalLabels: {
       hotel: '酒店',
       holiday_home: '度假屋',
@@ -608,6 +618,15 @@ export const zh: AppMessages = {
       largeBags: '大件行李',
       pickUpDropOffTitle: '取车与还车',
       pricePerDay: '/天',
+      yolcu360: {
+        heading: '实时车辆信息',
+        description: '此车辆来自 Yolcu360 实时搜索结果。取还车日期与您当前的搜索条件一致。',
+        pickup: '取车地点',
+        dropoff: '还车地点',
+        checkin: '取车日期',
+        checkout: '还车日期',
+        backToSearch: '返回搜索结果',
+      },
     },
     hotelDetail: {
       sectionNavAriaLabel: '酒店版块',

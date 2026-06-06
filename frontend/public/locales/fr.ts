@@ -149,7 +149,18 @@ export const fr: AppMessages = {
       facilityEvCharger: 'Borne de recharge pour VE',
       facilityEvChargerDesc: 'Séjour dans un espace partagé, comme une pièce commune',
     },
+    browseByType: 'Parcourir par type',
     exploreByRegion: 'Explorer par région',
+    registry: {
+      'arac-kiralama': {
+        name: 'Location de voiture',
+        namePlural: 'locations de voiture',
+        heroHeading: 'Location de voiture',
+        heroSubheading:
+          'Des centaines de véhicules, de l’économique au luxe. Points de prise en charge et de retour flexibles.',
+        priceUnit: '/jour',
+      },
+    },
     verticalLabels: {
       hotel: 'Hôtel',
       holiday_home: 'Maison de vacances',
@@ -619,6 +630,16 @@ export const fr: AppMessages = {
       largeBags: 'Grands bagages',
       pickUpDropOffTitle: 'Prise en charge et restitution',
       pricePerDay: '/jour',
+      yolcu360: {
+        heading: 'Détails du véhicule en direct',
+        description:
+          'Ce véhicule provient d’une recherche Yolcu360 en direct. Les dates de prise en charge et de retour suivent votre recherche active.',
+        pickup: 'Lieu de prise en charge',
+        dropoff: 'Lieu de retour',
+        checkin: 'Date de prise en charge',
+        checkout: 'Date de retour',
+        backToSearch: 'Retour aux résultats',
+      },
     },
     hotelDetail: {
       sectionNavAriaLabel: 'Sections de l’hôtel',

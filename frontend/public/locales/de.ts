@@ -149,7 +149,18 @@ export const de: AppMessages = {
       facilityEvCharger: 'Ladestation für E-Autos',
       facilityEvChargerDesc: 'Übernachtung in einem Gemeinschaftsraum',
     },
+    browseByType: 'Nach Typ stöbern',
     exploreByRegion: 'Nach Region entdecken',
+    registry: {
+      'arac-kiralama': {
+        name: 'Mietwagen',
+        namePlural: 'Mietwagen',
+        heroHeading: 'Mietwagen',
+        heroSubheading:
+          'Hunderte Fahrzeuge von Economy bis Luxus. Flexible Abhol- und Rückgabestationen.',
+        priceUnit: '/Tag',
+      },
+    },
     verticalLabels: {
       hotel: 'Hotel',
       holiday_home: 'Ferienhaus',
@@ -619,6 +630,16 @@ export const de: AppMessages = {
       largeBags: 'Große Koffer',
       pickUpDropOffTitle: 'Abholung und Rückgabe',
       pricePerDay: '/Tag',
+      yolcu360: {
+        heading: 'Live-Fahrzeugdetails',
+        description:
+          'Dieses Fahrzeug stammt aus einer Live-Yolcu360-Suche. Abhol- und Rückgabedatum folgen Ihrer aktiven Suche.',
+        pickup: 'Abholort',
+        dropoff: 'Rückgabeort',
+        checkin: 'Abholdatum',
+        checkout: 'Rückgabedatum',
+        backToSearch: 'Zurück zu den Suchergebnissen',
+      },
     },
     hotelDetail: {
       sectionNavAriaLabel: 'Hotel-Bereiche',

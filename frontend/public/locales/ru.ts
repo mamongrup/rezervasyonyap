@@ -149,7 +149,18 @@ export const ru: AppMessages = {
       facilityEvCharger: 'Зарядка для электромобилей',
       facilityEvChargerDesc: 'Проживание в общем пространстве, например, общей комнате',
     },
+    browseByType: 'По типу',
     exploreByRegion: 'Смотреть по регионам',
+    registry: {
+      'arac-kiralama': {
+        name: 'Аренда авто',
+        namePlural: 'аренда авто',
+        heroHeading: 'Аренда авто',
+        heroSubheading:
+          'Сотни автомобилей — от эконом до люкс. Гибкие пункты выдачи и возврата.',
+        priceUnit: '/день',
+      },
+    },
     verticalLabels: {
       hotel: 'Отель',
       holiday_home: 'Дом отдыха',
@@ -618,6 +629,16 @@ export const ru: AppMessages = {
       largeBags: 'Большой багаж',
       pickUpDropOffTitle: 'Получение и возврат',
       pricePerDay: '/день',
+      yolcu360: {
+        heading: 'Данные об автомобиле в реальном времени',
+        description:
+          'Этот автомобиль показан из живого поиска Yolcu360. Даты получения и возврата соответствуют вашему активному поиску.',
+        pickup: 'Место получения',
+        dropoff: 'Место возврата',
+        checkin: 'Дата получения',
+        checkout: 'Дата возврата',
+        backToSearch: 'Вернуться к результатам',
+      },
     },
     hotelDetail: {
       sectionNavAriaLabel: 'Разделы отеля',

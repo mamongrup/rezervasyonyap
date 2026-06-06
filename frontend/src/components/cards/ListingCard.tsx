@@ -80,7 +80,12 @@ const ListingCard: FC<ListingCardProps> = ({
   const themeChipsVisible = allThemeChips.slice(0, maxThemeChips)
   const themeChipsHidden = allThemeChips.slice(maxThemeChips)
 
-  const listingHref = vitrinHref(`${config.linkBase}/${handle}`)
+  const pathHandle = handle.includes('?') ? handle.slice(0, handle.indexOf('?')) : handle
+  const legacyQuery = handle.includes('?') ? handle.slice(handle.indexOf('?')) : ''
+  const searchQuery = data.detailSearchQuery
+    ? `?${data.detailSearchQuery}`
+    : legacyQuery
+  const listingHref = vitrinHref(`${config.linkBase}/${pathHandle}`) + searchQuery
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
   const cardMeta = m.listing.cardMeta
   const verticalLabels = m.categoryPage.verticalLabels as Record<string, string>

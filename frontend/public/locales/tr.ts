@@ -364,7 +364,18 @@ export const tr = {
       facilityEvCharger: 'Elektrikli araç şarj istasyonu',
       facilityEvChargerDesc: 'Ortak oda gibi paylaşılan bir alanda kalın',
     },
+    browseByType: 'Türe Göre Gözat',
     exploreByRegion: 'Bölgeye Göre Keşfet',
+    registry: {
+      'arac-kiralama': {
+        name: 'Araç Kiralama',
+        namePlural: 'araç kiralama',
+        heroHeading: 'Araç Kiralama',
+        heroSubheading:
+          'Ekonomikten lükse yüzlerce araç seçeneği. Esnek teslim ve iade noktaları.',
+        priceUnit: '/gün',
+      },
+    },
     flexibleSearchHeading: 'Esnek arama sonuçları',
     flexibleSearchSubheading:
       'Bölgeniz ve tarihlerinizle uyumlu; fiyat, tema veya oda kriterleri gevşetilerek önerilen ek ilanlar.',
@@ -867,6 +878,16 @@ export const tr = {
       largeBags: 'Büyük bagaj',
       pickUpDropOffTitle: 'Alış ve bırakış',
       pricePerDay: '/gün',
+      yolcu360: {
+        heading: 'Yolcu360 araç bilgisi',
+        description:
+          'Bu araç canlı Yolcu360 arama sonucundan gösteriliyor. Teslim ve iade tarihi seçili arama üzerinden korunur.',
+        pickup: 'Alış noktası',
+        dropoff: 'İade noktası',
+        checkin: 'Alış tarihi',
+        checkout: 'İade tarihi',
+        backToSearch: 'Arama sonuçlarına dön',
+      },
     },
     hotelDetail: {
       sectionNavAriaLabel: 'Otel bölümleri',

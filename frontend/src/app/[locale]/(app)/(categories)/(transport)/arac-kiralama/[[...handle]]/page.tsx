@@ -3,16 +3,27 @@ import { CarRentalCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getCarListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
+import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { fetchYolcu360CarListings } from '@/lib/yolcu360-car-search'
+import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const category = getCategoryBySlug('arac-kiralama')
-  return { title: category?.name ?? 'Araç Kiralama', description: category?.heroSubheading }
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale?: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  const raw = getCategoryBySlug('arac-kiralama')
+  const category = raw ? resolveCategoryDisplay(raw, locale ?? 'tr') : null
+  return {
+    title: category?.name ?? getMessages(locale).categoryPage.verticalLabels.car_rental,
+    description: category?.heroSubheading,
+  }
 }
 
 function selectedCarSearchQuery(
@@ -48,8 +59,9 @@ export default async function Page({
     redirect(`/${locale}/arac-kiralama/all${selectedQuery ? `?${selectedQuery}` : ''}`)
   }
   const currentHandle = regionHandleFromParams(handle)
-  const category = getCategoryBySlug('arac-kiralama')
-  if (!category) return redirect('/')
+  const rawCategory = getCategoryBySlug('arac-kiralama')
+  if (!rawCategory) return redirect('/')
+  const category = resolveCategoryDisplay(rawCategory, locale)
 
   const query = parseSearchParamsFromUrl(sp)
   const isCarLandingWithoutSearch = currentHandle === 'all' && !selectedQuery
