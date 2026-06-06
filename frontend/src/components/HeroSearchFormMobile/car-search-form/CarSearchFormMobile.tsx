@@ -1,6 +1,7 @@
 'use client'
 
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
+import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { parseLocalYmd } from '@/utils/format-local-ymd'
@@ -78,8 +79,10 @@ function CarSearchFormMobileInner() {
       ...(checkout ? { checkout } : {}),
     }
     runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
-    const location = formDataEntries['pickup-location'] as string
-    const dropoffLocation = formDataEntries['dropoff-location'] as string
+    const location = normalizeYolcu360PickupQuery(formDataEntries['pickup-location'] as string)
+    const dropoffLocation = normalizeYolcu360PickupQuery(
+      formDataEntries['dropoff-location'] as string,
+    )
     const qs = new URLSearchParams()
     if (location) qs.set('location', location)
     if (dropOffLocationType === 'different' && dropoffLocation) {

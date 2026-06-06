@@ -10,14 +10,15 @@
 
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { normalizeYolcu360Cars, type Yolcu360Car } from '@/lib/yolcu360-cars'
+import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { NextRequest, NextResponse } from 'next/server'
 
 export type { Yolcu360Car }
 
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams
-  const pickup = sp.get('pickup')?.trim() ?? ''
-  const dropoff = sp.get('dropoff')?.trim() ?? pickup
+  const pickup = normalizeYolcu360PickupQuery(sp.get('pickup') ?? '')
+  const dropoff = normalizeYolcu360PickupQuery(sp.get('dropoff') ?? pickup) || pickup
   const checkin = sp.get('checkin')?.trim() ?? ''
   const checkout = sp.get('checkout')?.trim() ?? ''
 

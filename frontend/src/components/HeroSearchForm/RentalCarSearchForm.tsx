@@ -1,6 +1,7 @@
 'use client'
 
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
+import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import T from '@/utils/getT'
 import { Radio, RadioGroup } from '@headlessui/react'
@@ -47,8 +48,10 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
     const formDataEntries = Object.fromEntries(formData.entries())
     const params = { ...formDataToStringRecord(formData), drop_off_mode: dropOffLocationType }
     runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
-    const location = formDataEntries['pickup-location'] as string
-    const dropoffLocation = formDataEntries['dropoff-location'] as string
+    const location = normalizeYolcu360PickupQuery(formDataEntries['pickup-location'] as string)
+    const dropoffLocation = normalizeYolcu360PickupQuery(
+      formDataEntries['dropoff-location'] as string,
+    )
     const checkin = formDataEntries['checkin'] as string
     const checkout = ensureCarRentalCheckout(
       checkin,

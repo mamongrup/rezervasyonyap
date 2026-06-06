@@ -12,6 +12,7 @@ import {
   mapYolcu360CarToListing,
   normalizeYolcu360Cars,
 } from '@/lib/yolcu360-cars'
+import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
@@ -29,7 +30,14 @@ async function fetchYolcu360Cars(
   const apiBase = apiOriginForFetch()
   if (!apiBase || !pickup || !checkin || !checkout) return null
   try {
-    const params = new URLSearchParams({ pickup, dropoff: dropoff || pickup, checkin, checkout })
+    const pickupNorm = normalizeYolcu360PickupQuery(pickup)
+    const dropoffNorm = normalizeYolcu360PickupQuery(dropoff || pickup)
+    const params = new URLSearchParams({
+      pickup: pickupNorm,
+      dropoff: dropoffNorm,
+      checkin,
+      checkout,
+    })
     const res = await fetch(
       `${apiBase}/api/v1/public/yolcu360/cars?${params.toString()}`,
       { cache: 'no-store' },

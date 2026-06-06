@@ -116,8 +116,25 @@ pub fn login_url(cfg: Yolcu360Config) -> String {
   join_path(cfg.base_url, "/auth/login")
 }
 
+/// Yolcu360 konum sorgusu — Türkçe harfler URI/arama hatasına yol açar (ör. İstanbul).
+pub fn normalize_location_query(query: String) -> String {
+  string.trim(query)
+  |> string.replace("İ", "I")
+  |> string.replace("ı", "i")
+  |> string.replace("Ğ", "G")
+  |> string.replace("ğ", "g")
+  |> string.replace("Ü", "U")
+  |> string.replace("ü", "u")
+  |> string.replace("Ş", "S")
+  |> string.replace("ş", "s")
+  |> string.replace("Ö", "O")
+  |> string.replace("ö", "o")
+  |> string.replace("Ç", "C")
+  |> string.replace("ç", "c")
+}
+
 pub fn locations_url(cfg: Yolcu360Config, query: String) -> String {
-  let q = string.trim(query)
+  let q = normalize_location_query(query)
   let encoded =
     string.replace(q, " ", "+")
     |> string.replace("&", "%26")

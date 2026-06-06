@@ -276,6 +276,8 @@ pub fn search_cars(
   checkin: String,
   checkout: String,
 ) -> Result(CarsResult, String) {
+  let pickup_query = yolcu360_config.normalize_location_query(pickup_query)
+  let return_query = yolcu360_config.normalize_location_query(return_query)
   case login(cfg) {
     Error(e) -> Error(e)
     Ok(auth) -> {
