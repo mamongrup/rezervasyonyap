@@ -1,5 +1,24 @@
 import type { TListingBase } from '@/types/listing-types'
 
+/** Yolcu360 checkout zorunlu; yalnızca checkin varsa varsayılan +N gün. */
+export function ensureCarRentalCheckout(
+  checkin: string,
+  checkout?: string,
+  extraDays = 3,
+): string {
+  const cout = (checkout ?? '').trim()
+  if (cout) return cout
+  const cin = checkin.trim()
+  if (!cin) return ''
+  const d = new Date(`${cin}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return ''
+  d.setDate(d.getDate() + extraDays)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 export interface Yolcu360Car {
   id: string
   vehicleClass?: string

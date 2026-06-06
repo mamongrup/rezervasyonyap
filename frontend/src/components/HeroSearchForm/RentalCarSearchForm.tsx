@@ -1,5 +1,6 @@
 'use client'
 
+import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import T from '@/utils/getT'
 import { Radio, RadioGroup } from '@headlessui/react'
@@ -30,7 +31,10 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
     const location = formDataEntries['pickup-location'] as string
     const dropoffLocation = formDataEntries['dropoff-location'] as string
     const checkin = formDataEntries['checkin'] as string
-    const checkout = formDataEntries['checkout'] as string
+    const checkout = ensureCarRentalCheckout(
+      checkin,
+      formDataEntries['checkout'] as string,
+    )
     const searchParams = new URLSearchParams()
     if (location) searchParams.set('location', location)
     if (dropOffLocationType === 'different' && dropoffLocation) {

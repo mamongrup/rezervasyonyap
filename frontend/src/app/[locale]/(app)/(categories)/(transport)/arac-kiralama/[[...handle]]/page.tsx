@@ -7,7 +7,11 @@ import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { apiOriginForFetch } from '@/lib/api-origin'
 import type { TListingBase } from '@/types/listing-types'
-import { mapYolcu360CarToListing, normalizeYolcu360Cars } from '@/lib/yolcu360-cars'
+import {
+  ensureCarRentalCheckout,
+  mapYolcu360CarToListing,
+  normalizeYolcu360Cars,
+} from '@/lib/yolcu360-cars'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
@@ -60,7 +64,8 @@ export default async function Page({
   const pickup = (typeof sp['location'] === 'string' ? sp['location'] : '') ?? ''
   const dropoff = (typeof sp['drop_off_location'] === 'string' ? sp['drop_off_location'] : pickup) ?? pickup
   const checkin = (typeof sp['checkin'] === 'string' ? sp['checkin'] : '') ?? ''
-  const checkout = (typeof sp['checkout'] === 'string' ? sp['checkout'] : '') ?? ''
+  const checkoutRaw = (typeof sp['checkout'] === 'string' ? sp['checkout'] : '') ?? ''
+  const checkout = ensureCarRentalCheckout(checkin, checkoutRaw)
   const hasSearchQuery = !!(pickup && checkin && checkout)
 
   const yolcu360Cars = hasSearchQuery
@@ -103,7 +108,7 @@ export default async function Page({
       activeSearch={{
         location: query.location,
         checkin: query.checkin,
-        checkout: query.checkout,
+        checkout: checkout || query.checkout,
         guests: query.guests,
         drop_off: query.drop_off,
         regionLabel,
