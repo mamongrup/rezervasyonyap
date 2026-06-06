@@ -220,12 +220,13 @@ export const LocationInputField: FC<Props> = ({
               ref={inputRef}
               aria-label="Search for a location"
               className={clsx(styles.input.base, styles.input[fieldStyle])}
-              name={inputName}
+              key={`${inputName}:${defaultName ?? ''}`}
               placeholder={resolvedPlaceholder}
               autoComplete="off"
               displayValue={(item?: Suggest) => item?.name || ''}
               onChange={handleInputChange}
             />
+            <input type="hidden" name={inputName} value={selected?.name ?? ''} />
             <div
               aria-hidden={!!selected?.name?.trim()}
               className={clsx(

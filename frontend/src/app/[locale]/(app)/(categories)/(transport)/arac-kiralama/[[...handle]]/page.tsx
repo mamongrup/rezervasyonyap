@@ -21,6 +21,44 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: category?.name ?? 'Araç Kiralama', description: category?.heroSubheading }
 }
 
+function ymdFromToday(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function carDefaultSearchQuery(): string {
+  const qs = new URLSearchParams({
+    location: 'Istanbul',
+    checkin: ymdFromToday(30),
+    checkout: ymdFromToday(33),
+    drop_off: 'same',
+  })
+  return qs.toString()
+}
+
+function selectedCarSearchQuery(
+  sp: Record<string, string | string[] | undefined>,
+): string {
+  const qs = new URLSearchParams()
+  for (const key of [
+    'location',
+    'checkin',
+    'checkout',
+    'drop_off',
+    'drop_off_location',
+    'guests',
+    'page',
+  ] as const) {
+    const v = sp[key]
+    if (typeof v === 'string' && v.trim()) qs.set(key, v.trim())
+  }
+  return qs.toString()
+}
+
 async function fetchYolcu360Cars(
   pickup: string,
   dropoff: string,
@@ -62,22 +100,12 @@ export default async function Page({
 }) {
   const { handle, locale } = await params
   const sp = await searchParams
+  const selectedQuery = selectedCarSearchQuery(sp)
   if (!handle?.length) {
-    const qs = new URLSearchParams()
-    for (const key of [
-      'location',
-      'checkin',
-      'checkout',
-      'drop_off',
-      'drop_off_location',
-      'guests',
-      'page',
-    ] as const) {
-      const v = sp[key]
-      if (typeof v === 'string' && v.trim()) qs.set(key, v.trim())
-    }
-    const q = qs.toString()
-    redirect(`/${locale}/arac-kiralama/all${q ? `?${q}` : ''}`)
+    redirect(`/${locale}/arac-kiralama/all?${selectedQuery || carDefaultSearchQuery()}`)
+  }
+  if (handle.length === 1 && handle[0] === 'all' && !selectedQuery) {
+    redirect(`/${locale}/arac-kiralama/all?${carDefaultSearchQuery()}`)
   }
   const currentHandle = regionHandleFromParams(handle)
   const category = getCategoryBySlug('arac-kiralama')
