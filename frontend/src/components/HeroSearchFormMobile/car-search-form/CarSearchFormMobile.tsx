@@ -1,30 +1,64 @@
 'use client'
 
+import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
+import { parseLocalYmd } from '@/utils/format-local-ymd'
 import { getMessages } from '@/utils/getT'
 import { Radio, RadioGroup } from '@headlessui/react'
 import Form from 'next/form'
-import { useParams, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import DatesRangeInput from '../DatesRangeInput'
 import FieldPanelContainer from '../FieldPanelContainer'
 import LocationInput from '../LocationInput'
 
-const CarSearchFormMobile = () => {
-  //
+function CarSearchFormMobileInner() {
   const [fieldNameShow, setFieldNameShow] = useState<'locationPickup' | 'locationDropoff' | 'dates'>('locationPickup')
-  //
-  const [locationInputPickUp, setLocationInputPickUp] = useState('')
-  const [locationInputDropOff, setLocationInputDropOff] = useState('')
-  const [startDate, setStartDate] = useState<Date | null>(null)
-  const [endDate, setEndDate] = useState<Date | null>(null)
-  const [dropOffLocationType, setDropOffLocationType] = useState<'same' | 'different'>('different')
+
+  const searchParams = useSearchParams()
+  const urlPickup = searchParams.get('location') ?? ''
+  const urlDropoff = searchParams.get('drop_off_location') ?? ''
+  const urlCheckin = searchParams.get('checkin') ?? ''
+  const urlCheckoutRaw = searchParams.get('checkout') ?? ''
+  const urlDropOff = searchParams.get('drop_off')
+
+  const defaultCheckout = useMemo(
+    () => ensureCarRentalCheckout(urlCheckin, urlCheckoutRaw) || undefined,
+    [urlCheckin, urlCheckoutRaw],
+  )
+  const defaultStartDate = useMemo(() => parseLocalYmd(urlCheckin), [urlCheckin])
+  const defaultEndDate = useMemo(() => parseLocalYmd(defaultCheckout), [defaultCheckout])
+
+  const [locationInputPickUp, setLocationInputPickUp] = useState(urlPickup)
+  const [locationInputDropOff, setLocationInputDropOff] = useState(urlDropoff)
+  const [startDate, setStartDate] = useState<Date | null>(defaultStartDate)
+  const [endDate, setEndDate] = useState<Date | null>(defaultEndDate)
+  const [dropOffLocationType, setDropOffLocationType] = useState<'same' | 'different'>(() =>
+    urlDropOff === 'different' ? 'different' : 'same',
+  )
   const router = useRouter()
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const m = getMessages(locale)
   const mobileCar = m.mobile.car
+
+  useEffect(() => {
+    setLocationInputPickUp(urlPickup)
+  }, [urlPickup])
+
+  useEffect(() => {
+    setLocationInputDropOff(urlDropoff)
+  }, [urlDropoff])
+
+  useEffect(() => {
+    setStartDate(defaultStartDate)
+    setEndDate(defaultEndDate)
+  }, [defaultStartDate, defaultEndDate])
+
+  useEffect(() => {
+    setDropOffLocationType(urlDropOff === 'different' ? 'different' : 'same')
+  }, [urlDropOff])
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
@@ -34,18 +68,25 @@ const CarSearchFormMobile = () => {
 
   const handleFormSubmit = (formData: FormData) => {
     const formDataEntries = Object.fromEntries(formData.entries())
+    const checkin = formDataEntries['checkin'] as string
+    const checkout = ensureCarRentalCheckout(checkin, formDataEntries['checkout'] as string)
     const params: Record<string, string> = {
       ...formDataToStringRecord(formData),
       drop_off_mode: dropOffLocationType,
       date_range_label:
         startDate && endDate ? converSelectedDateToString([startDate, endDate]) : '',
+      ...(checkout ? { checkout } : {}),
     }
     runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
     const location = formDataEntries['pickup-location'] as string
+    const dropoffLocation = formDataEntries['dropoff-location'] as string
     const qs = new URLSearchParams()
     if (location) qs.set('location', location)
-    if (params.checkin) qs.set('checkin', params.checkin)
-    if (params.checkout) qs.set('checkout', params.checkout)
+    if (dropOffLocationType === 'different' && dropoffLocation) {
+      qs.set('drop_off_location', dropoffLocation)
+    }
+    if (checkin) qs.set('checkin', checkin)
+    if (checkout) qs.set('checkout', checkout)
     qs.set('drop_off', dropOffLocationType)
     const qstr = qs.toString()
     router.push('/arac-kiralama/all' + (qstr ? `?${qstr}` : ''))
@@ -124,11 +165,21 @@ const CarSearchFormMobile = () => {
         headingTitle={m.HeroSearchForm['When']}
         headingValue={startDate ? converSelectedDateToString([startDate, endDate]) : m.HeroSearchForm['Add dates']}
       >
-        <DatesRangeInput onChange={onChangeDate} />
+        <DatesRangeInput
+          onChange={onChangeDate}
+          defaultStartDate={defaultStartDate}
+          defaultEndDate={defaultEndDate}
+        />
       </FieldPanelContainer>
       {/*  */}
     </Form>
   )
 }
+
+const CarSearchFormMobile = () => (
+  <Suspense fallback={null}>
+    <CarSearchFormMobileInner />
+  </Suspense>
+)
 
 export default CarSearchFormMobile

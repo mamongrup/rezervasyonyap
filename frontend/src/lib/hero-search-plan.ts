@@ -5,6 +5,7 @@
  */
 
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { getAuthMe } from '@/lib/travel-api'
 
 export type HeroSearchVertical = 'stay' | 'car' | 'experience' | 'flight'
@@ -162,14 +163,47 @@ function locationQueryValue(vertical: HeroSearchVertical, params: Record<string,
   }
 }
 
+function buildSearchQuery(vertical: HeroSearchVertical, params: Record<string, string>): string {
+  const qs = new URLSearchParams()
+  switch (vertical) {
+    case 'car': {
+      const loc = params['pickup-location']
+      if (loc) qs.set('location', loc)
+      const dropoff = params['dropoff-location']
+      if (dropoff) qs.set('drop_off_location', dropoff)
+      const checkin = params.checkin ?? ''
+      if (checkin) qs.set('checkin', checkin)
+      const checkout = ensureCarRentalCheckout(checkin, params.checkout ?? '')
+      if (checkout) qs.set('checkout', checkout)
+      const dropOffMode = params.drop_off_mode
+      if (dropOffMode === 'same' || dropOffMode === 'different') qs.set('drop_off', dropOffMode)
+      break
+    }
+    case 'flight': {
+      const from = params['flying-from-location']
+      const to = params['flying-to-location']
+      if (from) qs.set('from', from)
+      if (to) qs.set('to', to)
+      if (params.checkin) qs.set('checkin', params.checkin)
+      break
+    }
+    default: {
+      const loc = params.location
+      if (loc) qs.set('location', loc)
+      if (params.checkin) qs.set('checkin', params.checkin)
+      if (params.checkout) qs.set('checkout', params.checkout)
+      if (params.guestAdults) qs.set('guests', params.guestAdults)
+      break
+    }
+  }
+  const s = qs.toString()
+  return s ? `?${s}` : ''
+}
+
 /** Kayıtlı hero araması için tam uygulama yolu — `vitrinPath` ile vitrin segmentleri uygulanır; sorgu korunur. */
 export function buildHeroSearchHref(vitrinPath: (internal: string) => string, snapshot: HeroSearchSnapshot): string {
   const base = snapshot.pathnameHint?.trim() || DEFAULT_PATH_BY_VERTICAL[snapshot.vertical]
-  const loc = locationQueryValue(snapshot.vertical, snapshot.params)
-  const pathWithQuery = loc ? `${base}?location=${encodeURIComponent(loc)}` : base
-  const qIdx = pathWithQuery.indexOf('?')
-  const pathOnly = qIdx === -1 ? pathWithQuery : pathWithQuery.slice(0, qIdx)
-  const query = qIdx === -1 ? '' : pathWithQuery.slice(qIdx)
-  const internal = pathOnly.startsWith('/') ? pathOnly : `/${pathOnly}`
+  const query = buildSearchQuery(snapshot.vertical, snapshot.params)
+  const internal = base.startsWith('/') ? base : `/${base}`
   return vitrinPath(internal) + query
 }

@@ -6,8 +6,9 @@ import T from '@/utils/getT'
 import { Radio, RadioGroup } from '@headlessui/react'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter } from 'next/navigation'
-import { FC, useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { FC, Suspense, useEffect, useMemo, useState } from 'react'
+import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
 import { ButtonSubmit, DateRangeField, LocationInputField, VerticalDividerLine } from './ui'
 
 interface Props {
@@ -15,14 +16,32 @@ interface Props {
   formStyle: 'default' | 'small'
 }
 
-export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default' }) => {
-  const [dropOffLocationType, setDropOffLocationType] = useState<'same' | 'different'>('different')
+const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) => {
+  const searchParams = useSearchParams()
+  const urlPickup = searchParams.get('location') ?? ''
+  const urlDropoff = searchParams.get('drop_off_location') ?? ''
+  const urlCheckin = searchParams.get('checkin') ?? ''
+  const urlCheckoutRaw = searchParams.get('checkout') ?? ''
+  const urlDropOff = searchParams.get('drop_off')
+
+  const defaultCheckout = useMemo(
+    () => ensureCarRentalCheckout(urlCheckin, urlCheckoutRaw) || undefined,
+    [urlCheckin, urlCheckoutRaw],
+  )
+
+  const [dropOffLocationType, setDropOffLocationType] = useState<'same' | 'different'>(() =>
+    urlDropOff === 'different' ? 'different' : 'same',
+  )
 
   const router = useRouter()
 
   useEffect(() => {
     router.prefetch('/arac-kiralama/all')
   }, [router])
+
+  useEffect(() => {
+    setDropOffLocationType(urlDropOff === 'different' ? 'different' : 'same')
+  }, [urlDropOff])
 
   const handleFormSubmit = (formData: FormData) => {
     const formDataEntries = Object.fromEntries(formData.entries())
@@ -35,15 +54,15 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
       checkin,
       formDataEntries['checkout'] as string,
     )
-    const searchParams = new URLSearchParams()
-    if (location) searchParams.set('location', location)
+    const nextParams = new URLSearchParams()
+    if (location) nextParams.set('location', location)
     if (dropOffLocationType === 'different' && dropoffLocation) {
-      searchParams.set('drop_off_location', dropoffLocation)
+      nextParams.set('drop_off_location', dropoffLocation)
     }
-    if (checkin) searchParams.set('checkin', checkin)
-    if (checkout) searchParams.set('checkout', checkout)
-    searchParams.set('drop_off', dropOffLocationType)
-    const qs = searchParams.toString()
+    if (checkin) nextParams.set('checkin', checkin)
+    if (checkout) nextParams.set('checkout', checkout)
+    nextParams.set('drop_off', dropOffLocationType)
+    const qs = nextParams.toString()
     router.push('/arac-kiralama/all' + (qs ? `?${qs}` : ''))
   }
 
@@ -94,6 +113,7 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
           inputName="pickup-location"
           fieldStyle={formStyle}
           locationSearchType="car"
+          defaultName={urlPickup}
         />
         {isDdropOffdifferent && (
           <>
@@ -105,6 +125,7 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
               inputName="dropoff-location"
               fieldStyle={formStyle}
               locationSearchType="car"
+              defaultName={urlDropoff}
             />
           </>
         )}
@@ -114,6 +135,8 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
           description={T['HeroSearchForm']['Pick up - Drop off']}
           clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
           fieldStyle={formStyle}
+          defaultStartDate={urlCheckin || undefined}
+          defaultEndDate={defaultCheckout}
         />
 
         <ButtonSubmit fieldStyle={formStyle} />
@@ -121,3 +144,9 @@ export const RentalCarSearchForm: FC<Props> = ({ className, formStyle = 'default
     </Form>
   )
 }
+
+export const RentalCarSearchForm: FC<Props> = (props) => (
+  <Suspense fallback={<HeroSearchFormSkeleton />}>
+    <RentalCarSearchFormInner {...props} />
+  </Suspense>
+)

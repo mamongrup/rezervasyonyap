@@ -7,7 +7,8 @@ import '@/lib/register-datepicker-locales'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
 import { useParams } from 'next/navigation'
-import { FC, useState } from 'react'
+import { formatLocalYmd } from '@/utils/format-local-ymd'
+import { FC, useEffect, useState } from 'react'
 import DatePicker from 'react-datepicker'
 import datepickerStyles from '@/styles/react-datepicker.module.css'
 
@@ -24,6 +25,14 @@ const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStar
   const m = getMessages(locale)
   const [startDate, setStartDate] = useState<Date | null>(defaultStartDate ?? null)
   const [endDate, setEndDate] = useState<Date | null>(defaultEndDate ?? null)
+
+  useEffect(() => {
+    if (defaultStartDate) setStartDate(defaultStartDate)
+  }, [defaultStartDate])
+
+  useEffect(() => {
+    if (defaultEndDate) setEndDate(defaultEndDate)
+  }, [defaultEndDate])
 
   const onChangeDate = (dates: [Date | null, Date | null]) => {
     const [start, end] = dates
@@ -60,8 +69,8 @@ const StayDatesRangeInput: FC<Props> = ({ className, defaultEndDate, defaultStar
       </div>
 
       {/* input:hidde */}
-      <input type="hidden" name="checkin" value={startDate ? startDate.toISOString().split('T')[0] : ''} />
-      <input type="hidden" name="checkout" value={endDate ? endDate.toISOString().split('T')[0] : ''} />
+      <input type="hidden" name="checkin" value={startDate ? formatLocalYmd(startDate) : ''} />
+      <input type="hidden" name="checkout" value={endDate ? formatLocalYmd(endDate) : ''} />
     </>
   )
 }

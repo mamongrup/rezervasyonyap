@@ -7,6 +7,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import dynamic from 'next/dynamic'
+import { formatLocalYmd, parseLocalYmd } from '@/utils/format-local-ymd'
 import { FC, useEffect, useState } from 'react'
 import { ClearDataButton } from './ClearDataButton'
 
@@ -64,22 +65,17 @@ export const DateRangeField: FC<Props> = ({
   defaultStartDate,
   defaultEndDate,
 }) => {
-  const parseYmd = (s?: string): Date | null => {
-    if (!s?.trim()) return null
-    const d = new Date(`${s.trim()}T12:00:00`)
-    return Number.isNaN(d.getTime()) ? null : d
-  }
-  const [startDate, setStartDate] = useState<Date | null>(() => parseYmd(defaultStartDate))
-  const [endDate, setEndDate] = useState<Date | null>(() => parseYmd(defaultEndDate))
+  const [startDate, setStartDate] = useState<Date | null>(() => parseLocalYmd(defaultStartDate))
+  const [endDate, setEndDate] = useState<Date | null>(() => parseLocalYmd(defaultEndDate))
   const monthsShown = useResponsiveCalendarMonthsShown()
 
   useEffect(() => {
-    const s = parseYmd(defaultStartDate)
+    const s = parseLocalYmd(defaultStartDate)
     if (s) setStartDate(s)
   }, [defaultStartDate])
 
   useEffect(() => {
-    const e = parseYmd(defaultEndDate)
+    const e = parseLocalYmd(defaultEndDate)
     if (e) setEndDate(e)
   }, [defaultEndDate])
 
@@ -145,9 +141,9 @@ export const DateRangeField: FC<Props> = ({
       </Popover>
 
       {/* input:hidde */}
-      <input type="hidden" name="checkin" value={startDate ? startDate.toISOString().split('T')[0] : ''} />
+      <input type="hidden" name="checkin" value={startDate ? formatLocalYmd(startDate) : ''} />
       {!isOnlySingleDate && (
-        <input type="hidden" name="checkout" value={endDate ? endDate.toISOString().split('T')[0] : ''} />
+        <input type="hidden" name="checkout" value={endDate ? formatLocalYmd(endDate) : ''} />
       )}
     </>
   )

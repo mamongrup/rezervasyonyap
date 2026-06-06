@@ -74,6 +74,8 @@ interface Props {
   fieldStyle: 'default' | 'small'
   /** Araç kiralama: Yolcu360 konum önerileri (`/api/location-search?type=car`) */
   locationSearchType?: 'car'
+  /** URL veya son aramadan ön doldurma */
+  defaultName?: string
 }
 
 export const LocationInputField: FC<Props> = ({
@@ -83,11 +85,15 @@ export const LocationInputField: FC<Props> = ({
   inputName = 'location',
   fieldStyle = 'default',
   locationSearchType,
+  defaultName,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [showPopover, setShowPopover] = useState(false)
-  const [selected, setSelected] = useState<Suggest | null>(null)
+  const [selected, setSelected] = useState<Suggest | null>(() => {
+    const n = defaultName?.trim()
+    return n ? { id: 'prefill', name: n } : null
+  })
   const [searchResults, setSearchResults] = useState<Suggest[]>([])
   const [loadingSearch, setLoadingSearch] = useState(false)
 
@@ -104,6 +110,11 @@ export const LocationInputField: FC<Props> = ({
       })
       .catch(() => {/* sessiz hata — statik liste kalır */})
   }, [locationSearchQs])
+
+  useEffect(() => {
+    const n = defaultName?.trim()
+    if (n) setSelected({ id: 'prefill', name: n })
+  }, [defaultName])
 
   useEffect(() => {
     const t = setTimeout(() => {
