@@ -10,15 +10,17 @@ export type HotelSectionNavItem = {
 export default function HotelSectionNav({
   items,
   className,
+  ariaLabel = 'Hotel sections',
 }: {
   items: HotelSectionNavItem[]
   className?: string
+  ariaLabel?: string
 }) {
   if (items.length < 2) return null
 
   return (
     <nav
-      aria-label="Otel bölümleri"
+      aria-label={ariaLabel}
       className={clsx(
         'sticky top-0 z-10 -mx-1 overflow-x-auto bg-white/90 px-1 py-3 backdrop-blur supports-[backdrop-filter]:bg-white/75 dark:bg-neutral-950/85 dark:supports-[backdrop-filter]:bg-neutral-950/70',
         className,

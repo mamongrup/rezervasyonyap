@@ -4,7 +4,7 @@ import type { TListingBase } from '@/types/listing-types'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { en } from '../../public/locales/en'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { FC, ReactNode } from 'react'
@@ -38,6 +38,7 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
   rightButtonHref = '/oteller/all',
   cardType = 'card2',
 }) => {
+  const { messages } = useAppLocale()
   const vitrinHref = useVitrinHref()
   const resolvedRightHref = vitrinHref(rightButtonHref)
 
@@ -66,7 +67,7 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
       </div>
       <div className="mt-16 flex items-center justify-center">
         <ButtonPrimary href={resolvedRightHref}>
-          {T['common']['Show me more']}
+          {messages.common['Show me more']}
           <HugeiconsIcon icon={ArrowRight02Icon} className="h-5 w-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonPrimary>
       </div>

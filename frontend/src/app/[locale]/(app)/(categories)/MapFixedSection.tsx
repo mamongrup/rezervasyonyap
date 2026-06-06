@@ -10,7 +10,7 @@ import { TCarListing, TExperienceListing } from '@/data/listings'
 import { Button } from '@/shared/Button'
 import ButtonClose from '@/shared/ButtonClose'
 import { ListingType } from '@/type'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Cancel01Icon, Settings01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { LngLatBounds } from 'maplibre-gl'
@@ -136,6 +136,7 @@ interface Props {
 }
 
 const MapFixedSection = ({ closeButtonHref, currentHoverID: selectedID, listings, listingType }: Props) => {
+  const { messages } = useAppLocale()
   const [currentHoverID, setCurrentHoverID] = useState<string>('')
   const [mapTheme, setMapTheme] = useState<'light' | 'dark'>('light')
 
@@ -228,7 +229,7 @@ const MapFixedSection = ({ closeButtonHref, currentHoverID: selectedID, listings
             className="shadow-[0_4px_16px_rgba(0,0,0,0.12)] ring-1 ring-black/8"
           >
             <HugeiconsIcon icon={Cancel01Icon} className="size-5" strokeWidth={1.75} />
-            <span className="text-sm font-medium">{T['common']['Hide map']}</span>
+            <span className="text-sm font-medium">{messages.common['Hide map']}</span>
           </Button>
         </div>
       </div>

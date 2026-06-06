@@ -32,6 +32,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { getCategoryByMapRoute } from '@/data/category-registry'
 import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
+import {
+  STAY_RENTAL_FILTER_ATTR_KEYS,
+  normalizeStayRentalAttrKey,
+  parseStayRentalAttrsParam,
+} from '@/lib/stay-rental-filter-attrs'
+import { getMessages } from '@/utils/getT'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 
@@ -107,6 +113,8 @@ export default function HolidayListingFilters({
   }
 
   const isHolidayHomesCategory = categorySlug === 'tatil-evleri'
+  const isYachtCategory = categorySlug === 'yat-kiralama'
+  const isStayRentalCategoryPage = isHolidayHomesCategory || isYachtCategory
 
   const effectiveThemeOptions = useMemo(() => {
     if (themeOptions && themeOptions.length > 0) return themeOptions
@@ -134,38 +142,27 @@ export default function HolidayListingFilters({
   const themeParam = searchParams.get('theme') ?? ''
   const attrsParam = searchParams.get('attrs') ?? ''
 
-  const selectedAttrKeys = useMemo(() => {
-    const s = new Set<string>()
-    for (const x of attrsParam.split(',')) {
-      const t = x.trim().toLowerCase()
-      if (t) s.add(t)
-    }
-    return s
-  }, [attrsParam])
+  const selectedAttrKeys = useMemo(() => parseStayRentalAttrsParam(attrsParam), [attrsParam])
 
-  const attrOptions = useMemo(
-    () =>
-      [
-        { key: 'pool', label: l.attrPool },
-        { key: 'wifi', label: l.attrWifi },
-        { key: 'kitchen', label: l.attrKitchen },
-        { key: 'parking', label: l.attrParking },
-        { key: 'ac', label: l.attrAc },
-        { key: 'heating', label: l.attrHeating },
-      ] as const,
-    [l],
-  )
+  const attrOptions = useMemo(() => {
+    const amenityLabels = getMessages(effectiveLocale).listing.amenities.labels as Record<string, string>
+    return STAY_RENTAL_FILTER_ATTR_KEYS.map((key) => ({
+      key,
+      label: amenityLabels[key] ?? key.replace(/_/g, ' '),
+    }))
+  }, [effectiveLocale])
 
   function toggleAttrKey(key: string) {
     const next = new Set(selectedAttrKeys)
-    const k = key.toLowerCase()
+    const k = normalizeStayRentalAttrKey(key)
+    if (!k) return
     if (next.has(k)) next.delete(k)
     else next.add(k)
     setQuery({ attrs: [...next].join(',') || null })
   }
 
-  /** Tatil evleri: API boş gelse bile tema filtresi (alt kategori yerine) */
-  const useThemeFilter = isHolidayHomesCategory && effectiveThemeOptions.length > 0
+  /** Tema listesi varsa alt kategori yerine tema filtresi (tatil evi + yat) */
+  const useThemeFilter = isStayRentalCategoryPage && effectiveThemeOptions.length > 0
   const themeActive = useThemeFilter && !!themeParam.trim()
 
   const subActive =
@@ -388,7 +385,7 @@ export default function HolidayListingFilters({
                 </ul>
               </div>
             )}
-            {isHolidayHomesCategory ? (
+            {isStayRentalCategoryPage ? (
               <div className="border-b border-neutral-200 py-6 dark:border-neutral-800">
                 <h3 className="text-lg font-medium">{l.attributes}</h3>
                 <div className="mt-3">{attrPillList}</div>
@@ -605,7 +602,7 @@ export default function HolidayListingFilters({
           </PopoverPanel>
         </Popover>
 
-        {isHolidayHomesCategory ? (
+        {isStayRentalCategoryPage ? (
           <Popover className="relative">
             <PopoverButton
               type="button"

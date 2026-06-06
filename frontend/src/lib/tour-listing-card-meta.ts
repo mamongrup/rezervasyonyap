@@ -1,4 +1,6 @@
 import type { TListingTour } from '@/types/listing-types'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 
 function normKey(raw: string | null | undefined): string {
   return String(raw ?? '')
@@ -8,26 +10,32 @@ function normKey(raw: string | null | undefined): string {
     .replace(/[\u0300-\u036f]/g, '')
 }
 
-function mapTravelLabel(travelType?: string, transportRaw?: string): string | null {
+function mapTravelLabel(
+  locale: string,
+  travelType?: string,
+  transportRaw?: string,
+): string | null {
+  const cm = getMessages(locale).listing.tourDetail.cardMeta
   const code = normKey(travelType)
-  if (code === 'plane') return 'Uçak ile yolculuk'
-  if (code === 'bus') return 'Otobüs ile yolculuk'
-  if (code === 'both') return 'Uçak+otobüs ile yolculuk'
-  if (code === 'own') return 'Kendi aracıyla yolculuk'
+  if (code === 'plane') return cm.travelPlane
+  if (code === 'bus') return cm.travelBus
+  if (code === 'both') return cm.travelBoth
+  if (code === 'own') return cm.travelOwn
 
   const raw = normKey(transportRaw)
   if (!raw) return null
-  if (raw.includes('ucak') && raw.includes('otobus')) return 'Uçak+otobüs ile yolculuk'
-  if (raw.includes('plane') && raw.includes('bus')) return 'Uçak+otobüs ile yolculuk'
+  if (raw.includes('ucak') && raw.includes('otobus')) return cm.travelBoth
+  if (raw.includes('plane') && raw.includes('bus')) return cm.travelBoth
   if (raw === '1' || raw.includes('ucak') || raw.includes('plane') || raw.includes('air'))
-    return 'Uçak ile yolculuk'
-  if (raw === '2' || raw.includes('otobus') || raw.includes('bus')) return 'Otobüs ile yolculuk'
-  if (raw === '3' || raw.includes('karma') || raw.includes('mixed')) return 'Uçak+otobüs ile yolculuk'
+    return cm.travelPlane
+  if (raw === '2' || raw.includes('otobus') || raw.includes('bus')) return cm.travelBus
+  if (raw === '3' || raw.includes('karma') || raw.includes('mixed')) return cm.travelBoth
 
   return null
 }
 
-function mapMealLabel(mealRaw?: string): string | null {
+function mapMealLabel(locale: string, mealRaw?: string): string | null {
+  const cm = getMessages(locale).listing.tourDetail.cardMeta
   const raw = normKey(mealRaw)
   if (!raw) return null
 
@@ -38,7 +46,7 @@ function mapMealLabel(mealRaw?: string): string | null {
     raw === '0' ||
     raw === 'room_only'
   ) {
-    return 'Oda'
+    return cm.mealRoomOnly
   }
   if (
     raw.includes('kahvalti') ||
@@ -48,7 +56,7 @@ function mapMealLabel(mealRaw?: string): string | null {
     raw === 'bb' ||
     raw === 'bed_breakfast'
   ) {
-    return 'Oda - Kahvaltı'
+    return cm.mealBreakfast
   }
   if (
     raw.includes('yarim') ||
@@ -57,7 +65,7 @@ function mapMealLabel(mealRaw?: string): string | null {
     raw === 'hb' ||
     raw === 'half_board'
   ) {
-    return 'Yarım Pansiyon'
+    return cm.mealHalfBoard
   }
   if (
     raw.includes('tam') ||
@@ -66,18 +74,18 @@ function mapMealLabel(mealRaw?: string): string | null {
     raw === 'fb' ||
     raw === 'full_board'
   ) {
-    return 'Tam Pansiyon'
+    return cm.mealFullBoard
   }
 
-  // Wtatil bazen ham metin döner — olduğu gibi göster
   const original = String(mealRaw ?? '').trim()
   if (original.length > 0 && original.length <= 40) return original
   return null
 }
 
-function mapVisaLabel(visaRequired?: boolean): string | null {
-  if (visaRequired === true) return 'Vizeli'
-  if (visaRequired === false) return 'Vizesiz'
+function mapVisaLabel(locale: string, visaRequired?: boolean): string | null {
+  const cm = getMessages(locale).listing.tourDetail.cardMeta
+  if (visaRequired === true) return cm.visaRequired
+  if (visaRequired === false) return cm.visaNotRequired
   return null
 }
 
@@ -139,17 +147,21 @@ export function mapTourDepartureCityLabel(raw?: string | null): string | null {
   return null
 }
 
-function mapDepartureMetaLabel(departureRaw?: string): string | null {
+function mapDepartureMetaLabel(locale: string, departureRaw?: string): string | null {
   const city = mapTourDepartureCityLabel(departureRaw)
-  return city ? `Kalkış: ${city}` : null
+  if (!city) return null
+  return interpolate(getMessages(locale).listing.tourDetail.cardMeta.departure, { city })
 }
 
-function formatDuration(nights?: number, days?: number): string | null {
+function formatDuration(locale: string, nights?: number, days?: number): string | null {
+  const cm = getMessages(locale).listing.tourDetail.cardMeta
   const n = nights != null && nights > 0 ? nights : null
   const d = days != null && days > 0 ? days : n != null ? n + 1 : null
-  if (n != null && d != null) return `${n} Gece - ${d} Gündüz`
-  if (n != null) return `${n} Gece`
-  if (d != null) return `${d} Gündüz`
+  if (n != null && d != null) {
+    return interpolate(cm.durationNightsDays, { nights: String(n), days: String(d) })
+  }
+  if (n != null) return interpolate(cm.durationNights, { nights: String(n) })
+  if (d != null) return interpolate(cm.durationDays, { days: String(d) })
   return null
 }
 
@@ -159,19 +171,19 @@ function joinMetaParts(parts: Array<string | null>): string | null {
 }
 
 /** Tur vitrin kartı — bölge satırından sonra en fazla 2 kompakt meta satırı */
-export function buildTourListingCardMetaLines(tour: TListingTour, _locale = 'tr'): string[] {
+export function buildTourListingCardMetaLines(tour: TListingTour, locale = 'tr'): string[] {
   const lines: string[] = []
 
   const rowOne = joinMetaParts([
-    mapDepartureMetaLabel(tour.departureCity),
-    mapVisaLabel(tour.visaRequired),
-    mapTravelLabel(tour.travelType, tour.transportType),
+    mapDepartureMetaLabel(locale, tour.departureCity),
+    mapVisaLabel(locale, tour.visaRequired),
+    mapTravelLabel(locale, tour.travelType, tour.transportType),
   ])
   if (rowOne) lines.push(rowOne)
 
   const rowTwo = joinMetaParts([
-    formatDuration(tour.durationNights, tour.durationDays),
-    mapMealLabel(tour.mealType),
+    formatDuration(locale, tour.durationNights, tour.durationDays),
+    mapMealLabel(locale, tour.mealType),
   ])
   if (rowTwo) lines.push(rowTwo)
 

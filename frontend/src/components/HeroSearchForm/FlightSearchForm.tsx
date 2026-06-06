@@ -4,7 +4,7 @@ import NcInputNumber from '@/components/NcInputNumber'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { GuestsObject } from '@/type'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import {
   CloseButton,
   Popover,
@@ -35,6 +35,8 @@ const FLIGHT_CLASS_KEYS = [
 ]
 
 const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
   const searchParams = useSearchParams()
   const urlTrip = searchParams.get('trip')
   const urlClass = searchParams.get('class')
@@ -116,7 +118,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
       <Popover className="group relative">
         <PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
           <span>
-            {totalGuests || ''} {T['HeroSearchForm']['Guests']}
+            {totalGuests || ''} {hf['Guests']}
           </span>
           <HugeiconsIcon
             icon={ArrowDown01Icon}
@@ -136,8 +138,8 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
             onChange={(value) => handleChangeData(value, 'guestAdults')}
             max={10}
             min={1}
-            label={T['HeroSearchForm']['Adults']}
-            description={T['HeroSearchForm']['Ages 13 or above']}
+            label={hf['Adults']}
+            description={hf['Ages 13 or above']}
             inputName="guestAdults"
           />
           <NcInputNumber
@@ -145,8 +147,8 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
             defaultValue={guestChildrenInputValue}
             onChange={(value) => handleChangeData(value, 'guestChildren')}
             max={4}
-            label={T['HeroSearchForm']['Children']}
-            description={T['HeroSearchForm']['Ages 2–12']}
+            label={hf['Children']}
+            description={hf['Ages 2–12']}
             inputName="guestChildren"
           />
 
@@ -155,8 +157,8 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
             defaultValue={guestInfantsInputValue}
             onChange={(value) => handleChangeData(value, 'guestInfants')}
             max={4}
-            label={T['HeroSearchForm']['Infants']}
-            description={T['HeroSearchForm']['Ages 0–2']}
+            label={hf['Infants']}
+            description={hf['Ages 0–2']}
             inputName="guestInfants"
           />
         </PopoverPanel>
@@ -169,7 +171,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
       <>
         <Popover className="group relative">
           <PopoverButton className="flex cursor-pointer items-center gap-2 rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700">
-            <span>{T['HeroSearchForm'][flightClassState]}</span>
+            <span>{hf[flightClassState]}</span>
             <HugeiconsIcon
             icon={ArrowDown01Icon}
             className="-me-1 size-3.5 group-data-open:rotate-180"
@@ -188,7 +190,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
                   onClick={() => setFlightClassState(item.key)}
                   className="-m-3 flex cursor-pointer items-center rounded-lg p-2 text-sm font-medium hover:bg-gray-50 focus:outline-hidden focus-visible:ring-3 focus-visible:ring-orange-500/50 dark:hover:bg-gray-700"
                 >
-                  {T['HeroSearchForm'][item.key]}
+                  {hf[item.key]}
                 </CloseButton>
               ))}
             </div>
@@ -214,13 +216,13 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
           value="roundTrip"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:border-neutral-700 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
-          {T['HeroSearchForm']['Round-trip']}
+          {hf['Round-trip']}
         </Radio>
         <Radio
           value="oneWay"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:border-neutral-700 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
-          {T['HeroSearchForm']['One-way']}
+          {hf['One-way']}
         </Radio>
       </RadioGroup>
     )
@@ -253,8 +255,8 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
       <div className="relative z-10 flex flex-1 overflow-visible rounded-full">
         <FlightLocationInputField
           inputName="flying-from-location"
-          placeholder={T['HeroSearchForm']['Flying from']}
-          description={T['HeroSearchForm']['Where are you flying from?']}
+          placeholder={hf['Flying from']}
+          description={hf['Where are you flying from?']}
           className="hero-search-form__field-after flex-1"
           fieldStyle={formStyle}
           defaultValue={urlFrom}
@@ -263,8 +265,8 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
         <VerticalDividerLine />
         <FlightLocationInputField
           inputName="flying-to-location"
-          placeholder={T['HeroSearchForm']['Flying to']}
-          description={T['HeroSearchForm']['Where are you flying to?']}
+          placeholder={hf['Flying to']}
+          description={hf['Where are you flying to?']}
           className="hero-search-form__field-before hero-search-form__field-after flex-1"
           fieldStyle={formStyle}
           defaultValue={urlTo}
@@ -275,7 +277,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
           fieldStyle={formStyle}
           className="hero-search-form__field-before flex-1"
           panelClassName="sm:start-auto sm:translate-x-0 sm:end-0"
-          description={tripType === 'oneWay' ? T['HeroSearchForm']['Flying date'] : T['HeroSearchForm']['Flying dates']}
+          description={tripType === 'oneWay' ? hf['Flying date'] : hf['Flying dates']}
           isOnlySingleDate={tripType === 'oneWay'}
           defaultStartDate={defaultStartDate}
           clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}

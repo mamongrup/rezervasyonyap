@@ -4,6 +4,7 @@ import type { CategoryRegistryEntry } from '@/data/category-registry'
 import type { TAuthor } from '@/data/authors'
 import SectionFeaturedByRegion from '@/components/SectionFeaturedByRegion'
 import { buildDefaultFeaturedRegionConfig } from '@/lib/featured-region-defaults'
+import { resolveListingPriceUnit } from '@/lib/listing-category-display'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
@@ -171,7 +172,7 @@ export default async function PageBuilderRenderer({
   categoriesNode,
   allListings,
   listingLinkBase = '/otel',
-  priceUnit = '/gece',
+  priceUnit,
   locale = 'tr',
   authors = [],
   listingCardsById,
@@ -186,6 +187,8 @@ export default async function PageBuilderRenderer({
   const isRegionDetailLayout = layoutVariant === 'region_detail'
   const defaultSliderPageKey = pageKey ?? (isRegionDetailLayout ? 'bolge-detay' : category.slug)
   const messages = getMessages(locale)
+  const effectivePriceUnit =
+    priceUnit ?? resolveListingPriceUnit(category.detailRoute, locale)
   const defaultListingsBrowseHref =
     listingsBrowseHref ?? `${category.categoryRoute}/all`
   const enabled = [...modules].filter((m) => m.enabled).sort((a, b) => a.order - b.order)
@@ -466,7 +469,7 @@ export default async function PageBuilderRenderer({
                 allListings={allListings}
                 config={regionCfg}
                 listingLinkBase={listingLinkBase}
-                priceUnit={priceUnit}
+                priceUnit={effectivePriceUnit}
               />
             )
           }

@@ -70,7 +70,7 @@ const StayCard2: FC<StayCard2Props> = ({ size = 'default', className = '', data 
     return (
       <div className="relative w-full">
         <Link href={listingHref} className="block">
-          <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '91.6%' }}>
+          <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
             {showRemoteImage ? (
               <Image
                 src={trimmed}

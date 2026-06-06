@@ -8,6 +8,9 @@ import {
   type ActivityQuote,
   type ActivitySessionRow,
 } from '@/lib/travel-api'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
+import { toIntlLocale } from '@/lib/intl-locale'
 import { CalendarDays, Clock3, Minus, Plus, Users } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -15,33 +18,39 @@ function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
 
-function money(raw: string | undefined, currency: string) {
+function money(raw: string | undefined, currency: string, locale: string) {
   const n = Number(String(raw ?? '').replace(',', '.'))
   if (!Number.isFinite(n)) return raw ?? ''
   try {
-    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency }).format(n)
+    return new Intl.NumberFormat(toIntlLocale(locale), { style: 'currency', currency }).format(n)
   } catch {
-    return `${n.toLocaleString('tr-TR')} ${currency}`
+    return `${n.toLocaleString(toIntlLocale(locale))} ${currency}`
   }
 }
 
-function sessionLabel(session: ActivitySessionRow) {
-  const time = session.start_time?.slice(0, 5) || 'Saat belirtilmedi'
+function sessionLabel(session: ActivitySessionRow, locale: string) {
+  const ab = getMessages(locale).listing.activityBooking
+  const time = session.start_time?.slice(0, 5) || ab.timeNotSpecified
   const duration = Number(session.duration_minutes ?? 0)
-  return duration > 0 ? `${time} · ${duration} dk` : time
+  return duration > 0
+    ? `${time} · ${interpolate(ab.minutesShort, { min: String(duration) })}`
+    : time
 }
 
 export default function ActivityBookingPanel({
   listingId,
+  locale = 'tr',
   initialSessions,
   initialDate,
   fallbackPrice,
 }: {
   listingId: string
+  locale?: string
   initialSessions: ActivitySessionRow[]
   initialDate?: string
   fallbackPrice?: string
 }) {
+  const ab = getMessages(locale).listing.activityBooking
   const [date, setDate] = useState(initialDate || todayIso())
   const [sessions, setSessions] = useState<ActivitySessionRow[]>(initialSessions)
   const [sessionId, setSessionId] = useState(initialSessions[0]?.id ?? '')
@@ -68,7 +77,7 @@ export default function ActivityBookingPanel({
         if (!cancelled) {
           setSessions([])
           setSessionId('')
-          setMsg('Bu tarih için seans bilgisi alınamadı.')
+          setMsg(ab.sessionLoadError)
         }
       })
       .finally(() => {
@@ -94,7 +103,7 @@ export default function ActivityBookingPanel({
       .catch(() => {
         if (!cancelled) {
           setQuote(null)
-          setMsg('Seçili tarih ve seans için fiyat hesaplanamadı.')
+          setMsg(ab.quoteError)
         }
       })
       .finally(() => {
@@ -114,18 +123,18 @@ export default function ActivityBookingPanel({
   return (
     <div className="listingSection__wrap sm:shadow-xl">
       <div>
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">Başlangıç fiyatı</p>
+        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{ab.startingPrice}</p>
         <p className="mt-1 text-3xl font-semibold text-neutral-900 dark:text-neutral-100">
-          {quote ? money(quote.line_total, quote.currency_code) : fallbackPrice || 'Fiyat seçime göre'}
+          {quote ? money(quote.line_total, quote.currency_code, locale) : fallbackPrice || ab.priceBySelection}
         </p>
-        <p className="mt-1 text-xs text-neutral-400">Tarih, saat ve kişi tipine göre hesaplanır.</p>
+        <p className="mt-1 text-xs text-neutral-400">{ab.priceCalcHint}</p>
       </div>
       <Divider />
 
       <div className="space-y-4">
         <label className="block">
           <span className="mb-1.5 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            <CalendarDays className="h-4 w-4" /> Tarih
+            <CalendarDays className="h-4 w-4" /> {ab.dateLabel}
           </span>
           <input
             type="date"
@@ -137,7 +146,7 @@ export default function ActivityBookingPanel({
 
         <div>
           <p className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            <Clock3 className="h-4 w-4" /> Saat / Seans
+            <Clock3 className="h-4 w-4" /> {ab.sessionTimeLabel}
           </p>
           <div className="grid gap-2">
             {sessions.length > 0 ? (
@@ -152,15 +161,15 @@ export default function ActivityBookingPanel({
                       : 'border-neutral-200 bg-white text-neutral-700 hover:border-primary-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
                   }`}
                 >
-                  <span className="font-semibold">{sessionLabel(session)}</span>
+                  <span className="font-semibold">{sessionLabel(session, locale)}</span>
                   <span className="ml-2 text-xs text-neutral-400">
-                    {session.capacity ? `Kapasite ${session.capacity}` : ''}
+                    {session.capacity ? `${ab.capacity} ${session.capacity}` : ''}
                   </span>
                 </button>
               ))
             ) : (
               <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-500 dark:border-neutral-700">
-                Bu tarih için aktif seans bulunamadı.
+                {ab.noSessions}
               </p>
             )}
           </div>
@@ -168,15 +177,15 @@ export default function ActivityBookingPanel({
 
         <div>
           <p className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            <Users className="h-4 w-4" /> Katılımcılar
+            <Users className="h-4 w-4" /> {ab.participantsLabel}
           </p>
-          <Stepper label="Yetişkin" sublabel={quote ? money(quote.adult_unit, currency) : undefined} value={adults} min={0} onChange={setAdults} />
-          <Stepper label="Çocuk" sublabel={quote ? money(quote.child_unit, currency) : undefined} value={children} min={0} onChange={setChildren} />
+          <Stepper label={ab.adult} sublabel={quote ? money(quote.adult_unit, currency, locale) : undefined} value={adults} min={0} onChange={setAdults} />
+          <Stepper label={ab.child} sublabel={quote ? money(quote.child_unit, currency, locale) : undefined} value={children} min={0} onChange={setChildren} />
         </div>
 
         {msg ? <p className="text-sm text-amber-600 dark:text-amber-300">{msg}</p> : null}
         <ButtonPrimary type="button" disabled>
-          {loading ? 'Hesaplanıyor…' : 'Devam et (yakında)'}
+          {loading ? ab.calculating : ab.continueSoon}
         </ButtonPrimary>
       </div>
     </div>

@@ -1,8 +1,10 @@
+'use client'
+
 import rightImgDemo from '@/images/BecomeAnAuthorImg.png'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Heading, Subheading } from '@/shared/Heading'
 import Logo from '@/shared/Logo'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import Image from 'next/image'
 import { FC } from 'react'
 
@@ -19,6 +21,7 @@ const SectionBecomeAnAuthor: FC<SectionBecomeAnAuthorProps> = ({
   heading = 'Why did you choose us?',
   subHeading = 'Join us for a journey full of experiences. With Chisfis, booking resorts, villas, hotels, private homes, and apartments becomes quick, convenient, and easy.',
 }) => {
+  const { messages } = useAppLocale()
   return (
     <div className={`relative flex flex-col items-center lg:flex-row ${className}`}>
       <div className="mb-16 shrink-0 lg:me-10 lg:mb-0 lg:w-2/5">
@@ -27,7 +30,7 @@ const SectionBecomeAnAuthor: FC<SectionBecomeAnAuthorProps> = ({
         <Heading className="mt-6 sm:mt-11">{heading}</Heading>
         <Subheading className="mt-6">{subHeading}</Subheading>
 
-        <ButtonPrimary className="mt-6 sm:mt-11">{T['common']['Become an author']}</ButtonPrimary>
+        <ButtonPrimary className="mt-6 sm:mt-11">{messages.common['Become an author']}</ButtonPrimary>
       </div>
       <div className="grow">
         <Image alt="choose us" src={rightImg} />

@@ -3,7 +3,7 @@
 import NcInputNumber from '@/components/NcInputNumber'
 import { DEFAULT_GUESTS_STAY, mergeGuestDefaults } from '@/lib/guest-search-defaults'
 import type { GuestsObject } from '@/type'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { FC, useEffect, useState } from 'react'
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
 }
 
 const GuestsInput: FC<Props> = ({ defaultValue, onChange, className, guestDefaults = DEFAULT_GUESTS_STAY }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
   const base = mergeGuestDefaults(defaultValue, guestDefaults)
   const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(base.guestAdults ?? 2)
   const [guestChildrenInputValue, setGuestChildrenInputValue] = useState(base.guestChildren ?? 0)
@@ -62,8 +64,8 @@ const GuestsInput: FC<Props> = ({ defaultValue, onChange, className, guestDefaul
         onChange={(value) => handleChangeData(value, 'guestAdults')}
         max={10}
         min={1}
-        label={T['HeroSearchForm']['Adults']}
-        description={T['HeroSearchForm']['Ages 13 or above']}
+        label={hf.Adults}
+        description={hf['Ages 13 or above']}
         inputName="guestAdults"
       />
       <NcInputNumber
@@ -71,8 +73,8 @@ const GuestsInput: FC<Props> = ({ defaultValue, onChange, className, guestDefaul
         defaultValue={guestChildrenInputValue}
         onChange={(value) => handleChangeData(value, 'guestChildren')}
         max={4}
-        label={T['HeroSearchForm']['Children']}
-        description={T['HeroSearchForm']['Ages 2–12']}
+        label={hf.Children}
+        description={hf['Ages 2–12']}
         inputName="guestChildren"
       />
       <NcInputNumber
@@ -80,8 +82,8 @@ const GuestsInput: FC<Props> = ({ defaultValue, onChange, className, guestDefaul
         defaultValue={guestInfantsInputValue}
         onChange={(value) => handleChangeData(value, 'guestInfants')}
         max={4}
-        label={T['HeroSearchForm']['Infants']}
-        description={T['HeroSearchForm']['Ages 0–2']}
+        label={hf.Infants}
+        description={hf['Ages 0–2']}
         inputName="guestInfants"
       />
     </div>

@@ -7,6 +7,8 @@ export default async function ManageCatalogAvailabilityPage({ params }: { params
   const { code } = await params
   const c = parseCatalogCategoryCodeParam(code)
   if (!c) return notFound()
-  if (c === 'holiday_home' || c === 'yacht_charter') return <HolidayHomeAvailabilityHub />
+  if (c === 'holiday_home' || c === 'yacht_charter') {
+    return <HolidayHomeAvailabilityHub categoryCode={c} />
+  }
   return <CatalogModuleSectionClient categoryCode={c} section="availability" />
 }

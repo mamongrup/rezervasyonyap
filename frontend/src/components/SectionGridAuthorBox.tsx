@@ -1,9 +1,11 @@
+'use client'
+
 import CardAuthorBox from '@/components/CardAuthorBox'
 import CardAuthorBox2 from '@/components/CardAuthorBox2'
 import { TAuthor } from '@/data/authors'
 import { Button } from '@/shared/Button'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { FC } from 'react'
 
 interface Props {
@@ -19,6 +21,7 @@ const SectionGridAuthorBox: FC<Props> = ({
   boxCard = 'box1',
   gridClassName = 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 ',
 }) => {
+  const { messages } = useAppLocale()
   return (
     <div className={`relative ${className}`}>
       <div className={`grid gap-6 md:gap-8 ${gridClassName}`}>
@@ -31,8 +34,8 @@ const SectionGridAuthorBox: FC<Props> = ({
         )}
       </div>
       <div className="mt-16 flex flex-col justify-center gap-y-3 sm:flex-row sm:gap-x-5 sm:gap-y-0">
-        <Button color="light">{T['common']['Show me more']}</Button>
-        <ButtonPrimary>{T['common']['Become a host']}</ButtonPrimary>
+        <Button color="light">{messages.common['Show me more']}</Button>
+        <ButtonPrimary>{messages.common['Become a host']}</ButtonPrimary>
       </div>
     </div>
   )

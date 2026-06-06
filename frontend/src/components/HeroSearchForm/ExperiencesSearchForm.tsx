@@ -2,7 +2,7 @@
 
 import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import clsx from 'clsx'
 import Form from 'next/form'
 import { useRouter } from 'next/navigation'
@@ -15,6 +15,8 @@ interface Props {
 }
 
 export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Props) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
   const router = useRouter()
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
       <DateRangeField
         className="hero-search-form__field-before hero-search-form__field-after flex-4/12"
         fieldStyle={formStyle}
-        description={T['HeroSearchForm']['Date range']}
+        description={hf['Date range']}
       />
       <VerticalDividerLine />
       <GuestNumberField

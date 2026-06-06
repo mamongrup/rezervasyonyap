@@ -1,6 +1,7 @@
 import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { Divider } from '@/shared/divider'
 import { Clock3, Languages, MapPin, PackageCheck, Users } from 'lucide-react'
+import { getMessages } from '@/utils/getT'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 export type ActivityOverviewItem = {
@@ -21,17 +22,20 @@ const ICONS: Record<ActivityOverviewItem['icon'], typeof Clock3> = {
 export default function ActivityOverviewSection({
   items,
   description,
+  locale = 'tr',
 }: {
   items: ActivityOverviewItem[]
   description?: React.ReactNode
+  locale?: string
 }) {
   if (items.length === 0 && !description) return null
+  const ad = getMessages(locale).listing.activityDetail
 
   return (
     <section className={LISTING_SECTION_STACKED}>
       <div>
-        <SectionHeading>Aktivite Hakkında</SectionHeading>
-        <SectionSubheading>Süre, buluşma noktası ve katılım bilgileri.</SectionSubheading>
+        <SectionHeading>{ad.aboutTitle}</SectionHeading>
+        <SectionSubheading>{ad.aboutSubtitle}</SectionSubheading>
       </div>
       <Divider className="w-14!" />
       {items.length > 0 ? (

@@ -2,7 +2,8 @@ import { getCarListingByHandle, listingHostForSection } from '@/data/listings'
 import StartRating from '@/components/StartRating'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
-import T from '@/utils/getT'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { Backpack02Icon, HumidityIcon, SeatSelectorIcon, Settings03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
@@ -35,10 +36,11 @@ export async function generateCarListingMetadata({
   const { handle, locale } = await params
   const listing = await getCarListingByHandle(handle, locale)
 
+  const dp = getMessages(locale).listing.detailPage
   if (!listing) {
     return {
-      title: 'Listing not found',
-      description: 'The listing you are looking for does not exist.',
+      title: dp.notFoundTitle,
+      description: dp.notFoundDescription,
     }
   }
 
@@ -100,6 +102,9 @@ export default async function CarListingDetailPage({
     pickUpTime,
   } = listing
 
+  const m = getMessages(locale)
+  const cd = m.listing.carDetail
+
   const handleSubmitForm = async () => {
     'use server'
     redirect('/checkout')
@@ -116,7 +121,7 @@ export default async function CarListingDetailPage({
       >
         <div className="flex items-center gap-x-3">
           <HugeiconsIcon icon={SeatSelectorIcon} size={20} color="currentColor" strokeWidth={1.5} />
-          <span>{seats ?? 0} seats</span>
+          <span>{interpolate(cd.seats, { count: String(seats ?? 0) })}</span>
         </div>
         <div className="flex items-center gap-x-3">
           <HugeiconsIcon icon={Settings03Icon} size={20} color="currentColor" strokeWidth={1.5} />
@@ -124,11 +129,13 @@ export default async function CarListingDetailPage({
         </div>
         <div className="flex items-center gap-x-3">
           <HugeiconsIcon icon={HumidityIcon} size={20} color="currentColor" strokeWidth={1.5} />
-          <span> {airbags ?? 0} airbags</span>
+          <span>{interpolate(cd.airbags, { count: String(airbags ?? 0) })}</span>
         </div>
         <div className="flex items-center gap-x-3">
           <HugeiconsIcon icon={Backpack02Icon} size={20} color="currentColor" strokeWidth={1.5} />
-          <span> {bags ?? 0} Large bags</span>
+          <span>
+            {bags ?? 0} {cd.largeBags}
+          </span>
         </div>
       </SectionHeader>
     )
@@ -138,7 +145,7 @@ export default async function CarListingDetailPage({
     return (
       <>
         <div className="listingSection__wrap sm:shadow-xl">
-          <SectionHeading>Pick up and drop off</SectionHeading>
+          <SectionHeading>{cd.pickUpDropOffTitle}</SectionHeading>
           <div className="flex gap-x-4">
             <div className="flex shrink-0 flex-col items-center py-2">
               <span className="block size-6 rounded-full border border-neutral-400"></span>
@@ -166,7 +173,9 @@ export default async function CarListingDetailPage({
           <div className="flex justify-between">
             <span className="text-3xl font-semibold">
               {price}
-              <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">/day</span>
+              <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
+                {cd.pricePerDay}
+              </span>
             </span>
             <StartRating size="lg" point={reviewStart ?? 0} reviewCount={reviewCount ?? 0} />
           </div>
@@ -176,7 +185,7 @@ export default async function CarListingDetailPage({
           </div>
 
           <ButtonPrimary form="booking-form" type="submit" className="w-full">
-            {T['common']['Reserve']}
+            {m.common.Reserve}
           </ButtonPrimary>
         </Form>
       </>

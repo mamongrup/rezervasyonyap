@@ -15,6 +15,8 @@ import {
   Users,
   XCircle,
 } from 'lucide-react'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 export type TourItineraryDay = {
@@ -45,11 +47,18 @@ const ICONS: Record<TourOverviewItem['icon'], typeof Clock3> = {
   location: MapPin,
 }
 
-export function TourSectionNav({ items }: { items: TourSectionNavItem[] }) {
+export function TourSectionNav({
+  items,
+  locale = 'tr',
+}: {
+  items: TourSectionNavItem[]
+  locale?: string
+}) {
   if (items.length < 2) return null
+  const td = getMessages(locale).listing.tourDetail
 
   return (
-    <nav aria-label="Tur bölümleri" className="-mx-1 overflow-x-auto px-1">
+    <nav aria-label={td.sectionNavAriaLabel} className="-mx-1 overflow-x-auto px-1">
       <div className="flex min-w-max items-center gap-2 rounded-full border border-neutral-200 bg-white p-1 shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         {items.map((item) => (
           <a
@@ -79,17 +88,18 @@ export type TourInfoSection = {
 export function TourOverviewSection({
   items,
   programHtml,
-  locale,
+  locale = 'tr',
 }: {
   items: TourOverviewItem[]
   programHtml?: string
   locale?: string
 }) {
   if (items.length === 0 && !programHtml?.trim()) return null
+  const td = getMessages(locale).listing.tourDetail
 
   return (
     <section id="tour-section-about" className={LISTING_SECTION_STACKED}>
-      <SectionHeading>Tur Hakkında</SectionHeading>
+      <SectionHeading>{td.aboutTitle}</SectionHeading>
       <Divider className="w-14!" />
       {items.length > 0 ? (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -157,15 +167,22 @@ export function TourInfoSections({
   return <>{nodes}</>
 }
 
-export function TourItinerarySection({ days }: { days: TourItineraryDay[] }) {
+export function TourItinerarySection({
+  days,
+  locale = 'tr',
+}: {
+  days: TourItineraryDay[]
+  locale?: string
+}) {
   const visibleDays = days.filter((d) => d.title.trim() || d.description.trim())
   if (visibleDays.length === 0) return null
+  const td = getMessages(locale).listing.tourDetail
 
   return (
     <section id="tour-section-program" className={LISTING_SECTION_STACKED}>
       <div>
-        <SectionHeading>Tur Programı</SectionHeading>
-        <SectionSubheading>Gün gün gezi akışı ve önemli duraklar.</SectionSubheading>
+        <SectionHeading>{td.programTitle}</SectionHeading>
+        <SectionSubheading>{td.programSubtitle}</SectionSubheading>
       </div>
       <Divider className="w-14!" />
       <div className="space-y-4">
@@ -177,7 +194,8 @@ export function TourItinerarySection({ days }: { days: TourItineraryDay[] }) {
               </span>
               <div>
                 <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-                  {day.title.trim() || `${day.day}. Gün`}
+                  {day.title.trim() ||
+                    interpolate(td.itineraryDayFallback, { day: String(day.day) })}
                 </h3>
                 {day.description.trim() ? (
                   <p className="mt-2 whitespace-pre-line text-sm leading-7 text-neutral-600 dark:text-neutral-300">
@@ -196,46 +214,56 @@ export function TourItinerarySection({ days }: { days: TourItineraryDay[] }) {
 export function TourIncludedExcludedSection({
   included,
   excluded,
+  locale = 'tr',
 }: {
   included: string[]
   excluded: string[]
+  locale?: string
 }) {
   if (included.length === 0 && excluded.length === 0) return null
+  const td = getMessages(locale).listing.tourDetail
 
   return (
     <section id="tour-section-services" className={LISTING_SECTION_STACKED}>
       <div>
-        <SectionHeading>Dahil Olan / Olmayan Hizmetler</SectionHeading>
-        <SectionSubheading>Tur paketinin kapsamını hızlıca karşılaştırın.</SectionSubheading>
+        <SectionHeading>{td.includedExcludedTitle}</SectionHeading>
+        <SectionSubheading>{td.includedExcludedSubtitle}</SectionSubheading>
       </div>
       <Divider className="w-14!" />
       <div className="grid gap-4 md:grid-cols-2">
         <TourBulletCard
           tone="included"
-          title="Fiyata Dahil"
+          title={td.includedTitle}
           items={included}
-          empty="Dahil hizmet bilgisi eklenmemiş."
+          empty={td.includedEmpty}
         />
         <TourBulletCard
           tone="excluded"
-          title="Fiyata Dahil Değil"
+          title={td.excludedTitle}
           items={excluded}
-          empty="Hariç hizmet bilgisi eklenmemiş."
+          empty={td.excludedEmpty}
         />
       </div>
     </section>
   )
 }
 
-export function TourNotesSection({ notes }: { notes: string[] }) {
+export function TourNotesSection({
+  notes,
+  locale = 'tr',
+}: {
+  notes: string[]
+  locale?: string
+}) {
   const visibleNotes = notes.filter((n) => n.trim())
   if (visibleNotes.length === 0) return null
+  const td = getMessages(locale).listing.tourDetail
 
   return (
     <section id="tour-section-notes" className={LISTING_SECTION_STACKED}>
       <div>
-        <SectionHeading>Önemli Notlar</SectionHeading>
-        <SectionSubheading>Rezervasyon öncesi bilinmesi gereken koşullar.</SectionSubheading>
+        <SectionHeading>{td.importantNotesTitle}</SectionHeading>
+        <SectionSubheading>{td.importantNotesSubtitle}</SectionSubheading>
       </div>
       <Divider className="w-14!" />
       <div className="space-y-3">
@@ -264,26 +292,40 @@ function TourBulletCard({
   empty: string
   tone: 'included' | 'excluded'
 }) {
-  const Icon = tone === 'included' ? CheckCircle2 : XCircle
-  const color =
-    tone === 'included'
-      ? 'text-emerald-600 dark:text-emerald-300'
-      : 'text-amber-600 dark:text-amber-300'
+  const isIncluded = tone === 'included'
+  const Icon = isIncluded ? CheckCircle2 : XCircle
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-5 dark:border-neutral-700 dark:bg-neutral-900/40">
-      <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{title}</h3>
+    <div
+      className={
+        isIncluded
+          ? 'rounded-2xl border border-emerald-200/80 bg-emerald-50/40 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/20'
+          : 'rounded-2xl border border-amber-200/80 bg-amber-50/40 p-5 dark:border-amber-900/50 dark:bg-amber-950/20'
+      }
+    >
+      <h3
+        className={
+          isIncluded
+            ? 'text-sm font-semibold text-emerald-800 dark:text-emerald-200'
+            : 'text-sm font-semibold text-amber-900 dark:text-amber-200'
+        }
+      >
+        {title}
+      </h3>
       {items.length > 0 ? (
-        <ul className="mt-4 space-y-3">
+        <ul className="mt-3 space-y-2.5">
           {items.map((item) => (
-            <li key={item} className="flex gap-2.5 text-sm text-neutral-700 dark:text-neutral-300">
-              <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} aria-hidden />
+            <li key={item} className="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
+              <Icon
+                className={`mt-0.5 h-4 w-4 shrink-0 ${isIncluded ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}
+                aria-hidden
+              />
               <span>{item}</span>
             </li>
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-neutral-400 dark:text-neutral-500">{empty}</p>
+        <p className="mt-3 text-sm text-neutral-400 dark:text-neutral-500">{empty}</p>
       )}
     </div>
   )

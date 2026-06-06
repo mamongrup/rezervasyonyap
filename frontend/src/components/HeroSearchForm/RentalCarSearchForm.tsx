@@ -3,7 +3,7 @@
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { normalizeYolcu360PickupQuery } from '@/lib/yolcu360-location-query'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Radio, RadioGroup } from '@headlessui/react'
 import clsx from 'clsx'
 import Form from 'next/form'
@@ -18,6 +18,8 @@ interface Props {
 }
 
 const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
   const searchParams = useSearchParams()
   const urlPickup = searchParams.get('location') ?? ''
   const urlDropoff = searchParams.get('drop_off_location') ?? ''
@@ -97,21 +99,21 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
           value="different"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700 data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
-          {T['HeroSearchForm']['Different drop off']}
+          {hf['Different drop off']}
         </Radio>
         <Radio
           value="same"
           className={`flex cursor-pointer items-center rounded-full border border-neutral-300 px-4 py-1.5 text-xs font-medium dark:border-neutral-700 data-checked:bg-black data-checked:text-white data-checked:shadow-lg data-checked:shadow-black/10 dark:data-checked:bg-neutral-200 dark:data-checked:text-neutral-900`}
         >
-          {T['HeroSearchForm']['Same drop off']}
+          {hf['Same drop off']}
         </Radio>
       </RadioGroup>
 
       {/*  */}
       <div className="relative flex">
         <LocationInputField
-          placeholder={T['HeroSearchForm']['City or Airport']}
-          description={T['HeroSearchForm']['Pick up location']}
+          placeholder={hf['City or Airport']}
+          description={hf['Pick up location']}
           className="hero-search-form__field-after flex-1"
           inputName="pickup-location"
           fieldStyle={formStyle}
@@ -122,8 +124,8 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
           <>
             <VerticalDividerLine />
             <LocationInputField
-              placeholder={T['HeroSearchForm']['City or Airport']}
-              description={T['HeroSearchForm']['Drop off location']}
+              placeholder={hf['City or Airport']}
+              description={hf['Drop off location']}
               className="hero-search-form__field-before hero-search-form__field-after flex-1"
               inputName="dropoff-location"
               fieldStyle={formStyle}
@@ -135,7 +137,7 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
         <VerticalDividerLine />
         <DateRangeField
           className="hero-search-form__field-before flex-1"
-          description={T['HeroSearchForm']['Pick up - Drop off']}
+          description={hf['Pick up - Drop off']}
           clearDataButtonClassName={clsx(formStyle === 'small' && 'sm:end-18', formStyle === 'default' && 'sm:end-22')}
           fieldStyle={formStyle}
           defaultStartDate={urlCheckin || undefined}

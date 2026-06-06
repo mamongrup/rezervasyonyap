@@ -21,6 +21,7 @@ import ListingCard from './ListingCard'
 import { buildTourListingCardMetaLines } from '@/lib/tour-listing-card-meta'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import type {
   CardConfig,
   TListingActivity,
@@ -37,6 +38,9 @@ import { ComponentProps, FC, createElement } from 'react'
 
 type ListingCardProps = ComponentProps<typeof ListingCard>
 
+/** Tüm kategori vitrin listelerinde aynı fotoğraf oranı (4:3). */
+const LISTING_CARD_IMAGE_RATIO = 'aspect-w-4 aspect-h-3'
+
 function makeCard(config: CardConfig): FC<Omit<ListingCardProps, 'config'>> {
   const Card: FC<Omit<ListingCardProps, 'config'>> = (props) =>
     createElement(ListingCard, { ...props, config })
@@ -48,15 +52,19 @@ function makeCard(config: CardConfig): FC<Omit<ListingCardProps, 'config'>> {
 
 export const HotelCard = makeCard({
   linkBase: '/otel',
-  priceUnit: '/gece',
-  ratioClass: 'aspect-w-4 aspect-h-3',
-  categoryLabel: 'Otel',
-  extraInfo: (d, _locale) => {
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
+  extraInfo: (d, locale) => {
+    const cm = getMessages(locale).listing.cardMeta
     const { beds, bathrooms: baths, stars, hotelTypeCode } = d as TListingHotel
     const hotelType = hotelTypeCode?.replace(/_/g, ' ')
-    const starLine = stars ? `${stars} yıldız` : null
+    const starLine = stars ? interpolate(cm.stars, { count: String(stars) }) : null
     if (starLine || hotelType || beds || baths) {
-      return [starLine, hotelType, beds && `${beds} oda`, baths && `${baths} banyo`]
+      return [
+        starLine,
+        hotelType,
+        beds && interpolate(cm.hotelRooms, { count: String(beds) }),
+        baths && interpolate(cm.hotelBaths, { count: String(baths) }),
+      ]
         .filter(Boolean)
         .join(' · ')
     }
@@ -66,21 +74,33 @@ export const HotelCard = makeCard({
 
 export const HolidayHomeCard = makeCard({
   linkBase: '/tatil-evi',
-  priceUnit: '/gece',
-  ratioClass: 'aspect-w-4 aspect-h-3',
-  categoryLabel: 'Tatil Evi',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   extraInfo: (d, locale) =>
     holidayHomeCapacitySummary(d as TListingHolidayHome, getMessages(locale).listing.capacitySpec),
 })
 
 export const YachtCard = makeCard({
   linkBase: '/yat',
-  priceUnit: '/gece',
-  ratioClass: 'aspect-w-16 aspect-h-9',
-  categoryLabel: 'Yat',
-  extraInfo: (d, _locale) => {
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
+  extraInfo: (d, locale) => {
+    const copy = getMessages(locale).listing.capacitySpec
+    const cm = getMessages(locale).listing.cardMeta
+    const { maxGuests, bedrooms, bathrooms } = d
+    const parts: string[] = []
+    if (maxGuests != null && maxGuests > 0) parts.push(`${maxGuests} ${copy.guests}`)
+    if (bedrooms != null && bedrooms > 0) {
+      parts.push(interpolate(cm.yachtCabins, { count: String(bedrooms) }))
+    }
+    if (bathrooms != null && bathrooms > 0) parts.push(`${bathrooms} ${copy.bathrooms}`)
+    if (parts.length) return parts.join(' · ')
     const { lengthM: len, capacity: cap, type } = d as TListingYacht
-    return [type, len && `${len}m`, cap && `${cap} kişilik`].filter(Boolean).join(' · ') || null
+    return [
+      type,
+      len && `${len}m`,
+      cap && interpolate(cm.yachtPeople, { count: String(cap) }),
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
   },
 })
 
@@ -88,63 +108,61 @@ export const YachtCard = makeCard({
 
 export const TourCard = makeCard({
   linkBase: '/tur',
-  priceUnit: '/kişi',
-  ratioClass: 'aspect-w-3 aspect-h-3',
-  categoryLabel: 'Tur',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   metaLines: (d, locale) => buildTourListingCardMetaLines(d as TListingTour, locale),
 })
 
 export const ActivityCard = makeCard({
   linkBase: '/aktivite',
-  priceUnit: '/kişi',
-  ratioClass: 'aspect-w-3 aspect-h-3',
-  categoryLabel: 'Aktivite',
-  extraInfo: (d, _locale) => {
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
+  extraInfo: (d, locale) => {
+    const cm = getMessages(locale).listing.cardMeta
     const { durationHours: hours, minAge: age } = d as TListingActivity
-    return [hours && `${hours} saat`, age && `Min ${age} yaş`].filter(Boolean).join(' · ') || null
+    return [
+      hours && interpolate(cm.activityHours, { hours: String(hours) }),
+      age && interpolate(cm.activityMinAge, { age: String(age) }),
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
   },
 })
 
 export const CruiseCard = makeCard({
   linkBase: '/gemi-turu',
-  priceUnit: '/kişi',
-  ratioClass: 'aspect-w-16 aspect-h-9',
-  categoryLabel: 'Kruvaziyer',
-  extraInfo: (d, _locale) => {
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
+  extraInfo: (d, locale) => {
+    const cm = getMessages(locale).listing.cardMeta
     const { nights, shipName: ship } = d as TListingCruise
-    return [ship, nights && `${nights} gece`].filter(Boolean).join(' · ') || null
+    return [
+      ship,
+      nights && interpolate(cm.cruiseNights, { nights: String(nights) }),
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
   },
 })
 
 export const BeachLoungerCard = makeCard({
   linkBase: '/plaj-sezlong-ilan',
-  priceUnit: '/kişi',
-  ratioClass: 'aspect-w-3 aspect-h-3',
-  categoryLabel: 'Şezlong',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   extraInfo: () => null,
 })
 
 export const CinemaTicketCard = makeCard({
   linkBase: '/sinema-bileti',
-  priceUnit: '/bilet',
-  ratioClass: 'aspect-w-3 aspect-h-3',
-  categoryLabel: 'Sinema',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   extraInfo: () => null,
 })
 
 export const EventTicketCard = makeCard({
   linkBase: '/etkinlik',
-  priceUnit: '/bilet',
-  ratioClass: 'aspect-w-3 aspect-h-3',
-  categoryLabel: 'Etkinlik',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   extraInfo: () => null,
 })
 
 export const RestaurantTableCard = makeCard({
   linkBase: '/restoran-masa',
-  priceUnit: '/kişi',
-  ratioClass: 'aspect-w-3 aspect-h-3',
-  categoryLabel: 'Restoran',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   extraInfo: () => null,
 })
 
@@ -152,9 +170,7 @@ export const RestaurantTableCard = makeCard({
 
 export const TransferCard = makeCard({
   linkBase: '/tasima',
-  priceUnit: '/araç',
-  ratioClass: 'aspect-w-16 aspect-h-9',
-  categoryLabel: 'Transfer',
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
   extraInfo: (d, _locale) => {
     const { fromLocation: from, toLocation: to, vehicleType: vehicle } = d as TListingTransfer
     if (from && to) return `${from} → ${to}`
@@ -164,23 +180,32 @@ export const TransferCard = makeCard({
 
 export const FerryCard = makeCard({
   linkBase: '/feribot-rezervasyon',
-  priceUnit: '/kişi',
-  ratioClass: 'aspect-w-16 aspect-h-9',
-  categoryLabel: 'Feribot',
-  extraInfo: (d, _locale) => {
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
+  extraInfo: (d, locale) => {
+    const cm = getMessages(locale).listing.cardMeta
     const { fromPort: from, toPort: to, durationMin: duration } = d as TListingFerry
-    if (from && to) return `${from} → ${to}${duration ? ` (${Math.round(duration / 60)}s)` : ''}`
+    if (from && to) {
+      const suffix =
+        duration != null
+          ? ` (${interpolate(cm.ferryMinutes, { minutes: String(Math.round(duration / 60)) })})`
+          : ''
+      return `${from} → ${to}${suffix}`
+    }
     return null
   },
 })
 
 export const CarRentalCard = makeCard({
   linkBase: '/arac',
-  priceUnit: '/gün',
-  ratioClass: 'aspect-w-16 aspect-h-9',
-  categoryLabel: 'Araç Kiralama',
-  extraInfo: (d, _locale) => {
+  ratioClass: LISTING_CARD_IMAGE_RATIO,
+  extraInfo: (d, locale) => {
+    const cm = getMessages(locale).listing.cardMeta
     const { seats, gearshift: gear } = d as TListingCar
-    return [seats && `${seats} koltuk`, gear].filter(Boolean).join(' · ') || null
+    return [
+      seats && interpolate(cm.carSeats, { count: String(seats) }),
+      gear,
+    ]
+      .filter(Boolean)
+      .join(' · ') || null
   },
 })

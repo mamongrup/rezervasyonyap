@@ -8,7 +8,7 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
 import { Badge } from '@/shared/Badge'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import Image from 'next/image'
 import Link from 'next/link'
 import { FC } from 'react'
@@ -20,6 +20,7 @@ interface CarCardProps {
 }
 
 const CarCard: FC<CarCardProps> = ({ size = 'default', className = '', data }) => {
+  const { messages } = useAppLocale()
   const vitrinHref = useVitrinHref()
   const {
     featuredImage,
@@ -90,7 +91,7 @@ const CarCard: FC<CarCardProps> = ({ size = 'default', className = '', data }) =
             {price}
             {` `}
             {size === 'default' && (
-              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">/{T['common']['day']}</span>
+              <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">/{messages.common.day}</span>
             )}
           </span>
           <StartRating reviewCount={reviewCount} point={reviewStart} />

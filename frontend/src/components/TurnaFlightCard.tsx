@@ -16,7 +16,7 @@ import {
   Luggage01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import T from '@/utils/getT'
+import { getMessages } from '@/utils/getT'
 import Image from 'next/image'
 import { FC, type ReactNode } from 'react'
 
@@ -58,8 +58,9 @@ const TurnaFlightCard: FC<TurnaFlightCardProps> = ({
   action,
   booking = false,
 }) => {
-  const m = T.flightLiveSearch ?? {}
-  const card = T.flightCard
+  const messages = getMessages(locale)
+  const m = messages.flightLiveSearch ?? {}
+  const card = messages.flightCard
 
   const logo = airlineLogoUrl(offer.airlineCode)
   const duration = offerDurationLabelTurna(offer, locale)

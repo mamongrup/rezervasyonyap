@@ -1,6 +1,6 @@
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonSecondary from '@/shared/ButtonSecondary'
-import T from '@/utils/getT'
+import { getMessages } from '@/utils/getT'
 import { Tick02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
@@ -37,7 +37,12 @@ export const metadata: Metadata = {
   description: 'Subscription page for our service, offering various pricing plans to fit your needs.',
 }
 
-const Page = () => {
+const Page = async ({ params }: { params: Promise<{ locale: string }> }) => {
+  const { locale } = await params
+  const m = getMessages(locale)
+  const c = m.common
+  const sp = m.subscriptionPage
+
   const renderPricingItem = (pricing: (typeof pricings)[number], index: number) => {
     return (
       <div
@@ -48,7 +53,7 @@ const Page = () => {
       >
         {pricing.isPopular && (
           <span className="absolute end-3 top-3 z-10 rounded-full bg-primary-500 px-3 py-1 text-xs tracking-widest text-white">
-            {T['subscriptionPage']['popular']}
+            {sp.popular}
           </span>
         )}
         <div className="mb-8">
@@ -72,10 +77,10 @@ const Page = () => {
         </nav>
         <div className="mt-auto flex flex-col">
           {pricing.isPopular ? (
-            <ButtonPrimary>{T['common']['submit']}</ButtonPrimary>
+            <ButtonPrimary>{c.submit}</ButtonPrimary>
           ) : (
             <ButtonSecondary>
-              <span className="font-medium">{T['common']['submit']}</span>
+              <span className="font-medium">{c.submit}</span>
             </ButtonSecondary>
           )}
           <p className="mt-3 text-xs text-neutral-500 dark:text-neutral-400">{pricing.description}</p>
@@ -89,7 +94,7 @@ const Page = () => {
       <header className="mx-auto my-20 max-w-2xl text-center">
         <h1 className="flex items-center justify-center text-4xl/[1.15] font-semibold sm:text-5xl/[1.15]">
           <span className="me-4 text-3xl leading-none md:text-4xl">💎</span>
-          {T['subscriptionPage']['Subscription']}
+          {sp.Subscription}
         </h1>
         <span className="mt-2 block text-sm text-neutral-700 sm:text-base dark:text-neutral-200">
           Pricing to fit the needs of any companie size.

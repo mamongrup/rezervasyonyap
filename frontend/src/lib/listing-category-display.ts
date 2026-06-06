@@ -34,3 +34,30 @@ export function displayListingCategoryLine(
   }
   return raw
 }
+
+const DETAIL_ROUTE_TO_PRICE_UNIT: Record<
+  string,
+  keyof AppMessages['listing']['cardMeta']['priceUnit']
+> = {
+  '/otel': 'perNight',
+  '/tatil-evi': 'perNight',
+  '/yat': 'perNight',
+  '/tur': 'perPerson',
+  '/aktivite': 'perPerson',
+  '/gemi-turu': 'perPerson',
+  '/plaj-sezlong-ilan': 'perPerson',
+  '/sinema-bileti': 'perTicket',
+  '/etkinlik': 'perTicket',
+  '/restoran-masa': 'perPerson',
+  '/tasima': 'perVehicle',
+  '/feribot-rezervasyon': 'perPerson',
+  '/arac': 'perDay',
+}
+
+/** Kategori detay rotasına göre locale-aware fiyat birimi (ör. `/gece`, `/night`). */
+export function resolveListingPriceUnit(detailRoute: string, locale: string): string {
+  const m = getMessages(locale)
+  const key = DETAIL_ROUTE_TO_PRICE_UNIT[detailRoute.trim()]
+  if (key) return m.listing.cardMeta.priceUnit[key]
+  return m.listing.cardMeta.priceUnit.perNight
+}

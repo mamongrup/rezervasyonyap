@@ -2,8 +2,8 @@ import { HOTEL_ACCOMMODATION_FILTER_FALLBACK } from '@/lib/hotel-accommodation-f
 import { HOTEL_THEME_OPTIONS, HOTEL_TYPE_OPTIONS } from '@/lib/hotel-manage-fields'
 import { listPublicThemeItems, type ThemeFacet } from '@/lib/catalog-theme-items-api'
 import {
-  TOUR_ACCOMMODATION_OPTIONS,
-  TOUR_TRAVEL_TYPE_OPTIONS,
+  getTourAccommodationOptions,
+  getTourTravelTypeOptions,
 } from '@/lib/tour-filter-options'
 import type { FilterOption } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
@@ -83,8 +83,8 @@ export async function getTourCategoryFilterOptions(locale: string): Promise<Filt
   const filters = m.categoryPage.listingFilters
 
   const [travelTypes, accommodationTypes] = await Promise.all([
-    getFacetOptions('tour', 'travel_type', locale, TOUR_TRAVEL_TYPE_OPTIONS),
-    getFacetOptions('tour', 'accommodation', locale, TOUR_ACCOMMODATION_OPTIONS),
+    getFacetOptions('tour', 'travel_type', locale, getTourTravelTypeOptions(locale)),
+    getFacetOptions('tour', 'accommodation', locale, getTourAccommodationOptions(locale)),
   ])
 
   return [

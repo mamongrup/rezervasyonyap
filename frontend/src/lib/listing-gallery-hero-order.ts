@@ -27,9 +27,25 @@ function hostApexKey(hostname: string): string {
   return hostname.replace(/^www\./i, '').toLowerCase()
 }
 
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostApexKey(hostname)
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1'
+}
+
+function sitePublicOrigin(): string {
+  const site = process.env.NEXT_PUBLIC_SITE_URL?.trim() ?? ''
+  if (!/^https?:\/\//i.test(site)) return ''
+  try {
+    return new URL(site).origin
+  } catch {
+    return ''
+  }
+}
+
 /**
  * Yerel `next dev` + uzak API: DB `/uploads/...` yolları localhost'ta 404 verir.
  * `NEXT_PUBLIC_UPLOADS_ORIGIN` veya (geliştirmede) `NEXT_PUBLIC_API_URL` origin ile tam URL üretir.
+ * Yerel API (8080) + yerel Next (3000): görseller `public/uploads` altında — site origin kullanılır.
  */
 function listingUploadsOrigin(): string {
   const explicit = process.env.NEXT_PUBLIC_UPLOADS_ORIGIN?.trim()
@@ -48,7 +64,10 @@ function listingUploadsOrigin(): string {
       return ''
     }
 
-    if (process.env.NODE_ENV === 'development') return apiUrl.origin
+    if (process.env.NODE_ENV === 'development') {
+      if (isLoopbackHost(apiHost)) return sitePublicOrigin()
+      return apiUrl.origin
+    }
   } catch {
     return ''
   }

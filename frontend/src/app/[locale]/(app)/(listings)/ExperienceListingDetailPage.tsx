@@ -1,7 +1,6 @@
 import StartRating from '@/components/StartRating'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import T from '@/utils/getT'
 import {
   Clock01Icon,
   Globe02Icon,
@@ -45,6 +44,7 @@ import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
 import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
 import type { TListingBase } from '@/types/listing-types'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
@@ -71,7 +71,9 @@ import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
 import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
 import {
+  TourIncludedExcludedSection,
   TourInfoSections,
+  TourItinerarySection,
   TourOverviewSection,
   type TourItineraryDay,
   type TourOverviewItem,
@@ -132,36 +134,14 @@ function uniqueLines(lines: string[]): string[] {
   return out
 }
 
-function travelTypeLabel(code: string): string {
-  switch (code) {
-    case 'plane':
-      return 'Uçaklı tur'
-    case 'bus':
-      return 'Otobüslü tur'
-    case 'both':
-      return 'Uçak + otobüs'
-    case 'own':
-      return 'Kendi aracıyla'
-    default:
-      return ''
-  }
+function travelTypeLabel(locale: string, code: string): string {
+  const t = getMessages(locale).listing.tourDetail.travelType as Record<string, string>
+  return t[code] ?? ''
 }
 
-function accommodationTypeLabel(code: string): string {
-  switch (code) {
-    case 'hotel':
-      return 'Otel konaklamalı'
-    case 'hostel':
-      return 'Hostel konaklamalı'
-    case 'villa':
-      return 'Villa konaklamalı'
-    case 'camping':
-      return 'Kamp konaklamalı'
-    case 'none':
-      return 'Konaklama yok'
-    default:
-      return ''
-  }
+function accommodationTypeLabel(locale: string, code: string): string {
+  const t = getMessages(locale).listing.tourDetail.accommodationType as Record<string, string>
+  return t[code] ?? ''
 }
 
 function parseTourMeta(raw: unknown): TourMeta {
@@ -220,10 +200,11 @@ export async function generateExperienceListingMetadata({
   const { handle, locale } = await params
   const listing = await getExperienceListingByHandle(handle, locale)
 
+  const dp = getMessages(locale).listing.detailPage
   if (!listing) {
     return {
-      title: 'Listing not found',
-      description: 'The listing you are looking for does not exist.',
+      title: dp.notFoundTitle,
+      description: dp.notFoundDescription,
     }
   }
 
@@ -338,7 +319,10 @@ export default async function ExperienceListingDetailPage({
   } = listing
 
   const city = (listing as TListingBase).city
-  const dp = getMessages(locale).listing.detailPage
+  const m = getMessages(locale)
+  const dp = m.listing.detailPage
+  const td = m.listing.tourDetail
+  const ad = m.listing.activityDetail
   const isTour = vertical === 'tour'
   const isActivity = vertical === 'activity'
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
@@ -349,17 +333,20 @@ export default async function ExperienceListingDetailPage({
   const tourNights = listingTour.durationNights
   const tourDurationLine =
     tourMeta?.duration_days
-      ? `${tourMeta.duration_days} gün`
+      ? interpolate(td.durationDays, { count: tourMeta.duration_days })
       : tourNights != null && tourNights > 0
-        ? `${tourNights} Gece${tourNights + 1 > tourNights ? ` ${tourNights + 1} Gün` : ''}`
-        : durationTime || 'Süre belirtilmedi'
+        ? interpolate(td.durationNightsDays, {
+            nights: String(tourNights),
+            days: String(tourNights + 1),
+          })
+        : durationTime || td.durationNotSpecified
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
   const tourLanguages = splitMetaList(tourMeta?.languages)
   const tourGroupLine = tourMeta?.max_people
-    ? `Maks. ${tourMeta.max_people} kişi`
+    ? interpolate(td.maxPeople, { count: tourMeta.max_people })
     : maxGuests
-      ? `Maks. ${maxGuests} kişi`
-      : 'Kapasite belirtilmedi'
+      ? interpolate(td.maxPeople, { count: String(maxGuests) })
+      : td.capacityNotSpecified
   const tourDescriptionStripped =
     isTour && description?.trim() ? stripFlightScheduleBlockFromDescription(description) : description
   const parsedTourDescription =
@@ -375,16 +362,28 @@ export default async function ExperienceListingDetailPage({
   }))
   const tourOverviewItems: TourOverviewItem[] = isTour
     ? [
-        tourMeta?.travel_type && travelTypeLabel(tourMeta.travel_type)
-          ? { label: 'Ulaşım', value: travelTypeLabel(tourMeta.travel_type), icon: 'transport' }
+        tourMeta?.travel_type && travelTypeLabel(locale, tourMeta.travel_type)
+          ? {
+              label: td.overview.transport,
+              value: travelTypeLabel(locale, tourMeta.travel_type),
+              icon: 'transport',
+            }
           : null,
-        tourMeta?.accommodation_type && accommodationTypeLabel(tourMeta.accommodation_type)
-          ? { label: 'Konaklama', value: accommodationTypeLabel(tourMeta.accommodation_type), icon: 'location' }
+        tourMeta?.accommodation_type && accommodationTypeLabel(locale, tourMeta.accommodation_type)
+          ? {
+              label: td.overview.accommodation,
+              value: accommodationTypeLabel(locale, tourMeta.accommodation_type),
+              icon: 'location',
+            }
           : null,
-        tourMeta?.is_guided ? { label: 'Rehber', value: 'Rehberli tur', icon: 'guide' } : null,
-        tourMeta?.visa_required ? { label: 'Vize', value: 'Vize gerektirir', icon: 'visa' } : null,
+        tourMeta?.is_guided
+          ? { label: td.overview.guide, value: td.overview.guidedTour, icon: 'guide' }
+          : null,
+        tourMeta?.visa_required
+          ? { label: td.overview.visa, value: td.overview.visaRequired, icon: 'visa' }
+          : null,
         tourLanguages.length > 0
-          ? { label: 'Dil', value: tourLanguages.join(', '), icon: 'language' }
+          ? { label: td.overview.language, value: tourLanguages.join(', '), icon: 'language' }
           : null,
       ].filter((item): item is TourOverviewItem => item !== null)
     : []
@@ -409,22 +408,34 @@ export default async function ExperienceListingDetailPage({
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
     ? [
         activityMeta?.duration_hours
-          ? { label: 'Süre', value: `${activityMeta.duration_hours} saat`, icon: 'duration' }
+          ? {
+              label: ad.overview.duration,
+              value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours }),
+              icon: 'duration',
+            }
           : null,
         activityMeta?.min_age
-          ? { label: 'Minimum yaş', value: `${activityMeta.min_age}+`, icon: 'age' }
+          ? {
+              label: ad.overview.minAge,
+              value: interpolate(ad.overview.minAgeValue, { age: activityMeta.min_age }),
+              icon: 'age',
+            }
           : null,
         activityMeta?.max_participants
-          ? { label: 'Kapasite', value: `Maks. ${activityMeta.max_participants} kişi`, icon: 'capacity' }
+          ? {
+              label: ad.overview.capacity,
+              value: interpolate(ad.overview.maxParticipants, { count: activityMeta.max_participants }),
+              icon: 'capacity',
+            }
           : null,
         activityMeta?.language
-          ? { label: 'Dil', value: activityMeta.language, icon: 'language' }
+          ? { label: ad.overview.language, value: activityMeta.language, icon: 'language' }
           : null,
         activityMeta?.meeting_point
-          ? { label: 'Buluşma noktası', value: activityMeta.meeting_point, icon: 'meeting' }
+          ? { label: ad.overview.meetingPoint, value: activityMeta.meeting_point, icon: 'meeting' }
           : null,
         activityMeta?.equipment_included
-          ? { label: 'Dahil ekipman', value: activityMeta.equipment_included, icon: 'equipment' }
+          ? { label: ad.overview.equipment, value: activityMeta.equipment_included, icon: 'equipment' }
           : null,
       ].filter((item): item is ActivityOverviewItem => item !== null)
     : []
@@ -484,14 +495,20 @@ export default async function ExperienceListingDetailPage({
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{isTour ? tourGroupLine : `Up to ${maxGuests} people`}</span>
+          <span>
+            {isTour
+              ? tourGroupLine
+              : maxGuests
+                ? interpolate(dp.upToPeople, { count: String(maxGuests) })
+                : td.capacityNotSpecified}
+          </span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Globe02Icon} className="h-6 w-6" strokeWidth={1.75} />
           <span>
             {isTour
-              ? tourLanguages.length > 0 ? tourLanguages.join(', ') : 'Dil bilgisi belirtilmedi'
-              : (languages ?? []).length > 0 ? (languages ?? []).join(', ') : 'Languages not specified'}
+              ? tourLanguages.length > 0 ? tourLanguages.join(', ') : td.languagesNotSpecified
+              : (languages ?? []).length > 0 ? (languages ?? []).join(', ') : td.languagesNotSpecified}
           </span>
         </div>
       </SectionHeader>
@@ -506,7 +523,7 @@ export default async function ExperienceListingDetailPage({
   const renderSidebarPriceAndForm = () => {
     if (isTour) {
       return (
-        <TourBookingSidebar action={handleSubmitForm} fallbackPrice={price} />
+        <TourBookingSidebar action={handleSubmitForm} fallbackPrice={price} locale={locale} />
       )
     }
 
@@ -515,7 +532,9 @@ export default async function ExperienceListingDetailPage({
         <div className="flex justify-between">
           <span className="text-3xl font-semibold">
             {price}
-            <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">/person</span>
+            <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
+              {td.pricePerPerson}
+            </span>
           </span>
           <StartRating size="lg" point={reviewStart ?? 0} reviewCount={reviewCount ?? 0} />
         </div>
@@ -531,7 +550,7 @@ export default async function ExperienceListingDetailPage({
         </Form>
 
         <ButtonPrimary form="booking-form" type="submit">
-          {T['common']['Reserve']}
+          {m.common.Reserve}
         </ButtonPrimary>
       </div>
     )
@@ -547,8 +566,18 @@ export default async function ExperienceListingDetailPage({
         <TourInfoSections
           sections={tourInfoSections}
           insertAfterSectionId={tourFlightScheduleInsertAfterSectionId(tourInfoSections)}
-          insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection /> : null}
+          insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection locale={locale} /> : null}
         />
+        {tourMeta?.itinerary?.length ? (
+          <TourItinerarySection days={tourMeta.itinerary} locale={locale} />
+        ) : null}
+        {tourMeta?.includes?.length || tourMeta?.excludes?.length ? (
+          <TourIncludedExcludedSection
+            included={tourMeta?.includes ?? []}
+            excluded={tourMeta?.excludes ?? []}
+            locale={locale}
+          />
+        ) : null}
       </div>
       <div className="grow">
         <div className="sticky top-5">{renderSidebarPriceAndForm()}</div>
@@ -563,11 +592,19 @@ export default async function ExperienceListingDetailPage({
         {isActivity ? (
           <ActivityOverviewSection
             items={activityOverviewItems}
+            locale={locale}
             description={
               description?.trim() ? (
                 <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description) }} />
               ) : null
             }
+          />
+        ) : null}
+        {isActivity && (activityMeta?.includes?.length || activityMeta?.excludes?.length) ? (
+          <TourIncludedExcludedSection
+            included={activityMeta?.includes ?? []}
+            excluded={activityMeta?.excludes ?? []}
+            locale={locale}
           />
         ) : null}
         {!isActivity ? (
@@ -585,6 +622,7 @@ export default async function ExperienceListingDetailPage({
           {isActivity ? (
             <ActivityBookingPanel
               listingId={catalogListingId}
+              locale={locale}
               initialDate={activityInitialDate}
               initialSessions={initialActivitySessions.sessions}
               fallbackPrice={price}

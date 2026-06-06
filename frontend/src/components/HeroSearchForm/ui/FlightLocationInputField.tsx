@@ -11,7 +11,7 @@ import {
   type FlightAirport,
 } from '@/lib/flight-airports'
 import { Divider } from '@/shared/divider'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import {
   Combobox,
   ComboboxInput,
@@ -66,14 +66,19 @@ interface Props {
 }
 
 export const FlightLocationInputField: FC<Props> = ({
-  placeholder = T['HeroSearchForm']['Flying from'],
-  description = T['HeroSearchForm']['Where are you flying from?'],
+  placeholder,
+  description,
   className = 'flex-1',
   inputName = 'flying-from-location',
   fieldStyle = 'default',
   defaultValue,
   icon = AirplaneTakeOffIcon,
 }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
+  const resolvedPlaceholder = placeholder ?? hf['Flying from']
+  const resolvedDescription = description ?? hf['Where are you flying from?']
+
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [showPopover, setShowPopover] = useState(false)
@@ -159,9 +164,9 @@ export const FlightLocationInputField: FC<Props> = ({
           <div className="min-w-0 grow">
             <ComboboxInput
               ref={inputRef}
-              aria-label={placeholder}
+              aria-label={resolvedPlaceholder}
               className={clsx(styles.input.base, styles.input[fieldStyle])}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               autoComplete="off"
               displayValue={(item?: AirportOption) => item?.label || query}
               onChange={handleInputChange}
@@ -173,7 +178,7 @@ export const FlightLocationInputField: FC<Props> = ({
                 selected?.code && 'pointer-events-none invisible select-none',
               )}
             >
-              <span className="block truncate">{description}</span>
+              <span className="block truncate">{resolvedDescription}</span>
             </div>
 
             <ClearDataButton
@@ -193,7 +198,7 @@ export const FlightLocationInputField: FC<Props> = ({
             {!query.trim() && (
               <>
                 <p className="mt-2 mb-3 px-4 text-xs/6 font-normal text-neutral-600 sm:mt-0 sm:px-8 dark:text-neutral-400">
-                  {T['HeroSearchForm']['Suggested locations']}
+                  {hf['Suggested locations']}
                 </p>
                 <Divider className="opacity-50" />
               </>

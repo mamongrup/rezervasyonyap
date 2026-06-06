@@ -5,11 +5,12 @@ import { ButtonCircle } from '@/shared/Button'
 import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react'
 import { ArrowRight02Icon, ArrowUpRight01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
+import type { AppMessages } from '@/utils/getT'
 import Image from 'next/image'
 import { FC, type ReactNode } from 'react'
 
-type FlightCardMessages = typeof T.flightCard
+type FlightCardMessages = AppMessages['flightCard']
 
 interface FlightCardProps {
   className?: string
@@ -81,7 +82,8 @@ const FlightCard: FC<FlightCardProps> = ({
   hideDetailLink = false,
   hideExpandedPanel = false,
 }) => {
-  const m = msgs ?? T.flightCard
+  const { messages } = useAppLocale()
+  const m = msgs ?? messages.flightCard
 
   const {
     departure,

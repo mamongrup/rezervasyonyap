@@ -2,7 +2,7 @@
 
 import { useInteractOutside } from '@/hooks/useInteractOutside'
 import { Divider } from '@/shared/divider'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import {
   Combobox,
   ComboboxInput,
@@ -79,14 +79,19 @@ interface Props {
 }
 
 export const LocationInputField: FC<Props> = ({
-  placeholder = T['HeroSearchForm']['Location'],
-  description = T['HeroSearchForm']['Where are you going?'],
+  placeholder,
+  description,
   className = 'flex-1',
   inputName = 'location',
   fieldStyle = 'default',
   locationSearchType,
   defaultName,
 }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
+  const resolvedPlaceholder = placeholder ?? hf.Location
+  const resolvedDescription = description ?? hf['Where are you going?']
+
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [showPopover, setShowPopover] = useState(false)
@@ -216,7 +221,7 @@ export const LocationInputField: FC<Props> = ({
               aria-label="Search for a location"
               className={clsx(styles.input.base, styles.input[fieldStyle])}
               name={inputName}
-              placeholder={placeholder}
+              placeholder={resolvedPlaceholder}
               autoComplete="off"
               displayValue={(item?: Suggest) => item?.name || ''}
               onChange={handleInputChange}
@@ -228,7 +233,7 @@ export const LocationInputField: FC<Props> = ({
                 selected?.name?.trim() && 'invisible pointer-events-none select-none'
               )}
             >
-              <span className="block truncate">{description}</span>
+              <span className="block truncate">{resolvedDescription}</span>
             </div>
 
             <ClearDataButton
@@ -246,12 +251,12 @@ export const LocationInputField: FC<Props> = ({
           <div className={clsx(styles.panel.base, styles.panel[fieldStyle])}>
             {isShowInitSuggests && (
               <p className="mt-2 mb-3 px-4 text-xs/6 font-normal text-neutral-600 sm:mt-0 sm:px-8 dark:text-neutral-400">
-                {T['HeroSearchForm']['Suggested locations']}
+                {hf['Suggested locations']}
               </p>
             )}
             {isShowInitSuggests && <Divider className="opacity-50" />}
             {loadingSearch && (
-              <p className="px-8 py-3 text-xs text-neutral-400">Aranıyor…</p>
+              <p className="px-8 py-3 text-xs text-neutral-400">{hf.searchingLocations}</p>
             )}
             <ComboboxOptions static unmount={false}>
               {suggestsToShow.map((item) => (

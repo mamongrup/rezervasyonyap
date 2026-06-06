@@ -7,7 +7,7 @@ import StartRating from '@/components/StartRating'
 import { TExperienceListing } from '@/data/listings'
 import Avatar from '@/shared/Avatar'
 import { Badge } from '@/shared/Badge'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Clock01Icon, MapPinIcon, UserMultiple02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -22,6 +22,7 @@ interface Props {
 }
 
 const ExperiencesCardH: FC<Props> = ({ className = '', data }) => {
+  const { messages } = useAppLocale()
   const vitrinHref = useVitrinHref()
   const {
     galleryImgs,
@@ -102,13 +103,13 @@ const ExperiencesCardH: FC<Props> = ({ className = '', data }) => {
           <div className="flex items-center gap-x-3 text-sm text-neutral-700 dark:text-neutral-300">
             <Avatar src={author?.avatarUrl} />
             <span className="hidden sm:inline-block">
-              <span className="hidden sm:inline">{T['common']['Hosted by']}</span> {author?.displayName}
+              <span className="hidden sm:inline">{messages.common['Hosted by']}</span> {author?.displayName}
             </span>
           </div>
           <span className="text-base font-semibold text-secondary-700">
             {price}
             {` `}
-            <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">/{T['common']['person']}</span>
+            <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">/{messages.common.person}</span>
           </span>
         </div>
       </div>

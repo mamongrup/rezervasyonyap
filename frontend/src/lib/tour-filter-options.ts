@@ -1,14 +1,28 @@
-export const TOUR_TRAVEL_TYPE_OPTIONS: { code: string; label: string }[] = [
-  { code: 'plane', label: 'Uçakla' },
-  { code: 'bus', label: 'Otobüsle' },
-  { code: 'both', label: 'Uçak + Otobüs' },
-  { code: 'own', label: 'Kendi aracıyla' },
-]
+import { getMessages } from '@/utils/getT'
 
-export const TOUR_ACCOMMODATION_OPTIONS: { code: string; label: string }[] = [
-  { code: 'hotel', label: 'Otel' },
-  { code: 'hostel', label: 'Hostel' },
-  { code: 'villa', label: 'Villa' },
-  { code: 'camping', label: 'Kamp' },
-  { code: 'none', label: 'Gece konaklama yok' },
-]
+export function getTourTravelTypeOptions(locale: string): { code: string; label: string }[] {
+  const f = getMessages(locale).categoryPage.listingFilters
+  return [
+    { code: 'plane', label: f.tourTravelPlane },
+    { code: 'bus', label: f.tourTravelBus },
+    { code: 'both', label: f.tourTravelBoth },
+    { code: 'own', label: f.tourTravelOwn },
+  ]
+}
+
+export function getTourAccommodationOptions(locale: string): { code: string; label: string }[] {
+  const f = getMessages(locale).categoryPage.listingFilters
+  return [
+    { code: 'hotel', label: f.tourAccHotel },
+    { code: 'hostel', label: f.tourAccHostel },
+    { code: 'villa', label: f.tourAccVilla },
+    { code: 'camping', label: f.tourAccCamping },
+    { code: 'none', label: f.tourAccNone },
+  ]
+}
+
+/** @deprecated `getTourTravelTypeOptions(locale)` kullanın */
+export const TOUR_TRAVEL_TYPE_OPTIONS = getTourTravelTypeOptions('tr')
+
+/** @deprecated `getTourAccommodationOptions(locale)` kullanın */
+export const TOUR_ACCOMMODATION_OPTIONS = getTourAccommodationOptions('tr')

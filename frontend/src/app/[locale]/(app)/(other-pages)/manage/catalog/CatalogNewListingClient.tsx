@@ -3871,7 +3871,8 @@ export default function CatalogNewListingClient({
                           ) : (
                             <>
                               Sahne etiketi atanmamış görseller için kutucuklara tıklayıp kapak sırasını seçin.
-                              Kayıtta bu sıra tatil evi ek verisinde saklanır.
+                              Kayıtta bu sıra{' '}
+                              {isYacht ? 'yat ilanı ek verisinde' : 'tatil evi ek verisinde'} saklanır.
                             </>
                           )}
                         </p>

@@ -82,7 +82,46 @@ const ListingCard: FC<ListingCardProps> = ({
 
   const listingHref = vitrinHref(`${config.linkBase}/${handle}`)
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
-  const priceUnit = config.priceUnit ?? ''
+  const cardMeta = m.listing.cardMeta
+  const verticalLabels = m.categoryPage.verticalLabels as Record<string, string>
+  const linkToVertical: Record<string, string> = {
+    '/otel': 'hotel',
+    '/tatil-evi': 'holiday_home',
+    '/yat': 'yacht_charter',
+    '/tur': 'tour',
+    '/aktivite': 'activity',
+    '/gemi-turu': 'cruise',
+    '/plaj-sezlong-ilan': 'beach_lounger',
+    '/sinema-bileti': 'cinema_ticket',
+    '/etkinlik': 'event',
+    '/restoran-masa': 'restaurant_table',
+    '/tasima': 'transfer',
+    '/feribot-rezervasyon': 'ferry',
+    '/arac': 'car_rental',
+  }
+  const linkToPriceUnit: Record<string, keyof typeof cardMeta.priceUnit> = {
+    '/otel': 'perNight',
+    '/tatil-evi': 'perNight',
+    '/yat': 'perNight',
+    '/tur': 'perPerson',
+    '/aktivite': 'perPerson',
+    '/gemi-turu': 'perPerson',
+    '/plaj-sezlong-ilan': 'perPerson',
+    '/sinema-bileti': 'perTicket',
+    '/etkinlik': 'perTicket',
+    '/restoran-masa': 'perPerson',
+    '/tasima': 'perVehicle',
+    '/feribot-rezervasyon': 'perPerson',
+    '/arac': 'perDay',
+  }
+  const verticalKey = linkToVertical[config.linkBase]
+  const categoryLine =
+    listingCategory ??
+    (verticalKey ? verticalLabels[verticalKey] : undefined) ??
+    config.categoryLabel ??
+    ''
+  const puKey = linkToPriceUnit[config.linkBase]
+  const priceUnit = puKey ? cardMeta.priceUnit[puKey] : (config.priceUnit ?? '')
   const extraInfo = config.extraInfo ? config.extraInfo(data, locale) : null
   const metaLines = config.metaLines ? config.metaLines(data, locale).filter(Boolean) : []
   const isHolidayHomeCard =
@@ -133,7 +172,7 @@ const ListingCard: FC<ListingCardProps> = ({
         <div className={size === 'default' ? 'space-y-3 p-4' : 'space-y-1 p-3'}>
           <div className={size === 'default' ? 'space-y-1.5' : 'space-y-1'}>
             <span className="text-xs font-medium uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-              {listingCategory ?? config.categoryLabel}
+              {categoryLine}
             </span>
             <div className="flex items-center gap-x-2">
               {isAds && <Badge color="green">REKLAM</Badge>}

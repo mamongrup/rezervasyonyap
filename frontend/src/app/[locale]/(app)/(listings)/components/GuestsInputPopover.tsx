@@ -3,7 +3,8 @@
 import NcInputNumber from '@/components/NcInputNumber'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import type { GuestsObject } from '@/type'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
+import { getMessages } from '@/utils/getT'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { UserAdd01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -32,6 +33,8 @@ const GuestsInputPopover: FC<Props> = ({
   panelClassName,
   renderTrigger,
 }) => {
+  const { locale: routeLocale, messages: routeMessages } = useAppLocale()
+  const hf = locale ? getMessages(locale).HeroSearchForm : routeMessages.HeroSearchForm
   const controlled = typeof onChange === 'function'
   const seedGuests = controlled && valueProp ? valueProp : guestDefaults
   const [guestAdultsInputValue, setGuestAdultsInputValue] = useState(seedGuests.guestAdults ?? 2)
@@ -77,7 +80,7 @@ const GuestsInputPopover: FC<Props> = ({
   }
 
   const totalGuests = totalGuestCount(guests)
-  const guestSummary = formatStayGuestSummary(locale, guests)
+  const guestSummary = formatStayGuestSummary(locale ?? routeLocale, guests)
 
   const panelClasses = clsx(
     'absolute end-0 top-full z-[100] mt-3 w-full rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:min-w-[340px] sm:px-8 sm:py-6 dark:bg-neutral-800 dark:ring-white/10',
@@ -111,10 +114,10 @@ const GuestsInputPopover: FC<Props> = ({
                   </div>
                   <div className="grow">
                     <span className="block font-semibold xl:text-lg">
-                      {totalGuests} {T['HeroSearchForm']['Guests']}
+                      {totalGuests} {hf.Guests}
                     </span>
                     <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">
-                      {T['HeroSearchForm']['Guests']}
+                      {hf.Guests}
                     </span>
                   </div>
                 </>
@@ -130,8 +133,8 @@ const GuestsInputPopover: FC<Props> = ({
               inputName="guestAdults"
               max={10}
               min={1}
-              label={T['HeroSearchForm']['Adults']}
-              description={T['HeroSearchForm']['Ages 13 or above']}
+              label={hf.Adults}
+              description={hf['Ages 13 or above']}
             />
             <NcInputNumber
               className="mt-6 w-full"
@@ -139,8 +142,8 @@ const GuestsInputPopover: FC<Props> = ({
               onChange={(value) => handleChangeData(value, 'guestChildren')}
               inputName="guestChildren"
               max={4}
-              label={T['HeroSearchForm']['Children']}
-              description={T['HeroSearchForm']['Ages 2–12']}
+              label={hf.Children}
+              description={hf['Ages 2–12']}
             />
 
             <NcInputNumber
@@ -149,8 +152,8 @@ const GuestsInputPopover: FC<Props> = ({
               onChange={(value) => handleChangeData(value, 'guestInfants')}
               inputName="guestInfants"
               max={4}
-              label={T['HeroSearchForm']['Infants']}
-              description={T['HeroSearchForm']['Ages 0–2']}
+              label={hf.Infants}
+              description={hf['Ages 0–2']}
             />
           </PopoverPanel>
         </>

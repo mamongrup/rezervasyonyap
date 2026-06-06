@@ -1,11 +1,11 @@
 'use client'
 
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import T from '@/utils/getT'
 import {
   formatTourPeriodPrice,
   isTourPeriodBookable,
 } from '@/lib/tour-periods'
+import { getMessages } from '@/utils/getT'
 import Form from 'next/form'
 import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import GuestsInputPopover from './components/GuestsInputPopover'
@@ -15,11 +15,15 @@ import { useTourPeriodSelection } from './TourPeriodContext'
 export default function TourBookingSidebar({
   action,
   fallbackPrice,
+  locale = 'tr',
 }: {
   action: (formData: FormData) => Promise<void>
   fallbackPrice?: string
+  locale?: string
 }) {
   const { options, selected, setSelected } = useTourPeriodSelection()
+  const m = getMessages(locale)
+  const td = m.listing.tourDetail
 
   const bookable = isTourPeriodBookable(selected)
   const displayPrice =
@@ -35,7 +39,7 @@ export default function TourBookingSidebar({
         <span className="text-3xl font-semibold">
           {bookable ? displayPrice : '—'}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
-            {bookable ? '/kişi' : ''}
+            {bookable ? td.pricePerPerson : ''}
           </span>
         </span>
       </div>
@@ -57,11 +61,11 @@ export default function TourBookingSidebar({
 
       {bookable ? (
         <ButtonPrimary form="booking-form" type="submit">
-          {T['common']['Reserve']}
+          {m.common.Reserve}
         </ButtonPrimary>
       ) : (
         <ButtonPrimary type="button" disabled className="cursor-not-allowed opacity-60">
-          Satışa kapalı
+          {td.salesClosed}
         </ButtonPrimary>
       )}
     </div>

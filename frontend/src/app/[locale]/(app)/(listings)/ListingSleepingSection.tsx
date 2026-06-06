@@ -5,6 +5,7 @@ import { BedSingle01Icon } from '@/components/Icons'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
+import { Divider } from '@/shared/divider'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 export default function ListingSleepingSection({
@@ -27,7 +28,8 @@ export default function ListingSleepingSection({
         <SectionHeading>{copy.sleepingTitle}</SectionHeading>
         <SectionSubheading>{copy.sleepingSubtitle}</SectionSubheading>
       </div>
-      <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <Divider className="w-14!" />
+      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {bedrooms.map((room) => {
           const title = room.name?.trim() || copy.sleepingTitle
           const floor =

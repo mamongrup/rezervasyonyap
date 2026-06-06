@@ -5,6 +5,7 @@ import {
   type TourFlightScheduleRow,
 } from '@/lib/tour-flight-schedule'
 import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
+import { getMessages } from '@/utils/getT'
 import { useTourPeriodSelection } from './TourPeriodContext'
 import { SectionHeading } from './components/SectionHeading'
 
@@ -15,8 +16,9 @@ function flightLegLabel(row: TourFlightScheduleRow, leg: 'out' | 'back'): string
   return [row.returnFrom, row.returnTo, row.returnFlightNo].filter(Boolean).join(' · ') || '—'
 }
 
-export default function TourFlightScheduleSection() {
+export default function TourFlightScheduleSection({ locale = 'tr' }: { locale?: string }) {
   const { flightSchedules, selected, options } = useTourPeriodSelection()
+  const fs = getMessages(locale).listing.tourDetail.flightSchedule
 
   if (flightSchedules.length === 0) return null
 
@@ -25,24 +27,21 @@ export default function TourFlightScheduleSection() {
 
   return (
     <section id="tour-section-flights" className={LISTING_SECTION_STACKED}>
-      <SectionHeading>Uçuş bilgisi</SectionHeading>
+      <SectionHeading>{fs.title}</SectionHeading>
       <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">
-        Tarih seçimindeki satırla eşleşen uçuş vurgulanır.{' '}
+        {fs.hint}{' '}
         {bookableCount < flightSchedules.length ? (
-          <>
-            <span className="text-neutral-500">Gri satırlar</span> henüz online rezervasyona
-            kapalı planlanan kalkışlardır.
-          </>
+          <span className="text-neutral-500">{fs.passiveHint}</span>
         ) : null}
       </p>
       <div className="overflow-x-auto rounded-2xl border border-neutral-200 dark:border-neutral-700">
         <table className="min-w-full text-left text-sm">
           <thead className="bg-neutral-50 text-neutral-600 dark:bg-neutral-800/80 dark:text-neutral-300">
             <tr>
-              <th className="px-4 py-3 font-medium">Kalkış</th>
-              <th className="px-4 py-3 font-medium">Gidiş uçuşu</th>
-              <th className="px-4 py-3 font-medium">Dönüş</th>
-              <th className="px-4 py-3 font-medium">Dönüş uçuşu</th>
+              <th className="px-4 py-3 font-medium">{fs.colDeparture}</th>
+              <th className="px-4 py-3 font-medium">{fs.colOutbound}</th>
+              <th className="px-4 py-3 font-medium">{fs.colReturn}</th>
+              <th className="px-4 py-3 font-medium">{fs.colReturnFlight}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-700">
@@ -64,7 +63,7 @@ export default function TourFlightScheduleSection() {
                   <td className="px-4 py-3 whitespace-nowrap font-medium">
                     {formatTourFlightDate(row.departureDate)}
                     {isPassive ? (
-                      <span className="ms-2 text-xs font-normal text-neutral-400">(pasif)</span>
+                      <span className="ms-2 text-xs font-normal text-neutral-400">{fs.passiveBadge}</span>
                     ) : null}
                   </td>
                   <td className="px-4 py-3">{flightLegLabel(row, 'out')}</td>

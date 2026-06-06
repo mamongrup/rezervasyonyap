@@ -3,7 +3,7 @@
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import Heading from '@/shared/Heading'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Tab, TabGroup, TabList } from '@headlessui/react'
 import { ArrowRight02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -26,6 +26,7 @@ const SectionTabHeader: FC<Props> = ({
   onChangeTab,
   rightButtonHref = '/oteller/all',
 }) => {
+  const { messages } = useAppLocale()
   const vitrinHref = useVitrinHref()
   const resolvedRightHref = vitrinHref(rightButtonHref)
   return (
@@ -51,7 +52,7 @@ const SectionTabHeader: FC<Props> = ({
           </TabGroup>
         </div>
         <ButtonSecondary className="ml-auto shrink-0" href={resolvedRightHref}>
-          <span>{T['common']['View all']}</span>
+          <span>{messages.common['View all']}</span>
           <HugeiconsIcon icon={ArrowRight02Icon} className="size-5 rtl:rotate-180" strokeWidth={1.75} />
         </ButtonSecondary>
       </div>

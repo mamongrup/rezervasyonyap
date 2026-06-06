@@ -15,7 +15,7 @@ import { TcKimlikWidget } from '@/components/travel/TcKimlikWidget'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
-import T from '@/utils/getT'
+import { getMessages } from '@/utils/getT'
 import { ArrowRight, SkipForward } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -24,6 +24,8 @@ import { useEffect, useState } from 'react'
 type Step = 'register' | 'tc-verify'
 
 export default function SignupForm({ locale }: { locale: string }) {
+  const login = getMessages(locale).login
+  const accountPage = getMessages(locale).accountPage
   const router = useRouter()
   const vitrinPath = useVitrinHref()
   const [step, setStep] = useState<Step>('register')
@@ -128,31 +130,31 @@ export default function SignupForm({ locale }: { locale: string }) {
         </p>
       ) : null}
       <Field className="block">
-        <Label className="text-neutral-800 dark:text-neutral-200">{T['login']['Email address']}</Label>
+        <Label className="text-neutral-800 dark:text-neutral-200">{login['Email address']}</Label>
         <Input type="email" name="email" required autoComplete="email" placeholder="example@example.com" className="mt-1" />
       </Field>
       <Field className="block">
-        <Label className="text-neutral-800 dark:text-neutral-200">{T['accountPage']['Name']}</Label>
+        <Label className="text-neutral-800 dark:text-neutral-200">{accountPage.Name}</Label>
         <Input type="text" name="display_name" autoComplete="name" className="mt-1" />
       </Field>
       <Field className="block">
         <Label className="flex items-center justify-between text-neutral-800 dark:text-neutral-200">
-          {T['login']['Password']}
+          {login.Password}
         </Label>
         <Input type="password" name="password" required autoComplete="new-password" className="mt-1" />
       </Field>
       <ButtonPrimary type="submit" disabled={pending}>
         {pending ? '…' : (
           <span className="flex items-center justify-center gap-2">
-            {T['login']['Signup']}
+            {login.Signup}
             <ArrowRight className="h-4 w-4" />
           </span>
         )}
       </ButtonPrimary>
       <div className="block text-center text-sm text-neutral-700 dark:text-neutral-300">
-        {T['login']['Already have an account?']}{' '}
+        {login['Already have an account?']}{' '}
         <Link href={normalizeHrefForLocale(locale, '/login')} className="font-medium underline">
-          {T['login']['Sign in']}
+          {login['Sign in']}
         </Link>
       </div>
     </form>

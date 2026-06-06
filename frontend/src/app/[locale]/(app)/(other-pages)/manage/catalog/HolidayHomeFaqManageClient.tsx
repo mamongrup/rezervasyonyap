@@ -247,11 +247,13 @@ export default function HolidayHomeFaqManageClient({
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-8">
       <div>
         <h1 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
-          {t('catalog.hub_holiday_home_faq')}
+          {categoryCode === 'yacht_charter' ? 'Yat kiralama SSS' : t('catalog.hub_holiday_home_faq')}
         </h1>
         <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-          Buradaki sorular yeni ve mevcut tatil evi ilanlarında varsayılan olarak gelir; ilan formundan bu
-          ilana uymayanları kaldırabilir veya ilana özel sorular ekleyebilirsiniz. Kayıt{' '}
+          {categoryCode === 'yacht_charter'
+            ? 'Buradaki sorular yeni ve mevcut yat kiralama ilanlarında varsayılan olarak gelir; ilan formundan bu ilana uymayanları kaldırabilir veya ilana özel sorular ekleyebilirsiniz.'
+            : 'Buradaki sorular yeni ve mevcut tatil evi ilanlarında varsayılan olarak gelir; ilan formundan bu ilana uymayanları kaldırabilir veya ilana özel sorular ekleyebilirsiniz.'}{' '}
+          Kayıt{' '}
           <span className="font-mono text-xs">site_settings.{SETTING_KEY}</span>.
         </p>
       </div>

@@ -3,7 +3,7 @@
 import { Button } from '@/shared/Button'
 import ButtonClose from '@/shared/ButtonClose'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { CloseButton, Dialog, DialogPanel } from '@headlessui/react'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
 import React, { FC, useState } from 'react'
@@ -18,6 +18,9 @@ interface Props {
 }
 
 const ModalSelectDate: FC<Props> = ({ triggerButton, onChange }) => {
+  const { messages } = useAppLocale()
+  const c = messages.common
+  const hf = messages.HeroSearchForm
   const [showModal, setShowModal] = useState(false)
   const monthsShown = useResponsiveCalendarMonthsShown()
 
@@ -41,7 +44,7 @@ const ModalSelectDate: FC<Props> = ({ triggerButton, onChange }) => {
     return triggerButton ? (
       triggerButton({ openModal })
     ) : (
-      <button onClick={openModal}>{T['common']['Select Date']}</button>
+      <button onClick={openModal}>{c['Select Date']}</button>
     )
   }
 
@@ -60,7 +63,7 @@ const ModalSelectDate: FC<Props> = ({ triggerButton, onChange }) => {
 
             <div className="flex flex-1 overflow-hidden bg-white p-1 pt-16 dark:bg-neutral-800">
               <div className="flex flex-1 flex-col overflow-auto">
-                <div className="p-5 text-xl font-semibold sm:text-2xl">{`When's your trip?`}</div>
+                <div className="p-5 text-xl font-semibold sm:text-2xl">{hf["When's your trip?"]}</div>
                 <div className="relative z-10 flex flex-1 px-2 py-5 sm:p-5">
                   <div className={datepickerStyles.datepickerScope}>
                     <DatePicker
@@ -91,7 +94,7 @@ const ModalSelectDate: FC<Props> = ({ triggerButton, onChange }) => {
                   onChangeDate([null, null])
                 }}
               >
-                {T['common']['Clear dates']}
+                {c['Clear dates']}
               </Button>
               <ButtonPrimary
                 onClick={() => {
@@ -99,7 +102,7 @@ const ModalSelectDate: FC<Props> = ({ triggerButton, onChange }) => {
                   closeModal()
                 }}
               >
-                {T['common']['Save']}
+                {c.Save}
               </ButtonPrimary>
             </div>
           </DialogPanel>

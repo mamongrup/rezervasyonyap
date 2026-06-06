@@ -72,13 +72,17 @@ function listingShortRef(id: string): string {
   return `${t.slice(0, 8)}…`
 }
 
-export default function HolidayHomeAvailabilityHub() {
+export default function HolidayHomeAvailabilityHub({
+  categoryCode = 'holiday_home',
+}: {
+  categoryCode?: 'holiday_home' | 'yacht_charter'
+}) {
+  const categoryLabel = categoryCode === 'yacht_charter' ? 'Yat kiralama' : 'Tatil evi'
   const t = useManageT()
   const ui = useCatalogListingUi()
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinPath = useVitrinHref()
-  const categoryCode = 'holiday_home'
   const base = vitrinPath(`/manage/catalog/${encodeURIComponent(categoryCode)}`)
 
   const [rows, setRows] = useState<ManageListingRow[]>([])
@@ -312,7 +316,7 @@ export default function HolidayHomeAvailabilityHub() {
       <h1 className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
         Kullanılabilirlik
       </h1>
-      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">Tatil evi</p>
+      <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">{categoryLabel}</p>
 
       <p className="mt-4 max-w-3xl text-sm text-neutral-600 dark:text-neutral-400">
         İlan seçin; görünen ay için günlük{' '}

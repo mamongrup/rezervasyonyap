@@ -2,7 +2,7 @@
 
 import { PriceRangeSlider } from '@/components/PriceRangeSlider'
 import convertNumbThousand from '@/utils/convertNumbThousand'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Dollar01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -45,6 +45,8 @@ export const PriceRangeInputField: FC<Props> = ({
   min = 0,
   max = 1000000,
 }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
   const [rangePrices, setRangePrices] = useState([90000, 800000])
 
   return (
@@ -68,7 +70,7 @@ export const PriceRangeInputField: FC<Props> = ({
                   {`$${convertNumbThousand(rangePrices[0] / 1000)}k ~ $${convertNumbThousand(rangePrices[1] / 1000)}k`}
                 </span>
                 <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">
-                  {T['HeroSearchForm']['Choose price range']}
+                  {hf['Choose price range']}
                 </span>
               </div>
             </PopoverButton>
@@ -80,7 +82,7 @@ export const PriceRangeInputField: FC<Props> = ({
 
             <PopoverPanel transition className={clsx(panelClassName, styles.panel.base, styles.panel[fieldStyle])}>
               <PriceRangeSlider
-                name={T['HeroSearchForm']['Price range']}
+                name={hf['Price range']}
                 min={min}
                 max={max}
                 defaultValue={rangePrices}

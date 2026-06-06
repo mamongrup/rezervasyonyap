@@ -165,11 +165,11 @@ export default function ListingAmenitiesSection({
                     </h3>
                     <div className="grid grid-cols-1 gap-3.5 text-sm text-neutral-700 sm:grid-cols-2 dark:text-neutral-300">
                       {groupIds.map((id) => {
-                        const Icon = getListingAmenityIcon(id)
+                        const Icon = iconFor(id)
                         return (
                           <div key={id} className="flex items-center gap-x-3">
                             <Icon className={AMENITY_ICON_CLASS} strokeWidth={1.5} aria-hidden />
-                            <span className="leading-snug">{labelFor(messages, id)}</span>
+                            <span className="leading-snug">{labelOf(id)}</span>
                           </div>
                         )
                       })}
@@ -185,12 +185,15 @@ export default function ListingAmenitiesSection({
                       {messages.listing.amenities.groups?.comfort ?? 'Diğer'}
                     </h3>
                     <div className="grid grid-cols-1 gap-3.5 text-sm text-neutral-700 sm:grid-cols-2 dark:text-neutral-300">
-                      {extraCustom.map((id) => (
-                        <div key={id} className="flex items-center gap-x-3">
-                          <Sparkles className={AMENITY_ICON_CLASS} strokeWidth={1.5} aria-hidden />
-                          <span className="leading-snug">{labelOf(id)}</span>
-                        </div>
-                      ))}
+                      {extraCustom.map((id) => {
+                        const Icon = iconFor(id)
+                        return (
+                          <div key={id} className="flex items-center gap-x-3">
+                            <Icon className={AMENITY_ICON_CLASS} strokeWidth={1.5} aria-hidden />
+                            <span className="leading-snug">{labelOf(id)}</span>
+                          </div>
+                        )
+                      })}
                     </div>
                   </section>
                 ) : null}

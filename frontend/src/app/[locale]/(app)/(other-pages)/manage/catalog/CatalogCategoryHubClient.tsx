@@ -49,21 +49,39 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
     { href: `${prefix}/attributes`, labelKey: 'catalog.hub_attributes', noteKey: 'catalog.hub_note_attr' },
     ...(code === 'holiday_home' || code === 'yacht_charter'
       ? ([
-          {
-            href: `${prefix}/property-types`,
-            labelKey: 'catalog.hub_holiday_home_property_types',
-            noteKey: 'catalog.hub_note_holiday_home_property_types',
-          },
-          {
-            href: `${prefix}/theme-presets`,
-            labelKey: 'catalog.hub_holiday_home_theme_presets',
-            noteKey: 'catalog.hub_note_holiday_home_theme_presets',
-          },
-          {
-            href: `${prefix}/faq`,
-            label: t('catalog.hub_holiday_home_faq'),
-            note: t('catalog.hub_note_holiday_home_faq'),
-          },
+          code === 'yacht_charter'
+            ? {
+                href: `${prefix}/property-types`,
+                label: 'Yat tipi',
+                note: 'Gulet, motor yat, katamaran vb. — vitrin filtreleri',
+              }
+            : {
+                href: `${prefix}/property-types`,
+                labelKey: 'catalog.hub_holiday_home_property_types',
+                noteKey: 'catalog.hub_note_holiday_home_property_types',
+              },
+          code === 'yacht_charter'
+            ? {
+                href: `${prefix}/theme-presets`,
+                label: 'Yat teması',
+                note: 'Mavi tur, lüks, aile dostu vb. tema etiketleri',
+              }
+            : {
+                href: `${prefix}/theme-presets`,
+                labelKey: 'catalog.hub_holiday_home_theme_presets',
+                noteKey: 'catalog.hub_note_holiday_home_theme_presets',
+              },
+          code === 'yacht_charter'
+            ? {
+                href: `${prefix}/faq`,
+                label: 'SSS',
+                note: 'Tüm yat kiralama ilanlarında varsayılan SSS şablonu',
+              }
+            : {
+                href: `${prefix}/faq`,
+                label: t('catalog.hub_holiday_home_faq'),
+                note: t('catalog.hub_note_holiday_home_faq'),
+              },
         ] satisfies CatalogHubLink[])
       : []),
     ...(code === 'hotel'

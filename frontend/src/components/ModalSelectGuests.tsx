@@ -3,7 +3,7 @@
 import { Button } from '@/shared/Button'
 import ButtonClose from '@/shared/ButtonClose'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { CloseButton, Dialog, DialogPanel } from '@headlessui/react'
 import React, { FC, useState } from 'react'
 import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
@@ -25,6 +25,8 @@ function guestCountsFromDefaults(d: typeof DEFAULT_GUESTS_STAY = DEFAULT_GUESTS_
 }
 
 const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
+  const { messages } = useAppLocale()
+  const c = messages.common
   const [showModal, setShowModal] = useState(false)
   const [guests, setGuests] = useState<GuestCounts>(guestCountsFromDefaults())
 
@@ -39,7 +41,7 @@ const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
     return triggerButton ? (
       triggerButton({ openModal })
     ) : (
-      <button onClick={openModal}>{T['common']['Select Date']}</button>
+      <button onClick={openModal}>{c['Select Date']}</button>
     )
   }
 
@@ -83,7 +85,7 @@ const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
                   setGuests(guestCountsFromDefaults())
                 }}
               >
-                {T['common']['Clear']}
+                {c.Clear}
               </Button>
               <ButtonPrimary
                 onClick={() => {
@@ -93,7 +95,7 @@ const ModalSelectGuests: FC<Props> = ({ triggerButton, onChangeGuests }) => {
                   }
                 }}
               >
-                {T['common']['Save']}
+                {c.Save}
               </ButtonPrimary>
             </div>
           </DialogPanel>

@@ -26,7 +26,7 @@ import {
   stayDetailPathForVertical,
   type StayDetailLinkBase,
 } from '@/lib/listing-detail-routes'
-import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
+import { stayRentalCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { resolveHolidayThemeLabels } from '@/lib/holiday-theme-labels'
 import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
@@ -56,7 +56,6 @@ import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
-import T from '@/utils/getT'
 import {
   AlertCircleIcon,
   ArrowRight02Icon,
@@ -478,18 +477,19 @@ export default async function StayListingDetailPageContent({
       prepaymentNoteText?.trim() ||
       listingContractHref,
   )
+  const hd = messages.listing.hotelDetail
   const hotelSectionNavItems: HotelSectionNavItem[] =
     vertical === 'hotel'
       ? [
           amenityKeys.length > 0
-            ? { id: 'stay-section-amenities', label: 'Tesis Özellikleri' }
+            ? { id: 'stay-section-amenities', label: hd.nav.propertyFeatures }
             : null,
           realHotelRooms.length > 0
-            ? { id: 'stay-section-rooms', label: 'Odalar', eyebrow: String(realHotelRooms.length) }
+            ? { id: 'stay-section-rooms', label: hd.nav.rooms, eyebrow: String(realHotelRooms.length) }
             : null,
-          mealPlans.length > 0 ? { id: 'stay-section-meal-plans', label: 'Konsept' } : null,
-          { id: 'stay-section-location', label: 'Konum Bilgileri' },
-          hasPoliciesSection ? { id: 'stay-section-policies', label: 'Önemli Notlar' } : null,
+          mealPlans.length > 0 ? { id: 'stay-section-meal-plans', label: hd.nav.concept } : null,
+          { id: 'stay-section-location', label: hd.nav.locationInfo },
+          hasPoliciesSection ? { id: 'stay-section-policies', label: hd.nav.importantNotes } : null,
         ].filter((item): item is HotelSectionNavItem => item !== null)
       : []
   const regionName = isStayRental
@@ -526,10 +526,10 @@ export default async function StayListingDetailPageContent({
     listingCategory: l.listingCategory ?? '',
     linkBase: stayDetailPathForVertical(normalizeCatalogVertical(l.listingVertical)),
     capacityLine: isStayRental
-      ? holidayHomeCapacitySummary(
+      ? stayRentalCapacitySummary(
           { maxGuests: l.maxGuests, bedrooms: l.bedrooms, bathrooms: l.bathrooms },
           messages.listing.capacitySpec,
-          true,
+          { useCabins: isYachtCharter, alwaysShow: true },
         )
       : undefined,
   })
@@ -654,15 +654,18 @@ export default async function StayListingDetailPageContent({
           <div className="flex items-center gap-x-3">
             <MeetingRoomIcon className="mb-0.5 size-5" />
             <span>
-              {bedrooms} {isYachtCharter ? 'kabin' : messages.listing.capacitySpec.rooms}
+              {bedrooms}{' '}
+              {isYachtCharter ? messages.listing.capacitySpec.cabins : messages.listing.capacitySpec.rooms}
             </span>
           </div>
-          <div className="flex items-center gap-x-3">
-            <Bathtub02Icon className="mb-0.5 size-5" />
-            <span>
-              {bathrooms} {messages.listing.capacitySpec.bathrooms}
-            </span>
-          </div>
+          {bathrooms != null && bathrooms > 0 ? (
+            <div className="flex items-center gap-x-3">
+              <Bathtub02Icon className="mb-0.5 size-5" />
+              <span>
+                {bathrooms} {messages.listing.capacitySpec.bathrooms}
+              </span>
+            </div>
+          ) : null}
         </>
       ) : (
         <>
@@ -698,7 +701,7 @@ export default async function StayListingDetailPageContent({
   const renderSectionDescription = () => (
     <div id="stay-section-about" className="listingSection__wrap scroll-mt-28">
       <SectionHeading>
-        {isHolidayHome ? dp.aboutVacationHome : isYachtCharter ? 'Yat kiralama hakkında' : dp.aboutStay}
+        {isHolidayHome ? dp.aboutVacationHome : isYachtCharter ? dp.aboutYachtCharter : dp.aboutStay}
       </SectionHeading>
       <Divider className="w-14!" />
       <ListingDescriptionExpandable
@@ -857,7 +860,7 @@ export default async function StayListingDetailPageContent({
   const renderSidebarPriceAndForm = () => (
     <StayListingReservationCard
       locale={locale}
-      isHolidayHome={isStayRental}
+      isHolidayHome={isHolidayHome}
       mealPlans={mealPlans}
       price={price ?? ''}
       priceAmount={reservationPriceAmount}
@@ -916,12 +919,14 @@ export default async function StayListingDetailPageContent({
         {/* LEFT COLUMN */}
         <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
-          {vertical === 'hotel' ? <HotelSectionNav items={hotelSectionNavItems} /> : null}
+          {vertical === 'hotel' ? (
+            <HotelSectionNav items={hotelSectionNavItems} ariaLabel={hd.sectionNavAriaLabel} />
+          ) : null}
           {perksBadges}
           {socialProof}
           {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
               tatil evinde havuz/tema bölümleri zaten benzer işlevi görüyor. */}
-          {!isStayRental ? (
+          {amenityKeys.length >= 3 ? (
             <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
           ) : null}
           {/* Booking "Property info at a glance" tarzı hızlı bilgi kutusu —
@@ -1021,7 +1026,7 @@ export default async function StayListingDetailPageContent({
               <SectionMealPlans
                 mealPlans={mealPlans}
                 locale={locale}
-                holidayHome={isStayRental}
+                holidayHome={isHolidayHome}
                 maxGuests={maxGuests}
               />
             </div>
@@ -1040,7 +1045,7 @@ export default async function StayListingDetailPageContent({
             saleOff={saleOff}
             discountPercent={discountPercent}
             poolHeating={poolHeatingOption}
-            isHolidayHome={isStayRental}
+            isHolidayHome={isHolidayHome}
             cleaningFeeAmount={listing.cleaningFeeAmount}
             damageDepositAmount={damageDepositAmount}
             ruleFallbackNightly={ruleFallbackForQuote}
@@ -1058,7 +1063,9 @@ export default async function StayListingDetailPageContent({
                 items={listing.holidayHomeFaqItems}
                 title={messages.listing.faq.title}
                 subtitle={
-                  messages.listing.faq.subtitleHolidayHome ?? messages.listing.faq.subtitle
+                  isYachtCharter
+                    ? (messages.listing.faq.subtitleYachtCharter ?? messages.listing.faq.subtitle)
+                    : (messages.listing.faq.subtitleHolidayHome ?? messages.listing.faq.subtitle)
                 }
               />
               </div>
@@ -1106,6 +1113,7 @@ export default async function StayListingDetailPageContent({
           <div id="stay-section-location" className="scroll-mt-28 space-y-5">
             {vertical === 'hotel' ? (
               <HotelLocationInfoSection
+                locale={locale}
                 address={address}
                 city={listing.city}
                 transport={servicePois.transport}
@@ -1119,6 +1127,7 @@ export default async function StayListingDetailPageContent({
             />
           </div>
           <ListingServicePoisSection
+            locale={locale}
             amenities={servicePois.amenities}
             transport={servicePois.transport}
           />

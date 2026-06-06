@@ -32,6 +32,7 @@ import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { TListingBase } from '@/types/listing-types'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
+import { normalizeStayRentalAttrsParam } from '@/lib/stay-rental-filter-attrs'
 
 export { HOLIDAY_TYPE_HANDLE_MAP, YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 
@@ -614,7 +615,7 @@ export async function fetchCategoryListings(
       drop_off: query.drop_off,
       theme: query.theme,
       sort: query.sort?.trim() || undefined,
-      attrs: query.attrs?.trim() || undefined,
+      attrs: normalizeStayRentalAttrsParam(query.attrs) || undefined,
       priceMin: query.price_min?.trim() || undefined,
       priceMax: query.price_max?.trim() || undefined,
       hotelType: query.hotel_type?.trim() || undefined,

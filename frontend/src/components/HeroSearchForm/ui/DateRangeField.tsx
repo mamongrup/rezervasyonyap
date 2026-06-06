@@ -1,6 +1,6 @@
 'use client'
 
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -22,8 +22,6 @@ const DateRangePickerPanel = dynamic(() => import('./DateRangePickerPanel'), {
     </div>
   ),
 })
-
-const DATE_LOCALE = 'tr-TR'
 
 const styles = {
   button: {
@@ -59,12 +57,17 @@ export const DateRangeField: FC<Props> = ({
   className = 'flex-1',
   fieldStyle = 'default',
   clearDataButtonClassName,
-  description = `${T['HeroSearchForm']['CheckIn']} - ${T['HeroSearchForm']['CheckOut']}`,
+  description,
   panelClassName,
   isOnlySingleDate = false,
   defaultStartDate,
   defaultEndDate,
 }) => {
+  const { messages, dateLocale } = useAppLocale()
+  const hf = messages.HeroSearchForm
+  const resolvedDescription =
+    description ?? `${hf.CheckIn} - ${hf.CheckOut}`
+
   const [startDate, setStartDate] = useState<Date | null>(() => parseLocalYmd(defaultStartDate))
   const [endDate, setEndDate] = useState<Date | null>(() => parseLocalYmd(defaultEndDate))
   const monthsShown = useResponsiveCalendarMonthsShown()
@@ -97,20 +100,20 @@ export const DateRangeField: FC<Props> = ({
 
               <div className="flex-1 text-start">
                 <span className={clsx('block font-semibold text-neutral-900 dark:text-neutral-100', styles.mainText[fieldStyle])}>
-                  {startDate?.toLocaleDateString(DATE_LOCALE, {
+                  {startDate?.toLocaleDateString(dateLocale, {
                     month: 'short',
                     day: '2-digit',
-                  }) || T['HeroSearchForm']['Add dates']}
+                  }) || hf['Add dates']}
                   {endDate && !isOnlySingleDate
                     ? ' – ' +
-                      endDate?.toLocaleDateString(DATE_LOCALE, {
+                      endDate?.toLocaleDateString(dateLocale, {
                         month: 'short',
                         day: '2-digit',
                       })
                     : ''}
                 </span>
                 <span className="mt-0.5 block text-xs leading-tight font-normal text-neutral-700 dark:text-neutral-300">
-                  {description || T['HeroSearchForm']['Add dates']}
+                  {resolvedDescription || hf['Add dates']}
                 </span>
               </div>
             </PopoverButton>

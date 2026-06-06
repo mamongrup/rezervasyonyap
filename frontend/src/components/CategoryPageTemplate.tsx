@@ -24,6 +24,7 @@ import type { FilterOption, PageBuilderModule, TListingBase } from '@/types/list
 import type { TAuthor } from '@/data/authors'
 import { getPublicRegionStats, listPublicThemeItems } from '@/lib/travel-api'
 import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
+import { resolveListingPriceUnit } from '@/lib/listing-category-display'
 import {
   isStayRentalCategory,
   stayRentalPropertyTypeFromHandle,
@@ -151,7 +152,7 @@ export default async function CategoryPageTemplate({
   heroOverride,
   allListings,
   listingLinkBase = '/otel',
-  priceUnit = '/gece',
+  priceUnit,
   authors = [],
   listingCardRenderer,
   activeSearch,
@@ -162,6 +163,8 @@ export default async function CategoryPageTemplate({
 }: CategoryPageTemplateProps) {
   const m = getMessages(locale)
   const cat = m.categoryPage
+  const effectivePriceUnit =
+    priceUnit ?? resolveListingPriceUnit(category.detailRoute, locale)
   const isAll = !currentHandle || currentHandle === 'all'
 
   const categoryRouteVitrin = await vitrinHref(locale, category.categoryRoute)
@@ -274,9 +277,16 @@ export default async function CategoryPageTemplate({
         <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
           <i className="las la-map-marked me-2 text-2xl" />
           <span>
-            <span className="text-neutral-500 dark:text-neutral-400">{cat.holidayHomesHeroLead} </span>
+            <span className="text-neutral-500 dark:text-neutral-400">
+              {category.slug === 'yat-kiralama' ? cat.yachtCharterHeroLead : cat.holidayHomesHeroLead}{' '}
+            </span>
             <span className="text-neutral-900 dark:text-neutral-100">
-              {interpolate(cat.holidayHomesHeroHighlight, { count: countFormatted })}
+              {interpolate(
+                category.slug === 'yat-kiralama'
+                  ? cat.yachtCharterHeroHighlight
+                  : cat.holidayHomesHeroHighlight,
+                { count: countFormatted },
+              )}
             </span>
           </span>
         </div>
@@ -346,7 +356,7 @@ export default async function CategoryPageTemplate({
           </h2>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
             {interpolate(cat.pricesDisclaimer, {
-              unit: category.priceUnit.replace('/', ''),
+              unit: effectivePriceUnit.replace(/^\//, ''),
             })}
           </p>
           {hasActiveSearch && (
@@ -554,7 +564,7 @@ export default async function CategoryPageTemplate({
           categoriesNode={destinationCards}
           allListings={allListings}
           listingLinkBase={listingLinkBaseVitrin}
-          priceUnit={priceUnit}
+          priceUnit={effectivePriceUnit}
           authors={authors}
           listingCardsById={listingCardsById}
           listingsBrowseHref={categoryPageHref}

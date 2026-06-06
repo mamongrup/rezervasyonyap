@@ -2,7 +2,7 @@
 
 import { Checkbox, CheckboxField, CheckboxGroup } from '@/shared/Checkbox'
 import { Description, Label } from '@/shared/fieldset'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Home01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -68,9 +68,14 @@ export const PropertyTypeSelectField: FC<Props> = ({
   className = 'flex-1',
   fieldStyle = 'default',
   propertyTypes = defaultPropertyTypes,
-  description = T['HeroSearchForm']['Property type'],
-  placeholder = T['HeroSearchForm']['Type'],
+  description,
+  placeholder,
 }) => {
+  const { messages } = useAppLocale()
+  const hf = messages.HeroSearchForm
+  const resolvedDescription = description ?? hf['Property type']
+  const resolvedPlaceholder = placeholder ?? hf.Type
+
   const [selectedTypes, setSelectedTypes] = useState<string[]>([propertyTypes[0].name])
   let typeStringConverted = selectedTypes.join(', ')
   return (
@@ -90,9 +95,9 @@ export const PropertyTypeSelectField: FC<Props> = ({
 
             <div className="flex-1">
               <span className={clsx('block font-semibold', styles.mainText[fieldStyle])}>
-                <span className="line-clamp-1">{typeStringConverted || placeholder}</span>
+                <span className="line-clamp-1">{typeStringConverted || resolvedPlaceholder}</span>
               </span>
-              <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">{description}</span>
+              <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">{resolvedDescription}</span>
             </div>
           </PopoverButton>
 

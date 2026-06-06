@@ -1,4 +1,6 @@
 import { Divider } from '@/shared/divider'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { MapPin, Plane, Route, TrainFront } from 'lucide-react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
@@ -9,10 +11,11 @@ type ServicePoi = {
   duration_text?: string
 }
 
-function formatDistance(km: number): string {
+function formatDistance(km: number, locale: string): string {
   if (!Number.isFinite(km)) return ''
-  if (km < 1) return `${Math.round(km * 1000)} m`
-  return `${km.toFixed(km >= 10 ? 0 : 1).replace('.', ',')} km`
+  const sp = getMessages(locale).listing.servicePois
+  if (km < 1) return interpolate(sp.distanceMeters, { m: String(Math.round(km * 1000)) })
+  return interpolate(sp.distanceKm, { km: km.toFixed(km >= 10 ? 0 : 1) })
 }
 
 function iconFor(type: string) {
@@ -22,18 +25,23 @@ function iconFor(type: string) {
 }
 
 export default function HotelLocationInfoSection({
-  title = 'Konum Bilgileri',
-  subtitle = 'Tesisin bulunduğu bölge ve yakın ulaşım noktaları.',
+  locale = 'tr',
+  title,
+  subtitle,
   address,
   city,
   transport,
 }: {
+  locale?: string
   title?: string
   subtitle?: string
   address?: string | null
   city?: string | null
   transport: ServicePoi[]
 }) {
+  const hd = getMessages(locale).listing.hotelDetail
+  const resolvedTitle = title ?? hd.locationTitle
+  const resolvedSubtitle = subtitle ?? hd.locationSubtitle
   const rows = transport
     .filter((p) => p.label?.trim() && Number.isFinite(p.distance_km))
     .slice(0, 6)
@@ -43,8 +51,8 @@ export default function HotelLocationInfoSection({
   return (
     <section className="listingSection__wrap">
       <div>
-        <SectionHeading>{title}</SectionHeading>
-        <SectionSubheading>{subtitle}</SectionSubheading>
+        <SectionHeading>{resolvedTitle}</SectionHeading>
+        <SectionSubheading>{resolvedSubtitle}</SectionSubheading>
       </div>
       <Divider className="w-14!" />
       <div className="grid gap-4 md:grid-cols-[1.1fr_1fr]">
@@ -55,7 +63,7 @@ export default function HotelLocationInfoSection({
             </span>
             <div>
               <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                {city?.trim() || 'Otel konumu'}
+                {city?.trim() || hd.locationFallback}
               </p>
               {address?.trim() ? (
                 <p className="mt-1 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">
@@ -79,7 +87,7 @@ export default function HotelLocationInfoSection({
                     <span className="truncate text-neutral-700 dark:text-neutral-200">{poi.label}</span>
                   </div>
                   <span className="shrink-0 font-semibold text-neutral-900 dark:text-neutral-100">
-                    {poi.duration_text?.trim() || formatDistance(poi.distance_km)}
+                    {poi.duration_text?.trim() || formatDistance(poi.distance_km, locale)}
                   </span>
                 </div>
               )

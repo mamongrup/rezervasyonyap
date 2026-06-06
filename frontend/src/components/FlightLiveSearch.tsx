@@ -15,7 +15,7 @@ import {
 } from '@/lib/flight-airports'
 import { turnaOfferListKey } from '@/lib/flight-display-assets'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
-import T from '@/utils/getT'
+import { getMessages } from '@/utils/getT'
 import { useRouter } from 'next/navigation'
 import { FC, useCallback, useEffect, useState } from 'react'
 
@@ -70,21 +70,7 @@ function formatTurnaSearchError(
 
 const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', enabled = true }) => {
   const router = useRouter()
-  const m = T.flightLiveSearch ?? {
-    searching: 'Uçuşlar aranıyor…',
-    noResults: 'Bu tarih ve rota için uçuş bulunamadı.',
-    error: 'Arama sırasında bir hata oluştu.',
-    notConfigured:
-      'Turna API anahtarı tanımlı değil. Yönetim → API sağlayıcıları bölümünden kaydedin veya sunucuda TURNA_API_KEY ayarlayın.',
-    select: 'Seç ve devam et',
-    configuring: 'Fiyat kontrol ediliyor…',
-    needListing: 'Rota ilanı bulunamadı — yönetimden Turna import çalıştırın.',
-    noInventory:
-      'Turna API bu rota için envanter döndürmedi. API anahtarınızın uçuş arama yetkisini Turna ile doğrulayın.',
-    viewOnTurna: 'Turna.com’da görüntüle',
-    accessDenied:
-      'Turna test ortamı (apitest.turna.com) sunucu IP’nizi engelliyor. Yönetim → Entegrasyonlar’da Base URL olarak https://api.turna.com ve canlı API anahtarını kaydedin.',
-  }
+  const m = getMessages(locale).flightLiveSearch
 
   const [loading, setLoading] = useState(false)
   const [bookingId, setBookingId] = useState<string | null>(null)

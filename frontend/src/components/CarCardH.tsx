@@ -8,7 +8,7 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
 import { Badge } from '@/shared/Badge'
-import T from '@/utils/getT'
+import { useAppLocale } from '@/hooks/useAppLocale'
 import { HumidityIcon, MapPinIcon, SeatSelectorIcon, Settings03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Image from 'next/image'
@@ -21,6 +21,7 @@ export interface CarCardHProps {
 }
 
 const CarCardH: FC<CarCardHProps> = ({ className = '', data }) => {
+  const { messages } = useAppLocale()
   const vitrinHref = useVitrinHref()
   const {
     address,
@@ -119,7 +120,7 @@ const CarCardH: FC<CarCardHProps> = ({ className = '', data }) => {
           <span className="text-lg font-semibold text-neutral-950 dark:text-neutral-50">
             {price}
             {` `}
-            <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">/{T['common']['day']}</span>
+            <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">/{messages.common.day}</span>
           </span>
         </div>
       </div>

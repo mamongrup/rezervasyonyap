@@ -110,7 +110,7 @@ export const CATEGORY_REGISTRY: CategoryRegistryEntry[] = [
   {
     slug: 'yat-kiralama',
     name: 'Yat Kiralama',
-    namePlural: 'Yacht Charters',
+    namePlural: 'yat',
     listingType: 'yacht',
     categoryRoute: '/yat-kiralama',
     detailRoute: '/yat',
