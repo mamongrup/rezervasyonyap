@@ -8680,6 +8680,9 @@ export async function patchVerticalYacht(
     cabin_count?: string
     port_lat?: string
     port_lng?: string
+    theme_codes?: string[]
+    rule_codes?: string[]
+    ical_managed?: boolean
   },
 ): Promise<{ listing_id: string; ok: boolean }> {
   const b = base()
