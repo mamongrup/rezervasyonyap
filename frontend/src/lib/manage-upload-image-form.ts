@@ -14,7 +14,13 @@ export type ManageMediaPickerUploadTarget = {
   slot?: string
   fileBase?: string
   fixedStem?: string
+  /** Yüklemede sabit dosya adı; galeri klasör gezintisini kilitlemez (`fixedStem` yerine). */
+  uploadFixedStem?: string
   useOriginalStem?: boolean
+}
+
+export function resolveUploadFixedStem(t: ManageMediaPickerUploadTarget): string {
+  return (t.fixedStem?.trim() || t.uploadFixedStem?.trim() || '')
 }
 
 export function appendManageUploadNaming(
@@ -24,8 +30,9 @@ export function appendManageUploadNaming(
 ): void {
   if (t.fileBase?.trim()) form.append('fileBase', t.fileBase.trim())
   if (t.useOriginalStem) form.append('useOriginalStem', '1')
-  if (t.fixedStem?.trim()) {
-    form.append('fixedStem', t.fixedStem.trim())
+  const stem = resolveUploadFixedStem(t)
+  if (stem) {
+    form.append('fixedStem', stem)
     return
   }
   if (explicitIndex != null && explicitIndex >= 1) {

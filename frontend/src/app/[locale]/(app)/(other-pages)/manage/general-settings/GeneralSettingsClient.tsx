@@ -20,7 +20,7 @@ import {
   putCurrencyOrder,
   refreshTcmbRates,
   setActivePaymentProvider,
-  upsertSiteSetting,
+  upsertSiteSettingFromPanel,
   type CurrencyRow,
   type ProductCategoryRow,
 } from '@/lib/travel-api'
@@ -88,7 +88,7 @@ function BrandingImageUploadRow({
         folder: 'site',
         subPath: '',
         prefix: 'branding',
-        fixedStem: purpose,
+        uploadFixedStem: purpose,
       }) as const,
     [purpose],
   )
@@ -487,14 +487,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }, [load])
 
   async function saveMaps() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setStatus({
-        kind: 'err',
-        text: 'Site ayarlarını kaydetmek için yönetici oturumu ve `admin.users.read` gerekir.',
-      })
-      return
-    }
     setStatus({ kind: 'idle' })
     try {
       const lat = Number.parseFloat(mapsLat)
@@ -506,7 +498,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         default_center: { lat, lng },
         default_zoom: Number.isFinite(zoom) ? zoom : 6,
       }
-      await upsertSiteSetting(token, { key: 'maps', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'maps', value_json: JSON.stringify(next) })
       setStatus({ kind: 'ok', text: 'Harita ayarları kaydedildi.' })
       await load()
     } catch (e) {
@@ -518,14 +510,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveAiSettings() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setStatus({
-        kind: 'err',
-        text: 'Site ayarlarını kaydetmek için yönetici oturumu ve `admin.users.read` gerekir.',
-      })
-      return
-    }
     setAiSaving(true)
     setStatus({ kind: 'idle' })
     try {
@@ -553,7 +537,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         request_timeout_sec: rtParsed,
         module_timeouts_sec,
       }
-      await upsertSiteSetting(token, { key: 'ai', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'ai', value_json: JSON.stringify(next) })
       setAiRest(next as Record<string, unknown>)
       setRequestTimeoutSec(String(rtParsed))
       setModuleTimeoutsSec(() => {
@@ -577,14 +561,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveUi() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setStatus({
-        kind: 'err',
-        text: 'Site ayarlarını kaydetmek için yönetici oturumu ve `admin.users.read` gerekir.',
-      })
-      return
-    }
     setStatus({ kind: 'idle' })
     try {
       const next = {
@@ -593,7 +569,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         footer_html: footerHtml,
         travel_category_home_slugs: travelHomeCategorySlugs,
       }
-      await upsertSiteSetting(token, { key: 'ui', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'ui', value_json: JSON.stringify(next) })
       setStatus({ kind: 'ok', text: 'Üst / alt bilgi kaydedildi.' })
       await load()
     } catch (e) {
@@ -605,14 +581,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveTravelHomeCategoryOrder() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setStatus({
-        kind: 'err',
-        text: 'Site ayarlarını kaydetmek için yönetici oturumu ve `admin.users.read` gerekir.',
-      })
-      return
-    }
     setHomeCatOrderSaving(true)
     setStatus({ kind: 'idle' })
     try {
@@ -622,7 +590,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         footer_html: footerHtml,
         travel_category_home_slugs: travelHomeCategorySlugs,
       }
-      await upsertSiteSetting(token, { key: 'ui', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'ui', value_json: JSON.stringify(next) })
       setStatus({ kind: 'ok', text: 'Kategori vitrin sırası kaydedildi.' })
       await load()
     } catch (e) {
@@ -636,8 +604,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveGoogleServices() {
-    const token = getStoredAuthToken()
-    if (!token) { setStatus({ kind: 'err', text: 'Yönetici oturumu gerekli.' }); return }
     setGoogleServicesSaving(true)
     setStatus({ kind: 'idle' })
     try {
@@ -650,7 +616,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         ...(googleAdsId.trim() ? { google_ads_id: googleAdsId.trim() } : {}),
         ...(searchConsoleCode.trim() ? { search_console_verification: searchConsoleCode.trim() } : {}),
       }
-      await upsertSiteSetting(token, { key: 'analytics', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'analytics', value_json: JSON.stringify(next) })
       setStatus({ kind: 'ok', text: 'Google hizmet ayarları kaydedildi. Değişiklikler bir sonraki deploy\'da yansır.' })
       await load()
     } catch (e) {
@@ -661,18 +627,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveAnalytics() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setStatus({
-        kind: 'err',
-        text: 'Site ayarlarını kaydetmek için yönetici oturumu ve `admin.users.read` gerekir.',
-      })
-      return
-    }
     setStatus({ kind: 'idle' })
     try {
       JSON.parse(analyticsJson)
-      await upsertSiteSetting(token, { key: 'analytics', value_json: analyticsJson })
+      await upsertSiteSettingFromPanel({ key: 'analytics', value_json: analyticsJson })
       setStatus({ kind: 'ok', text: 'Analytics ayarları kaydedildi.' })
       await load()
     } catch (e) {
@@ -684,18 +642,10 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveBranding() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setStatus({
-        kind: 'err',
-        text: 'Site ayarlarını kaydetmek için yönetici oturumu ve `admin.users.read` gerekir.',
-      })
-      return
-    }
     setStatus({ kind: 'idle' })
     try {
       JSON.parse(brandingJson)
-      await upsertSiteSetting(token, { key: 'branding', value_json: brandingJson })
+      await upsertSiteSettingFromPanel({ key: 'branding', value_json: brandingJson })
       setStatus({ kind: 'ok', text: 'Marka ayarları kaydedildi.' })
       await load()
     } catch (e) {
@@ -707,8 +657,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveIdentity() {
-    const token = getStoredAuthToken()
-    if (!token) { setStatus({ kind: 'err', text: 'Yönetici oturumu gerekli.' }); return }
     setStatus({ kind: 'idle' })
     try {
       const next = {
@@ -742,7 +690,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         social_x_url: socialXUrl.trim(),
         social_youtube_url: socialYoutubeUrl.trim(),
       }
-      await upsertSiteSetting(token, { key: 'branding', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'branding', value_json: JSON.stringify(next) })
       setBrandingJson(JSON.stringify(next, null, 2))
       setStatus({ kind: 'ok', text: 'Site kimliği kaydedildi. Logo ve favicon hemen yansır.' })
     } catch (e) {
@@ -751,8 +699,6 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   }
 
   async function saveCategoryLogos() {
-    const token = getStoredAuthToken()
-    if (!token) { setStatus({ kind: 'err', text: 'Yönetici oturumu gerekli.' }); return }
     setCategoryLogosSaving(true)
     setStatus({ kind: 'idle' })
     try {
@@ -787,7 +733,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         social_x_url: socialXUrl.trim(),
         social_youtube_url: socialYoutubeUrl.trim(),
       }
-      await upsertSiteSetting(token, { key: 'branding', value_json: JSON.stringify(next) })
+      await upsertSiteSettingFromPanel({ key: 'branding', value_json: JSON.stringify(next) })
       setBrandingJson(JSON.stringify(next, null, 2))
       setStatus({ kind: 'ok', text: 'Kategori logoları kaydedildi.' })
     } catch (e) {
@@ -1251,7 +1197,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               Site kimliğini kaydet
             </ButtonPrimary>
             <p className="mt-2 text-xs text-neutral-400">
-              Kaydedilen logo ve favicon site genelinde (header vb.) kullanılır.
+              Logo veya favicon seçtikten / yükledikten sonra mutlaka bu düğmeye basın; aksi halde sayfa yenilenince eski görsel geri gelir.
             </p>
           </div>
 

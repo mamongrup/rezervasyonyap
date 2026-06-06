@@ -6047,6 +6047,25 @@ export async function upsertSiteSetting(
   return json(res)
 }
 
+/** Yönetim paneli — HttpOnly cookie; localStorage token gerekmez. */
+export async function upsertSiteSettingFromPanel(body: {
+  organization_id?: string
+  key: string
+  value_json: string
+}): Promise<{ id: string; ok: boolean }> {
+  const res = await fetch('/api/manage/site-settings', {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `site_settings_upsert_${res.status}`)
+  }
+  return json(res)
+}
+
 /** organization_id boş: yalnızca platform (organization_id null) satırı — `admin.users.read` */
 export async function deleteSiteSetting(
   token: string,

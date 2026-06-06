@@ -1,6 +1,7 @@
 'use client'
 
 import {
+  resolveUploadFixedStem,
   uploadManageImagesWithConcurrency,
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
@@ -317,7 +318,7 @@ export function ManageMediaPickerModal({
   const fileInputMultiple = useMemo(() => {
     const t = effectiveUploadTarget
     if (!allowMultipleUpload) return false
-    if (t.fixedStem?.trim()) return false
+    if (resolveUploadFixedStem(t)) return false
     if (t.slot != null && t.slot !== '') return false
     return true
   }, [allowMultipleUpload, effectiveUploadTarget])
@@ -545,7 +546,7 @@ export function ManageMediaPickerModal({
       if (files.length === 0) return
 
       const t = effectiveUploadTarget
-      if (t.fixedStem?.trim() && files.length > 1) {
+      if (resolveUploadFixedStem(t) && files.length > 1) {
         setError('Bu hedef için tek dosya seçin.')
         return
       }
