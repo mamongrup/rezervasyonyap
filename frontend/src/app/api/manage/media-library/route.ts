@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { verifyAdminToken } from '@/lib/security'
+import { verifyAdminMediaToken } from '@/lib/security'
 
 export const dynamic = 'force-dynamic'
 
@@ -106,7 +106,7 @@ async function collectMediaFiles(): Promise<MediaFileRow[]> {
 
 export async function GET() {
   const cookieStore = await cookies()
-  const auth = await verifyAdminToken(cookieStore.get('travel_auth_token')?.value, 'admin.media.write')
+  const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: auth.status })
   }
@@ -150,7 +150,7 @@ function resolveSafeUploadPath(relPath: string): string | null {
 
 export async function DELETE(req: NextRequest) {
   const cookieStore = await cookies()
-  const auth = await verifyAdminToken(cookieStore.get('travel_auth_token')?.value, 'admin.media.write')
+  const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: auth.status })
   }
@@ -213,7 +213,7 @@ export async function DELETE(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const cookieStore = await cookies()
-  const auth = await verifyAdminToken(cookieStore.get('travel_auth_token')?.value, 'admin.media.write')
+  const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: auth.status })
   }
@@ -364,7 +364,7 @@ type PatchBody =
  */
 export async function PATCH(req: NextRequest) {
   const cookieStore = await cookies()
-  const auth = await verifyAdminToken(cookieStore.get('travel_auth_token')?.value, 'admin.media.write')
+  const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: auth.status })
   }

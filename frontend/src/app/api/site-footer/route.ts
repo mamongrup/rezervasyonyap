@@ -4,11 +4,11 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { DEFAULT_FOOTER_SITE_CONFIG } from '@/lib/footer-site-defaults'
 import type { FooterSiteConfig } from '@/types/footer-site-config'
-import { verifyAdminToken } from '@/lib/security'
+import { verifyAdminMediaToken } from '@/lib/security'
 
 async function requireAuth(): Promise<NextResponse | null> {
   const cookieStore = await cookies()
-  const auth = await verifyAdminToken(cookieStore.get('travel_auth_token')?.value, 'admin.media.write')
+  const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: auth.status })
   }

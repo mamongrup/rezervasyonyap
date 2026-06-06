@@ -27,7 +27,7 @@ export interface TokenVerifyResult {
  * `requiredPermission` belirtilmişse kullanıcı o izne sahip olmalıdır.
  *
  * Kullanım (API route içinde):
- *   const auth = await verifyAdminToken(token, 'admin.media.write')
+ *   const auth = await verifyAdminToken(token, 'admin.users.read')
  *   if (!auth.ok) return NextResponse.json({ error: 'unauthorized' }, { status: auth.status })
  */
 export async function verifyAdminToken(
@@ -46,10 +46,21 @@ export async function verifyAdminToken(
     })
     if (!r.ok) return { ok: false, status: 401 }
 
-    const data = (await r.json()) as { id?: string; permissions?: string[] }
+    const data = (await r.json()) as {
+      id?: string
+      permissions?: string[]
+      roles?: { role_code?: string }[]
+    }
     const permissions = Array.isArray(data.permissions) ? data.permissions : []
+    const hasAdminRole = Array.isArray(data.roles)
+      ? data.roles.some((row) => row.role_code === 'admin')
+      : false
 
-    if (requiredPermission && !permissions.includes(requiredPermission)) {
+    if (
+      requiredPermission &&
+      !permissions.includes(requiredPermission) &&
+      !hasAdminRole
+    ) {
       return { ok: false, status: 403, userId: data.id, permissions }
     }
 
@@ -57,6 +68,13 @@ export async function verifyAdminToken(
   } catch {
     return { ok: false, status: 401 }
   }
+}
+
+/** Medya kütüphanesi / yükleme — backend izin kataloğunda `admin.users.read` (admin rolü de yeterli). */
+export async function verifyAdminMediaToken(
+  token: string | undefined,
+): Promise<TokenVerifyResult> {
+  return verifyAdminToken(token, 'admin.users.read')
 }
 
 // ---------------------------------------------------------------------------

@@ -44,7 +44,7 @@ function needleForRelPath(relPath: string): string | null {
  * Şimdilik: `public/page-builder/*.json`, `public/sliders/*.json`.
  */
 export async function POST(req: NextRequest) {
-  const authErr = await requireAdminPermission('admin.media.write')
+  const authErr = await requireAdminPermission('admin.users.read')
   if (authErr) return authErr
 
   let paths: unknown
