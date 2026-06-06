@@ -126,6 +126,8 @@ interface CategoryPageTemplateProps {
   listingPagination?: { page: number; total: number; perPage: number }
   /** Statik ilan sayısı yerine özel başlık (ör. Turna canlı arama) */
   listingSectionTitle?: string
+  /** Kategori landing'inde liste/sonuç bloğunu gizle (örn. dış API arama bekleyen sayfalar). */
+  hideListingsOnLanding?: boolean
 }
 
 const heroImages = {
@@ -160,6 +162,7 @@ export default async function CategoryPageTemplate({
   flexibleListingCards,
   listingPagination,
   listingSectionTitle,
+  hideListingsOnLanding = false,
 }: CategoryPageTemplateProps) {
   const m = getMessages(locale)
   const cat = m.categoryPage
@@ -332,7 +335,7 @@ export default async function CategoryPageTemplate({
       activeSearch.from ||
       activeSearch.to)
 
-  const searchResultsSection = (
+  const searchResultsSection = hideListingsOnLanding && isAll && !hasActiveSearch ? null : (
     <div className="container mt-10 lg:mt-16">
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
         <div>

@@ -18,6 +18,7 @@ import {
 } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { fetchPublicListingAvailabilityDaysSafe, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
+import { fetchYolcu360CarListings } from '@/lib/yolcu360-car-search'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
@@ -52,17 +53,24 @@ export async function generateCarListingMetadata({
 
 export default async function CarListingDetailPage({
   params,
+  searchParams,
   linkBase,
 }: {
   params: Promise<{ locale: string; handle: string }>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
   linkBase: string
 }) {
   const { handle, locale } = await params
+  const sp = (await searchParams) ?? {}
   const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
 
   const listing = await getCarListingByHandle(handle, locale)
 
   if (!listing?.id) {
+    if (handle.startsWith('yolcu360-')) {
+      const yolcu360Detail = await renderYolcu360CarDetail({ handle, locale, searchParams: sp })
+      if (yolcu360Detail) return yolcu360Detail
+    }
     return redirect(await vitrinHref(locale, '/arac-kiralama/all'))
   }
 
@@ -229,6 +237,110 @@ export default async function CarListingDetailPage({
 
         <SectionMap />
       </div>
+    </div>
+  )
+}
+
+function firstString(v: string | string[] | undefined): string {
+  return (Array.isArray(v) ? v[0] : v)?.trim() ?? ''
+}
+
+async function renderYolcu360CarDetail({
+  handle,
+  locale,
+  searchParams,
+}: {
+  handle: string
+  locale: string
+  searchParams: Record<string, string | string[] | undefined>
+}) {
+  const pickup = firstString(searchParams.location)
+  const checkin = firstString(searchParams.checkin)
+  const checkout = firstString(searchParams.checkout)
+  const dropoff = firstString(searchParams.drop_off_location) || pickup
+
+  const cars = await fetchYolcu360CarListings({ pickup, dropoff, checkin, checkout })
+  const car = cars?.find((item) => item.id === handle || item.handle.split('?')[0] === handle)
+  if (!car) return null
+
+  const m = getMessages(locale)
+  const cd = m.listing.carDetail
+  const query = new URLSearchParams()
+  if (pickup) query.set('location', pickup)
+  if (checkin) query.set('checkin', checkin)
+  if (checkout) query.set('checkout', checkout)
+  if (dropoff && dropoff !== pickup) query.set('drop_off_location', dropoff)
+  query.set('drop_off', dropoff && dropoff !== pickup ? 'different' : 'same')
+  const browseHref = await vitrinHref(locale, `/arac-kiralama/all${query.toString() ? `?${query.toString()}` : ''}`)
+
+  return (
+    <div>
+      <HeaderGallery gridType="grid3" images={car.galleryImgs ?? []} />
+
+      <main className="relative z-[1] mt-10 flex flex-col gap-8 lg:flex-row xl:gap-10">
+        <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
+          <SectionHeader
+            address={pickup}
+            listingCategory={car.listingCategory ?? 'Araç Kiralama'}
+            reviewCount={0}
+            reviewStart={0}
+            title={car.title}
+            showReviews={false}
+          >
+            <div className="flex items-center gap-x-3">
+              <HugeiconsIcon icon={SeatSelectorIcon} size={20} color="currentColor" strokeWidth={1.5} />
+              <span>{interpolate(cd.seats, { count: String(car.seats ?? 0) })}</span>
+            </div>
+            <div className="flex items-center gap-x-3">
+              <HugeiconsIcon icon={Settings03Icon} size={20} color="currentColor" strokeWidth={1.5} />
+              <span>{car.gearshift ?? ''}</span>
+            </div>
+          </SectionHeader>
+
+          <div className="listingSection__wrap">
+            <SectionHeading>Yolcu360 Araç Bilgisi</SectionHeading>
+            <p className="text-sm leading-6 text-neutral-600 dark:text-neutral-300">
+              Bu araç canlı Yolcu360 arama sonucundan gösteriliyor. Teslim ve iade tarihi seçili arama üzerinden korunur.
+            </p>
+            <div className="mt-5 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2 dark:text-neutral-200">
+              <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+                <span className="block text-neutral-500 dark:text-neutral-400">Alış noktası</span>
+                <strong>{pickup || '-'}</strong>
+              </div>
+              <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+                <span className="block text-neutral-500 dark:text-neutral-400">İade noktası</span>
+                <strong>{dropoff || pickup || '-'}</strong>
+              </div>
+              <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+                <span className="block text-neutral-500 dark:text-neutral-400">Alış tarihi</span>
+                <strong>{checkin || '-'}</strong>
+              </div>
+              <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+                <span className="block text-neutral-500 dark:text-neutral-400">İade tarihi</span>
+                <strong>{checkout || '-'}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grow">
+          <div className="sticky top-5 listingSection__wrap sm:shadow-xl">
+            <div className="flex justify-between">
+              <span className="text-3xl font-semibold">
+                {car.price}
+                <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
+                  {cd.pricePerDay}
+                </span>
+              </span>
+            </div>
+            <ButtonPrimary href={browseHref} className="mt-8 w-full">
+              Arama sonuçlarına dön
+            </ButtonPrimary>
+          </div>
+        </div>
+      </main>
+
+      <Divider className="my-16" />
     </div>
   )
 }

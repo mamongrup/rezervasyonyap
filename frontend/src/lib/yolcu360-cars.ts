@@ -171,6 +171,7 @@ export function normalizeYolcu360Cars(raw: unknown): Yolcu360Car[] {
 export function mapYolcu360CarToListing(
   car: Yolcu360Car,
   index: number,
+  detailQuery?: string,
 ): TListingBase & { seats?: number; gearshift?: string } {
   const brand = String(car.brand ?? '')
   const model = String(car.model ?? '')
@@ -180,6 +181,7 @@ export function mapYolcu360CarToListing(
     vehicleClass ||
     `Araç ${index + 1}`
   const slug = `yolcu360-${String(car.id ?? index)}`
+  const handle = detailQuery ? `${slug}?${detailQuery}` : slug
   const price = car.dailyPrice
     ? new Intl.NumberFormat('tr-TR', { style: 'decimal', maximumFractionDigits: 0 }).format(
         car.dailyPrice,
@@ -192,7 +194,7 @@ export function mapYolcu360CarToListing(
 
   return {
     id: slug,
-    handle: slug,
+    handle,
     title,
     price,
     priceAmount: car.dailyPrice,

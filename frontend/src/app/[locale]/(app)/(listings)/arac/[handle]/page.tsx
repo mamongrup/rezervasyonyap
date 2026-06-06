@@ -3,6 +3,9 @@ import { detailPathForVertical } from '@/lib/listing-detail-routes'
 
 export const generateMetadata = generateCarListingMetadata
 
-export default function Page(props: { params: Promise<{ locale: string; handle: string }> }) {
+export default function Page(props: {
+  params: Promise<{ locale: string; handle: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   return <CarListingDetailPage {...props} linkBase={detailPathForVertical('car_rental')} />
 }
