@@ -25,6 +25,7 @@ import {
   getPublicListingVitrine,
   getVerticalMeta,
   fetchPublicHolidayHomeFaqTemplate,
+  fetchPublicYachtCharterFaqTemplate,
   resolvePublishedListingIdForStayPage,
   searchPublicListings,
 } from '@/lib/travel-api'
@@ -160,8 +161,7 @@ export const getStayListingByHandle = async (
   } as TStayListing
 
   let galleryImgs: string[] = [...(listing.galleryImgs ?? [])]
-  let themeCodes: string[] | undefined =
-    listing.listingVertical === 'holiday_home' ? listing.themeCodes : undefined
+  let themeCodes: string[] | undefined = listing.themeCodes
   const listingExtras = listing as {
     ministryLicenseRef?: string
     prepaymentPercent?: string
@@ -176,22 +176,31 @@ export const getStayListingByHandle = async (
   let listingExtraFees: Array<{ label: string; amount: string; unit: string }> | undefined
   let holidayHomeFaqItems: { q: string; a: string }[] | undefined
 
-  const isHolidayHome = Boolean(catalogId && normalizeCatalogVertical(listing.listingVertical) === 'holiday_home')
+  const listingVertical = normalizeCatalogVertical(listing.listingVertical)
+  const isHolidayHome = Boolean(catalogId && listingVertical === 'holiday_home')
+  const isYachtCharter = Boolean(catalogId && listingVertical === 'yacht_charter')
+  const isStayRental = isHolidayHome || isYachtCharter
 
-  if (isHolidayHome) {
+  if (isStayRental) {
     try {
       const emptyFaqTemplate: HolidayHomeFaqTemplatePayload = { items: [] }
+      const metaGroup = isYachtCharter ? 'yacht_extra' : 'holiday_home'
+      const fetchFaqTemplate = isYachtCharter
+        ? fetchPublicYachtCharterFaqTemplate
+        : fetchPublicHolidayHomeFaqTemplate
       const [remote, meta, faqTemplate] = await Promise.all([
         getPublicListingImages(catalogId),
-        getVerticalMeta<Record<string, unknown>>(catalogId, 'holiday_home').catch(() => ({})),
-        fetchPublicHolidayHomeFaqTemplate().catch(() => emptyFaqTemplate),
+        getVerticalMeta<Record<string, unknown>>(catalogId, metaGroup).catch(() => ({})),
+        fetchFaqTemplate().catch(() => emptyFaqTemplate),
       ])
       if (remote?.images?.length) {
         const previewKeys = parseHeroPreviewKeysFromVertical(unwrapVerticalMetaPayload(meta))
         galleryImgs = galleryUrlsWithHolidayHeroPreview(previewKeys ?? undefined, remote.images)
       }
-      const p = extractHolidayHomePoolsFromVerticalMeta(meta)
-      if (p && hasAnyEnabledPool(p)) pools = p
+      if (isHolidayHome) {
+        const p = extractHolidayHomePoolsFromVerticalMeta(meta)
+        if (p && hasAnyEnabledPool(p)) pools = p
+      }
       const rawEf = unwrapVerticalMetaPayload(meta).extra_fees
       if (Array.isArray(rawEf)) {
         const cleaned = rawEf

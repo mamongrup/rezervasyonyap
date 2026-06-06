@@ -9,8 +9,8 @@ export default async function ManageHolidayHomePropertyTypesPage({
 }) {
   const { code } = await params
   const c = parseCatalogCategoryCodeParam(code)
-  if (!c || c !== 'holiday_home') {
+  if (!c || (c !== 'holiday_home' && c !== 'yacht_charter')) {
     return notFound()
   }
-  return <HolidayHomePropertyTypesManageClient />
+  return <HolidayHomePropertyTypesManageClient categoryCode={c} />
 }

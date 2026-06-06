@@ -6252,6 +6252,34 @@ export async function fetchPublicHolidayHomePropertyTypes(
   }
 }
 
+/** Yat kiralama vitrin SSS şablonu — kimlik doğrulama gerekmez. */
+export async function fetchPublicYachtCharterFaqTemplate(
+  init?: RequestInit,
+): Promise<HolidayHomeFaqTemplatePayload> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/catalog/public/yacht-charter-faq-template`, init)
+  if (!res.ok) throw new Error(`yacht_charter_faq_template_${res.status}`)
+  const raw: unknown = await json(res)
+  return withHolidayHomeFaqTemplateDefaults(parseHolidayHomeFaqTemplatePayload(raw))
+}
+
+/** `catalog.yacht_charter_property_types` — kimlik gerekmez. */
+export async function fetchPublicYachtCharterPropertyTypes(
+  init?: RequestInit,
+): Promise<HolidayHomePropertyTypeItem[]> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/catalog/public/yacht-charter-property-types`, init)
+  if (!res.ok) return []
+  try {
+    const raw: unknown = await json(res)
+    return parseHolidayHomePropertyTypesPayload(raw)
+  } catch {
+    return []
+  }
+}
+
 // --- Navigasyon (menü, anasayfa bölümleri, popup) — 130_navigation_ui ---
 
 export type NavMenu = {

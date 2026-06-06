@@ -1039,6 +1039,53 @@ pub fn get_public_holiday_home_faq_template(req: Request, ctx: Context) -> Respo
   }
 }
 
+/// GET /api/v1/catalog/public/yacht-charter-faq-template — vitrin yat kiralama SSS şablonu.
+pub fn get_public_yacht_charter_faq_template(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let empty_items = "{\"items\":[]}"
+  case
+    pog.query(
+      "select coalesce(value_json::text, '{\"items\":[]}') from site_settings where organization_id is null and key = 'catalog.yacht_charter_default_faq' order by id desc limit 1",
+    )
+    |> pog.returning(one_string_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> wisp.json_response(empty_items, 200)
+    Ok(ret) ->
+      case ret.rows {
+        [] -> wisp.json_response(empty_items, 200)
+        [txt] -> wisp.json_response(txt, 200)
+        _ -> wisp.json_response(empty_items, 200)
+      }
+  }
+}
+
+/// GET /api/v1/catalog/public/yacht-charter-property-types — `catalog.yacht_charter_property_types`.
+pub fn get_public_yacht_charter_property_types(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select coalesce(value_json::text, '[]') from site_settings where organization_id is null and key = 'catalog.yacht_charter_property_types' order by id desc limit 1",
+    )
+    |> pog.returning(one_string_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> wisp.json_response("[]", 200)
+    Ok(ret) ->
+      case ret.rows {
+        [] -> wisp.json_response("[]", 200)
+        [txt] -> {
+          let body = case string.trim(txt) == "" {
+            True -> "[]"
+            False -> txt
+          }
+          wisp.json_response(body, 200)
+        }
+        _ -> wisp.json_response("[]", 200)
+      }
+  }
+}
+
 /// GET /api/v1/catalog/public/holiday-home-property-types — `catalog.holiday_home_property_types` (JSON dizi metni).
 pub fn get_public_holiday_home_property_types(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)

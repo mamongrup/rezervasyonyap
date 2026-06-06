@@ -27,6 +27,7 @@ import {
   type StayDetailLinkBase,
 } from '@/lib/listing-detail-routes'
 import { holidayHomeCapacitySummary } from '@/lib/holiday-home-capacity-summary'
+import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { resolveHolidayThemeLabels } from '@/lib/holiday-theme-labels'
 import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
 import { buildStayListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
@@ -330,8 +331,10 @@ export default async function StayListingDetailPageContent({
   } = listing
 
   const isHolidayHome = vertical === 'holiday_home'
+  const isYachtCharter = vertical === 'yacht_charter'
+  const isStayRental = isStayRentalCategory(vertical)
   const priceLines =
-    isHolidayHome && catalogListingId
+    isStayRental && catalogListingId
       ? await getPublicListingPriceLines(catalogListingId, locale)
       : null
   const poolHeatingOption = isHolidayHome
@@ -351,10 +354,10 @@ export default async function StayListingDetailPageContent({
       )
     : null
   /** API `meal_plan_summary === 'both'` — ücret tablosunda yemekli / yemeksiz sütunları */
-  const dualMealPricing = isHolidayHome && listing.mealPlanSummary === 'both'
+  const dualMealPricing = isStayRental && listing.mealPlanSummary === 'both'
   let holidayHomePriceRules: ListingPriceRuleRow[] = []
   let seasonalPricingRows: ReturnType<typeof buildSeasonalPricingTableRows> = []
-  if (isHolidayHome) {
+  if (isStayRental) {
     const seasonalMsg = {
       defaultPeriod: messages.listing.seasonalPricing.defaultPeriod,
       rangeSep: messages.listing.seasonalPricing.rangeSep,
@@ -372,12 +375,12 @@ export default async function StayListingDetailPageContent({
   }
 
   const minNightlyFromRules = minNightlyFromListingPriceRules(holidayHomePriceRules)
-  const maxNightlyFromRules = isHolidayHome
+  const maxNightlyFromRules = isStayRental
     ? maxNightlyFromListingPriceRules(holidayHomePriceRules)
     : undefined
 
   const ruleNightlyRangeForQuote =
-    isHolidayHome &&
+    isStayRental &&
     holidayHomeRulePriceRangeEnabled() &&
     minNightlyFromRules != null &&
     maxNightlyFromRules != null &&
@@ -412,9 +415,9 @@ export default async function StayListingDetailPageContent({
         ? priceAmount
         : rulesNightlyCandidate
 
-  const ruleFallbackForQuote = isHolidayHome ? rulesNightlyCandidate : undefined
+  const ruleFallbackForQuote = isStayRental ? rulesNightlyCandidate : undefined
 
-  const seasonalExtraCharges: ListingExtraChargesModel | undefined = isHolidayHome
+  const seasonalExtraCharges: ListingExtraChargesModel | undefined = isStayRental
     ? {
         listingCurrency: listingCurrencyUpper,
         shortStay:
@@ -444,12 +447,12 @@ export default async function StayListingDetailPageContent({
     : undefined
 
   const holidayHomePricingVisible =
-    isHolidayHome &&
+    isStayRental &&
     (seasonalPricingRows.length > 0 || extraChargesHasContent(seasonalExtraCharges))
 
   const mergeHolidayMealsIntoPricing = mealPlans.length > 0 && holidayHomePricingVisible
 
-  const themePillLabels = isHolidayHome
+  const themePillLabels = isStayRental
     ? await resolveHolidayThemeLabels(listing.themeCodes ?? [], locale)
     : []
   const hotelTypeCodeNorm = vertical === 'hotel' ? listing.hotelTypeCode?.trim() : ''
@@ -489,7 +492,7 @@ export default async function StayListingDetailPageContent({
           hasPoliciesSection ? { id: 'stay-section-policies', label: 'Önemli Notlar' } : null,
         ].filter((item): item is HotelSectionNavItem => item !== null)
       : []
-  const regionName = isHolidayHome
+  const regionName = isStayRental
     ? normalizeHolidayHomeLocationPin(listing.city ?? listing.address)
     : null
   const holidayHomeLocationPin = regionName?.trim() ?? ''
@@ -522,7 +525,7 @@ export default async function StayListingDetailPageContent({
     featuredImage: l.featuredImage ?? '',
     listingCategory: l.listingCategory ?? '',
     linkBase: stayDetailPathForVertical(normalizeCatalogVertical(l.listingVertical)),
-    capacityLine: isHolidayHome
+    capacityLine: isStayRental
       ? holidayHomeCapacitySummary(
           { maxGuests: l.maxGuests, bedrooms: l.bedrooms, bathrooms: l.bathrooms },
           messages.listing.capacitySpec,
@@ -530,8 +533,8 @@ export default async function StayListingDetailPageContent({
         )
       : undefined,
   })
-  const similarListings = (isHolidayHome ? otherStays.slice(0, 4) : otherStays.slice(0, 8)).map(mapSimilar)
-  const nearbyListings = isHolidayHome ? otherStays.slice(4, 8).map(mapSimilar) : []
+  const similarListings = (isStayRental ? otherStays.slice(0, 4) : otherStays.slice(0, 8)).map(mapSimilar)
+  const nearbyListings = isStayRental ? otherStays.slice(4, 8).map(mapSimilar) : []
 
   const siteConfig = mergeBrandingIntoEnvContact(getSitePublicConfigSync(), sitePubApi?.branding ?? null)
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
@@ -580,7 +583,7 @@ export default async function StayListingDetailPageContent({
   )
   const homeHref = await vitrinHref(locale, '/')
   const breadcrumbRegionHref =
-    isHolidayHome && breadcrumbRegionSlug && breadcrumbRegionLabel
+    isStayRental && breadcrumbRegionSlug && breadcrumbRegionLabel
       ? await vitrinHref(locale, `/tatil-evleri/${breadcrumbRegionSlug}`)
       : null
 
@@ -634,13 +637,13 @@ export default async function StayListingDetailPageContent({
       reviewStart={reviewStart ?? 0}
       title={title}
       listingId={listing.id}
-      referenceCode={isHolidayHome ? listing.externalListingRef : undefined}
+      referenceCode={isStayRental ? listing.externalListingRef : undefined}
       referenceCodeLabel={messages.listing.detailHeader.referenceCode}
       shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
-      themePills={isHolidayHome && themePillLabels.length > 0 ? themePillLabels : undefined}
+      themePills={isStayRental && themePillLabels.length > 0 ? themePillLabels : undefined}
       regionName={regionName}
     >
-      {isHolidayHome ? (
+      {isStayRental ? (
         <>
           <div className="flex items-center gap-x-3">
             <HugeiconsIcon icon={UserMultiple02Icon} className="mb-0.5 size-5" strokeWidth={1.75} />
@@ -651,7 +654,7 @@ export default async function StayListingDetailPageContent({
           <div className="flex items-center gap-x-3">
             <MeetingRoomIcon className="mb-0.5 size-5" />
             <span>
-              {bedrooms} {messages.listing.capacitySpec.rooms}
+              {bedrooms} {isYachtCharter ? 'kabin' : messages.listing.capacitySpec.rooms}
             </span>
           </div>
           <div className="flex items-center gap-x-3">
@@ -694,7 +697,9 @@ export default async function StayListingDetailPageContent({
 
   const renderSectionDescription = () => (
     <div id="stay-section-about" className="listingSection__wrap scroll-mt-28">
-      <SectionHeading>{isHolidayHome ? dp.aboutVacationHome : dp.aboutStay}</SectionHeading>
+      <SectionHeading>
+        {isHolidayHome ? dp.aboutVacationHome : isYachtCharter ? 'Yat kiralama hakkında' : dp.aboutStay}
+      </SectionHeading>
       <Divider className="w-14!" />
       <ListingDescriptionExpandable
         locale={locale}
@@ -852,7 +857,7 @@ export default async function StayListingDetailPageContent({
   const renderSidebarPriceAndForm = () => (
     <StayListingReservationCard
       locale={locale}
-      isHolidayHome={isHolidayHome}
+      isHolidayHome={isStayRental}
       mealPlans={mealPlans}
       price={price ?? ''}
       priceAmount={reservationPriceAmount}
@@ -895,7 +900,7 @@ export default async function StayListingDetailPageContent({
       {/* Galeri — tatil evi: büyük görsel + 2×2 ızgara (grid1) */}
       <div
         className={clsx(
-          isHolidayHome && 'overflow-hidden rounded-2xl sm:rounded-3xl ring-1 ring-black/5 dark:ring-white/10',
+          isStayRental && 'overflow-hidden rounded-2xl sm:rounded-3xl ring-1 ring-black/5 dark:ring-white/10',
         )}
       >
         <HeaderGallery images={galleryImages} gridType="grid1" />
@@ -916,7 +921,7 @@ export default async function StayListingDetailPageContent({
           {socialProof}
           {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
               tatil evinde havuz/tema bölümleri zaten benzer işlevi görüyor. */}
-          {!isHolidayHome ? (
+          {!isStayRental ? (
             <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
           ) : null}
           {/* Booking "Property info at a glance" tarzı hızlı bilgi kutusu —
@@ -948,7 +953,7 @@ export default async function StayListingDetailPageContent({
             <div id="stay-section-amenities" className="scroll-mt-28">
               <ListingAmenitiesSection
                 locale={locale}
-                variant={isHolidayHome ? 'villa' : 'hotel'}
+                variant={isStayRental ? 'villa' : 'hotel'}
                 customSelectedIds={amenityKeys}
                 customIcons={amenityIcons}
               />
@@ -988,7 +993,7 @@ export default async function StayListingDetailPageContent({
             />
             </div>
           )}
-          {isHolidayHome && priceLines && (priceLines.included.length > 0 || priceLines.excluded.length > 0) ? (
+          {isStayRental && priceLines && (priceLines.included.length > 0 || priceLines.excluded.length > 0) ? (
             <ListingPriceInclusionsSection
               locale={locale}
               included={priceLines.included}
@@ -1009,14 +1014,14 @@ export default async function StayListingDetailPageContent({
               />
             </div>
           ) : (
-            !isHolidayHome && vertical !== 'hotel' && renderSectionRoomTypes()
+            !isStayRental && vertical !== 'hotel' && renderSectionRoomTypes()
           )}
           {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && (
             <div id={vertical === 'hotel' ? 'stay-section-meal-plans' : undefined} className="scroll-mt-28">
               <SectionMealPlans
                 mealPlans={mealPlans}
                 locale={locale}
-                holidayHome={isHolidayHome}
+                holidayHome={isStayRental}
                 maxGuests={maxGuests}
               />
             </div>
@@ -1035,7 +1040,7 @@ export default async function StayListingDetailPageContent({
             saleOff={saleOff}
             discountPercent={discountPercent}
             poolHeating={poolHeatingOption}
-            isHolidayHome={isHolidayHome}
+            isHolidayHome={isStayRental}
             cleaningFeeAmount={listing.cleaningFeeAmount}
             damageDepositAmount={damageDepositAmount}
             ruleFallbackNightly={ruleFallbackForQuote}
@@ -1044,7 +1049,7 @@ export default async function StayListingDetailPageContent({
           </div>
           {renderSectionRules()}
           {renderSectionPolicies()}
-          {isHolidayHome &&
+          {isStayRental &&
             Array.isArray(listing.holidayHomeFaqItems) &&
             listing.holidayHomeFaqItems.length > 0 && (
               <div id="stay-section-faq" className="scroll-mt-28">
@@ -1058,7 +1063,7 @@ export default async function StayListingDetailPageContent({
               />
               </div>
             )}
-          {!isHolidayHome && (() => {
+          {!isStayRental && (() => {
             // Booking/ETStur tarzı FAQ — mevcut listing alanlarından otomatik
             // üretilir, içerik yoksa bölüm gizlenir.
             const petText: string | null = (() => {
@@ -1136,7 +1141,7 @@ export default async function StayListingDetailPageContent({
             ariaPrev={dp.carouselPrevAria}
             ariaNext={dp.carouselNextAria}
           />
-          {isHolidayHome && nearbyListings.length > 0 && (
+          {isStayRental && nearbyListings.length > 0 && (
             <SimilarListings
               listings={nearbyListings}
               title={dp.nearbyListings}
@@ -1186,7 +1191,7 @@ export default async function StayListingDetailPageContent({
         </div>
       </div>
 
-      {isHolidayHome ? (
+      {isStayRental ? (
         <StayListingMobileStickyBar
           locale={locale}
           listingId={listing.id}

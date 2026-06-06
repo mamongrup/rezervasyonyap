@@ -23,7 +23,12 @@ import type { HeroOverride } from '@/data/region-hero-config'
 import type { FilterOption, PageBuilderModule, TListingBase } from '@/types/listing-types'
 import type { TAuthor } from '@/data/authors'
 import { getPublicRegionStats, listPublicThemeItems } from '@/lib/travel-api'
-import { HOLIDAY_TYPE_HANDLE_MAP, SLUG_TO_CODE } from '@/lib/listings-fetcher'
+import { SLUG_TO_CODE } from '@/lib/listings-fetcher'
+import {
+  isStayRentalCategory,
+  stayRentalPropertyTypeFromHandle,
+  type StayRentalCategoryCode,
+} from '@/lib/stay-rental-categories'
 import {
   filterRegionsForHandle,
   regionsWithListings,
@@ -191,15 +196,16 @@ export default async function CategoryPageTemplate({
 
   // Bölge istatistiklerini dışarıdan geçilmemişse çek (sadece "all" görünümünde)
   const categoryCode = SLUG_TO_CODE[category.slug] ?? category.slug
-  const holidayHomeSubs =
-    category.slug === 'tatil-evleri' ? getSubcategoriesByParent('tatil-evleri') : []
-  const holidayThemeOptions =
-    category.slug === 'tatil-evleri'
-      ? (await listPublicThemeItems({ categoryCode: 'holiday_home', locale }))?.items ?? []
+  const isStayRentalPage = isStayRentalCategory(categoryCode)
+  const stayRentalCode = isStayRentalPage ? (categoryCode as StayRentalCategoryCode) : null
+  const stayRentalSubs = isStayRentalPage ? getSubcategoriesByParent(category.slug) : []
+  const stayRentalThemeOptions =
+    stayRentalCode
+      ? (await listPublicThemeItems({ categoryCode: stayRentalCode, locale }))?.items ?? []
       : []
-  const holidayPropertyTypeForRegions =
-    category.slug === 'tatil-evleri' && currentHandle && currentHandle !== 'all'
-      ? HOLIDAY_TYPE_HANDLE_MAP[currentHandle]
+  const stayRentalPropertyTypeForRegions =
+    stayRentalCode && currentHandle && currentHandle !== 'all'
+      ? stayRentalPropertyTypeFromHandle(stayRentalCode, currentHandle)
       : undefined
   const resolvedRegionStats: RegionSliderItem[] = regionsWithListings(
     filterRegionsForHandle(
@@ -208,8 +214,8 @@ export default async function CategoryPageTemplate({
           categoryCode,
           12,
           { next: { revalidate: 300 } } as RequestInit,
-          holidayPropertyTypeForRegions
-            ? { propertyType: holidayPropertyTypeForRegions }
+          stayRentalPropertyTypeForRegions
+            ? { propertyType: stayRentalPropertyTypeForRegions }
             : undefined,
         ).catch(() => [])),
       currentHandle,
@@ -264,7 +270,7 @@ export default async function CategoryPageTemplate({
   const countFormatted = convertNumbThousand(count)
   const heroDescription = (
     <Link href={categoryPageHref} className={heroStatsRowLinkClassName}>
-      {category.slug === 'tatil-evleri' ? (
+      {category.slug === 'tatil-evleri' || category.slug === 'yat-kiralama' ? (
         <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
           <i className="las la-map-marked me-2 text-2xl" />
           <span>
@@ -402,7 +408,7 @@ export default async function CategoryPageTemplate({
       <Divider className="my-7 md:my-10" />
 
       {filterOptions.length > 0 &&
-        (category.slug === 'tatil-evleri' && m.categoryPage.listingFilters ? (
+        (isStayRentalPage && m.categoryPage.listingFilters ? (
           <Suspense
             fallback={
               <div className="mb-8 h-12 max-w-3xl animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
@@ -411,8 +417,8 @@ export default async function CategoryPageTemplate({
             <HolidayListingFilters
               locale={locale}
               messages={m.categoryPage.listingFilters}
-              subcategories={holidayHomeSubs}
-              themeOptions={holidayThemeOptions.length > 0 ? holidayThemeOptions : undefined}
+              subcategories={stayRentalSubs}
+              themeOptions={stayRentalThemeOptions.length > 0 ? stayRentalThemeOptions : undefined}
             />
           </Suspense>
         ) : (

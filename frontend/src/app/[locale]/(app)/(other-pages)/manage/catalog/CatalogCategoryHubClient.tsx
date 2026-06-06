@@ -47,7 +47,7 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
     { href: `${prefix}/listings`, labelKey: 'catalog.hub_all_listings', noteKey: 'catalog.hub_note_list' },
     { href: `${prefix}/listings/new`, labelKey: 'catalog.hub_new_listing', noteKey: 'catalog.hub_note_new' },
     { href: `${prefix}/attributes`, labelKey: 'catalog.hub_attributes', noteKey: 'catalog.hub_note_attr' },
-    ...(code === 'holiday_home'
+    ...(code === 'holiday_home' || code === 'yacht_charter'
       ? ([
           {
             href: `${prefix}/property-types`,
@@ -96,7 +96,7 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
       href: `${prefix}/availability`,
       label: 'Kullanılabilirlik',
       note:
-        code === 'holiday_home'
+        code === 'holiday_home' || code === 'yacht_charter'
           ? 'İlan seçerek aylık takvim özeti; toplu / override düzenleme ilan detayı → Takvim'
           : 'Müsaitlik ilan bazında; otelde takvim ilan detayında',
     },

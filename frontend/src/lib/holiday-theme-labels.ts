@@ -12,11 +12,14 @@ function mergeHolidayThemeFallbacksIntoMap(map: Map<string, string>): void {
 /**
  * Tek `theme-items` isteğiyle kod→etiket haritası (liste/grid kartlarında toplu kullanım).
  */
-export async function getHolidayThemeLabelMap(locale: string): Promise<Map<string, string>> {
+export async function getHolidayThemeLabelMap(
+  locale: string,
+  categoryCode: 'holiday_home' | 'yacht_charter' = 'holiday_home',
+): Promise<Map<string, string>> {
   const map = new Map<string, string>()
   const loc = locale.trim() || 'tr'
   const { items } = await listPublicCategoryThemeItems({
-    categoryCode: 'holiday_home',
+    categoryCode,
     locale: loc,
   })
   for (const i of items) {

@@ -685,7 +685,7 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'room_count'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bath_count'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'property_type'), ''), '') "
-    <> ", coalesce(array_to_string(h.theme_codes, ','), '') "
+    <> ", coalesce(nullif(array_to_string(h.theme_codes, ','), ''), nullif(array_to_string(y.theme_codes, ','), ''), '') "
     <> ", coalesce(l.ministry_license_ref::text, ''), coalesce(l.prepayment_percent::text, '') "
     <> ", coalesce(l.cancellation_policy_text::text, '') "
     <> ", coalesce(l.min_stay_nights::text, '') "
@@ -730,6 +730,7 @@ fn search_listings_impl(
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+    <> "left join listing_yacht_details y on y.listing_id = l.id "
     <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
     <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
     <> tour_listing_vitrin_price_numeric_lateral_sql()
@@ -747,8 +748,9 @@ fn search_listings_impl(
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or (lower(coalesce(l.location_name, '')) ilike $3 or lower(coalesce(lm.meta->>'address', '')) ilike $3 or lower(coalesce(lm.meta->>'province_city', '')) ilike $3 or lower(coalesce(lm.meta->>'city', '')) ilike $3 or lower(coalesce(lm.meta->>'district_label', '')) ilike $3 or lower(coalesce(lm.meta->>'region_display', '')) ilike $3)) "
     <> "and ($6::text is null or l.id = ANY(string_to_array($6, ',')::uuid[])) "
-    <> "and ($7::text is null or $7 = '' or pc.code != 'holiday_home' or ( "
-    <> "  coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[] "
+    <> "and ($7::text is null or $7 = '' or pc.code not in ('holiday_home', 'yacht_charter') or ( "
+    <> "  (pc.code = 'holiday_home' and coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[]) "
+    <> "  or (pc.code = 'yacht_charter' and coalesce(y.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[]) "
     <> ")) "
     // Faz F: müsaitlik. Yalnızca tarih verilirse aktif. flex_days kadar her iki uçtan genişlet.
     <> "and ($8::text is null or $9::text is null or not exists ( "
@@ -791,7 +793,7 @@ fn search_listings_impl(
     <> tour_public_must_have_price_sql()
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
-    <> "and ($23::text is null or pc.code != 'holiday_home' or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
+    <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
 
   let sql_core = sql <> order_sql
   // Count subquery must reference $5, $21 and $23 so PostgreSQL can infer parameter types.

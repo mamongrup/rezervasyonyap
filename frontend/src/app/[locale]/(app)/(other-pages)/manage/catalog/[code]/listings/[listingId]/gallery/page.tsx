@@ -12,7 +12,11 @@ export default async function HolidayListingGalleryPage({
   const { code, listingId } = await params
   const normalized = parseCatalogCategoryCodeParam(code)
   const id = decodeURIComponent(listingId).trim()
-  if (!normalized || normalized !== 'holiday_home' || !UUID_RE.test(id)) {
+  if (
+    !normalized ||
+    (normalized !== 'holiday_home' && normalized !== 'yacht_charter') ||
+    !UUID_RE.test(id)
+  ) {
     return notFound()
   }
 

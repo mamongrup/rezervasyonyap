@@ -12,19 +12,34 @@ import {
   serializeHolidayHomePropertyTypesV2,
   type HolidayHomePropertyTypeItem,
 } from '@/lib/holiday-property-type-options'
+import type { StayRentalCategoryCode } from '@/lib/stay-rental-categories'
+import {
+  YACHT_CHARTER_PROPERTY_TYPES_SITE_KEY,
+  defaultYachtCharterPropertyTypeItems,
+} from '@/lib/yacht-property-type-options'
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
-import { fetchPublicHolidayHomePropertyTypes, upsertSiteSetting } from '@/lib/travel-api'
+import {
+  fetchPublicHolidayHomePropertyTypes,
+  fetchPublicYachtCharterPropertyTypes,
+  upsertSiteSetting,
+} from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 
-const SETTING_KEY = HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY
-
-export default function HolidayHomePropertyTypesManageClient() {
+export default function HolidayHomePropertyTypesManageClient({
+  categoryCode = 'holiday_home',
+}: {
+  categoryCode?: StayRentalCategoryCode
+}) {
+  const isYacht = categoryCode === 'yacht_charter'
+  const SETTING_KEY = isYacht
+    ? YACHT_CHARTER_PROPERTY_TYPES_SITE_KEY
+    : HOLIDAY_HOME_PROPERTY_TYPES_SITE_KEY
   const t = useManageT()
   const [items, setItems] = useState<HolidayHomePropertyTypeItem[]>(() =>
-    defaultHolidayHomePropertyTypeItems(),
+    isYacht ? defaultYachtCharterPropertyTypeItems() : defaultHolidayHomePropertyTypeItems(),
   )
   const [newTr, setNewTr] = useState('')
   const [busy, setBusy] = useState(false)
@@ -39,7 +54,10 @@ export default function HolidayHomePropertyTypesManageClient() {
 
   useEffect(() => {
     let cancelled = false
-    void fetchPublicHolidayHomePropertyTypes()
+    const fetchTypes = isYacht
+      ? fetchPublicYachtCharterPropertyTypes
+      : fetchPublicHolidayHomePropertyTypes
+    void fetchTypes()
       .then((vals) => {
         if (cancelled) return
         if (vals.length > 0) setItems(vals)
@@ -51,7 +69,7 @@ export default function HolidayHomePropertyTypesManageClient() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [isYacht])
 
   const usedSlugs = useMemo(() => new Set(items.map((i) => i.slug)), [items])
   const sortedItems = useMemo(() => items, [items])

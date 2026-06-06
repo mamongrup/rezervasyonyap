@@ -23,6 +23,8 @@ import {
   pickHeroKeysFromTaggedImages,
 } from '@/lib/holiday-listing-hero-preview'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
+import { isStayRentalCategory } from '@/lib/stay-rental-categories'
+import { YACHT_CHARTER_FAQ_SITE_KEY } from '@/lib/yacht-property-type-options'
 import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
@@ -48,6 +50,8 @@ import {
   patchIcalFeed,
   patchListingExternalBooking,
   patchVerticalHolidayHome,
+  patchVerticalYacht,
+  getVerticalYacht,
   getAuthMe,
   getListingAttributeValues,
   getListingAvailabilityCalendar,
@@ -871,6 +875,8 @@ export default function CatalogNewListingClient({
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
+  const isYacht = categoryCode === 'yacht_charter'
+  const isStayRentalWizard = isStayRentalCategory(categoryCode)
   const catalogVertical = normalizeCatalogVertical(categoryCode)
   const listingPreviewBase = managePublicDetailPathForVertical(catalogVertical)
   const isTour = categoryCode === 'tour'
@@ -878,14 +884,14 @@ export default function CatalogNewListingClient({
   const gallerySlugBase = slug.trim() ? slugifyMediaSegment(slug) : 'yeni-ilan'
   const gallerySubPath = listingImageSubPath(categoryCode, gallerySlugBase)
 
-  const isHolidayHomeEdit = categoryCode === 'holiday_home' && Boolean(editListingId)
-  const galleryTotalCount = isHolidayHomeEdit ? listingGalleryUrls.length : pendingGalleryKeys.length
+  const isStayRentalEdit = isStayRentalWizard && Boolean(editListingId)
+  const galleryTotalCount = isStayRentalEdit ? listingGalleryUrls.length : pendingGalleryKeys.length
 
   const galleryImagesForHero = useMemo((): ListingImage[] => {
-    if (categoryCode !== 'holiday_home') return []
-    if (isHolidayHomeEdit) return listingGalleryImages
+    if (!isStayRentalWizard) return []
+    if (isStayRentalEdit) return listingGalleryImages
     return listingImagesFromPendingKeys(pendingGalleryKeys)
-  }, [categoryCode, isHolidayHomeEdit, listingGalleryImages, pendingGalleryKeys])
+  }, [isStayRentalWizard, isStayRentalEdit, listingGalleryImages, pendingGalleryKeys])
 
   const galleryHasSceneTags = useMemo(
     () => galleryImagesForHero.some((im) => imageHasMeaningfulScene(im.scene_code)),
@@ -893,7 +899,7 @@ export default function CatalogNewListingClient({
   )
 
   const heroPreviewFiveKeys = useMemo(() => {
-    if (categoryCode !== 'holiday_home') return []
+    if (!isStayRentalWizard) return []
     if (galleryHasSceneTags) return pickHeroKeysFromTaggedImages(galleryImagesForHero)
     const valid = new Set(galleryImagesForHero.map((im) => im.storage_key))
     return heroManualStorageKeys.map((k) => {
@@ -903,9 +909,9 @@ export default function CatalogNewListingClient({
   }, [categoryCode, galleryHasSceneTags, galleryImagesForHero, heroManualStorageKeys])
 
   const galleryManageHref =
-    isHolidayHomeEdit && editListingId
+    isStayRentalEdit && editListingId
       ? vitrinPath(
-          `/manage/catalog/holiday_home/listings/${encodeURIComponent(editListingId)}/gallery`,
+          `/manage/catalog/${encodeURIComponent(categoryCode)}/listings/${encodeURIComponent(editListingId)}/gallery`,
         )
       : null
 
@@ -921,9 +927,9 @@ export default function CatalogNewListingClient({
   }
 
   useEffect(() => {
-    if (categoryCode !== 'holiday_home') return
+    if (!isStayRentalWizard) return
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior })
-  }, [categoryCode])
+  }, [isStayRentalWizard])
 
   useEffect(() => {
     if (!editListingId) {
@@ -939,10 +945,10 @@ export default function CatalogNewListingClient({
     if (!token) return
     if (needOrg && !orgId.trim()) return
     const orgParam = needOrg && orgId.trim() ? { organizationId: orgId.trim() } : undefined
-    void listPriceLineItems(token, { categoryCode: 'holiday_home', locale, ...orgParam })
+    void listPriceLineItems(token, { categoryCode, locale, ...orgParam })
       .then((r) => setPriceLineCatalog(r.items.filter((i) => i.is_active)))
       .catch(() => setPriceLineCatalog([]))
-  }, [isVilla, locale, needOrg, orgId])
+  }, [isStayRentalWizard, categoryCode, locale, needOrg, orgId])
 
   useEffect(() => {
     getPublicCurrencies()
@@ -1109,8 +1115,8 @@ export default function CatalogNewListingClient({
         .then((r) => { if (!cancelled) setAccRules(r) })
         .catch(() => { if (!cancelled) setAccRules([]) })
     }
-    if (categoryCode === 'holiday_home') {
-      void listPublicCategoryThemeItems({ categoryCode: 'holiday_home', locale })
+    if (isStayRentalWizard) {
+      void listPublicCategoryThemeItems({ categoryCode, locale })
         .then((r) => {
           if (cancelled) return
           const rows = r.items.length > 0
@@ -1129,7 +1135,7 @@ export default function CatalogNewListingClient({
   useEffect(() => {
     if (
       !editListingId ||
-      (categoryCode !== 'holiday_home' && categoryCode !== 'hotel')
+      (!isStayRentalWizard && categoryCode !== 'hotel')
     ) {
       setIcalExportUrl(null)
       setIcalExportLoading(false)
@@ -1174,7 +1180,7 @@ export default function CatalogNewListingClient({
   }, [currentStep, editListingId, calLoaded])
 
   useEffect(() => {
-    if (!editListingId || categoryCode !== 'holiday_home') {
+    if (!editListingId || !isStayRentalWizard) {
       setEditListingReady(true)
       galleryKeysAtHydrateRef.current = new Set()
       nearbyPoisHydratedRef.current = false
@@ -1460,6 +1466,10 @@ export default function CatalogNewListingClient({
         // Villa temaları
         if (categoryCode === 'holiday_home') {
           void getVerticalHolidayHome(lid)
+            .then((d) => setVillaThemes(parseHolidayThemeCodes(d.theme_codes)))
+            .catch(() => {})
+        } else if (categoryCode === 'yacht_charter') {
+          void getVerticalYacht(lid)
             .then((d) => setVillaThemes(parseHolidayThemeCodes(d.theme_codes)))
             .catch(() => {})
         }
@@ -1762,7 +1772,7 @@ export default function CatalogNewListingClient({
 
   /** Galeri alt sayfasından dönünce önizlemeyi güncelle */
   useEffect(() => {
-    if (categoryCode !== 'holiday_home' || !editListingId) return
+    if (!isStayRentalWizard || !editListingId) return
     const reloadPreview = () => {
       const token = getStoredAuthToken()
       if (!token) return
@@ -1787,11 +1797,11 @@ export default function CatalogNewListingClient({
       window.removeEventListener('focus', reloadPreview)
       document.removeEventListener('visibilitychange', onVis)
     }
-  }, [categoryCode, editListingId, needOrg, orgId])
+  }, [isStayRentalWizard, categoryCode, editListingId, needOrg, orgId])
 
   /** Etiketsiz galeri: boş slotları sırayla doldur; geçersiz anahtarları temizle */
   useEffect(() => {
-    if (categoryCode !== 'holiday_home') return
+    if (!isStayRentalWizard) return
     if (galleryHasSceneTags) return
     if (galleryImagesForHero.length === 0) {
       setHeroManualStorageKeys(['', '', '', '', ''])
@@ -2750,9 +2760,9 @@ export default function CatalogNewListingClient({
         await saveRequiredStep('Özellik alanları kaydı', putListingAttributeValues(token, lid, attrPayload, orgParam))
       }
 
-      if (categoryCode === 'holiday_home') {
+      if (isStayRentalWizard) {
         const vert: Record<string, unknown> = {}
-        if (pools.open_pool.enabled || pools.heated_pool.enabled || pools.children_pool.enabled) {
+        if (isVilla && (pools.open_pool.enabled || pools.heated_pool.enabled || pools.children_pool.enabled)) {
           vert.pools = pools
         }
         const ef = extraFees.filter((x) => x.label.trim() && x.amount.trim())
@@ -2777,12 +2787,16 @@ export default function CatalogNewListingClient({
           heroPad = defaultHeroKeysFromSort(imgsForHeroSave)
         }
         vert[MANAGE_HERO_PREVIEW_META_KEY] = heroPad
+        const metaGroup = isYacht ? 'yacht_extra' : 'holiday_home'
         await saveRequiredStep(
-          'Tatil evi detayları kaydı',
-          putVerticalMeta(token, lid, 'holiday_home', vert, orgParam),
+          isYacht ? 'Yat kiralama detayları kaydı' : 'Tatil evi detayları kaydı',
+          putVerticalMeta(token, lid, metaGroup, vert, orgParam),
         )
-        // Tema kodları (patchVerticalHolidayHome → listing_holiday_home_details.theme_codes)
-        await patchVerticalHolidayHome(lid, { theme_codes: villaThemes }).catch(() => {})
+        if (isYacht) {
+          await patchVerticalYacht(lid, { theme_codes: villaThemes }).catch(() => {})
+        } else {
+          await patchVerticalHolidayHome(lid, { theme_codes: villaThemes }).catch(() => {})
+        }
       }
 
       if (isVilla) {
@@ -2839,7 +2853,7 @@ export default function CatalogNewListingClient({
       // Tur2: iCal — tatil evi ana formda; otelde yeni ilanda tek kayıt; düzenlemede otel beslemeleri gelişmiş panelden.
       const icalUrlTrim = icalImportUrl.trim()
       if (icalUrlTrim) {
-        if (categoryCode === 'holiday_home') {
+        if (isStayRentalWizard) {
           if (!editListingId || !icalUrlsAtHydrateRef.current.has(icalUrlTrim)) {
             await saveRequiredStep(
               'iCal bağlantısı kaydı',
@@ -2898,7 +2912,7 @@ export default function CatalogNewListingClient({
 
       if (
         lid &&
-        (categoryCode === 'holiday_home' || categoryCode === 'hotel')
+        (isStayRentalWizard || categoryCode === 'hotel')
       ) {
         void getListingIcalExportToken(token, lid, orgParam)
           .then((r) => setIcalExportUrl(r.url))
@@ -3805,9 +3819,9 @@ export default function CatalogNewListingClient({
             <Section
               title="Galeri"
               subtitle={
-                isHolidayHomeEdit
+                isStayRentalEdit
                   ? 'Özet görünüm: sahne etiketli görseller varsa sıra otomatik belirlenir; etiket yoksa kutucuklara tıklayarak seçim yapılır (Kaydet ile saklanır). Tam yükleme ve sıralama galeri sayfasında.'
-                  : categoryCode === 'holiday_home'
+                  : isStayRentalWizard
                     ? 'Yeni ilanda görseller önce depoya yüklenir; kayıttan sonra düzenleme için galeri sayfasına gidilir. Özet kutuları etiketsizken tıklanarak seçilir.'
                     : 'Görseller önce depoya yüklenir; ilanı kaydedince ilana bağlanır.'
               }
@@ -3822,22 +3836,22 @@ export default function CatalogNewListingClient({
 
               <div className="mt-4 max-w-4xl">
                 <ManageListingGalleryHeroPreview
-                  urls={categoryCode === 'holiday_home' ? heroPreviewFiveKeys : pendingGalleryKeys}
-                  totalCount={categoryCode === 'holiday_home' ? galleryTotalCount : pendingGalleryKeys.length}
+                  urls={isStayRentalWizard ? heroPreviewFiveKeys : pendingGalleryKeys}
+                  totalCount={isStayRentalWizard ? galleryTotalCount : pendingGalleryKeys.length}
                   manageHref={galleryManageHref}
                   manageLabel="Galeriyi düzenle"
                   emptyHint={
-                    isHolidayHomeEdit
+                    isStayRentalEdit
                       ? 'Henüz görsel yok — galeri sayfasından ekleyin.'
                       : 'Henüz görsel yok — aşağıdan yükleyin.'
                   }
                   interactiveSlots={
-                    categoryCode === 'holiday_home' &&
+                    isStayRentalWizard &&
                     !galleryHasSceneTags &&
                     galleryImagesForHero.length > 0
                   }
                   onSlotClick={
-                    categoryCode === 'holiday_home' &&
+                    isStayRentalWizard &&
                     !galleryHasSceneTags &&
                     galleryImagesForHero.length > 0
                       ? (i) => setHeroPickerSlot(i)
@@ -3845,7 +3859,7 @@ export default function CatalogNewListingClient({
                   }
                   slotHints={HERO_SLOT_LABELS}
                   footerHint={
-                    categoryCode === 'holiday_home' ? (
+                    isStayRentalWizard ? (
                       <>
                         <p>
                           {galleryHasSceneTags ? (
@@ -3883,7 +3897,7 @@ export default function CatalogNewListingClient({
                 />
               </div>
 
-              {categoryCode === 'holiday_home' ? (
+              {isStayRentalWizard ? (
                 <HeroSlotPickerModal
                   open={heroPickerSlot !== null}
                   title={
@@ -3907,13 +3921,13 @@ export default function CatalogNewListingClient({
                 />
               ) : null}
 
-              {!isHolidayHomeEdit && pendingGalleryKeys.length > 5 ? (
+              {!isStayRentalEdit && pendingGalleryKeys.length > 5 ? (
                 <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
                   Aşağıda yer kaplamadan küçük özet ({pendingGalleryKeys.length} görsel). Çıkarmak için × kullanın.
                 </p>
               ) : null}
 
-              {!isHolidayHomeEdit && pendingGalleryKeys.length > 0 ? (
+              {!isStayRentalEdit && pendingGalleryKeys.length > 0 ? (
                 <div className="mt-3 flex max-w-4xl gap-2 overflow-x-auto pb-1 pt-1">
                   {pendingGalleryKeys.map((im, idx) => (
                     <div
@@ -3939,7 +3953,7 @@ export default function CatalogNewListingClient({
                 </div>
               ) : null}
 
-              {!isHolidayHomeEdit ? (
+              {!isStayRentalEdit ? (
                 <Field className="mt-6">
                   <Label>Yeni görsel ekle</Label>
                   <div className="mt-2 max-w-md">
@@ -5762,7 +5776,7 @@ export default function CatalogNewListingClient({
                 </Field>
               </Grid2>
 
-              {(categoryCode === 'holiday_home' || categoryCode === 'hotel') ? (
+              {(isStayRentalWizard || categoryCode === 'hotel') ? (
                 <div className="mt-2 space-y-4 rounded-xl border border-neutral-200 bg-neutral-50/60 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
                   <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">iCal</h3>
 

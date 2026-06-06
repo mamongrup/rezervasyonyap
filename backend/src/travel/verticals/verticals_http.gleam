@@ -280,11 +280,14 @@ pub fn get_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
     use cc <- decode.field(1, decode.string)
     use lat <- decode.field(2, decode.string)
     use lng <- decode.field(3, decode.string)
-    decode.success(#(lm, cc, lat, lng))
+    use tc <- decode.field(4, decode.string)
+    use rc <- decode.field(5, decode.string)
+    use im <- decode.field(6, decode.bool)
+    decode.success(#(lm, cc, lat, lng, tc, rc, im))
   }
   case
     pog.query(
-      "select coalesce(length_meters::text,''), coalesce(cabin_count::text,''), coalesce(port_lat::text,''), coalesce(port_lng::text,'') from listing_yacht_details where listing_id = $1::uuid",
+      "select coalesce(length_meters::text,''), coalesce(cabin_count::text,''), coalesce(port_lat::text,''), coalesce(port_lng::text,''), coalesce(theme_codes::text,'{}'), coalesce(rule_codes::text,'{}'), ical_managed from listing_yacht_details where listing_id = $1::uuid",
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(row)
@@ -294,13 +297,16 @@ pub fn get_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
     Ok(ret) ->
       case ret.rows {
         [] -> json_err(404, "not_found")
-        [#(lm, cc, lat, lng)] -> {
+        [#(lm, cc, lat, lng, tc, rc, im)] -> {
           let j =
             json.object([
               #("length_meters", json.string(lm)),
               #("cabin_count", json.string(cc)),
               #("port_lat", json.string(lat)),
               #("port_lng", json.string(lng)),
+              #("theme_codes", json.string(tc)),
+              #("rule_codes", json.string(rc)),
+              #("ical_managed", json.bool(im)),
             ])
             |> json.to_string
           wisp.json_response(j, 200)
@@ -311,13 +317,27 @@ pub fn get_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
 }
 
 fn yacht_patch_decoder() -> decode.Decoder(
-  #(Option(String), Option(String), Option(String), Option(String)),
+  #(
+    Option(String),
+    Option(String),
+    Option(String),
+    Option(String),
+    Option(List(String)),
+    Option(List(String)),
+    Option(Bool),
+  ),
 ) {
   decode.optional_field("length_meters", None, decode.optional(decode.string), fn(a) {
     decode.optional_field("cabin_count", None, decode.optional(decode.string), fn(b) {
       decode.optional_field("port_lat", None, decode.optional(decode.string), fn(c) {
         decode.optional_field("port_lng", None, decode.optional(decode.string), fn(d) {
-          decode.success(#(a, b, c, d))
+          decode.optional_field("theme_codes", None, decode.optional(decode.list(decode.string)), fn(tc) {
+            decode.optional_field("rule_codes", None, decode.optional(decode.list(decode.string)), fn(rc) {
+              decode.optional_field("ical_managed", None, decode.optional(decode.bool), fn(im) {
+                decode.success(#(a, b, c, d, tc, rc, im))
+              })
+            })
+          })
         })
       })
     })
@@ -332,10 +352,10 @@ pub fn patch_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
     Ok(body) ->
       case json.parse(body, yacht_patch_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
-        Ok(#(a, b, c, d)) ->
-          case a, b, c, d {
-            None, None, None, None -> json_err(400, "no_fields")
-            _, _, _, _ -> {
+        Ok(#(a, b, c, d, tc_opt, rc_opt, im_opt)) ->
+          case a, b, c, d, tc_opt, rc_opt, im_opt {
+            None, None, None, None, None, None, None -> json_err(400, "no_fields")
+            _, _, _, _, _, _, _ -> {
               let pa = case a {
                 None -> pog.null()
                 Some(s) ->
@@ -368,15 +388,30 @@ pub fn patch_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
                     False -> pog.text(string.trim(s))
                   }
               }
+              let tc_p = case tc_opt {
+                None -> pog.null()
+                Some(ks) -> pog.array(pog.text, ks)
+              }
+              let rc_p = case rc_opt {
+                None -> pog.null()
+                Some(ks) -> pog.array(pog.text, ks)
+              }
+              let im_p = case im_opt {
+                None -> pog.null()
+                Some(bv) -> pog.bool(bv)
+              }
               case
                 pog.query(
-                  "insert into listing_yacht_details (listing_id, length_meters, cabin_count, port_lat, port_lng) values ($1::uuid, $2::numeric, $3::smallint, $4::numeric, $5::numeric) on conflict (listing_id) do update set length_meters = coalesce($2::numeric, listing_yacht_details.length_meters), cabin_count = coalesce($3::smallint, listing_yacht_details.cabin_count), port_lat = coalesce($4::numeric, listing_yacht_details.port_lat), port_lng = coalesce($5::numeric, listing_yacht_details.port_lng) returning listing_id::text",
+                  "insert into listing_yacht_details (listing_id, length_meters, cabin_count, port_lat, port_lng, theme_codes, rule_codes, ical_managed) values ($1::uuid, $2::numeric, $3::smallint, $4::numeric, $5::numeric, coalesce($6::text[], '{}'), coalesce($7::text[], '{}'), coalesce($8::boolean, false)) on conflict (listing_id) do update set length_meters = coalesce($2::numeric, listing_yacht_details.length_meters), cabin_count = coalesce($3::smallint, listing_yacht_details.cabin_count), port_lat = coalesce($4::numeric, listing_yacht_details.port_lat), port_lng = coalesce($5::numeric, listing_yacht_details.port_lng), theme_codes = coalesce($6::text[], listing_yacht_details.theme_codes), rule_codes = coalesce($7::text[], listing_yacht_details.rule_codes), ical_managed = coalesce($8::boolean, listing_yacht_details.ical_managed) returning listing_id::text",
                 )
                 |> pog.parameter(pog.text(lid_param(listing_id)))
                 |> pog.parameter(pa)
                 |> pog.parameter(pb)
                 |> pog.parameter(pc)
                 |> pog.parameter(pd)
+                |> pog.parameter(tc_p)
+                |> pog.parameter(rc_p)
+                |> pog.parameter(im_p)
                 |> pog.returning(row_dec.col0_string())
                 |> pog.execute(ctx.db)
               {

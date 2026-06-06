@@ -10,7 +10,7 @@ export default async function CatalogListingAdvancedToolsPage({
   const { code, listingId } = await params
   const cat = decodeURIComponent(code)
   const id = decodeURIComponent(listingId)
-  if (cat === 'holiday_home') {
+  if (cat === 'holiday_home' || cat === 'yacht_charter') {
     return <CatalogNewListingClient categoryCode={cat} editListingId={id} />
   }
   return (

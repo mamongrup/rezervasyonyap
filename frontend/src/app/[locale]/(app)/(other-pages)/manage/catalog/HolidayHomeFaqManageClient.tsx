@@ -11,6 +11,8 @@ import {
 import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
+import type { StayRentalCategoryCode } from '@/lib/stay-rental-categories'
+import { YACHT_CHARTER_FAQ_SITE_KEY } from '@/lib/yacht-property-type-options'
 import { listSiteSettings, upsertSiteSetting } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
@@ -19,7 +21,7 @@ import { Field, Label } from '@/shared/fieldset'
 import { GripVertical, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-const SETTING_KEY = 'catalog.holiday_home_default_faq'
+const HOLIDAY_HOME_FAQ_SETTING_KEY = 'catalog.holiday_home_default_faq'
 
 const LOCALES = [
   { code: 'tr', label: 'TR' },
@@ -38,7 +40,13 @@ function newItem(): HolidayHomeFaqStoredItem {
   }
 }
 
-export default function HolidayHomeFaqManageClient() {
+export default function HolidayHomeFaqManageClient({
+  categoryCode = 'holiday_home',
+}: {
+  categoryCode?: StayRentalCategoryCode
+}) {
+  const SETTING_KEY =
+    categoryCode === 'yacht_charter' ? YACHT_CHARTER_FAQ_SITE_KEY : HOLIDAY_HOME_FAQ_SETTING_KEY
   const t = useManageT()
   const [items, setItems] = useState<HolidayHomeFaqStoredItem[]>([])
   const [busy, setBusy] = useState(false)

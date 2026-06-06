@@ -14,9 +14,8 @@ import { aiErrorMessage, translateOneToMany } from '@/lib/manage-content-ai'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Check, Loader2, Pencil, Trash2, X } from 'lucide-react'
+import type { StayRentalCategoryCode } from '@/lib/stay-rental-categories'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-
-const CATEGORY = 'holiday_home'
 
 const LOCALES = [
   { code: 'tr', label: 'TR' },
@@ -50,7 +49,13 @@ function slugifyCode(s: string): string {
     .replace(/[^a-z0-9_]/g, '')
 }
 
-export default function HolidayHomeThemePresetsManageClient({ locale }: { locale: string }) {
+export default function HolidayHomeThemePresetsManageClient({
+  locale,
+  categoryCode = 'holiday_home',
+}: {
+  locale: string
+  categoryCode?: StayRentalCategoryCode
+}) {
   const t = useManageT()
   const chipCodes = useMemo(() => new Set<string>(), [])
 
@@ -75,9 +80,9 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
   }, [])
 
   const loadPublic = useCallback(async () => {
-    const r = await listPublicCategoryThemeItems({ categoryCode: CATEGORY, locale: previewLocale })
+    const r = await listPublicCategoryThemeItems({ categoryCode, locale: previewLocale })
     setPublicItems(r.items)
-  }, [previewLocale])
+  }, [categoryCode, previewLocale])
 
   const loadManage = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -90,7 +95,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
       const all = await Promise.all(
         LOCALES.map(async (lc) => {
           try {
-            const r = await listManageThemeItems(token, { categoryCode: CATEGORY, locale: lc.code })
+            const r = await listManageThemeItems(token, { categoryCode, locale: lc.code })
             return { lc: lc.code, items: r.items }
           } catch {
             return { lc: lc.code, items: [] as { id: string; code: string; label: string }[] }
@@ -217,7 +222,7 @@ export default function HolidayHomeThemePresetsManageClient({ locale }: { locale
     setManageErr(null)
     try {
       await createManageThemeItem(token, {
-        category_code: CATEGORY,
+        category_code: categoryCode,
         code,
         label,
         locale_code: 'tr',

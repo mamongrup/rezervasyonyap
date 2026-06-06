@@ -9,8 +9,8 @@ export default async function ManageHolidayHomeThemePresetsPage({
 }) {
   const { locale, code } = await params
   const c = parseCatalogCategoryCodeParam(code)
-  if (!c || c !== 'holiday_home') {
+  if (!c || (c !== 'holiday_home' && c !== 'yacht_charter')) {
     return notFound()
   }
-  return <HolidayHomeThemePresetsManageClient locale={locale} />
+  return <HolidayHomeThemePresetsManageClient locale={locale} categoryCode={c} />
 }
