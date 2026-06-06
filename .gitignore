@@ -43,3 +43,13 @@ scripts/old-detail-*.json
 
 # Travelrobot OpenAPI spec dump (referans; ~12MB, repoya gitmez)
 scripts/.travelrobot-spec/
+
+# Yerel sertifikasyon / entegrasyon test çıktıları (repoya gitmez)
+cert-log-*.json
+cert-summary-*.txt
+travelrobot-test-log*.json
+travelrobot-test-summary-*.txt
+travelrobot-air-log.json
+log-s3.json
+tmp-search.json
+scripts/bin/rebar3.cmd
