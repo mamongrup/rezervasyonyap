@@ -574,6 +574,8 @@ const page_json_sql = "json_build_object(
   'hero_image_url', lp.hero_image_url,
   'travel_ideas_image_url', lp.travel_ideas_image_url,
   'travel_ideas_json', coalesce(lp.travel_ideas_json, '[]'::jsonb),
+  'trip_routes_json', coalesce(lp.trip_routes_json, '[]'::jsonb),
+  'blue_cruise_routes_json', coalesce(lp.blue_cruise_routes_json, '[]'::jsonb),
   'translations_json', coalesce(lp.translations_json, '{}'::jsonb),
   'poi_manual_json', coalesce(lp.poi_manual_json, '[]'::jsonb),
   'country_info_json', coalesce(lp.country_info_json, '{}'::jsonb),

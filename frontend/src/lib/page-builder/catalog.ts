@@ -87,6 +87,7 @@ export const MODULE_CATALOG: {
   { type: 'region_detail_newsletter', label: 'Bölge: Bülten', description: 'SectionSubscribe2 bülten bloğu', emoji: '📧' },
   { type: 'region_detail_about', label: 'Bölge: Tanıtım metni', description: 'CMS açıklama / «Bölge tanıtımı»', emoji: '📝' },
   { type: 'region_detail_travel_ideas', label: 'Bölge: Gezi fikirleri', description: 'travel_ideas_json ile beslenir', emoji: '🗺️' },
+  { type: 'region_detail_routes', label: 'Bölge: Gezi + mavi yolculuk rotaları', description: 'trip_routes_json / blue_cruise_routes_json', emoji: '🧭' },
   {
     type: 'region_detail_places_vitrin',
     label: 'Bölge: 3 sütun mekan/mesafe',

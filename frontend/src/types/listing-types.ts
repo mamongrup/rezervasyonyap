@@ -290,6 +290,7 @@ export type PageBuilderModuleType =
   | 'region_detail_newsletter'
   | 'region_detail_about'
   | 'region_detail_travel_ideas'
+  | 'region_detail_routes'
   | 'region_detail_places_vitrin'
   | 'region_detail_nearby'
   | 'region_detail_map'

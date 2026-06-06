@@ -48,6 +48,7 @@ export interface RegionDetailPageSlots {
   newsletter: ReactNode
   about: ReactNode | null
   travelIdeas: ReactNode | null
+  routes: ReactNode | null
   placesVitrin: ReactNode | null
   nearby: ReactNode | null
   map: ReactNode | null
@@ -274,6 +275,10 @@ export default async function PageBuilderRenderer({
           case 'region_detail_travel_ideas':
             if (!isRegionDetailLayout || !regionSlots?.travelIdeas) return null
             return <Fragment key={module.id}>{regionSlots.travelIdeas}</Fragment>
+
+          case 'region_detail_routes':
+            if (!isRegionDetailLayout || !regionSlots?.routes) return null
+            return <Fragment key={module.id}>{regionSlots.routes}</Fragment>
 
           case 'region_detail_places_vitrin':
             if (!isRegionDetailLayout || !regionSlots?.placesVitrin) return null

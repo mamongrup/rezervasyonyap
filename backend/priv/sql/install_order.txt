@@ -146,6 +146,7 @@ modules/303_holiday_home_property_types_four_types.sql
 modules/304_travelrobot_hotel_flight_refs.sql
 modules/305_cart_lines_schema_guard.sql
 modules/306_yacht_charter_stay_rental_parity.sql
+modules/307_ai_trip_and_cruise_routes.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

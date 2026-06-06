@@ -20,6 +20,7 @@ import StayCard2 from '@/components/StayCard2'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import RegionNearbyPlacesVitrin from '@/components/travel/RegionNearbyPlacesVitrin'
 import RegionTravelIdeasSection from '@/components/travel/RegionTravelIdeasSection'
+import RegionRoutesSection from '@/components/travel/RegionRoutesSection'
 import { resolveNearbyVitrinConfig } from '@/lib/nearby-vitrin-columns'
 import { resolveRegionCenterCoords, resolveRegionPlacesForBolgePage } from '@/lib/region-places-from-location-page'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
@@ -36,6 +37,7 @@ import { regionPublicHref } from '@/lib/region-public-path'
 import { resolveCanonicalBaseUrl } from '@/lib/resolve-canonical-base-url'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { parseTravelIdeas } from '@/lib/travel-ideas-parse'
+import { parseBlueCruiseRoutes, parseTripRoutes } from '@/lib/trip-routes-parse'
 import type { LocationPage } from '@/lib/travel-api'
 import {
   getLocationPageBySlug,
@@ -352,6 +354,8 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     placesData?.categories.flatMap((c) => c.types).flatMap((t) => t.places).length ?? 0
 
   const travelIdeas = pageData ? parseTravelIdeas(pageData.travel_ideas_json) : []
+  const tripRoutes = pageData ? parseTripRoutes(pageData.trip_routes_json) : []
+  const blueCruiseRoutes = pageData ? parseBlueCruiseRoutes(pageData.blue_cruise_routes_json) : []
 
   let otellerVitrin: string
   try {
@@ -636,6 +640,16 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       />
     ) : null
 
+  const routesSlot =
+    tripRoutes.length > 0 || blueCruiseRoutes.length > 0 ? (
+      <RegionRoutesSection
+        tripRoutes={tripRoutes}
+        blueCruiseRoutes={blueCruiseRoutes}
+        locale={locale}
+        regionName={regionName}
+      />
+    ) : null
+
   const nearbyVitrinCfg = resolveNearbyVitrinConfig(locale, pageData?.nearby_vitrin_columns_json)
 
   const placesVitrinSlot =
@@ -733,6 +747,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
             newsletter: newsletterSlot,
             about: aboutSlot,
             travelIdeas: travelIdeasSlot,
+            routes: routesSlot,
             placesVitrin: placesVitrinSlot,
             nearby: nearbySlot,
             map: mapSlot,

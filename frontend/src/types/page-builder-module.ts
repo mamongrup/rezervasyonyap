@@ -98,6 +98,7 @@ export interface PageBuilderModuleConfigByType {
   region_detail_newsletter: PageBuilderJsonConfig
   region_detail_about: PageBuilderJsonConfig
   region_detail_travel_ideas: PageBuilderJsonConfig
+  region_detail_routes: PageBuilderJsonConfig
   region_detail_places_vitrin: PageBuilderJsonConfig
   region_detail_nearby: PageBuilderJsonConfig
   region_detail_map: PageBuilderJsonConfig

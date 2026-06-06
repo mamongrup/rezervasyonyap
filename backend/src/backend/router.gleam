@@ -58,6 +58,7 @@ import travel/ai_agents/agent_center_http
 import travel/ai/ai_worker_http
 import travel/ai/district_ideas_http
 import travel/ai/region_content_http
+import travel/ai/trip_routes_http
 import travel/verticals/verticals_http
 import travel/catalog/catalog_http
 import travel/workspace/workspace_http
@@ -1541,6 +1542,18 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "region-content", "reset-stuck"] ->
       region_content_http.reset_stuck(req, ctx)
+
+    http.Get, ["api", "v1", "ai", "trip-routes", "stats"] ->
+      trip_routes_http.get_stats(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "trip-routes", "queue-all"] ->
+      trip_routes_http.queue_all(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "trip-routes", "process-next"] ->
+      trip_routes_http.process_next(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "trip-routes", "reset-stuck"] ->
+      trip_routes_http.reset_stuck_jobs(req, ctx)
 
     http.Post, ["api", "v1", "ai", "worker", "run-steps"] ->
       ai_worker_http.post_run_steps(req, ctx)

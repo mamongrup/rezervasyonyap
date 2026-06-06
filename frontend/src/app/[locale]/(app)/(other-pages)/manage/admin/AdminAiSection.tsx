@@ -59,6 +59,7 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import PopupView from '@/components/popups/PopupView'
+import TripRoutesAiPanel from '@/app/[locale]/(app)/(other-pages)/manage/admin/TripRoutesAiPanel'
 import type { PopupItem } from '@/lib/popups-types'
 import clsx from 'clsx'
 import { Activity, Bot, Cpu, Info, Layers, MapPin, RefreshCw, Search } from 'lucide-react'
@@ -1800,6 +1801,22 @@ export default function AdminAiSection() {
             </ul>
           </div>
         ) : null}
+      </div>
+
+      {/* Gezi rotaları + mavi yolculuk — AI */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <TripRoutesAiPanel
+          profile="trip_planner"
+          title="Gezi Rotaları (kara)"
+          description="İl, ilçe ve belde sayfalarına günlük gezi programı üretir. Önce gezi fikirleri dolu ise duraklar daha isabetli olur. Sonuç: location_pages.trip_routes_json"
+          accent="emerald"
+        />
+        <TripRoutesAiPanel
+          profile="blue_cruise_routes"
+          title="Mavi Yolculuk Rotaları"
+          description="Ege/Akdeniz kıyı bölgeleri için gulet ve yat rotaları. Kıyı dışı bölgeler boş dizi döner. Sonuç: location_pages.blue_cruise_routes_json"
+          accent="sky"
+        />
       </div>
 
       {/* Bölge Tanıtımı + Blog Yazıları */}

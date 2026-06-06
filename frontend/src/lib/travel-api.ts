@@ -7218,6 +7218,10 @@ export type LocationPage = {
   travel_ideas_image_url: string | null
   cover_image?: string | null
   travel_ideas_json: string
+  /** AI gezi rotaları — günlük kara programı JSON dizisi */
+  trip_routes_json?: string
+  /** AI mavi yolculuk rotaları — gulet/yat deniz programı */
+  blue_cruise_routes_json?: string
   translations_json: string
   poi_manual_json: string
   country_info_json: string
@@ -10717,6 +10721,101 @@ export async function processNextDistrictIdea(
   })
   if (!res.ok) throw new Error(`district_ideas_process_${res.status}`)
   return json<DistrictIdeasProcessResult>(res)
+}
+
+// ---------------------------------------------------------------------------
+// Gezi rotaları + mavi yolculuk — AI üretimi (trip_planner / blue_cruise_routes)
+// ---------------------------------------------------------------------------
+
+export type AiTripRoutesProfile = 'trip_planner' | 'blue_cruise_routes'
+
+export interface TripRoutesStats {
+  profile: AiTripRoutesProfile
+  total_locations: number
+  locations_with_routes: number
+  locations_routes_empty?: number
+  jobs: Record<string, number>
+}
+
+export async function getTripRoutesStats(
+  token: string,
+  profile: AiTripRoutesProfile,
+): Promise<TripRoutesStats> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/trip-routes/stats?profile=${profile}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`trip_routes_stats_${res.status}`)
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    profile,
+    total_locations: coerceInt(raw.total_locations),
+    locations_with_routes: coerceInt(raw.locations_with_routes),
+    locations_routes_empty: coerceOptionalInt(raw.locations_routes_empty),
+    jobs: stringRecordInts(raw.jobs),
+  }
+}
+
+export async function queueAllTripRoutes(
+  token: string,
+  profile: AiTripRoutesProfile,
+): Promise<{ queued: number; total_found: number; message?: string; profile: AiTripRoutesProfile }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/trip-routes/queue-all?profile=${profile}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`trip_routes_queue_${res.status}`)
+  const raw = await json<Record<string, unknown>>(res)
+  const message = typeof raw.message === 'string' ? raw.message.trim() : undefined
+  return {
+    queued: coerceInt(raw.queued),
+    total_found: coerceInt(raw.total_found),
+    message,
+    profile,
+  }
+}
+
+export interface TripRoutesProcessResult {
+  done: boolean
+  message?: string
+  job_id?: string
+  location_page_id?: string
+  routes_stored?: boolean
+  profile?: AiTripRoutesProfile
+}
+
+export async function processNextTripRoute(
+  token: string,
+  profile: AiTripRoutesProfile,
+  opts?: { upstreamTimeoutMs?: number },
+): Promise<TripRoutesProcessResult> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/trip-routes/process-next?profile=${profile}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
+  })
+  if (!res.ok) throw new Error(`trip_routes_process_${res.status}`)
+  return json<TripRoutesProcessResult>(res)
+}
+
+export async function resetStuckTripRouteJobs(
+  token: string,
+  profile: AiTripRoutesProfile,
+): Promise<{ reset: number }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/trip-routes/reset-stuck?profile=${profile}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`trip_routes_reset_${res.status}`)
+  const raw = await json<Record<string, unknown>>(res)
+  return { reset: coerceInt(raw.reset) }
 }
 
 // ---------------------------------------------------------------------------

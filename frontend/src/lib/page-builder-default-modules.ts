@@ -358,11 +358,12 @@ export function getRegionDetailDefaultModules(_m: AppMessages): Omit<PageBuilder
     { type: 'region_detail_newsletter', enabled: true, order: 5, config: {} },
     { type: 'region_detail_about', enabled: true, order: 6, config: {} },
     { type: 'region_detail_travel_ideas', enabled: true, order: 7, config: {} },
-    { type: 'region_detail_places_vitrin', enabled: true, order: 8, config: {} },
-    { type: 'region_detail_nearby', enabled: true, order: 9, config: {} },
-    { type: 'region_detail_map', enabled: true, order: 10, config: {} },
-    { type: 'region_detail_empty_hint', enabled: true, order: 11, config: {} },
+    { type: 'region_detail_routes', enabled: true, order: 8, config: {} },
+    { type: 'region_detail_places_vitrin', enabled: true, order: 9, config: {} },
+    { type: 'region_detail_nearby', enabled: true, order: 10, config: {} },
+    { type: 'region_detail_map', enabled: true, order: 11, config: {} },
+    { type: 'region_detail_empty_hint', enabled: true, order: 12, config: {} },
     /** İçerik `region_detail_explore_hotels` ile birleştirildi (yinelenmesin diye kapalı). */
-    { type: 'region_detail_subdivisions', enabled: false, order: 12, config: {} },
+    { type: 'region_detail_subdivisions', enabled: false, order: 13, config: {} },
   ] satisfies Omit<PageBuilderModule, 'id'>[]
 }
