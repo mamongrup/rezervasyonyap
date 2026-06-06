@@ -188,6 +188,8 @@ export function mapYolcu360CarToListing(
       (car.currency ?? 'TRY')
     : undefined
 
+  const img = car.imageUrl ?? car.thumbnailUrl ?? ''
+
   return {
     id: slug,
     handle: slug,
@@ -195,7 +197,8 @@ export function mapYolcu360CarToListing(
     price,
     priceAmount: car.dailyPrice,
     priceCurrency: car.currency ?? 'TRY',
-    featuredImage: car.imageUrl ?? car.thumbnailUrl ?? '',
+    galleryImgs: img ? [img] : [],
+    featuredImage: img,
     listingCategory: 'Araç Kiralama',
     listingVertical: 'car_rental',
     reviewStart: 0,
