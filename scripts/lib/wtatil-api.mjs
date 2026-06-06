@@ -1,12 +1,14 @@
 /**
  * Wtatil / Reserwation Tour API v2
  * Docs: https://tour-api.reserwation.com/docs/index.html
- * OpenAPI: Desktop/swagger.json veya tour-api OpenAPI indir
+ * Kimlik: panel site_settings.listing_api_providers.wtatil veya WTATIL_* env.
  */
+
+import { loadWtatilConfigFromDb } from './listing-api-providers-db.mjs'
 
 const DEFAULT_BASE = 'https://tour-api.reserwation.com'
 
-export function loadWtatilConfig() {
+function loadWtatilConfigFromEnv() {
   const baseUrl = (process.env.WTATIL_BASE_URL || DEFAULT_BASE).replace(/\/+$/, '')
   const applicationSecretKey = process.env.WTATIL_APPLICATION_SECRET_KEY || ''
   const userName = process.env.WTATIL_USERNAME || ''
@@ -14,10 +16,33 @@ export function loadWtatilConfig() {
   const agencyId = Number(process.env.WTATIL_AGENCY_ID || 0) || null
   if (!applicationSecretKey || !userName || !password) {
     throw new Error(
-      'WTATIL_APPLICATION_SECRET_KEY, WTATIL_USERNAME ve WTATIL_PASSWORD ortam değişkenleri gerekli.',
+      'WTATIL_APPLICATION_SECRET_KEY, WTATIL_USERNAME ve WTATIL_PASSWORD yok — panel: /manage/admin/settings/listing-api veya WTATIL_* env',
     )
   }
   return { baseUrl, applicationSecretKey, userName, password, agencyId }
+}
+
+/** Geriye dönük — yalnızca env */
+export function loadWtatilConfig() {
+  return loadWtatilConfigFromEnv()
+}
+
+export async function loadWtatilConfigAsync() {
+  try {
+    const cfg = await loadWtatilConfigFromDb()
+    if (cfg.applicationSecretKey && cfg.userName && cfg.password) {
+      return {
+        baseUrl: cfg.baseUrl,
+        applicationSecretKey: cfg.applicationSecretKey,
+        userName: cfg.userName,
+        password: cfg.password,
+        agencyId: cfg.agencyId,
+      }
+    }
+  } catch {
+    /* DB yoksa env */
+  }
+  return loadWtatilConfigFromEnv()
 }
 
 function joinUrl(base, path) {
@@ -41,7 +66,7 @@ export function unwrapData(json) {
 }
 
 export async function wtatilRequest(method, path, body = null, query = null) {
-  const { baseUrl } = loadWtatilConfig()
+  const { baseUrl } = await loadWtatilConfigAsync()
   const url = new URL(joinUrl(baseUrl, path))
   if (query) {
     for (const [k, v] of Object.entries(query)) {
@@ -79,7 +104,7 @@ export async function wtatilRequest(method, path, body = null, query = null) {
 
 /** POST /api/Auth/get-token-async */
 export async function fetchWtatilToken() {
-  const { applicationSecretKey, userName, password } = loadWtatilConfig()
+  const { applicationSecretKey, userName, password } = await loadWtatilConfigAsync()
   const json = await wtatilRequest('POST', '/api/Auth/get-token-async', null, {
     applicationSecretKey,
     userName,

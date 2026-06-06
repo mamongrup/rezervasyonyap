@@ -23,6 +23,7 @@ import travel/integrations/paytr_http
 import travel/integrations/travelrobot_http
 import travel/integrations/turna_flight_http
 import travel/integrations/turna_http
+import travel/integrations/wtatil_http
 import travel/integrations/yolcu360_http
 import travel/module_tree
 import travel/payments/payment_settings_http
@@ -867,6 +868,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "integrations", "turna", "ping"] ->
       turna_http.post_ping(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "wtatil", "ping"] ->
+      wtatil_http.post_ping(req, ctx)
 
     http.Post, ["api", "v1", "flights", "turna", "search"] ->
       turna_flight_http.post_search(req, ctx)

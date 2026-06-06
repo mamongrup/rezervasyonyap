@@ -16,7 +16,7 @@ child.on('exit', (code) => process.exit(code ?? 1))
 import {
   fetchWtatilToken,
   fetchAllTours,
-  loadWtatilConfig,
+  loadWtatilConfigAsync,
 } from './lib/wtatil-api.mjs'
 import { enrichWtatilTour } from './lib/wtatil-enrich.mjs'
 import {
@@ -61,7 +61,7 @@ async function main() {
   }
 
   const orgId = process.env.WTATIL_ORG_ID || DEFAULT_ORG
-  const { agencyId } = loadWtatilConfig()
+  const { agencyId } = await loadWtatilConfigAsync()
   if (!agencyId) {
     console.warn('[WARN] WTATIL_AGENCY_ID yok — search-tour cheapestPrice atlanır; dönem tablosu kullanılır.')
   }

@@ -629,6 +629,8 @@ export const en = {
     noInventory:
       'Turna API returned no flight inventory for this route. Confirm your API key has live flight search access with Turna.',
     viewOnTurna: 'View on Turna.com',
+    accessDenied:
+      'Turna test API (apitest.turna.com) is blocking your server IP. In Admin → Integrations set Base URL to https://api.turna.com with a production API key, or ask Turna to whitelist your VPS IP.',
   },
   flightDetail: {
     searchTitle: 'Search flights on this route',

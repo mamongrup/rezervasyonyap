@@ -405,6 +405,8 @@ export const tr = {
     noInventory:
       'Turna API bu rota için envanter döndürmedi. API anahtarınızın uçuş arama yetkisini Turna ile doğrulayın.',
     viewOnTurna: 'Turna.com’da görüntüle',
+    accessDenied:
+      'Turna test ortamı (apitest.turna.com) sunucu IP’nizi engelliyor. Yönetim → Entegrasyonlar’da Base URL olarak https://api.turna.com ve canlı API anahtarını kaydedin; veya Turna’dan VPS IP whitelist isteyin.',
   },
   flightDetail: {
     searchTitle: 'Bu güzergahta uçuş ara',

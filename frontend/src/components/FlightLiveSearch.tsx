@@ -41,12 +41,23 @@ function formatTurnaSearchError(
   raw: string,
   fallback: string,
   notConfigured: string,
+  accessDenied: string,
 ): string {
   if (raw === 'turna_not_configured' || raw.startsWith('turna_api_key_missing')) {
     return notConfigured
   }
+  if (
+    raw === 'turna_access_denied' ||
+    /access\s+denied/i.test(raw) ||
+    raw.includes('apitest.turna.com')
+  ) {
+    return accessDenied
+  }
   if (raw.startsWith('turna_api_error:')) {
     const detail = raw.slice('turna_api_error:'.length).trim()
+    if (/access\s+denied/i.test(detail) || detail.includes('<HTML>')) {
+      return accessDenied
+    }
     return detail
       ? `Turna API hatası: ${detail}`
       : 'Turna API yanıt vermedi. Yönetim → API sağlayıcıları bölümünde base_url ile api_key aynı ortama (test/canlı) ait olmalı.'
@@ -71,6 +82,8 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
     noInventory:
       'Turna API bu rota için envanter döndürmedi. API anahtarınızın uçuş arama yetkisini Turna ile doğrulayın.',
     viewOnTurna: 'Turna.com’da görüntüle',
+    accessDenied:
+      'Turna test ortamı (apitest.turna.com) sunucu IP’nizi engelliyor. Yönetim → Entegrasyonlar’da Base URL olarak https://api.turna.com ve canlı API anahtarını kaydedin.',
   }
 
   const [loading, setLoading] = useState(false)
@@ -120,7 +133,7 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
       setOffers(parseTurnaSearchOffers(res.turna_raw))
     } catch (e) {
       const raw = e instanceof Error ? e.message : m.error
-      setError(formatTurnaSearchError(raw, m.error, m.notConfigured))
+      setError(formatTurnaSearchError(raw, m.error, m.notConfigured, m.accessDenied))
     } finally {
       setLoading(false)
     }
@@ -181,7 +194,7 @@ const FlightLiveSearch: FC<FlightLiveSearchProps> = ({ params, locale = 'tr', en
       router.push(`/${locale}/checkout?${qs.toString()}`)
     } catch (e) {
       const raw = e instanceof Error ? e.message : m.error
-      setError(formatTurnaSearchError(raw, m.error, m.notConfigured))
+      setError(formatTurnaSearchError(raw, m.error, m.notConfigured, m.accessDenied))
     } finally {
       setBookingId(null)
     }

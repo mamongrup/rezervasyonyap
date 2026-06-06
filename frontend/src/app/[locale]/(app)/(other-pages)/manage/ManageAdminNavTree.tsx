@@ -168,7 +168,7 @@ const GROUPS: NavGroupDef[] = [
     label: 'Entegrasyonlar',
     Icon: Plug,
     items: [
-      { path: '/manage/admin/settings/listing-api', label: 'API sağlayıcıları (Yolcu360, Travelrobot…)' },
+      { path: '/manage/admin/settings/listing-api', label: 'İlan API (Wtatil, Travelrobot, Turna…)' },
       { path: '/manage/admin/settings/integrations', label: 'Genel entegrasyon ayarları' },
       { path: '/manage/finance/payment-gateways', label: 'Sanal POS (PayTR / Paratika)' },
     ],
@@ -245,7 +245,7 @@ const GROUPS: NavGroupDef[] = [
       { path: '/manage/admin/settings?tab=google', label: 'Google' },
       { path: '/manage/admin/settings?tab=merchant', label: 'Merchant & kategoriler' },
       { path: '/manage/admin/settings/integrations', label: 'Entegrasyon genel ayarları' },
-      { path: '/manage/admin/settings/listing-api', label: 'Entegrasyonlar (Yolcu360, Travelrobot…)' },
+      { path: '/manage/admin/settings/listing-api', label: 'İlan API (Wtatil, Travelrobot, Turna…)' },
       { path: '/manage/admin/settings/notifications', label: 'Bildirim ayarları' },
       { path: '/manage/i18n', label: 'Diller & çeviriler' },
       { path: '/manage/settings/cdn', label: 'CDN (Bunny / Cloudflare)' },

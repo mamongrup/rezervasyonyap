@@ -129,7 +129,20 @@ fn raw_body_preview(raw: String) -> String {
   }
 }
 
+fn is_turna_access_denied(raw: String) -> Bool {
+  let lower = string.lowercase(raw)
+  string.contains(lower, "access denied")
+    || string.contains(lower, "<title>access denied</title>")
+}
+
 fn error_message_from_raw(raw: String) -> String {
+  case is_turna_access_denied(raw) {
+    True -> "turna_access_denied"
+    False -> error_message_from_turna_json(raw)
+  }
+}
+
+fn error_message_from_turna_json(raw: String) -> String {
   let msg_decoder = {
     use v <- decode.field("Message", decode.string)
     decode.success(v)
@@ -275,7 +288,8 @@ fn post_turna(
   {
     Error(e) ->
       case parse_envelope(e) {
-        Ok(parsed) -> Error(error_message_from_raw(parsed.body))
+        Ok(parsed) ->
+          Error(error_message_from_raw(parsed.body))
         Error(_) ->
           case string.length(e) > 400 {
             True -> Error("turna_http_failed:" <> string.slice(e, 0, 400))

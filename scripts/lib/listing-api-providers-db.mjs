@@ -45,6 +45,27 @@ export async function loadTurnaConfigFromDb() {
   }
 }
 
+export async function loadWtatilConfigFromDb() {
+  const all = await loadListingApiProvidersFromDb()
+  const w = all.wtatil ?? {}
+  const agencyRaw = String(w.agency_id || process.env.WTATIL_AGENCY_ID || '').trim()
+  const agencyId = agencyRaw ? Number.parseInt(agencyRaw, 10) : null
+  return {
+    enabled: Boolean(w.enabled),
+    baseUrl: String(w.base_url || process.env.WTATIL_BASE_URL || 'https://tour-api.reserwation.com').replace(
+      /\/+$/,
+      '',
+    ),
+    applicationSecretKey: String(
+      w.application_secret_key || process.env.WTATIL_APPLICATION_SECRET_KEY || '',
+    ),
+    userName: String(w.username || process.env.WTATIL_USERNAME || ''),
+    password: String(w.password || process.env.WTATIL_PASSWORD || ''),
+    agencyId: Number.isFinite(agencyId) && agencyId > 0 ? agencyId : null,
+    listingStatus: String(w.listing_status || process.env.WTATIL_STATUS || 'published'),
+  }
+}
+
 export async function loadTravelrobotConfigFromDb() {
   const all = await loadListingApiProvidersFromDb()
   const tr = all.travelrobot ?? {}

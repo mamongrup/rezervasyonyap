@@ -10,7 +10,7 @@
 import {
   fetchWtatilToken,
   fetchTourPeriods,
-  loadWtatilConfig,
+  loadWtatilConfigAsync,
 } from './lib/wtatil-api.mjs'
 import {
   enrichWtatilTour,
@@ -106,7 +106,7 @@ async function auditOne(client, ctx, userName, token, agencyId, tourId) {
 
 async function main() {
   const { userName, token } = await fetchWtatilToken()
-  const { agencyId } = loadWtatilConfig()
+  const { agencyId } = await loadWtatilConfigAsync()
   const orgId = process.env.WTATIL_ORG_ID || DEFAULT_ORG
 
   const client = createPgClient()

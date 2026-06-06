@@ -36,7 +36,18 @@ interface Yolcu360Settings {
   api_secret: string
 }
 
+interface WtatilSettings {
+  enabled: boolean
+  base_url: string
+  application_secret_key: string
+  username: string
+  password: string
+  agency_id: string
+  listing_status: 'draft' | 'published'
+}
+
 interface ListingApiProvidersSettings {
+  wtatil: WtatilSettings
   travelrobot: TravelrobotSettings
   turna: TurnaSettings
   yolcu360: Yolcu360Settings
@@ -70,7 +81,18 @@ const EMPTY_YOLCU360: Yolcu360Settings = {
   api_secret: '',
 }
 
+const EMPTY_WTATIL: WtatilSettings = {
+  enabled: false,
+  base_url: 'https://tour-api.reserwation.com',
+  application_secret_key: '',
+  username: '',
+  password: '',
+  agency_id: '',
+  listing_status: 'published',
+}
+
 const EMPTY: ListingApiProvidersSettings = {
+  wtatil: EMPTY_WTATIL,
   travelrobot: EMPTY_TRAVELROBOT,
   turna: EMPTY_TURNA,
   yolcu360: EMPTY_YOLCU360,
@@ -128,13 +150,19 @@ export default function AdminListingApiProvidersSection() {
   const [testing, setTesting] = React.useState(false)
   const [testingTurna, setTestingTurna] = React.useState(false)
   const [testingY360, setTestingY360] = React.useState(false)
+  const [testingWtatil, setTestingWtatil] = React.useState(false)
   const [locationQuery, setLocationQuery] = React.useState('istanbul')
   const [msg, setMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   const token = getStoredAuthToken()
+  const wtatil = settings.wtatil
   const tr = settings.travelrobot
   const turna = settings.turna
   const y360 = settings.yolcu360
+
+  const setWtatil = (patch: Partial<WtatilSettings>) => {
+    setSettings((prev) => ({ ...prev, wtatil: { ...prev.wtatil, ...patch } }))
+  }
 
   const setTr = (patch: Partial<TravelrobotSettings>) => {
     setSettings((prev) => ({ ...prev, travelrobot: { ...prev.travelrobot, ...patch } }))
@@ -163,6 +191,7 @@ export default function AdminListingApiProvidersSection() {
           const v = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : row.value_json
           setSettings((prev) => ({
             ...prev,
+            wtatil: { ...prev.wtatil, ...(v.wtatil ?? {}) },
             travelrobot: { ...prev.travelrobot, ...(v.travelrobot ?? {}) },
             turna: { ...prev.turna, ...(v.turna ?? {}) },
             yolcu360: { ...prev.yolcu360, ...(v.yolcu360 ?? {}) },
@@ -180,6 +209,16 @@ export default function AdminListingApiProvidersSection() {
     try {
       const payload: ListingApiProvidersSettings = {
         ...settings,
+        wtatil: {
+          ...settings.wtatil,
+          enabled:
+            settings.wtatil.enabled
+            || (
+              settings.wtatil.application_secret_key.trim() !== ''
+              && settings.wtatil.username.trim() !== ''
+              && settings.wtatil.password.trim() !== ''
+            ),
+        },
         travelrobot: {
           ...settings.travelrobot,
           enabled:
@@ -228,6 +267,13 @@ export default function AdminListingApiProvidersSection() {
       if (payload.turna.api_key) {
         hints.push('Turna: uçak formunda nereden/nereye + tarih ile arayın')
       }
+      if (
+        payload.wtatil.application_secret_key
+        && payload.wtatil.username
+        && payload.wtatil.password
+      ) {
+        hints.push('Wtatil: node scripts/import-wtatil-tours.mjs --ping veya sync-wtatil-auto.mjs')
+      }
       if (payload.travelrobot.channel_code && payload.travelrobot.channel_password) {
         hints.push('Travelrobot: sunucuda import script çalıştırın (tur/otel)')
       }
@@ -241,6 +287,42 @@ export default function AdminListingApiProvidersSection() {
       setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const testWtatil = async () => {
+    if (!token) return
+    setTestingWtatil(true)
+    setMsg(null)
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/integrations/wtatil/ping`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          base_url: wtatil.base_url,
+          application_secret_key: wtatil.application_secret_key,
+          username: wtatil.username,
+          password: wtatil.password,
+        }),
+      })
+      const data = (await res.json().catch(() => ({}))) as {
+        ok?: boolean
+        error?: string
+        token_preview?: string
+        expire_date?: string
+      }
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setMsg({
+        type: 'ok',
+        text: `Wtatil bağlantısı OK${data.token_preview ? ` (token: ${data.token_preview})` : ''}${data.expire_date ? ` · geçerlilik: ${data.expire_date}` : ''}`,
+      })
+    } catch (e) {
+      setMsg({ type: 'err', text: formatManageApiCatch(e, 'Wtatil bağlantı testi başarısız') })
+    } finally {
+      setTestingWtatil(false)
     }
   }
 
@@ -386,9 +468,9 @@ export default function AdminListingApiProvidersSection() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">İlan API sağlayıcıları</h1>
+        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white">Entegrasyonlar — ilan API</h1>
         <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-          Travelrobot (KPlus) ve Yolcu360 Agency API — araç kiralama ve tur import ayarları.
+          Wtatil (tur), Travelrobot (KPlus), Turna (uçak) ve Yolcu360 (araç) — import ve canlı arama ayarları.
           Yolcu360:{' '}
           <a
             href="https://apidocs.yolcu360.com/getting-started"
@@ -413,6 +495,106 @@ export default function AdminListingApiProvidersSection() {
           {msg.text}
         </div>
       )}
+
+      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Wtatil — Tur kataloğu</h2>
+            <p className="text-xs text-neutral-500">
+              API:{' '}
+              <a
+                href="https://tour-api.reserwation.com/docs/index.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 underline"
+              >
+                tour-api.reserwation.com
+              </a>
+            </p>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={wtatil.enabled}
+              onChange={(e) => setWtatil({ enabled: e.target.checked })}
+              className="rounded border-neutral-300"
+            />
+            Aktif
+          </label>
+        </div>
+
+        <div className="space-y-4">
+          <Field
+            label="Base URL"
+            value={wtatil.base_url}
+            onChange={(v) => setWtatil({ base_url: v })}
+            placeholder="https://tour-api.reserwation.com"
+          />
+          <Field
+            label="Application Secret Key"
+            value={wtatil.application_secret_key}
+            onChange={(v) => setWtatil({ application_secret_key: v })}
+            type="password"
+          />
+          <Field
+            label="Kullanıcı adı (userName)"
+            value={wtatil.username}
+            onChange={(v) => setWtatil({ username: v })}
+          />
+          <Field
+            label="Şifre"
+            value={wtatil.password}
+            onChange={(v) => setWtatil({ password: v })}
+            type="password"
+          />
+          <Field
+            label="Agency ID"
+            hint="search-tour fiyat zenginleştirmesi ve dönem senkronu için (WTATIL_AGENCY_ID)"
+            value={wtatil.agency_id}
+            onChange={(v) => setWtatil({ agency_id: v })}
+            placeholder="12345"
+          />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">
+              Import ilan durumu
+            </label>
+            <select
+              value={wtatil.listing_status}
+              onChange={(e) => setWtatil({ listing_status: e.target.value as 'draft' | 'published' })}
+              className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+            >
+              <option value="published">Yayında (published)</option>
+              <option value="draft">Taslak (draft)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => void save()}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-xl bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Kaydet
+          </button>
+          <button
+            type="button"
+            onClick={() => void testWtatil()}
+            disabled={
+              testingWtatil
+              || !wtatil.application_secret_key
+              || !wtatil.username
+              || !wtatil.password
+            }
+            className="inline-flex items-center gap-2 rounded-xl border border-neutral-200 px-4 py-2 text-sm font-medium hover:bg-neutral-50 dark:border-neutral-600 dark:hover:bg-neutral-800 disabled:opacity-50"
+          >
+            {testingWtatil ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+            Bağlantı testi (Token)
+          </button>
+        </div>
+      </div>
 
       <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm dark:border-neutral-700 dark:bg-neutral-800/50">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -522,7 +704,7 @@ export default function AdminListingApiProvidersSection() {
         <div className="space-y-4">
           <Field
             label="API Base URL"
-            hint="Canlı: https://api.turna.com · Test: https://apitest.turna.com"
+            hint="Canlı: https://api.turna.com · Test: https://apitest.turna.com (test genelde VPS IP whitelist ister; üretimde api.turna.com önerilir)"
             value={turna.base_url}
             onChange={(v) => setTurna({ base_url: v })}
             placeholder="https://api.turna.com"
@@ -658,6 +840,12 @@ export default function AdminListingApiProvidersSection() {
 
       <div className="space-y-1 text-xs text-neutral-500">
         <p>Sunucuda import (repo kökünden):</p>
+        <p>
+          Wtatil:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-wtatil-tours.mjs --ping</code>
+          {' / '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/sync-wtatil-auto.mjs</code>
+        </p>
         <p>
           Tur:{' '}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-tours.mjs --ping</code>

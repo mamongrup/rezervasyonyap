@@ -331,7 +331,7 @@ const QUICK_ACTIONS = [
   { label: 'Bildirimler', icon: MessageSquare, href: '/manage/admin/settings/notifications', color: '#10b981' },
   { label: 'Tüm Faturalar', icon: CreditCard, href: '/manage/finance/invoices', color: '#ef4444' },
   { label: 'Entegrasyonlar', icon: Globe, href: '/manage/admin/settings/integrations', color: '#06b6d4' },
-  { label: 'İlan API (Travelrobot)', icon: Plug, href: '/manage/admin/settings/listing-api', color: '#6366f1' },
+  { label: 'İlan API (Wtatil)', icon: Plug, href: '/manage/admin/settings/listing-api', color: '#6366f1' },
   { label: 'Merchant & Sosyal Satış', icon: ShoppingBag, href: '/manage/admin/marketing/merchant', color: '#a855f7' },
 ]
 

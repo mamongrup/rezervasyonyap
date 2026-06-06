@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url'
 import {
   fetchWtatilToken,
   fetchAllTours,
-  loadWtatilConfig,
+  loadWtatilConfigAsync,
 } from './lib/wtatil-api.mjs'
 import { enrichWtatilTour } from './lib/wtatil-enrich.mjs'
 import { resolveImportContext, upsertWtatilTourListing } from './lib/wtatil-listing-db.mjs'
@@ -63,7 +63,7 @@ async function main() {
 
   const orgId = process.env.WTATIL_ORG_ID || DEFAULT_ORG
   const status = (process.env.WTATIL_STATUS || 'draft').toLowerCase() === 'published' ? 'published' : 'draft'
-  const { agencyId } = loadWtatilConfig()
+  const { agencyId } = await loadWtatilConfigAsync()
 
   if (WITH_PRICES && !agencyId) {
     console.warn('WTATIL_AGENCY_ID yok — fiyat zenginleştirmesi atlanır (--prices / --full).')
