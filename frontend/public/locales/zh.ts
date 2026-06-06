@@ -626,6 +626,13 @@ export const zh: AppMessages = {
         checkin: '取车日期',
         checkout: '还车日期',
         backToSearch: '返回搜索结果',
+        reserve: '预订',
+        reserving: '正在开始预订…',
+        reserveFailed: '无法开始预订，请重试。',
+        checkoutListingMissing: '租车结账尚未配置，请在管理后台发布至少一条租车 listing。',
+        vendor: '供应商',
+        fuel: '燃料类型',
+        totalEstimate: '预估总价',
       },
     },
     hotelDetail: {

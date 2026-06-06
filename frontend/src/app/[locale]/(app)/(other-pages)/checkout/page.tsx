@@ -3,6 +3,8 @@
 import CheckoutContractWizard from '@/components/checkout/CheckoutContractWizard'
 import CheckoutGuestForms from '@/components/checkout/CheckoutGuestForms'
 import CheckoutInvoiceForm from '@/components/checkout/CheckoutInvoiceForm'
+import CheckoutCarSummary from '@/components/checkout/CheckoutCarSummary'
+import CheckoutCarTrip from '@/components/checkout/CheckoutCarTrip'
 import CheckoutFlightSummary from '@/components/checkout/CheckoutFlightSummary'
 import CheckoutFlightTrip from '@/components/checkout/CheckoutFlightTrip'
 import PayWith from '@/app/[locale]/(app)/(other-pages)/checkout/PayWith'
@@ -33,6 +35,10 @@ import {
   readTurnaFlightBookingDraft,
   type TurnaFlightBookingDraft,
 } from '@/lib/turna-flight-booking'
+import {
+  readYolcu360CarBookingDraft,
+  type Yolcu360CarBookingDraft,
+} from '@/lib/yolcu360-car-booking'
 import {
   addCartLine,
   applyCouponToCart,
@@ -112,16 +118,24 @@ function CheckoutPageContent() {
   const C = checkoutT(locale)
   const paymentFailed = searchParams.get('pay') === 'failed'
   const isFlightCheckout = searchParams.get('flight') === '1'
+  const isCarCheckout = searchParams.get('car') === '1'
+  const isLiveProductCheckout = isFlightCheckout || isCarCheckout
 
   const [flightDraft, setFlightDraft] = React.useState<TurnaFlightBookingDraft | null>(null)
+  const [carDraft, setCarDraft] = React.useState<Yolcu360CarBookingDraft | null>(null)
 
   React.useEffect(() => {
     if (!isFlightCheckout) {
       setFlightDraft(null)
-      return
+    } else {
+      setFlightDraft(readTurnaFlightBookingDraft())
     }
-    setFlightDraft(readTurnaFlightBookingDraft())
-  }, [isFlightCheckout])
+    if (!isCarCheckout) {
+      setCarDraft(null)
+    } else {
+      setCarDraft(readYolcu360CarBookingDraft())
+    }
+  }, [isFlightCheckout, isCarCheckout])
 
   const checkoutListingId = resolveCheckoutListingId(
     searchParams.get('listingId'),
@@ -190,7 +204,7 @@ function CheckoutPageContent() {
 
   const totalPrice = checkoutUnitPrice
   const [paymentType, setPaymentType] = React.useState<'full' | 'partial'>(
-    isFlightCheckout ? 'full' : 'partial',
+    isLiveProductCheckout ? 'full' : 'partial',
   )
   const hasCheckoutListing = Boolean(checkoutListingId)
   const [coupon, setCoupon] = React.useState<CouponPreview | null>(null)
@@ -225,7 +239,7 @@ function CheckoutPageContent() {
   const [paymentChannel, setPaymentChannel] = React.useState<CheckoutPaymentChannel>('card')
   const [paratikaPayload, setParatikaPayload] = React.useState<ParatikaCheckoutPayload | null>(null)
   const [createdPublicCode, setCreatedPublicCode] = React.useState<string | null>(null)
-  const [invoiceOpen, setInvoiceOpen] = React.useState(!isFlightCheckout)
+  const [invoiceOpen, setInvoiceOpen] = React.useState(!isLiveProductCheckout)
 
   React.useEffect(() => {
     if (invoiceTouched || guestRows.length === 0) return
@@ -301,16 +315,25 @@ function CheckoutPageContent() {
           return
         }
         const turnaDraft = searchParams.get('flight') === '1' ? readTurnaFlightBookingDraft() : null
+        const yolcu360Draft = searchParams.get('car') === '1' ? readYolcu360CarBookingDraft() : null
         const cart = await createCart(currency)
-        const lineMeta =
-          turnaDraft != null
+        const lineMeta = turnaDraft
+          ? JSON.stringify({
+              provider: 'turna',
+              session: turnaDraft.session,
+              allocate_raw: turnaDraft.allocate_raw,
+              departure_date: turnaDraft.departure_date,
+              offer: turnaDraft.offer ?? null,
+              passengers: turnaDraft.passengers ?? null,
+            })
+          : yolcu360Draft
             ? JSON.stringify({
-                provider: 'turna',
-                session: turnaDraft.session,
-                allocate_raw: turnaDraft.allocate_raw,
-                departure_date: turnaDraft.departure_date,
-                offer: turnaDraft.offer ?? null,
-                passengers: turnaDraft.passengers ?? null,
+                provider: 'yolcu360',
+                pickup: yolcu360Draft.pickup,
+                dropoff: yolcu360Draft.dropoff,
+                checkin: yolcu360Draft.checkin,
+                checkout: yolcu360Draft.checkout,
+                car: yolcu360Draft.car,
               })
             : undefined
         await addCartLine(cart.id, {
@@ -367,17 +390,23 @@ function CheckoutPageContent() {
 
         localStorage.setItem('travel_paydone_email', email)
         const flightOfferSnap = turnaDraft?.offer
+        const carSnap = yolcu360Draft?.car
         sessionStorage.setItem(
           'travel_checkout_confirm',
           JSON.stringify({
             is_flight: Boolean(turnaDraft),
+            is_car: Boolean(yolcu360Draft),
             flight_route: flightOfferSnap
               ? `${flightOfferSnap.origin} → ${flightOfferSnap.destination}`
               : undefined,
             flight_departure_date: turnaDraft?.departure_date,
             flight_airline: flightOfferSnap?.airlineName,
-            listing_title: flightOfferSnap?.airlineName ?? listingTitle,
-            listing_location: listingLocation,
+            car_title: carSnap?.title,
+            car_pickup: carSnap?.pickup,
+            car_checkin: carSnap?.checkin,
+            car_checkout: carSnap?.checkout,
+            listing_title: flightOfferSnap?.airlineName ?? carSnap?.title ?? listingTitle,
+            listing_location: carSnap?.pickup ?? listingLocation,
             amount_total: grandTotal,
             amount_paid: amountDueNow,
             amount_remaining: amountRemaining,
@@ -432,7 +461,7 @@ function CheckoutPageContent() {
   }
 
   const showPaymentOptions =
-    !isFlightCheckout && listingPrepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing)
+    !isLiveProductCheckout && listingPrepaymentPercent > 0 && (totalPrice > 0 || hasCheckoutListing)
 
   const flightOffer = flightDraft?.offer
   const flightPassengers = {
@@ -467,15 +496,30 @@ function CheckoutPageContent() {
     return [primary?.first_name, primary?.last_name].filter(Boolean).join(' ').trim()
   }, [guestRows])
 
-  const pageTitle = isFlightCheckout ? C.flightTitle : C.title
+  const carBackHref = React.useMemo(() => {
+    if (!carDraft?.car) return vitrinHref('/arac-kiralama/all')
+    const qs = new URLSearchParams()
+    if (carDraft.pickup) qs.set('location', carDraft.pickup)
+    if (carDraft.checkin) qs.set('checkin', carDraft.checkin)
+    if (carDraft.checkout) qs.set('checkout', carDraft.checkout)
+    if (carDraft.dropoff && carDraft.dropoff !== carDraft.pickup) {
+      qs.set('drop_off_location', carDraft.dropoff)
+      qs.set('drop_off', 'different')
+    }
+    return vitrinHref(`/arac-kiralama/all${qs.toString() ? `?${qs.toString()}` : ''}`)
+  }, [carDraft, vitrinHref])
+
+  const pageTitle = isFlightCheckout ? C.flightTitle : isCarCheckout ? C.carTitle : C.title
   const flightCheckoutReady = isFlightCheckout && Boolean(flightOffer)
   const flightSessionMissing = isFlightCheckout && !flightOffer
+  const carCheckoutReady = isCarCheckout && Boolean(carDraft?.car)
+  const carSessionMissing = isCarCheckout && !carDraft?.car
   const isHolidayHomeCheckout =
     listingRow?.category_code === 'holiday_home' ||
     listingRow?.listing_vertical === 'holiday_home'
   const holidayCheckoutReady =
-    !isFlightCheckout && hasCheckoutListing && isHolidayHomeCheckout && !listingLoading
-  const twoColumnCheckout = flightCheckoutReady || holidayCheckoutReady
+    !isLiveProductCheckout && hasCheckoutListing && isHolidayHomeCheckout && !listingLoading
+  const twoColumnCheckout = flightCheckoutReady || carCheckoutReady || holidayCheckoutReady
 
   return (
     <main className="container mt-10 mb-24 lg:mb-32">
@@ -485,6 +529,12 @@ function CheckoutPageContent() {
           className="mb-6 inline-flex text-link-muted"
         >
           ← {C.flightBackToSearch}
+        </Link>
+      ) : null}
+
+      {isCarCheckout ? (
+        <Link href={carBackHref} className="mb-6 inline-flex text-link-muted">
+          ← {C.carBackToSearch}
         </Link>
       ) : null}
 
@@ -503,6 +553,18 @@ function CheckoutPageContent() {
         </div>
       ) : null}
 
+      {carSessionMissing ? (
+        <div
+          role="alert"
+          className="mx-auto mb-8 max-w-3xl rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          <p>{C.carSessionExpired}</p>
+          <Link href={vitrinHref('/arac-kiralama/all')} className="mt-3 inline-flex text-link-muted-underline">
+            {C.carBackToSearch} →
+          </Link>
+        </div>
+      ) : null}
+
       <div
         className={
           twoColumnCheckout
@@ -510,7 +572,7 @@ function CheckoutPageContent() {
             : 'mx-auto w-full max-w-3xl'
         }
       >
-        {flightSessionMissing ? null : (
+        {flightSessionMissing || carSessionMissing ? null : (
         <Form
           action={handleSubmitForm}
           className={clsx(
@@ -549,6 +611,12 @@ function CheckoutPageContent() {
             departureDate={flightDraft?.departure_date ?? stayDates.start}
             passengers={flightPassengers}
             backHref={flightBackHref}
+          />
+        ) : carCheckoutReady ? (
+          <CheckoutCarTrip
+            locale={locale}
+            car={carDraft!.car}
+            backHref={carBackHref}
           />
         ) : (
           <>
@@ -594,7 +662,7 @@ function CheckoutPageContent() {
         )}
 
         <CheckoutSection
-          step={isFlightCheckout ? 1 : holidayCheckoutReady ? 2 : 3}
+          step={isLiveProductCheckout ? 1 : holidayCheckoutReady ? 2 : 3}
           title={isFlightCheckout ? C.sectionPassengers : C.sectionGuestInfo}
         >
           <CheckoutGuestForms
@@ -612,7 +680,7 @@ function CheckoutPageContent() {
           />
 
           <div className="border-t border-neutral-200 pt-6 dark:border-neutral-700">
-            {isFlightCheckout ? (
+            {isLiveProductCheckout ? (
               <button
                 type="button"
                 onClick={() => setInvoiceOpen((v) => !v)}
@@ -625,7 +693,7 @@ function CheckoutPageContent() {
                 {C.sectionInvoice}
               </h3>
             )}
-            {(!isFlightCheckout || invoiceOpen) ? (
+            {(!isLiveProductCheckout || invoiceOpen) ? (
               <CheckoutInvoiceForm
                 locale={locale}
                 invoice={invoice}
@@ -640,10 +708,10 @@ function CheckoutPageContent() {
         </CheckoutSection>
 
         <CheckoutSection
-          step={isFlightCheckout ? 2 : holidayCheckoutReady ? 3 : 4}
-          title={isFlightCheckout ? C.payWithTitle : C.sectionPayment}
+          step={isLiveProductCheckout ? 2 : holidayCheckoutReady ? 3 : 4}
+          title={isLiveProductCheckout ? C.payWithTitle : C.sectionPayment}
         >
-          {isFlightCheckout ? <PayWith locale={locale} showHeading={false} /> : null}
+          {isLiveProductCheckout ? <PayWith locale={locale} showHeading={false} /> : null}
           <CheckoutPaymentMethods
             locale={locale}
             value={paymentChannel}
@@ -689,7 +757,13 @@ function CheckoutPageContent() {
                 className="text-base/6!"
                 disabled={pending || (hasCheckoutListing && !contractsOk)}
               >
-                {pending ? C.processing : isFlightCheckout ? C.confirmPayFlight : C.confirmPay}
+                {pending
+                  ? C.processing
+                  : isFlightCheckout
+                    ? C.confirmPayFlight
+                    : isCarCheckout
+                      ? C.confirmPayCar
+                      : C.confirmPay}
               </ButtonPrimary>
             </div>
           ) : null}
@@ -706,6 +780,17 @@ function CheckoutPageContent() {
               currencyCode={checkoutCurrency}
               totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
               passengers={flightPassengers}
+            />
+          </aside>
+        ) : null}
+
+        {carCheckoutReady ? (
+          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+            <CheckoutCarSummary
+              locale={locale}
+              car={carDraft!.car}
+              currencyCode={checkoutCurrency}
+              totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
             />
           </aside>
         ) : null}

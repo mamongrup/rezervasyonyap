@@ -887,6 +887,14 @@ export const tr = {
         checkin: 'Alış tarihi',
         checkout: 'İade tarihi',
         backToSearch: 'Arama sonuçlarına dön',
+        reserve: 'Rezervasyon yap',
+        reserving: 'Rezervasyon başlatılıyor…',
+        reserveFailed: 'Rezervasyon başlatılamadı. Lütfen tekrar deneyin.',
+        checkoutListingMissing:
+          'Araç kiralama ödeme akışı henüz yapılandırılmadı. Yönetim panelinden en az bir araç kiralama ilanı yayınlayın.',
+        vendor: 'Tedarikçi',
+        fuel: 'Yakıt tipi',
+        totalEstimate: 'Tahmini toplam',
       },
     },
     hotelDetail: {

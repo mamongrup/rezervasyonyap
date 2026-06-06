@@ -1414,6 +1414,14 @@ export const en = {
         checkin: 'Pick-up date',
         checkout: 'Return date',
         backToSearch: 'Back to search results',
+        reserve: 'Reserve',
+        reserving: 'Starting reservation…',
+        reserveFailed: 'Could not start reservation. Please try again.',
+        checkoutListingMissing:
+          'Car rental checkout is not configured yet. Publish at least one car rental listing in the admin panel.',
+        vendor: 'Supplier',
+        fuel: 'Fuel type',
+        totalEstimate: 'Estimated total',
       },
     },
     hotelDetail: {

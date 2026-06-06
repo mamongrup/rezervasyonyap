@@ -639,6 +639,14 @@ export const fr: AppMessages = {
         checkin: 'Date de prise en charge',
         checkout: 'Date de retour',
         backToSearch: 'Retour aux résultats',
+        reserve: 'Réserver',
+        reserving: 'Démarrage de la réservation…',
+        reserveFailed: 'Impossible de démarrer la réservation.',
+        checkoutListingMissing:
+          'Le paiement location de voiture n’est pas encore configuré. Publiez au moins une annonce dans l’admin.',
+        vendor: 'Fournisseur',
+        fuel: 'Carburant',
+        totalEstimate: 'Total estimé',
       },
     },
     hotelDetail: {

@@ -172,7 +172,15 @@ export function mapYolcu360CarToListing(
   car: Yolcu360Car,
   index: number,
   detailQuery?: string,
-): TListingBase & { seats?: number; gearshift?: string } {
+): TListingBase & {
+  seats?: number
+  gearshift?: string
+  yolcu360RawId?: string
+  yolcu360TotalPrice?: number
+  yolcu360FuelType?: string
+  yolcu360VendorName?: string
+  yolcu360Bags?: number
+} {
   const brand = String(car.brand ?? '')
   const model = String(car.model ?? '')
   const vehicleClass = String(car.vehicleClass ?? '')
@@ -180,7 +188,8 @@ export function mapYolcu360CarToListing(
     [brand, model].filter(Boolean).join(' ') ||
     vehicleClass ||
     `Araç ${index + 1}`
-  const slug = `yolcu360-${String(car.id ?? index)}`
+  const rawId = String(car.id ?? index)
+  const slug = `yolcu360-${index}`
   const handle = slug
   const price = car.dailyPrice
     ? new Intl.NumberFormat('tr-TR', { style: 'decimal', maximumFractionDigits: 0 }).format(
@@ -196,6 +205,11 @@ export function mapYolcu360CarToListing(
     id: slug,
     handle,
     detailSearchQuery: detailQuery,
+    yolcu360RawId: rawId,
+    yolcu360TotalPrice: car.totalPrice,
+    yolcu360FuelType: car.fuelType,
+    yolcu360VendorName: car.vendorName,
+    yolcu360Bags: car.bags,
     title,
     price,
     priceAmount: car.dailyPrice,

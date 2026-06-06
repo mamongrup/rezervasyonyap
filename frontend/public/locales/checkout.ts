@@ -240,6 +240,18 @@ const checkoutBase = {
   crossSellOtherProducts: '',
   flightPnrLabel: '',
   flightRefLabel: '',
+  carTitle: '',
+  carBackToSearch: '',
+  sectionCarTrip: '',
+  carTripHint: '',
+  carPickupLabel: '',
+  carDropoffLabel: '',
+  carRentalDays: '',
+  carDaysLine: '',
+  carPriceTotal: '',
+  carTaxesNote: '',
+  carSessionExpired: '',
+  confirmPayCar: '',
 } as const
 
 export type CheckoutMessages = { [K in keyof typeof checkoutBase]: typeof checkoutBase[K] extends object
@@ -503,6 +515,19 @@ export const checkoutEn: CheckoutMessages = {
   crossSellOtherProducts: 'Other products',
   flightPnrLabel: 'PNR / ticket code',
   flightRefLabel: 'Booking reference',
+  carTitle: 'Complete your car rental booking',
+  carBackToSearch: 'Back to car search results',
+  sectionCarTrip: 'Your rental car',
+  carTripHint: 'To change the vehicle or dates, go back to search results.',
+  carPickupLabel: 'Pick-up',
+  carDropoffLabel: 'Drop-off',
+  carRentalDays: 'Rental period',
+  carDaysLine: '{n} days',
+  carPriceTotal: 'Rental total',
+  carTaxesNote: 'Price from live Yolcu360 search at time of booking.',
+  carSessionExpired:
+    'Your car selection has expired. Please search again and choose a vehicle.',
+  confirmPayCar: 'Complete payment',
 }
 
 export const checkoutTr: CheckoutMessages = {
@@ -713,6 +738,19 @@ export const checkoutTr: CheckoutMessages = {
   crossSellOtherProducts: 'Diğer ürünler',
   flightPnrLabel: 'PNR / bilet kodu',
   flightRefLabel: 'Rezervasyon referansı',
+  carTitle: 'Araç kiralama rezervasyonunu tamamla',
+  carBackToSearch: 'Araç arama sonuçlarına dön',
+  sectionCarTrip: 'Kiralık aracınız',
+  carTripHint: 'Aracı veya tarihleri değiştirmek için arama sonuçlarına dönün.',
+  carPickupLabel: 'Alış',
+  carDropoffLabel: 'İade',
+  carRentalDays: 'Kiralama süresi',
+  carDaysLine: '{n} gün',
+  carPriceTotal: 'Kiralama toplamı',
+  carTaxesNote: 'Tutar, rezervasyon anındaki canlı Yolcu360 aramasından alınmıştır.',
+  carSessionExpired:
+    'Araç seçiminizin süresi doldu. Lütfen yeniden arama yapıp bir araç seçin.',
+  confirmPayCar: 'Ödemeyi tamamla',
   status: {
     held: 'Beklemede',
     confirmed: 'Onaylandı',

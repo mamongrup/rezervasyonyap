@@ -639,6 +639,14 @@ export const de: AppMessages = {
         checkin: 'Abholdatum',
         checkout: 'Rückgabedatum',
         backToSearch: 'Zurück zu den Suchergebnissen',
+        reserve: 'Reservieren',
+        reserving: 'Reservierung wird gestartet…',
+        reserveFailed: 'Reservierung konnte nicht gestartet werden.',
+        checkoutListingMissing:
+          'Mietwagen-Checkout ist noch nicht konfiguriert. Veröffentlichen Sie mindestens einen Mietwagen-Eintrag im Admin.',
+        vendor: 'Anbieter',
+        fuel: 'Kraftstoff',
+        totalEstimate: 'Geschätzte Gesamtsumme',
       },
     },
     hotelDetail: {

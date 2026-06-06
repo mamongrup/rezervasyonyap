@@ -638,6 +638,14 @@ export const ru: AppMessages = {
         checkin: 'Дата получения',
         checkout: 'Дата возврата',
         backToSearch: 'Вернуться к результатам',
+        reserve: 'Забронировать',
+        reserving: 'Запуск бронирования…',
+        reserveFailed: 'Не удалось начать бронирование.',
+        checkoutListingMissing:
+          'Оформление аренды авто ещё не настроено. Опубликуйте хотя бы одно объявление в админке.',
+        vendor: 'Поставщик',
+        fuel: 'Топливо',
+        totalEstimate: 'Ориентировочная сумма',
       },
     },
     hotelDetail: {

@@ -7,8 +7,10 @@ import gleam/http
 import gleam/http/request
 import gleam/json
 import gleam/list
+import gleam/option
 import gleam/result
 import gleam/string
+import pog
 import travel/identity/permissions
 import travel/integrations/yolcu360
 import travel/integrations/yolcu360_config
@@ -158,6 +160,45 @@ pub fn get_cars_public(req: Request, ctx: Context) -> Response {
       }
     }
   }
+}
+
+fn find_yolcu360_checkout_listing_id(db: pog.Connection) -> option.Option(String) {
+  case
+    pog.query(
+      "select l.id::text from listings l "
+        <> "join product_categories pc on pc.id = l.category_id "
+        <> "where pc.code = 'car_rental' and l.status = 'published' "
+        <> "order by case when coalesce(l.external_provider_code, '') = 'yolcu360' then 0 else 1 end, "
+        <> "l.created_at desc "
+        <> "limit 1",
+    )
+    |> pog.returning({
+      use a <- decode.field(0, decode.string)
+      decode.success(a)
+    })
+    |> pog.execute(db)
+  {
+    Error(_) -> option.None
+    Ok(ret) ->
+      case ret.rows {
+        [id] -> option.Some(id)
+        _ -> option.None
+      }
+  }
+}
+
+/// GET /api/v1/public/yolcu360/checkout-listing — sepet / rezervasyon için yayımlı araç ilanı UUID
+pub fn get_checkout_listing_public(_req: Request, ctx: Context) -> Response {
+  let listing_id = case find_yolcu360_checkout_listing_id(ctx.db) {
+    option.Some(id) -> json.string(id)
+    option.None -> json.null()
+  }
+  let body =
+    json.object([
+      #("listing_id", listing_id),
+    ])
+    |> json.to_string
+  wisp.json_response(body, 200)
 }
 
 /// GET /api/v1/public/yolcu360/locations?query= — vitrin konum araması (kimlik gerekmez)

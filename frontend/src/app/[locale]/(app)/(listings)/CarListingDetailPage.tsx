@@ -18,7 +18,8 @@ import {
 } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { fetchPublicListingAvailabilityDaysSafe, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
-import { fetchYolcu360CarListings } from '@/lib/yolcu360-car-search'
+import Yolcu360CarReserveButton from '@/components/listings/Yolcu360CarReserveButton'
+import { fetchYolcu360CarListings, findYolcu360Listing } from '@/lib/yolcu360-car-search'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
@@ -261,10 +262,14 @@ async function renderYolcu360CarDetail({
   const dropoff = firstString(searchParams.drop_off_location) || pickup
 
   const cars = await fetchYolcu360CarListings({ pickup, dropoff, checkin, checkout })
-  const car = cars?.find(
-    (item) => item.id === handle || item.handle === handle || item.handle.split('?')[0] === handle,
-  )
+  if (!cars?.length) return null
+  const car = findYolcu360Listing(cars, handle, searchParams)
   if (!car) return null
+
+  const carIndexRaw = firstString(searchParams.y360_idx)
+  const carIndex = Number.isFinite(Number.parseInt(carIndexRaw, 10))
+    ? Number.parseInt(carIndexRaw, 10)
+    : cars.findIndex((item) => item.handle === car.handle)
 
   const m = getMessages(locale)
   const cd = m.listing.carDetail
@@ -285,20 +290,32 @@ async function renderYolcu360CarDetail({
         <div className="flex w-full flex-col gap-y-8 lg:w-3/5 xl:w-[64%] xl:gap-y-10">
           <SectionHeader
             address={pickup}
-            listingCategory={car.listingCategory ?? m.categoryPage.verticalLabels.car_rental}
+            listingCategory={m.categoryPage.verticalLabels.car_rental}
             reviewCount={0}
             reviewStart={0}
             title={car.title}
             showReviews={false}
           >
-            <div className="flex items-center gap-x-3">
-              <HugeiconsIcon icon={SeatSelectorIcon} size={20} color="currentColor" strokeWidth={1.5} />
-              <span>{interpolate(cd.seats, { count: String(car.seats ?? 0) })}</span>
-            </div>
-            <div className="flex items-center gap-x-3">
-              <HugeiconsIcon icon={Settings03Icon} size={20} color="currentColor" strokeWidth={1.5} />
-              <span>{car.gearshift ?? ''}</span>
-            </div>
+            {car.seats ? (
+              <div className="flex items-center gap-x-3">
+                <HugeiconsIcon icon={SeatSelectorIcon} size={20} color="currentColor" strokeWidth={1.5} />
+                <span>{interpolate(cd.seats, { count: String(car.seats) })}</span>
+              </div>
+            ) : null}
+            {car.gearshift ? (
+              <div className="flex items-center gap-x-3">
+                <HugeiconsIcon icon={Settings03Icon} size={20} color="currentColor" strokeWidth={1.5} />
+                <span>{car.gearshift}</span>
+              </div>
+            ) : null}
+            {car.yolcu360Bags ? (
+              <div className="flex items-center gap-x-3">
+                <HugeiconsIcon icon={Backpack02Icon} size={20} color="currentColor" strokeWidth={1.5} />
+                <span>
+                  {car.yolcu360Bags} {cd.largeBags}
+                </span>
+              </div>
+            ) : null}
           </SectionHeader>
 
           <div className="listingSection__wrap">
@@ -323,6 +340,18 @@ async function renderYolcu360CarDetail({
                 <span className="block text-neutral-500 dark:text-neutral-400">{y360.checkout}</span>
                 <strong>{checkout || '-'}</strong>
               </div>
+              {car.yolcu360VendorName ? (
+                <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+                  <span className="block text-neutral-500 dark:text-neutral-400">{y360.vendor}</span>
+                  <strong>{car.yolcu360VendorName}</strong>
+                </div>
+              ) : null}
+              {car.yolcu360FuelType ? (
+                <div className="rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800">
+                  <span className="block text-neutral-500 dark:text-neutral-400">{y360.fuel}</span>
+                  <strong>{car.yolcu360FuelType}</strong>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
@@ -337,7 +366,29 @@ async function renderYolcu360CarDetail({
                 </span>
               </span>
             </div>
-            <ButtonPrimary href={browseHref} className="mt-8 w-full">
+            {car.yolcu360TotalPrice && car.yolcu360TotalPrice > 0 ? (
+              <p className="mt-2 text-sm text-neutral-600 dark:text-neutral-300">
+                {y360.totalEstimate}:{' '}
+                <strong>
+                  {new Intl.NumberFormat(locale, {
+                    style: 'currency',
+                    currency: car.priceCurrency ?? 'TRY',
+                    maximumFractionDigits: 0,
+                  }).format(car.yolcu360TotalPrice)}
+                </strong>
+              </p>
+            ) : null}
+            <Yolcu360CarReserveButton
+              locale={locale}
+              car={car}
+              pickup={pickup}
+              dropoff={dropoff}
+              checkin={checkin}
+              checkout={checkout}
+              carIndex={carIndex >= 0 ? carIndex : undefined}
+              className="mt-8"
+            />
+            <ButtonPrimary href={browseHref} className="mt-4 w-full" outline>
               {y360.backToSearch}
             </ButtonPrimary>
           </div>
