@@ -4,6 +4,7 @@
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
+import gleam/list
 import gleam/string
 import travel/integrations/yolcu360_config.{type Yolcu360Config}
 import travel/net/http_client
@@ -109,33 +110,56 @@ pub fn search_locations(
   }
 }
 
-/// Konumlar JSON'ından ilk sonucun id ve name alanlarını çöz.
-pub fn first_location_id(raw: String) -> Result(LocationIdResult, Nil) {
-  let item_dec =
-    decode.field("id", decode.string, fn(id) {
-      decode.field("name", decode.string, fn(name) {
-        decode.success(LocationIdResult(id: id, name: name))
-      })
-    })
-  // [{ id, name, ... }, ...]
-  let from_arr = case json.parse(raw, decode.list(item_dec)) {
-    Ok([first, ..]) -> Ok(first)
+fn first_nonempty(a: String, b: String) -> String {
+  case string.trim(a) {
+    "" -> string.trim(b)
+    s -> s
+  }
+}
+
+/// Agency API v1 konum kaydı — `placeId`/`mainText` veya eski `id`/`name`.
+fn location_item_decoder() -> decode.Decoder(LocationIdResult) {
+  use id0 <- decode.optional_field("id", "", decode.string)
+  use place_id <- decode.optional_field("placeId", "", decode.string)
+  use name0 <- decode.optional_field("name", "", decode.string)
+  use main_text <- decode.optional_field("mainText", "", decode.string)
+  use description <- decode.optional_field("description", "", decode.string)
+  let id = first_nonempty(id0, place_id)
+  let name =
+    first_nonempty(
+      first_nonempty(name0, main_text),
+      first_nonempty(description, id),
+    )
+  decode.success(LocationIdResult(id: id, name: name))
+}
+
+fn first_valid_location(items: List(LocationIdResult)) -> Result(LocationIdResult, Nil) {
+  case list.filter(items, fn(i) { i.id != "" }) {
+    [first, ..] -> Ok(first)
     _ -> Error(Nil)
   }
-  case from_arr {
-    Ok(r) -> Ok(r)
+}
+
+fn locations_from_raw(raw: String) -> Result(LocationIdResult, Nil) {
+  let item_dec = location_item_decoder()
+  case json.parse(raw, decode.list(item_dec)) {
+    Ok(items) -> first_valid_location(items)
     Error(_) -> {
-      // { "data": [{ id, name }, ...] }
       let data_dec =
         decode.field("data", decode.list(item_dec), fn(items) {
           decode.success(items)
         })
       case json.parse(raw, data_dec) {
-        Ok([first, ..]) -> Ok(first)
-        _ -> Error(Nil)
+        Ok(items) -> first_valid_location(items)
+        Error(_) -> Error(Nil)
       }
     }
   }
+}
+
+/// Konumlar JSON'ından ilk sonucun id ve name alanlarını çöz.
+pub fn first_location_id(raw: String) -> Result(LocationIdResult, Nil) {
+  locations_from_raw(raw)
 }
 
 /// Konum adından ID'yi çözerek araç araması yapar.

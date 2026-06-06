@@ -82,16 +82,21 @@ async function yolcu360Suggestions(q: string, apiBase: string): Promise<Location
     )
     if (!res.ok) return []
     const raw = (await res.json()) as unknown
-    const items: { id: string; name: string }[] = Array.isArray(raw)
-      ? (raw as { id: string; name: string }[])
+    const arr = Array.isArray(raw)
+      ? raw
       : Array.isArray((raw as Record<string, unknown>)['data'])
-        ? ((raw as Record<string, unknown>)['data'] as { id: string; name: string }[])
+        ? ((raw as Record<string, unknown>)['data'] as unknown[])
         : []
-    return items.slice(0, 8).map((item) => ({
-      id: `yolcu360-${item.id}`,
-      name: item.name,
-      type: 'region' as const,
-    }))
+    return arr.slice(0, 8).flatMap((item) => {
+      const r = item && typeof item === 'object' ? (item as Record<string, unknown>) : null
+      if (!r) return []
+      const placeId = String(r['placeId'] ?? r['id'] ?? '').trim()
+      const name = String(
+        r['mainText'] ?? r['name'] ?? r['description'] ?? placeId,
+      ).trim()
+      if (!placeId || !name) return []
+      return [{ id: `yolcu360-${placeId}`, name, type: 'region' as const }]
+    })
   } catch {
     return []
   }
