@@ -45,41 +45,88 @@ function pickStr(...vals: unknown[]): string {
   return ''
 }
 
-/** Yolcu360 ham araç kaydını düzleştirir (iç içe vehicle/price alanları dahil). */
+/** API amount alanları genelde kuruş (TRY * 100). */
+function moneyAmount(v: unknown): number | undefined {
+  const n = pickNum(v)
+  if (n === undefined) return undefined
+  return n >= 1000 ? n / 100 : n
+}
+
+function nestedName(obj: unknown): string {
+  const r = asRecord(obj)
+  return r ? pickStr(r['name'], r['displayName']) : ''
+}
+
+/** Yolcu360 ham araç kaydını düzleştirir (search/point results dahil). */
 export function flattenYolcu360CarItem(item: unknown, index: number): Yolcu360Car {
   const r = asRecord(item) ?? {}
   const vehicle = asRecord(r['vehicle']) ?? asRecord(r['car'])
-  const price = asRecord(r['price']) ?? asRecord(r['pricing'])
+  const pricing = asRecord(r['price']) ?? asRecord(r['pricing'])
   const vendor = asRecord(r['vendor']) ?? asRecord(r['supplier'])
   const images = Array.isArray(r['images']) ? r['images'] : []
   const firstImg = asRecord(images[0])
+  const totalMoney = asRecord(pricing?.['total']) ?? asRecord(pricing?.['fee'])
+  const days = pickNum(r['rentalDurationInDays'])
 
   const id = pickStr(r['id'], r['productId'], r['searchId'], r['code']) || `idx-${index}`
+  const totalPrice = moneyAmount(
+    pickNum(r['totalPrice'], r['total_price'], totalMoney?.['amount'], pricing?.['total']),
+  )
+  let dailyPrice = moneyAmount(
+    pickNum(
+      r['dailyPrice'],
+      r['daily_price'],
+      pricing?.['daily'],
+      pricing?.['dailyPrice'],
+      pricing?.['dailyAmount'],
+    ),
+  )
+  if (dailyPrice === undefined && totalPrice !== undefined && days && days > 0) {
+    dailyPrice = totalPrice / days
+  }
 
   return {
     id,
-    vehicleClass: pickStr(r['vehicleClass'], r['class'], vehicle?.['class'], vehicle?.['vehicleClass']) || undefined,
-    brand: pickStr(r['brand'], r['make'], vehicle?.['brand'], vehicle?.['make']) || undefined,
-    model: pickStr(r['model'], vehicle?.['model']) || undefined,
+    vehicleClass:
+      pickStr(
+        r['vehicleClass'],
+        r['customClassName'],
+        nestedName(r['class']),
+        vehicle?.['class'],
+        vehicle?.['vehicleClass'],
+      ) || undefined,
+    brand:
+      pickStr(r['brand'], r['make'], nestedName(r['brand']), vehicle?.['brand'], vehicle?.['make']) ||
+      undefined,
+    model: pickStr(r['model'], nestedName(r['model']), vehicle?.['model']) || undefined,
     imageUrl:
-      pickStr(r['imageUrl'], r['image'], firstImg?.['url'], firstImg?.['imageUrl']) || undefined,
+      pickStr(
+        r['imageURL'],
+        r['imageUrl'],
+        r['image'],
+        firstImg?.['url'],
+        firstImg?.['imageUrl'],
+      ) || undefined,
     thumbnailUrl: pickStr(r['thumbnailUrl'], r['thumbnail'], firstImg?.['thumbnailUrl']) || undefined,
-    dailyPrice: pickNum(
-      r['dailyPrice'],
-      r['daily_price'],
-      price?.['daily'],
-      price?.['dailyPrice'],
-      price?.['dailyAmount'],
-    ),
-    totalPrice: pickNum(r['totalPrice'], r['total_price'], price?.['total'], price?.['totalPrice']),
-    currency: pickStr(r['currency'], price?.['currency']) || undefined,
-    transmission: pickStr(r['transmission'], vehicle?.['transmission'], r['gearType']) || undefined,
+    dailyPrice,
+    totalPrice,
+    currency:
+      pickStr(r['currency'], totalMoney?.['currency'], pricing?.['currency']) || undefined,
+    transmission:
+      pickStr(
+        r['transmission'],
+        nestedName(r['transmission']),
+        vehicle?.['transmission'],
+        r['gearType'],
+      ) || undefined,
     seats: pickNum(r['seats'], vehicle?.['seats'], r['seatCount']),
-    fuelType: pickStr(r['fuelType'], vehicle?.['fuelType'], r['fuel']) || undefined,
+    fuelType:
+      pickStr(r['fuelType'], nestedName(r['fuel']), vehicle?.['fuelType'], r['fuel']) || undefined,
     bags: pickNum(r['bags'], vehicle?.['bags'], r['bagCount']),
-    vendorName: pickStr(r['vendorName'], vendor?.['name'], r['supplierName']) || undefined,
+    vendorName:
+      pickStr(r['vendorName'], nestedName(vendor), vendor?.['name'], r['supplierName']) || undefined,
     vendorLogo: pickStr(r['vendorLogo'], vendor?.['logo'], vendor?.['logoUrl']) || undefined,
-    requiresFindeks: Boolean(r['requiresFindeks'] ?? r['findeksRequired']),
+    requiresFindeks: Boolean(r['isFindeksRequired'] ?? r['requiresFindeks'] ?? r['findeksRequired']),
     pickupLocationId: pickStr(r['pickupLocationId'], r['pickUpLocationId']) || undefined,
     returnLocationId: pickStr(r['returnLocationId']) || undefined,
   }

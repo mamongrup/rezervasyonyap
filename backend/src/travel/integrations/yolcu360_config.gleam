@@ -132,30 +132,42 @@ fn encode_param(s: String) -> String {
   |> string.replace("&", "%26")
 }
 
-/// ISO tarihine saat ekler: "2026-07-17" → "2026-07-17T10:00:00Z"
-/// Zaten datetime içeriyorsa (T harfi varsa) olduğu gibi bırakır.
-fn ensure_datetime(date_str: String) -> String {
-  case string.contains(date_str, "T") {
-    True -> date_str
-    False -> date_str <> "T10:00:00Z"
+/// GET /locations/{placeId} — koordinat ve timezone.
+pub fn location_detail_url(cfg: Yolcu360Config, place_id: String) -> String {
+  join_path(cfg.base_url, "/locations/" <> encode_param(string.trim(place_id)))
+}
+
+/// POST /search/point — araç araması (lat/lon + tarih).
+pub fn search_point_url(cfg: Yolcu360Config) -> String {
+  join_path(cfg.base_url, "/search/point")
+}
+
+/// RFC3339 datetime; timezone yoksa ülkeye göre offset ekler.
+pub fn format_search_datetime(date_str: String, country_code: String) -> String {
+  let t = string.trim(date_str)
+  let has_tz =
+    string.contains(t, "+")
+    || string.contains(t, "Z")
+    || string.contains(t, "z")
+  case has_tz {
+    True -> t
+    False -> {
+      let with_time = case string.contains(t, "T") {
+        True -> t
+        False -> t <> "T10:00:00"
+      }
+      let with_seconds = case string.length(with_time) {
+        n if n <= 16 -> with_time <> ":00"
+        _ -> with_time
+      }
+      with_seconds <> country_datetime_offset(country_code)
+    }
   }
 }
 
-/// GET /cars?pickUpLocationId=&returnLocationId=&checkInDateTime=&checkOutDateTime=
-/// Yolcu360 Agency API v1 — doğrulanmış endpoint ve parametre adları.
-pub fn cars_search_url(
-  cfg: Yolcu360Config,
-  pickup_id: String,
-  return_id: String,
-  checkin: String,
-  checkout: String,
-) -> String {
-  join_path(
-    cfg.base_url,
-    "/cars"
-      <> "?pickUpLocationId=" <> encode_param(pickup_id)
-      <> "&returnLocationId=" <> encode_param(return_id)
-      <> "&checkInDateTime=" <> encode_param(ensure_datetime(checkin))
-      <> "&checkOutDateTime=" <> encode_param(ensure_datetime(checkout)),
-  )
+fn country_datetime_offset(country_code: String) -> String {
+  case string.uppercase(string.trim(country_code)) {
+    "TR" -> "+03:00"
+    _ -> "Z"
+  }
 }
