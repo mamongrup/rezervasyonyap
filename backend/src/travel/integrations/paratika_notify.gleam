@@ -7,6 +7,7 @@ import gleam/result
 import gleam/string
 import pog
 import travel/booking/supplier_notification
+import travel/integrations/turna_flight_booking_sync
 import travel/db/decode_helpers as row_dec
 import travel/integrations/paratika.{build_sd_sha512}
 
@@ -175,6 +176,7 @@ fn capture_paratika(
           {
             Error(_) -> Error("event_insert_failed")
             Ok(_) -> {
+              turna_flight_booking_sync.fulfill_after_payment(conn, reservation_id)
               let _ = supplier_notification.notify_new_reservation(conn, reservation_id)
               let _ = supplier_notification.notify_platform_ops(conn, reservation_id)
               Ok(Nil)

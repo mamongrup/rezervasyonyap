@@ -2486,6 +2486,7 @@ export type ReservationLineDetail = {
   line_total: string
   starts_on: string
   ends_on: string
+  meta_json?: string
 }
 
 export type ReservationDetail = {

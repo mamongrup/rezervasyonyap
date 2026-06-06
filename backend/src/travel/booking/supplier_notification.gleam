@@ -38,6 +38,9 @@ type ReservationNotifData {
     supplier_email: String,
     supplier_whatsapp: String,
     supplier_name: String,
+    category_code: String,
+    flight_pnr: String,
+    flight_system_ref: String,
   )
 }
 
@@ -64,9 +67,21 @@ fn fetch_notif_data(
     <> "coalesce(loc.contact_phone, ''), "
     <> "coalesce(loc.contact_email, ''), "
     <> "coalesce(loc.contact_whatsapp, ''), "
-    <> "coalesce(loc.contact_name, '') "
+    <> "coalesce(loc.contact_name, ''), "
+    <> "coalesce(pc.code, ''), "
+    <> "coalesce(tb.pnr, ''), "
+    <> "coalesce(tb.system_ref, '') "
     <> "from reservations r "
     <> "join listings l on l.id = r.listing_id "
+    <> "left join product_categories pc on pc.id = l.category_id "
+    <> "left join lateral ( "
+    <> "  select "
+    <> "    rli.meta_json->'turna_booking'->>'pnr' as pnr, "
+    <> "    rli.meta_json->'turna_booking'->>'system_ref' as system_ref "
+    <> "  from reservation_line_items rli "
+    <> "  where rli.reservation_id = r.id "
+    <> "  order by rli.line_no limit 1 "
+    <> ") tb on true "
     <> "left join ( select lt.listing_id, lt.title from listing_translations lt "
     <> "inner join locales loc on loc.id = lt.locale_id and lower(loc.code) = 'tr' ) lt on lt.listing_id = l.id "
     <> "left join listing_owner_contacts loc on loc.listing_id = l.id "
@@ -94,6 +109,9 @@ fn fetch_notif_data(
       use p <- decode.field(15, decode.string)
       use q <- decode.field(16, decode.string)
       use r2 <- decode.field(17, decode.string)
+      use cat <- decode.field(18, decode.string)
+      use fpnr <- decode.field(19, decode.string)
+      use fsys <- decode.field(20, decode.string)
       decode.success(ReservationNotifData(
         public_code: a,
         guest_name: b,
@@ -113,6 +131,9 @@ fn fetch_notif_data(
         supplier_email: p,
         supplier_whatsapp: q,
         supplier_name: r2,
+        category_code: cat,
+        flight_pnr: fpnr,
+        flight_system_ref: fsys,
       ))
     })
     |> pog.execute(db)
@@ -238,40 +259,93 @@ fn whatsapp_msg(cfg: IntegrationConfig, d: ReservationNotifData) -> String {
 }
 
 fn guest_sms(d: ReservationNotifData) -> String {
-  string.concat([
-    "Rezervasyonunuz alındı! Kod: ",
-    d.public_code,
-    "\n",
-    d.listing_title,
-    "\nGiriş: ",
-    d.starts_on,
-    "\nTedarikçi onayı bekleniyor.\nRezervasyonYap.com.tr",
-  ])
+  case string.lowercase(string.trim(d.category_code)) {
+    "flight" -> {
+      let pnr_line = case string.trim(d.flight_pnr) {
+        "" ->
+          case string.trim(d.flight_system_ref) {
+            "" -> ""
+            ref -> "\nRef: " <> ref
+          }
+        pnr -> "\nPNR: " <> pnr
+      }
+      string.concat([
+        "Uçuş rezervasyonunuz alındı! Kod: ",
+        d.public_code,
+        pnr_line,
+        "\n",
+        d.listing_title,
+        "\nKalkış: ",
+        d.starts_on,
+        "\nRezervasyonYap.com.tr",
+      ])
+    }
+    _ ->
+      string.concat([
+        "Rezervasyonunuz alındı! Kod: ",
+        d.public_code,
+        "\n",
+        d.listing_title,
+        "\nGiriş: ",
+        d.starts_on,
+        "\nTedarikçi onayı bekleniyor.\nRezervasyonYap.com.tr",
+      ])
+  }
 }
 
 fn guest_email_body(d: ReservationNotifData) -> String {
-  string.concat([
-    "Sayın ",
-    d.guest_name,
-    ",\n\nRezervasyonunuz alındı.\n\n",
-    "Kod    : ",
-    d.public_code,
-    "\nİlan   : ",
-    d.listing_title,
-    "\nGiriş  : ",
-    d.starts_on,
-    "\nÇıkış  : ",
-    d.ends_on,
-    "\nÖdedi  : ",
-    d.amount_paid,
-    " TL\n",
-    case d.payment_type {
-      "partial" -> "Girişte ödenecek: " <> d.guest_due <> " TL\n"
-      _ -> "Ek ödeme gerekmez.\n"
-    },
-    "\nTedarikçi onayı bekleniyor. Onay gelince bildirim alacaksınız.\n\n",
-    "Saygılarımızla,\nRezervasyonYap.com.tr\n",
-  ])
+  case string.lowercase(string.trim(d.category_code)) {
+    "flight" -> {
+      let pnr_block = case string.trim(d.flight_pnr) {
+        "" ->
+          case string.trim(d.flight_system_ref) {
+            "" -> "Bilet referansı işleniyor; kısa süre içinde ayrıca iletilecektir.\n"
+            ref -> "Rezervasyon referansı: " <> ref <> "\n"
+          }
+        pnr -> "PNR / bilet kodu: " <> pnr <> "\n"
+      }
+      string.concat([
+        "Sayın ",
+        d.guest_name,
+        ",\n\nUçuş ödemeniz alındı ve rezervasyonunuz oluşturuldu.\n\n",
+        "Kod     : ",
+        d.public_code,
+        "\nUçuş    : ",
+        d.listing_title,
+        "\nKalkış  : ",
+        d.starts_on,
+        "\n",
+        pnr_block,
+        "\nÖdedi   : ",
+        d.amount_paid,
+        " TL\n\nE-bilet detayları havayolu kurallarına göre iletilir.\n\n",
+        "Saygılarımızla,\nRezervasyonYap.com.tr\n",
+      ])
+    }
+    _ ->
+      string.concat([
+        "Sayın ",
+        d.guest_name,
+        ",\n\nRezervasyonunuz alındı.\n\n",
+        "Kod    : ",
+        d.public_code,
+        "\nİlan   : ",
+        d.listing_title,
+        "\nGiriş  : ",
+        d.starts_on,
+        "\nÇıkış  : ",
+        d.ends_on,
+        "\nÖdedi  : ",
+        d.amount_paid,
+        " TL\n",
+        case d.payment_type {
+          "partial" -> "Girişte ödenecek: " <> d.guest_due <> " TL\n"
+          _ -> "Ek ödeme gerekmez.\n"
+        },
+        "\nTedarikçi onayı bekleniyor. Onay gelince bildirim alacaksınız.\n\n",
+        "Saygılarımızla,\nRezervasyonYap.com.tr\n",
+      ])
+  }
 }
 
 fn env_or(key: String, default: String) -> String {

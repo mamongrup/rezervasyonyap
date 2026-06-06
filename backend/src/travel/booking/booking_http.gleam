@@ -683,7 +683,7 @@ fn build_contract_snapshots(
 }
 
 fn cart_line_row() -> decode.Decoder(
-  #(String, Int, String, String, String, String),
+  #(String, Int, String, String, String, String, String),
 ) {
   use listing_id <- decode.field(0, decode.string)
   use qty <- decode.field(1, decode.int)
@@ -691,7 +691,8 @@ fn cart_line_row() -> decode.Decoder(
   use s1 <- decode.field(3, decode.string)
   use s2 <- decode.field(4, decode.string)
   use line_total <- decode.field(5, decode.string)
-  decode.success(#(listing_id, qty, uprice, s1, s2, line_total))
+  use meta_json <- decode.field(6, decode.string)
+  decode.success(#(listing_id, qty, uprice, s1, s2, line_total, meta_json))
 }
 
 fn validate_agency_org(conn: pog.Connection, aid: String) -> Bool {
@@ -985,7 +986,7 @@ fn apply_pending_coupon_to_reservation(
 fn complete_checkout_with_snapshot(
   conn: pog.Connection,
   cart_id: String,
-  lines: List(#(String, Int, String, String, String, String)),
+  lines: List(#(String, Int, String, String, String, String, String)),
   snap_json: String,
   email: String,
   name: String,
@@ -1058,9 +1059,9 @@ fn complete_checkout_with_snapshot(
   use first <- result.try(
     list.first(lines) |> result.replace_error("cart_empty"),
   )
-  let #(lid0, _, _, s0, e0, _) = first
+  let #(lid0, _, _, s0, e0, _, _) = first
   let range = list.fold(lines, #(s0, e0), fn(acc, line) {
-    let #(_, _, _, s, e, _) = line
+    let #(_, _, _, s, e, _, _) = line
     let #(a1, a2) = acc
     let min_s = case string.compare(s, a1) {
       order.Lt -> s
@@ -1080,7 +1081,7 @@ fn complete_checkout_with_snapshot(
   let lines_json =
     json.preprocessed_array(
       list.map(lines, fn(line) {
-        let #(lid, qty, up, s, e, lt) = line
+        let #(lid, qty, up, s, e, lt, _) = line
         let lt_out = line_total_with_agency_discount(lt, agency_disc_factor)
         json.object([
           #("listing_id", json.string(lid)),
@@ -1094,7 +1095,7 @@ fn complete_checkout_with_snapshot(
     )
   let total_q =
     list.fold(lines, 0.0, fn(acc, line) {
-      let #(_, _, _, _, _, lt) = line
+      let #(_, _, _, _, _, lt, _) = line
       let lt_adj = line_total_with_agency_discount(lt, agency_disc_factor)
       case float.parse(string.trim(lt_adj)) {
         Ok(f) -> acc +. f
@@ -1161,9 +1162,12 @@ fn complete_checkout_with_snapshot(
           let line_result =
             list.try_map(indexed, fn(pair) {
               let #(i, line) = pair
-              let #(lid, qty, up, s1, s2, lt) = line
+              let #(lid, qty, up, s1, s2, lt, meta_raw) = line
               let lt_adj = line_total_with_agency_discount(lt, agency_disc_factor)
-              let meta = "{}"
+              let meta = case string.trim(meta_raw) {
+                "" -> "{}"
+                other -> other
+              }
               case
                 pog.query(
                   "insert into reservation_line_items (reservation_id, listing_id, line_no, quantity, starts_on, ends_on, unit_price, line_total, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4, case when $5 = '' then null else $5::date end, case when $6 = '' then null else $6::date end, $7::numeric, $8::numeric, 0, 0, $9::jsonb)",
@@ -1200,7 +1204,7 @@ fn complete_checkout_with_snapshot(
                 "insert into inventory_holds (listing_id, starts_on, ends_on, quantity, cart_id, reservation_id, expires_at, status) values ($1::uuid, case when $2 = '' then current_date else $2::date end, case when $3 = '' then current_date else $3::date end, $4, $5::uuid, $6::uuid, now() + ($7::text || ' minutes')::interval, 'active')"
               let hold_result =
                 list.try_map(lines, fn(line) {
-                  let #(lid, qty, _, s1, s2, _) = line
+                  let #(lid, qty, _, s1, s2, _, _) = line
                   case
                     pog.query(hold_sql)
                     |> pog.parameter(pog.text(lid))
@@ -1291,7 +1295,7 @@ pub fn do_checkout(
             Ok(Nil) -> {
       case
         pog.query(
-          "select cl.listing_id::text, cl.quantity, cl.unit_price::text, coalesce(cl.starts_on::text, ''), coalesce(cl.ends_on::text, ''), (cl.quantity * cl.unit_price)::text from cart_lines cl where cl.cart_id = $1::uuid order by cl.id",
+          "select cl.listing_id::text, cl.quantity, cl.unit_price::text, coalesce(cl.starts_on::text, ''), coalesce(cl.ends_on::text, ''), (cl.quantity * cl.unit_price)::text, coalesce(cl.meta_json::text, '{}') from cart_lines cl where cl.cart_id = $1::uuid order by cl.id",
         )
         |> pog.parameter(pog.text(cart_id))
         |> pog.returning(cart_line_row())
@@ -1570,7 +1574,7 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
 }
 
 fn line_detail_decoder() -> decode.Decoder(
-  #(String, String, String, String, String, String, String),
+  #(String, String, String, String, String, String, String, String),
 ) {
   use a <- decode.field(0, decode.string)
   use b <- decode.field(1, decode.string)
@@ -1579,7 +1583,8 @@ fn line_detail_decoder() -> decode.Decoder(
   use e <- decode.field(4, decode.string)
   use f <- decode.field(5, decode.string)
   use g <- decode.field(6, decode.string)
-  decode.success(#(a, b, c, d, e, f, g))
+  use h <- decode.field(7, decode.string)
+  decode.success(#(a, b, c, d, e, f, g, h))
 }
 
 pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response {
@@ -1621,7 +1626,7 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                 [#(rid, pcode, st, ge, gn, s1, s2, pj, ts)] -> {
                   let lines = case
                     pog.query(
-                      "select listing_id::text, line_no::text, quantity::text, unit_price::text, line_total::text, coalesce(starts_on::text, ''), coalesce(ends_on::text, '') from reservation_line_items where reservation_id = $1::uuid order by line_no",
+                      "select listing_id::text, line_no::text, quantity::text, unit_price::text, line_total::text, coalesce(starts_on::text, ''), coalesce(ends_on::text, ''), coalesce(meta_json::text, '{}') from reservation_line_items where reservation_id = $1::uuid order by line_no",
                     )
                     |> pog.parameter(pog.text(rid))
                     |> pog.returning(line_detail_decoder())
@@ -1632,7 +1637,7 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                   }
                   let line_json =
                     list.map(lines, fn(row) {
-                      let #(lid, lno, qty, up, lt, ds, de) = row
+                      let #(lid, lno, qty, up, lt, ds, de, meta) = row
                       json.object([
                         #("listing_id", json.string(lid)),
                         #("line_no", json.string(lno)),
@@ -1641,6 +1646,7 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                         #("line_total", json.string(lt)),
                         #("starts_on", json.string(ds)),
                         #("ends_on", json.string(de)),
+                        #("meta_json", json.string(meta)),
                       ])
                     })
                   let body =

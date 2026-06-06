@@ -238,6 +238,8 @@ const checkoutBase = {
   flightBaggageCabinLine: '',
   flightBaggageCheckedLine: '',
   crossSellOtherProducts: '',
+  flightPnrLabel: '',
+  flightRefLabel: '',
 } as const
 
 export type CheckoutMessages = { [K in keyof typeof checkoutBase]: typeof checkoutBase[K] extends object
@@ -372,7 +374,7 @@ export const checkoutEn: CheckoutMessages = {
     flightAirlineLabel: 'Airline',
     flightPassengerLabel: 'Passenger',
     flightNotifyNote:
-      'Confirmation has been sent by e-mail. E-ticket details will follow when issued by the airline.',
+      'Confirmation has been sent by e-mail. Your PNR appears below when the airline ticket is issued.',
     flightSearchAgain: 'Search flights again',
   },
   status: {
@@ -499,6 +501,8 @@ export const checkoutEn: CheckoutMessages = {
   flightBaggageCabinLine: '1x cabin bag ({kg} kg)',
   flightBaggageCheckedLine: '1x {kg} kg',
   crossSellOtherProducts: 'Other products',
+  flightPnrLabel: 'PNR / ticket code',
+  flightRefLabel: 'Booking reference',
 }
 
 export const checkoutTr: CheckoutMessages = {
@@ -632,7 +636,7 @@ export const checkoutTr: CheckoutMessages = {
     flightAirlineLabel: 'Havayolu',
     flightPassengerLabel: 'Yolcu',
     flightNotifyNote:
-      'Onay e-posta ile gönderildi. E-bilet bilgileri havayolu tarafından iletilecektir.',
+      'Onay e-postanıza gönderildi. Bilet kesildiyse PNR kodu aşağıda görünür.',
     flightSearchAgain: 'Yeniden uçak bileti ara',
   },
   sectionListingInfo: 'İlan bilgisi',
@@ -707,6 +711,8 @@ export const checkoutTr: CheckoutMessages = {
   flightBaggageCabinLine: '1x kabin bagajı ({kg} kg)',
   flightBaggageCheckedLine: '1x {kg} kg',
   crossSellOtherProducts: 'Diğer ürünler',
+  flightPnrLabel: 'PNR / bilet kodu',
+  flightRefLabel: 'Rezervasyon referansı',
   status: {
     held: 'Beklemede',
     confirmed: 'Onaylandı',

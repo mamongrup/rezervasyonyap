@@ -30,7 +30,6 @@ import {
   resolveCheckoutUnitPrice,
 } from '@/lib/stay-checkout-url'
 import {
-  completeTurnaFlightBooking,
   readTurnaFlightBookingDraft,
   type TurnaFlightBookingDraft,
 } from '@/lib/turna-flight-booking'
@@ -310,6 +309,8 @@ function CheckoutPageContent() {
                 session: turnaDraft.session,
                 allocate_raw: turnaDraft.allocate_raw,
                 departure_date: turnaDraft.departure_date,
+                offer: turnaDraft.offer ?? null,
+                passengers: turnaDraft.passengers ?? null,
               })
             : undefined
         await addCartLine(cart.id, {
@@ -343,15 +344,6 @@ function CheckoutPageContent() {
           checkout_meta_json: JSON.stringify(meta),
           installments: 1,
         })
-
-        if (turnaDraft) {
-          try {
-            await completeTurnaFlightBooking(turnaDraft, guestRows)
-          } catch (turnaErr) {
-            console.error('Turna book failed:', turnaErr)
-            window.alert(C.errors.turnaBookFailed || C.errors.bookingFailed)
-          }
-        }
 
         const payload: ParatikaCheckoutPayload = {
           reservation_id: out.reservation_id,

@@ -4,6 +4,7 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
+import gleam/result
 import gleam/string
 import travel/integrations/turna_config.{type TurnaConfig}
 import travel/net/http_client
@@ -611,4 +612,95 @@ pub fn session_to_json(session: TurnaSession) -> json.Json {
     #("session_id", json.string(session.session_id)),
     #("session_token", json.string(session.session_token)),
   ])
+}
+
+/// Reserve → bakiye ödeme → checkout (Turna acente bakiyesi).
+pub fn flight_fulfill_paid_booking(
+  cfg: TurnaConfig,
+  session: TurnaSession,
+  reserve_form_json: String,
+) -> Result(
+  #(
+    TurnaHttpResult,
+    TurnaHttpResult,
+    TurnaHttpResult,
+  ),
+  String,
+) {
+  use reserve_result <- result.try(flight_reserve(cfg, session, reserve_form_json))
+  use pay_result <- result.try(flight_make_balance_payment(
+    cfg,
+    reserve_result.session,
+    "{}",
+  ))
+  use chk_result <- result.try(flight_checkout(cfg, pay_result.session, "{}"))
+  Ok(#(reserve_result, pay_result, chk_result))
+}
+
+fn first_string_field(raw: String, keys: List(String)) -> String {
+  list.fold(keys, "", fn(acc, key) {
+    case acc != "" {
+      True -> acc
+      False -> {
+        let dec = {
+          use v <- decode.field(key, decode.string)
+          decode.success(v)
+        }
+        case json.parse(raw, dec) {
+          Ok(v) ->
+            case string.trim(v) {
+              "" -> ""
+              s -> s
+            }
+          Error(_) -> ""
+        }
+      }
+    }
+  })
+}
+
+fn nested_string_field(raw: String, path: List(String)) -> String {
+  case json.parse(raw, decode.at(path, decode.string)) {
+    Ok(v) ->
+      case string.trim(v) {
+        "" -> ""
+        s -> s
+      }
+    Error(_) -> ""
+  }
+}
+
+/// Turna checkout / reserve yanıtından PNR benzeri referanslar.
+pub fn extract_booking_refs(raw: String) -> #(String, String) {
+  let pnr =
+    nested_string_field(raw, ["Booking", "Pnr"])
+    |> fn(v) {
+      case v {
+        "" ->
+          nested_string_field(raw, ["Result", "Booking", "Pnr"])
+          |> fn(v2) {
+            case v2 {
+              "" -> first_string_field(raw, ["Pnr", "PNR", "RecordLocator"])
+              found -> found
+            }
+          }
+        found -> found
+      }
+    }
+  let sys =
+    nested_string_field(raw, ["Booking", "SystemPnr"])
+    |> fn(v) {
+      case v {
+        "" ->
+          nested_string_field(raw, ["Result", "Booking", "SystemPnr"])
+          |> fn(v2) {
+            case v2 {
+              "" -> first_string_field(raw, ["SystemPnr", "SystemPNR", "BookingId"])
+              found -> found
+            }
+          }
+        found -> found
+      }
+    }
+  #(sys, pnr)
 }

@@ -7,7 +7,11 @@ import {
   formatCheckoutDate,
   formatCheckoutMoney,
 } from '@/lib/checkout-i18n'
-import { getReservationByPublicCode, type ReservationDetail } from '@/lib/travel-api'
+import {
+  getReservationByPublicCode,
+  type ReservationDetail,
+  type ReservationLineDetail,
+} from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
@@ -15,6 +19,30 @@ import { Airplane01Icon, Calendar04Icon, Home01Icon, UserIcon } from '@hugeicons
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useParams, useSearchParams } from 'next/navigation'
 import React from 'react'
+
+function turnaRefsFromLines(
+  lines: ReservationLineDetail[] | undefined,
+): { pnr: string; systemRef: string } | null {
+  if (!lines?.length) return null
+  for (const line of lines) {
+    const raw = line.meta_json?.trim()
+    if (!raw) continue
+    try {
+      const meta = JSON.parse(raw) as {
+        turna_booking?: { status?: string; pnr?: string; system_ref?: string }
+      }
+      const tb = meta.turna_booking
+      if (tb?.status === 'completed') {
+        const pnr = tb.pnr?.trim() ?? ''
+        const systemRef = tb.system_ref?.trim() ?? ''
+        if (pnr || systemRef) return { pnr, systemRef }
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
+}
 
 export default function PayDoneView() {
   const vitrinHref = useVitrinHref()
@@ -79,6 +107,10 @@ export default function PayDoneView() {
   }, [reservation])
 
   const isFlightBooking = Boolean(confirmExtra?.is_flight)
+  const turnaRefs = React.useMemo(
+    () => turnaRefsFromLines(reservation?.lines),
+    [reservation?.lines],
+  )
 
   if (loading) {
     return (
@@ -227,6 +259,26 @@ export default function PayDoneView() {
                       <>
                         <DescriptionTerm>{PD.flightRouteLabel}</DescriptionTerm>
                         <DescriptionDetails>{confirmExtra.flight_route}</DescriptionDetails>
+                      </>
+                    ) : null}
+                    {turnaRefs?.pnr ? (
+                      <>
+                        <DescriptionTerm>{C.flightPnrLabel}</DescriptionTerm>
+                        <DescriptionDetails>
+                          <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-100">
+                            {turnaRefs.pnr}
+                          </span>
+                        </DescriptionDetails>
+                      </>
+                    ) : null}
+                    {!turnaRefs?.pnr && turnaRefs?.systemRef ? (
+                      <>
+                        <DescriptionTerm>{C.flightRefLabel}</DescriptionTerm>
+                        <DescriptionDetails>
+                          <span className="font-mono font-semibold text-neutral-900 dark:text-neutral-100">
+                            {turnaRefs.systemRef}
+                          </span>
+                        </DescriptionDetails>
                       </>
                     ) : null}
                   </>

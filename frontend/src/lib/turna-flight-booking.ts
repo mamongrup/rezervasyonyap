@@ -180,7 +180,10 @@ export function buildTurnaReserveForm(
   return JSON.stringify(form)
 }
 
-/** Ödeme öncesi/sonrası Turna reserve (+ opsiyonel checkout) zinciri */
+/**
+ * Turna reserve + ödeme + checkout (geliştirme / manuel test).
+ * Üretim akışı: ödeme webhook → `turna_flight_booking_sync.fulfill_after_payment` (backend).
+ */
 export async function completeTurnaFlightBooking(
   draft: TurnaFlightBookingDraft,
   guests: GuestLike[],
