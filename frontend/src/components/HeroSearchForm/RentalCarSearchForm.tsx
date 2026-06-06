@@ -50,9 +50,11 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
     const formDataEntries = Object.fromEntries(formData.entries())
     const params = { ...formDataToStringRecord(formData), drop_off_mode: dropOffLocationType }
     runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
-    const location = normalizeYolcu360PickupQuery(formDataEntries['pickup-location'] as string)
+    const location = normalizeYolcu360PickupQuery(
+      formDataEntries['pickup-location'] as string | undefined,
+    )
     const dropoffLocation = normalizeYolcu360PickupQuery(
-      formDataEntries['dropoff-location'] as string,
+      formDataEntries['dropoff-location'] as string | undefined,
     )
     const checkin = formDataEntries['checkin'] as string
     const checkout = ensureCarRentalCheckout(

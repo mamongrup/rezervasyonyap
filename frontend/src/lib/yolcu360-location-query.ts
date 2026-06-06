@@ -1,6 +1,6 @@
 /** Yolcu360 konum API'si ASCII/Latin bekler; Türkçe İ/ş/ğ URL'de invalid_uri üretir. */
-export function normalizeYolcu360PickupQuery(raw: string): string {
-  const s = raw.trim()
+export function normalizeYolcu360PickupQuery(raw?: string | null): string {
+  const s = (raw ?? '').trim()
   if (!s) return s
   return s
     .replace(/İ/g, 'I')

@@ -79,9 +79,11 @@ function CarSearchFormMobileInner() {
       ...(checkout ? { checkout } : {}),
     }
     runHeroSearchPlanEffects('car', params, '/arac-kiralama/all')
-    const location = normalizeYolcu360PickupQuery(formDataEntries['pickup-location'] as string)
+    const location = normalizeYolcu360PickupQuery(
+      formDataEntries['pickup-location'] as string | undefined,
+    )
     const dropoffLocation = normalizeYolcu360PickupQuery(
-      formDataEntries['dropoff-location'] as string,
+      formDataEntries['dropoff-location'] as string | undefined,
     )
     const qs = new URLSearchParams()
     if (location) qs.set('location', location)

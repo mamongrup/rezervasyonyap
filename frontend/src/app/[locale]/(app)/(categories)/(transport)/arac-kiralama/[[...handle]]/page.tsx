@@ -62,6 +62,23 @@ export default async function Page({
 }) {
   const { handle, locale } = await params
   const sp = await searchParams
+  if (!handle?.length) {
+    const qs = new URLSearchParams()
+    for (const key of [
+      'location',
+      'checkin',
+      'checkout',
+      'drop_off',
+      'drop_off_location',
+      'guests',
+      'page',
+    ] as const) {
+      const v = sp[key]
+      if (typeof v === 'string' && v.trim()) qs.set(key, v.trim())
+    }
+    const q = qs.toString()
+    redirect(`/${locale}/arac-kiralama/all${q ? `?${q}` : ''}`)
+  }
   const currentHandle = regionHandleFromParams(handle)
   const category = getCategoryBySlug('arac-kiralama')
   if (!category) return redirect('/')
