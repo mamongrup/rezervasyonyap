@@ -157,16 +157,19 @@ for (const row of listings) {
 }
 
 if (!DRY_RUN) {
-  let topEntries = []
-  try {
-    topEntries = await readdir(UPLOADS_ROOT, { withFileTypes: true })
-  } catch {
-    /* ignore */
-  }
-  for (const ent of topEntries) {
-    if (!ent.isDirectory()) continue
-    const full = path.join(UPLOADS_ROOT, ent.name)
-    await cleanupEmptyDirs(full)
+  const legacyDirs = [
+    'wtatil',
+    'bravo-event',
+    'pexels',
+    'yatlar',
+    'tatil-evleri',
+    'turlar',
+    'aktiviteler',
+    'oteller',
+  ]
+  for (const name of legacyDirs) {
+    const d = path.join(UPLOADS_ROOT, name)
+    if (existsSync(d)) await cleanupEmptyDirs(d)
   }
 }
 

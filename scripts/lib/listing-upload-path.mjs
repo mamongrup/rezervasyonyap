@@ -56,11 +56,11 @@ export function slugifyMediaSegment(s) {
   )
 }
 
-/** `yatlar/slug` — uploads/listings öneki hariç */
+/** `ilanlar/yatlar/slug` — uploads/listings öneki hariç */
 export function listingImageSubPath(categoryCode, listingSlug) {
   const b = slugifyMediaSegment(listingSlug)
   const cat = listingCategoryFolder(categoryCode)
-  return `${cat}/${b}`
+  return `ilanlar/${cat}/${b}`
 }
 
 export function listingStoragePrefix(categoryCode, listingSlug) {
@@ -82,7 +82,7 @@ export function resolveListingMediaSubPath({ categoryCode, slug, mediaSubPath } 
   return listingImageSubPath(categoryCode, slug)
 }
 
-/** Eski düz / wtatil / bravo-event yollarını yeni öneke çevirir (dosya adı korunur). */
+/** Eski yolları `ilanlar/{kategori}/{slug}/` önekine çevirir (dosya adı korunur). */
 export function remapStorageKey(oldKey, categoryCode, listingSlug) {
   const key = String(oldKey || '').trim().replace(/^\/+/, '')
   if (!key.startsWith('uploads/listings/')) return key
@@ -90,6 +90,10 @@ export function remapStorageKey(oldKey, categoryCode, listingSlug) {
   if (key.startsWith(targetPrefix)) return key
   const fileName = key.split('/').pop()
   if (!fileName) return key
+  const cat = listingCategoryFolder(categoryCode)
+  const slugSeg = slugifyMediaSegment(listingSlug)
+  const withoutIlanlar = `uploads/listings/${cat}/${slugSeg}/`
+  if (key.startsWith(withoutIlanlar)) return `${targetPrefix}${fileName}`
   return `${targetPrefix}${fileName}`
 }
 
