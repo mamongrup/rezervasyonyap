@@ -45,7 +45,6 @@ import { getLocalizedDefaultModules } from '@/lib/page-builder-default-modules'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { PaymentTrustStrip } from '@/components/PaymentTrustStrip'
 import { buildListingsItemListJsonLd } from '@/lib/seo/listings-itemlist-jsonld'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
@@ -315,7 +314,6 @@ export default async function CategoryPageTemplate({
           </div>
         )}
       </Link>
-      <PaymentTrustStrip secureLabel={m.paymentMethods.secureLabel} />
     </>
   )
 
