@@ -547,7 +547,7 @@ export const fr: AppMessages = {
       carouselNextAria: 'Annonces suivantes',
     },
     tourDetail: {
-      ...en.tourDetail,
+      ...en.listing.tourDetail,
       sectionNavAriaLabel: 'Sections du circuit',
       aboutTitle: 'À propos de ce circuit',
       programTitle: 'Programme du circuit',

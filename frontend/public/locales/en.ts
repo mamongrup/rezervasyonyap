@@ -2100,6 +2100,9 @@ export const en = {
     },
   },
   checkout: checkoutEn,
+  paymentMethods: {
+    secureLabel: 'Secure payment',
+  },
 }
 
 /**

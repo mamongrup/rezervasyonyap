@@ -2037,4 +2037,7 @@ export const tr = {
     },
   },
   checkout: checkoutTr,
+  paymentMethods: {
+    secureLabel: 'Güvenli ödeme',
+  },
 } satisfies AppMessages

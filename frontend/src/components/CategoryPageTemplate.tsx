@@ -45,6 +45,7 @@ import { getLocalizedDefaultModules } from '@/lib/page-builder-default-modules'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { vitrinHref } from '@/lib/vitrin-href'
+import { PaymentTrustStrip } from '@/components/PaymentTrustStrip'
 import { buildListingsItemListJsonLd } from '@/lib/seo/listings-itemlist-jsonld'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
@@ -278,41 +279,44 @@ export default async function CategoryPageTemplate({
 
   const countFormatted = convertNumbThousand(count)
   const heroDescription = (
-    <Link href={categoryPageHref} className={heroStatsRowLinkClassName}>
-      {category.slug === 'tatil-evleri' || category.slug === 'yat-kiralama' ? (
-        <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
-          <i className="las la-map-marked me-2 text-2xl" />
-          <span>
-            <span className="text-neutral-500 dark:text-neutral-400">
-              {category.slug === 'yat-kiralama' ? cat.yachtCharterHeroLead : cat.holidayHomesHeroLead}{' '}
+    <>
+      <Link href={categoryPageHref} className={heroStatsRowLinkClassName}>
+        {category.slug === 'tatil-evleri' || category.slug === 'yat-kiralama' ? (
+          <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
+            <i className="las la-map-marked me-2 text-2xl" />
+            <span>
+              <span className="text-neutral-500 dark:text-neutral-400">
+                {category.slug === 'yat-kiralama' ? cat.yachtCharterHeroLead : cat.holidayHomesHeroLead}{' '}
+              </span>
+              <span className="text-neutral-900 dark:text-neutral-100">
+                {interpolate(
+                  category.slug === 'yat-kiralama'
+                    ? cat.yachtCharterHeroHighlight
+                    : cat.holidayHomesHeroHighlight,
+                  { count: countFormatted },
+                )}
+              </span>
             </span>
-            <span className="text-neutral-900 dark:text-neutral-100">
-              {interpolate(
-                category.slug === 'yat-kiralama'
-                  ? cat.yachtCharterHeroHighlight
-                  : cat.holidayHomesHeroHighlight,
-                { count: countFormatted },
-              )}
+          </div>
+        ) : (
+          <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
+            <i className="las la-map-marked me-2 text-2xl" />
+            <span>
+              {category.listingType === 'flight'
+                ? cat.flightNationwide
+                : category.listingType === 'tour'
+                  ? cat.tourNationwide
+                  : cat.nationwide}{' '}
+              &nbsp;
+              <span className="text-neutral-900 dark:text-neutral-100">
+                {countFormatted}+ {category.listingType === 'tour' ? cat.tourNamePlural : resolvedCategory.namePlural}
+              </span>
             </span>
-          </span>
-        </div>
-      ) : (
-        <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
-          <i className="las la-map-marked me-2 text-2xl" />
-          <span>
-            {category.listingType === 'flight'
-              ? cat.flightNationwide
-              : category.listingType === 'tour'
-                ? cat.tourNationwide
-                : cat.nationwide}{' '}
-            &nbsp;
-            <span className="text-neutral-900 dark:text-neutral-100">
-              {countFormatted}+ {category.listingType === 'tour' ? cat.tourNamePlural : resolvedCategory.namePlural}
-            </span>
-          </span>
-        </div>
-      )}
-    </Link>
+          </div>
+        )}
+      </Link>
+      <PaymentTrustStrip secureLabel={m.paymentMethods.secureLabel} />
+    </>
   )
 
   const searchForm = (

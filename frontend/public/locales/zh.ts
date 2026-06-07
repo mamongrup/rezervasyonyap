@@ -535,7 +535,7 @@ export const zh: AppMessages = {
       carouselNextAria: '下一批房源',
     },
     tourDetail: {
-      ...en.tourDetail,
+      ...en.listing.tourDetail,
       sectionNavAriaLabel: '跟团游版块',
       aboutTitle: '关于此跟团游',
       programTitle: '行程安排',

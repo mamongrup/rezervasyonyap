@@ -26,6 +26,7 @@ import { preload } from 'react-dom'
 import { getMessages } from '@/utils/getT'
 import { Metadata } from 'next'
 import type { PageBuilderModule, TListingBase } from '@/types/listing-types'
+import { PaymentTrustStrip } from '@/components/PaymentTrustStrip'
 
 export async function generateMetadata({
   params,
@@ -177,6 +178,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
       >
         {heroCtaText}
       </ButtonPrimary>
+      <PaymentTrustStrip secureLabel={m.paymentMethods.secureLabel} />
     </>
   )
 

@@ -546,7 +546,7 @@ export const ru: AppMessages = {
       carouselNextAria: 'Следующие объявления',
     },
     tourDetail: {
-      ...en.tourDetail,
+      ...en.listing.tourDetail,
       sectionNavAriaLabel: 'Разделы тура',
       aboutTitle: 'Об этом туре',
       programTitle: 'Программа тура',
