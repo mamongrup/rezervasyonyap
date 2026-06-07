@@ -145,7 +145,11 @@ export default function AvatarDropdown({ className }: Props) {
         <PopoverButton
           title={isLoggedIn ? primaryLabel : T.loginButton}
           aria-label={isLoggedIn ? primaryLabel : T.loginButton}
-          className="-m-2.5 flex max-w-[min(100%,14rem)] cursor-pointer items-center gap-2 rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800"
+          className={
+            isLoggedIn
+              ? '-m-2.5 flex max-w-[min(100%,14rem)] cursor-pointer items-center gap-2 rounded-full p-2.5 hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800'
+              : 'flex h-10 w-10 cursor-pointer items-center justify-center rounded-full hover:bg-neutral-100 focus-visible:outline-hidden dark:hover:bg-neutral-800'
+          }
         >
           {isLoggedIn ? (
             <>
