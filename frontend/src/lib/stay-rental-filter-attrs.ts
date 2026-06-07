@@ -1,6 +1,6 @@
 import type { VillaAmenityId } from '@/lib/listing-amenities'
 
-/** Kategori filtresinde gösterilen öznitelikler — `listing_attributes.key` ile birebir. */
+/** Tatil evi vitrin filtresi — `listing_attributes.key` ile birebir. */
 export const STAY_RENTAL_FILTER_ATTR_KEYS = [
   'pool_garden',
   'wifi',
@@ -10,15 +10,37 @@ export const STAY_RENTAL_FILTER_ATTR_KEYS = [
   'laundry',
 ] as const satisfies readonly VillaAmenityId[]
 
+/** Yat kiralama vitrin filtresi — `listing_attributes.key` (grup: `yat_olanak`). */
+export const YACHT_RENTAL_FILTER_ATTR_KEYS = [
+  'wifi',
+  'air_conditioning',
+  'generator',
+  'water_toys',
+  'snorkeling',
+  'tender_dinghy',
+] as const
+
 export type StayRentalFilterAttrKey = (typeof STAY_RENTAL_FILTER_ATTR_KEYS)[number]
+export type YachtRentalFilterAttrKey = (typeof YACHT_RENTAL_FILTER_ATTR_KEYS)[number]
 
 /** Eski vitrin filtre anahtarları → güncel EAV kodu */
-const LEGACY_ATTR_ALIASES: Record<string, StayRentalFilterAttrKey> = {
+const LEGACY_ATTR_ALIASES: Record<string, string> = {
   pool: 'pool_garden',
   kitchen: 'full_kitchen',
   parking: 'secure_parking',
-  ac: 'climate',
+  ac: 'air_conditioning',
+  climate: 'climate',
   heating: 'climate',
+  klima: 'air_conditioning',
+  jenerator: 'generator',
+  su_sporu: 'water_toys',
+  snorkel: 'snorkeling',
+  zodyak: 'tender_dinghy',
+}
+
+export function getStayRentalFilterAttrKeys(categorySlug: string): readonly string[] {
+  if (categorySlug === 'yat-kiralama') return YACHT_RENTAL_FILTER_ATTR_KEYS
+  return STAY_RENTAL_FILTER_ATTR_KEYS
 }
 
 export function normalizeStayRentalAttrKey(raw: string): string {

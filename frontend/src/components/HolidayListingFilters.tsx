@@ -33,7 +33,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { getCategoryByMapRoute } from '@/data/category-registry'
 import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
 import {
-  STAY_RENTAL_FILTER_ATTR_KEYS,
+  getStayRentalFilterAttrKeys,
   normalizeStayRentalAttrKey,
   parseStayRentalAttrsParam,
 } from '@/lib/stay-rental-filter-attrs'
@@ -145,12 +145,18 @@ export default function HolidayListingFilters({
   const selectedAttrKeys = useMemo(() => parseStayRentalAttrsParam(attrsParam), [attrsParam])
 
   const attrOptions = useMemo(() => {
-    const amenityLabels = getMessages(effectiveLocale).listing.amenities.labels as Record<string, string>
-    return STAY_RENTAL_FILTER_ATTR_KEYS.map((key) => ({
+    const labels = getMessages(effectiveLocale).listing.amenities.labels as Record<string, string>
+    const filterLabels = getMessages(effectiveLocale).categoryPage?.listingFilters as
+      | Record<string, string>
+      | undefined
+    return getStayRentalFilterAttrKeys(categorySlug).map((key) => ({
       key,
-      label: amenityLabels[key] ?? key.replace(/_/g, ' '),
+      label:
+        (isYachtCategory ? filterLabels?.[`yachtAttr_${key}`] : undefined) ??
+        labels[key] ??
+        key.replace(/_/g, ' '),
     }))
-  }, [effectiveLocale])
+  }, [effectiveLocale, categorySlug, isYachtCategory])
 
   function toggleAttrKey(key: string) {
     const next = new Set(selectedAttrKeys)
