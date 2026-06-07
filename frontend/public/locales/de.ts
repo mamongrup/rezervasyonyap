@@ -53,6 +53,7 @@ export const de: AppMessages = {
   categoryPage: {
     ...en.categoryPage,
     listingFilters: {
+      ...en.categoryPage.listingFilters,
       allFilters: 'Alle Filter',
       byPrice: 'Nach Preis',
       subcategories: 'Unterkategorien',
@@ -158,6 +159,7 @@ export const de: AppMessages = {
     browseByType: 'Nach Typ stöbern',
     exploreByRegion: 'Nach Region entdecken',
     registry: {
+      ...en.categoryPage.registry,
       'arac-kiralama': {
         name: 'Mietwagen',
         namePlural: 'Mietwagen',
@@ -545,6 +547,7 @@ export const de: AppMessages = {
       carouselNextAria: 'Nächste Inserate',
     },
     tourDetail: {
+      ...en.tourDetail,
       sectionNavAriaLabel: 'Tour-Bereiche',
       aboutTitle: 'Über diese Tour',
       programTitle: 'Tourprogramm',

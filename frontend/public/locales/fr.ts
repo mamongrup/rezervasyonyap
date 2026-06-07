@@ -1,4 +1,4 @@
-import { en, type AppMessages } from './en'
+﻿import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.fr'
 import { checkoutFr } from './checkout'
 
@@ -53,6 +53,7 @@ export const fr: AppMessages = {
   categoryPage: {
     ...en.categoryPage,
     listingFilters: {
+      ...en.categoryPage.listingFilters,
       allFilters: 'Tous les filtres',
       byPrice: 'Par prix',
       subcategories: 'Sous-catégories',
@@ -158,6 +159,7 @@ export const fr: AppMessages = {
     browseByType: 'Parcourir par type',
     exploreByRegion: 'Explorer par région',
     registry: {
+      ...en.categoryPage.registry,
       'arac-kiralama': {
         name: 'Location de voiture',
         namePlural: 'locations de voiture',
@@ -545,6 +547,7 @@ export const fr: AppMessages = {
       carouselNextAria: 'Annonces suivantes',
     },
     tourDetail: {
+      ...en.tourDetail,
       sectionNavAriaLabel: 'Sections du circuit',
       aboutTitle: 'À propos de ce circuit',
       programTitle: 'Programme du circuit',

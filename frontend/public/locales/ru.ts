@@ -53,6 +53,7 @@ export const ru: AppMessages = {
   categoryPage: {
     ...en.categoryPage,
     listingFilters: {
+      ...en.categoryPage.listingFilters,
       allFilters: 'Все фильтры',
       byPrice: 'По цене',
       subcategories: 'Подкатегории',
@@ -158,6 +159,7 @@ export const ru: AppMessages = {
     browseByType: 'По типу',
     exploreByRegion: 'Смотреть по регионам',
     registry: {
+      ...en.categoryPage.registry,
       'arac-kiralama': {
         name: 'Аренда авто',
         namePlural: 'аренда авто',
@@ -544,6 +546,7 @@ export const ru: AppMessages = {
       carouselNextAria: 'Следующие объявления',
     },
     tourDetail: {
+      ...en.tourDetail,
       sectionNavAriaLabel: 'Разделы тура',
       aboutTitle: 'Об этом туре',
       programTitle: 'Программа тура',

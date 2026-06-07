@@ -1,4 +1,4 @@
-import { en, type AppMessages } from './en'
+﻿import { en, type AppMessages } from './en'
 import { navMenus } from './navMenus.zh'
 import { checkoutZh } from './checkout'
 
@@ -53,6 +53,7 @@ export const zh: AppMessages = {
   categoryPage: {
     ...en.categoryPage,
     listingFilters: {
+      ...en.categoryPage.listingFilters,
       allFilters: '所有筛选',
       byPrice: '按价格',
       subcategories: '子类别',
@@ -158,6 +159,7 @@ export const zh: AppMessages = {
     browseByType: '按类型浏览',
     exploreByRegion: '按地区探索',
     registry: {
+      ...en.categoryPage.registry,
       'arac-kiralama': {
         name: '租车',
         namePlural: '租车',
@@ -533,6 +535,7 @@ export const zh: AppMessages = {
       carouselNextAria: '下一批房源',
     },
     tourDetail: {
+      ...en.tourDetail,
       sectionNavAriaLabel: '跟团游版块',
       aboutTitle: '关于此跟团游',
       programTitle: '行程安排',

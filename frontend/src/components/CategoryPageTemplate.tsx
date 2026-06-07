@@ -43,6 +43,7 @@ import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { getLocalizedDefaultModules } from '@/lib/page-builder-default-modules'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
+import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { buildListingsItemListJsonLd } from '@/lib/seo/listings-itemlist-jsonld'
 import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
@@ -166,6 +167,8 @@ export default async function CategoryPageTemplate({
 }: CategoryPageTemplateProps) {
   const m = getMessages(locale)
   const cat = m.categoryPage
+  // Locale-aware hero heading, name, namePlural, priceUnit
+  const resolvedCategory = resolveCategoryDisplay(category, locale)
   const effectivePriceUnit =
     priceUnit ?? resolveListingPriceUnit(category.detailRoute, locale)
   const isAll = !currentHandle || currentHandle === 'all'
@@ -304,7 +307,7 @@ export default async function CategoryPageTemplate({
                 : cat.nationwide}{' '}
             &nbsp;
             <span className="text-neutral-900 dark:text-neutral-100">
-              {countFormatted}+ {category.listingType === 'tour' ? cat.tourNamePlural : category.namePlural}
+              {countFormatted}+ {category.listingType === 'tour' ? cat.tourNamePlural : resolvedCategory.namePlural}
             </span>
           </span>
         </div>
@@ -321,7 +324,7 @@ export default async function CategoryPageTemplate({
     />
   )
 
-  const heroHeading = heroOverride?.heading ?? configHeading ?? category.heroHeading
+  const heroHeading = heroOverride?.heading ?? configHeading ?? resolvedCategory.heroHeading
   const heroHeadingLinked = (
     <Link href={categoryPageHref} className={heroHeadingLinkClassName}>
       <span dangerouslySetInnerHTML={{ __html: sanitizeHeroInlineHtml(heroHeading) }} />
@@ -347,10 +350,10 @@ export default async function CategoryPageTemplate({
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
             {listingSectionTitle
               ? listingSectionTitle
-              : isAll
+                : isAll
                 ? interpolate(cat.listingsHeadingAll, {
                     count: convertNumbThousand(count),
-                    category: category.name,
+                    category: resolvedCategory.name,
                   })
                 : activeSearch?.propertyTypeLabel
                   ? interpolate(cat.listingsHeadingPropertyType ?? '{count}+ {label}', {
@@ -484,7 +487,7 @@ export default async function CategoryPageTemplate({
       <SectionSliderRegions
         regions={resolvedRegionStats}
         categoryRoute={categoryRouteVitrin}
-        unit={category.name.toLowerCase()}
+        unit={resolvedCategory.name.toLowerCase()}
       />
     </div>
   ) : null
@@ -544,11 +547,11 @@ export default async function CategoryPageTemplate({
             heading={heroHeadingLinked}
             description={heroDescription}
             image={heroImage}
-            imageAlt={category.name}
+            imageAlt={resolvedCategory.name}
             searchForm={searchForm}
             freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}
             mosaicImages={mosaicForRegionHero}
-            topSpacing="minimal"
+            topSpacing="compact"
             heroMosaicBleed
           />
         </div>
@@ -604,11 +607,11 @@ export default async function CategoryPageTemplate({
           heading={heroHeadingLinked}
           description={heroDescription}
           image={heroImage}
-          imageAlt={category.name}
+          imageAlt={resolvedCategory.name}
           searchForm={searchForm}
           freeformBannerLayout={DEFAULT_REGION_HERO_FREEFORM}
           mosaicImages={mosaicForRegionHero}
-          topSpacing="minimal"
+          topSpacing="compact"
           heroMosaicBleed
         />
       </div>
