@@ -46,7 +46,7 @@ SELECT coalesce(trim(value_json->'turna'->>'api_key'),'') FROM site_settings WHE
   }
 }
 
-$otpRelease = & (Join-Path $ErlangBin 'erl.exe') -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>$null
+$otpRelease = (& (Join-Path $ErlangBin 'erl.exe') -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell 2>$null).ToString().Trim().Trim('"')
 if ($otpRelease -ne '27') {
   Write-Host "Erlang OTP 27 gerekli (simdiki: $otpRelease). scripts\setup-local-windows.ps1 calistirin." -ForegroundColor Red
   exit 1

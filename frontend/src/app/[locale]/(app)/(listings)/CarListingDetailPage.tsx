@@ -8,6 +8,7 @@ import { Backpack02Icon, HumidityIcon, SeatSelectorIcon, Settings03Icon } from '
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
 import Form from 'next/form'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
@@ -19,7 +20,12 @@ import {
 import { vitrinHref } from '@/lib/vitrin-href'
 import { fetchPublicListingAvailabilityDaysSafe, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
 import Yolcu360CarReserveButton from '@/components/listings/Yolcu360CarReserveButton'
-import { fetchYolcu360CarListings, findYolcu360Listing } from '@/lib/yolcu360-car-search'
+import {
+  carRentalBrowseQueryFromContext,
+  fetchYolcu360CarListings,
+  findYolcu360Listing,
+  resolveYolcu360SearchFromUrl,
+} from '@/lib/yolcu360-car-search'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
@@ -65,14 +71,29 @@ export default async function CarListingDetailPage({
   const handle = rawHandle.split('?')[0]
   const sp = (await searchParams) ?? {}
   const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
+  const referer = (await headers()).get('referer')
+
+  if (handle.startsWith('yolcu360-')) {
+    const yolcu360Detail = await renderYolcu360CarDetail({
+      handle,
+      locale,
+      searchParams: sp,
+      referer,
+    })
+    if (yolcu360Detail) return yolcu360Detail
+    const searchCtx = resolveYolcu360SearchFromUrl(sp, referer)
+    const browseQs = carRentalBrowseQueryFromContext(sp, searchCtx)
+    return redirect(
+      await vitrinHref(
+        locale,
+        `/arac-kiralama/all${browseQs ? `?${browseQs}` : ''}`,
+      ),
+    )
+  }
 
   const listing = await getCarListingByHandle(handle, locale)
 
   if (!listing?.id) {
-    if (handle.startsWith('yolcu360-')) {
-      const yolcu360Detail = await renderYolcu360CarDetail({ handle, locale, searchParams: sp })
-      if (yolcu360Detail) return yolcu360Detail
-    }
     return redirect(await vitrinHref(locale, '/arac-kiralama/all'))
   }
 
@@ -251,19 +272,35 @@ async function renderYolcu360CarDetail({
   handle,
   locale,
   searchParams,
+  referer,
 }: {
   handle: string
   locale: string
   searchParams: Record<string, string | string[] | undefined>
+  referer?: string | null
 }) {
-  const pickup = firstString(searchParams.location)
-  const checkin = firstString(searchParams.checkin)
-  const checkout = firstString(searchParams.checkout)
-  const dropoff = firstString(searchParams.drop_off_location) || pickup
+  const searchCtx = resolveYolcu360SearchFromUrl(searchParams, referer)
+  if (!searchCtx) return null
 
+  const { pickup, dropoff, checkin, checkout } = searchCtx
   const cars = await fetchYolcu360CarListings({ pickup, dropoff, checkin, checkout })
   if (!cars?.length) return null
-  const car = findYolcu360Listing(cars, handle, searchParams)
+
+  const listingParams: Record<string, string | string[] | undefined> = { ...searchParams }
+  if (!firstString(listingParams.y360_idx)) {
+    const idxMatch = handle.match(/^yolcu360-(\d+)$/)
+    if (idxMatch) listingParams.y360_idx = idxMatch[1]
+  }
+  if (!firstString(listingParams.y360_code) && referer) {
+    try {
+      const code = new URL(referer).searchParams.get('y360_code')?.trim()
+      if (code) listingParams.y360_code = code
+    } catch {
+      /* yoksay */
+    }
+  }
+
+  const car = findYolcu360Listing(cars, handle, listingParams)
   if (!car) return null
 
   const carIndexRaw = firstString(searchParams.y360_idx)

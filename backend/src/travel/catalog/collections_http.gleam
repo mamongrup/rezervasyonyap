@@ -622,7 +622,12 @@ fn search_listings_impl(
   let order_sql = case sort_raw {
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
-    _ -> "order by l.created_at desc "
+    _ ->
+      case cat_raw {
+        "yacht_charter" ->
+          "order by case when coalesce(trim(l.featured_image_url), '') <> '' or exists (select 1 from listing_images li where li.listing_id = l.id) then 0 else 1 end, l.created_at desc "
+        _ -> "order by l.created_at desc "
+      }
   }
 
   // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.

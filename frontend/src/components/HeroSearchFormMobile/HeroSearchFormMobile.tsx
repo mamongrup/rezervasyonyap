@@ -14,6 +14,7 @@ import { useEffect, useState } from 'react'
  */
 const HeroSearchFormMobileDialog = dynamic(() => import('./HeroSearchFormMobileDialog'), {
   ssr: false,
+  loading: () => null,
 })
 
 /** iOS Safari: `click` bazen fixed header içinde kaybolur — `touchend` ile yedekle. */
@@ -166,10 +167,6 @@ const HeroSearchFormMobile = ({ className, locale: localeProp, open: openProp, o
   useEffect(() => {
     if (isControlled) setShowModal(openProp)
   }, [isControlled, openProp])
-
-  useEffect(() => {
-    void import('./HeroSearchFormMobileDialog')
-  }, [])
 
   const pathname = usePathname() ?? ''
   const params = useParams()

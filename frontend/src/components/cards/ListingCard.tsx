@@ -10,8 +10,8 @@ import { Badge } from '@/shared/Badge'
 import { Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import Link from 'next/link'
-import { FC } from 'react'
-import { useParams } from 'next/navigation'
+import { FC, useMemo } from 'react'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 
@@ -52,6 +52,7 @@ const ListingCard: FC<ListingCardProps> = ({
   config,
 }) => {
   const params = useParams()
+  const pageSearch = useSearchParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinHref = useVitrinHref()
   const m = getMessages(locale)
@@ -82,9 +83,37 @@ const ListingCard: FC<ListingCardProps> = ({
 
   const pathHandle = handle.includes('?') ? handle.slice(0, handle.indexOf('?')) : handle
   const legacyQuery = handle.includes('?') ? handle.slice(handle.indexOf('?')) : ''
-  const searchQuery = data.detailSearchQuery
-    ? `?${data.detailSearchQuery}`
-    : legacyQuery
+  const searchQuery = useMemo(() => {
+    if (!pathHandle.startsWith('yolcu360-')) {
+      return data.detailSearchQuery ? `?${data.detailSearchQuery}` : legacyQuery
+    }
+    const qs = new URLSearchParams(data.detailSearchQuery ?? '')
+    for (const key of [
+      'location',
+      'checkin',
+      'checkout',
+      'drop_off_location',
+      'drop_off',
+      'y360_idx',
+      'y360_code',
+    ] as const) {
+      if (!qs.has(key)) {
+        const v = pageSearch.get(key)
+        if (v) qs.set(key, v)
+      }
+    }
+    if (!qs.has('y360_idx')) {
+      const idxMatch = pathHandle.match(/^yolcu360-(\d+)$/)
+      if (idxMatch) qs.set('y360_idx', idxMatch[1])
+    }
+    if (!qs.has('y360_code')) {
+      const rawId = (data as { yolcu360RawId?: string }).yolcu360RawId
+      if (rawId) qs.set('y360_code', rawId)
+    }
+    const s = qs.toString()
+    if (s) return `?${s}`
+    return data.detailSearchQuery ? `?${data.detailSearchQuery}` : legacyQuery
+  }, [data.detailSearchQuery, legacyQuery, pageSearch, pathHandle])
   const listingHref = vitrinHref(`${config.linkBase}/${pathHandle}`) + searchQuery
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
   const cardMeta = m.listing.cardMeta

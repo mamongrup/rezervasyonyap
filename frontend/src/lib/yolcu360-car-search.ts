@@ -28,6 +28,55 @@ export type Yolcu360SearchInput = {
   checkout?: string
 }
 
+/** Detay veya redirect için URL + isteğe bağlı referer'dan arama bağlamı. */
+export function resolveYolcu360SearchFromUrl(
+  searchParams: Record<string, string | string[] | undefined>,
+  referer?: string | null,
+): Yolcu360SearchInput | null {
+  let pickup = firstQueryString(searchParams.location)
+  let checkin = firstQueryString(searchParams.checkin)
+  let checkout = firstQueryString(searchParams.checkout)
+  let dropoff = firstQueryString(searchParams.drop_off_location) || pickup
+
+  if ((!pickup || !checkin || !checkout) && referer) {
+    try {
+      const u = new URL(referer)
+      pickup = pickup || u.searchParams.get('location')?.trim() || ''
+      checkin = checkin || u.searchParams.get('checkin')?.trim() || ''
+      checkout = checkout || u.searchParams.get('checkout')?.trim() || ''
+      const dropFromRef = u.searchParams.get('drop_off_location')?.trim()
+      if (dropFromRef) dropoff = dropFromRef
+    } catch {
+      /* yoksay */
+    }
+  }
+
+  checkout = ensureCarRentalCheckout(checkin, checkout)
+  if (!pickup || !checkin || !checkout) return null
+  return { pickup, dropoff: dropoff || pickup, checkin, checkout }
+}
+
+/** Kategori sayfasına geri yönlendirmede arama query'sini korur. */
+export function carRentalBrowseQueryFromContext(
+  sp: Record<string, string | string[] | undefined>,
+  input?: Yolcu360SearchInput | null,
+): string {
+  const qs = new URLSearchParams()
+  const pickup = input?.pickup || firstQueryString(sp.location)
+  const checkin = input?.checkin || firstQueryString(sp.checkin)
+  const checkout =
+    input?.checkout ||
+    ensureCarRentalCheckout(checkin, firstQueryString(sp.checkout))
+  const dropoff = input?.dropoff || firstQueryString(sp.drop_off_location) || pickup
+  if (pickup) qs.set('location', pickup)
+  if (checkin) qs.set('checkin', checkin)
+  if (checkout) qs.set('checkout', checkout)
+  if (dropoff && dropoff !== pickup) qs.set('drop_off_location', dropoff)
+  const dropOff = firstQueryString(sp.drop_off)
+  if (dropOff) qs.set('drop_off', dropOff)
+  return qs.toString()
+}
+
 export function yolcu360SearchParams(input: Yolcu360SearchInput): URLSearchParams {
   const pickup = normalizeYolcu360PickupQuery(input.pickup)
   const dropoff = normalizeYolcu360PickupQuery(input.dropoff || pickup)
@@ -68,20 +117,27 @@ export function findYolcu360Listing(
 ): Yolcu360Listing | undefined {
   const idxFromQuery = Number.parseInt(firstQueryString(searchParams.y360_idx), 10)
   const codeFromQuery = firstQueryString(searchParams.y360_code)
+  const idxFromHandle = handle.match(/^yolcu360-(\d+)$/)
+  const idxFromHandleNum = idxFromHandle
+    ? Number.parseInt(idxFromHandle[1], 10)
+    : Number.NaN
 
   if (Number.isFinite(idxFromQuery) && idxFromQuery >= 0 && cars[idxFromQuery]) {
     return cars[idxFromQuery]
   }
 
+  if (
+    !Number.isFinite(idxFromQuery) &&
+    Number.isFinite(idxFromHandleNum) &&
+    idxFromHandleNum >= 0 &&
+    cars[idxFromHandleNum]
+  ) {
+    return cars[idxFromHandleNum]
+  }
+
   if (codeFromQuery) {
     const byCode = cars.find((c) => c.yolcu360RawId === codeFromQuery)
     if (byCode) return byCode
-  }
-
-  const idxFromHandle = handle.match(/^yolcu360-(\d+)$/)
-  if (idxFromHandle) {
-    const i = Number.parseInt(idxFromHandle[1], 10)
-    if (Number.isFinite(i) && cars[i]) return cars[i]
   }
 
   const legacyTail = handle.startsWith('yolcu360-') ? handle.slice('yolcu360-'.length) : ''
