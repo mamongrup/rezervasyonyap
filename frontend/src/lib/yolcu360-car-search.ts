@@ -97,9 +97,24 @@ export function yolcu360SearchParams(input: Yolcu360SearchInput): URLSearchParam
   })
 }
 
+export type Yolcu360Snap = {
+  title?: string
+  priceAmount?: number
+  priceCurrency?: string
+  totalPrice?: number
+  seats?: number
+  gearshift?: string
+  fuelType?: string
+  vendorName?: string
+  bags?: number
+  imageUrl?: string
+  rawId?: string
+}
+
 export function yolcu360DetailQuery(
   input: Yolcu360SearchInput,
   car?: { index: number; rawId: string },
+  snap?: Yolcu360Snap,
 ): string {
   const qs = new URLSearchParams()
   const pickup = normalizeYolcu360PickupQuery(input.pickup)
@@ -114,7 +129,75 @@ export function yolcu360DetailQuery(
     qs.set('y360_idx', String(car.index))
     if (car.rawId) qs.set('y360_code', car.rawId)
   }
+  if (snap) {
+    if (snap.title) qs.set('y360_t', snap.title)
+    if (snap.priceAmount != null) qs.set('y360_pa', String(Math.round(snap.priceAmount)))
+    if (snap.priceCurrency && snap.priceCurrency !== 'TRY') qs.set('y360_pc', snap.priceCurrency)
+    if (snap.totalPrice != null) qs.set('y360_tp', String(Math.round(snap.totalPrice)))
+    if (snap.seats != null) qs.set('y360_ss', String(snap.seats))
+    if (snap.gearshift) qs.set('y360_gg', snap.gearshift)
+    if (snap.fuelType) qs.set('y360_fu', snap.fuelType)
+    if (snap.vendorName) qs.set('y360_vn', snap.vendorName)
+    if (snap.bags != null) qs.set('y360_bg', String(snap.bags))
+    if (snap.imageUrl) qs.set('y360_im', snap.imageUrl)
+  }
   return qs.toString()
+}
+
+/** URL parametrelerinden minimal Yolcu360Listing oluşturur (API fallback). */
+export function yolcu360ListingFromSnap(
+  sp: Record<string, string | string[] | undefined>,
+  handle: string,
+): Yolcu360Listing | null {
+  const title = firstQueryString(sp.y360_t)
+  const rawId = firstQueryString(sp.y360_code)
+  if (!title && !rawId) return null
+
+  const idxMatch = handle.match(/^yolcu360-(\d+)$/)
+  const slug = idxMatch ? handle : `yolcu360-0`
+
+  const priceAmountRaw = firstQueryString(sp.y360_pa)
+  const priceAmount = priceAmountRaw ? Number(priceAmountRaw) : undefined
+  const priceCurrency = firstQueryString(sp.y360_pc) || 'TRY'
+  const totalPriceRaw = firstQueryString(sp.y360_tp)
+  const totalPrice = totalPriceRaw ? Number(totalPriceRaw) : undefined
+  const seatsRaw = firstQueryString(sp.y360_ss)
+  const seats = seatsRaw ? Number(seatsRaw) : undefined
+  const bagsRaw = firstQueryString(sp.y360_bg)
+  const bags = bagsRaw ? Number(bagsRaw) : undefined
+  const imageUrl = firstQueryString(sp.y360_im)
+
+  const price =
+    priceAmount != null
+      ? new Intl.NumberFormat('tr-TR', { style: 'decimal', maximumFractionDigits: 0 }).format(
+          priceAmount,
+        ) +
+        ' ' +
+        priceCurrency
+      : undefined
+
+  return {
+    id: slug,
+    handle: slug,
+    title: title || slug,
+    price,
+    priceAmount: priceAmount && Number.isFinite(priceAmount) ? priceAmount : undefined,
+    priceCurrency,
+    yolcu360TotalPrice: totalPrice && Number.isFinite(totalPrice) ? totalPrice : undefined,
+    yolcu360RawId: rawId || undefined,
+    seats: seats && Number.isFinite(seats) ? seats : undefined,
+    gearshift: firstQueryString(sp.y360_gg) || undefined,
+    yolcu360FuelType: firstQueryString(sp.y360_fu) || undefined,
+    yolcu360VendorName: firstQueryString(sp.y360_vn) || undefined,
+    yolcu360Bags: bags && Number.isFinite(bags) ? bags : undefined,
+    galleryImgs: imageUrl ? [imageUrl] : [],
+    featuredImage: imageUrl || undefined,
+    listingVertical: 'car_rental',
+    reviewStart: 0,
+    reviewCount: 0,
+    isNew: false,
+    address: firstQueryString(sp.location) || undefined,
+  }
 }
 
 /** Detay sayfasında arama sonuçlarından doğru Yolcu360 kartını bulur. */
@@ -184,8 +267,26 @@ export async function fetchYolcu360CarListings(
     const raw = normalizeYolcu360Cars(data)
     if (raw.length === 0) return null
     return raw.map((c, i) => {
+      const snap: Yolcu360Snap | undefined = options.includeDetailQuery
+        ? {
+            title:
+              [String(c.brand ?? ''), String(c.model ?? '')].filter(Boolean).join(' ') ||
+              String(c.vehicleClass ?? '') ||
+              undefined,
+            priceAmount: c.dailyPrice,
+            priceCurrency: c.currency ?? 'TRY',
+            totalPrice: c.totalPrice,
+            seats: typeof c.seats === 'number' ? c.seats : undefined,
+            gearshift: c.transmission ?? undefined,
+            fuelType: c.fuelType ?? undefined,
+            vendorName: c.vendorName ?? undefined,
+            bags: typeof c.bags === 'number' ? c.bags : undefined,
+            imageUrl: c.imageUrl ?? c.thumbnailUrl ?? undefined,
+            rawId: String(c.id ?? i),
+          }
+        : undefined
       const detailQuery = options.includeDetailQuery
-        ? yolcu360DetailQuery(input, { index: i, rawId: String(c.id ?? i) })
+        ? yolcu360DetailQuery(input, { index: i, rawId: String(c.id ?? i) }, snap)
         : undefined
       return mapYolcu360CarToListing(c, i, detailQuery)
     })
