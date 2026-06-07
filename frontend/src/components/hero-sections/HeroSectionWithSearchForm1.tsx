@@ -88,7 +88,7 @@ function HeroImageMosaic({
     const regionBleedWrap =
       'relative lg:-ml-2 lg:w-[calc(100%+0.5rem)] lg:max-w-none lg:min-w-0 lg:pb-[50px] lg:overflow-visible'
     return (
-      <div className={clsx('w-full min-h-0', flush ? 'mb-0' : 'mb-5', regionBleedWrap)}>
+      <div className={clsx('w-full min-h-0', flush ? 'mb-0' : 'mb-2 lg:mb-5', regionBleedWrap)}>
         <div
           className={clsx(
             'grid min-h-0 w-full grid-cols-2 grid-rows-2 items-stretch',
@@ -134,7 +134,7 @@ function HeroImageMosaic({
       className={clsx(
         'flex min-h-0 w-full min-w-0 flex-col',
         gap,
-        flush ? 'mb-0' : 'mb-5',
+        flush ? 'mb-0' : 'mb-2 lg:mb-5',
       )}
     >
       <div className={clsx(slot, 'aspect-[2/1] min-h-0 w-full')}>
@@ -329,7 +329,7 @@ function HeroSectionWithSearchForm1({
         className={clsx(
           'relative',
           minimalBelowFoldSearch
-            ? 'grid grid-cols-1 gap-x-6 gap-y-6 lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-8'
+            ? 'grid grid-cols-1 gap-x-6 gap-y-3 lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-8'
             : 'flex flex-col lg:flex-row',
           !minimalBelowFoldSearch &&
             (spacing === 'compact'
