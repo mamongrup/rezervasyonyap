@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import { mediaUrlCandidates } from './lib/bravo-media.mjs'
 import { avifFileName, downloadAndSaveAvif } from './lib/wtatil-image-download.mjs'
+import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -21,7 +22,7 @@ const TRAVEL_ROOT = path.resolve(__dirname, '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
 const mysql = require('mysql2/promise')
 
-const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings', 'bravo-event')
+const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 const PROVIDER = 'bravo_event'
 const ORG_ID = 'a0000000-0000-4000-8000-000000000001'
 
@@ -202,8 +203,8 @@ async function importImagesAvif(pgClient, listingId, slug, galleryIds, imageId, 
     if (!urls.length) continue
 
     const fileName = avifFileName(sort, urls[0])
-    const destAbs = path.join(UPLOADS_ROOT, slug, fileName)
-    const storageKey = `uploads/listings/bravo-event/${slug}/${fileName}`
+    const destAbs = path.join(listingUploadDir(UPLOADS_ROOT, 'activity', slug), fileName)
+    const storageKey = listingStorageKey('activity', slug, fileName)
 
     if (!SKIP_IMAGES && !DRY_RUN) {
       let saved = false

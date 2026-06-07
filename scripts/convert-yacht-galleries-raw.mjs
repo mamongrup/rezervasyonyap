@@ -11,7 +11,7 @@ import { createPgClient } from './lib/pg-client.mjs'
 import {
   convertAndRegisterSlug,
   countRawFiles,
-  listSlugsWithRawFiles,
+  listMediaSubPathsWithRawFiles,
 } from './lib/yacht-gallery-phases.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -27,12 +27,12 @@ async function main() {
   const before = await countRawFiles(UPLOADS_ROOT)
   console.log(`Ham bekleyen: ${before.slugs} ilan, ${before.files} dosya`)
 
-  let slugs = await listSlugsWithRawFiles(UPLOADS_ROOT)
+  let mediaSubs = await listMediaSubPathsWithRawFiles(UPLOADS_ROOT)
   if (SLUG_FILTER) {
     const needle = SLUG_FILTER.replace(/\*/g, '')
-    slugs = slugs.filter((s) => s.includes(needle))
+    mediaSubs = mediaSubs.filter((s) => s.includes(needle))
   }
-  if (LIMIT > 0) slugs = slugs.slice(0, LIMIT)
+  if (LIMIT > 0) mediaSubs = mediaSubs.slice(0, LIMIT)
 
   const pg = createPgClient()
   await pg.connect()
@@ -40,8 +40,9 @@ async function main() {
   let ok = 0
   let failed = 0
 
-  for (const slug of slugs) {
-    process.stdout.write(`  ${slug} … `)
+  for (const mediaSubPath of mediaSubs) {
+    const slug = mediaSubPath.split('/').pop() || mediaSubPath
+    process.stdout.write(`  ${mediaSubPath} … `)
     const { rows } = await pg.query(
       `SELECT l.id::text AS listing_id FROM listings l
        JOIN product_categories pc ON pc.id = l.category_id AND pc.code = 'yacht_charter'
@@ -55,7 +56,7 @@ async function main() {
       continue
     }
     try {
-      const n = await convertAndRegisterSlug(pg, listingId, slug, UPLOADS_ROOT)
+      const n = await convertAndRegisterSlug(pg, listingId, slug, UPLOADS_ROOT, { mediaSubPath })
       if (n > 0) {
         console.log(`${n} AVIF`)
         ok += 1

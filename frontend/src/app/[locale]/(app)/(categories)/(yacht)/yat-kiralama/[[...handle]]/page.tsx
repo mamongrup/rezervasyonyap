@@ -13,6 +13,7 @@ import {
   fetchFlexibleStayRentalListings,
   parseSearchParamsFromUrl,
 } from '@/lib/listings-fetcher'
+import { regionLabelFromHandle } from '@/lib/stay-location-display'
 import { YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import type { TListingBase } from '@/types/listing-types'
@@ -71,7 +72,7 @@ export default async function Page({
     : undefined
   const regionLabel =
     !isPropertyTypeHandle && currentHandle && currentHandle !== 'all'
-      ? currentHandle.replace(/-/g, ' ')
+      ? regionLabelFromHandle(currentHandle)
       : undefined
 
   const themeLabelMap = await getHolidayThemeLabelMap(locale, 'yacht_charter')

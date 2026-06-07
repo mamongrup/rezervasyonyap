@@ -22,47 +22,60 @@ export async function registerGalleryImages(pg, listingId, imageRows) {
   return sorted.length
 }
 
-export async function listSlugsWithRawFiles(uploadsRoot) {
-  const slugs = []
-  let entries = []
-  try {
-    entries = await readdir(uploadsRoot, { withFileTypes: true })
-  } catch {
-    return slugs
-  }
-  for (const ent of entries) {
-    if (!ent.isDirectory()) continue
-    const rawDir = path.join(uploadsRoot, ent.name, '.raw')
-    if (!existsSync(rawDir)) continue
+/** `.raw` bekleyen galeri dizinleri — `ilanlar/yatlar/slug` veya eski düz `slug`. */
+export async function listMediaSubPathsWithRawFiles(uploadsRoot) {
+  const found = []
+  async function walk(dir, relParts = []) {
+    let entries = []
     try {
-      const files = await readdir(rawDir)
-      if (files.some((f) => f && !f.startsWith('.'))) slugs.push(ent.name)
+      entries = await readdir(dir, { withFileTypes: true })
     } catch {
-      /* skip */
+      return
+    }
+    for (const ent of entries) {
+      if (!ent.isDirectory()) continue
+      const rel = [...relParts, ent.name]
+      if (ent.name === '.raw') {
+        const parentRel = relParts.join('/')
+        if (parentRel) found.push(parentRel)
+        continue
+      }
+      await walk(path.join(dir, ent.name), rel)
     }
   }
-  return slugs.sort()
+  await walk(uploadsRoot)
+  return [...new Set(found)].sort()
+}
+
+/** @deprecated `listMediaSubPathsWithRawFiles` kullanın */
+export async function listSlugsWithRawFiles(uploadsRoot) {
+  const subs = await listMediaSubPathsWithRawFiles(uploadsRoot)
+  return subs.map((s) => s.split('/').pop() || s)
 }
 
 export async function countRawFiles(uploadsRoot) {
-  const slugs = await listSlugsWithRawFiles(uploadsRoot)
+  const subs = await listMediaSubPathsWithRawFiles(uploadsRoot)
   let total = 0
-  for (const slug of slugs) {
-    const files = await readdir(path.join(uploadsRoot, slug, '.raw'))
+  for (const sub of subs) {
+    const files = await readdir(path.join(uploadsRoot, ...sub.split('/'), '.raw'))
     total += files.filter((f) => !f.startsWith('.')).length
   }
-  return { slugs: slugs.length, files: total }
+  return { slugs: subs.length, files: total }
 }
 
-export async function slugHasRawFiles(uploadsRoot, slug) {
-  const rawDir = path.join(uploadsRoot, slug, '.raw')
+export async function mediaSubPathHasRawFiles(uploadsRoot, mediaSubPath) {
+  const rawDir = path.join(uploadsRoot, ...String(mediaSubPath).split('/'), '.raw')
   if (!existsSync(rawDir)) return false
   const files = await readdir(rawDir)
   return files.some((f) => !f.startsWith('.'))
 }
 
 export async function convertAndRegisterSlug(pg, listingId, slug, uploadsRoot, opts = {}) {
-  const imageRows = await convertExistingRawGallery(slug, uploadsRoot, opts)
+  const imageRows = await convertExistingRawGallery(slug, uploadsRoot, {
+    categoryCode: opts.categoryCode || 'yacht_charter',
+    mediaSubPath: opts.mediaSubPath,
+    ...opts,
+  })
   if (!imageRows.length) return 0
   return registerGalleryImages(pg, listingId, imageRows)
 }

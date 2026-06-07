@@ -3,6 +3,7 @@ import { downloadGalleryImages } from './wtatil-image-download.mjs'
 import { formatYachtTitleTr } from './yacht-title-tr.mjs'
 import { buildAlbatrosDescription } from './albatros-api.mjs'
 import { findMatchingYachtListing } from './yacht-listing-match.mjs'
+import { applyYachtLocationToMeta } from './yacht-location-resolve.mjs'
 
 const PROVIDER = 'albatros'
 
@@ -175,7 +176,6 @@ export async function upsertAlbatrosYachtListing(
     albatros_id: albatrosId,
     length_m: record?.lengthM ?? null,
     cabin_count: cabinCount,
-    base_port: marina,
     class_label: record?.classLabel || '',
     price_period: record?.pricePeriod || 'daily',
     headline_price: record?.headlinePrice ?? null,
@@ -195,6 +195,7 @@ export async function upsertAlbatrosYachtListing(
       },
     },
   }
+  const locationPin = applyYachtLocationToMeta(incomingMeta, marina)
 
   if (listingId && matchedExisting) {
     const cur = await pgClient.query(
@@ -220,7 +221,7 @@ export async function upsertAlbatrosYachtListing(
          currency_code = 'EUR',
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, marina || null],
+      [listingId, locationPin || null],
     )
     await pgClient.query(
       `UPDATE listing_translations SET title = $2, description = $3
@@ -264,7 +265,9 @@ export async function upsertAlbatrosYachtListing(
       !skipImages && galleryUrls.length > 0 && (forceImages ? existingImageCount === 0 : false)
     let imageCount = 0
     if (shouldDownload) {
-      const imageRows = await downloadGalleryImages(galleryUrls, slug, uploadsRoot)
+      const imageRows = await downloadGalleryImages(galleryUrls, slug, uploadsRoot, {
+        categoryCode: 'yacht_charter',
+      })
       if (imageRows.length) {
         await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
         for (const row of imageRows) {
@@ -301,7 +304,7 @@ export async function upsertAlbatrosYachtListing(
          external_provider_code = $5, external_listing_ref = $6,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, marina || null, record?.pricePeriod === 'weekly' ? 7 : 1, PROVIDER, albatrosId],
+      [listingId, slug, locationPin || null, record?.pricePeriod === 'weekly' ? 7 : 1, PROVIDER, albatrosId],
     )
   } else if (!listingId) {
     const ins = await pgClient.query(
@@ -315,7 +318,7 @@ export async function upsertAlbatrosYachtListing(
         ctx.categoryId,
         slug,
         status,
-        marina || null,
+        locationPin || null,
         record?.pricePeriod === 'weekly' ? 7 : 1,
         PROVIDER,
         albatrosId,
@@ -380,7 +383,10 @@ export async function upsertAlbatrosYachtListing(
     galleryUrls.length > 0 &&
     (isNew || (forceImages && existingImageCount === 0))
   const imageRows = shouldDownloadImages
-    ? await downloadGalleryImages(galleryUrls, slug, uploadsRoot, { skipImages: false })
+    ? await downloadGalleryImages(galleryUrls, slug, uploadsRoot, {
+        categoryCode: 'yacht_charter',
+        skipImages: false,
+      })
     : []
 
   if (imageRows.length) {
@@ -419,7 +425,9 @@ export async function attachGalleryImagesToListing(
 ) {
   const urls = (galleryUrls || []).filter(Boolean)
   if (!urls.length) return 0
-  const imageRows = await downloadGalleryImages(urls, slug, uploadsRoot)
+  const imageRows = await downloadGalleryImages(urls, slug, uploadsRoot, {
+    categoryCode: 'yacht_charter',
+  })
   if (!imageRows.length) return 0
   await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
   for (const row of imageRows) {

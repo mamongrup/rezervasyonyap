@@ -31,6 +31,7 @@ import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { TListingBase } from '@/types/listing-types'
+import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 import { normalizeStayRentalAttrsParam } from '@/lib/stay-rental-filter-attrs'
 
@@ -298,14 +299,18 @@ export function mapPublicListingItemToListingBase(
 
   const discountPct = coercePositiveDiscountPercent(item.discount_percent)
 
+  const locationPin = isStayRental
+    ? normalizeStayLocationPin(item.location ?? '') || undefined
+    : (item.location ?? undefined)
+
   const base: TListingBase = {
     id: item.id,
     handle: item.slug,
     title: item.title,
     listingCategory: typeLine,
     listingVertical: vertical,
-    address: item.location ?? undefined,
-    city: item.location ?? undefined,
+    address: locationPin,
+    city: locationPin,
     price,
     priceAmount,
     ...(priceAmountMax != null ? { priceAmountMax } : {}),

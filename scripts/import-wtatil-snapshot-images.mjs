@@ -11,9 +11,11 @@
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { avifFileName, downloadAndSaveAvif, isWtatilThumbnailUrl } from './lib/wtatil-image-download.mjs'
 import { imageUrlsFromWtatilTour } from './lib/wtatil-listing-db.mjs'
-import { listingNeedsLocalImages, WTATIL_UPLOADS_ROOT } from './lib/tour-upload-path.mjs'
+import { listingNeedsLocalImages } from './lib/tour-upload-path.mjs'
+import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
 const args = new Set(process.argv.slice(2))
@@ -25,6 +27,14 @@ const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const slugIdx = process.argv.indexOf('--slug')
 const SLUG_FILTER = slugIdx >= 0 ? process.argv[slugIdx + 1] : ''
+const UPLOADS_ROOT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  'frontend',
+  'public',
+  'uploads',
+  'listings',
+)
 
 const stats = {
   listings: 0,
@@ -72,8 +82,8 @@ async function replaceListingImages(pgClient, listingId, slug, sourceUrls, { dry
   for (let i = 0; i < ordered.length; i++) {
     const sourceUrl = ordered[i]
     const fileName = avifFileName(i, sourceUrl)
-    const destAbs = path.join(WTATIL_UPLOADS_ROOT, slug, fileName)
-    const storageKey = `uploads/listings/wtatil/${slug}/${fileName}`
+    const destAbs = path.join(listingUploadDir(UPLOADS_ROOT, 'tour', slug), fileName)
+    const storageKey = listingStorageKey('tour', slug, fileName)
 
     if (SKIP_EXISTING && !dryRun && existsSync(destAbs)) {
       saved.push({ sort: i, storageKey })

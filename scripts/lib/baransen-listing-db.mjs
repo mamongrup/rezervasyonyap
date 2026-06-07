@@ -3,6 +3,7 @@ import { downloadGalleryImages } from './wtatil-image-download.mjs'
 import { formatYachtTitleTr } from './yacht-title-tr.mjs'
 import { buildBaransenDescription } from './baransen-api.mjs'
 import { findMatchingYachtListing } from './yacht-listing-match.mjs'
+import { applyYachtLocationToMeta } from './yacht-location-resolve.mjs'
 const PROVIDER = 'baransen'
 
 export async function resolveBaransenImportContext(pgClient, orgId) {
@@ -148,7 +149,6 @@ export async function upsertBaransenYachtListing(
     baransen_id: baransenId,
     length_m: detail?.lengthM ?? null,
     cabin_count: cabinCount,
-    base_port: marina,
     specs: detail?.specs ?? {},
     monthly_rates: detail?.monthlyRates ?? [],
     daily_price: dailyPrice,
@@ -162,6 +162,7 @@ export async function upsertBaransenYachtListing(
       },
     },
   }
+  const locationPin = applyYachtLocationToMeta(incomingMeta, marina)
 
   if (listingId && matchedExisting) {
     const cur = await pgClient.query(
@@ -188,7 +189,7 @@ export async function upsertBaransenYachtListing(
          currency_code = $3,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, marina || null, currency],
+      [listingId, locationPin || null, currency],
     )
     await pgClient.query(
       `UPDATE listing_translations SET title = $2, description = $3
@@ -246,7 +247,7 @@ export async function upsertBaransenYachtListing(
          external_provider_code = $6, external_listing_ref = $7,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, marina || null, currency, 1, PROVIDER, baransenId],
+      [listingId, slug, locationPin || null, currency, 1, PROVIDER, baransenId],
     )
   } else if (!listingId) {
     const ins = await pgClient.query(
@@ -255,7 +256,7 @@ export async function upsertBaransenYachtListing(
          min_stay_nights, listing_source, external_provider_code, external_listing_ref, last_synced_at
        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, 1, 'api', $7, $8, now())
        RETURNING id::text`,
-      [ctx.orgId, ctx.categoryId, slug, status, currency, marina || null, PROVIDER, baransenId],
+      [ctx.orgId, ctx.categoryId, slug, status, currency, locationPin || null, PROVIDER, baransenId],
     )
     listingId = ins.rows[0].id
     isNew = true
@@ -330,7 +331,10 @@ export async function upsertBaransenYachtListing(
     galleryUrls.length > 0 &&
     ((isNew && !matchedExisting) || (forceImages && existingImageCount === 0))
   const imageRows = shouldDownloadImages
-    ? await downloadGalleryImages(galleryUrls, slug, uploadsRoot, { skipImages: false })
+    ? await downloadGalleryImages(galleryUrls, slug, uploadsRoot, {
+        categoryCode: 'yacht_charter',
+        skipImages: false,
+      })
     : []
 
   if (imageRows.length) {

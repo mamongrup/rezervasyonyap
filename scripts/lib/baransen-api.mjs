@@ -101,7 +101,7 @@ export function parseListingCards(html) {
       const paxM = li.match(/Konaklama\s*:\s*(\d+)\s*kişi/i)
       if (paxM) pax = parseInt(paxM[1], 10)
       const marM = li.match(/Marina:\s*(.+)/i)
-      if (marM) marina = marM[1].trim()
+      if (marM) marina = marM[1].trim().replace(/\s+yat\s+kiralama\b/gi, '').trim()
     }
 
     const imgs = []
@@ -268,7 +268,9 @@ export function parseBoatDetail(html, sourceUrl) {
 
   let marina = ''
   const breadcrumbMarina = html.match(/Marina[:\s]*([^<]+)/i)
-  if (breadcrumbMarina) marina = stripTags(breadcrumbMarina[1])
+  if (breadcrumbMarina) {
+    marina = stripTags(breadcrumbMarina[1]).replace(/\s+yat\s+kiralama\b/gi, '').trim()
+  }
 
   const idM = sourceUrl.match(/-(\d+)\/?$/)
   const baransenId = idM?.[1] || ''

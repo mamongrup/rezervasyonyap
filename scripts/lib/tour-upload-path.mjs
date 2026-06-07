@@ -1,17 +1,14 @@
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { listingCategoryFolder } from './listing-upload-path.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const TRAVEL_ROOT = path.resolve(__dirname, '..', '..')
-export const WTATIL_UPLOADS_ROOT = path.join(
-  TRAVEL_ROOT,
-  'frontend',
-  'public',
-  'uploads',
-  'listings',
-  'wtatil',
-)
+const LISTINGS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
+
+/** Tur ilanları kökü — `ilanlar/turlar/` */
+export const WTATIL_UPLOADS_ROOT = path.join(LISTINGS_ROOT, 'ilanlar', listingCategoryFolder('tour'))
 
 export function storageKeyToAbsPath(storageKey) {
   const k = String(storageKey || '').trim()

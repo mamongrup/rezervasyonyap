@@ -11,6 +11,7 @@ import https from 'node:https'
 import http from 'node:http'
 import { createRequire } from 'node:module'
 import { mediaUrlCandidates } from './lib/bravo-media.mjs'
+import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 
 const TRAVEL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
@@ -129,8 +130,8 @@ async function main() {
       const urls = mediaUrlCandidates(m)
       if (!urls.length) continue
       const fileName = fileNameFromMedia(m)
-      const destPath = path.join(UPLOADS_ROOT, row.slug, fileName)
-      const storageKey = `uploads/listings/${row.slug}/${fileName}`
+      const destPath = path.join(listingUploadDir(UPLOADS_ROOT, 'holiday_home', row.slug), fileName)
+      const storageKey = listingStorageKey('holiday_home', row.slug, fileName)
       try {
         if (!existsSync(destPath)) {
           await mkdir(path.dirname(destPath), { recursive: true })

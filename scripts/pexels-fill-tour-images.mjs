@@ -20,10 +20,11 @@ import {
 } from './lib/psql-exec.mjs'
 import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
 import { fetchBuffer, bufferToAvif } from './lib/wtatil-image-download.mjs'
+import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 
 const SCRIPT_VERSION = 'psql-v1'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const UPLOADS_ROOT = path.join(__dirname, '..', 'frontend', 'public', 'uploads', 'listings', 'pexels')
+const UPLOADS_ROOT = path.join(__dirname, '..', 'frontend', 'public', 'uploads', 'listings')
 
 const args = process.argv.slice(2)
 const dryRun = args.includes('--dry-run')
@@ -206,8 +207,8 @@ async function main() {
     const saved = []
     for (let s = 0; s < photos.length; s++) {
       const fileName = pexelsFileName(s, photos[s].id)
-      const destAbs = path.join(UPLOADS_ROOT, row.slug, fileName)
-      const storageKey = `uploads/listings/pexels/${row.slug}/${fileName}`
+      const destAbs = path.join(listingUploadDir(UPLOADS_ROOT, 'tour', row.slug), fileName)
+      const storageKey = listingStorageKey('tour', row.slug, fileName)
       try {
         const n = await downloadPexelsAvif(photos[s].url, destAbs)
         bytes += n

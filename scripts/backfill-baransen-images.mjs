@@ -94,6 +94,7 @@ async function main() {
       }
       if (DOWNLOAD_ONLY) {
         const rawRows = await downloadGalleryImages(detail.galleryUrls, row.slug, UPLOADS_ROOT, {
+          categoryCode: 'yacht_charter',
           downloadOnly: true,
         })
         console.log(`${rawRows.length} ham`)

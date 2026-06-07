@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { downloadGalleryImages } from './wtatil-image-download.mjs'
 import { formatYachtTitleTr } from './yacht-title-tr.mjs'
+import { applyYachtLocationToMeta } from './yacht-location-resolve.mjs'
 
 const PROVIDER = 'akasia'
 
@@ -73,6 +74,8 @@ export async function upsertAkasiaYachtListing(
   const slug = slugForAkasiaYacht(title, akasiaId)
   const currency = detail?.currency || card?.charterRate?.currency || 'EUR'
   const locationName = detail?.basePort || ''
+  const locSeed = {}
+  const locationPin = applyYachtLocationToMeta(locSeed, locationName)
   const weeklyLow = detail?.weeklyLow ?? card?.charterRate?.amount ?? null
   const description = detail?.description || title
 
@@ -104,7 +107,7 @@ export async function upsertAkasiaYachtListing(
          external_provider_code = $7, external_listing_ref = $8,
          last_synced_at = now(), updated_at = now()
        WHERE id = $1::uuid`,
-      [listingId, slug, status, currency, locationName || null, 7, PROVIDER, akasiaId],
+      [listingId, slug, status, currency, locationPin || null, 7, PROVIDER, akasiaId],
     )
   } else {
     const ins = await pgClient.query(
@@ -113,7 +116,7 @@ export async function upsertAkasiaYachtListing(
          min_stay_nights, listing_source, external_provider_code, external_listing_ref, last_synced_at
        ) VALUES ($1::uuid, $2, $3, $4, $5, $6, 7, 'api', $7, $8, now())
        RETURNING id::text`,
-      [ctx.orgId, ctx.categoryId, slug, status, currency, locationName || null, PROVIDER, akasiaId],
+      [ctx.orgId, ctx.categoryId, slug, status, currency, locationPin || null, PROVIDER, akasiaId],
     )
     listingId = ins.rows[0].id
   }
@@ -141,7 +144,7 @@ export async function upsertAkasiaYachtListing(
     akasia_get: propertyType,
     length_m: detail?.lengthMeters ?? card?.lengthM ?? null,
     cabin_count: cabinCount,
-    base_port: locationName,
+    ...locSeed,
     specs: detail?.specs ?? {},
     weekly_rates: detail?.rates ?? [],
     source_url: `https://akasiayachting.com/#get/detail/of/${akasiaId}`,
@@ -195,7 +198,10 @@ export async function upsertAkasiaYachtListing(
       ? [card.thumbUrl]
       : []
 
-  const imageRows = await downloadGalleryImages(galleryUrls, slug, uploadsRoot, { skipImages })
+  const imageRows = await downloadGalleryImages(galleryUrls, slug, uploadsRoot, {
+    categoryCode: 'yacht_charter',
+    skipImages,
+  })
 
   if (imageRows.length) {
     await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])

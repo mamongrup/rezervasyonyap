@@ -5,6 +5,11 @@ import https from 'node:https'
 import http from 'node:http'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
+import {
+  listingStorageKey,
+  listingUploadDir,
+  resolveListingMediaSubPath,
+} from './listing-upload-path.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const require = createRequire(path.join(__dirname, '..', '..', 'frontend', 'package.json'))
@@ -175,7 +180,7 @@ async function convertGalleryRawPhase(jobs, convertConcurrency, { cleanupRaw = t
   })
 }
 
-function galleryRowsFromJobs(jobs, slug, { requireAvif = true, requireRaw = false } = {}) {
+function galleryRowsFromJobs(jobs, storagePrefix, { requireAvif = true, requireRaw = false } = {}) {
   const rows = []
   for (const job of jobs) {
     const hasAvif = existsSync(job.destAvif)
@@ -184,7 +189,7 @@ function galleryRowsFromJobs(jobs, slug, { requireAvif = true, requireRaw = fals
     if (requireRaw && !hasRaw) continue
     if (!requireAvif && !requireRaw && !hasAvif && !hasRaw) continue
     rows.push({
-      storageKey: `uploads/listings/${slug}/${job.fileName}`,
+      storageKey: `${storagePrefix}/${job.fileName}`,
       sort: job.i,
     })
   }
@@ -200,6 +205,8 @@ export async function downloadGalleryImages(
   slug,
   uploadsRoot,
   {
+    categoryCode = null,
+    mediaSubPath = null,
     skipImages = false,
     downloadOnly = false,
     convertOnly = false,
@@ -210,14 +217,21 @@ export async function downloadGalleryImages(
 ) {
   if (!urls.length) return []
 
+  const relSub = resolveListingMediaSubPath({ categoryCode, slug, mediaSubPath })
+  const storagePrefix = `uploads/listings/${relSub}`
+
   if (skipImages) {
     return urls.map((url, i) => ({
-      storageKey: `uploads/listings/${slug}/${avifFileName(i, url)}`,
+      storageKey: categoryCode
+        ? listingStorageKey(categoryCode, slug, avifFileName(i, url))
+        : `${storagePrefix}/${avifFileName(i, url)}`,
       sort: i,
     }))
   }
 
-  const listingDir = path.join(uploadsRoot, slug)
+  const listingDir = categoryCode
+    ? listingUploadDir(uploadsRoot, categoryCode, slug)
+    : path.join(uploadsRoot, ...relSub.split('/'))
   const rawDir = path.join(listingDir, '.raw')
   await mkdir(rawDir, { recursive: true })
 
@@ -242,15 +256,23 @@ export async function downloadGalleryImages(
     } catch {
       /* ignore */
     }
-    return galleryRowsFromJobs(jobs, slug, { requireAvif: true })
+    return galleryRowsFromJobs(jobs, storagePrefix, { requireAvif: true })
   }
 
-  return galleryRowsFromJobs(jobs, slug, { requireRaw: true })
+  return galleryRowsFromJobs(jobs, storagePrefix, { requireRaw: true })
 }
 
 /** Diskteki .raw klasörünü AVIF'e çevir (URL listesi gerekmez). */
 export async function convertExistingRawGallery(slug, uploadsRoot, opts = {}) {
-  const listingDir = path.join(uploadsRoot, slug)
+  const relSub = resolveListingMediaSubPath({
+    categoryCode: opts.categoryCode,
+    slug,
+    mediaSubPath: opts.mediaSubPath,
+  })
+  const storagePrefix = opts.storagePrefix || `uploads/listings/${relSub}`
+  const listingDir = opts.categoryCode
+    ? listingUploadDir(uploadsRoot, opts.categoryCode, slug)
+    : path.join(uploadsRoot, ...relSub.split('/'))
   const rawDir = path.join(listingDir, '.raw')
   if (!existsSync(rawDir)) return []
 
@@ -286,7 +308,7 @@ export async function convertExistingRawGallery(slug, uploadsRoot, opts = {}) {
     /* ignore */
   }
 
-  return galleryRowsFromJobs(jobs, slug, { requireAvif: true })
+  return galleryRowsFromJobs(jobs, storagePrefix, { requireAvif: true })
 }
 
 /** Tek görsel — önce indir, sonra dönüştür (geriye uyumluluk). */

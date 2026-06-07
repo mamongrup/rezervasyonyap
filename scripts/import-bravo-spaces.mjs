@@ -23,6 +23,7 @@ import {
   applyListingPropertyType,
   resolveHolidayPropertyType,
 } from './lib/bravo-property-type.mjs'
+import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -220,7 +221,7 @@ async function importImages(pgClient, listingId, slug, galleryIds, imageId, bann
   push(bannerId)
   for (const id of galleryIds) push(id)
 
-  const uploadDir = path.join(UPLOADS_ROOT, slug)
+  const uploadDir = listingUploadDir(UPLOADS_ROOT, 'holiday_home', slug)
   const storageRows = []
   let sort = 0
 
@@ -230,7 +231,7 @@ async function importImages(pgClient, listingId, slug, galleryIds, imageId, bann
     if (!urls.length) continue
     const fileName = fileNameFromMedia(m)
     const destPath = path.join(uploadDir, fileName)
-    const storageKey = `uploads/listings/${slug}/${fileName}`
+    const storageKey = listingStorageKey('holiday_home', slug, fileName)
 
     if (!SKIP_IMAGES && !DRY_RUN) {
       try {

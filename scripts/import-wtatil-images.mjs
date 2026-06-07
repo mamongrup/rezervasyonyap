@@ -1,5 +1,5 @@
 /**
- * Wtatil tur görselleri → yerel AVIF (public/uploads/listings/wtatil/{slug}/)
+ * Wtatil tur görselleri → yerel AVIF (public/uploads/listings/ilanlar/turlar/{slug}/)
  *
  *   node scripts/import-wtatil-images.mjs --dry-run --limit 5
  *   node scripts/import-wtatil-images.mjs
@@ -19,10 +19,11 @@ import {
   isLocalAvifKey,
 } from './lib/wtatil-image-download.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
-const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings', 'wtatil')
+const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
@@ -95,8 +96,8 @@ async function main() {
       }
 
       const fileName = avifFileName(row.sort_order, row.storage_key)
-      const destAbs = path.join(UPLOADS_ROOT, slug, fileName)
-      const storageKey = `uploads/listings/wtatil/${slug}/${fileName}`
+      const destAbs = path.join(listingUploadDir(UPLOADS_ROOT, 'tour', slug), fileName)
+      const storageKey = listingStorageKey('tour', slug, fileName)
 
       if (SKIP_EXISTING && !DRY_RUN && existsSync(destAbs)) {
         newKeys.push({ imageId: row.image_id, sort: row.sort_order, storageKey })

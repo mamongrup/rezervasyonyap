@@ -14,31 +14,13 @@ import { FC, useMemo } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
+import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 
 interface ListingCardProps {
   className?: string
   data: TListingBase
   config: CardConfig
   size?: 'default' | 'small'
-}
-
-function normalizeHolidayHomeLocationPin(raw: string | null | undefined): string {
-  const text = String(raw ?? '').trim()
-  if (!text) return ''
-  const parts = text
-    .split(',')
-    .map((segment) => segment.trim())
-    .filter(Boolean)
-    .map((segment) => segment.replace(/\b\d{4,6}\b/g, '').replace(/\s{2,}/g, ' ').trim())
-    .flatMap((segment) => segment.split('/').map((piece) => piece.trim()).filter(Boolean))
-  if (!parts.length) return ''
-  const deduped: string[] = []
-  for (const part of parts) {
-    if (!deduped.some((x) => x.toLocaleLowerCase('tr') === part.toLocaleLowerCase('tr'))) {
-      deduped.push(part)
-    }
-  }
-  return deduped.join(', ')
 }
 
 /**
@@ -161,7 +143,7 @@ const ListingCard: FC<ListingCardProps> = ({
   const isHolidayHomeCard =
     data.listingVertical === 'holiday_home' || config.linkBase.includes('/tatil-evi')
   const normalizedAddress =
-    isHolidayHomeCard ? normalizeHolidayHomeLocationPin(address) : address
+    isHolidayHomeCard ? normalizeStayLocationPin(address) : address
 
   // Yemek planı rozeti
   const mealBadge =
