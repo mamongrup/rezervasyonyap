@@ -157,11 +157,6 @@ for (const row of listings) {
 }
 
 if (!DRY_RUN) {
-  const legacyDirs = ['wtatil', 'bravo-event', 'pexels']
-  for (const name of legacyDirs) {
-    const d = path.join(UPLOADS_ROOT, name)
-    if (existsSync(d)) await cleanupEmptyDirs(d)
-  }
   let topEntries = []
   try {
     topEntries = await readdir(UPLOADS_ROOT, { withFileTypes: true })
@@ -170,7 +165,6 @@ if (!DRY_RUN) {
   }
   for (const ent of topEntries) {
     if (!ent.isDirectory()) continue
-    if (ent.name === 'ilanlar') continue
     const full = path.join(UPLOADS_ROOT, ent.name)
     await cleanupEmptyDirs(full)
   }

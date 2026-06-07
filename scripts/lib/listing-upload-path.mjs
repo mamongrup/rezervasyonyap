@@ -56,11 +56,11 @@ export function slugifyMediaSegment(s) {
   )
 }
 
-/** `ilanlar/yatlar/slug` — uploads/listings öneki hariç */
+/** `yatlar/slug` — uploads/listings öneki hariç */
 export function listingImageSubPath(categoryCode, listingSlug) {
   const b = slugifyMediaSegment(listingSlug)
   const cat = listingCategoryFolder(categoryCode)
-  return `ilanlar/${cat}/${b}`
+  return `${cat}/${b}`
 }
 
 export function listingStoragePrefix(categoryCode, listingSlug) {

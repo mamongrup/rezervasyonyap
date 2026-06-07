@@ -7,8 +7,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export const TRAVEL_ROOT = path.resolve(__dirname, '..', '..')
 const LISTINGS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 
-/** Tur ilanları kökü — `ilanlar/turlar/` */
-export const WTATIL_UPLOADS_ROOT = path.join(LISTINGS_ROOT, 'ilanlar', listingCategoryFolder('tour'))
+/** Tur ilanları kökü — `turlar/` */
+export const WTATIL_UPLOADS_ROOT = path.join(LISTINGS_ROOT, listingCategoryFolder('tour'))
 
 export function storageKeyToAbsPath(storageKey) {
   const k = String(storageKey || '').trim()
