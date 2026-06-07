@@ -351,12 +351,12 @@ function HeroSectionWithSearchForm1({
             /** Anasayfa `minimal` — arama ayrı grid satırında; `pb-60` yok */
             inlineSearch &&
               spacing === 'minimal' &&
-              'gap-y-8 pb-8 lg:gap-y-8 lg:pe-10 lg:pt-12 lg:pb-0 xl:gap-y-10 xl:pe-14 2xl:pe-14',
+              'gap-y-5 pb-2 lg:gap-y-8 lg:pe-10 lg:pt-12 lg:pb-0 xl:gap-y-10 xl:pe-14 2xl:pe-14',
             /** Bölge `compact` — alt boşluk arama bindirmesi için */
             spacing === 'compact' &&
-              'gap-y-4 pb-16 sm:gap-y-5 lg:gap-y-5 lg:pe-10 lg:pt-4 lg:pb-60 xl:pe-14',
+              'gap-y-4 pb-4 sm:pb-16 sm:gap-y-5 lg:gap-y-5 lg:pe-10 lg:pt-4 lg:pb-60 xl:pe-14',
             /** Kategori `default` */
-            spacing === 'default' && 'gap-y-8 pb-16 lg:pb-60 xl:gap-y-10',
+            spacing === 'default' && 'gap-y-6 pb-4 md:pb-16 lg:pb-60 xl:gap-y-10',
             spacing === 'minimal' && 'lg:pt-0',
             spacing === 'compact' && 'lg:pt-2',
             spacing === 'default' && 'lg:pt-2',
@@ -364,7 +364,7 @@ function HeroSectionWithSearchForm1({
         >
           <HeadingTag
             id={headingDomId}
-            className="w-full min-w-0 max-w-full break-words text-4xl/[1.15] font-medium tracking-tight text-pretty sm:text-5xl/[1.15] xl:text-7xl/[1.1]"
+            className="w-full min-w-0 max-w-full break-words text-2xl/[1.2] font-medium tracking-tight text-pretty sm:text-4xl/[1.15] md:text-5xl/[1.15] xl:text-7xl/[1.1]"
           >
             {typeof heading === 'string' ? (
               <span dangerouslySetInnerHTML={{ __html: sanitizeHeroInlineHtml(heading || '') }} />
