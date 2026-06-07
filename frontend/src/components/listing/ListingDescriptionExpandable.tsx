@@ -6,8 +6,11 @@ import { stripHtml } from '@/lib/social-share/strip-html'
 import { getMessages } from '@/utils/getT'
 import { useState } from 'react'
 
-/** Düz metin uzunluğu bu eşiği aşınca özet + “devamını göster” */
+/** Düz metin uzunluğu bu eşiği aşınca özet + "devamını göster" */
 const PLAIN_PREVIEW_MAX = 520
+
+/** Tur bilgi bölümleri (Ücretli / Rehberlik vb.) için daha geniş eşik */
+export const HTML_PREVIEW_MAX_TOUR = 420
 
 function truncatePlainAtWord(plain: string, max: number): string {
   const t = plain.trim()
@@ -22,14 +25,18 @@ function truncatePlainAtWord(plain: string, max: number): string {
 export default function ListingDescriptionExpandable({
   html,
   locale,
+  previewMax,
 }: {
   html: string
   locale: string
+  /** Özel eşik. Verilmezse varsayılan 520 kullanılır. */
+  previewMax?: number
 }) {
   const messages = getMessages(locale)
   const safeHtml = sanitizeRichCmsHtml(html)
   const plain = stripHtml(safeHtml)
-  const needsClamp = plain.length > PLAIN_PREVIEW_MAX
+  const limit = previewMax ?? PLAIN_PREVIEW_MAX
+  const needsClamp = plain.length > limit
   const [expanded, setExpanded] = useState(false)
 
   const showMore = messages.listing.detailPage.descriptionShowMore
@@ -50,7 +57,7 @@ export default function ListingDescriptionExpandable({
         <div className={prose} dangerouslySetInnerHTML={{ __html: safeHtml }} />
       ) : (
         <p className="text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-          {truncatePlainAtWord(plain, PLAIN_PREVIEW_MAX)}
+          {truncatePlainAtWord(plain, limit)}
         </p>
       )}
       <div className="w-14 border-b border-neutral-200 dark:border-neutral-700" />
