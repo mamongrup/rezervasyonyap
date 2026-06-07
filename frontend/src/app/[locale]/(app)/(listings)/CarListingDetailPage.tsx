@@ -282,33 +282,32 @@ async function renderYolcu360CarDetail({
 }) {
   const searchCtx = resolveYolcu360SearchFromUrl(searchParams, referer)
 
-  let car = null
-  let cars: Awaited<ReturnType<typeof fetchYolcu360CarListings>> = null
+  // 1. URL snapshot'tan hızlı render (kategori sayfasından navigasyonda her zaman mevcut)
+  let car: Awaited<ReturnType<typeof yolcu360ListingFromSnap>> =
+    yolcu360ListingFromSnap(searchParams, handle)
 
-  if (searchCtx) {
+  // 2. Snap yoksa API'den araç listesi çek ve bul
+  let cars: Awaited<ReturnType<typeof fetchYolcu360CarListings>> = null
+  if (!car && searchCtx) {
     const { pickup: p, dropoff: d, checkin: ci, checkout: co } = searchCtx
     cars = await fetchYolcu360CarListings({ pickup: p, dropoff: d, checkin: ci, checkout: co })
-  }
 
-  if (cars?.length) {
-    const listingParams: Record<string, string | string[] | undefined> = { ...searchParams }
-    if (!firstString(listingParams.y360_idx)) {
-      const idxMatch = handle.match(/^yolcu360-(\d+)$/)
-      if (idxMatch) listingParams.y360_idx = idxMatch[1]
-    }
-    if (!firstString(listingParams.y360_code) && referer) {
-      try {
-        const code = new URL(referer).searchParams.get('y360_code')?.trim()
-        if (code) listingParams.y360_code = code
-      } catch {
-        /* yoksay */
+    if (cars?.length) {
+      const listingParams: Record<string, string | string[] | undefined> = { ...searchParams }
+      if (!firstString(listingParams.y360_idx)) {
+        const idxMatch = handle.match(/^yolcu360-(\d+)$/)
+        if (idxMatch) listingParams.y360_idx = idxMatch[1]
       }
+      if (!firstString(listingParams.y360_code) && referer) {
+        try {
+          const code = new URL(referer).searchParams.get('y360_code')?.trim()
+          if (code) listingParams.y360_code = code
+        } catch {
+          /* yoksay */
+        }
+      }
+      car = findYolcu360Listing(cars, handle, listingParams) ?? null
     }
-    car = findYolcu360Listing(cars, handle, listingParams) ?? null
-  }
-
-  if (!car) {
-    car = yolcu360ListingFromSnap(searchParams, handle)
   }
 
   if (!car) return null
@@ -316,7 +315,7 @@ async function renderYolcu360CarDetail({
   const carIndexRaw = firstString(searchParams.y360_idx)
   const carIndex = Number.isFinite(Number.parseInt(carIndexRaw, 10))
     ? Number.parseInt(carIndexRaw, 10)
-    : cars?.findIndex((item) => item.handle === car.handle) ?? -1
+    : cars?.findIndex((item) => item.handle === car!.handle) ?? -1
 
   const pickup = searchCtx?.pickup ?? firstString(searchParams.location)
   const dropoff = searchCtx?.dropoff ?? firstString(searchParams.drop_off_location) ?? pickup

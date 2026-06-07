@@ -144,17 +144,19 @@ export function yolcu360DetailQuery(
   return qs.toString()
 }
 
-/** URL parametrelerinden minimal Yolcu360Listing oluşturur (API fallback). */
+/** URL parametrelerinden minimal Yolcu360Listing oluşturur (API fallback).
+ * y360_t (title) veya y360_code (rawId) ya da handle içinde idx varsa yeterli. */
 export function yolcu360ListingFromSnap(
   sp: Record<string, string | string[] | undefined>,
   handle: string,
 ): Yolcu360Listing | null {
   const title = firstQueryString(sp.y360_t)
   const rawId = firstQueryString(sp.y360_code)
-  if (!title && !rawId) return null
+  const idxFromHandle = handle.match(/^yolcu360-(\d+)$/)
+  // En az bir tanımlayıcı olmalı: başlık, ham ID veya handle'daki index
+  if (!title && !rawId && !idxFromHandle) return null
 
-  const idxMatch = handle.match(/^yolcu360-(\d+)$/)
-  const slug = idxMatch ? handle : `yolcu360-0`
+  const slug = idxFromHandle ? handle : `yolcu360-0`
 
   const priceAmountRaw = firstQueryString(sp.y360_pa)
   const priceAmount = priceAmountRaw ? Number(priceAmountRaw) : undefined
