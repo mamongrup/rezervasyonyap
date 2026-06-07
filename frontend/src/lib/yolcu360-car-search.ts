@@ -267,24 +267,27 @@ export async function fetchYolcu360CarListings(
     const raw = normalizeYolcu360Cars(data)
     if (raw.length === 0) return null
     return raw.map((c, i) => {
-      const snap: Yolcu360Snap | undefined = options.includeDetailQuery
-        ? {
-            title:
-              [String(c.brand ?? ''), String(c.model ?? '')].filter(Boolean).join(' ') ||
-              String(c.vehicleClass ?? '') ||
-              undefined,
-            priceAmount: c.dailyPrice,
-            priceCurrency: c.currency ?? 'TRY',
-            totalPrice: c.totalPrice,
+      let snap: Yolcu360Snap | undefined
+      if (options.includeDetailQuery) {
+        try {
+          const brandModel = [c.brand ?? '', c.model ?? ''].filter(Boolean).join(' ')
+          snap = {
+            title: brandModel || c.vehicleClass || undefined,
+            priceAmount: typeof c.dailyPrice === 'number' ? c.dailyPrice : undefined,
+            priceCurrency: typeof c.currency === 'string' ? c.currency : 'TRY',
+            totalPrice: typeof c.totalPrice === 'number' ? c.totalPrice : undefined,
             seats: typeof c.seats === 'number' ? c.seats : undefined,
-            gearshift: c.transmission ?? undefined,
-            fuelType: c.fuelType ?? undefined,
-            vendorName: c.vendorName ?? undefined,
+            gearshift: typeof c.transmission === 'string' ? c.transmission : undefined,
+            fuelType: typeof c.fuelType === 'string' ? c.fuelType : undefined,
+            vendorName: typeof c.vendorName === 'string' ? c.vendorName : undefined,
             bags: typeof c.bags === 'number' ? c.bags : undefined,
-            imageUrl: c.imageUrl ?? c.thumbnailUrl ?? undefined,
+            imageUrl: typeof c.imageUrl === 'string' ? c.imageUrl : typeof c.thumbnailUrl === 'string' ? c.thumbnailUrl : undefined,
             rawId: String(c.id ?? i),
           }
-        : undefined
+        } catch {
+          snap = undefined
+        }
+      }
       const detailQuery = options.includeDetailQuery
         ? yolcu360DetailQuery(input, { index: i, rawId: String(c.id ?? i) }, snap)
         : undefined
