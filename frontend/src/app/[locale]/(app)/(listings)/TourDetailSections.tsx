@@ -1,5 +1,4 @@
-import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
-import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import ListingDescriptionExpandable, { HTML_PREVIEW_MAX_TOUR } from '@/components/listing/ListingDescriptionExpandable'
 import { LISTING_SECTION_STACKED } from '@/app/[locale]/(app)/(listings)/listing-section-classes'
 import { Divider } from '@/shared/divider'
 import { Fragment, type ReactNode } from 'react'
@@ -133,11 +132,13 @@ export function TourInfoSections({
   sections,
   insertAfterSectionId,
   insertNode,
+  locale = 'tr',
 }: {
   sections: TourInfoSection[]
   /** Örn. `tour-section-flights-info` sonrası uçuş tablosu */
   insertAfterSectionId?: string
   insertNode?: ReactNode
+  locale?: string
 }) {
   if (sections.length === 0) {
     return insertNode ?? null
@@ -151,7 +152,7 @@ export function TourInfoSections({
       <section key={section.id} id={section.id} className={LISTING_SECTION_STACKED}>
         <SectionHeading>{section.title}</SectionHeading>
         <Divider className="w-14!" />
-        <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(section.html) }} />
+        <ListingDescriptionExpandable locale={locale} html={section.html} previewMax={HTML_PREVIEW_MAX_TOUR} />
       </section>,
     )
     if (insertAfterSectionId === section.id && insertNode) {

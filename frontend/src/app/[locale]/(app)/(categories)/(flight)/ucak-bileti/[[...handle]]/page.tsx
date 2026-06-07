@@ -8,6 +8,7 @@ import { resolveFlightAirportCode } from '@/lib/flight-airports'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { getMessages } from '@/utils/getT'
+import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
@@ -17,12 +18,7 @@ export async function generateMetadata({
   params: Promise<{ locale?: string }>
 }): Promise<Metadata> {
   const { locale } = await params
-  const msgs = getMessages(locale)
-  const category = getCategoryBySlug('ucak-bileti')
-  return {
-    title: category?.name ?? msgs.Header.DropdownTravelers.Flights,
-    description: category?.heroSubheading ?? msgs.Header.DropdownTravelers['Flight description'],
-  }
+  return categoryMetadata('ucak-bileti', locale)
 }
 
 export default async function Page({

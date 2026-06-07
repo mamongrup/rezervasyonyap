@@ -5,15 +5,17 @@ import { getExperienceListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const category = getCategoryBySlug('restoran-rezervasyon')
-  return {
-    title: category?.name ?? 'Restoran Rezervasyonu',
-    description: category?.heroSubheading,
-  }
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale?: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return categoryMetadata('restoran-rezervasyon', locale)
 }
 
 export default async function Page({

@@ -17,12 +17,17 @@ import { regionLabelFromHandle } from '@/lib/stay-location-display'
 import { YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import type { TListingBase } from '@/types/listing-types'
+import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
-export async function generateMetadata(): Promise<Metadata> {
-  const category = getCategoryBySlug('yat-kiralama')
-  return { title: category?.name ?? 'Yat Kiralama', description: category?.heroSubheading }
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale?: string }>
+}): Promise<Metadata> {
+  const { locale } = await params
+  return categoryMetadata('yat-kiralama', locale)
 }
 
 export default async function Page({

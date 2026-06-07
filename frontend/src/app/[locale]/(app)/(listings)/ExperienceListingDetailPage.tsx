@@ -1,4 +1,7 @@
 import StartRating from '@/components/StartRating'
+import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
+import TourItineraryMapSection from '@/components/listing/TourItineraryMapSection'
+import { parseTourDayPins } from '@/lib/tour-itinerary-geocoder'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
@@ -356,6 +359,7 @@ export default async function ExperienceListingDetailPage({
   const tourProgramHtml = parsedTourDescription.programHtml.trim()
     ? sanitizeRichCmsHtml(parsedTourDescription.programHtml)
     : ''
+  const tourDayPins = isTour ? parseTourDayPins(parsedTourDescription.programHtml) : []
   const tourInfoSections = parsedTourDescription.infoSections.map((section) => ({
     ...section,
     html: sanitizeRichCmsHtml(section.html),
@@ -567,7 +571,11 @@ export default async function ExperienceListingDetailPage({
           sections={tourInfoSections}
           insertAfterSectionId={tourFlightScheduleInsertAfterSectionId(tourInfoSections)}
           insertNode={tourFlightSchedules.length > 0 ? <TourFlightScheduleSection locale={locale} /> : null}
+          locale={locale}
         />
+        {tourDayPins.length > 0 && (
+          <TourItineraryMapSection pins={tourDayPins} locale={locale} />
+        )}
         {tourMeta?.itinerary?.length ? (
           <TourItinerarySection days={tourMeta.itinerary} locale={locale} />
         ) : null}
@@ -595,7 +603,7 @@ export default async function ExperienceListingDetailPage({
             locale={locale}
             description={
               description?.trim() ? (
-                <div dangerouslySetInnerHTML={{ __html: sanitizeRichCmsHtml(description) }} />
+                <ListingDescriptionExpandable locale={locale} html={description} />
               ) : null
             }
           />
@@ -645,7 +653,7 @@ export default async function ExperienceListingDetailPage({
       )}
       <HeaderGallery gridType="grid4" images={galleryImgs ?? []} />
 
-      <div className={`relative z-[1] mt-10 ${LISTING_DETAIL_SECTION_GAP}`}>
+      <div className={`relative z-[1] mt-10 pb-16 lg:pb-24 ${LISTING_DETAIL_SECTION_GAP}`}>
         {isTour ? (
           <TourPeriodProvider
             bookablePeriods={tourPeriodOptions}
