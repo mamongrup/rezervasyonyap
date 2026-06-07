@@ -167,10 +167,10 @@ export default function AvatarDropdown({ className }: Props) {
 
         <PopoverPanel
           transition
-          anchor={{ to: 'bottom end', gap: 16 }}
-          className="z-40 w-80 rounded-3xl shadow-lg ring-1 ring-black/5 transition duration-200 ease-in-out data-closed:pointer-events-none data-closed:translate-y-1 data-closed:opacity-0"
+          anchor={{ to: 'bottom end', gap: 12 }}
+          className="z-40 w-72 rounded-2xl shadow-[0_8px_40px_-4px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06] transition duration-200 ease-in-out data-closed:pointer-events-none data-closed:translate-y-1 data-closed:opacity-0 dark:ring-white/10"
         >
-          <div className="relative grid grid-cols-1 gap-6 bg-white px-6 py-7 dark:bg-neutral-800">
+          <div className="relative grid grid-cols-1 gap-5 rounded-2xl bg-white/95 px-5 py-6 backdrop-blur-xl dark:bg-neutral-900/95">
             {isLoggedIn ? (
               <>
                 <div className="flex items-center space-x-3">
@@ -265,30 +265,31 @@ export default function AvatarDropdown({ className }: Props) {
               </>
             ) : (
               <>
-                <p className="text-sm text-neutral-500">{T.signInPrompt}</p>
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">{T.signInPrompt}</p>
+                <div className="flex flex-col gap-2.5">
+                  <CloseButton
+                    as="button"
+                    onClick={() => setLoginModalOpen(true)}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary-600 px-4 py-2.5 text-white transition hover:bg-primary-700 active:scale-[.98]"
+                  >
+                    <HugeiconsIcon icon={UserCircleIcon} size={18} color="currentColor" strokeWidth={1.5} className="shrink-0" />
+                    <span className="text-sm font-semibold">{T.loginButton}</span>
+                  </CloseButton>
+                  <CloseButton
+                    as={Link}
+                    href={p('/signup')}
+                    className="flex w-full items-center justify-center rounded-xl border border-neutral-200 px-4 py-2.5 text-sm font-medium transition hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-800"
+                  >
+                    {T.signupButton}
+                  </CloseButton>
+                </div>
                 <Divider />
-                <CloseButton
-                  as="button"
-                  onClick={() => setLoginModalOpen(true)}
-                  className="-m-3 flex w-full items-center rounded-lg bg-primary-600 p-3 text-white transition hover:bg-primary-700"
-                >
-                  <HugeiconsIcon icon={UserCircleIcon} size={20} color="currentColor" strokeWidth={1.5} className="shrink-0" />
-                  <p className="ms-3 text-sm font-semibold">{T.loginButton}</p>
-                </CloseButton>
-                <CloseButton
-                  as={Link}
-                  href={p('/signup')}
-                  className="-m-3 flex items-center rounded-lg border border-neutral-200 p-3 transition hover:bg-neutral-50 dark:border-neutral-700 dark:hover:bg-neutral-700"
-                >
-                  <p className="text-sm font-medium">{T.signupButton}</p>
-                </CloseButton>
-                <Divider />
-                <div className="-m-3 flex items-center justify-between rounded-lg p-2 hover:bg-neutral-100 focus:outline-none dark:hover:bg-neutral-700">
-                  <div className="flex items-center">
-                    <div className="flex shrink-0 items-center justify-center text-neutral-500 dark:text-neutral-300">
-                      <HugeiconsIcon icon={Idea01Icon} size={24} strokeWidth={1.5} />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex shrink-0 items-center justify-center text-neutral-500 dark:text-neutral-400">
+                      <HugeiconsIcon icon={Idea01Icon} size={20} strokeWidth={1.5} />
                     </div>
-                    <p className="ms-4 text-sm font-medium">{T.darkMode}</p>
+                    <p className="text-sm font-medium">{T.darkMode}</p>
                   </div>
                   <SwitchDarkMode2 />
                 </div>
