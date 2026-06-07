@@ -8,11 +8,18 @@ import { normalizeSiteRelativeUploadSrc } from '@/lib/normalize-site-upload-src'
  */
 export function siteUploadBrowserHref(src: string): string {
   const s = src.trim()
-  if (!s.startsWith('/uploads/site/')) return s
-  const rest = s.slice('/uploads/'.length)
+  // Query/fragment'i ayır — yalnızca path segmentleri encode edilmeli
+  const qIdx = s.indexOf('?')
+  const hIdx = s.indexOf('#')
+  const suffixIdx = qIdx >= 0 && hIdx >= 0 ? Math.min(qIdx, hIdx) : qIdx >= 0 ? qIdx : hIdx
+  const pathOnly = suffixIdx >= 0 ? s.slice(0, suffixIdx) : s
+  const suffix = suffixIdx >= 0 ? s.slice(suffixIdx) : ''
+
+  if (!pathOnly.startsWith('/uploads/site/')) return s
+  const rest = pathOnly.slice('/uploads/'.length)
   const parts = rest.split('/').filter(Boolean).map((seg) => encodeURIComponent(seg))
   if (parts.length === 0) return s
-  return `/api/site-upload/${parts.join('/')}`
+  return `/api/site-upload/${parts.join('/')}${suffix}`
 }
 
 /** Yönetim paneli önizlemesi — kayıtlı URL `/uploads/site/**` kalır; yalnızca görüntüleme Next API üzerinden */

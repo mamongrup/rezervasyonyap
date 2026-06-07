@@ -1061,6 +1061,7 @@ export default function CatalogListingDetailClient({
   const [shareToSocial, setShareToSocial] = useState(true)
   const [allowAiCaption, setAllowAiCaption] = useState(true)
   const [allowGapBooking, setAllowGapBooking] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
   const [ownerName, setOwnerName] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
@@ -1201,6 +1202,7 @@ export default function CatalogListingDetailClient({
         setShareToSocial(Boolean(basics.share_to_social))
         setAllowAiCaption(Boolean(basics.allow_ai_caption))
         setAllowGapBooking(Boolean(basics.allow_sub_min_stay_gap_booking))
+        setIsLocked(Boolean(basics.is_locked))
       }
       if (owner) {
         setOwnerName(owner.contact_name ?? '')
@@ -1411,6 +1413,7 @@ export default function CatalogListingDetailClient({
           share_to_social: shareToSocial,
           allow_ai_caption: allowAiCaption,
           allow_sub_min_stay_gap_booking: allowGapBooking,
+          is_locked: isLocked,
         },
         orgQ,
       )
@@ -2026,6 +2029,11 @@ export default function CatalogListingDetailClient({
                   <option value="published">{ui.listingForm.statusPublished}</option>
                   <option value="archived">{ui.listingForm.statusArchived}</option>
                 </select>
+                {isLocked && (listingStatus === 'draft' || listingStatus === 'archived') && (
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                    ⚠️ İlan kilitli — kaydetmek kilidi otomatik kaldırır.
+                  </p>
+                )}
               </Field>
               <Field className="block">
                 <Label>{ui.listingForm.minStayNights}</Label>
@@ -2066,7 +2074,21 @@ export default function CatalogListingDetailClient({
                 <input type="checkbox" checked={allowGapBooking} onChange={(e) => setAllowGapBooking(e.target.checked)} />
                 {ui.listingForm.allowGapBooking}
               </label>
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200" title="Kilitli ilan API ile draft/arşiv yapılamaz">
+                <input
+                  type="checkbox"
+                  checked={isLocked}
+                  onChange={(e) => setIsLocked(e.target.checked)}
+                  className="accent-amber-500"
+                />
+                {isLocked ? '🔒' : '🔓'} İlanı kilitle
+              </label>
             </div>
+            {isLocked && (
+              <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+                Bu ilan kilitli. Draft veya arşiv yapılabilmesi için kilit kaldırılmalıdır.
+              </p>
+            )}
           </div>
 
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">

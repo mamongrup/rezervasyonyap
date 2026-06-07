@@ -1,18 +1,26 @@
 /**
  * /api/location-search?q=antalya
+ * /api/location-search?q=balkan&type=tour  → hub + destinasyon önerileri
  *
  * Backend API bağlıysa oradaki bölge/ilçe kayıtlarından arama yapar.
  * Bağlı değilse (NEXT_PUBLIC_API_URL tanımlı değil veya API yanıt vermiyorsa)
  * Türkiye'nin popüler şehirlerinden oluşan statik fallback döner.
+ *
+ * type=tour eklenince iki sonuç türü döner:
+ *  - tour_hub : tur hub kategorisi eşleşmesi → hubPath ile direkt navigasyon
+ *  - region / static : destinasyon araması → tarih + kişi ile arama
  */
 
 import { apiOriginForFetch } from '@/lib/api-origin'
+import { getTourHubCategories } from '@/data/tour-hub-categories'
 import { NextRequest, NextResponse } from 'next/server'
 
 export interface LocationSuggestion {
   id: string
   name: string
-  type: 'region' | 'district' | 'static'
+  type: 'region' | 'district' | 'static' | 'tour_hub'
+  /** Yalnızca type=tour_hub: tıklanınca gidilecek hub path */
+  hubPath?: string
 }
 
 // ─── Statik Türkiye fallback ─────────────────────────────────────────────────
@@ -102,10 +110,78 @@ async function yolcu360Suggestions(q: string, apiBase: string): Promise<Location
   }
 }
 
+// ─── Tur hub eşleşmesi ───────────────────────────────────────────────────────
+
+/**
+ * Hub kategorileri + alt link etiketlerini arar.
+ * Hem kart başlığını hem de alt linklerin label'larını eşleştirir.
+ */
+function tourHubSuggestions(q: string): LocationSuggestion[] {
+  const lower = q.toLowerCase().replace(/\s+/g, ' ').trim()
+  if (!lower) return []
+
+  const hubs = getTourHubCategories('tr')
+  const results: LocationSuggestion[] = []
+
+  for (const hub of hubs) {
+    const titleMatch =
+      hub.title.toLowerCase().includes(lower) ||
+      hub.titleEn.toLowerCase().includes(lower)
+
+    if (titleMatch) {
+      results.push({
+        id: `hub-${hub.id}`,
+        name: hub.title,
+        type: 'tour_hub',
+        hubPath: hub.path,
+      })
+    }
+
+    // Alt link etiketleri (Belgrad, Saraybosna vb.)
+    for (const link of hub.links) {
+      if (link.label.toLowerCase().includes(lower)) {
+        results.push({
+          id: `hub-link-${hub.id}-${link.label}`,
+          name: `${link.label} — ${hub.title}`,
+          type: 'tour_hub',
+          hubPath: link.path,
+        })
+      }
+    }
+  }
+
+  // Tekrarsız, max 4 hub
+  const seen = new Set<string>()
+  return results.filter((r) => {
+    if (seen.has(r.id)) return false
+    seen.add(r.id)
+    return true
+  }).slice(0, 4)
+}
+
+/** type=tour varsayılan önerileri — popüler hub kategorileri */
+function tourDefaultSuggestions(): LocationSuggestion[] {
+  const hubs = getTourHubCategories('tr')
+  return hubs.slice(0, 6).map((hub) => ({
+    id: `hub-${hub.id}`,
+    name: hub.title,
+    type: 'tour_hub' as const,
+    hubPath: hub.path,
+  }))
+}
+
+// ─── GET ─────────────────────────────────────────────────────────────────────
+
 export async function GET(req: NextRequest) {
   const q = (req.nextUrl.searchParams.get('q') ?? '').trim()
   const type = (req.nextUrl.searchParams.get('type') ?? '').trim()
   const isCarSearch = type === 'car'
+  const isTourSearch = type === 'tour'
+
+  // Tur araması — varsayılan hub önerileri
+  if (!q && isTourSearch) {
+    return NextResponse.json({ suggestions: tourDefaultSuggestions() })
+  }
 
   // Sorgu yoksa popüler şehirleri döndür
   if (!q) {
@@ -113,16 +189,50 @@ export async function GET(req: NextRequest) {
   }
 
   const apiBase = apiOriginForFetch()
-  if (!apiBase) {
-    return NextResponse.json({ suggestions: staticFallback(q) })
-  }
 
   // Araç kiralama için Yolcu360 konum önerileri
   if (isCarSearch) {
+    if (!apiBase) return NextResponse.json({ suggestions: staticFallback(q) })
     const yolcuSuggestions = await yolcu360Suggestions(q, apiBase)
     if (yolcuSuggestions.length > 0) {
       return NextResponse.json({ suggestions: yolcuSuggestions })
     }
+    return NextResponse.json({ suggestions: staticFallback(q) })
+  }
+
+  // Tur araması — hub eşleşmesi + destinasyon karışık
+  if (isTourSearch) {
+    const hubMatches = tourHubSuggestions(q)
+
+    // Backend destinasyon araması
+    let destinationResults: LocationSuggestion[] = []
+    if (apiBase) {
+      try {
+        const url = `${apiBase}/api/v1/locations/regions?search=${encodeURIComponent(q)}&per_page=5`
+        const res = await fetch(url, { next: { revalidate: 60 } })
+        if (res.ok) {
+          const data = (await res.json()) as {
+            regions?: { id: string; name: string }[]
+            data?: { id: string; name: string }[]
+          }
+          const regions = data.regions ?? data.data ?? []
+          destinationResults = regions.map((r) => ({ id: r.id, name: r.name, type: 'region' as const }))
+        }
+      } catch { /* sessiz */ }
+    }
+
+    // Destinasyon bulunamazsa statik fallback
+    if (destinationResults.length === 0) {
+      destinationResults = staticFallback(q)
+    }
+
+    // Hub önce, max 4 hub + max 4 destinasyon
+    const suggestions = [...hubMatches, ...destinationResults.slice(0, 4)]
+    return NextResponse.json({ suggestions })
+  }
+
+  // Genel bölge araması
+  if (!apiBase) {
     return NextResponse.json({ suggestions: staticFallback(q) })
   }
 

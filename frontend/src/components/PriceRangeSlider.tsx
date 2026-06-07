@@ -8,6 +8,8 @@ export const PriceRangeSlider = ({
   min,
   max,
   name = 'Price Range',
+  minLabel = 'Min',
+  maxLabel = 'Max',
   className,
   onChange,
   defaultValue,
@@ -18,6 +20,8 @@ export const PriceRangeSlider = ({
   min: number
   max: number
   name?: string
+  minLabel?: string
+  maxLabel?: string
   className?: string
   onChange?: (value: number[]) => void
   defaultValue?: number[]
@@ -72,14 +76,14 @@ export const PriceRangeSlider = ({
 
       <div className="flex justify-between gap-x-5">
         <div className="flex-1">
-          <div className="ps-4 text-xs/6 text-neutral-700 dark:text-neutral-300">Min price</div>
+          <div className="ps-4 text-xs/6 text-neutral-700 dark:text-neutral-300">{minLabel}</div>
           <div className="relative mt-0.5 w-full rounded-full bg-neutral-100 px-4 py-2 text-sm dark:bg-neutral-800">
             {minValue >= 1000 ? `$ ${convertNumbThousand(minValue / 1000)}k` : `$ ${minValue}`}
           </div>
           <input type="hidden" name={inputMinName} value={minValue} />
         </div>
         <div className="flex-1">
-          <div className="ps-4 text-xs/6 text-neutral-700 dark:text-neutral-300">Max price</div>
+          <div className="ps-4 text-xs/6 text-neutral-700 dark:text-neutral-300">{maxLabel}</div>
           <div className="relative mt-0.5 w-full rounded-full bg-neutral-100 px-4 py-2 text-sm dark:bg-neutral-800">
             {maxValue >= 1000 ? `$ ${convertNumbThousand(maxValue / 1000)}k` : `$ ${maxValue}`}
           </div>

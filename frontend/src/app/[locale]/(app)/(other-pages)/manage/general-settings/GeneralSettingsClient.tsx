@@ -135,7 +135,14 @@ function BrandingImageUploadRow({
         title={`${label} — görsel seç`}
         uploadTarget={uploadTarget}
         onClose={() => setPickerOpen(false)}
-        onSelect={(nextUrl) => onChange(nextUrl)}
+        onSelect={(nextUrl) => {
+          // Sabit dosya adı (fixedStem) kullanıldığında URL değişmez; tarayıcı ve CDN
+          // önbelleğini geçersiz kılmak için versiyon parametresi ekle.
+          const bust = uploadTarget.uploadFixedStem
+            ? `${nextUrl.includes('?') ? '&' : '?'}v=${Date.now()}`
+            : ''
+          onChange(`${nextUrl}${bust}`)
+        }}
       />
       <Field className="block">
         <Label>{label}</Label>

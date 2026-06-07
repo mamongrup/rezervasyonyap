@@ -9165,6 +9165,8 @@ export interface ListingBasicsPatch {
   share_to_social?: boolean
   allow_ai_caption?: boolean
   allow_sub_min_stay_gap_booking?: boolean
+  /** true → kilidi kaldır (is_locked: false) ve status değiştir; gönderilmezse kilit korunur */
+  is_locked?: boolean
 }
 
 /** GET /catalog/listings/:id/basics — panel «Temel ilan ayarları» (`listings` tablosu). */
@@ -9187,6 +9189,7 @@ export interface ListingBasicsSnapshot {
   share_to_social: boolean
   allow_ai_caption: boolean
   allow_sub_min_stay_gap_booking: boolean
+  is_locked: boolean
 }
 
 export async function getListingBasics(

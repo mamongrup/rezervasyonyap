@@ -470,6 +470,8 @@ export const en = {
   categoryPage: {
     nationwide: 'Nationwide',
     flightNationwide: 'Worldwide',
+    tourNationwide: 'Worldwide',
+    tourNamePlural: 'Tours',
     /** Tatil evleri kategori kahramanı — sayım + Türkçe/İngilizce tam cümle için iki parça */
     holidayHomesHeroLead: 'Nationwide',
     holidayHomesHeroHighlight: '{count}+ holiday homes',
@@ -542,6 +544,12 @@ export const en = {
       tourAccVilla: 'Villa',
       tourAccCamping: 'Camping',
       tourAccNone: 'No overnight stay',
+      tourDepartureLabel: 'Departure city',
+      tourDeparture_istanbul: 'Istanbul',
+      tourDeparture_ankara: 'Ankara',
+      tourDeparture_izmir: 'Izmir',
+      tourDeparture_antalya: 'Antalya',
+      tourDeparture_bursa: 'Bursa',
       experienceTypeLabel: 'Experience type',
       expFoodDrink: 'Food & drink',
       expFoodDrinkDesc: 'Try local cooking classes, and more.',

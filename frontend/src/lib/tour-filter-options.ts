@@ -21,6 +21,17 @@ export function getTourAccommodationOptions(locale: string): { code: string; lab
   ]
 }
 
+export function getTourDepartureCityOptions(locale: string): { code: string; label: string }[] {
+  const f = getMessages(locale).categoryPage.listingFilters
+  return [
+    { code: 'istanbul', label: f.tourDeparture_istanbul },
+    { code: 'ankara', label: f.tourDeparture_ankara },
+    { code: 'izmir', label: f.tourDeparture_izmir },
+    { code: 'antalya', label: f.tourDeparture_antalya },
+    { code: 'bursa', label: f.tourDeparture_bursa },
+  ]
+}
+
 /** @deprecated `getTourTravelTypeOptions(locale)` kullanın */
 export const TOUR_TRAVEL_TYPE_OPTIONS = getTourTravelTypeOptions('tr')
 

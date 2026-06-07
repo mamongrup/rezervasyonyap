@@ -24,6 +24,18 @@ describe('siteUploadBrowserHref', () => {
   it('leaves non-site upload paths unchanged', () => {
     expect(siteUploadBrowserHref('/uploads/other/x.avif')).toBe('/uploads/other/x.avif')
   })
+
+  it('preserves query string (cache-busting v param) without encoding', () => {
+    expect(siteUploadBrowserHref('/uploads/site/brand-logo-dark.png?v=1748357924')).toBe(
+      '/api/site-upload/site/brand-logo-dark.png?v=1748357924',
+    )
+  })
+
+  it('preserves fragment suffix', () => {
+    expect(siteUploadBrowserHref('/uploads/site/brand-logo-light.avif#top')).toBe(
+      '/api/site-upload/site/brand-logo-light.avif#top',
+    )
+  })
 })
 
 describe('managePanelUploadPreviewSrc', () => {

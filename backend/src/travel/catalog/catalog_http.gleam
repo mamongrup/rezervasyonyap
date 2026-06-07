@@ -2707,6 +2707,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
     Bool,
     Bool,
     String,
+    Bool,
   ),
 ) {
   use status <- decode.field(0, decode.string)
@@ -2727,6 +2728,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
   use aai <- decode.field(15, decode.bool)
   use asg <- decode.field(16, decode.bool)
   use elr <- decode.field(17, decode.string)
+  use locked <- decode.field(18, decode.bool)
   decode.success(#(
     status,
     msn,
@@ -2746,6 +2748,7 @@ fn listing_basics_manage_row() -> decode.Decoder(
     aai,
     asg,
     elr,
+    locked,
   ))
 }
 
@@ -2773,7 +2776,7 @@ pub fn get_listing_basics(
         Ok(True) ->
           case
             pog.query(
-              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false), coalesce(external_listing_ref::text, '') from listings where id = $1::uuid and organization_id = $2::uuid",
+              "select status::text, coalesce(min_stay_nights::text, ''), coalesce(cleaning_fee_amount::text, ''), coalesce(first_charge_amount::text, ''), coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, ''), coalesce(cancellation_policy_text::text, ''), coalesce(ministry_license_ref::text, ''), coalesce(pool_size_label::text, ''), coalesce(high_season_dates_json::text, '[]'), coalesce(confirm_deadline_normal_h::text, ''), coalesce(confirm_deadline_high_h::text, ''), coalesce(supplier_payment_note::text, ''), coalesce(avg_ad_cost_percent::text, ''), coalesce(share_to_social, false), coalesce(allow_ai_caption, false), coalesce(allow_sub_min_stay_gap_booking, false), coalesce(external_listing_ref::text, ''), coalesce(is_locked, false) from listings where id = $1::uuid and organization_id = $2::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
@@ -2811,6 +2814,7 @@ pub fn get_listing_basics(
                     aai,
                     asg,
                     elr,
+                    locked,
                   ),
                 ] -> {
                   let body =
@@ -2842,6 +2846,7 @@ pub fn get_listing_basics(
                         json.bool(asg),
                       ),
                       #("external_listing_ref", json.string(elr)),
+                      #("is_locked", json.bool(locked)),
                     ])
                     |> json.to_string
                   wisp.json_response(body, 200)
@@ -2875,6 +2880,7 @@ type BasicsPatch {
     share_to_social: Option(Bool),
     allow_ai_caption: Option(Bool),
     allow_sub_min_stay_gap_booking: Option(Bool),
+    is_locked: Option(Bool),
   )
 }
 
@@ -2897,26 +2903,29 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
                               decode.optional_field("share_to_social", None, decode.optional(decode.bool), fn(sts_opt) {
                                 decode.optional_field("allow_ai_caption", None, decode.optional(decode.bool), fn(aai_opt) {
                                   decode.optional_field("allow_sub_min_stay_gap_booking", None, decode.optional(decode.bool), fn(asg_opt) {
-                                    decode.success(BasicsPatch(
-                                      status: status,
-                                      min_stay_nights: msn,
-                                      cleaning_fee_amount: cfa,
-                                      first_charge_amount: fca,
-                                      prepayment_percent: pp,
-                                      pool_size_label: psl,
-                                      commission_percent: comm,
-                                      high_season_dates_json: hsd,
-                                      confirm_deadline_normal_h: cdn,
-                                      confirm_deadline_high_h: cdh,
-                                      supplier_payment_note: spn,
-                                      avg_ad_cost_percent: aac,
-                                      cancellation_policy_text: cpt,
-                                      ministry_license_ref: mlr,
-                                      external_listing_ref: elr,
-                                      share_to_social: sts_opt,
-                                      allow_ai_caption: aai_opt,
-                                      allow_sub_min_stay_gap_booking: asg_opt,
-                                    ))
+                                    decode.optional_field("is_locked", None, decode.optional(decode.bool), fn(locked_opt) {
+                                      decode.success(BasicsPatch(
+                                        status: status,
+                                        min_stay_nights: msn,
+                                        cleaning_fee_amount: cfa,
+                                        first_charge_amount: fca,
+                                        prepayment_percent: pp,
+                                        pool_size_label: psl,
+                                        commission_percent: comm,
+                                        high_season_dates_json: hsd,
+                                        confirm_deadline_normal_h: cdn,
+                                        confirm_deadline_high_h: cdh,
+                                        supplier_payment_note: spn,
+                                        avg_ad_cost_percent: aac,
+                                        cancellation_policy_text: cpt,
+                                        ministry_license_ref: mlr,
+                                        external_listing_ref: elr,
+                                        share_to_social: sts_opt,
+                                        allow_ai_caption: aai_opt,
+                                        allow_sub_min_stay_gap_booking: asg_opt,
+                                        is_locked: locked_opt,
+                                      ))
+                                    })
                                   })
                                 })
                               })
@@ -2935,6 +2944,73 @@ fn patch_basics_decoder() -> decode.Decoder(BasicsPatch) {
       })
     })
   })
+}
+
+fn do_patch_listing_basics(
+  db: pog.Connection,
+  listing_id: String,
+  org_id: String,
+  p: BasicsPatch,
+  status_t: String,
+) -> Response {
+  case
+    pog.query(
+      "update listings set "
+      <> "status = case when $3 = '' then status else $3::text end, "
+      <> "min_stay_nights = case when $4 = '__null__' then null when $4 = '' then min_stay_nights else $4::integer end, "
+      <> "cleaning_fee_amount = case when $5 = '__null__' then null when $5 = '' then cleaning_fee_amount else $5::numeric end, "
+      <> "first_charge_amount = case when $6 = '__null__' then null when $6 = '' then first_charge_amount else $6::numeric end, "
+      <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
+      <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
+      <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
+      <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
+      <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
+      <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
+      <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
+      <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
+      <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
+      <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
+      <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
+      <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
+      <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
+      <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
+      <> "is_locked = case when $21 = '' then is_locked when $21 = 'true' then true else false end, "
+      <> "updated_at = now() "
+      <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(org_id))
+    |> pog.parameter(pog.text(status_t))
+    |> pog.parameter(pog.text(string.trim(p.min_stay_nights)))
+    |> pog.parameter(pog.text(string.trim(p.cleaning_fee_amount)))
+    |> pog.parameter(pog.text(string.trim(p.first_charge_amount)))
+    |> pog.parameter(pog.text(string.trim(p.prepayment_percent)))
+    |> pog.parameter(pog.text(string.trim(p.pool_size_label)))
+    |> pog.parameter(pog.text(string.trim(p.commission_percent)))
+    |> pog.parameter(pog.text(string.trim(p.high_season_dates_json)))
+    |> pog.parameter(pog.text(string.trim(p.confirm_deadline_normal_h)))
+    |> pog.parameter(pog.text(string.trim(p.confirm_deadline_high_h)))
+    |> pog.parameter(pog.text(string.trim(p.supplier_payment_note)))
+    |> pog.parameter(pog.text(string.trim(p.avg_ad_cost_percent)))
+    |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
+    |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
+    |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
+    |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
+    |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
+    |> pog.parameter(pog.text(basics_patch_bool_param(
+      p.allow_sub_min_stay_gap_booking,
+    )))
+    |> pog.parameter(pog.text(basics_patch_bool_param(p.is_locked)))
+    |> pog.returning(one_string_row())
+    |> pog.execute(db)
+  {
+    Error(_) -> json_err(500, "basics_update_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> json_err(404, "listing_not_found")
+        _ -> wisp.json_response("{\"ok\":true}", 200)
+      }
+  }
 }
 
 /// PATCH /api/v1/catalog/listings/:id/basics — temel ilan alanlarını güncelle.
@@ -2962,61 +3038,28 @@ pub fn patch_listing_basics(
                   case list.contains(valid_statuses, status_t) {
                     False -> json_err(400, "invalid_status")
                     True ->
+                      // Kilitli ilan kontrolü: draft/archived'a geçiş engellensin
                       case
-                        pog.query(
-                          "update listings set "
-                          <> "status = case when $3 = '' then status else $3::text end, "
-                          <> "min_stay_nights = case when $4 = '__null__' then null when $4 = '' then min_stay_nights else $4::integer end, "
-                          <> "cleaning_fee_amount = case when $5 = '__null__' then null when $5 = '' then cleaning_fee_amount else $5::numeric end, "
-                          <> "first_charge_amount = case when $6 = '__null__' then null when $6 = '' then first_charge_amount else $6::numeric end, "
-                          <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
-                          <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
-                          <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
-                          <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
-                          <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
-                          <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
-                          <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
-                          <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
-                          <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
-                          <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
-                          <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
-                          <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
-                          <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
-                          <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
-                          <> "updated_at = now() "
-                          <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
-                        )
-                        |> pog.parameter(pog.text(listing_id))
-                        |> pog.parameter(pog.text(org_id))
-                        |> pog.parameter(pog.text(status_t))
-                        |> pog.parameter(pog.text(string.trim(p.min_stay_nights)))
-                        |> pog.parameter(pog.text(string.trim(p.cleaning_fee_amount)))
-                        |> pog.parameter(pog.text(string.trim(p.first_charge_amount)))
-                        |> pog.parameter(pog.text(string.trim(p.prepayment_percent)))
-                        |> pog.parameter(pog.text(string.trim(p.pool_size_label)))
-                        |> pog.parameter(pog.text(string.trim(p.commission_percent)))
-                        |> pog.parameter(pog.text(string.trim(p.high_season_dates_json)))
-                        |> pog.parameter(pog.text(string.trim(p.confirm_deadline_normal_h)))
-                        |> pog.parameter(pog.text(string.trim(p.confirm_deadline_high_h)))
-                        |> pog.parameter(pog.text(string.trim(p.supplier_payment_note)))
-                        |> pog.parameter(pog.text(string.trim(p.avg_ad_cost_percent)))
-                        |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
-                        |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
-                        |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
-                        |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
-                        |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
-                        |> pog.parameter(pog.text(basics_patch_bool_param(
-                          p.allow_sub_min_stay_gap_booking,
-                        )))
-                        |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        list.contains(["draft", "archived"], status_t)
+                        && p.is_locked != option.Some(False)
                       {
-                        Error(_) -> json_err(500, "basics_update_failed")
-                        Ok(ret) ->
-                          case ret.rows {
-                            [] -> json_err(404, "listing_not_found")
-                            _ -> wisp.json_response("{\"ok\":true}", 200)
+                        True ->
+                          case
+                            pog.query(
+                              "select coalesce(is_locked, false) from listings where id = $1::uuid",
+                            )
+                            |> pog.parameter(pog.text(listing_id))
+                            |> pog.returning(pg_bool_row())
+                            |> pog.execute(ctx.db)
+                          {
+                            Error(_) -> json_err(500, "listing_lock_check_failed")
+                            Ok(lock_ret) ->
+                              case lock_ret.rows {
+                                [True] -> json_err(409, "listing_is_locked")
+                                _ -> do_patch_listing_basics(ctx.db, listing_id, org_id, p, status_t)
+                              }
                           }
+                        False -> do_patch_listing_basics(ctx.db, listing_id, org_id, p, status_t)
                       }
                   }
                 }

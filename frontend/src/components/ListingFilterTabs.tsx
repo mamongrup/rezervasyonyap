@@ -90,12 +90,28 @@ const CheckboxPanel = ({ filterOption, className }: { filterOption: CheckboxFilt
     </Fieldset>
   )
 }
-const PriceRagePanel = ({ filterOption: { min, max, name } }: { filterOption: PriceRangeFilter }) => {
+const PriceRagePanel = ({
+  filterOption: { min, max, name },
+  minLabel,
+  maxLabel,
+}: {
+  filterOption: PriceRangeFilter
+  minLabel?: string
+  maxLabel?: string
+}) => {
   const [rangePrices, setRangePrices] = useState([min, max])
 
   return (
     <>
-      <PriceRangeSlider defaultValue={rangePrices} onChange={setRangePrices} min={min} max={max} />
+      <PriceRangeSlider
+        defaultValue={rangePrices}
+        onChange={setRangePrices}
+        min={min}
+        max={max}
+        showTitle={false}
+        minLabel={minLabel}
+        maxLabel={maxLabel}
+      />
       <input type="hidden" name={`${name}_min`} value={String(rangePrices[0])} />
       <input type="hidden" name={`${name}_max`} value={String(rangePrices[1])} />
     </>
@@ -126,6 +142,8 @@ const ListingFilterTabs = ({
   const applyFiltersText = filters?.apply ?? m.common['Apply filters'] ?? 'Apply filters'
   const clearText = filters?.clear ?? m.common['Clear'] ?? 'Clear'
   const applyText = filters?.apply ?? m.common['Apply'] ?? 'Apply'
+  const priceMinLabel = filters?.priceMin ?? 'Min'
+  const priceMaxLabel = filters?.priceMax ?? 'Max'
 
   const [showAllFilter, setShowAllFilter] = useState(false)
   const router = useRouter()
@@ -218,7 +236,7 @@ const ListingFilterTabs = ({
                             <CheckboxPanel filterOption={filterOption as CheckboxFilter} />
                           )}
                           {filterOption.tabUIType === 'price-range' && (
-                            <PriceRagePanel key={index} filterOption={filterOption as PriceRangeFilter} />
+                            <PriceRagePanel key={index} filterOption={filterOption as PriceRangeFilter} minLabel={priceMinLabel} maxLabel={priceMaxLabel} />
                           )}
                           {filterOption.tabUIType === 'select-number' && (
                             <NumberSelectPanel key={index} filterOption={filterOption as SelectNumberFilter} />
@@ -296,7 +314,7 @@ const ListingFilterTabs = ({
                       <CheckboxPanel filterOption={filterOption as CheckboxFilter} />
                     )}
                     {filterOption.tabUIType === 'price-range' && (
-                      <PriceRagePanel key={index} filterOption={filterOption as PriceRangeFilter} />
+                      <PriceRagePanel key={index} filterOption={filterOption as PriceRangeFilter} minLabel={priceMinLabel} maxLabel={priceMaxLabel} />
                     )}
                     {filterOption.tabUIType === 'select-number' && (
                       <NumberSelectPanel key={index} filterOption={filterOption as SelectNumberFilter} />

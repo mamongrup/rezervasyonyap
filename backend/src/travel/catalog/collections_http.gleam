@@ -600,6 +600,15 @@ fn search_listings_impl(
     True -> pog.null()
     False -> pog.text(tour_duration_raw)
   }
+  let tour_departure_raw =
+    list.key_find(qs, "tour_departure")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let tour_departure_param = case tour_departure_raw == "" {
+    True -> pog.null()
+    False -> pog.text("%" <> tour_departure_raw <> "%")
+  }
 
   // $23: tatil evi ilan tipi (villa | apart | daire | bungalov)
   let property_type_raw =
@@ -799,13 +808,21 @@ fn search_listings_impl(
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
+    <> "and ($24::text is null or pc.code != 'tour' or ("
+    <> "  lower(coalesce("
+    <> "    nullif(trim(tour_attr.value_json->'data'->>'departure_city'), ''), "
+    <> "    nullif(trim(tour_attr.value_json->>'departure_city'), ''), "
+    <> "    nullif(trim((regexp_match(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', ''), '\\(([A-Za-z]{3})\\)'))[1]), ''), "
+    <> "    '')) ilike $24"
+    <> "  or lower(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', '')) ilike $24"
+    <> ")) "
 
   let sql_core = sql <> order_sql
-  // Count subquery must reference $5, $21 and $23 so PostgreSQL can infer parameter types.
+  // Count subquery must reference $5, $21, $23 and $24 so PostgreSQL can infer parameter types.
   let count_sql =
     "select count(*)::int from ("
     <> sql_core
-    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt) __pg_params"
+    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep) __pg_params"
   let sql_paged = sql_core <> " offset $21 limit $5"
   let int_col0 = {
     use n <- decode.field(0, decode.int)
@@ -842,6 +859,7 @@ fn search_listings_impl(
     |> pog.parameter(pog.int(offset))
     |> pog.parameter(agency_param)
     |> pog.parameter(property_type_param)
+    |> pog.parameter(tour_departure_param)
   }
 
   case

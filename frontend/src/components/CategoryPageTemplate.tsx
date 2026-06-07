@@ -297,9 +297,14 @@ export default async function CategoryPageTemplate({
         <div className="flex items-center text-base font-medium text-neutral-500 md:text-lg dark:text-neutral-400">
           <i className="las la-map-marked me-2 text-2xl" />
           <span>
-            {category.listingType === 'flight' ? cat.flightNationwide : cat.nationwide} &nbsp;
+            {category.listingType === 'flight'
+              ? cat.flightNationwide
+              : category.listingType === 'tour'
+                ? cat.tourNationwide
+                : cat.nationwide}{' '}
+            &nbsp;
             <span className="text-neutral-900 dark:text-neutral-100">
-              {countFormatted}+ {category.namePlural}
+              {countFormatted}+ {category.listingType === 'tour' ? cat.tourNamePlural : category.namePlural}
             </span>
           </span>
         </div>
@@ -534,7 +539,7 @@ export default async function CategoryPageTemplate({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
           />
         )}
-        <div className={`relative z-10 container mb-6 ${heroContainerBelowHeaderClassName}`}>
+        <div className={`relative z-10 container mb-2 ${heroContainerBelowHeaderClassName}`}>
           <HeroSectionWithSearchForm1
             heading={heroHeadingLinked}
             description={heroDescription}
@@ -594,7 +599,7 @@ export default async function CategoryPageTemplate({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
-      <div className={`relative z-10 container mb-6 ${heroContainerBelowHeaderClassName}`}>
+      <div className={`relative z-10 container mb-2 ${heroContainerBelowHeaderClassName}`}>
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
           description={heroDescription}

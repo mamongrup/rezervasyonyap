@@ -3,6 +3,7 @@ import { HOTEL_THEME_OPTIONS, HOTEL_TYPE_OPTIONS } from '@/lib/hotel-manage-fiel
 import { listPublicThemeItems, type ThemeFacet } from '@/lib/catalog-theme-items-api'
 import {
   getTourAccommodationOptions,
+  getTourDepartureCityOptions,
   getTourTravelTypeOptions,
 } from '@/lib/tour-filter-options'
 import type { FilterOption } from '@/types/listing-types'
@@ -87,7 +88,10 @@ export async function getTourCategoryFilterOptions(locale: string): Promise<Filt
     getFacetOptions('tour', 'accommodation', locale, getTourAccommodationOptions(locale)),
   ])
 
+  const departureCities = getTourDepartureCityOptions(locale)
+
   return [
+    checkboxFilter(filters.tourDepartureLabel, 'tour_departure', departureCities),
     checkboxFilter(filters.travelTypeLabel, 'tour_travel_type', travelTypes),
     checkboxFilter(filters.accommodationTypeLabel, 'tour_accommodation', accommodationTypes),
     {

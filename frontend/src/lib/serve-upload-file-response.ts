@@ -39,7 +39,9 @@ export async function readUploadSegmentsResponse(segments: string[]): Promise<Ne
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
+        // Site logoları ve favicon gibi varlıklar admin tarafından değiştirilebilir;
+        // 'immutable' yerine kısa TTL + must-revalidate kullan.
+        'Cache-Control': 'public, max-age=60, must-revalidate',
       },
     })
   } catch {

@@ -114,7 +114,7 @@ export default async function CategoryHubGridModule({
   const subheading = resolveSubheading(config, locale)
 
   return (
-    <section className="container mt-8 lg:mt-12" aria-labelledby="category-hub-heading">
+    <section className="container mt-4 lg:mt-6" aria-labelledby="category-hub-heading">
       {(heading || subheading) && (
         <div className="mb-8 max-w-3xl">
           {heading ? (

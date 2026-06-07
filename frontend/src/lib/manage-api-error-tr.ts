@@ -38,6 +38,8 @@ const TR_BY_CODE: Record<string, string> = {
   listing_translations_query_failed: 'İlan çevirileri alınamadı.',
   basics_update_failed: 'İlan temel bilgileri güncellenemedi.',
   basics_query_failed: 'İlan temel bilgileri veritabanından alınamadı.',
+  listing_is_locked: 'Bu ilan kilitli — önce kilidi kaldırın, ardından arşivleyebilirsiniz.',
+  listing_lock_check_failed: 'İlan kilit durumu kontrol edilemedi.',
 
   // Müsaitlik
   from_to_required: 'Başlangıç ve bitiş tarihi gerekli.',

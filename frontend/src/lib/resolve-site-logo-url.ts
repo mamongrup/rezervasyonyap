@@ -10,7 +10,9 @@ const PLACEHOLDER_BASENAMES = new Set([
 ])
 
 function baseName(v: string): string {
-  return v.replace(/^\/+/, '').split('/').pop() ?? v
+  // Query/hash'i önce ayır; yalnızca dosya adı kısmı karşılaştırılmalı
+  const pathOnly = v.split('?')[0]?.split('#')[0] ?? v
+  return pathOnly.replace(/^\/+/, '').split('/').pop() ?? pathOnly
 }
 
 /** Varsayılan şablon yolu — gerçek yüklenmiş logo sayılmaz */

@@ -3,11 +3,12 @@
 import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
 import { useAppLocale } from '@/hooks/useAppLocale'
+import { TourLocationInputField } from './ui/TourLocationInputField'
 import clsx from 'clsx'
 import Form from 'next/form'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { ButtonSubmit, DateRangeField, GuestNumberField, LocationInputField, VerticalDividerLine } from './ui'
+import { ButtonSubmit, DateRangeField, GuestNumberField, VerticalDividerLine } from './ui'
 
 interface Props {
   className?: string
@@ -22,6 +23,11 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
   useEffect(() => {
     router.prefetch('/turlar/all')
   }, [router])
+
+  /** Hub seçilince → direkt navigasyon (tarih/kişi gerekmez) */
+  const handleHubSelect = (path: string) => {
+    router.push(path)
+  }
 
   const handleFormSubmit = (formData: FormData) => {
     const formDataEntries = Object.fromEntries(formData.entries())
@@ -49,7 +55,11 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
       )}
       action={handleFormSubmit}
     >
-      <LocationInputField className="hero-search-form__field-after flex-5/12" fieldStyle={formStyle} />
+      <TourLocationInputField
+        className="hero-search-form__field-after flex-5/12"
+        fieldStyle={formStyle}
+        onHubSelect={handleHubSelect}
+      />
       <VerticalDividerLine />
       <DateRangeField
         className="hero-search-form__field-before hero-search-form__field-after flex-4/12"
