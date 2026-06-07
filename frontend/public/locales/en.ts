@@ -2066,6 +2066,7 @@ export const en = {
     },
     featured: {
       heading: 'Featured Places',
+      tabRecommended: 'Recommended',
       tabNew: 'New',
       tabDiscounted: 'Discounted',
       tabFeatured: 'Featured',

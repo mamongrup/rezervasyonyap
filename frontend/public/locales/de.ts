@@ -950,9 +950,10 @@ export const de: AppMessages = {
     },
     featured: {
       heading: 'Empfohlene Orte',
+      tabRecommended: 'Empfohlen',
       tabNew: 'Neu',
       tabDiscounted: 'Reduziert',
-      tabFeatured: 'Empfohlen',
+      tabFeatured: 'Hervorgehoben',
     },
     mealPlans: {
       ro: 'Nur Übernachtung',

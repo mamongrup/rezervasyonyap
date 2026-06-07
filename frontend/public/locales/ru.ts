@@ -949,6 +949,7 @@ export const ru: AppMessages = {
     },
     featured: {
       heading: 'Рекомендуемые места',
+      tabRecommended: 'Рекомендуемые',
       tabNew: 'Новые',
       tabDiscounted: 'Со скидкой',
       tabFeatured: 'Избранные',

@@ -935,6 +935,7 @@ export const zh: AppMessages = {
     },
     featured: {
       heading: '精选地点',
+      tabRecommended: '推荐',
       tabNew: '最新',
       tabDiscounted: '特价',
       tabFeatured: '精选',

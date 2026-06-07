@@ -2004,6 +2004,7 @@ export const tr = {
     },
     featured: {
       heading: 'Öne Çıkan İlanlar',
+      tabRecommended: 'Önerilenler',
       tabNew: 'Yeni',
       tabDiscounted: 'İndirimli',
       tabFeatured: 'Öne Çıkan',

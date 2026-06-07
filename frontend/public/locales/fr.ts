@@ -950,6 +950,7 @@ export const fr: AppMessages = {
     },
     featured: {
       heading: 'Lieux à la une',
+      tabRecommended: 'Recommandés',
       tabNew: 'Nouveau',
       tabDiscounted: 'En promo',
       tabFeatured: 'À la une',
