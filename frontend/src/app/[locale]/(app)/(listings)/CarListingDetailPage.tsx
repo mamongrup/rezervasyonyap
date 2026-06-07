@@ -419,7 +419,7 @@ async function renderYolcu360CarDetail({
               locale={locale}
               car={car}
               pickup={pickup}
-              dropoff={dropoff}
+              dropoff={dropoff || pickup}
               checkin={checkin}
               checkout={checkout}
               carIndex={carIndex >= 0 ? carIndex : undefined}

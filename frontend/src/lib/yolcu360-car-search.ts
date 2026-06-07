@@ -28,11 +28,19 @@ export type Yolcu360SearchInput = {
   checkout?: string
 }
 
+/** `resolveYolcu360SearchFromUrl` çıktısı — dropoff ve checkout zorunlu. */
+export type Yolcu360ResolvedSearchInput = {
+  pickup: string
+  dropoff: string
+  checkin: string
+  checkout: string
+}
+
 /** Detay veya redirect için URL + isteğe bağlı referer'dan arama bağlamı. */
 export function resolveYolcu360SearchFromUrl(
   searchParams: Record<string, string | string[] | undefined>,
   referer?: string | null,
-): Yolcu360SearchInput | null {
+): Yolcu360ResolvedSearchInput | null {
   let pickup = firstQueryString(searchParams.location)
   let checkin = firstQueryString(searchParams.checkin)
   let checkout = firstQueryString(searchParams.checkout)
