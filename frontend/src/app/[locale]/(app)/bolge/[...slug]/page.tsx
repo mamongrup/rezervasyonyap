@@ -15,6 +15,7 @@ import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWi
 import {
   heroBelowContentClassName,
   heroContainerBelowHeaderClassName,
+  heroMosaicShellClassName,
 } from '@/components/hero-sections/hero-below-header-classes'
 import ListingFilterTabs from '@/components/ListingFilterTabs'
 import SectionSliderRegions, { type RegionSliderItem } from '@/components/SectionSliderRegions'
@@ -429,8 +430,8 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       : null
 
   const heroSlot = (
-    <section className="relative z-10 isolate">
-      <div className={`container mb-6 min-w-0 overflow-x-clip ${heroContainerBelowHeaderClassName}`}>
+    <section className={heroMosaicShellClassName}>
+      <div className={`container mb-6 ${heroContainerBelowHeaderClassName}`}>
         <HeroSectionWithSearchForm1
           heading={heroPack.heroHeadingLinked}
           image={heroPack.heroImage}

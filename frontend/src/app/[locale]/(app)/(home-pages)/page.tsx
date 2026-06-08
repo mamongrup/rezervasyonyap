@@ -8,6 +8,7 @@ import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWi
 import {
   heroBelowContentClassName,
   heroContainerBelowHeaderClassName,
+  heroMosaicShellClassName,
 } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
@@ -187,9 +188,9 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
     <main className="relative isolate min-w-0 overflow-x-hidden">
       <BgGlassmorphism />
 
-      {/* Hero — PageBuilderRenderer dışında, tam genişlik — z-10: arkada gövde zemini arkasında kalmayı önler (prod stacking) */}
+      {/* Hero — PageBuilderRenderer dışında, tam genişlik */}
       <div
-        className={`relative z-10 container mb-6 min-w-0 overflow-x-clip ${heroContainerBelowHeaderClassName}`}
+        className={`${heroMosaicShellClassName} container mb-6 ${heroContainerBelowHeaderClassName}`}
       >
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}

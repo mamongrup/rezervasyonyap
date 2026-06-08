@@ -210,6 +210,11 @@ export type HeroSectionWithSearchForm1Props = {
   heroMosaicBleed?: boolean
   /** Arama+hap bloğunu aşağı kaydırır (px, `translateY`). */
   searchFormOffsetYPx?: number
+  /**
+   * Kategori `compact` hero — mobilde başlık ile mozaik arası (ör. alt kategori grid).
+   * lg+ tam genişlikte mozaik satırının altına düşer.
+   */
+  belowHeadingSlot?: React.ReactNode
 }
 
 function HeroSectionWithSearchForm1({
@@ -230,11 +235,14 @@ function HeroSectionWithSearchForm1({
   minimalSearchLiftSteps = 0,
   heroMosaicBleed = false,
   searchFormOffsetYPx,
+  belowHeadingSlot,
 }: HeroSectionWithSearchForm1Props) {
   const spacing: 'default' | 'compact' | 'minimal' =
     topSpacing ?? (compactTop ? 'compact' : 'default')
   const inlineSearch = spacing === 'minimal' || spacing === 'compact'
   const minimalBelowFoldSearch = spacing === 'minimal'
+  const compactBelowHeadingSlot = spacing === 'compact' && belowHeadingSlot != null
+  const hasMosaicVisual = freeformBannerLayout != null || mosaicImages != null
   const HeadingTag = headingLevel === 'h1' ? 'h1' : 'h2'
   // ── Right column content ──────────────────────────────────────────────────
   let rightCol: React.ReactNode
@@ -314,6 +322,7 @@ function HeroSectionWithSearchForm1({
     <div
       className={clsx(
         'relative flex',
+        hasMosaicVisual && 'max-lg:overflow-hidden',
         /** `compact` / bölge: arama üst satırın altında tam genişlik */
         spacing === 'compact' && 'flex-col pt-0 lg:pt-2',
         /** Kategori şablonu (`default`): üst boşluk üst sarmalayıcıda — çift pt-10 önlenir */
@@ -328,9 +337,12 @@ function HeroSectionWithSearchForm1({
       <div
         className={clsx(
           'relative',
+          hasMosaicVisual && 'max-lg:overflow-hidden',
           minimalBelowFoldSearch
             ? 'grid grid-cols-1 gap-x-6 gap-y-3 lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:gap-y-6 xl:gap-x-8'
-            : 'flex flex-col lg:flex-row',
+            : compactBelowHeadingSlot
+              ? 'flex flex-col lg:flex-row lg:flex-wrap lg:items-start'
+              : 'flex flex-col lg:flex-row',
           !minimalBelowFoldSearch &&
             (spacing === 'compact'
               ? 'gap-6 lg:items-stretch lg:gap-6 xl:gap-8'
@@ -342,8 +354,9 @@ function HeroSectionWithSearchForm1({
         <div
           className={clsx(
             'relative flex w-full min-w-0 shrink-0 flex-col items-start',
+            compactBelowHeadingSlot && 'order-1 lg:max-w-[50%] lg:flex-1 lg:basis-0',
             /** Mobilde `flex-1 basis-0` kolon yüksekliğini bozar; yalnız lg+ yan yana düzende */
-            !minimalBelowFoldSearch && 'lg:flex-1 lg:basis-0',
+            !minimalBelowFoldSearch && !compactBelowHeadingSlot && 'lg:flex-1 lg:basis-0',
             minimalBelowFoldSearch && 'order-1 lg:order-none lg:col-start-1 lg:row-start-1',
             /** `compact` kendi lg:pe-10 ile; `minimal` aşağıda */
             !(inlineSearch && spacing === 'minimal') &&
@@ -394,15 +407,21 @@ function HeroSectionWithSearchForm1({
           ) : null}
         </div>
 
+        {compactBelowHeadingSlot ? (
+          <div className="relative z-30 order-2 w-full min-w-0 lg:order-3 lg:mt-6 lg:basis-full xl:mt-10">
+            {belowHeadingSlot}
+          </div>
+        ) : null}
+
         {/* Right: mozaik / görsel — bölge bleed taşması için */}
         <div
           className={clsx(
             'w-full min-w-0 shrink-0',
-            /**
-             * Mobilde `min-h-0 flex-1` mozaik kutusunu 0 yüksekliğe sıkıştırır; taşan kolaj
-             * (z-30) hero `z-10` bağlamında alt kategori bloğunun üstüne biner.
-             */
-            !minimalBelowFoldSearch && 'lg:min-h-0 lg:flex-1 lg:basis-0 lg:self-stretch',
+            hasMosaicVisual && 'max-lg:overflow-hidden',
+            compactBelowHeadingSlot && 'order-3 lg:order-2 lg:flex-1 lg:basis-0 lg:max-w-[50%]',
+            !minimalBelowFoldSearch &&
+              !compactBelowHeadingSlot &&
+              'lg:min-h-0 lg:flex-1 lg:basis-0 lg:self-stretch',
             minimalBelowFoldSearch && 'order-3 lg:order-none lg:col-start-2 lg:row-start-1',
             heroMosaicBleed && 'lg:z-0 lg:overflow-visible',
           )}

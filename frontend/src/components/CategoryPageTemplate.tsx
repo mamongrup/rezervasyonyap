@@ -17,6 +17,7 @@ import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWi
 import {
   heroBelowContentClassName,
   heroContainerBelowHeaderClassName,
+  heroMosaicShellClassName,
 } from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
@@ -512,12 +513,11 @@ export default async function CategoryPageTemplate({
     category.slug === 'turlar' &&
     !hasActiveSearch &&
     (currentHandle === 'all' || !hasEnabledCategoryHub)
-  const subcategorySection =
+  const subcategoryBelowHeadingSlot =
     isAll &&
     subcategoryItems.length > 0 &&
     !isTourHubLanding &&
     !(category.slug === 'turlar' && hasEnabledCategoryHub) ? (
-    <div className={`${heroBelowContentClassName} container mt-6 sm:mt-10`}>
       <SectionSubcategories
         parentCategorySlug={category.slug}
         locale={locale}
@@ -525,8 +525,7 @@ export default async function CategoryPageTemplate({
         showHeading={true}
         variant="icon-grid"
       />
-    </div>
-  ) : null
+    ) : null
 
   // Category landing view: hero + builder modules (her zaman resolvedModules var)
   if (isAll) {
@@ -549,7 +548,9 @@ export default async function CategoryPageTemplate({
             dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
           />
         )}
-        <div className={`relative z-10 container mb-2 ${heroContainerBelowHeaderClassName}`}>
+        <div
+          className={`${heroMosaicShellClassName} container mb-2 ${heroContainerBelowHeaderClassName}`}
+        >
           <HeroSectionWithSearchForm1
             heading={heroHeadingLinked}
             description={heroDescription}
@@ -560,10 +561,9 @@ export default async function CategoryPageTemplate({
             mosaicImages={mosaicForRegionHero}
             topSpacing="compact"
             heroMosaicBleed
+            belowHeadingSlot={subcategoryBelowHeadingSlot}
           />
         </div>
-
-        {subcategorySection}
 
         {!isTourHubLanding ? searchResultsSection : null}
 
@@ -611,7 +611,9 @@ export default async function CategoryPageTemplate({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
-      <div className={`relative z-10 container mb-2 ${heroContainerBelowHeaderClassName}`}>
+      <div
+        className={`${heroMosaicShellClassName} container mb-2 ${heroContainerBelowHeaderClassName}`}
+      >
         <HeroSectionWithSearchForm1
           heading={heroHeadingLinked}
           description={heroDescription}
