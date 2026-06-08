@@ -21,6 +21,7 @@ import travel/integrations/netgsm_http
 import travel/integrations/paratika_http
 import travel/integrations/paytr_http
 import travel/integrations/travelrobot_http
+import travel/integrations/kplus_booking_http
 import travel/integrations/turna_flight_http
 import travel/integrations/turna_http
 import travel/integrations/wtatil_http
@@ -197,6 +198,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "tour-periods"] ->
       catalog_http.list_public_tour_periods(req, ctx, lid)
+
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "ferry-details"] ->
+      catalog_http.get_public_ferry_details(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "accommodation-rules"] ->
       catalog_http.get_public_listing_accommodation_rules(req, ctx, lid)
@@ -876,6 +880,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "integrations", "travelrobot", "ping"] ->
       travelrobot_http.post_ping(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "kplus", "booking"] ->
+      kplus_booking_http.post_create_booking(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "kplus", "pnr-info"] ->
+      kplus_booking_http.post_pnr_info(req, ctx)
+
+    http.Post, ["api", "v1", "integrations", "kplus", "cancel-booking"] ->
+      kplus_booking_http.post_cancel_booking(req, ctx)
 
     http.Post, ["api", "v1", "integrations", "turna", "ping"] ->
       turna_http.post_ping(req, ctx)

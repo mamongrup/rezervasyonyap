@@ -1430,6 +1430,70 @@ export type PublicTourPeriodsResponse = {
   period_prices: unknown[]
 }
 
+export type FerryPassengerPrice = {
+  adult: number
+  baby: number
+  child: number
+}
+
+export type FerryTicketFare = {
+  type: string
+  label_tr?: string
+  official: FerryPassengerPrice
+  agency: FerryPassengerPrice
+}
+
+export type FerryPortTax = {
+  port: string
+  ow: number
+  sdr: number
+  or: number
+}
+
+export type FerryAgePolicy = {
+  baby_max?: number
+  child_min?: number
+  child_max?: number
+  adult_min?: number
+}
+
+export type FerrySailings = {
+  departures?: string[]
+  vessel?: string
+  duration_minutes?: number
+}
+
+export type PublicFerryDetails = {
+  route_code: string
+  from_port_label: string
+  to_port_label: string
+  operator_name: string
+  port_taxes_included: boolean
+  ticket_fares: FerryTicketFare[]
+  port_taxes: FerryPortTax[]
+  age_policy: FerryAgePolicy
+  timetable_url?: string
+  currency_code: string
+  sailings?: FerrySailings
+}
+
+export async function getPublicFerryDetails(
+  listingId: string,
+): Promise<PublicFerryDetails | null> {
+  const b = base()
+  if (!b) return null
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/ferry-details`,
+      typeof window === 'undefined' ? { next: { revalidate: 120 } } : {},
+    )
+    if (!res.ok) return null
+    return json<PublicFerryDetails>(res)
+  } catch {
+    return null
+  }
+}
+
 export async function getPublicTourPeriods(
   listingId: string,
 ): Promise<PublicTourPeriodsResponse | null> {
