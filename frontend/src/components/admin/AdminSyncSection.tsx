@@ -149,30 +149,7 @@ function ProviderRow({ provider, label, desc, scheduleHours, onScheduleChange, o
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider])
 
-  // Zamanlayıcı kontrolü
-  React.useEffect(() => {
-    if (!scheduleHours.length) return
-    const interval = setInterval(() => {
-      const nowHour = new Date().getUTCHours()
-      const nowMin = new Date().getUTCMinutes()
-      if (!scheduleHours.includes(nowHour)) return
-      if (nowMin !== 0) return
-      // Bugün bu saatte çalıştı mı?
-      if (job?.started_at) {
-        const last = new Date(job.started_at)
-        const nowDate = new Date()
-        if (
-          last.getUTCFullYear() === nowDate.getUTCFullYear() &&
-          last.getUTCMonth() === nowDate.getUTCMonth() &&
-          last.getUTCDate() === nowDate.getUTCDate() &&
-          last.getUTCHours() === nowHour
-        ) return
-      }
-      void handleRun()
-    }, 60_000)
-    return () => clearInterval(interval)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduleHours, job])
+  // Zamanlama yalnızca sunucu tarafında (travel-import-scheduler.timer) yönetilir.
 
   function startPolling() {
     if (pollRef.current) return

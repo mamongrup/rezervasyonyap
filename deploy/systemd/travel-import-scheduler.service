@@ -1,0 +1,28 @@
+# Zamanlanmış ilan import başlatıcısı — her saat başı çalışır.
+# Panel kapalı olsa bile DB'deki import_schedule ayarını okuyarak
+# ilgili provider script'lerini tetikler.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-import-scheduler.service /etc/systemd/system/
+#   sudo cp deploy/systemd/travel-import-scheduler.timer   /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-import-scheduler.timer
+#
+# Log: journalctl -u travel-import-scheduler.service -n 200 --no-pager
+
+[Unit]
+Description=Travel — Zamanlanmış ilan API import başlatıcısı
+After=network-online.target travel-api.service postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/run-scheduled-imports.sh
+EnvironmentFile=-/etc/rezervasyonyap/backend.env
+Nice=10
+IOSchedulingClass=best-effort
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

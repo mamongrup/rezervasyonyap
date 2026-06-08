@@ -1,0 +1,20 @@
+# Her saat başı 2 dakika sonra çalışır (XX:02).
+# Paneldeki import_schedule ayarına göre hangi provider'ın çalışacağı belirlenir.
+#
+# Zamanlama örnekleri (panelden):
+#   wtatil:      [3, 15]   → UTC 03:02 ve 15:02'de
+#   travelrobot: [4]       → UTC 04:02'de
+#   turna:       []        → hiç (devre dışı)
+
+[Unit]
+Description=Travel zamanlanmış ilan import başlatıcısı (saatlik kontrol)
+
+[Timer]
+OnBootSec=5min
+OnCalendar=*-*-* *:02:00
+AccuracySec=60sec
+Persistent=true
+Unit=travel-import-scheduler.service
+
+[Install]
+WantedBy=timers.target
