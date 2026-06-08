@@ -28,6 +28,7 @@ import travel/integrations/yolcu360_http
 import travel/module_tree
 import travel/payments/payment_settings_http
 import travel/site/site_settings_http
+import travel/admin/sync_jobs_http
 import travel/marketing/marketing_http
 import travel/messaging/messaging_catalog_http
 import travel/navigation/navigation_http
@@ -860,6 +861,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Delete, ["api", "v1", "site", "settings"] ->
       site_settings_http.delete_setting(req, ctx)
+
+    http.Get, ["api", "v1", "admin", "sync", "status"] ->
+      sync_jobs_http.get_status(req, ctx)
+
+    http.Post, ["api", "v1", "admin", "sync", "create"] ->
+      sync_jobs_http.create_job(req, ctx)
+
+    http.Put, ["api", "v1", "admin", "sync", "progress"] ->
+      sync_jobs_http.update_progress(req, ctx)
 
     http.Post, ["api", "v1", "integrations", "netgsm", "sms"] ->
       netgsm_http.send_sms(req, ctx)

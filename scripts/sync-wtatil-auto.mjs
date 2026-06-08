@@ -25,12 +25,17 @@ import {
   upsertWtatilTourListing,
 } from './lib/wtatil-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
 const DEFAULT_ORG = 'a0000000-0000-4000-8000-000000000001'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const PING = args.has('--ping')
+
+const jobIdIdx = process.argv.indexOf('--job-id')
+const JOB_ID = jobIdIdx >= 0 ? process.argv[jobIdIdx + 1] : (process.env.SYNC_JOB_ID || '')
+const reporter = createJobReporter(JOB_ID)
 const SKIP_NEW = args.has('--skip-new')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
@@ -63,6 +68,8 @@ async function main() {
     return
   }
 
+  await reporter.start(0)
+
   const orgId = process.env.WTATIL_ORG_ID || DEFAULT_ORG
   const { agencyId } = await loadWtatilConfigAsync()
   if (!agencyId) {
@@ -70,11 +77,11 @@ async function main() {
   }
 
   const { userName, token } = await fetchWtatilToken()
-  console.log('Token alındı, katalog çekiliyor…')
+  await reporter.log('Token alındı, katalog çekiliyor…')
 
   const tours = await fetchAllTours(userName, token, PAGE_SIZE)
   const tourById = new Map(tours.map((t) => [String(t.id), t]))
-  console.log(`API katalog: ${tours.length} tur`)
+  await reporter.log(`API katalog: ${tours.length} tur`)
 
   const client = createPgClient()
   if (!DRY_RUN) await client.connect()
@@ -102,13 +109,15 @@ async function main() {
     let syncOk = 0
     let syncNoPrice = 0
     let syncSkipped = 0
+    const totalTargets = targets.length
+    await reporter.step('Senkron başlıyor…', 0, totalTargets)
 
     for (let i = 0; i < targets.length; i++) {
       const ref = targets[i]
       const tour = tourById.get(ref)
       if (!tour) {
         syncSkipped += 1
-        console.log(`[sync ${i + 1}/${targets.length}] ${ref} … API katalogda yok`)
+        await reporter.step(`[sync ${i + 1}/${targets.length}] ${ref} … API katalogda yok`, i + 1, totalTargets)
         continue
       }
 
@@ -136,10 +145,10 @@ async function main() {
       const periodCount = Array.isArray(enrich.periods) ? enrich.periods.length : 0
       if (result.cheapest_price != null) {
         syncOk += 1
-        console.log(`${periodCount} dönem, fiyat: ${result.cheapest_price}`)
+        await reporter.step(`${label}: ${periodCount} dönem, fiyat: ${result.cheapest_price}`, i + 1, totalTargets)
       } else {
         syncNoPrice += 1
-        console.log(`${periodCount} dönem, fiyat yok`)
+        await reporter.step(`${label}: ${periodCount} dönem, fiyat yok`, i + 1, totalTargets)
       }
 
       if (delayMs > 0 && i + 1 < targets.length) await sleep(delayMs)
@@ -147,7 +156,7 @@ async function main() {
 
     let imported = 0
     if (!SKIP_NEW && IMPORT_NEW_LIMIT > 0) {
-      console.log(`\n=== Yeni turlar (API → DB, max ${IMPORT_NEW_LIMIT}) ===`)
+      await reporter.log(`\n=== Yeni turlar (API → DB, max ${IMPORT_NEW_LIMIT}) ===`)
       for (const tour of tours) {
         if (imported >= IMPORT_NEW_LIMIT) break
         const ref = String(tour.id)
@@ -168,21 +177,20 @@ async function main() {
           enrich,
         })
         imported += 1
-        console.log(row.action, row.slug)
+        await reporter.log(`[new ${imported}] ${row.action} ${row.slug}`)
 
         if (delayMs > 0) await sleep(delayMs)
       }
     }
 
-    console.log(
-      `\nBitti: sync ${syncOk} fiyatlı, ${syncNoPrice} fiyatsız, ${syncSkipped} atlandı; yeni import ${imported}${DRY_RUN ? ' (dry-run)' : ''}.`,
-    )
+    const summary = `Bitti: sync ${syncOk} fiyatlı, ${syncNoPrice} fiyatsız, ${syncSkipped} atlandı; yeni import ${imported}${DRY_RUN ? ' (dry-run)' : ''}.`
+    await reporter.done(summary)
   } finally {
     if (!DRY_RUN) await client.end()
   }
 }
 
-main().catch((err) => {
-  console.error(err.message || err)
+main().catch(async (err) => {
+  await reporter.fail(err.message || String(err))
   process.exit(1)
 })
