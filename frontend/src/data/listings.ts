@@ -29,7 +29,7 @@ import {
   resolvePublishedListingIdForStayPage,
   searchPublicListings,
 } from '@/lib/travel-api'
-import type { FilterOption, MealPlanSummary, TListingBase } from '@/types/listing-types'
+import type { FilterOption, MealPlanSummary, TListingBase, TListingFerry } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
 
 /** SectionHost vitrin tipi — konaklama birleştirmesi ve araç / deneyim kısmi host bilgisi */
@@ -328,7 +328,19 @@ export const getCarListingByHandle = async (
   if (!row) return null
   const v = normalizeCatalogVertical(row.listingVertical)
   if (!v || !TRANSPORT_DETAIL_VERTICALS.has(v)) return null
+  if (v === 'ferry') return null
   return row as TCarListing
+}
+
+export const getFerryListingByHandle = async (
+  handle: string,
+  locale?: string,
+): Promise<TListingFerry | null> => {
+  const row = await getStayListingByHandle(handle, locale)
+  if (!row) return null
+  const v = normalizeCatalogVertical(row.listingVertical)
+  if (v !== 'ferry') return null
+  return row as TListingFerry
 }
 
 //  EXPERIENCE LISTING  //

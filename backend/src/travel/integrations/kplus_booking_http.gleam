@@ -8,6 +8,7 @@ import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
 import gleam/json
+import gleam/list
 import gleam/result
 import gleam/string
 import travel/identity/permissions
@@ -139,9 +140,9 @@ pub fn post_create_booking(req: Request, ctx: Context) -> Response {
                         Ok(token) -> {
                           // PassengerInfo tuple'larını kplus_booking.PassengerInfo'ya dönüştür
                           let passengers = list.map(psg_tuples, fn(t) {
-                            let #(fn, ln, ptype, bd, nat, doc_no, doc_type, gender) = t
+                            let #(first_name, ln, ptype, bd, nat, doc_no, doc_type, gender) = t
                             kplus_booking.PassengerInfo(
-                              first_name: fn,
+                              first_name: first_name,
                               last_name: ln,
                               passenger_type: ptype,
                               birth_date: bd,

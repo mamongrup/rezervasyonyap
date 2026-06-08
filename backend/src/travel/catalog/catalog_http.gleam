@@ -4784,6 +4784,135 @@ pub fn list_public_tour_periods(
   }
 }
 
+fn public_ferry_details_row() ->
+  decode.Decoder(
+    #(
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+      String,
+    ),
+  )
+{
+  use route_code <- decode.field(0, decode.string)
+  use from_port <- decode.field(1, decode.string)
+  use to_port <- decode.field(2, decode.string)
+  use operator_name <- decode.field(3, decode.string)
+  use port_taxes_included <- decode.field(4, decode.string)
+  use ticket_fares_json <- decode.field(5, decode.string)
+  use port_taxes_json <- decode.field(6, decode.string)
+  use age_policy_json <- decode.field(7, decode.string)
+  use timetable_url <- decode.field(8, decode.string)
+  use currency_code <- decode.field(9, decode.string)
+  use sailings_json <- decode.field(10, decode.string)
+  decode.success(#(
+    route_code,
+    from_port,
+    to_port,
+    operator_name,
+    port_taxes_included,
+    ticket_fares_json,
+    port_taxes_json,
+    age_policy_json,
+    timetable_url,
+    currency_code,
+    sailings_json,
+  ))
+}
+
+/// GET /api/v1/catalog/public/listings/:id/ferry-details — yayında feribot rotası + fiyat tablosu
+pub fn get_public_ferry_details(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select coalesce(lfd.route_code, ''), "
+      <> "coalesce(lfd.from_port_label, ''), "
+      <> "coalesce(lfd.to_port_label, ''), "
+      <> "coalesce(lfd.operator_name, ''), "
+      <> "case when coalesce(lfd.port_taxes_included, true) then 'true' else 'false' end, "
+      <> "coalesce(lfd.ticket_fares_json::text, '[]'), "
+      <> "coalesce(lfd.port_taxes_json::text, '[]'), "
+      <> "coalesce(lfd.age_policy_json::text, '{}'), "
+      <> "coalesce(lfd.timetable_url, ''), "
+      <> "coalesce(nullif(trim(l.currency_code), ''), 'EUR'), "
+      <> "coalesce(lfd.sailings_json::text, '{}') "
+      <> "from listing_ferry_details lfd "
+      <> "inner join listings l on l.id = lfd.listing_id and l.status = 'published' "
+      <> "where lfd.listing_id = $1::uuid",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(public_ferry_details_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "public_ferry_details_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [] -> json_err(404, "ferry_details_not_found")
+        [
+          #(
+            route_code,
+            from_port,
+            to_port,
+            operator_name,
+            port_taxes_included,
+            ticket_fares_json,
+            port_taxes_json,
+            age_policy_json,
+            timetable_url,
+            currency_code,
+            sailings_json,
+          ),
+        ] -> {
+          let body =
+            "{\"route_code\":\""
+            <> json_escape_string(route_code)
+            <> "\",\"from_port_label\":\""
+            <> json_escape_string(from_port)
+            <> "\",\"to_port_label\":\""
+            <> json_escape_string(to_port)
+            <> "\",\"operator_name\":\""
+            <> json_escape_string(operator_name)
+            <> "\",\"port_taxes_included\":"
+            <> port_taxes_included
+            <> ",\"ticket_fares\":"
+            <> ticket_fares_json
+            <> ",\"port_taxes\":"
+            <> port_taxes_json
+            <> ",\"age_policy\":"
+            <> age_policy_json
+            <> ",\"timetable_url\":\""
+            <> json_escape_string(timetable_url)
+            <> "\",\"currency_code\":\""
+            <> json_escape_string(currency_code)
+            <> "\",\"sailings\":"
+            <> sailings_json
+            <> "}"
+          wisp.json_response(body, 200)
+        }
+        _ -> json_err(500, "unexpected")
+      }
+  }
+}
+
+fn json_escape_string(s: String) -> String {
+  s
+  |> string.replace("\\", "\\\\")
+  |> string.replace("\"", "\\\"")
+  |> string.replace("\n", "\\n")
+  |> string.replace("\r", "\\r")
+}
+
 /// GET /api/v1/catalog/public/listings/:id/availability-calendar?from=YYYY-MM-DD&to=YYYY-MM-DD — vitrin (yayında ilan)
 pub fn list_public_listing_availability_calendar(
   req: Request,

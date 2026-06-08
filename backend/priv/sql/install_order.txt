@@ -150,6 +150,13 @@ modules/307_yacht_charter_amenity_filter_groups.sql
 modules/307_ai_trip_and_cruise_routes.sql
 modules/308_listings_is_locked.sql
 modules/309_provider_sync_jobs.sql
+modules/310_ferry_details_extended.sql
+modules/311_ferry_tilos_2026_seed.sql
+modules/312_ferry_listing_images_descriptions.sql
+modules/313_ferry_sailings_json.sql
+modules/314_ferry_tilos_website_sync.sql
+modules/315_ferry_destination_images.sql
+modules/316_ferry_gallery_expand.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

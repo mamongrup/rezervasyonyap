@@ -1,8 +1,8 @@
-import CarListingDetailPage, { generateCarListingMetadata } from '../../CarListingDetailPage'
+import FerryListingDetailPage, { generateFerryListingMetadata } from '../../FerryListingDetailPage'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
 
-export const generateMetadata = generateCarListingMetadata
+export const generateMetadata = generateFerryListingMetadata
 
 export default function Page(props: { params: Promise<{ locale: string; handle: string }> }) {
-  return <CarListingDetailPage {...props} linkBase={detailPathForVertical('ferry')} />
+  return <FerryListingDetailPage {...props} linkBase={detailPathForVertical('ferry')} />
 }

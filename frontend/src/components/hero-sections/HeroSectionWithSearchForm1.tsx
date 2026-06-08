@@ -354,9 +354,9 @@ function HeroSectionWithSearchForm1({
               'gap-y-5 pb-2 lg:gap-y-8 lg:pe-10 lg:pt-12 lg:pb-0 xl:gap-y-10 xl:pe-14 2xl:pe-14',
             /** Bölge `compact` — alt boşluk arama bindirmesi için */
             spacing === 'compact' &&
-              'gap-y-4 pb-4 sm:pb-16 sm:gap-y-5 lg:gap-y-5 lg:pe-10 lg:pt-4 lg:pb-60 xl:pe-14',
+              'relative z-20 gap-y-4 pb-4 sm:pb-16 sm:gap-y-5 lg:gap-y-5 lg:pe-10 lg:pt-4 lg:pb-60 xl:pe-14',
             /** Kategori `default` */
-            spacing === 'default' && 'gap-y-6 pb-4 md:pb-16 lg:pb-60 xl:gap-y-10',
+            spacing === 'default' && 'relative z-20 gap-y-6 pb-4 md:pb-16 lg:pb-60 xl:gap-y-10',
             spacing === 'minimal' && 'lg:pt-0',
             spacing === 'compact' && 'lg:pt-2',
             spacing === 'default' && 'lg:pt-2',
@@ -376,7 +376,7 @@ function HeroSectionWithSearchForm1({
           {!minimalBelowFoldSearch ? (
             <div
               className={clsx(
-                'z-30 hidden w-full min-w-0 md:block',
+                'z-40 hidden w-full min-w-0 md:block',
                 /** Mobil: üst çubukta HeroSearchFormMobile — gövde araması yok; lg+: sol kolon tabanında, hap görsellerin üstüne biner */
                 'lg:mt-0 lg:absolute lg:start-0 lg:w-screen lg:max-w-4xl xl:max-w-6xl',
                 /** `default` / `compact`: üst üste binen arama — `minimal` bu dalda yok (`minimalBelowFoldSearch` ayrı blokta). */
@@ -399,7 +399,7 @@ function HeroSectionWithSearchForm1({
             'w-full min-h-0 min-w-0',
             !minimalBelowFoldSearch && 'flex-1 basis-0 lg:self-stretch',
             minimalBelowFoldSearch && 'order-3 lg:order-none lg:col-start-2 lg:row-start-1',
-            heroMosaicBleed && 'lg:overflow-visible',
+            heroMosaicBleed && 'lg:z-0 lg:overflow-visible',
           )}
         >
           {rightCol}
@@ -408,7 +408,7 @@ function HeroSectionWithSearchForm1({
         {minimalBelowFoldSearch ? (
           <div
             className={clsx(
-              'z-30 order-2 w-full min-w-0 max-w-full lg:order-none lg:col-span-2 lg:row-start-2',
+              'z-40 order-2 w-full min-w-0 max-w-full lg:order-none lg:col-span-2 lg:row-start-2',
               /* <lg: üst çubukta HeroSearchFormMobile — hero satırı boş kalmasın */
               'hidden lg:block',
               'lg:max-w-4xl xl:max-w-6xl',

@@ -99,7 +99,10 @@ export default async function CarListingDetailPage({
   }
 
   const vertical = normalizeCatalogVertical(listing.listingVertical) ?? 'car_rental'
-  const transportCodes: CatalogListingVerticalCode[] = ['car_rental', 'ferry', 'transfer']
+  if (vertical === 'ferry') {
+    return redirect(await vitrinHref(locale, `${detailPathForVertical('ferry')}/${handle}`))
+  }
+  const transportCodes: CatalogListingVerticalCode[] = ['car_rental', 'transfer']
   if (!transportCodes.includes(vertical)) {
     return redirect(await vitrinHref(locale, transportBrowsePathForVertical(vertical)))
   }

@@ -8,6 +8,7 @@
 
 import gleam/dynamic/decode
 import gleam/json
+import gleam/list
 import gleam/string
 import travel/integrations/travelrobot_config.{type TravelrobotConfig}
 import travel/net/http_client

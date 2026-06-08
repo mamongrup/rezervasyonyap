@@ -352,7 +352,7 @@ export function mapPublicListingItemToListingBase(
     const resolvedDurationDays =
       tourDurationDays ?? (tourNights != null && tourNights > 0 ? tourNights + 1 : undefined)
 
-    if (vertical === 'flight') {
+    if (vertical === 'flight' || vertical === 'ferry') {
       const routeRaw = (item.location ?? item.title ?? '').trim()
       const routeSep = routeRaw.includes('→')
         ? '→'
@@ -369,6 +369,13 @@ export function mapPublicListingItemToListingBase(
         const parts = routeRaw.split(routeSep).map((s) => s.trim())
         departure = parts[0] || undefined
         arrival = parts[1] || undefined
+      }
+      if (vertical === 'ferry') {
+        return {
+          ...base,
+          ...(departure ? { fromPort: departure } : {}),
+          ...(arrival ? { toPort: arrival } : {}),
+        } as TListingBase
       }
       return {
         ...base,

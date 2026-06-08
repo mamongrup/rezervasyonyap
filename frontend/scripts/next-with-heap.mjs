@@ -7,6 +7,26 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 
+/** .env.local içindeki NEXT_NODE_HEAP_MB satırını oku (process.env üzerine yaz) */
+function loadHeapFromEnvLocal() {
+  if (process.env.NEXT_NODE_HEAP_MB) return
+  const envFile = path.join(process.cwd(), '.env.local')
+  try {
+    const content = fs.readFileSync(envFile, 'utf8')
+    for (const line of content.split(/\r?\n/)) {
+      const m = line.match(/^\s*NEXT_NODE_HEAP_MB\s*=\s*(\d+)/)
+      if (m) {
+        process.env.NEXT_NODE_HEAP_MB = m[1]
+        break
+      }
+    }
+  } catch {
+    /* .env.local yoksa sorun yok */
+  }
+}
+
+loadHeapFromEnvLocal()
+
 /** `next dev` öncesi bozuk fetch-cache dosyalarını sil (Webpack bu kodu derlemez — doğrudan Node çalışır). */
 function clearDevFetchCacheIfDev() {
   const args = process.argv.slice(2)

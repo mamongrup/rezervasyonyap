@@ -28,14 +28,17 @@ export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { 
   if (listings.length === 0) return null
 
   const t = getMessages(locale)
+  const categoryFeatured = t.homePage.featuredByCategory?.[categorySlug]
 
-  // Başlık: config'den → kategori adı → fallback
-  let heading = config.heading
+  // Başlık: config → i18n kategori vitrini → kategori adı → fallback
+  let heading = config.heading ?? categoryFeatured?.heading
   if (!heading) {
     const raw = getCategoryBySlug(categorySlug)
     const resolved = raw ? resolveCategoryDisplay(raw, locale) : null
     heading = resolved?.name ?? t.site.featured.heading
   }
+
+  const subHeading = config.subHeading ?? categoryFeatured?.subHeading ?? ''
 
   // "Tümünü gör" bağlantısı
   const viewAllHref = config.viewAllHref ?? `/${categorySlug}/all`
@@ -52,7 +55,7 @@ export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { 
       stayListings={listings}
       cardType={(config.cardType as 'card1' | 'card2') ?? 'card2'}
       heading={heading}
-      subHeading={config.subHeading ?? ''}
+      subHeading={subHeading}
       tabs={tabs}
       tabActive={tabs[0] ?? ''}
       rightButtonHref={viewAllHref}

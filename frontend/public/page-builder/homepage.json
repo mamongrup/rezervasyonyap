@@ -56,9 +56,48 @@
       "enabled": true,
       "order": 5,
       "config": {
-        "heading": "Öne çıkan konaklama",
-        "subHeading": "Sakin kalın ve seyahat edin",
+        "categorySlug": "oteller",
         "viewAllHref": "/oteller/all"
+      }
+    },
+    {
+      "id": "homepage-module-villa",
+      "type": "featured_places",
+      "enabled": true,
+      "order": 5.1,
+      "config": {
+        "categorySlug": "tatil-evleri",
+        "viewAllHref": "/tatil-evleri/all"
+      }
+    },
+    {
+      "id": "homepage-module-yacht",
+      "type": "featured_places",
+      "enabled": true,
+      "order": 5.2,
+      "config": {
+        "categorySlug": "yat-kiralama",
+        "viewAllHref": "/yat-kiralama/all"
+      }
+    },
+    {
+      "id": "homepage-module-tour",
+      "type": "featured_places",
+      "enabled": true,
+      "order": 5.3,
+      "config": {
+        "categorySlug": "turlar",
+        "viewAllHref": "/turlar/all"
+      }
+    },
+    {
+      "id": "homepage-module-activity",
+      "type": "featured_places",
+      "enabled": true,
+      "order": 5.4,
+      "config": {
+        "categorySlug": "aktiviteler",
+        "viewAllHref": "/aktiviteler/all"
       }
     },
     {
@@ -183,6 +222,6 @@
       }
     }
   ],
-  "updatedAt": "2026-06-07T22:22:14.469Z",
+  "updatedAt": "2026-06-08T12:00:00.000Z",
   "schemaVersion": 1
 }
