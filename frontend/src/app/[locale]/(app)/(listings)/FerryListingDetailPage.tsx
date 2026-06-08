@@ -1,5 +1,7 @@
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
-import { getFerryListingByHandle, listingHostForSection } from '@/data/listings'
+import { getFerryListingByHandle } from '@/data/listings'
+import { fetchCategoryListings } from '@/lib/listings-fetcher'
+import type { TListingFerry } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { FerryBoatIcon, Timer02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -13,9 +15,8 @@ import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import HeaderGallery from './components/HeaderGallery'
 import SectionHeader from './components/SectionHeader'
-import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
-import SectionListingReviews from './components/SectionListingReviews'
+import SimilarListings from './components/SimilarListings'
 import FerryPriceTableSection from './FerryPriceTableSection'
 import FerrySailingsSection from './FerrySailingsSection'
 import FerryBookingSidebar from './FerryBookingSidebar'
@@ -61,11 +62,36 @@ export default async function FerryListingDetailPage({
   }
 
   const catalogListingId = await resolvePublishedListingIdForStayPage(handle, locale)
-  const ferryDetails = catalogListingId ? await getPublicFerryDetails(catalogListingId) : null
+  const [ferryDetails, similarRes] = await Promise.all([
+    catalogListingId ? getPublicFerryDetails(catalogListingId) : Promise.resolve(null),
+    fetchCategoryListings('feribot', {}, {}, locale).catch(() => ({ listings: [] })),
+  ])
 
   const m = getMessages(locale)
+  const dp = m.listing.detailPage
   const fd = m.listing.ferryDetail
   const cm = m.listing.cardMeta
+  const ferryLinkBase = detailPathForVertical('ferry')
+  const similarFerryListings = similarRes.listings
+    .filter((l) => l.handle !== handle)
+    .slice(0, 8)
+    .map((l) => {
+      const f = l as TListingFerry
+      const route =
+        f.fromPort && f.toPort ? `${f.fromPort} → ${f.toPort}` : (l.address ?? '')
+      return {
+        id: l.id,
+        title: l.title,
+        handle: l.handle,
+        address: route,
+        price: l.price ?? '',
+        reviewStart: l.reviewStart ?? 0,
+        reviewCount: l.reviewCount ?? 0,
+        featuredImage: l.featuredImage ?? '',
+        listingCategory: l.listingCategory ?? m.categoryPage.verticalLabels.ferry,
+        linkBase: ferryLinkBase,
+      }
+    })
 
   const {
     title,
@@ -199,20 +225,15 @@ export default async function FerryListingDetailPage({
 
       <Divider className="my-16" />
 
-      <div className="flex flex-col gap-y-10">
-        <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
-          <div className="w-full lg:w-4/9 xl:w-1/3">
-            <SectionHost {...listingHostForSection(title)} locale={locale} />
-          </div>
-          <div className="w-full lg:w-2/3">
-            <SectionListingReviews
-              listingId={listing.id}
-              reviewCount={reviewCount ?? 0}
-              reviewStart={reviewStart ?? 0}
-            />
-          </div>
-        </div>
-      </div>
+      {similarFerryListings.length > 0 ? (
+        <SimilarListings
+          listings={similarFerryListings}
+          title={dp.similarListings}
+          perNightSuffix={fd.pricePerPerson}
+          ariaPrev={dp.carouselPrevAria}
+          ariaNext={dp.carouselNextAria}
+        />
+      ) : null}
     </div>
   )
 }
