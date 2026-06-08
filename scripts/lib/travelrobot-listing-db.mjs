@@ -86,7 +86,7 @@ function tourRef(tour) {
   ).trim()
 }
 
-function hotelRef(hotel) {
+export function hotelRef(hotel) {
   const nested = hotel?.Hotel ?? hotel?.hotel
   return String(
     hotel?.HotelId ??
@@ -170,12 +170,145 @@ function normalizeCurrency(raw) {
   return ['TRY', 'EUR', 'USD', 'GBP'].includes(c) ? c : 'TRY'
 }
 
-function extractHotelImageUrl(hotel) {
+function collectHotelImageUrls(hotel) {
   const nested = hotel?.Hotel ?? hotel?.hotel
-  return (
-    pickText(hotel, 'HotelImageURL', 'hotelImageURL', 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl') ||
-    pickText(nested ?? {}, 'HotelImageURL', 'hotelImageURL', 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl')
+  const urls = []
+  const push = (raw) => {
+    const u = String(raw || '').trim()
+    if (u && !isKplusPlaceholderImage(u) && !urls.includes(u)) urls.push(u)
+  }
+  push(
+    pickText(hotel, 'HotelImageURL', 'hotelImageURL', 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl', 'CoverPhoto', 'coverPhoto') ||
+      pickText(nested ?? {}, 'HotelImageURL', 'hotelImageURL', 'ImageUrl', 'imageUrl', 'ThumbnailUrl', 'thumbnailUrl', 'CoverPhoto', 'coverPhoto'),
   )
+  for (const src of [hotel, nested]) {
+    if (!src || typeof src !== 'object') continue
+    for (const key of ['Images', 'images', 'Photos', 'photos', 'Medias', 'medias', 'Gallery', 'gallery', 'HotelImages', 'hotelImages', 'ImageList', 'imageList']) {
+      const arr = src[key]
+      if (!Array.isArray(arr)) continue
+      for (const item of arr) {
+        if (typeof item === 'string') push(item)
+        else push(pickText(item, 'Url', 'url', 'ImageUrl', 'imageUrl', 'Path', 'path', 'Src', 'src', 'MediaUrl', 'mediaUrl'))
+      }
+    }
+  }
+  return urls
+}
+
+function extractHotelImageUrl(hotel) {
+  return collectHotelImageUrls(hotel)[0] ?? ''
+}
+
+/** Static Content API yanıtını SearchHotel satırıyla birleştirir (görseller, açıklama). */
+export function mergeStaticHotelContent(searchRow, staticRow) {
+  if (!staticRow || typeof staticRow !== 'object') return searchRow
+  const nestedSearch = searchRow?.Hotel ?? searchRow?.hotel ?? {}
+  const nestedStatic = staticRow?.Hotel ?? staticRow?.hotel ?? staticRow
+  const code = hotelRef(searchRow) || hotelRef(staticRow)
+  return {
+    ...searchRow,
+    ...staticRow,
+    HotelCode: code || searchRow?.HotelCode,
+    HotelName:
+      pickText(staticRow, 'HotelName', 'hotelName', 'Name', 'name') ||
+      pickText(nestedStatic, 'HotelName', 'hotelName', 'Name', 'name') ||
+      pickText(searchRow, 'HotelName', 'hotelName', 'Name', 'name'),
+    Description:
+      pickText(staticRow, 'Description', 'description', 'Details', 'details') ||
+      pickText(nestedStatic, 'Description', 'description', 'Details', 'details') ||
+      pickText(searchRow, 'Description', 'description', 'Details', 'details'),
+    Images: staticRow?.Images ?? staticRow?.images ?? searchRow?.Images ?? searchRow?.images,
+    Hotel: { ...nestedSearch, ...nestedStatic },
+    Rooms: searchRow?.Rooms ?? searchRow?.rooms ?? staticRow?.Rooms ?? staticRow?.rooms,
+  }
+}
+
+/** getBulkHotelContent chunk sonuçlarından kod → içerik haritası. */
+export function buildStaticHotelMap(bulkResults) {
+  const map = new Map()
+  for (const chunk of bulkResults ?? []) {
+    if (chunk?.error) continue
+    const raw = chunk?.data
+    const list = Array.isArray(raw)
+      ? raw
+      : raw?.Result ?? raw?.result ?? raw?.Hotels ?? raw?.hotels ?? []
+    if (!Array.isArray(list)) continue
+    for (const h of list) {
+      const code = hotelRef(h)
+      if (code) map.set(code, h)
+    }
+  }
+  return map
+}
+
+function extractHotelRoomRows(hotel) {
+  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
+  const out = []
+  for (const room of rooms) {
+    const roomName = pickText(room, 'Name', 'name', 'RoomName', 'roomName') || 'Standart Oda'
+    const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
+    if (!alts.length) {
+      out.push({ name: roomName, boardType: null, price: null, currency: 'TRY', meta: {} })
+      continue
+    }
+    for (const alt of alts) {
+      const name = pickText(alt, 'RoomName', 'roomName', 'Name', 'name') || roomName
+      const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
+      const amount = Number(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount ?? NaN)
+      const currency = normalizeCurrency(alt?.CurrencyCode ?? alt?.currencyCode)
+      const roomCode = pickText(alt, 'RoomCode', 'roomCode', 'Key', 'key')
+      const image = pickText(alt, 'ImageUrl', 'imageUrl', 'RoomImageUrl', 'roomImageUrl')
+      out.push({
+        name: name.slice(0, 200),
+        boardType: board || null,
+        price:
+          Number.isFinite(amount) && amount > 0 && amount <= MAX_SANE_NIGHTLY_TRY ? amount : null,
+        currency,
+        meta: {
+          travelrobot_room_code: roomCode || null,
+          board_type: board || null,
+          price: Number.isFinite(amount) && amount > 0 ? String(amount) : null,
+          currency,
+          ...(image && !isKplusPlaceholderImage(image) ? { image } : {}),
+        },
+      })
+    }
+  }
+  return out
+}
+
+async function upsertHotelGallery(pgClient, listingId, urls) {
+  const list = (urls ?? []).filter((u) => u && !isKplusPlaceholderImage(u))
+  if (!list.length) {
+    await clearListingCover(pgClient, listingId)
+    return
+  }
+  await pgClient.query(
+    `UPDATE listings SET featured_image_url = $2, thumbnail_url = $2, updated_at = now() WHERE id = $1::uuid`,
+    [listingId, list[0]],
+  )
+  await pgClient.query(`DELETE FROM listing_images WHERE listing_id = $1::uuid`, [listingId])
+  for (let i = 0; i < list.length; i++) {
+    await pgClient.query(
+      `INSERT INTO listing_images (listing_id, sort_order, storage_key, original_mime)
+       VALUES ($1::uuid, $2, $3, 'image/jpeg')`,
+      [listingId, i, list[i]],
+    )
+  }
+}
+
+async function upsertTravelrobotHotelRooms(pgClient, listingId, hotel) {
+  const rows = extractHotelRoomRows(hotel)
+  await pgClient.query(`DELETE FROM hotel_rooms WHERE listing_id = $1::uuid`, [listingId])
+  if (!rows.length) return 0
+  for (const r of rows) {
+    await pgClient.query(
+      `INSERT INTO hotel_rooms (listing_id, name, capacity, board_type, meta_json)
+       VALUES ($1::uuid, $2, NULL, $3, $4::jsonb)`,
+      [listingId, r.name, r.boardType, JSON.stringify(r.meta)],
+    )
+  }
+  return rows.length
 }
 
 function extractHotelMinNightlyPrice(hotel) {
@@ -485,10 +618,24 @@ export async function upsertTravelrobotHotelListing(
     [core.listingId, JSON.stringify({ catalog: hotel })],
   )
 
-  await upsertListingCover(pgClient, core.listingId, extractHotelImageUrl(hotel))
-  await upsertNightlyPriceRule(pgClient, core.listingId, nightlyPrice, currency)
+  const galleryUrls = collectHotelImageUrls(hotel)
+  if (galleryUrls.length) {
+    await upsertHotelGallery(pgClient, core.listingId, galleryUrls)
+  } else {
+    await clearListingCover(pgClient, core.listingId)
+  }
 
-  return { ...core, action: core.created ? 'created' : 'updated', kind: 'hotel' }
+  const roomCount = await upsertTravelrobotHotelRooms(pgClient, core.listingId, hotel)
+  const priceFromRooms = extractHotelMinNightlyPrice(hotel)
+  await upsertNightlyPriceRule(pgClient, core.listingId, priceFromRooms ?? nightlyPrice, currency)
+
+  return {
+    ...core,
+    action: core.created ? 'created' : 'updated',
+    kind: 'hotel',
+    roomCount,
+    imageCount: galleryUrls.length,
+  }
 }
 
 // ── Uçak upsert ─────────────────────────────────────────────────────────────
