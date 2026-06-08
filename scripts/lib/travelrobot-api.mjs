@@ -70,7 +70,13 @@ async function kplusPost(baseUrl, svcPath, body) {
     }
   }
   if (!res.ok || json?.HasError) {
-    const msg = json?.ErrorMessage || json?.UserFriendlyErrorMessage || json?.Message || text.slice(0, 300) || res.statusText
+    const msg =
+      json?.ErrorMessage ||
+      json?.UserFriendlyErrorMessage ||
+      json?.Message ||
+      (res.status >= 500 && !json ? `HTTP ${res.status} (sunucu XML/SOAP — KPlus sandbox)` : null) ||
+      text.slice(0, 300) ||
+      res.statusText
     throw new Error(`${svcPath}: ${msg}`)
   }
   return json
@@ -512,40 +518,58 @@ export async function getHotelFinalPrice(cfg, tokenCode, opts = {}) {
  *   contactInfo, invoiceInfo, paymentInfo, languageCode
  * }
  */
-export async function bookHotel(cfg, opts = {}) {
+function omitNullFields(value) {
+  if (value === null || value === undefined) return undefined
+  if (Array.isArray(value)) {
+    return value.map((v) => omitNullFields(v)).filter((v) => v !== undefined)
+  }
+  if (typeof value !== 'object') return value
+  const out = {}
+  for (const [k, v] of Object.entries(value)) {
+    if (v === null || v === undefined) continue
+    const cleaned = omitNullFields(v)
+    if (cleaned !== undefined) out[k] = cleaned
+  }
+  return out
+}
+
+/** BookHotel gövdesi — debug-hotel-book.mjs ile aynı şema (null alanlar gönderilmez). */
+export function buildHotelBookRequest(opts = {}) {
   const packageInBody = opts.packageIdInBody === true && opts.packageId != null
   const resultKeys = packageInBody
     ? []
     : (opts.resultKeys ??
       (opts.resultKey ? [opts.resultKey] : opts.packageId ? [opts.packageId] : []))
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookHotel', {
-    request: {
-      ProcessId: null,
-      Version: '2.0',
-      ProductType: 1,
-      TokenCode: opts.tokenCode,
-      PackageId: packageInBody ? String(opts.packageId) : null,
-      PaxInfo: {
-        HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
-        FlightPaxes: null,
-        CarPax: null,
-        TourRoomPaxes: null,
-        TransferPaxes: null,
-        PackagePaxes: null,
-        VisaPaxes: null,
-        ActivityPaxes: null,
-      },
-      ContactInfo: opts.contactInfo,
-      InvoiceInfo: opts.invoiceInfo,
-      CorporateInfo: null,
-      BookingNote: opts.bookingNote ?? null,
-      AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      ResultKeys: resultKeys.length ? resultKeys : null,
-      PaymentInfo: opts.paymentInfo,
-      LanguageCode: opts.languageCode ?? 'tr',
-      WithPrice: false,
+
+  const request = {
+    Version: '2.0',
+    ProductType: 1,
+    TokenCode: opts.tokenCode,
+    PaxInfo: {
+      HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
     },
-  })
+    ContactInfo: opts.contactInfo,
+    InvoiceInfo: opts.invoiceInfo,
+    PaymentInfo: opts.paymentInfo,
+    LanguageCode: opts.languageCode ?? 'tr',
+    WithPrice: false,
+  }
+  if (opts.bookingNote) request.BookingNote = opts.bookingNote
+  if (opts.agentReferenceInfo != null) request.AgentReferenceInfo = opts.agentReferenceInfo
+
+  if (packageInBody) {
+    request.PackageId = String(opts.packageId)
+  } else if (resultKeys.length) {
+    request.ResultKeys = resultKeys
+  }
+
+  return { request }
+}
+
+export async function bookHotel(cfg, opts = {}) {
+  const body = buildHotelBookRequest(opts)
+  const payload = opts.omitNulls === false ? body : omitNullFields(body)
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookHotel', payload ?? body)
 }
 
 /**
