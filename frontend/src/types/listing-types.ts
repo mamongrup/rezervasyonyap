@@ -313,6 +313,16 @@ export interface FeaturedByRegionConfig {
   regions: FeaturedRegionEntry[]
 }
 
+/** Kategori vitrini (featured_places) — panelden seçilen öne çıkan ilanlar */
+export interface FeaturedListingsConfig {
+  categorySlug: string
+  /** Vitrin sırası — ilk elemanlar «Önerilenler» sekmesinde önde */
+  listingIds: string[]
+  /** Anasayfa vitrininde gösterilecek kart sayısı (sekme başına) */
+  displayCount?: number
+  updatedAt?: string
+}
+
 import type { PageBuilderJsonConfig, PageBuilderModule } from './page-builder-module'
 
 export type { PageBuilderJsonConfig, PageBuilderModule } from './page-builder-module'

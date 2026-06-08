@@ -2,6 +2,8 @@ import SectionGridFeaturePlaces from '@/components/SectionGridFeaturePlaces'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
+import { getFeaturedListingsConfig } from '@/lib/featured-listings-config'
+import { applyFeaturedListingOrder, DEFAULT_FEATURED_DISPLAY_COUNT } from '@/lib/featured-listings-utils'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import type { TListingBase } from '@/types/listing-types'
 import { getMessages, type AppMessages } from '@/utils/getT'
@@ -19,12 +21,20 @@ export interface FeaturedPlacesModuleConfig {
 
 export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { config: FeaturedPlacesModuleConfig; locale?: string }) {
   const categorySlug = config.categorySlug ?? 'oteller'
-  const apiResult = await fetchCategoryListings(categorySlug, {}, {}, locale)
+  const [apiResult, featuredConfig] = await Promise.all([
+    fetchCategoryListings(categorySlug, {}, {}, locale),
+    getFeaturedListingsConfig(categorySlug),
+  ])
   const raw = apiResult.listings
-  const listings: TListingBase[] = raw.map((l) => ({
-    ...l,
-    listingVertical: normalizeCatalogVertical(l.listingVertical),
-  }))
+  const featuredIds = featuredConfig?.listingIds ?? []
+  const displayCount = featuredConfig?.displayCount ?? DEFAULT_FEATURED_DISPLAY_COUNT
+  const listings: TListingBase[] = applyFeaturedListingOrder(
+    raw.map((l) => ({
+      ...l,
+      listingVertical: normalizeCatalogVertical(l.listingVertical),
+    })),
+    featuredIds,
+  )
 
   // İlan yoksa modülü gizle
   if (listings.length === 0) return null
@@ -60,6 +70,8 @@ export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { 
       subHeading={subHeading}
       tabs={tabs}
       tabActive={tabs[0] ?? ''}
+      featuredListingIds={featuredIds}
+      maxCount={displayCount}
       rightButtonHref={viewAllHref}
     />
   )

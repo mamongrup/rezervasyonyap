@@ -151,6 +151,7 @@ const SEARCH_INDEX = [
   { label: 'Blog Yönetimi', href: '/manage/content/blog', tag: 'içerik' },
   { label: 'CMS Sayfalar', href: '/manage/content/pages', tag: 'içerik' },
   { label: 'Slider & Banner', href: '/manage/content/sliders', tag: 'içerik' },
+  { label: 'Öne çıkan ilanlar', href: '/manage/content/featured-listings', tag: 'içerik' },
   { label: 'Popup Yönetimi', href: '/manage/content/popups', tag: 'içerik' },
   { label: 'Katalog menüsü (header)', href: '/manage/content/catalog-menu', tag: 'içerik' },
   { label: 'Medya Kütüphanesi', href: '/manage/media', tag: 'medya' },

@@ -113,6 +113,8 @@ const GROUPS: NavGroupDef[] = [
       { path: '/manage/admin/content/seo-redirects', label: 'SEO yönlendirmeleri' },
       { path: '/manage/content/page-builder', label: 'Kategori & arama sayfaları' },
       { path: '/manage/content/category-images', label: 'Kategori Resimleri' },
+      { path: '/manage/content/featured-listings', label: 'Öne çıkan ilanlar (vitrin)' },
+      { path: '/manage/content/featured-regions', label: 'Bölgeye göre öne çıkar' },
       { path: '/manage/content/pages', label: 'Sayfalar (CMS)' },
     ],
   },
