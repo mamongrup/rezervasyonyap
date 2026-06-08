@@ -7,7 +7,7 @@ import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
 import { getMessages } from '@/utils/getT'
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from '@headlessui/react'
 import clsx from 'clsx'
-import { ChevronRight, MessageCircle, Sparkles } from 'lucide-react'
+import { ChevronRight, Headset, MessageCircle, Sparkles } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 
 type Props = {
@@ -16,48 +16,22 @@ type Props = {
   locale: string
 }
 
-/** Canlı destek — yeşil daire + beyaz temsilci (yazısız, referans AKINSOFT stili) */
-export const CUSTOMER_SUPPORT_GREEN = '#22B55E'
-
-function CustomerServiceRepIcon({
+function CustomerSupportBadge({
   className,
-  cutoutFill = CUSTOMER_SUPPORT_GREEN,
+  iconClassName = 'size-7',
 }: {
   className?: string
-  cutoutFill?: string
+  iconClassName?: string
 }) {
   return (
-    <svg aria-hidden viewBox="0 0 48 48" fill="none" className={className}>
-      {/* Omuz / gövde */}
-      <path
-        fill="currentColor"
-        d="M7 39.5c0-9.5 7-15.5 17-15.5s17 6 17 15.5V44H7v-4.5Z"
-      />
-      {/* Kafa */}
-      <ellipse cx="24" cy="21.5" rx="9.5" ry="10.5" fill="currentColor" />
-      {/* Saç */}
-      <path
-        fill="currentColor"
-        d="M14.5 19.5c1.2-5.5 5.8-9 9.5-9s8.3 3.5 9.5 9c-2.8-2.2-6.2-3.4-9.5-3.4s-6.7 1.2-9.5 3.4Z"
-      />
-      {/* Gözler */}
-      <circle cx="19.5" cy="22.5" r="1.65" fill={cutoutFill} />
-      <circle cx="28.5" cy="22.5" r="1.65" fill={cutoutFill} />
-      {/* Kulaklık bandı */}
-      <path
-        fill="currentColor"
-        d="M12.5 20.5c0-6.8 5.1-11.5 11.5-11.5S35.5 13.7 35.5 20.5c0 .8-.6 1.4-1.4 1.4h-.8v-4.8c0-3.6-2.6-6.2-6.3-6.2s-6.3 2.6-6.3 6.2v4.8h-.8c-.8 0-1.4-.6-1.4-1.4Z"
-      />
-      {/* Kulaklık kulaklıkları */}
-      <rect x="10.5" y="18.5" width="4.2" height="9.5" rx="2" fill="currentColor" />
-      <rect x="33.3" y="18.5" width="4.2" height="9.5" rx="2" fill="currentColor" />
-      {/* Mikrofon kolu */}
-      <path
-        fill="currentColor"
-        d="M12.6 27.2h2.4v2.2c0 2.4-1.6 4.2-4.8 4.2h-.6v-2.2h.6c1.1 0 1.8-.7 1.8-2v-2.2Z"
-      />
-      <circle cx="11.2" cy="27.2" r="1.5" fill="currentColor" />
-    </svg>
+    <span
+      className={clsx(
+        'flex items-center justify-center rounded-full bg-gradient-to-br from-primary-500 to-primary-700 text-white shadow-lg shadow-primary-500/30',
+        className,
+      )}
+    >
+      <Headset className={iconClassName} strokeWidth={2} aria-hidden />
+    </span>
   )
 }
 
@@ -169,12 +143,7 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
 
           <div className="border-b border-neutral-100 px-5 pb-4 pt-4 dark:border-neutral-800">
             <div className="flex items-center gap-3">
-              <span
-                className="flex size-10 items-center justify-center rounded-full text-white shadow-md"
-                style={{ backgroundColor: CUSTOMER_SUPPORT_GREEN }}
-              >
-                <CustomerServiceRepIcon className="size-[82%]" cutoutFill={CUSTOMER_SUPPORT_GREEN} />
-              </span>
+              <CustomerSupportBadge className="size-10 shadow-md" iconClassName="size-5" />
               <div className="min-w-0">
                 <DialogTitle className="text-base font-semibold tracking-tight text-neutral-900 dark:text-white">
                   {bn.supportMenuTitle}
@@ -226,7 +195,7 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
   )
 }
 
-/** Müşteri temsilcisi — footer orta FAB (yeşil daire, büyük beyaz ikon, yazısız) */
+/** Destek menüsü — footer orta FAB (marka gradyanı + kulaklık ikonu) */
 export function FooterCustomerSupportButton({
   onClick,
   ariaLabel,
@@ -239,10 +208,12 @@ export function FooterCustomerSupportButton({
       type="button"
       onClick={onClick}
       aria-label={ariaLabel}
-      className="relative -mt-4 flex h-[3.35rem] w-[3.35rem] shrink-0 touch-manipulation cursor-pointer items-center justify-center rounded-full text-white shadow-[0_6px_18px_rgba(34,181,94,0.45)] ring-[3px] ring-white transition-transform hover:scale-[1.04] active:scale-95 dark:ring-neutral-950"
-      style={{ backgroundColor: CUSTOMER_SUPPORT_GREEN }}
+      className="relative -mt-4 shrink-0 touch-manipulation cursor-pointer transition-transform hover:scale-[1.04] active:scale-95"
     >
-      <CustomerServiceRepIcon className="size-[82%]" cutoutFill={CUSTOMER_SUPPORT_GREEN} />
+      <CustomerSupportBadge
+        className="h-[3.35rem] w-[3.35rem] shadow-[0_8px_22px_rgba(79,70,229,0.42)] ring-[3px] ring-white dark:ring-neutral-950"
+        iconClassName="size-7"
+      />
     </button>
   )
 }
