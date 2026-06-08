@@ -211,8 +211,7 @@ export type HeroSectionWithSearchForm1Props = {
   /** Arama+hap bloğunu aşağı kaydırır (px, `translateY`). */
   searchFormOffsetYPx?: number
   /**
-   * Kategori `compact` hero — mobilde başlık ile mozaik arası (ör. alt kategori grid).
-   * lg+ tam genişlikte mozaik satırının altına düşer.
+   * Kategori `compact` hero — mobilde mozaik altı, lg+ tam genişlikte mozaik satırının altı (ör. alt kategori grid).
    */
   belowHeadingSlot?: React.ReactNode
 }
@@ -408,7 +407,7 @@ function HeroSectionWithSearchForm1({
         </div>
 
         {compactBelowHeadingSlot ? (
-          <div className="relative z-30 order-2 w-full min-w-0 lg:order-3 lg:mt-6 lg:basis-full xl:mt-10">
+          <div className="relative z-30 order-3 mt-4 w-full min-w-0 sm:mt-6 lg:order-3 lg:mt-6 lg:basis-full xl:mt-10">
             {belowHeadingSlot}
           </div>
         ) : null}
@@ -418,7 +417,7 @@ function HeroSectionWithSearchForm1({
           className={clsx(
             'w-full min-w-0 shrink-0',
             hasMosaicVisual && 'max-lg:overflow-hidden',
-            compactBelowHeadingSlot && 'order-3 lg:order-2 lg:flex-1 lg:basis-0 lg:max-w-[50%]',
+            compactBelowHeadingSlot && 'order-2 lg:order-2 lg:flex-1 lg:basis-0 lg:max-w-[50%]',
             !minimalBelowFoldSearch &&
               !compactBelowHeadingSlot &&
               'lg:min-h-0 lg:flex-1 lg:basis-0 lg:self-stretch',

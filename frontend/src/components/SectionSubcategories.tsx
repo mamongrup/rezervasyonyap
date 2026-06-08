@@ -153,31 +153,31 @@ function IconGridVariant({
   return (
     <div>
       {showHeading && (
-        <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-neutral-900 dark:text-white">{browseByType}</h2>
+        <div className="mb-4 flex items-center justify-between sm:mb-6">
+          <h2 className="text-lg font-bold text-neutral-900 sm:text-xl dark:text-white">{browseByType}</h2>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
+      <div className="grid grid-cols-4 gap-2 sm:gap-3 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
         {items.map((sub) => {
           const c = subcategoryColorClasses(sub.color)
           return (
             <Link
               key={sub.id}
               href={hrefById[sub.id] ?? '#'}
-              className="group flex flex-col items-center gap-2 rounded-2xl p-3 text-center transition-all duration-200 hover:bg-neutral-50 dark:hover:bg-neutral-800/60"
+              className="group flex flex-col items-center gap-1.5 rounded-2xl p-1.5 text-center transition-all duration-200 hover:bg-neutral-50 sm:gap-2 sm:p-3 dark:hover:bg-neutral-800/60"
             >
               <span
                 className={[
-                  'flex h-14 w-14 items-center justify-center rounded-2xl border shadow-sm transition-all duration-200 group-hover:scale-110 group-hover:shadow-md',
+                  'flex h-11 w-11 items-center justify-center rounded-2xl border shadow-sm transition-all duration-200 group-hover:scale-110 group-hover:shadow-md sm:h-14 sm:w-14',
                   c.iconBg,
                   c.border,
                 ].join(' ')}
               >
-                <SubcategoryIcon entry={sub} className="h-7 w-7" />
+                <SubcategoryIcon entry={sub} className="h-6 w-6 sm:h-7 sm:w-7" />
               </span>
 
-              <p className="text-xs font-medium leading-tight text-neutral-700 group-hover:text-primary-600 dark:text-neutral-300 dark:group-hover:text-neutral-200 line-clamp-2">
+              <p className="text-[10px] font-medium leading-tight text-neutral-700 group-hover:text-primary-600 sm:text-xs dark:text-neutral-300 dark:group-hover:text-neutral-200 line-clamp-2">
                 {subcategoryLabelForLocale(sub, locale)}
               </p>
             </Link>
