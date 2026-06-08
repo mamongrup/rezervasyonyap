@@ -61,6 +61,8 @@ import {
   pickHotelSearchKey,
   pickHotelRoomOfferKeys,
   pickHotelRoomOfferKeyCandidates,
+  pickHotelRoomCombinationSets,
+  hotelPayloadShapeFromRow,
   buildHotelValidateRooms,
   getFlightBrandedFares,
   getFareRules,
@@ -106,7 +108,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-book-fix-v3'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-combo-v4'
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
@@ -872,10 +874,11 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       try {
         let payload = null
         let keys = []
-        const inlineRooms = row?.Rooms ?? row?.rooms
+        const inlineHotel = hotelPayloadShapeFromRow(row)
+        const inlineRooms = inlineHotel.Rooms
         if (Array.isArray(inlineRooms) && inlineRooms.length) {
           keys = pickHotelRoomOfferKeys(
-            { Result: { Hotels: [{ Rooms: inlineRooms }] } },
+            { Result: { Hotels: [inlineHotel] } },
             roomOpts.length,
             roomOpts,
           )
@@ -902,7 +905,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         foundHotelCode = code
         selectedRow = row
         hotelSearchKey = pickHotelSearchKey(payload) ?? sk
-        roomPricesPayload = payload ?? { Result: { Hotels: [{ Rooms: inlineRooms }] } }
+        roomPricesPayload = payload ?? { Result: { Hotels: [inlineHotel] } }
         roomOfferKeys = keys
         packageId = row?.PackageId ?? row?.packageId ?? null
         winningCheckin = checkin
@@ -961,17 +964,30 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   const isRetriableValidateErr = (msg) =>
     /invalid result key|availability not found/i.test(String(msg))
   const isRetriableBookErr = (msg) =>
-    /passenger count|passenger type|invalid first name|invalid key|incompatible/i.test(String(msg))
+    /passenger count|passenger type|invalid first name|invalid key|incompatible|geçersiz json|http 500|soap fault/i.test(
+      String(msg),
+    )
 
   const validateAttempts = []
+  const seenValidateSets = new Set()
+  const pushValidateSet = (keys) => {
+    if (!Array.isArray(keys) || !keys.length) return
+    const k = JSON.stringify(keys)
+    if (seenValidateSets.has(k)) return
+    seenValidateSets.add(k)
+    validateAttempts.push(keys)
+  }
+
   if (roomOpts.length > 1) {
+    const comboSets = pickHotelRoomCombinationSets(roomPricesPayload, roomOpts)
+    for (const set of comboSets.slice(0, 10)) pushValidateSet(set)
     if (candidates.length >= roomOpts.length) {
-      validateAttempts.push(candidates.slice(0, roomOpts.length))
+      pushValidateSet(candidates.slice(0, roomOpts.length))
     }
-    validateAttempts.push(roomOfferKeys)
+    pushValidateSet(roomOfferKeys)
   } else {
     for (const k of [...new Set([...roomOfferKeys, ...candidates])].slice(0, 12)) {
-      validateAttempts.push([k])
+      pushValidateSet([k])
     }
   }
 

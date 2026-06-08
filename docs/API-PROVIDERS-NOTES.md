@@ -70,8 +70,9 @@ Postman koleksiyonu: D:\agora\Travelrobot Tour API.postman_collection (1).json
 
 ### Otel
 `
-createToken → searchHotel → getHotelDetails → getHotelRooms
-→ getHotelFinalPrice → bookHotel
+createToken → searchHotel → [getHotelAsyncResults] → getHotelDetails
+→ getHotelRoomPrices → validateHotelRoomsV2 → [getHotelPaymentOptions] → bookHotel
+→ SystemPnr (çok odada Data.RoomCombinations.RoomCodes birlikte validate)
 `
 Test (Hotel API Test Cases PDF):
 
