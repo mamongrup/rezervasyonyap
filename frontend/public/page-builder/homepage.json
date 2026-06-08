@@ -2,6 +2,7 @@
   "categorySlug": "homepage",
   "modules": [
     {
+      "id": "homepage-module-0",
       "type": "hero",
       "enabled": true,
       "order": 1,
@@ -16,10 +17,10 @@
           "/uploads/general/hero/oteller-2.avif",
           "/uploads/general/hero/oteller-3.jpg"
         ]
-      },
-      "id": "homepage-module-0"
+      }
     },
     {
+      "id": "homepage-module-1",
       "type": "category_slider",
       "enabled": true,
       "order": 2,
@@ -28,17 +29,17 @@
         "subheading": "Türkiye ve dünyada unutulmaz bir seyahat için keşfet.",
         "cardType": "card3",
         "slice": "first6"
-      },
-      "id": "homepage-module-1"
+      }
     },
     {
+      "id": "homepage-module-2",
       "type": "gezi_onerileri",
       "enabled": true,
       "order": 3,
-      "config": {},
-      "id": "homepage-module-2"
+      "config": {}
     },
     {
+      "id": "homepage-module-3",
       "type": "featured_by_region",
       "enabled": true,
       "order": 4,
@@ -47,10 +48,10 @@
         "subheading": "Popüler şehirlerdeki en beğenilen ilanlar",
         "viewAllHref": "/oteller/all",
         "regions": []
-      },
-      "id": "homepage-module-3"
+      }
     },
     {
+      "id": "homepage-module-4",
       "type": "featured_places",
       "enabled": true,
       "order": 5,
@@ -58,20 +59,20 @@
         "heading": "Öne çıkan konaklama",
         "subHeading": "Sakin kalın ve seyahat edin",
         "viewAllHref": "/oteller/all"
-      },
-      "id": "homepage-module-4"
+      }
     },
     {
+      "id": "homepage-module-5",
       "type": "how_it_works",
       "enabled": true,
       "order": 6,
       "config": {
         "title": "Nasıl çalışır?",
         "subheading": "Sakin kalın ve seyahat edin"
-      },
-      "id": "homepage-module-5"
+      }
     },
     {
+      "id": "homepage-module-6",
       "type": "top_providers",
       "enabled": true,
       "order": 7,
@@ -81,66 +82,13 @@
         "ctaText": "İlan vermeye başla",
         "ctaHref": "/manage",
         "maxCount": 10
-      },
-      "id": "homepage-module-6"
+      }
     },
     {
-      "type": "newsletter",
-      "enabled": true,
-      "order": 8,
-      "config": {
-        "title": "Fırsatları Kaçırmayın!",
-        "description": "Özel kampanyalar, son dakika indirimleri ve yeni destinasyonlardan haberdar olmak için abone olun.",
-        "buttonText": "Abone Ol",
-        "gradient": "from-primary-600 to-primary-700"
-      },
-      "id": "homepage-module-7"
-    },
-    {
-      "type": "category_grid",
-      "enabled": true,
-      "order": 9,
-      "config": {
-        "heading": "Kategoriye Göre Ara",
-        "subheading": "Tüm seyahat kategorilerini keşfet"
-      },
-      "id": "homepage-module-8"
-    },
-    {
-      "type": "become_provider",
-      "enabled": true,
-      "order": 10,
-      "config": {
-        "heading": "İlanınızı Ekleyin, Kazanmaya Başlayın",
-        "subheading": "Otel, tur, tatil evi, tekne, araç kiralama — ne sunarsanız sunun, milyonlarca gezgine ulaşmanın en kolay yolu burada. Hemen ücretsiz ilan oluşturun.",
-        "ctaText": "Ücretsiz İlan Ver",
-        "ctaHref": "/ilan-ver",
-        "secondaryCtaText": "Nasıl Çalışır?",
-        "secondaryCtaHref": "/ilan-ver#nasil-calisir",
-        "bgVariant": "gradient"
-      },
-      "id": "homepage-module-9"
-    },
-    {
-      "type": "category_slider",
-      "enabled": true,
-      "order": 11,
-      "config": {
-        "heading": "Seyahat Türüne Göre Keşfet",
-        "subheading": "12 farklı kategori ile seyahat planla",
-        "cardType": "card5",
-        "slice": "last6",
-        "categoryThumbnails": {
-          "oteller": "/uploads/site/page-builder/kategori-kartlari/oteller/kart-1.avif",
-          "tatil-evleri": "/uploads/site/page-builder/kategori-kartlari/tatil-evleri/kart-2.avif"
-        }
-      },
-      "id": "homepage-module-10"
-    },
-    {
+      "id": "homepage-module-11",
       "type": "section_videos",
       "enabled": true,
-      "order": 12,
+      "order": 8,
       "config": {
         "heading": "🎬 Videolar",
         "subheading": "En son destinasyon videolarımızı izleyin, harika deneyimler keşfedin.",
@@ -181,13 +129,13 @@
             "videoUrl": "https://www.youtube.com/watch?v=7oD_GDXkUWQ&list=RD7oD_GDXkUWQ&start_radio=1"
           }
         ]
-      },
-      "id": "homepage-module-11"
+      }
     },
     {
+      "id": "homepage-module-region-slider",
       "type": "region_slider",
       "enabled": true,
-      "order": 13,
+      "order": 9,
       "config": {
         "heading": "Keşfedilecek bölgeler",
         "subheading": "Popüler destinasyonlarda konaklama ve deneyimlere göz atın",
@@ -195,19 +143,46 @@
         "categoryRoute": "oteller",
         "unit": "ilan",
         "limit": 12
-      },
-      "id": "homepage-module-region-slider"
+      }
     },
     {
+      "id": "homepage-module-9",
+      "type": "become_provider",
+      "enabled": true,
+      "order": 10,
+      "config": {
+        "heading": "İlanınızı Ekleyin, Kazanmaya Başlayın",
+        "subheading": "Otel, tur, tatil evi, tekne, araç kiralama — ne sunarsanız sunun, milyonlarca gezgine ulaşmanın en kolay yolu burada. Hemen ücretsiz ilan oluşturun.",
+        "ctaText": "Ücretsiz İlan Ver",
+        "ctaHref": "/ilan-ver",
+        "secondaryCtaText": "Nasıl Çalışır?",
+        "secondaryCtaHref": "/ilan-ver#nasil-calisir",
+        "bgVariant": "gradient"
+      }
+    },
+    {
+      "id": "homepage-module-12",
       "type": "client_say",
       "enabled": true,
-      "order": 14,
+      "order": 11,
       "config": {
         "heading": "Misafirlerimiz Ne Diyor? 🥇",
         "subHeading": "Bizimle seyahat eden gezginlerin gerçek yorumları."
-      },
-      "id": "homepage-module-12"
+      }
+    },
+    {
+      "id": "homepage-module-7",
+      "type": "newsletter",
+      "enabled": true,
+      "order": 12,
+      "config": {
+        "title": "Fırsatları Kaçırmayın!",
+        "description": "Özel kampanyalar, son dakika indirimleri ve yeni destinasyonlardan haberdar olmak için abone olun.",
+        "buttonText": "Abone Ol",
+        "gradient": "from-primary-600 to-primary-700"
+      }
     }
   ],
-  "updatedAt": "2026-05-08T16:00:23.430Z"
+  "updatedAt": "2026-06-07T22:22:14.469Z",
+  "schemaVersion": 1
 }

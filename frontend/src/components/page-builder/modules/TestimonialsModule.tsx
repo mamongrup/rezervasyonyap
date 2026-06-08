@@ -59,16 +59,12 @@ export default async function TestimonialsModule({ config }: { config: Testimoni
         content: (r.body || r.title || '').trim() || '—',
         rating: r.rating,
       }))
-    : (config.items ?? DEFAULT_ITEMS).map((t, i) => {
-        const slide: ClientSaySlideItem = {
-          id: `static-${i}`,
-          clientName: t.name,
-          content: t.text,
-          rating: t.rating,
-        }
-        if (t.avatar?.trim()) slide.avatar = t.avatar.trim()
-        return slide
-      })
+    : (config.items ?? DEFAULT_ITEMS).map((t, i) => ({
+        id: `static-${i}`,
+        clientName: t.name,
+        content: t.text,
+        rating: t.rating,
+      }))
 
   return (
     <section className="mb-16 md:mb-24">

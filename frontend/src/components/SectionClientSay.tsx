@@ -1,15 +1,9 @@
 'use client'
 
 import { useCarouselDotButton } from '@/hooks/use-carousel-dot-buttons'
-import userImage1 from '@/images/avatars/1.png'
-import userImage2 from '@/images/avatars/2.png'
-import userImage3 from '@/images/avatars/3.png'
-import userImage4 from '@/images/avatars/4.png'
-import userImage5 from '@/images/avatars/5.png'
-import userImage6 from '@/images/avatars/6.png'
-import userImage7 from '@/images/avatars/7.png'
 import qlImage from '@/images/avatars/ql.png'
 import qrImage from '@/images/avatars/qr.png'
+import Avatar from '@/shared/Avatar'
 import HeadingWithSub from '@/shared/Heading'
 import { StarIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -17,27 +11,28 @@ import clsx from 'clsx'
 import type { EmblaOptionsType } from 'embla-carousel'
 import Autoplay from 'embla-carousel-autoplay'
 import useEmblaCarousel from 'embla-carousel-react'
-import Image, { type StaticImageData } from 'next/image'
+import Image from 'next/image'
 import { FC } from 'react'
 
-const AVATAR_POOL: StaticImageData[] = [
-  userImage1,
-  userImage2,
-  userImage3,
-  userImage4,
-  userImage5,
-  userImage6,
-  userImage7,
+const AVATAR_BG = [
+  'bg-sky-500 text-white',
+  'bg-pink-500 text-white',
+  'bg-teal-500 text-white',
+  'bg-amber-500 text-white',
+  'bg-violet-500 text-white',
+  'bg-cyan-500 text-white',
+  'bg-rose-500 text-white',
+  'bg-indigo-500 text-white',
 ]
 
 /** Yüzen küçük avatarlar — renkli yarım daire vurguları */
-const FLOATING: { src: StaticImageData; className: string; accent: string }[] = [
-  { src: userImage2, className: 'top-4 -left-4 md:-left-16', accent: 'bg-pink-200/80 dark:bg-pink-900/40' },
-  { src: userImage3, className: 'top-24 -right-2 md:right-4 md:top-8', accent: 'bg-sky-200/80 dark:bg-sky-900/40' },
-  { src: userImage4, className: 'bottom-32 -left-6 md:left-8', accent: 'bg-teal-200/80 dark:bg-teal-900/40' },
-  { src: userImage5, className: 'bottom-20 -right-4 md:right-12 md:bottom-24', accent: 'bg-amber-200/80 dark:bg-amber-900/40' },
-  { src: userImage6, className: 'top-1/2 -left-2 md:-left-8 -translate-y-1/2', accent: 'bg-violet-200/80 dark:bg-violet-900/40' },
-  { src: userImage7, className: 'top-1/3 -right-2 md:-right-12', accent: 'bg-cyan-200/80 dark:bg-cyan-900/40' },
+const FLOATING_POSITIONS: { className: string; accent: string }[] = [
+  { className: 'top-4 -left-4 md:-left-16', accent: 'bg-pink-200/80 dark:bg-pink-900/40' },
+  { className: 'top-24 -right-2 md:right-4 md:top-8', accent: 'bg-sky-200/80 dark:bg-sky-900/40' },
+  { className: 'bottom-32 -left-6 md:left-8', accent: 'bg-teal-200/80 dark:bg-teal-900/40' },
+  { className: 'bottom-20 -right-4 md:right-12 md:bottom-24', accent: 'bg-amber-200/80 dark:bg-amber-900/40' },
+  { className: 'top-1/2 -left-2 md:-left-8 -translate-y-1/2', accent: 'bg-violet-200/80 dark:bg-violet-900/40' },
+  { className: 'top-1/3 -right-2 md:-right-12', accent: 'bg-cyan-200/80 dark:bg-cyan-900/40' },
 ]
 
 export type ClientSaySlideItem = {
@@ -45,43 +40,45 @@ export type ClientSaySlideItem = {
   clientName: string
   content: string
   rating?: number
-  /** Harici URL veya statik görsel — yoksa slayta göre döner */
-  avatar?: StaticImageData | string
+  /** Baş harf avatarı — yoksa isimden türetilir */
+  initials?: string
 }
 
-function resolveSlideAvatar(item: ClientSaySlideItem, index: number): StaticImageData | string {
-  if (item.avatar) return item.avatar
-  return AVATAR_POOL[index % AVATAR_POOL.length]
+export function getClientSayInitials(name: string): string {
+  const trimmed = name.trim()
+  if (!trimmed) return '?'
+  const parts = trimmed.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) {
+    const p = parts[0]!
+    return p.length <= 2 ? p : p.slice(0, 2)
+  }
+  const first = parts[0]![0] ?? ''
+  const last = parts[parts.length - 1]!.replace(/\./g, '')[0] ?? ''
+  return `${first}${last}`
 }
 
-function FeaturedAvatar({ src, alt }: { src: StaticImageData | string; alt: string }) {
-  const isRemote = typeof src === 'string'
+function resolveInitials(item: ClientSaySlideItem): string {
+  if (item.initials?.trim()) return item.initials.trim()
+  return getClientSayInitials(item.clientName)
+}
+
+function avatarBg(index: number): string {
+  return AVATAR_BG[index % AVATAR_BG.length]!
+}
+
+function FeaturedAvatar({ initials, alt, colorIndex }: { initials: string; alt: string; colorIndex: number }) {
   return (
     <div className="relative mx-auto flex h-36 w-36 shrink-0 items-end justify-center md:h-40 md:w-40">
-      {/* Açık mavi yarım daire vurgusu */}
       <div
         className="absolute bottom-2 left-1/2 h-[72px] w-[140px] -translate-x-1/2 rounded-t-full bg-sky-100 dark:bg-sky-900/35 md:h-[80px] md:w-[156px]"
         aria-hidden
       />
       <div className="relative z-10 overflow-hidden rounded-full bg-white p-1 shadow-lg ring-4 ring-white dark:bg-neutral-900 dark:ring-neutral-800">
-        {isRemote ? (
-          <img
-            src={src}
-            alt={alt}
-            width={128}
-            height={128}
-            className="size-28 rounded-full object-cover md:size-32"
-          />
-        ) : (
-          <Image
-            src={src}
-            alt={alt}
-            width={128}
-            height={128}
-            className="size-28 rounded-full object-cover md:size-32"
-            sizes="128px"
-          />
-        )}
+        <Avatar
+          initials={initials}
+          alt={alt}
+          className={clsx('size-28 md:size-32', avatarBg(colorIndex))}
+        />
       </div>
     </div>
   )
@@ -142,7 +139,7 @@ const SectionClientSayInner: FC<SectionClientSayProps & { items: ClientSaySlideI
   const { selectedIndex, scrollSnaps, onDotButtonClick } = useCarouselDotButton(emblaApi)
 
   const current = slides[selectedIndex] ?? slides[0]
-  const featuredSrc = current ? resolveSlideAvatar(current, selectedIndex) : userImage1
+  const featuredInitials = current ? resolveInitials(current) : '?'
 
   return (
     <div className={clsx('relative flow-root overflow-hidden pb-24 md:pb-0', className)}>
@@ -151,32 +148,25 @@ const SectionClientSayInner: FC<SectionClientSayProps & { items: ClientSaySlideI
       </HeadingWithSub>
 
       <div className="relative mx-auto max-w-2xl px-2 md:px-0">
-        {/* Yüzen avatarlar — tablet+ */}
         <div className="pointer-events-none absolute inset-0 hidden md:block" aria-hidden>
-          {FLOATING.map((f, i) => (
-            <div
-              key={i}
-              className={clsx('absolute size-14', f.className)}
-            >
-              <div
-                className={clsx(
-                  'absolute -inset-1 rounded-full opacity-90 blur-[2px]',
-                  f.accent,
-                )}
-              />
-              <div className="relative size-14 overflow-hidden rounded-full ring-2 ring-white shadow-md dark:ring-neutral-800">
-                <Image src={f.src} alt="" width={56} height={56} className="size-14 object-cover" sizes="56px" />
+          {FLOATING_POSITIONS.map((pos, i) => {
+            const slide = slides[i % slides.length]
+            const initials = slide ? resolveInitials(slide) : '?'
+            return (
+              <div key={i} className={clsx('absolute size-14', pos.className)}>
+                <div className={clsx('absolute -inset-1 rounded-full opacity-90 blur-[2px]', pos.accent)} />
+                <div className="relative size-14 overflow-hidden rounded-full ring-2 ring-white shadow-md dark:ring-neutral-800">
+                  <Avatar initials={initials} alt="" className={clsx('size-14', avatarBg(i))} />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
-        {/* Öne çıkan profil — aktif slayta göre */}
         <div className="relative z-[1] flex justify-center">
-          <FeaturedAvatar src={featuredSrc} alt={current?.clientName ?? ''} />
+          <FeaturedAvatar initials={featuredInitials} alt={current?.clientName ?? ''} colorIndex={selectedIndex} />
         </div>
 
-        {/* Alıntı + carousel */}
         <div className="relative z-[1] mt-2 md:mt-4">
           <div className="relative px-2 pt-2">
             <Image
