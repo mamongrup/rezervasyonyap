@@ -90,6 +90,8 @@ node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hote
 
 Çıktı: `travelrobot-test-log-*.json` (tam log), özet dosyasında System PNR + Client Notes.
 
+**BookHotel (Stoplight):** `request.ResultKeys` (PackageId değil), `PaxInfo.HotelRoomPaxes[].Paxes[]` içinde `HotelPaxType` (PaxType değil), sadeleştirilmiş `Pax` alanları. Kod: `buildHotelBookRequest` / `mapHotelRoomPaxesForBook` (`scripts/lib/travelrobot-api.mjs`), test sürümü `cert-hotel-book-v7`.
+
 ### Uçuş
 `
 createToken → searchFlightItinerary → getFlightBrandedFares

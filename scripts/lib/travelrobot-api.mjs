@@ -533,35 +533,111 @@ function omitNullFields(value) {
   return out
 }
 
-/** BookHotel gövdesi — debug-hotel-book.mjs ile aynı şema (null alanlar gönderilmez). */
+/** Stoplight BookHotel — iç HotelRoomPaxes → resmi HotelPaxType şeması. */
+export function mapHotelRoomPaxesForBook(hotelRoomPaxes) {
+  return (hotelRoomPaxes ?? []).map((room) => ({
+    Paxes: (room.Paxes ?? []).map((entry) => {
+      const paxType = entry.HotelPaxType ?? entry.PaxType ?? 0
+      const pax = entry.Pax ?? {}
+      return omitNullFields({
+        HotelPaxType: String(paxType),
+        IsLeader: entry.IsLeader === true || entry.IsLeader === 'true' ? 'true' : 'false',
+        Pax: omitNullFields({
+          DateOfBirth: pax.DateOfBirth,
+          Email: pax.Email,
+          FirstName: pax.FirstName,
+          GenderType: pax.GenderType != null ? String(pax.GenderType) : undefined,
+          LastName: pax.LastName,
+          MobilePhone: pax.MobilePhone,
+          NationalityCode: pax.NationalityCode ?? 'TR',
+          IdentityNumber: pax.IdentityNumber,
+        }),
+      })
+    }),
+  }))
+}
+
+function formatHotelBookContactInfo(contact) {
+  if (!contact) return undefined
+  return omitNullFields({
+    Email: contact.Email,
+    FirstName: contact.FirstName,
+    LastName: contact.LastName,
+    Phone: contact.Phone,
+    GenderType: contact.GenderType != null ? String(contact.GenderType) : undefined,
+  })
+}
+
+function formatHotelBookInvoiceInfo(invoice) {
+  if (!invoice) return undefined
+  return omitNullFields({
+    Address: invoice.Address,
+    CityCode: invoice.CityCode,
+    CityName: invoice.CityName,
+    CompanyName: invoice.CompanyName,
+    CountryCode: invoice.CountryCode,
+    FirstName: invoice.FirstName,
+    LastName: invoice.LastName,
+    InvoiceInfoTitle: invoice.InvoiceInfoTitle,
+    InvoiceInfoType: invoice.InvoiceInfoType != null ? String(invoice.InvoiceInfoType) : undefined,
+    PostalCode: invoice.PostalCode,
+    TaxNumber: invoice.TaxNumber ?? '',
+    TaxOffice: invoice.TaxOffice ?? '',
+  })
+}
+
+function formatHotelBookPaymentInfo(payment) {
+  if (!payment) return undefined
+  const out = {
+    PaymentType: payment.PaymentType != null ? String(payment.PaymentType) : undefined,
+    PaymentItemId: payment.PaymentItemId != null ? String(payment.PaymentItemId) : undefined,
+  }
+  if (payment.CardInfo) out.CardInfo = payment.CardInfo
+  return omitNullFields(out)
+}
+
+/** BookHotel gövdesi — varsayılan: Stoplight şeması (ResultKeys, HotelPaxType). */
 export function buildHotelBookRequest(opts = {}) {
-  const packageInBody = opts.packageIdInBody === true && opts.packageId != null
+  const packageInBody = opts.legacy === true && opts.packageIdInBody === true && opts.packageId != null
   const resultKeys = packageInBody
     ? []
     : (opts.resultKeys ??
-      (opts.resultKey ? [opts.resultKey] : opts.packageId ? [opts.packageId] : []))
+      (opts.resultKey ? [opts.resultKey] : opts.packageId && opts.legacy ? [opts.packageId] : []))
 
-  const request = {
-    Version: '2.0',
-    ProductType: 1,
+  if (opts.legacy === true) {
+    const request = {
+      Version: '2.0',
+      ProductType: 1,
+      TokenCode: opts.tokenCode,
+      PaxInfo: {
+        HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
+      },
+      ContactInfo: opts.contactInfo,
+      InvoiceInfo: opts.invoiceInfo,
+      PaymentInfo: opts.paymentInfo,
+      LanguageCode: opts.languageCode ?? 'tr',
+      WithPrice: false,
+    }
+    if (opts.bookingNote) request.BookingNote = opts.bookingNote
+    if (opts.agentReferenceInfo != null) request.AgentReferenceInfo = opts.agentReferenceInfo
+    if (packageInBody) {
+      request.PackageId = String(opts.packageId)
+    } else if (resultKeys.length) {
+      request.ResultKeys = resultKeys
+    }
+    return { request }
+  }
+
+  const request = omitNullFields({
     TokenCode: opts.tokenCode,
+    ResultKeys: resultKeys.length ? resultKeys.map(String) : undefined,
     PaxInfo: {
-      HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
+      HotelRoomPaxes: mapHotelRoomPaxesForBook(opts.hotelRoomPaxes),
     },
-    ContactInfo: opts.contactInfo,
-    InvoiceInfo: opts.invoiceInfo,
-    PaymentInfo: opts.paymentInfo,
-    LanguageCode: opts.languageCode ?? 'tr',
-    WithPrice: false,
-  }
-  if (opts.bookingNote) request.BookingNote = opts.bookingNote
-  if (opts.agentReferenceInfo != null) request.AgentReferenceInfo = opts.agentReferenceInfo
-
-  if (packageInBody) {
-    request.PackageId = String(opts.packageId)
-  } else if (resultKeys.length) {
-    request.ResultKeys = resultKeys
-  }
+    ContactInfo: formatHotelBookContactInfo(opts.contactInfo),
+    InvoiceInfo: formatHotelBookInvoiceInfo(opts.invoiceInfo),
+    PaymentInfo: formatHotelBookPaymentInfo(opts.paymentInfo),
+  })
 
   return { request }
 }
