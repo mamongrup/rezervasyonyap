@@ -32,7 +32,7 @@ interface ImportSchedule {
 
 const PROVIDERS: { key: SyncProvider; label: string; desc: string }[] = [
   { key: 'wtatil', label: 'Wtatil (Tur)', desc: 'Tüm wtatil turlarını günceller / yeni tur ekler' },
-  { key: 'travelrobot', label: 'Travelrobot (Tur)', desc: 'KPlus tur kataloğunu içe aktarır' },
+  { key: 'travelrobot', label: 'Travelrobot (Tur · Otel · Uçuş)', desc: 'KPlus tur, otel ve uçuş ilanlarını içe aktarır (panel ayarındaki açık modüller)' },
   { key: 'turna', label: 'Turna (Uçak)', desc: 'Turna uçak biletlerini içe aktarır' },
   { key: 'yolcu360', label: 'Yolcu360 (Araç)', desc: 'Yolcu360 araç kiralama ilanlarını içe aktarır' },
 ]

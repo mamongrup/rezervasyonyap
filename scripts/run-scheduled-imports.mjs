@@ -25,7 +25,7 @@ const REPO_ROOT = path.resolve(__dirname, '..')
 
 const PROVIDER_SCRIPTS = {
   wtatil: 'scripts/sync-wtatil-auto.mjs',
-  travelrobot: 'scripts/import-travelrobot-tours.mjs',
+  travelrobot: 'scripts/import-travelrobot-all.mjs',
   turna: 'scripts/import-turna-flights.mjs',
   yolcu360: 'scripts/import-yolcu360-cars.mjs',
 }
