@@ -12,6 +12,9 @@ const SitePopupsRenderer = dynamic(() => import('@/components/popups/SitePopupsR
 const WhatsAppFloatButton = dynamic(() => import('@/components/WhatsAppFloatButton'), {
   ssr: false,
 })
+const TawkWidgetLoader = dynamic(() => import('@/components/TawkWidgetLoader'), {
+  ssr: false,
+})
 
 /**
  * Footer üstü — WhatsApp, concierge, site popup.
@@ -29,6 +32,7 @@ export function DeferredLayoutWidgets({ locale }: Props) {
   return (
     <>
       <WhatsAppFloatButton />
+      <TawkWidgetLoader />
       <ConciergeChatWidget />
       <SitePopupsRenderer locale={locale} />
     </>

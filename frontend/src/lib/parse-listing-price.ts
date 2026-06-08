@@ -48,3 +48,25 @@ export function formatMoneyIntl(amount: number, currencyCode: string): string {
     return `${code} ${Math.round(amount)}`
   }
 }
+
+/** Fiyat slider Min/Max kutuları — seçili para birimi; 1000+ için kısaltılmış gösterim (örn. ₺50k) */
+export function formatFilterSliderPrice(amount: number, currencyCode: string): string {
+  const code = currencyCode.trim().toUpperCase() || 'TRY'
+  if (amount >= 1000) {
+    try {
+      const parts = new Intl.NumberFormat('tr-TR', {
+        style: 'currency',
+        currency: code,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).formatToParts(1000)
+      const currencyPart = parts.find((p) => p.type === 'currency')?.value ?? code
+      const compact = String(Math.round(amount / 1000))
+      const currencyFirst = parts.findIndex((p) => p.type === 'currency') === 0
+      return currencyFirst ? `${currencyPart} ${compact}k` : `${compact}k ${currencyPart}`
+    } catch {
+      return `${code} ${Math.round(amount / 1000)}k`
+    }
+  }
+  return formatMoneyIntl(amount, code)
+}

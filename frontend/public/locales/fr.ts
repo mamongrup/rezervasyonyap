@@ -892,6 +892,13 @@ export const fr: AppMessages = {
       account: 'Compte',
       menu: 'Menu',
       assistantAria: 'Assistant IA',
+      supportAria: 'Service client',
+      supportMenuTitle: 'Service client',
+      supportMenuSubtitle: 'Comment pouvons-nous vous aider ?',
+      supportAiAssistant: 'Assistant voyage',
+      supportTawkLive: 'Support en direct',
+      supportWhatsapp: 'WhatsApp',
+      supportClose: 'Fermer',
     },
     location: {
       destinationsHeading: 'Destinations',

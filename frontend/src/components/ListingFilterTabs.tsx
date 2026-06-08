@@ -20,6 +20,7 @@ import {
 } from '@headlessui/react'
 import { ArrowDown01Icon, FilterVerticalIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
 import clsx from 'clsx'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
@@ -146,6 +147,7 @@ const ListingFilterTabs = ({
   const priceMaxLabel = filters?.priceMax ?? 'Max'
 
   const [showAllFilter, setShowAllFilter] = useState(false)
+  useRegisterVitrinOverlay(showAllFilter)
   const router = useRouter()
   const pathname = usePathname() ?? ''
   const searchParams = useSearchParams()
@@ -203,7 +205,7 @@ const ListingFilterTabs = ({
         <Dialog
           open={showAllFilter}
           onClose={() => setShowAllFilter(false)}
-          className="relative z-50"
+          className={vitrinOverlayDialogClassName}
           as="form"
           onSubmit={handleSubmit}
         >

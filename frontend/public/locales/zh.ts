@@ -878,6 +878,13 @@ export const zh: AppMessages = {
       account: '账户',
       menu: '菜单',
       assistantAria: 'AI 助手',
+      supportAria: '客户服务',
+      supportMenuTitle: '客户服务',
+      supportMenuSubtitle: '我们能如何帮助您？',
+      supportAiAssistant: '旅行助手',
+      supportTawkLive: '在线客服',
+      supportWhatsapp: 'WhatsApp',
+      supportClose: '关闭',
     },
     location: {
       destinationsHeading: '目的地',

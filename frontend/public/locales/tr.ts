@@ -1638,6 +1638,13 @@ export const tr = {
       account: 'Hesap',
       menu: 'Menü',
       assistantAria: 'Yapay zekâ asistan',
+      supportAria: 'Müşteri hizmetleri',
+      supportMenuTitle: 'Müşteri hizmetleri',
+      supportMenuSubtitle: 'Size nasıl yardımcı olabiliriz?',
+      supportAiAssistant: 'Seyahat Asistanı',
+      supportTawkLive: 'Canlı destek',
+      supportWhatsapp: 'WhatsApp',
+      supportClose: 'Kapat',
     },
     location: {
       destinationsHeading: 'Destinasyonlar',

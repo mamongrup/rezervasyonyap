@@ -6,6 +6,7 @@
  * opsiyonel olarak geçersiz kılar (Genel ayarlar paneli):
  * - `social_facebook_url`, `social_instagram_url`, `social_x_url`, `social_youtube_url`
  * - `public_contact_email`, `public_phone`, `public_address`, `public_whatsapp_e164`
+ * - `tawk_property_id`, `tawk_widget_id` (Tawk.to canlı destek)
  */
 export type SitePublicConfig = {
   siteUrl: string
@@ -23,6 +24,8 @@ export type SitePublicConfig = {
   socialInstagram: string
   socialX: string
   socialYoutube: string
+  tawkPropertyId: string
+  tawkWidgetId: string
 }
 
 function trim(s: string | undefined): string {
@@ -55,6 +58,23 @@ export function mergeBrandingIntoEnvContact(
     socialInstagram: pick('social_instagram_url', env.socialInstagram),
     socialX: pick('social_x_url', env.socialX),
     socialYoutube: pick('social_youtube_url', env.socialYoutube),
+    tawkPropertyId: pick('tawk_property_id', env.tawkPropertyId),
+    tawkWidgetId: pick('tawk_widget_id', env.tawkWidgetId) || 'default',
+  }
+}
+
+export function getTawkConfigFromBranding(
+  branding: Record<string, unknown> | null | undefined,
+): { propertyId: string; widgetId: string } {
+  const env = getSitePublicConfig()
+  const propertyId =
+    pickBrandingString(branding, 'tawk_property_id') ?? env.tawkPropertyId
+  const widgetId =
+    pickBrandingString(branding, 'tawk_widget_id') ??
+    (propertyId === env.tawkPropertyId ? env.tawkWidgetId : 'default')
+  return {
+    propertyId: propertyId.trim(),
+    widgetId: (widgetId.trim() || 'default'),
   }
 }
 
@@ -75,5 +95,7 @@ export function getSitePublicConfig(): SitePublicConfig {
     socialInstagram: trim(process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM_URL),
     socialX: trim(process.env.NEXT_PUBLIC_SOCIAL_X_URL),
     socialYoutube: trim(process.env.NEXT_PUBLIC_SOCIAL_YOUTUBE_URL),
+    tawkPropertyId: trim(process.env.NEXT_PUBLIC_TAWK_PROPERTY_ID),
+    tawkWidgetId: trim(process.env.NEXT_PUBLIC_TAWK_WIDGET_ID) || 'default',
   }
 }

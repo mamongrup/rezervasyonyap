@@ -181,6 +181,9 @@ export function useRegisterVitrinOverlay(active: boolean) {
   }, [active, ctx])
 }
 
+/** Tam ekran vitrin diyaloğu — WhatsApp (z-99), alt nav (z-70) üstünde */
+export const vitrinOverlayDialogClassName = 'fixed inset-0 z-[100]'
+
 export function useAside() {
   const aside = useContext(AsideContext)
   if (!aside) {

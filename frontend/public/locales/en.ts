@@ -1701,6 +1701,13 @@ export const en = {
       account: 'Account',
       menu: 'Menu',
       assistantAria: 'AI assistant',
+      supportAria: 'Customer support',
+      supportMenuTitle: 'Customer support',
+      supportMenuSubtitle: 'How can we help you?',
+      supportAiAssistant: 'Travel Assistant',
+      supportTawkLive: 'Live support',
+      supportWhatsapp: 'WhatsApp',
+      supportClose: 'Close',
     },
     location: {
       destinationsHeading: 'Destinations',

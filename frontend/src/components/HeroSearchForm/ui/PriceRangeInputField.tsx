@@ -1,7 +1,8 @@
 'use client'
 
 import { PriceRangeSlider } from '@/components/PriceRangeSlider'
-import convertNumbThousand from '@/utils/convertNumbThousand'
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { formatFilterSliderPrice } from '@/lib/parse-listing-price'
 import { useAppLocale } from '@/hooks/useAppLocale'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Dollar01Icon } from '@hugeicons/core-free-icons'
@@ -47,6 +48,8 @@ export const PriceRangeInputField: FC<Props> = ({
 }) => {
   const { messages } = useAppLocale()
   const hf = messages.HeroSearchForm
+  const ctx = usePreferredCurrencyContext()
+  const currencyCode = ctx?.preferredCode ?? 'TRY'
   const [rangePrices, setRangePrices] = useState([90000, 800000])
 
   return (
@@ -67,7 +70,7 @@ export const PriceRangeInputField: FC<Props> = ({
 
               <div className="flex-1 text-start">
                 <span className={clsx('block font-semibold', styles.mainText[fieldStyle])}>
-                  {`$${convertNumbThousand(rangePrices[0] / 1000)}k ~ $${convertNumbThousand(rangePrices[1] / 1000)}k`}
+                  {`${formatFilterSliderPrice(rangePrices[0], currencyCode)} ~ ${formatFilterSliderPrice(rangePrices[1], currencyCode)}`}
                 </span>
                 <span className="mt-1 block text-sm leading-none font-normal text-neutral-400">
                   {hf['Choose price range']}

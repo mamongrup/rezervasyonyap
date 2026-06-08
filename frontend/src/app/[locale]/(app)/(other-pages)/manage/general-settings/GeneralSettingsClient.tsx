@@ -38,6 +38,7 @@ import {
   parseMobileAccountPathFromBranding,
 } from '@/lib/site-branding-seo'
 import { parseLenientJson } from '@/lib/json-parse'
+import { formatTawkEmbedDisplay, parseTawkEmbedInput } from '@/lib/tawk-embed-parse'
 import type { BrandingUploadPurpose } from '@/lib/upload-branding-asset'
 import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
 import CurrencyReorderTable from './CurrencyReorderTable'
@@ -271,6 +272,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   const [publicPhone, setPublicPhone] = useState('')
   const [publicAddress, setPublicAddress] = useState('')
   const [publicWhatsappE164, setPublicWhatsappE164] = useState('')
+  const [tawkEmbedCode, setTawkEmbedCode] = useState('')
   const [socialFacebookUrl, setSocialFacebookUrl] = useState('')
   const [socialInstagramUrl, setSocialInstagramUrl] = useState('')
   const [socialXUrl, setSocialXUrl] = useState('')
@@ -386,6 +388,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       if (typeof branding.public_phone === 'string') setPublicPhone(branding.public_phone)
       if (typeof branding.public_address === 'string') setPublicAddress(branding.public_address)
       if (typeof branding.public_whatsapp_e164 === 'string') setPublicWhatsappE164(branding.public_whatsapp_e164)
+      if (typeof branding.tawk_property_id === 'string') {
+        setTawkEmbedCode(
+          formatTawkEmbedDisplay(
+            branding.tawk_property_id,
+            typeof branding.tawk_widget_id === 'string' ? branding.tawk_widget_id : 'default',
+          ),
+        )
+      }
       if (typeof branding.social_facebook_url === 'string') setSocialFacebookUrl(branding.social_facebook_url)
       if (typeof branding.social_instagram_url === 'string') setSocialInstagramUrl(branding.social_instagram_url)
       if (typeof branding.social_x_url === 'string') setSocialXUrl(branding.social_x_url)
@@ -408,6 +418,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         public_phone: _pp,
         public_address: _pa,
         public_whatsapp_e164: _pwa,
+        tawk_property_id: _tpi,
+        tawk_widget_id: _twi,
         social_facebook_url: _sfb,
         social_instagram_url: _sig,
         social_x_url: _sx,
@@ -666,6 +678,14 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   async function saveIdentity() {
     setStatus({ kind: 'idle' })
     try {
+      const tawkParsed = parseTawkEmbedInput(tawkEmbedCode)
+      if (tawkEmbedCode.trim() && !tawkParsed) {
+        setStatus({
+          kind: 'err',
+          text: 'Tawk.to kodu geçersiz. Embed URL veya propertyId/widgetId girin.',
+        })
+        return
+      }
       const next = {
         ...brandingRest,
         site_name: siteName.trim(),
@@ -692,6 +712,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         public_phone: publicPhone.trim(),
         public_address: publicAddress.trim(),
         public_whatsapp_e164: publicWhatsappE164.trim(),
+        tawk_property_id: tawkParsed?.propertyId ?? '',
+        tawk_widget_id: tawkParsed?.widgetId ?? '',
         social_facebook_url: socialFacebookUrl.trim(),
         social_instagram_url: socialInstagramUrl.trim(),
         social_x_url: socialXUrl.trim(),
@@ -709,6 +731,15 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     setCategoryLogosSaving(true)
     setStatus({ kind: 'idle' })
     try {
+      const tawkParsed = parseTawkEmbedInput(tawkEmbedCode)
+      if (tawkEmbedCode.trim() && !tawkParsed) {
+        setStatus({
+          kind: 'err',
+          text: 'Tawk.to kodu geçersiz. Embed URL veya propertyId/widgetId girin.',
+        })
+        setCategoryLogosSaving(false)
+        return
+      }
       const next = {
         ...brandingRest,
         site_name: siteName.trim(),
@@ -735,6 +766,8 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
         public_phone: publicPhone.trim(),
         public_address: publicAddress.trim(),
         public_whatsapp_e164: publicWhatsappE164.trim(),
+        tawk_property_id: tawkParsed?.propertyId ?? '',
+        tawk_widget_id: tawkParsed?.widgetId ?? '',
         social_facebook_url: socialFacebookUrl.trim(),
         social_instagram_url: socialInstagramUrl.trim(),
         social_x_url: socialXUrl.trim(),
@@ -953,6 +986,19 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                 <Field className="block">
                   <Label>WhatsApp (E.164, ülke kodu ile)</Label>
                   <Input className="mt-1 font-mono text-sm" value={publicWhatsappE164} onChange={(e) => setPublicWhatsappE164(e.target.value)} placeholder="905551112233" />
+                </Field>
+                <Field className="block sm:col-span-2">
+                  <Label>Tawk.to canlı destek kodu</Label>
+                  <Input
+                    className="mt-1 font-mono text-sm"
+                    value={tawkEmbedCode}
+                    onChange={(e) => setTawkEmbedCode(e.target.value)}
+                    placeholder="https://embed.tawk.to/PROPERTY_ID/default"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Tawk panelindeki embed linkini veya <code className="font-mono">propertyId/widgetId</code> değerini
+                    yapıştırın. Doluysa mobil müşteri hizmetleri menüsünde canlı destek açılır.
+                  </p>
                 </Field>
                 <Field className="block sm:col-span-2">
                   <Label>Adres (tek satır veya birkaç satır)</Label>

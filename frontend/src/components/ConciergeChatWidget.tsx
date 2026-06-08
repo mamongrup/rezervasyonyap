@@ -109,12 +109,19 @@ export default function ConciergeChatWidget() {
     }
   }
 
-  // Mobile nav chat button dispatch'ini dinle
+  // Mobile nav chat button dispatch'ini dinle (eski toggle — geriye uyumluluk)
   useEffect(() => {
-    const handler = () => onToggle()
-    window.addEventListener('open-chat', handler)
-    return () => window.removeEventListener('open-chat', handler)
-  }, [onToggle])
+    const toggleHandler = () => onToggle()
+    const openHandler = () => {
+      void onOpen()
+    }
+    window.addEventListener('open-chat', toggleHandler)
+    window.addEventListener('open-concierge-chat', openHandler)
+    return () => {
+      window.removeEventListener('open-chat', toggleHandler)
+      window.removeEventListener('open-concierge-chat', openHandler)
+    }
+  }, [onToggle, onOpen])
 
   if (hideOnManage) return null
 

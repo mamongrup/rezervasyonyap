@@ -891,6 +891,13 @@ export const ru: AppMessages = {
       account: 'Аккаунт',
       menu: 'Меню',
       assistantAria: 'ИИ-ассистент',
+      supportAria: 'Служба поддержки',
+      supportMenuTitle: 'Служба поддержки',
+      supportMenuSubtitle: 'Чем мы можем помочь?',
+      supportAiAssistant: 'Туристический ассистент',
+      supportTawkLive: 'Онлайн-поддержка',
+      supportWhatsapp: 'WhatsApp',
+      supportClose: 'Закрыть',
     },
     location: {
       destinationsHeading: 'Направления',

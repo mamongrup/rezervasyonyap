@@ -39,6 +39,7 @@ import { getStayRentalFilterAttrKeys,
 import { subcategoryInternalPath } from '@/lib/subcategory-href'
 import { getMessages } from '@/utils/getT'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
+import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 
 /** ListingFilterTabs ile aynı hap görünümü (kategori vitrininde tutarlılık) */
@@ -80,6 +81,7 @@ export default function HolidayListingFilters({
   const vitrinPath = useVitrinHref()
 
   const [showAll, setShowAll] = useState(false)
+  useRegisterVitrinOverlay(showAll)
 
   const setQuery = useCallback(
     (updates: Record<string, string | null | undefined>) => {
@@ -273,7 +275,7 @@ export default function HolidayListingFilters({
   )
 
   const allFiltersDialog = (
-    <Dialog open={showAll} onClose={() => setShowAll(false)} className="relative z-50">
+    <Dialog open={showAll} onClose={() => setShowAll(false)} className={vitrinOverlayDialogClassName}>
       <DialogBackdrop className="fixed inset-0 bg-black/50 duration-200 ease-out data-closed:opacity-0" />
       <div className="fixed inset-0 flex max-h-screen w-screen items-center justify-center pt-3">
         <DialogPanel className="flex max-h-full w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white text-left align-middle shadow-xl dark:border dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">

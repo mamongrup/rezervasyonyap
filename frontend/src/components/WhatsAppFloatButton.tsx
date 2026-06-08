@@ -29,7 +29,7 @@ export default function WhatsAppFloatButton() {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-24 lg:bottom-6 start-4 lg:start-6 z-[99] flex h-12 w-12 lg:h-14 lg:w-14 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg hover:bg-[#20bd5a]"
+      className="fixed bottom-24 start-4 z-[99] hidden h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg hover:bg-[#20bd5a] lg:bottom-6 lg:start-6 lg:flex lg:h-14 lg:w-14"
       aria-label="WhatsApp ile yazın"
       title="WhatsApp"
     >

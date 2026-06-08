@@ -1,6 +1,7 @@
 'use client'
 
-import convertNumbThousand from '@/utils/convertNumbThousand'
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { formatFilterSliderPrice } from '@/lib/parse-listing-price'
 import clsx from 'clsx'
 import { useState } from 'react'
 
@@ -31,6 +32,8 @@ export const PriceRangeSlider = ({
 }) => {
   const [rangePrices, setRangePrices] = useState<number[]>([defaultValue?.[0] ?? min, defaultValue?.[1] ?? max])
   const [minValue, maxValue] = rangePrices
+  const ctx = usePreferredCurrencyContext()
+  const currencyCode = ctx?.preferredCode ?? 'TRY'
 
   const updateRange = (nextMin: number, nextMax: number) => {
     const normalized = [Math.max(min, Math.min(nextMin, nextMax)), Math.min(max, Math.max(nextMin, nextMax))]
@@ -78,14 +81,14 @@ export const PriceRangeSlider = ({
         <div className="flex-1">
           <div className="ps-4 text-xs/6 text-neutral-700 dark:text-neutral-300">{minLabel}</div>
           <div className="relative mt-0.5 w-full rounded-full bg-neutral-100 px-4 py-2 text-sm dark:bg-neutral-800">
-            {minValue >= 1000 ? `$ ${convertNumbThousand(minValue / 1000)}k` : `$ ${minValue}`}
+            {formatFilterSliderPrice(minValue, currencyCode)}
           </div>
           <input type="hidden" name={inputMinName} value={minValue} />
         </div>
         <div className="flex-1">
           <div className="ps-4 text-xs/6 text-neutral-700 dark:text-neutral-300">{maxLabel}</div>
           <div className="relative mt-0.5 w-full rounded-full bg-neutral-100 px-4 py-2 text-sm dark:bg-neutral-800">
-            {maxValue >= 1000 ? `$ ${convertNumbThousand(maxValue / 1000)}k` : `$ ${maxValue}`}
+            {formatFilterSliderPrice(maxValue, currencyCode)}
           </div>
           <input type="hidden" name={inputMaxName} value={maxValue} />
         </div>

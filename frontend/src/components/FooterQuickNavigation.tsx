@@ -13,8 +13,11 @@ import { useEffect, useState } from 'react'
 
 const DEFAULT_ACCOUNT_PATH = '/account'
 import { fetchSitePreviewLinks } from '@/lib/site-preview-links-client'
-import { useAside } from './aside'
+import FooterCustomerSupportSheet, {
+  FooterCustomerSupportButton,
+} from '@/components/FooterCustomerSupportSheet'
 import { SearchModal } from '@/components/search/GlobalSearch'
+import { useAside } from './aside'
 
 function FooterBarIcon({
   lucide,
@@ -42,6 +45,7 @@ const FooterQuickNavigation = () => {
   const href = (path: string) => normalizeHrefForLocale(loc, path)
   const { open: openAside } = useAside()
   const [searchOpen, setSearchOpen] = useState(false)
+  const [supportOpen, setSupportOpen] = useState(false)
   const [accountPath, setAccountPath] = useState(DEFAULT_ACCOUNT_PATH)
 
   useEffect(() => {
@@ -59,8 +63,8 @@ const FooterQuickNavigation = () => {
     }
   }, [])
 
-  function openChat() {
-    window.dispatchEvent(new CustomEvent('open-chat'))
+  function openSupportMenu() {
+    setSupportOpen(true)
   }
 
   const homeHref = href('/')
@@ -152,16 +156,7 @@ const FooterQuickNavigation = () => {
           <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[0])}</div>
           <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[1])}</div>
           <div className="flex w-full min-w-0 justify-center pb-0.5">
-            <button
-              type="button"
-              onClick={openChat}
-              aria-label={bn.assistantAria}
-              className="relative -mt-2 flex h-11 w-11 shrink-0 touch-manipulation cursor-pointer items-center justify-center rounded-full bg-primary-600 text-white shadow-lg ring-2 ring-white transition-colors hover:bg-primary-700 dark:ring-neutral-950"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
-                <path d="M12 2C6.477 2 2 6.164 2 11.299c0 2.862 1.388 5.415 3.567 7.12L4.5 22l4.29-2.123A10.854 10.854 0 0012 20.598c5.523 0 10-4.164 10-9.299S17.523 2 12 2z" />
-              </svg>
-            </button>
+            <FooterCustomerSupportButton onClick={openSupportMenu} ariaLabel={bn.supportAria} />
           </div>
           <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[2])}</div>
           <div className="flex w-full min-w-0 justify-center">{renderSideItem(navItems[3])}</div>
@@ -170,6 +165,7 @@ const FooterQuickNavigation = () => {
 
       {/* İlan adı / özellik araması — 3+ harfte canlı öneri, /ara tam sonuç */}
       {searchOpen ? <SearchModal onClose={() => setSearchOpen(false)} locale={loc} /> : null}
+      <FooterCustomerSupportSheet open={supportOpen} onClose={() => setSupportOpen(false)} locale={loc} />
     </>
   )
 }
