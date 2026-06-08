@@ -513,16 +513,18 @@ export async function getHotelFinalPrice(cfg, tokenCode, opts = {}) {
  * }
  */
 export async function bookHotel(cfg, opts = {}) {
-  const resultKeys =
-    opts.resultKeys ??
-    (opts.resultKey ? [opts.resultKey] : opts.packageId ? [opts.packageId] : [])
+  const packageInBody = opts.packageIdInBody === true && opts.packageId != null
+  const resultKeys = packageInBody
+    ? []
+    : (opts.resultKeys ??
+      (opts.resultKey ? [opts.resultKey] : opts.packageId ? [opts.packageId] : []))
   return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/BookHotel', {
     request: {
       ProcessId: null,
       Version: '2.0',
       ProductType: 1,
       TokenCode: opts.tokenCode,
-      PackageId: null,
+      PackageId: packageInBody ? String(opts.packageId) : null,
       PaxInfo: {
         HotelRoomPaxes: opts.hotelRoomPaxes ?? [],
         FlightPaxes: null,
@@ -538,7 +540,7 @@ export async function bookHotel(cfg, opts = {}) {
       CorporateInfo: null,
       BookingNote: opts.bookingNote ?? null,
       AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      ResultKeys: resultKeys,
+      ResultKeys: resultKeys.length ? resultKeys : null,
       PaymentInfo: opts.paymentInfo,
       LanguageCode: opts.languageCode ?? 'tr',
       WithPrice: false,
@@ -1259,11 +1261,14 @@ export function buildHotelRoomPaxes(roomOpts, makePaxFn) {
     const children = Number(r.Children ?? r.children ?? 0)
     const childAges = Array.isArray(r.ChildAges) ? r.ChildAges : r.childAges ?? []
     const paxes = []
+    let roomLeaderLast = 'SMITH'
     for (let i = 0; i < adults; i++) {
       const [fn, ln] = adultNames[globalNameIdx % adultNames.length] ?? ['JOHN', 'SMITH']
       globalNameIdx++
+      if (i === 0) roomLeaderLast = ln
       const pax = makePaxFn(fn, ln, '15.06.1990', 1)
       pax.Age = 30
+      if (pax.IdentityNumber != null) pax.IdentityNumber = String(pax.IdentityNumber)
       paxes.push({
         RecId: 0,
         IsLeader: ri === 0 && i === 0,
@@ -1274,10 +1279,12 @@ export function buildHotelRoomPaxes(roomOpts, makePaxFn) {
     for (let i = 0; i < children; i++) {
       const age = Number(childAges[i] ?? 5)
       const y = new Date().getUTCFullYear() - age
-      const [fn, ln] = childNames[globalNameIdx % childNames.length] ?? ['TIM', 'SMITH']
-      globalNameIdx++
+      const [fn] = childNames[i % childNames.length] ?? ['TIM', 'SMITH']
+      const ln = roomLeaderLast
       const pax = makePaxFn(fn, ln, `15.06.${y}`, 1)
       pax.Age = age
+      pax.ChildAge = age
+      pax.IdentityNumber = null
       paxes.push({
         RecId: 0,
         IsLeader: false,

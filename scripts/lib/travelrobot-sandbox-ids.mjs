@@ -20,6 +20,7 @@ export const TRAVELROBOT_SANDBOX_HOTELS = [
   { code: 'KDE393226', name: 'Sheraton Berlin Grand Hotel Esplanade', destinationId: '587926' },
   { code: 'KTR431805', name: 'Radisson Blu Hotel', destinationId: '10033097' },
   { code: 'KTR672265', name: 'Hilton Istanbul Bomonti Hotel & Conference Center', destinationId: '10033097' },
+  { code: 'KTR467859', name: 'Divan Istanbul', destinationId: '10033097' },
   { code: 'KTR3284005', name: 'Ibis Izmir Alsancak Test', destinationId: null },
 ]
 
@@ -32,9 +33,9 @@ export const CERT_HOTEL_BY_DESTINATION = {
 
 /** Senaryo testi: destinasyon → yedek otel kodları */
 export const CERT_HOTEL_FALLBACKS = {
-  10033097: ['KTR672265'],
-  531096: ['KCZ639147'],
-  587926: ['KDE393226'],
+  10033097: ['KTR672265', 'KTR467859'],
+  531096: ['KCZ639147', 'KTR467859'],
+  587926: ['KDE393226', 'KTR467859'],
 }
 
 export const DEFAULT_HOTEL_DESTINATION_ID = TRAVELROBOT_SANDBOX_DESTINATIONS.istanbul.id
