@@ -109,7 +109,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-book-v7'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-book-v8'
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
@@ -987,6 +987,8 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
     /passenger count|passenger type|invalid first name|invalid key|incompatible|invalid data|geçersiz json|http 500|soap fault/i.test(
       String(msg),
     )
+  const isDefinitiveBookErr = (msg) =>
+    /balance is not enough|insufficient balance|yetersiz bakiye/i.test(String(msg))
 
   const validateAttempts = []
   const seenValidateSets = new Set()
@@ -1051,6 +1053,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         continue
       }
 
+      const agentReference = `RY-${Date.now()}-${foundHotelCode ?? 'hotel'}`
       const bookPaxes = buildCanonicalHotelBookPaxes(roomOpts)
       const paymentAttempts = await resolveHotelPaymentAttempts(cfg, tokenCode, primaryKeys)
       const bookAttempts = paymentAttempts.slice(0, 3).map((pay) => ({
@@ -1112,16 +1115,18 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
           }
           lastBookErr = bookPayload?.ErrorMessage ?? preview(bookPayload, 300)
           log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, false)
-          if (!isRetriableBookErr(lastBookErr)) break outerBook
+          if (isDefinitiveBookErr(lastBookErr) || !isRetriableBookErr(lastBookErr)) break outerBook
         } catch (e) {
           lastBookErr = String(e)
           log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, lastBookErr, false)
-          if (!isRetriableBookErr(lastBookErr)) break outerBook
+          if (isDefinitiveBookErr(lastBookErr) || !isRetriableBookErr(lastBookErr)) break outerBook
         }
       }
       if (booked) break
+      if (isDefinitiveBookErr(lastBookErr)) break
     }
     if (booked) break
+    if (isDefinitiveBookErr(lastBookErr)) break
   }
 
   if (!validated && lastValErr) {
