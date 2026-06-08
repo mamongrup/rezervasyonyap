@@ -1273,20 +1273,59 @@ export function pickHotelRoomOfferKeys(payload, roomCount = 1, roomOpts = [{}]) 
   return c.length ? [c[0]] : []
 }
 
-/** ValidateHotelRoomsV2 yanıtından BookHotel ResultKeys (|@Hotel@… formatı). */
+/** ValidateHotelRoomsV2 yanıtından BookHotel ResultKeys — oda başına ilk RoomCode. */
 export function pickHotelBookResultKeys(validatePayload, fallbackKeys = []) {
   const r = validatePayload?.Result ?? validatePayload?.result ?? validatePayload
   const keys = []
   for (const h of r?.Hotels ?? r?.hotels ?? []) {
     for (const room of h?.Rooms ?? h?.rooms ?? []) {
-      for (const alt of room?.RoomAlternatives ?? room?.roomAlternatives ?? []) {
+      const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
+      for (const alt of alts) {
         const code = alt?.RoomCode ?? alt?.roomCode
-        if (code && String(code).includes('@')) keys.push(String(code))
+        if (code && String(code).includes('@')) {
+          keys.push(String(code))
+          break
+        }
       }
     }
   }
   if (keys.length) return keys
   return (fallbackKeys ?? []).map(String).filter(Boolean)
+}
+
+/** Tek odalı book: validate sonrası PackageId alanına yazılacak RoomCode. */
+export function pickHotelPostValidatePackageId(validatePayload, fallbackKey = null) {
+  const keys = pickHotelBookResultKeys(validatePayload, fallbackKey ? [fallbackKey] : [])
+  return keys[0] ?? (fallbackKey != null ? String(fallbackKey) : null)
+}
+
+/** GetPaymentOptions → BookHotel PaymentInfo adayları. */
+export async function resolveHotelPaymentAttempts(cfg, tokenCode, resultKeys) {
+  const attempts = [
+    {
+      label: 'agency-2',
+      info: { PaymentType: 2, PaymentItemId: '1', PaymentCommissionType: 0 },
+    },
+  ]
+  try {
+    const payOpts = await getHotelPaymentOptions(cfg, tokenCode, { resultKeys })
+    const raw = payOpts?.Result ?? payOpts?.result ?? payOpts
+    const items = raw?.PaymentOptions ?? raw?.Items ?? raw?.paymentOptions ?? []
+    const list = Array.isArray(items) ? items : []
+    for (const item of list.slice(0, 4)) {
+      attempts.unshift({
+        label: `api-pay-${item.PaymentType ?? item.paymentType ?? 'x'}`,
+        info: {
+          PaymentType: item.PaymentType ?? item.paymentType ?? 2,
+          PaymentItemId: String(item.PaymentItemId ?? item.Id ?? item.PaymentItemID ?? '1'),
+          PaymentCommissionType: item.PaymentCommissionType ?? 0,
+        },
+      })
+    }
+  } catch {
+    /* sandbox default */
+  }
+  return attempts
 }
 
 /** ValidateHotelRoomsV2 / SearchHotel sonrası BookHotel için PackageId (RoomCode result key). */

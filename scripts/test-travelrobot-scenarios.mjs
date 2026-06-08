@@ -48,8 +48,9 @@ import {
   validateHotelRooms,
   getHotelFinalPrice,
   bookHotel,
-  pickHotelPackageId,
   pickHotelBookResultKeys,
+  pickHotelPostValidatePackageId,
+  resolveHotelPaymentAttempts,
   buildHotelRoomPaxes,
   // Flight
   searchFlightItinerary,
@@ -108,7 +109,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-combo-v4'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-book-v5'
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
@@ -675,28 +676,28 @@ function leaderContactFromPaxes(hotelRoomPaxes) {
   return TEST_CONTACT
 }
 
-/** KPlus BookHotel — çocuklu oda için alternatif yolcu setleri. */
+function makeHotelCertPax(fn, ln, dob, gender = 1) {
+  const pax = makePax(fn, ln, dob, gender)
+  pax.IdentityNumber = null
+  return pax
+}
+
+/** KPlus BookHotel — Postman/debug ile uyumlu yolcu setleri (TC kimlik gönderilmez). */
 function buildHotelBookPaxVariants(roomOpts) {
-  const standard = buildHotelRoomPaxes(roomOpts, makePax)
-  const variants = [{ label: 'standard', paxes: standard }]
+  const standard = buildHotelRoomPaxes(roomOpts, makeHotelCertPax)
+  const variants = [{ label: 'cert-pax', paxes: standard }]
 
   const hasChild = roomOpts.some((r) => Number(r.Children ?? r.children ?? 0) > 0)
-  if (hasChild) {
-    const cert = buildHotelRoomPaxes(roomOpts, (fn, ln, dob, gender = 1) => {
-      const year = Number(String(dob).split('.').pop())
-      const isMinor = year > new Date().getUTCFullYear() - 18
-      const pax = makePax(fn, ln, dob, gender)
-      if (isMinor) pax.IdentityNumber = null
-      return pax
-    })
+  if (hasChild || roomOpts.length > 1) {
+    const cert = buildHotelRoomPaxes(roomOpts, makeHotelCertPax)
     for (const room of cert) {
       const leader = room.Paxes?.find((p) => p.IsLeader)?.Pax
       const leaderLast = leader?.LastName ?? 'TRAVELER'
       let adultIdx = 0
       for (const entry of room.Paxes ?? []) {
         if (Number(entry.PaxType) === 0) {
-          entry.Pax = makePax(
-            adultIdx === 0 ? 'TEST' : 'TEST',
+          entry.Pax = makeHotelCertPax(
+            'TEST',
             adultIdx === 0 ? 'TRAVELER' : 'GUEST',
             adultIdx === 0 ? '15.06.1990' : '15.06.1992',
           )
@@ -704,10 +705,9 @@ function buildHotelBookPaxVariants(roomOpts) {
         } else if (Number(entry.PaxType) === 1) {
           const age = Number(entry.Pax?.Age ?? entry.Pax?.ChildAge ?? 5)
           const y = new Date().getUTCFullYear() - age
-          entry.Pax = makePax('TIM', leaderLast, `15.06.${y}`, 1)
+          entry.Pax = makeHotelCertPax('TIM', leaderLast, `15.06.${y}`, 1)
           entry.Pax.Age = age
           entry.Pax.ChildAge = age
-          entry.Pax.IdentityNumber = null
         }
       }
     }
@@ -964,7 +964,7 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   const isRetriableValidateErr = (msg) =>
     /invalid result key|availability not found/i.test(String(msg))
   const isRetriableBookErr = (msg) =>
-    /passenger count|passenger type|invalid first name|invalid key|incompatible|geçersiz json|http 500|soap fault/i.test(
+    /passenger count|passenger type|invalid first name|invalid key|incompatible|invalid data|geçersiz json|http 500|soap fault/i.test(
       String(msg),
     )
 
@@ -1031,31 +1031,31 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         continue
       }
 
-      const vr = validatePayload?.Result ?? validatePayload?.result ?? validatePayload
-      const searchKey = vr?.SearchKey ?? vr?.searchKey
-      const bookKeyAttempts = [primaryKeys, validatedKeys]
-      if (roomOpts.length > 1 && searchKey) {
-        bookKeyAttempts.push([String(searchKey)])
-      }
-      if (primaryKeys.length > 1) {
-        bookKeyAttempts.push([primaryKeys[0]])
+      let paymentAttempts = []
+      try {
+        paymentAttempts = await resolveHotelPaymentAttempts(cfg, tokenCode, primaryKeys)
+        log(scenarioName, 'GetPaymentOptions', '/Hotel.svc/Rest/Json/GetPaymentOptions',
+          { resultKeys: primaryKeys.length }, { count: paymentAttempts.length }, true)
+      } catch (e) {
+        paymentAttempts = [{ label: 'agency-2', info: HOTEL_TEST_PAYMENT }]
       }
 
       const agentReference = `RY-${Date.now()}-${foundHotelCode ?? 'hotel'}`
-      const bookPackageId = pickHotelPackageId(validatePayload, selectedRow, validatedKeys)
-      const bookPlans = []
-      const seenPlans = new Set()
-      for (const bookResultKeys of bookKeyAttempts) {
-        const k = JSON.stringify(bookResultKeys)
-        if (seenPlans.has(k)) continue
-        seenPlans.add(k)
-        bookPlans.push({ label: 'resultKeys', resultKeys: bookResultKeys, packageId: null, packageIdInBody: false })
-      }
-      if (bookPackageId) {
-        const pid = String(bookPackageId)
-        bookPlans.push({ label: 'packageId-keys', resultKeys: null, packageId: pid, packageIdInBody: false })
-        bookPlans.push({ label: 'packageId-body', resultKeys: null, packageId: pid, packageIdInBody: true })
-      }
+      const postValidatePackageId = pickHotelPostValidatePackageId(validatePayload, primaryKeys[0])
+      const bookPlans =
+        roomOpts.length > 1
+          ? [
+              { label: 'multi-resultKeys', resultKeys: primaryKeys, packageId: null, packageIdInBody: false },
+            ]
+          : [
+              {
+                label: 'single-packageId-body',
+                resultKeys: null,
+                packageId: postValidatePackageId,
+                packageIdInBody: true,
+              },
+              { label: 'single-resultKeys', resultKeys: primaryKeys, packageId: null, packageIdInBody: false },
+            ]
       const agentRefVariants = [
         { label: 'null', value: null },
         { label: 'object', value: { AgentReference: agentReference } },
@@ -1063,68 +1063,69 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       const paxVariants = buildHotelBookPaxVariants(roomOpts)
 
       outerBook:
-      for (const paxVariant of paxVariants) {
-        for (let bi = 0; bi < bookPlans.length; bi++) {
-          const plan = bookPlans[bi]
-          for (const agentRef of agentRefVariants) {
-            const hotelRoomPaxes = paxVariant.paxes
-            const bookRequest = {
-              bookPlan: plan.label,
-              paxVariant: paxVariant.label,
-              resultKeys: plan.resultKeys,
-              packageId: plan.packageId,
-              agentRef: agentRef.label,
-              hotelCode: foundHotelCode,
-              roomCount: roomOpts.length,
-              paxCount: hotelRoomPaxes.reduce((n, r) => n + (r.Paxes?.length ?? 0), 0),
-              validateAttempt: `${ai + 1}-${includePaxes ? 'pax' : 'key'}`,
-              bookKeyAttempt: bi + 1,
-            }
-
-            try {
-              const bookPayload = await bookHotel(cfg, {
-                tokenCode,
-                resultKeys: plan.resultKeys ?? undefined,
-                packageId: plan.packageId ?? undefined,
-                packageIdInBody: plan.packageIdInBody,
-                hotelRoomPaxes,
-                contactInfo: leaderContactFromPaxes(hotelRoomPaxes),
-                invoiceInfo: TEST_INVOICE,
-                paymentInfo: HOTEL_TEST_PAYMENT,
-                agentReferenceInfo: agentRef.value,
-                bookingNote: clientNotes,
-                languageCode: hotelOpts.languageCode ?? 'tr',
-              })
-              log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, !bookPayload?.HasError)
-              if (!bookPayload?.HasError) {
-                const booking = bookPayload?.Result?.Booking ?? bookPayload?.Result?.booking ?? null
-                const systemPnr =
-                  booking?.SystemPnr ??
-                  booking?.systemPnr ??
-                  bookPayload?.Result?.SystemPnr ??
-                  bookPayload?.Result?.systemPnr ??
-                  bookPayload?.SystemPnr ??
-                  bookPayload?.systemPnr ??
-                  null
-                ok(`[${scenarioName}] BookHotel`, `SystemPNR: ${systemPnr ?? '(yok)'}`)
-                HOTEL_CERT_RESULTS.push({
-                  scenario: scenarioName,
-                  hotelCode: foundHotelCode,
-                  resultKeys: plan.resultKeys ?? [plan.packageId],
-                  systemPnr,
-                  clientNotes,
-                  agentReference,
-                })
-                booked = true
-                break outerBook
+      for (const pay of paymentAttempts) {
+        for (const plan of bookPlans) {
+          for (const paxVariant of paxVariants) {
+            for (const agentRef of agentRefVariants) {
+              const hotelRoomPaxes = paxVariant.paxes
+              const bookRequest = {
+                bookPlan: plan.label,
+                pay: pay.label,
+                paxVariant: paxVariant.label,
+                resultKeys: plan.resultKeys,
+                packageId: plan.packageId,
+                agentRef: agentRef.label,
+                hotelCode: foundHotelCode,
+                roomCount: roomOpts.length,
+                paxCount: hotelRoomPaxes.reduce((n, r) => n + (r.Paxes?.length ?? 0), 0),
+                validateAttempt: `${ai + 1}-${includePaxes ? 'pax' : 'key'}`,
               }
-              lastBookErr = bookPayload?.ErrorMessage ?? preview(bookPayload, 300)
-              log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, false)
-              if (!isRetriableBookErr(lastBookErr)) break outerBook
-            } catch (e) {
-              lastBookErr = String(e)
-              log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, lastBookErr, false)
-              if (!isRetriableBookErr(lastBookErr)) break outerBook
+
+              try {
+                const bookPayload = await bookHotel(cfg, {
+                  tokenCode,
+                  resultKeys: plan.resultKeys ?? undefined,
+                  packageId: plan.packageId ?? undefined,
+                  packageIdInBody: plan.packageIdInBody,
+                  hotelRoomPaxes,
+                  contactInfo: leaderContactFromPaxes(hotelRoomPaxes),
+                  invoiceInfo: TEST_INVOICE,
+                  paymentInfo: pay.info,
+                  agentReferenceInfo: agentRef.value,
+                  bookingNote: clientNotes,
+                  languageCode: hotelOpts.languageCode ?? 'tr',
+                })
+                log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, !bookPayload?.HasError)
+                if (!bookPayload?.HasError) {
+                  const booking = bookPayload?.Result?.Booking ?? bookPayload?.Result?.booking ?? null
+                  const systemPnr =
+                    booking?.SystemPnr ??
+                    booking?.systemPnr ??
+                    bookPayload?.Result?.SystemPnr ??
+                    bookPayload?.Result?.systemPnr ??
+                    bookPayload?.SystemPnr ??
+                    bookPayload?.systemPnr ??
+                    null
+                  ok(`[${scenarioName}] BookHotel`, `SystemPNR: ${systemPnr ?? '(yok)'}`)
+                  HOTEL_CERT_RESULTS.push({
+                    scenario: scenarioName,
+                    hotelCode: foundHotelCode,
+                    resultKeys: plan.resultKeys ?? [plan.packageId],
+                    systemPnr,
+                    clientNotes,
+                    agentReference,
+                  })
+                  booked = true
+                  break outerBook
+                }
+                lastBookErr = bookPayload?.ErrorMessage ?? preview(bookPayload, 300)
+                log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, false)
+                if (!isRetriableBookErr(lastBookErr)) break outerBook
+              } catch (e) {
+                lastBookErr = String(e)
+                log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, lastBookErr, false)
+                if (!isRetriableBookErr(lastBookErr)) break outerBook
+              }
             }
           }
         }
