@@ -6048,6 +6048,24 @@ export async function upsertSiteSetting(
 }
 
 /** Yönetim paneli — HttpOnly cookie; localStorage token gerekmez. */
+export async function fetchSiteSettingsFromPanel(params?: {
+  scope?: 'all' | 'platform' | 'tenant'
+  organization_id?: string
+  key?: string
+}): Promise<{ settings: SiteSettingRow[] }> {
+  const q = new URLSearchParams()
+  if (params?.scope) q.set('scope', params.scope)
+  if (params?.organization_id != null) q.set('organization_id', params.organization_id)
+  if (params?.key) q.set('key', params.key)
+  const res = await fetch(`/api/manage/site-settings${q.toString() ? `?${q}` : ''}`, {
+    credentials: 'include',
+    cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`site_settings_${res.status}`)
+  return json(res)
+}
+
+/** Yönetim paneli — HttpOnly cookie; localStorage token gerekmez. */
 export async function upsertSiteSettingFromPanel(body: {
   organization_id?: string
   key: string

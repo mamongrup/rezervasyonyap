@@ -35,7 +35,8 @@ fn fetch_turna_json_text(db: pog.Connection, field: String) -> String {
   case
     pog.query(
       "select coalesce(trim(value_json->'turna'->>$1), '') from site_settings "
-        <> "where key = 'listing_api_providers' and organization_id is null limit 1",
+        <> "where key = 'listing_api_providers' and organization_id is null "
+        <> "order by id desc limit 1",
     )
     |> pog.parameter(pog.text(field))
     |> pog.returning({
@@ -57,7 +58,8 @@ fn fetch_turna_enabled(db: pog.Connection) -> Bool {
   case
     pog.query(
       "select coalesce(value_json->'turna'->>'enabled', 'false') from site_settings "
-        <> "where key = 'listing_api_providers' and organization_id is null limit 1",
+        <> "where key = 'listing_api_providers' and organization_id is null "
+        <> "order by id desc limit 1",
     )
     |> pog.returning({
       use a <- decode.field(0, decode.string)

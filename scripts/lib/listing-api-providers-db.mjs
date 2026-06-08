@@ -13,6 +13,7 @@ export async function loadListingApiProvidersFromDb() {
       `SELECT value_json::text AS raw
        FROM site_settings
        WHERE key = $1 AND organization_id IS NULL
+       ORDER BY id DESC
        LIMIT 1`,
       [KEY],
     )

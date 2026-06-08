@@ -1,57 +1,25 @@
 'use client'
 
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
+import {
+  mergeListingApiProvidersForSave,
+  parseListingApiProvidersValue,
+  type ListingApiProvidersSettings,
+  type TravelrobotSettings,
+  type TurnaSettings,
+  type WtatilSettings,
+  type Yolcu360Settings,
+} from '@/lib/listing-api-settings-merge'
 import React from 'react'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import {
+  fetchSiteSettingsFromPanel,
+  upsertSiteSettingFromPanel,
+} from '@/lib/travel-api'
 import { Loader2, Plug, Save } from 'lucide-react'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? ''
 const SETTINGS_KEY = 'listing_api_providers'
-
-interface TravelrobotSettings {
-  enabled: boolean
-  base_url: string
-  channel_code: string
-  channel_password: string
-  listing_status: 'draft' | 'published'
-  import_tours: boolean
-  import_hotels: boolean
-  import_flights: boolean
-  import_car_rental: boolean
-}
-
-interface TurnaSettings {
-  enabled: boolean
-  base_url: string
-  api_key: string
-  country_code: string
-  currency_code: string
-  language_code: string
-}
-
-interface Yolcu360Settings {
-  enabled: boolean
-  base_url: string
-  api_key: string
-  api_secret: string
-}
-
-interface WtatilSettings {
-  enabled: boolean
-  base_url: string
-  application_secret_key: string
-  username: string
-  password: string
-  agency_id: string
-  listing_status: 'draft' | 'published'
-}
-
-interface ListingApiProvidersSettings {
-  wtatil: WtatilSettings
-  travelrobot: TravelrobotSettings
-  turna: TurnaSettings
-  yolcu360: Yolcu360Settings
-}
 
 const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   enabled: false,
@@ -143,8 +111,21 @@ function Field({
   )
 }
 
+function applyLoadedSettings(
+  parsed: Partial<ListingApiProvidersSettings> | null,
+): ListingApiProvidersSettings {
+  if (!parsed) return EMPTY
+  return {
+    wtatil: { ...EMPTY_WTATIL, ...(parsed.wtatil ?? {}) },
+    travelrobot: { ...EMPTY_TRAVELROBOT, ...(parsed.travelrobot ?? {}) },
+    turna: { ...EMPTY_TURNA, ...(parsed.turna ?? {}) },
+    yolcu360: { ...EMPTY_YOLCU360, ...(parsed.yolcu360 ?? {}) },
+  }
+}
+
 export default function AdminListingApiProvidersSection() {
   const [settings, setSettings] = React.useState<ListingApiProvidersSettings>(EMPTY)
+  const persistedRef = React.useRef<ListingApiProvidersSettings>(EMPTY)
   const [loading, setLoading] = React.useState(true)
   const [saving, setSaving] = React.useState(false)
   const [testing, setTesting] = React.useState(false)
@@ -177,88 +158,80 @@ export default function AdminListingApiProvidersSection() {
   }
 
   React.useEffect(() => {
-    if (!token) return
-    fetch(`${API_BASE}/api/v1/site/settings?key=${SETTINGS_KEY}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (r) => {
-        if (!r.ok) return
-        const data = await r.json()
+    let cancelled = false
+    const load = async () => {
+      try {
+        const data = await fetchSiteSettingsFromPanel({
+          scope: 'platform',
+          key: SETTINGS_KEY,
+        })
         const row = Array.isArray(data.settings)
-          ? data.settings.find((s: { key: string }) => s.key === SETTINGS_KEY)
+          ? data.settings.find((s) => s.key === SETTINGS_KEY)
           : null
-        if (row?.value_json) {
-          const v = typeof row.value_json === 'string' ? JSON.parse(row.value_json) : row.value_json
-          setSettings((prev) => ({
-            ...prev,
-            wtatil: { ...prev.wtatil, ...(v.wtatil ?? {}) },
-            travelrobot: { ...prev.travelrobot, ...(v.travelrobot ?? {}) },
-            turna: { ...prev.turna, ...(v.turna ?? {}) },
-            yolcu360: { ...prev.yolcu360, ...(v.yolcu360 ?? {}) },
-          }))
+        const loaded = applyLoadedSettings(parseListingApiProvidersValue(row?.value_json))
+        if (!cancelled) {
+          persistedRef.current = loaded
+          setSettings(loaded)
         }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [token])
+      } catch {
+        if (!cancelled) setMsg({ type: 'err', text: 'Kayıtlı ayarlar yüklenemedi. Oturumu kontrol edin.' })
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const save = async () => {
-    if (!token) return
     setSaving(true)
     setMsg(null)
     try {
+      const merged = mergeListingApiProvidersForSave(settings, persistedRef.current)
       const payload: ListingApiProvidersSettings = {
-        ...settings,
+        ...merged,
         wtatil: {
-          ...settings.wtatil,
+          ...merged.wtatil,
           enabled:
-            settings.wtatil.enabled
+            merged.wtatil.enabled
             || (
-              settings.wtatil.application_secret_key.trim() !== ''
-              && settings.wtatil.username.trim() !== ''
-              && settings.wtatil.password.trim() !== ''
+              merged.wtatil.application_secret_key.trim() !== ''
+              && merged.wtatil.username.trim() !== ''
+              && merged.wtatil.password.trim() !== ''
             ),
         },
         travelrobot: {
-          ...settings.travelrobot,
+          ...merged.travelrobot,
           enabled:
-            settings.travelrobot.enabled
+            merged.travelrobot.enabled
             || (
-              settings.travelrobot.channel_code.trim() !== ''
-              && settings.travelrobot.channel_password.trim() !== ''
+              merged.travelrobot.channel_code.trim() !== ''
+              && merged.travelrobot.channel_password.trim() !== ''
             ),
         },
         turna: {
-          ...settings.turna,
+          ...merged.turna,
           enabled:
-            settings.turna.enabled
-            || settings.turna.api_key.trim() !== '',
+            merged.turna.enabled
+            || merged.turna.api_key.trim() !== '',
         },
         yolcu360: {
-          ...settings.yolcu360,
+          ...merged.yolcu360,
           enabled:
-            settings.yolcu360.enabled
+            merged.yolcu360.enabled
             || (
-              settings.yolcu360.api_key.trim() !== ''
-              && settings.yolcu360.api_secret.trim() !== ''
+              merged.yolcu360.api_key.trim() !== ''
+              && merged.yolcu360.api_secret.trim() !== ''
             ),
         },
       }
-      const res = await fetch(`${API_BASE}/api/v1/site/settings`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          key: SETTINGS_KEY,
-          value_json: JSON.stringify(payload),
-        }),
+      await upsertSiteSettingFromPanel({
+        key: SETTINGS_KEY,
+        value_json: JSON.stringify(payload),
       })
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}))
-        throw new Error((e as { error?: string }).error ?? `HTTP ${res.status}`)
-      }
+      persistedRef.current = payload
       setSettings(payload)
       const hints: string[] = []
       if (payload.yolcu360.api_key && payload.yolcu360.api_secret) {
@@ -280,8 +253,8 @@ export default function AdminListingApiProvidersSection() {
       setMsg({
         type: 'ok',
         text: hints.length > 0
-          ? `Kaydedildi. ${hints.join(' · ')}`
-          : 'Kaydedildi. Token testi ile bağlantıyı doğrulayın.',
+          ? `Veritabanına kaydedildi (yeniden açılışta korunur). ${hints.join(' · ')}`
+          : 'Veritabanına kaydedildi (yeniden açılışta korunur). Token testi ile bağlantıyı doğrulayın.',
       })
     } catch (e) {
       setMsg({ type: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
