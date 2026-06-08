@@ -34,6 +34,7 @@ import type { TListingBase } from '@/types/listing-types'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 import { normalizeStayRentalAttrsParam } from '@/lib/stay-rental-filter-attrs'
+import { isTourSubcategorySlug, tourSubcategoryRoute } from '@/lib/tour-subcategory-routes'
 
 export { HOLIDAY_TYPE_HANDLE_MAP, YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 
@@ -57,6 +58,8 @@ export const SLUG_TO_CODE: Record<string, string> = {
 }
 
 export interface SearchQuery {
+  /** Metin araması — ilan başlığı / slug (katalog `q` parametresi) */
+  q?: string
   location?: string
   checkin?: string
   checkout?: string
@@ -109,6 +112,7 @@ export function parseSearchParamsFromUrl(
     return v
   }
   return {
+    q: g('q'),
     location: g('location'),
     checkin: g('checkin') ?? g('date'),
     checkout: g('checkout'),
@@ -602,41 +606,56 @@ export async function fetchCategoryListings(
   const perPage = isStayRentalCategory(categoryCode) ? 48 : 12
 
   const region = opts.regionHandle
+  /** `/turlar/yurtici-turlar` gibi eski slug URL — bölge değil, tur alt kategori filtresi */
+  const tourSubRoute =
+    categorySlug === 'turlar' && region && region !== 'all' && isTourSubcategorySlug(region)
+      ? tourSubcategoryRoute(region)
+      : undefined
+  const effectiveQuery: SearchQuery = tourSubRoute
+    ? { ...query, ...tourSubRoute.query }
+    : query
+
   const regionPropertyType =
     categoryCode && isStayRentalCategory(categoryCode)
       ? stayRentalPropertyTypeFromHandle(categoryCode, region)
       : undefined
   const regionAsLocation =
-    region && region !== 'all' && !regionPropertyType ? region.replace(/-/g, ' ') : undefined
+    !tourSubRoute &&
+    region &&
+    region !== 'all' &&
+    !regionPropertyType
+      ? region.replace(/-/g, ' ')
+      : undefined
   const apiLocation =
-    query.location?.trim() || regionAsLocation || undefined
+    effectiveQuery.location?.trim() || regionAsLocation || undefined
 
   const apiResult = await searchPublicListings(
     {
       categoryCode,
+      q: effectiveQuery.q?.trim() || undefined,
       location: apiLocation,
       propertyType: regionPropertyType || undefined,
-      checkin: query.checkin,
-      checkout: query.checkout,
-      guests: query.guests ? parseInt(query.guests, 10) : undefined,
+      checkin: effectiveQuery.checkin,
+      checkout: effectiveQuery.checkout,
+      guests: effectiveQuery.guests ? parseInt(effectiveQuery.guests, 10) : undefined,
       page,
       perPage,
       locale: locale || 'tr',
-      from: query.from,
-      to: query.to,
-      drop_off: query.drop_off,
-      theme: query.theme,
-      sort: query.sort?.trim() || undefined,
-      attrs: normalizeStayRentalAttrsParam(query.attrs) || undefined,
-      priceMin: query.price_min?.trim() || undefined,
-      priceMax: query.price_max?.trim() || undefined,
-      hotelType: query.hotel_type?.trim() || undefined,
-      hotelTheme: query.hotel_theme?.trim() || undefined,
-      hotelAccommodation: query.hotel_accommodation?.trim() || undefined,
-      hotelStars: query.hotel_stars?.trim() || undefined,
-      tourTravelType: query.tour_travel_type?.trim() || undefined,
-      tourAccommodation: query.tour_accommodation?.trim() || undefined,
-      tourDuration: query.tour_duration?.trim() || undefined,
+      from: effectiveQuery.from,
+      to: effectiveQuery.to,
+      drop_off: effectiveQuery.drop_off,
+      theme: effectiveQuery.theme,
+      sort: effectiveQuery.sort?.trim() || undefined,
+      attrs: normalizeStayRentalAttrsParam(effectiveQuery.attrs) || undefined,
+      priceMin: effectiveQuery.price_min?.trim() || undefined,
+      priceMax: effectiveQuery.price_max?.trim() || undefined,
+      hotelType: effectiveQuery.hotel_type?.trim() || undefined,
+      hotelTheme: effectiveQuery.hotel_theme?.trim() || undefined,
+      hotelAccommodation: effectiveQuery.hotel_accommodation?.trim() || undefined,
+      hotelStars: effectiveQuery.hotel_stars?.trim() || undefined,
+      tourTravelType: effectiveQuery.tour_travel_type?.trim() || undefined,
+      tourAccommodation: effectiveQuery.tour_accommodation?.trim() || undefined,
+      tourDuration: effectiveQuery.tour_duration?.trim() || undefined,
     },
     { cache: 'no-store' },
   )
@@ -660,7 +679,7 @@ export async function fetchCategoryListings(
     }
     let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     if (isStayRentalCategory(categoryCode)) {
-      rows = applyStayRentalListingQueryFilters(rows, query)
+      rows = applyStayRentalListingQueryFilters(rows, effectiveQuery)
     }
     return {
       listings: rows,

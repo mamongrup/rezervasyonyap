@@ -12,7 +12,10 @@ import Link from 'next/link'
 import BgGlassmorphism from '@/components/BgGlassmorphism'
 import CategoryListingPagination from '@/components/CategoryListingPagination'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
-import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
+import {
+  heroBelowContentClassName,
+  heroContainerBelowHeaderClassName,
+} from '@/components/hero-sections/hero-below-header-classes'
 import ListingFilterTabs from '@/components/ListingFilterTabs'
 import SectionSliderRegions, { type RegionSliderItem } from '@/components/SectionSliderRegions'
 import SectionSubscribe2 from '@/components/SectionSubscribe2'
@@ -444,7 +447,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   )
 
   const breadcrumbSlot = (
-    <nav className="container mb-6 min-w-0" aria-label={m.site.region.breadcrumbAriaLabel}>
+    <nav className={clsx(heroBelowContentClassName, 'container mb-6 min-w-0')} aria-label={m.site.region.breadcrumbAriaLabel}>
       <ol className="m-0 flex list-none flex-wrap items-center gap-x-1.5 gap-y-1 p-0 text-xs text-neutral-500 dark:text-neutral-400">
         <li className="flex min-w-0 items-center">
           <Link
@@ -486,7 +489,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   )
 
   const listingsSlot = (
-    <div className="container mt-10 lg:mt-16">
+    <div className={clsx(heroBelowContentClassName, 'container mt-10 lg:mt-16')}>
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
@@ -583,7 +586,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
   /** Bölgeye Göre Keşfet: ülke→iller, il→ilçeler, ilçe→beldeler (`loadBolgeSubdivisionSlider`) */
   const exploreHotelsSlot =
     subdivisionSlider && subdivisionSlider.items.length > 0 ? (
-      <div className="container mt-16">
+      <div className={clsx(heroBelowContentClassName, 'container mt-16')}>
         <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
           {cat.exploreByRegion}
         </h2>
@@ -597,13 +600,13 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     ) : null
 
   const newsletterSlot = (
-    <div className="container mt-16">
+    <div className={clsx(heroBelowContentClassName, 'container mt-16')}>
       <SectionSubscribe2 />
     </div>
   )
 
   const aboutSlot = descriptionHtml ? (
-    <section className="mt-14 border-t border-neutral-200 bg-white py-14 dark:border-neutral-800 dark:bg-neutral-900">
+    <section className={clsx(heroBelowContentClassName, 'mt-14 border-t border-neutral-200 bg-white py-14 dark:border-neutral-800 dark:bg-neutral-900')}>
       <div className="container">
         <h2 className="mb-6 text-2xl font-bold text-neutral-900 dark:text-white">{m.site.region.aboutHeading}</h2>
         {looksLikeHtml ? (
@@ -626,40 +629,46 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
 
   const travelIdeasSlot =
     showBolgeTravelIdeasSection(slug, pageData) ? (
-      <RegionTravelIdeasSection
-        ideas={travelIdeas}
-        locale={locale}
-        distanceTemplate={bolgeTravelIdeasDistanceTemplate(locale, slug, pageData)}
-        regionName={regionName}
-        regionImageUrl={
-          pageData?.travel_ideas_image_url?.trim() ||
-          pageData?.featured_image_url?.trim() ||
-          pageData?.hero_image_url?.trim() ||
-          (g0.trim() ? g0 : null)
-        }
-      />
+      <div className={heroBelowContentClassName}>
+        <RegionTravelIdeasSection
+          ideas={travelIdeas}
+          locale={locale}
+          distanceTemplate={bolgeTravelIdeasDistanceTemplate(locale, slug, pageData)}
+          regionName={regionName}
+          regionImageUrl={
+            pageData?.travel_ideas_image_url?.trim() ||
+            pageData?.featured_image_url?.trim() ||
+            pageData?.hero_image_url?.trim() ||
+            (g0.trim() ? g0 : null)
+          }
+        />
+      </div>
     ) : null
 
   const routesSlot =
     tripRoutes.length > 0 || blueCruiseRoutes.length > 0 ? (
-      <RegionRoutesSection
-        tripRoutes={tripRoutes}
-        blueCruiseRoutes={blueCruiseRoutes}
-        locale={locale}
-        regionName={regionName}
-      />
+      <div className={heroBelowContentClassName}>
+        <RegionRoutesSection
+          tripRoutes={tripRoutes}
+          blueCruiseRoutes={blueCruiseRoutes}
+          locale={locale}
+          regionName={regionName}
+        />
+      </div>
     ) : null
 
   const nearbyVitrinCfg = resolveNearbyVitrinConfig(locale, pageData?.nearby_vitrin_columns_json)
 
   const placesVitrinSlot =
     placesData ? (
-      <RegionNearbyPlacesVitrin placesData={placesData} config={nearbyVitrinCfg} locale={locale} />
+      <div className={heroBelowContentClassName}>
+        <RegionNearbyPlacesVitrin placesData={placesData} config={nearbyVitrinCfg} locale={locale} />
+      </div>
     ) : null
 
   const nearbySlot =
     totalPois > 0 && placesData ? (
-      <div className="bg-neutral-50 py-12 dark:bg-neutral-950">
+      <div className={clsx(heroBelowContentClassName, 'bg-neutral-50 py-12 dark:bg-neutral-950')}>
         <div className="container">
           <NearbyPlacesSection
             locale={locale}
@@ -684,7 +693,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
 
   const mapSlot =
     mapIframeSrc ? (
-      <div className="bg-white py-10 dark:bg-neutral-900">
+      <div className={clsx(heroBelowContentClassName, 'bg-white py-10 dark:bg-neutral-900')}>
         <div className="container">
           <h2 className="mb-4 text-xl font-semibold text-neutral-900 dark:text-white">
             {m.site.region.locationHeading}
@@ -706,7 +715,7 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
 
   const emptyHintSlot =
     !pageData && listings.length === 0 && totalPois === 0 ? (
-      <div className="container flex flex-col items-center py-20 text-center">
+      <div className={clsx(heroBelowContentClassName, 'container flex flex-col items-center py-20 text-center')}>
         <div className="text-5xl">📍</div>
         <h2 className="mt-4 text-xl font-semibold text-neutral-900 dark:text-white">{regionName}</h2>
         <p className="mt-2 max-w-md text-sm text-neutral-500">{m.site.region.noContentYet}</p>

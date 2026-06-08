@@ -5,7 +5,10 @@ import {
   heroSubheadingLinkClassName,
 } from '@/components/hero-sections/hero-link-classes'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
-import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
+import {
+  heroBelowContentClassName,
+  heroContainerBelowHeaderClassName,
+} from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import PageBuilderRenderer from '@/components/page-builder/PageBuilderRenderer'
 import { getAuthors } from '@/data/authors'
@@ -201,7 +204,7 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
         />
       </div>
 
-      <div className="overflow-x-hidden">
+      <div className={`${heroBelowContentClassName} overflow-x-hidden`}>
         {/* Son aramalar */}
         <div className="container mb-10 flex justify-center px-4 sm:px-0">
           <HeroLastSearchRow locale={locale} />

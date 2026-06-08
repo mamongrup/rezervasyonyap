@@ -32,11 +32,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { getCategoryByMapRoute } from '@/data/category-registry'
 import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
-import {
-  getStayRentalFilterAttrKeys,
+import { getStayRentalFilterAttrKeys,
   normalizeStayRentalAttrKey,
   parseStayRentalAttrsParam,
 } from '@/lib/stay-rental-filter-attrs'
+import { subcategoryInternalPath } from '@/lib/subcategory-href'
 import { getMessages } from '@/utils/getT'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
@@ -132,6 +132,13 @@ export default function HolidayListingFilters({
     const s = searchParams.toString()
     return s ? `?${s}` : ''
   }, [searchParams])
+
+  /** Alt kategori linkleri her zaman liste rotasına gider (harita vitrininde de). */
+  const subcategoryHref = useCallback(
+    (entry: SubcategoryEntry) =>
+      normalizeHrefForLocale(effectiveLocale, vitrinPath(subcategoryInternalPath(entry))),
+    [effectiveLocale, vitrinPath],
+  )
 
   const sort = searchParams.get('sort') ?? ''
   const priceMin = searchParams.get('price_min') ?? ''
@@ -380,7 +387,7 @@ export default function HolidayListingFilters({
                   {subcategories.map((s) => (
                     <li key={s.id}>
                       <Link
-                        href={`${linkBasePath}/${s.slug}${querySuffix}`}
+                        href={`${subcategoryHref(s)}${querySuffix}`}
                         className="text-sm text-neutral-700 hover:text-primary-600 dark:text-neutral-200"
                         onClick={() => setShowAll(false)}
                       >
@@ -591,7 +598,7 @@ export default function HolidayListingFilters({
                     {subcategories.map((s) => (
                       <li key={s.id}>
                         <Link
-                          href={`${linkBasePath}/${s.slug}${querySuffix}`}
+                          href={`${subcategoryHref(s)}${querySuffix}`}
                           className={clsx(
                             'text-sm hover:text-neutral-700 dark:hover:text-neutral-200',
                             pathHandle === s.slug ? 'font-semibold text-primary-700 dark:text-primary-300' : 'text-neutral-700 dark:text-neutral-200',

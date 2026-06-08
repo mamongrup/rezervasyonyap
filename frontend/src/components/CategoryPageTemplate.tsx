@@ -14,7 +14,10 @@ import {
   heroStatsRowLinkClassName,
 } from '@/components/hero-sections/hero-link-classes'
 import HeroSectionWithSearchForm1 from '@/components/hero-sections/HeroSectionWithSearchForm1'
-import { heroContainerBelowHeaderClassName } from '@/components/hero-sections/hero-below-header-classes'
+import {
+  heroBelowContentClassName,
+  heroContainerBelowHeaderClassName,
+} from '@/components/hero-sections/hero-below-header-classes'
 import HeroSearchDesktopOnly from '@/components/HeroSearchForm/HeroSearchDesktopOnly'
 import SectionSliderRegions from '@/components/SectionSliderRegions'
 import type { RegionSliderItem } from '@/components/SectionSliderRegions'
@@ -346,7 +349,7 @@ export default async function CategoryPageTemplate({
       activeSearch.to)
 
   const searchResultsSection = hideListingsOnLanding && isAll && !hasActiveSearch ? null : (
-    <div className="container mt-10 lg:mt-16">
+    <div className={`${heroBelowContentClassName} container mt-10 lg:mt-16`}>
       <div className="flex flex-wrap items-end justify-between gap-x-2.5 gap-y-4">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900 dark:text-white">
@@ -482,7 +485,7 @@ export default async function CategoryPageTemplate({
   )
 
   const regionSlider = resolvedRegionStats.length > 0 ? (
-    <div className="container mt-16">
+    <div className={`${heroBelowContentClassName} container mt-16`}>
       <h2 className="mb-6 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
         {cat.exploreByRegion}
       </h2>
@@ -510,15 +513,17 @@ export default async function CategoryPageTemplate({
     !hasActiveSearch &&
     (currentHandle === 'all' || !hasEnabledCategoryHub)
   const subcategorySection =
-    isAll && subcategoryItems.length > 0 && !isTourHubLanding ? (
-    <div className="container mt-10">
+    isAll &&
+    subcategoryItems.length > 0 &&
+    !isTourHubLanding &&
+    !(category.slug === 'turlar' && hasEnabledCategoryHub) ? (
+    <div className={`${heroBelowContentClassName} container mt-6 sm:mt-10`}>
       <SectionSubcategories
         parentCategorySlug={category.slug}
         locale={locale}
         subcategories={subcategoryItems}
         showHeading={true}
         variant="icon-grid"
-        categoryRoute={categoryRouteVitrin}
       />
     </div>
   ) : null
@@ -564,24 +569,26 @@ export default async function CategoryPageTemplate({
 
         {!isTourHubLanding ? regionSlider : null}
 
-        <PageBuilderRenderer
-          modules={nonHeroModules}
-          category={category}
-          locale={locale}
-          searchFormNode={searchForm}
-          listingsNode={
-            <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
-              {listingCards}
-            </div>
-          }
-          categoriesNode={destinationCards}
-          allListings={allListings}
-          listingLinkBase={listingLinkBaseVitrin}
-          priceUnit={effectivePriceUnit}
-          authors={authors}
-          listingCardsById={listingCardsById}
-          listingsBrowseHref={categoryPageHref}
-        />
+        <div className={heroBelowContentClassName}>
+          <PageBuilderRenderer
+            modules={nonHeroModules}
+            category={category}
+            locale={locale}
+            searchFormNode={searchForm}
+            listingsNode={
+              <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4">
+                {listingCards}
+              </div>
+            }
+            categoriesNode={destinationCards}
+            allListings={allListings}
+            listingLinkBase={listingLinkBaseVitrin}
+            priceUnit={effectivePriceUnit}
+            authors={authors}
+            listingCardsById={listingCardsById}
+            listingsBrowseHref={categoryPageHref}
+          />
+        </div>
       </div>
     )
   }
@@ -623,11 +630,9 @@ export default async function CategoryPageTemplate({
       {regionSlider}
 
       {compactModules.length > 0 && (
-        <PageBuilderRenderer
-          modules={compactModules}
-          category={category}
-          locale={locale}
-        />
+        <div className={heroBelowContentClassName}>
+          <PageBuilderRenderer modules={compactModules} category={category} locale={locale} />
+        </div>
       )}
     </div>
   )

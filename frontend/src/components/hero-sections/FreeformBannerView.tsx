@@ -70,7 +70,7 @@ export default function FreeformBannerView({
   return (
     <div
       className={clsx(
-        'relative mb-5 w-full min-h-0 overflow-hidden rounded-xl',
+        'relative mb-2 w-full min-h-0 overflow-hidden rounded-xl lg:mb-5',
         className,
       )}
       style={{ aspectRatio: ar }}

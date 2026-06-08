@@ -341,8 +341,9 @@ function HeroSectionWithSearchForm1({
         {/* Left: başlık + açıklama; `minimal` iken arama ayrı satırda (mozaiğin altı) */}
         <div
           className={clsx(
-            'relative flex w-full min-w-0 flex-col items-start',
-            !minimalBelowFoldSearch && 'flex-1 basis-0',
+            'relative flex w-full min-w-0 shrink-0 flex-col items-start',
+            /** Mobilde `flex-1 basis-0` kolon yüksekliğini bozar; yalnız lg+ yan yana düzende */
+            !minimalBelowFoldSearch && 'lg:flex-1 lg:basis-0',
             minimalBelowFoldSearch && 'order-1 lg:order-none lg:col-start-1 lg:row-start-1',
             /** `compact` kendi lg:pe-10 ile; `minimal` aşağıda */
             !(inlineSearch && spacing === 'minimal') &&
@@ -396,8 +397,12 @@ function HeroSectionWithSearchForm1({
         {/* Right: mozaik / görsel — bölge bleed taşması için */}
         <div
           className={clsx(
-            'w-full min-h-0 min-w-0',
-            !minimalBelowFoldSearch && 'flex-1 basis-0 lg:self-stretch',
+            'w-full min-w-0 shrink-0',
+            /**
+             * Mobilde `min-h-0 flex-1` mozaik kutusunu 0 yüksekliğe sıkıştırır; taşan kolaj
+             * (z-30) hero `z-10` bağlamında alt kategori bloğunun üstüne biner.
+             */
+            !minimalBelowFoldSearch && 'lg:min-h-0 lg:flex-1 lg:basis-0 lg:self-stretch',
             minimalBelowFoldSearch && 'order-3 lg:order-none lg:col-start-2 lg:row-start-1',
             heroMosaicBleed && 'lg:z-0 lg:overflow-visible',
           )}

@@ -1,4 +1,5 @@
 import { getTourHubCategories, type TourHubCategory } from '@/data/tour-hub-categories'
+import { heroBelowContentClassName } from '@/components/hero-sections/hero-below-header-classes'
 import { vitrinHref } from '@/lib/vitrin-href'
 import Link from 'next/link'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
@@ -114,7 +115,7 @@ export default async function CategoryHubGridModule({
   const subheading = resolveSubheading(config, locale)
 
   return (
-    <section className="container mt-4 lg:mt-6" aria-labelledby="category-hub-heading">
+    <section className={`${heroBelowContentClassName} container mt-4 lg:mt-6`} aria-labelledby="category-hub-heading">
       {(heading || subheading) && (
         <div className="mb-8 max-w-3xl">
           {heading ? (

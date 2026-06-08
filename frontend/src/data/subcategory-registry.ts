@@ -37,7 +37,7 @@ export interface SubcategoryEntry {
   enabled: boolean
   /**
    * Filtrelenmiş URL — kategori sayfasında bu URL'ye link verilir.
-   * Boşsa parentCategorySlug/all kullanılır.
+   * Boşsa `/{parentCategorySlug}/{slug}` kullanılır (`subcategoryInternalPath`).
    */
   href?: string
 }

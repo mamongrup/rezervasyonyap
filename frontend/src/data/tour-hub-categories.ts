@@ -3,6 +3,8 @@
  * Linkler mevcut alt kategori, location ve tur filtre parametrelerine dayanır.
  */
 
+import { tourSubcategoryListPath } from '@/lib/tour-subcategory-routes'
+
 export type TourHubCategoryLink = {
   label: string
   /** Vitrin yolu: /turlar/... veya /turlar/all?... */
@@ -44,6 +46,11 @@ function all(pathSuffix = '') {
   return `/turlar/all${pathSuffix}`
 }
 
+/** Tur alt kategori slug → `/turlar/all?…` (hub + alt kategori grid ile aynı) */
+function tourSub(slug: Parameters<typeof tourSubcategoryListPath>[0]): string {
+  return tourSubcategoryListPath(slug) ?? `/turlar/${slug}`
+}
+
 /** Statik hub kart listesi — Wtatil lokasyon / alt kategori eşlemesi */
 export function getTourHubCategories(locale: string): TourHubCategory[] {
   const isEn = locale === 'en' || locale.startsWith('en-')
@@ -54,10 +61,10 @@ export function getTourHubCategories(locale: string): TourHubCategory[] {
       title: isEn ? 'Domestic & Abroad' : 'Yurt İçi & Dışı',
       titleEn: 'Domestic & Abroad',
       image: IMG.domestic,
-      path: '/turlar/yurtici-turlar',
+      path: tourSub('yurtici-turlar'),
       links: [
-        { label: isEn ? 'Domestic tours' : 'Yurt içi turlar', path: '/turlar/yurtici-turlar' },
-        { label: isEn ? 'International tours' : 'Yurt dışı turlar', path: '/turlar/yurtdisi-turlar' },
+        { label: isEn ? 'Domestic tours' : 'Yurt içi turlar', path: tourSub('yurtici-turlar') },
+        { label: isEn ? 'International tours' : 'Yurt dışı turlar', path: tourSub('yurtdisi-turlar') },
       ],
     },
     {
@@ -89,11 +96,11 @@ export function getTourHubCategories(locale: string): TourHubCategory[] {
       title: isEn ? 'Special Experiences' : 'Özel Deneyimler',
       titleEn: 'Special Experiences',
       image: IMG.culture,
-      path: '/turlar/kultur-turlari',
+      path: tourSub('kultur-turlari'),
       links: [
-        { label: isEn ? 'Cultural tours' : 'Kültür turları', path: '/turlar/kultur-turlari' },
-        { label: isEn ? 'Adventure tours' : 'Macera turları', path: '/turlar/macera-turlari' },
-        { label: isEn ? 'Religious tours' : 'Dini turlar', path: '/turlar/dini-turlar' },
+        { label: isEn ? 'Cultural tours' : 'Kültür turları', path: tourSub('kultur-turlari') },
+        { label: isEn ? 'Adventure tours' : 'Macera turları', path: tourSub('macera-turlari') },
+        { label: isEn ? 'Religious tours' : 'Dini turlar', path: tourSub('dini-turlar') },
       ],
     },
     {
@@ -127,7 +134,7 @@ export function getTourHubCategories(locale: string): TourHubCategory[] {
       title: isEn ? 'Western Europe' : 'Batı Avrupa',
       titleEn: 'Western Europe',
       image: IMG.europe,
-      path: '/turlar/avrupa-turlari',
+      path: tourSub('avrupa-turlari'),
       links: [
         { label: 'Paris', path: all('?location=paris') },
         { label: 'Amsterdam', path: all('?location=amsterdam') },
@@ -237,9 +244,9 @@ export function getTourHubCategories(locale: string): TourHubCategory[] {
       title: isEn ? 'Nature Tours' : 'Doğa Turları',
       titleEn: 'Nature Tours',
       image: IMG.nature,
-      path: '/turlar/doga-turlari',
+      path: tourSub('doga-turlari'),
       links: [
-        { label: isEn ? 'Nature' : 'Doğa turları', path: '/turlar/doga-turlari' },
+        { label: isEn ? 'Nature' : 'Doğa turları', path: tourSub('doga-turlari') },
         { label: isEn ? '4–7 days' : '4–7 gece', path: all('?tour_duration=4-7') },
         { label: isEn ? '8+ days' : '8+ gece', path: all('?tour_duration=8%2B') },
       ],
