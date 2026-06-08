@@ -4,7 +4,9 @@ import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import type { TListingBase } from '@/types/listing-types'
-import { getMessages } from '@/utils/getT'
+import { getMessages, type AppMessages } from '@/utils/getT'
+
+type FeaturedCategoryKey = keyof NonNullable<AppMessages['homePage']['featuredByCategory']>
 
 export interface FeaturedPlacesModuleConfig {
   heading?: string
@@ -28,7 +30,7 @@ export default async function FeaturedPlacesModule({ config, locale = 'tr' }: { 
   if (listings.length === 0) return null
 
   const t = getMessages(locale)
-  const categoryFeatured = t.homePage.featuredByCategory?.[categorySlug]
+  const categoryFeatured = t.homePage.featuredByCategory?.[categorySlug as FeaturedCategoryKey]
 
   // Başlık: config → i18n kategori vitrini → kategori adı → fallback
   let heading = config.heading ?? categoryFeatured?.heading
