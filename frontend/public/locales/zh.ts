@@ -38,6 +38,7 @@ export const zh: AppMessages = {
   common: {
     ...en.common,
     'Show all photos': '查看全部照片',
+    'No listings found': '该条件下暂无房源。',
     pagination: {
       previous: '上一页',
       next: '下一页',

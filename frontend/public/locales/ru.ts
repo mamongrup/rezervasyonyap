@@ -38,6 +38,7 @@ export const ru: AppMessages = {
   common: {
     ...en.common,
     'Show all photos': 'Показать все фото',
+    'No listings found': 'По этому критерию объявлений не найдено.',
     pagination: {
       previous: 'Назад',
       next: 'Далее',

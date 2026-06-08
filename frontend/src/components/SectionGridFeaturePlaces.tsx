@@ -86,7 +86,7 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
         rightButtonHref={rightButtonHref}
       />
       {filtered.length === 0 && activeIndex > 0 ? (
-        <p className="mt-8 text-sm text-neutral-400">{messages.common['No listings found'] ?? 'Bu kriterde ilan bulunamadı.'}</p>
+        <p className="mt-8 text-sm text-neutral-400">{messages.common['No listings found']}</p>
       ) : (
         <div
           className={`mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4 ${gridClass}`}

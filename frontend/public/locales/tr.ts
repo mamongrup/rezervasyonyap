@@ -42,6 +42,7 @@ export const tr = {
     'Show all photos': 'Tüm fotoğrafları göster',
     'View all': 'Tümünü gör',
     'Show me more': 'Daha fazla göster',
+    'No listings found': 'Bu kriterde ilan bulunamadı.',
     night: 'gece',
     pagination: {
       previous: 'Önceki',

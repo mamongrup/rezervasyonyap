@@ -10,6 +10,7 @@ export const en = {
     'Start your search': 'Start your search',
     'Show me more': 'Show me more',
     'View all': 'View all',
+    'No listings found': 'No listings found for this filter.',
     night: 'night',
     'Enter your email': 'Enter your email',
     'Become a host': 'Become a host',

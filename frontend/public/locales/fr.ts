@@ -38,6 +38,7 @@ export const fr: AppMessages = {
   common: {
     ...en.common,
     'Show all photos': 'Voir toutes les photos',
+    'No listings found': 'Aucune annonce pour ce critère.',
     pagination: {
       previous: 'Précédent',
       next: 'Suivant',
