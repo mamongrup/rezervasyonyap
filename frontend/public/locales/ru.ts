@@ -565,6 +565,8 @@ export const ru: AppMessages = {
       perNight: '/ночь',
       discountBadge: 'Скидка {percent}%',
       poolHeatingAddOn: 'Подогрев бассейна',
+      checkAvailability: 'Проверить доступность',
+      reserve: 'Забронировать',
     },
     detailHeader: {
       ...en.listing.detailHeader,

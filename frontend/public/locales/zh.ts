@@ -557,6 +557,8 @@ export const zh: AppMessages = {
       perNight: '/晚',
       discountBadge: '{percent}% 优惠',
       poolHeatingAddOn: '泳池加热',
+      checkAvailability: '查看可订日期',
+      reserve: '预订',
     },
     detailHeader: {
       ...en.listing.detailHeader,

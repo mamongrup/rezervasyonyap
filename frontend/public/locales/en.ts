@@ -1406,6 +1406,8 @@ export const en = {
         'The security / damage deposit is payable in cash at check-in at the property.',
       reservationPaymentNoteExtras:
         'The short-stay fee, cleaning fee, and any other extra fees listed on the listing are collected when you complete your reservation.',
+      checkAvailability: 'Check availability',
+      reserve: 'Reserve',
     },
     meal_only: 'Meals Incl.',
     meal_only_long: 'Meals Included',

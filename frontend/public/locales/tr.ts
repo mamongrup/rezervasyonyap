@@ -936,6 +936,8 @@ export const tr = {
       reservationPaymentNoteDeposit: 'Hasar depozitosu, tatil evine girişte nakit olarak ödenir.',
       reservationPaymentNoteExtras:
         'Kısa konaklama ücreti, temizlik ücreti ile ilanda belirtilen diğer ek ücretler rezervasyon sırasında tahsil edilir.',
+      checkAvailability: 'Müsaitlik kontrol et',
+      reserve: 'Rezervasyon yap',
     },
     meal_only: 'Yemek Dahil',
     meal_only_long: 'Yemek Dahil',

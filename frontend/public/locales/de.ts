@@ -566,6 +566,8 @@ export const de: AppMessages = {
       perNight: '/Nacht',
       discountBadge: '{percent} % Rabatt',
       poolHeatingAddOn: 'Poolheizung',
+      checkAvailability: 'Verfügbarkeit prüfen',
+      reserve: 'Reservieren',
     },
     detailHeader: {
       ...en.listing.detailHeader,
