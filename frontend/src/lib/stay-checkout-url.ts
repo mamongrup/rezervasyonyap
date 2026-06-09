@@ -1,3 +1,5 @@
+import type { GuestsObject } from '@/type'
+
 /** ISO veya Date → yerel takvim YYYY-MM-DD (konaklama giriş/çıkış). */
 export function checkoutDateYmd(isoOrDate: string | Date | null | undefined): string {
   if (!isoOrDate) return ''
@@ -7,6 +9,60 @@ export function checkoutDateYmd(isoOrDate: string | Date | null | undefined): st
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+export type ListingCheckoutExtraParams = Record<string, string | undefined>
+
+export function appendCheckoutGuestParams(u: URLSearchParams, guests: GuestsObject): void {
+  u.set('guestAdults', String(guests.guestAdults ?? 2))
+  u.set('guestChildren', String(guests.guestChildren ?? 0))
+  u.set('guestInfants', String(guests.guestInfants ?? 0))
+}
+
+export function parseCheckoutGuestsFromSearchParams(searchParams: URLSearchParams): GuestsObject {
+  const read = (key: string, fallback: number, min = 0) => {
+    const raw = searchParams.get(key)?.trim()
+    if (!raw) return fallback
+    const v = parseInt(raw, 10)
+    return Number.isFinite(v) && v >= min ? v : fallback
+  }
+  return {
+    guestAdults: read('guestAdults', 2, 1),
+    guestChildren: read('guestChildren', 0),
+    guestInfants: read('guestInfants', 0),
+  }
+}
+
+/** Vitrin ilan detayı → checkout: ilan, tarih, tutar ve isteğe bağlı misafir/extra query. */
+export function buildListingCheckoutUrl(
+  checkoutPath: string,
+  params: {
+    listingId: string
+    startDate: Date
+    endDate: Date
+    currencyCode: string
+    unitPrice: number
+    guests?: GuestsObject
+    extra?: ListingCheckoutExtraParams
+  },
+): string {
+  const u = new URLSearchParams()
+  u.set('listingId', params.listingId.trim())
+  u.set('startDate', params.startDate.toISOString())
+  u.set('endDate', params.endDate.toISOString())
+  u.set('checkIn', checkoutDateYmd(params.startDate))
+  u.set('checkOut', checkoutDateYmd(params.endDate))
+  u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
+  const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
+  u.set('unitPrice', price.toFixed(2))
+  if (params.guests) appendCheckoutGuestParams(u, params.guests)
+  if (params.extra) {
+    for (const [key, value] of Object.entries(params.extra)) {
+      if (value != null && value.trim() !== '') u.set(key, value.trim())
+    }
+  }
+  const sep = checkoutPath.includes('?') ? '&' : '?'
+  return `${checkoutPath}${sep}${u.toString()}`
 }
 
 /** Vitrin konaklama detayı → checkout: ilan, tarih ve tutar query ile taşınır. */
@@ -20,17 +76,7 @@ export function buildStayCheckoutUrl(
     unitPrice: number
   },
 ): string {
-  const u = new URLSearchParams()
-  u.set('listingId', params.listingId.trim())
-  u.set('startDate', params.startDate.toISOString())
-  u.set('endDate', params.endDate.toISOString())
-  u.set('checkIn', checkoutDateYmd(params.startDate))
-  u.set('checkOut', checkoutDateYmd(params.endDate))
-  u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
-  const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
-  u.set('unitPrice', price.toFixed(2))
-  const sep = checkoutPath.includes('?') ? '&' : '?'
-  return `${checkoutPath}${sep}${u.toString()}`
+  return buildListingCheckoutUrl(checkoutPath, params)
 }
 
 export function resolveCheckoutListingId(

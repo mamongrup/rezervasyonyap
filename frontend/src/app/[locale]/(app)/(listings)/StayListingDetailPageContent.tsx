@@ -45,7 +45,7 @@ import {
   getComputedServicePois,
   getListingNearbyPois,
   getPublicHotelRooms,
-  getPublicListingAttributes,
+  fetchPublicListingAttributesSafe,
   getPublicMealPlans,
   getPublicListingPriceRules,
   getPublicListingPriceLines,
@@ -110,6 +110,7 @@ import {
   findAccommodationRuleText,
   formatListingCheckInOutLines,
 } from '@/lib/listing-accommodation-rules'
+import { safeTrim, safeTrimOrNull } from '@/lib/safe-string'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 
 function formatPrepaymentPercentForDisplay(raw: string): string {
@@ -225,15 +226,11 @@ export default async function StayListingDetailPageContent({
   let amenityKeys: string[] = []
   let amenityLabels: Record<string, string> = {}
   let amenityIcons: Record<string, string> = {}
-  try {
-    const attrs = await getPublicListingAttributes(catalogListingId ?? listing.id)
-    const amenityRows = buildVitrinAmenityRows(attrs.values, vertical, isAttributeValueTrue)
-    amenityKeys = Array.from(new Set(amenityRows.map((a) => a.key)))
-    amenityLabels = buildAttributeLabelMap(amenityRows)
-    amenityIcons = attrs.icons ?? {}
-  } catch {
-    /* attributes API yok — boş liste */
-  }
+  const attrs = await fetchPublicListingAttributesSafe(catalogListingId ?? listing.id)
+  const amenityRows = buildVitrinAmenityRows(attrs.values, vertical, isAttributeValueTrue)
+  amenityKeys = Array.from(new Set(amenityRows.map((a) => a.key)))
+  amenityLabels = buildAttributeLabelMap(amenityRows)
+  amenityIcons = attrs.icons
 
   // hotel_rooms (Tur3) — vitrin oda tablosunda demo verisi yerine gerçek odalar.
   // meta_json içindeki opsiyonel alanlar (beds, bed_type, size_m2, description,
@@ -339,10 +336,11 @@ export default async function StayListingDetailPageContent({
   const messages = getMessages(locale)
   const dp = messages.listing.detailPage
   const listingCurrencyUpper = (priceCurrency ?? 'TRY').trim().toUpperCase()
-  const prepaymentNoteText = listing.prepaymentPercent?.trim()
+  const prepaymentRaw = safeTrimOrNull(listing.prepaymentPercent)
+  const prepaymentNoteText = prepaymentRaw
     ? messages.listing.detailHeader.prepaymentNote.replace(
         '{percent}',
-        formatPrepaymentPercentForDisplay(listing.prepaymentPercent.trim()),
+        formatPrepaymentPercentForDisplay(prepaymentRaw),
       )
     : null
   /** API `meal_plan_summary === 'both'` — ücret tablosunda yemekli / yemeksiz sütunları */
@@ -466,12 +464,13 @@ export default async function StayListingDetailPageContent({
           (i) => i.code === hotelTypeCodeNorm,
         )?.label ?? hotelTypeCodeNorm
       : listingCategory
-  const ministryLicenseLine = listing.ministryLicenseRef?.trim()
-    ? messages.listing.detailHeader.ministryLicense.replace('{ref}', listing.ministryLicenseRef.trim())
+  const ministryLicenseLine = safeTrimOrNull(listing.ministryLicenseRef)
+    ? messages.listing.detailHeader.ministryLicense.replace(
+        '{ref}',
+        safeTrim(listing.ministryLicenseRef),
+      )
     : null
-  const cancellationPolicyPlain = listing.cancellationPolicyText?.trim()
-    ? listing.cancellationPolicyText.trim()
-    : null
+  const cancellationPolicyPlain = safeTrimOrNull(listing.cancellationPolicyText)
   // Ön-ödeme notu artık tüm kategorilerde gösterilebilir; tatil evi/villa
   // gibi tiplerde de prepaymentPercent set edilmişse misafire görünmesi
   // gerekiyor (e2). Mülk sahibi alanı boş bırakırsa prepaymentNoteText null

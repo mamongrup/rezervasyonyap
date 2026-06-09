@@ -1,5 +1,6 @@
 'use client'
 
+import { CHECKOUT_LISTING_FALLBACK_IMAGE } from '@/lib/checkout-listing-fallback-image'
 import { checkoutT, fmtCheckout } from '@/lib/checkout-i18n'
 import Image from 'next/image'
 
@@ -31,7 +32,7 @@ export default function CheckoutListingSummary({
   bathCount,
 }: Props) {
   const C = checkoutT(locale)
-  const imageSrc = imageUrl || '/uploads/external/8081091c1bed4d7ee13a.avif'
+  const imageSrc = imageUrl || CHECKOUT_LISTING_FALLBACK_IMAGE
 
   const guests = parsePositiveInt(maxGuests ?? undefined)
   const rooms = parsePositiveInt(roomCount ?? undefined)

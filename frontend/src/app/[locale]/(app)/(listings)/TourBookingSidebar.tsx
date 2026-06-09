@@ -5,33 +5,70 @@ import {
   formatTourPeriodPrice,
   isTourPeriodBookable,
 } from '@/lib/tour-periods'
+import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
+import type { GuestsObject } from '@/type'
+import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
-import Form from 'next/form'
-import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
 import { useTourPeriodSelection } from './TourPeriodContext'
 
 export default function TourBookingSidebar({
-  action,
+  listingId,
   fallbackPrice,
   locale = 'tr',
 }: {
-  action: (formData: FormData) => Promise<void>
+  listingId: string
   fallbackPrice?: string
   locale?: string
 }) {
   const { options, selected, setSelected } = useTourPeriodSelection()
   const m = getMessages(locale)
   const td = m.listing.tourDetail
+  const router = useRouter()
+  const vitrinHref = useVitrinHref()
+  const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_EXPERIENCE)
 
   const bookable = isTourPeriodBookable(selected)
+  const guestCount = Math.max(1, totalGuestCount(guests))
+  const personPrice = selected?.price ?? null
+  const unitTotal =
+    bookable && personPrice != null && Number.isFinite(personPrice) ? personPrice * guestCount : 0
+
   const displayPrice =
     selected?.price != null
       ? formatTourPeriodPrice(selected.price, selected.currencyCode)
       : bookable
         ? fallbackPrice ?? '—'
         : '—'
+
+  const canCheckout =
+    Boolean(listingId.trim()) &&
+    bookable &&
+    selected?.startDate &&
+    selected?.endDate &&
+    unitTotal > 0
+
+  function goCheckout() {
+    if (!canCheckout || !selected?.startDate || !selected?.endDate) return
+    const start = new Date(`${selected.startDate}T12:00:00`)
+    const end = new Date(`${selected.endDate}T12:00:00`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return
+    router.push(
+      buildListingCheckoutUrl(vitrinHref('/checkout'), {
+        listingId,
+        startDate: start,
+        endDate: end,
+        currencyCode: selected.currencyCode || 'TRY',
+        unitPrice: unitTotal,
+        guests,
+        extra: { tour_period_id: selected.id },
+      }),
+    )
+  }
 
   return (
     <div className="listingSection__wrap sm:shadow-xl">
@@ -44,11 +81,7 @@ export default function TourBookingSidebar({
         </span>
       </div>
 
-      <Form
-        action={action}
-        className="flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700"
-        id="booking-form"
-      >
+      <div className="mt-4 flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700">
         <TourPeriodSelect
           className="z-11 flex-1"
           periods={options}
@@ -56,15 +89,27 @@ export default function TourBookingSidebar({
           onChange={setSelected}
         />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-        <GuestsInputPopover className="flex-1" guestDefaults={DEFAULT_GUESTS_EXPERIENCE} />
-      </Form>
+        <GuestsInputPopover
+          className="flex-1"
+          guestDefaults={DEFAULT_GUESTS_EXPERIENCE}
+          value={guests}
+          onChange={setGuests}
+        />
+      </div>
+
+      {bookable && unitTotal > 0 ? (
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+          {td.pricePerPerson}: {formatTourPeriodPrice(unitTotal, selected?.currencyCode ?? 'TRY')} (
+          {guestCount} {m.HeroSearchForm.Guests.toLowerCase()})
+        </p>
+      ) : null}
 
       {bookable ? (
-        <ButtonPrimary form="booking-form" type="submit">
+        <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
           {m.common.Reserve}
         </ButtonPrimary>
       ) : (
-        <ButtonPrimary type="button" disabled className="cursor-not-allowed opacity-60">
+        <ButtonPrimary type="button" disabled className="mt-4 w-full cursor-not-allowed opacity-60">
           {td.salesClosed}
         </ButtonPrimary>
       )}

@@ -17,6 +17,7 @@ import {
   type HolidayHomeFaqTemplatePayload,
 } from '@/lib/holiday-home-faq-merge'
 import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
+import { safeTrim, safeTrimOrNull } from '@/lib/safe-string'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
 import { normalizeCatalogVertical, type CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { stripHtml } from '@/lib/social-share/strip-html'
@@ -243,15 +244,14 @@ export const getStayListingByHandle = async (
   }
 
   if (item) {
-    if (item.theme_codes?.trim()) {
+    if (safeTrim(item.theme_codes)) {
       themeCodes = parseHolidayThemeCodes(item.theme_codes)
     }
-    if (item.ministry_license_ref?.trim()) {
-      ministryLicenseRef = item.ministry_license_ref.trim()
-    }
-    const pp = item.prepayment_percent?.trim()
+    const mlr = safeTrimOrNull(item.ministry_license_ref)
+    if (mlr) ministryLicenseRef = mlr
+    const pp = safeTrimOrNull(item.prepayment_percent)
     if (pp) prepaymentPercent = pp
-    const cpt = item.cancellation_policy_text?.trim()
+    const cpt = safeTrimOrNull(item.cancellation_policy_text)
     if (cpt) cancellationPolicyText = cpt
   }
 

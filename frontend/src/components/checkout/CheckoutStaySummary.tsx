@@ -1,6 +1,7 @@
 'use client'
 
 import { CrossSellSuggestions } from '@/components/CrossSellSuggestions'
+import { CHECKOUT_LISTING_FALLBACK_IMAGE } from '@/lib/checkout-listing-fallback-image'
 import { checkoutT, fmtCheckout, formatCheckoutDate, formatCheckoutMoney } from '@/lib/checkout-i18n'
 import type { CheckoutPriceBreakdown } from '@/lib/checkout-price-breakdown'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
@@ -60,7 +61,7 @@ export default function CheckoutStaySummary({
 }: Props) {
   const C = checkoutT(locale)
   const listingMessages = getMessages(locale).listing
-  const imageSrc = imageUrl || '/uploads/external/8081091c1bed4d7ee13a.avif'
+  const imageSrc = imageUrl || CHECKOUT_LISTING_FALLBACK_IMAGE
 
   const guests = parsePositiveInt(maxGuests ?? undefined)
   const rooms = parsePositiveInt(roomCount ?? undefined)

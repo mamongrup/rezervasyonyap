@@ -117,11 +117,11 @@ export function isVitrinAmenityAttributeGroup(
 }
 
 export function buildVitrinAmenityRows(
-  values: PublicListingAttribute[],
+  values: PublicListingAttribute[] | null | undefined,
   vertical: string | null | undefined,
   isTrue: (raw: string) => boolean,
 ): PublicListingAttribute[] {
-  return values.filter(
+  return (values ?? []).filter(
     (row) => isTrue(row.value_json) && isVitrinAmenityAttributeGroup(row.group_code, vertical),
   )
 }

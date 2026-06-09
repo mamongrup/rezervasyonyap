@@ -1,9 +1,7 @@
-import StartRating from '@/components/StartRating'
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
 import TourItineraryMapSection from '@/components/listing/TourItineraryMapSection'
 import { parseTourDayPins } from '@/lib/tour-itinerary-geocoder'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
-import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
   Clock01Icon,
   Globe02Icon,
@@ -11,7 +9,6 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
-import Form from 'next/form'
 import { redirect } from 'next/navigation'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
@@ -51,9 +48,6 @@ import { interpolate } from '@/utils/interpolate'
 import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
 import type { TListingBase } from '@/types/listing-types'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
-import DatesRangeInputPopover from './components/DatesRangeInputPopover'
-import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
-import GuestsInputPopover from './components/GuestsInputPopover'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
 import SectionHeader from './components/SectionHeader'
@@ -69,6 +63,7 @@ import {
   LISTING_DETAIL_SECTION_GAP_Y,
   LISTING_SECTION_SHELL,
 } from './listing-section-classes'
+import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
@@ -444,9 +439,20 @@ export default async function ExperienceListingDetailPage({
       ].filter((item): item is ActivityOverviewItem => item !== null)
     : []
 
-  const handleSubmitForm = async (formData: FormData) => {
-    'use server'
-    redirect('/checkout')
+  const renderSidebarPriceAndForm = () => {
+    if (isTour) {
+      return (
+        <TourBookingSidebar listingId={catalogListingId} fallbackPrice={price} locale={locale} />
+      )
+    }
+
+    return (
+      <ExperienceBookingSidebar
+        listingId={catalogListingId}
+        price={price}
+        locale={locale}
+      />
+    )
   }
 
   const siteConfig = getSitePublicConfig()
@@ -523,42 +529,6 @@ export default async function ExperienceListingDetailPage({
     rawTourPeriods?.currency_code?.trim() ||
     (listing as TListingBase & { currencyCode?: string }).currencyCode?.trim() ||
     'TRY'
-
-  const renderSidebarPriceAndForm = () => {
-    if (isTour) {
-      return (
-        <TourBookingSidebar action={handleSubmitForm} fallbackPrice={price} locale={locale} />
-      )
-    }
-
-    return (
-      <div className="listingSection__wrap sm:shadow-xl">
-        <div className="flex justify-between">
-          <span className="text-3xl font-semibold">
-            {price}
-            <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
-              {td.pricePerPerson}
-            </span>
-          </span>
-          <StartRating size="lg" point={reviewStart ?? 0} reviewCount={reviewCount ?? 0} />
-        </div>
-
-        <Form
-          action={handleSubmitForm}
-          className="flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700"
-          id="booking-form"
-        >
-          <DatesRangeInputPopover className="z-11 flex-1" locale={locale} />
-          <div className="w-full border-b border-neutral-200 dark:border-neutral-700"></div>
-          <GuestsInputPopover className="flex-1" guestDefaults={DEFAULT_GUESTS_EXPERIENCE} />
-        </Form>
-
-        <ButtonPrimary form="booking-form" type="submit">
-          {m.common.Reserve}
-        </ButtonPrimary>
-      </div>
-    )
-  }
 
   const renderTourMainContent = () => (
     <>

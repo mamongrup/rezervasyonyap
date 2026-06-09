@@ -299,6 +299,21 @@ export async function getPublicListingAttributes(
   return json(res)
 }
 
+/** Vitrin detay — attributes API hata/boş yanıtta sayfa kırılmasın */
+export async function fetchPublicListingAttributesSafe(
+  listingId: string,
+): Promise<{ values: PublicListingAttribute[]; icons: Record<string, string> }> {
+  try {
+    const attrs = await getPublicListingAttributes(listingId)
+    return {
+      values: Array.isArray(attrs.values) ? attrs.values : [],
+      icons: attrs.icons ?? {},
+    }
+  } catch {
+    return { values: [], icons: {} }
+  }
+}
+
 /** value_json string'inden boolean true tespit eder; "true", "1", `{value:true}` gibi serbest formatları kabul eder. */
 export function isAttributeValueTrue(raw: string): boolean {
   const v = (raw ?? '').trim()

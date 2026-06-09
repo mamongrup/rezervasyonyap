@@ -30,6 +30,7 @@ import {
   resolveCheckoutCurrency,
   resolveCheckoutListingId,
   resolveCheckoutUnitPrice,
+  parseCheckoutGuestsFromSearchParams,
 } from '@/lib/stay-checkout-url'
 import {
   readTurnaFlightBookingDraft,
@@ -249,6 +250,11 @@ function CheckoutPageContent() {
   React.useEffect(() => {
     document.documentElement.scrollTo({ top: 0, behavior: 'instant' })
   }, [])
+
+  React.useEffect(() => {
+    if (!checkoutListingId) return
+    setStayGuests(parseCheckoutGuestsFromSearchParams(searchParams))
+  }, [checkoutListingId, searchParams])
 
   React.useEffect(() => {
     if (!checkoutListingId) {
@@ -517,9 +523,9 @@ function CheckoutPageContent() {
   const isHolidayHomeCheckout =
     listingRow?.category_code === 'holiday_home' ||
     listingRow?.listing_vertical === 'holiday_home'
-  const holidayCheckoutReady =
-    !isLiveProductCheckout && hasCheckoutListing && isHolidayHomeCheckout && !listingLoading
-  const twoColumnCheckout = flightCheckoutReady || carCheckoutReady || holidayCheckoutReady
+  const catalogListingCheckoutReady =
+    !isLiveProductCheckout && hasCheckoutListing && !listingLoading
+  const twoColumnCheckout = flightCheckoutReady || carCheckoutReady || catalogListingCheckoutReady
 
   return (
     <main className="container mt-10 mb-24 lg:mb-32">
@@ -578,7 +584,7 @@ function CheckoutPageContent() {
           className={clsx(
             'flex w-full min-w-0 flex-col gap-y-10 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700',
             twoColumnCheckout && 'lg:col-start-1',
-            holidayCheckoutReady && 'max-lg:order-2',
+            catalogListingCheckoutReady && 'max-lg:order-2',
           )}
         >
         <h1 className="text-3xl font-semibold lg:text-4xl">{pageTitle}</h1>
@@ -620,7 +626,7 @@ function CheckoutPageContent() {
           />
         ) : (
           <>
-            {!holidayCheckoutReady ? (
+            {!catalogListingCheckoutReady ? (
               <CheckoutSection step={1} title={C.sectionListingInfo}>
                 <CheckoutListingSummary
                   locale={locale}
@@ -636,7 +642,7 @@ function CheckoutPageContent() {
             ) : null}
 
             <CheckoutSection
-              step={holidayCheckoutReady ? 1 : 2}
+              step={catalogListingCheckoutReady ? 1 : 2}
               title={C.sectionReservation}
             >
               <CheckoutReservationDetails
@@ -655,14 +661,14 @@ function CheckoutPageContent() {
                 stayDates={stayDates}
                 showPaymentOptions={showPaymentOptions}
                 fxLockInfo={fxLockInfo}
-                hideAmountSummary={holidayCheckoutReady}
+                hideAmountSummary={catalogListingCheckoutReady}
               />
             </CheckoutSection>
           </>
         )}
 
         <CheckoutSection
-          step={isLiveProductCheckout ? 1 : holidayCheckoutReady ? 2 : 3}
+          step={isLiveProductCheckout ? 1 : catalogListingCheckoutReady ? 2 : 3}
           title={isFlightCheckout ? C.sectionPassengers : C.sectionGuestInfo}
         >
           <CheckoutGuestForms
@@ -708,7 +714,7 @@ function CheckoutPageContent() {
         </CheckoutSection>
 
         <CheckoutSection
-          step={isLiveProductCheckout ? 2 : holidayCheckoutReady ? 3 : 4}
+          step={isLiveProductCheckout ? 2 : catalogListingCheckoutReady ? 3 : 4}
           title={isLiveProductCheckout ? C.payWithTitle : C.sectionPayment}
         >
           {isLiveProductCheckout ? <PayWith locale={locale} showHeading={false} /> : null}
@@ -795,7 +801,7 @@ function CheckoutPageContent() {
           </aside>
         ) : null}
 
-        {holidayCheckoutReady ? (
+        {catalogListingCheckoutReady ? (
           <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutStaySummary
               locale={locale}
@@ -815,7 +821,7 @@ function CheckoutPageContent() {
               amountDueNow={amountDueNow}
               amountRemaining={amountRemaining}
               showAmountSplit={showPaymentOptions}
-              isHolidayHome
+              isHolidayHome={isHolidayHomeCheckout}
             />
           </aside>
         ) : null}
