@@ -25,6 +25,11 @@ import {
 } from './lib/bravo-property-type.mjs'
 import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
+import {
+  applyBravoHolidayHomeVitrinFields,
+  buildBravoHolidayHomeVitrinPackage,
+  loadBravoOwnerContact,
+} from './lib/bravo-holiday-home-map.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
@@ -393,29 +398,11 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
   const existing = await findExistingListing(pgClient, slug, legacyId)
   let listingId = existing?.id
 
-  const meta = {
-    address: space.address || '',
-    lat: space.map_lat || '',
-    lng: space.map_lng || '',
-    max_guests: space.max_guests != null ? String(space.max_guests) : '',
-    room_count: space.bed != null ? String(space.bed) : '',
-    bed_count: space.bed != null ? String(space.bed) : '',
-    bath_count: space.bathroom != null ? String(space.bathroom) : '',
-    square_m2: space.square != null ? String(space.square) : '',
-    min_advance_booking_days:
-      space.min_day_before_booking != null ? String(space.min_day_before_booking) : '',
-    damage_deposit: space.damage_deposit != null ? String(space.damage_deposit) : '',
-    check_in_time: space.check_in_time || '16:00',
-    check_out_time: space.check_out_time || '10:00',
-    pool_type: space.pool_type || '',
-    heated_pool: space.heated_pool || '',
-    legacy_bravo_id: String(legacyId),
-    /** Eski `cleaning_fee` → yeni kısa konaklama ücreti (temizlik ücreti alanı değil). */
-    short_stay_fee: space.cleaning_fee != null ? String(space.cleaning_fee) : '',
-    /** Eski `cleaning_fee_day` → bu gecenin altında kısa konaklama ücreti uygulanır. */
-    min_short_stay_nights:
-      space.cleaning_fee_day != null ? String(space.cleaning_fee_day) : '',
-  }
+  const terms = await loadTermsForSpace(mysql, legacyId)
+  const vitrin = buildBravoHolidayHomeVitrinPackage(space, {}, terms)
+  const meta = vitrin.meta
+  const propertyType = resolveHolidayPropertyType(terms, space)
+  if (propertyType) meta.property_type = propertyType
 
   if (DRY_RUN) {
     stats.dryRun++
@@ -486,16 +473,15 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
       [listingId, LOCALE_TR, space.title || slug, space.content || ''],
     )
 
-    const terms = await loadTermsForSpace(mysql, legacyId)
-    const propertyType = resolveHolidayPropertyType(terms, space)
-    if (propertyType) meta.property_type = propertyType
-
-    await pgClient.query(
-      `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
-       VALUES ($1::uuid, 'listing_meta', 'v1', $2::jsonb)
-       ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = excluded.value_json`,
-      [listingId, JSON.stringify(meta)],
-    )
+    const ownerContact =
+      vitrin.ownerContact || (await loadBravoOwnerContact(mysql, space))
+    await applyBravoHolidayHomeVitrinFields(pgClient, listingId, {
+      meta,
+      pools: vitrin.pools,
+      ownerContact,
+      poolSizeLabel: vitrin.poolSizeLabel,
+      damageDepositAmount: vitrin.damageDepositAmount,
+    })
 
     if (propertyType) await applyListingPropertyType(pgClient, listingId, propertyType)
 

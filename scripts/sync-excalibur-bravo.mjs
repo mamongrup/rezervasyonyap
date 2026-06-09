@@ -22,6 +22,12 @@ import {
   resolveHolidayPropertyType,
 } from './lib/bravo-property-type.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
+import {
+  applyBravoHolidayHomeVitrinFields,
+  buildBravoHolidayHomeVitrinPackage,
+  loadBravoOwnerContact,
+  mergeBravoListingMeta,
+} from './lib/bravo-holiday-home-map.mjs'
 
 const TRAVEL_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
@@ -47,7 +53,7 @@ async function loadTermsForSpace(mysql, targetId) {
   return rows
 }
 
-async function mergeListingMetaFromSpace(pgClient, listingId, space) {
+async function mergeListingMetaFromSpace(pgClient, listingId, space, terms = []) {
   const cur = await pgClient.query(
     `SELECT value_json::text AS j
      FROM listing_attributes
@@ -55,52 +61,25 @@ async function mergeListingMetaFromSpace(pgClient, listingId, space) {
      LIMIT 1`,
     [listingId],
   )
-  let meta = {}
+  let existing = {}
   if (cur.rows[0]?.j) {
     try {
-      meta = JSON.parse(cur.rows[0].j)
+      existing = JSON.parse(cur.rows[0].j)
     } catch {
-      meta = {}
+      existing = {}
     }
   }
 
-  const patch = {
-    address: space.address || meta.address || '',
-    lat: space.map_lat != null ? String(space.map_lat) : meta.lat || '',
-    lng: space.map_lng != null ? String(space.map_lng) : meta.lng || '',
-    max_guests: space.max_guests != null ? String(space.max_guests) : meta.max_guests || '',
-    room_count: space.bed != null ? String(space.bed) : meta.room_count || '',
-    bed_count: space.bed != null ? String(space.bed) : meta.bed_count || '',
-    bath_count: space.bathroom != null ? String(space.bathroom) : meta.bath_count || '',
-    square_meters: space.square != null ? String(space.square) : meta.square_m2 || meta.square_meters || '',
-    min_advance_booking_days:
-      space.min_day_before_booking != null
-        ? String(space.min_day_before_booking)
-        : meta.min_advance_booking_days || '',
-    damage_deposit:
-      space.damage_deposit != null ? String(space.damage_deposit) : meta.damage_deposit || '',
-    check_in_time: space.check_in_time || meta.check_in_time || '16:00',
-    check_out_time: space.check_out_time || meta.check_out_time || '10:00',
-    pool_type: space.pool_type || meta.pool_type || '',
-    heated_pool: space.heated_pool || meta.heated_pool || '',
-    legacy_bravo_id: String(space.id),
-    short_stay_fee:
-      space.cleaning_fee != null ? String(space.cleaning_fee) : meta.short_stay_fee || '',
-    min_short_stay_nights:
-      space.cleaning_fee_day != null
-        ? String(space.cleaning_fee_day)
-        : meta.min_short_stay_nights || '',
-  }
-
-  const next = { ...meta, ...patch }
+  const meta = mergeBravoListingMeta(space, existing, terms)
   if (!DRY_RUN) {
     await pgClient.query(
       `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
        VALUES ($1::uuid, 'listing_meta', 'v1', $2::jsonb)
        ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = excluded.value_json`,
-      [listingId, JSON.stringify(next)],
+      [listingId, JSON.stringify(meta)],
     )
   }
+  return meta
 }
 
 async function main() {
@@ -189,7 +168,19 @@ async function main() {
         ],
       )
 
-      await mergeListingMetaFromSpace(pgClient, row.id, space)
+      await mergeListingMetaFromSpace(pgClient, row.id, space, terms)
+      const vitrin = buildBravoHolidayHomeVitrinPackage(space, {}, terms)
+      const ownerContact =
+        vitrin.ownerContact || (await loadBravoOwnerContact(mysqlConn, space))
+      if (!DRY_RUN) {
+        await applyBravoHolidayHomeVitrinFields(pgClient, row.id, {
+          meta: null,
+          pools: vitrin.pools,
+          ownerContact,
+          poolSizeLabel: vitrin.poolSizeLabel,
+          damageDepositAmount: vitrin.damageDepositAmount,
+        })
+      }
       if (propertyType) await applyListingPropertyType(pgClient, row.id, propertyType)
 
       const cal = await importBravoAvailabilityCalendar(pgClient, mysqlConn, row.id, legacyId)
