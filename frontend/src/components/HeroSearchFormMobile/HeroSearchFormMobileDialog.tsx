@@ -31,9 +31,9 @@ export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Pr
             {open ? (
               <div
                 key={contentKey}
-                className="relative flex h-full min-h-0 w-full min-w-0 flex-col justify-between pt-[env(safe-area-inset-top,0px)]"
+                className="relative flex h-full min-h-0 w-full min-w-0 flex-col justify-between pt-safe"
               >
-                <div className="absolute end-3 top-[max(0.5rem,env(safe-area-inset-top))] z-30">
+                <div className="absolute end-3 top-safe-min-2 z-30">
                   <button
                     type="button"
                     onClick={onClose}
@@ -60,7 +60,7 @@ export default function HeroSearchFormMobileDialog({ open, onClose, locale }: Pr
                   </div>
                 </div>
 
-                <div className="flex w-full min-w-0 shrink-0 justify-between gap-2 border-t border-neutral-200 bg-white px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-neutral-700 dark:bg-neutral-900">
+                <div className="flex w-full min-w-0 shrink-0 justify-between gap-2 border-t border-neutral-200 bg-white px-4 py-3 pb-safe-min-3 dark:border-neutral-700 dark:bg-neutral-900">
                   <ButtonThird type="button" onClick={() => setContentKey((k) => k + 1)}>
                     {msg.mobile.modal.clear}
                   </ButtonThird>

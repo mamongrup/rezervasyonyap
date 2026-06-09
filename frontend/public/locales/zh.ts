@@ -779,12 +779,17 @@ export const zh: AppMessages = {
     hotelDetail: {
       sectionNavAriaLabel: '酒店版块',
       nav: {
+        about: '概览',
         propertyFeatures: '设施特色',
         rooms: '客房',
         concept: '餐食方案',
         locationInfo: '位置信息',
         importantNotes: '重要说明',
+        faq: '常见问题',
+        reviews: '评价',
       },
+      importantNotesTitle: '重要说明',
+      importantNotesSubtitle: '入住/退房时间、酒店规则与预订条件。',
       locationTitle: '位置信息',
       locationSubtitle: '所在区域与附近交通。',
       locationFallback: '酒店位置',

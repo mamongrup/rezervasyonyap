@@ -14,7 +14,7 @@ export function ManageStickyFormFooter({ children, className, variant = 'fixed' 
   return (
     <div
       className={clsx(
-        'z-30 border-t border-neutral-200 bg-white/95 px-4 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom,0px))] shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95',
+        'z-30 border-t border-neutral-200 bg-white/95 px-4 pt-2.5 pb-safe-form shadow-[0_-8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/95',
         variant === 'fixed'
           ? 'fixed inset-x-0 bottom-0'
           : 'sticky bottom-0 rounded-b-2xl',

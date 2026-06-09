@@ -285,6 +285,29 @@
     rgba(17, 17, 26, 0.05) 0px 8px 32px;
 }
 
+/* Safe area — Tailwind v4 arbitrary value içinde `inset` kelimesini yanlış parse eder. */
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pb-safe-min-3 {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+@utility pb-safe-form {
+  padding-bottom: max(0.625rem, env(safe-area-inset-bottom, 0px));
+}
+@utility top-safe-min-2 {
+  top: max(0.5rem, env(safe-area-inset-top, 0px));
+}
+@utility bottom-above-mobile-nav {
+  bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+@utility pb-above-mobile-nav {
+  padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* FOR SEARCH FORM DEFAULT */
 @utility hero-search-form__field-after {
   @apply after:absolute after:-end-1 after:top-1/2 after:-z-10 after:hidden after:h-16 after:w-2 after:-translate-y-1/2 after:bg-(--form-bg) data-open:after:block;

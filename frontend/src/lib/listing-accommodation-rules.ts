@@ -124,3 +124,33 @@ export function buildListingAccommodationRuleLines(
 
   return lines
 }
+
+/** Giriş/çıkış satırları — otel bilgi kutusu ve SSS için */
+export function formatListingCheckInOutLines(
+  payload: ListingAccommodationRulesPayload | null,
+  templates: { checkInRuleTemplate: string; checkOutRuleTemplate: string },
+): { checkInLine: string | null; checkOutLine: string | null } {
+  const checkIn = normalizeTime(payload?.checkInTime)
+  const checkOut = normalizeTime(payload?.checkOutTime)
+  return {
+    checkInLine: checkIn ? fillTemplate(templates.checkInRuleTemplate, checkIn) : null,
+    checkOutLine: checkOut ? fillTemplate(templates.checkOutRuleTemplate, checkOut) : null,
+  }
+}
+
+/** Seçili konaklama kuralı metnini anahtar kelime ile bul (evcil hayvan, sigara vb.) */
+export function findAccommodationRuleText(
+  payload: ListingAccommodationRulesPayload | null,
+  localeLang: string,
+  pattern: RegExp,
+): string | null {
+  if (!payload) return null
+  const selected = resolveSelectedRuleIds(payload)
+  for (const rule of payload.rules) {
+    if (!selected.has(rule.id)) continue
+    const text = pickRuleLabel(rule, localeLang)
+    if (!text) continue
+    if (pattern.test(text)) return text
+  }
+  return null
+}

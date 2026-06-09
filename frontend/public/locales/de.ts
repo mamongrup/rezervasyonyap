@@ -793,12 +793,18 @@ export const de: AppMessages = {
     hotelDetail: {
       sectionNavAriaLabel: 'Hotel-Bereiche',
       nav: {
+        about: 'Allgemeines',
         propertyFeatures: 'Ausstattung',
         rooms: 'Zimmer',
         concept: 'Verpflegung',
         locationInfo: 'Lageinfos',
         importantNotes: 'Wichtige Hinweise',
+        faq: 'FAQ',
+        reviews: 'Bewertungen',
       },
+      importantNotesTitle: 'Wichtige Hinweise',
+      importantNotesSubtitle:
+        'Check-in/out, Hausregeln und Buchungsbedingungen.',
       locationTitle: 'Lageinformationen',
       locationSubtitle: 'Umgebung und nahe Verkehrsanbindungen.',
       locationFallback: 'Hotelstandort',

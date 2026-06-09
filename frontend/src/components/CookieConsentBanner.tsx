@@ -51,7 +51,7 @@ export default function CookieConsentBanner({ locale, bannerEnabled = true }: Pr
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex justify-center p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-[55] flex justify-center p-3 pb-safe-min-3 sm:p-4"
       role="dialog"
       aria-labelledby="cookie-consent-title"
       aria-live="polite"

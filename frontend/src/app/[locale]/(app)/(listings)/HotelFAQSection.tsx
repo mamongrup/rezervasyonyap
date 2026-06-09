@@ -90,18 +90,10 @@ export interface HotelFaqSource {
   petPolicyText?: string | null
 }
 
-export default function HotelFAQSection({
-  locale,
-  source,
-  className,
-}: {
-  locale: string
-  source: HotelFaqSource
-  className?: string
-}) {
-  const messages = getMessages(locale)
-  const t = (messages.listing.faq ?? {}) as Record<string, string>
-
+export function buildHotelFaqItems(
+  source: HotelFaqSource,
+  t: Record<string, string>,
+): { q: string; a: string }[] {
   type Item = { q: string; a: string }
   const items: Item[] = []
 
@@ -151,6 +143,23 @@ export default function HotelFAQSection({
       a: source.ministryLicenseRef.trim(),
     })
   }
+
+  return items
+}
+
+export default function HotelFAQSection({
+  locale,
+  source,
+  className,
+}: {
+  locale: string
+  source: HotelFaqSource
+  className?: string
+}) {
+  const messages = getMessages(locale)
+  const t = (messages.listing.faq ?? {}) as Record<string, string>
+
+  const items = buildHotelFaqItems(source, t)
 
   if (items.length === 0) return null
 

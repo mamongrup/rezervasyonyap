@@ -117,7 +117,7 @@ export default function StayListingMobileStickyBar({
     <div
       className={clsx(
         'fixed inset-x-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 py-3.5 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md lg:hidden dark:border-neutral-700/80 dark:bg-neutral-950/95',
-        'bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]',
+        'bottom-above-mobile-nav',
       )}
     >
       <div className="mx-auto flex max-w-lg items-center gap-3">

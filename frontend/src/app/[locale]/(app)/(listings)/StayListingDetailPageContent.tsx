@@ -73,8 +73,9 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import clsx from 'clsx'
 import HeaderGallery from './components/HeaderGallery'
-import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
+import HotelFAQSection, { AccordionFaqSection, buildHotelFaqItems } from './HotelFAQSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
+import HotelImportantNotesSection from './HotelImportantNotesSection'
 import HotelLocationInfoSection from './HotelLocationInfoSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
@@ -104,7 +105,11 @@ import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
 import ListingServicePoisSection from '@/components/travel/ListingServicePoisSection'
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
-import { buildListingAccommodationRuleLines } from '@/lib/listing-accommodation-rules'
+import {
+  buildListingAccommodationRuleLines,
+  findAccommodationRuleText,
+  formatListingCheckInOutLines,
+} from '@/lib/listing-accommodation-rules'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 
 function formatPrepaymentPercentForDisplay(raw: string): string {
@@ -478,9 +483,55 @@ export default async function StayListingDetailPageContent({
       listingContractHref,
   )
   const hd = messages.listing.hotelDetail
+  const sectionNav = messages.listing.sectionNav
+  const hotelCheckInOut = formatListingCheckInOutLines(catalogAccommodationRules, {
+    checkInRuleTemplate: dp.checkInRuleTemplate,
+    checkOutRuleTemplate: dp.checkOutRuleTemplate,
+  })
+  const hotelCheckInLine = hotelCheckInOut.checkInLine ?? dp.checkInRule
+  const hotelCheckOutLine = hotelCheckInOut.checkOutLine ?? dp.checkOutRule
+  const accommodationRuleLines = buildListingAccommodationRuleLines(catalogAccommodationRules, {
+    localeLang,
+    messages: {
+      checkInRuleTemplate: dp.checkInRuleTemplate,
+      checkOutRuleTemplate: dp.checkOutRuleTemplate,
+      minStayRule: dp.minStayRule,
+      minAdvanceRule: dp.minAdvanceRule,
+      shortStayFeeRule: dp.shortStayFeeRule,
+    },
+    stayBookingRules: listing.stayBookingRules,
+    listingCurrency: priceCurrency,
+  })
+  const hotelPetPolicyText = findAccommodationRuleText(
+    catalogAccommodationRules,
+    localeLang,
+    /pet|evcil|hayvan|köpek|kedi/i,
+  )
+  const hotelHasBreakfast = mealPlans.some((m) =>
+    ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(m.plan_code),
+  )
+  const hotelFaqItems =
+    vertical === 'hotel'
+      ? buildHotelFaqItems(
+          {
+            checkInLine: hotelCheckInLine,
+            checkOutLine: hotelCheckOutLine,
+            prepaymentNote: prepaymentNoteText,
+            cancellationText: cancellationPolicyPlain,
+            ministryLicenseRef: listing.ministryLicenseRef,
+            hasBreakfastIncluded: hotelHasBreakfast,
+            petPolicyText: hotelPetPolicyText,
+          },
+          messages.listing.faq as Record<string, string>,
+        )
+      : []
+  const hasHotelImportantNotes =
+    vertical === 'hotel' &&
+    (accommodationRuleLines.length > 0 || hasPoliciesSection)
   const hotelSectionNavItems: HotelSectionNavItem[] =
     vertical === 'hotel'
       ? [
+          { id: 'stay-section-about', label: hd.nav.about ?? sectionNav.about },
           amenityKeys.length > 0
             ? { id: 'stay-section-amenities', label: hd.nav.propertyFeatures }
             : null,
@@ -489,7 +540,15 @@ export default async function StayListingDetailPageContent({
             : null,
           mealPlans.length > 0 ? { id: 'stay-section-meal-plans', label: hd.nav.concept } : null,
           { id: 'stay-section-location', label: hd.nav.locationInfo },
-          hasPoliciesSection ? { id: 'stay-section-policies', label: hd.nav.importantNotes } : null,
+          hasHotelImportantNotes
+            ? { id: 'stay-section-important-notes', label: hd.nav.importantNotes }
+            : null,
+          hotelFaqItems.length > 0
+            ? { id: 'stay-section-faq', label: hd.nav.faq ?? sectionNav.faq }
+            : null,
+          (reviewCount ?? 0) > 0
+            ? { id: 'stay-section-reviews', label: hd.nav.reviews ?? 'Yorumlar' }
+            : null,
         ].filter((item): item is HotelSectionNavItem => item !== null)
       : []
   const regionName = isStayRental
@@ -770,19 +829,8 @@ export default async function StayListingDetailPageContent({
   const renderSectionPriceRates = () => null
 
   const renderSectionRules = () => {
-    const rules = buildListingAccommodationRuleLines(catalogAccommodationRules, {
-      localeLang,
-      messages: {
-        checkInRuleTemplate: dp.checkInRuleTemplate,
-        checkOutRuleTemplate: dp.checkOutRuleTemplate,
-        minStayRule: dp.minStayRule,
-        minAdvanceRule: dp.minAdvanceRule,
-        shortStayFeeRule: dp.shortStayFeeRule,
-      },
-      stayBookingRules: listing.stayBookingRules,
-      listingCurrency: priceCurrency,
-    })
-    if (rules.length === 0) return null
+    if (vertical === 'hotel') return null
+    if (accommodationRuleLines.length === 0) return null
     return (
       <div id="stay-section-rules" className="listingSection__wrap scroll-mt-28">
         <div>
@@ -791,7 +839,7 @@ export default async function StayListingDetailPageContent({
         </div>
         <Divider className="w-14!" />
         <div className="grid gap-3 sm:grid-cols-2">
-          {rules.map((rule, i) => (
+          {accommodationRuleLines.map((rule, i) => (
             <div key={i} className="flex items-start gap-2.5 text-sm text-neutral-700 dark:text-neutral-300">
               {rule.type === 'ok' ? (
                 <HugeiconsIcon
@@ -815,7 +863,7 @@ export default async function StayListingDetailPageContent({
   }
 
   const renderSectionPolicies = () => {
-    if (!hasPoliciesSection) return null
+    if (vertical === 'hotel' || !hasPoliciesSection) return null
     return (
       <div id="stay-section-policies" className="listingSection__wrap scroll-mt-28">
         <SectionHeading>{messages.listing.policies.title}</SectionHeading>
@@ -883,6 +931,44 @@ export default async function StayListingDetailPageContent({
 
   const socialProof = <SocialProofBadge listingId={listing.id} className="px-1" />
 
+  const renderListingLocationSection = () => (
+    <div id="stay-section-location" className="scroll-mt-28 space-y-5">
+      {vertical === 'hotel' ? (
+        <HotelLocationInfoSection
+          locale={locale}
+          address={address}
+          city={listing.city}
+          transport={servicePois.transport}
+        />
+      ) : null}
+      <SectionMap lat={map?.lat} lng={map?.lng} address={address} heading={dp.location} />
+    </div>
+  )
+
+  const renderCalendarBlock = () => (
+    <div id="stay-section-calendar" className="scroll-mt-28">
+      <StayListingCalendarBookingBlock
+        locale={locale}
+        listingId={listing.id}
+        initialDays={availabilityCalendarDays}
+        initialMonthsShown={calendarMonthsShown}
+        stayBookingRules={listing.stayBookingRules}
+        mealPlans={mealPlans}
+        price={price ?? ''}
+        priceAmount={reservationPriceAmount}
+        priceCurrency={priceCurrency}
+        saleOff={saleOff}
+        discountPercent={discountPercent}
+        poolHeating={poolHeatingOption}
+        isHolidayHome={isHolidayHome}
+        cleaningFeeAmount={listing.cleaningFeeAmount}
+        damageDepositAmount={damageDepositAmount}
+        ruleFallbackNightly={ruleFallbackForQuote}
+        ruleNightlyRange={ruleNightlyRangeForQuote}
+      />
+    </div>
+  )
+
   // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
@@ -917,9 +1003,90 @@ export default async function StayListingDetailPageContent({
           ) : null}
           {perksBadges}
           {socialProof}
-          {vertical === 'hotel' && amenityKeys.length >= 3 ? (
-            <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
-          ) : null}
+          {vertical === 'hotel' ? (
+            <>
+              {renderSectionDescription()}
+              <HotelPropertyInfoGrid
+                locale={locale}
+                source={{
+                  checkInLine: hotelCheckInLine,
+                  checkOutLine: hotelCheckOutLine,
+                  starRating:
+                    typeof (listing as { stars?: number }).stars === 'number'
+                      ? ((listing as { stars?: number }).stars ?? null)
+                      : null,
+                  roomTypeCount: realHotelRooms.length > 0 ? realHotelRooms.length : null,
+                  hasBreakfast: hotelHasBreakfast,
+                  prepaymentLine: prepaymentNoteText?.trim() ?? null,
+                  city: listing.city ?? null,
+                  regionLabel: null,
+                }}
+              />
+              {amenityKeys.length >= 3 ? (
+                <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
+              ) : null}
+              {amenityKeys.length > 0 && (
+                <div id="stay-section-amenities" className="scroll-mt-28">
+                  <ListingAmenitiesSection
+                    locale={locale}
+                    variant="hotel"
+                    customSelectedIds={amenityKeys}
+                    customLabels={amenityLabels}
+                    customIcons={amenityIcons}
+                  />
+                </div>
+              )}
+              {realHotelRooms.length > 0 ? (
+                <div id="stay-section-rooms" className="scroll-mt-28">
+                  <HotelRoomShowcase
+                    locale={locale}
+                    rooms={realHotelRooms}
+                    reservationAnchorId="stay-reservation-card"
+                    currencySymbol={
+                      priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
+                    }
+                  />
+                </div>
+              ) : null}
+              {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing ? (
+                <div id="stay-section-meal-plans" className="scroll-mt-28">
+                  <SectionMealPlans
+                    mealPlans={mealPlans}
+                    locale={locale}
+                    holidayHome={false}
+                    maxGuests={maxGuests}
+                  />
+                </div>
+              ) : null}
+              {renderListingLocationSection()}
+              <HotelImportantNotesSection
+                locale={locale}
+                ruleLines={accommodationRuleLines}
+                ministryLicenseLine={ministryLicenseLine}
+                prepaymentNoteText={prepaymentNoteText}
+                listingContractHref={listingContractHref}
+                cancellationPolicyPlain={cancellationPolicyPlain}
+              />
+              {hotelFaqItems.length > 0 ? (
+                <div id="stay-section-faq" className="scroll-mt-28">
+                  <HotelFAQSection
+                    locale={locale}
+                    source={{
+                      checkInLine: hotelCheckInLine,
+                      checkOutLine: hotelCheckOutLine,
+                      prepaymentNote: prepaymentNoteText,
+                      cancellationText: cancellationPolicyPlain,
+                      ministryLicenseRef: listing.ministryLicenseRef,
+                      hasBreakfastIncluded: hotelHasBreakfast,
+                      petPolicyText: hotelPetPolicyText,
+                    }}
+                  />
+                </div>
+              ) : null}
+              {renderCalendarBlock()}
+            </>
+          ) : (
+            <>
           {isHolidayHome && holidayThemeCodes.length >= 2 ? (
             <HotelHighlightsSection
               locale={locale}
@@ -927,30 +1094,6 @@ export default async function StayListingDetailPageContent({
               customLabels={holidayThemeHighlightLabels}
               variant="holiday_home"
               minToShow={2}
-            />
-          ) : null}
-          {/* Booking "Property info at a glance" tarzı hızlı bilgi kutusu —
-              yalnızca otel; yat ve villa gösterimi korunur. */}
-          {vertical === 'hotel' ? (
-            <HotelPropertyInfoGrid
-              locale={locale}
-              source={{
-                checkInLine: dp.checkInRule,
-                checkOutLine: dp.checkOutRule,
-                starRating:
-                  typeof (listing as { stars?: number }).stars === 'number'
-                    ? ((listing as { stars?: number }).stars ?? null)
-                    : null,
-                roomTypeCount: realHotelRooms.length > 0 ? realHotelRooms.length : null,
-                hasBreakfast: mealPlans.some((m) =>
-                  ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(
-                    m.plan_code,
-                  ),
-                ),
-                prepaymentLine: prepaymentNoteText?.trim() ?? null,
-                city: listing.city ?? null,
-                regionLabel: null,
-              }}
             />
           ) : null}
           {renderSectionDescription()}
@@ -1006,24 +1149,9 @@ export default async function StayListingDetailPageContent({
               excluded={priceLines.excluded}
             />
           ) : null}
-          {/* Oteller için Booking/ETStur tarzı oda kartı gösterimi; yat için
-              mevcut özet tablosu korunur. Tatil evinde oda listesi yok. */}
-          {vertical === 'hotel' && realHotelRooms.length > 0 ? (
-            <div id="stay-section-rooms" className="scroll-mt-28">
-              <HotelRoomShowcase
-                locale={locale}
-                rooms={realHotelRooms}
-                reservationAnchorId="stay-reservation-card"
-                currencySymbol={
-                  priceCurrency === 'USD' ? '$' : priceCurrency === 'EUR' ? '€' : '₺'
-                }
-              />
-            </div>
-          ) : (
-            !isStayRental && vertical !== 'hotel' && renderSectionRoomTypes()
-          )}
+          {!isStayRental && renderSectionRoomTypes()}
           {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && (
-            <div id={vertical === 'hotel' ? 'stay-section-meal-plans' : undefined} className="scroll-mt-28">
+            <div className="scroll-mt-28">
               <SectionMealPlans
                 mealPlans={mealPlans}
                 locale={locale}
@@ -1032,27 +1160,7 @@ export default async function StayListingDetailPageContent({
               />
             </div>
           )}
-          <div id="stay-section-calendar" className="scroll-mt-28">
-          <StayListingCalendarBookingBlock
-            locale={locale}
-            listingId={listing.id}
-            initialDays={availabilityCalendarDays}
-            initialMonthsShown={calendarMonthsShown}
-            stayBookingRules={listing.stayBookingRules}
-            mealPlans={mealPlans}
-            price={price ?? ''}
-            priceAmount={reservationPriceAmount}
-            priceCurrency={priceCurrency}
-            saleOff={saleOff}
-            discountPercent={discountPercent}
-            poolHeating={poolHeatingOption}
-            isHolidayHome={isHolidayHome}
-            cleaningFeeAmount={listing.cleaningFeeAmount}
-            damageDepositAmount={damageDepositAmount}
-            ruleFallbackNightly={ruleFallbackForQuote}
-            ruleNightlyRange={ruleNightlyRangeForQuote}
-          />
-          </div>
+          {renderCalendarBlock()}
           {renderSectionRules()}
           {renderSectionPolicies()}
           {isStayRental &&
@@ -1071,62 +1179,9 @@ export default async function StayListingDetailPageContent({
               />
               </div>
             )}
-          {!isStayRental && (() => {
-            // Booking/ETStur tarzı FAQ — mevcut listing alanlarından otomatik
-            // üretilir, içerik yoksa bölüm gizlenir.
-            const petText: string | null = (() => {
-              if (!catalogAccommodationRules) return null
-              const sel = new Set(catalogAccommodationRules.selectedIds)
-              for (const r of catalogAccommodationRules.rules) {
-                if (!sel.has(r.id)) continue
-                const text =
-                  r.labels[localeLang]?.trim() ||
-                  r.labels.tr?.trim() ||
-                  r.labels.en?.trim() ||
-                  ''
-                if (!text) continue
-                if (/pet|evcil|hayvan|köpek|kedi/i.test(text)) return text
-              }
-              return null
-            })()
-            // Kahvaltı, yarım pansiyon, tam pansiyon veya her şey dahil
-            // planlardan herhangi biri kahvaltıyı içerir.
-            const hasBreakfast = mealPlans.some((m) =>
-              ['bed_breakfast', 'half_board', 'full_board', 'all_inclusive'].includes(
-                m.plan_code,
-              ),
-            )
-            return (
-              <HotelFAQSection
-                locale={locale}
-                source={{
-                  checkInLine: dp.checkInRule,
-                  checkOutLine: dp.checkOutRule,
-                  prepaymentNote: prepaymentNoteText,
-                  cancellationText: cancellationPolicyPlain,
-                  ministryLicenseRef: listing.ministryLicenseRef,
-                  hasBreakfastIncluded: hasBreakfast,
-                  petPolicyText: petText,
-                }}
-              />
-            )
-          })()}
-          <div id="stay-section-location" className="scroll-mt-28 space-y-5">
-            {vertical === 'hotel' ? (
-              <HotelLocationInfoSection
-                locale={locale}
-                address={address}
-                city={listing.city}
-                transport={servicePois.transport}
-              />
-            ) : null}
-            <SectionMap
-              lat={map?.lat}
-              lng={map?.lng}
-              address={address}
-              heading={dp.location}
-            />
-          </div>
+          {renderListingLocationSection()}
+            </>
+          )}
           <ListingServicePoisSection
             locale={locale}
             amenities={servicePois.amenities}
@@ -1184,7 +1239,10 @@ export default async function StayListingDetailPageContent({
           <div className="w-full lg:w-4/9 xl:w-1/3">
             <SectionHost {...host} locale={locale} />
           </div>
-          <div className="w-full lg:w-2/3">
+          <div
+            className="w-full scroll-mt-28 lg:w-2/3"
+            id={vertical === 'hotel' ? 'stay-section-reviews' : undefined}
+          >
             <SectionListingReviews
               listingId={listing.id}
               reviewCount={reviewCount ?? 0}
@@ -1197,7 +1255,7 @@ export default async function StayListingDetailPageContent({
         </div>
       </div>
 
-      {isStayRental ? (
+      {isStayRental || vertical === 'hotel' ? (
         <StayListingMobileStickyBar
           locale={locale}
           listingId={listing.id}

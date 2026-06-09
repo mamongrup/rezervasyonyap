@@ -1606,12 +1606,18 @@ export const en = {
     hotelDetail: {
       sectionNavAriaLabel: 'Hotel sections',
       nav: {
+        about: 'Overview',
         propertyFeatures: 'Property features',
         rooms: 'Rooms',
         concept: 'Meal plan',
         locationInfo: 'Location info',
         importantNotes: 'Important notes',
+        faq: 'FAQ',
+        reviews: 'Reviews',
       },
+      importantNotesTitle: 'Important notes',
+      importantNotesSubtitle:
+        'Check-in and check-out times, property rules and booking conditions.',
       locationTitle: 'Location information',
       locationSubtitle: 'Area and nearby transport.',
       locationFallback: 'Property location',

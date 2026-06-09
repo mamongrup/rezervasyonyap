@@ -792,12 +792,18 @@ export const ru: AppMessages = {
     hotelDetail: {
       sectionNavAriaLabel: 'Разделы отеля',
       nav: {
+        about: 'Об отеле',
         propertyFeatures: 'Удобства',
         rooms: 'Номера',
         concept: 'Питание',
         locationInfo: 'Расположение',
         importantNotes: 'Важные примечания',
+        faq: 'FAQ',
+        reviews: 'Отзывы',
       },
+      importantNotesTitle: 'Важные примечания',
+      importantNotesSubtitle:
+        'Время заезда/выезда, правила отеля и условия бронирования.',
       locationTitle: 'Информация о расположении',
       locationSubtitle: 'Район и ближайший транспорт.',
       locationFallback: 'Местоположение отеля',

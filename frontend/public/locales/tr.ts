@@ -1082,12 +1082,18 @@ export const tr = {
     hotelDetail: {
       sectionNavAriaLabel: 'Otel bölümleri',
       nav: {
+        about: 'Genel Bilgiler',
         propertyFeatures: 'Tesis Özellikleri',
         rooms: 'Odalar',
         concept: 'Konsept',
         locationInfo: 'Konum Bilgileri',
         importantNotes: 'Önemli Notlar',
+        faq: 'SSS',
+        reviews: 'Yorumlar',
       },
+      importantNotesTitle: 'Önemli Notlar',
+      importantNotesSubtitle:
+        'Giriş–çıkış saatleri, tesis kuralları ve rezervasyon koşulları.',
       locationTitle: 'Konum Bilgileri',
       locationSubtitle: 'Tesisin bulunduğu bölge ve yakın ulaşım noktaları.',
       locationFallback: 'Otel konumu',
