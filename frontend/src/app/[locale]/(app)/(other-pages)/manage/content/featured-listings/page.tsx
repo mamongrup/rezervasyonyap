@@ -22,10 +22,10 @@ export default async function FeaturedListingsPage({
   const [{ locale }, { category: rawCategory }] = await Promise.all([params, searchParams])
   const categorySlug =
     rawCategory && CATEGORY_LABELS[rawCategory] ? rawCategory : DEFAULT_CATEGORY
-  const { listings: allListings } = await fetchCategoryListings(
+  const { listings: allListings, total } = await fetchCategoryListings(
     categorySlug,
     {},
-    {},
+    { perPage: 100 },
     locale || 'tr',
   )
 
@@ -34,7 +34,9 @@ export default async function FeaturedListingsPage({
       <FeaturedListingsClient
         categorySlug={categorySlug}
         categoryLabel={CATEGORY_LABELS[categorySlug] ?? categorySlug}
+        locale={locale || 'tr'}
         allListings={allListings}
+        totalListings={total}
       />
     </div>
   )

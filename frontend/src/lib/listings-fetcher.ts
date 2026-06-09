@@ -500,6 +500,8 @@ export const relaxedHolidaySearchQuery = relaxedStayRentalSearchQuery
 export interface FetchCategoryListingsOpts {
   /** URL segmenti: `antalya` gibi — API sorgusunda kullanılır */
   regionHandle?: string
+  /** Varsayılan kategori limiti yerine (admin arama vb.) — API üst sınırı 100 */
+  perPage?: number
 }
 
 /** Konaklama kiralama: fiyat, tema, oda vb. sıkı filtreleri kaldırarak “esnek” havuz sorgusu */
@@ -603,7 +605,8 @@ export async function fetchCategoryListings(
 ): Promise<ListingsResult> {
   const categoryCode = SLUG_TO_CODE[categorySlug]
   const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
-  const perPage = isStayRentalCategory(categoryCode) ? 48 : 12
+  const defaultPerPage = isStayRentalCategory(categoryCode) ? 48 : 12
+  const perPage = Math.min(100, Math.max(1, opts.perPage ?? defaultPerPage))
 
   const region = opts.regionHandle
   /** `/turlar/yurtici-turlar` gibi eski slug URL — bölge değil, tur alt kategori filtresi */
