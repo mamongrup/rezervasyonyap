@@ -514,6 +514,7 @@ export const fr: AppMessages = {
     highlights: {
       title: 'Points forts de l’établissement',
       subtitle: 'Les caractéristiques les plus appréciées par les voyageurs.',
+      subtitleHolidayHome: 'Thèmes et concept marquants de cette maison de vacances.',
     },
     faq: {
       title: 'Questions fréquentes',

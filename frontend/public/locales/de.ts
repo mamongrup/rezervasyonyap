@@ -515,6 +515,7 @@ export const de: AppMessages = {
     highlights: {
       title: 'Hervorgehobene Merkmale',
       subtitle: 'Was Gäste an diesem Hotel besonders schätzen.',
+      subtitleHolidayHome: 'Hervorgehobene Themen und Konzept dieses Ferienhauses.',
     },
     faq: {
       title: 'Häufig gestellte Fragen',

@@ -1235,6 +1235,7 @@ export const en = {
     highlights: {
       title: 'Property highlights',
       subtitle: "Features guests value most at this hotel.",
+      subtitleHolidayHome: 'Standout themes and concept for this holiday home.',
     },
     /** Auto-generated FAQ block on hotel detail page */
     faq: {
@@ -1439,6 +1440,11 @@ export const en = {
       priceRatesSubtitle: 'Weekend and holiday rates may vary',
       rulesTitle: 'House rules',
       rulesSubtitle: 'Please read before your stay',
+      checkInRuleTemplate: 'Check-in: {time}',
+      checkOutRuleTemplate: 'Check-out: by {time}',
+      minStayRule: 'Minimum stay: {n} nights',
+      minAdvanceRule: 'Book at least {n} days in advance',
+      shortStayFeeRule: 'Short stays under {n} nights may incur an extra fee ({amount} {currency})',
       checkInRule: 'Check-in: 14:00 – 22:00',
       checkOutRule: 'Check-out: until 11:00',
       sleepingTitle: 'Where you will sleep',

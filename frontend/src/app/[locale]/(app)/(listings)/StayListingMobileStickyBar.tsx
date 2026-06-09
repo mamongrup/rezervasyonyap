@@ -1,7 +1,6 @@
 'use client'
 
 import { useStayListingQuote } from '@/hooks/use-stay-listing-quote'
-import { defaultStayDateRange } from '@/lib/stay-booking-rules'
 import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
@@ -51,8 +50,8 @@ export default function StayListingMobileStickyBar({
   const router = useRouter()
   const vitrinHref = useVitrinHref()
 
-  const [rangeStart] = useState<Date | null>(() => defaultStayDateRange(stayBookingRules)[0])
-  const [rangeEnd] = useState<Date | null>(() => defaultStayDateRange(stayBookingRules)[1])
+  const [rangeStart] = useState<Date | null>(null)
+  const [rangeEnd] = useState<Date | null>(null)
   const [poolHeatingSelected] = useState(false)
 
   const {

@@ -5,17 +5,17 @@ import {
   LISTING_AMENITY_ICONS,
   VILLA_AMENITY_IDS,
   buildGroupedAmenities,
-  getListingAmenityIcon,
+  getAmenityIconForKey,
   type AmenityGroupId,
   type ListingAmenityId,
 } from '@/lib/listing-amenities'
+import { formatAttributeKeyAsDisplayLabel } from '@/lib/listing-attribute-display'
 import ButtonClose from '@/shared/ButtonClose'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import clsx from 'clsx'
-import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
@@ -89,8 +89,12 @@ export default function ListingAmenitiesSection({
 
   const modalGroups = buildGroupedAmenities(knownCustom, variant)
 
-  const labelOf = (id: string): string =>
-    KNOWN_AMENITY_IDS.has(id) ? labelFor(messages, id) : (customLabels?.[id] ?? id.replace(/_/g, ' '))
+  const labelOf = (id: string): string => {
+    if (KNOWN_AMENITY_IDS.has(id)) return labelFor(messages, id)
+    const custom = customLabels?.[id]?.trim()
+    if (custom) return custom
+    return formatAttributeKeyAsDisplayLabel(id)
+  }
 
   const iconFor = (id: string) => {
     const customSrc = customIcons?.[id]?.trim()
@@ -105,7 +109,7 @@ export default function ListingAmenitiesSection({
       }
       return CustomAmenityIconSlot
     }
-    return KNOWN_AMENITY_IDS.has(id) ? getListingAmenityIcon(id as ListingAmenityId) : Sparkles
+    return getAmenityIconForKey(id)
   }
 
   return (

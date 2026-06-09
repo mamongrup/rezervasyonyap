@@ -514,6 +514,7 @@ export const ru: AppMessages = {
     highlights: {
       title: 'Особенности отеля',
       subtitle: 'Что больше всего ценят гости в этом отеле.',
+      subtitleHolidayHome: 'Ключевые темы и концепция этого дома для отдыха.',
     },
     faq: {
       title: 'Часто задаваемые вопросы',

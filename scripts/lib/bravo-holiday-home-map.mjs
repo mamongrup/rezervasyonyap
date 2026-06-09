@@ -12,6 +12,45 @@
 const CHILD_POOL_THEME = new Set(['cocuk-havuzlu-villalar', 'child_friendly'])
 const HEATED_POOL_THEME = new Set(['isitmali-havuzlu-villalar', 'ozel_havuzlu', 'pool'])
 
+/** Bravo attr_id=11 slug → `listing_holiday_home_details.rule_codes` */
+export const BRAVO_RULE_SLUG_TO_CODE = {
+  'cocuklara-uygun': 'child_friendly',
+  'evcil-hayvan-istenmiyor': 'no_pets',
+  'evcil-hayvan-dostu-1': 'pets_allowed',
+  'etkinliklere-uygun': 'events_allowed',
+}
+
+/** rule_codes → kategori şablonu id (317_holiday_home_accommodation_rules_seed.sql) */
+export const HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID = {
+  child_friendly: 'hh-rule-child-friendly',
+  no_pets: 'hh-rule-no-pets',
+  pets_allowed: 'hh-rule-pets-allowed',
+  events_allowed: 'hh-rule-events-allowed',
+}
+
+export function buildBravoHolidayHomeRuleCodes(terms = []) {
+  const codes = new Set()
+  for (const t of terms) {
+    const slug = String(t.slug || '').trim().toLowerCase()
+    const code = BRAVO_RULE_SLUG_TO_CODE[slug]
+    if (code) codes.add(code)
+  }
+  return [...codes]
+}
+
+export function mapHolidayHomeRuleCodesToAccommodationIds(ruleCodes = []) {
+  const ids = []
+  const seen = new Set()
+  for (const code of ruleCodes) {
+    const id = HOLIDAY_HOME_RULE_CODE_TO_ACCOMMODATION_ID[String(code).trim()]
+    if (id && !seen.has(id)) {
+      seen.add(id)
+      ids.push(id)
+    }
+  }
+  return ids
+}
+
 function emptyPoolRow() {
   return {
     enabled: false,
@@ -56,6 +95,36 @@ export function parseBravoPoolDimensions(text) {
   }
 }
 
+function normalizePoolDimension(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return ''
+  return s.replace(',', '.')
+}
+
+function readBravoOpenPoolDimensions(space) {
+  return {
+    width: normalizePoolDimension(space?.pool_width),
+    length: normalizePoolDimension(space?.pool_length),
+    depth: normalizePoolDimension(space?.pool_depth),
+  }
+}
+
+function hasPoolDimensions(row) {
+  return Boolean(String(row?.width ?? '').trim() || String(row?.length ?? '').trim() || String(row?.depth ?? '').trim())
+}
+
+function isBravoNegativeFlag(raw) {
+  const s = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+  return !s || s === '0' || s === 'false' || s === 'no' || s === 'hayir' || s === 'hayır'
+}
+
+function inheritOpenPoolDimensions(target, openDims) {
+  if (hasPoolDimensions(target) || !hasPoolDimensions(openDims)) return target
+  return { ...target, ...openDims }
+}
+
 function themeSlugs(terms) {
   return new Set((terms ?? []).map((t) => String(t.slug || '').trim().toLowerCase()).filter(Boolean))
 }
@@ -66,7 +135,15 @@ function mergePoolRow(base, patch) {
 
 /**
  * Bravo havuz alanları + tema → panel `vertical_holiday_home.pools`.
- * @param {{ pool_type?: string, heated_pool?: string }} space
+ * @param {{
+ *   pool_type?: string
+ *   pool_width?: string
+ *   pool_length?: string
+ *   pool_depth?: string
+ *   children_pool?: string
+ *   heated_pool_status?: string
+ *   heated_pool?: string
+ * }} space
  * @param {{ slug?: string }[]} [terms]
  */
 export function buildBravoHolidayHomePools(space, terms = []) {
@@ -76,43 +153,103 @@ export function buildBravoHolidayHomePools(space, terms = []) {
     children_pool: emptyPoolRow(),
   }
   const slugs = themeSlugs(terms)
-  const poolType = pickText(space, 'pool_type', 'pool_size', 'pool_info')
-  const heatedRaw = pickText(space, 'heated_pool', 'heated_pool_type', 'hot_pool')
+  const openDims = readBravoOpenPoolDimensions(space)
+  const poolType = pickText(space, 'pool_type', 'pool_info')
 
-  if (poolType) {
-    pools.open_pool = mergePoolRow(pools.open_pool, parseBravoPoolDimensions(poolType))
+  if (hasPoolDimensions(openDims)) {
+    pools.open_pool = mergePoolRow(pools.open_pool, {
+      ...openDims,
+      description: poolType,
+    })
+  } else if (poolType) {
+    const parsed = parseBravoPoolDimensions(poolType)
+    if (hasPoolDimensions(parsed)) {
+      pools.open_pool = mergePoolRow(pools.open_pool, {
+        width: parsed.width ?? '',
+        length: parsed.length ?? '',
+        depth: parsed.depth ?? '',
+        description: parsed.description === poolType ? '' : parsed.description,
+      })
+    } else {
+      pools.open_pool = mergePoolRow(pools.open_pool, { description: poolType })
+    }
   } else if (truthyBravoFlag(space?.has_pool) || truthyBravoFlag(space?.pool)) {
     pools.open_pool = mergePoolRow(pools.open_pool, { description: 'Özel havuz' })
   }
 
+  const heatedRaw = pickText(space, 'heated_pool')
+  const heatedStatus = pickText(space, 'heated_pool_status')
+
   if (heatedRaw) {
-    const dims = parseBravoPoolDimensions(heatedRaw)
-    pools.heated_pool = mergePoolRow(
-      pools.heated_pool,
-      truthyBravoFlag(heatedRaw) && !dims.length && !dims.description
-        ? { description: 'Isıtmalı havuz' }
-        : dims,
-    )
+    const parsed = parseBravoPoolDimensions(heatedRaw)
+    if (truthyBravoFlag(heatedRaw) && !hasPoolDimensions(parsed) && !parsed.description) {
+      pools.heated_pool = mergePoolRow(pools.heated_pool, inheritOpenPoolDimensions(
+        { description: 'Isıtmalı havuz' },
+        openDims,
+      ))
+    } else {
+      pools.heated_pool = mergePoolRow(
+        pools.heated_pool,
+        inheritOpenPoolDimensions(
+          {
+            width: parsed.width ?? '',
+            length: parsed.length ?? '',
+            depth: parsed.depth ?? '',
+            description: parsed.description || 'Isıtmalı havuz',
+          },
+          openDims,
+        ),
+      )
+    }
+  } else if (truthyBravoFlag(heatedStatus)) {
+    pools.heated_pool = mergePoolRow(pools.heated_pool, inheritOpenPoolDimensions(
+      { description: 'Isıtmalı havuz' },
+      openDims,
+    ))
   }
 
   for (const slug of HEATED_POOL_THEME) {
     if (slugs.has(slug)) {
-      pools.heated_pool = mergePoolRow(pools.heated_pool, {
-        description: pools.heated_pool.description || 'Isıtmalı havuz',
-      })
+      pools.heated_pool = mergePoolRow(
+        pools.heated_pool,
+        inheritOpenPoolDimensions(
+          { description: pools.heated_pool.description || 'Isıtmalı havuz' },
+          openDims,
+        ),
+      )
       break
+    }
+  }
+
+  const childrenRaw = String(space?.children_pool ?? '').trim()
+  if (childrenRaw && !isBravoNegativeFlag(childrenRaw)) {
+    if (truthyBravoFlag(childrenRaw) && !/\d/.test(childrenRaw)) {
+      pools.children_pool = mergePoolRow(pools.children_pool, { description: 'Çocuk havuzu' })
+    } else {
+      const parsed = parseBravoPoolDimensions(childrenRaw)
+      pools.children_pool = mergePoolRow(pools.children_pool, {
+        width: parsed.width ?? '',
+        length: parsed.length ?? '',
+        depth: parsed.depth ?? '',
+        description: parsed.description || 'Çocuk havuzu',
+      })
     }
   }
 
   for (const slug of CHILD_POOL_THEME) {
     if (slugs.has(slug)) {
-      pools.children_pool = mergePoolRow(pools.children_pool, { description: 'Çocuk havuzu' })
+      pools.children_pool = mergePoolRow(pools.children_pool, {
+        description: pools.children_pool.description || 'Çocuk havuzu',
+      })
       break
     }
   }
 
   if (!pools.open_pool.enabled && (pools.heated_pool.enabled || pools.children_pool.enabled)) {
-    pools.open_pool = mergePoolRow(pools.open_pool, { description: 'Özel havuz' })
+    pools.open_pool = mergePoolRow(pools.open_pool, inheritOpenPoolDimensions(
+      { description: poolType || 'Özel havuz' },
+      openDims,
+    ))
   }
 
   return pools
@@ -138,7 +275,11 @@ export function buildBravoPoolSizeLabel(pools, space) {
     parts.push(dims ? `${label} ${dims}m` : label)
   }
   if (parts.length) return parts.join(' · ')
-  const fallback = pickText(space, 'pool_type', 'pool_size')
+  const fallbackDims = readBravoOpenPoolDimensions(space)
+  if (hasPoolDimensions(fallbackDims)) {
+    return [fallbackDims.length, fallbackDims.width, fallbackDims.depth].filter(Boolean).join('×')
+  }
+  const fallback = pickText(space, 'pool_type')
   return fallback ? fallback.slice(0, 120) : ''
 }
 
@@ -174,7 +315,12 @@ export function mergeBravoListingMeta(space, existingMeta = {}, terms = []) {
     check_in_time: space.check_in_time || meta.check_in_time || '16:00',
     check_out_time: space.check_out_time || meta.check_out_time || '10:00',
     pool_type: space.pool_type || meta.pool_type || '',
+    pool_width: space.pool_width != null ? String(space.pool_width) : meta.pool_width || '',
+    pool_length: space.pool_length != null ? String(space.pool_length) : meta.pool_length || '',
+    pool_depth: space.pool_depth != null ? String(space.pool_depth) : meta.pool_depth || '',
     heated_pool: space.heated_pool || meta.heated_pool || '',
+    heated_pool_status: space.heated_pool_status || meta.heated_pool_status || '',
+    children_pool: space.children_pool || meta.children_pool || '',
     legacy_bravo_id: String(space.id ?? meta.legacy_bravo_id ?? ''),
     short_stay_fee:
       space.cleaning_fee != null ? String(space.cleaning_fee) : meta.short_stay_fee || '',
@@ -269,7 +415,7 @@ export async function loadBravoOwnerContact(mysql, space) {
 export async function applyBravoHolidayHomeVitrinFields(
   pgClient,
   listingId,
-  { meta, pools, ownerContact, poolSizeLabel, damageDepositAmount },
+  { meta, pools, ownerContact, poolSizeLabel, damageDepositAmount, accommodationRuleIds },
 ) {
   if (meta && Object.keys(meta).length) {
     await pgClient.query(
@@ -308,6 +454,15 @@ export async function applyBravoHolidayHomeVitrinFields(
     )
   }
 
+  if (accommodationRuleIds?.length) {
+    await pgClient.query(
+      `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+       VALUES ($1::uuid, 'catalog', 'accommodation_rule_ids', $2::jsonb)
+       ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = excluded.value_json`,
+      [listingId, JSON.stringify(accommodationRuleIds)],
+    )
+  }
+
   const listingPatch = []
   const listingParams = [listingId]
   let p = 2
@@ -341,5 +496,7 @@ export function buildBravoHolidayHomeVitrinPackage(space, existingMeta = {}, ter
   const damageDepositAmount =
     parsePositiveAmount(space.damage_deposit) ?? parsePositiveAmount(meta.damage_deposit)
   const ownerContact = pickBravoOwnerContactFromSpace(space)
-  return { meta, pools, poolSizeLabel, damageDepositAmount, ownerContact }
+  const ruleCodes = buildBravoHolidayHomeRuleCodes(terms)
+  const accommodationRuleIds = mapHolidayHomeRuleCodesToAccommodationIds(ruleCodes)
+  return { meta, pools, poolSizeLabel, damageDepositAmount, ownerContact, ruleCodes, accommodationRuleIds }
 }

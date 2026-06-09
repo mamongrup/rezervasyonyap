@@ -2100,7 +2100,13 @@ export async function putManageCategoryAccommodationRules(
 /** Vitrin — kategori kuralları + ilanın seçtiği id’ler (yayınlanmış ilan) */
 export async function getPublicListingAccommodationRules(
   listingId: string,
-): Promise<{ rules: CategoryAccommodationRuleItem[]; selectedIds: string[] } | null> {
+): Promise<{
+  rules: CategoryAccommodationRuleItem[]
+  selectedIds: string[]
+  checkInTime?: string
+  checkOutTime?: string
+  ruleCodes?: string[]
+} | null> {
   const b = base()
   if (!b) return null
   try {
@@ -2109,10 +2115,28 @@ export async function getPublicListingAccommodationRules(
       { next: { revalidate: 120 } },
     )
     if (!res.ok) return null
-    const data = await json<{ rules_json: string; selected_ids_json: string }>(res)
+    const data = await json<{
+      rules_json: string
+      selected_ids_json: string
+      check_in_time?: string
+      check_out_time?: string
+      rule_codes_json?: string
+    }>(res)
+    let ruleCodes: string[] = []
+    try {
+      const parsed = JSON.parse(data.rule_codes_json ?? '[]') as unknown
+      if (Array.isArray(parsed)) {
+        ruleCodes = parsed.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+      }
+    } catch {
+      ruleCodes = []
+    }
     return {
       rules: parseCategoryAccommodationRulesJson(data.rules_json ?? '[]'),
       selectedIds: parseListingAccommodationRuleIdsJson(data.selected_ids_json ?? '[]'),
+      checkInTime: data.check_in_time?.trim() || undefined,
+      checkOutTime: data.check_out_time?.trim() || undefined,
+      ruleCodes: ruleCodes.length > 0 ? ruleCodes : undefined,
     }
   } catch {
     return null

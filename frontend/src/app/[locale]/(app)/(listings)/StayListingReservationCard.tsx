@@ -4,7 +4,6 @@ import DatesRangeInputPopover from '@/app/[locale]/(app)/(listings)/components/D
 import GuestsInputPopover from '@/app/[locale]/(app)/(listings)/components/GuestsInputPopover'
 import ListingInstantApprovalTitleBadge from '@/components/listing/ListingInstantApprovalTitleBadge'
 import { useStayListingQuote } from '@/hooks/use-stay-listing-quote'
-import { defaultStayDateRange } from '@/lib/stay-booking-rules'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -66,12 +65,8 @@ export default function StayListingReservationCard({
   const router = useRouter()
   const vitrinHref = useVitrinHref()
 
-  const [rangeStart, setRangeStart] = useState<Date | null>(() =>
-    defaultStayDateRange(stayBookingRules)[0],
-  )
-  const [rangeEnd, setRangeEnd] = useState<Date | null>(() =>
-    defaultStayDateRange(stayBookingRules)[1],
-  )
+  const [rangeStart, setRangeStart] = useState<Date | null>(null)
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
   const [poolHeatingSelected, setPoolHeatingSelected] = useState(false)
 
   const onRangeChange = (dates: [Date | null, Date | null]) => {
@@ -121,8 +116,9 @@ export default function StayListingReservationCard({
   const hasMultiplePlans = activePlans.length > 1
   const hasMealPlan = activePlans.some((p) => p.plan_code !== 'room_only')
 
+  const hasSelectedRange = rangeStart != null && rangeEnd != null
   const canCheckoutWithListing =
-    Boolean(listingId?.trim()) && rangeStart != null && rangeEnd != null && grandTotal > 0
+    Boolean(listingId?.trim()) && hasSelectedRange && grandTotal > 0
 
   function goCheckoutFromSidebar() {
     if (!listingId?.trim() || !rangeStart || !rangeEnd || grandTotal <= 0) return
@@ -251,65 +247,71 @@ export default function StayListingReservationCard({
         ) : null}
       </Form>
 
-      <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
-        <DescriptionList>
-          <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-            {unitForBreakdownLine} × {nights} {messages.listing.sidebar.nightsWord}
-          </DescriptionTerm>
-          <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-            {lodgingSubtotal > 0 ? formatConverted(lodgingSubtotal, currencyCode) : '—'}
-          </DescriptionDetails>
-          {poolHeating && poolHeatingSelected && heatingSubtotal > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.poolInfo.heatingFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(heatingSubtotal, poolHeatingCurrency)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {shortStayFeeApplied > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.sidebar.shortStayFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(shortStayFeeApplied, currencyCode)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {cleaningFeeApplied > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.sidebar.cleaningFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(cleaningFeeApplied, currencyCode)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {serviceFee > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.sidebar.serviceFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(serviceFee, currencyCode)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-        </DescriptionList>
-        <Divider />
-        <DescriptionList>
-          <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
-            {messages.listing.sidebar.total}
-          </DescriptionTerm>
-          <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
-            {grandTotal > 0 ? formatConverted(grandTotal, currencyCode) : '—'}
-          </DescriptionDetails>
-        </DescriptionList>
-      </div>
+      {hasSelectedRange ? (
+        <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
+          <DescriptionList>
+            <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+              {unitForBreakdownLine} × {nights} {messages.listing.sidebar.nightsWord}
+            </DescriptionTerm>
+            <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+              {lodgingSubtotal > 0 ? formatConverted(lodgingSubtotal, currencyCode) : '—'}
+            </DescriptionDetails>
+            {poolHeating && poolHeatingSelected && heatingSubtotal > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.poolInfo.heatingFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(heatingSubtotal, poolHeatingCurrency)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {shortStayFeeApplied > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.sidebar.shortStayFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(shortStayFeeApplied, currencyCode)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {cleaningFeeApplied > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.sidebar.cleaningFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(cleaningFeeApplied, currencyCode)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {serviceFee > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.sidebar.serviceFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(serviceFee, currencyCode)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+          </DescriptionList>
+          <Divider />
+          <DescriptionList>
+            <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
+              {messages.listing.sidebar.total}
+            </DescriptionTerm>
+            <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
+              {grandTotal > 0 ? formatConverted(grandTotal, currencyCode) : '—'}
+            </DescriptionDetails>
+          </DescriptionList>
+        </div>
+      ) : (
+        <p className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-400">
+          {messages.listing.sidebar.addDates}
+        </p>
+      )}
 
       {isHolidayHome ? (
         <ul className="mt-4 list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
@@ -318,7 +320,12 @@ export default function StayListingReservationCard({
         </ul>
       ) : null}
 
-      <ButtonPrimary form="booking-form" type="submit" className="mt-4 w-full">
+      <ButtonPrimary
+        form="booking-form"
+        type="submit"
+        className="mt-4 w-full"
+        disabled={Boolean(listingId?.trim()) && !canCheckoutWithListing}
+      >
         {messages.common.Reserve}
       </ButtonPrimary>
 

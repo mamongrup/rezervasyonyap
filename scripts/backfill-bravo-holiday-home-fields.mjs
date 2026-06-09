@@ -145,6 +145,7 @@ async function main() {
           ownerContact,
           poolSizeLabel: vitrin.poolSizeLabel,
           damageDepositAmount: vitrin.damageDepositAmount,
+          accommodationRuleIds: vitrin.accommodationRuleIds,
         })
         await pgClient.query('COMMIT')
         stats.ok++

@@ -6,15 +6,11 @@ import { formatLocalYmd } from '@/lib/date-format-local'
 import { datePickerLocaleId, intlDateLocaleTag } from '@/lib/i18n-config'
 import '@/lib/register-datepicker-locales'
 import {
-  isListingDayFullyBlocked,
   listingDayAmPm,
   listingDayVisualStatus,
 } from '@/lib/listing-availability-day'
 import {
-  addDays,
-  defaultRangeStayNights,
   earliestCheckInDate,
-  maxConsecutiveNightsFromStart,
   resolvedMinStayNights,
   startOfLocalDay,
   stayListingCalendarDaySelectable,
@@ -40,54 +36,6 @@ function availabilityByDayYmd(days: ListingAvailabilityDay[]): Map<string, Listi
     m.set(row.day.trim(), row)
   }
   return m
-}
-
-function pickDefaultRange(
-  rangeMin: Date,
-  defaultStayNights: number,
-  bookingRules: StayBookingRules | undefined,
-  byYmd: Map<string, ListingAvailabilityDay>,
-): [Date, Date] {
-  const minStay = resolvedMinStayNights(bookingRules)
-  const allowGap = !!bookingRules?.allowSubMinStayGapBooking
-  const isFree = (d: Date) => !isListingDayFullyBlocked(byYmd.get(formatLocalYmd(d)))
-
-  const anchor = startOfLocalDay(rangeMin)
-  for (let offset = 0; offset < 400; offset++) {
-    const s = addDays(anchor, offset)
-    if (!isFree(s)) continue
-    const maxN = maxConsecutiveNightsFromStart(s, byYmd, formatLocalYmd)
-    if (maxN < 1) continue
-
-    const want = Math.max(defaultStayNights, minStay)
-
-    if (maxN >= want) {
-      let ok = true
-      for (let i = 0; i < want; i++) {
-        if (!isFree(addDays(s, i))) {
-          ok = false
-          break
-        }
-      }
-      if (ok) return [new Date(s), addDays(s, want)]
-    }
-    if (allowGap && maxN < minStay && maxN >= 1) {
-      return [new Date(s), addDays(s, maxN)]
-    }
-    if (maxN >= minStay && maxN < want) {
-      let ok = true
-      for (let i = 0; i < minStay; i++) {
-        if (!isFree(addDays(s, i))) {
-          ok = false
-          break
-        }
-      }
-      if (ok) return [new Date(s), addDays(s, minStay)]
-    }
-  }
-
-  const fb = startOfLocalDay(rangeMin)
-  return [fb, addDays(fb, Math.max(defaultStayNights, minStay))]
 }
 
 function SectionDateRangeCalendar({
@@ -122,16 +70,9 @@ function SectionDateRangeCalendar({
     return t
   }, [effectiveMinDate])
 
-  const defaultStayNights = useMemo(() => defaultRangeStayNights(bookingRules), [bookingRules])
-
-  const defaultRange = useMemo(
-    () => pickDefaultRange(effectiveMinDate, defaultStayNights, bookingRules, byYmd),
-    [effectiveMinDate, defaultStayNights, bookingRules, byYmd],
-  )
-
-  const [startDate, setStartDate] = useState<Date | null>(() => defaultRange[0])
-  const [endDate, setEndDate] = useState<Date | null>(() => defaultRange[1])
-  const lastEndTsRef = useRef(defaultRange[1].getTime())
+  const [startDate, setStartDate] = useState<Date | null>(null)
+  const [endDate, setEndDate] = useState<Date | null>(null)
+  const lastEndTsRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!startDate || !endDate) return

@@ -2,13 +2,13 @@
 
 import {
   LISTING_AMENITY_ICONS,
-  getListingAmenityIcon,
+  getAmenityIconForKey,
   type ListingAmenityId,
 } from '@/lib/listing-amenities'
+import { formatAttributeKeyAsDisplayLabel } from '@/lib/listing-attribute-display'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
-import { Sparkles } from 'lucide-react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 const KNOWN_AMENITY_IDS = new Set(Object.keys(LISTING_AMENITY_ICONS))
@@ -32,37 +32,47 @@ export default function HotelHighlightsSection({
   amenityKeys,
   customLabels,
   className,
+  variant = 'hotel',
+  minToShow = MIN_TO_SHOW,
 }: {
   locale: string
   amenityKeys: readonly string[]
   customLabels?: Record<string, string>
   className?: string
+  /** Tatil evi temaları için alt başlık ve eşik */
+  variant?: 'hotel' | 'holiday_home'
+  minToShow?: number
 }) {
   const messages = getMessages(locale)
   const t = messages.listing.highlights ?? {}
 
   const items = amenityKeys.slice(0, MAX_HIGHLIGHTS)
-  if (items.length < MIN_TO_SHOW) return null
+  if (items.length < minToShow) return null
 
   const labelOf = (id: string): string => {
     if (KNOWN_AMENITY_IDS.has(id)) {
       const labels = messages.listing.amenities.labels as Record<string, string>
       return labels[id] ?? id
     }
-    return customLabels?.[id] ?? id.replace(/_/g, ' ')
+    const custom = customLabels?.[id]?.trim()
+    if (custom) return custom
+    return formatAttributeKeyAsDisplayLabel(id)
   }
 
   const iconFor = (id: string) =>
     KNOWN_AMENITY_IDS.has(id)
-      ? getListingAmenityIcon(id as ListingAmenityId)
-      : Sparkles
+      ? getAmenityIconForKey(id as ListingAmenityId)
+      : getAmenityIconForKey(id)
 
   return (
     <div className={clsx('listingSection__wrap', className)}>
       <div>
         <SectionHeading>{t.title ?? 'Öne çıkan özellikler'}</SectionHeading>
         <SectionSubheading>
-          {t.subtitle ?? 'Bu otelin misafirlerce en çok değer verilen yanları.'}
+          {variant === 'holiday_home'
+            ? (t.subtitleHolidayHome ??
+              'Bu tatil evinin öne çıkan temaları ve konsepti.')
+            : (t.subtitle ?? 'Bu otelin misafirlerce en çok değer verilen yanları.')}
         </SectionSubheading>
       </div>
       <Divider className="w-14!" />

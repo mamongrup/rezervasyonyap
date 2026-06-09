@@ -508,6 +508,7 @@ export const zh: AppMessages = {
     highlights: {
       title: '酒店亮点',
       subtitle: '住客最看重的酒店特色。',
+      subtitleHolidayHome: '此度假屋的突出主题与特色。',
     },
     faq: {
       title: '常见问题',

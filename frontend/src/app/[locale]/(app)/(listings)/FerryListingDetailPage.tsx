@@ -230,8 +230,6 @@ export default async function FerryListingDetailPage({
           listings={similarFerryListings}
           title={dp.similarListings}
           perNightSuffix={fd.pricePerPerson}
-          ariaPrev={dp.carouselPrevAria}
-          ariaNext={dp.carouselNextAria}
         />
       ) : null}
     </div>

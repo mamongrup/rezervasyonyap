@@ -28,6 +28,7 @@ import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
 import {
   applyBravoHolidayHomeVitrinFields,
   buildBravoHolidayHomeVitrinPackage,
+  BRAVO_RULE_SLUG_TO_CODE,
   loadBravoOwnerContact,
 } from './lib/bravo-holiday-home-map.mjs'
 
@@ -346,8 +347,8 @@ async function upsertAttributes(pgClient, listingId, terms, icalUrl) {
     } else if (attrId === 10) {
       excluded.push({ slug, name: t.name })
     } else if (attrId === 11) {
-      if (slug === 'cocuklara-uygun') ruleCodes.add('child_friendly')
-      if (slug === 'evcil-hayvan-istenmiyor') ruleCodes.add('no_pets')
+      const code = BRAVO_RULE_SLUG_TO_CODE[slug]
+      if (code) ruleCodes.add(code)
     }
   }
 
@@ -481,6 +482,7 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
       ownerContact,
       poolSizeLabel: vitrin.poolSizeLabel,
       damageDepositAmount: vitrin.damageDepositAmount,
+      accommodationRuleIds: vitrin.accommodationRuleIds,
     })
 
     if (propertyType) await applyListingPropertyType(pgClient, listingId, propertyType)

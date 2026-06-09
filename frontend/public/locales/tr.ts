@@ -39,6 +39,7 @@ export const tr = {
   },
   common: {
     ...en.common,
+    Reserve: 'Rezervasyon Yap',
     'Show all photos': 'Tüm fotoğrafları göster',
     'View all': 'Tümünü gör',
     'Show me more': 'Daha fazla göster',
@@ -691,7 +692,15 @@ export const tr = {
       priceRatesSubtitle: 'Hafta sonu ve tatil günlerinde fiyatlar değişebilir',
       rulesTitle: 'Konaklama Kuralları',
       rulesSubtitle: 'Lütfen konaklamadan önce kuralları okuyunuz',
+      checkInRuleTemplate: 'Giriş: {time}',
+      checkOutRuleTemplate: 'Çıkış: {time}',
+      minStayRule: 'Minimum konaklama: {n} gece',
+      minAdvanceRule: 'Rezervasyon en az {n} gün önceden yapılmalıdır',
+      shortStayFeeRule:
+        '{n} geceden kısa konaklamalarda ek ücret uygulanabilir ({amount} {currency})',
+      /** @deprecated vitrin artık checkInRuleTemplate kullanır */
       checkInRule: 'Check-in: 14:00 – 22:00',
+      /** @deprecated vitrin artık checkOutRuleTemplate kullanır */
       checkOutRule: "Check-out: 11:00'e kadar",
       sleepingTitle: 'Nerede uyuyacaksınız',
       sleepingSubtitle: 'Oda bazında yatak düzeni',
@@ -755,6 +764,7 @@ export const tr = {
     highlights: {
       title: 'Öne çıkan özellikler',
       subtitle: 'Bu otelin misafirlerce en çok değer verilen yanları.',
+      subtitleHolidayHome: 'Bu tatil evinin öne çıkan temaları ve konsepti.',
     },
     faq: {
       title: 'Sıkça sorulan sorular',

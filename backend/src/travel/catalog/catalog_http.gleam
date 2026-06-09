@@ -6005,10 +6005,21 @@ fn acc_rules_one_text_row() -> decode.Decoder(String) {
   decode.success(a)
 }
 
-fn acc_rules_public_pair_row() -> decode.Decoder(#(String, String)) {
-  use a <- decode.field(0, decode.string)
-  use b <- decode.field(1, decode.string)
-  decode.success(#(a, b))
+fn acc_rules_public_vitrine_row() -> decode.Decoder(
+  #(String, String, String, String, String),
+) {
+  use rules_json <- decode.field(0, decode.string)
+  use selected_ids_json <- decode.field(1, decode.string)
+  use check_in_time <- decode.field(2, decode.string)
+  use check_out_time <- decode.field(3, decode.string)
+  use rule_codes_csv <- decode.field(4, decode.string)
+  decode.success(#(
+    rules_json,
+    selected_ids_json,
+    check_in_time,
+    check_out_time,
+    rule_codes_csv,
+  ))
 }
 
 /// GET /api/v1/catalog/accommodation-rules?category_code=holiday_home — yönetim: kategori konaklama kuralları JSON
@@ -6109,25 +6120,58 @@ pub fn get_public_listing_accommodation_rules(
       "select "
       <> "coalesce(s.rules_json::text, '[]'), "
       <> "coalesce((select value_json::text from listing_attributes "
-      <> "where listing_id = $1::uuid and group_code = 'catalog' and key = 'accommodation_rule_ids' limit 1), '[]') "
+      <> "where listing_id = $1::uuid and group_code = 'catalog' and key = 'accommodation_rule_ids' limit 1), '[]'), "
+      <> "coalesce((select la.value_json->>'check_in_time' from listing_attributes la "
+      <> "where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1), ''), "
+      <> "coalesce((select la.value_json->>'check_out_time' from listing_attributes la "
+      <> "where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1), ''), "
+      <> "coalesce(nullif(array_to_string("
+      <> "case when lower(pc.code) = 'yacht_charter' then y.rule_codes else h.rule_codes end, ','), ''), '') "
       <> "from listings l "
       <> "join product_categories pc on pc.id = l.category_id "
       <> "left join category_accommodation_rule_sets s on s.organization_id = l.organization_id and lower(s.category_code) = lower(pc.code) "
+      <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+      <> "left join listing_yacht_details y on y.listing_id = l.id "
       <> "where l.id = $1::uuid and l.status = 'published' limit 1",
     )
     |> pog.parameter(pog.text(listing_id))
-    |> pog.returning(acc_rules_public_pair_row())
+    |> pog.returning(acc_rules_public_vitrine_row())
     |> pog.execute(ctx.db)
   {
     Error(_) -> json_err(500, "accommodation_rules_public_query_failed")
     Ok(ret) ->
       case ret.rows {
         [] -> json_err(404, "listing_not_found")
-        [#(rules_json, selected_ids_json)] -> {
+        [#(
+          rules_json,
+          selected_ids_json,
+          check_in_time,
+          check_out_time,
+          rule_codes_csv,
+        )] -> {
+          let rule_codes_json =
+            case string.trim(rule_codes_csv) == "" {
+              True -> "[]"
+              False ->
+                json.array(
+                  from: list.filter_map(string.split(rule_codes_csv, ","), fn(code) {
+                    let t = string.trim(code)
+                    case t == "" {
+                      True -> Error(Nil)
+                      False -> Ok(t)
+                    }
+                  }),
+                  of: json.string,
+                )
+                |> json.to_string
+            }
           let body =
             json.object([
               #("rules_json", json.string(rules_json)),
               #("selected_ids_json", json.string(selected_ids_json)),
+              #("check_in_time", json.string(string.trim(check_in_time))),
+              #("check_out_time", json.string(string.trim(check_out_time))),
+              #("rule_codes_json", json.string(rule_codes_json)),
             ])
             |> json.to_string
           wisp.json_response(body, 200)

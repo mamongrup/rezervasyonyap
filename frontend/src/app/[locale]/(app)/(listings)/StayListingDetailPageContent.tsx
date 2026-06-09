@@ -28,7 +28,12 @@ import {
 } from '@/lib/listing-detail-routes'
 import { stayRentalCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { isStayRentalCategory } from '@/lib/stay-rental-categories'
-import { resolveHolidayThemeLabels } from '@/lib/holiday-theme-labels'
+import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
+import { getHolidayThemeLabelMap, resolveHolidayThemeLabels } from '@/lib/holiday-theme-labels'
+import {
+  buildAttributeLabelMap,
+  buildVitrinAmenityRows,
+} from '@/lib/listing-attribute-display'
 import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
 import { buildStayListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
 import { vitrinHref } from '@/lib/vitrin-href'
@@ -99,6 +104,7 @@ import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
 import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
 import ListingServicePoisSection from '@/components/travel/ListingServicePoisSection'
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
+import { buildListingAccommodationRuleLines } from '@/lib/listing-accommodation-rules'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 
 function formatPrepaymentPercentForDisplay(raw: string): string {
@@ -212,13 +218,13 @@ export default async function StayListingDetailPageContent({
 
   // listing_attributes (admin EAV) → vitrin amenity listesi
   let amenityKeys: string[] = []
+  let amenityLabels: Record<string, string> = {}
   let amenityIcons: Record<string, string> = {}
   try {
     const attrs = await getPublicListingAttributes(catalogListingId ?? listing.id)
-    amenityKeys = attrs.values
-      .filter((a) => isAttributeValueTrue(a.value_json))
-      .map((a) => a.key)
-    amenityKeys = Array.from(new Set(amenityKeys))
+    const amenityRows = buildVitrinAmenityRows(attrs.values, vertical, isAttributeValueTrue)
+    amenityKeys = Array.from(new Set(amenityRows.map((a) => a.key)))
+    amenityLabels = buildAttributeLabelMap(amenityRows)
     amenityIcons = attrs.icons ?? {}
   } catch {
     /* attributes API yok — boş liste */
@@ -433,9 +439,21 @@ export default async function StayListingDetailPageContent({
 
   const mergeHolidayMealsIntoPricing = mealPlans.length > 0 && holidayHomePricingVisible
 
-  const themePillLabels = isStayRental
-    ? await resolveHolidayThemeLabels(listing.themeCodes ?? [], locale)
-    : []
+  const themePillLabels =
+    isStayRental && !isHolidayHome
+      ? await resolveHolidayThemeLabels(listing.themeCodes ?? [], locale)
+      : []
+  const holidayThemeCodes = isHolidayHome ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
+  let holidayThemeHighlightLabels: Record<string, string> = {}
+  if (isHolidayHome && holidayThemeCodes.length > 0) {
+    const themeLabelMap = await getHolidayThemeLabelMap(locale, 'holiday_home')
+    holidayThemeHighlightLabels = Object.fromEntries(
+      holidayThemeCodes.map((code) => [
+        code,
+        themeLabelMap.get(code) ?? code.replace(/_/g, ' '),
+      ]),
+    )
+  }
   const hotelTypeCodeNorm = vertical === 'hotel' ? listing.hotelTypeCode?.trim() : ''
   const listingCategoryBadge =
     vertical === 'hotel' && hotelTypeCodeNorm
@@ -752,26 +770,19 @@ export default async function StayListingDetailPageContent({
   const renderSectionPriceRates = () => null
 
   const renderSectionRules = () => {
-    const checkInOut = [
-      { type: 'ok' as const, text: dp.checkInRule },
-      { type: 'ok' as const, text: dp.checkOutRule },
-    ]
-    const fromCatalog: { type: 'ok' | 'warn'; text: string }[] = []
-    if (catalogAccommodationRules && catalogAccommodationRules.selectedIds.length > 0) {
-      const sel = new Set(catalogAccommodationRules.selectedIds)
-      for (const r of catalogAccommodationRules.rules) {
-        if (!sel.has(r.id)) continue
-        const text =
-          r.labels[localeLang]?.trim() ||
-          r.labels.tr?.trim() ||
-          r.labels.en?.trim() ||
-          Object.values(r.labels).find((s) => s.trim()) ||
-          ''
-        if (!text) continue
-        fromCatalog.push({ type: r.severity === 'warn' ? 'warn' : 'ok', text })
-      }
-    }
-    const rules = [...checkInOut, ...fromCatalog]
+    const rules = buildListingAccommodationRuleLines(catalogAccommodationRules, {
+      localeLang,
+      messages: {
+        checkInRuleTemplate: dp.checkInRuleTemplate,
+        checkOutRuleTemplate: dp.checkOutRuleTemplate,
+        minStayRule: dp.minStayRule,
+        minAdvanceRule: dp.minAdvanceRule,
+        shortStayFeeRule: dp.shortStayFeeRule,
+      },
+      stayBookingRules: listing.stayBookingRules,
+      listingCurrency: priceCurrency,
+    })
+    if (rules.length === 0) return null
     return (
       <div id="stay-section-rules" className="listingSection__wrap scroll-mt-28">
         <div>
@@ -906,10 +917,17 @@ export default async function StayListingDetailPageContent({
           ) : null}
           {perksBadges}
           {socialProof}
-          {/* Booking/ETStur'daki "Property highlights" şeridi — sadece otelde,
-              tatil evinde havuz/tema bölümleri zaten benzer işlevi görüyor. */}
-          {amenityKeys.length >= 3 ? (
+          {vertical === 'hotel' && amenityKeys.length >= 3 ? (
             <HotelHighlightsSection locale={locale} amenityKeys={amenityKeys} />
+          ) : null}
+          {isHolidayHome && holidayThemeCodes.length >= 2 ? (
+            <HotelHighlightsSection
+              locale={locale}
+              amenityKeys={holidayThemeCodes}
+              customLabels={holidayThemeHighlightLabels}
+              variant="holiday_home"
+              minToShow={2}
+            />
           ) : null}
           {/* Booking "Property info at a glance" tarzı hızlı bilgi kutusu —
               yalnızca otel; yat ve villa gösterimi korunur. */}
@@ -942,6 +960,7 @@ export default async function StayListingDetailPageContent({
                 locale={locale}
                 variant={isStayRental ? 'villa' : 'hotel'}
                 customSelectedIds={amenityKeys}
+                customLabels={amenityLabels}
                 customIcons={amenityIcons}
               />
             </div>
@@ -1129,16 +1148,12 @@ export default async function StayListingDetailPageContent({
             listings={similarListings}
             title={dp.similarListings}
             perNightSuffix={dp.perNight}
-            ariaPrev={dp.carouselPrevAria}
-            ariaNext={dp.carouselNextAria}
           />
           {isStayRental && nearbyListings.length > 0 && (
             <SimilarListings
               listings={nearbyListings}
               title={dp.nearbyListings}
               perNightSuffix={dp.perNight}
-              ariaPrev={dp.carouselPrevAria}
-              ariaNext={dp.carouselNextAria}
             />
           )}
         </div>

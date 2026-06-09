@@ -4,22 +4,30 @@
  */
 import type { LucideIcon } from 'lucide-react'
 import {
+  AirVent,
+  Baby,
   Bath,
+  BedDouble,
   Bubbles,
   CableCar,
   ChefHat,
   Cctv,
   DoorOpen,
   Droplets,
+  Dumbbell,
+  Flame,
   Glasses,
   Mountain,
   Palmtree,
   ParkingCircle,
   RefreshCw,
+  Refrigerator,
+  Shirt,
   Sparkles,
   SprayCan,
   Thermometer,
   Tv,
+  UtensilsCrossed,
   Volume2,
   WashingMachine,
   Wifi,
@@ -145,4 +153,46 @@ export const LISTING_AMENITY_ICONS = {
 
 export function getListingAmenityIcon(id: ListingAmenityId): LucideIcon {
   return LISTING_AMENITY_ICONS[id]
+}
+
+/** Bravo `imported_amenity` slug → Lucide (panel ikonu yoksa). */
+export const IMPORTED_AMENITY_ICONS: Record<string, LucideIcon> = {
+  'bebek-besigi': Baby,
+  bilardo: Sparkles,
+  'bulasik-makinesi': UtensilsCrossed,
+  buzdolabi: Refrigerator,
+  'camasir-makinesi': WashingMachine,
+  'havlu-nevresim': BedDouble,
+  jakuzi: Bubbles,
+  klima: AirVent,
+  'mama-sandalyesi': Baby,
+  mangal: Flame,
+  'masa-tenisi': Sparkles,
+  'mutfak-gerecleri': ChefHat,
+  'sac-kurutma': Wind,
+  'sauna-hamam': Bath,
+  'spor-salonu': Dumbbell,
+  supurge: Sparkles,
+  'tv-uydu': Tv,
+  'utu-utu-masasi': Shirt,
+  'wi-fi': Wifi,
+  wifi: Wifi,
+  generator: RefreshCw,
+  air_conditioning: AirVent,
+  water_toys: Sparkles,
+  snorkeling: Sparkles,
+  tender_dinghy: Sparkles,
+}
+
+export function getImportedAmenityIcon(key: string): LucideIcon | null {
+  const k = String(key ?? '').trim().toLowerCase()
+  if (!k) return null
+  return IMPORTED_AMENITY_ICONS[k] ?? IMPORTED_AMENITY_ICONS[k.replace(/_/g, '-')] ?? null
+}
+
+export function getAmenityIconForKey(key: string): LucideIcon {
+  if (key in LISTING_AMENITY_ICONS) {
+    return getListingAmenityIcon(key as ListingAmenityId)
+  }
+  return getImportedAmenityIcon(key) ?? Sparkles
 }
