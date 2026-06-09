@@ -242,7 +242,7 @@ export default async function StayListingDetailPageContent({
   let realHotelRooms: HotelRoomShowcaseItem[] = []
   try {
     const r = await getPublicHotelRooms(catalogListingId ?? listing.id)
-    realHotelRooms = r.rooms.map((row): HotelRoomShowcaseItem => {
+    realHotelRooms = (Array.isArray(r.rooms) ? r.rooms : []).map((row): HotelRoomShowcaseItem => {
       const cap = row.capacity ? Number.parseInt(row.capacity, 10) : null
       let meta: Record<string, unknown> = {}
       try {
@@ -484,9 +484,10 @@ export default async function StayListingDetailPageContent({
   )
   const hd = messages.listing.hotelDetail
   const sectionNav = messages.listing.sectionNav
+  const hotelNav = hd?.nav
   const hotelCheckInOut = formatListingCheckInOutLines(catalogAccommodationRules, {
-    checkInRuleTemplate: dp.checkInRuleTemplate,
-    checkOutRuleTemplate: dp.checkOutRuleTemplate,
+    checkInRuleTemplate: dp.checkInRuleTemplate ?? dp.checkInRule,
+    checkOutRuleTemplate: dp.checkOutRuleTemplate ?? dp.checkOutRule,
   })
   const hotelCheckInLine = hotelCheckInOut.checkInLine ?? dp.checkInRule
   const hotelCheckOutLine = hotelCheckInOut.checkOutLine ?? dp.checkOutRule
@@ -531,23 +532,23 @@ export default async function StayListingDetailPageContent({
   const hotelSectionNavItems: HotelSectionNavItem[] =
     vertical === 'hotel'
       ? [
-          { id: 'stay-section-about', label: hd.nav.about ?? sectionNav.about },
+          { id: 'stay-section-about', label: hotelNav?.about ?? sectionNav.about ?? 'Genel Bilgiler' },
           amenityKeys.length > 0
-            ? { id: 'stay-section-amenities', label: hd.nav.propertyFeatures }
+            ? { id: 'stay-section-amenities', label: hotelNav?.propertyFeatures ?? 'Tesis Özellikleri' }
             : null,
           realHotelRooms.length > 0
-            ? { id: 'stay-section-rooms', label: hd.nav.rooms, eyebrow: String(realHotelRooms.length) }
+            ? { id: 'stay-section-rooms', label: hotelNav?.rooms ?? 'Odalar', eyebrow: String(realHotelRooms.length) }
             : null,
-          mealPlans.length > 0 ? { id: 'stay-section-meal-plans', label: hd.nav.concept } : null,
-          { id: 'stay-section-location', label: hd.nav.locationInfo },
+          mealPlans.length > 0 ? { id: 'stay-section-meal-plans', label: hotelNav?.concept ?? 'Konsept' } : null,
+          { id: 'stay-section-location', label: hotelNav?.locationInfo ?? 'Konum Bilgileri' },
           hasHotelImportantNotes
-            ? { id: 'stay-section-important-notes', label: hd.nav.importantNotes }
+            ? { id: 'stay-section-important-notes', label: hotelNav?.importantNotes ?? 'Önemli Notlar' }
             : null,
           hotelFaqItems.length > 0
-            ? { id: 'stay-section-faq', label: hd.nav.faq ?? sectionNav.faq }
+            ? { id: 'stay-section-faq', label: hotelNav?.faq ?? sectionNav.faq ?? 'SSS' }
             : null,
           (reviewCount ?? 0) > 0
-            ? { id: 'stay-section-reviews', label: hd.nav.reviews ?? 'Yorumlar' }
+            ? { id: 'stay-section-reviews', label: hotelNav?.reviews ?? 'Yorumlar' }
             : null,
         ].filter((item): item is HotelSectionNavItem => item !== null)
       : []
@@ -598,32 +599,37 @@ export default async function StayListingDetailPageContent({
   const siteConfig = mergeBrandingIntoEnvContact(getSitePublicConfigSync(), sitePubApi?.branding ?? null)
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
 
-  const detailJsonLd = await buildStayListingDetailJsonLd({
-    locale,
-    linkBase,
-    organizationName,
-    listing: {
-      id: listing.id,
-      title,
-      description,
-      handle,
-      address,
-      city: listing.city,
-      featuredImage,
-      galleryImgs,
-      listingCategory,
-      listingVertical: normalizeCatalogVertical(listing.listingVertical),
-      map,
-      maxGuests,
-      bedrooms,
-      bathrooms,
-      beds,
-      price,
-      reviewCount,
-      reviewStart,
-      host,
-    },
-  })
+  let detailJsonLd: Awaited<ReturnType<typeof buildStayListingDetailJsonLd>> | null = null
+  try {
+    detailJsonLd = await buildStayListingDetailJsonLd({
+      locale,
+      linkBase,
+      organizationName,
+      listing: {
+        id: listing.id,
+        title,
+        description,
+        handle,
+        address,
+        city: listing.city,
+        featuredImage,
+        galleryImgs,
+        listingCategory,
+        listingVertical: normalizeCatalogVertical(listing.listingVertical),
+        map,
+        maxGuests,
+        bedrooms,
+        bathrooms,
+        beds,
+        price,
+        reviewCount,
+        reviewStart,
+        host,
+      },
+    })
+  } catch {
+    detailJsonLd = null
+  }
 
   const handleSubmitForm = async (formData: FormData) => {
     'use server'
@@ -999,7 +1005,7 @@ export default async function StayListingDetailPageContent({
         <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
           {vertical === 'hotel' ? (
-            <HotelSectionNav items={hotelSectionNavItems} ariaLabel={hd.sectionNavAriaLabel} />
+            <HotelSectionNav items={hotelSectionNavItems} ariaLabel={hd?.sectionNavAriaLabel ?? 'Hotel sections'} />
           ) : null}
           {perksBadges}
           {socialProof}

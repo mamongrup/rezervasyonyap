@@ -32,16 +32,19 @@ function normalizeTime(raw: string | undefined | null): string {
   return m ? m[1] : s
 }
 
-function fillTemplate(template: string, time: string): string {
-  return template.replace(/\{time\}/g, time)
+function fillTemplate(template: string | undefined | null, time: string): string {
+  const t = String(template ?? '').trim()
+  if (!t) return time
+  return t.replace(/\{time\}/g, time)
 }
 
 function pickRuleLabel(rule: CategoryAccommodationRuleItem, localeLang: string): string {
+  const labels = rule.labels && typeof rule.labels === 'object' ? rule.labels : {}
   return (
-    rule.labels[localeLang]?.trim() ||
-    rule.labels.tr?.trim() ||
-    rule.labels.en?.trim() ||
-    Object.values(rule.labels).find((s) => s.trim()) ||
+    labels[localeLang]?.trim() ||
+    labels.tr?.trim() ||
+    labels.en?.trim() ||
+    Object.values(labels).find((s) => typeof s === 'string' && s.trim())?.trim() ||
     ''
   )
 }

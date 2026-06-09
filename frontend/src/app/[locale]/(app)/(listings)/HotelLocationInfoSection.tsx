@@ -40,8 +40,9 @@ export default function HotelLocationInfoSection({
   transport: ServicePoi[]
 }) {
   const hd = getMessages(locale).listing.hotelDetail
-  const resolvedTitle = title ?? hd.locationTitle
-  const resolvedSubtitle = subtitle ?? hd.locationSubtitle
+  const resolvedTitle = title ?? hd?.locationTitle ?? 'Konum Bilgileri'
+  const resolvedSubtitle = subtitle ?? hd?.locationSubtitle ?? ''
+  const locationFallback = hd?.locationFallback ?? 'Konum'
   const rows = transport
     .filter((p) => p.label?.trim() && Number.isFinite(p.distance_km))
     .slice(0, 6)
@@ -63,7 +64,7 @@ export default function HotelLocationInfoSection({
             </span>
             <div>
               <p className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">
-                {city?.trim() || hd.locationFallback}
+                {city?.trim() || locationFallback}
               </p>
               {address?.trim() ? (
                 <p className="mt-1 text-sm leading-relaxed text-neutral-600 dark:text-neutral-300">

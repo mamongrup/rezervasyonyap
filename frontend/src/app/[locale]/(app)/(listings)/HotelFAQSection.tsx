@@ -96,11 +96,12 @@ export function buildHotelFaqItems(
 ): { q: string; a: string }[] {
   type Item = { q: string; a: string }
   const items: Item[] = []
+  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
 
-  if (source.checkInLine?.trim() || source.checkOutLine?.trim()) {
-    const parts = [source.checkInLine, source.checkOutLine]
-      .map((s) => s?.trim())
-      .filter((s): s is string => Boolean(s))
+  const checkInLine = str(source.checkInLine)
+  const checkOutLine = str(source.checkOutLine)
+  if (checkInLine || checkOutLine) {
+    const parts = [checkInLine, checkOutLine].filter(Boolean)
     items.push({
       q: t.qCheckInOut ?? 'Check-in ve check-out saatleri nedir?',
       a: parts.join(' · '),
@@ -116,31 +117,35 @@ export function buildHotelFaqItems(
     })
   }
 
-  if (source.prepaymentNote?.trim()) {
+  const prepaymentNote = str(source.prepaymentNote)
+  if (prepaymentNote) {
     items.push({
       q: t.qPrepayment ?? 'Rezervasyon için ne kadar ön ödeme alınır?',
-      a: source.prepaymentNote.trim(),
+      a: prepaymentNote,
     })
   }
 
-  if (source.cancellationText?.trim()) {
+  const cancellationText = str(source.cancellationText)
+  if (cancellationText) {
     items.push({
       q: t.qCancellation ?? 'Rezervasyonumu nasıl iptal edebilirim?',
-      a: source.cancellationText.trim(),
+      a: cancellationText,
     })
   }
 
-  if (source.petPolicyText?.trim()) {
+  const petPolicyText = str(source.petPolicyText)
+  if (petPolicyText) {
     items.push({
       q: t.qPets ?? 'Evcil hayvan kabul ediyor musunuz?',
-      a: source.petPolicyText.trim(),
+      a: petPolicyText,
     })
   }
 
-  if (source.ministryLicenseRef?.trim()) {
+  const ministryLicenseRef = str(source.ministryLicenseRef)
+  if (ministryLicenseRef) {
     items.push({
       q: t.qLicense ?? 'Tesisin Bakanlık ruhsat numarası nedir?',
-      a: source.ministryLicenseRef.trim(),
+      a: ministryLicenseRef,
     })
   }
 

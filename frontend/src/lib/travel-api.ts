@@ -243,13 +243,18 @@ export async function getPublicHotelRooms(
   listingId: string,
 ): Promise<{ rooms: PublicHotelRoom[] }> {
   const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(
-    `${b}/api/v1/verticals/listings/${encodeURIComponent(listingId)}/hotel-rooms`,
-    { cache: 'no-store' },
-  )
-  if (!res.ok) throw new Error(`hotel_rooms_public_${res.status}`)
-  return json(res)
+  if (!b) return { rooms: [] }
+  try {
+    const res = await fetch(
+      `${b}/api/v1/verticals/listings/${encodeURIComponent(listingId)}/hotel-rooms`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) return { rooms: [] }
+    const data = await json<{ rooms?: PublicHotelRoom[] }>(res)
+    return { rooms: Array.isArray(data.rooms) ? data.rooms : [] }
+  } catch {
+    return { rooms: [] }
+  }
 }
 
 /** Vitrin "Bu ilanı bildir" formundan gönderilen şikayet. */

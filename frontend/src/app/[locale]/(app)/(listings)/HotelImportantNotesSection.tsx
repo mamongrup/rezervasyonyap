@@ -30,6 +30,7 @@ export default function HotelImportantNotesSection({
 }) {
   const messages = getMessages(locale)
   const hd = messages.listing.hotelDetail
+  const nav = hd?.nav
   const policies = messages.listing.policies
 
   const hasPolicyBlock = Boolean(
@@ -41,14 +42,17 @@ export default function HotelImportantNotesSection({
 
   if (ruleLines.length === 0 && !hasPolicyBlock) return null
 
+  const heading =
+    hd?.importantNotesTitle ?? nav?.importantNotes ?? messages.listing.sectionNav?.policies ?? 'Önemli Notlar'
+  const subheading =
+    hd?.importantNotesSubtitle ??
+    'Giriş–çıkış saatleri, tesis kuralları ve rezervasyon koşulları.'
+
   return (
     <div id="stay-section-important-notes" className={clsx('listingSection__wrap scroll-mt-28', className)}>
       <div>
-        <SectionHeading>{hd.importantNotesTitle ?? hd.nav.importantNotes}</SectionHeading>
-        <SectionSubheading>
-          {hd.importantNotesSubtitle ??
-            'Giriş–çıkış saatleri, tesis kuralları ve rezervasyon koşulları.'}
-        </SectionSubheading>
+        <SectionHeading>{heading}</SectionHeading>
+        <SectionSubheading>{subheading}</SectionSubheading>
       </div>
       <Divider className="w-14!" />
 
