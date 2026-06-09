@@ -236,6 +236,7 @@ export type PublicHotelRoom = {
   capacity: string | null
   board_type: string | null
   meta_json: string
+  unit_count?: number
 }
 
 /** Vitrin için otel oda listesi — auth gerektirmez. Boş dönerse vitrinin demo akışı çalışır. */
@@ -1131,6 +1132,13 @@ export type ManageHotelRoomRow = {
   capacity: string | null
   board_type: string | null
   meta_json: string
+  unit_count?: number
+}
+
+export type HotelRoomAvailabilityDay = {
+  day: string
+  available_units: number
+  price_override: string | null
 }
 
 export async function listManageHotelRooms(
@@ -1154,7 +1162,13 @@ export async function listManageHotelRooms(
 export async function addManageHotelRoom(
   token: string,
   listingId: string,
-  body: { name: string; capacity?: string; board_type?: string; meta_json?: string },
+  body: {
+    name: string
+    capacity?: string
+    board_type?: string
+    meta_json?: string
+    unit_count?: number
+  },
   params?: { organizationId?: string },
 ): Promise<{ id: string }> {
   const b = base()
@@ -1189,6 +1203,86 @@ export async function deleteManageHotelRoom(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `hotel_room_delete_${res.status}`)
+  }
+  return json(res)
+}
+
+export type ManageHotelRoomInput = {
+  id?: string
+  name: string
+  capacity?: string
+  board_type?: string
+  meta_json?: string
+  unit_count?: number
+}
+
+export async function putManageHotelRooms(
+  token: string,
+  listingId: string,
+  rooms: ManageHotelRoomInput[],
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-rooms${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ rooms }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_rooms_put_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function getHotelRoomAvailabilityCalendar(
+  token: string,
+  listingId: string,
+  roomId: string,
+  range: { from: string; to: string },
+  params?: { organizationId?: string },
+): Promise<{ days: HotelRoomAvailabilityDay[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const u = new URLSearchParams()
+  u.set('from', range.from)
+  u.set('to', range.to)
+  if (params?.organizationId?.trim()) u.set('organization_id', params.organizationId.trim())
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-rooms/${encodeURIComponent(roomId)}/availability-calendar?${u.toString()}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_room_availability_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function putHotelRoomAvailabilityCalendar(
+  token: string,
+  listingId: string,
+  roomId: string,
+  body: { days: HotelRoomAvailabilityDay[] },
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-rooms/${encodeURIComponent(roomId)}/availability-calendar${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_room_availability_put_${res.status}`)
   }
   return json(res)
 }

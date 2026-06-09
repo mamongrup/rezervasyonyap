@@ -48,6 +48,8 @@ export type HotelRoomShowcaseItem = {
   amenities?: string[] | null
   /** meta_json.image veya hero_image — oda görseli */
   image?: string | null
+  /** Aynı tipten kaç oda */
+  unitCount?: number
 }
 
 const KNOWN_AMENITY_IDS = new Set(Object.keys(LISTING_AMENITY_ICONS))
@@ -188,6 +190,11 @@ export default function HotelRoomShowcase({
                 </header>
 
                 <ul className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-400">
+                  {room.unitCount != null && room.unitCount > 1 ? (
+                    <li className="inline-flex items-center gap-1.5 font-medium text-primary-700 dark:text-primary-300">
+                      {room.unitCount} oda
+                    </li>
+                  ) : null}
                   {room.capacity != null && (
                     <li className="inline-flex items-center gap-1.5">
                       <HugeiconsIcon

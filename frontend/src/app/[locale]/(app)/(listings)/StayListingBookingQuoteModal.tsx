@@ -35,6 +35,8 @@ export default function StayListingBookingQuoteModal({
   damageDepositAmount,
   ruleFallbackNightly,
   ruleNightlyRange,
+  hotelRoomId,
+  hotelRoomName,
 }: {
   locale: string
   listingId: string
@@ -56,6 +58,8 @@ export default function StayListingBookingQuoteModal({
   damageDepositAmount?: number
   ruleFallbackNightly?: number
   ruleNightlyRange?: { min: number; max: number }
+  hotelRoomId?: string
+  hotelRoomName?: string
 }) {
   const router = useRouter()
   const vitrinHref = useVitrinHref()
@@ -104,6 +108,8 @@ export default function StayListingBookingQuoteModal({
         endDate: rangeEnd,
         currencyCode,
         unitPrice: grandTotal,
+        hotelRoomId,
+        hotelRoomName,
       }),
     )
     onClose()

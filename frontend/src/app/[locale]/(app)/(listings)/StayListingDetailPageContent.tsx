@@ -88,6 +88,8 @@ import ListingSeasonalPricingSection from './ListingSeasonalPricingSection'
 import StayListingReservationCard from './StayListingReservationCard'
 import StayListingMobileStickyBar from './StayListingMobileStickyBar'
 import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
+import { HotelStayBookingCalendar, HotelStayBookingSidebar } from './HotelStayBookingPanel'
+import { normalizeHotelRoomOptions } from '@/lib/hotel-room-availability-public'
 import ListingPriceInclusionsSection from './ListingPriceInclusionsSection'
 import SectionHeader from './components/SectionHeader'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
@@ -237,9 +239,11 @@ export default async function StayListingDetailPageContent({
   // amenities, image) Booking/ETStur tarzı kart görünümünde zenginleştirmek için
   // burada parse edilir. Şema esnek; alan yoksa ilgili satır kart üzerinde gizlenir.
   let realHotelRooms: HotelRoomShowcaseItem[] = []
+  let hotelBookingRooms = normalizeHotelRoomOptions([])
   try {
     const r = await getPublicHotelRooms(catalogListingId ?? listing.id)
-    realHotelRooms = (Array.isArray(r.rooms) ? r.rooms : []).map((row): HotelRoomShowcaseItem => {
+    hotelBookingRooms = normalizeHotelRoomOptions(Array.isArray(r.rooms) ? r.rooms : [])
+    realHotelRooms = hotelBookingRooms.map((row): HotelRoomShowcaseItem => {
       const cap = row.capacity ? Number.parseInt(row.capacity, 10) : null
       let meta: Record<string, unknown> = {}
       try {
@@ -291,6 +295,7 @@ export default async function StayListingDetailPageContent({
         description: pickString('description') ?? pickString('summary'),
         amenities: pickStringArr('amenities'),
         image: pickString('image') ?? pickString('hero_image'),
+        unitCount: row.unit_count,
       }
     })
   } catch {
@@ -903,26 +908,48 @@ export default async function StayListingDetailPageContent({
     )
   }
 
-  const renderSidebarPriceAndForm = () => (
-    <StayListingReservationCard
-      locale={locale}
-      isHolidayHome={isHolidayHome}
-      mealPlans={mealPlans}
-      price={price ?? ''}
-      priceAmount={reservationPriceAmount}
-      priceCurrency={priceCurrency}
-      saleOff={saleOff}
-      discountPercent={discountPercent}
-      handleSubmitForm={handleSubmitForm}
-      poolHeating={poolHeatingOption}
-      stayBookingRules={listing.stayBookingRules}
-      cleaningFeeAmount={listing.cleaningFeeAmount}
-      damageDepositAmount={damageDepositAmount}
-      ruleFallbackNightly={ruleFallbackForQuote}
-      ruleNightlyRange={ruleNightlyRangeForQuote}
-      listingId={listing.id}
-    />
-  )
+  const stayListingId = catalogListingId ?? listing.id
+  const hasHotelRoomBooking = vertical === 'hotel' && hotelBookingRooms.length > 0
+
+  const renderSidebarPriceAndForm = () =>
+    hasHotelRoomBooking ? (
+      <HotelStayBookingSidebar
+        locale={locale}
+        listingId={stayListingId}
+        rooms={hotelBookingRooms}
+        mealPlans={mealPlans}
+        price={price ?? ''}
+        priceAmount={reservationPriceAmount}
+        priceCurrency={priceCurrency}
+        saleOff={saleOff}
+        discountPercent={discountPercent}
+        handleSubmitForm={handleSubmitForm}
+        stayBookingRules={listing.stayBookingRules}
+        cleaningFeeAmount={listing.cleaningFeeAmount}
+        damageDepositAmount={damageDepositAmount}
+        ruleFallbackNightly={ruleFallbackForQuote}
+        ruleNightlyRange={ruleNightlyRangeForQuote}
+      />
+    ) : (
+      <StayListingReservationCard
+        locale={locale}
+        isHolidayHome={isHolidayHome}
+        mealPlans={mealPlans}
+        price={price ?? ''}
+        priceAmount={reservationPriceAmount}
+        priceCurrency={priceCurrency}
+        saleOff={saleOff}
+        discountPercent={discountPercent}
+        handleSubmitForm={handleSubmitForm}
+        poolHeating={poolHeatingOption}
+        stayBookingRules={listing.stayBookingRules}
+        cleaningFeeAmount={listing.cleaningFeeAmount}
+        damageDepositAmount={damageDepositAmount}
+        ruleFallbackNightly={ruleFallbackForQuote}
+        ruleNightlyRange={ruleNightlyRangeForQuote}
+        listingId={listing.id}
+      />
+    )
 
   const perksBadges = (
     <ListingPerksBadges
@@ -952,25 +979,45 @@ export default async function StayListingDetailPageContent({
 
   const renderCalendarBlock = () => (
     <div id="stay-section-calendar" className="scroll-mt-28">
-      <StayListingCalendarBookingBlock
-        locale={locale}
-        listingId={listing.id}
-        initialDays={availabilityCalendarDays}
-        initialMonthsShown={calendarMonthsShown}
-        stayBookingRules={listing.stayBookingRules}
-        mealPlans={mealPlans}
-        price={price ?? ''}
-        priceAmount={reservationPriceAmount}
-        priceCurrency={priceCurrency}
-        saleOff={saleOff}
-        discountPercent={discountPercent}
-        poolHeating={poolHeatingOption}
-        isHolidayHome={isHolidayHome}
-        cleaningFeeAmount={listing.cleaningFeeAmount}
-        damageDepositAmount={damageDepositAmount}
-        ruleFallbackNightly={ruleFallbackForQuote}
-        ruleNightlyRange={ruleNightlyRangeForQuote}
-      />
+      {hasHotelRoomBooking ? (
+        <HotelStayBookingCalendar
+          locale={locale}
+          listingId={stayListingId}
+          rooms={hotelBookingRooms}
+          initialMonthsShown={calendarMonthsShown}
+          stayBookingRules={listing.stayBookingRules}
+          mealPlans={mealPlans}
+          price={price ?? ''}
+          priceAmount={reservationPriceAmount}
+          priceCurrency={priceCurrency}
+          saleOff={saleOff}
+          discountPercent={discountPercent}
+          cleaningFeeAmount={listing.cleaningFeeAmount}
+          damageDepositAmount={damageDepositAmount}
+          ruleFallbackNightly={ruleFallbackForQuote}
+          ruleNightlyRange={ruleNightlyRangeForQuote}
+        />
+      ) : (
+        <StayListingCalendarBookingBlock
+          locale={locale}
+          listingId={listing.id}
+          initialDays={availabilityCalendarDays}
+          initialMonthsShown={calendarMonthsShown}
+          stayBookingRules={listing.stayBookingRules}
+          mealPlans={mealPlans}
+          price={price ?? ''}
+          priceAmount={reservationPriceAmount}
+          priceCurrency={priceCurrency}
+          saleOff={saleOff}
+          discountPercent={discountPercent}
+          poolHeating={poolHeatingOption}
+          isHolidayHome={isHolidayHome}
+          cleaningFeeAmount={listing.cleaningFeeAmount}
+          damageDepositAmount={damageDepositAmount}
+          ruleFallbackNightly={ruleFallbackForQuote}
+          ruleNightlyRange={ruleNightlyRangeForQuote}
+        />
+      )}
     </div>
   )
 

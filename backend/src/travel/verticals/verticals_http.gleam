@@ -4,6 +4,7 @@ import backend/context.{type Context}
 import gleam/bit_array
 import gleam/dynamic/decode
 import gleam/http
+import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -435,13 +436,14 @@ pub fn patch_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
 
 // --- hotel rooms ---
 
-fn hr_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn hr_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use nm <- decode.field(1, decode.string)
   use cap <- decode.field(2, decode.string)
   use bt <- decode.field(3, decode.string)
   use mj <- decode.field(4, decode.string)
-  decode.success(#(id, nm, cap, bt, mj))
+  use uc <- decode.field(5, decode.string)
+  decode.success(#(id, nm, cap, bt, mj, uc))
 }
 
 /// GET /api/v1/verticals/listings/:listing_id/hotel-rooms
@@ -449,7 +451,7 @@ pub fn list_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Respo
   use <- wisp.require_method(req, http.Get)
   case
     pog.query(
-      "select id::text, name, coalesce(capacity::text,''), coalesce(board_type,''), coalesce(meta_json::text,'{}') from hotel_rooms where listing_id = $1::uuid order by name",
+      "select id::text, name, coalesce(capacity::text,''), coalesce(board_type,''), coalesce(meta_json::text,'{}'), coalesce(unit_count::text,'1') from hotel_rooms where listing_id = $1::uuid order by name",
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(hr_row())
@@ -459,7 +461,7 @@ pub fn list_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Respo
     Ok(ret) -> {
       let arr =
         list.map(ret.rows, fn(r) {
-          let #(id, nm, cap, bt, mj) = r
+          let #(id, nm, cap, bt, mj, uc) = r
           let capj = case cap == "" {
             True -> json.null()
             False -> json.string(cap)
@@ -468,12 +470,17 @@ pub fn list_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Respo
             True -> json.null()
             False -> json.string(bt)
           }
+          let ucj = case int.parse(uc) {
+            Ok(n) -> json.int(n)
+            Error(_) -> json.int(1)
+          }
           json.object([
             #("id", json.string(id)),
             #("name", json.string(nm)),
             #("capacity", capj),
             #("board_type", btj),
             #("meta_json", json.string(mj)),
+            #("unit_count", ucj),
           ])
         })
       let body =

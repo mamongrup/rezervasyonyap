@@ -40,6 +40,8 @@ interface Props {
   onRangeChange?: (dates: [Date | null, Date | null]) => void
   /** Konaklama rezervasyon kuralları (min. gece, önceden rezervasyon) */
   bookingRules?: StayBookingRules
+  /** Otel oda müsaitliği — takvimde dolu günleri filtreler */
+  availabilityDays?: ListingAvailabilityDay[]
   /** Takvim paneli konumu / genişliği (checkout vb.) */
   panelClassName?: string
   /** Varsayılan düğme yerine özel tetikleyici (checkout kalem satırı) */
@@ -57,6 +59,7 @@ const DatesRangeInputPopover: FC<Props> = ({
   rangeEnd: rangeEndProp,
   onRangeChange,
   bookingRules,
+  availabilityDays,
   panelClassName,
   renderTrigger,
 }) => {
@@ -97,20 +100,26 @@ const DatesRangeInputPopover: FC<Props> = ({
     [todayStart, bookingRules?.minAdvanceBookingDays],
   )
   const minNights = useMemo(() => resolvedMinStayNights(bookingRules), [bookingRules])
-  const emptyByYmd = useMemo(() => new Map<string, ListingAvailabilityDay>(), [])
+  const byYmd = useMemo(() => {
+    const m = new Map<string, ListingAvailabilityDay>()
+    for (const row of availabilityDays ?? []) {
+      m.set(row.day.trim(), row)
+    }
+    return m
+  }, [availabilityDays])
 
   const filterDate = useMemo(
     () => (d: Date) =>
       stayListingCalendarDaySelectable(d, {
         effectiveMinDate,
-        byYmd: emptyByYmd,
+        byYmd,
         startDate,
         endDate,
         minNights,
         allowSubMinStayGapBooking: bookingRules?.allowSubMinStayGapBooking,
         formatLocalYmd,
       }),
-    [effectiveMinDate, emptyByYmd, startDate, endDate, minNights, bookingRules?.allowSubMinStayGapBooking],
+    [effectiveMinDate, byYmd, startDate, endDate, minNights, bookingRules?.allowSubMinStayGapBooking],
   )
 
   const renderInput = () => {

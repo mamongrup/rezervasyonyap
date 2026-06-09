@@ -322,7 +322,8 @@ function CheckoutPageContent() {
         }
         const turnaDraft = searchParams.get('flight') === '1' ? readTurnaFlightBookingDraft() : null
         const yolcu360Draft = searchParams.get('car') === '1' ? readYolcu360CarBookingDraft() : null
-        const cart = await createCart(currency)
+        const hotelRoomId = searchParams.get('hotelRoomId')?.trim()
+        const hotelRoomName = searchParams.get('hotelRoomName')?.trim()
         const lineMeta = turnaDraft
           ? JSON.stringify({
               provider: 'turna',
@@ -341,7 +342,13 @@ function CheckoutPageContent() {
                 checkout: yolcu360Draft.checkout,
                 car: yolcu360Draft.car,
               })
-            : undefined
+            : hotelRoomId
+              ? JSON.stringify({
+                  hotel_room_id: hotelRoomId,
+                  ...(hotelRoomName ? { hotel_room_name: hotelRoomName } : {}),
+                })
+              : undefined
+        const cart = await createCart(currency)
         await addCartLine(cart.id, {
           listing_id: listingId,
           quantity: 1,
@@ -447,7 +454,9 @@ function CheckoutPageContent() {
                 ? C.errors.datesRequired
                 : code === 'invalid_date_range'
                   ? C.errors.invalidDateRange
-                  : code === 'listing_contract_required'
+                  : code === 'hotel_room_unavailable'
+                    ? C.errors.hotelRoomUnavailable
+                    : code === 'listing_contract_required'
                     ? C.errors.listingContractRequired
                     : code === 'listing_unavailable_or_currency_mismatch'
                       ? C.errors.currencyMismatch

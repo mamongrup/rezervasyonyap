@@ -171,8 +171,17 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "listings", lid, "hotel-rooms"] ->
       catalog_http.add_manage_hotel_room(req, ctx, lid)
 
+    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-rooms"] ->
+      catalog_http.put_manage_hotel_rooms(req, ctx, lid)
+
     http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid] ->
       catalog_http.delete_manage_hotel_room(req, ctx, lid, rid)
+
+    http.Get, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid, "availability-calendar"] ->
+      catalog_http.get_hotel_room_availability_calendar(req, ctx, lid, rid)
+
+    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-rooms", rid, "availability-calendar"] ->
+      catalog_http.put_hotel_room_availability_calendar(req, ctx, lid, rid)
 
     // ── Yemek Planları ────────────────────────────────────────────────
     http.Get, ["api", "v1", "catalog", "listings", lid, "meal-plans"] ->
@@ -207,6 +216,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "availability-calendar"] ->
       catalog_http.list_public_listing_availability_calendar(req, ctx, lid)
+
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "hotel-rooms", rid, "availability-calendar"] ->
+      catalog_http.list_public_hotel_room_availability_calendar(req, ctx, lid, rid)
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "activity-sessions"] ->
       catalog_http.list_public_activity_sessions(req, ctx, lid)

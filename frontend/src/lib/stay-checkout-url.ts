@@ -94,9 +94,17 @@ export function buildStayCheckoutUrl(
     endDate: Date
     currencyCode: string
     unitPrice: number
+    hotelRoomId?: string
+    hotelRoomName?: string
   },
 ): string {
-  return buildListingCheckoutUrl(checkoutPath, params)
+  return buildListingCheckoutUrl(checkoutPath, {
+    ...params,
+    extra: {
+      hotelRoomId: params.hotelRoomId,
+      hotelRoomName: params.hotelRoomName,
+    },
+  })
 }
 
 export function resolveCheckoutListingId(

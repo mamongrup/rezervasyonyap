@@ -116,6 +116,8 @@ import {
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 import WizardCalendarGrid from '@/components/wizard/WizardCalendarGrid'
 import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
+import HotelRoomsEditor from '@/components/manage/HotelRoomsEditor'
+import HotelRoomAvailabilityEditor from '@/components/manage/HotelRoomAvailabilityEditor'
 import {
   defaultHolidayHomePropertyTypeItems,
   holidayPropertyLabelForLocale,
@@ -875,6 +877,7 @@ export default function CatalogNewListingClient({
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
+  const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
   const isStayRentalWizard = isStayRentalCategory(categoryCode)
   const catalogVertical = normalizeCatalogVertical(categoryCode)
@@ -3368,7 +3371,7 @@ export default function CatalogNewListingClient({
           {[
             ['Tesis Özellikleri', 'Wi‑Fi, spa, otopark, aile, plaj gibi öne çıkanları özniteliklerden işaretleyin.'],
             ['Konsept & Kampanya', 'Her şey dahil, balayı, ultra lüks gibi sınıfları konaklama/tema alanlarıyla eşleyin.'],
-            ['Odalar', editListingId ? 'Kaydettikten sonra otel detay ekranındaki Odalar sekmesinden oda kartlarını yönetin.' : 'İlanı kaydedince Otel sekmesinde oda tipleri ve görselleri açılır.'],
+            ['Odalar', editListingId ? 'Bu adımda oda tiplerini ve adetlerini tanımlayın; müsaitlik takvimini 5. adımda oda bazında ayarlayın.' : 'İlanı kaydettikten sonra bu adımda oda tipleri ve adetleri açılır.'],
           ].map(([title, text]) => (
             <div
               key={title}
@@ -4226,6 +4229,25 @@ export default function CatalogNewListingClient({
               </Section>
             ) : null}
 
+            {isHotel ? (
+              <Section
+                title="Oda tipleri"
+                subtitle="Her oda tipi için ad, kapasite, pansiyon ve kaç adet oda olduğunu girin."
+              >
+                {editListingId ? (
+                  <HotelRoomsEditor
+                    listingId={editListingId}
+                    organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
+                    İlanı kaydettikten sonra bu adımda oda tiplerini ekleyebilirsiniz. Önce «Kaydet» ile ilanı
+                    oluşturun; kayıt sonrası aynı sihirbazda oda satırları ve adet alanları açılır.
+                  </p>
+                )}
+              </Section>
+            ) : null}
+
             {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) && accRules.length > 0 && (
               <Section
                 title={isVilla ? 'Ev Kuralları' : 'Konaklama Kuralları'}
@@ -4335,6 +4357,13 @@ export default function CatalogNewListingClient({
                     {/* ── Müsaitlik Takvimi ── */}
                     {calSubTab === 'calendar' && (
                       <>
+                    {isHotel ? (
+                      <HotelRoomAvailabilityEditor
+                        listingId={editListingId}
+                        organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                      />
+                    ) : (
+                      <>
                         {/* Tarih aralığı seçici */}
                         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
                           <div>
@@ -4432,6 +4461,8 @@ export default function CatalogNewListingClient({
                             </div>
                           </>
                         )}
+                      </>
+                    )}
                       </>
                     )}
 

@@ -1660,13 +1660,14 @@ pub fn patch_manage_listing_contract(
 
 // --- Otel: odalar, takvim, dönemsel fiyat (listing_* tabloları + hotel_rooms) — yönetim kapsamı ---
 
-fn hotel_room_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn hotel_room_row() -> decode.Decoder(#(String, String, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use nm <- decode.field(1, decode.string)
   use cap <- decode.field(2, decode.string)
   use bt <- decode.field(3, decode.string)
   use mj <- decode.field(4, decode.string)
-  decode.success(#(id, nm, cap, bt, mj))
+  use uc <- decode.field(5, decode.string)
+  decode.success(#(id, nm, cap, bt, mj, uc))
 }
 
 /// GET /api/v1/catalog/listings/:id/hotel-rooms
@@ -1681,7 +1682,7 @@ pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -
         Ok(True) ->
           case
             pog.query(
-              "select id::text, name, coalesce(capacity::text,''), coalesce(board_type,''), coalesce(meta_json::text,'{}') from hotel_rooms where listing_id = $1::uuid order by name",
+              "select id::text, name, coalesce(capacity::text,''), coalesce(board_type,''), coalesce(meta_json::text,'{}'), coalesce(unit_count::text,'1') from hotel_rooms where listing_id = $1::uuid order by name",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(hotel_room_row())
@@ -1691,7 +1692,7 @@ pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -
             Ok(ret) -> {
               let arr =
                 list.map(ret.rows, fn(r) {
-                  let #(id, nm, cap, bt, mj) = r
+                  let #(id, nm, cap, bt, mj, uc) = r
                   let capj = case cap == "" {
                     True -> json.null()
                     False -> json.string(cap)
@@ -1700,12 +1701,17 @@ pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -
                     True -> json.null()
                     False -> json.string(bt)
                   }
+                  let ucj = case int.parse(uc) {
+                    Ok(n) -> json.int(n)
+                    Error(_) -> json.int(1)
+                  }
                   json.object([
                     #("id", json.string(id)),
                     #("name", json.string(nm)),
                     #("capacity", capj),
                     #("board_type", btj),
                     #("meta_json", json.string(mj)),
+                    #("unit_count", ucj),
                   ])
                 })
               let body =
@@ -1718,20 +1724,26 @@ pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -
   }
 }
 
-fn hr_manage_create_decoder() -> decode.Decoder(#(String, Option(String), Option(String), String)) {
+fn hr_manage_create_decoder() -> decode.Decoder(#(String, Option(String), Option(String), Int, String)) {
   decode.field("name", decode.string, fn(nm) {
     decode.optional_field("capacity", "", decode.string, fn(cap) {
       decode.optional_field("board_type", "", decode.string, fn(bt) {
-        decode.optional_field("meta_json", "{}", decode.string, fn(mj) {
-          let c = case string.trim(cap) == "" {
-            True -> None
-            False -> Some(string.trim(cap))
-          }
-          let b = case string.trim(bt) == "" {
-            True -> None
-            False -> Some(string.trim(bt))
-          }
-          decode.success(#(nm, c, b, string.trim(mj)))
+        decode.optional_field("unit_count", 1, decode.int, fn(uc) {
+          decode.optional_field("meta_json", "{}", decode.string, fn(mj) {
+            let c = case string.trim(cap) == "" {
+              True -> None
+              False -> Some(string.trim(cap))
+            }
+            let b = case string.trim(bt) == "" {
+              True -> None
+              False -> Some(string.trim(bt))
+            }
+            let units = case uc < 1 {
+              True -> 1
+              False -> uc
+            }
+            decode.success(#(nm, c, b, units, string.trim(mj)))
+          })
         })
       })
     })
@@ -1753,7 +1765,7 @@ pub fn add_manage_hotel_room(req: Request, ctx: Context, listing_id: String) -> 
             Ok(body) ->
               case json.parse(body, hr_manage_create_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(nm, cap_opt, bt_opt, mj_raw)) ->
+                Ok(#(nm, cap_opt, bt_opt, uc, mj_raw)) ->
                   case string.trim(nm) == "" {
                     True -> json_err(400, "name_required")
                     False -> {
@@ -1771,13 +1783,14 @@ pub fn add_manage_hotel_room(req: Request, ctx: Context, listing_id: String) -> 
                       }
                       case
                         pog.query(
-                          "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json) values ($1::uuid, $2, $3::smallint, $4, ($5::text)::jsonb) returning id::text",
+                          "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json, unit_count) values ($1::uuid, $2, $3::smallint, $4, ($5::text)::jsonb, $6::smallint) returning id::text",
                         )
                         |> pog.parameter(pog.text(listing_id))
                         |> pog.parameter(pog.text(string.trim(nm)))
                         |> pog.parameter(cap_p)
                         |> pog.parameter(bt_p)
                         |> pog.parameter(pog.text(mj))
+                        |> pog.parameter(pog.int(uc))
                         |> pog.returning(one_string_row())
                         |> pog.execute(ctx.db)
                       {
@@ -1827,6 +1840,423 @@ pub fn delete_manage_hotel_room(
               case ret.count {
                 0 -> json_err(404, "not_found")
                 _ -> wisp.json_response("{\"ok\":true}", 200)
+              }
+          }
+      }
+  }
+}
+
+fn hr_manage_input_decoder() -> decode.Decoder(#(Option(String), String, Option(String), Option(String), Int, String)) {
+  decode.optional_field("id", "", decode.string, fn(id_raw) {
+    decode.field("name", decode.string, fn(nm) {
+      decode.optional_field("capacity", "", decode.string, fn(cap) {
+        decode.optional_field("board_type", "", decode.string, fn(bt) {
+          decode.optional_field("unit_count", 1, decode.int, fn(uc) {
+            decode.optional_field("meta_json", "{}", decode.string, fn(mj) {
+              let id_opt = case string.trim(id_raw) == "" {
+                True -> None
+                False -> Some(string.trim(id_raw))
+              }
+              let c = case string.trim(cap) == "" {
+                True -> None
+                False -> Some(string.trim(cap))
+              }
+              let b = case string.trim(bt) == "" {
+                True -> None
+                False -> Some(string.trim(bt))
+              }
+              let units = case uc < 1 {
+                True -> 1
+                False -> uc
+              }
+              decode.success(#(id_opt, nm, c, b, units, string.trim(mj)))
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+fn hr_manage_put_decoder() -> decode.Decoder(List(#(Option(String), String, Option(String), Option(String), Int, String))) {
+  decode.field("rooms", decode.list(hr_manage_input_decoder()), fn(rows) {
+    decode.success(rows)
+  })
+}
+
+fn hr_sync_insert(
+  conn: pog.Connection,
+  listing_id: String,
+  rows: List(#(Option(String), String, Option(String), Option(String), Int, String)),
+  idx: Int,
+  keep_ids: List(String),
+) -> Result(List(String), String) {
+  case rows {
+    [] -> Ok(keep_ids)
+    [first, ..rest] -> {
+      let #(id_opt, nm, cap_opt, bt_opt, uc, mj_raw) = first
+      let nm_t = string.trim(nm)
+      case nm_t == "" {
+        True -> hr_sync_insert(conn, listing_id, rest, idx, keep_ids)
+        False -> {
+          let mj = case mj_raw == "" {
+            True -> "{}"
+            False -> mj_raw
+          }
+          let cap_p = case cap_opt {
+            None -> pog.null()
+            Some(s) -> pog.text(s)
+          }
+          let bt_p = case bt_opt {
+            None -> pog.null()
+            Some(s) -> pog.text(s)
+          }
+          case id_opt {
+            Some(rid) ->
+              case
+                pog.query(
+                  "update hotel_rooms set name = $3, capacity = $4::smallint, board_type = $5, meta_json = ($6::text)::jsonb, unit_count = $7::smallint where id = $1::uuid and listing_id = $2::uuid returning id::text",
+                )
+                |> pog.parameter(pog.text(rid))
+                |> pog.parameter(pog.text(listing_id))
+                |> pog.parameter(pog.text(nm_t))
+                |> pog.parameter(cap_p)
+                |> pog.parameter(bt_p)
+                |> pog.parameter(pog.text(mj))
+                |> pog.parameter(pog.int(uc))
+                |> pog.returning(one_string_row())
+                |> pog.execute(conn)
+              {
+                Error(_) -> Error("hotel_room_update_failed")
+                Ok(ret) ->
+                  case ret.rows {
+                    [id] -> hr_sync_insert(conn, listing_id, rest, idx + 1, [id, ..keep_ids])
+                    _ ->
+                      case
+                        pog.query(
+                          "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json, unit_count) values ($1::uuid, $2, $3::smallint, $4, ($5::text)::jsonb, $6::smallint) returning id::text",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(nm_t))
+                        |> pog.parameter(cap_p)
+                        |> pog.parameter(bt_p)
+                        |> pog.parameter(pog.text(mj))
+                        |> pog.parameter(pog.int(uc))
+                        |> pog.returning(one_string_row())
+                        |> pog.execute(conn)
+                      {
+                        Error(_) -> Error("hotel_room_insert_failed")
+                        Ok(ins) ->
+                          case ins.rows {
+                            [new_id] ->
+                              hr_sync_insert(conn, listing_id, rest, idx + 1, [new_id, ..keep_ids])
+                            _ -> Error("hotel_room_insert_unexpected")
+                          }
+                      }
+                  }
+              }
+            None ->
+              case
+                pog.query(
+                  "insert into hotel_rooms (listing_id, name, capacity, board_type, meta_json, unit_count) values ($1::uuid, $2, $3::smallint, $4, ($5::text)::jsonb, $6::smallint) returning id::text",
+                )
+                |> pog.parameter(pog.text(listing_id))
+                |> pog.parameter(pog.text(nm_t))
+                |> pog.parameter(cap_p)
+                |> pog.parameter(bt_p)
+                |> pog.parameter(pog.text(mj))
+                |> pog.parameter(pog.int(uc))
+                |> pog.returning(one_string_row())
+                |> pog.execute(conn)
+              {
+                Error(_) -> Error("hotel_room_insert_failed")
+                Ok(ins) ->
+                  case ins.rows {
+                    [new_id] ->
+                      hr_sync_insert(conn, listing_id, rest, idx + 1, [new_id, ..keep_ids])
+                    _ -> Error("hotel_room_insert_unexpected")
+                  }
+              }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn hr_delete_stale_rooms(
+  conn: pog.Connection,
+  listing_id: String,
+  keep_ids: List(String),
+) -> Result(Nil, String) {
+  case
+    pog.query("select id::text from hotel_rooms where listing_id = $1::uuid")
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(one_string_row())
+    |> pog.execute(conn)
+  {
+    Error(_) -> Error("hotel_rooms_list_failed")
+    Ok(ret) -> hr_delete_stale_loop(conn, listing_id, ret.rows, keep_ids)
+  }
+}
+
+fn hr_delete_stale_loop(
+  conn: pog.Connection,
+  listing_id: String,
+  existing: List(String),
+  keep_ids: List(String),
+) -> Result(Nil, String) {
+  case existing {
+    [] -> Ok(Nil)
+    [id, ..rest] ->
+      case list.contains(keep_ids, id) {
+        True -> hr_delete_stale_loop(conn, listing_id, rest, keep_ids)
+        False ->
+          case
+            pog.query("delete from hotel_rooms where id = $1::uuid and listing_id = $2::uuid")
+            |> pog.parameter(pog.text(id))
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.execute(conn)
+          {
+            Error(_) -> Error("hotel_rooms_delete_failed")
+            Ok(_) -> hr_delete_stale_loop(conn, listing_id, rest, keep_ids)
+          }
+      }
+  }
+}
+
+/// PUT /api/v1/catalog/listings/:id/hotel-rooms — tüm oda listesini senkronize eder
+pub fn put_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, hr_manage_put_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(rows) ->
+                  case pog.transaction(ctx.db, fn(conn) {
+                    case hr_sync_insert(conn, listing_id, rows, 0, []) {
+                      Ok(keep_ids) -> hr_delete_stale_rooms(conn, listing_id, keep_ids)
+                      Error(msg) -> Error(msg)
+                    }
+                  }) {
+                    Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
+                    Error(pog.TransactionQueryError(_)) ->
+                      json_err(500, "hotel_rooms_transaction_failed")
+                    Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn hotel_room_in_listing(
+  db: pog.Connection,
+  listing_id: String,
+  room_id: String,
+) -> Result(Bool, Nil) {
+  case
+    pog.query(
+      "select 1 from hotel_rooms where id = $1::uuid and listing_id = $2::uuid limit 1",
+    )
+    |> pog.parameter(pog.text(room_id))
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(one_string_row())
+    |> pog.execute(db)
+  {
+    Error(_) -> Error(Nil)
+    Ok(ret) -> Ok(ret.rows != [])
+  }
+}
+
+fn hr_avail_day_row() -> decode.Decoder(#(String, String, String)) {
+  use d <- decode.field(0, decode.string)
+  use au <- decode.field(1, decode.string)
+  use po <- decode.field(2, decode.string)
+  decode.success(#(d, au, po))
+}
+
+/// GET /api/v1/catalog/listings/:id/hotel-rooms/:room_id/availability-calendar
+pub fn get_hotel_room_availability_calendar(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  room_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case hotel_room_in_listing(ctx.db, listing_id, room_id) {
+            Error(_) -> json_err(500, "hotel_room_scope_check_failed")
+            Ok(False) -> json_err(404, "hotel_room_not_found")
+            Ok(True) -> {
+              let qs = case request.get_query(req) {
+                Ok(q) -> q
+                Error(_) -> []
+              }
+              let from_d =
+                list.key_find(qs, "from")
+                |> result.unwrap("")
+                |> string.trim
+              let to_d =
+                list.key_find(qs, "to")
+                |> result.unwrap("")
+                |> string.trim
+              case from_d == "" || to_d == "" {
+                True -> json_err(400, "from_to_required")
+                False ->
+                  case parse_iso_date_ymd(from_d), parse_iso_date_ymd(to_d) {
+                    Ok(from_date), Ok(to_date) ->
+                      case
+                        pog.query(
+                          "select day::text, coalesce(available_units::text,'0'), coalesce(price_override::text,'') from hotel_room_availability_calendar where hotel_room_id = $1::uuid and day >= $2::date and day <= $3::date order by day",
+                        )
+                        |> pog.parameter(pog.text(room_id))
+                        |> pog.parameter(pog.calendar_date(from_date))
+                        |> pog.parameter(pog.calendar_date(to_date))
+                        |> pog.returning(hr_avail_day_row())
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "hotel_room_availability_query_failed")
+                        Ok(ret) -> {
+                          let arr =
+                            list.map(ret.rows, fn(row) {
+                              let #(d, au, po) = row
+                              let aui = case int.parse(au) {
+                                Ok(n) -> json.int(n)
+                                Error(_) -> json.int(0)
+                              }
+                              let poj = case po == "" {
+                                True -> json.null()
+                                False -> json.string(po)
+                              }
+                              json.object([
+                                #("day", json.string(d)),
+                                #("available_units", aui),
+                                #("price_override", poj),
+                              ])
+                            })
+                          let body =
+                            json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
+                            |> json.to_string
+                          wisp.json_response(body, 200)
+                        }
+                      }
+                    _, _ -> json_err(400, "invalid_date_format")
+                  }
+              }
+            }
+          }
+      }
+  }
+}
+
+fn hr_avail_day_input_decoder() -> decode.Decoder(#(String, Int, Option(String))) {
+  decode.field("day", decode.string, fn(day) {
+    decode.field("available_units", decode.int, fn(units) {
+      decode.optional_field("price_override", "", decode.string, fn(po) {
+        let po_opt = case string.trim(po) == "" {
+          True -> None
+          False -> Some(string.trim(po))
+        }
+        let u = case units < 0 {
+          True -> 0
+          False -> units
+        }
+        decode.success(#(day, u, po_opt))
+      })
+    })
+  })
+}
+
+fn hr_avail_put_decoder() -> decode.Decoder(List(#(String, Int, Option(String)))) {
+  decode.field("days", decode.list(hr_avail_day_input_decoder()), fn(days) {
+    decode.success(days)
+  })
+}
+
+fn upsert_hotel_room_avail_days(
+  conn: pog.Connection,
+  room_id: String,
+  days: List(#(String, Int, Option(String))),
+) -> Result(Nil, String) {
+  case days {
+    [] -> Ok(Nil)
+    [first, ..rest] -> {
+      let #(day_s, units, po_opt) = first
+      case parse_iso_date_ymd(day_s) {
+        Error(_) -> Error("invalid_date_format")
+        Ok(day_date) -> {
+          let po_p = case po_opt {
+            None -> pog.null()
+            Some(s) -> pog.text(s)
+          }
+          case
+            pog.query(
+              "insert into hotel_room_availability_calendar (hotel_room_id, day, available_units, price_override) values ($1::uuid, $2::date, $3::smallint, case when $4::text is null or btrim($4::text) = '' then null else $4::numeric end) on conflict (hotel_room_id, day) do update set available_units = excluded.available_units, price_override = excluded.price_override",
+            )
+            |> pog.parameter(pog.text(room_id))
+            |> pog.parameter(pog.calendar_date(day_date))
+            |> pog.parameter(pog.int(units))
+            |> pog.parameter(po_p)
+            |> pog.execute(conn)
+          {
+            Error(_) -> Error("hotel_room_availability_upsert_failed")
+            Ok(_) -> upsert_hotel_room_avail_days(conn, room_id, rest)
+          }
+        }
+      }
+    }
+  }
+}
+
+/// PUT /api/v1/catalog/listings/:id/hotel-rooms/:room_id/availability-calendar
+pub fn put_hotel_room_availability_calendar(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  room_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case hotel_room_in_listing(ctx.db, listing_id, room_id) {
+            Error(_) -> json_err(500, "hotel_room_scope_check_failed")
+            Ok(False) -> json_err(404, "hotel_room_not_found")
+            Ok(True) ->
+              case read_body_string(req) {
+                Error(_) -> json_err(400, "empty_body")
+                Ok(body) ->
+                  case json.parse(body, hr_avail_put_decoder()) {
+                    Error(_) -> json_err(400, "invalid_json")
+                    Ok(days) ->
+                      case pog.transaction(ctx.db, fn(conn) {
+                        upsert_hotel_room_avail_days(conn, room_id, days)
+                      }) {
+                        Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
+                        Error(pog.TransactionQueryError(_)) ->
+                          json_err(500, "hotel_room_availability_transaction_failed")
+                        Error(pog.TransactionRolledBack(msg)) -> json_err(400, msg)
+                      }
+                  }
               }
           }
       }
@@ -4974,6 +5404,77 @@ pub fn list_public_listing_availability_calendar(
                     #("am_available", json.bool(am)),
                     #("pm_available", json.bool(pm)),
                     #("day_status", avail_day_status_json(st)),
+                  ])
+                })
+              let body =
+                json.object([#("days", json.array(from: arr, of: fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+        _, _ -> json_err(400, "invalid_date_format")
+      }
+  }
+}
+
+/// GET /api/v1/catalog/public/listings/:id/hotel-rooms/:room_id/availability-calendar — vitrin (yayında ilan)
+pub fn list_public_hotel_room_availability_calendar(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  room_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let from_d =
+    list.key_find(qs, "from")
+    |> result.unwrap("")
+    |> string.trim
+  let to_d =
+    list.key_find(qs, "to")
+    |> result.unwrap("")
+    |> string.trim
+  case from_d == "" || to_d == "" {
+    True -> json_err(400, "from_to_required")
+    False ->
+      case parse_iso_date_ymd(from_d), parse_iso_date_ymd(to_d) {
+        Ok(from_date), Ok(to_date) ->
+          case
+            pog.query(
+              "select c.day::text, coalesce(c.available_units::text,'0'), coalesce(c.price_override::text,'') "
+              <> "from hotel_room_availability_calendar c "
+              <> "inner join hotel_rooms hr on hr.id = c.hotel_room_id and hr.listing_id = $1::uuid "
+              <> "inner join listings l on l.id = hr.listing_id and l.status = 'published' "
+              <> "where c.hotel_room_id = $2::uuid and c.day >= $3::date and c.day <= $4::date "
+              <> "order by c.day",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.parameter(pog.text(room_id))
+            |> pog.parameter(pog.calendar_date(from_date))
+            |> pog.parameter(pog.calendar_date(to_date))
+            |> pog.returning(hr_avail_day_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "public_hotel_room_availability_query_failed")
+            Ok(ret) -> {
+              let arr =
+                list.map(ret.rows, fn(row) {
+                  let #(d, au, po) = row
+                  let aui = case int.parse(au) {
+                    Ok(n) -> json.int(n)
+                    Error(_) -> json.int(0)
+                  }
+                  let poj = case po == "" {
+                    True -> json.null()
+                    False -> json.string(po)
+                  }
+                  json.object([
+                    #("day", json.string(d)),
+                    #("available_units", aui),
+                    #("price_override", poj),
                   ])
                 })
               let body =
