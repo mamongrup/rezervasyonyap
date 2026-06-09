@@ -3,12 +3,30 @@ import type { GuestsObject } from '@/type'
 /** ISO veya Date → yerel takvim YYYY-MM-DD (konaklama giriş/çıkış). */
 export function checkoutDateYmd(isoOrDate: string | Date | null | undefined): string {
   if (!isoOrDate) return ''
+  if (typeof isoOrDate === 'string') {
+    const trimmed = isoOrDate.trim()
+    const ymd = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)
+    if (ymd) return ymd[1]!
+  }
   const d = isoOrDate instanceof Date ? isoOrDate : new Date(String(isoOrDate).trim())
   if (Number.isNaN(d.getTime())) return ''
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+/** Checkout URL / YourTrip — YYYY-MM-DD veya ISO; hydration için öğlen yerel saat. */
+export function parseCheckoutTripDate(raw: string | null | undefined): Date | null {
+  if (!raw?.trim()) return null
+  const trimmed = raw.trim()
+  const ymd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (ymd) {
+    const d = new Date(Number(ymd[1]), Number(ymd[2]!) - 1, Number(ymd[3]), 12, 0, 0, 0)
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+  const d = new Date(trimmed)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 
 export type ListingCheckoutExtraParams = Record<string, string | undefined>
@@ -48,10 +66,12 @@ export function buildListingCheckoutUrl(
 ): string {
   const u = new URLSearchParams()
   u.set('listingId', params.listingId.trim())
-  u.set('startDate', params.startDate.toISOString())
-  u.set('endDate', params.endDate.toISOString())
-  u.set('checkIn', checkoutDateYmd(params.startDate))
-  u.set('checkOut', checkoutDateYmd(params.endDate))
+  const startYmd = checkoutDateYmd(params.startDate)
+  const endYmd = checkoutDateYmd(params.endDate)
+  u.set('startDate', startYmd)
+  u.set('endDate', endYmd)
+  u.set('checkIn', startYmd)
+  u.set('checkOut', endYmd)
   u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
   const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
   u.set('unitPrice', price.toFixed(2))

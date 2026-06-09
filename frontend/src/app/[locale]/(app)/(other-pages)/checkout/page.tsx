@@ -154,7 +154,7 @@ function CheckoutPageContent() {
     () => resolveCheckoutStayDates(searchParams),
     [searchParams],
   )
-  const nights = nightsBetween(searchParams.get('startDate'), searchParams.get('endDate'))
+  const nights = nightsBetween(stayDates.start, stayDates.end)
 
   const [pending, setPending] = React.useState(false)
   const [fxLockInfo, setFxLockInfo] = React.useState<FxLockSnapshot | null>(null)

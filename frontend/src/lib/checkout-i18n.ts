@@ -12,7 +12,18 @@ export function fmtCheckout(template: string, vars: Record<string, string | numb
 
 export function formatCheckoutDate(locale: string | undefined | null, iso: string): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const trimmed = iso.trim()
+  const ymd = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (ymd) {
+    const d = new Date(Date.UTC(Number(ymd[1]), Number(ymd[2]) - 1, Number(ymd[3])))
+    return d.toLocaleDateString(intlDateLocaleTag(locale), {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      timeZone: 'UTC',
+    })
+  }
+  const d = new Date(trimmed)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleDateString(intlDateLocaleTag(locale), {
     day: 'numeric',

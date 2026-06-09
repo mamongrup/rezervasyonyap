@@ -9,16 +9,26 @@ import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
 import { PencilEdit02Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { checkoutDateYmd } from '@/lib/stay-checkout-url'
+import { checkoutDateYmd, parseCheckoutTripDate } from '@/lib/stay-checkout-url'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 const CHECKOUT_DATE_PANEL =
   'absolute start-0 top-full z-[100] mt-3 w-[min(100vw-2rem,42rem)] transition duration-150 data-closed:translate-y-1 data-closed:opacity-0'
-function parseTripDate(s: string | null): Date | null {
-  if (!s?.trim()) return null
-  const d = new Date(s)
-  return Number.isNaN(d.getTime()) ? null : d
+
+function tripDateFromSearchParams(sp: URLSearchParams): { start: Date | null; end: Date | null } {
+  const checkIn = sp.get('checkIn')
+  const checkOut = sp.get('checkOut')
+  if (checkIn && checkOut) {
+    return {
+      start: parseCheckoutTripDate(checkIn),
+      end: parseCheckoutTripDate(checkOut),
+    }
+  }
+  return {
+    start: parseCheckoutTripDate(sp.get('startDate')),
+    end: parseCheckoutTripDate(sp.get('endDate')),
+  }
 }
 
 function parseGuestInt(sp: URLSearchParams, ...keys: string[]): number | undefined {
@@ -50,19 +60,14 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const [startDate, setStartDate] = useState<Date | null>(() =>
-    parseTripDate(searchParams.get('startDate')),
-  )
-  const [endDate, setEndDate] = useState<Date | null>(() =>
-    parseTripDate(searchParams.get('endDate')),
-  )
+  const [startDate, setStartDate] = useState<Date | null>(() => tripDateFromSearchParams(searchParams).start)
+  const [endDate, setEndDate] = useState<Date | null>(() => tripDateFromSearchParams(searchParams).end)
   const [guests, setGuests] = useState<GuestsObject>(() => guestsFromSearchParams(searchParams))
 
   useEffect(() => {
-    const st = parseTripDate(searchParams.get('startDate'))
-    const en = parseTripDate(searchParams.get('endDate'))
-    if (st) setStartDate(st)
-    if (en) setEndDate(en)
+    const { start, end } = tripDateFromSearchParams(searchParams)
+    if (start) setStartDate(start)
+    if (end) setEndDate(end)
     setGuests(guestsFromSearchParams(searchParams))
   }, [searchParams])
 
@@ -72,12 +77,19 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
 
   const guestSummary = useMemo(() => formatStayGuestSummary(locale, guests), [locale, guests])
 
+  const checkInYmd = searchParams.get('checkIn')?.trim() || (startDate ? checkoutDateYmd(startDate) : '')
+  const checkOutYmd = searchParams.get('checkOut')?.trim() || (endDate ? checkoutDateYmd(endDate) : '')
+
   const tripDateLabel =
-    startDate != null ? converSelectedDateToString([startDate, endDate]) : C.addDates
+    checkInYmd && checkOutYmd
+      ? `${formatCheckoutDate(locale, checkInYmd)} – ${formatCheckoutDate(locale, checkOutYmd)}`
+      : startDate != null
+        ? converSelectedDateToString([startDate, endDate])
+        : C.addDates
 
   const tripHeadingDates =
-    startDate && endDate
-      ? `${formatCheckoutDate(locale, checkoutDateYmd(startDate))} – ${formatCheckoutDate(locale, checkoutDateYmd(endDate))}`
+    checkInYmd && checkOutYmd
+      ? `${formatCheckoutDate(locale, checkInYmd)} – ${formatCheckoutDate(locale, checkOutYmd)}`
       : null
 
   const checkoutTriggerClass =
@@ -102,14 +114,14 @@ const YourTrip = ({ locale, onGuestsChange }: Props) => {
             setEndDate(end)
             const params = new URLSearchParams(searchParams.toString())
             if (start) {
-              params.set('startDate', start.toISOString())
+              params.set('startDate', checkoutDateYmd(start))
               params.set('checkIn', checkoutDateYmd(start))
             } else {
               params.delete('startDate')
               params.delete('checkIn')
             }
             if (end) {
-              params.set('endDate', end.toISOString())
+              params.set('endDate', checkoutDateYmd(end))
               params.set('checkOut', checkoutDateYmd(end))
             } else {
               params.delete('endDate')
