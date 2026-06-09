@@ -20,6 +20,8 @@ export type TravelrobotSettings = {
   import_hotels: boolean
   import_flights: boolean
   import_car_rental: boolean
+  /** Otel vitrininde oda kartları için otel bazlı SearchHotel (import yavaşlar). */
+  import_hotel_rooms: boolean
 }
 
 export type TurnaSettings = {

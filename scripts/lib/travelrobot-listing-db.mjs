@@ -241,6 +241,20 @@ export function buildStaticHotelMap(bulkResults) {
   return map
 }
 
+/** SearchHotel satırında oda/teklif var mı (import zenginleştirme). */
+export function hotelHasRooms(row) {
+  const rooms = row?.Rooms ?? row?.rooms ?? []
+  return (
+    Array.isArray(rooms) &&
+    rooms.some((r) => {
+      const alts = r?.RoomAlternatives ?? r?.roomAlternatives ?? []
+      if (alts.length) return true
+      const name = pickText(r, 'Name', 'name', 'RoomName', 'roomName')
+      return Boolean(name && name !== 'Standart Oda')
+    })
+  )
+}
+
 function extractHotelRoomRows(hotel) {
   const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
   const out = []
@@ -299,8 +313,9 @@ async function upsertHotelGallery(pgClient, listingId, urls) {
 
 async function upsertTravelrobotHotelRooms(pgClient, listingId, hotel) {
   const rows = extractHotelRoomRows(hotel)
-  await pgClient.query(`DELETE FROM hotel_rooms WHERE listing_id = $1::uuid`, [listingId])
+  // KPlus toplu arama odasız dönebilir; mevcut vitrin odalarını silme.
   if (!rows.length) return 0
+  await pgClient.query(`DELETE FROM hotel_rooms WHERE listing_id = $1::uuid`, [listingId])
   for (const r of rows) {
     await pgClient.query(
       `INSERT INTO hotel_rooms (listing_id, name, capacity, board_type, meta_json)

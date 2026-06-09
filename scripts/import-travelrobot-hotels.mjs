@@ -12,6 +12,7 @@
 import { createTravelrobotToken, loadTravelrobotConfig, searchHotels, pickHotelRows } from './lib/travelrobot-api.mjs'
 import { DEFAULT_HOTEL_DESTINATION_ID } from './lib/travelrobot-sandbox-ids.mjs'
 import { resolveImportContext, upsertTravelrobotHotelListing } from './lib/travelrobot-listing-db.mjs'
+import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
 const args = new Set(process.argv.slice(2))
@@ -66,6 +67,16 @@ async function main() {
   let rows = pickHotelRows(payload)
   console.log(`API: ${rows.length} otel adayı`)
   if (LIMIT > 0) rows = rows.slice(0, LIMIT)
+
+  const withRooms =
+    args.has('--with-rooms') || args.has('--no-with-rooms')
+      ? args.has('--with-rooms')
+      : cfg.importHotelRooms !== false
+  rows = await enrichTravelrobotHotelRows(cfg, tokenCode, rows, {
+    withRooms,
+    skipStatic: args.has('--skip-static'),
+    log: (msg) => console.log(msg),
+  })
 
   if (DRY_RUN) {
     console.log('Dry-run — DB yazılmadı. İlk kayıt:', rows[0] ? JSON.stringify(rows[0]).slice(0, 300) : '(boş)')

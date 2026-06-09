@@ -31,6 +31,7 @@ const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   import_hotels: false,
   import_flights: false,
   import_car_rental: false,
+  import_hotel_rooms: true,
 }
 
 const EMPTY_TURNA: TurnaSettings = {
@@ -626,6 +627,15 @@ export default function AdminListingApiProvidersSection() {
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={tr.import_hotels} onChange={(e) => setTr({ import_hotels: e.target.checked })} />
                 Otel
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={tr.import_hotel_rooms}
+                  disabled={!tr.import_hotels}
+                  onChange={(e) => setTr({ import_hotel_rooms: e.target.checked })}
+                />
+                Otel oda tipleri (SearchHotel)
               </label>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={tr.import_flights} onChange={(e) => setTr({ import_flights: e.target.checked })} />

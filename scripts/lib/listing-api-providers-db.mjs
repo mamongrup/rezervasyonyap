@@ -80,5 +80,7 @@ export async function loadTravelrobotConfigFromDb() {
     importHotels: Boolean(tr.import_hotels),
     importFlights: Boolean(tr.import_flights),
     importCarRental: Boolean(tr.import_car_rental),
+    /** Otel vitrininde oda tipleri için otel bazlı SearchHotel (yavaş; varsayılan açık). */
+    importHotelRooms: tr.import_hotel_rooms !== false,
   }
 }

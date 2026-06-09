@@ -33,11 +33,8 @@ import {
   upsertTravelrobotTourListing,
   upsertTravelrobotHotelListing,
   upsertTravelrobotFlightListing,
-  buildStaticHotelMap,
-  mergeStaticHotelContent,
-  hotelRef,
 } from './lib/travelrobot-listing-db.mjs'
-import { authenticateStatic, getBulkHotelContent } from './lib/travelrobot-static-api.mjs'
+import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
@@ -45,7 +42,9 @@ const args = new Set(process.argv.slice(2))
 const PING = args.has('--ping')
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
-const WITH_ROOMS = args.has('--with-rooms')
+const WITH_ROOMS = args.has('--with-rooms') || args.has('--no-with-rooms')
+  ? args.has('--with-rooms')
+  : null
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const orgIdIdx = process.argv.indexOf('--org-id')
@@ -110,68 +109,18 @@ function plannedModules(cfg) {
   return all
 }
 
-const HOTEL_DESTINATION_ID =
-  process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID
-
-function hotelHasRooms(row) {
-  const rooms = row?.Rooms ?? row?.rooms ?? []
-  return Array.isArray(rooms) && rooms.some((r) => (r?.RoomAlternatives ?? r?.roomAlternatives ?? []).length)
+function resolveWithRooms(cfg) {
+  if (WITH_ROOMS != null) return WITH_ROOMS
+  return cfg.importHotelRooms !== false
 }
 
 /** Static API görselleri + isteğe bağlı otel bazlı SearchHotel (oda/fiyat). */
 async function enrichHotelRows(cfg, tokenCode, rows) {
-  if (!rows.length) return rows
-
-  let enriched = rows
-  if (!SKIP_STATIC) {
-    try {
-      const { token: staticToken } = await authenticateStatic(cfg)
-      const codes = [...new Set(rows.map((r) => hotelRef(r)).filter(Boolean))]
-      await reporter.log(`Otel: Static API — ${codes.length} kod için içerik alınıyor…`)
-      const bulk = await getBulkHotelContent(cfg, staticToken, codes, { chunkSize: 50 })
-      const staticMap = buildStaticHotelMap(bulk)
-      enriched = rows.map((r) => mergeStaticHotelContent(r, staticMap.get(hotelRef(r))))
-      await reporter.log(`Otel: Static API — ${staticMap.size} otel içeriği birleştirildi`)
-    } catch (e) {
-      console.warn('[uyarı] Static API atlandı:', e.message)
-      await reporter.log(`Otel: Static API atlandı — ${String(e.message).slice(0, 100)}`)
-    }
-  }
-
-  if (!WITH_ROOMS) return enriched
-
-  const out = []
-  let roomHits = 0
-  for (let i = 0; i < enriched.length; i++) {
-    const row = enriched[i]
-    if (hotelHasRooms(row)) {
-      out.push(row)
-      roomHits++
-      continue
-    }
-    const code = hotelRef(row)
-    if (!code) {
-      out.push(row)
-      continue
-    }
-    try {
-      const payload = await searchHotels(cfg, tokenCode, {
-        destinationId: HOTEL_DESTINATION_ID,
-        hotelCode: code,
-        showMultipleRate: true,
-      })
-      const found = pickHotelRows(payload).find((h) => hotelRef(h) === code) ?? pickHotelRows(payload)[0]
-      out.push(found ? mergeStaticHotelContent(row, found) : row)
-      if (found && hotelHasRooms(found)) roomHits++
-    } catch {
-      out.push(row)
-    }
-    if ((i + 1) % 25 === 0) {
-      await reporter.log(`Otel: oda araması ${i + 1}/${enriched.length}…`)
-    }
-  }
-  await reporter.log(`Otel: ${roomHits}/${enriched.length} kayıtta oda/fiyat verisi`)
-  return out
+  return enrichTravelrobotHotelRows(cfg, tokenCode, rows, {
+    withRooms: resolveWithRooms(cfg),
+    skipStatic: SKIP_STATIC,
+    log: (msg) => reporter.log(msg),
+  })
 }
 
 async function main() {
