@@ -892,13 +892,17 @@ export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
   //   request.Passengers[] = { PaxType: "0"=ADT/"1"=CHD/"2"=INF, Count } (string)
   //   request.SearchType: "0"=Oneway / "1"=Roundtrip / "2"=Multiple
   //   request.AdvancedOptions.Air = { OnlyBestFares, OnlyDirectFlights, OnlyRefundableFlights, PermittedAirlineCodes }
+  const departAhead = Number(opts.departDaysAhead ?? 30)
   const rawLegs = opts.legs ?? [
-    { originCode: 'IST', destinationCode: 'LHR', departureDate: formatDate(addDays(30)) },
+    { originCode: 'IST', destinationCode: 'LHR', departureDate: formatDate(addDays(departAhead)) },
   ]
-  const legs = rawLegs.map((l) => ({
+  const legs = rawLegs.map((l, i) => ({
     DeparturePoint: { Code: l.originCode ?? l.departurePointCode, HotpointType: String(l.departureHotpointType ?? 1) },
     ArrivalPoint: { Code: l.destinationCode ?? l.arrivalPointCode, HotpointType: String(l.arrivalHotpointType ?? 1) },
-    Date: l.departureDate ?? l.date,
+    Date:
+      l.departureDate
+      ?? l.date
+      ?? formatDate(addDays(departAhead + (Number(l.departDaysAhead ?? i) || 0))),
   }))
 
   const passengers = []
