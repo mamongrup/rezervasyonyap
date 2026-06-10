@@ -1,16 +1,19 @@
 /**
- * Travelrobot uçuş import — panel kimlik bilgilerini DB'den okur.
+ * Travelrobot uçuş import — rota bazlı SearchAvailability (canlı API).
  *
  *   node scripts/import-travelrobot-flights.mjs --ping
  *   node scripts/import-travelrobot-flights.mjs --dry-run --limit 5
- *   node scripts/import-travelrobot-flights.mjs --org-id <uuid>
+ *   node scripts/import-travelrobot-flights.mjs
  *
- * Not: Default endpoint /Flight.svc/Rest/Json/SearchItinerary
- * Farklı endpoint için: --endpoint /Flight.svc/Rest/Json/SearchFlight
+ * Rotalar: scripts/config/travelrobot-flight-routes.json
  */
 
-import { createTravelrobotToken, loadTravelrobotConfig, searchFlights, pickFlightRows } from './lib/travelrobot-api.mjs'
+import { createTravelrobotToken, loadTravelrobotConfig, searchFlights } from './lib/travelrobot-api.mjs'
 import { resolveImportContext, upsertTravelrobotFlightListing } from './lib/travelrobot-listing-db.mjs'
+import {
+  flightRowFromRouteSearch,
+  loadTravelrobotFlightRoutes,
+} from './lib/travelrobot-flight-routes.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 
 const args = new Set(process.argv.slice(2))
@@ -20,14 +23,15 @@ const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const orgIdIdx = process.argv.indexOf('--org-id')
 const ORG_ID = orgIdIdx >= 0 ? process.argv[orgIdIdx + 1] : (process.env.IMPORT_ORG_ID ?? '')
-const endpointIdx = process.argv.indexOf('--endpoint')
-const ENDPOINT = endpointIdx >= 0 ? process.argv[endpointIdx + 1] : undefined
+const delayMs = Number(process.env.TRAVELROBOT_FLIGHT_DELAY_MS || 400)
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
 
 async function resolveOrgId(pgClient) {
   if (ORG_ID) return ORG_ID
-  const r = await pgClient.query(
-    `SELECT id::text FROM organizations ORDER BY created_at LIMIT 1`,
-  )
+  const r = await pgClient.query(`SELECT id::text FROM organizations ORDER BY created_at LIMIT 1`)
   if (!r.rows[0]) throw new Error('organizations tablosunda kayıt yok; --org-id <uuid> ile belirtin')
   return r.rows[0].id
 }
@@ -38,7 +42,7 @@ async function main() {
     console.warn('[uyarı] Travelrobot panelde kapalı (enabled=false) — yine de devam ediliyor')
   }
   if (!cfg.importFlights && !PING) {
-    console.warn('[uyarı] import_flights=false — panelden etkinleştirin veya yine de devam ediliyor')
+    console.warn('[uyarı] import_flights=false — apply-travelrobot-live-config veya panelden açın')
   }
 
   const { tokenCode } = await createTravelrobotToken(cfg)
@@ -47,53 +51,52 @@ async function main() {
     return
   }
 
-  console.log('GetFlightList çağrılıyor…')
-  let payload
-  try {
-    payload = await searchFlights(cfg, tokenCode, { endpoint: ENDPOINT })
-  } catch (e) {
-    console.error('[hata]', e.message)
-    console.error(
-      'Endpoint adını doğrulayın: --endpoint /Flight.svc/Rest/Json/<MethodAdı>',
-      '\nAlternatifler: SearchFlight, GetAvailableFlights, GetFlightList',
-    )
-    process.exit(1)
-  }
-
-  let rows = pickFlightRows(payload)
-  console.log(`API: ${rows.length} uçuş adayı`)
-  if (LIMIT > 0) rows = rows.slice(0, LIMIT)
-
-  if (DRY_RUN) {
-    console.log('Dry-run — DB yazılmadı. İlk kayıt:', rows[0] ? JSON.stringify(rows[0]).slice(0, 300) : '(boş)')
-    if (rows.length === 0) {
-      console.log('Ham yanıt önizleme:', JSON.stringify(payload).slice(0, 500))
-    }
-    return
-  }
+  const routes = loadTravelrobotFlightRoutes()
+  const slice = LIMIT > 0 ? routes.slice(0, LIMIT) : routes
+  console.log(`Uçuş: ${slice.length} rota işlenecek (${cfg.baseUrl})`)
 
   const client = createPgClient()
-  await client.connect()
-  try {
-    const orgId = await resolveOrgId(client)
-    const ctx = await resolveImportContext(client, orgId, 'flight')
-    const status = cfg.listingStatus || 'draft'
+  if (!DRY_RUN) await client.connect()
 
-    let created = 0, updated = 0, skipped = 0
-    for (const flight of rows) {
+  try {
+    const orgId = DRY_RUN ? ORG_ID : await resolveOrgId(client)
+    const ctx = DRY_RUN
+      ? { orgId, categoryId: null, localeTrId: null }
+      : await resolveImportContext(client, orgId, 'flight')
+    const status = cfg.listingStatus || 'published'
+
+    let created = 0
+    let updated = 0
+    let skipped = 0
+
+    for (let i = 0; i < slice.length; i++) {
+      const route = slice[i]
+      const key = `${route.origin}-${route.destination}`.toLowerCase()
+      process.stdout.write(`[${i + 1}/${slice.length}] ${key} … `)
       try {
+        const payload = await searchFlights(cfg, tokenCode, {
+          legs: [{ originCode: route.origin, destinationCode: route.destination }],
+        })
+        const flight = flightRowFromRouteSearch(route, payload)
+        if (DRY_RUN) {
+          console.log(`dry-run (${flight.offerCount ?? 0} teklif)`)
+          continue
+        }
         const result = await upsertTravelrobotFlightListing(client, ctx, flight, { status })
         if (result.action === 'created') created++
         else updated++
-        process.stdout.write('.')
+        const priceNote = result.price != null ? ` ₺${result.price}` : ''
+        console.log(`${result.action}${result.slug ? ` (${result.slug})` : ''}${priceNote}`)
       } catch (e) {
         skipped++
-        console.error(`\n[hata] ${e.message} — kayıt:`, JSON.stringify(flight).slice(0, 120))
+        console.log(`atlandı (${e.message})`)
       }
+      await sleep(delayMs)
     }
-    console.log(`\nTamamlandı: ${created} yeni, ${updated} güncellendi, ${skipped} atlandı`)
+
+    console.log(`\nTamamlandı: ${created} yeni, ${updated} güncellendi, ${skipped} atlandı${DRY_RUN ? ' (dry-run)' : ''}`)
   } finally {
-    await client.end()
+    if (!DRY_RUN) await client.end()
   }
 }
 

@@ -32,7 +32,7 @@ const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   listing_status: 'published',
   import_tours: true,
   import_hotels: false,
-  import_flights: false,
+  import_flights: true,
   import_car_rental: false,
   import_hotel_rooms: true,
 }

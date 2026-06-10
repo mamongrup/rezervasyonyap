@@ -35,7 +35,7 @@ const patch = {
   listing_status: env('TRAVELROBOT_LISTING_STATUS', 'published'),
   import_tours: envBool('TRAVELROBOT_IMPORT_TOURS', true),
   import_hotels: envBool('TRAVELROBOT_IMPORT_HOTELS', true),
-  import_flights: envBool('TRAVELROBOT_IMPORT_FLIGHTS', false),
+  import_flights: envBool('TRAVELROBOT_IMPORT_FLIGHTS', true),
   import_car_rental: envBool('TRAVELROBOT_IMPORT_CAR_RENTAL', false),
   import_hotel_rooms: envBool('TRAVELROBOT_IMPORT_HOTEL_ROOMS', true),
 }

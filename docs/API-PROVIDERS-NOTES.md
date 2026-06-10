@@ -63,9 +63,33 @@ node scripts/apply-travelrobot-live-config.mjs
 node scripts/ping-travelrobot-live.mjs
 node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5
 node scripts/import-travelrobot-hotels.mjs --from-static --dry-run --limit 5
+node scripts/import-travelrobot-tours.mjs --dry-run --limit 5
+node scripts/import-travelrobot-flights.mjs --dry-run --limit 5
 ```
 
 Canlı ortamda `SearchHotel` sandbox destinasyon ID ile **0 otel** dönebilir; import script'i otomatik olarak **Statik API kataloğuna** geçer.
+
+### Tur ve uçuş
+
+| Modül | Script | Not |
+|-------|--------|-----|
+| **Tur** | `import-travelrobot-tours.mjs` | `SearchTour` — kanalınızdaki tüm turlar |
+| **Uçuş** | `import-travelrobot-flights.mjs` | Rota listesi: `scripts/config/travelrobot-flight-routes.json` |
+| **Hepsi** | `import-travelrobot-all.mjs` | Panel bayraklarına göre tur+otel+uçuş |
+
+Tek komut kurulum (config + zamanlayıcı + tur + uçuş):
+
+```bash
+chmod +x deploy/scripts/run-travelrobot-live-setup.sh
+./deploy/scripts/run-travelrobot-live-setup.sh
+```
+
+Günlük otomatik senkron:
+
+```bash
+./deploy/scripts/sync-travelrobot-auto.sh
+# systemd: deploy/systemd/travel-travelrobot-sync.timer
+```
 
 **Statik API hata kodları:**
 
