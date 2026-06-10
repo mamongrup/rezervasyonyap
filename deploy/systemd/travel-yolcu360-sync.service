@@ -1,0 +1,15 @@
+[Unit]
+Description=Yolcu360 araç kiralama otomatik import
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+Environment=TRAVEL_DB_ENV=/etc/rezervasyonyap/backend.env
+ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/import-yolcu360-cars.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

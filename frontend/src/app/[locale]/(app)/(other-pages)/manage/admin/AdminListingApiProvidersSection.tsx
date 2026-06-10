@@ -48,9 +48,10 @@ const EMPTY_TURNA: TurnaSettings = {
 
 const EMPTY_YOLCU360: Yolcu360Settings = {
   enabled: false,
-  base_url: 'https://staging.api.pro.yolcu360.com/api/v1',
+  base_url: 'https://api.pro.yolcu360.com/api/v1',
   api_key: '',
   api_secret: '',
+  listing_status: 'published',
 }
 
 const EMPTY_WTATIL: WtatilSettings = {
@@ -799,7 +800,7 @@ export default function AdminListingApiProvidersSection() {
             hint="Sondaki /api/v1 dahil; örn. https://staging.api.pro.yolcu360.com/api/v1"
             value={y360.base_url}
             onChange={(v) => setY360({ base_url: v })}
-            placeholder="https://staging.api.pro.yolcu360.com/api/v1"
+            placeholder="https://api.pro.yolcu360.com/api/v1"
           />
           <Field
             label="API Key"
@@ -812,6 +813,17 @@ export default function AdminListingApiProvidersSection() {
             onChange={(v) => setY360({ api_secret: v })}
             type="password"
           />
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Import ilan durumu</label>
+            <select
+              value={y360.listing_status}
+              onChange={(e) => setY360({ listing_status: e.target.value as 'draft' | 'published' })}
+              className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+            >
+              <option value="published">Yayında (published)</option>
+              <option value="draft">Taslak (draft)</option>
+            </select>
+          </div>
           <div className="flex flex-wrap gap-2">
             <input
               type="text"
@@ -889,10 +901,12 @@ export default function AdminListingApiProvidersSection() {
           {' (rota: scripts/config/turna-flight-routes.json)'}
         </p>
         <p>
-          Yolcu360 env:{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_KEY</code>,{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_API_SECRET</code>,{' '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">YOLCU360_BASE_URL</code>
+          Yolcu360 Araç:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-yolcu360-cars.mjs --ping</code>
+          {' / '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-yolcu360-cars.mjs --dry-run --limit 2</code>
+          {' · '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">./deploy/scripts/run-yolcu360-live-setup.sh</code>
         </p>
       </div>
     </div>

@@ -43,6 +43,7 @@ export type Yolcu360Settings = {
   base_url: string
   api_key: string
   api_secret: string
+  listing_status: 'draft' | 'published'
 }
 
 export type ListingApiProvidersSettings = {

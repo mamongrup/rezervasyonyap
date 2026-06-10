@@ -86,7 +86,7 @@ pub fn load(db: pog.Connection) -> Yolcu360Config {
     base_url: get(
       "base_url",
       "YOLCU360_BASE_URL",
-      "https://staging.api.pro.yolcu360.com/api/v1",
+      "https://api.pro.yolcu360.com/api/v1",
     ),
     api_key: get("api_key", "YOLCU360_API_KEY", ""),
     api_secret: get("api_secret", "YOLCU360_API_SECRET", ""),

@@ -1,0 +1,10 @@
+[Unit]
+Description=Günlük Yolcu360 araç import (09:00 TR ≈ UTC 06:00)
+
+[Timer]
+OnCalendar=*-*-* 06:00:00
+Persistent=true
+Unit=travel-yolcu360-sync.service
+
+[Install]
+WantedBy=timers.target

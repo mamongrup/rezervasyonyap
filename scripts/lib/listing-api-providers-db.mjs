@@ -143,7 +143,7 @@ export async function upsertTravelrobotInListingApiProviders(travelrobotPatch) {
 
 function normalizeYolcu360BaseUrl(raw) {
   let u = String(
-    raw || process.env.YOLCU360_BASE_URL || 'https://staging.api.pro.yolcu360.com/api/v1',
+    raw || process.env.YOLCU360_BASE_URL || 'https://api.pro.yolcu360.com/api/v1',
   )
     .trim()
     .replace(/\/+$/, '')
@@ -160,5 +160,42 @@ export async function loadYolcu360ConfigFromDb() {
     apiKey: String(y.api_key || process.env.YOLCU360_API_KEY || ''),
     apiSecret: String(y.api_secret || process.env.YOLCU360_API_SECRET || ''),
     listingStatus: String(y.listing_status || process.env.YOLCU360_STATUS || 'published'),
+  }
+}
+
+/** Panel `listing_api_providers.yolcu360` alanlarını birleştirip kaydeder (platform scope). */
+export async function upsertYolcu360InListingApiProviders(yolcu360Patch) {
+  const client = createPgClient()
+  await client.connect()
+  try {
+    const { rows } = await client.query(
+      `SELECT value_json::text AS raw
+       FROM site_settings
+       WHERE key = $1 AND organization_id IS NULL
+       ORDER BY id DESC
+       LIMIT 1`,
+      [KEY],
+    )
+    let all = {}
+    if (rows[0]?.raw) {
+      try {
+        const parsed = JSON.parse(rows[0].raw)
+        all = parsed && typeof parsed === 'object' ? parsed : {}
+      } catch {
+        all = {}
+      }
+    }
+    const prev = all.yolcu360 && typeof all.yolcu360 === 'object' ? all.yolcu360 : {}
+    all.yolcu360 = { ...prev, ...yolcu360Patch }
+    await client.query(
+      `INSERT INTO site_settings (organization_id, key, value_json)
+       VALUES (NULL, $1, $2::jsonb)
+       ON CONFLICT (key) WHERE organization_id IS NULL
+       DO UPDATE SET value_json = excluded.value_json`,
+      [KEY, JSON.stringify(all)],
+    )
+    return all.yolcu360
+  } finally {
+    await client.end()
   }
 }

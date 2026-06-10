@@ -16,7 +16,8 @@
 | `gtc` | `AgencyId` + `Password` | Otel, uçak | `scripts/lib/gtc-api.mjs`, `296_gtc_provider_refs.sql`, import iskeleti |
 | `travelrobot` | `ChannelCode` + `ChannelPassword` → Token (~120 dk) | Tur, otel, uçak, araç kiralama | Import + senaryo testi (`scripts/import-travelrobot-*.mjs`, `test-travelrobot-scenarios.mjs`); checkout book henüz yok |
 | `wtatil` | `ApplicationSecretKey` + `UserName` + `Password` → Token (24 saat) | **Tur** (plan: yalnızca tur; v2 API otel/uçak da sunuyor — kullanmayacağız) | `scripts/lib/wtatil-api.mjs`, `scripts/import-wtatil-tours.mjs`; DB hazır (`wtatil_package_ref`, 180) |
-| `turna` | `ApiKey` + `Turna-Session-Id` / `Turna-Session-Token` | **Yalnızca uçak** | `listing_flight_details.turna_route_ref` (180); client/import yok. Otobüs/otel/araç **alınmıyor**. |
+| `turna` | `ApiKey` + `Turna-Session-Id` / `Turna-Session-Token` | **Yalnızca uçak** | `import-turna-flights.mjs`, `turna-flight-routes.json` |
+| `yolcu360` | `API Key` + `API Secret` → JWT | **Araç kiralama** | Import + canlı arama proxy; rezervasyon API henüz yok (checkout draft) |
 
 ## GTC ortam
 
@@ -97,6 +98,37 @@ Günlük otomatik senkron:
 |-------|--------|--------|
 | `Credentials are not valid` | Yanlış kullanıcı/şifre (çoğunlukla Booking kanalı denenmiş) | `static_user` / `static_password` ayrı kaydet |
 | `… is not in whitelist` | Kimlik doğru, sunucu IP izinli değil | KPlus'a sunucu çıkış IP'sini (ör. `50.114.185.100`) whitelist için iletin |
+
+## Yolcu360 / Araç kiralama
+
+| Ortam | Base URL |
+|-------|----------|
+| **Canlı** | `https://api.pro.yolcu360.com/api/v1` |
+| Staging | `https://staging.api.pro.yolcu360.com/api/v1` |
+
+Kimlik: `POST /auth/login` → `{ key, secret }` → JWT. Anahtarlar: [pro.yolcu360.com](https://pro.yolcu360.com) → API Keys.
+
+```bash
+YOLCU360_BASE_URL=https://api.pro.yolcu360.com/api/v1
+YOLCU360_API_KEY=...
+YOLCU360_API_SECRET=...
+```
+
+Kurulum ve import:
+
+```bash
+node scripts/apply-yolcu360-live-config.mjs
+node scripts/ping-yolcu360.mjs
+node scripts/import-yolcu360-cars.mjs --dry-run --limit 2
+node scripts/import-yolcu360-cars.mjs
+./deploy/scripts/run-yolcu360-live-setup.sh
+```
+
+Rota listesi: `scripts/config/yolcu360-car-routes.json` (şehir + alış/iade + kiralama günü).
+
+**Mevcut özellikler:** panel ping, konum arama proxy, vitrin `GET /api/v1/public/yolcu360/cars`, import → `car_rental` ilanları.
+
+**Henüz yok:** backend rezervasyon/book API (checkout yalnızca sessionStorage draft + listing kaydı).
 
 ## Travelrobot sandbox test verileri
 
