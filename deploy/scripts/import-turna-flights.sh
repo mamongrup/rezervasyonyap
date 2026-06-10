@@ -30,9 +30,7 @@ if [[ -f "$TURNA_ENV" ]]; then
 fi
 
 if [[ -z "${TURNA_API_KEY:-}" ]]; then
-  echo "[FAIL] TURNA_API_KEY tanımlı değil." >&2
-  echo "  $TURNA_ENV veya $BACKEND_ENV içine ekleyin; veya panel → listing_api_providers.turna" >&2
-  exit 1
+  echo "[UYARI] TURNA_API_KEY env yok — panel/DB kaydı kullanılacak (DATABASE_URL gerekli)." >&2
 fi
 
 # Canlı ApiKey + apitest URL → 403 (daha önce doğrulandı)
