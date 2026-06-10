@@ -110,13 +110,15 @@ const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları vars
 const ONLY = getArg('--only')?.toLowerCase() ?? ''
 const ONLY_HOTEL_S1 = ONLY === 'hotel-s1' || ONLY === 's1'
 const ONLY_AIR_S2 = ONLY === 'air-s2' || ONLY === 's2'
+const ONLY_AIR_LCC = ONLY === 'air-lcc' || ONLY === 'lcc'
 const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel' || ONLY_HOTEL_S1
-const RUN_FLIGHTS = !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air' || ONLY_AIR_S2
+const RUN_FLIGHTS =
+  !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air' || ONLY_AIR_S2 || ONLY_AIR_LCC
 const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-passenger-ref-v11'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-names-v12'
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
 /** İstanbul S1: erken tarih + kısa konaklama (sandbox stoğu). */
@@ -331,24 +333,42 @@ function makeFlightCertPax(firstName, lastName, dob, gender = 1, passport = null
   return pax
 }
 
+const FLIGHT_BOOK_RETRY_ERR =
+  /passenger count|passenger type|invalid payment|invalid key|invalid first name|invalid identity/i
+
 async function tryCreateFlightBook(cfg, bookOpts) {
   const variants = bookOpts.paxVariants ?? [{ label: 'default', flightPaxes: bookOpts.flightPaxes, mapPaxes: true }]
+  let lastPayload = null
+  let lastVariant = null
   for (const variant of variants) {
-    const payload = await createFlightReservation(cfg, {
-      ...bookOpts,
-      flightPaxes: variant.flightPaxes,
-      mapPaxes: variant.mapPaxes ?? true,
-      useFlightPaxType: variant.useFlightPaxType,
-    })
+    let payload
+    try {
+      payload = await createFlightReservation(cfg, {
+        ...bookOpts,
+        flightPaxes: variant.flightPaxes,
+        mapPaxes: variant.mapPaxes ?? true,
+        useFlightPaxType: variant.useFlightPaxType,
+      })
+    } catch (e) {
+      const err = String(e)
+      lastPayload = { HasError: true, ErrorMessage: err }
+      lastVariant = variant.label
+      if (!FLIGHT_BOOK_RETRY_ERR.test(err)) {
+        return { payload: lastPayload, variant: lastVariant, fatal: true }
+      }
+      continue
+    }
     if (!payload?.HasError && (payload?.Result?.Booking?.SystemPnr ?? payload?.Result?.SystemPnr)) {
       return { payload, variant: variant.label }
     }
     const err = payload?.ErrorMessage ?? ''
-    if (!/passenger count|passenger type|invalid payment|invalid key|invalid first name/i.test(err)) {
+    lastPayload = payload
+    lastVariant = variant.label
+    if (!FLIGHT_BOOK_RETRY_ERR.test(err)) {
       return { payload, variant: variant.label, fatal: true }
     }
   }
-  return null
+  return lastPayload ? { payload: lastPayload, variant: lastVariant } : null
 }
 
 // ─── Uçuş senaryo çalıştırıcı ────────────────────────────────────────────────
@@ -464,7 +484,7 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
             }
             if (bookHit?.fatal) break
           } catch (e) {
-            if (/passenger count|invalid payment|invalid key|invalid first name/i.test(String(e))) continue
+            if (FLIGHT_BOOK_RETRY_ERR.test(String(e))) continue
           }
         } else {
           break
@@ -689,38 +709,71 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   if (certRow.systemPnr) AIR_CERT_RESULTS.push(certRow)
 }
 
+/** KPlus sandbox onaylı yolcu isimleri (LCC dahil). */
+function applyFlightCertNames(flightPaxes) {
+  return (flightPaxes ?? []).map((entry) => {
+    const copy = { ...entry, Pax: { ...entry.Pax } }
+    const paxType = Number(entry.PaxType ?? entry.FlightPaxType ?? 0)
+    const passport = copy.Pax?.PassportNumber ?? 'AA123456'
+    if (paxType === 0 && entry.IsLeader) {
+      copy.Pax = makeFlightCertPax('TEST', 'TRAVELER', '15.06.1990', 1, passport)
+      copy.Pax.Age = 30
+    } else if (paxType === 0) {
+      copy.Pax = makeFlightCertPax('TEST', 'GUEST', '15.06.1992', 1, passport)
+      copy.Pax.Age = 30
+    } else if (paxType === 1) {
+      const age = Number(copy.Pax?.Age ?? copy.Pax?.ChildAge ?? 5)
+      const y = new Date().getUTCFullYear() - age
+      copy.Pax = makeFlightCertPax('TIM', 'TRAVELER', `15.06.${y}`, 1, passport)
+      copy.Pax.Age = age
+      copy.Pax.ChildAge = age
+    } else if (paxType === 2) {
+      const dob = copy.Pax?.DateOfBirth ?? infantDateOfBirth(10)
+      copy.Pax = makeFlightCertPax('BABY', 'TRAVELER', dob, 1, passport)
+      copy.Pax.Age = Math.min(1, ageFromDob(dob))
+    }
+    return copy
+  })
+}
+
 function buildFlightPaxes(opts) {
   const paxes = []
   const adults = opts.adults ?? 1
   const children = opts.children ?? 0
   const infants = opts.infants ?? 0
-  const adultNames = [
-    ['JOHN', 'SMITH'],
-    ['MARY', 'SMITH'],
-    ['ALEX', 'BROWN'],
-    ['TEST', 'TRAVELER'],
-  ]
-  const childNames = [
-    ['TIM', 'SMITH'],
-    ['ANN', 'SMITH'],
-    ['KATE', 'BROWN'],
-  ]
+  const useCertNames = opts.useCertNames === true
+  const adultNames = useCertNames
+    ? [
+        ['TEST', 'TRAVELER'],
+        ['TEST', 'GUEST'],
+        ['TEST', 'GUEST2'],
+        ['TEST', 'GUEST3'],
+      ]
+    : [
+        ['JOHN', 'SMITH'],
+        ['MARY', 'SMITH'],
+        ['ALEX', 'BROWN'],
+        ['TEST', 'TRAVELER'],
+      ]
+  const childNames = useCertNames
+    ? [['TIM', 'TRAVELER'], ['ANN', 'TRAVELER'], ['KATE', 'TRAVELER']]
+    : [['TIM', 'SMITH'], ['ANN', 'SMITH'], ['KATE', 'BROWN']]
   const childAges = opts.childAges ?? [5, 5, 5]
   let paxSeq = 0
 
   for (let i = 0; i < adults; i++) {
-    const [fn, ln] = adultNames[i] ?? ['JOHN', 'SMITH']
-    const pax = makeFlightCertPax(fn, ln, '15.06.1990', 1, `AA${String(100001 + paxSeq).slice(-6)}`)
+    const [fn, ln] = adultNames[i] ?? (useCertNames ? ['TEST', 'TRAVELER'] : ['JOHN', 'SMITH'])
+    const pax = makeFlightCertPax(fn, ln, i === 0 ? '15.06.1990' : '15.06.1992', 1, `AA${String(100001 + paxSeq).slice(-6)}`)
     pax.Age = 30
     paxSeq++
     paxes.push({ RecId: 0, IsLeader: i === 0, PaxType: 0, Pax: pax })
   }
-  const leaderLast = paxes[0]?.Pax?.LastName ?? 'SMITH'
+  const leaderLast = paxes[0]?.Pax?.LastName ?? (useCertNames ? 'TRAVELER' : 'SMITH')
   for (let i = 0; i < children; i++) {
-    const [fn] = childNames[i] ?? ['TIM', 'SMITH']
+    const [fn, ln] = childNames[i] ?? [useCertNames ? 'TIM' : 'TIM', leaderLast]
     const age = Number(childAges[i] ?? 5)
     const birthYear = new Date().getUTCFullYear() - age
-    const pax = makeFlightCertPax(fn, leaderLast, `15.06.${birthYear}`, 1, `AA${String(100001 + paxSeq).slice(-6)}`)
+    const pax = makeFlightCertPax(fn, ln, `15.06.${birthYear}`, 1, `AA${String(100001 + paxSeq).slice(-6)}`)
     pax.Age = age
     pax.ChildAge = age
     paxSeq++
@@ -744,27 +797,30 @@ function buildFlightBookPaxVariants(opts, validatePayload = null) {
   const withRefs = passengerRefs.length
     ? attachPassengerRefsToFlightPaxes(standard, passengerRefs)
     : standard
+  const certNames = applyFlightCertNames(withRefs)
 
-  const variants = [
-    { label: 'flight-pax-type+refs', flightPaxes: withRefs, mapPaxes: true, useFlightPaxType: true },
-    { label: 'pax-type+refs', flightPaxes: withRefs, mapPaxes: true, useFlightPaxType: false },
-    { label: 'legacy+refs', flightPaxes: withRefs, mapPaxes: false },
-  ]
+  const variantEntry = (label, flightPaxes, mapPaxes, useFlightPaxType = true) => ({
+    label,
+    flightPaxes,
+    mapPaxes,
+    useFlightPaxType,
+  })
 
-  const multi = paxCount > 1
-  if (multi) {
-    const certNames = withRefs.map((entry) => {
-      const copy = { ...entry, Pax: { ...entry.Pax } }
-      if (Number(entry.PaxType ?? entry.FlightPaxType) === 0 && entry.IsLeader) {
-        copy.Pax = makeFlightCertPax('TEST', 'TRAVELER', '15.06.1990', 1, copy.Pax.PassportNumber)
-        copy.Pax.Age = 30
-      } else if (Number(entry.PaxType ?? entry.FlightPaxType) === 0) {
-        copy.Pax = makeFlightCertPax('TEST', 'GUEST', '15.06.1992', 1, copy.Pax.PassportNumber)
-        copy.Pax.Age = 30
-      }
-      return copy
-    })
-    variants.push({ label: 'flight-pax-type+refs-test-names', flightPaxes: certNames, mapPaxes: true, useFlightPaxType: true })
+  const variants = []
+  if (opts.useCertNames === true) {
+    variants.push(
+      variantEntry('cert-names+flight-pax-type+refs', certNames, true, true),
+      variantEntry('cert-names+pax-type+refs', certNames, true, false),
+      variantEntry('cert-names+legacy+refs', certNames, false),
+    )
+  }
+  variants.push(
+    variantEntry('flight-pax-type+refs', withRefs, true, true),
+    variantEntry('pax-type+refs', withRefs, true, false),
+    variantEntry('legacy+refs', withRefs, false),
+  )
+  if (paxCount > 1 && opts.useCertNames !== true) {
+    variants.push(variantEntry('flight-pax-type+refs-test-names', certNames, true, true))
   }
   return { variants, passengerRefs }
 }
@@ -1581,7 +1637,7 @@ async function main() {
   // UÇUŞ SENARYOLARI (Air API Test Cases belgesinden — 11 senaryo)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  if (!ONLY_AIR_S2) {
+  if (!ONLY_AIR_S2 && !ONLY_AIR_LCC) {
   // Air Senaryo 1: Oneway, 1 ADT, IST → LHR
   await runFlightScenario(cfg, tokenCode, 'Air-S1: Oneway / 1ADT / IST→LHR', {
     legs: [{ originCode: 'IST', destinationCode: 'LHR', departureDate: addDays(30) }],
@@ -1589,14 +1645,37 @@ async function main() {
   })
   }
 
+  if (!ONLY_AIR_LCC) {
   // Air Senaryo 2: Oneway, 2 ADT + 1 CHD + 1 INF, IST → LHR
   await runFlightScenario(cfg, tokenCode, 'Air-S2: Oneway / 2ADT+1CHD+1INF / IST→LHR', {
     legs: [{ originCode: 'IST', destinationCode: 'LHR', departureDate: addDays(30) }],
     flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
+  }
 
   if (ONLY_AIR_S2) {
     /* --only air-s2 */
+  } else if (ONLY_AIR_LCC) {
+  // Air Senaryo 9–11: LCC (sandbox onaylı TEST/TRAVELER isimleri)
+  await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
+    legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+  })
+  await runFlightScenario(cfg, tokenCode, 'Air-S10: Roundtrip-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
+    legs: [
+      { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
+      { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
+    ],
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+  })
+  await runFlightScenario(cfg, tokenCode, 'Air-S11: Multiple-LCC / 2ADT+1CHD+1INF / AYT→TZX→IST→ADB', {
+    legs: [
+      { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
+      { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
+      { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
+    ],
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+  })
   } else if (
   // Air Senaryo 3: Roundtrip / Combined, 1 ADT, LHR → DXB
   true) {
@@ -1658,7 +1737,7 @@ async function main() {
   // Air Senaryo 9: Oneway LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
   await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
     legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
   })
 
   // Air Senaryo 10: Roundtrip LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
@@ -1667,7 +1746,7 @@ async function main() {
       { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
       { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
   })
 
   // Air Senaryo 11: Multiple LCC, 2 ADT + 1 CHD + 1 INF, AYT→TZX→IST→ADB
@@ -1677,7 +1756,7 @@ async function main() {
       { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
       { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
   })
   }
   }

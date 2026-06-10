@@ -117,6 +117,7 @@ Air API Test Cases (PDF) — 11 senaryo:
 ```bash
 node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only flights
 node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-s2
+node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-lcc
 ```
 
 Book: `ResultKeys` = validate yanıtındaki tüm bacak key’leri (`|||` formatı). Ödeme: sandbox’ta `PaymentType: 2` (acente kredisi).
