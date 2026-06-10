@@ -18,6 +18,7 @@
  *
  * Hotel API Test Cases (PDF) — tam akış + System PNR + adım logları:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotels
+ *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotel-s1
  *
  * Çıktılar:
  *   - Konsol: özet ✅/❌
@@ -48,6 +49,7 @@ import {
   validateHotelRooms,
   getHotelFinalPrice,
   bookHotel,
+  getHotelBooking,
   pickHotelBookResultKeys,
   resolveHotelPaymentAttempts,
   buildHotelBookRequest,
@@ -103,15 +105,19 @@ const getArg = (flag) => {
 const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 const ONLY = getArg('--only')?.toLowerCase() ?? ''
-const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel'
+const ONLY_HOTEL_S1 = ONLY === 'hotel-s1' || ONLY === 's1'
+const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel' || ONLY_HOTEL_S1
 const RUN_FLIGHTS = !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air'
 const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
-const RUN_GENERAL = !ONLY
+const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-book-v8'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-hotel-s1-retry-v9'
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
+/** İstanbul S1: erken tarih + kısa konaklama (sandbox stoğu). */
+const HOTEL_S1_DATE_OFFSETS = [7, 10, 14, 21, 30, 45, 60, 90]
+const HOTEL_S1_STAY_NIGHTS = [3, 5, 7]
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
 const HOTEL_CERT_RESULTS = []
 const AIR_CERT_RESULTS = []
@@ -784,6 +790,23 @@ function buildCertTryHotelList(destId, preferredHotel, searchRows) {
   return out
 }
 
+/** Sertifika otelleri boşsa destinasyondaki diğer otelleri dene (İstanbul S1). */
+function buildDestinationWideTryList(searchRows, certCodes, limit = 25) {
+  const seen = new Set()
+  const out = []
+  for (const row of searchRows) {
+    const c = row?.HotelCode ?? row?.hotelCode ?? row?.ProductCode
+    if (!c || seen.has(c)) continue
+    seen.add(c)
+    out.push(row)
+    if (out.length >= limit) break
+  }
+  if (!out.length) return []
+  const cert = out.filter((r) => certCodes.has(r?.HotelCode ?? r?.hotelCode))
+  const other = out.filter((r) => !certCodes.has(r?.HotelCode ?? r?.hotelCode))
+  return [...cert, ...other]
+}
+
 async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpts) {
   section(`${scenarioName}`)
 
@@ -802,17 +825,30 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   let winningCheckin = null
   let winningCheckout = null
 
-  for (const startOffset of HOTEL_CERT_DATE_OFFSETS) {
+  const dateOffsets = hotelOpts.dateOffsets ?? HOTEL_CERT_DATE_OFFSETS
+  const stayNightsList = hotelOpts.stayNights ?? [7]
+  const preferDestinationSearch = Boolean(hotelOpts.preferDestinationSearch)
+  const certCodesForDest = new Set(
+    TRAVELROBOT_SANDBOX_HOTELS.filter((h) => String(h.destinationId) === String(destId)).map((h) => h.code),
+  )
+
+  for (const startOffset of dateOffsets) {
     if (roomOfferKeys.length) break
 
+    for (const stayNights of stayNightsList) {
+      if (roomOfferKeys.length) break
+
     const checkin = addDays(startOffset)
-    const checkout = addDays(startOffset + 7)
+    const checkout = addDays(startOffset + stayNights)
     const baseSearch = {
       checkInDate: checkin,
       checkOutDate: checkout,
       ...hotelOpts,
       rooms: roomOpts,
     }
+    delete baseSearch.dateOffsets
+    delete baseSearch.stayNights
+    delete baseSearch.preferDestinationSearch
 
     let searchRows = []
     try {
@@ -820,7 +856,20 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       let rows = []
       let searchMode = 'destination'
 
-      if (preferredHotel) {
+      let destPayload = null
+      let destRows = []
+      try {
+        destPayload = await searchHotel(cfg, tokenCode, baseSearch)
+        destRows = pickHotelRows(destPayload)
+      } catch {
+        /* destination araması opsiyonel */
+      }
+
+      if (preferDestinationSearch && destRows.length) {
+        payload = destPayload
+        rows = destRows
+        searchMode = 'destination-first'
+      } else if (preferredHotel) {
         payload = await searchHotel(cfg, tokenCode, {
           ...baseSearch,
           destinationId: destId,
@@ -831,10 +880,14 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         if (rows.length) searchMode = 'hotelCode-primary'
       }
 
-      if (!rows.length) {
-        payload = await searchHotel(cfg, tokenCode, baseSearch)
-        rows = pickHotelRows(payload)
+      if (!rows.length && destRows.length) {
+        payload = destPayload
+        rows = destRows
         searchMode = 'destination'
+      } else if (destRows.length > rows.length) {
+        payload = destPayload
+        rows = destRows
+        searchMode = 'destination-wide'
       }
 
       if (!rows.length && preferredHotel) {
@@ -851,22 +904,39 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       searchPayload = payload
       searchRows = rows
       log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
-        { checkin, checkout, searchMode, preferredHotel, dateOffset: startOffset }, payload, rows.length >= 0)
+        {
+          checkin,
+          checkout,
+          searchMode,
+          preferredHotel,
+          dateOffset: startOffset,
+          stayNights,
+        },
+        payload,
+        rows.length >= 0,
+      )
 
       if (rows.length > 0) {
-        ok(`[${scenarioName}] SearchHotel`, `${rows.length} otel (${checkin} → ${checkout}, ${searchMode})`)
+        ok(
+          `[${scenarioName}] SearchHotel`,
+          `${rows.length} otel (${checkin} → ${checkout}, ${stayNights} gece, ${searchMode})`,
+        )
       } else {
         log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
-          { dateOffset: startOffset }, 'Sonuç yok — sonraki tarih denenecek', false)
+          { dateOffset: startOffset, stayNights }, 'Sonuç yok — sonraki tarih denenecek', false)
         continue
       }
     } catch (e) {
       log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
-        { dateOffset: startOffset }, String(e), false)
+        { dateOffset: startOffset, stayNights }, String(e), false)
       continue
     }
 
-    const tryHotels = buildCertTryHotelList(destId, preferredHotel, searchRows)
+    let tryHotels = buildCertTryHotelList(destId, preferredHotel, searchRows)
+    if (preferDestinationSearch && searchRows.length > tryHotels.length) {
+      const wide = buildDestinationWideTryList(searchRows, certCodesForDest, 25)
+      if (wide.length > tryHotels.length) tryHotels = wide
+    }
     triedHotels = 0
     triedCodes = []
 
@@ -939,12 +1009,13 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         continue
       }
     }
+    }
   }
 
   if (!roomOfferKeys.length) {
     fail(
       `[${scenarioName}] GetHotelRoomPrices`,
-      `${triedHotels} otelde oda teklifi yok — denenen: ${triedCodes.slice(0, 8).join(', ')}${triedCodes.length > 8 ? '…' : ''} (tarih offset: ${HOTEL_CERT_DATE_OFFSETS.join(',')} gün)`,
+      `${triedHotels} otelde oda teklifi yok — denenen: ${triedCodes.slice(0, 12).join(', ')}${triedCodes.length > 12 ? '…' : ''} (tarih offset: ${dateOffsets.join(',')} gün; konaklama: ${stayNightsList.join('/')} gece)`,
     )
     return
   }
@@ -1056,7 +1127,11 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       const agentReference = `RY-${Date.now()}-${foundHotelCode ?? 'hotel'}`
       const bookPaxes = buildCanonicalHotelBookPaxes(roomOpts)
       const paymentAttempts = await resolveHotelPaymentAttempts(cfg, tokenCode, primaryKeys)
-      const bookAttempts = paymentAttempts.slice(0, 3).map((pay) => ({
+      const paymentPool = [...paymentAttempts]
+      if (!paymentPool.some((p) => String(p.info?.PaymentType) === '0')) {
+        paymentPool.push({ label: 'card-0', info: { ...TEST_PAYMENT } })
+      }
+      const bookAttempts = paymentPool.slice(0, 5).map((pay) => ({
         label: `stoplight-${pay.label}`,
         resultKeys: primaryKeys,
         hotelRoomPaxes: bookPaxes,
@@ -1102,11 +1177,62 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
               bookPayload?.systemPnr ??
               null
             ok(`[${scenarioName}] BookHotel`, `SystemPNR: ${systemPnr ?? '(yok)'}`)
+
+            let verifiedSystemPnr = null
+            let pnrVerified = null
+            if (systemPnr) {
+              try {
+                const verifyPayload = await getHotelBooking(cfg, tokenCode, {
+                  systemPnr,
+                  lastName: TEST_CONTACT.LastName,
+                })
+                verifiedSystemPnr =
+                  verifyPayload?.Result?.Booking?.SystemPnr ??
+                  verifyPayload?.Result?.SystemPnr ??
+                  verifyPayload?.Result?.systemPnr ??
+                  null
+                pnrVerified =
+                  verifiedSystemPnr != null &&
+                  String(verifiedSystemPnr).trim().toUpperCase() ===
+                    String(systemPnr).trim().toUpperCase()
+                log(
+                  scenarioName,
+                  'GetHotelBooking',
+                  '/Hotel.svc/Rest/Json/GetHotelBooking',
+                  { systemPnr, lastName: TEST_CONTACT.LastName },
+                  verifyPayload,
+                  pnrVerified === true,
+                )
+                if (pnrVerified) {
+                  ok(`[${scenarioName}] PNR doğrulama`, `GetHotelBooking SystemPNR eşleşti: ${verifiedSystemPnr}`)
+                } else {
+                  fail(
+                    `[${scenarioName}] PNR doğrulama`,
+                    verifiedSystemPnr
+                      ? `BookHotel=${systemPnr} ≠ GetHotelBooking=${verifiedSystemPnr}`
+                      : 'GetHotelBooking yanıtında SystemPNR yok',
+                  )
+                }
+              } catch (e) {
+                log(
+                  scenarioName,
+                  'GetHotelBooking',
+                  '/Hotel.svc/Rest/Json/GetHotelBooking',
+                  { systemPnr },
+                  String(e),
+                  false,
+                )
+                fail(`[${scenarioName}] PNR doğrulama`, String(e))
+              }
+            }
+
             HOTEL_CERT_RESULTS.push({
               scenario: scenarioName,
               hotelCode: foundHotelCode,
               resultKeys: attempt.resultKeys ?? [attempt.packageId],
               systemPnr,
+              verifiedSystemPnr,
+              pnrVerified,
               clientNotes,
               agentReference,
             })
@@ -1115,18 +1241,20 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
           }
           lastBookErr = bookPayload?.ErrorMessage ?? preview(bookPayload, 300)
           log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, false)
+          if (/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) continue
           if (isDefinitiveBookErr(lastBookErr) || !isRetriableBookErr(lastBookErr)) break outerBook
         } catch (e) {
           lastBookErr = String(e)
           log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, lastBookErr, false)
+          if (/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) continue
           if (isDefinitiveBookErr(lastBookErr) || !isRetriableBookErr(lastBookErr)) break outerBook
         }
       }
       if (booked) break
-      if (isDefinitiveBookErr(lastBookErr)) break
+      if (isDefinitiveBookErr(lastBookErr) && !/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) break
     }
     if (booked) break
-    if (isDefinitiveBookErr(lastBookErr)) break
+    if (isDefinitiveBookErr(lastBookErr) && !/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) break
   }
 
   if (!validated && lastValErr) {
@@ -1305,28 +1433,36 @@ async function main() {
   await runHotelScenario(
     cfg, tokenCode,
     'Hotel-S1: 1 Oda / 2 ADT / İstanbul (destinationId=10033097)',
-    { destinationId: 10033097, languageCode: 'tr' },
+    {
+      destinationId: 10033097,
+      languageCode: 'tr',
+      preferDestinationSearch: true,
+      dateOffsets: HOTEL_S1_DATE_OFFSETS,
+      stayNights: HOTEL_S1_STAY_NIGHTS,
+    },
     [{ RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null }],
   )
 
-  // Hotel Senaryo 2: 1 Oda, 2 Yetişkin + 1 Çocuk (5 yaş), herhangi lokasyon (Prague sandbox)
-  await runHotelScenario(
-    cfg, tokenCode,
-    'Hotel-S2: 1 Oda / 2 ADT + 1 CHD(5) / Prague (destinationId=531096)',
-    { destinationId: 531096, languageCode: 'tr' },
-    [{ RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [5] }],
-  )
+  if (!ONLY_HOTEL_S1) {
+    // Hotel Senaryo 2: 1 Oda, 2 Yetişkin + 1 Çocuk (5 yaş), Prague sandbox
+    await runHotelScenario(
+      cfg, tokenCode,
+      'Hotel-S2: 1 Oda / 2 ADT + 1 CHD(5) / Prague (destinationId=531096)',
+      { destinationId: 531096, languageCode: 'tr' },
+      [{ RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [5] }],
+    )
 
-  // Hotel Senaryo 3: 2 Oda, 3 Yetişkin + 2 Çocuk (2 ve 4 yaş)
-  await runHotelScenario(
-    cfg, tokenCode,
-    'Hotel-S3: 2 Oda / Oda1:2ADT+1CHD(2) + Oda2:1ADT+1CHD(4) / Berlin (destinationId=587926)',
-    { destinationId: 587926, languageCode: 'tr' },
-    [
-      { RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [2] },
-      { RoomIndex: 1, Adults: 1, Children: 1, ChildAges: [4] },
-    ],
-  )
+    // Hotel Senaryo 3: 2 Oda, 3 Yetişkin + 2 Çocuk (2 ve 4 yaş), Berlin
+    await runHotelScenario(
+      cfg, tokenCode,
+      'Hotel-S3: 2 Oda / Oda1:2ADT+1CHD(2) + Oda2:1ADT+1CHD(4) / Berlin (destinationId=587926)',
+      { destinationId: 587926, languageCode: 'tr' },
+      [
+        { RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [2] },
+        { RoomIndex: 1, Adults: 1, Children: 1, ChildAges: [4] },
+      ],
+    )
+  }
   }
 
   if (RUN_FLIGHTS) {
@@ -1580,12 +1716,15 @@ function printSummary() {
     for (const row of HOTEL_CERT_RESULTS) {
       console.log(`  Senaryo     : ${row.scenario}`)
       console.log(`  System PNR  : ${row.systemPnr ?? '(alınamadı)'}`)
+      if (row.verifiedSystemPnr != null) {
+        console.log(`  Doğrulama   : ${row.pnrVerified ? '✅ eşleşti' : '❌ uyuşmaz'} (${row.verifiedSystemPnr})`)
+      }
       console.log(`  Client Notes: ${row.clientNotes}`)
       console.log(`  Agent Ref   : ${row.agentReference}`)
       console.log(`  Hotel       : ${row.hotelCode}  ResultKeys: ${(row.resultKeys ?? []).length}`)
       console.log('─'.repeat(70))
       SUMMARY_LINES.push(
-        `HOTEL CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | Notes: ${row.clientNotes}`,
+        `HOTEL CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | Verified: ${row.pnrVerified === true ? row.verifiedSystemPnr : row.pnrVerified === false ? 'MISMATCH' : 'skip'} | Notes: ${row.clientNotes}`,
       )
     }
   }
