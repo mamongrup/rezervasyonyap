@@ -73,6 +73,25 @@ async function upsertListingCover(pgClient, listingId, imageUrl) {
   )
 }
 
+async function upsertDailyPriceRule(pgClient, listingId, amount, currency = 'TRY') {
+  await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return
+  await pgClient.query(
+    `INSERT INTO listing_price_rules (listing_id, rule_json, valid_from, valid_to)
+     VALUES ($1::uuid, $2::jsonb, NULL, NULL)`,
+    [
+      listingId,
+      JSON.stringify({
+        base_nightly: String(amount),
+        base_price: String(amount),
+        source: PROVIDER,
+        currency,
+        price_unit: 'daily',
+      }),
+    ],
+  )
+}
+
 async function upsertListingCore(pgClient, ctx, { extRef, slug, title, description, locName, status, dryRun }) {
   if (dryRun) return { listingId: null, slug, extRef, created: false, dryRun: true }
 
@@ -181,10 +200,12 @@ export async function upsertYolcu360CarListing(
   if (imageUrl) await upsertListingCover(pgClient, core.listingId, imageUrl)
 
   const dailyPrice = car.dailyPrice
+  const currency = car.currency || 'TRY'
   if (dailyPrice != null && Number.isFinite(dailyPrice) && dailyPrice > 0) {
+    await upsertDailyPriceRule(pgClient, core.listingId, dailyPrice, currency)
     await pgClient.query(
-      `UPDATE listings SET price_from = $2, currency_code = $3, updated_at = now() WHERE id = $1::uuid`,
-      [core.listingId, String(dailyPrice), car.currency || 'TRY'],
+      `UPDATE listings SET currency_code = $2, updated_at = now() WHERE id = $1::uuid`,
+      [core.listingId, currency],
     )
   }
 
