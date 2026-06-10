@@ -118,19 +118,42 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-tc-v13'
-/** KPlus sandbox yurt içi LCC — checksum'ı doğru örnek TC kimlikler. */
-const SANDBOX_TC_NUMBERS = [
-  '24236183616',
-  '66545881280',
-  '38765364200',
-  '15731565238',
-  '51987235984',
-  '30419506170',
-]
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-tc-v14'
+/** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
+const KPLUS_DEFAULT_TC = '11111111110'
+
+function generateValidTcKimlik(seed = 1) {
+  const n = 100000000 + ((seed * 7919 + 1234567) % 899999999)
+  const base = String(n).padStart(9, '0').slice(0, 9)
+  const d = [...base].map(Number)
+  const odd = d[0] + d[2] + d[4] + d[6] + d[8]
+  const even = d[1] + d[3] + d[5] + d[7]
+  let d10 = (odd * 7 - even) % 10
+  if (d10 < 0) d10 += 10
+  const d11 = (d.reduce((s, x) => s + x, 0) + d10) % 10
+  return base + String(d10) + String(d11)
+}
 
 function sandboxTcKimlik(index = 0) {
-  return SANDBOX_TC_NUMBERS[index % SANDBOX_TC_NUMBERS.length]
+  if (index === 0) return KPLUS_DEFAULT_TC
+  return generateValidTcKimlik(index)
+}
+
+/** Air-S1 book formatı: benzersiz TC + pasaport (yurt içi LCC). */
+function applyKplusDomesticIdentity(flightPaxes, opts = {}) {
+  let tcIdx = opts.tcStartIndex ?? 0
+  return (flightPaxes ?? []).map((entry, i) => {
+    const copy = { ...entry, Pax: { ...entry.Pax } }
+    const paxType = Number(entry.PaxType ?? entry.FlightPaxType ?? 0)
+    if (opts.infantNoTc === true && paxType === 2) {
+      copy.Pax.IdentityNumber = null
+    } else {
+      copy.Pax.IdentityNumber = sandboxTcKimlik(tcIdx++)
+    }
+    copy.Pax.PassportNumber = copy.Pax.PassportNumber ?? `AA${String(100001 + i).slice(-6)}`
+    copy.Pax.PassportValidityDate = copy.Pax.PassportValidityDate ?? '01.01.2030'
+    return copy
+  })
 }
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
@@ -344,8 +367,6 @@ function makeFlightCertPax(firstName, lastName, dob, gender = 1, passport = null
   const pax = makePax(firstName, lastName, dob, gender, 'TR', passport)
   if (certOpts.useTcKimlik === true && certOpts.tcIndex != null) {
     pax.IdentityNumber = sandboxTcKimlik(certOpts.tcIndex)
-    pax.PassportNumber = null
-    pax.PassportValidityDate = null
   } else {
     pax.IdentityNumber = null
   }
@@ -359,7 +380,9 @@ async function tryCreateFlightBook(cfg, bookOpts) {
   const variants = bookOpts.paxVariants ?? [{ label: 'default', flightPaxes: bookOpts.flightPaxes, mapPaxes: true }]
   let lastPayload = null
   let lastVariant = null
+  let lastFlightPaxes = null
   for (const variant of variants) {
+    lastFlightPaxes = variant.flightPaxes
     let payload
     try {
       payload = await createFlightReservation(cfg, {
@@ -373,21 +396,21 @@ async function tryCreateFlightBook(cfg, bookOpts) {
       lastPayload = { HasError: true, ErrorMessage: err }
       lastVariant = variant.label
       if (!FLIGHT_BOOK_RETRY_ERR.test(err)) {
-        return { payload: lastPayload, variant: lastVariant, fatal: true }
+        return { payload: lastPayload, variant: lastVariant, flightPaxes: lastFlightPaxes, fatal: true }
       }
       continue
     }
     if (!payload?.HasError && (payload?.Result?.Booking?.SystemPnr ?? payload?.Result?.SystemPnr)) {
-      return { payload, variant: variant.label }
+      return { payload, variant: variant.label, flightPaxes: variant.flightPaxes }
     }
     const err = payload?.ErrorMessage ?? ''
     lastPayload = payload
     lastVariant = variant.label
     if (!FLIGHT_BOOK_RETRY_ERR.test(err)) {
-      return { payload, variant: variant.label, fatal: true }
+      return { payload, variant: variant.label, flightPaxes: lastFlightPaxes, fatal: true }
     }
   }
-  return lastPayload ? { payload: lastPayload, variant: lastVariant } : null
+  return lastPayload ? { payload: lastPayload, variant: lastVariant, flightPaxes: lastFlightPaxes } : null
 }
 
 // ─── Uçuş senaryo çalıştırıcı ────────────────────────────────────────────────
@@ -618,6 +641,11 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
           paxCount: flightPaxes.length,
           passengerRefCount: passengerRefs.length,
           variant: bookHit?.variant,
+          paxIdentity: (bookHit?.flightPaxes ?? flightPaxes)?.map((e) => ({
+            type: e.PaxType ?? e.FlightPaxType,
+            tc: e.Pax?.IdentityNumber ?? null,
+            passport: e.Pax?.PassportNumber ?? null,
+          })),
         },
         payload,
         !payload?.HasError)
@@ -856,7 +884,12 @@ function buildFlightBookPaxVariants(opts, validatePayload = null) {
   const variants = []
   if (opts.useCertNames === true) {
     if (opts.useTcKimlik === true) {
+      const kplusS1 = applyKplusDomesticIdentity(certNames)
+      const kplusS1InfantNoTc = applyKplusDomesticIdentity(certNames, { infantNoTc: true })
       variants.push(
+        variantEntry('kplus-s1-tc+passport+refs', kplusS1, true, true),
+        variantEntry('kplus-s1-tc+passport+legacy', kplusS1, false),
+        variantEntry('kplus-s1-tc+passport+inf-no-tc', kplusS1InfantNoTc, true, true),
         variantEntry('cert-tc+flight-pax-type+refs', certNamesTc, true, true),
         variantEntry('cert-tc+pax-type+refs', certNamesTc, true, false),
         variantEntry('cert-tc+legacy+refs', certNamesTc, false),
