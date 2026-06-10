@@ -19,6 +19,8 @@ export type Yolcu360CarCheckoutSnapshot = {
   fuelType?: string
   vendorName?: string
   yolcu360RawId?: string
+  yolcu360SearchId?: string
+  yolcu360ProductCode?: string
   yolcu360Idx?: number
 }
 
@@ -52,6 +54,8 @@ export function snapshotFromYolcu360Listing(
     fuelType: car.yolcu360FuelType,
     vendorName: car.yolcu360VendorName,
     yolcu360RawId: car.yolcu360RawId,
+    yolcu360SearchId: car.yolcu360SearchId,
+    yolcu360ProductCode: car.yolcu360ProductCode,
     yolcu360Idx: idx,
   }
 }

@@ -451,3 +451,31 @@ node scripts/test-turna-search.mjs IST AYT 2026-07-17
 - **Canlı anahtar + apitest URL** → 403; `import-turna-flights.sh` otomatik `api.turna.com`'a geçer.
 - **Günlük import:** `travel-import-scheduler.timer` → `IMPORT_SCHEDULE_TURNA=4` (UTC 04:00).
 - **Rezervasyon:** backend `turna_flight_http` + checkout uçuş akışı (canlı arama → allocate → reserve).
+
+## Rezervasyon / ödeme sonrası tedarikçi bildirimi (tüm kategoriler)
+
+Paratika veya PayTR `captured` sonrası `booking_fulfillment.fulfill_after_payment` çalışır; ardından `supplier_notification` (SMS/e-posta/WhatsApp) ilan sahibine gider.
+
+| Kategori | Sağlayıcı | API ile otomatik kapatma | Sepet/checkout UI |
+|----------|-----------|--------------------------|-------------------|
+| Uçak (Turna) | `turna` | Evet — reserve + bakiye ödeme + checkout (`turna_flight_booking_sync`) | 2 kolon, sepet üstte (mobil) |
+| Araç (Yolcu360) | `yolcu360` | Evet — POST `/order` + limit `/payment/pay` (`yolcu360_car_booking_sync`); `searchID`+`code` checkout meta'da | Aynı sepet kartı |
+| Tatil evi / otel / tur / feribot | Manuel / WTatil / Travelrobot import | Hayır* — `inventory_holds` + tedarikçi onay linki | `CheckoutStaySummary` kartı |
+| Travelrobot otel (KPlus) | `travelrobot` | Manuel API (`kplus_booking_http`) — ödeme webhook'una bağlı değil | Katalog checkout |
+
+\*Tatil evi: ödeme sonrası tedarikçiye bildirim gider; takvim `inventory_holds` ile tutulur, onay `supplier_confirm_token` ile.
+
+### Yolcu360 araç rezervasyonu
+
+1. Vitrin aramasında her araçta `searchID` + `code` saklanır (`yolcu360-cars.ts`).
+2. Checkout `meta_json`: `{ provider: "yolcu360", car: { yolcu360SearchId, yolcu360ProductCode, … } }`.
+3. Paratika ödeme OK → `POST /order` (limit, `isFullCredit`) → `POST /payment/pay` (`paymentType: limit`).
+4. Başarı: `yolcu360_booking.status = completed`, `vendor_reservation_id`, rezervasyon `confirmed`.
+
+**Gereksinim:** Yolcu360 acente hesabında limit/kredi yetkisi; aksi halde `yolcu360_booking_failed` event'i düşer.
+
+```sql
+SELECT event_type, payload_json FROM reservation_events
+WHERE reservation_id = '<uuid>' ORDER BY created_at;
+-- paratika_captured → yolcu360_booking_completed | yolcu360_booking_failed
+```

@@ -529,9 +529,10 @@ function CheckoutPageContent() {
   const isHolidayHomeCheckout =
     listingRow?.category_code === 'holiday_home' ||
     listingRow?.listing_vertical === 'holiday_home'
-  const catalogListingCheckoutReady =
-    !isLiveProductCheckout && hasCheckoutListing && !listingLoading
-  const twoColumnCheckout = flightCheckoutReady || carCheckoutReady || catalogListingCheckoutReady
+  const catalogSidebarReady = !isLiveProductCheckout && hasCheckoutListing
+  const catalogListingCheckoutReady = catalogSidebarReady && !listingLoading
+  const twoColumnCheckout =
+    flightCheckoutReady || carCheckoutReady || catalogSidebarReady
   const sidebarSummaryFirst = twoColumnCheckout
 
   return (
@@ -604,7 +605,7 @@ function CheckoutPageContent() {
 
         {flightCheckoutReady || carCheckoutReady ? null : (
           <>
-            {!catalogListingCheckoutReady ? (
+            {!catalogSidebarReady ? (
               <CheckoutSection step={1} title={C.sectionListingInfo}>
                 <CheckoutListingSummary
                   locale={locale}
@@ -784,7 +785,7 @@ function CheckoutPageContent() {
           </aside>
         ) : null}
 
-        {catalogListingCheckoutReady ? (
+        {catalogSidebarReady ? (
           <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutStaySummary
               locale={locale}

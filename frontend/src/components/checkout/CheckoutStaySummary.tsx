@@ -89,8 +89,7 @@ export default function CheckoutStaySummary({
       <div
         className={clsx(
           'listingSection__wrap sm:shadow-xl',
-          isHolidayHome &&
-            'rounded-3xl border border-neutral-200/90 bg-white p-5 ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6',
+          'rounded-3xl border border-neutral-200/90 bg-white p-5 ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6',
         )}
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">

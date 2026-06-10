@@ -11,6 +11,8 @@ export type Yolcu360Listing = TListingBase & {
   seats?: number
   gearshift?: string
   yolcu360RawId?: string
+  yolcu360SearchId?: string
+  yolcu360ProductCode?: string
   yolcu360TotalPrice?: number
   yolcu360FuelType?: string
   yolcu360VendorName?: string

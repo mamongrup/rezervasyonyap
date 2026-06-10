@@ -7,7 +7,7 @@ import gleam/result
 import gleam/string
 import pog
 import travel/booking/supplier_notification
-import travel/integrations/turna_flight_booking_sync
+import travel/integrations/booking_fulfillment
 import travel/db/decode_helpers as row_dec
 
 fn map_currency(code: String) -> String {
@@ -125,7 +125,7 @@ fn capture_payment(
       {
         Error(_) -> Error("event_insert_failed")
         Ok(_) -> {
-          turna_flight_booking_sync.fulfill_after_payment(conn, reservation_id)
+          booking_fulfillment.fulfill_after_payment(conn, reservation_id)
           // Ödeme geldikten sonra ilan sahibine SMS / e-posta / WhatsApp (checkout'ta değil).
           let _ = supplier_notification.notify_new_reservation(conn, reservation_id)
           let _ = supplier_notification.notify_platform_ops(conn, reservation_id)

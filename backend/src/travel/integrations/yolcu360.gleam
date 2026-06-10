@@ -326,6 +326,105 @@ pub fn search_cars(
   }
 }
 
+pub type OrderResult {
+  OrderResult(order_id: String, raw_response: String)
+}
+
+pub type PaymentResult {
+  PaymentResult(status: String, raw_response: String)
+}
+
+fn payment_status_from_raw(raw: String) -> String {
+  let dec = {
+    use v <- decode.field("status", decode.string)
+    decode.success(v)
+  }
+  case json.parse(raw, dec) {
+    Ok(s) -> string.trim(s)
+    Error(_) -> ""
+  }
+}
+
+fn order_id_from_raw(raw: String) -> Result(String, Nil) {
+  let dec = {
+    use v <- decode.field("id", decode.string)
+    decode.success(v)
+  }
+  case json.parse(raw, dec) {
+    Ok(id) ->
+      case string.trim(id) {
+        "" -> Error(Nil)
+        s -> Ok(s)
+      }
+    Error(_) -> Error(Nil)
+  }
+}
+
+/// POST /order — araç rezervasyonu oluşturur.
+pub fn create_order(
+  cfg: Yolcu360Config,
+  order_body_json: String,
+) -> Result(OrderResult, String) {
+  case login(cfg) {
+    Error(e) -> Error(e)
+    Ok(auth) -> {
+      let bearer = "Bearer " <> auth.access_token
+      let url = yolcu360_config.order_url(cfg)
+      case http_client.post_json(url, order_body_json, bearer) {
+        Error(e) -> Error("yolcu360_http_failed:" <> e)
+        Ok(raw) ->
+          case order_id_from_raw(raw) {
+            Ok(id) -> Ok(OrderResult(order_id: id, raw_response: raw))
+            Error(_) -> Error(error_from_raw(raw))
+          }
+      }
+    }
+  }
+}
+
+/// POST /payment/pay — acente limit bakiyesi ile ödeme (müşteri Paratika'da ödedikten sonra).
+pub fn pay_order_with_limit(
+  cfg: Yolcu360Config,
+  order_id: String,
+) -> Result(PaymentResult, String) {
+  case login(cfg) {
+    Error(e) -> Error(e)
+    Ok(auth) -> {
+      let bearer = "Bearer " <> auth.access_token
+      let body =
+        json.object([
+          #("orderID", json.string(string.trim(order_id))),
+          #("paymentType", json.string("limit")),
+        ])
+        |> json.to_string
+      let url = yolcu360_config.payment_pay_url(cfg)
+      case http_client.post_json(url, body, bearer) {
+        Error(e) -> Error("yolcu360_http_failed:" <> e)
+        Ok(raw) ->
+          Ok(PaymentResult(
+            status: payment_status_from_raw(raw),
+            raw_response: raw,
+          ))
+      }
+    }
+  }
+}
+
+/// GET /order/{id}
+pub fn get_order(cfg: Yolcu360Config, order_id: String) -> Result(String, String) {
+  case login(cfg) {
+    Error(e) -> Error(e)
+    Ok(auth) -> {
+      let bearer = "Bearer " <> auth.access_token
+      let url = yolcu360_config.order_detail_url(cfg, order_id)
+      case http_client.get_url_with_auth(url, bearer) {
+        Error(e) -> Error("yolcu360_http_failed:" <> e)
+        Ok(raw) -> Ok(raw)
+      }
+    }
+  }
+}
+
 /// Ping: login + örnek konum araması (istanbul).
 pub fn ping(cfg: Yolcu360Config) -> Result(#(AuthResult, LocationsResult), String) {
   case login(cfg) {

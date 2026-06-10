@@ -48,7 +48,9 @@ export function flattenYolcu360CarItem(item, index) {
   const totalMoney = asRecord(pricing?.total) ?? asRecord(pricing?.fee)
   const days = pickNum(r.rentalDurationInDays)
 
-  const id = pickStr(r.id, r.productId, r.searchId, r.code) || `idx-${index}`
+  const searchID = pickStr(r.searchID, r.searchId) || undefined
+  const productCode = pickStr(r.code) || undefined
+  const id = productCode || pickStr(r.id, r.productId) || searchID || `idx-${index}`
   const totalPrice = moneyAmount(
     pickNum(r.totalPrice, r.total_price, totalMoney?.amount, pricing?.total),
   )
@@ -77,6 +79,8 @@ export function flattenYolcu360CarItem(item, index) {
 
   return {
     id,
+    searchID,
+    productCode,
     vehicleClass: vehicleClass || undefined,
     brand: brand || undefined,
     model: model || undefined,

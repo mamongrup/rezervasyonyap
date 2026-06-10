@@ -161,6 +161,18 @@ pub fn search_point_url(cfg: Yolcu360Config) -> String {
   join_path(cfg.base_url, "/search/point")
 }
 
+pub fn order_url(cfg: Yolcu360Config) -> String {
+  join_path(cfg.base_url, "/order")
+}
+
+pub fn order_detail_url(cfg: Yolcu360Config, order_id: String) -> String {
+  join_path(cfg.base_url, "/order/" <> encode_param(string.trim(order_id)))
+}
+
+pub fn payment_pay_url(cfg: Yolcu360Config) -> String {
+  join_path(cfg.base_url, "/payment/pay")
+}
+
 /// RFC3339 datetime; timezone yoksa ülkeye göre offset ekler.
 pub fn format_search_datetime(date_str: String, country_code: String) -> String {
   let t = string.trim(date_str)
