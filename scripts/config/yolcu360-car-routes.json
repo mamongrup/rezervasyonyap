@@ -1,0 +1,12 @@
+[
+  { "pickup": "Istanbul", "dropoff": "Istanbul", "label": "İstanbul", "rentalDays": 3 },
+  { "pickup": "Ankara", "dropoff": "Ankara", "label": "Ankara", "rentalDays": 3 },
+  { "pickup": "Izmir", "dropoff": "Izmir", "label": "İzmir", "rentalDays": 3 },
+  { "pickup": "Antalya", "dropoff": "Antalya", "label": "Antalya", "rentalDays": 5 },
+  { "pickup": "Bursa", "dropoff": "Bursa", "label": "Bursa", "rentalDays": 3 },
+  { "pickup": "Adana", "dropoff": "Adana", "label": "Adana", "rentalDays": 3 },
+  { "pickup": "Gaziantep", "dropoff": "Gaziantep", "label": "Gaziantep", "rentalDays": 3 },
+  { "pickup": "Trabzon", "dropoff": "Trabzon", "label": "Trabzon", "rentalDays": 3 },
+  { "pickup": "Istanbul", "dropoff": "Ankara", "label": "İstanbul — Ankara", "rentalDays": 3 },
+  { "pickup": "Istanbul", "dropoff": "Antalya", "label": "İstanbul — Antalya", "rentalDays": 5 }
+]

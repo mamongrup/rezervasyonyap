@@ -1,0 +1,26 @@
+[
+  {
+    "pickup": "Istanbul",
+    "dropoff": "Istanbul",
+    "label": "İstanbul",
+    "rentalDays": 3
+  },
+  {
+    "pickup": "Ankara",
+    "dropoff": "Ankara",
+    "label": "Ankara",
+    "rentalDays": 3
+  },
+  {
+    "pickup": "Izmir",
+    "dropoff": "Izmir",
+    "label": "İzmir",
+    "rentalDays": 3
+  },
+  {
+    "pickup": "Antalya",
+    "dropoff": "Antalya",
+    "label": "Antalya",
+    "rentalDays": 5
+  }
+]

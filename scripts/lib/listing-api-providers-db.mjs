@@ -84,3 +84,25 @@ export async function loadTravelrobotConfigFromDb() {
     importHotelRooms: tr.import_hotel_rooms !== false,
   }
 }
+
+function normalizeYolcu360BaseUrl(raw) {
+  let u = String(
+    raw || process.env.YOLCU360_BASE_URL || 'https://staging.api.pro.yolcu360.com/api/v1',
+  )
+    .trim()
+    .replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`
+  return u
+}
+
+export async function loadYolcu360ConfigFromDb() {
+  const all = await loadListingApiProvidersFromDb()
+  const y = all.yolcu360 ?? {}
+  return {
+    enabled: Boolean(y.enabled),
+    baseUrl: normalizeYolcu360BaseUrl(y.base_url),
+    apiKey: String(y.api_key || process.env.YOLCU360_API_KEY || ''),
+    apiSecret: String(y.api_secret || process.env.YOLCU360_API_SECRET || ''),
+    listingStatus: String(y.listing_status || process.env.YOLCU360_STATUS || 'published'),
+  }
+}
