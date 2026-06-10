@@ -44,6 +44,7 @@ const EMPTY_TURNA: TurnaSettings = {
   country_code: 'TR',
   currency_code: 'TRY',
   language_code: 'tr',
+  listing_status: 'published',
 }
 
 const EMPTY_YOLCU360: Yolcu360Settings = {
@@ -751,6 +752,17 @@ export default function AdminListingApiProvidersSection() {
               placeholder="tr"
             />
           </div>
+          <div className="space-y-1">
+            <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Import ilan durumu</label>
+            <select
+              value={turna.listing_status}
+              onChange={(e) => setTurna({ listing_status: e.target.value as 'draft' | 'published' })}
+              className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-white"
+            >
+              <option value="published">Yayında (published)</option>
+              <option value="draft">Taslak (draft)</option>
+            </select>
+          </div>
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -895,9 +907,11 @@ export default function AdminListingApiProvidersSection() {
         </p>
         <p>
           Turna Uçak:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">./deploy/scripts/run-turna-live-setup.sh</code>
+          {' · '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/diag-turna-config.mjs</code>
+          {' · '}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-turna-flights.mjs --ping</code>
-          {' / '}
-          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-turna-flights.mjs --dry-run</code>
           {' (rota: scripts/config/turna-flight-routes.json)'}
         </p>
         <p>

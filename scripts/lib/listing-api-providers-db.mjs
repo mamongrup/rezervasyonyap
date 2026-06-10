@@ -164,6 +164,43 @@ export async function loadYolcu360ConfigFromDb() {
 }
 
 /** Panel `listing_api_providers.yolcu360` alanlarını birleştirip kaydeder (platform scope). */
+/** Panel `listing_api_providers.turna` alanlarını birleştirip kaydeder (platform scope). */
+export async function upsertTurnaInListingApiProviders(turnaPatch) {
+  const client = createPgClient()
+  await client.connect()
+  try {
+    const { rows } = await client.query(
+      `SELECT value_json::text AS raw
+       FROM site_settings
+       WHERE key = $1 AND organization_id IS NULL
+       ORDER BY id DESC
+       LIMIT 1`,
+      [KEY],
+    )
+    let all = {}
+    if (rows[0]?.raw) {
+      try {
+        const parsed = JSON.parse(rows[0].raw)
+        all = parsed && typeof parsed === 'object' ? parsed : {}
+      } catch {
+        all = {}
+      }
+    }
+    const prev = all.turna && typeof all.turna === 'object' ? all.turna : {}
+    all.turna = { ...prev, ...turnaPatch }
+    await client.query(
+      `INSERT INTO site_settings (organization_id, key, value_json)
+       VALUES (NULL, $1, $2::jsonb)
+       ON CONFLICT (key) WHERE organization_id IS NULL
+       DO UPDATE SET value_json = excluded.value_json`,
+      [KEY, JSON.stringify(all)],
+    )
+    return all.turna
+  } finally {
+    await client.end()
+  }
+}
+
 export async function upsertYolcu360InListingApiProviders(yolcu360Patch) {
   const client = createPgClient()
   await client.connect()

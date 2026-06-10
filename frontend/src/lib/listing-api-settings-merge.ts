@@ -36,6 +36,7 @@ export type TurnaSettings = {
   country_code: string
   currency_code: string
   language_code: string
+  listing_status: 'draft' | 'published'
 }
 
 export type Yolcu360Settings = {

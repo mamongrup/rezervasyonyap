@@ -432,3 +432,22 @@ Yardımcı: `getBasket`, `cancelReserve`, `getRefundOffer`, `cancelBooking` (ref
 ### Turna — bilinçli dışarıda bırakılanlar
 
 turna.com vitrininde otel/otobüs/araç/feribot olsa da API entegrasyonu **sadece flight** (`/v1/flight/booking/*`, `/v1/flight/refund/*`). RT / çok yolcu için ek Postman koleksiyonu Turna’dan istenebilir; OW 1ADT klasör yeterli başlangıç.
+
+### Turna — sunucu kurulumu
+
+```bash
+# /etc/rezervasyonyap/backend.env veya turna.env:
+# TURNA_API_KEY=...  TURNA_BASE_URL=https://api.turna.com  TURNA_STATUS=published
+
+chmod +x deploy/scripts/run-turna-live-setup.sh
+./deploy/scripts/run-turna-live-setup.sh          # config + ping + 246 rota import
+./deploy/scripts/run-turna-live-setup.sh --skip-import
+
+node scripts/diag-turna-config.mjs
+node scripts/ping-turna.mjs
+node scripts/test-turna-search.mjs IST AYT 2026-07-17
+```
+
+- **Canlı anahtar + apitest URL** → 403; `import-turna-flights.sh` otomatik `api.turna.com`'a geçer.
+- **Günlük import:** `travel-import-scheduler.timer` → `IMPORT_SCHEDULE_TURNA=4` (UTC 04:00).
+- **Rezervasyon:** backend `turna_flight_http` + checkout uçuş akışı (canlı arama → allocate → reserve).
