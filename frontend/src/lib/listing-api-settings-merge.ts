@@ -12,9 +12,14 @@ export type WtatilSettings = {
 
 export type TravelrobotSettings = {
   enabled: boolean
+  /** Canlı Booking API (CreateToken, arama, rezervasyon). */
   base_url: string
   channel_code: string
   channel_password: string
+  /** Statik içerik API (otel kodları, destinasyonlar, zenginleştirme). */
+  static_base_url: string
+  static_user: string
+  static_password: string
   listing_status: 'draft' | 'published'
   import_tours: boolean
   import_hotels: boolean
@@ -77,6 +82,15 @@ export function mergeListingApiProvidersForSave(
         prev?.travelrobot.channel_password,
       ),
       base_url: preserveString(form.travelrobot.base_url, prev?.travelrobot.base_url),
+      static_user: preserveString(form.travelrobot.static_user, prev?.travelrobot.static_user),
+      static_password: preserveString(
+        form.travelrobot.static_password,
+        prev?.travelrobot.static_password,
+      ),
+      static_base_url: preserveString(
+        form.travelrobot.static_base_url,
+        prev?.travelrobot.static_base_url,
+      ),
     },
     turna: {
       ...form.turna,

@@ -34,15 +34,31 @@ function joinUrl(base, path) {
   return `${base.replace(/\/$/, '')}${p}`
 }
 
+function formatStaticApiError(svcPath, status, json, text) {
+  const raw = json?.message || json?.Message || json?.error || text.slice(0, 300) || ''
+  const msg = String(raw).trim()
+  if (/not in whitelist/i.test(msg)) {
+    return `${svcPath}: sunucu IP adresi statik API whitelist'inde değil — KPlus/BookingAgora'ya sunucu çıkış IP'nizi bildirin (${msg})`
+  }
+  if (status === 401 && /credentials are not valid/i.test(msg)) {
+    return `${svcPath}: statik kullanıcı/şifre geçersiz — Booking kanalı (agora_MM4N) ile karıştırmayın; static_user=BAgora_mm4N ayrı kaydedilmeli (${msg})`
+  }
+  return `${svcPath}: ${msg || `HTTP ${status}`} (HTTP ${status})`
+}
+
 async function staticFetch(cfg, svcPath, { method = 'GET', token, body, headers = {} } = {}) {
   const url = joinUrl(staticBaseUrl(cfg), svcPath)
   const h = { Accept: 'application/json', ...headers }
   if (token) h.Authorization = `Bearer ${token}`
-  if (body !== undefined) h['Content-Type'] = 'application/json'
+  const hasJsonBody = body !== undefined
+  if (hasJsonBody) h['Content-Type'] = 'application/json'
+  // IIS/ARR bazen gövdesiz POST için Content-Length ister (411 Length Required).
+  const fetchBody = hasJsonBody ? JSON.stringify(body) : method === 'POST' || method === 'PUT' ? '' : undefined
+  if (fetchBody !== undefined) h['Content-Length'] = String(Buffer.byteLength(fetchBody))
   const res = await fetch(url, {
     method,
     headers: h,
-    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    ...(fetchBody !== undefined ? { body: fetchBody } : {}),
   })
   const text = await res.text()
   let json = null
@@ -54,23 +70,37 @@ async function staticFetch(cfg, svcPath, { method = 'GET', token, body, headers 
     }
   }
   if (!res.ok) {
-    const msg = json?.message || json?.Message || json?.error || text.slice(0, 300) || res.statusText
-    throw new Error(`${svcPath}: ${msg} (HTTP ${res.status})`)
+    throw new Error(formatStaticApiError(svcPath, res.status, json, text))
   }
   return json
 }
 
 // ─── Kimlik doğrulama ─────────────────────────────────────────────────────────
 
+export function staticCredentialsReady(cfg, opts = {}) {
+  const user = String(opts.user ?? cfg.staticUser ?? '').trim()
+  const pwd = String(opts.password ?? cfg.staticPassword ?? '').trim()
+  return user !== '' && pwd !== ''
+}
+
+function staticCredentialsMissingError() {
+  return new Error(
+    'static_user / static_password yapılandırılmamış — panel veya TRAVELROBOT_STATIC_USER/PASSWORD env, ardından apply-travelrobot-live-config.mjs (Booking kanalı ile aynı değildir)',
+  )
+}
+
 /**
  * Static Content API kimlik doğrulama.
  * POST /token/authenticate — kullanıcı adı/şifre header'da (user / pwd).
  * Yanıt: { token, expiration }
- * opts: { user, password }  (yoksa cfg.staticUser/staticPassword, o da yoksa channelCode/Password)
+ * opts: { user, password }  (yoksa cfg.staticUser/staticPassword)
  */
 export async function authenticateStatic(cfg, opts = {}) {
-  const user = opts.user ?? cfg.staticUser ?? cfg.channelCode
-  const pwd = opts.password ?? cfg.staticPassword ?? cfg.channelPassword
+  if (!staticCredentialsReady(cfg, opts)) {
+    throw staticCredentialsMissingError()
+  }
+  const user = String(opts.user ?? cfg.staticUser).trim()
+  const pwd = String(opts.password ?? cfg.staticPassword).trim()
   const json = await staticFetch(cfg, '/token/authenticate', {
     method: 'POST',
     headers: { user, pwd },

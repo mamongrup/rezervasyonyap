@@ -3,7 +3,11 @@
  */
 import { searchHotels, pickHotelRows } from './travelrobot-api.mjs'
 import { DEFAULT_HOTEL_DESTINATION_ID } from './travelrobot-sandbox-ids.mjs'
-import { authenticateStatic, getBulkHotelContent } from './travelrobot-static-api.mjs'
+import {
+  authenticateStatic,
+  getBulkHotelContent,
+  staticCredentialsReady,
+} from './travelrobot-static-api.mjs'
 import {
   buildStaticHotelMap,
   mergeStaticHotelContent,
@@ -31,17 +35,24 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
 
   let enriched = rows
   if (!skipStatic) {
-    try {
-      const { token: staticToken } = await authenticateStatic(cfg)
-      const codes = [...new Set(rows.map((r) => hotelRef(r)).filter(Boolean))]
-      await log(`Otel: Static API — ${codes.length} kod için içerik alınıyor…`)
-      const bulk = await getBulkHotelContent(cfg, staticToken, codes, { chunkSize: 50 })
-      const staticMap = buildStaticHotelMap(bulk)
-      enriched = rows.map((r) => mergeStaticHotelContent(r, staticMap.get(hotelRef(r))))
-      await log(`Otel: Static API — ${staticMap.size} otel içeriği birleştirildi`)
-    } catch (e) {
-      console.warn('[uyarı] Static API atlandı:', e.message)
-      await log(`Otel: Static API atlandı — ${String(e.message).slice(0, 100)}`)
+    if (!staticCredentialsReady(cfg)) {
+      const hint =
+        'static_user/static_password eksik — panel veya backend.env (TRAVELROBOT_STATIC_USER/PASSWORD) + apply-travelrobot-live-config.mjs'
+      console.warn('[uyarı] Static API atlandı:', hint)
+      await log(`Otel: Static API atlandı — ${hint}`)
+    } else {
+      try {
+        const { token: staticToken } = await authenticateStatic(cfg)
+        const codes = [...new Set(rows.map((r) => hotelRef(r)).filter(Boolean))]
+        await log(`Otel: Static API — ${codes.length} kod için içerik alınıyor…`)
+        const bulk = await getBulkHotelContent(cfg, staticToken, codes, { chunkSize: 50 })
+        const staticMap = buildStaticHotelMap(bulk)
+        enriched = rows.map((r) => mergeStaticHotelContent(r, staticMap.get(hotelRef(r))))
+        await log(`Otel: Static API — ${staticMap.size} otel içeriği birleştirildi`)
+      } catch (e) {
+        console.warn('[uyarı] Static API atlandı:', e.message)
+        await log(`Otel: Static API atlandı — ${String(e.message).slice(0, 100)}`)
+      }
     }
   }
 

@@ -67,14 +67,33 @@ export async function loadWtatilConfigFromDb() {
   }
 }
 
+function normalizeTravelrobotBaseUrl(raw) {
+  return String(
+    raw || process.env.TRAVELROBOT_BASE_URL || 'https://api.bookingagora.com/v0',
+  )
+    .trim()
+    .replace(/\/+$/, '')
+}
+
+function normalizeStaticBaseUrl(raw) {
+  return String(
+    raw || process.env.TRAVELROBOT_STATIC_BASE_URL || 'https://static.travelchain.online/api',
+  )
+    .trim()
+    .replace(/\/+$/, '')
+}
+
 export async function loadTravelrobotConfigFromDb() {
   const all = await loadListingApiProvidersFromDb()
   const tr = all.travelrobot ?? {}
   return {
     enabled: Boolean(tr.enabled),
-    baseUrl: String(tr.base_url || process.env.TRAVELROBOT_BASE_URL || 'http://sandbox.kplus.com.tr/kplus/v0').replace(/\/+$/, ''),
+    baseUrl: normalizeTravelrobotBaseUrl(tr.base_url),
     channelCode: String(tr.channel_code || process.env.TRAVELROBOT_CHANNEL_CODE || ''),
     channelPassword: String(tr.channel_password || process.env.TRAVELROBOT_CHANNEL_PASSWORD || ''),
+    staticBaseUrl: normalizeStaticBaseUrl(tr.static_base_url),
+    staticUser: String(tr.static_user || process.env.TRAVELROBOT_STATIC_USER || ''),
+    staticPassword: String(tr.static_password || process.env.TRAVELROBOT_STATIC_PASSWORD || ''),
     listingStatus: String(tr.listing_status || process.env.TRAVELROBOT_LISTING_STATUS || 'published'),
     importTours: tr.import_tours !== false,
     importHotels: Boolean(tr.import_hotels),
@@ -82,6 +101,43 @@ export async function loadTravelrobotConfigFromDb() {
     importCarRental: Boolean(tr.import_car_rental),
     /** Otel vitrininde oda tipleri için otel bazlı SearchHotel (yavaş; varsayılan açık). */
     importHotelRooms: tr.import_hotel_rooms !== false,
+  }
+}
+
+/** Panel `listing_api_providers.travelrobot` alanlarını birleştirip kaydeder (platform scope). */
+export async function upsertTravelrobotInListingApiProviders(travelrobotPatch) {
+  const client = createPgClient()
+  await client.connect()
+  try {
+    const { rows } = await client.query(
+      `SELECT value_json::text AS raw
+       FROM site_settings
+       WHERE key = $1 AND organization_id IS NULL
+       ORDER BY id DESC
+       LIMIT 1`,
+      [KEY],
+    )
+    let all = {}
+    if (rows[0]?.raw) {
+      try {
+        const parsed = JSON.parse(rows[0].raw)
+        all = parsed && typeof parsed === 'object' ? parsed : {}
+      } catch {
+        all = {}
+      }
+    }
+    const prev = all.travelrobot && typeof all.travelrobot === 'object' ? all.travelrobot : {}
+    all.travelrobot = { ...prev, ...travelrobotPatch }
+    await client.query(
+      `INSERT INTO site_settings (organization_id, key, value_json)
+       VALUES (NULL, $1, $2::jsonb)
+       ON CONFLICT (key) WHERE organization_id IS NULL
+       DO UPDATE SET value_json = excluded.value_json`,
+      [KEY, JSON.stringify(all)],
+    )
+    return all.travelrobot
+  } finally {
+    await client.end()
   }
 }
 

@@ -23,9 +23,12 @@ const SETTINGS_KEY = 'listing_api_providers'
 
 const EMPTY_TRAVELROBOT: TravelrobotSettings = {
   enabled: false,
-  base_url: 'http://sandbox.kplus.com.tr/kplus/v0',
+  base_url: 'https://api.bookingagora.com/v0',
   channel_code: '',
   channel_password: '',
+  static_base_url: 'https://static.travelchain.online/api',
+  static_user: '',
+  static_password: '',
   listing_status: 'published',
   import_tours: true,
   import_hotels: false,
@@ -574,7 +577,9 @@ export default function AdminListingApiProvidersSection() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-neutral-900 dark:text-white">Travelrobot / KPlus</h2>
-            <p className="text-xs text-neutral-500">Sandbox: sandbox.kplus.com.tr — canlı URL’yi sağlayıcıdan alın.</p>
+            <p className="text-xs text-neutral-500">
+              Canlı Booking API: api.bookingagora.com · Statik içerik: static.travelchain.online
+            </p>
           </div>
           <label className="flex cursor-pointer items-center gap-2 text-sm">
             <input
@@ -589,15 +594,16 @@ export default function AdminListingApiProvidersSection() {
 
         <div className="space-y-4">
           <Field
-            label="Base URL"
+            label="Booking API — Base URL"
             value={tr.base_url}
             onChange={(v) => setTr({ base_url: v })}
-            placeholder="http://sandbox.kplus.com.tr/kplus/v0"
+            placeholder="https://api.bookingagora.com/v0"
           />
           <Field
             label="Channel Code"
             value={tr.channel_code}
             onChange={(v) => setTr({ channel_code: v })}
+            placeholder="agora_MM4N"
           />
           <Field
             label="Channel Password"
@@ -605,6 +611,32 @@ export default function AdminListingApiProvidersSection() {
             onChange={(v) => setTr({ channel_password: v })}
             type="password"
           />
+
+          <div className="rounded-xl border border-dashed border-neutral-200 p-3 dark:border-neutral-600">
+            <p className="mb-3 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+              Statik içerik API (otel kodları, destinasyonlar, zenginleştirme)
+            </p>
+            <div className="space-y-4">
+              <Field
+                label="Static API — Base URL"
+                value={tr.static_base_url}
+                onChange={(v) => setTr({ static_base_url: v })}
+                placeholder="https://static.travelchain.online/api"
+              />
+              <Field
+                label="Static User"
+                value={tr.static_user}
+                onChange={(v) => setTr({ static_user: v })}
+                placeholder="BAgora_mm4N"
+              />
+              <Field
+                label="Static Password"
+                value={tr.static_password}
+                onChange={(v) => setTr({ static_password: v })}
+                type="password"
+              />
+            </div>
+          </div>
           <div className="space-y-1">
             <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Import ilan durumu</label>
             <select
@@ -838,6 +870,12 @@ export default function AdminListingApiProvidersSection() {
         <p>
           Otel:{' '}
           <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5</code>
+        </p>
+        <p>
+          Travelrobot canlı/statik test:{' '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/ping-travelrobot-live.mjs</code>
+          {' · '}
+          <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">node scripts/apply-travelrobot-live-config.mjs</code>
         </p>
         <p>
           Travelrobot Uçak:{' '}
