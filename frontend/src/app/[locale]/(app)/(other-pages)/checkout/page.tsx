@@ -4,10 +4,7 @@ import CheckoutContractWizard from '@/components/checkout/CheckoutContractWizard
 import CheckoutGuestForms from '@/components/checkout/CheckoutGuestForms'
 import CheckoutInvoiceForm from '@/components/checkout/CheckoutInvoiceForm'
 import CheckoutCarSummary from '@/components/checkout/CheckoutCarSummary'
-import CheckoutCarTrip from '@/components/checkout/CheckoutCarTrip'
 import CheckoutFlightSummary from '@/components/checkout/CheckoutFlightSummary'
-import CheckoutFlightTrip from '@/components/checkout/CheckoutFlightTrip'
-import PayWith from '@/app/[locale]/(app)/(other-pages)/checkout/PayWith'
 import CheckoutListingSummary from '@/components/checkout/CheckoutListingSummary'
 import CheckoutStaySummary from '@/components/checkout/CheckoutStaySummary'
 import CheckoutCardPayment from '@/components/checkout/CheckoutCardPayment'
@@ -535,24 +532,10 @@ function CheckoutPageContent() {
   const catalogListingCheckoutReady =
     !isLiveProductCheckout && hasCheckoutListing && !listingLoading
   const twoColumnCheckout = flightCheckoutReady || carCheckoutReady || catalogListingCheckoutReady
+  const sidebarSummaryFirst = twoColumnCheckout
 
   return (
     <main className="container mt-10 mb-24 lg:mb-32">
-      {isFlightCheckout ? (
-        <Link
-          href={flightBackHref}
-          className="mb-6 inline-flex text-link-muted"
-        >
-          ← {C.flightBackToSearch}
-        </Link>
-      ) : null}
-
-      {isCarCheckout ? (
-        <Link href={carBackHref} className="mb-6 inline-flex text-link-muted">
-          ← {C.carBackToSearch}
-        </Link>
-      ) : null}
-
       {flightSessionMissing ? (
         <div
           role="alert"
@@ -593,7 +576,7 @@ function CheckoutPageContent() {
           className={clsx(
             'flex w-full min-w-0 flex-col gap-y-10 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700',
             twoColumnCheckout && 'lg:col-start-1',
-            catalogListingCheckoutReady && 'max-lg:order-2',
+            sidebarSummaryFirst && 'max-lg:order-2',
           )}
         >
         <h1 className="text-3xl font-semibold lg:text-4xl">{pageTitle}</h1>
@@ -619,21 +602,7 @@ function CheckoutPageContent() {
         {stayDates.start ? <input type="hidden" name="checkIn" value={stayDates.start} /> : null}
         {stayDates.end ? <input type="hidden" name="checkOut" value={stayDates.end} /> : null}
 
-        {flightCheckoutReady ? (
-          <CheckoutFlightTrip
-            locale={locale}
-            offer={flightOffer!}
-            departureDate={flightDraft?.departure_date ?? stayDates.start}
-            passengers={flightPassengers}
-            backHref={flightBackHref}
-          />
-        ) : carCheckoutReady ? (
-          <CheckoutCarTrip
-            locale={locale}
-            car={carDraft!.car}
-            backHref={carBackHref}
-          />
-        ) : (
+        {flightCheckoutReady || carCheckoutReady ? null : (
           <>
             {!catalogListingCheckoutReady ? (
               <CheckoutSection step={1} title={C.sectionListingInfo}>
@@ -724,9 +693,8 @@ function CheckoutPageContent() {
 
         <CheckoutSection
           step={isLiveProductCheckout ? 2 : catalogListingCheckoutReady ? 3 : 4}
-          title={isLiveProductCheckout ? C.payWithTitle : C.sectionPayment}
+          title={C.sectionPayment}
         >
-          {isLiveProductCheckout ? <PayWith locale={locale} showHeading={false} /> : null}
           <CheckoutPaymentMethods
             locale={locale}
             value={paymentChannel}
@@ -787,7 +755,7 @@ function CheckoutPageContent() {
         )}
 
         {flightCheckoutReady ? (
-          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutFlightSummary
               locale={locale}
               offer={flightOffer!}
@@ -795,17 +763,23 @@ function CheckoutPageContent() {
               currencyCode={checkoutCurrency}
               totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
               passengers={flightPassengers}
+              couponCode={coupon?.code}
+              couponDiscount={couponDiscount}
+              backHref={flightBackHref}
             />
           </aside>
         ) : null}
 
         {carCheckoutReady ? (
-          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutCarSummary
               locale={locale}
               car={carDraft!.car}
               currencyCode={checkoutCurrency}
               totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
+              couponCode={coupon?.code}
+              couponDiscount={couponDiscount}
+              backHref={carBackHref}
             />
           </aside>
         ) : null}
