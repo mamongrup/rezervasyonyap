@@ -903,7 +903,15 @@ export async function searchFlightItinerary(cfg, tokenCode, opts = {}) {
 
   const passengers = []
   if ((opts.adults ?? 1) > 0) passengers.push({ PaxType: '0', Count: String(opts.adults ?? 1) })
-  if ((opts.children ?? 0) > 0) passengers.push({ PaxType: '1', Count: String(opts.children) })
+  if ((opts.children ?? 0) > 0) {
+    const childAges = opts.childAges ?? [5]
+    const ageList = Array.from({ length: opts.children }, (_, i) => Number(childAges[i] ?? childAges[0] ?? 5))
+    passengers.push({
+      PaxType: '1',
+      Count: String(opts.children),
+      ChildAgeList: ageList,
+    })
+  }
   if ((opts.infants ?? 0) > 0) passengers.push({ PaxType: '2', Count: String(opts.infants) })
 
   // SearchType: tek bacak=Oneway(0), iki bacak=Roundtrip(1), >2=Multiple(2)
@@ -971,43 +979,166 @@ export async function validateFlight(cfg, tokenCode, opts = {}) {
   })
 }
 
+/** Validate yanıtındaki PassengerFares → Book için PassengerRef listesi. */
+export function extractFlightPassengerRefs(validatePayload, expectedCount = null) {
+  const groups = []
+
+  const expandGroup = (passengerFares) => {
+    const out = []
+    for (const pf of passengerFares ?? []) {
+      const passengerRef = pf?.PassengerRef ?? pf?.passengerRef
+      if (!passengerRef) continue
+      const passengerType = Number(pf?.PassengerType ?? pf?.passengerType ?? 0)
+      const count = Math.max(1, Number(pf?.Count ?? pf?.count ?? 1))
+      for (let i = 0; i < count; i++) {
+        out.push({ passengerRef: String(passengerRef), passengerType })
+      }
+    }
+    return out
+  }
+
+  const walk = (node) => {
+    if (node == null || typeof node !== 'object') return
+    if (Array.isArray(node.PassengerFares) && node.PassengerFares.length) {
+      const expanded = expandGroup(node.PassengerFares)
+      if (expanded.length) groups.push(expanded)
+    }
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item)
+      return
+    }
+    for (const v of Object.values(node)) walk(v)
+  }
+
+  walk(validatePayload?.Result ?? validatePayload?.result ?? validatePayload)
+
+  if (!groups.length) return []
+
+  if (expectedCount != null) {
+    const exact = groups.filter((g) => g.length === expectedCount)
+    if (exact.length) return exact[exact.length - 1]
+  }
+
+  return groups.reduce((best, g) => (g.length > (best?.length ?? 0) ? g : best), groups[0])
+}
+
+/** Validate PassengerRef'lerini FlightPaxes sırasına hizala (ADT→CHD→INF). */
+export function attachPassengerRefsToFlightPaxes(flightPaxes, passengerRefs) {
+  if (!Array.isArray(passengerRefs) || !passengerRefs.length) return flightPaxes ?? []
+  return (flightPaxes ?? []).map((entry, i) => {
+    const ref = passengerRefs[i]
+    if (!ref?.passengerRef) return entry
+    return {
+      ...entry,
+      PassengerRef: ref.passengerRef,
+      FlightPaxType: ref.passengerType ?? entry.FlightPaxType ?? entry.PaxType,
+    }
+  })
+}
+
+/** Book (Air) — iç FlightPaxes → Stoplight şeması (FlightPaxType, PassengerRef). */
+export function mapFlightPaxesForBook(flightPaxes, opts = {}) {
+  const useFlightPaxType = opts.useFlightPaxType !== false
+  return (flightPaxes ?? []).map((entry) => {
+    const paxType = entry.FlightPaxType ?? entry.PaxType ?? 0
+    const pax = entry.Pax ?? {}
+    const typeField = useFlightPaxType
+      ? { FlightPaxType: String(paxType) }
+      : { PaxType: String(paxType) }
+    const mapped = omitNullFields({
+      ...typeField,
+      PassengerRef: entry.PassengerRef,
+      IsLeader: entry.IsLeader === true || entry.IsLeader === 'true' ? 'true' : 'false',
+      Pax: omitNullFields({
+        DateOfBirth: pax.DateOfBirth,
+        Email: pax.Email,
+        FirstName: pax.FirstName,
+        GenderType: pax.GenderType != null ? String(pax.GenderType) : undefined,
+        LastName: pax.LastName,
+        MobilePhone: pax.MobilePhone,
+        NationalityCode: pax.NationalityCode ?? 'TR',
+        IdentityNumber: pax.IdentityNumber,
+        PassportNumber: pax.PassportNumber,
+        PassportValidityDate: pax.PassportValidityDate,
+        ChildAge: pax.ChildAge != null ? String(pax.ChildAge) : undefined,
+      }),
+    })
+    if (optsLegacyRecId(entry)) mapped.RecId = entry.RecId
+    return mapped
+  })
+}
+
+function optsLegacyRecId(entry) {
+  return entry.RecId != null && entry.RecId !== 0
+}
+
+function formatFlightBookContactInfo(contact) {
+  if (!contact) return undefined
+  return omitNullFields({
+    Email: contact.Email,
+    FirstName: contact.FirstName,
+    LastName: contact.LastName,
+    Phone: contact.Phone,
+    GenderType: contact.GenderType != null ? String(contact.GenderType) : undefined,
+  })
+}
+
+function formatFlightBookPaymentInfo(payment) {
+  if (!payment) return undefined
+  const out = {
+    PaymentType: payment.PaymentType != null ? String(payment.PaymentType) : undefined,
+    PaymentItemId: payment.PaymentItemId != null ? String(payment.PaymentItemId) : undefined,
+  }
+  if (payment.CardInfo) out.CardInfo = payment.CardInfo
+  return omitNullFields(out)
+}
+
+/** Air Book gövdesi — legacy (ham FlightPaxes) veya Stoplight (mapFlightPaxesForBook). */
+export function buildFlightBookRequest(opts = {}) {
+  const flightPaxes =
+    opts.mapPaxes === true
+      ? mapFlightPaxesForBook(opts.flightPaxes, { useFlightPaxType: opts.useFlightPaxType })
+      : (opts.flightPaxes ?? [])
+  const request = {
+    ProcessId: null,
+    Version: '2.0',
+    ProductType: 0,
+    TokenCode: opts.tokenCode,
+    PaxInfo: {
+      HotelRoomPaxes: null,
+      FlightPaxes: flightPaxes,
+      CarPax: null,
+      TourRoomPaxes: null,
+      TransferPaxes: null,
+      PackagePaxes: null,
+      VisaPaxes: null,
+      ActivityPaxes: null,
+    },
+    ContactInfo: opts.mapPaxes === true ? formatFlightBookContactInfo(opts.contactInfo) : opts.contactInfo,
+    InvoiceInfo: opts.invoiceInfo,
+    CorporateInfo: null,
+    BookingNote: opts.bookingNote ?? null,
+    AgentReferenceInfo: opts.agentReferenceInfo ?? null,
+    ResultKeys: (opts.resultKeys ?? []).map(String),
+    PaymentInfo: opts.mapPaxes === true ? formatFlightBookPaymentInfo(opts.paymentInfo) : opts.paymentInfo,
+    LanguageCode: opts.languageCode ?? 'tr',
+    WithPrice: false,
+  }
+  return { request: omitNullFields(request) }
+}
+
 /**
  * Uçuş rezervasyon oluşturma.
  * opts: {
  *   tokenCode, resultKeys,
  *   flightPaxes: [{ paxType, pax: { firstName, lastName, dateOfBirth, ... } }],
+ *   mapPaxes: true (varsayılan Stoplight), false = ham Postman gövdesi
  *   contactInfo, invoiceInfo, paymentInfo, languageCode
  * }
  */
 export async function createFlightReservation(cfg, opts = {}) {
-  // Gerçek endpoint: Air.svc /Book
-  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/Book', {
-    request: {
-      ProcessId: null,
-      Version: '2.0',
-      ProductType: 0,
-      TokenCode: opts.tokenCode,
-      PaxInfo: {
-        HotelRoomPaxes: null,
-        FlightPaxes: opts.flightPaxes ?? [],
-        CarPax: null,
-        TourRoomPaxes: null,
-        TransferPaxes: null,
-        PackagePaxes: null,
-        VisaPaxes: null,
-        ActivityPaxes: null,
-      },
-      ContactInfo: opts.contactInfo,
-      InvoiceInfo: opts.invoiceInfo,
-      CorporateInfo: null,
-      BookingNote: opts.bookingNote ?? null,
-      AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      ResultKeys: opts.resultKeys ?? [],
-      PaymentInfo: opts.paymentInfo,
-      LanguageCode: opts.languageCode ?? 'tr',
-      WithPrice: false,
-    },
-  })
+  const body = buildFlightBookRequest(opts)
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/Book', body)
 }
 
 /**
@@ -1031,33 +1162,8 @@ export async function issueTicketFromReservation(cfg, opts = {}) {
  * opts: { tokenCode, resultKeys, flightPaxes, contactInfo, invoiceInfo, paymentInfo, languageCode }
  */
 export async function issueTicketDirect(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/IssueTicketDirect', {
-    request: {
-      ProcessId: null,
-      Version: '2.0',
-      ProductType: 0,
-      TokenCode: opts.tokenCode,
-      PaxInfo: {
-        HotelRoomPaxes: null,
-        FlightPaxes: opts.flightPaxes ?? [],
-        CarPax: null,
-        TourRoomPaxes: null,
-        TransferPaxes: null,
-        PackagePaxes: null,
-        VisaPaxes: null,
-        ActivityPaxes: null,
-      },
-      ContactInfo: opts.contactInfo,
-      InvoiceInfo: opts.invoiceInfo,
-      CorporateInfo: null,
-      BookingNote: opts.bookingNote ?? null,
-      AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      ResultKeys: opts.resultKeys ?? [],
-      PaymentInfo: opts.paymentInfo,
-      LanguageCode: opts.languageCode ?? 'tr',
-      WithPrice: false,
-    },
-  })
+  const body = buildFlightBookRequest(opts)
+  return kplusPost(cfg.baseUrl, '/Air.svc/Rest/Json/IssueTicketDirect', body)
 }
 
 export function pickFlightRows(payload) {

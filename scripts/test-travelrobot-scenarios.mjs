@@ -19,6 +19,7 @@
  * Hotel API Test Cases (PDF) — tam akış + System PNR + adım logları:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotels
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotel-s1
+ *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-s2
  *
  * Çıktılar:
  *   - Konsol: özet ✅/❌
@@ -72,6 +73,8 @@ import {
   validateFlight,
   getPaymentOptions,
   createFlightReservation,
+  extractFlightPassengerRefs,
+  attachPassengerRefsToFlightPaxes,
   issueTicketFromReservation,
   issueTicketDirect,
   // Transfer
@@ -106,13 +109,14 @@ const FROM_DB = args.includes('--from-db')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 const ONLY = getArg('--only')?.toLowerCase() ?? ''
 const ONLY_HOTEL_S1 = ONLY === 'hotel-s1' || ONLY === 's1'
+const ONLY_AIR_S2 = ONLY === 'air-s2' || ONLY === 's2'
 const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel' || ONLY_HOTEL_S1
-const RUN_FLIGHTS = !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air'
+const RUN_FLIGHTS = !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air' || ONLY_AIR_S2
 const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-hotel-s1-retry-v9'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-passenger-ref-v11'
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
 /** İstanbul S1: erken tarih + kısa konaklama (sandbox stoğu). */
@@ -209,6 +213,29 @@ function addDays(n) {
 
 // ─── Test pax verisi (Postman koleksiyonu formatında) ─────────────────────────
 
+function formatDobFromDate(d) {
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  return `${dd}.${mm}.${d.getUTCFullYear()}`
+}
+
+function infantDateOfBirth(monthsOld = 10) {
+  const d = new Date()
+  d.setUTCMonth(d.getUTCMonth() - monthsOld)
+  return formatDobFromDate(d)
+}
+
+function ageFromDob(dob) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(dob ?? ''))
+  if (!m) return 0
+  const birth = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])))
+  const now = new Date()
+  let age = now.getUTCFullYear() - birth.getUTCFullYear()
+  const md = now.getUTCMonth() - birth.getUTCMonth()
+  if (md < 0 || (md === 0 && now.getUTCDate() < birth.getUTCDate())) age--
+  return Math.max(0, age)
+}
+
 function makePax(firstName, lastName, dob, gender = 1, nationality = 'TR', passport = null) {
   return {
     PaxId: 0,
@@ -296,6 +323,32 @@ const TEST_PAYMENT = {
   PaymentCommissionType: 0,
   PaymentDescription: null,
   HasWorkMultiCurrency: false,
+}
+
+function makeFlightCertPax(firstName, lastName, dob, gender = 1, passport = null) {
+  const pax = makePax(firstName, lastName, dob, gender, 'TR', passport)
+  pax.IdentityNumber = null
+  return pax
+}
+
+async function tryCreateFlightBook(cfg, bookOpts) {
+  const variants = bookOpts.paxVariants ?? [{ label: 'default', flightPaxes: bookOpts.flightPaxes, mapPaxes: true }]
+  for (const variant of variants) {
+    const payload = await createFlightReservation(cfg, {
+      ...bookOpts,
+      flightPaxes: variant.flightPaxes,
+      mapPaxes: variant.mapPaxes ?? true,
+      useFlightPaxType: variant.useFlightPaxType,
+    })
+    if (!payload?.HasError && (payload?.Result?.Booking?.SystemPnr ?? payload?.Result?.SystemPnr)) {
+      return { payload, variant: variant.label }
+    }
+    const err = payload?.ErrorMessage ?? ''
+    if (!/passenger count|passenger type|invalid payment|invalid key|invalid first name/i.test(err)) {
+      return { payload, variant: variant.label, fatal: true }
+    }
+  }
+  return null
 }
 
 // ─── Uçuş senaryo çalıştırıcı ────────────────────────────────────────────────
@@ -390,23 +443,26 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı (${bookResultKeys.length} ResultKey)`)
         if (!SKIP_BOOKING) {
           const flightPaxesTry = buildFlightPaxes(opts)
+          const { variants: paxVariants, passengerRefs } = buildFlightBookPaxVariants(opts, validatePayload)
           try {
-            const bookTry = await createFlightReservation(cfg, {
+            const bookHit = await tryCreateFlightBook(cfg, {
               tokenCode,
               resultKeys: bookResultKeys,
               flightPaxes: flightPaxesTry,
-          contactInfo: buildFlightContact(flightPaxesTry),
-          invoiceInfo: TEST_INVOICE,
-          paymentInfo: AIR_TEST_PAYMENT,
-          bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
+              paxVariants,
+              passengerRefCount: passengerRefs.length,
+              contactInfo: buildFlightContact(flightPaxesTry),
+              invoiceInfo: TEST_INVOICE,
+              paymentInfo: AIR_TEST_PAYMENT,
+              bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
               languageCode: opts.languageCode ?? 'tr',
             })
-            if (!bookTry?.HasError && (bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr)) {
-              systemPnr = bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr ?? null
-              break
+            if (bookHit?.payload && !bookHit.payload?.HasError) {
+              systemPnr =
+                bookHit.payload?.Result?.Booking?.SystemPnr ?? bookHit.payload?.Result?.SystemPnr ?? null
+              if (systemPnr) break
             }
-            const bookErr = bookTry?.ErrorMessage ?? ''
-            if (/passenger count|invalid payment|invalid key|invalid first name/i.test(bookErr)) continue
+            if (bookHit?.fatal) break
           } catch (e) {
             if (/passenger count|invalid payment|invalid key|invalid first name/i.test(String(e))) continue
           }
@@ -502,10 +558,13 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   // Adım 4: CreateReservation (Book) — validate döngüsünde yapılmadıysa
   if (!systemPnr) {
     try {
-      const payload = await createFlightReservation(cfg, {
+      const { variants: paxVariants, passengerRefs } = buildFlightBookPaxVariants(opts, validatePayload)
+      const bookHit = await tryCreateFlightBook(cfg, {
         tokenCode,
         resultKeys: bookResultKeys,
         flightPaxes,
+        paxVariants,
+        passengerRefCount: passengerRefs.length,
         contactInfo: flightContact,
         invoiceInfo: TEST_INVOICE,
         paymentInfo: AIR_TEST_PAYMENT,
@@ -513,14 +572,23 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         bookingNote: clientNotes,
         languageCode: opts.languageCode ?? 'tr',
       })
+      const payload = bookHit?.payload ?? null
       log(scenarioName, 'CreateReservation', '/Air.svc/Rest/Json/Book',
-        { resultKeys: bookResultKeys, paxCount: flightPaxes.length }, payload, !payload?.HasError)
-      if (!payload?.HasError) {
+        {
+          resultKeys: bookResultKeys,
+          paxCount: flightPaxes.length,
+          passengerRefCount: passengerRefs.length,
+          variant: bookHit?.variant,
+        },
+        payload,
+        !payload?.HasError)
+      if (payload && !payload?.HasError) {
         const refs = extractAirPnr(payload)
         systemPnr = refs.systemPnr
         certRow.systemPnr = refs.systemPnr
         certRow.pnr = refs.pnr
-        ok(`[${scenarioName}] CreateReservation`, `SystemPNR: ${systemPnr ?? '(yok)'}  PNR: ${refs.pnr ?? '(yok)'}`)
+        ok(`[${scenarioName}] CreateReservation`,
+          `SystemPNR: ${systemPnr ?? '(yok)'}  PNR: ${refs.pnr ?? '(yok)'}${bookHit?.variant ? ` (${bookHit.variant})` : ''}`)
       } else {
         fail(`[${scenarioName}] CreateReservation`, payload?.ErrorMessage ?? 'Hata')
         return
@@ -584,10 +652,14 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         { offerIndex: directOfferIndex, keys: directKeys.length }, valDirect, !valDirect?.HasError)
       if (!valDirect?.HasError) {
         const directResultKeys = pickFlightBookResultKeys(valDirect, directKeys, directKeyOpts)
+        const { variants: directPaxVariants } = buildFlightBookPaxVariants(opts, valDirect)
+        const directPaxes = directPaxVariants[0]?.flightPaxes ?? flightPaxes
         const directPayload = await issueTicketDirect(cfg, {
           tokenCode,
           resultKeys: directResultKeys,
-          flightPaxes,
+          flightPaxes: directPaxes,
+          mapPaxes: true,
+          useFlightPaxType: true,
           contactInfo: flightContact,
           invoiceInfo: TEST_INVOICE,
           paymentInfo: AIR_TEST_PAYMENT,
@@ -634,28 +706,67 @@ function buildFlightPaxes(opts) {
     ['KATE', 'BROWN'],
   ]
   const childAges = opts.childAges ?? [5, 5, 5]
+  let paxSeq = 0
 
   for (let i = 0; i < adults; i++) {
     const [fn, ln] = adultNames[i] ?? ['JOHN', 'SMITH']
-    const pax = makePax(fn, ln, '15.06.1990', 1)
+    const pax = makeFlightCertPax(fn, ln, '15.06.1990', 1, `AA${String(100001 + paxSeq).slice(-6)}`)
     pax.Age = 30
+    paxSeq++
     paxes.push({ RecId: 0, IsLeader: i === 0, PaxType: 0, Pax: pax })
   }
   const leaderLast = paxes[0]?.Pax?.LastName ?? 'SMITH'
   for (let i = 0; i < children; i++) {
-    const [fn, ln] = childNames[i] ?? ['TIM', leaderLast]
+    const [fn] = childNames[i] ?? ['TIM', 'SMITH']
     const age = Number(childAges[i] ?? 5)
     const birthYear = new Date().getUTCFullYear() - age
-    const pax = makePax(fn, ln, `15.06.${birthYear}`, 1)
+    const pax = makeFlightCertPax(fn, leaderLast, `15.06.${birthYear}`, 1, `AA${String(100001 + paxSeq).slice(-6)}`)
     pax.Age = age
+    pax.ChildAge = age
+    paxSeq++
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 1, Pax: pax })
   }
   for (let i = 0; i < infants; i++) {
-    const pax = makePax('INFANT', leaderLast, '15.06.2024', 1)
-    pax.Age = 1
+    const dob = infantDateOfBirth(10)
+    const pax = makeFlightCertPax('BABY', leaderLast, dob, 1, `AA${String(100001 + paxSeq).slice(-6)}`)
+    pax.Age = Math.min(1, ageFromDob(dob))
+    paxSeq++
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 2, Pax: pax })
   }
   return paxes
+}
+
+/** Validate PassengerRef + Stoplight/legacy pax formatlarını sırayla dene. */
+function buildFlightBookPaxVariants(opts, validatePayload = null) {
+  const standard = buildFlightPaxes(opts)
+  const paxCount = standard.length
+  const passengerRefs = validatePayload ? extractFlightPassengerRefs(validatePayload, paxCount) : []
+  const withRefs = passengerRefs.length
+    ? attachPassengerRefsToFlightPaxes(standard, passengerRefs)
+    : standard
+
+  const variants = [
+    { label: 'flight-pax-type+refs', flightPaxes: withRefs, mapPaxes: true, useFlightPaxType: true },
+    { label: 'pax-type+refs', flightPaxes: withRefs, mapPaxes: true, useFlightPaxType: false },
+    { label: 'legacy+refs', flightPaxes: withRefs, mapPaxes: false },
+  ]
+
+  const multi = paxCount > 1
+  if (multi) {
+    const certNames = withRefs.map((entry) => {
+      const copy = { ...entry, Pax: { ...entry.Pax } }
+      if (Number(entry.PaxType ?? entry.FlightPaxType) === 0 && entry.IsLeader) {
+        copy.Pax = makeFlightCertPax('TEST', 'TRAVELER', '15.06.1990', 1, copy.Pax.PassportNumber)
+        copy.Pax.Age = 30
+      } else if (Number(entry.PaxType ?? entry.FlightPaxType) === 0) {
+        copy.Pax = makeFlightCertPax('TEST', 'GUEST', '15.06.1992', 1, copy.Pax.PassportNumber)
+        copy.Pax.Age = 30
+      }
+      return copy
+    })
+    variants.push({ label: 'flight-pax-type+refs-test-names', flightPaxes: certNames, mapPaxes: true, useFlightPaxType: true })
+  }
+  return { variants, passengerRefs }
 }
 
 function buildFlightContact(flightPaxes) {
@@ -1470,19 +1581,25 @@ async function main() {
   // UÇUŞ SENARYOLARI (Air API Test Cases belgesinden — 11 senaryo)
   // ═══════════════════════════════════════════════════════════════════════════
 
+  if (!ONLY_AIR_S2) {
   // Air Senaryo 1: Oneway, 1 ADT, IST → LHR
   await runFlightScenario(cfg, tokenCode, 'Air-S1: Oneway / 1ADT / IST→LHR', {
     legs: [{ originCode: 'IST', destinationCode: 'LHR', departureDate: addDays(30) }],
     flightType: 0, resultType: 0, adults: 1, languageCode: 'tr',
   })
+  }
 
   // Air Senaryo 2: Oneway, 2 ADT + 1 CHD + 1 INF, IST → LHR
   await runFlightScenario(cfg, tokenCode, 'Air-S2: Oneway / 2ADT+1CHD+1INF / IST→LHR', {
     legs: [{ originCode: 'IST', destinationCode: 'LHR', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
+  if (ONLY_AIR_S2) {
+    /* --only air-s2 */
+  } else if (
   // Air Senaryo 3: Roundtrip / Combined, 1 ADT, LHR → DXB
+  true) {
   await runFlightScenario(cfg, tokenCode, 'Air-S3: Roundtrip/Combined / 1ADT / LHR→DXB', {
     legs: [
       { originCode: 'LHR', destinationCode: 'DXB', departureDate: addDays(30) },
@@ -1506,7 +1623,7 @@ async function main() {
       { originCode: 'LHR', destinationCode: 'DXB', departureDate: addDays(30) },
       { originCode: 'DXB', destinationCode: 'LHR', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 6: Roundtrip / Separated, 2 ADT + 1 CHD + 1 INF, LHR → DXB
@@ -1515,7 +1632,7 @@ async function main() {
       { originCode: 'LHR', destinationCode: 'DXB', departureDate: addDays(30) },
       { originCode: 'DXB', destinationCode: 'LHR', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 1, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 1, resultType: 1, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 7: Multiple / Combined, 1 ADT, CDG→FCO→LHR→BCN
@@ -1535,13 +1652,13 @@ async function main() {
       { originCode: 'FCO', destinationCode: 'LHR', departureDate: addDays(31) },
       { originCode: 'LHR', destinationCode: 'BCN', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 1, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 2, resultType: 1, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 9: Oneway LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
   await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
     legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 10: Roundtrip LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
@@ -1550,7 +1667,7 @@ async function main() {
       { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
       { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 11: Multiple LCC, 2 ADT + 1 CHD + 1 INF, AYT→TZX→IST→ADB
@@ -1560,8 +1677,9 @@ async function main() {
       { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
       { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
+  }
   }
 
   if (RUN_GENERAL) {
