@@ -118,7 +118,20 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-names-v12'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-tc-v13'
+/** KPlus sandbox yurt içi LCC — checksum'ı doğru örnek TC kimlikler. */
+const SANDBOX_TC_NUMBERS = [
+  '24236183616',
+  '66545881280',
+  '38765364200',
+  '15731565238',
+  '51987235984',
+  '30419506170',
+]
+
+function sandboxTcKimlik(index = 0) {
+  return SANDBOX_TC_NUMBERS[index % SANDBOX_TC_NUMBERS.length]
+}
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
 /** İstanbul S1: erken tarih + kısa konaklama (sandbox stoğu). */
@@ -327,9 +340,15 @@ const TEST_PAYMENT = {
   HasWorkMultiCurrency: false,
 }
 
-function makeFlightCertPax(firstName, lastName, dob, gender = 1, passport = null) {
+function makeFlightCertPax(firstName, lastName, dob, gender = 1, passport = null, certOpts = {}) {
   const pax = makePax(firstName, lastName, dob, gender, 'TR', passport)
-  pax.IdentityNumber = null
+  if (certOpts.useTcKimlik === true && certOpts.tcIndex != null) {
+    pax.IdentityNumber = sandboxTcKimlik(certOpts.tcIndex)
+    pax.PassportNumber = null
+    pax.PassportValidityDate = null
+  } else {
+    pax.IdentityNumber = null
+  }
   return pax
 }
 
@@ -710,26 +729,31 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
 }
 
 /** KPlus sandbox onaylı yolcu isimleri (LCC dahil). */
-function applyFlightCertNames(flightPaxes) {
+function applyFlightCertNames(flightPaxes, certOpts = {}) {
+  let tcIdx = certOpts.tcStartIndex ?? 0
   return (flightPaxes ?? []).map((entry) => {
     const copy = { ...entry, Pax: { ...entry.Pax } }
     const paxType = Number(entry.PaxType ?? entry.FlightPaxType ?? 0)
     const passport = copy.Pax?.PassportNumber ?? 'AA123456'
+    const paxCertOpts = {
+      useTcKimlik: certOpts.useTcKimlik === true,
+      tcIndex: tcIdx++,
+    }
     if (paxType === 0 && entry.IsLeader) {
-      copy.Pax = makeFlightCertPax('TEST', 'TRAVELER', '15.06.1990', 1, passport)
+      copy.Pax = makeFlightCertPax('TEST', 'TRAVELER', '15.06.1990', 1, passport, paxCertOpts)
       copy.Pax.Age = 30
     } else if (paxType === 0) {
-      copy.Pax = makeFlightCertPax('TEST', 'GUEST', '15.06.1992', 1, passport)
+      copy.Pax = makeFlightCertPax('TEST', 'GUEST', '15.06.1992', 1, passport, paxCertOpts)
       copy.Pax.Age = 30
     } else if (paxType === 1) {
       const age = Number(copy.Pax?.Age ?? copy.Pax?.ChildAge ?? 5)
       const y = new Date().getUTCFullYear() - age
-      copy.Pax = makeFlightCertPax('TIM', 'TRAVELER', `15.06.${y}`, 1, passport)
+      copy.Pax = makeFlightCertPax('TIM', 'TRAVELER', `15.06.${y}`, 1, passport, paxCertOpts)
       copy.Pax.Age = age
       copy.Pax.ChildAge = age
     } else if (paxType === 2) {
       const dob = copy.Pax?.DateOfBirth ?? infantDateOfBirth(10)
-      copy.Pax = makeFlightCertPax('BABY', 'TRAVELER', dob, 1, passport)
+      copy.Pax = makeFlightCertPax('BABY', 'TRAVELER', dob, 1, passport, paxCertOpts)
       copy.Pax.Age = Math.min(1, ageFromDob(dob))
     }
     return copy
@@ -742,6 +766,7 @@ function buildFlightPaxes(opts) {
   const children = opts.children ?? 0
   const infants = opts.infants ?? 0
   const useCertNames = opts.useCertNames === true
+  const useTcKimlik = opts.useTcKimlik === true
   const adultNames = useCertNames
     ? [
         ['TEST', 'TRAVELER'],
@@ -763,7 +788,14 @@ function buildFlightPaxes(opts) {
 
   for (let i = 0; i < adults; i++) {
     const [fn, ln] = adultNames[i] ?? (useCertNames ? ['TEST', 'TRAVELER'] : ['JOHN', 'SMITH'])
-    const pax = makeFlightCertPax(fn, ln, i === 0 ? '15.06.1990' : '15.06.1992', 1, `AA${String(100001 + paxSeq).slice(-6)}`)
+    const pax = makeFlightCertPax(
+      fn,
+      ln,
+      i === 0 ? '15.06.1990' : '15.06.1992',
+      1,
+      `AA${String(100001 + paxSeq).slice(-6)}`,
+      { useTcKimlik, tcIndex: paxSeq },
+    )
     pax.Age = 30
     paxSeq++
     paxes.push({ RecId: 0, IsLeader: i === 0, PaxType: 0, Pax: pax })
@@ -773,7 +805,14 @@ function buildFlightPaxes(opts) {
     const [fn, ln] = childNames[i] ?? [useCertNames ? 'TIM' : 'TIM', leaderLast]
     const age = Number(childAges[i] ?? 5)
     const birthYear = new Date().getUTCFullYear() - age
-    const pax = makeFlightCertPax(fn, ln, `15.06.${birthYear}`, 1, `AA${String(100001 + paxSeq).slice(-6)}`)
+    const pax = makeFlightCertPax(
+      fn,
+      ln,
+      `15.06.${birthYear}`,
+      1,
+      `AA${String(100001 + paxSeq).slice(-6)}`,
+      { useTcKimlik, tcIndex: paxSeq },
+    )
     pax.Age = age
     pax.ChildAge = age
     paxSeq++
@@ -781,7 +820,14 @@ function buildFlightPaxes(opts) {
   }
   for (let i = 0; i < infants; i++) {
     const dob = infantDateOfBirth(10)
-    const pax = makeFlightCertPax('BABY', leaderLast, dob, 1, `AA${String(100001 + paxSeq).slice(-6)}`)
+    const pax = makeFlightCertPax(
+      'BABY',
+      leaderLast,
+      dob,
+      1,
+      `AA${String(100001 + paxSeq).slice(-6)}`,
+      { useTcKimlik, tcIndex: paxSeq },
+    )
     pax.Age = Math.min(1, ageFromDob(dob))
     paxSeq++
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 2, Pax: pax })
@@ -797,7 +843,8 @@ function buildFlightBookPaxVariants(opts, validatePayload = null) {
   const withRefs = passengerRefs.length
     ? attachPassengerRefsToFlightPaxes(standard, passengerRefs)
     : standard
-  const certNames = applyFlightCertNames(withRefs)
+  const certNames = applyFlightCertNames(withRefs, { useTcKimlik: false })
+  const certNamesTc = applyFlightCertNames(withRefs, { useTcKimlik: true })
 
   const variantEntry = (label, flightPaxes, mapPaxes, useFlightPaxType = true) => ({
     label,
@@ -808,6 +855,13 @@ function buildFlightBookPaxVariants(opts, validatePayload = null) {
 
   const variants = []
   if (opts.useCertNames === true) {
+    if (opts.useTcKimlik === true) {
+      variants.push(
+        variantEntry('cert-tc+flight-pax-type+refs', certNamesTc, true, true),
+        variantEntry('cert-tc+pax-type+refs', certNamesTc, true, false),
+        variantEntry('cert-tc+legacy+refs', certNamesTc, false),
+      )
+    }
     variants.push(
       variantEntry('cert-names+flight-pax-type+refs', certNames, true, true),
       variantEntry('cert-names+pax-type+refs', certNames, true, false),
@@ -1659,14 +1713,14 @@ async function main() {
   // Air Senaryo 9–11: LCC (sandbox onaylı TEST/TRAVELER isimleri)
   await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
     legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
   await runFlightScenario(cfg, tokenCode, 'Air-S10: Roundtrip-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
     legs: [
       { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
       { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
   await runFlightScenario(cfg, tokenCode, 'Air-S11: Multiple-LCC / 2ADT+1CHD+1INF / AYT→TZX→IST→ADB', {
     legs: [
@@ -1674,7 +1728,7 @@ async function main() {
       { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
       { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
   } else if (
   // Air Senaryo 3: Roundtrip / Combined, 1 ADT, LHR → DXB
@@ -1737,7 +1791,7 @@ async function main() {
   // Air Senaryo 9: Oneway LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
   await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
     legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
 
   // Air Senaryo 10: Roundtrip LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
@@ -1746,7 +1800,7 @@ async function main() {
       { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
       { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
 
   // Air Senaryo 11: Multiple LCC, 2 ADT + 1 CHD + 1 INF, AYT→TZX→IST→ADB
@@ -1756,7 +1810,7 @@ async function main() {
       { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
       { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, languageCode: 'tr',
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
   }
   }

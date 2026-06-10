@@ -1057,7 +1057,7 @@ export function mapFlightPaxesForBook(flightPaxes, opts = {}) {
         LastName: pax.LastName,
         MobilePhone: pax.MobilePhone,
         NationalityCode: pax.NationalityCode ?? 'TR',
-        IdentityNumber: pax.IdentityNumber,
+        IdentityNumber: pax.IdentityNumber != null ? String(pax.IdentityNumber) : undefined,
         PassportNumber: pax.PassportNumber,
         PassportValidityDate: pax.PassportValidityDate,
         ChildAge: pax.ChildAge != null ? String(pax.ChildAge) : undefined,
