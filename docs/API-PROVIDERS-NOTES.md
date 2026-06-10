@@ -62,7 +62,10 @@ node scripts/apply-travelrobot-live-config.mjs --dry-run
 node scripts/apply-travelrobot-live-config.mjs
 node scripts/ping-travelrobot-live.mjs
 node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5
+node scripts/import-travelrobot-hotels.mjs --from-static --dry-run --limit 5
 ```
+
+Canlı ortamda `SearchHotel` sandbox destinasyon ID ile **0 otel** dönebilir; import script'i otomatik olarak **Statik API kataloğuna** geçer.
 
 **Statik API hata kodları:**
 

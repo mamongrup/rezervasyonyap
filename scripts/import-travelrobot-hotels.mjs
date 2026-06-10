@@ -5,11 +5,16 @@
  *   node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/import-travelrobot-hotels.mjs --org-id <uuid>
  *
- * Not: Default endpoint /Hotel.svc/Rest/Json/SearchHotel
- * Farklı endpoint için: --endpoint /Hotel.svc/Rest/Json/GetHotelList
+ * Not: Default SearchHotel (sandbox destinasyon ID). Canlıda boşsa otomatik Statik API kataloğu.
+ *   --from-static   yalnızca Statik API (getAllHotelCodes + getHotels)
+ *   --skip-search   SearchHotel atla, doğrudan Statik API
  */
 
 import { createTravelrobotToken, loadTravelrobotConfig, searchHotels, pickHotelRows } from './lib/travelrobot-api.mjs'
+import {
+  fetchHotelCatalogFromStatic,
+  isTravelrobotSandboxBaseUrl,
+} from './lib/travelrobot-hotel-catalog.mjs'
 import { DEFAULT_HOTEL_DESTINATION_ID } from './lib/travelrobot-sandbox-ids.mjs'
 import { resolveImportContext, upsertTravelrobotHotelListing } from './lib/travelrobot-listing-db.mjs'
 import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
@@ -24,6 +29,8 @@ const orgIdIdx = process.argv.indexOf('--org-id')
 const ORG_ID = orgIdIdx >= 0 ? process.argv[orgIdIdx + 1] : (process.env.IMPORT_ORG_ID ?? '')
 const endpointIdx = process.argv.indexOf('--endpoint')
 const ENDPOINT = endpointIdx >= 0 ? process.argv[endpointIdx + 1] : undefined
+const FROM_STATIC = args.has('--from-static')
+const SKIP_SEARCH = args.has('--skip-search')
 
 async function resolveOrgId(pgClient) {
   if (ORG_ID) return ORG_ID
@@ -49,25 +56,52 @@ async function main() {
     return
   }
 
-  console.log('GetHotelList çağrılıyor…')
-  let payload
-  try {
-    const destinationId =
-      process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID
-    payload = await searchHotels(cfg, tokenCode, { endpoint: ENDPOINT, destinationId })
-  } catch (e) {
-    console.error('[hata]', e.message)
-    console.error(
-      'Endpoint adını doğrulayın: --endpoint /Hotel.svc/Rest/Json/<MethodAdı>',
-      '\nAlternatifler: SearchHotel, GetHotels, GetHotelList, HotelSearch',
-    )
-    process.exit(1)
+  let payload = null
+  let rows = []
+
+  if (!SKIP_SEARCH && !FROM_STATIC) {
+    console.log('SearchHotel çağrılıyor…')
+    try {
+      const destinationId =
+        process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID
+      payload = await searchHotels(cfg, tokenCode, { endpoint: ENDPOINT, destinationId })
+      rows = pickHotelRows(payload)
+      console.log(`SearchHotel: ${rows.length} otel adayı`)
+    } catch (e) {
+      console.error('[hata]', e.message)
+      console.error(
+        'Endpoint adını doğrulayın: --endpoint /Hotel.svc/Rest/Json/<MethodAdı>',
+        '\nAlternatifler: SearchHotel, GetHotels, GetHotelList, HotelSearch',
+      )
+      process.exit(1)
+    }
   }
 
-  let rows = pickHotelRows(payload)
-  console.log(`API: ${rows.length} otel adayı`)
-  if (LIMIT > 0) rows = rows.slice(0, LIMIT)
+  const useStaticCatalog =
+    FROM_STATIC
+    || SKIP_SEARCH
+    || (rows.length === 0 && !isTravelrobotSandboxBaseUrl(cfg.baseUrl))
 
+  if (useStaticCatalog) {
+    if (rows.length === 0 && !FROM_STATIC && !SKIP_SEARCH) {
+      console.log(
+        '[bilgi] Canlı ortamda SearchHotel boş — Statik API kataloğuna geçiliyor (getAllHotelCodes + getHotels)',
+      )
+    }
+    try {
+      const staticLimit = LIMIT > 0 ? LIMIT : 0
+      rows = await fetchHotelCatalogFromStatic(cfg, {
+        limit: staticLimit,
+        log: (msg) => console.log(msg),
+      })
+      console.log(`Statik katalog: ${rows.length} otel adayı`)
+    } catch (e) {
+      console.error('[statik katalog hata]', e.message)
+      if (rows.length === 0) process.exit(1)
+    }
+  }
+
+  if (LIMIT > 0 && rows.length > LIMIT) rows = rows.slice(0, LIMIT)
   const withRooms =
     args.has('--with-rooms') || args.has('--no-with-rooms')
       ? args.has('--with-rooms')
