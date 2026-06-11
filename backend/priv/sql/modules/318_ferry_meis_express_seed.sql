@@ -9,8 +9,11 @@ DECLARE
   v_cat_id    SMALLINT;
   v_locale_tr SMALLINT;
   v_id        UUID;
-  v_p         TEXT := 'https://images.pexels.com/photos/';
-  v_q         TEXT := '?auto=compress&cs=tinysrgb&w=1600';
+  v_kas_port TEXT := 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Ka%C5%9F_Port_-_2014.10_-_panoramio.jpg/1600px-Ka%C5%9F_Port_-_2014.10_-_panoramio.jpg';
+  v_kas_harbour TEXT := 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Ka%C5%9F_harbour_6101.jpg/1600px-Ka%C5%9F_harbour_6101.jpg';
+  v_meis_port TEXT := 'https://upload.wikimedia.org/wikipedia/commons/d/d7/Kastelorizo_port.jpg';
+  v_meis_hafen TEXT := 'https://upload.wikimedia.org/wikipedia/commons/1/15/Kastelorizo_Hafen.jpg';
+  v_meis_approach TEXT := 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Castelorizo.JPG/1600px-Castelorizo.JPG';
 BEGIN
   SELECT id INTO v_org_id FROM organizations ORDER BY created_at LIMIT 1;
   SELECT id INTO v_cat_id FROM product_categories WHERE code = 'ferry';
@@ -27,7 +30,7 @@ BEGIN
     VALUES (
       v_org_id, v_cat_id, 'feribot-kas-meis', 'published', 'EUR', 20.000,
       'Kaş → Meis',
-      v_p || '33545/greece-island-sea-water.jpg' || v_q,
+      v_kas_port,
       36.1444000, 29.5933000
     )
     RETURNING id INTO v_id;
@@ -35,7 +38,7 @@ BEGIN
     UPDATE listings SET
       status = 'published',
       location_name = 'Kaş → Meis',
-      featured_image_url = v_p || '33545/greece-island-sea-water.jpg' || v_q,
+      featured_image_url = v_kas_port,
       map_lat = 36.1444000,
       map_lng = 29.5933000,
       updated_at = now()
@@ -88,12 +91,12 @@ BEGIN
 
   DELETE FROM listing_images WHERE listing_id = v_id;
   INSERT INTO listing_images (listing_id, sort_order, storage_key) VALUES
-    (v_id, 0, v_p || '33545/greece-island-sea-water.jpg' || v_q),
-    (v_id, 1, v_p || '1268855/pexels-photo-1268855.jpeg' || v_q),
-    (v_id, 2, v_p || '2443373/pexels-photo-2443373.jpeg' || v_q),
-    (v_id, 3, v_p || '1619569/pexels-photo-1619569.jpeg' || v_q),
-    (v_id, 4, v_p || '1001682/pexels-photo-1001682.jpeg' || v_q),
-    (v_id, 5, v_p || '2387866/pexels-photo-2387866.jpeg' || v_q);
+    (v_id, 0, v_kas_port),
+    (v_id, 1, v_kas_harbour),
+    (v_id, 2, v_meis_port),
+    (v_id, 3, v_meis_hafen),
+    (v_id, 4, v_meis_approach),
+    (v_id, 5, v_meis_port);
 
   -- ── Meis → Kaş (dönüş) ──
   SELECT id INTO v_id FROM listings
@@ -106,7 +109,7 @@ BEGIN
     VALUES (
       v_org_id, v_cat_id, 'feribot-meis-kas', 'published', 'EUR', 20.000,
       'Meis → Kaş',
-      v_p || '1268855/pexels-photo-1268855.jpeg' || v_q,
+      v_meis_hafen,
       36.2017000, 29.6378000
     )
     RETURNING id INTO v_id;
@@ -114,7 +117,7 @@ BEGIN
     UPDATE listings SET
       status = 'published',
       location_name = 'Meis → Kaş',
-      featured_image_url = v_p || '1268855/pexels-photo-1268855.jpeg' || v_q,
+      featured_image_url = v_meis_hafen,
       map_lat = 36.2017000,
       map_lng = 29.6378000,
       updated_at = now()
@@ -167,11 +170,11 @@ BEGIN
 
   DELETE FROM listing_images WHERE listing_id = v_id;
   INSERT INTO listing_images (listing_id, sort_order, storage_key) VALUES
-    (v_id, 0, v_p || '1268855/pexels-photo-1268855.jpeg' || v_q),
-    (v_id, 1, v_p || '33545/greece-island-sea-water.jpg' || v_q),
-    (v_id, 2, v_p || '2443373/pexels-photo-2443373.jpeg' || v_q),
-    (v_id, 3, v_p || '1619569/pexels-photo-1619569.jpeg' || v_q),
-    (v_id, 4, v_p || '457882/pexels-photo-457882.jpeg' || v_q),
-    (v_id, 5, v_p || '1001682/pexels-photo-1001682.jpeg' || v_q);
+    (v_id, 0, v_meis_hafen),
+    (v_id, 1, v_meis_port),
+    (v_id, 2, v_meis_approach),
+    (v_id, 3, v_kas_port),
+    (v_id, 4, v_kas_harbour),
+    (v_id, 5, v_meis_hafen);
 
 END $$;
