@@ -203,9 +203,14 @@ Air API Test Cases (PDF) — 11 senaryo:
 | S11 | Multiple LCC | 2 ADT + 1 CHD + 1 INF | AYT→TZX→IST→ADB |
 
 ```bash
+# Sertifikasyon: sandbox Test_* kanalı (backend.env: TRAVELROBOT_SANDBOX_CHANNEL_*)
+node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only flights
+node scripts/verify-kplus-air-pnrs.mjs --sandbox
+
+# Canlı/import testi (panel DB — bookingagora.com)
 node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only flights
-node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-s2
-node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-lcc
+node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only air-s2
+node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only air-lcc
 ```
 
 Book: `ResultKeys` = validate yanıtındaki tüm bacak key’leri (`|||` formatı). Ödeme: sandbox’ta `PaymentType: 2` (acente kredisi).

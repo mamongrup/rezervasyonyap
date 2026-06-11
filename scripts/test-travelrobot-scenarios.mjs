@@ -16,6 +16,9 @@
  * Panel'de kaydedilmişse:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db
  *
+ * Sertifikasyon (sandbox Test_* kanalı — canlı DB ayarından bağımsız):
+ *   node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only flights
+ *
  * Hotel API Test Cases (PDF) — tam akış + System PNR + adım logları:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotels
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotel-s1
@@ -95,6 +98,7 @@ import {
   CERT_HOTEL_FALLBACKS,
   TRAVELROBOT_SANDBOX_HOTELS,
 } from './lib/travelrobot-sandbox-ids.mjs'
+import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -106,6 +110,7 @@ const getArg = (flag) => {
   return i >= 0 ? args[i + 1] : undefined
 }
 const FROM_DB = args.includes('--from-db')
+const USE_SANDBOX = args.includes('--sandbox')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 const ONLY = getArg('--only')?.toLowerCase() ?? ''
 const ONLY_HOTEL_S1 = ONLY === 'hotel-s1' || ONLY === 's1'
@@ -1537,13 +1542,25 @@ async function main() {
 
   // Config yükle
   let cfg
-  if (FROM_DB) {
+  if (USE_SANDBOX) {
+    console.log('\n[config] Sandbox test kanalı (KPlus sertifikasyon)…')
+    cfg = buildSandboxConfig(getArg)
+  } else if (FROM_DB) {
     console.log('\n[config] DB\'den yükleniyor…')
     cfg = await loadTravelrobotConfig()
+    if (CREDS.baseUrl || CREDS.channelCode || CREDS.channelPassword) {
+      cfg = {
+        ...cfg,
+        ...(CREDS.baseUrl ? { baseUrl: CREDS.baseUrl.replace(/\/$/, '') } : {}),
+        ...(CREDS.channelCode ? { channelCode: CREDS.channelCode } : {}),
+        ...(CREDS.channelPassword ? { channelPassword: CREDS.channelPassword } : {}),
+      }
+    }
   } else {
     if (!CREDS.baseUrl || !CREDS.channelCode || !CREDS.channelPassword) {
       console.error(
         '\n[hata] Credentials eksik. Kullanım:\n' +
+        '  --sandbox  (TRAVELROBOT_SANDBOX_CHANNEL_* env)\n' +
         '  --base-url "http://sandbox.kplus.com.tr/kplus/v0" \\\n' +
         '  --channel-code <code> --channel-password <pass>\n' +
         '  ya da --from-db',
@@ -1551,6 +1568,12 @@ async function main() {
       process.exit(1)
     }
     cfg = { ...CREDS, enabled: true }
+  }
+
+  if (!USE_SANDBOX && SKIP_BOOKING === false && !isSandboxBaseUrl(cfg.baseUrl)) {
+    console.warn(
+      '\n⚠️  UYARI: --with-booking canlı API ile çalışıyor. Sertifikasyon için --sandbox kullanın.\n',
+    )
   }
 
   // /v0 eksikse uyar

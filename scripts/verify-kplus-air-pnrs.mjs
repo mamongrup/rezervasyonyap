@@ -1,17 +1,21 @@
 #!/usr/bin/env node
 /**
  * KPlus sandbox Air SystemPNR canlılık kontrolü (GetBooking).
- * Kullanım: node scripts/verify-kplus-air-pnrs.mjs --from-db
- *           node scripts/verify-kplus-air-pnrs.mjs --base-url ... --channel-code ... --channel-password ...
+ *
+ * Sertifikasyon PNR'ları sandbox'ta oluşur — --from-db canlı bookingagora ile ÇALIŞMAZ.
+ *
+ *   node scripts/verify-kplus-air-pnrs.mjs --sandbox
+ *   node scripts/verify-kplus-air-pnrs.mjs --sandbox --channel-code Test_... --channel-password ...
  */
-import { createTravelrobotToken, getBooking, loadTravelrobotConfig } from './lib/travelrobot-api.mjs'
+import { createTravelrobotToken, getBooking } from './lib/travelrobot-api.mjs'
+import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
 
 const args = process.argv.slice(2)
-const FROM_DB = args.includes('--from-db')
+const USE_SANDBOX = args.includes('--sandbox')
 
 function getArg(name) {
   const i = args.indexOf(name)
-  return i >= 0 ? args[i + 1] : null
+  return i >= 0 ? args[i + 1] : undefined
 }
 
 /** v14 tam koşu — 2026-06-10T13-43-27 (travelrobot-test-log-2026-06-10T13-43-27.json) */
@@ -28,21 +32,25 @@ const V14_PNRS = [
   ['Air-S11', '6IYM06N52K'],
 ]
 
-async function loadCfg() {
-  if (FROM_DB) return loadTravelrobotConfig()
-  const baseUrl = getArg('--base-url') ?? process.env.TRAVELROBOT_BASE_URL ?? ''
-  const channelCode = getArg('--channel-code') ?? process.env.TRAVELROBOT_CHANNEL_CODE ?? ''
-  const channelPassword = getArg('--channel-password') ?? process.env.TRAVELROBOT_CHANNEL_PASSWORD ?? ''
-  if (!baseUrl || !channelCode || !channelPassword) {
-    throw new Error('--from-db veya --base-url + channel kimlik bilgileri gerekli')
+function loadCfg() {
+  if (!USE_SANDBOX) {
+    throw new Error(
+      'Sertifikasyon PNR kontrolü için --sandbox kullanın. ' +
+        '(--from-db canlı API döner; sandbox PNR bulunamaz.)',
+    )
   }
-  return { baseUrl: baseUrl.replace(/\/$/, ''), channelCode, channelPassword }
+  return buildSandboxConfig(getArg)
 }
 
 async function main() {
-  const cfg = await loadCfg()
+  const cfg = loadCfg()
   console.log(`KPlus Air PNR doğrulama — ${cfg.baseUrl}`)
-  console.log(`Channel: ${cfg.channelCode}\n`)
+  console.log(`Channel: ${cfg.channelCode}`)
+  if (!isSandboxBaseUrl(cfg.baseUrl)) {
+    console.warn('⚠️  Uyarı: baseUrl sandbox değil — PNR listesi sandbox kayıtlarıdır.\n')
+  } else {
+    console.log('')
+  }
 
   let tokenCode = null
   try {
@@ -73,6 +81,11 @@ async function main() {
   }
 
   console.log(`\nÖzet: ${ok} geçerli · ${fail} geçersiz / bulunamadı`)
+  if (fail > 0) {
+    console.log(
+      '\nÇoğu PNR düşmüşse yeniden sertifikasyon koşusu (--sandbox --with-booking --only flights).',
+    )
+  }
   process.exit(fail > 0 ? 1 : 0)
 }
 
