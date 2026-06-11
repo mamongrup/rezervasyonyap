@@ -65,13 +65,28 @@ Laragon menüsünden **Node v25** ve **PostgreSQL 18.4** aktif sürümü seçin.
 
 **Laragon:** Node 25 kurulumu → Laragon menüsünden aktif sürümü seçin.
 
-**Linux (NodeSource örnek):**
+**Linux (NodeSource):**
+
+Plesk sunucuları çoğunlukla **RHEL/Alma** — `deb` scripti çalışmaz; **rpm** kullanın:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_25.x | sudo -E bash -
-sudo apt-get install -y nodejs
+curl -fsSL https://rpm.nodesource.com/setup_25.x | bash -
+dnf install -y nodejs   # veya: yum install -y nodejs
+/usr/bin/node -v
+which -a node
+```
+
+Eski manuel kurulum varsa `/usr/local/bin/node` (v22) PATH'te `/usr/bin/node` (v25) önüne geçer:
+
+```bash
+/usr/bin/node -v          # v25.x ise kurulum tamam
+/usr/local/bin/node -v    # v22 ise gölgeleme var
+mv /usr/local/bin/node /usr/local/bin/node.bak-v22
+ln -sf /usr/bin/node /usr/local/bin/node
 node -v
 ```
+
+`upgrade-runtime.sh` bunu otomatik dener (`fix_node_path_shadowing`).
 
 `travel-web.service` `/usr/bin/node` kullanır; yeni sürüm farklı yoldaysa `ExecStart` veya symlink güncelleyin:
 
