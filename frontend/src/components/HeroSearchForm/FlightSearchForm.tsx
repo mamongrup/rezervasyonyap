@@ -128,9 +128,11 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
         </PopoverButton>
 
         <PopoverPanel
+          portal
+          anchor={{ to: 'bottom', gap: 12 }}
           unmount={false}
           transition
-          className="absolute top-full left-1/2 z-20 mt-3 w-84 -translate-x-1/2 rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:px-8 sm:py-6 dark:bg-neutral-800 dark:ring-white/10"
+          className="z-[9999] w-84 rounded-3xl bg-white px-4 py-5 shadow-xl ring-1 ring-black/5 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 sm:px-8 sm:py-6 dark:bg-neutral-800 dark:ring-white/10"
         >
           <NcInputNumber
             className="w-full"
@@ -180,8 +182,10 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
           </PopoverButton>
 
           <PopoverPanel
+            portal
+            anchor={{ to: 'bottom', gap: 12 }}
             transition
-            className="absolute top-full left-1/2 z-20 mt-3 w-56 -translate-x-1/2 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0"
+            className="z-[9999] w-56 transition duration-150 data-closed:translate-y-1 data-closed:opacity-0"
           >
             <div className="relative grid gap-7 rounded-2xl bg-white p-6 shadow-lg ring-1 ring-black/5 dark:bg-neutral-800 dark:ring-white/10">
               {FLIGHT_CLASS_KEYS.map((item) => (
@@ -231,7 +235,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
   return (
     <Form
       className={clsx(
-        'relative z-10 w-full bg-white [--form-bg:var(--color-white)] dark:bg-neutral-800 dark:[--form-bg:var(--color-neutral-800)]',
+        'relative isolate z-[100] w-full overflow-visible bg-white [--form-bg:var(--color-white)] dark:bg-neutral-800 dark:[--form-bg:var(--color-neutral-800)]',
         className,
         formStyle === 'small' && 'rounded-t-2xl rounded-b-4xl custom-shadow-1',
         formStyle === 'default' &&
@@ -252,7 +256,7 @@ const FlightSearchFormInner: FC<Props> = ({ className, formStyle = 'default' }) 
         {renderGuest()}
       </div>
 
-      <div className="relative z-10 flex flex-1 overflow-visible rounded-full">
+      <div className="relative isolate z-[100] flex flex-1 overflow-visible rounded-full">
         <FlightLocationInputField
           inputName="flying-from-location"
           placeholder={hf['Flying from']}

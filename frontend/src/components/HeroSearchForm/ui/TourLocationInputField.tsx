@@ -8,7 +8,6 @@ import {
   ComboboxInput,
   ComboboxOption,
   ComboboxOptions,
-  Transition,
 } from '@headlessui/react'
 import {
   Location01Icon,
@@ -51,7 +50,7 @@ const styles = {
     small: 'text-base',
   },
   panel: {
-    base: 'absolute start-0 top-full z-40 mt-3 hidden-scrollbar max-h-96 overflow-y-auto rounded-3xl bg-white py-3 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
+    base: 'z-[9999] hidden-scrollbar max-h-96 overflow-y-auto rounded-3xl bg-white py-3 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
     default: 'w-lg sm:py-6',
     small: 'w-md sm:py-5',
   },
@@ -256,71 +255,76 @@ export const TourLocationInputField: FC<Props> = ({
           </div>
         </div>
 
-        <Transition show={showPopover} unmount={false}>
-          <div className={clsx(styles.panel.base, styles.panel[fieldStyle])}>
+        {showPopover ? (
+          <ComboboxOptions
+            static
+            unmount={false}
+            portal
+            anchor={{ to: 'bottom start', gap: 12 }}
+            transition
+            className={clsx(styles.panel.base, styles.panel[fieldStyle])}
+          >
             {loading && (
               <p className="px-8 py-3 text-xs text-neutral-400">{hf.searchingLocations}</p>
             )}
 
-            <ComboboxOptions static unmount={false}>
-              {/* Hub Kategorileri */}
-              {showHubs && (
-                <>
-                  <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
-                    Tur Kategorileri
-                  </p>
-                  {hubs.map((item) => (
-                    <ComboboxOption
-                      key={item.id}
-                      value={item}
-                      className="flex cursor-pointer items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
-                    >
-                      <HugeiconsIcon
-                        icon={RouteIcon}
-                        className="size-4 shrink-0 text-primary-500 sm:size-5 dark:text-primary-400"
-                        strokeWidth={1.75}
-                      />
-                      <div className="min-w-0">
-                        <span className="block font-medium text-neutral-700 dark:text-neutral-200">
-                          {item.name}
-                        </span>
-                        <span className="text-xs text-neutral-400">Tur kategorisi</span>
-                      </div>
-                    </ComboboxOption>
-                  ))}
-                </>
-              )}
-
-              {/* Ayraç */}
-              {showHubs && showDests && <Divider className="my-1 opacity-40" />}
-
-              {/* Destinasyonlar */}
-              {showDests && (
-                <>
-                  <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
-                    {isInitView ? 'Popüler destinasyonlar' : 'Destinasyonlar'}
-                  </p>
-                  {destinations.map((item) => (
-                    <ComboboxOption
-                      key={item.id}
-                      value={item}
-                      className="flex cursor-pointer items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
-                    >
-                      <HugeiconsIcon
-                        icon={item.id.startsWith('d-') ? MapsLocation01Icon : Location01Icon}
-                        className="size-4 text-neutral-400 sm:size-5 dark:text-neutral-500"
-                        strokeWidth={1.75}
-                      />
+            {/* Hub Kategorileri */}
+            {showHubs && (
+              <>
+                <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
+                  Tur Kategorileri
+                </p>
+                {hubs.map((item) => (
+                  <ComboboxOption
+                    key={item.id}
+                    value={item}
+                    className="flex cursor-pointer items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
+                  >
+                    <HugeiconsIcon
+                      icon={RouteIcon}
+                      className="size-4 shrink-0 text-primary-500 sm:size-5 dark:text-primary-400"
+                      strokeWidth={1.75}
+                    />
+                    <div className="min-w-0">
                       <span className="block font-medium text-neutral-700 dark:text-neutral-200">
                         {item.name}
                       </span>
-                    </ComboboxOption>
-                  ))}
-                </>
-              )}
-            </ComboboxOptions>
-          </div>
-        </Transition>
+                      <span className="text-xs text-neutral-400">Tur kategorisi</span>
+                    </div>
+                  </ComboboxOption>
+                ))}
+              </>
+            )}
+
+            {/* Ayraç */}
+            {showHubs && showDests && <Divider className="my-1 opacity-40" />}
+
+            {/* Destinasyonlar */}
+            {showDests && (
+              <>
+                <p className="px-4 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-neutral-400 sm:px-8">
+                  {isInitView ? 'Popüler destinasyonlar' : 'Destinasyonlar'}
+                </p>
+                {destinations.map((item) => (
+                  <ComboboxOption
+                    key={item.id}
+                    value={item}
+                    className="flex cursor-pointer items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
+                  >
+                    <HugeiconsIcon
+                      icon={item.id.startsWith('d-') ? MapsLocation01Icon : Location01Icon}
+                      className="size-4 text-neutral-400 sm:size-5 dark:text-neutral-500"
+                      strokeWidth={1.75}
+                    />
+                    <span className="block font-medium text-neutral-700 dark:text-neutral-200">
+                      {item.name}
+                    </span>
+                  </ComboboxOption>
+                ))}
+              </>
+            )}
+          </ComboboxOptions>
+        ) : null}
       </Combobox>
     </div>
   )

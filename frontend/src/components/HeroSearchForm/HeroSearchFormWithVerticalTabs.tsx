@@ -21,7 +21,7 @@ export default function HeroSearchFormWithVerticalTabs({
   activeSlugs?: string[]
 }) {
   return (
-    <div className={clsx('hero-search-form w-full min-w-0', className)}>
+    <div className={clsx('hero-search-form relative isolate z-[100] w-full min-w-0 overflow-visible', className)}>
       <TabGroup defaultIndex={formTabs.findIndex((tab) => tab.name === initTab)}>
         {/* Chisfis: ms-3 mb-8 sm:gap-x-6 xl:ms-10 xl:gap-x-10 */}
         <TabList className="ms-3 mb-8 flex flex-wrap gap-x-5 gap-y-1 sm:gap-x-6 xl:ms-10 xl:gap-x-10">

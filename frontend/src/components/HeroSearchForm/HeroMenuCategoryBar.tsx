@@ -206,7 +206,11 @@ export function HeroMenuCategoryBar({
           {useCollapseDesktop ? overflowTriggerText : 'Menü'}
         </span>
       </PopoverButton>
-      <PopoverPanel className="absolute end-0 top-full z-[80] mt-3 w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
+      <PopoverPanel
+        portal
+        anchor={{ to: 'bottom end', gap: 12 }}
+        className="z-[9999] w-[min(20rem,calc(100vw-2rem))] rounded-2xl border border-neutral-200 bg-white p-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900"
+      >
         <div className="grid grid-cols-2 gap-1">
           {menuCats.map((cat) => {
             const Icon = SLUG_ICON[cat.slug] ?? Home01Icon

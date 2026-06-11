@@ -23,7 +23,7 @@ const styles = {
     small: 'text-base',
   },
   panel: {
-    base: 'absolute end-0 top-full z-[200] mt-3 flex w-sm flex-col gap-y-6 rounded-3xl bg-white px-8 py-7 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
+    base: 'z-[9999] flex w-sm flex-col gap-y-6 rounded-3xl bg-white px-8 py-7 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
     default: '',
     small: '',
   },
@@ -109,7 +109,13 @@ export const GuestNumberField: FC<Props> = ({
             }}
           />
 
-          <PopoverPanel unmount={false} transition className={clsx(styles.panel.base, styles.panel[fieldStyle])}>
+          <PopoverPanel
+            portal
+            anchor={{ to: 'bottom end', gap: 12 }}
+            unmount={false}
+            transition
+            className={clsx(styles.panel.base, styles.panel[fieldStyle])}
+          >
             <NcInputNumber
               className="w-full"
               defaultValue={guestAdultsInputValue}

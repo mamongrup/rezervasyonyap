@@ -8,7 +8,6 @@ import {
   ComboboxInput,
   ComboboxOption,
   ComboboxOptions,
-  Transition,
 } from '@headlessui/react'
 import {
   BeachIcon,
@@ -58,7 +57,7 @@ const styles = {
     small: 'text-base',
   },
   panel: {
-    base: 'absolute start-0 top-full z-[200] mt-3 hidden-scrollbar max-h-96 overflow-y-auto rounded-3xl bg-white py-3 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
+    base: 'z-[9999] hidden-scrollbar max-h-96 overflow-y-auto rounded-3xl bg-white py-3 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
     default: 'w-lg sm:py-6',
     small: 'w-md sm:py-5',
   },
@@ -248,8 +247,15 @@ export const LocationInputField: FC<Props> = ({
           </div>
         </div>
 
-        <Transition show={showPopover} unmount={false}>
-          <div className={clsx(styles.panel.base, styles.panel[fieldStyle])}>
+        {showPopover ? (
+          <ComboboxOptions
+            static
+            unmount={false}
+            portal
+            anchor={{ to: 'bottom start', gap: 12 }}
+            transition
+            className={clsx(styles.panel.base, styles.panel[fieldStyle])}
+          >
             {isShowInitSuggests && (
               <p className="mt-2 mb-3 px-4 text-xs/6 font-normal text-neutral-600 sm:mt-0 sm:px-8 dark:text-neutral-400">
                 {hf['Suggested locations']}
@@ -259,23 +265,21 @@ export const LocationInputField: FC<Props> = ({
             {loadingSearch && (
               <p className="px-8 py-3 text-xs text-neutral-400">{hf.searchingLocations}</p>
             )}
-            <ComboboxOptions static unmount={false}>
-              {suggestsToShow.map((item) => (
-                <ComboboxOption
-                  key={item.id}
-                  value={item}
-                  className="flex items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
-                >
-                  <HugeiconsIcon
-                    icon={item.icon || Location01Icon}
-                    className="size-4 text-neutral-400 sm:size-6 dark:text-neutral-500"
-                  />
-                  <span className="block font-medium text-neutral-700 dark:text-neutral-200">{item.name}</span>
-                </ComboboxOption>
-              ))}
-            </ComboboxOptions>
-          </div>
-        </Transition>
+            {suggestsToShow.map((item) => (
+              <ComboboxOption
+                key={item.id}
+                value={item}
+                className="flex items-center gap-3 p-4 data-focus:bg-neutral-100 sm:gap-4.5 sm:px-8 dark:data-focus:bg-neutral-700"
+              >
+                <HugeiconsIcon
+                  icon={item.icon || Location01Icon}
+                  className="size-4 text-neutral-400 sm:size-6 dark:text-neutral-500"
+                />
+                <span className="block font-medium text-neutral-700 dark:text-neutral-200">{item.name}</span>
+              </ComboboxOption>
+            ))}
+          </ComboboxOptions>
+        ) : null}
       </Combobox>
     </div>
   )

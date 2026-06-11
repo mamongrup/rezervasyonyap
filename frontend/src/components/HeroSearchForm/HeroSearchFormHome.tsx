@@ -35,7 +35,7 @@ export function HeroSearchFormHome({
   const FormComponent = initTab === 'Stays' ? StaySearchForm : tab.formComponent
 
   return (
-    <div className={clsx('hero-search-form relative z-50 w-full min-w-0 overflow-visible', className)}>
+    <div className={clsx('hero-search-form relative isolate z-[100] w-full min-w-0 overflow-visible', className)}>
       <HeroMenuCategoryBar
         locale={locale}
         layout={categoryBarLayout}
