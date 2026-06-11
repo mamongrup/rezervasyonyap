@@ -515,6 +515,7 @@ export const fr: AppMessages = {
       title: 'Points forts de l’établissement',
       subtitle: 'Les caractéristiques les plus appréciées par les voyageurs.',
       subtitleHolidayHome: 'Thèmes et concept marquants de cette maison de vacances.',
+      subtitleYachtCharter: 'Thèmes et concept marquants de cette location de yacht.',
     },
     faq: {
       title: 'Questions fréquentes',
@@ -618,6 +619,7 @@ export const fr: AppMessages = {
       rangeSep: '–',
       rangeFromOpen: 'et après',
       rangeUntil: 'Jusqu’au',
+      damageDepositNote: 'La caution est payable en espèces à l’arrivée sur place.',
     },
     detailPage: {
       ...en.listing.detailPage,

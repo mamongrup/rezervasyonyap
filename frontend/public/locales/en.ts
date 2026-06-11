@@ -1260,6 +1260,7 @@ export const en = {
       title: 'Property highlights',
       subtitle: "Features guests value most at this hotel.",
       subtitleHolidayHome: 'Standout themes and concept for this holiday home.',
+      subtitleYachtCharter: 'Standout themes and concept for this yacht charter.',
     },
     /** Auto-generated FAQ block on hotel detail page */
     faq: {

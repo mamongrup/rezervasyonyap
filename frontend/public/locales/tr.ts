@@ -777,6 +777,7 @@ export const tr = {
       title: 'Öne çıkan özellikler',
       subtitle: 'Bu otelin misafirlerce en çok değer verilen yanları.',
       subtitleHolidayHome: 'Bu tatil evinin öne çıkan temaları ve konsepti.',
+      subtitleYachtCharter: 'Bu yat kiralama ilanının öne çıkan temaları ve konsepti.',
     },
     faq: {
       title: 'Sıkça sorulan sorular',

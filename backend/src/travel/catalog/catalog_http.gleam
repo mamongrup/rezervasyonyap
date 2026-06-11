@@ -18,6 +18,7 @@ import gleam/string
 import gleam/time/calendar
 import gleam/dynamic/decode
 import pog
+import travel/catalog/listing_translation_sql
 import travel/db/pog_errors
 import travel/identity/admin_gate
 import travel/identity/permissions
@@ -5609,14 +5610,10 @@ pub fn get_public_listing_vitrine(
   case
     pog.query(
       "select "
-      <> "coalesce((select lt.title from listing_translations lt "
-      <> "join locales lo on lo.id = lt.locale_id "
-      <> "where lt.listing_id = l.id and lower(lo.code) = lower($2) limit 1), "
-      <> "(select lt2.title from listing_translations lt2 where lt2.listing_id = l.id limit 1), "
-      <> "l.slug), "
-      <> "coalesce((select lt.description from listing_translations lt "
-      <> "join locales lo on lo.id = lt.locale_id "
-      <> "where lt.listing_id = l.id and lower(lo.code) = lower($2) limit 1), ''), "
+      <> listing_translation_sql.title_select_sql("l.id", "$2")
+      <> ", "
+      <> listing_translation_sql.description_select_sql("l.id", "$2")
+      <> ", "
       <> "coalesce((select c.contact_name from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
       <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
       <> "coalesce(l.external_listing_ref::text, ''), "

@@ -515,6 +515,7 @@ export const ru: AppMessages = {
       title: 'Особенности отеля',
       subtitle: 'Что больше всего ценят гости в этом отеле.',
       subtitleHolidayHome: 'Ключевые темы и концепция этого дома для отдыха.',
+      subtitleYachtCharter: 'Ключевые темы и концепция этой аренды яхты.',
     },
     faq: {
       title: 'Часто задаваемые вопросы',
@@ -617,6 +618,7 @@ export const ru: AppMessages = {
       rangeSep: '–',
       rangeFromOpen: 'и далее',
       rangeUntil: 'До',
+      damageDepositNote: 'Залог за возможный ущерб оплачивается наличными при заезде.',
     },
     detailPage: {
       ...en.listing.detailPage,

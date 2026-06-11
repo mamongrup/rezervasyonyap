@@ -10,16 +10,16 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
-import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useOptionalVillaStayBooking } from './villa-stay-booking-context'
 
 export type StayListingReservationCardProps = {
   locale: string
-  isHolidayHome: boolean
+  /** Tatil evi / yat kiralama — kart stili ve ödeme notları */
+  isStayRental?: boolean
+  /** @deprecated `isStayRental` kullanın */
+  isHolidayHome?: boolean
   mealPlans: MealPlanItem[]
   price: string
   priceAmount: number | undefined
@@ -45,6 +45,7 @@ export type StayListingReservationCardProps = {
 
 export default function StayListingReservationCard({
   locale,
+  isStayRental: isStayRentalProp,
   isHolidayHome,
   mealPlans,
   price,
@@ -62,17 +63,17 @@ export default function StayListingReservationCard({
   listingId,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
-  const router = useRouter()
-  const vitrinHref = useVitrinHref()
+  const isStayRental = isStayRentalProp ?? isHolidayHome ?? false
+  const bookingCtx = useOptionalVillaStayBooking()
 
-  const [rangeStart, setRangeStart] = useState<Date | null>(null)
-  const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
-  const [poolHeatingSelected, setPoolHeatingSelected] = useState(false)
+  const rangeStart = bookingCtx?.rangeStart ?? null
+  const rangeEnd = bookingCtx?.rangeEnd ?? null
+  const poolHeatingSelected = bookingCtx?.poolHeatingSelected ?? false
+  const guests = bookingCtx?.guests
 
   const onRangeChange = (dates: [Date | null, Date | null]) => {
     const [s, e] = dates
-    setRangeStart(s)
-    setRangeEnd(e)
+    bookingCtx?.setRange(s, e)
   }
 
   const {
@@ -122,22 +123,22 @@ export default function StayListingReservationCard({
 
   function goCheckoutFromSidebar() {
     if (!listingId?.trim() || !rangeStart || !rangeEnd || grandTotal <= 0) return
-    router.push(
-      buildStayCheckoutUrl(vitrinHref('/checkout'), {
+    if (bookingCtx) {
+      bookingCtx.goCheckout({
         listingId,
-        startDate: rangeStart,
-        endDate: rangeEnd,
         currencyCode,
-        unitPrice: grandTotal,
-      }),
-    )
+        grandTotal,
+        heatingSubtotal: heatingSubtotal,
+      })
+      return
+    }
   }
 
   return (
     <div
       className={clsx(
         'listingSection__wrap sm:shadow-xl',
-        isHolidayHome &&
+        isStayRental &&
           'rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6',
       )}
     >
@@ -219,7 +220,12 @@ export default function StayListingReservationCard({
           bookingRules={stayBookingRules}
         />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-        <GuestsInputPopover className="flex-1" />
+        <GuestsInputPopover
+          className="flex-1"
+          locale={locale}
+          value={guests}
+          onChange={bookingCtx ? (g) => bookingCtx.setGuests(g) : undefined}
+        />
         {poolHeating ? (
           <>
             <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
@@ -229,7 +235,7 @@ export default function StayListingReservationCard({
                 <input
                   type="checkbox"
                   checked={poolHeatingSelected}
-                  onChange={(e) => setPoolHeatingSelected(e.target.checked)}
+                  onChange={(e) => bookingCtx?.setPoolHeatingSelected(e.target.checked)}
                   className="mt-1 h-4 w-4 shrink-0 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800"
                 />
                 <span className="min-w-0">
@@ -309,7 +315,7 @@ export default function StayListingReservationCard({
         </div>
       )}
 
-      {isHolidayHome ? (
+      {isStayRental ? (
         <ul className="mt-4 list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
           <li>{messages.listing.sidebar.reservationPaymentNoteDeposit}</li>
           <li>{messages.listing.sidebar.reservationPaymentNoteExtras}</li>

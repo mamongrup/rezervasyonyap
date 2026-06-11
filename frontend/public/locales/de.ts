@@ -516,6 +516,7 @@ export const de: AppMessages = {
       title: 'Hervorgehobene Merkmale',
       subtitle: 'Was Gäste an diesem Hotel besonders schätzen.',
       subtitleHolidayHome: 'Hervorgehobene Themen und Konzept dieses Ferienhauses.',
+      subtitleYachtCharter: 'Hervorgehobene Themen und Konzept dieses Yachtcharters.',
     },
     faq: {
       title: 'Häufig gestellte Fragen',
@@ -618,6 +619,7 @@ export const de: AppMessages = {
       rangeSep: '–',
       rangeFromOpen: 'und später',
       rangeUntil: 'Bis',
+      damageDepositNote: 'Die Kaution ist bei Anreise bar vor Ort zu zahlen.',
     },
     detailPage: {
       ...en.listing.detailPage,

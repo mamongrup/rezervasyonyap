@@ -177,7 +177,7 @@ export const getStayListingByHandle = async (
   let listing: TStayListing = {
     ...api,
     ...(displayPin ? { city: displayPin, address: displayPin } : {}),
-    title: vitrine?.title?.trim() || api.title,
+    title: vitrine?.title?.trim() || api.title?.trim() || handle,
     description: vitrine?.description?.trim() || '',
     galleryImgs: api.galleryImgs,
   } as TStayListing

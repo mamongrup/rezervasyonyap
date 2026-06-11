@@ -509,6 +509,7 @@ export const zh: AppMessages = {
       title: '酒店亮点',
       subtitle: '住客最看重的酒店特色。',
       subtitleHolidayHome: '此度假屋的突出主题与特色。',
+      subtitleYachtCharter: '此游艇租赁的突出主题与特色。',
     },
     faq: {
       title: '常见问题',
@@ -607,6 +608,7 @@ export const zh: AppMessages = {
       rangeSep: '–',
       rangeFromOpen: '起',
       rangeUntil: '截至',
+      damageDepositNote: '押金须在入住时以现金向物业支付。',
     },
     detailPage: {
       ...en.listing.detailPage,

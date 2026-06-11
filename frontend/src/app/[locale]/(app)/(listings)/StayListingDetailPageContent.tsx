@@ -29,7 +29,10 @@ import {
 import { stayRentalCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
-import { getHolidayThemeLabelMap, resolveHolidayThemeLabels } from '@/lib/holiday-theme-labels'
+import {
+  getHolidayThemeLabelMap,
+  resolveHolidayThemeLabelsFromMap,
+} from '@/lib/holiday-theme-labels'
 import {
   buildAttributeLabelMap,
   buildVitrinAmenityRows,
@@ -105,6 +108,7 @@ import HotelImportantNotesSection from './HotelImportantNotesSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
 import HotelListingMainShell from './HotelListingMainShell'
+import VillaStayBookingShell from './VillaStayBookingShell'
 import ListingAmenitiesSection from './ListingAmenitiesSection'
 import ListingSleepingSection from './ListingSleepingSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
@@ -262,9 +266,9 @@ export default async function StayListingDetailPageContent({
       : []
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
   const listingBedrooms =
-    vertical === 'holiday_home' && catalogListingId ?
-      await fetchPublicListingBedroomsSafe(catalogListingId)
-    : []
+    isStayRentalCategory(vertical) && catalogListingId
+      ? await fetchPublicListingBedroomsSafe(catalogListingId)
+      : []
   const [rawNearbyPois, servicePois] = await Promise.all([
     getListingNearbyPois(listing.id),
     getComputedServicePois(listing.id),
@@ -563,20 +567,21 @@ export default async function StayListingDetailPageContent({
 
   const mergeHolidayMealsIntoPricing = mealPlans.length > 0 && holidayHomePricingVisible
 
-  const themePillLabels =
-    isStayRental && !isHolidayHome
-      ? await resolveHolidayThemeLabels(listing.themeCodes ?? [], locale)
-      : []
-  const holidayThemeCodes = isHolidayHome ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
-  let holidayThemeHighlightLabels: Record<string, string> = {}
-  if (isHolidayHome && holidayThemeCodes.length > 0) {
-    const themeLabelMap = await getHolidayThemeLabelMap(locale, 'holiday_home')
-    holidayThemeHighlightLabels = Object.fromEntries(
-      holidayThemeCodes.map((code) => [
+  const stayThemeCategory: 'holiday_home' | 'yacht_charter' = isYachtCharter
+    ? 'yacht_charter'
+    : 'holiday_home'
+  const stayThemeCodes = isStayRental ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
+  let stayThemeHighlightLabels: Record<string, string> = {}
+  let themePillLabels: string[] = []
+  if (isStayRental && stayThemeCodes.length > 0) {
+    const themeLabelMap = await getHolidayThemeLabelMap(locale, stayThemeCategory)
+    stayThemeHighlightLabels = Object.fromEntries(
+      stayThemeCodes.map((code) => [
         code,
         themeLabelMap.get(code) ?? code.replace(/_/g, ' '),
       ]),
     )
+    themePillLabels = resolveHolidayThemeLabelsFromMap(stayThemeCodes, themeLabelMap)
   }
   const hotelTypeCodeNorm = vertical === 'hotel' ? listing.hotelTypeCode?.trim() : ''
   const listingCategoryBadge =
@@ -1145,7 +1150,7 @@ export default async function StayListingDetailPageContent({
     ) : (
       <StayListingReservationCard
         locale={locale}
-        isHolidayHome={isHolidayHome}
+        isStayRental={isStayRental}
         mealPlans={mealPlans}
         price={price ?? ''}
         priceAmount={reservationPriceAmount}
@@ -1230,7 +1235,7 @@ export default async function StayListingDetailPageContent({
           saleOff={saleOff}
           discountPercent={discountPercent}
           poolHeating={poolHeatingOption}
-          isHolidayHome={isHolidayHome}
+          isStayRental={isStayRental}
           cleaningFeeAmount={listing.cleaningFeeAmount}
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackForQuote}
@@ -1264,6 +1269,7 @@ export default async function StayListingDetailPageContent({
         {renderBreadcrumb()}
       </div>
 
+      <VillaStayBookingShell enabled={isStayRental && !hasHotelRoomBooking}>
       {/* MAIN */}
       <HotelListingMainShell
         enabled={hasHotelRoomBooking}
@@ -1355,12 +1361,12 @@ export default async function StayListingDetailPageContent({
             </>
           ) : (
             <>
-          {isHolidayHome && holidayThemeCodes.length >= 2 ? (
+          {isStayRental && stayThemeCodes.length >= 2 ? (
             <HotelHighlightsSection
               locale={locale}
-              amenityKeys={holidayThemeCodes}
-              customLabels={holidayThemeHighlightLabels}
-              variant="holiday_home"
+              amenityKeys={stayThemeCodes}
+              customLabels={stayThemeHighlightLabels}
+              variant={isYachtCharter ? 'yacht_charter' : 'holiday_home'}
               minToShow={2}
             />
           ) : null}
@@ -1394,7 +1400,7 @@ export default async function StayListingDetailPageContent({
               )}
             </div>
           )}
-          {isHolidayHome && listingBedrooms.length > 0 ? (
+          {isStayRental && listingBedrooms.length > 0 ? (
             <div id="stay-section-bedrooms" className="scroll-mt-28">
               <ListingSleepingSection locale={locale} bedrooms={listingBedrooms} />
             </div>
@@ -1558,6 +1564,7 @@ export default async function StayListingDetailPageContent({
           ruleNightlyRange={ruleNightlyRangeForQuote}
         />
       ) : null}
+      </VillaStayBookingShell>
     </div>
   )
 }

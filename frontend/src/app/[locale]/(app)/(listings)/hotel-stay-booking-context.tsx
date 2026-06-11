@@ -7,6 +7,11 @@ import {
 import type { HotelListingActivity } from '@/lib/travel-api'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
 import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
+import {
+  parseStayListingDatesFromSearchParams,
+  parseStayListingGuestsFromSearchParams,
+} from '@/lib/stay-listing-booking-init'
+import { useSearchParams } from 'next/navigation'
 import { pickDefaultMealPlanForRoom, pickActiveMealPlans } from '@/lib/hotel-stay-quote'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
@@ -67,9 +72,22 @@ export function HotelStayBookingProvider({
   reservationAnchorId?: string
   children: ReactNode
 }) {
+  const searchParams = useSearchParams()
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
   const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_STAY)
+  const [urlHydrated, setUrlHydrated] = useState(false)
+
+  useEffect(() => {
+    if (urlHydrated) return
+    const { start, end } = parseStayListingDatesFromSearchParams(searchParams)
+    if (start && end) {
+      setRangeStart(start)
+      setRangeEnd(end)
+    }
+    setGuests(parseStayListingGuestsFromSearchParams(searchParams))
+    setUrlHydrated(true)
+  }, [searchParams, urlHydrated])
   const [selectedRoomId, setSelectedRoomId] = useState(rooms[0]?.id ?? '')
   const [selectedMealPlanId, setSelectedMealPlanId] = useState('')
 

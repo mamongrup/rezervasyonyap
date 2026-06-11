@@ -21,6 +21,7 @@ import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import { useRouter } from 'next/navigation'
 import { Fragment, useMemo, useState } from 'react'
 import { useOptionalHotelStayBooking } from './hotel-stay-booking-context'
+import { useOptionalVillaStayBooking } from './villa-stay-booking-context'
 
 type VillaQuoteProps = {
   isHotel?: false
@@ -31,6 +32,7 @@ type VillaQuoteProps = {
   discountPercent: number | null | undefined
   poolHeating: PoolHeatingOption
   isHolidayHome?: boolean
+  isStayRental?: boolean
   cleaningFeeAmount?: number
   damageDepositAmount?: number
   ruleFallbackNightly?: number
@@ -94,7 +96,10 @@ export default function StayListingBookingQuoteModal(props: Props) {
   const copy = messages.listing.availabilityCalendar
   const hotelBooking = messages.listing.hotelBooking
   const rangeLocale = intlDateLocaleTag(locale)
-  const [poolHeatingSelected, setPoolHeatingSelected] = useState(false)
+  const villaCtx = useOptionalVillaStayBooking()
+  const [localPoolHeatingSelected, setLocalPoolHeatingSelected] = useState(false)
+  const poolHeatingSelected = villaCtx?.poolHeatingSelected ?? localPoolHeatingSelected
+  const setPoolHeatingSelected = villaCtx?.setPoolHeatingSelected ?? setLocalPoolHeatingSelected
   const bookingCtx = useOptionalHotelStayBooking()
 
   const villaProps = isHotel ? null : props
@@ -178,6 +183,9 @@ export default function StayListingBookingQuoteModal(props: Props) {
           endDate: rangeEnd,
           currencyCode,
           unitPrice: grandTotal,
+          guests: villaCtx?.guests,
+          poolHeatingSelected,
+          poolHeatingFee: villaQuote.heatingSubtotal,
         }),
       )
     }
@@ -324,7 +332,7 @@ export default function StayListingBookingQuoteModal(props: Props) {
               </DescriptionList>
             </div>
 
-            {!isHotel && villaProps?.isHolidayHome ? (
+            {!isHotel && (villaProps?.isStayRental ?? villaProps?.isHolidayHome) ? (
               <ul className="mt-4 list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
                 <li>{messages.listing.sidebar.reservationPaymentNoteDeposit}</li>
                 <li>{messages.listing.sidebar.reservationPaymentNoteExtras}</li>

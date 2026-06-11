@@ -6,6 +6,7 @@ import type { StayBookingRules } from '@/types/listing-types'
 import { useState } from 'react'
 import SectionDateRange from './components/SectionDateRange'
 import StayListingBookingQuoteModal from './StayListingBookingQuoteModal'
+import { useOptionalVillaStayBooking } from './villa-stay-booking-context'
 
 export default function StayListingCalendarBookingBlock({
   locale,
@@ -20,6 +21,7 @@ export default function StayListingCalendarBookingBlock({
   poolHeating,
   stayBookingRules,
   initialMonthsShown = 1,
+  isStayRental = false,
   isHolidayHome = false,
   cleaningFeeAmount,
   damageDepositAmount,
@@ -39,12 +41,15 @@ export default function StayListingCalendarBookingBlock({
   saleOff: string | null | undefined
   discountPercent: number | null | undefined
   poolHeating: PoolHeatingOption
+  isStayRental?: boolean
+  /** @deprecated `isStayRental` kullanın */
   isHolidayHome?: boolean
   cleaningFeeAmount?: number
   damageDepositAmount?: number
   ruleFallbackNightly?: number
   ruleNightlyRange?: { min: number; max: number }
 }) {
+  const bookingCtx = useOptionalVillaStayBooking()
   const [modalOpen, setModalOpen] = useState(false)
   const [range, setRange] = useState<{ start: Date; end: Date } | null>(null)
 
@@ -56,6 +61,7 @@ export default function StayListingCalendarBookingBlock({
         initialMonthsShown={initialMonthsShown}
         bookingRules={stayBookingRules}
         onCompleteRange={(start, end) => {
+          bookingCtx?.setRange(start, end)
           setRange({ start, end })
           setModalOpen(true)
         }}
@@ -76,7 +82,8 @@ export default function StayListingCalendarBookingBlock({
           discountPercent={discountPercent}
           poolHeating={poolHeating}
           stayBookingRules={stayBookingRules}
-          isHolidayHome={isHolidayHome}
+          isStayRental={isStayRental || isHolidayHome}
+          isHolidayHome={isStayRental || isHolidayHome}
           cleaningFeeAmount={cleaningFeeAmount}
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackNightly}

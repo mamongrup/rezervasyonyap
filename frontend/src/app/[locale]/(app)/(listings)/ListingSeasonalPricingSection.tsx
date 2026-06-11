@@ -128,6 +128,7 @@ export default function ListingSeasonalPricingSection({
   const showExtraFeesList = extraFeesListHasContent(extraCharges)
   const showDamageDeposit = damageDepositHasContent(extraCharges)
   const listingCur = (extraCharges?.listingCurrency ?? 'TRY').trim().toUpperCase()
+  const showExtra = showExtraFeesList || showDamageDeposit
 
   const activeHolidayMeals = useMemo(() => {
     const plans = holidayMeals?.plans
@@ -136,6 +137,7 @@ export default function ListingSeasonalPricingSection({
   }, [holidayMeals])
 
   const showHolidayMealBlock = activeHolidayMeals.length > 0
+  const hasPricingContent = rows.length > 0 || showExtra || showHolidayMealBlock
 
   const holidayPricingLead = useMemo(() => {
     if (!showHolidayMealBlock || !holidayMeals) return null
@@ -178,7 +180,7 @@ export default function ListingSeasonalPricingSection({
     [sp.unitPerNight, sp.unitPerPerson, sp.unitPerPersonPerNight, sp.unitPerStay],
   )
 
-  if (rows.length === 0 && !showExtra) return null
+  if (!hasPricingContent) return null
 
   return (
     <div className={clsx('listingSection__wrap', className)}>

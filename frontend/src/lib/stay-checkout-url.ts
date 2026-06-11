@@ -100,8 +100,23 @@ export function buildStayCheckoutUrl(
     hotelBoardLabel?: string
     mealPlanId?: string
     mealPlanLabel?: string
+    /** Tatil evi — havuz ısıtma seçiliyse checkout kırılımı için */
+    poolHeatingSelected?: boolean
+    /** Toplam havuz ısıtma ücreti (gece × günlük) */
+    poolHeatingFee?: number
   },
 ): string {
+  const extra: ListingCheckoutExtraParams = {
+    hotelRoomId: params.hotelRoomId,
+    hotelRoomName: params.hotelRoomName,
+    hotelBoardLabel: params.hotelBoardLabel,
+    mealPlanId: params.mealPlanId,
+    mealPlanLabel: params.mealPlanLabel,
+  }
+  if (params.poolHeatingSelected && params.poolHeatingFee != null && params.poolHeatingFee > 0) {
+    extra.pool_heating = '1'
+    extra.poolHeatingFee = params.poolHeatingFee.toFixed(2)
+  }
   return buildListingCheckoutUrl(checkoutPath, {
     listingId: params.listingId,
     startDate: params.startDate,
@@ -109,13 +124,7 @@ export function buildStayCheckoutUrl(
     currencyCode: params.currencyCode,
     unitPrice: params.unitPrice,
     guests: params.guests,
-    extra: {
-      hotelRoomId: params.hotelRoomId,
-      hotelRoomName: params.hotelRoomName,
-      hotelBoardLabel: params.hotelBoardLabel,
-      mealPlanId: params.mealPlanId,
-      mealPlanLabel: params.mealPlanLabel,
-    },
+    extra,
   })
 }
 

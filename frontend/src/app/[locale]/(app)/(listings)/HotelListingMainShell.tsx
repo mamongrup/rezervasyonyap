@@ -2,7 +2,7 @@
 
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
 import type { HotelListingActivity } from '@/lib/travel-api'
-import { type ReactNode } from 'react'
+import { Suspense, type ReactNode } from 'react'
 import {
   HotelStayBookingProvider,
   type HotelStayBookingQuoteProps,
@@ -25,13 +25,15 @@ export default function HotelListingMainShell({
 }) {
   if (!enabled) return children
   return (
-    <HotelStayBookingProvider
-      listingId={listingId}
-      rooms={rooms}
-      activities={activities}
-      quoteProps={quoteProps}
-    >
-      {children}
-    </HotelStayBookingProvider>
+    <Suspense fallback={children}>
+      <HotelStayBookingProvider
+        listingId={listingId}
+        rooms={rooms}
+        activities={activities}
+        quoteProps={quoteProps}
+      >
+        {children}
+      </HotelStayBookingProvider>
+    </Suspense>
   )
 }

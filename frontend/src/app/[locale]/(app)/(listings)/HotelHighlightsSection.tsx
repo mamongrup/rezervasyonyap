@@ -40,7 +40,7 @@ export default function HotelHighlightsSection({
   customLabels?: Record<string, string>
   className?: string
   /** Tatil evi temaları için alt başlık ve eşik */
-  variant?: 'hotel' | 'holiday_home'
+  variant?: 'hotel' | 'holiday_home' | 'yacht_charter'
   minToShow?: number
 }) {
   const messages = getMessages(locale)
@@ -69,10 +69,13 @@ export default function HotelHighlightsSection({
       <div>
         <SectionHeading>{t.title ?? 'Öne çıkan özellikler'}</SectionHeading>
         <SectionSubheading>
-          {variant === 'holiday_home'
-            ? (t.subtitleHolidayHome ??
-              'Bu tatil evinin öne çıkan temaları ve konsepti.')
-            : (t.subtitle ?? 'Bu otelin misafirlerce en çok değer verilen yanları.')}
+          {variant === 'yacht_charter'
+            ? (t.subtitleYachtCharter ??
+              'Bu yat kiralama ilanının öne çıkan temaları ve konsepti.')
+            : variant === 'holiday_home'
+              ? (t.subtitleHolidayHome ??
+                'Bu tatil evinin öne çıkan temaları ve konsepti.')
+              : (t.subtitle ?? 'Bu otelin misafirlerce en çok değer verilen yanları.')}
         </SectionSubheading>
       </div>
       <Divider className="w-14!" />
