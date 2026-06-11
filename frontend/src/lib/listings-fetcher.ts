@@ -20,6 +20,7 @@ import {
   stayRentalPropertyTypeFromHandle,
   type StayRentalCategoryCode,
 } from '@/lib/stay-rental-categories'
+import { buildStayDetailSearchQuery } from '@/lib/stay-listing-booking-init'
 import { displayYachtPropertyTypeLine, type YachtCharterPropertyTypeItem } from '@/lib/yacht-property-type-options'
 import {
   searchPublicListings,
@@ -216,6 +217,8 @@ export type MapPublicListingItemOpts = {
   locale?: string
   holidayPropertyTypeItems?: HolidayHomePropertyTypeItem[]
   yachtPropertyTypeItems?: YachtCharterPropertyTypeItem[]
+  /** Tatil evi / yat liste aramasından detay sayfasına taşınan tarih-misafir query */
+  detailSearchQuery?: string
 }
 
 export function mapPublicListingItemToListingBase(
@@ -424,6 +427,7 @@ export function mapPublicListingItemToListingBase(
     bathrooms: parseMetaInt(item.bath_count ?? undefined),
     themeCodes: themeCodes.length ? themeCodes : undefined,
     ...(cpt ? { cancellationPolicyText: cpt } : {}),
+    ...(opts?.detailSearchQuery ? { detailSearchQuery: opts.detailSearchQuery } : {}),
   } as TListingBase
 }
 
@@ -568,10 +572,12 @@ export async function fetchFlexibleStayRentalListings(
       : Promise.resolve([] as YachtCharterPropertyTypeItem[]),
   ])
 
+  const detailSearchQuery = buildStayDetailSearchQuery(relaxed)
   const mapOpts: MapPublicListingItemOpts = {
     locale: locale || 'tr',
     holidayPropertyTypeItems: holidayPtItems.length > 0 ? holidayPtItems : undefined,
     yachtPropertyTypeItems: yachtPtItems.length > 0 ? yachtPtItems : undefined,
+    detailSearchQuery,
   }
 
   if (apiResult) {
@@ -675,10 +681,14 @@ export async function fetchCategoryListings(
         (): YachtCharterPropertyTypeItem[] => [],
       )
     }
+    const detailSearchQuery = isStayRentalCategory(categoryCode)
+      ? buildStayDetailSearchQuery(effectiveQuery)
+      : undefined
     const mapOpts: MapPublicListingItemOpts = {
       locale: locale || 'tr',
       holidayPropertyTypeItems: holidayPtItems?.length ? holidayPtItems : undefined,
       yachtPropertyTypeItems: yachtPtItems?.length ? yachtPtItems : undefined,
+      detailSearchQuery,
     }
     let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     if (isStayRentalCategory(categoryCode)) {

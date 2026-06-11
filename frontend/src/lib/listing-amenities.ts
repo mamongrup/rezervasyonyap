@@ -5,6 +5,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   AirVent,
+  Anchor,
   Baby,
   Bath,
   BedDouble,
@@ -13,6 +14,7 @@ import {
   CableCar,
   ChefHat,
   Cctv,
+  Compass,
   Crown,
   DoorOpen,
   Droplets,
@@ -26,8 +28,10 @@ import {
   ParkingCircle,
   RefreshCw,
   Refrigerator,
+  Sailboat,
   Shield,
   ShieldCheck,
+  Ship,
   Shirt,
   Sparkles,
   SprayCan,
@@ -184,6 +188,25 @@ export const HOLIDAY_THEME_ICONS: Record<string, LucideIcon> = {
   pool: Palmtree,
 }
 
+/** Yat kiralama vitrin temaları — `yacht_charter` + ortak kodlar. */
+export const YACHT_THEME_ICONS: Record<string, LucideIcon> = {
+  ...HOLIDAY_THEME_ICONS,
+  bareboat: Compass,
+  motor_yat: Ship,
+  motor_yacht: Ship,
+  yelkenli: Sailboat,
+  sailing: Sailboat,
+  katamaran: Ship,
+  gulet: Anchor,
+  superyat: Crown,
+  rib: Ship,
+  crewed: Users,
+  charter_with_captain: Anchor,
+  fishing: Waves,
+  diving: Waves,
+  water_sports: Waves,
+}
+
 export const IMPORTED_AMENITY_ICONS: Record<string, LucideIcon> = {
   'bebek-besigi': Baby,
   bilardo: Sparkles,
@@ -228,6 +251,22 @@ export function getHolidayThemeIcon(key: string): LucideIcon | null {
   const k = String(key ?? '').trim().toLowerCase()
   if (!k) return null
   return HOLIDAY_THEME_ICONS[k] ?? null
+}
+
+export function getYachtThemeIcon(key: string): LucideIcon | null {
+  const k = String(key ?? '').trim().toLowerCase()
+  if (!k) return null
+  return YACHT_THEME_ICONS[k] ?? null
+}
+
+export function getStayRentalThemeIcon(
+  key: string,
+  category: 'holiday_home' | 'yacht_charter' = 'holiday_home',
+): LucideIcon | null {
+  if (category === 'yacht_charter') {
+    return getYachtThemeIcon(key) ?? getHolidayThemeIcon(key)
+  }
+  return getHolidayThemeIcon(key)
 }
 
 export function getAmenityIconForKey(key: string): LucideIcon {

@@ -3,6 +3,7 @@
 import {
   LISTING_AMENITY_ICONS,
   getAmenityIconForKey,
+  getStayRentalThemeIcon,
   type ListingAmenityId,
 } from '@/lib/listing-amenities'
 import { formatAttributeKeyAsDisplayLabel } from '@/lib/listing-attribute-display'
@@ -59,10 +60,15 @@ export default function HotelHighlightsSection({
     return formatAttributeKeyAsDisplayLabel(id)
   }
 
-  const iconFor = (id: string) =>
-    KNOWN_AMENITY_IDS.has(id)
-      ? getAmenityIconForKey(id as ListingAmenityId)
-      : getAmenityIconForKey(id)
+  const themeCategory: 'holiday_home' | 'yacht_charter' =
+    variant === 'yacht_charter' ? 'yacht_charter' : 'holiday_home'
+
+  const iconFor = (id: string) => {
+    if (KNOWN_AMENITY_IDS.has(id)) return getAmenityIconForKey(id as ListingAmenityId)
+    const rentalIcon = getStayRentalThemeIcon(id, themeCategory)
+    if (rentalIcon) return rentalIcon
+    return getAmenityIconForKey(id)
+  }
 
   return (
     <div className={clsx('listingSection__wrap', className)}>

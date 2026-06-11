@@ -327,6 +327,17 @@ export default async function CategoryPageTemplate({
       locale={locale}
       hideVerticalTabs
       collapseOverflowAfterSlug="arac-kiralama"
+      staySearchTargetPath={`${category.categoryRoute}/all`}
+      staySearchPrefill={
+        activeSearch
+          ? {
+              location: activeSearch.location,
+              checkin: activeSearch.checkin,
+              checkout: activeSearch.checkout,
+              guests: activeSearch.guests,
+            }
+          : undefined
+      }
     />
   )
 

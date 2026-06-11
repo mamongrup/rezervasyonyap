@@ -3,7 +3,24 @@ import {
   parseCheckoutTripDate,
 } from '@/lib/stay-checkout-url'
 import { DEFAULT_GUESTS_STAY } from '@/lib/guest-search-defaults'
+import type { SearchQuery } from '@/lib/listings-fetcher'
 import type { GuestsObject } from '@/type'
+
+/** Kategori arama → ilan detay URL query (tarih / misafir). */
+export function buildStayDetailSearchQuery(query: SearchQuery): string | undefined {
+  const qs = new URLSearchParams()
+  const checkin = query.checkin?.trim() || query.from?.trim()
+  const checkout = query.checkout?.trim() || query.to?.trim()
+  if (checkin) qs.set('checkIn', checkin)
+  if (checkout) qs.set('checkOut', checkout)
+  const guestsRaw = query.guests?.trim()
+  if (guestsRaw) {
+    const g = parseInt(guestsRaw, 10)
+    if (Number.isFinite(g) && g >= 1) qs.set('guestAdults', String(g))
+  }
+  const s = qs.toString()
+  return s || undefined
+}
 
 /** İlan detay / arama URL'sinden konaklama tarih aralığı (checkIn, checkOut, startDate, endDate, checkin). */
 export function parseStayListingDatesFromSearchParams(

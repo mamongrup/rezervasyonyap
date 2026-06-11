@@ -364,7 +364,7 @@ function HeroSectionWithSearchForm1({
             /** Anasayfa `minimal` — arama ayrı grid satırında; `pb-60` yok */
             inlineSearch &&
               spacing === 'minimal' &&
-              'gap-y-5 pb-2 lg:gap-y-8 lg:pe-10 lg:pt-12 lg:pb-0 xl:gap-y-10 xl:pe-14 2xl:pe-14',
+              'z-0 gap-y-5 pb-2 lg:gap-y-8 lg:pe-10 lg:pt-12 lg:pb-0 xl:gap-y-10 xl:pe-14 2xl:pe-14',
             /** Bölge `compact` — alt boşluk arama bindirmesi için */
             spacing === 'compact' &&
               'relative z-20 gap-y-4 pb-4 sm:pb-16 sm:gap-y-5 lg:gap-y-5 lg:pe-10 lg:pt-4 lg:pb-60 xl:pe-14',
@@ -389,7 +389,7 @@ function HeroSectionWithSearchForm1({
           {!minimalBelowFoldSearch ? (
             <div
               className={clsx(
-                'z-40 hidden w-full min-w-0 md:block',
+                'z-50 hidden w-full min-w-0 overflow-visible md:block',
                 /** Mobil: üst çubukta HeroSearchFormMobile — gövde araması yok; lg+: sol kolon tabanında, hap görsellerin üstüne biner */
                 'lg:mt-0 lg:absolute lg:start-0 lg:w-screen lg:max-w-4xl xl:max-w-6xl',
                 /** `default` / `compact`: üst üste binen arama — `minimal` bu dalda yok (`minimalBelowFoldSearch` ayrı blokta). */
@@ -431,7 +431,7 @@ function HeroSectionWithSearchForm1({
         {minimalBelowFoldSearch ? (
           <div
             className={clsx(
-              'z-40 order-2 w-full min-w-0 max-w-full lg:order-none lg:col-span-2 lg:row-start-2',
+              'z-50 order-2 w-full min-w-0 max-w-full overflow-visible lg:order-none lg:col-span-2 lg:row-start-2',
               /* <lg: üst çubukta HeroSearchFormMobile — hero satırı boş kalmasın */
               'hidden lg:block',
               'lg:max-w-4xl xl:max-w-6xl',

@@ -332,7 +332,9 @@ export default function StayListingBookingQuoteModal(props: Props) {
               </DescriptionList>
             </div>
 
-            {!isHotel && (villaProps?.isStayRental ?? villaProps?.isHolidayHome) ? (
+            {!isHotel &&
+            (('isStayRental' in props && props.isStayRental) ||
+              ('isHolidayHome' in props && props.isHolidayHome)) ? (
               <ul className="mt-4 list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
                 <li>{messages.listing.sidebar.reservationPaymentNoteDeposit}</li>
                 <li>{messages.listing.sidebar.reservationPaymentNoteExtras}</li>

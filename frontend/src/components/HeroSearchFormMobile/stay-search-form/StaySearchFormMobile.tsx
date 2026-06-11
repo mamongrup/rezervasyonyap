@@ -3,18 +3,19 @@
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import { formDataToStringRecord, runHeroSearchPlanEffects } from '@/lib/hero-search-plan'
+import { stripLocalePrefix } from '@/lib/i18n-config'
+import { staySearchResultsPathFromRestPath } from '@/lib/stay-search-target'
 import { GuestsObject } from '@/type'
 import converSelectedDateToString from '@/utils/converSelectedDateToString'
+import { parseLocalYmd } from '@/utils/format-local-ymd'
 import { getMessages } from '@/utils/getT'
 import Form from 'next/form'
 import dynamic from 'next/dynamic'
-import { useParams, useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import FieldPanelContainer from '../FieldPanelContainer'
 import GuestsInput from '../GuestsInput'
 import LocationInput from '../LocationInput'
-
-const STAY_SEARCH_INTERNAL_PATH = '/oteller/all'
 const DatesRangeInput = dynamic(() => import('../DatesRangeInput'), {
   ssr: false,
   loading: () => <div className="h-72 animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-700/60" />,
@@ -22,17 +23,52 @@ const DatesRangeInput = dynamic(() => import('../DatesRangeInput'), {
 
 const StaySearchFormMobile = () => {
   const vitrinHref = useVitrinHref()
-  const staySearchHref = vitrinHref(STAY_SEARCH_INTERNAL_PATH)
+  const pathname = usePathname()
+  const urlSearch = useSearchParams()
+  const searchTargetPath = useMemo(() => {
+    const { restPath } = stripLocalePrefix(pathname ?? '/')
+    return staySearchResultsPathFromRestPath(restPath)
+  }, [pathname])
+  const staySearchHref = vitrinHref(searchTargetPath)
   //
   const [fieldNameShow, setFieldNameShow] = useState<'location' | 'dates' | 'guests'>('location')
   const locationPanelRef = useRef<HTMLDivElement>(null)
   const datesPanelRef = useRef<HTMLDivElement>(null)
   const guestsPanelRef = useRef<HTMLDivElement>(null)
   //
-  const [locationInputTo, setLocationInputTo] = useState('')
-  const [guestInput, setGuestInput] = useState<GuestsObject>({ ...DEFAULT_GUESTS_STAY })
-  const [startDate, setStartDate] = useState<Date | null>(null)
-  const [endDate, setEndDate] = useState<Date | null>(null)
+  const prefillLocation = urlSearch.get('location')?.trim() ?? ''
+  const prefillGuestsRaw = urlSearch.get('guests')?.trim()
+  const prefillGuestAdults =
+    prefillGuestsRaw && Number.isFinite(parseInt(prefillGuestsRaw, 10))
+      ? parseInt(prefillGuestsRaw, 10)
+      : DEFAULT_GUESTS_STAY.guestAdults
+
+  const [locationInputTo, setLocationInputTo] = useState(prefillLocation)
+  const [guestInput, setGuestInput] = useState<GuestsObject>({
+    ...DEFAULT_GUESTS_STAY,
+    guestAdults: prefillGuestAdults,
+  })
+  const [startDate, setStartDate] = useState<Date | null>(() =>
+    parseLocalYmd(urlSearch.get('checkin')?.trim()),
+  )
+  const [endDate, setEndDate] = useState<Date | null>(() =>
+    parseLocalYmd(urlSearch.get('checkout')?.trim()),
+  )
+
+  useEffect(() => {
+    setLocationInputTo(urlSearch.get('location')?.trim() ?? '')
+    const ci = parseLocalYmd(urlSearch.get('checkin')?.trim())
+    const co = parseLocalYmd(urlSearch.get('checkout')?.trim())
+    if (ci) setStartDate(ci)
+    if (co) setEndDate(co)
+    const g = urlSearch.get('guests')?.trim()
+    if (g) {
+      const n = parseInt(g, 10)
+      if (Number.isFinite(n) && n >= 1) {
+        setGuestInput((prev) => ({ ...prev, guestAdults: n }))
+      }
+    }
+  }, [urlSearch])
   const router = useRouter()
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
@@ -65,7 +101,7 @@ const StaySearchFormMobile = () => {
       guestChildren: String(guestInput.guestChildren),
       guestInfants: String(guestInput.guestInfants),
     }
-    runHeroSearchPlanEffects('stay', params, STAY_SEARCH_INTERNAL_PATH)
+    runHeroSearchPlanEffects('stay', params, searchTargetPath)
     const location = formDataEntries['location'] as string
     const qs = new URLSearchParams()
     if (location) qs.set('location', location)

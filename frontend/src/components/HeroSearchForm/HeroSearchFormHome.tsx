@@ -2,9 +2,10 @@
 
 import { ListingType } from '@/type'
 import clsx from 'clsx'
+import { Suspense } from 'react'
 import { HeroMenuCategoryBar } from './HeroMenuCategoryBar'
 import { formTabs } from './HeroSearchFormTabs'
-import { StaySearchForm } from './StaySearchForm'
+import { StaySearchForm, type StaySearchPrefill } from './StaySearchForm'
 
 /**
  * `hideVerticalTabs` yolu: Headless UI yok; ana sayfa / bölge / kategori hero’da
@@ -17,6 +18,8 @@ export function HeroSearchFormHome({
   categoryBarLayout = 'default',
   activeSlugs,
   collapseOverflowAfterSlug,
+  staySearchTargetPath,
+  staySearchPrefill,
 }: {
   className?: string
   initTab: ListingType
@@ -25,19 +28,38 @@ export function HeroSearchFormHome({
   activeSlugs?: string[]
   /** Örn. ana sayfa: `arac-kiralama` sonrası kalan kayıtlı kategoriler hamburger menüde */
   collapseOverflowAfterSlug?: string
+  staySearchTargetPath?: string
+  staySearchPrefill?: StaySearchPrefill
 }) {
   const tab = formTabs.find((t) => t.name === initTab) ?? formTabs[0]
   const FormComponent = initTab === 'Stays' ? StaySearchForm : tab.formComponent
 
   return (
-    <div className={clsx('hero-search-form w-full min-w-0', className)}>
+    <div className={clsx('hero-search-form relative z-50 w-full min-w-0 overflow-visible', className)}>
       <HeroMenuCategoryBar
         locale={locale}
         layout={categoryBarLayout}
         activeSlugs={activeSlugs}
         collapseOverflowAfterSlug={collapseOverflowAfterSlug}
       />
-      <FormComponent formStyle="default" />
+      {initTab === 'Stays' ? (
+        <Suspense
+          fallback={
+            <div
+              className="h-20 w-full animate-pulse rounded-full bg-neutral-100 dark:bg-neutral-800"
+              aria-busy="true"
+            />
+          }
+        >
+          <StaySearchForm
+            formStyle="default"
+            searchTargetPath={staySearchTargetPath}
+            searchPrefill={staySearchPrefill}
+          />
+        </Suspense>
+      ) : (
+        <FormComponent formStyle="default" />
+      )}
     </div>
   )
 }

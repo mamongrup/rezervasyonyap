@@ -58,7 +58,7 @@ const styles = {
     small: 'text-base',
   },
   panel: {
-    base: 'absolute start-0 top-full z-40 mt-3 hidden-scrollbar max-h-96  overflow-y-auto rounded-3xl bg-white py-3 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0  dark:bg-neutral-800',
+    base: 'absolute start-0 top-full z-[200] mt-3 hidden-scrollbar max-h-96 overflow-y-auto rounded-3xl bg-white py-3 shadow-xl transition duration-150 data-closed:translate-y-1 data-closed:opacity-0 dark:bg-neutral-800',
     default: 'w-lg sm:py-6',
     small: 'w-md sm:py-5',
   },

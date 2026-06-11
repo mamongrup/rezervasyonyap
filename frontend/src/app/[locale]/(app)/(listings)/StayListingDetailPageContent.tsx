@@ -45,6 +45,8 @@ import {
   fetchPublicListingAvailabilityDaysSafe,
   fetchPublicListingBedroomsSafe,
   fetchPublicListingContractSafe,
+  fetchPublicVerticalMetaSafe,
+  fetchPublicVerticalYachtSafe,
   getBlogSlugsByTitles,
   getComputedServicePois,
   getListingNearbyPois,
@@ -114,6 +116,8 @@ import ListingSleepingSection from './ListingSleepingSection'
 import ListingPoolInfoSection from './ListingPoolInfoSection'
 import { extraChargesHasContent, type ListingExtraChargesModel } from '@/lib/listing-extra-charges-model'
 import ListingSeasonalPricingSection from './ListingSeasonalPricingSection'
+import YachtCharterSpecsSection from './YachtCharterSpecsSection'
+import { parseYachtCharterSpecs } from '@/lib/yacht-charter-specs'
 import StayListingReservationCard from './StayListingReservationCard'
 import StayListingMobileStickyBar from './StayListingMobileStickyBar'
 import StayListingCalendarBookingBlock from './StayListingCalendarBookingBlock'
@@ -269,6 +273,13 @@ export default async function StayListingDetailPageContent({
     isStayRentalCategory(vertical) && catalogListingId
       ? await fetchPublicListingBedroomsSafe(catalogListingId)
       : []
+  const yachtCharterSpecs =
+    vertical === 'yacht_charter' && catalogListingId
+      ? parseYachtCharterSpecs(
+          await fetchPublicVerticalYachtSafe(catalogListingId),
+          await fetchPublicVerticalMetaSafe(catalogListingId, 'yacht_extra'),
+        )
+      : null
   const [rawNearbyPois, servicePois] = await Promise.all([
     getListingNearbyPois(listing.id),
     getComputedServicePois(listing.id),
@@ -854,7 +865,7 @@ export default async function StayListingDetailPageContent({
       shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       themePills={isStayRental && themePillLabels.length > 0 ? themePillLabels : undefined}
       regionName={regionName}
-      licenseLine={vertical === 'hotel' || isStayRental ? ministryLicenseLine : undefined}
+      licenseLine={vertical === 'hotel' || isHolidayHome ? ministryLicenseLine : undefined}
       hotelStarRating={vertical === 'hotel' ? hotelStarRating : undefined}
       hotelStarLine={vertical === 'hotel' ? hotelStarLine : undefined}
       hotelBoardTypesLine={vertical === 'hotel' ? hotelBoardTypesLine : undefined}
@@ -1371,6 +1382,12 @@ export default async function StayListingDetailPageContent({
             />
           ) : null}
           {renderSectionDescription()}
+          {isYachtCharter && yachtCharterSpecs ? (
+            <YachtCharterSpecsSection
+              locale={locale}
+              specs={{ ...yachtCharterSpecs, includes: [], excludes: [] }}
+            />
+          ) : null}
           {(amenityKeys.length > 0 || showHolidayPoolInfo) && (
             <div id="stay-section-amenities" className="scroll-mt-28">
               {amenityKeys.length > 0 ? (
@@ -1437,13 +1454,25 @@ export default async function StayListingDetailPageContent({
             </div>
           )}
           {renderCalendarBlock()}
-          {isStayRental && priceLines && (priceLines.included.length > 0 || priceLines.excluded.length > 0) ? (
-            <ListingPriceInclusionsSection
-              locale={locale}
-              included={priceLines.included}
-              excluded={priceLines.excluded}
-            />
-          ) : null}
+          {isStayRental &&
+          (() => {
+            const apiIncluded = priceLines?.included ?? []
+            const apiExcluded = priceLines?.excluded ?? []
+            const metaIncluded =
+              apiIncluded.length === 0 && yachtCharterSpecs?.includes.length
+                ? yachtCharterSpecs.includes.map((label) => ({ label }))
+                : []
+            const metaExcluded =
+              apiExcluded.length === 0 && yachtCharterSpecs?.excludes.length
+                ? yachtCharterSpecs.excludes.map((label) => ({ label }))
+                : []
+            const included = apiIncluded.length > 0 ? apiIncluded : metaIncluded
+            const excluded = apiExcluded.length > 0 ? apiExcluded : metaExcluded
+            if (included.length === 0 && excluded.length === 0) return null
+            return (
+              <ListingPriceInclusionsSection locale={locale} included={included} excluded={excluded} />
+            )
+          })()}
           {renderSectionRules()}
           {renderSectionPolicies()}
           {isStayRental &&

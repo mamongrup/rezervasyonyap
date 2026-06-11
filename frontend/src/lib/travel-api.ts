@@ -2649,6 +2649,29 @@ export async function fetchPublicListingBedroomsSafe(
   return getPublicListingBedrooms(listingId.trim())
 }
 
+export async function fetchPublicVerticalYachtSafe(
+  listingId: string | null | undefined,
+): Promise<Record<string, string>> {
+  if (!listingId?.trim()) return {}
+  try {
+    return await getVerticalYacht(listingId.trim())
+  } catch {
+    return {}
+  }
+}
+
+export async function fetchPublicVerticalMetaSafe<T = Record<string, unknown>>(
+  listingId: string | null | undefined,
+  category: string,
+): Promise<T> {
+  if (!listingId?.trim() || !category.trim()) return {} as T
+  try {
+    return await getVerticalMeta<T>(listingId.trim(), category.trim())
+  } catch {
+    return {} as T
+  }
+}
+
 /** POST — yeni para birimi (yönetici oturumu; TCMB sonrası kur için önce ekleyin). */
 export async function createCurrency(
   token: string,

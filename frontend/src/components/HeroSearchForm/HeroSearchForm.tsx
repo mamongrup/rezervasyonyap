@@ -3,6 +3,7 @@
 import { ListingType } from '@/type'
 import dynamic from 'next/dynamic'
 import { HeroSearchFormHome } from './HeroSearchFormHome'
+import type { StaySearchPrefill } from './StaySearchForm'
 
 const HeroSearchFormWithVerticalTabs = dynamic(() => import('./HeroSearchFormWithVerticalTabs'))
 
@@ -17,6 +18,8 @@ const HeroSearchForm = ({
   /** Server component'ten pre-fetch edilen aktif hero slug listesi */
   activeSlugs,
   collapseOverflowAfterSlug,
+  staySearchTargetPath,
+  staySearchPrefill,
 }: {
   className?: string
   initTab: ListingType
@@ -26,6 +29,8 @@ const HeroSearchForm = ({
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
   collapseOverflowAfterSlug?: string
+  staySearchTargetPath?: string
+  staySearchPrefill?: StaySearchPrefill
 }) => {
   if (hideVerticalTabs) {
     return (
@@ -36,6 +41,8 @@ const HeroSearchForm = ({
         categoryBarLayout={categoryBarLayout}
         activeSlugs={activeSlugs}
         collapseOverflowAfterSlug={collapseOverflowAfterSlug}
+        staySearchTargetPath={staySearchTargetPath}
+        staySearchPrefill={staySearchPrefill}
       />
     )
   }
