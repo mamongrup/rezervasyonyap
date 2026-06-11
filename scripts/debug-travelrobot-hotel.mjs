@@ -35,11 +35,13 @@ function pickUrls(hotel) {
 
 async function loadFromDb(pg, hotelCode) {
   const r = await pg.query(
-    `SELECT l.id::text, l.slug, l.title, l.featured_image_url,
+    `SELECT l.id::text, l.slug, lt.title, l.featured_image_url,
             (SELECT count(*)::int FROM listing_images li WHERE li.listing_id = l.id) AS image_count,
             la.value_json::text AS snapshot_json
      FROM listings l
      JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
+     LEFT JOIN listing_translations lt ON lt.listing_id = l.id
+     LEFT JOIN locales loc ON loc.id = lt.locale_id AND loc.code = 'tr'
      LEFT JOIN listing_attributes la
        ON la.listing_id = l.id AND la.group_code = 'travelrobot' AND la.key = 'snapshot'
      WHERE lhd.travelrobot_hotel_code = $1
