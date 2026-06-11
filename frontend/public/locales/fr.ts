@@ -583,7 +583,7 @@ export const fr: AppMessages = {
     },
     detailHeader: {
       ...en.listing.detailHeader,
-      ministryLicense: 'Ministère de la Culture et du Tourisme — Certificat d’exploitation touristique : {ref}',
+      ministryLicense: 'Ministère de la Culture et du Tourisme de la République de Turquie — N° de document : {ref}',
       prepaymentNote:
         'Le montant d’acompte est de {percent} %. Vous pouvez payer l’acompte ou le montant total lors de la réservation.',
     },

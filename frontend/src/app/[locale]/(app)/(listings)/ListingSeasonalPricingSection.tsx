@@ -15,7 +15,11 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import clsx from 'clsx'
 import { useCallback, useMemo, useState } from 'react'
-import { extraChargesHasContent, type ListingExtraChargesModel } from '@/lib/listing-extra-charges-model'
+import {
+  damageDepositHasContent,
+  extraFeesListHasContent,
+  type ListingExtraChargesModel,
+} from '@/lib/listing-extra-charges-model'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 const VISIBLE_COUNT = 7
@@ -121,7 +125,8 @@ export default function ListingSeasonalPricingSection({
 
   const hiddenCount = rows.length > VISIBLE_COUNT ? rows.length - VISIBLE_COUNT : 0
 
-  const showExtra = extraChargesHasContent(extraCharges)
+  const showExtraFeesList = extraFeesListHasContent(extraCharges)
+  const showDamageDeposit = damageDepositHasContent(extraCharges)
   const listingCur = (extraCharges?.listingCurrency ?? 'TRY').trim().toUpperCase()
 
   const activeHolidayMeals = useMemo(() => {
@@ -355,66 +360,86 @@ export default function ListingSeasonalPricingSection({
         </>
       ) : null}
 
-      {showExtra && extraCharges ? (
+      {extraCharges && (showExtraFeesList || showDamageDeposit) ? (
         <div className={clsx(rows.length > 0 && 'mt-8')}>
-          <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
-            {sp.extraChargesTitle}
-          </h3>
-          <ul className="mt-3 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
-            {extraCharges.shortStay != null &&
-            extraCharges.shortStay.minNights > 0 &&
-            extraCharges.shortStay.feeAmount > 0 ? (
-              <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
-                <span>{sp.shortStayExtraLine.replace('{n}', String(extraCharges.shortStay.minNights))}</span>
-                <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
-                  {formatConverted(extraCharges.shortStay.feeAmount, listingCur)}
+          {showExtraFeesList ? (
+            <>
+              <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
+                {sp.extraChargesTitle}
+              </h3>
+              <ul className="mt-3 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+                {extraCharges.shortStay != null &&
+                extraCharges.shortStay.minNights > 0 &&
+                extraCharges.shortStay.feeAmount > 0 ? (
+                  <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
+                    <span>
+                      {sp.shortStayExtraLine.replace('{n}', String(extraCharges.shortStay.minNights))}
+                    </span>
+                    <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                      {formatConverted(extraCharges.shortStay.feeAmount, listingCur)}
+                    </span>
+                  </li>
+                ) : null}
+                {extraCharges.cleaningFee != null && extraCharges.cleaningFee.amount > 0 ? (
+                  <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
+                    <span>{sp.cleaningFeeLine}</span>
+                    <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                      {formatConverted(extraCharges.cleaningFee.amount, listingCur)}
+                    </span>
+                  </li>
+                ) : null}
+                {extraCharges.customFees?.map((row, idx) => {
+                  const n = parseFeeAmountString(row.amount)
+                  const amountDisplay =
+                    n != null ? formatConverted(n, listingCur) : `${row.amount} ${listingCur}`
+                  return (
+                    <li
+                      key={`${row.label}-${idx}`}
+                      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800"
+                    >
+                      <span>
+                        {row.label}
+                        <span className="text-neutral-500 dark:text-neutral-500">
+                          {' '}
+                          ({unitLabel(row.unit)})
+                        </span>
+                      </span>
+                      <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                        {amountDisplay}
+                      </span>
+                    </li>
+                  )
+                })}
+                {extraCharges.prepaymentLine?.trim() ? (
+                  <li className="mt-3 border-t border-neutral-200 pt-3 text-sm leading-relaxed text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
+                    {extraCharges.prepaymentLine.trim()}
+                  </li>
+                ) : null}
+              </ul>
+            </>
+          ) : null}
+          {showDamageDeposit && extraCharges.damageDeposit ? (
+            <div
+              className={clsx(
+                'text-sm text-neutral-700 dark:text-neutral-300',
+                showExtraFeesList && 'mt-5 border-t border-neutral-100 pt-5 dark:border-neutral-800',
+              )}
+            >
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <span className="font-medium text-neutral-900 dark:text-neutral-100">
+                  {sp.damageDeposit}
                 </span>
-              </li>
-            ) : null}
-            {extraCharges.cleaningFee != null && extraCharges.cleaningFee.amount > 0 ? (
-              <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
-                <span>{sp.cleaningFeeLine}</span>
-                <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
-                  {formatConverted(extraCharges.cleaningFee.amount, listingCur)}
-                </span>
-              </li>
-            ) : null}
-            {extraCharges.damageDeposit != null && extraCharges.damageDeposit.amount > 0 ? (
-              <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
-                <span>{sp.damageDeposit}</span>
-                <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                <span className="shrink-0 tabular-nums font-semibold text-neutral-900 dark:text-neutral-100">
                   {formatConverted(extraCharges.damageDeposit.amount, listingCur)}
                 </span>
-              </li>
-            ) : null}
-            {extraCharges.customFees?.map((row, idx) => {
-              const n = parseFeeAmountString(row.amount)
-              const amountDisplay =
-                n != null ? formatConverted(n, listingCur) : `${row.amount} ${listingCur}`
-              return (
-                <li
-                  key={`${row.label}-${idx}`}
-                  className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800"
-                >
-                  <span>
-                    {row.label}
-                    <span className="text-neutral-500 dark:text-neutral-500">
-                      {' '}
-                      ({unitLabel(row.unit)})
-                    </span>
-                  </span>
-                  <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
-                    {amountDisplay}
-                  </span>
-                </li>
-              )
-            })}
-            {extraCharges.prepaymentLine?.trim() ? (
-              <li className="mt-3 border-t border-neutral-200 pt-3 text-sm leading-relaxed text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
-                {extraCharges.prepaymentLine.trim()}
-              </li>
-            ) : null}
-          </ul>
+              </div>
+              {sp.damageDepositNote?.trim() ? (
+                <p className="mt-2 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+                  {sp.damageDepositNote.trim()}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

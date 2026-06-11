@@ -1,0 +1,50 @@
+{
+  "oteller": {
+    "url": "https://images.pexels.com/photos/261102/pexels-photo-261102.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 55%"
+  },
+  "tatil-evleri": {
+    "url": "https://images.pexels.com/photos/32870/pexels-photo.jpg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 45%"
+  },
+  "yat-kiralama": {
+    "url": "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=1400&q=80",
+    "objectPosition": "50% 40%"
+  },
+  "turlar": {
+    "url": "https://images.pexels.com/photos/2387873/pexels-photo-2387873.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 35%"
+  },
+  "aktiviteler": {
+    "url": "https://images.pexels.com/photos/1761279/pexels-photo-1761279.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 50%"
+  },
+  "kruvaziyer": {
+    "url": "https://images.pexels.com/photos/995301/pexels-photo-995301.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 45%"
+  },
+  "hac-umre": {
+    "url": "https://images.pexels.com/photos/2087391/pexels-photo-2087391.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 40%"
+  },
+  "vize": {
+    "url": "https://images.pexels.com/photos/8867236/pexels-photo-8867236.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 50%"
+  },
+  "ucak-bileti": {
+    "url": "https://images.pexels.com/photos/912050/pexels-photo-912050.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 35%"
+  },
+  "arac-kiralama": {
+    "url": "https://images.pexels.com/photos/1149137/pexels-photo-1149137.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 55%"
+  },
+  "feribot": {
+    "url": "https://images.pexels.com/photos/1001682/pexels-photo-1001682.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 50%"
+  },
+  "transfer": {
+    "url": "https://images.pexels.com/photos/3802510/pexels-photo-3802510.jpeg?auto=compress&cs=tinysrgb&w=1400",
+    "objectPosition": "50% 45%"
+  }
+}

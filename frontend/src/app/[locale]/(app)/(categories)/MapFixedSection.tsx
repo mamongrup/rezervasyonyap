@@ -152,8 +152,8 @@ const MapFixedSection = ({ closeButtonHref, currentHoverID: selectedID, listings
       className={
         'flex w-full min-w-0 flex-col overflow-hidden ' +
         'max-lg:fixed max-lg:inset-0 max-lg:z-[18] max-lg:h-[100dvh] max-lg:bg-white dark:max-lg:bg-neutral-900 ' +
-        'lg:sticky lg:top-16 lg:z-[18] lg:self-start lg:w-full ' +
-        'lg:h-[calc(100dvh-4rem)] lg:max-h-[calc(100dvh-4rem)] ' +
+        'lg:sticky lg:top-20 lg:z-[18] lg:self-start lg:w-full ' +
+        'lg:h-[calc(100dvh-5rem)] lg:max-h-[calc(100dvh-5rem)] ' +
         'lg:bg-neutral-100/50 dark:lg:bg-neutral-900/30'
       }
     >

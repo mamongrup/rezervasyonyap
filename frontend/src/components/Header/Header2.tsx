@@ -29,7 +29,7 @@ const Header2: FC<Props> = async ({ hasBorder = true, className }) => {
           !hasBorder && 'has-[.header-popover-full-panel]:border-b'
         )}
       >
-        <div className="container flex h-16 justify-between">
+        <div className="container flex h-20 justify-between">
           <div className="flex flex-1 items-center lg:hidden">
             <HamburgerBtnMenu />
           </div>

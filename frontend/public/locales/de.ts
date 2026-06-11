@@ -584,7 +584,7 @@ export const de: AppMessages = {
     },
     detailHeader: {
       ...en.listing.detailHeader,
-      ministryLicense: 'Ministerium für Kultur und Tourismus — Tourismusbetriebszertifikat: {ref}',
+      ministryLicense: 'T.C. Ministerium für Kultur und Tourismus — Belgenummer: {ref}',
       prepaymentNote:
         'Die Anzahlung beträgt {percent} %. Sie können bei der Buchung Anzahlung oder Gesamtbetrag zahlen.',
     },

@@ -9,6 +9,10 @@ import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
 import { getPublicCategoryStats } from '@/lib/travel-api'
 import { recordToNormalizedThumbnails } from '@/lib/category-thumbnail-entry'
+import {
+  categoryCardUploadPath,
+  CATEGORY_CARD_SEED_SOURCES,
+} from '@/lib/category-default-thumbnails'
 
 // stay categories --------
 export async function getStayCategories() {
@@ -572,36 +576,22 @@ export type TFlightCategory = Awaited<ReturnType<typeof getFlightCategories>>[nu
 export type TCategory = TStayCategory | TExperienceCategory | TCarCategory | TFlightCategory | TTravelCategory
 
 // ─── Kategori Görselleri ─────────────────────────────────────────────────────
-/** Kategori kartı — `uploads/external` prod’da sık eksik; `general/hero` ile aynı temada tutulur. */
-const CATEGORY_THUMBNAILS: Record<string, string> = {
-  oteller: '/uploads/general/hero/oteller-1.avif',
-  'tatil-evleri': '/uploads/general/hero/tatil-evleri-2.avif',
-  'yat-kiralama': '/uploads/general/hero/yat-kiralama-3.jpg',
-  turlar: '/uploads/general/hero/turlar-2.avif',
-  aktiviteler: '/uploads/general/hero/aktiviteler-3.avif',
-  kruvaziyer: '/uploads/general/hero/kruvaziyer-3.jpg',
-  'hac-umre': '/uploads/general/hero/hac-umre-2.avif',
-  vize: '/uploads/general/hero/vize-3.jpg',
-  'ucak-bileti': '/uploads/general/hero/ucak-bileti-2.jpg',
-  'arac-kiralama': '/uploads/general/hero/arac-kiralama-3.jpg',
-  feribot: '/uploads/general/hero/feribot-2.jpg',
-  transfer: '/uploads/general/hero/transfer-2.jpg',
+/** Kategori kartı — slider/grid; slug başına tekil `-card.avif` (seed: npm run seed:category-thumbnails). */
+function buildCategoryCardThumbnailMap(): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const slug of Object.keys(CATEGORY_CARD_SEED_SOURCES)) {
+    out[slug] = categoryCardUploadPath(slug)
+  }
+  return out
 }
 
-const PAGE_BUILDER_CATEGORY_THUMBNAILS: Record<string, string> = {
-  oteller: '/uploads/general/hero/oteller-2.avif',
-  'tatil-evleri': '/uploads/general/hero/tatil-evleri-1.avif',
-  'yat-kiralama': '/uploads/general/hero/yat-kiralama-2.avif',
-  turlar: '/uploads/general/hero/turlar-1.avif',
-  aktiviteler: '/uploads/general/hero/aktiviteler-2.avif',
-  kruvaziyer: '/uploads/general/hero/kruvaziyer-1.avif',
-  'hac-umre': '/uploads/general/hero/hac-umre-1.avif',
-  vize: '/uploads/general/hero/vize-1.avif',
-  'ucak-bileti': '/uploads/general/hero/ucak-bileti-1.avif',
-  'arac-kiralama': '/uploads/general/hero/arac-kiralama-1.avif',
-  feribot: '/uploads/general/hero/feribot-1.avif',
-  transfer: '/uploads/general/hero/transfer-3.avif',
-}
+const CATEGORY_CARD_THUMBNAILS = buildCategoryCardThumbnailMap()
+
+/** Genel kategori listeleri (nav vb.) — kart görselleri ile aynı set */
+const CATEGORY_THUMBNAILS: Record<string, string> = { ...CATEGORY_CARD_THUMBNAILS }
+
+/** Page builder slider/grid — kart seti (öncelik: modül override → paylaşımlı json → bu map) */
+const PAGE_BUILDER_CATEGORY_THUMBNAILS: Record<string, string> = { ...CATEGORY_CARD_THUMBNAILS }
 
 const COVER_IMAGE_MAP = {
   stay: stayCategoryCoverImage,
@@ -714,15 +704,19 @@ export async function getPageBuilderTravelCategories(thumbnailOverrides?: Record
   return categories.map((category) => {
     const handle = category.handle
     const fromOv = ov[handle]
+    const seedMeta = CATEGORY_CARD_SEED_SOURCES[handle]
     const mergedSrc =
       fromOv?.src?.trim() ||
       PAGE_BUILDER_CATEGORY_THUMBNAILS[handle] ||
       category.thumbnail
     const thumb = siteUploadBrowserHref(normalizeSiteRelativeUploadSrc(mergedSrc ?? ''))
+    const objectPosition =
+      fromOv?.objectPosition ||
+      (seedMeta?.objectPosition && seedMeta.objectPosition !== '50% 50%' ? seedMeta.objectPosition : undefined)
     return {
       ...category,
       thumbnail: thumb,
-      ...(fromOv ? { thumbnailObjectPosition: fromOv.objectPosition } : {}),
+      ...(objectPosition ? { thumbnailObjectPosition: objectPosition } : {}),
     }
   })
 }

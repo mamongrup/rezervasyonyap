@@ -583,7 +583,7 @@ export const ru: AppMessages = {
     },
     detailHeader: {
       ...en.listing.detailHeader,
-      ministryLicense: 'Министерство культуры и туризма — сертификат туристического предприятия: {ref}',
+      ministryLicense: 'Министерство культуры и туризма ТР — номер документа: {ref}',
       prepaymentNote:
         'Сумма предоплаты — {percent} %. При бронировании можно оплатить предоплату или полную стоимость.',
     },

@@ -1212,7 +1212,7 @@ export const en = {
       ideaBadge: 'Tip',
     },
     detailHeader: {
-      ministryLicense: 'Ministry of Culture and Tourism — Tourism Business Certificate: {ref}',
+      ministryLicense: 'Republic of Türkiye Ministry of Culture and Tourism Document No: {ref}',
       referenceCode: 'Reference code:',
       prepaymentNote:
         'The prepayment amount is {percent}%. You can pay the prepayment or the full amount when booking.',
@@ -1395,7 +1395,7 @@ export const en = {
     /** Havuz bilgisi — `ListingPoolInfoSection` (amenities ile kardeş; yanlışlıkla amenities içine gömülmeyin) */
     poolInfo: {
       title: 'Pool information',
-      subtitle: 'Details entered with the listing (outdoor, heated, children’s pool).',
+      subtitle: 'Outdoor, heated, and children’s pool dimensions.',
       demoBadge: 'Illustrative example',
       types: {
         open_pool: 'Outdoor pool',
@@ -1430,6 +1430,7 @@ export const en = {
       shortStayExtraLine: 'Short-stay fee (stays under {n} nights)',
       cleaningFeeLine: 'Cleaning fee (once per stay)',
       damageDeposit: 'Security / damage deposit',
+      damageDepositNote: 'The security deposit is payable in cash at check-in at the property.',
       unitPerStay: 'per stay',
       unitPerNight: 'per night',
       unitPerPerson: 'per person',

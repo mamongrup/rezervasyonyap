@@ -29,6 +29,8 @@ interface Props {
   reviewCount: number
   reviewStart: number
   criteriaSummary?: ListingReviewCriteriaSummary | null
+  /** Otel detayı ile aynı başlık ve puan özeti düzeni */
+  reviewLayout?: 'default' | 'hotel'
 }
 
 function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -95,6 +97,7 @@ export default function SectionListingReviews({
   reviewCount: initCount,
   reviewStart,
   criteriaSummary,
+  reviewLayout = 'default',
 }: Props) {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
@@ -151,8 +154,9 @@ export default function SectionListingReviews({
     }
   }
 
+  const hotelLayout = reviewLayout === 'hotel' || Boolean(criteriaSummary)
   const displayCount = criteriaSummary?.totalReviewCount ?? count
-  const titleWithCount = criteriaSummary
+  const titleWithCount = hotelLayout
     ? (T.hotelSectionTitle ?? T.sectionTitle).replace('{count}', String(displayCount))
     : T.sectionTitle.replace('{count}', String(count))
   const sourceNote =

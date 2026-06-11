@@ -575,7 +575,7 @@ export const zh: AppMessages = {
     },
     detailHeader: {
       ...en.listing.detailHeader,
-      ministryLicense: '文化和旅游部 — 旅游经营证书：{ref}',
+      ministryLicense: '土耳其文化和旅游部证件编号：{ref}',
       prepaymentNote: '预付款比例为 {percent}%。预订时可支付预付款或全额。',
     },
     poolInfo: {

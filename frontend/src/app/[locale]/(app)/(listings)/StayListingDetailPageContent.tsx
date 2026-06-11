@@ -14,7 +14,7 @@ import {
   minNightlyFromListingPriceRules,
 } from '@/lib/listing-price-rules-public'
 import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
-import { getPoolHeatingReservationOption } from '@/lib/listing-pools'
+import { getPoolHeatingReservationOption, hasAnyEnabledPool } from '@/lib/listing-pools'
 import {
   regionBrowseSlugFromLocationPin,
   regionPlacesSlugFromCity,
@@ -299,12 +299,24 @@ export default async function StayListingDetailPageContent({
           useDemoFallback: isHotelDemoListing,
         })
       : null
-  const fetchedReviewCriteriaSummary =
-    vertical === 'hotel' ? await fetchListingReviewCriteriaSummarySafe(listing.id) : null
-  const hotelReviewCriteriaSummary =
-    vertical === 'hotel'
-      ? fetchedReviewCriteriaSummary ?? (isHotelDemoListing ? HOTEL_DEMO_REVIEW_CRITERIA : null)
+  const stayListingDistances =
+    vertical !== 'hotel' && isStayRentalCategory(vertical)
+      ? buildHotelListingDistanceColumns({ nearbyPois, servicePois })
       : null
+  const listingDistanceColumns = hotelListingDistances ?? stayListingDistances
+  const hasListingDistanceColumns = Boolean(
+    listingDistanceColumns &&
+      (listingDistanceColumns.historic.length > 0 ||
+        listingDistanceColumns.surroundings.length > 0 ||
+        listingDistanceColumns.transport.length > 0),
+  )
+  const hasServicePoiDistances =
+    servicePois.amenities.length > 0 || servicePois.transport.length > 0
+  const fetchedReviewCriteriaSummary = await fetchListingReviewCriteriaSummarySafe(listing.id)
+  const listingReviewCriteriaSummary =
+    fetchedReviewCriteriaSummary ??
+    (vertical === 'hotel' && isHotelDemoListing ? HOTEL_DEMO_REVIEW_CRITERIA : null)
+  const useHotelReviewLayout = vertical === 'hotel' || isStayRentalCategory(vertical)
 
   // listing_attributes (admin EAV) → vitrin amenity listesi
   let amenityKeys: string[] = []
@@ -436,11 +448,10 @@ export default async function StayListingDetailPageContent({
     isStayRental && catalogListingId
       ? await getPublicListingPriceLines(catalogListingId, locale)
       : null
+  const holidayHomePools = isHolidayHome ? (listing as TListingHolidayHome).pools : undefined
+  const showHolidayPoolInfo = Boolean(holidayHomePools && hasAnyEnabledPool(holidayHomePools))
   const poolHeatingOption = isHolidayHome
-    ? getPoolHeatingReservationOption(
-        (listing as TListingHolidayHome).pools,
-        (priceCurrency ?? 'TRY').trim(),
-      )
+    ? getPoolHeatingReservationOption(holidayHomePools, (priceCurrency ?? 'TRY').trim())
     : null
 
   const messages = getMessages(locale)
@@ -535,8 +546,8 @@ export default async function StayListingDetailPageContent({
             ? { amount: listing.cleaningFeeAmount }
             : undefined,
         damageDeposit:
-          listing.firstChargeAmount != null && listing.firstChargeAmount > 0
-            ? { amount: listing.firstChargeAmount }
+          damageDepositAmount != null && damageDepositAmount > 0
+            ? { amount: damageDepositAmount }
             : undefined,
         customFees: listing.listingExtraFees,
         // prepaymentLine artık politikalar bölümünde tüm kategoriler için
@@ -609,12 +620,7 @@ export default async function StayListingDetailPageContent({
   // gibi tiplerde de prepaymentPercent set edilmişse misafire görünmesi
   // gerekiyor (e2). Mülk sahibi alanı boş bırakırsa prepaymentNoteText null
   // kalır → otomatik gizlenir.
-  const hasPoliciesSection = Boolean(
-    ministryLicenseLine?.trim() ||
-      cancellationPolicyPlain ||
-      prepaymentNoteText?.trim() ||
-      listingContractHref,
-  )
+  const hasPoliciesSection = Boolean(cancellationPolicyPlain || prepaymentNoteText?.trim())
   const hd = messages.listing.hotelDetail
   const hotelCampaignGroups =
     vertical === 'hotel'
@@ -840,12 +846,10 @@ export default async function StayListingDetailPageContent({
       reviewStart={reviewStart ?? 0}
       title={title}
       listingId={listing.id}
-      referenceCode={isStayRental ? listing.externalListingRef : undefined}
-      referenceCodeLabel={messages.listing.detailHeader.referenceCode}
       shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
       themePills={isStayRental && themePillLabels.length > 0 ? themePillLabels : undefined}
       regionName={regionName}
-      licenseLine={vertical === 'hotel' ? ministryLicenseLine : undefined}
+      licenseLine={vertical === 'hotel' || isStayRental ? ministryLicenseLine : undefined}
       hotelStarRating={vertical === 'hotel' ? hotelStarRating : undefined}
       hotelStarLine={vertical === 'hotel' ? hotelStarLine : undefined}
       hotelBoardTypesLine={vertical === 'hotel' ? hotelBoardTypesLine : undefined}
@@ -1020,7 +1024,9 @@ export default async function StayListingDetailPageContent({
 
   const renderSectionRules = () => {
     if (vertical === 'hotel') return null
-    if (accommodationRuleLines.length === 0) return null
+    const contractHtml = listingContractBody?.bodyHtml?.trim()
+    if (accommodationRuleLines.length === 0 && !contractHtml) return null
+    const pi = messages.listing.propertyInfo ?? {}
     return (
       <div id="stay-section-rules" className="listingSection__wrap scroll-mt-28">
         <div>
@@ -1028,26 +1034,53 @@ export default async function StayListingDetailPageContent({
           <SectionSubheading>{dp.rulesSubtitle}</SectionSubheading>
         </div>
         <Divider className="w-14!" />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {accommodationRuleLines.map((rule, i) => (
-            <div key={i} className="flex items-start gap-2.5 text-sm text-neutral-700 dark:text-neutral-300">
-              {rule.type === 'ok' ? (
-                <HugeiconsIcon
-                  icon={CheckmarkCircle01Icon}
-                  className="mt-0.5 h-4 w-4 shrink-0 text-green-500"
-                  strokeWidth={1.75}
-                />
-              ) : (
-                <HugeiconsIcon
-                  icon={AlertCircleIcon}
-                  className="mt-0.5 h-4 w-4 shrink-0 text-orange-400"
-                  strokeWidth={1.75}
-                />
-              )}
-              <span>{rule.text}</span>
-            </div>
-          ))}
-        </div>
+        {accommodationRuleLines.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {accommodationRuleLines.map((rule, i) => (
+              <div key={i} className="flex items-start gap-2.5 text-sm text-neutral-700 dark:text-neutral-300">
+                {rule.type === 'ok' ? (
+                  <HugeiconsIcon
+                    icon={CheckmarkCircle01Icon}
+                    className="mt-0.5 h-4 w-4 shrink-0 text-green-500"
+                    strokeWidth={1.75}
+                  />
+                ) : (
+                  <HugeiconsIcon
+                    icon={AlertCircleIcon}
+                    className="mt-0.5 h-4 w-4 shrink-0 text-orange-400"
+                    strokeWidth={1.75}
+                  />
+                )}
+                <span>{rule.text}</span>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {contractHtml ? (
+          <div
+            className={clsx(
+              accommodationRuleLines.length > 0 &&
+                'mt-6 border-t border-neutral-100 pt-6 dark:border-neutral-800',
+            )}
+          >
+            <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+              {listingContractBody?.title?.trim() ||
+                pi.contractSectionTitle ||
+                messages.listing.policies.contractLink}
+            </h3>
+            <div
+              className="prose prose-sm mt-3 max-w-none leading-relaxed text-neutral-800 dark:prose-invert dark:text-neutral-200"
+              dangerouslySetInnerHTML={{ __html: contractHtml }}
+            />
+            {listingContractHref ? (
+              <p className="mt-4">
+                <Link href={listingContractHref} className="text-sm text-link-inline">
+                  {pi.contractFullLink ?? messages.listing.policies.contractLink}
+                </Link>
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -1059,21 +1092,8 @@ export default async function StayListingDetailPageContent({
         <SectionHeading>{messages.listing.policies.title}</SectionHeading>
         <Divider className="w-14!" />
         <div className="flex flex-col gap-4 text-sm leading-relaxed text-neutral-700 dark:text-neutral-300">
-          {ministryLicenseLine?.trim() ? (
-            <p className="text-neutral-700 dark:text-neutral-300">{ministryLicenseLine.trim()}</p>
-          ) : null}
           {prepaymentNoteText?.trim() ? (
             <p className="text-neutral-700 dark:text-neutral-300">{prepaymentNoteText.trim()}</p>
-          ) : null}
-          {listingContractHref ? (
-            <p>
-              <Link
-                href={listingContractHref}
-                className="text-link-inline"
-              >
-                {messages.listing.policies.contractLink}
-              </Link>
-            </p>
           ) : null}
           {cancellationPolicyPlain ? (
             <p>
@@ -1158,12 +1178,19 @@ export default async function StayListingDetailPageContent({
   const renderListingLocationSection = () => (
     <div id="stay-section-location" className="scroll-mt-28 space-y-5">
       <SectionMap locale={locale} lat={map?.lat} lng={map?.lng} address={address} heading={dp.location} />
-      {vertical === 'hotel' && hotelListingDistances ? (
+      {hasListingDistanceColumns && listingDistanceColumns ? (
         <HotelListingDistancesSection
           locale={locale}
-          historicPlaces={hotelListingDistances.historic}
-          surroundings={hotelListingDistances.surroundings}
-          transport={hotelListingDistances.transport}
+          historicPlaces={listingDistanceColumns.historic}
+          surroundings={listingDistanceColumns.surroundings}
+          transport={listingDistanceColumns.transport}
+        />
+      ) : hasServicePoiDistances && isStayRental ? (
+        <ListingServicePoisSection
+          locale={locale}
+          amenities={servicePois.amenities}
+          transport={servicePois.transport}
+          variant="embedded"
         />
       ) : null}
     </div>
@@ -1338,24 +1365,33 @@ export default async function StayListingDetailPageContent({
             />
           ) : null}
           {renderSectionDescription()}
-          {amenityKeys.length > 0 && (
+          {(amenityKeys.length > 0 || showHolidayPoolInfo) && (
             <div id="stay-section-amenities" className="scroll-mt-28">
-              <ListingAmenitiesSection
-                locale={locale}
-                variant={isStayRental ? 'villa' : 'hotel'}
-                customSelectedIds={amenityKeys}
-                customLabels={amenityLabels}
-                customIcons={amenityIcons}
-              />
-            </div>
-          )}
-          {isHolidayHome && (
-            <div id="stay-section-pool" className="scroll-mt-28">
-              <ListingPoolInfoSection
-                locale={locale}
-                pools={(listing as TListingHolidayHome).pools}
-                demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
-              />
+              {amenityKeys.length > 0 ? (
+                <ListingAmenitiesSection
+                  locale={locale}
+                  variant={isStayRental ? 'villa' : 'hotel'}
+                  customSelectedIds={amenityKeys}
+                  customLabels={amenityLabels}
+                  customIcons={amenityIcons}
+                  footer={
+                    showHolidayPoolInfo ? (
+                      <ListingPoolInfoSection
+                        locale={locale}
+                        pools={holidayHomePools}
+                        demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
+                        variant="embedded"
+                      />
+                    ) : null
+                  }
+                />
+              ) : (
+                <ListingPoolInfoSection
+                  locale={locale}
+                  pools={holidayHomePools}
+                  demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
+                />
+              )}
             </div>
           )}
           {isHolidayHome && listingBedrooms.length > 0 ? (
@@ -1383,13 +1419,6 @@ export default async function StayListingDetailPageContent({
             />
             </div>
           )}
-          {isStayRental && priceLines && (priceLines.included.length > 0 || priceLines.excluded.length > 0) ? (
-            <ListingPriceInclusionsSection
-              locale={locale}
-              included={priceLines.included}
-              excluded={priceLines.excluded}
-            />
-          ) : null}
           {!isStayRental && renderSectionRoomTypes()}
           {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && (
             <div className="scroll-mt-28">
@@ -1402,6 +1431,13 @@ export default async function StayListingDetailPageContent({
             </div>
           )}
           {renderCalendarBlock()}
+          {isStayRental && priceLines && (priceLines.included.length > 0 || priceLines.excluded.length > 0) ? (
+            <ListingPriceInclusionsSection
+              locale={locale}
+              included={priceLines.included}
+              excluded={priceLines.excluded}
+            />
+          ) : null}
           {renderSectionRules()}
           {renderSectionPolicies()}
           {isStayRental &&
@@ -1422,13 +1458,6 @@ export default async function StayListingDetailPageContent({
             )}
             </>
           )}
-          {vertical !== 'hotel' ? (
-            <ListingServicePoisSection
-              locale={locale}
-              amenities={servicePois.amenities}
-              transport={servicePois.transport}
-            />
-          ) : null}
           <NearbyPlacesSection
             locale={locale}
             regionSlug={
@@ -1496,15 +1525,13 @@ export default async function StayListingDetailPageContent({
           <div className="w-full lg:w-4/9 xl:w-1/3">
             <SectionHost {...host} locale={locale} labelVariant="listingOwner" />
           </div>
-          <div
-            className="w-full scroll-mt-28 lg:w-2/3"
-            id={vertical === 'hotel' ? 'stay-section-reviews' : undefined}
-          >
+          <div className="w-full scroll-mt-28 lg:w-2/3" id="stay-section-reviews">
             <SectionListingReviews
               listingId={listing.id}
               reviewCount={reviewCount ?? 0}
               reviewStart={reviewStart ?? 0}
-              criteriaSummary={vertical === 'hotel' ? hotelReviewCriteriaSummary : undefined}
+              criteriaSummary={listingReviewCriteriaSummary}
+              reviewLayout={useHotelReviewLayout ? 'hotel' : 'default'}
             />
             <div className="mt-6 flex justify-center lg:justify-start">
               <ReportListingButton listingId={listing.id} />

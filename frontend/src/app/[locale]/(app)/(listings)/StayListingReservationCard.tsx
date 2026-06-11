@@ -247,7 +247,7 @@ export default function StayListingReservationCard({
         ) : null}
       </Form>
 
-      {hasSelectedRange ? (
+      {hasSelectedRange && (
         <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
           <DescriptionList>
             <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -307,10 +307,6 @@ export default function StayListingReservationCard({
             </DescriptionDetails>
           </DescriptionList>
         </div>
-      ) : (
-        <p className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-400">
-          {messages.listing.sidebar.addDates}
-        </p>
       )}
 
       {isHolidayHome ? (

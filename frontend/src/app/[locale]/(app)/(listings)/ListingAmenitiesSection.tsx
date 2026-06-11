@@ -55,6 +55,7 @@ export default function ListingAmenitiesSection({
   customSelectedIds,
   customLabels,
   customIcons,
+  footer,
 }: {
   locale: string
   variant: 'hotel' | 'villa'
@@ -66,6 +67,8 @@ export default function ListingAmenitiesSection({
   customLabels?: Record<string, string>
   /** Öznitelik tanımından yüklenen vitrin ikonları (`/uploads/...`). */
   customIcons?: Record<string, string>
+  /** Olanaklar ızgarasının altında (ör. havuz ölçüleri) */
+  footer?: React.ReactNode
 }) {
   const messages = getMessages(locale)
 
@@ -147,6 +150,8 @@ export default function ListingAmenitiesSection({
           </div>
         </div>
       ) : null}
+
+      {footer ? <div className="not-prose">{footer}</div> : null}
 
       <Dialog open={open} onClose={() => setOpen(false)} className="relative z-[60]">
         <DialogBackdrop className="fixed inset-0 bg-black/40 backdrop-blur-sm" />

@@ -47,15 +47,16 @@ const Header: FC<HeaderProps> = async ({ hasBorderBottom = true, className, loca
   const catalogHomeHref = await vitrinHref(locale, '/')
 
   return (
-    <div className={clsx('relative', className)}>
+    <div
+      className={clsx(
+        'relative border-neutral-200 dark:border-neutral-700',
+        hasBorderBottom && 'border-b',
+        !hasBorderBottom && 'has-[.header-popover-full-panel]:border-b',
+        className,
+      )}
+    >
       <div className="container">
-        <div
-          className={clsx(
-            'flex h-16 justify-between gap-x-2 border-neutral-200 dark:border-neutral-700',
-            hasBorderBottom && 'border-b',
-            !hasBorderBottom && 'has-[.header-popover-full-panel]:border-b'
-          )}
-        >
+        <div className="flex h-20 justify-between gap-x-2">
           <div className="flex items-center justify-center gap-x-2 sm:gap-x-6">
             <Logo src={logoSrc} darkSrc={logoDarkSrc} alt={siteName} />
             <div className="hidden h-7 border-l border-neutral-200 md:block dark:border-neutral-700"></div>

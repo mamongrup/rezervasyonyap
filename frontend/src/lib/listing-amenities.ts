@@ -13,25 +13,33 @@ import {
   CableCar,
   ChefHat,
   Cctv,
+  Crown,
   DoorOpen,
   Droplets,
   Dumbbell,
   Flame,
   Glasses,
+  Heart,
+  Landmark,
   Mountain,
   Palmtree,
   ParkingCircle,
   RefreshCw,
   Refrigerator,
   Shield,
+  ShieldCheck,
   Shirt,
   Sparkles,
   SprayCan,
   Thermometer,
+  Trees,
   Tv,
+  Umbrella,
+  Users,
   UtensilsCrossed,
   Volume2,
   WashingMachine,
+  Waves,
   Wifi,
   Wind,
   Wine,
@@ -160,6 +168,22 @@ export function getListingAmenityIcon(id: ListingAmenityId): LucideIcon {
 }
 
 /** Bravo `imported_amenity` slug → Lucide (panel ikonu yoksa). */
+/** Tatil evi vitrin temaları — `category_theme_items` + yaygın ek kodlar (`pool`, `jacuzzi`). */
+export const HOLIDAY_THEME_ICONS: Record<string, LucideIcon> = {
+  sea_view: Waves,
+  beachfront: Umbrella,
+  conservative: ShieldCheck,
+  luxury: Crown,
+  honeymoon: Heart,
+  honeymoon_villa: Heart,
+  family: Users,
+  nature: Trees,
+  historic: Landmark,
+  jacuzzi: Bubbles,
+  spa: Bath,
+  pool: Palmtree,
+}
+
 export const IMPORTED_AMENITY_ICONS: Record<string, LucideIcon> = {
   'bebek-besigi': Baby,
   bilardo: Sparkles,
@@ -200,9 +224,18 @@ export function getImportedAmenityIcon(key: string): LucideIcon | null {
   return IMPORTED_AMENITY_ICONS[k] ?? IMPORTED_AMENITY_ICONS[k.replace(/_/g, '-')] ?? null
 }
 
+export function getHolidayThemeIcon(key: string): LucideIcon | null {
+  const k = String(key ?? '').trim().toLowerCase()
+  if (!k) return null
+  return HOLIDAY_THEME_ICONS[k] ?? null
+}
+
 export function getAmenityIconForKey(key: string): LucideIcon {
-  if (key in LISTING_AMENITY_ICONS) {
-    return getListingAmenityIcon(key as ListingAmenityId)
+  const k = String(key ?? '').trim().toLowerCase()
+  if (k in LISTING_AMENITY_ICONS) {
+    return getListingAmenityIcon(k as ListingAmenityId)
   }
-  return getImportedAmenityIcon(key) ?? Sparkles
+  const themeIcon = getHolidayThemeIcon(k)
+  if (themeIcon) return themeIcon
+  return getImportedAmenityIcon(k) ?? Sparkles
 }

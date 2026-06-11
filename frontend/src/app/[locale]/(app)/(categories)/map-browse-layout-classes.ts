@@ -1,11 +1,11 @@
 /**
  * stay-car-experience harita + liste — Chisfis `stay-categories-map` ile uyumlu:
  * ~50/50 split ve 2 kolonlu grid `lg:` (demo: https://chisfis-nextjs.vercel.app/stay-categories-map/all )
- * Header3: h-16 (4rem)
+ * Header3: h-20 (5rem)
  * Üst boşluk hero ile aynı: `heroContainerBelowHeaderClassName` değerleri (pt-3 sm:pt-4 lg:pt-5).
  */
 export const mapBrowseOuter =
-  'relative mx-auto flex min-h-[calc(100dvh-4rem)] w-full max-w-[100vw] flex-col gap-0 lg:flex-row lg:items-stretch'
+  'relative mx-auto flex min-h-[calc(100dvh-5rem)] w-full max-w-[100vw] flex-col gap-0 lg:flex-row lg:items-stretch'
 
 /** Sol yarı */
 export const mapBrowseListColumn =

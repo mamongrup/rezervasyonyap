@@ -734,7 +734,7 @@ export const tr = {
       carouselNextAria: 'Sonraki ilanlar',
     },
     detailHeader: {
-      ministryLicense: 'Kültür ve Turizm Bakanlığı - Turizm İşletme Belgesi: {ref}',
+      ministryLicense: 'T.C. Kültür ve Turizm Bakanlığı Belge No : {ref}',
       referenceCode: 'Referans kodu:',
       prepaymentNote:
         'Ön ödeme miktarı %{percent}’dir. Rezervasyon yaparken ön ödeme miktarını yada tümünü ödeyebilirsiniz.',
@@ -913,7 +913,7 @@ export const tr = {
     poolInfo: {
       ...en.listing.poolInfo,
       title: 'Havuz bilgisi',
-      subtitle: 'İlan girişinde belirttiğiniz havuz bilgileri (açık, sıcak su, çocuk havuzu).',
+      subtitle: 'Açık, ısıtmalı ve çocuk havuzu ölçüleri.',
       demoBadge: 'Örnek bilgi',
       types: {
         open_pool: 'Açık havuz',
@@ -949,6 +949,7 @@ export const tr = {
       shortStayExtraLine: 'Kısa konaklama ücreti ({n} geceden kısa konaklamalarda)',
       cleaningFeeLine: 'Temizlik ücreti (konaklama başına tek sefer)',
       damageDeposit: 'Hasar depozitosu',
+      damageDepositNote: 'Hasar depozitosu, tatil evine girişte nakit olarak ödenir.',
       unitPerStay: 'konaklama başına',
       unitPerNight: 'gece başına',
       unitPerPerson: 'kişi başına',

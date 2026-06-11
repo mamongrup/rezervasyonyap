@@ -123,12 +123,11 @@ const DatesRangeInputPopover: FC<Props> = ({
   )
 
   const renderInput = () => {
-    const addDates = msgs.listing.sidebar.addDates
-    const rangeLabel =
-      startDate?.toLocaleDateString(intlLocale, {
-        month: 'short',
-        day: '2-digit',
-      }) || addDates
+    const checkInOutLabel = `${msgs.HeroSearchForm.CheckIn} - ${msgs.HeroSearchForm.CheckOut}`
+    const rangeLabel = startDate?.toLocaleDateString(intlLocale, {
+      month: 'short',
+      day: '2-digit',
+    })
     const endPart =
       endDate != null
         ? ' - ' +
@@ -145,11 +144,13 @@ const DatesRangeInputPopover: FC<Props> = ({
         </div>
         <div className="grow text-start">
           <span className="block font-semibold text-neutral-900 xl:text-lg dark:text-neutral-100">
-            {startDate ? rangeLabel + endPart : addDates}
+            {startDate ? `${rangeLabel}${endPart}` : checkInOutLabel}
           </span>
-          <span className="mt-1 block text-sm leading-none font-normal text-neutral-400 dark:text-neutral-500">
-            {msgs.HeroSearchForm.CheckIn} - {msgs.HeroSearchForm.CheckOut}
-          </span>
+          {startDate ? (
+            <span className="mt-1 block text-sm leading-none font-normal text-neutral-400 dark:text-neutral-500">
+              {checkInOutLabel}
+            </span>
+          ) : null}
         </div>
       </>
     )
