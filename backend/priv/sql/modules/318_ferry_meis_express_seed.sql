@@ -9,11 +9,11 @@ DECLARE
   v_cat_id    SMALLINT;
   v_locale_tr SMALLINT;
   v_id        UUID;
-  v_kas_port TEXT := 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Ka%C5%9F_Port_-_2014.10_-_panoramio.jpg/1600px-Ka%C5%9F_Port_-_2014.10_-_panoramio.jpg';
-  v_kas_harbour TEXT := 'https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Ka%C5%9F_harbour_6101.jpg/1600px-Ka%C5%9F_harbour_6101.jpg';
+  v_kas_port TEXT := 'https://upload.wikimedia.org/wikipedia/commons/0/05/Ka%C5%9F_Port_-_2014.10_-_panoramio.jpg';
+  v_kas_harbour TEXT := 'https://upload.wikimedia.org/wikipedia/commons/d/df/Ka%C5%9F_harbour_6101.jpg';
   v_meis_port TEXT := 'https://upload.wikimedia.org/wikipedia/commons/d/d7/Kastelorizo_port.jpg';
   v_meis_hafen TEXT := 'https://upload.wikimedia.org/wikipedia/commons/1/15/Kastelorizo_Hafen.jpg';
-  v_meis_approach TEXT := 'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Castelorizo.JPG/1600px-Castelorizo.JPG';
+  v_kas_pexels TEXT := 'https://images.pexels.com/photos/36683308/pexels-photo-36683308.jpeg?auto=compress&cs=tinysrgb&w=1600';
 BEGIN
   SELECT id INTO v_org_id FROM organizations ORDER BY created_at LIMIT 1;
   SELECT id INTO v_cat_id FROM product_categories WHERE code = 'ferry';
@@ -95,7 +95,7 @@ BEGIN
     (v_id, 1, v_kas_harbour),
     (v_id, 2, v_meis_port),
     (v_id, 3, v_meis_hafen),
-    (v_id, 4, v_meis_approach),
+    (v_id, 4, v_kas_pexels),
     (v_id, 5, v_meis_port);
 
   -- ── Meis → Kaş (dönüş) ──
@@ -172,9 +172,9 @@ BEGIN
   INSERT INTO listing_images (listing_id, sort_order, storage_key) VALUES
     (v_id, 0, v_meis_hafen),
     (v_id, 1, v_meis_port),
-    (v_id, 2, v_meis_approach),
-    (v_id, 3, v_kas_port),
-    (v_id, 4, v_kas_harbour),
-    (v_id, 5, v_meis_hafen);
+    (v_id, 2, v_kas_port),
+    (v_id, 3, v_kas_harbour),
+    (v_id, 4, v_meis_hafen),
+    (v_id, 5, v_kas_pexels);
 
 END $$;

@@ -1,5 +1,4 @@
--- Faz 323 — Kaş↔Meis görselleri: Ölüdeniz/generic Pexels yerine gerçek Kaş limanı + Kastellorizo (Meis)
--- Kaynak: Wikimedia Commons (CC BY / CC BY-SA) — coğrafi olarak doğru
+-- Faz 324 — Kaş↔Meis: /thumb/…/1600px-… URL'leri Türkçe ş ile 400 veriyor; doğrudan commons dosyaları kullan
 
 DO $$
 DECLARE
@@ -10,7 +9,6 @@ DECLARE
   v_meis_hafen TEXT := 'https://upload.wikimedia.org/wikipedia/commons/1/15/Kastelorizo_Hafen.jpg';
   v_kas_pexels TEXT := 'https://images.pexels.com/photos/36683308/pexels-photo-36683308.jpeg?auto=compress&cs=tinysrgb&w=1600';
 BEGIN
-  -- Kaş → Meis: kalkış Kaş limanı, varış Meis adası
   SELECT id INTO v_id FROM listings WHERE slug = 'feribot-kas-meis' LIMIT 1;
   IF v_id IS NOT NULL THEN
     UPDATE listings SET featured_image_url = v_kas_port, updated_at = now() WHERE id = v_id;
@@ -24,7 +22,6 @@ BEGIN
       (v_id, 5, v_meis_port);
   END IF;
 
-  -- Meis → Kaş: kalkış Meis, varış Kaş
   SELECT id INTO v_id FROM listings WHERE slug = 'feribot-meis-kas' LIMIT 1;
   IF v_id IS NOT NULL THEN
     UPDATE listings SET featured_image_url = v_meis_hafen, updated_at = now() WHERE id = v_id;
