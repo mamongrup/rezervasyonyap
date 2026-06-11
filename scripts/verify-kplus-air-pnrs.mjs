@@ -41,11 +41,17 @@ async function loadCfg() {
 
 async function main() {
   const cfg = await loadCfg()
-  const token = await createTravelrobotToken(cfg)
-  const tokenCode = token?.Result?.TokenCode ?? token?.TokenCode
-  if (!tokenCode) throw new Error('Token alınamadı')
+  console.log(`KPlus Air PNR doğrulama — ${cfg.baseUrl}`)
+  console.log(`Channel: ${cfg.channelCode}\n`)
 
-  console.log(`KPlus Air PNR doğrulama — ${cfg.baseUrl}\n`)
+  let tokenCode = null
+  try {
+    const result = await createTravelrobotToken(cfg)
+    tokenCode = result.tokenCode
+  } catch (e) {
+    throw new Error(`Token alınamadı: ${e.message}`)
+  }
+  if (!tokenCode) throw new Error('Token alınamadı: CreateTokenV2 yanıtında TokenCode yok')
 
   let ok = 0
   let fail = 0
