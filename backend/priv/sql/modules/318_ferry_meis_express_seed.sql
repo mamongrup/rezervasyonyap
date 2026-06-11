@@ -9,8 +9,8 @@ DECLARE
   v_cat_id    SMALLINT;
   v_locale_tr SMALLINT;
   v_id        UUID;
-  v_u         TEXT := 'https://images.unsplash.com/photo-';
-  v_q         TEXT := '?w=1600&q=80';
+  v_p         TEXT := 'https://images.pexels.com/photos/';
+  v_q         TEXT := '?auto=compress&cs=tinysrgb&w=1600';
 BEGIN
   SELECT id INTO v_org_id FROM organizations ORDER BY created_at LIMIT 1;
   SELECT id INTO v_cat_id FROM product_categories WHERE code = 'ferry';
@@ -27,7 +27,7 @@ BEGIN
     VALUES (
       v_org_id, v_cat_id, 'feribot-kas-meis', 'published', 'EUR', 20.000,
       'Kaş → Meis',
-      v_u || '1618574595758-2078756c524d' || v_q,
+      v_p || '33545/greece-island-sea-water.jpg' || v_q,
       36.1444000, 29.5933000
     )
     RETURNING id INTO v_id;
@@ -35,7 +35,7 @@ BEGIN
     UPDATE listings SET
       status = 'published',
       location_name = 'Kaş → Meis',
-      featured_image_url = v_u || '1618574595758-2078756c524d' || v_q,
+      featured_image_url = v_p || '33545/greece-island-sea-water.jpg' || v_q,
       map_lat = 36.1444000,
       map_lng = 29.5933000,
       updated_at = now()
@@ -88,12 +88,12 @@ BEGIN
 
   DELETE FROM listing_images WHERE listing_id = v_id;
   INSERT INTO listing_images (listing_id, sort_order, storage_key) VALUES
-    (v_id, 0, v_u || '1618574595758-2078756c524d' || v_q),
-    (v_id, 1, v_u || '1571115764595-20a3226daa74' || v_q),
-    (v_id, 2, v_u || '1601581875309-fafbf2d3ed3a' || v_q),
-    (v_id, 3, v_u || '1586864388157-aa8504c8a786' || v_q),
-    (v_id, 4, v_u || '1544551763-46a013bb70d5' || v_q),
-    (v_id, 5, v_u || '1506925535865-74b370a30094' || v_q);
+    (v_id, 0, v_p || '33545/greece-island-sea-water.jpg' || v_q),
+    (v_id, 1, v_p || '1268855/pexels-photo-1268855.jpeg' || v_q),
+    (v_id, 2, v_p || '2443373/pexels-photo-2443373.jpeg' || v_q),
+    (v_id, 3, v_p || '1619569/pexels-photo-1619569.jpeg' || v_q),
+    (v_id, 4, v_p || '1001682/pexels-photo-1001682.jpeg' || v_q),
+    (v_id, 5, v_p || '2387866/pexels-photo-2387866.jpeg' || v_q);
 
   -- ── Meis → Kaş (dönüş) ──
   SELECT id INTO v_id FROM listings
@@ -106,7 +106,7 @@ BEGIN
     VALUES (
       v_org_id, v_cat_id, 'feribot-meis-kas', 'published', 'EUR', 20.000,
       'Meis → Kaş',
-      v_u || '1587996735085-1eba19480192' || v_q,
+      v_p || '1268855/pexels-photo-1268855.jpeg' || v_q,
       36.2017000, 29.6378000
     )
     RETURNING id INTO v_id;
@@ -114,7 +114,7 @@ BEGIN
     UPDATE listings SET
       status = 'published',
       location_name = 'Meis → Kaş',
-      featured_image_url = v_u || '1587996735085-1eba19480192' || v_q,
+      featured_image_url = v_p || '1268855/pexels-photo-1268855.jpeg' || v_q,
       map_lat = 36.2017000,
       map_lng = 29.6378000,
       updated_at = now()
@@ -167,11 +167,11 @@ BEGIN
 
   DELETE FROM listing_images WHERE listing_id = v_id;
   INSERT INTO listing_images (listing_id, sort_order, storage_key) VALUES
-    (v_id, 0, v_u || '1587996735085-1eba19480192' || v_q),
-    (v_id, 1, v_u || '1569660073216-1a6762baad6a' || v_q),
-    (v_id, 2, v_u || '1635066500129-bd51d721cb9a' || v_q),
-    (v_id, 3, v_u || '1686465602845-868cebea024a' || v_q),
-    (v_id, 4, v_u || '1506744038136-46273834b3fb' || v_q),
-    (v_id, 5, v_u || '1691613931158-defde665d93d' || v_q);
+    (v_id, 0, v_p || '1268855/pexels-photo-1268855.jpeg' || v_q),
+    (v_id, 1, v_p || '33545/greece-island-sea-water.jpg' || v_q),
+    (v_id, 2, v_p || '2443373/pexels-photo-2443373.jpeg' || v_q),
+    (v_id, 3, v_p || '1619569/pexels-photo-1619569.jpeg' || v_q),
+    (v_id, 4, v_p || '457882/pexels-photo-457882.jpeg' || v_q),
+    (v_id, 5, v_p || '1001682/pexels-photo-1001682.jpeg' || v_q);
 
 END $$;
