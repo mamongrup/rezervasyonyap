@@ -68,6 +68,29 @@ export async function fetchPublicHotelRoomAvailabilityDaysSafe(
   return roomAvailabilityToListingDays(res.days ?? [], unitCount, fromStr, toStr)
 }
 
+/** Oda için `hotel_room_availability_calendar` kaydı var mı (vitrin takvim simgesi). */
+export async function fetchHotelRoomHasAvailabilityCalendarSafe(
+  listingId: string,
+  roomId: string,
+): Promise<boolean> {
+  if (!listingId.trim() || !roomId.trim()) return false
+  const from = new Date()
+  from.setHours(0, 0, 0, 0)
+  const to = new Date(from)
+  to.setMonth(to.getMonth() + 6)
+  const fromStr = formatLocalYmd(from)
+  const toStr = formatLocalYmd(to)
+  try {
+    const res = await getPublicHotelRoomAvailabilityCalendar(listingId, roomId, {
+      from: fromStr,
+      to: toStr,
+    })
+    return (res.days?.length ?? 0) > 0
+  } catch {
+    return false
+  }
+}
+
 export type HotelRoomBookingOption = PublicHotelRoom & { unit_count: number }
 
 export function normalizeHotelRoomOptions(rooms: PublicHotelRoom[]): HotelRoomBookingOption[] {

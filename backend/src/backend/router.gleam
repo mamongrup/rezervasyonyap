@@ -61,6 +61,7 @@ import travel/ai/ai_worker_http
 import travel/ai/district_ideas_http
 import travel/ai/region_content_http
 import travel/ai/trip_routes_http
+import travel/ai/listing_content_http
 import travel/verticals/verticals_http
 import travel/catalog/catalog_http
 import travel/workspace/workspace_http
@@ -198,6 +199,36 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "meal-plans"] ->
       catalog_http.list_public_meal_plans(req, ctx, lid)
+
+    http.Get, ["api", "v1", "catalog", "listings", lid, "hotel-promotions"] ->
+      catalog_http.list_manage_hotel_promotions(req, ctx, lid)
+
+    http.Post, ["api", "v1", "catalog", "listings", lid, "hotel-promotions"] ->
+      catalog_http.create_manage_hotel_promotion(req, ctx, lid)
+
+    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-promotions", pid] ->
+      catalog_http.update_manage_hotel_promotion(req, ctx, lid, pid)
+
+    http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-promotions", pid] ->
+      catalog_http.delete_manage_hotel_promotion(req, ctx, lid, pid)
+
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "hotel-promotions"] ->
+      catalog_http.list_public_hotel_promotions(req, ctx, lid)
+
+    http.Get, ["api", "v1", "catalog", "listings", lid, "hotel-activities"] ->
+      catalog_http.list_manage_hotel_activities(req, ctx, lid)
+
+    http.Post, ["api", "v1", "catalog", "listings", lid, "hotel-activities"] ->
+      catalog_http.create_manage_hotel_activity(req, ctx, lid)
+
+    http.Put, ["api", "v1", "catalog", "listings", lid, "hotel-activities", aid] ->
+      catalog_http.update_manage_hotel_activity(req, ctx, lid, aid)
+
+    http.Delete, ["api", "v1", "catalog", "listings", lid, "hotel-activities", aid] ->
+      catalog_http.delete_manage_hotel_activity(req, ctx, lid, aid)
+
+    http.Get, ["api", "v1", "catalog", "public", "listings", lid, "hotel-activities"] ->
+      catalog_http.list_public_hotel_activities(req, ctx, lid)
 
     http.Get, ["api", "v1", "catalog", "public", "listings", lid, "price-rules"] ->
       catalog_http.list_public_listing_price_rules(req, ctx, lid)
@@ -1104,6 +1135,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "catalog", "manage", "theme-items", tid] ->
       collections_http.delete_manage_theme_item(req, ctx, tid)
 
+    http.Get, ["api", "v1", "catalog", "public", "hotel-valid-campaigns"] ->
+      catalog_http.get_public_hotel_valid_campaigns(req, ctx)
+
     http.Get, ["api", "v1", "catalog", "public", "holiday-home-faq-template"] ->
       catalog_http.get_public_holiday_home_faq_template(req, ctx)
 
@@ -1592,6 +1626,18 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Post, ["api", "v1", "ai", "trip-routes", "reset-stuck"] ->
       trip_routes_http.reset_stuck_jobs(req, ctx)
+
+    http.Get, ["api", "v1", "ai", "listing-content", "stats"] ->
+      listing_content_http.stats(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "listing-content", "queue-all"] ->
+      listing_content_http.queue_all(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "listing-content", "process-next"] ->
+      listing_content_http.process_next(req, ctx)
+
+    http.Post, ["api", "v1", "ai", "listing-content", "reset-stuck"] ->
+      listing_content_http.reset_stuck(req, ctx)
 
     http.Post, ["api", "v1", "ai", "worker", "run-steps"] ->
       ai_worker_http.post_run_steps(req, ctx)

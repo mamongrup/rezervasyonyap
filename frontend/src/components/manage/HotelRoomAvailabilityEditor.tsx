@@ -161,6 +161,10 @@ export default function HotelRoomAvailabilityEditor({
     setRows((prev) => prev.map((r) => (r.day === day ? { ...r, available_units: clamped } : r)))
   }
 
+  function setDayPrice(day: string, price: string) {
+    setRows((prev) => prev.map((r) => (r.day === day ? { ...r, price_override: price } : r)))
+  }
+
   function bulkSetUnits(units: number) {
     const clamped = Math.min(Math.max(0, units), maxUnits)
     setRows((prev) => prev.map((r) => ({ ...r, available_units: clamped })))
@@ -335,6 +339,7 @@ export default function HotelRoomAvailabilityEditor({
             }
             const row = rowByDay.get(cell.dateStr)
             const units = row?.available_units ?? maxUnits
+            const price = row?.price_override ?? ''
             const tone =
               units === 0
                 ? 'bg-red-50 dark:bg-red-950/20'
@@ -344,7 +349,7 @@ export default function HotelRoomAvailabilityEditor({
             return (
               <div
                 key={cell.dateStr}
-                className={`min-h-[4.5rem] bg-white p-1.5 dark:bg-neutral-900 ${tone}`}
+                className={`min-h-[5.5rem] bg-white p-1.5 dark:bg-neutral-900 ${tone}`}
               >
                 <div className="text-xs font-semibold text-neutral-700 dark:text-neutral-200">{cell.dayNum}</div>
                 <select
@@ -358,6 +363,14 @@ export default function HotelRoomAvailabilityEditor({
                     </option>
                   ))}
                 </select>
+                <Input
+                  type="text"
+                  inputMode="decimal"
+                  value={price}
+                  onChange={(e) => setDayPrice(cell.dateStr, e.target.value)}
+                  placeholder="₺"
+                  className="mt-1 h-7 w-full px-1 text-[10px]"
+                />
               </div>
             )
           })}

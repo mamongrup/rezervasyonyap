@@ -11,6 +11,8 @@ import clsx from 'clsx'
 import { useParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import { SectionHeading } from './SectionHeading'
+import ListingReviewCriteriaSummaryPanel from '@/components/travel/ListingReviewCriteriaSummary'
+import type { ListingReviewCriteriaSummary } from '@/lib/listing-review-criteria'
 
 interface ApiReview {
   id: string
@@ -26,6 +28,7 @@ interface Props {
   listingId?: string
   reviewCount: number
   reviewStart: number
+  criteriaSummary?: ListingReviewCriteriaSummary | null
 }
 
 function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
@@ -87,7 +90,12 @@ function ReviewCard({ review, labels }: { review: ApiReview; labels: { guest: st
   )
 }
 
-export default function SectionListingReviews({ listingId, reviewCount: initCount, reviewStart }: Props) {
+export default function SectionListingReviews({
+  listingId,
+  reviewCount: initCount,
+  reviewStart,
+  criteriaSummary,
+}: Props) {
   const params = useParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const T = getMessages(locale).reviews
@@ -143,26 +151,44 @@ export default function SectionListingReviews({ listingId, reviewCount: initCoun
     }
   }
 
-  const titleWithCount = T.sectionTitle.replace('{count}', String(count))
+  const displayCount = criteriaSummary?.totalReviewCount ?? count
+  const titleWithCount = criteriaSummary
+    ? (T.hotelSectionTitle ?? T.sectionTitle).replace('{count}', String(displayCount))
+    : T.sectionTitle.replace('{count}', String(count))
+  const sourceNote =
+    criteriaSummary?.reviewSource?.trim() && T.externalSourceNote
+      ? T.externalSourceNote.replace('{source}', criteriaSummary.reviewSource.trim())
+      : null
 
   return (
     <div className="flex flex-col gap-y-6 pt-8 sm:gap-y-8">
       <div>
         <SectionHeading>{titleWithCount}</SectionHeading>
-        <div className="mt-4 flex items-center gap-2">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <HugeiconsIcon
-              key={n}
-              icon={StarIcon}
-              className={clsx(reviewStart >= n ? 'text-yellow-400' : 'text-gray-200', 'size-6 shrink-0')}
-              strokeWidth={1.75}
-            />
-          ))}
-          {reviewStart > 0 && (
-            <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">{reviewStart.toFixed(1)}</span>
-          )}
-        </div>
+        {sourceNote ? (
+          <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{sourceNote}</p>
+        ) : null}
+        {!criteriaSummary ? (
+          <div className="mt-4 flex items-center gap-2">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <HugeiconsIcon
+                key={n}
+                icon={StarIcon}
+                className={clsx(reviewStart >= n ? 'text-yellow-400' : 'text-gray-200', 'size-6 shrink-0')}
+                strokeWidth={1.75}
+              />
+            ))}
+            {reviewStart > 0 && (
+              <span className="text-sm font-medium text-neutral-600 dark:text-neutral-400">
+                {reviewStart.toFixed(1)}
+              </span>
+            )}
+          </div>
+        ) : null}
       </div>
+
+      {criteriaSummary ? (
+        <ListingReviewCriteriaSummaryPanel summary={criteriaSummary} locale={locale} />
+      ) : null}
 
       <Divider className="w-14!" />
 

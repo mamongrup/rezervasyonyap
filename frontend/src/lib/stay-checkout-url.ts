@@ -94,17 +94,47 @@ export function buildStayCheckoutUrl(
     endDate: Date
     currencyCode: string
     unitPrice: number
+    guests?: GuestsObject
     hotelRoomId?: string
     hotelRoomName?: string
+    hotelBoardLabel?: string
+    mealPlanId?: string
+    mealPlanLabel?: string
   },
 ): string {
   return buildListingCheckoutUrl(checkoutPath, {
-    ...params,
+    listingId: params.listingId,
+    startDate: params.startDate,
+    endDate: params.endDate,
+    currencyCode: params.currencyCode,
+    unitPrice: params.unitPrice,
+    guests: params.guests,
     extra: {
       hotelRoomId: params.hotelRoomId,
       hotelRoomName: params.hotelRoomName,
+      hotelBoardLabel: params.hotelBoardLabel,
+      mealPlanId: params.mealPlanId,
+      mealPlanLabel: params.mealPlanLabel,
     },
   })
+}
+
+export type HotelCheckoutQueryParams = {
+  hotelRoomId: string | null
+  hotelRoomName: string | null
+  hotelBoardLabel: string | null
+  mealPlanId: string | null
+  mealPlanLabel: string | null
+}
+
+export function parseHotelCheckoutParams(searchParams: URLSearchParams): HotelCheckoutQueryParams {
+  return {
+    hotelRoomId: searchParams.get('hotelRoomId')?.trim() || null,
+    hotelRoomName: searchParams.get('hotelRoomName')?.trim() || null,
+    hotelBoardLabel: searchParams.get('hotelBoardLabel')?.trim() || null,
+    mealPlanId: searchParams.get('mealPlanId')?.trim() || null,
+    mealPlanLabel: searchParams.get('mealPlanLabel')?.trim() || null,
+  }
 }
 
 export function resolveCheckoutListingId(

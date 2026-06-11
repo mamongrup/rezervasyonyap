@@ -98,6 +98,7 @@ export default function CatalogSidebar() {
         { href: `${p}/accommodation-rules`, label: 'Kurallar' },
       ]
       if (code === 'hotel') {
+        items.push({ href: `${p}/valid-campaigns`, label: 'Otel detay kampanyaları' })
         items.push({ href: `${p}/facet-options`, label: 'Tip / tema / konaklama' })
         items.push({ href: `${p}/room-features`, label: 'Oda öznitelikleri' })
       }

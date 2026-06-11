@@ -4,6 +4,7 @@ import { CrossSellSuggestions } from '@/components/CrossSellSuggestions'
 import { CHECKOUT_LISTING_FALLBACK_IMAGE } from '@/lib/checkout-listing-fallback-image'
 import { checkoutT, fmtCheckout, formatCheckoutDate, formatCheckoutMoney } from '@/lib/checkout-i18n'
 import type { CheckoutPriceBreakdown } from '@/lib/checkout-price-breakdown'
+import type { GuestsObject } from '@/type'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
@@ -29,6 +30,11 @@ type Props = {
   amountRemaining: number
   showAmountSplit: boolean
   isHolidayHome: boolean
+  isHotelCheckout?: boolean
+  hotelRoomName?: string | null
+  hotelBoardLabel?: string | null
+  mealPlanLabel?: string | null
+  guests?: GuestsObject
   className?: string
 }
 
@@ -57,20 +63,41 @@ export default function CheckoutStaySummary({
   amountRemaining,
   showAmountSplit,
   isHolidayHome,
+  isHotelCheckout = false,
+  hotelRoomName,
+  hotelBoardLabel,
+  mealPlanLabel,
+  guests,
   className,
 }: Props) {
   const C = checkoutT(locale)
   const listingMessages = getMessages(locale).listing
   const imageSrc = imageUrl || CHECKOUT_LISTING_FALLBACK_IMAGE
 
-  const guests = parsePositiveInt(maxGuests ?? undefined)
-  const rooms = parsePositiveInt(roomCount ?? undefined)
-  const baths = parsePositiveInt(bathCount ?? undefined)
+  const maxGuestCount = parsePositiveInt(maxGuests ?? undefined)
+  const roomCountNum = parsePositiveInt(roomCount ?? undefined)
+  const bathCountNum = parsePositiveInt(bathCount ?? undefined)
 
   const metaParts: string[] = []
-  if (guests != null) metaParts.push(fmtCheckout(C.listingMetaGuests, { count: guests }))
-  if (rooms != null) metaParts.push(fmtCheckout(C.listingMetaRooms, { count: rooms }))
-  if (baths != null) metaParts.push(fmtCheckout(C.listingMetaBaths, { count: baths }))
+  if (isHotelCheckout && hotelRoomName?.trim()) {
+    metaParts.push(hotelRoomName.trim())
+  }
+  if (isHotelCheckout && (hotelBoardLabel?.trim() || mealPlanLabel?.trim())) {
+    metaParts.push((mealPlanLabel ?? hotelBoardLabel)!.trim())
+  }
+  if (guests) {
+    metaParts.push(
+      fmtCheckout(C.guestsLine, {
+        adults: String(guests.guestAdults ?? 2),
+        children: String(guests.guestChildren ?? 0),
+        infants: String(guests.guestInfants ?? 0),
+      }),
+    )
+  } else if (!isHotelCheckout) {
+    if (maxGuestCount != null) metaParts.push(fmtCheckout(C.listingMetaGuests, { count: maxGuestCount }))
+    if (roomCountNum != null) metaParts.push(fmtCheckout(C.listingMetaRooms, { count: roomCountNum }))
+    if (bathCountNum != null) metaParts.push(fmtCheckout(C.listingMetaBaths, { count: bathCountNum }))
+  }
   const metaLine = metaParts.join(' · ')
 
   const dateLine =
@@ -105,7 +132,7 @@ export default function CheckoutStaySummary({
             </div>
           </div>
           <div className="min-w-0 flex-1 space-y-2">
-            {loading ? (
+            {loading && !title?.trim() && !metaLine ? (
               <p className="text-sm text-neutral-500 dark:text-neutral-400">{C.sidebarLoading}</p>
             ) : (
               <>
@@ -113,7 +140,7 @@ export default function CheckoutStaySummary({
                   <p className="text-sm text-neutral-500 dark:text-neutral-400">{location}</p>
                 ) : null}
                 <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
-                  {title || '—'}
+                  {title || (loading ? C.sidebarLoading : '—')}
                 </h3>
                 {metaLine ? (
                   <p className="text-sm text-neutral-600 dark:text-neutral-300">{metaLine}</p>

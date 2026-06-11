@@ -227,6 +227,10 @@ const TR_BY_CODE: Record<string, string> = {
   trip_routes_process_failed: 'Gezi rotası işlenemedi.',
   trip_routes_reset_failed: 'Takılı rota işleri sıfırlanamadı.',
   region_content_stats_failed: 'Bölge içerik istatistikleri yüklenemedi.',
+  listing_content_stats_failed: 'İlan içerik istatistikleri yüklenemedi.',
+  listing_content_queue_failed: 'İlan içerik kuyruğu oluşturulamadı.',
+  listing_content_process_failed: 'İlan içerik işlemi başarısız.',
+  listing_content_reset_failed: 'Takılı ilan içerik işleri sıfırlanamadı.',
   empty_response: 'API boş yanıt döndü; vekil veya backend loglarını kontrol edin.',
   region_content_queue_401: 'Oturum süresi dolmuş olabilir; yeniden giriş yapın.',
   region_content_queue_403: 'Kuyruğa alma için yetkiniz yok.',
@@ -311,9 +315,6 @@ function looksLikeApiCode(s: string): boolean {
   return /^[a-z][a-z0-9_]*$/.test(s) && s.includes('_')
 }
 
-/**
- * API'den gelen kısa kod veya düz metni kullanıcıya uygun Türkçe metne çevirir.
- */
 export function formatManageApiError(raw: string): string {
   const key = raw.trim()
   if (!key) return 'Bilinmeyen hata.'

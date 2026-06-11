@@ -8,6 +8,7 @@ import {
   Baby,
   Bath,
   BedDouble,
+  Bell,
   Bubbles,
   CableCar,
   ChefHat,
@@ -22,6 +23,7 @@ import {
   ParkingCircle,
   RefreshCw,
   Refrigerator,
+  Shield,
   Shirt,
   Sparkles,
   SprayCan,
@@ -32,6 +34,7 @@ import {
   WashingMachine,
   Wifi,
   Wind,
+  Wine,
 } from 'lucide-react'
 
 /** Otel / benzeri — şablondaki başlıca olanaklar */
@@ -118,7 +121,8 @@ export function buildGroupedAmenities(
     digital: [],
   }
   for (const id of orderedIds) {
-    buckets[getAmenityGroupId(id, variant)].push(id)
+    const groupId = getAmenityGroupId(id, variant) ?? 'comfort'
+    buckets[groupId].push(id)
   }
   return AMENITY_GROUP_ORDER.filter((g) => buckets[g].length > 0).map((groupId) => ({
     groupId,
@@ -179,6 +183,12 @@ export const IMPORTED_AMENITY_ICONS: Record<string, LucideIcon> = {
   wifi: Wifi,
   generator: RefreshCw,
   air_conditioning: AirVent,
+  elevator: DoorOpen,
+  reception_24h: RefreshCw,
+  breakfast: UtensilsCrossed,
+  safe: Shield,
+  minibar: Wine,
+  room_service: Bell,
   water_toys: Sparkles,
   snorkeling: Sparkles,
   tender_dinghy: Sparkles,

@@ -1018,6 +1018,28 @@ fn manage_contract_row() -> decode.Decoder(
   decode.success(#(a, b, c, d, e, f, g))
 }
 
+/// GET /api/v1/catalog/public/hotel-valid-campaigns — otel detay kampanya kartları (`site_settings`).
+pub fn get_public_hotel_valid_campaigns(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let empty = "{\"sectionTitle\":{\"tr\":\"Otel'de Geçerli Kampanyalar\"},\"items\":[]}"
+  case
+    pog.query(
+      "select coalesce(value_json::text, $1) from site_settings where organization_id is null and key = 'catalog.hotel_valid_campaigns' order by id desc limit 1",
+    )
+    |> pog.parameter(pog.text(empty))
+    |> pog.returning(one_string_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> wisp.json_response(empty, 200)
+    Ok(ret) ->
+      case ret.rows {
+        [] -> wisp.json_response(empty, 200)
+        [txt] -> wisp.json_response(txt, 200)
+        _ -> wisp.json_response(empty, 200)
+      }
+  }
+}
+
 /// GET /api/v1/catalog/public/holiday-home-faq-template — vitrin tatil evi SSS şablonu (`site_settings`).
 pub fn get_public_holiday_home_faq_template(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -5544,13 +5566,25 @@ pub fn list_public_listing_bedrooms(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String)) {
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
   use location_label <- decode.field(3, decode.string)
   use external_listing_ref <- decode.field(4, decode.string)
-  decode.success(#(title, description, contact_name, location_label, external_listing_ref))
+  use location_area <- decode.field(5, decode.string)
+  use location_district <- decode.field(6, decode.string)
+  use location_province <- decode.field(7, decode.string)
+  decode.success(#(
+    title,
+    description,
+    contact_name,
+    location_label,
+    external_listing_ref,
+    location_area,
+    location_district,
+    location_province,
+  ))
 }
 
 /// GET /api/v1/catalog/public/listings/:id/vitrine?locale=tr — yayında ilan başlığı, açıklaması, iletişim adı (vitrin)
@@ -5585,7 +5619,14 @@ pub fn get_public_listing_vitrine(
       <> "where lt.listing_id = l.id and lower(lo.code) = lower($2) limit 1), ''), "
       <> "coalesce((select c.contact_name from listing_owner_contacts c where c.listing_id = l.id limit 1), ''), "
       <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim((select la.value_json->>'address' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
-      <> "coalesce(l.external_listing_ref::text, '') "
+      <> "coalesce(l.external_listing_ref::text, ''), "
+      <> "coalesce(nullif(trim((select la.value_json->>'district_label' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
+      <> "coalesce(nullif(trim((select la.value_json->>'city' from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
+      <> "coalesce(nullif(trim((select "
+      <> "case when trim(coalesce(la.value_json->>'province_city', '')) ~ '/' "
+      <> "then nullif(trim(substring(trim(la.value_json->>'province_city') from '[^/]+$')), '') "
+      <> "else nullif(trim(la.value_json->>'province_city'), '') end "
+      <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), '') "
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -5604,6 +5645,9 @@ pub fn get_public_listing_vitrine(
             contact_name,
             location_label,
             external_listing_ref,
+            location_area,
+            location_district,
+            location_province,
           ) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
@@ -5617,6 +5661,18 @@ pub fn get_public_listing_vitrine(
             True -> json.null()
             False -> json.string(string.trim(external_listing_ref))
           }
+          let area_j = case string.trim(location_area) == "" {
+            True -> json.null()
+            False -> json.string(string.trim(location_area))
+          }
+          let district_j = case string.trim(location_district) == "" {
+            True -> json.null()
+            False -> json.string(string.trim(location_district))
+          }
+          let province_j = case string.trim(location_province) == "" {
+            True -> json.null()
+            False -> json.string(string.trim(location_province))
+          }
           let body =
             json.object([
               #("title", json.string(title)),
@@ -5624,6 +5680,9 @@ pub fn get_public_listing_vitrine(
               #("contact_name", cnj),
               #("location_label", loc_j),
               #("external_listing_ref", ref_j),
+              #("location_area", area_j),
+              #("location_district", district_j),
+              #("location_province", province_j),
             ])
             |> json.to_string
           wisp.json_response(body, 200)
@@ -5806,6 +5865,563 @@ pub fn delete_manage_meal_plan(
             |> pog.execute(ctx.db)
           {
             Error(_) -> json_err(500, "meal_plan_delete_failed")
+            Ok(ret) ->
+              case ret.count {
+                0 -> json_err(404, "not_found")
+                _ -> wisp.json_response("{\"ok\":true}", 200)
+              }
+          }
+      }
+  }
+}
+
+// ─── Otel vitrin kampanyaları ─────────────────────────────────────────────────
+
+fn hotel_promotion_row() -> decode.Decoder(#(String, String, String, String, String, String, String)) {
+  use id       <- decode.field(0, decode.string)
+  use title    <- decode.field(1, decode.string)
+  use title_en <- decode.field(2, decode.string)
+  use image    <- decode.field(3, decode.string)
+  use link     <- decode.field(4, decode.string)
+  use sort     <- decode.field(5, decode.string)
+  use active   <- decode.field(6, decode.string)
+  decode.success(#(id, title, title_en, image, link, sort, active))
+}
+
+fn hotel_promotion_to_json(row: #(String, String, String, String, String, String, String)) -> json.Json {
+  let #(id, title, title_en, image, link, sort, active) = row
+  json.object([
+    #("id", json.string(id)),
+    #("title", json.string(title)),
+    #("title_en", json.string(title_en)),
+    #("image_url", json.string(image)),
+    #("link_url", json.string(link)),
+    #("sort_order", json.string(sort)),
+    #("is_active", json.string(active)),
+  ])
+}
+
+/// GET /api/v1/catalog/listings/:id/hotel-promotions — Yönetim listesi
+pub fn list_manage_hotel_promotions(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "select id::text, title, coalesce(title_en, ''), coalesce(image_url, ''), coalesce(link_url, ''), sort_order::text, is_active::text from listing_hotel_promotions where listing_id = $1::uuid order by sort_order, created_at",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.returning(hotel_promotion_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "hotel_promotions_query_failed")
+            Ok(ret) -> {
+              let arr = list.map(ret.rows, hotel_promotion_to_json)
+              let body =
+                json.object([#("promotions", json.array(arr, fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+      }
+  }
+}
+
+/// GET /api/v1/catalog/public/listings/:id/hotel-promotions — Önyüz (aktif)
+pub fn list_public_hotel_promotions(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select p.id::text, p.title, coalesce(p.title_en, ''), coalesce(p.image_url, ''), coalesce(p.link_url, ''), p.sort_order::text, p.is_active::text "
+      <> "from listing_hotel_promotions p "
+      <> "inner join listings l on l.id = p.listing_id and l.status = 'published' "
+      <> "where p.listing_id = $1::uuid and p.is_active = true "
+      <> "order by p.sort_order, p.created_at",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(hotel_promotion_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "hotel_promotions_query_failed")
+    Ok(ret) -> {
+      let arr = list.map(ret.rows, hotel_promotion_to_json)
+      let body =
+        json.object([#("promotions", json.array(arr, fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+fn hotel_promotion_create_decoder() -> decode.Decoder(#(String, String, String, String)) {
+  decode.field("title", decode.string, fn(title) {
+    decode.optional_field("title_en", "", decode.string, fn(title_en) {
+      decode.optional_field("image_url", "", decode.string, fn(image) {
+        decode.optional_field("link_url", "", decode.string, fn(link) {
+          decode.success(#(title, title_en, image, link))
+        })
+      })
+    })
+  })
+}
+
+/// POST /api/v1/catalog/listings/:id/hotel-promotions
+pub fn create_manage_hotel_promotion(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, hotel_promotion_create_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(title, title_en, image, link)) ->
+                  case string.trim(title) == "" {
+                    True -> json_err(400, "title_required")
+                    False ->
+                      case
+                        pog.query(
+                          "insert into listing_hotel_promotions (listing_id, title, title_en, image_url, link_url, sort_order) "
+                          <> "values ($1::uuid, $2, $3, $4, $5, coalesce((select max(sort_order) + 1 from listing_hotel_promotions where listing_id = $1::uuid), 0)) returning id::text",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(string.trim(title)))
+                        |> pog.parameter(pog.text(string.trim(title_en)))
+                        |> pog.parameter(pog.text(string.trim(image)))
+                        |> pog.parameter(pog.text(string.trim(link)))
+                        |> pog.returning(one_string_row())
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "hotel_promotion_insert_failed")
+                        Ok(r) ->
+                          case r.rows {
+                            [id] -> wisp.json_response("{\"id\":\"" <> id <> "\"}", 201)
+                            _ -> json_err(500, "unexpected")
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn hotel_promotion_update_decoder() -> decode.Decoder(#(String, String, String, String, String, String)) {
+  decode.field("title", decode.string, fn(title) {
+    decode.optional_field("title_en", "", decode.string, fn(title_en) {
+      decode.optional_field("image_url", "", decode.string, fn(image) {
+        decode.optional_field("link_url", "", decode.string, fn(link) {
+          decode.optional_field("is_active", "true", decode.string, fn(active) {
+            decode.optional_field("sort_order", "0", decode.string, fn(sort) {
+              decode.success(#(title, title_en, image, link, active, sort))
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+/// PUT /api/v1/catalog/listings/:id/hotel-promotions/:promotion_id
+pub fn update_manage_hotel_promotion(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  promotion_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, hotel_promotion_update_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(title, title_en, image, link, active, sort_str)) ->
+                  case string.trim(title) == "" {
+                    True -> json_err(400, "title_required")
+                    False ->
+                      case
+                        pog.query(
+                          "update listing_hotel_promotions set title=$3, title_en=$4, image_url=$5, link_url=$6, is_active=$7::boolean, sort_order=$8::int where id=$1::uuid and listing_id=$2::uuid",
+                        )
+                        |> pog.parameter(pog.text(string.trim(promotion_id)))
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(string.trim(title)))
+                        |> pog.parameter(pog.text(string.trim(title_en)))
+                        |> pog.parameter(pog.text(string.trim(image)))
+                        |> pog.parameter(pog.text(string.trim(link)))
+                        |> pog.parameter(pog.text(active))
+                        |> pog.parameter(pog.text(sort_str))
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "hotel_promotion_update_failed")
+                        Ok(ret) ->
+                          case ret.count {
+                            0 -> json_err(404, "not_found")
+                            _ -> wisp.json_response("{\"ok\":true}", 200)
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/catalog/listings/:id/hotel-promotions/:promotion_id
+pub fn delete_manage_hotel_promotion(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  promotion_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "delete from listing_hotel_promotions where id=$1::uuid and listing_id=$2::uuid",
+            )
+            |> pog.parameter(pog.text(string.trim(promotion_id)))
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "hotel_promotion_delete_failed")
+            Ok(ret) ->
+              case ret.count {
+                0 -> json_err(404, "not_found")
+                _ -> wisp.json_response("{\"ok\":true}", 200)
+              }
+          }
+      }
+  }
+}
+
+fn hotel_activity_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String, String)) {
+  use id              <- decode.field(0, decode.string)
+  use title           <- decode.field(1, decode.string)
+  use title_en        <- decode.field(2, decode.string)
+  use description     <- decode.field(3, decode.string)
+  use description_en  <- decode.field(4, decode.string)
+  use image           <- decode.field(5, decode.string)
+  use activity_date   <- decode.field(6, decode.string)
+  use price           <- decode.field(7, decode.string)
+  use currency        <- decode.field(8, decode.string)
+  use sort            <- decode.field(9, decode.string)
+  use active          <- decode.field(10, decode.string)
+  decode.success(#(id, title, title_en, description, description_en, image, activity_date, price, currency, sort, active))
+}
+
+fn hotel_activity_to_json(row: #(String, String, String, String, String, String, String, String, String, String, String)) -> json.Json {
+  let #(
+    id,
+    title,
+    title_en,
+    description,
+    description_en,
+    image,
+    activity_date,
+    price,
+    currency,
+    sort,
+    active,
+  ) = row
+  json.object([
+    #("id", json.string(id)),
+    #("title", json.string(title)),
+    #("title_en", json.string(title_en)),
+    #("description", json.string(description)),
+    #("description_en", json.string(description_en)),
+    #("image_url", json.string(image)),
+    #("activity_date", json.string(activity_date)),
+    #("stay_surcharge_amount", json.string(price)),
+    #("currency_code", json.string(currency)),
+    #("sort_order", json.string(sort)),
+    #("is_active", json.string(active)),
+  ])
+}
+
+/// GET /api/v1/catalog/listings/:id/hotel-activities — Yönetim listesi
+pub fn list_manage_hotel_activities(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "select id::text, title, coalesce(title_en, ''), coalesce(description, ''), coalesce(description_en, ''), coalesce(image_url, ''), activity_date::text, stay_surcharge_amount::text, coalesce(currency_code, 'TRY'), sort_order::text, is_active::text from listing_hotel_activities where listing_id = $1::uuid order by activity_date, sort_order, created_at",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.returning(hotel_activity_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "hotel_activities_query_failed")
+            Ok(ret) -> {
+              let arr = list.map(ret.rows, hotel_activity_to_json)
+              let body =
+                json.object([#("activities", json.array(arr, fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+      }
+  }
+}
+
+/// GET /api/v1/catalog/public/listings/:id/hotel-activities — Önyüz (aktif)
+pub fn list_public_hotel_activities(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case
+    pog.query(
+      "select a.id::text, a.title, coalesce(a.title_en, ''), coalesce(a.description, ''), coalesce(a.description_en, ''), coalesce(a.image_url, ''), a.activity_date::text, a.stay_surcharge_amount::text, coalesce(a.currency_code, 'TRY'), a.sort_order::text, a.is_active::text "
+      <> "from listing_hotel_activities a "
+      <> "inner join listings l on l.id = a.listing_id and l.status = 'published' "
+      <> "where a.listing_id = $1::uuid and a.is_active = true "
+      <> "order by a.activity_date, a.sort_order, a.created_at",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(hotel_activity_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(_) -> json_err(500, "hotel_activities_query_failed")
+    Ok(ret) -> {
+      let arr = list.map(ret.rows, hotel_activity_to_json)
+      let body =
+        json.object([#("activities", json.array(arr, fn(x) { x }))])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+fn hotel_activity_create_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
+  decode.field("title", decode.string, fn(title) {
+    decode.optional_field("title_en", "", decode.string, fn(title_en) {
+      decode.optional_field("description", "", decode.string, fn(description) {
+        decode.optional_field("description_en", "", decode.string, fn(description_en) {
+          decode.optional_field("image_url", "", decode.string, fn(image) {
+            decode.field("activity_date", decode.string, fn(activity_date) {
+              decode.optional_field("stay_surcharge_amount", "0", decode.string, fn(price) {
+                decode.optional_field("currency_code", "TRY", decode.string, fn(currency) {
+                  decode.success(#(title, title_en, description, description_en, image, activity_date, price, currency))
+                })
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+/// POST /api/v1/catalog/listings/:id/hotel-activities
+pub fn create_manage_hotel_activity(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, hotel_activity_create_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(title, title_en, description, description_en, image, activity_date, price, currency)) ->
+                  case string.trim(title) == "" || string.trim(activity_date) == "" {
+                    True -> json_err(400, "title_and_date_required")
+                    False ->
+                      case
+                        pog.query(
+                          "insert into listing_hotel_activities (listing_id, title, title_en, description, description_en, image_url, activity_date, stay_surcharge_amount, currency_code, sort_order) "
+                          <> "values ($1::uuid, $2, $3, $4, $5, $6, $7::date, $8::numeric, $9, coalesce((select max(sort_order) + 1 from listing_hotel_activities where listing_id = $1::uuid), 0)) returning id::text",
+                        )
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(string.trim(title)))
+                        |> pog.parameter(pog.text(string.trim(title_en)))
+                        |> pog.parameter(pog.text(string.trim(description)))
+                        |> pog.parameter(pog.text(string.trim(description_en)))
+                        |> pog.parameter(pog.text(string.trim(image)))
+                        |> pog.parameter(pog.text(string.trim(activity_date)))
+                        |> pog.parameter(pog.text(string.trim(price)))
+                        |> pog.parameter(pog.text(string.trim(currency)))
+                        |> pog.returning(decode.at([0], decode.string))
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "hotel_activity_insert_failed")
+                        Ok(ret) ->
+                          case ret.rows {
+                            [] -> json_err(500, "hotel_activity_insert_failed")
+                            [id, ..] -> {
+                              let body =
+                                json.object([#("id", json.string(id))])
+                                |> json.to_string
+                              wisp.json_response(body, 201)
+                            }
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+fn hotel_activity_update_decoder() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
+  decode.field("title", decode.string, fn(title) {
+    decode.optional_field("title_en", "", decode.string, fn(title_en) {
+      decode.optional_field("description", "", decode.string, fn(description) {
+        decode.optional_field("description_en", "", decode.string, fn(description_en) {
+          decode.optional_field("image_url", "", decode.string, fn(image) {
+            decode.field("activity_date", decode.string, fn(activity_date) {
+              decode.optional_field("stay_surcharge_amount", "0", decode.string, fn(price) {
+                decode.optional_field("currency_code", "TRY", decode.string, fn(currency) {
+                  decode.optional_field("is_active", "true", decode.string, fn(active) {
+                    decode.optional_field("sort_order", "0", decode.string, fn(sort) {
+                      decode.success(#(title, title_en, description, description_en, image, activity_date, price, currency, active, sort))
+                    })
+                  })
+                })
+              })
+            })
+          })
+        })
+      })
+    })
+  })
+}
+
+/// PUT /api/v1/catalog/listings/:id/hotel-activities/:activity_id
+pub fn update_manage_hotel_activity(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  activity_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case read_body_string(req) {
+            Error(_) -> json_err(400, "empty_body")
+            Ok(body) ->
+              case json.parse(body, hotel_activity_update_decoder()) {
+                Error(_) -> json_err(400, "invalid_json")
+                Ok(#(title, title_en, description, description_en, image, activity_date, price, currency, active, sort_str)) ->
+                  case string.trim(title) == "" || string.trim(activity_date) == "" {
+                    True -> json_err(400, "title_and_date_required")
+                    False ->
+                      case
+                        pog.query(
+                          "update listing_hotel_activities set title=$3, title_en=$4, description=$5, description_en=$6, image_url=$7, activity_date=$8::date, stay_surcharge_amount=$9::numeric, currency_code=$10, is_active=$11::boolean, sort_order=$12::int where id=$1::uuid and listing_id=$2::uuid",
+                        )
+                        |> pog.parameter(pog.text(string.trim(activity_id)))
+                        |> pog.parameter(pog.text(listing_id))
+                        |> pog.parameter(pog.text(string.trim(title)))
+                        |> pog.parameter(pog.text(string.trim(title_en)))
+                        |> pog.parameter(pog.text(string.trim(description)))
+                        |> pog.parameter(pog.text(string.trim(description_en)))
+                        |> pog.parameter(pog.text(string.trim(image)))
+                        |> pog.parameter(pog.text(string.trim(activity_date)))
+                        |> pog.parameter(pog.text(string.trim(price)))
+                        |> pog.parameter(pog.text(string.trim(currency)))
+                        |> pog.parameter(pog.text(active))
+                        |> pog.parameter(pog.text(sort_str))
+                        |> pog.execute(ctx.db)
+                      {
+                        Error(_) -> json_err(500, "hotel_activity_update_failed")
+                        Ok(ret) ->
+                          case ret.count {
+                            0 -> json_err(404, "not_found")
+                            _ -> wisp.json_response("{\"ok\":true}", 200)
+                          }
+                      }
+                  }
+              }
+          }
+      }
+  }
+}
+
+/// DELETE /api/v1/catalog/listings/:id/hotel-activities/:activity_id
+pub fn delete_manage_hotel_activity(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+  activity_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case listing_in_manage_org(ctx.db, listing_id, org_id) {
+        Error(_) -> json_err(500, "listing_scope_check_failed")
+        Ok(False) -> json_err(404, "listing_not_found")
+        Ok(True) ->
+          case
+            pog.query(
+              "delete from listing_hotel_activities where id=$1::uuid and listing_id=$2::uuid",
+            )
+            |> pog.parameter(pog.text(string.trim(activity_id)))
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "hotel_activity_delete_failed")
             Ok(ret) ->
               case ret.count {
                 0 -> json_err(404, "not_found")

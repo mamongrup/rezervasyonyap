@@ -28,6 +28,7 @@ import {
   resolveCheckoutListingId,
   resolveCheckoutUnitPrice,
   parseCheckoutGuestsFromSearchParams,
+  parseHotelCheckoutParams,
 } from '@/lib/stay-checkout-url'
 import {
   readTurnaFlightBookingDraft,
@@ -151,6 +152,11 @@ function CheckoutPageContent() {
     () => resolveCheckoutStayDates(searchParams),
     [searchParams],
   )
+  const hotelCheckout = React.useMemo(
+    () => parseHotelCheckoutParams(searchParams),
+    [searchParams],
+  )
+  const isHotelCheckout = Boolean(hotelCheckout.hotelRoomId)
   const nights = nightsBetween(stayDates.start, stayDates.end)
 
   const [pending, setPending] = React.useState(false)
@@ -319,8 +325,11 @@ function CheckoutPageContent() {
         }
         const turnaDraft = searchParams.get('flight') === '1' ? readTurnaFlightBookingDraft() : null
         const yolcu360Draft = searchParams.get('car') === '1' ? readYolcu360CarBookingDraft() : null
-        const hotelRoomId = searchParams.get('hotelRoomId')?.trim()
-        const hotelRoomName = searchParams.get('hotelRoomName')?.trim()
+        const hotelRoomId = hotelCheckout.hotelRoomId
+        const hotelRoomName = hotelCheckout.hotelRoomName
+        const hotelBoardLabel = hotelCheckout.hotelBoardLabel
+        const mealPlanId = hotelCheckout.mealPlanId
+        const mealPlanLabel = hotelCheckout.mealPlanLabel
         const lineMeta = turnaDraft
           ? JSON.stringify({
               provider: 'turna',
@@ -343,6 +352,12 @@ function CheckoutPageContent() {
               ? JSON.stringify({
                   hotel_room_id: hotelRoomId,
                   ...(hotelRoomName ? { hotel_room_name: hotelRoomName } : {}),
+                  ...(hotelBoardLabel ? { hotel_board_label: hotelBoardLabel } : {}),
+                  ...(mealPlanId ? { meal_plan_id: mealPlanId } : {}),
+                  ...(mealPlanLabel ? { meal_plan_label: mealPlanLabel } : {}),
+                  guest_adults: stayGuests.guestAdults,
+                  guest_children: stayGuests.guestChildren,
+                  guest_infants: stayGuests.guestInfants,
                 })
               : undefined
         const cart = await createCart(currency)
@@ -417,6 +432,11 @@ function CheckoutPageContent() {
             car_checkout: carSnap?.checkout,
             listing_title: flightOfferSnap?.airlineName ?? carSnap?.title ?? listingTitle,
             listing_location: carSnap?.pickup ?? listingLocation,
+            hotel_room_name: hotelRoomName ?? undefined,
+            hotel_board_label: mealPlanLabel ?? hotelBoardLabel ?? undefined,
+            guest_adults: stayGuests.guestAdults,
+            guest_children: stayGuests.guestChildren,
+            guest_infants: stayGuests.guestInfants,
             amount_total: grandTotal,
             amount_paid: amountDueNow,
             amount_remaining: amountRemaining,
@@ -453,7 +473,9 @@ function CheckoutPageContent() {
                   ? C.errors.invalidDateRange
                   : code === 'hotel_room_unavailable'
                     ? C.errors.hotelRoomUnavailable
-                    : code === 'listing_contract_required'
+                    : code === 'hotel_price_mismatch'
+                      ? C.errors.hotelPriceMismatch
+                      : code === 'listing_contract_required'
                     ? C.errors.listingContractRequired
                     : code === 'listing_unavailable_or_currency_mismatch'
                       ? C.errors.currencyMismatch
@@ -806,6 +828,11 @@ function CheckoutPageContent() {
               amountRemaining={amountRemaining}
               showAmountSplit={showPaymentOptions}
               isHolidayHome={isHolidayHomeCheckout}
+              isHotelCheckout={isHotelCheckout}
+              hotelRoomName={hotelCheckout.hotelRoomName}
+              hotelBoardLabel={hotelCheckout.hotelBoardLabel}
+              mealPlanLabel={hotelCheckout.mealPlanLabel}
+              guests={stayGuests}
             />
           </aside>
         ) : null}

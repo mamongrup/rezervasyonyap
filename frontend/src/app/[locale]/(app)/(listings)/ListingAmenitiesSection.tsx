@@ -5,6 +5,7 @@ import {
   LISTING_AMENITY_ICONS,
   VILLA_AMENITY_IDS,
   buildGroupedAmenities,
+  getAmenityGroupId,
   getAmenityIconForKey,
   type AmenityGroupId,
   type ListingAmenityId,
@@ -21,6 +22,11 @@ import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 const PREVIEW_COUNT = 9
 const KNOWN_AMENITY_IDS = new Set(Object.keys(LISTING_AMENITY_ICONS))
+
+function isKnownAmenityForVariant(id: string, variant: 'hotel' | 'villa'): id is ListingAmenityId {
+  if (!KNOWN_AMENITY_IDS.has(id)) return false
+  return Boolean(getAmenityGroupId(id as ListingAmenityId, variant))
+}
 
 /** Şablondaki (Chisfis) satır ikonları: 24×24, nötr gri, ince çizgi — `Icons.tsx` (stroke 1.5) ile uyum */
 const AMENITY_ICON_CLASS = 'h-6 w-6 shrink-0 text-neutral-600 dark:text-neutral-400'
@@ -71,10 +77,10 @@ export default function ListingAmenitiesSection({
 
   // Bilinen + bilinmeyen ayrımı: bilinenler ikon/grup desteği alır, bilinmeyenler "extras" havuzunda gösterilir.
   const knownCustom = useCustom
-    ? (customSelectedIds!.filter((id) => KNOWN_AMENITY_IDS.has(id)) as readonly ListingAmenityId[])
+    ? (customSelectedIds!.filter((id) => isKnownAmenityForVariant(id, variant)) as readonly ListingAmenityId[])
     : fallbackIds
   const extraCustom = useCustom
-    ? customSelectedIds!.filter((id) => !KNOWN_AMENITY_IDS.has(id))
+    ? customSelectedIds!.filter((id) => !isKnownAmenityForVariant(id, variant))
     : []
 
   const [open, setOpen] = useState(false)

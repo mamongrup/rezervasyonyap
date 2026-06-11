@@ -28,6 +28,7 @@ export const MODULE_TREE = [
       "DeepSeek ayarları",
       "Bölge hiyerarşisi üretimi",
       "İçerik / blog / sayfa / ilan yazarlığı",
+      "Kategori bazlı ilan açıklama + çeviri + SEO",
       "SEO & çok dilli meta",
       "NLP / semantik arama",
       "Sohbet satış & çapraz satış",

@@ -157,12 +157,14 @@ export default function SectionDateRange({
   onCompleteRange,
   /** Sunucu isteğinden tahmin; yoksa 1 (liste sayfaları vb.) */
   initialMonthsShown = 1,
+  embedded = false,
 }: {
   locale: string
   initialDays?: ListingAvailabilityDay[]
   bookingRules?: StayBookingRules
   onCompleteRange?: (start: Date, end: Date) => void
   initialMonthsShown?: 1 | 2
+  embedded?: boolean
 }) {
   const messages = getMessages(locale)
   const copy = messages.listing.availabilityCalendar
@@ -190,19 +192,23 @@ export default function SectionDateRange({
   }, [bookingRules, copy])
 
   return (
-    <div className="listingSection__wrap">
-      <div>
-        <SectionHeading>{copy.title}</SectionHeading>
-        <SectionSubheading>{copy.subtitle}</SectionSubheading>
-        {rulesLines.length > 0 ? (
-          <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-            {rulesLines.map((line) => (
-              <li key={line}>{line}</li>
-            ))}
-          </ul>
-        ) : null}
-      </div>
-      <Divider className="w-14!" />
+    <div className={embedded ? undefined : 'listingSection__wrap'}>
+      {embedded ? null : (
+        <>
+          <div>
+            <SectionHeading>{copy.title}</SectionHeading>
+            <SectionSubheading>{copy.subtitle}</SectionSubheading>
+            {rulesLines.length > 0 ? (
+              <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                {rulesLines.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+          <Divider className="w-14!" />
+        </>
+      )}
 
       <SectionDateRangeCalendar
         locale={locale}

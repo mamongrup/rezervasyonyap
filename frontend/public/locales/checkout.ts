@@ -87,6 +87,7 @@ const checkoutBase = {
     currencyMismatch: '',
     bookingFailed: '',
     hotelRoomUnavailable: '',
+    hotelPriceMismatch: '',
     turnaBookFailed: '',
   },
   payDone: {
@@ -118,6 +119,8 @@ const checkoutBase = {
     flightPassengerLabel: '',
     flightNotifyNote: '',
     flightSearchAgain: '',
+    hotelRoomLabel: '',
+    hotelBoardLabel: '',
   },
   status: {
     held: '',
@@ -177,6 +180,10 @@ const checkoutBase = {
   lodgingLine: '',
   poolHeatingFee: '',
   extraCharges: '',
+  hotelRoomLabel: '',
+  hotelBoardLabel: '',
+  mealPlanLine: '',
+  guestsLine: '',
   listingMetaGuests: '',
   listingMetaRooms: '',
   listingMetaBaths: '',
@@ -357,6 +364,8 @@ export const checkoutEn: CheckoutMessages = {
     bookingFailed: 'Could not create the reservation.',
     hotelRoomUnavailable:
       'The selected room type is not available for these dates. Choose different dates or another room.',
+    hotelPriceMismatch:
+      'The price has changed. Please restart checkout from the hotel page.',
     turnaBookFailed:
       'The flight could not be confirmed with Turna. Your hold was created — please contact support.',
   },
@@ -391,6 +400,8 @@ export const checkoutEn: CheckoutMessages = {
     flightNotifyNote:
       'Confirmation has been sent by e-mail. Your PNR appears below when the airline ticket is issued.',
     flightSearchAgain: 'Search flights again',
+    hotelRoomLabel: 'Room type',
+    hotelBoardLabel: 'Board',
   },
   status: {
     held: 'On hold',
@@ -451,6 +462,10 @@ export const checkoutEn: CheckoutMessages = {
   sectionPayment: 'Payment',
   sectionConfirmationNote: 'Confirmation summary is sent after payment.',
   lodgingLine: 'Accommodation',
+  hotelRoomLabel: 'Room type',
+  hotelBoardLabel: 'Board',
+  mealPlanLine: 'Meal plan',
+  guestsLine: '{adults} adults, {children} children, {infants} infants',
   poolHeatingFee: 'Pool heating',
   extraCharges: 'Extra charges',
   listingMetaGuests: '{count} guests',
@@ -634,6 +649,8 @@ export const checkoutTr: CheckoutMessages = {
     bookingFailed: 'Rezervasyon oluşturulamadı.',
     hotelRoomUnavailable:
       'Seçilen oda tipi bu tarihlerde müsait değil. Farklı tarih veya oda tipi seçin.',
+    hotelPriceMismatch:
+      'Fiyat güncellendi. Lütfen otel sayfasından checkout\'a yeniden girin.',
     turnaBookFailed:
       'Uçuş rezervasyonu Turna tarafında tamamlanamadı. Yerel kayıt oluştu; destek ile iletişime geçin.',
   },
@@ -668,6 +685,8 @@ export const checkoutTr: CheckoutMessages = {
     flightNotifyNote:
       'Onay e-postanıza gönderildi. Bilet kesildiyse PNR kodu aşağıda görünür.',
     flightSearchAgain: 'Yeniden uçak bileti ara',
+    hotelRoomLabel: 'Oda tipi',
+    hotelBoardLabel: 'Pansiyon',
   },
   sectionListingInfo: 'İlan bilgisi',
   sectionReservation: 'Rezervasyon detayı',
@@ -676,6 +695,10 @@ export const checkoutTr: CheckoutMessages = {
   sectionPayment: 'Ödeme bilgisi',
   sectionConfirmationNote: 'Onay özeti ödeme sonrası bu sayfada ve bildirimlerle iletilir.',
   lodgingLine: 'Konaklama',
+  hotelRoomLabel: 'Oda tipi',
+  hotelBoardLabel: 'Pansiyon',
+  mealPlanLine: 'Yemek planı',
+  guestsLine: '{adults} yetişkin, {children} çocuk, {infants} bebek',
   poolHeatingFee: 'Havuz ısıtma',
   extraCharges: 'Ek ücretler',
   listingMetaGuests: '{count} kişi',

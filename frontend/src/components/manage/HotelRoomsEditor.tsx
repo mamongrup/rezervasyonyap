@@ -15,6 +15,17 @@ import Textarea from '@/shared/Textarea'
 import { PlusCircle, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+const BOARD_TYPE_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: '— Seçin —' },
+  { value: 'room_only', label: 'Sadece oda' },
+  { value: 'bed_breakfast', label: 'Oda + Kahvaltı' },
+  { value: 'half_board', label: 'Yarım pansiyon' },
+  { value: 'full_board', label: 'Tam pansiyon' },
+  { value: 'all_inclusive', label: 'Her şey dahil' },
+  { value: 'non_alcoholic_all_inclusive', label: 'Alkolsüz her şey dahil' },
+  { value: 'ultra_all_inclusive', label: 'Ultra her şey dahil' },
+]
+
 export type HotelRoomDraft = {
   key: string
   id?: string
@@ -23,8 +34,14 @@ export type HotelRoomDraft = {
   board_type: string
   unit_count: string
   beds: string
+  bed_type: string
   size_m2: string
   description: string
+  image: string
+  images: string
+  amenities: string
+  paid_amenities: string
+  room_score: string
 }
 
 function emptyRow(): HotelRoomDraft {
@@ -35,29 +52,85 @@ function emptyRow(): HotelRoomDraft {
     board_type: '',
     unit_count: '1',
     beds: '',
+    bed_type: '',
     size_m2: '',
     description: '',
+    image: '',
+    images: '',
+    amenities: '',
+    paid_amenities: '',
+    room_score: '',
   }
 }
 
-function parseMeta(metaJson: string): Pick<HotelRoomDraft, 'beds' | 'size_m2' | 'description'> {
+function linesToArray(raw: string): string[] {
+  return raw
+    .split('\n')
+    .map((x) => x.trim())
+    .filter(Boolean)
+}
+
+function arrayToLines(raw: unknown): string {
+  if (Array.isArray(raw)) {
+    return raw.filter((x): x is string => typeof x === 'string').join('\n')
+  }
+  return ''
+}
+
+function parseMeta(metaJson: string): Omit<
+  HotelRoomDraft,
+  'key' | 'id' | 'name' | 'capacity' | 'board_type' | 'unit_count'
+> {
   try {
     const m = JSON.parse(metaJson || '{}') as Record<string, unknown>
     return {
       beds: m.beds != null ? String(m.beds) : '',
-      size_m2: m.size_m2 != null ? String(m.size_m2) : m.size_sqm != null ? String(m.size_sqm) : '',
+      bed_type: typeof m.bed_type === 'string' ? m.bed_type : '',
+      size_m2:
+        m.size_m2 != null
+          ? String(m.size_m2)
+          : m.size_sqm != null
+            ? String(m.size_sqm)
+            : '',
       description: typeof m.description === 'string' ? m.description : '',
+      image: typeof m.image === 'string' ? m.image : typeof m.hero_image === 'string' ? m.hero_image : '',
+      images: arrayToLines(m.images),
+      amenities: arrayToLines(m.amenities),
+      paid_amenities: arrayToLines(m.paid_amenities),
+      room_score: m.room_score != null ? String(m.room_score) : m.score != null ? String(m.score) : '',
     }
   } catch {
-    return { beds: '', size_m2: '', description: '' }
+    return {
+      beds: '',
+      bed_type: '',
+      size_m2: '',
+      description: '',
+      image: '',
+      images: '',
+      amenities: '',
+      paid_amenities: '',
+      room_score: '',
+    }
   }
 }
 
 function buildMeta(row: HotelRoomDraft): string {
   const meta: Record<string, unknown> = {}
   if (row.beds.trim()) meta.beds = Number.parseInt(row.beds.trim(), 10) || row.beds.trim()
+  if (row.bed_type.trim()) meta.bed_type = row.bed_type.trim()
   if (row.size_m2.trim()) meta.size_m2 = Number.parseFloat(row.size_m2.trim()) || row.size_m2.trim()
   if (row.description.trim()) meta.description = row.description.trim()
+  if (row.image.trim()) meta.image = row.image.trim()
+  const gallery = linesToArray(row.images)
+  if (gallery.length > 0) meta.images = gallery
+  const amenities = linesToArray(row.amenities)
+  if (amenities.length > 0) meta.amenities = amenities
+  const paid = linesToArray(row.paid_amenities)
+  if (paid.length > 0) meta.paid_amenities = paid
+  if (row.room_score.trim()) {
+    const score = Number.parseFloat(row.room_score.trim().replace(',', '.'))
+    if (Number.isFinite(score)) meta.room_score = score
+  }
   return JSON.stringify(meta)
 }
 
@@ -154,9 +227,8 @@ export default function HotelRoomsEditor({
   return (
     <div className="space-y-4">
       <p className="max-w-2xl text-sm text-neutral-600 dark:text-neutral-400">
-        Her satır bir oda tipini temsil eder. &quot;Oda adedi&quot; alanı aynı tipten kaç oda olduğunu belirtir (ör.
-        5 adet Standart Oda). Vitrinde oda kartları bu kayıtlardan oluşur; müsaitlik takvimini bir sonraki adımda oda
-        bazında tanımlayabilirsiniz.
+        Vitrindeki oda kartları bu kayıtlardan oluşur: kapasite, pansiyon, fotoğraflar, özellikler ve oda puanı dahil.
+        Müsaitlik ve gece fiyatını aşağıdaki takvim bölümünden yönetin.
       </p>
       <ul className="space-y-3">
         {rows.map((row, i) => (
@@ -191,7 +263,6 @@ export default function HotelRoomsEditor({
                     next[i] = { ...row, unit_count: e.target.value }
                     setRows(next)
                   }}
-                  placeholder="1"
                 />
               </Field>
               <Field className="block">
@@ -206,21 +277,29 @@ export default function HotelRoomsEditor({
                     next[i] = { ...row, capacity: e.target.value }
                     setRows(next)
                   }}
-                  placeholder="2"
                 />
               </Field>
               <Field className="block">
                 <Label>Pansiyon tipi</Label>
-                <Input
-                  className="mt-1"
+                <select
+                  className="mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
                   value={row.board_type}
                   onChange={(e) => {
                     const next = [...rows]
                     next[i] = { ...row, board_type: e.target.value }
                     setRows(next)
                   }}
-                  placeholder="Örn. Her şey dahil, Oda kahvaltı"
-                />
+                >
+                  {BOARD_TYPE_OPTIONS.map((opt) => (
+                    <option key={opt.value || 'empty'} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  {row.board_type &&
+                  !BOARD_TYPE_OPTIONS.some((o) => o.value === row.board_type) ? (
+                    <option value={row.board_type}>{row.board_type}</option>
+                  ) : null}
+                </select>
               </Field>
               <Field className="block">
                 <Label>Yatak sayısı</Label>
@@ -234,7 +313,19 @@ export default function HotelRoomsEditor({
                     next[i] = { ...row, beds: e.target.value }
                     setRows(next)
                   }}
-                  placeholder="1"
+                />
+              </Field>
+              <Field className="block">
+                <Label>Yatak tipi</Label>
+                <Input
+                  className="mt-1"
+                  value={row.bed_type}
+                  onChange={(e) => {
+                    const next = [...rows]
+                    next[i] = { ...row, bed_type: e.target.value }
+                    setRows(next)
+                  }}
+                  placeholder="Örn. French bed, Twin"
                 />
               </Field>
               <Field className="block">
@@ -250,10 +341,52 @@ export default function HotelRoomsEditor({
                     next[i] = { ...row, size_m2: e.target.value }
                     setRows(next)
                   }}
-                  placeholder="24"
+                />
+              </Field>
+              <Field className="block">
+                <Label>Oda puanı</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  className="mt-1"
+                  value={row.room_score}
+                  onChange={(e) => {
+                    const next = [...rows]
+                    next[i] = { ...row, room_score: e.target.value }
+                    setRows(next)
+                  }}
+                  placeholder="4.5"
+                />
+              </Field>
+              <Field className="block sm:col-span-2">
+                <Label>Kapak görseli URL</Label>
+                <Input
+                  className="mt-1 font-mono text-xs"
+                  value={row.image}
+                  onChange={(e) => {
+                    const next = [...rows]
+                    next[i] = { ...row, image: e.target.value }
+                    setRows(next)
+                  }}
+                  placeholder="/uploads/... veya https://..."
                 />
               </Field>
             </div>
+            <Field className="mt-3 block">
+              <Label>Galeri URL&apos;leri (her satır bir görsel)</Label>
+              <Textarea
+                className="mt-1 font-mono text-xs"
+                rows={2}
+                value={row.images}
+                onChange={(e) => {
+                  const next = [...rows]
+                  next[i] = { ...row, images: e.target.value }
+                  setRows(next)
+                }}
+              />
+            </Field>
             <Field className="mt-3 block">
               <Label>Kısa açıklama</Label>
               <Textarea
@@ -265,7 +398,34 @@ export default function HotelRoomsEditor({
                   next[i] = { ...row, description: e.target.value }
                   setRows(next)
                 }}
-                placeholder="Oda özellikleri, manzara, vb."
+              />
+            </Field>
+            <Field className="mt-3 block">
+              <Label>Oda özellikleri (her satır bir madde)</Label>
+              <Textarea
+                className="mt-1"
+                rows={3}
+                value={row.amenities}
+                onChange={(e) => {
+                  const next = [...rows]
+                  next[i] = { ...row, amenities: e.target.value }
+                  setRows(next)
+                }}
+                placeholder="Klima&#10;Minibar&#10;Saç kurutma makinesi"
+              />
+            </Field>
+            <Field className="mt-3 block">
+              <Label>Ücretli özellikler (vitrinde * ile gösterilir)</Label>
+              <Textarea
+                className="mt-1"
+                rows={2}
+                value={row.paid_amenities}
+                onChange={(e) => {
+                  const next = [...rows]
+                  next[i] = { ...row, paid_amenities: e.target.value }
+                  setRows(next)
+                }}
+                placeholder="Oda servisi"
               />
             </Field>
             {rows.length > 1 ? (

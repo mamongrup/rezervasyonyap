@@ -165,6 +165,9 @@ modules/321_ai_listing_content_batch.sql
 modules/322_ferry_meis_images_pexels_fix.sql
 modules/323_ferry_meis_images_kas_kastellorizo.sql
 modules/324_ferry_meis_images_wikimedia_direct.sql
+modules/325_listing_hotel_promotions.sql
+modules/326_listing_hotel_activities.sql
+modules/327_listing_hotel_activities_stay_surcharge.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

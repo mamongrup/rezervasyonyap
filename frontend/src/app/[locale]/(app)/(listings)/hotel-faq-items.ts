@@ -15,6 +15,8 @@ export interface HotelFaqSource {
   hasBreakfastIncluded?: boolean
   /** Otele özgü "evcil hayvan kabul ediyor mu?" kuralı (rules listesinden) */
   petPolicyText?: string | null
+  /** Otele özgü ek SSS maddeleri (panel) */
+  customFaqItems?: Array<{ q: string; a: string }> | null
 }
 
 export function buildHotelFaqItems(
@@ -74,6 +76,12 @@ export function buildHotelFaqItems(
       q: t.qLicense ?? 'Tesisin Bakanlık ruhsat numarası nedir?',
       a: ministryLicenseRef,
     })
+  }
+
+  for (const custom of source.customFaqItems ?? []) {
+    const q = str(custom.q)
+    const a = str(custom.a)
+    if (q && a) items.push({ q, a })
   }
 
   return items

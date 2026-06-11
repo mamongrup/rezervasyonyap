@@ -23,6 +23,8 @@ interface Props {
   responseRate: number
   responseTime: string
   locale: string
+  /** `listingOwner`: yorum bölümünde «İlan Sahibi» terminolojisi */
+  labelVariant?: 'host' | 'listingOwner'
 }
 
 const SectionHost = ({
@@ -38,8 +40,13 @@ const SectionHost = ({
   reviewsCount,
   listingsCount,
   locale,
+  labelVariant = 'host',
 }: Props) => {
-  const h = getMessages(locale).listing.detailPage.host
+  const detailPage = getMessages(locale).listing.detailPage
+  const h =
+    labelVariant === 'listingOwner'
+      ? (detailPage.listingOwner ?? detailPage.host)
+      : detailPage.host
 
   return (
     <div className="listingSection__wrap">

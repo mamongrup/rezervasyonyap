@@ -241,7 +241,7 @@ export default async function CarListingDetailPage({
           </div>
         </div>
 
-        <SectionMap />
+        <SectionMap locale={locale} />
       </div>
     </div>
   )

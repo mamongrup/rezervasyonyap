@@ -664,7 +664,7 @@ export default async function ExperienceListingDetailPage({
             </div>
 
             <div className="scroll-mt-28">
-              <SectionMap />
+              <SectionMap locale={locale} />
             </div>
 
             <NearbyPlacesSection
