@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runtime yükseltme: Node 24, PostgreSQL 18.4, Gleam 1.16, OTP 29
+# Runtime yükseltme: Node 25, PostgreSQL 18.4, Gleam 1.16, OTP 29
 # root veya sudo ile çalıştırın.
 #
 #   chmod +x deploy/scripts/upgrade-runtime.sh
@@ -33,23 +33,23 @@ node_version_ok() {
   major="${v%%.*}"
   minor="$(echo "$v" | cut -d. -f2)"
   patch="$(echo "$v" | cut -d. -f3)"
-  [[ "$major" -ge 24 ]] && [[ "$minor" -ge 14 || "$major" -gt 24 ]]
+  [[ "$major" -ge 25 ]]
 }
 
 upgrade_node() {
-  step "Node.js 24 LTS"
+  step "Node.js 25"
   if node_version_ok; then
     ok "Node zaten uygun: $(node -v)"
     return 0
   fi
   if command -v apt-get >/dev/null 2>&1; then
-    curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+    curl -fsSL https://deb.nodesource.com/setup_25.x | bash -
     apt-get install -y nodejs
   elif command -v dnf >/dev/null 2>&1; then
-    curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
+    curl -fsSL https://rpm.nodesource.com/setup_25.x | bash -
     dnf install -y nodejs
   else
-    fail "Desteklenmeyen paket yöneticisi — Node 24'ü elle kurun"
+    fail "Desteklenmeyen paket yöneticisi — Node 25'i elle kurun"
   fi
   ok "Node: $(node -v) npm: $(npm -v)"
 }

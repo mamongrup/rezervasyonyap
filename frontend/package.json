@@ -4,7 +4,7 @@
   "version": "2.2.0",
   "private": true,
   "engines": {
-    "node": ">=24.14.0"
+    "node": ">=25.0.0"
   },
   "scripts": {
     "dev": "node ./scripts/next-with-heap.mjs dev --webpack",
