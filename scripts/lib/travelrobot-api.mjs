@@ -430,7 +430,7 @@ export function buildTourBookRequest(opts = {}) {
   return { request }
 }
 
-/** BookTour gövde varyantları — önce oturum PackageId, sonra ResultKeys. */
+/** BookTour gövde varyantları — yalnızca ResultKeys (otel gibi); tek key önce. */
 export function buildTourBookRequestVariants(opts = {}) {
   const keys = collectTourBookKeys(
     opts.priceRow ?? null,
@@ -444,24 +444,18 @@ export function buildTourBookRequestVariants(opts = {}) {
   }
   const unique = keys.filter((id, i, arr) => arr.indexOf(id) === i)
   if (!unique.length) return []
-  const base = { ...opts, resultKeys: unique }
+  const { resultKeys: _drop, ...base } = opts
   const variants = []
-  const primary = unique[0]
-  variants.push({
-    label: 'packageId-session',
-    ...base,
-    packageId: primary,
-    packageIdInBody: true,
-    resultKeys: [],
-  })
-  variants.push({ label: 'resultKeys', ...base })
-  variants.push({
-    label: 'both',
-    ...base,
-    packageId: primary,
-    packageIdInBody: true,
-    packageIdWithResultKeys: true,
-  })
+  for (let i = 0; i < Math.min(unique.length, 3); i++) {
+    variants.push({
+      label: i === 0 ? 'resultKeys-1' : `resultKeys-alt${i}`,
+      ...base,
+      resultKeys: [unique[i]],
+    })
+  }
+  if (unique.length > 1) {
+    variants.push({ label: 'resultKeys-all', ...base, resultKeys: unique.slice(0, 2) })
+  }
   return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
 }
 
@@ -1064,16 +1058,25 @@ export function pickTourPackagePriceBookKeys(priceRow) {
   return keys
 }
 
-/** BookTour için öncelikli anahtar listesi — oturum pipe anahtarı önce. */
+/** BookTour için öncelikli anahtar listesi — Result.Id oturum anahtarı önce, |254 ekleri sonra. */
 export function collectTourBookKeys(priceRow, pricePayload = null, sessionRawId = null) {
-  const session = sessionRawId ?? pickTourPricesSessionRawId(pricePayload)
-  const ordered = [
-    session,
+  const session = String(sessionRawId ?? pickTourPricesSessionRawId(pricePayload) ?? '').trim()
+  const fromRow = [
     ...pickTourPackagePriceBookKeys(priceRow),
     ...pickTourPriceBookKeys(priceRow, pricePayload),
   ]
     .map((k) => String(k ?? '').trim())
     .filter(isPlausibleTourBookKey)
+
+  const ordered = []
+  if (session && isPlausibleTourBookKey(session)) ordered.push(session)
+  for (const k of fromRow) {
+    if (k === session) continue
+    if (session && k.startsWith(`${session}|`)) ordered.push(k)
+  }
+  for (const k of fromRow) {
+    if (!ordered.includes(k)) ordered.push(k)
+  }
   return ordered.filter((id, i, arr) => arr.indexOf(id) === i)
 }
 
