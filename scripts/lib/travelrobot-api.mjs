@@ -262,16 +262,17 @@ export async function getTourDetails(cfg, tokenCode, tourCode, opts = {}) {
  *          languageCode }
  */
 export async function getTourPrices(cfg, tokenCode, opts = {}) {
+  const hotpointType = opts.hotpointType ?? opts.departureHotpointType ?? 0
   return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetTourPrices', {
     request: {
-      Id: null,
+      Id: opts.id ?? opts.packageId ?? null,
       Token: tokenObj(tokenCode),
       TourAlternativeCode: opts.tourAlternativeCode ?? null,
-      NationalityCode: opts.nationalityCode ?? null,
+      NationalityCode: opts.nationalityCode ?? 'TR',
       DepartureDate: opts.departureDate ?? null,
       DeparturePoint: opts.departurePointCode
-        ? { Code: opts.departurePointCode, HotpointType: 0 }
-        : { Code: null, HotpointType: 0 },
+        ? { Code: opts.departurePointCode, HotpointType: hotpointType }
+        : { Code: null, HotpointType: hotpointType },
       Locations: opts.locations ?? null,
       ArrivalPoint: opts.arrivalPointCode
         ? { Code: opts.arrivalPointCode, HotpointType: 0 }
@@ -444,11 +445,234 @@ export function tourRowAlternativeCode(row) {
       row?.tourAlternativeCode ??
       row?.AlternativeCode ??
       row?.alternativeCode ??
-      row?.PackageId ??
-      row?.packageId ??
-      tourRowCode(row) ??
       '',
   ).trim()
+}
+
+function tourDepartureDateFromRow(row) {
+  return String(
+    row?.DepartureDate ??
+      row?.departureDate ??
+      row?.StartDate ??
+      row?.startDate ??
+      row?.TourDate ??
+      row?.tourDate ??
+      '',
+  ).trim()
+}
+
+function tourDeparturePointFromRow(row) {
+  return String(
+    row?.DeparturePointCode ??
+      row?.departurePointCode ??
+      row?.DeparturePoint?.Code ??
+      row?.departurePoint?.code ??
+      '',
+  ).trim()
+}
+
+function pushTourPriceAttempt(attempts, seen, attempt) {
+  const alt = String(attempt.tourAlternativeCode ?? '').trim()
+  const pkg = attempt.packageId != null ? String(attempt.packageId).trim() : ''
+  const date = String(attempt.departureDate ?? '').trim()
+  const dep = String(attempt.departurePointCode ?? '').trim()
+  if (!alt && !pkg) return
+  const key = `${alt}|${pkg}|${date}|${dep}`
+  if (seen.has(key)) return
+  seen.add(key)
+  attempts.push({
+    tourAlternativeCode: alt || null,
+    packageId: pkg || null,
+    departureDate: date || null,
+    departurePointCode: dep || null,
+    source: attempt.source ?? 'unknown',
+  })
+}
+
+function walkTourAltArrays(node, visit) {
+  if (!node || typeof node !== 'object') return
+  if (Array.isArray(node)) {
+    for (const item of node) walkTourAltArrays(item, visit)
+    return
+  }
+  visit(node)
+  for (const k of [
+    'TourAlternatives',
+    'tourAlternatives',
+    'Alternatives',
+    'alternatives',
+    'Periods',
+    'periods',
+    'TourPeriods',
+    'tourPeriods',
+    'Prices',
+    'prices',
+    'Packages',
+    'packages',
+    'Items',
+    'items',
+    'SearchResults',
+    'searchResults',
+  ]) {
+    if (Array.isArray(node[k])) {
+      for (const item of node[k]) visit(item)
+    }
+  }
+}
+
+/** SearchTour / GetTourDetails satırından GetTourPrices denemeleri. */
+export function collectTourPriceAttemptsFromRow(searchRow) {
+  const attempts = []
+  const seen = new Set()
+  const tour = searchRow?.Tour ?? searchRow?.tour ?? null
+  const tourCode = tourRowCode(searchRow)
+
+  pushTourPriceAttempt(attempts, seen, {
+    tourAlternativeCode: tourRowAlternativeCode(searchRow) || tourCode || null,
+    packageId: pickTourPackageId(searchRow),
+    departureDate: tourDepartureDateFromRow(searchRow),
+    departurePointCode: tourDeparturePointFromRow(searchRow),
+    source: 'search-top',
+  })
+
+  walkTourAltArrays(searchRow, (alt) => {
+    pushTourPriceAttempt(attempts, seen, {
+      tourAlternativeCode:
+        alt?.TourAlternativeCode ??
+        alt?.tourAlternativeCode ??
+        alt?.Code ??
+        alt?.code ??
+        alt?.AlternativeCode ??
+        alt?.alternativeCode ??
+        tourCode ??
+        null,
+      packageId: pickTourPackageId(alt),
+      departureDate: tourDepartureDateFromRow(alt),
+      departurePointCode: tourDeparturePointFromRow(alt),
+      source: 'search-nested',
+    })
+  })
+
+  if (tour) {
+    walkTourAltArrays(tour, (alt) => {
+      pushTourPriceAttempt(attempts, seen, {
+        tourAlternativeCode:
+          alt?.TourAlternativeCode ??
+          alt?.tourAlternativeCode ??
+          alt?.Code ??
+          alt?.code ??
+          tourCode ??
+          null,
+        packageId: pickTourPackageId(alt),
+        departureDate: tourDepartureDateFromRow(alt),
+        departurePointCode: tourDeparturePointFromRow(alt),
+        source: 'tour-nested',
+      })
+    })
+  }
+
+  return attempts
+}
+
+export function collectTourPriceAttemptsFromDetails(detailsPayload) {
+  const attempts = []
+  const seen = new Set()
+  const r = detailsPayload?.Result ?? detailsPayload?.result ?? {}
+  const tour = r?.Tour ?? r?.tour ?? r
+  const tourCode = tourRowCode({ Tour: tour, TourCode: r?.TourCode ?? tour?.Code })
+
+  walkTourAltArrays(r, (alt) => {
+    pushTourPriceAttempt(attempts, seen, {
+      tourAlternativeCode:
+        alt?.TourAlternativeCode ??
+        alt?.tourAlternativeCode ??
+        alt?.Code ??
+        alt?.code ??
+        tourCode ??
+        null,
+      packageId: pickTourPackageId(alt),
+      departureDate: tourDepartureDateFromRow(alt),
+      departurePointCode: tourDeparturePointFromRow(alt),
+      source: 'details-nested',
+    })
+  })
+
+  const depPoints = r?.DeparturePoints ?? r?.departurePoints ?? tour?.DeparturePoints ?? tour?.departurePoints ?? []
+  if (Array.isArray(depPoints) && depPoints.length && attempts.length) {
+    for (const a of attempts) {
+      if (!a.departurePointCode) {
+        a.departurePointCode = String(depPoints[0]?.Code ?? depPoints[0]?.code ?? '').trim() || null
+      }
+    }
+  }
+
+  if (!attempts.length && tourCode) {
+    pushTourPriceAttempt(attempts, seen, {
+      tourAlternativeCode: tourCode,
+      packageId: pickTourPackageId(r),
+      departureDate: tourDepartureDateFromRow(r),
+      departurePointCode: tourDeparturePointFromRow(r),
+      source: 'details-top',
+    })
+  }
+
+  return attempts
+}
+
+export async function resolveTourPriceAttempts(cfg, tokenCode, searchRow, opts = {}) {
+  let attempts = collectTourPriceAttemptsFromRow(searchRow)
+  const hasBookableAlt = attempts.some((a) => a.tourAlternativeCode || a.packageId)
+  const tourCode = tourRowCode(searchRow)
+
+  if ((!hasBookableAlt || attempts.every((a) => !a.tourAlternativeCode)) && tourCode) {
+    try {
+      const details = await getTourDetails(cfg, tokenCode, tourCode, {
+        languageCode: opts.languageCode ?? 'tr',
+        detailTypes: opts.detailTypes ?? [0, 1, 5, 10],
+      })
+      attempts = [...attempts, ...collectTourPriceAttemptsFromDetails(details)]
+    } catch {
+      /* details opsiyonel */
+    }
+  }
+
+  const seen = new Set()
+  const out = []
+  for (const a of attempts) {
+    const key = `${a.tourAlternativeCode ?? ''}|${a.packageId ?? ''}|${a.departureDate ?? ''}|${a.departurePointCode ?? ''}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(a)
+  }
+  return out
+}
+
+/** GetTourPrices istek varyantları — sandbox'ta hangi kombinasyon tutarsa. */
+export function buildTourPriceRequestVariants(attempt, departureDate, priceRooms, languageCode = 'tr') {
+  const alt = attempt.tourAlternativeCode ? String(attempt.tourAlternativeCode).trim() : null
+  const pkg = attempt.packageId ? String(attempt.packageId).trim() : null
+  const dep = attempt.departurePointCode ? String(attempt.departurePointCode).trim() : null
+  const date = attempt.departureDate || departureDate
+  const base = { departureDate: date, rooms: priceRooms, languageCode }
+  const variants = []
+  const push = (v) => {
+    const key = JSON.stringify(v)
+    if (!variants.some((x) => JSON.stringify(x) === key)) variants.push(v)
+  }
+
+  if (alt) {
+    push({ ...base, tourAlternativeCode: alt, nationalityCode: 'TR', departurePointCode: dep ?? undefined })
+    push({ ...base, tourAlternativeCode: alt, nationalityCode: 'TR', departurePointCode: dep ?? undefined, hotpointType: 1 })
+    push({ ...base, tourAlternativeCode: alt, nationalityCode: null, departurePointCode: dep ?? undefined })
+  }
+  if (pkg) {
+    push({ ...base, id: pkg, tourAlternativeCode: alt, nationalityCode: 'TR', departurePointCode: dep ?? undefined })
+    push({ ...base, tourAlternativeCode: pkg, nationalityCode: 'TR', departurePointCode: dep ?? undefined })
+  }
+  if (!variants.length && alt) {
+    push({ ...base, tourAlternativeCode: alt, nationalityCode: 'TR' })
+  }
+  return variants
 }
 
 /** GetTourPrices — oda/kişi sayısı (Hotel SearchRooms benzeri). */
@@ -466,9 +690,11 @@ export function buildTourPriceRooms(roomOpts) {
 }
 
 export function pickTourPriceRows(payload) {
+  if (payload?.HasError) return []
   const r = payload?.Result ?? payload?.result ?? payload
   if (!r || typeof r !== 'object') return []
-  if (Array.isArray(r)) return r
+  if (Array.isArray(r)) return r.filter((x) => x && typeof x === 'object')
+
   for (const k of [
     'TourPrices',
     'tourPrices',
@@ -480,9 +706,26 @@ export function pickTourPriceRows(payload) {
     'items',
     'Packages',
     'packages',
+    'TourRooms',
+    'tourRooms',
+    'RoomPrices',
+    'roomPrices',
   ]) {
-    if (Array.isArray(r[k])) return r[k]
+    if (Array.isArray(r[k]) && r[k].length) return r[k]
   }
+
+  const roomRows = []
+  for (const room of r.Rooms ?? r.rooms ?? []) {
+    for (const alt of room?.RoomAlternatives ?? room?.roomAlternatives ?? []) {
+      roomRows.push(alt)
+    }
+  }
+  if (roomRows.length) return roomRows
+
+  if (pickTourPackageId(r) || r?.TourAlternativeCode || r?.tourAlternativeCode) {
+    return [r]
+  }
+
   return []
 }
 
