@@ -15,7 +15,7 @@ import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join, dirname, isAbsolute } from 'path'
 import { fileURLToPath } from 'url'
 import { createTravelrobotToken, getTourBooking } from './lib/travelrobot-api.mjs'
-import { buildSandboxConfigAsync, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
+import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
@@ -145,7 +145,7 @@ function loadCfg() {
   if (!USE_SANDBOX) {
     throw new Error('Tur PNR kontrolü için --sandbox kullanın.')
   }
-  return buildSandboxConfigAsync(getArg)
+  return buildSandboxConfig(getArg)
 }
 
 async function main() {
@@ -161,6 +161,7 @@ async function main() {
 
   const cfg = loadCfg()
   console.log(`KPlus Tour PNR doğrulama — ${cfg.baseUrl}`)
+  console.log(`Channel: ${cfg.channelCode}`)
   if (!isSandboxBaseUrl(cfg.baseUrl)) {
     console.warn('⚠️  Uyarı: baseUrl sandbox değil.\n')
   }
