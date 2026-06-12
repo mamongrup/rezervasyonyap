@@ -2003,15 +2003,32 @@ export function pickTourPickupPointId(pickupPayload) {
   return ref?.code ?? ref?.id ?? null
 }
 
-/** Tur rezervasyonu sorgula — System PNR doğrulama. */
+/** Tur rezervasyonu sorgula — deneysel (Stoplight Tour API'de get-booking yok). */
 export async function getTourBooking(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetBooking', {
+  const body = {
     request: {
       TokenCode: tokenCode,
       SystemPnr: opts.systemPnr ?? null,
       LastName: opts.lastName ?? null,
     },
-  })
+  }
+  const paths = opts.svcPath
+    ? [opts.svcPath]
+    : [
+        '/Tour.svc/Rest/Json/GetTourBooking',
+        '/Tour.svc/Rest/Json/GetBooking',
+      ]
+  let lastErr = null
+  for (const svcPath of paths) {
+    try {
+      return await kplusPost(cfg.baseUrl, svcPath, body)
+    } catch (e) {
+      lastErr = e
+      const msg = String(e?.message ?? e)
+      if (!/HTTP 404|geçersiz JSON \(HTTP 404\)/i.test(msg)) throw e
+    }
+  }
+  throw lastErr ?? new Error('GetTourBooking: endpoint bulunamadı (Tour API dokümantasyonunda yok)')
 }
 
 // ─── OTEL ─────────────────────────────────────────────────────────────────────
@@ -3441,7 +3458,7 @@ export async function voidTicket(cfg, opts = {}) {
  * opts: { systemPnr, pnr, productType, languageCode }
  */
 export async function getBooking(cfg, tokenCode, opts = {}) {
-  // GetBooking her serviste ayrı: Air.svc/Transfer.svc /GetBooking, Hotel.svc /GetHotelBooking.
+  // GetBooking: Air/Transfer → /GetBooking, Hotel → /GetHotelBooking, Tour → (Stoplight'ta yok)
   // Genel kullanımda servis seçilebilir; varsayılan Air.
   const svc = opts.svcPath ?? '/Air.svc/Rest/Json/GetBooking'
   return kplusPost(cfg.baseUrl, svc, {

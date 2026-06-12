@@ -1653,7 +1653,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 log(
                   scenarioName,
                   'GetTourBooking',
-                  '/Tour.svc/Rest/Json/GetBooking',
+                  '/Tour.svc/Rest/Json/GetTourBooking',
                   { systemPnr, lastName: TEST_CONTACT.LastName },
                   verifyPayload,
                   pnrVerified === true,
@@ -1662,7 +1662,11 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   ok(`[${scenarioName}] PNR doğrulama`, `GetTourBooking eşleşti: ${verifiedSystemPnr}`)
                 }
               } catch (e) {
-                log(scenarioName, 'GetTourBooking', '/Tour.svc/Rest/Json/GetBooking', { systemPnr }, String(e), false)
+                const msg = String(e?.message ?? e)
+                if (/HTTP 404|endpoint bulunamadı/i.test(msg)) {
+                  console.log(`  ℹ️  GetTourBooking sandbox'ta yok (Tour API BookTour ile biter) — SystemPNR: ${systemPnr}`)
+                }
+                log(scenarioName, 'GetTourBooking', '/Tour.svc/Rest/Json/GetTourBooking', { systemPnr }, msg, false)
               }
             }
 

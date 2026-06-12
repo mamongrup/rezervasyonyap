@@ -1,15 +1,13 @@
 #!/usr/bin/env node
 /**
- * KPlus sandbox Tour SystemPNR doğrulama (GetTourBooking).
+ * KPlus sandbox Tour SystemPNR doğrulama.
  *
- * PNR kaynağı (öncelik sırası):
- *   1. --summary travelrobot-test-summary-*.txt
- *   2. TOUR_PNRS sabit dizisi
- *   3. Repo kökündeki en son travelrobot-test-summary-*.txt
+ * Stoplight Tour API akışı BookTour ile biter — otel gibi GetHotelBooking / GetBooking
+ * karşılığı yoktur. Varsayılan mod cert log'daki başarılı BookTour yanıtını doğrular.
  *
  *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox
- *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox --summary travelrobot-test-summary-2026-06-12T22-56-10.txt
  *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox --log travelrobot-test-log-2026-06-12T22-56-10.json
+ *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox --live   # deneysel API sorgusu (çoğu sandbox'ta 404)
  */
 import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join, dirname, isAbsolute } from 'path'
@@ -20,6 +18,7 @@ import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const args = process.argv.slice(2)
 const USE_SANDBOX = args.includes('--sandbox')
+const USE_LIVE = args.includes('--live')
 
 function getArg(name) {
   const i = args.indexOf(name)
@@ -32,6 +31,16 @@ const TOUR_PNRS = [
   ['Tour-S2: 2 ADT + 1 CHD(5) / tek oda', '63GP06II6C'],
   ['Tour-S3: 2 ADT + 1 CHD(8) / tek oda', '6RHU068FFL'],
 ]
+
+function extractBookTourPnr(entry) {
+  const booking = entry?.response?.Result?.Booking ?? entry?.response?.Result ?? {}
+  const systemPnr =
+    booking?.SystemPnr ??
+    booking?.systemPnr ??
+    entry?.response?.Result?.SystemPnr ??
+    null
+  return systemPnr ? String(systemPnr).trim().toUpperCase() : null
+}
 
 /** `TOUR CERT | Senaryo | SystemPNR: XXX | Tour: …` */
 function parseTourPnrsFromSummaryText(text) {
@@ -57,12 +66,7 @@ function parseTourPnrsFromLogText(text) {
   for (const entry of entries) {
     if (entry?.method !== 'BookTour' || !entry?.success) continue
     const scenario = entry.scenario
-    const booking = entry.response?.Result?.Booking ?? entry.response?.Result ?? {}
-    const systemPnr =
-      booking?.SystemPnr ??
-      booking?.systemPnr ??
-      entry.response?.Result?.SystemPnr ??
-      null
+    const systemPnr = extractBookTourPnr(entry)
     if (!scenario || !systemPnr || seen.has(systemPnr)) continue
     seen.add(systemPnr)
     rows.push([scenario, systemPnr])
@@ -141,11 +145,76 @@ function resolveTourPnrs() {
   return []
 }
 
+function loadCertLogEntries() {
+  const logPath = resolveLogPath(getArg('--log') ?? null)
+  if (!logPath || !existsSync(logPath)) return { logPath: null, entries: [] }
+  const entries = JSON.parse(readFileSync(logPath, 'utf8'))
+  return { logPath, entries: Array.isArray(entries) ? entries : [] }
+}
+
+function findBookTourEntry(entries, scenario, systemPnr) {
+  const want = String(systemPnr).trim().toUpperCase()
+  const matches = entries.filter((entry) => {
+    if (entry?.method !== 'BookTour' || !entry?.success) return false
+    return extractBookTourPnr(entry) === want
+  })
+  if (!matches.length) return null
+  if (scenario) {
+    const byScenario = matches.filter((entry) => entry.scenario === scenario)
+    if (byScenario.length) return byScenario.at(-1)
+  }
+  return matches.at(-1)
+}
+
 function loadCfg() {
   if (!USE_SANDBOX) {
     throw new Error('Tur PNR kontrolü için --sandbox kullanın.')
   }
   return buildSandboxConfig(getArg)
+}
+
+async function verifyLive(cfg, tourPnrs) {
+  const { tokenCode } = await createTravelrobotToken(cfg)
+  let ok = 0
+  let fail = 0
+  for (const [scenario, systemPnr] of tourPnrs) {
+    try {
+      const res = await getTourBooking(cfg, tokenCode, { systemPnr, lastName: 'TRAVELER' })
+      const found = res?.Result?.Booking?.SystemPnr ?? res?.Result?.SystemPnr ?? null
+      if (!res?.HasError && found) {
+        console.log(`✅ ${scenario}  ${systemPnr}  → GetTourBooking bulundu`)
+        ok++
+      } else {
+        console.log(`❌ ${scenario}  ${systemPnr}  → ${res?.ErrorMessage ?? 'kayıt yok'}`)
+        fail++
+      }
+    } catch (e) {
+      console.log(`❌ ${scenario}  ${systemPnr}  → ${e.message}`)
+      fail++
+    }
+  }
+  return { ok, fail }
+}
+
+function verifyCertLog(tourPnrs, logPath, entries) {
+  let ok = 0
+  let fail = 0
+  for (const [scenario, systemPnr] of tourPnrs) {
+    const entry = findBookTourEntry(entries, scenario, systemPnr)
+    if (entry) {
+      console.log(`✅ ${scenario}  ${systemPnr}  → cert log BookTour yanıtı`)
+      ok++
+    } else {
+      console.log(`❌ ${scenario}  ${systemPnr}  → cert log'da başarılı BookTour yok`)
+      fail++
+    }
+  }
+  if (logPath) {
+    console.log(`[config] Doğrulama kaynağı: ${logPath}`)
+  } else {
+    console.log('⚠️  Cert log bulunamadı — --log travelrobot-test-log-....json verin')
+  }
+  return { ok, fail }
 }
 
 async function main() {
@@ -166,26 +235,24 @@ async function main() {
     console.warn('⚠️  Uyarı: baseUrl sandbox değil.\n')
   }
 
-  const { tokenCode } = await createTravelrobotToken(cfg)
-  let ok = 0
-  let fail = 0
-  for (const [scenario, systemPnr] of tourPnrs) {
-    try {
-      const res = await getTourBooking(cfg, tokenCode, { systemPnr, lastName: 'TRAVELER' })
-      const found = res?.Result?.Booking?.SystemPnr ?? res?.Result?.SystemPnr ?? null
-      if (!res?.HasError && found) {
-        console.log(`✅ ${scenario}  ${systemPnr}  → bulundu`)
-        ok++
-      } else {
-        console.log(`❌ ${scenario}  ${systemPnr}  → ${res?.ErrorMessage ?? 'kayıt yok'}`)
-        fail++
-      }
-    } catch (e) {
-      console.log(`❌ ${scenario}  ${systemPnr}  → ${e.message}`)
-      fail++
-    }
+  if (USE_LIVE) {
+    console.log('[config] Mod: canlı API (GetTourBooking — Tour API dokümantasyonunda yok, 404 olabilir)\n')
+    const { ok, fail } = await verifyLive(cfg, tourPnrs)
+    console.log(`\nÖzet: ${ok} OK, ${fail} FAIL`)
+    process.exit(fail > 0 ? 1 : 0)
   }
+
+  const { logPath, entries } = loadCertLogEntries()
+  console.log(
+    '[config] Mod: cert log (BookTour yanıtı — KPlus Tour API sertifikasyon kanıtı)\n',
+  )
+  const { ok, fail } = verifyCertLog(tourPnrs, logPath, entries)
   console.log(`\nÖzet: ${ok} OK, ${fail} FAIL`)
+  if (fail > 0) {
+    console.log(
+      '\nNot: Tour Stoplight akışında GetBooking yok; sertifikasyon kanıtı BookTour + SystemPNR logudur.',
+    )
+  }
   process.exit(fail > 0 ? 1 : 0)
 }
 
