@@ -25,14 +25,20 @@ if (!logPath) {
 }
 
 const entries = JSON.parse(readFileSync(logPath, 'utf8'))
-const pick = (step) => entries.filter((e) => e.step === step || e.endpoint?.includes(step))
+const pick = (step) => {
+  const exact = entries.filter((e) => e.method === step)
+  if (exact.length) return exact
+  return entries.filter(
+    (e) => e.endpoint?.includes(step) && !String(e.method ?? '').endsWith('-fail'),
+  )
+}
 
 console.log('log:', logPath)
 for (const step of ['GetTourPrices-hit', 'GetTourFinalPrice', 'BookTour-fail', 'BookTour']) {
-  const rows = pick(step).filter((e) => e.step === step)
+  const rows = pick(step)
   if (!rows.length) continue
   const last = rows.at(-1)
   console.log('\n===', step, '===')
-  console.log('request:', JSON.stringify(last.request, null, 2)?.slice(0, 4000))
+  console.log('request:', JSON.stringify(last.request, null, 2)?.slice(0, 6000))
   console.log('response:', JSON.stringify(last.response, null, 2)?.slice(0, 3000))
 }
