@@ -60,8 +60,6 @@ import {
   buildTourFinalPriceRooms,
   buildTourRoomPaxes,
   buildTourBookPaxVariants,
-  getPickupPointsSoft,
-  pickTourPickupPointId,
   pickTourPriceRows,
   pickTourBookResultKeys,
   pickTourPackageId,
@@ -156,7 +154,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v22'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v23'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1135,6 +1133,14 @@ function makeTourCertPax(firstName, lastName, dob, gender = 1) {
   return pax
 }
 
+function cleanTourBookInvoice(invoice) {
+  const out = { ...invoice }
+  for (const k of Object.keys(out)) {
+    if (out[k] === '' || out[k] === null) delete out[k]
+  }
+  return out
+}
+
 async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpts = {}) {
   section(`${scenarioName}`)
 
@@ -1323,6 +1329,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   usedFinalPricePackageId: resolved.usedFinalPricePackageId === true,
                   pkgOnlyMode,
                   resultKeys,
+                  finalPriceAttempts: resolved.finalPriceAttempts ?? [],
                 },
                 finalPayload ?? { skippedFinalPrice: true, resultKeys },
                 resultKeys.length > 0,
@@ -1372,31 +1379,8 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               sessionPackageId,
             )
 
-            let pickupPointId = null
-            try {
-              const pickupRes = await getPickupPointsSoft(cfg, tokenCode, {
-                packageId,
-                resultKeys: pkgOnlyMode ? undefined : resultKeys,
-                languageCode: searchOpts.languageCode ?? 'tr',
-              })
-              if (pickupRes.ok) {
-                pickupPointId = pickTourPickupPointId(pickupRes.payload)
-              }
-            } catch {
-              /* opsiyonel */
-            }
-
-            const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax).map((pv) => {
-              if (!pickupPointId) return pv
-              const rooms = (pv.tourRoomPaxes ?? []).map((room, idx) => ({
-                ...room,
-                AdditionalServices:
-                  idx === 0
-                    ? [{ Id: Number(pickupPointId) || pickupPointId }]
-                    : (room.AdditionalServices ?? []),
-              }))
-              return { ...pv, tourRoomPaxes: rooms }
-            })
+            const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax)
+            const tourInvoice = cleanTourBookInvoice(TEST_INVOICE)
 
             const bookBodyVariants = buildTourBookRequestVariants({
               tokenCode,
@@ -1408,7 +1392,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               pricePayload,
               tourRoomPaxes: tourPaxVariants[0]?.tourRoomPaxes ?? tourRoomPaxes,
               contactInfo: TEST_CONTACT,
-              invoiceInfo: TEST_INVOICE,
+              invoiceInfo: tourInvoice,
               bookingNote: clientNotes,
               agentReferenceInfo: `RY-${Date.now()}-tour`,
               languageCode: searchOpts.languageCode ?? 'tr',
