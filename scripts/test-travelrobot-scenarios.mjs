@@ -1304,6 +1304,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let finalPricePackageId = null
             let finalPriceBedType = null
             let tourRoomsForBook = finalRooms
+            let tfpSessionId = null
             try {
               tourProgress(`book keys ${tourCode}…`)
               tourProgress(`GetTourFinalPrice ${tourCode}…`)
@@ -1322,6 +1323,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               })
               packageId = resolved.packageId
               finalPayload = resolved.payload
+              tfpSessionId = pickTourPaymentSessionId(finalPayload, pricePayload)
               resultKeys = resolved.resultKeys
               skippedFinalPrice = resolved.skippedFinalPrice === true
               usedPriceVariantKey = resolved.usedPriceVariantKey === true
