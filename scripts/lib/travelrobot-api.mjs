@@ -391,6 +391,27 @@ function formatTourBookPaymentInfo(payment) {
   return omitNullFields(out)
 }
 
+/** GetTourFinalPrice yanıtında yalnız |254 varyant anahtarları mı? */
+export function isTourSessionVariantOnlyKeys(keys) {
+  const list = (keys ?? []).map((k) => String(k ?? '').trim()).filter(Boolean)
+  if (!list.length) return false
+  return list.every(isTourSessionVariantBookKey)
+}
+
+/** GetTourFinalPrice Contracts → BookTour ExtraInfo adayı. */
+export function pickTourBookExtraInfoFromFinalPrice(finalPricePayload) {
+  const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
+  const contracts = r?.Contracts ?? r?.contracts ?? []
+  if (!Array.isArray(contracts) || !contracts.length) return null
+  return {
+    Contracts: contracts.map((c, i) => ({
+      Index: i,
+      Accepted: true,
+      ProductType: c.ProductType ?? c.productType ?? 2,
+    })),
+  }
+}
+
 export function buildTourBookRequest(opts = {}) {
   const resultKeys = (opts.resultKeys ?? []).map(String).filter(isPlausibleTourBookKey)
   const packageInBody =
@@ -414,7 +435,7 @@ export function buildTourBookRequest(opts = {}) {
       VisaPaxes: null,
       ActivityPaxes: null,
     },
-    ExtraInfo: null,
+    ExtraInfo: opts.extraInfo ?? null,
     ContactInfo: opts.contactInfo,
     InvoiceInfo: opts.invoiceInfo,
     CorporateInfo: null,
@@ -456,33 +477,49 @@ export function buildTourBookRequestVariants(opts = {}) {
   const variants = []
   const pkgForBody = String(opts.packageId ?? '').trim() || sessionRaw
   const pkgOnlyMode = opts.pkgOnlyMode === true
+  const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
+  const bookPkg =
+    isTourSessionVariantBookKey(pkgForBody) ? pkgForBody : (variant254 ?? pkgForBody)
 
-  if (pkgForBody && isPlausibleTourBookKey(pkgForBody)) {
-    variants.push({
-      label: 'pkgOnly',
-      ...base,
-      packageIdInBody: true,
-      packageId: pkgForBody,
-      resultKeys: [],
-    })
-    variants.push({
-      label: 'pkgOnly+price',
-      ...base,
-      packageIdInBody: true,
-      packageId: pkgForBody,
-      resultKeys: [],
-      withPrice: true,
-    })
-    const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
-    if (variant254 && variant254 !== pkgForBody) {
-      variants.push({
-        label: 'pkgOnly254',
+  if (bookPkg && isPlausibleTourBookKey(bookPkg)) {
+    const extraInfo = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
+    const front = [
+      {
+        label: isTourSessionVariantBookKey(bookPkg) ? 'pkgOnly254' : 'pkgOnly',
         ...base,
         packageIdInBody: true,
-        packageId: variant254,
+        packageId: bookPkg,
         resultKeys: [],
+      },
+      {
+        label: 'pkgOnly+price',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        resultKeys: [],
+        withPrice: true,
+      },
+    ]
+    if (extraInfo) {
+      front.push({
+        label: 'pkgOnly+contract',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        resultKeys: [],
+        extraInfo,
+      })
+      front.push({
+        label: 'pkgOnly+contract+price',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        resultKeys: [],
+        withPrice: true,
+        extraInfo,
       })
     }
+    variants.push(...front)
   }
 
   if (pkgOnlyMode || !unique.length) {
@@ -1386,12 +1423,16 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
           strictOnly: requireFinal,
         })
         if (resultKeys.length) {
+          const variantOnly = isTourSessionVariantOnlyKeys(resultKeys)
           return {
             packageId,
             payload: res.payload,
-            resultKeys,
+            resultKeys: variantOnly ? [packageId] : resultKeys,
             tourRooms,
             skippedFinalPrice: false,
+            pkgOnlyMode: variantOnly || undefined,
+            usedFinalPricePackageId: variantOnly || undefined,
+            finalPriceBedType: bedType,
             finalPriceAttempts: finalPriceAttempts.slice(-6),
           }
         }
@@ -1405,6 +1446,7 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
             skippedFinalPrice: false,
             usedFinalPricePackageId: true,
             pkgOnlyMode: true,
+            finalPriceBedType: bedType,
             finalPriceAttempts: finalPriceAttempts.slice(-6),
           }
         }
@@ -1430,6 +1472,7 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
       skippedFinalPrice: false,
       usedFinalPricePackageId: true,
       pkgOnlyMode: true,
+      finalPriceBedType: lastOkFinalPrice.tourRooms?.[0]?.BedType ?? 0,
       finalPriceAttempts: finalPriceAttempts.slice(-6),
     }
   }

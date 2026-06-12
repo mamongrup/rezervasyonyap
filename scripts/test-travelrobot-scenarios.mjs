@@ -154,7 +154,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v23'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v24'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1293,6 +1293,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let skippedFinalPrice = false
             let usedPriceVariantKey = false
             let pkgOnlyMode = false
+            let finalPriceBedType = null
             let tourRoomsForBook = finalRooms
             try {
               tourProgress(`book keys ${tourCode}…`)
@@ -1316,6 +1317,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               skippedFinalPrice = resolved.skippedFinalPrice === true
               usedPriceVariantKey = resolved.usedPriceVariantKey === true
               pkgOnlyMode = resolved.pkgOnlyMode === true || resolved.usedFinalPricePackageId === true || resolved.usedPriceVariantKey === true
+              finalPriceBedType = resolved.finalPriceBedType ?? null
               tourRoomsForBook = resolved.tourRooms ?? finalRooms
               log(
                 scenarioName,
@@ -1372,14 +1374,26 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               return
             }
 
-            const paymentAttempts = await resolveTourPaymentAttempts(
-              cfg,
-              tokenCode,
-              pkgOnlyMode ? [packageId] : resultKeys,
-              sessionPackageId,
-            )
+            const paymentAttempts = [
+              ...(await resolveTourPaymentAttempts(
+                cfg,
+                tokenCode,
+                pkgOnlyMode ? [packageId] : resultKeys,
+                sessionPackageId,
+              )),
+              { label: 'card-0', info: TEST_PAYMENT },
+            ]
 
-            const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax)
+            const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax).map((pv) => ({
+              ...pv,
+              tourRoomPaxes: (pv.tourRoomPaxes ?? []).map((room) => ({
+                ...room,
+                BedType:
+                  finalPriceBedType != null && !Number.isNaN(Number(finalPriceBedType))
+                    ? Number(finalPriceBedType)
+                    : room.BedType,
+              })),
+            }))
             const tourInvoice = cleanTourBookInvoice(TEST_INVOICE)
 
             const bookBodyVariants = buildTourBookRequestVariants({
@@ -1387,6 +1401,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               resultKeys,
               packageId,
               pkgOnlyMode,
+              finalPricePayload: finalPayload,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
               priceRow,
               pricePayload,
