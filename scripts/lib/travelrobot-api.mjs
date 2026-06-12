@@ -467,7 +467,7 @@ export function buildTourBookRequest(opts = {}) {
   return { request }
 }
 
-/** BookTour gövde varyantları — pkgOnly öncelikli; strict ResultKeys yoksa yalnız pkgOnly. */
+/** BookTour gövde varyantları — finalPriceLocked: pkg254+sessionKey önce; pkgBody+key yok. */
 export function buildTourBookRequestVariants(opts = {}) {
   const sessionRaw = String(
     opts.sessionRawId ?? pickTourPricesSessionRawId(opts.pricePayload) ?? '',
@@ -489,14 +489,64 @@ export function buildTourBookRequestVariants(opts = {}) {
     })
   const { resultKeys: _drop, ...base } = opts
   const variants = []
-  const pkgForBody = String(opts.packageId ?? '').trim() || sessionRaw
+  const finalPriceLocked = opts.finalPriceLocked === true
+  const lockedPkg = String(opts.finalPricePackageId ?? opts.packageId ?? '').trim()
+  const pkgForBody = lockedPkg || String(opts.packageId ?? '').trim() || sessionRaw
   const pkgOnlyMode = opts.pkgOnlyMode === true
   const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
   const bookPkg =
-    isTourSessionVariantBookKey(pkgForBody) ? pkgForBody : (variant254 ?? pkgForBody)
+    finalPriceLocked && isTourSessionVariantBookKey(lockedPkg)
+      ? lockedPkg
+      : isTourSessionVariantBookKey(pkgForBody)
+        ? pkgForBody
+        : (variant254 ?? pkgForBody)
   const sessionBookKey = pickTourSessionBookKey(sessionRaw, bookPkg)
-  const finalPriceLocked = opts.finalPriceLocked === true
   const extraInfo = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
+
+  if (finalPriceLocked && sessionBookKey && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
+    variants.push({
+      label: 'pkg254+sessionKey',
+      ...base,
+      packageIdInBody: true,
+      packageId: bookPkg,
+      packageIdWithResultKeys: true,
+      resultKeys: [sessionBookKey],
+    })
+    if (extraInfo) {
+      variants.push({
+        label: 'pkg254+session+contract',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionBookKey],
+        extraInfo,
+      })
+    }
+    variants.push({
+      label: 'pkgOnly254',
+      ...base,
+      packageIdInBody: true,
+      packageId: bookPkg,
+      resultKeys: [],
+    })
+    if (extraInfo) {
+      variants.push({
+        label: 'pkgOnly+contract',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        resultKeys: [],
+        extraInfo,
+      })
+    }
+    variants.push({
+      label: 'resultKeys-session',
+      ...base,
+      resultKeys: [sessionBookKey],
+    })
+    return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
+  }
 
   if (finalPriceLocked && sessionBookKey) {
     variants.push({
@@ -510,17 +560,6 @@ export function buildTourBookRequestVariants(opts = {}) {
         ...base,
         resultKeys: [sessionBookKey],
         extraInfo,
-      })
-    }
-    if (bookPkg && isTourSessionVariantBookKey(bookPkg)) {
-      variants.push({
-        label: 'pkg254+sessionKey',
-        ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        packageIdWithResultKeys: true,
-        resultKeys: [sessionBookKey],
-        extraInfo: extraInfo ?? undefined,
       })
     }
   }
@@ -580,7 +619,7 @@ export function buildTourBookRequestVariants(opts = {}) {
     }
   }
 
-  if (pkgOnlyMode || !unique.length) {
+  if (pkgOnlyMode || !unique.length || finalPriceLocked) {
     return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
   }
 

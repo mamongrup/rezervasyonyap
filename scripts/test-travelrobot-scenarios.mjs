@@ -154,7 +154,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v25'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v26'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1294,6 +1294,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let usedPriceVariantKey = false
             let pkgOnlyMode = false
             let finalPriceLocked = false
+            let finalPricePackageId = null
             let finalPriceBedType = null
             let tourRoomsForBook = finalRooms
             try {
@@ -1320,6 +1321,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               pkgOnlyMode =
                 resolved.pkgOnlyMode === true || resolved.usedPriceVariantKey === true
               finalPriceLocked = resolved.finalPriceLocked === true
+              finalPricePackageId = resolved.finalPricePackageId ?? resolved.packageId ?? null
               finalPriceBedType = resolved.finalPriceBedType ?? null
               tourRoomsForBook = resolved.tourRooms ?? finalRooms
               log(
@@ -1333,6 +1335,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   usedPriceVariantKey: resolved.usedPriceVariantKey === true,
                   usedFinalPricePackageId: resolved.usedFinalPricePackageId === true,
                   finalPriceLocked,
+                  finalPricePackageId,
                   pkgOnlyMode,
                   resultKeys,
                   finalPriceAttempts: resolved.finalPriceAttempts ?? [],
@@ -1406,6 +1409,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               packageId,
               pkgOnlyMode,
               finalPriceLocked,
+              finalPricePackageId,
               finalPricePayload: finalPayload,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
               priceRow,
