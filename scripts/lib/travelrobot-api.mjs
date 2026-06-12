@@ -412,6 +412,20 @@ export function pickTourBookExtraInfoFromFinalPrice(finalPricePayload) {
   }
 }
 
+/** GetTourFinalPrice sonrası BookTour ResultKeys — yalın oturum pipe (|254 değil). */
+export function pickTourSessionBookKey(sessionRawId, finalPricePackageId = null) {
+  const session = String(sessionRawId ?? '').trim()
+  if (session && isPlausibleTourBookKey(session) && !isTourSessionVariantBookKey(session)) {
+    return session
+  }
+  const pkg = String(finalPricePackageId ?? '').trim()
+  if (pkg && isTourSessionVariantBookKey(pkg)) {
+    const bare = pkg.replace(/\|\d{1,5}$/, '')
+    if (bare && isPlausibleTourBookKey(bare)) return bare
+  }
+  return session || null
+}
+
 export function buildTourBookRequest(opts = {}) {
   const resultKeys = (opts.resultKeys ?? []).map(String).filter(isPlausibleTourBookKey)
   const packageInBody =
@@ -480,46 +494,90 @@ export function buildTourBookRequestVariants(opts = {}) {
   const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
   const bookPkg =
     isTourSessionVariantBookKey(pkgForBody) ? pkgForBody : (variant254 ?? pkgForBody)
+  const sessionBookKey = pickTourSessionBookKey(sessionRaw, bookPkg)
+  const finalPriceLocked = opts.finalPriceLocked === true
+  const extraInfo = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
 
-  if (bookPkg && isPlausibleTourBookKey(bookPkg)) {
-    const extraInfo = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
-    const front = [
-      {
-        label: isTourSessionVariantBookKey(bookPkg) ? 'pkgOnly254' : 'pkgOnly',
-        ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        resultKeys: [],
-      },
-      {
-        label: 'pkgOnly+price',
-        ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        resultKeys: [],
-        withPrice: true,
-      },
-    ]
+  if (finalPriceLocked && sessionBookKey) {
+    variants.push({
+      label: 'resultKeys-session',
+      ...base,
+      resultKeys: [sessionBookKey],
+    })
     if (extraInfo) {
-      front.push({
-        label: 'pkgOnly+contract',
+      variants.push({
+        label: 'resultKeys-session+contract',
         ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        resultKeys: [],
-        extraInfo,
-      })
-      front.push({
-        label: 'pkgOnly+contract+price',
-        ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        resultKeys: [],
-        withPrice: true,
+        resultKeys: [sessionBookKey],
         extraInfo,
       })
     }
-    variants.push(...front)
+    if (bookPkg && isTourSessionVariantBookKey(bookPkg)) {
+      variants.push({
+        label: 'pkg254+sessionKey',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionBookKey],
+        extraInfo: extraInfo ?? undefined,
+      })
+    }
+  }
+
+  if (bookPkg && isPlausibleTourBookKey(bookPkg)) {
+    const pkgOnly254 = {
+      label: isTourSessionVariantBookKey(bookPkg) ? 'pkgOnly254' : 'pkgOnly',
+      ...base,
+      packageIdInBody: true,
+      packageId: bookPkg,
+      resultKeys: [],
+    }
+    if (finalPriceLocked) {
+      variants.push(pkgOnly254)
+      if (extraInfo) {
+        variants.push({
+          label: 'pkgOnly+contract',
+          ...base,
+          packageIdInBody: true,
+          packageId: bookPkg,
+          resultKeys: [],
+          extraInfo,
+        })
+      }
+    } else {
+      const front = [
+        pkgOnly254,
+        {
+          label: 'pkgOnly+price',
+          ...base,
+          packageIdInBody: true,
+          packageId: bookPkg,
+          resultKeys: [],
+          withPrice: true,
+        },
+      ]
+      if (extraInfo) {
+        front.push({
+          label: 'pkgOnly+contract',
+          ...base,
+          packageIdInBody: true,
+          packageId: bookPkg,
+          resultKeys: [],
+          extraInfo,
+        })
+        front.push({
+          label: 'pkgOnly+contract+price',
+          ...base,
+          packageIdInBody: true,
+          packageId: bookPkg,
+          resultKeys: [],
+          withPrice: true,
+          extraInfo,
+        })
+      }
+      variants.push(...front)
+    }
   }
 
   if (pkgOnlyMode || !unique.length) {
@@ -1424,28 +1482,34 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
         })
         if (resultKeys.length) {
           const variantOnly = isTourSessionVariantOnlyKeys(resultKeys)
+          const sessionBookKey = pickTourSessionBookKey(sessionRawId, packageId)
           return {
             packageId,
             payload: res.payload,
-            resultKeys: variantOnly ? [packageId] : resultKeys,
+            resultKeys:
+              variantOnly && sessionBookKey ? [sessionBookKey] : resultKeys,
             tourRooms,
             skippedFinalPrice: false,
-            pkgOnlyMode: variantOnly || undefined,
-            usedFinalPricePackageId: variantOnly || undefined,
+            finalPriceLocked: true,
+            finalPricePackageId: packageId,
+            pkgOnlyMode: false,
             finalPriceBedType: bedType,
             finalPriceAttempts: finalPriceAttempts.slice(-6),
           }
         }
         const bookPkgId = pickTourFinalPriceBookPackageId(res.payload, packageId)
         if (bookPkgId) {
+          const sessionBookKey = pickTourSessionBookKey(sessionRawId, bookPkgId)
           return {
             packageId: bookPkgId,
             payload: res.payload,
-            resultKeys: [bookPkgId],
+            resultKeys: sessionBookKey ? [sessionBookKey] : [bookPkgId],
             tourRooms,
             skippedFinalPrice: false,
-            usedFinalPricePackageId: true,
-            pkgOnlyMode: true,
+            finalPriceLocked: true,
+            finalPricePackageId: bookPkgId,
+            pkgOnlyMode: !sessionBookKey,
+            usedFinalPricePackageId: !sessionBookKey || undefined,
             finalPriceBedType: bedType,
             finalPriceAttempts: finalPriceAttempts.slice(-6),
           }
@@ -1464,14 +1528,17 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     const bookPkgId =
       pickTourFinalPriceBookPackageId(lastOkFinalPrice.payload, lastOkFinalPrice.packageId) ??
       lastOkFinalPrice.packageId
+    const sessionBookKey = pickTourSessionBookKey(sessionRawId, bookPkgId)
     return {
       packageId: bookPkgId,
       payload: lastOkFinalPrice.payload,
-      resultKeys: [bookPkgId],
+      resultKeys: sessionBookKey ? [sessionBookKey] : [bookPkgId],
       tourRooms: lastOkFinalPrice.tourRooms,
       skippedFinalPrice: false,
-      usedFinalPricePackageId: true,
-      pkgOnlyMode: true,
+      finalPriceLocked: true,
+      finalPricePackageId: bookPkgId,
+      pkgOnlyMode: !sessionBookKey,
+      usedFinalPricePackageId: !sessionBookKey || undefined,
       finalPriceBedType: lastOkFinalPrice.tourRooms?.[0]?.BedType ?? 0,
       finalPriceAttempts: finalPriceAttempts.slice(-6),
     }
