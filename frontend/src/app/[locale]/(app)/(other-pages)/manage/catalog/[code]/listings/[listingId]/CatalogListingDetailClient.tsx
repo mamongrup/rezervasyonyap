@@ -1062,6 +1062,7 @@ export default function CatalogListingDetailClient({
   const [allowGapBooking, setAllowGapBooking] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
   const [ownerName, setOwnerName] = useState('')
+  const [ownerBio, setOwnerBio] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   const [checkInTime, setCheckInTime] = useState('')
@@ -1201,6 +1202,7 @@ export default function CatalogListingDetailClient({
       }
       if (owner) {
         setOwnerName(owner.contact_name ?? '')
+        setOwnerBio(owner.contact_bio ?? '')
         setOwnerPhone(owner.contact_phone ?? '')
         setOwnerEmail(owner.contact_email ?? '')
       }
@@ -1417,6 +1419,7 @@ export default function CatalogListingDetailClient({
         listingId,
         {
           contact_name: ownerName.trim() || undefined,
+          contact_bio: ownerBio.trim() || undefined,
           contact_phone: ownerPhone.trim() || undefined,
           contact_email: ownerEmail.trim() || undefined,
         },
@@ -2097,9 +2100,19 @@ export default function CatalogListingDetailClient({
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.listingForm.ownerTitle}</h2>
             <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              <Field className="block">
+              <Field className="block sm:col-span-3">
                 <Label>{ui.listingForm.ownerName}</Label>
                 <Input className="mt-1" value={ownerName} onChange={(e) => setOwnerName(e.target.value)} />
+              </Field>
+              <Field className="block sm:col-span-3">
+                <Label>İlan sahibi tanıtım metni</Label>
+                <Textarea
+                  className="mt-1"
+                  rows={4}
+                  value={ownerBio}
+                  onChange={(e) => setOwnerBio(e.target.value)}
+                  placeholder="Vitrinde ilan sahibi kartında görünecek kısa tanıtım"
+                />
               </Field>
               <Field className="block">
                 <Label>{ui.listingForm.ownerPhone}</Label>

@@ -1842,6 +1842,8 @@ export type PublicListingVitrine = {
   title: string
   description: string
   contact_name: string | null
+  /** Vitrin ilan sahibi kartı — admin panelinden girilir */
+  contact_bio?: string | null
   /** `location_name` veya panel `listing_meta.address` birleşimi — başlık altı konum satırı */
   location_label?: string | null
   /** listing_meta.district_label — bölge / semt */
@@ -9865,6 +9867,8 @@ export async function patchListingSlug(
 // ─── Owner Contact GET / PUT ──────────────────────────────────────────────────
 export interface ListingOwnerContact {
   contact_name: string | null
+  /** Vitrin ilan sahibi kartı — admin panelinden girilir */
+  contact_bio?: string | null
   contact_phone: string | null
   contact_email: string | null
 }
@@ -9892,7 +9896,12 @@ export async function getListingOwnerContact(
 export async function putListingOwnerContact(
   token: string,
   listingId: string,
-  body: { contact_name?: string; contact_phone?: string; contact_email?: string },
+  body: {
+    contact_name?: string
+    contact_phone?: string
+    contact_email?: string
+    contact_bio?: string
+  },
   params?: { organizationId?: string },
 ): Promise<{ ok: boolean }> {
   const b = base()

@@ -777,6 +777,8 @@ export const de: AppMessages = {
     activityDetail: {
       aboutTitle: 'Über diese Aktivität',
       aboutSubtitle: 'Dauer, Treffpunkt und Teilnahmeinfos.',
+      rulesTitle: 'Regeln',
+      rulesSubtitle: 'Bitte vor der Buchung lesen.',
       overview: {
         duration: 'Dauer',
         durationHours: '{hours} Stunden',

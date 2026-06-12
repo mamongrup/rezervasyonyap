@@ -1643,6 +1643,20 @@ export const en = {
     activityDetail: {
       aboutTitle: 'About this activity',
       aboutSubtitle: 'Duration, meeting point and participation info.',
+      descriptionTitle: 'Description',
+      similarListings: 'Similar listings',
+      regionListings: 'Listings in the region',
+      extraFeesTitle: 'Extra charges',
+      rulesTitle: 'Rules',
+      rulesSubtitle: 'Please read before booking.',
+      extraFees: {
+        units: {
+          per_stay: 'Per booking',
+          per_night: 'Per night',
+          per_person: 'Per person',
+          per_person_per_night: 'Per person × night',
+        },
+      },
       overview: {
         duration: 'Duration',
         durationHours: '{hours} hours',

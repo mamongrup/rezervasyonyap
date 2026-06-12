@@ -3639,18 +3639,21 @@ pub fn patch_listing_slug(
 
 // ─── Owner Contact ────────────────────────────────────────────────────────────
 
-fn owner_contact_row() -> decode.Decoder(#(String, String, String)) {
+fn owner_contact_row() -> decode.Decoder(#(String, String, String, String)) {
   use n <- decode.field(0, decode.string)
   use p <- decode.field(1, decode.string)
   use e <- decode.field(2, decode.string)
-  decode.success(#(n, p, e))
+  use b <- decode.field(3, decode.string)
+  decode.success(#(n, p, e, b))
 }
 
-fn put_owner_contact_decoder() -> decode.Decoder(#(String, String, String)) {
+fn put_owner_contact_decoder() -> decode.Decoder(#(String, String, String, String)) {
   decode.optional_field("contact_name", "", decode.string, fn(n) {
     decode.optional_field("contact_phone", "", decode.string, fn(p) {
       decode.optional_field("contact_email", "", decode.string, fn(e) {
-        decode.success(#(n, p, e))
+        decode.optional_field("contact_bio", "", decode.string, fn(b) {
+          decode.success(#(n, p, e, b))
+        })
       })
     })
   })
@@ -3672,7 +3675,7 @@ pub fn get_listing_owner_contact(
         Ok(True) ->
           case
             pog.query(
-              "select coalesce(contact_name,''), coalesce(contact_phone,''), coalesce(contact_email,'') from listing_owner_contacts where listing_id = $1::uuid",
+              "select coalesce(contact_name,''), coalesce(contact_phone,''), coalesce(contact_email,''), coalesce(contact_bio,'') from listing_owner_contacts where listing_id = $1::uuid",
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(owner_contact_row())
@@ -3687,11 +3690,12 @@ pub fn get_listing_owner_contact(
                       #("contact_name", json.null()),
                       #("contact_phone", json.null()),
                       #("contact_email", json.null()),
+                      #("contact_bio", json.null()),
                     ])
                     |> json.to_string
                   wisp.json_response(j, 200)
                 }
-                [#(n, p, e)] -> {
+                [#(n, p, e, b)] -> {
                   let nj = case n == "" {
                     True -> json.null()
                     False -> json.string(n)
@@ -3704,11 +3708,16 @@ pub fn get_listing_owner_contact(
                     True -> json.null()
                     False -> json.string(e)
                   }
+                  let bj = case string.trim(b) == "" {
+                    True -> json.null()
+                    False -> json.string(string.trim(b))
+                  }
                   let j =
                     json.object([
                       #("contact_name", nj),
                       #("contact_phone", pj),
                       #("contact_email", ej),
+                      #("contact_bio", bj),
                     ])
                     |> json.to_string
                   wisp.json_response(j, 200)
@@ -3739,7 +3748,7 @@ pub fn put_listing_owner_contact(
             Ok(body) ->
               case json.parse(body, put_owner_contact_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(n, p, e)) -> {
+                Ok(#(n, p, e, b)) -> {
                   let np = case string.trim(n) == "" {
                     True -> pog.null()
                     False -> pog.text(string.trim(n))
@@ -3752,14 +3761,19 @@ pub fn put_listing_owner_contact(
                     True -> pog.null()
                     False -> pog.text(string.trim(e))
                   }
+                  let bp = case string.trim(b) == "" {
+                    True -> pog.null()
+                    False -> pog.text(string.trim(b))
+                  }
                   case
                     pog.query(
-                      "insert into listing_owner_contacts (listing_id, contact_name, contact_phone, contact_email) values ($1::uuid, $2, $3, $4) on conflict (listing_id) do update set contact_name = excluded.contact_name, contact_phone = excluded.contact_phone, contact_email = excluded.contact_email",
+                      "insert into listing_owner_contacts (listing_id, contact_name, contact_phone, contact_email, contact_bio) values ($1::uuid, $2, $3, $4, $5) on conflict (listing_id) do update set contact_name = excluded.contact_name, contact_phone = excluded.contact_phone, contact_email = excluded.contact_email, contact_bio = excluded.contact_bio",
                     )
                     |> pog.parameter(pog.text(listing_id))
                     |> pog.parameter(np)
                     |> pog.parameter(pp)
                     |> pog.parameter(ep)
+                    |> pog.parameter(bp)
                     |> pog.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "owner_contact_save_failed")
@@ -5567,7 +5581,7 @@ pub fn list_public_listing_bedrooms(
   }
 }
 
-fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
+fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use description <- decode.field(1, decode.string)
   use contact_name <- decode.field(2, decode.string)
@@ -5576,6 +5590,7 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
   use location_area <- decode.field(5, decode.string)
   use location_district <- decode.field(6, decode.string)
   use location_province <- decode.field(7, decode.string)
+  use contact_bio <- decode.field(8, decode.string)
   decode.success(#(
     title,
     description,
@@ -5585,6 +5600,7 @@ fn vitrine_row() -> decode.Decoder(#(String, String, String, String, String, Str
     location_area,
     location_district,
     location_province,
+    contact_bio,
   ))
 }
 
@@ -5623,7 +5639,8 @@ pub fn get_public_listing_vitrine(
       <> "case when trim(coalesce(la.value_json->>'province_city', '')) ~ '/' "
       <> "then nullif(trim(substring(trim(la.value_json->>'province_city') from '[^/]+$')), '') "
       <> "else nullif(trim(la.value_json->>'province_city'), '') end "
-      <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), '') "
+      <> "from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1)), ''), ''), "
+      <> "coalesce((select c.contact_bio from listing_owner_contacts c where c.listing_id = l.id limit 1), '') "
       <> "from listings l where l.id = $1::uuid and l.status = 'published'",
     )
     |> pog.parameter(pog.text(listing_id))
@@ -5645,6 +5662,7 @@ pub fn get_public_listing_vitrine(
             location_area,
             location_district,
             location_province,
+            contact_bio,
           ) = first
           let cnj = case string.trim(contact_name) == "" {
             True -> json.null()
@@ -5670,11 +5688,16 @@ pub fn get_public_listing_vitrine(
             True -> json.null()
             False -> json.string(string.trim(location_province))
           }
+          let bio_j = case string.trim(contact_bio) == "" {
+            True -> json.null()
+            False -> json.string(string.trim(contact_bio))
+          }
           let body =
             json.object([
               #("title", json.string(title)),
               #("description", json.string(description)),
               #("contact_name", cnj),
+              #("contact_bio", bio_j),
               #("location_label", loc_j),
               #("external_listing_ref", ref_j),
               #("location_area", area_j),

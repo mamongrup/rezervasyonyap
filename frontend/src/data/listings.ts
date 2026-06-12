@@ -25,7 +25,6 @@ import {
 } from '@/lib/hotel-detail-demo-content'
 import { formatListingLocationHierarchy, normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { normalizeCatalogVertical, type CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
-import { stripHtml } from '@/lib/social-share/strip-html'
 import {
   getPublicListingImages,
   getPublicListingVitrine,
@@ -277,6 +276,7 @@ export const getStayListingByHandle = async (
   }
 
   const contactName = vitrine?.contact_name?.trim()
+  const contactBio = vitrine?.contact_bio?.trim()
   const externalListingRef = vitrine?.external_listing_ref?.trim() || undefined
 
   const featuredNorm = listing.featuredImage?.trim()
@@ -300,9 +300,7 @@ export const getStayListingByHandle = async (
       displayName: contactName?.trim() || listing.title?.trim() || 'Host',
       avatarUrl: avatars1.src,
       handle: listing.handle || 'host',
-      description: stripHtml(listing.description ?? '')
-        .trim()
-        .slice(0, 800),
+      description: contactBio ?? '',
       listingsCount: 0,
       reviewsCount: listing.reviewCount ?? 0,
       rating: listing.reviewStart ?? 0,

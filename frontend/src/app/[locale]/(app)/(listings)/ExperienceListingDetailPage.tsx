@@ -44,6 +44,10 @@ import {
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { regionBrowseSlugFromLocationPin, regionPlacesSlugFromCity } from '@/lib/region-places-slug'
+import ActivityExtraFeesSection from './ActivityExtraFeesSection'
+import { pickActivitySectionTitle, parseActivityVitrinMeta } from '@/lib/activity-vitrin-meta'
+import { resolveActivityRelatedListings } from '@/lib/resolve-activity-related-listings'
+import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
@@ -69,7 +73,11 @@ import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
 import TourFlightScheduleSection from './TourFlightScheduleSection'
 import { TourPeriodProvider } from './TourPeriodContext'
-import ActivityOverviewSection, { type ActivityOverviewItem } from './ActivityDetailSections'
+import ActivityOverviewSection, {
+  ActivityDescriptionSection,
+  ActivityRulesSection,
+  type ActivityOverviewItem,
+} from './ActivityDetailSections'
 import {
   TourIncludedExcludedSection,
   TourInfoSections,
@@ -106,6 +114,7 @@ type ActivityMeta = {
   preview_url?: string
   includes?: string[]
   excludes?: string[]
+  rules?: string[]
 }
 
 function textFromMeta(value: unknown): string {
@@ -189,6 +198,7 @@ function parseActivityMeta(raw: unknown): ActivityMeta {
     preview_url: textFromMeta(data.preview_url),
     includes: splitMetaList(data.includes as string[] | string | undefined),
     excludes: splitMetaList(data.excludes as string[] | string | undefined),
+    rules: splitMetaList(data.rules as string[] | string | undefined),
   }
 }
 
@@ -277,6 +287,7 @@ export default async function ExperienceListingDetailPage({
     rawTourPeriods,
     tourCountryCards,
     similarToursRes,
+    similarActivitiesRes,
   ] = await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
@@ -298,6 +309,9 @@ export default async function ExperienceListingDetailPage({
       : Promise.resolve([]),
     vertical === 'tour'
       ? fetchCategoryListings('turlar', {}, {}, locale).catch(() => ({ listings: [] }))
+      : Promise.resolve({ listings: [] }),
+    vertical === 'activity'
+      ? fetchCategoryListings('aktiviteler', {}, {}, locale).catch(() => ({ listings: [] }))
       : Promise.resolve({ listings: [] }),
   ])
 
@@ -341,6 +355,9 @@ export default async function ExperienceListingDetailPage({
           })
         : durationTime || td.durationNotSpecified
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
+  const activityVitrin = isActivity
+    ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta))
+    : null
   const tourLanguages = splitMetaList(tourMeta?.languages)
   const tourGroupLine = tourMeta?.max_people
     ? interpolate(td.maxPeople, { count: tourMeta.max_people })
@@ -399,6 +416,9 @@ export default async function ExperienceListingDetailPage({
           handle: l.handle,
           address: l.address ?? '',
           price: l.price ?? '',
+          priceAmount: l.priceAmount,
+          priceAmountMax: l.priceAmountMax,
+          priceCurrency: l.priceCurrency,
           reviewStart: l.reviewStart ?? 0,
           reviewCount: l.reviewCount ?? 0,
           featuredImage: l.featuredImage ?? '',
@@ -406,6 +426,52 @@ export default async function ExperienceListingDetailPage({
           linkBase: tourLinkBase,
         }))
     : []
+  const otherActivities = isActivity
+    ? similarActivitiesRes.listings.filter((l) => l.handle !== handle)
+    : []
+  const regionPin = normalizeStayLocationPin(city ?? address ?? '')
+  const similarActivityListings = isActivity
+    ? await resolveActivityRelatedListings({
+        locale,
+        excludeHandle: handle,
+        manualIds: activityVitrin?.similar_listing_ids,
+        autoCandidates: otherActivities,
+        listingCategory: listingCategory?.trim(),
+        mode: 'similar',
+      })
+    : []
+  const regionActivityListings = isActivity
+    ? await resolveActivityRelatedListings({
+        locale,
+        excludeHandle: handle,
+        manualIds: activityVitrin?.region_listing_ids,
+        autoCandidates: otherActivities.filter(
+          (l) => !similarActivityListings.some((s) => s.id === l.id),
+        ),
+        listingCategory: listingCategory?.trim(),
+        regionPin,
+        mode: 'region',
+      })
+    : []
+  const similarListingsTitle = pickActivitySectionTitle(
+    activityVitrin,
+    'similar',
+    locale,
+    ad.similarListings ?? dp.similarListings,
+  )
+  const regionListingsTitle = pickActivitySectionTitle(
+    activityVitrin,
+    'region',
+    locale,
+    ad.regionListings ?? dp.nearbyListings,
+  )
+  const extraFeesTitle = pickActivitySectionTitle(
+    activityVitrin,
+    'extra_fees',
+    locale,
+    ad.extraFeesTitle ?? 'Ek Ücretler',
+  )
+
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
     ? [
         activityMeta?.min_age
@@ -568,15 +634,24 @@ export default async function ExperienceListingDetailPage({
       <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
         {renderSectionHeader()}
         {isActivity ? (
-          <ActivityOverviewSection
-            items={activityOverviewItems}
-            locale={locale}
-            description={
-              description?.trim() ? (
+          <>
+            <ActivityOverviewSection items={activityOverviewItems} locale={locale} />
+            {description?.trim() ? (
+              <ActivityDescriptionSection locale={locale}>
                 <ListingDescriptionExpandable locale={locale} html={description} />
-              ) : null
-            }
-          />
+              </ActivityDescriptionSection>
+            ) : null}
+            {(activityMeta?.rules?.length ?? 0) > 0 ? (
+              <ActivityRulesSection rules={activityMeta?.rules ?? []} locale={locale} />
+            ) : null}
+            {(activityVitrin?.extra_fees?.length ?? 0) > 0 ? (
+              <ActivityExtraFeesSection
+                fees={activityVitrin?.extra_fees ?? []}
+                title={extraFeesTitle}
+                locale={locale}
+              />
+            ) : null}
+          </>
         ) : null}
         {isActivity && (activityMeta?.includes?.length || activityMeta?.excludes?.length) ? (
           <TourIncludedExcludedSection
@@ -675,9 +750,35 @@ export default async function ExperienceListingDetailPage({
 
             <Divider className="my-12" />
 
+            {isActivity &&
+            (similarActivityListings.length > 0 || regionActivityListings.length > 0) ? (
+              <div className="mb-12 flex w-full flex-col gap-y-8">
+                {similarActivityListings.length > 0 ? (
+                  <SimilarListings
+                    listings={similarActivityListings}
+                    title={similarListingsTitle}
+                    sectionClassName={LISTING_SECTION_SHELL}
+                    perNightSuffix=""
+                  />
+                ) : null}
+                {regionActivityListings.length > 0 ? (
+                  <SimilarListings
+                    listings={regionActivityListings}
+                    title={regionListingsTitle}
+                    sectionClassName={LISTING_SECTION_SHELL}
+                    perNightSuffix=""
+                  />
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
               <div className="w-full lg:w-4/9 xl:w-1/3">
-                <SectionHost {...listingHostForSection(title, host)} locale={locale} />
+                <SectionHost
+                  {...listingHostForSection(title, host)}
+                  locale={locale}
+                  labelVariant={isActivity ? 'listingOwner' : 'host'}
+                />
               </div>
               <div className="w-full scroll-mt-28 lg:w-2/3" id="experience-section-reviews">
                 <SectionListingReviews

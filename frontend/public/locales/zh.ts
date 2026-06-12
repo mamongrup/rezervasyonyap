@@ -765,6 +765,8 @@ export const zh: AppMessages = {
     activityDetail: {
       aboutTitle: '关于此活动',
       aboutSubtitle: '时长、集合点与参与信息。',
+      rulesTitle: '规则',
+      rulesSubtitle: '预订前请阅读。',
       overview: {
         duration: '时长',
         durationHours: '{hours}小时',

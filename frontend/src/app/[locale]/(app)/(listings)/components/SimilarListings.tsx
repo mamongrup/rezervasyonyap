@@ -1,15 +1,17 @@
 'use client'
 
+import ListingPrice from '@/components/ListingPrice'
+import StartRating from '@/components/StartRating'
 import { useLocaleSegment } from '@/contexts/locale-context'
 import useSnapSlider from '@/hooks/useSnapSlider'
 import { ButtonCircle } from '@/shared/Button'
 import { getMessages } from '@/utils/getT'
-import { ArrowLeft02Icon, ArrowRight02Icon, MapPinIcon, StarIcon } from '@hugeicons/core-free-icons'
+import { ArrowLeft02Icon, ArrowRight02Icon, Location06Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import Image from 'next/image'
 import Link from 'next/link'
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 
 interface SimilarListing {
   id: string
@@ -17,12 +19,15 @@ interface SimilarListing {
   handle: string
   address: string
   price: string
+  priceAmount?: number
+  priceAmountMax?: number
+  priceCurrency?: string
   reviewStart: number
   reviewCount: number
   featuredImage: string
   listingCategory: string
   linkBase: string
-  /** Tatil evi: misafir · oda · banyo (StayCard2 ile aynı `capacitySpec`) */
+  /** Tatil evi / yat: misafir · oda · banyo — StayCard2 ile aynı satır */
   capacityLine?: string | null
 }
 
@@ -42,49 +47,81 @@ function SimilarListingCard({
   item: SimilarListing
   perNightSuffix: string
 }) {
+  const imgSrc = item.featuredImage?.trim() ?? ''
+  const [brokenImage, setBrokenImage] = useState(false)
+  const showImage = Boolean(imgSrc) && !brokenImage
+
   return (
     <Link href={`${item.linkBase}/${item.handle}`} className="group block">
-      <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
-        <Image
-          src={item.featuredImage}
-          alt={item.title}
-          fill
-          className="object-cover transition-transform duration-300 group-hover:scale-105"
-          sizes="(max-width: 640px) 78vw, (max-width: 1024px) 46vw, 25vw"
-        />
+      <div className="relative w-full overflow-hidden rounded-xl" style={{ paddingBottom: '75%' }}>
+        {showImage ? (
+          <Image
+            src={imgSrc}
+            alt={item.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            sizes="(max-width: 640px) 78vw, (max-width: 1024px) 46vw, 25vw"
+            unoptimized={
+              imgSrc.startsWith('data:') ||
+              imgSrc.startsWith('/uploads/') ||
+              /^https?:\/\//i.test(imgSrc)
+            }
+            onError={() => setBrokenImage(true)}
+          />
+        ) : (
+          <div className="absolute inset-0 bg-neutral-200 dark:bg-neutral-700" aria-hidden />
+        )}
       </div>
-      <div className="mt-3 space-y-1 px-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-primary-500">
-          {item.listingCategory}
-        </p>
-        <h3 className="line-clamp-1 font-semibold text-neutral-900 transition-colors group-hover:text-primary-600 dark:text-white">
-          {item.title}
-        </h3>
-        <div className="flex items-center gap-1 text-sm text-neutral-500 dark:text-neutral-400">
-          <HugeiconsIcon icon={MapPinIcon} className="h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
-          <span className="line-clamp-1">{item.address}</span>
-        </div>
-        <div className="flex items-center justify-between gap-2 pt-1">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            {item.capacityLine ? (
-              <span className="line-clamp-1 text-sm text-neutral-500 dark:text-neutral-400">
-                {item.capacityLine}
-              </span>
-            ) : null}
-            <div className="flex shrink-0 items-center gap-1">
-              <HugeiconsIcon icon={StarIcon} className="h-4 w-4 text-yellow-400" strokeWidth={1.75} />
-              <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
-                {item.reviewStart.toFixed(1)}
-              </span>
-              <span className="text-sm text-neutral-400">({item.reviewCount})</span>
+
+      <div className="mt-3 flex flex-col gap-y-3 px-0.5">
+        <div className="flex flex-col gap-y-2">
+          {item.listingCategory ? (
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">{item.listingCategory}</span>
+          ) : null}
+          <h3 className="text-base font-semibold text-neutral-900 dark:text-white">
+            <span className="line-clamp-2">{item.title}</span>
+          </h3>
+          {item.address ? (
+            <div className="flex items-start gap-x-1.5 text-sm text-neutral-500 dark:text-neutral-400">
+              <HugeiconsIcon
+                icon={Location06Icon}
+                className="mt-0.5 shrink-0"
+                size={16}
+                color="currentColor"
+                strokeWidth={1.5}
+              />
+              <span className="line-clamp-2 min-w-0">{item.address}</span>
             </div>
-          </div>
-          <p className="shrink-0 font-semibold text-neutral-900 dark:text-white">
-            <span>{item.price}</span>
+          ) : null}
+          {item.capacityLine?.trim() ? (
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">{item.capacityLine}</p>
+          ) : null}
+        </div>
+
+        <div className="w-14 border-b border-neutral-100 dark:border-neutral-800" />
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1">
+            <ListingPrice
+              className="shrink-0 text-base font-semibold text-neutral-900 dark:text-white"
+              price={item.price}
+              priceAmount={item.priceAmount}
+              priceAmountMax={item.priceAmountMax}
+              priceCurrency={item.priceCurrency}
+            />
             {perNightSuffix ? (
-              <span className="text-sm font-normal text-neutral-500"> {perNightSuffix}</span>
+              <span className="shrink-0 text-sm font-normal whitespace-nowrap text-neutral-500 dark:text-neutral-400">
+                {perNightSuffix}
+              </span>
             ) : null}
-          </p>
+          </div>
+          {item.reviewStart > 0 ? (
+            <StartRating
+              className="shrink-0"
+              point={item.reviewStart}
+              reviewCount={item.reviewCount}
+            />
+          ) : null}
         </div>
       </div>
     </Link>

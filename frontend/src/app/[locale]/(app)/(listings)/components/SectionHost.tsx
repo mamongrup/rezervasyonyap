@@ -76,7 +76,9 @@ const SectionHost = ({
         </div>
       </div>
 
-      <p className="block leading-relaxed text-neutral-700 dark:text-neutral-300">{description}</p>
+      {description.trim() ? (
+        <p className="block leading-relaxed text-neutral-700 dark:text-neutral-300">{description}</p>
+      ) : null}
 
       <div className="flex flex-col gap-y-2.5 text-neutral-700 dark:text-neutral-300">
         <div className="flex items-center gap-x-3">

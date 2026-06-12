@@ -776,6 +776,8 @@ export const ru: AppMessages = {
     activityDetail: {
       aboutTitle: 'Об этой активности',
       aboutSubtitle: 'Длительность, место встречи и условия участия.',
+      rulesTitle: 'Правила',
+      rulesSubtitle: 'Ознакомьтесь перед бронированием.',
       overview: {
         duration: 'Длительность',
         durationHours: '{hours} ч.',

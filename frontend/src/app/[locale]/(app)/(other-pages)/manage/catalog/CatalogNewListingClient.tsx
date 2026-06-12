@@ -847,6 +847,7 @@ export default function CatalogNewListingClient({
 
   // ── İlan sahibi ──
   const [ownerName, setOwnerName] = useState('')
+  const [ownerBio, setOwnerBio] = useState('')
   const [ownerPhone, setOwnerPhone] = useState('')
   const [ownerEmail, setOwnerEmail] = useState('')
   /** Tatil evi — BTrans / ödeme beyanı (listing_meta) */
@@ -1390,6 +1391,7 @@ export default function CatalogNewListingClient({
 
         if (owner) {
           setOwnerName(owner.contact_name ?? '')
+          setOwnerBio(owner.contact_bio ?? '')
           setOwnerPhone(owner.contact_phone ?? '')
           setOwnerEmail(owner.contact_email ?? '')
         }
@@ -2735,7 +2737,7 @@ export default function CatalogNewListingClient({
       await saveRequiredStep('Temel ilan bilgileri kaydı', patchListingBasics(token, lid, basicsBody, orgParam))
 
       // 5. İlan sahibi
-      if (ownerName.trim() || ownerPhone.trim() || ownerEmail.trim()) {
+      if (ownerName.trim() || ownerBio.trim() || ownerPhone.trim() || ownerEmail.trim()) {
         await saveRequiredStep(
           'İlan sahibi kaydı',
           putListingOwnerContact(
@@ -2743,6 +2745,7 @@ export default function CatalogNewListingClient({
             lid,
             {
               contact_name: ownerName.trim() || undefined,
+              contact_bio: ownerBio.trim() || undefined,
               contact_phone: ownerPhone.trim() || undefined,
               contact_email: ownerEmail.trim() || undefined,
             },
@@ -5604,6 +5607,19 @@ export default function CatalogNewListingClient({
                   placeholder="Ad Soyad"
                   className="mt-1"
                 />
+              </Field>
+              <Field className="block">
+                <Label>İlan sahibi tanıtım metni</Label>
+                <Textarea
+                  value={ownerBio}
+                  onChange={(e) => setOwnerBio(e.target.value)}
+                  placeholder="Vitrinde ilan sahibi kartında görünecek kısa tanıtım. Boş bırakılırsa gösterilmez."
+                  rows={4}
+                  className="mt-1"
+                />
+                <HintText>
+                  İlan açıklamasından otomatik kopyalanmaz; yalnızca burada yazdığınız metin vitrinde görünür.
+                </HintText>
               </Field>
               <Grid2>
                 <Field className="block">

@@ -720,7 +720,7 @@ export const tr = {
       },
       listingOwner: {
         listingsCount: '{count} ilan',
-        superHost: 'Süper İlan Sahibi',
+        superHost: 'İlan Sahibi',
         experienceLabel: '2+ yıllık deneyim',
         memberSince: '{date} tarihinden beri üye',
         responseRate: 'Yanıt oranı — {rate}%',
@@ -1095,6 +1095,20 @@ export const tr = {
     activityDetail: {
       aboutTitle: 'Aktivite Hakkında',
       aboutSubtitle: 'Süre, buluşma noktası ve katılım bilgileri.',
+      descriptionTitle: 'Açıklama',
+      similarListings: 'Benzeri İlanlar',
+      regionListings: 'Bölgedeki İlanlar',
+      extraFeesTitle: 'Ek Ücretler',
+      rulesTitle: 'Kurallar',
+      rulesSubtitle: 'Katılım öncesi bilmeniz gereken koşullar.',
+      extraFees: {
+        units: {
+          per_stay: 'Rezervasyon başına',
+          per_night: 'Gece başına',
+          per_person: 'Kişi başına',
+          per_person_per_night: 'Kişi başı × gece',
+        },
+      },
       overview: {
         duration: 'Süre',
         durationHours: '{hours} saat',

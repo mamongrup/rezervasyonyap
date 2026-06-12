@@ -42,6 +42,13 @@ import {
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
 import MapPicker from '@/components/editor/MapPicker'
+import ActivityVitrinManageSection, {
+  activityVitrinManageValueToSavePayload,
+  emptyActivityVitrinManageValue,
+  loadActivityVitrinFromMetaPayload,
+  type ActivityVitrinManageValue,
+} from './ActivityVitrinManageSection'
+import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
@@ -875,6 +882,8 @@ function TourSection({ listingId }: { listingId: string }) {
 
 // ─── Aktivite (activity) ──────────────────────────────────────────────────────
 function ActivitySection({ listingId }: { listingId: string }) {
+  const params = useParams()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const [form, setForm] = useState({
     session_based: false, full_day: false,
     duration_hours: '', min_age: '', max_participants: '',
@@ -882,11 +891,13 @@ function ActivitySection({ listingId }: { listingId: string }) {
   })
   const [includes, setIncludes] = useState<string[]>([''])
   const [excludes, setExcludes] = useState<string[]>([''])
+  const [rules, setRules] = useState<string[]>([''])
   const [busy, setBusy] = useState(false)
   const [sessionsBusy, setSessionsBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sessionsMsg, setSessionsMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [sessions, setSessions] = useState<ActivitySessionRow[]>([])
+  const [vitrin, setVitrin] = useState<ActivityVitrinManageValue>(emptyActivityVitrinManageValue)
   const save = useSave('activity', listingId)
 
   interface ActivityMeta {
@@ -894,6 +905,7 @@ function ActivitySection({ listingId }: { listingId: string }) {
     min_age?: string; max_participants?: string; meeting_point?: string
     equipment_included?: string; language?: string; preview_url?: string
     includes?: string[]; excludes?: string[]
+    rules?: string[]
   }
   const loading = useLoadMeta<ActivityMeta>(listingId, 'activity', (d) => {
     setForm({
@@ -905,6 +917,8 @@ function ActivitySection({ listingId }: { listingId: string }) {
     })
     if (d.includes?.length) setIncludes(d.includes)
     if (d.excludes?.length) setExcludes(d.excludes)
+    if (d.rules?.length) setRules(d.rules)
+    setVitrin(loadActivityVitrinFromMetaPayload(unwrapVerticalMetaPayload(d)))
   })
 
   useEffect(() => {
@@ -926,7 +940,13 @@ function ActivitySection({ listingId }: { listingId: string }) {
   async function handleSave() {
     setBusy(true); setMsg(null)
     try {
-      await save({ ...form, includes: includes.filter(Boolean), excludes: excludes.filter(Boolean) })
+      await save({
+        ...form,
+        includes: includes.filter(Boolean),
+        excludes: excludes.filter(Boolean),
+        rules: rules.filter(Boolean),
+        ...activityVitrinManageValueToSavePayload(vitrin),
+      })
       setMsg({ ok: true, text: 'Aktivite bilgileri kaydedildi.' })
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed') })
@@ -1016,6 +1036,45 @@ function ActivitySection({ listingId }: { listingId: string }) {
             onChange={(e) => setForm((p) => ({ ...p, preview_url: e.target.value }))} placeholder="https://youtube.com/..." />
         </Field>
       </div>
+      <div>
+        <SectionTitle>Kurallar</SectionTitle>
+        <p className="mb-3 text-sm text-neutral-500 dark:text-neutral-400">
+          Vitrinde açıklamanın hemen altında listelenir (ör. minimum yaş, iptal koşulu, getirilecek eşyalar).
+        </p>
+        <div className="space-y-2">
+          {rules.map((item, i) => (
+            <div key={i} className="flex gap-2">
+              <input
+                type="text"
+                value={item}
+                placeholder="Ör: 12 yaş altı katılımcı kabul edilmez"
+                className="flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900"
+                onChange={(e) => setRules(rules.map((v, j) => (j === i ? e.target.value : v)))}
+              />
+              <button
+                type="button"
+                onClick={() => setRules(rules.filter((_, j) => j !== i))}
+                className="text-neutral-400 hover:text-red-500"
+              >
+                <MinusCircle className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setRules([...rules, ''])}
+            className="flex items-center gap-1 text-xs text-primary-600 hover:text-primary-700"
+          >
+            <PlusCircle className="h-3.5 w-3.5" /> Kural ekle
+          </button>
+        </div>
+      </div>
+      <ActivityVitrinManageSection
+        listingId={listingId}
+        locale={locale}
+        value={vitrin}
+        onChange={setVitrin}
+      />
       <IncludeExclude includes={includes} excludes={excludes} onIncludes={setIncludes} onExcludes={setExcludes} />
       <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-700">
         <SectionTitle>Seanslar ve Fiyatlar</SectionTitle>
