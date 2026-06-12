@@ -465,14 +465,23 @@ export function buildTourBookRequestVariants(opts = {}) {
   if (unique.length > 1) {
     variants.push({ label: 'resultKeys-all', ...base, resultKeys: unique.slice(0, 2) })
   }
-  if (sessionRaw && isTourSessionCompositeKey(sessionRaw)) {
+  const pkgForBody = String(opts.packageId ?? '').trim() || sessionRaw
+  if (pkgForBody && isPlausibleTourBookKey(pkgForBody)) {
+    // GetTourFinalPrice'ın kabul ettiği PackageId ile yalnız PackageId gövdesi (ResultKeys yok).
+    variants.push({
+      label: 'pkgOnly',
+      ...base,
+      packageIdInBody: true,
+      packageId: pkgForBody,
+      resultKeys: [],
+    })
     for (let i = 0; i < Math.min(unique.length, 2); i++) {
       variants.push({
         label: `pkgBody+key${i}`,
         ...base,
         packageIdInBody: true,
         packageIdWithResultKeys: true,
-        packageId: sessionRaw,
+        packageId: pkgForBody,
         resultKeys: [unique[i]],
       })
     }
