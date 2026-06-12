@@ -65,6 +65,7 @@ type HotelQuoteProps = {
   damageDepositAmount?: never
   ruleFallbackNightly?: never
   ruleNightlyRange?: never
+  priceRules?: never
 }
 
 type Props = {
@@ -103,7 +104,7 @@ export default function StayListingBookingQuoteModal(props: Props) {
   const setPoolHeatingSelected = villaCtx?.setPoolHeatingSelected ?? setLocalPoolHeatingSelected
   const bookingCtx = useOptionalHotelStayBooking()
 
-  const villaProps = isHotel ? null : props
+  const villaProps = isHotel ? null : (props as Props & VillaQuoteProps)
   const villaQuote = useStayListingQuote({
     mealPlans,
     price: villaProps?.price ?? '',

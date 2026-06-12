@@ -1232,7 +1232,6 @@ export default async function StayListingDetailPageContent({
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackForQuote}
           ruleNightlyRange={ruleNightlyRangeForQuote}
-          priceRules={stayPriceRulesForQuote}
         />
       ) : (
         <StayListingCalendarBookingBlock
