@@ -484,12 +484,36 @@ export function pickTourFinalPriceBookRefs(finalPricePayload, sessionRaw, locked
   const finalResultId = String(r.Id ?? r.id ?? '').trim() || null
   const tourFinalReq = r.TourFinalPriceRequest ?? r.tourFinalPriceRequest ?? {}
   const reqPkgId = String(tourFinalReq.PackageId ?? tourFinalReq.packageId ?? '').trim() || null
+  const packagePrice = r.PackagePrice ?? r.packagePrice ?? {}
+  const packagePriceKey = String(
+    packagePrice.ResultKey ??
+      packagePrice.resultKey ??
+      packagePrice.Key ??
+      packagePrice.key ??
+      packagePrice.PackageId ??
+      packagePrice.packageId ??
+      '',
+  ).trim() || null
+  const processId =
+    tourFinalReq.ProcessId ??
+    tourFinalReq.processId ??
+    r.ProcessId ??
+    r.processId ??
+    null
   const sessionBookKey = pickTourSessionBookKey(sessionRaw, lockedPkg)
   const sessionUuid =
     extractTourSessionUuid(sessionRaw) ??
     extractTourSessionUuid(sessionBookKey) ??
     extractTourSessionUuid(lockedPkg)
-  return { finalResultId, reqPkgId, sessionUuid, sessionBookKey, lockedPkg }
+  return {
+    finalResultId,
+    reqPkgId,
+    packagePriceKey,
+    processId,
+    sessionUuid,
+    sessionBookKey,
+    lockedPkg,
+  }
 }
 
 export function buildTourBookRequest(opts = {}) {
@@ -613,12 +637,16 @@ export function buildTourBookRequestVariants(opts = {}) {
   if (finalPriceLocked && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
     const locked = []
     const push = (v) => locked.push({ ...base, ...v })
+    const procId =
+      refs.processId != null && String(refs.processId).trim()
+        ? String(refs.processId).trim()
+        : null
 
-    if (sessionKey && tfpId && /^TFP#/i.test(tfpId)) {
+    if (tfpId && /^TFP#/i.test(tfpId)) {
       push({
-        label: 'pkgSession+tfp+contract',
+        label: 'pkg254+tfp+contract',
         packageIdInBody: true,
-        packageId: sessionKey,
+        packageId: bookPkg,
         allowTfpSession: true,
         packageIdWithResultKeys: true,
         resultKeys: [tfpId],
@@ -626,9 +654,9 @@ export function buildTourBookRequestVariants(opts = {}) {
         skipRoomPickup: true,
       })
       push({
-        label: 'pkgSession+tfp+pickup',
+        label: 'pkg254+tfp+pickup',
         packageIdInBody: true,
-        packageId: sessionKey,
+        packageId: bookPkg,
         allowTfpSession: true,
         packageIdWithResultKeys: true,
         resultKeys: [tfpId],
@@ -636,49 +664,45 @@ export function buildTourBookRequestVariants(opts = {}) {
         roomPickupFormat: 'code',
       })
       push({
-        label: 'pkgSession+tfp+pickupId',
+        label: 'pkg254+tfp+price',
         packageIdInBody: true,
-        packageId: sessionKey,
+        packageId: bookPkg,
         allowTfpSession: true,
         packageIdWithResultKeys: true,
         resultKeys: [tfpId],
         extraInfo: contractsOnly,
-        roomPickupFormat: 'id',
+        withPrice: true,
+        roomPickupFormat: 'code',
+      })
+      if (procId) {
+        push({
+          label: 'pkg254+tfp+proc',
+          packageIdInBody: true,
+          packageId: bookPkg,
+          allowTfpSession: true,
+          packageIdWithResultKeys: true,
+          resultKeys: [tfpId],
+          extraInfo: contractsOnly,
+          processId: procId,
+          roomPickupFormat: 'code',
+        })
+      }
+      push({
+        label: 'resultKeys-tfp+pickup',
+        allowTfpSession: true,
+        resultKeys: [tfpId],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
       })
       push({
-        label: 'pkgTfp+session+contract',
+        label: 'pkgTfp+254+contract',
         packageIdInBody: true,
         packageId: tfpId,
         allowTfpSession: true,
         packageIdWithResultKeys: true,
-        resultKeys: [sessionKey],
+        resultKeys: [bookPkg],
         extraInfo: contractsOnly,
         roomPickupFormat: 'code',
-      })
-    }
-    if (sessionKey) {
-      push({
-        label: 'pkgSession+contract',
-        packageIdInBody: true,
-        packageId: sessionKey,
-        resultKeys: [],
-        extraInfo: contractsOnly,
-        skipRoomPickup: true,
-      })
-      push({
-        label: 'pkg254+sessionKey+contract',
-        packageIdInBody: true,
-        packageId: bookPkg,
-        packageIdWithResultKeys: true,
-        resultKeys: [sessionKey],
-        extraInfo: contractsOnly,
-        roomPickupFormat: 'code',
-      })
-      push({
-        label: 'resultKeys-session+contract',
-        resultKeys: [sessionKey],
-        extraInfo: contractsOnly,
-        skipRoomPickup: true,
       })
     }
     variants.push(...locked)
