@@ -6,6 +6,7 @@ import type { ActivityExtraFeeRow } from '@/lib/activity-vitrin-meta'
 import { convertAmountWithRates } from '@/lib/currency-convert'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { pickLocalized } from '@/lib/localized-text'
+import type { PublicCurrencyRateRow } from '@/lib/travel-api'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { SectionHeading } from './components/SectionHeading'
@@ -14,7 +15,7 @@ function formatFeeAmount(
   amount: string,
   currency: string,
   preferredCode: string,
-  rates: { from_currency: string; to_currency: string; rate: number }[],
+  rates: PublicCurrencyRateRow[],
 ): string {
   const n = parseFloat(amount.replace(/\s/g, '').replace(',', '.'))
   if (!Number.isFinite(n) || n <= 0) return '—'

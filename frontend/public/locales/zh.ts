@@ -765,8 +765,20 @@ export const zh: AppMessages = {
     activityDetail: {
       aboutTitle: '关于此活动',
       aboutSubtitle: '时长、集合点与参与信息。',
+      descriptionTitle: '描述',
+      similarListings: '相似房源',
+      regionListings: '该地区房源',
+      extraFeesTitle: '额外费用',
       rulesTitle: '规则',
       rulesSubtitle: '预订前请阅读。',
+      extraFees: {
+        units: {
+          per_stay: '每次预订',
+          per_night: '每晚',
+          per_person: '每人',
+          per_person_per_night: '每人×每晚',
+        },
+      },
       overview: {
         duration: '时长',
         durationHours: '{hours}小时',

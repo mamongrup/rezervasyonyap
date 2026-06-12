@@ -777,8 +777,20 @@ export const fr: AppMessages = {
     activityDetail: {
       aboutTitle: 'À propos de cette activité',
       aboutSubtitle: 'Durée, point de rendez-vous et informations de participation.',
+      descriptionTitle: 'Description',
+      similarListings: 'Annonces similaires',
+      regionListings: 'Annonces dans la région',
+      extraFeesTitle: 'Frais supplémentaires',
       rulesTitle: 'Règles',
       rulesSubtitle: 'À lire avant la réservation.',
+      extraFees: {
+        units: {
+          per_stay: 'Par réservation',
+          per_night: 'Par nuit',
+          per_person: 'Par personne',
+          per_person_per_night: 'Par personne × nuit',
+        },
+      },
       overview: {
         duration: 'Durée',
         durationHours: '{hours} heures',

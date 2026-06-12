@@ -454,19 +454,19 @@ export default async function ExperienceListingDetailPage({
       })
     : []
   const similarListingsTitle = pickActivitySectionTitle(
-    activityVitrin,
+    activityVitrin ?? undefined,
     'similar',
     locale,
     ad.similarListings ?? dp.similarListings,
   )
   const regionListingsTitle = pickActivitySectionTitle(
-    activityVitrin,
+    activityVitrin ?? undefined,
     'region',
     locale,
     ad.regionListings ?? dp.nearbyListings,
   )
   const extraFeesTitle = pickActivitySectionTitle(
-    activityVitrin,
+    activityVitrin ?? undefined,
     'extra_fees',
     locale,
     ad.extraFeesTitle ?? 'Ek Ücretler',

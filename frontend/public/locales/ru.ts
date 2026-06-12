@@ -776,8 +776,20 @@ export const ru: AppMessages = {
     activityDetail: {
       aboutTitle: 'Об этой активности',
       aboutSubtitle: 'Длительность, место встречи и условия участия.',
+      descriptionTitle: 'Описание',
+      similarListings: 'Похожие объявления',
+      regionListings: 'Объявления в регионе',
+      extraFeesTitle: 'Дополнительные сборы',
       rulesTitle: 'Правила',
       rulesSubtitle: 'Ознакомьтесь перед бронированием.',
+      extraFees: {
+        units: {
+          per_stay: 'За бронирование',
+          per_night: 'За ночь',
+          per_person: 'За человека',
+          per_person_per_night: 'За человека × ночь',
+        },
+      },
       overview: {
         duration: 'Длительность',
         durationHours: '{hours} ч.',
