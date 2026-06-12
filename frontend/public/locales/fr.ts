@@ -1077,6 +1077,10 @@ export const fr: AppMessages = {
       tabNew: 'Nouveau',
       tabDiscounted: 'En promo',
       tabFeatured: 'À la une',
+      tabLuxury: 'Maisons de vacances de luxe',
+      tabEconomic: 'Maisons de vacances économiques',
+      tabLuxuryHotel: 'Hôtels de luxe',
+      tabEconomicHotel: 'Hôtels économiques',
     },
     mealPlans: {
       ro: 'Logement seul',

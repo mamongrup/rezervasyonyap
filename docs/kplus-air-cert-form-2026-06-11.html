@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Travelrobot Air API Test Cases — rezervasyonyap.tr</title>
+  <style>
+    @page { size: A4; margin: 18mm 16mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Calibri, "Segoe UI", Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.45;
+      color: #111;
+      margin: 0;
+      padding: 0;
+    }
+    .cover {
+      page-break-after: always;
+      padding-top: 40mm;
+      text-align: center;
+    }
+    .cover h1 { font-size: 22pt; margin-bottom: 8mm; color: #1a4a8a; }
+    .cover p { font-size: 12pt; margin: 4px 0; }
+    .page {
+      page-break-after: always;
+      padding-top: 4mm;
+    }
+    .page:last-child { page-break-after: auto; }
+    h2 {
+      color: #1a4a8a;
+      font-size: 14pt;
+      border-bottom: 2px solid #1a4a8a;
+      padding-bottom: 4px;
+      margin: 0 0 10px;
+    }
+    h3 { font-size: 11pt; margin: 14px 0 6px; color: #333; }
+    .meta { background: #f4f7fb; border: 1px solid #c8d6ea; padding: 10px 12px; margin-bottom: 12px; }
+    .meta p { margin: 3px 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 12px;
+      font-size: 10.5pt;
+    }
+    th, td {
+      border: 1px solid #999;
+      padding: 6px 8px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: #e8eef6; width: 32%; font-weight: 600; }
+    ul { margin: 6px 0 10px 18px; padding: 0; }
+    li { margin: 4px 0; }
+    .note {
+      font-size: 9.5pt;
+      color: #555;
+      font-style: italic;
+    }
+    .client-notes {
+      border: 1px solid #666;
+      min-height: 48px;
+      padding: 8px 10px;
+      margin: 10px 0 14px;
+      background: #fff;
+    }
+    .footer-note {
+      margin-top: 12px;
+      font-size: 9pt;
+      color: #666;
+      border-top: 1px solid #ddd;
+      padding-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>Travelrobot Air API Test Cases</h1>
+  <p><strong>Client:</strong> rezervasyonyap.tr</p>
+  <p><strong>Channel:</strong> Test_011425</p>
+  <p><strong>Base URL:</strong> http://sandbox.kplus.com.tr/kplus/v0</p>
+  <p><strong>Test Date:</strong> 2026-06-11T13:25:36</p>
+  <p><strong>Script Version:</strong> 2026-06-10-cert-air-lcc-tc-v14</p>
+  <p><strong>Result:</strong> 51 passed / 0 failed</p>
+  <p><strong>Log File:</strong> travelrobot-test-log-2026-06-11T13-25-36.json</p>
+  <p style="margin-top:16mm;font-size:10pt;color:#555;">
+    Full request/response logs are in the attached JSON file.<br>
+    Sandbox: carrier PNR and ticket numbers are not returned (expected).
+  </p>
+</div>
+
+<!-- PAGE 1 -->
+<div class="page">
+  <h2>Test Case: Oneway</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S2: Oneway / 2ADT+1CHD+1INF / IST→LHR</div>
+  <table>
+    <tr><th>Flight Type</th><td>Oneway Flight</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route</th><td>IST – LHR</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search an itinerary → <strong>Air-S2 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S2 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S2 — ValidateFlight</strong></li>
+    <li>Create a reservation → <strong>Air-S2 — CreateReservation</strong></li>
+    <li>Issue a ticket from reservation → <strong>Air-S2 — IssueTicketFromReservation</strong> <span class="note">(sandbox limitation)</span></li>
+    <li>Issue a ticket directly → <strong>Air-S2 — IssueTicketDirect</strong> <span class="note">(HTTP 404, expected)</span></li>
+  </ul>
+  <table>
+    <tr><th>System PNR (reservation)</th><td><strong>6B7G06MIWE</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR</th><td>(yok)</td></tr>
+    <tr><th>Direct PNR</th><td>(yok)</td></tr>
+    <tr><th>Direct Ticket Number(s)</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 2 -->
+<div class="page">
+  <h2>Test Case: Roundtrip / Combined (1 Adult)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S3: Roundtrip/Combined / 1ADT / LHR→DXB</div>
+  <table>
+    <tr><th>Flight Type</th><td>Roundtrip Flight</td></tr>
+    <tr><th>Result Type</th><td>Combined</td></tr>
+    <tr><th>Passengers</th><td>1 Adult</td></tr>
+    <tr><th>Route</th><td>LHR – DXB</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S3 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S3 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S3 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S3 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S3 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S3 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>63NK06BX1B</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 3 -->
+<div class="page">
+  <h2>Test Case: Roundtrip / Separated (1 Adult)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S4: Roundtrip/Separated / 1ADT / LHR→DXB</div>
+  <table>
+    <tr><th>Flight Type</th><td>Roundtrip Flight</td></tr>
+    <tr><th>Result Type</th><td>Separated</td></tr>
+    <tr><th>Passengers</th><td>1 Adult</td></tr>
+    <tr><th>Route</th><td>LHR – DXB</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S4 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S4 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S4 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S4 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S4 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S4 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>6RVQ06F33W</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 4 -->
+<div class="page">
+  <h2>Test Case: Roundtrip / Combined (2+1+1)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S5: Roundtrip/Combined / 2ADT+1CHD+1INF / LHR→DXB</div>
+  <table>
+    <tr><th>Flight Type</th><td>Roundtrip Flight</td></tr>
+    <tr><th>Result Type</th><td>Combined</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route</th><td>LHR – DXB</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S5 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S5 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S5 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S5 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S5 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S5 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>69L3068M7H</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 5 -->
+<div class="page">
+  <h2>Test Case: Roundtrip / Separated (2+1+1)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S6: Roundtrip/Separated / 2ADT+1CHD+1INF / LHR→DXB</div>
+  <table>
+    <tr><th>Flight Type</th><td>Roundtrip Flight</td></tr>
+    <tr><th>Result Type</th><td>Separated</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route</th><td>LHR – DXB</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S6 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S6 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S6 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S6 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S6 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S6 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>63IB06M7F8</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 6 -->
+<div class="page">
+  <h2>Test Case: Multiple / Combined (1 Adult)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S7: Multiple/Combined / 1ADT / CDG→FCO→LHR→BCN</div>
+  <table>
+    <tr><th>Flight Type</th><td>Multiple Flight</td></tr>
+    <tr><th>Result Type</th><td>Combined</td></tr>
+    <tr><th>Passengers</th><td>1 Adult</td></tr>
+    <tr><th>Route [1]</th><td>CDG – FCO</td></tr>
+    <tr><th>Route [2]</th><td>FCO – LHR</td></tr>
+    <tr><th>Route [3]</th><td>LHR – BCN</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S7 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S7 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S7 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S7 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S7 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S7 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>6NFP063V82</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 7 -->
+<div class="page">
+  <h2>Test Case: Multiple / Separated (2+1+1)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S8: Multiple/Separated / 2ADT+1CHD+1INF / CDG→FCO→LHR→BCN — SearchResults=0 (no sandbox stock)</div>
+  <table>
+    <tr><th>Flight Type</th><td>Multiple Flight</td></tr>
+    <tr><th>Result Type</th><td>Separated</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route [1]</th><td>CDG – FCO</td></tr>
+    <tr><th>Route [2]</th><td>FCO – LHR</td></tr>
+    <tr><th>Route [3]</th><td>LHR – BCN</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S8 — SearchItinerary</strong> (SearchResults=0)</li>
+    <li>Get branded fares → Not executed</li>
+    <li>Validate → Not executed</li>
+    <li>Create reservation → Not executed</li>
+    <li>Issue from reservation → Not executed</li>
+    <li>Issue directly → Not executed</li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td>N/A — sandbox stock unavailable</td></tr>
+    <tr><th>PNR</th><td>N/A</td></tr>
+    <tr><th>Ticket Number(s)</th><td>N/A</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>N/A</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 8 -->
+<div class="page">
+  <h2>Test Case: Oneway - LCC</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX</div>
+  <table>
+    <tr><th>Flight Type</th><td>Oneway Flight (LCC)</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route</th><td>AYT – TZX</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S9 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S9 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S9 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S9 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S9 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S9 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>6QBD06Y6B2</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 9 -->
+<div class="page">
+  <h2>Test Case: Roundtrip - LCC</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S10: Roundtrip-LCC / 2ADT+1CHD+1INF / AYT→TZX</div>
+  <table>
+    <tr><th>Flight Type</th><td>Roundtrip Flight (LCC)</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route</th><td>AYT – TZX</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S10 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S10 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S10 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S10 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S10 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S10 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>6D6B06VYKC</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- PAGE 10 -->
+<div class="page">
+  <h2>Test Case: Multiple - LCC</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S11: Multiple-LCC / 2ADT+1CHD+1INF / AYT→TZX→IST→ADB</div>
+  <table>
+    <tr><th>Flight Type</th><td>Multiple Flight (LCC)</td></tr>
+    <tr><th>Passengers</th><td>2 Adult, 1 Child, 1 Infant</td></tr>
+    <tr><th>Route [1]</th><td>AYT – TZX</td></tr>
+    <tr><th>Route [2]</th><td>TZX – IST</td></tr>
+    <tr><th>Route [3]</th><td>IST – ADB</td></tr>
+    <tr><th>Time</th><td>Any time</td></tr>
+  </table>
+  <h3>Steps &amp; Logs</h3>
+  <ul>
+    <li>Search → <strong>Air-S11 — SearchItinerary</strong></li>
+    <li>Get branded fares → <strong>Air-S11 — GetBrandedFares</strong></li>
+    <li>Validate → <strong>Air-S11 — ValidateFlight</strong></li>
+    <li>Create reservation → <strong>Air-S11 — CreateReservation</strong></li>
+    <li>Issue from reservation → <strong>Air-S11 — IssueTicketFromReservation</strong></li>
+    <li>Issue directly → <strong>Air-S11 — IssueTicketDirect</strong></li>
+  </ul>
+  <table>
+    <tr><th>System PNR</th><td><strong>6XSB06GUTV</strong></td></tr>
+    <tr><th>PNR</th><td>(sandbox — not returned)</td></tr>
+    <tr><th>Ticket Number(s)</th><td>(sandbox — not issued)</td></tr>
+    <tr><th>Direct System PNR / PNR / Tickets</th><td>(yok)</td></tr>
+  </table>
+</div>
+
+<!-- BONUS S1 -->
+<div class="page">
+  <h2>Supplementary: Oneway 1 Adult (Air-S1)</h2>
+  <div class="client-notes">rezervasyonyap.tr sandbox certification — Air-S1: Oneway / 1ADT / IST→LHR</div>
+  <table>
+    <tr><th>Flight Type</th><td>Oneway Flight</td></tr>
+    <tr><th>Passengers</th><td>1 Adult</td></tr>
+    <tr><th>Route</th><td>IST – LHR</td></tr>
+    <tr><th>System PNR</th><td><strong>6TH606TYST</strong></td></tr>
+    <tr><th>PNR / Tickets</th><td>(sandbox — not returned / not issued)</td></tr>
+  </table>
+  <div class="footer-note">
+    All scenario logs: travelrobot-test-log-2026-06-11T13-25-36.json<br>
+    Summary: travelrobot-test-summary-2026-06-11T13-25-36.txt
+  </div>
+</div>
+
+</body>
+</html>

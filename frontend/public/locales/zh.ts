@@ -1058,6 +1058,10 @@ export const zh: AppMessages = {
       tabNew: '最新',
       tabDiscounted: '特价',
       tabFeatured: '精选',
+      tabLuxury: '豪华度假屋',
+      tabEconomic: '经济型度假屋',
+      tabLuxuryHotel: '豪华酒店',
+      tabEconomicHotel: '经济型酒店',
     },
     mealPlans: {
       ro: '仅住宿',

@@ -1,7 +1,14 @@
 'use client'
 
 import type { TListingBase } from '@/types/listing-types'
-import { DEFAULT_FEATURED_DISPLAY_COUNT, normalizeFeaturedDisplayCount, pickFeaturedTabListings } from '@/lib/featured-listings-utils'
+import {
+  DEFAULT_FEATURED_DISPLAY_COUNT,
+  EMPTY_FEATURED_TAB_IDS,
+  normalizeFeaturedDisplayCount,
+  pickListingsForFeaturedTab,
+  type FeaturedTabDef,
+} from '@/lib/featured-listings-utils'
+import type { FeaturedTabListingIds } from '@/types/listing-types'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { useAppLocale } from '@/hooks/useAppLocale'
@@ -19,40 +26,19 @@ interface SectionGridFeaturePlacesProps {
   subHeading?: string
   headingIsCenter?: boolean
   cardType?: 'card1' | 'card2'
-  /** Tab isimleri — sıra: Önerilenler, Yeni, İndirimli, Öne Çıkan */
+  /** @deprecated `tabDefs` kullanın */
   tabs?: string[]
   tabActive?: string
-  /** Panelden sabitlenen ilan id'leri — «Öne Çıkan» sekmesi */
+  /** Vitrin sekmeleri — etiket + filtre türü */
+  tabDefs?: FeaturedTabDef[]
+  /** Panelden sekme başına sabitlenen ilan id'leri */
+  tabListingIds?: FeaturedTabListingIds
+  /** @deprecated `tabListingIds` kullanın */
   featuredListingIds?: string[]
   /** Sekme başına gösterilecek kart sayısı */
   maxCount?: number
   /** "Daha fazla" butonu href */
   rightButtonHref?: string
-}
-
-function applyTabFilter(
-  listings: TListingBase[],
-  tabIndex: number,
-  featuredListingIds: string[] = [],
-): TListingBase[] {
-  switch (tabIndex) {
-    case 1: {
-      const newListings = listings.filter((l) => l.isNew)
-      return newListings.length > 0
-        ? newListings
-        : listings.filter((l) => {
-            if (!l.createdAt) return false
-            const age = Date.now() - new Date(l.createdAt).getTime()
-            return age < 60 * 24 * 60 * 60 * 1000
-          })
-    }
-    case 2:
-      return listings.filter((l) => (l.discountPercent ?? 0) > 0)
-    case 3:
-      return pickFeaturedTabListings(listings, featuredListingIds)
-    default:
-      return listings
-  }
 }
 
 const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
@@ -62,6 +48,8 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
   subHeading = '',
   tabs = [],
   tabActive,
+  tabDefs: tabDefsProp,
+  tabListingIds,
   featuredListingIds = [],
   maxCount = DEFAULT_FEATURED_DISPLAY_COUNT,
   rightButtonHref = '/oteller/all',
@@ -71,14 +59,29 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
   const vitrinHref = useVitrinHref()
   const resolvedRightHref = vitrinHref(rightButtonHref)
 
+  const resolvedTabIds = useMemo<FeaturedTabListingIds>(() => {
+    if (tabListingIds) return tabListingIds
+    if (featuredListingIds.length > 0) {
+      return { ...EMPTY_FEATURED_TAB_IDS, recommended: featuredListingIds }
+    }
+    return EMPTY_FEATURED_TAB_IDS
+  }, [tabListingIds, featuredListingIds])
+
+  const tabDefs = useMemo<FeaturedTabDef[]>(() => {
+    if (tabDefsProp?.length) return tabDefsProp
+    const legacyKinds = ['recommended', 'new', 'discounted'] as const
+    return tabs.map((label, index) => ({
+      label,
+      kind: legacyKinds[index] ?? 'recommended',
+    }))
+  }, [tabDefsProp, tabs])
+
   const visibleTabEntries = useMemo(
     () =>
-      tabs
-        .map((label, index) => ({ label, index }))
-        .filter(
-          ({ index }) => applyTabFilter(stayListings, index, featuredListingIds).length > 0,
-        ),
-    [tabs, stayListings, featuredListingIds],
+      tabDefs.filter(
+        (tab) => pickListingsForFeaturedTab(stayListings, tab.kind, resolvedTabIds).length > 0,
+      ),
+    [tabDefs, stayListings, resolvedTabIds],
   )
 
   const visibleTabLabels = useMemo(
@@ -86,7 +89,7 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
     [visibleTabEntries],
   )
 
-  const defaultTabActive = tabActive ?? visibleTabLabels[0] ?? tabs[0] ?? ''
+  const defaultTabActive = tabActive ?? visibleTabLabels[0] ?? tabDefs[0]?.label ?? ''
   const [activeTab, setActiveTab] = useState(defaultTabActive)
 
   useEffect(() => {
@@ -98,10 +101,10 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
 
   const activeEntry =
     visibleTabEntries.find((entry) => entry.label === activeTab) ?? visibleTabEntries[0]
-  const filtered = applyTabFilter(
+  const filtered = pickListingsForFeaturedTab(
     stayListings,
-    activeEntry?.index ?? 0,
-    featuredListingIds,
+    activeEntry?.kind ?? 'recommended',
+    resolvedTabIds,
   )
   const displayCount = normalizeFeaturedDisplayCount(maxCount)
   const displayListings = filtered.slice(0, displayCount)

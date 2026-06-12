@@ -2240,6 +2240,10 @@ export const tr = {
       tabNew: 'Yeni',
       tabDiscounted: 'İndirimli',
       tabFeatured: 'Öne Çıkan',
+      tabLuxury: 'Lüks tatil evleri',
+      tabEconomic: 'Ekonomik tatil evleri',
+      tabLuxuryHotel: 'Lüks oteller',
+      tabEconomicHotel: 'Ekonomik oteller',
     },
     mealPlans: {
       ro: 'Sadece Oda',

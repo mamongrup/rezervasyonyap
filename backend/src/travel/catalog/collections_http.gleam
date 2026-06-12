@@ -454,6 +454,38 @@ fn pub_listing_json(
   ])
 }
 
+fn transliterate_tr_search_ascii(s: String) -> String {
+  s
+  |> string.replace("İ", "i")
+  |> string.replace("I", "i")
+  |> string.replace("ı", "i")
+  |> string.replace("Ğ", "g")
+  |> string.replace("ğ", "g")
+  |> string.replace("Ü", "u")
+  |> string.replace("ü", "u")
+  |> string.replace("Ş", "s")
+  |> string.replace("ş", "s")
+  |> string.replace("Ö", "o")
+  |> string.replace("ö", "o")
+  |> string.replace("Ç", "c")
+  |> string.replace("ç", "c")
+  |> string.lowercase
+}
+
+/// `Ütopia Villa 2` → `utopia villa 2`; `utopia-villa-2` → aynı (tire/boşluk birleşik arama).
+fn normalize_listing_search_q(raw: String) -> String {
+  transliterate_tr_search_ascii(raw)
+  |> string.replace("-", " ")
+  |> string.replace("_", " ")
+  |> string.split(on: " ")
+  |> list.map(string.trim)
+  |> list.filter(fn(t) { t != "" })
+  |> string.join(with: " ")
+}
+
+const listing_search_match_sql: String =
+  "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
+
 /// GET /api/v1/catalog/public/listings?q=&category_code=&location=&limit=&locale=&listing_ids=id1,id2
 pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   search_listings_impl(req, ctx, None)
@@ -517,9 +549,10 @@ fn search_listings_impl(
     |> result.unwrap("")
     |> string.trim
 
-  let q_param = case q_raw == "" {
+  let q_normalized = normalize_listing_search_q(q_raw)
+  let q_param = case q_normalized == "" {
     True -> pog.null()
-    False -> pog.text("%" <> string.lowercase(q_raw) <> "%")
+    False -> pog.text(q_normalized)
   }
   let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
   let loc_param = case loc_raw == "" {
@@ -789,7 +822,9 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "where l.status = 'published' "
-    <> "and ($1::text is null or lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug)) ilike $1 or lower(l.slug) ilike $1) "
+    <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
+    <> listing_search_match_sql
+    <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or (lower(coalesce(l.location_name, '')) ilike $3 or lower(coalesce(lm.meta->>'address', '')) ilike $3 or lower(coalesce(lm.meta->>'province_city', '')) ilike $3 or lower(coalesce(lm.meta->>'city', '')) ilike $3 or lower(coalesce(lm.meta->>'district_label', '')) ilike $3 or lower(coalesce(lm.meta->>'region_display', '')) ilike $3)) "
     <> "and ($6::text is null or l.id = ANY(string_to_array($6, ',')::uuid[])) "

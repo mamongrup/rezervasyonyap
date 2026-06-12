@@ -1076,6 +1076,10 @@ export const ru: AppMessages = {
       tabNew: 'Новые',
       tabDiscounted: 'Со скидкой',
       tabFeatured: 'Избранные',
+      tabLuxury: 'Люксовые дома для отдыха',
+      tabEconomic: 'Бюджетные дома для отдыха',
+      tabLuxuryHotel: 'Люксовые отели',
+      tabEconomicHotel: 'Бюджетные отели',
     },
     mealPlans: {
       ro: 'Без питания',

@@ -2,7 +2,13 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdminCookie } from '@/lib/api-require-admin'
-import { normalizeFeaturedDisplayCount, safeCategorySlug } from '@/lib/featured-listings-utils'
+import { fetchListingsByIds } from '@/lib/listings-fetcher'
+import {
+  collectAllFeaturedListingIds,
+  normalizeFeaturedDisplayCount,
+  normalizeFeaturedListingsConfig,
+  safeCategorySlug,
+} from '@/lib/featured-listings-utils'
 import type { FeaturedListingsConfig } from '@/types/listing-types'
 
 const DATA_DIR = path.join(process.cwd(), 'public', 'featured-listings')
@@ -20,11 +26,25 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'category param required' }, { status: 400 })
   }
 
+  const locale = req.nextUrl.searchParams.get('locale')?.trim() || 'tr'
+
   try {
     const raw = await fs.readFile(path.join(DATA_DIR, `${categorySlug}.json`), 'utf-8')
-    return NextResponse.json(JSON.parse(raw))
+    const parsed = JSON.parse(raw) as Partial<FeaturedListingsConfig>
+    const config = normalizeFeaturedListingsConfig(parsed, categorySlug)
+    const allIds = collectAllFeaturedListingIds(config.tabs)
+    const listings =
+      allIds.length > 0 ? await fetchListingsByIds(categorySlug, allIds, locale) : []
+    return NextResponse.json({
+      ...config,
+      listings,
+    })
   } catch {
-    return NextResponse.json({ categorySlug, listingIds: [], displayCount: normalizeFeaturedDisplayCount(undefined) })
+    const empty = normalizeFeaturedListingsConfig(null, categorySlug)
+    return NextResponse.json({
+      ...empty,
+      listings: [],
+    })
   }
 }
 
@@ -38,15 +58,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = (await req.json()) as FeaturedListingsConfig
-    const listingIds = Array.isArray(body.listingIds)
-      ? body.listingIds.filter((id): id is string => typeof id === 'string' && id.trim() !== '')
-      : []
+    const body = (await req.json()) as Partial<FeaturedListingsConfig>
+    const config = normalizeFeaturedListingsConfig(body, categorySlug)
 
     await ensureDir()
     const toSave: FeaturedListingsConfig = {
       categorySlug,
-      listingIds,
+      tabs: config.tabs,
       displayCount: normalizeFeaturedDisplayCount(body.displayCount),
       updatedAt: new Date().toISOString(),
     }

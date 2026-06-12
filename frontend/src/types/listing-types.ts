@@ -313,11 +313,22 @@ export interface FeaturedByRegionConfig {
   regions: FeaturedRegionEntry[]
 }
 
+/** Anasayfa vitrin sekmesi başına panelden seçilen ilanlar */
+export interface FeaturedTabListingIds {
+  recommended: string[]
+  luxury: string[]
+  economic: string[]
+  new: string[]
+  discounted: string[]
+}
+
 /** Kategori vitrini (featured_places) — panelden seçilen öne çıkan ilanlar */
 export interface FeaturedListingsConfig {
   categorySlug: string
-  /** Vitrin sırası — ilk elemanlar «Önerilenler» sekmesinde önde */
-  listingIds: string[]
+  /** Sekme başına vitrin sırası */
+  tabs: FeaturedTabListingIds
+  /** @deprecated `tabs.recommended` — geriye uyumluluk */
+  listingIds?: string[]
   /** Anasayfa vitrininde gösterilecek kart sayısı (sekme başına) */
   displayCount?: number
   updatedAt?: string

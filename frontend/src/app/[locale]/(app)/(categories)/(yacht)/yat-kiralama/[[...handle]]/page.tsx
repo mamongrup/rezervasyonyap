@@ -4,6 +4,7 @@ import { getCategoryBySlug } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
+import { filterHolidayThemeCodesForListingCards } from '@/lib/holiday-theme-codes'
 import {
   getHolidayThemeLabelMap,
   resolveHolidayThemeLabelsFromMap,
@@ -82,8 +83,8 @@ export default async function Page({
 
   const themeLabelMap = await getHolidayThemeLabelMap(locale, 'yacht_charter')
   function withYachtThemeChips<L extends TListingBase>(l: L): L {
-    const codes = l.themeCodes
-    if (!codes?.length) return l
+    const codes = filterHolidayThemeCodesForListingCards(l.themeCodes ?? [])
+    if (!codes.length) return l
     const themeChipLabels = resolveHolidayThemeLabelsFromMap(codes, themeLabelMap)
     if (!themeChipLabels.length) return l
     return { ...l, themeChipLabels }

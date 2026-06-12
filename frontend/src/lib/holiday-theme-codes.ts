@@ -82,6 +82,16 @@ export function expandHolidayThemeCodeToken(raw: string): string[] {
  * API / meta `theme_codes` alanını güvenli kod listesine çevirir.
  * PG `::text` (`{luxury,family}`), virgül CSV ve bozuk JSON parçalarını tolere eder.
  */
+/** Liste kartlarında gösterilmez — ilan detayında havuz/özellik olarak işlenir. */
+export const HOLIDAY_THEME_CODES_EXCLUDED_FROM_LISTING_CARDS = new Set(['child_friendly'])
+
+/** Vitrin kartı tema çipleri — `child_friendly` vb. hariç. */
+export function filterHolidayThemeCodesForListingCards(codes: string[]): string[] {
+  return parseHolidayThemeCodes(codes).filter(
+    (code) => !HOLIDAY_THEME_CODES_EXCLUDED_FROM_LISTING_CARDS.has(code),
+  )
+}
+
 export function parseHolidayThemeCodes(
   input: string | string[] | null | undefined,
 ): string[] {

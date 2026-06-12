@@ -3,9 +3,15 @@
 import type { TStayListing } from '@/data/listings'
 import {
   DEFAULT_FEATURED_DISPLAY_COUNT,
+  EMPTY_FEATURED_TAB_IDS,
+  featuredEditorTabOptions,
+  filterListingsForFeaturedPicker,
   MAX_FEATURED_DISPLAY_COUNT,
   normalizeFeaturedDisplayCount,
+  normalizeFeaturedTabListingIds,
+  type FeaturedTabKind,
 } from '@/lib/featured-listings-utils'
+import type { FeaturedTabListingIds } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import Link from 'next/link'
@@ -34,7 +40,9 @@ export default function FeaturedListingsClient({
   allListings,
   totalListings,
 }: Props) {
-  const [featuredIds, setFeaturedIds] = useState<string[]>([])
+  const [tabIds, setTabIds] = useState<FeaturedTabListingIds>(EMPTY_FEATURED_TAB_IDS)
+  const [activeTab, setActiveTab] = useState<FeaturedTabKind>('recommended')
+  const [featuredCache, setFeaturedCache] = useState<Map<string, TStayListing>>(new Map())
   const [displayCount, setDisplayCount] = useState(DEFAULT_FEATURED_DISPLAY_COUNT)
   const [query, setQuery] = useState('')
   const [poolListings, setPoolListings] = useState<TStayListing[]>(allListings)
@@ -43,18 +51,46 @@ export default function FeaturedListingsClient({
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  const editorTabs = useMemo(() => featuredEditorTabOptions(categorySlug), [categorySlug])
 
   useEffect(() => {
+    if (!editorTabs.some((t) => t.kind === activeTab)) {
+      setActiveTab('recommended')
+    }
+  }, [editorTabs, activeTab])
+
+  const activeIds = tabIds[activeTab]
+
+  useEffect(() => {
+    let cancelled = false
     setLoading(true)
-    fetch(`/api/featured-listings?category=${encodeURIComponent(categorySlug)}`)
+    fetch(
+      `/api/featured-listings?category=${encodeURIComponent(categorySlug)}&locale=${encodeURIComponent(locale)}`,
+    )
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data?.listingIds)) setFeaturedIds(data.listingIds)
-        else setFeaturedIds([])
+        if (cancelled) return
+        setTabIds(
+          normalizeFeaturedTabListingIds(data?.tabs, data?.listingIds),
+        )
         setDisplayCount(normalizeFeaturedDisplayCount(data?.displayCount))
+        const cache = new Map<string, TStayListing>()
+        if (Array.isArray(data?.listings)) {
+          for (const listing of data.listings as TStayListing[]) {
+            if (listing?.id) cache.set(listing.id, listing)
+          }
+        }
+        setFeaturedCache(cache)
       })
-      .finally(() => setLoading(false))
-  }, [categorySlug])
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [categorySlug, locale])
 
   useEffect(() => {
     setPoolListings(allListings)
@@ -79,8 +115,9 @@ export default function FeaturedListingsClient({
         .then((r) => r.json())
         .then((data) => {
           if (Array.isArray(data?.listings)) {
-            setPoolListings(data.listings as TStayListing[])
-            setPoolTotal(typeof data.total === 'number' ? data.total : data.listings.length)
+            const rows = filterListingsForFeaturedPicker(data.listings as TStayListing[])
+            setPoolListings(rows)
+            setPoolTotal(typeof data.total === 'number' ? data.total : rows.length)
           }
         })
         .finally(() => setSearchLoading(false))
@@ -95,44 +132,64 @@ export default function FeaturedListingsClient({
     return map
   }, [allListings, poolListings])
 
-  const featuredListings = useMemo(
-    () => featuredIds.map((id) => byId.get(id)).filter((l): l is TStayListing => Boolean(l)),
-    [featuredIds, byId],
+  const activeTabListings = useMemo(
+    () =>
+      activeIds
+        .map((id) => featuredCache.get(id) ?? byId.get(id))
+        .filter((l): l is TStayListing => Boolean(l)),
+    [activeIds, featuredCache, byId],
   )
 
+  const activeTabLabel = editorTabs.find((t) => t.kind === activeTab)?.label ?? 'Önerilenler'
+
   const filteredPool = useMemo(() => {
-    const featuredSet = new Set(featuredIds)
-    return poolListings.filter((l) => !featuredSet.has(l.id))
-  }, [poolListings, featuredIds])
+    const tabSet = new Set(activeIds)
+    return poolListings.filter((l) => !tabSet.has(l.id))
+  }, [poolListings, activeIds])
 
   const poolTruncated = query.trim() !== '' && poolTotal > poolListings.length
 
   async function handleSave() {
     setSaving(true)
+    setSaveError(null)
     try {
-      await fetch(`/api/featured-listings?category=${encodeURIComponent(categorySlug)}`, {
+      const res = await fetch(`/api/featured-listings?category=${encodeURIComponent(categorySlug)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categorySlug, listingIds: featuredIds, displayCount }),
+        body: JSON.stringify({ categorySlug, tabs: tabIds, displayCount }),
       })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(data?.error ?? `Kayıt başarısız (HTTP ${res.status})`)
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Kayıt başarısız')
     } finally {
       setSaving(false)
     }
   }
 
-  function addListing(id: string) {
-    if (featuredIds.includes(id)) return
-    setFeaturedIds((prev) => [...prev, id])
+  function updateActiveTabIds(updater: (prev: string[]) => string[]) {
+    setTabIds((prev) => ({
+      ...prev,
+      [activeTab]: updater(prev[activeTab]),
+    }))
+  }
+
+  function addListing(listing: TStayListing) {
+    if (activeIds.includes(listing.id)) return
+    setFeaturedCache((prev) => new Map(prev).set(listing.id, listing))
+    updateActiveTabIds((prev) => [...prev, listing.id])
   }
 
   function removeListing(id: string) {
-    setFeaturedIds((prev) => prev.filter((x) => x !== id))
+    updateActiveTabIds((prev) => prev.filter((x) => x !== id))
   }
 
   function moveListing(id: string, dir: -1 | 1) {
-    setFeaturedIds((prev) => {
+    updateActiveTabIds((prev) => {
       const idx = prev.indexOf(id)
       if (idx < 0) return prev
       const next = idx + dir
@@ -143,8 +200,8 @@ export default function FeaturedListingsClient({
     })
   }
 
-  function clearAll() {
-    setFeaturedIds([])
+  function clearActiveTab() {
+    updateActiveTabIds(() => [])
   }
 
   if (loading) {
@@ -159,12 +216,17 @@ export default function FeaturedListingsClient({
             Öne Çıkan İlanlar
           </h1>
           <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-            Anasayfa ve kategori vitrinlerinde «Önerilenler» ve «Öne Çıkan» sekmelerini yönetin.
+            Anasayfa vitrin sekmelerine (Önerilenler, Lüks, Ekonomik, Yeni, …) ayrı ayrı ilan atayın.
           </p>
         </div>
-        <ButtonPrimary onClick={handleSave} disabled={saving}>
-          {saving ? 'Kaydediliyor…' : saved ? '✓ Kaydedildi' : 'Kaydet'}
-        </ButtonPrimary>
+        <div className="flex flex-col items-end gap-2">
+          {saveError ? (
+            <p className="text-xs text-red-600 dark:text-red-400">{saveError}</p>
+          ) : null}
+          <ButtonPrimary onClick={handleSave} disabled={saving}>
+            {saving ? 'Kaydediliyor…' : saved ? '✓ Kaydedildi' : 'Kaydet'}
+          </ButtonPrimary>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -189,7 +251,7 @@ export default function FeaturedListingsClient({
       <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-700">
         <h2 className="font-semibold text-neutral-800 dark:text-neutral-200">Vitrin ayarları</h2>
         <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-          Her sekmede (Önerilenler, Yeni, …) en fazla kaç kart gösterilsin.
+          Her sekmede en fazla kaç kart gösterilsin.
         </p>
         <label className="mt-4 flex max-w-xs flex-col gap-1.5">
           <span className="text-sm font-medium text-neutral-700 dark:text-neutral-300">
@@ -209,32 +271,62 @@ export default function FeaturedListingsClient({
         </label>
       </div>
 
+      <div className="flex flex-wrap gap-2">
+        {editorTabs.map((tab) => {
+          const count = tabIds[tab.kind].length
+          const isActive = activeTab === tab.kind
+          return (
+            <button
+              key={tab.kind}
+              type="button"
+              onClick={() => setActiveTab(tab.kind)}
+              className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
+                isActive
+                  ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900'
+                  : 'border border-neutral-200 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300'
+              }`}
+            >
+              {tab.label}
+              {count > 0 ? (
+                <span className="ml-1.5 text-xs opacity-70">({count})</span>
+              ) : null}
+            </button>
+          )
+        })}
+      </div>
+
       <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-5 dark:border-primary-900/40 dark:bg-primary-950/20">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="font-semibold text-neutral-900 dark:text-neutral-100">
-              {categoryLabel} — vitrin sırası
+              {categoryLabel} — {activeTabLabel}
             </h2>
             <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-              {featuredIds.length === 0
-                ? 'Henüz seçim yok — vitrin API sırasını kullanır.'
-                : `${featuredIds.length} ilan öne çekildi · sıra yukarıdan aşağıya`}
+              {activeIds.length === 0
+                ? 'Henüz seçim yok — vitrin otomatik filtre kullanır.'
+                : `${activeIds.length} ilan · sıra yukarıdan aşağıya`}
             </p>
           </div>
-          {featuredIds.length > 0 ? (
-            <ButtonSecondary className="px-3 py-1.5 text-xs" onClick={clearAll}>
-              Tümünü kaldır
+          {activeIds.length > 0 ? (
+            <ButtonSecondary className="px-3 py-1.5 text-xs" onClick={clearActiveTab}>
+              Sekmeyi temizle
             </ButtonSecondary>
           ) : null}
         </div>
 
-        {featuredListings.length === 0 ? (
+        {activeIds.length > 0 && activeTabListings.length === 0 ? (
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            {activeIds.length} ilan kayıtlı ama vitrinde gösterilemedi — ilanlar yayından kalkmış veya
+            kategori uyuşmuyor olabilir. Kaldırıp yeniden ekleyin.
+          </p>
+        ) : activeTabListings.length === 0 ? (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Aşağıdaki listeden ilan ekleyin. Vitrinde ilk {displayCount} ilan kart olarak görünür.
+            Aşağıdaki listeden «{activeTabLabel}» sekmesine ilan ekleyin. Vitrinde ilk {displayCount}{' '}
+            kart görünür.
           </p>
         ) : (
           <ol className="space-y-2">
-            {featuredListings.map((listing, idx) => (
+            {activeTabListings.map((listing, idx) => (
               <li
                 key={listing.id}
                 className="flex items-center gap-3 rounded-xl border border-white/80 bg-white px-3 py-2.5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
@@ -263,7 +355,7 @@ export default function FeaturedListingsClient({
                   <button
                     type="button"
                     onClick={() => moveListing(listing.id, 1)}
-                    disabled={idx === featuredListings.length - 1}
+                    disabled={idx === activeTabListings.length - 1}
                     className="rounded p-1 text-xs text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
                     title="Aşağı"
                   >
@@ -287,7 +379,9 @@ export default function FeaturedListingsClient({
       <div className="rounded-2xl border border-neutral-200 p-5 dark:border-neutral-700">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-semibold text-neutral-800 dark:text-neutral-200">İlan ekle</h2>
+            <h2 className="font-semibold text-neutral-800 dark:text-neutral-200">
+              İlan ekle — {activeTabLabel}
+            </h2>
             <p className="mt-0.5 text-xs text-neutral-400">
               {poolTotal} yayında ilan
               {query.trim() ? ' · arama tüm ilanlar arasında' : ''}
@@ -329,7 +423,7 @@ export default function FeaturedListingsClient({
                 </div>
                 <button
                   type="button"
-                  onClick={() => addListing(listing.id)}
+                  onClick={() => addListing(listing)}
                   className="shrink-0 rounded-lg border border-dashed border-primary-300 px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-700 dark:text-primary-300 dark:hover:bg-primary-950/30"
                 >
                   + Ekle

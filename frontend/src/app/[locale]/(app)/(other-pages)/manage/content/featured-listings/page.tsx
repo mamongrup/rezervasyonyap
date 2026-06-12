@@ -1,3 +1,4 @@
+import { filterListingsForFeaturedPicker } from '@/lib/featured-listings-utils'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import FeaturedListingsClient from './FeaturedListingsClient'
 
@@ -22,12 +23,14 @@ export default async function FeaturedListingsPage({
   const [{ locale }, { category: rawCategory }] = await Promise.all([params, searchParams])
   const categorySlug =
     rawCategory && CATEGORY_LABELS[rawCategory] ? rawCategory : DEFAULT_CATEGORY
-  const { listings: allListings, total } = await fetchCategoryListings(
+  const { listings: rawListings, total: rawTotal } = await fetchCategoryListings(
     categorySlug,
     {},
     { perPage: 100 },
     locale || 'tr',
   )
+  const allListings = filterListingsForFeaturedPicker(rawListings)
+  const total = rawTotal - (rawListings.length - allListings.length)
 
   return (
     <div className="container py-10">

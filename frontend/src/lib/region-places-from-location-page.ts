@@ -2,8 +2,16 @@
  * `public/region-places/*.json` yoksa bölge vitrinini DB'deki `travel_ideas_json`
  * ve `service_pois_json` ile besler (Gezi vitrinı + yakın mekanlar + harita merkezi).
  */
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 import type { RegionPlaceData } from '@/app/api/region-places/route'
-import type { DistrictServicePoi, LocationPage, TravelIdea } from '@/lib/travel-api'
+import {
+  getLocationPageByName,
+  getLocationPageBySlug,
+  type DistrictServicePoi,
+  type LocationPage,
+  type TravelIdea,
+} from '@/lib/travel-api'
 import { asTrimmedString, parseTravelIdeas, pickTravelIdeasMapCoords } from '@/lib/travel-ideas-parse'
 import { getMessages } from '@/utils/getT'
 
@@ -229,4 +237,49 @@ export function resolveRegionPlacesForBolgePage(
   if (fileData?.categories?.length) return fileData
   if (!page) return null
   return buildRegionPlacesFromLocationPage(page, regionSlug, regionDisplayName, locale)
+}
+
+const REGION_PLACES_DATA_DIR = path.join(process.cwd(), 'public', 'region-places')
+
+function regionPlacesSlugToFilename(slug: string): string {
+  return slug.replace(/[^a-z0-9\-_/]/gi, '').replace(/\//g, '--') + '.json'
+}
+
+/** `public/region-places/{slug}.json` — HTTP self-fetch yerine doğrudan dosya okuma. */
+export async function readRegionPlacesFile(slug: string): Promise<RegionPlaceData | null> {
+  try {
+    await fs.mkdir(REGION_PLACES_DATA_DIR, { recursive: true })
+    const filepath = path.join(REGION_PLACES_DATA_DIR, regionPlacesSlugToFilename(slug))
+    const raw = await fs.readFile(filepath, 'utf-8')
+    return JSON.parse(raw) as RegionPlaceData
+  } catch {
+    return null
+  }
+}
+
+/** İlan detay: dosya + DB yedeği; `initialData` ile istemci 404 gürültüsünü keser. */
+export async function resolveRegionPlacesForListingPage(
+  regionSlug: string | undefined,
+  locale: string,
+  regionLabel?: string,
+): Promise<RegionPlaceData | null> {
+  if (!regionSlug?.trim()) return null
+
+  const fileData = await readRegionPlacesFile(regionSlug)
+
+  const slugPath = regionSlug.replace(/-/g, '/')
+  const slugCandidates = [slugPath, `tr/${slugPath}`, regionSlug]
+
+  let page: LocationPage | null = null
+  for (const candidate of slugCandidates) {
+    page = await getLocationPageBySlug(candidate)
+    if (page) break
+  }
+
+  if (!page && regionLabel?.trim()) {
+    page = await getLocationPageByName(regionLabel.trim())
+  }
+
+  const displayName = regionLabel?.trim() || page?.title || regionSlug
+  return resolveRegionPlacesForBolgePage(fileData, page, regionSlug, displayName, locale)
 }

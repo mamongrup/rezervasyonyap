@@ -1077,6 +1077,10 @@ export const de: AppMessages = {
       tabNew: 'Neu',
       tabDiscounted: 'Reduziert',
       tabFeatured: 'Hervorgehoben',
+      tabLuxury: 'Luxus-Ferienhäuser',
+      tabEconomic: 'Günstige Ferienhäuser',
+      tabLuxuryHotel: 'Luxushotels',
+      tabEconomicHotel: 'Günstige Hotels',
     },
     mealPlans: {
       ro: 'Nur Übernachtung',

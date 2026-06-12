@@ -68,6 +68,47 @@ export function hasAnyEnabledPool(pools: HolidayHomePools): boolean {
   return pools.open_pool.enabled || pools.heated_pool.enabled || pools.children_pool.enabled
 }
 
+/**
+ * Bravo `child_friendly` tema kodu — panelde çocuk havuzu kapalı olsa bile detayda göster.
+ * `childrenPoolFallbackDescription` genelde `listing.poolInfo.types.children_pool` çevirisidir.
+ */
+function emptyHolidayHomePoolRow(): HolidayHomePoolRow {
+  return {
+    enabled: false,
+    width: '',
+    length: '',
+    depth: '',
+    description: '',
+    heating_fee_per_day: '',
+  }
+}
+
+export function applyChildFriendlyThemeToPools(
+  pools: HolidayHomePools | null | undefined,
+  themeCodes: readonly string[] | undefined,
+  childrenPoolFallbackDescription: string,
+): HolidayHomePools | null {
+  const hasChildFriendly = (themeCodes ?? []).some((c) => c.trim().toLowerCase() === 'child_friendly')
+  if (!hasChildFriendly) return pools ?? null
+
+  const base: HolidayHomePools = pools ?? {
+    open_pool: emptyHolidayHomePoolRow(),
+    heated_pool: emptyHolidayHomePoolRow(),
+    children_pool: emptyHolidayHomePoolRow(),
+  }
+  if (base.children_pool.enabled) return base
+
+  const fallback = childrenPoolFallbackDescription.trim()
+  return {
+    ...base,
+    children_pool: {
+      ...base.children_pool,
+      enabled: true,
+      description: base.children_pool.description.trim() || fallback,
+    },
+  }
+}
+
 /** Havuz ısıtma ücreti metninden günlük tutarı çıkarır (örn. `350 ₺`, `350 ₺'dir, …`). */
 export function parseHeatingFeeAmountFromLabel(raw: string): number | null {
   const s = raw.trim()

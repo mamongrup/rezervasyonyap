@@ -14,10 +14,16 @@ import {
   minNightlyFromListingPriceRules,
 } from '@/lib/listing-price-rules-public'
 import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
-import { getPoolHeatingReservationOption, hasAnyEnabledPool } from '@/lib/listing-pools'
+import {
+  applyChildFriendlyThemeToPools,
+  getPoolHeatingReservationOption,
+  hasAnyEnabledPool,
+} from '@/lib/listing-pools'
+import { resolveRegionPlacesForListingPage } from '@/lib/region-places-from-location-page'
 import {
   regionBrowseSlugFromLocationPin,
   regionPlacesSlugFromCity,
+  shortRegionLabelFromLocationPin,
 } from '@/lib/region-places-slug'
 import {
   HOLIDAY_HOME_DETAIL_PATH,
@@ -28,7 +34,10 @@ import {
 } from '@/lib/listing-detail-routes'
 import { stayRentalCapacitySummary } from '@/lib/holiday-home-capacity-summary'
 import { isStayRentalCategory } from '@/lib/stay-rental-categories'
-import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
+import {
+  HOLIDAY_THEME_CODES_EXCLUDED_FROM_LISTING_CARDS,
+  parseHolidayThemeCodes,
+} from '@/lib/holiday-theme-codes'
 import {
   getHolidayThemeLabelMap,
 } from '@/lib/holiday-theme-labels'
@@ -288,6 +297,13 @@ export default async function StayListingDetailPageContent({
     ...p,
     blog_slug: blogSlugMap[p.title] ?? p.blog_slug,
   }))
+  const regionSlugForPlaces =
+    regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
+  const regionPlacesInitialData = await resolveRegionPlacesForListingPage(
+    regionSlugForPlaces,
+    locale,
+    shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
+  )
   const isHotelDemoListing = vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE
   const hotelVitrinMeta =
     vertical === 'hotel' && catalogListingId
@@ -463,7 +479,6 @@ export default async function StayListingDetailPageContent({
       ? await getPublicListingPriceLines(catalogListingId, locale)
       : null
   const holidayHomePools = isHolidayHome ? (listing as TListingHolidayHome).pools : undefined
-  const showHolidayPoolInfo = Boolean(holidayHomePools && hasAnyEnabledPool(holidayHomePools))
   const poolHeatingOption = isHolidayHome
     ? getPoolHeatingReservationOption(holidayHomePools, (priceCurrency ?? 'TRY').trim())
     : null
@@ -581,7 +596,10 @@ export default async function StayListingDetailPageContent({
   const stayThemeCategory: 'holiday_home' | 'yacht_charter' = isYachtCharter
     ? 'yacht_charter'
     : 'holiday_home'
-  const stayThemeCodes = isStayRental ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
+  const stayThemeCodesAll = isStayRental ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
+  const stayThemeCodes = stayThemeCodesAll.filter(
+    (code) => !HOLIDAY_THEME_CODES_EXCLUDED_FROM_LISTING_CARDS.has(code),
+  )
   let stayThemeHighlightLabels: Record<string, string> = {}
   if (isStayRental && stayThemeCodes.length > 0) {
     const themeLabelMap = await getHolidayThemeLabelMap(locale, stayThemeCategory)
@@ -592,6 +610,19 @@ export default async function StayListingDetailPageContent({
       ]),
     )
   }
+  const childrenPoolTypeLabel =
+    (messages.listing.poolInfo?.types as Record<string, string> | undefined)?.children_pool ??
+    'Çocuk Havuzu'
+  const holidayHomePoolsDisplay = isHolidayHome
+    ? applyChildFriendlyThemeToPools(
+        holidayHomePools,
+        stayThemeCodesAll,
+        childrenPoolTypeLabel,
+      ) ?? undefined
+    : undefined
+  const showHolidayPoolInfoDisplay = Boolean(
+    holidayHomePoolsDisplay && hasAnyEnabledPool(holidayHomePoolsDisplay),
+  )
   const hotelTypeCodeNorm = vertical === 'hotel' ? listing.hotelTypeCode?.trim() : ''
   const listingCategoryBadge =
     vertical === 'hotel' && hotelTypeCodeNorm
@@ -1390,7 +1421,7 @@ export default async function StayListingDetailPageContent({
               specs={{ ...yachtCharterSpecs, includes: [], excludes: [] }}
             />
           ) : null}
-          {(amenityKeys.length > 0 || showHolidayPoolInfo) && (
+          {(amenityKeys.length > 0 || showHolidayPoolInfoDisplay) && (
             <div id="stay-section-amenities" className="scroll-mt-28">
               {amenityKeys.length > 0 ? (
                 <ListingAmenitiesSection
@@ -1400,10 +1431,10 @@ export default async function StayListingDetailPageContent({
                   customLabels={amenityLabels}
                   customIcons={amenityIcons}
                   footer={
-                    showHolidayPoolInfo ? (
+                    showHolidayPoolInfoDisplay ? (
                       <ListingPoolInfoSection
                         locale={locale}
-                        pools={holidayHomePools}
+                        pools={holidayHomePoolsDisplay}
                         demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
                         variant="embedded"
                       />
@@ -1413,7 +1444,7 @@ export default async function StayListingDetailPageContent({
               ) : (
                 <ListingPoolInfoSection
                   locale={locale}
-                  pools={holidayHomePools}
+                  pools={holidayHomePoolsDisplay}
                   demo={Boolean((listing as TListingHolidayHome).poolsDemo)}
                 />
               )}
@@ -1497,9 +1528,8 @@ export default async function StayListingDetailPageContent({
           )}
           <NearbyPlacesSection
             locale={locale}
-            regionSlug={
-              regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
-            }
+            regionSlug={regionSlugForPlaces}
+            initialData={regionPlacesInitialData}
             title={dp.nearbyPlaces}
             variant="flat"
             maxPlaces={12}

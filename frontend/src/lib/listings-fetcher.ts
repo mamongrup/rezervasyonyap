@@ -711,3 +711,49 @@ export async function fetchCategoryListings(
     fromApi: false,
   }
 }
+
+/** Panel vitrin seçici — kayıtlı UUID listesini başlık/konum ile çözümler. */
+export async function fetchListingsByIds(
+  categorySlug: string,
+  listingIds: string[],
+  locale = 'tr',
+): Promise<TListingBase[]> {
+  const ids = listingIds.map((id) => id.trim()).filter(Boolean)
+  if (ids.length === 0) return []
+
+  const categoryCode = SLUG_TO_CODE[categorySlug]
+  if (!categoryCode) return []
+
+  const apiResult = await searchPublicListings(
+    {
+      categoryCode,
+      listingIds: ids,
+      perPage: Math.min(100, ids.length),
+      locale: locale || 'tr',
+    },
+    { cache: 'no-store' },
+  )
+  if (!apiResult?.listings?.length) return []
+
+  let holidayPtItems: HolidayHomePropertyTypeItem[] | undefined
+  let yachtPtItems: YachtCharterPropertyTypeItem[] | undefined
+  if (categoryCode === 'holiday_home') {
+    holidayPtItems = await fetchPublicHolidayHomePropertyTypes({ cache: 'no-store' }).catch(
+      (): HolidayHomePropertyTypeItem[] => [],
+    )
+  } else if (categoryCode === 'yacht_charter') {
+    yachtPtItems = await fetchPublicYachtCharterPropertyTypes({ cache: 'no-store' }).catch(
+      (): YachtCharterPropertyTypeItem[] => [],
+    )
+  }
+
+  const mapOpts: MapPublicListingItemOpts = {
+    locale: locale || 'tr',
+    holidayPropertyTypeItems: holidayPtItems?.length ? holidayPtItems : undefined,
+    yachtPropertyTypeItems: yachtPtItems?.length ? yachtPtItems : undefined,
+  }
+  const byId = new Map(
+    apiResult.listings.map((it) => [it.id, mapPublicListingItemToListingBase(it, mapOpts)]),
+  )
+  return ids.map((id) => byId.get(id)).filter((l): l is TListingBase => Boolean(l))
+}

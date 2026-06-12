@@ -2298,6 +2298,10 @@ export const en = {
       tabNew: 'New',
       tabDiscounted: 'Discounted',
       tabFeatured: 'Featured',
+      tabLuxury: 'Luxury holiday homes',
+      tabEconomic: 'Budget holiday homes',
+      tabLuxuryHotel: 'Luxury hotels',
+      tabEconomicHotel: 'Budget hotels',
     },
     mealPlans: {
       ro: 'Room Only',

@@ -43,7 +43,12 @@ import {
 } from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
-import { regionBrowseSlugFromLocationPin, regionPlacesSlugFromCity } from '@/lib/region-places-slug'
+import { resolveRegionPlacesForListingPage } from '@/lib/region-places-from-location-page'
+import {
+  regionBrowseSlugFromLocationPin,
+  regionPlacesSlugFromCity,
+  shortRegionLabelFromLocationPin,
+} from '@/lib/region-places-slug'
 import ActivityExtraFeesSection from './ActivityExtraFeesSection'
 import { pickActivitySectionTitle, parseActivityVitrinMeta } from '@/lib/activity-vitrin-meta'
 import { resolveActivityRelatedListings } from '@/lib/resolve-activity-related-listings'
@@ -333,6 +338,13 @@ export default async function ExperienceListingDetailPage({
   } = listing
 
   const city = (listing as TListingBase).city
+  const regionSlugForPlaces =
+    regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
+  const regionPlacesInitialData = await resolveRegionPlacesForListingPage(
+    regionSlugForPlaces,
+    locale,
+    shortRegionLabelFromLocationPin(city) || city || undefined,
+  )
   const m = getMessages(locale)
   const dp = m.listing.detailPage
   const td = m.listing.tourDetail
@@ -736,9 +748,8 @@ export default async function ExperienceListingDetailPage({
               />
               <NearbyPlacesSection
                 locale={locale}
-                regionSlug={
-                  regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
-                }
+                regionSlug={regionSlugForPlaces}
+                initialData={regionPlacesInitialData}
                 title={dp.nearbyPlaces}
                 variant="flat"
                 maxPlaces={12}
