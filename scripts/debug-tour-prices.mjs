@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
- * Sandbox: tur fiyat yanıt yapısını döker (cert ile aynı GetTourPrices döngüsü).
- *   node scripts/debug-tour-prices.mjs
- *   node scripts/debug-tour-prices.mjs --tour T66-1204-22669
+ * Sandbox: tur fiyat yanıt yapısını döker.
+ *   node scripts/debug-tour-prices.mjs --tour=T66-1204-22669
+ *   node scripts/debug-tour-prices.mjs --tour=T66-1204-22669 --quick
+ *
+ * --tour=CODE  → SearchTour atlanır (hızlı)
+ * --quick      → az attempt/tarih, GetTourDetails atlanır, 45s timeout
  */
 import { writeFileSync } from 'fs'
 import { join, dirname } from 'path'
@@ -12,6 +15,7 @@ import {
   searchTours,
   pickTourRows,
   tourRowCode,
+  collectTourPriceAttemptsFromRow,
   resolveTourPriceAttempts,
   buildTourPriceRequestVariants,
   buildTourPriceRooms,
@@ -30,7 +34,18 @@ import { buildSandboxConfigAsync } from './lib/travelrobot-sandbox-config.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = join(__dirname, '..')
-const tourFilter = process.argv.find((a) => a.startsWith('--tour='))?.slice(7)?.trim()
+const argv = process.argv.slice(2)
+const quick = argv.includes('--quick')
+const tourFilter =
+  argv.find((a) => a.startsWith('--tour='))?.slice(7)?.trim() ||
+  (argv.includes('--tour') ? argv[argv.indexOf('--tour') + 1] : null)
+
+const API_TIMEOUT_MS = quick ? 45000 : 90000
+const DATE_OFFSETS = quick ? [30, 45, 60] : TOUR_PRICE_DATE_OFFSETS
+
+function log(msg) {
+  console.error(`[debug] ${msg}`)
+}
 
 function addDays(n) {
   const d = new Date()
@@ -41,19 +56,27 @@ function addDays(n) {
   return `${dd}.${mm}.${yyyy}`
 }
 
+log('sandbox config yükleniyor…')
 const cfg = await buildSandboxConfigAsync()
+log('token…')
 const { tokenCode } = await createTravelrobotToken(cfg)
-const searchPayload = await searchTours(cfg, tokenCode, {
-  languageCode: 'tr',
-  startDate: addDays(7),
-  endDate: addDays(400),
-})
-let rows = pickTourRows(searchPayload)
+
+let rows = []
 if (tourFilter) {
-  rows = rows.filter((r) => tourRowCode(r) === tourFilter || String(r?.TourCode ?? '').includes(tourFilter))
+  log(`--tour=${tourFilter}: SearchTour atlanıyor`)
+  rows = [{ TourCode: tourFilter, TourAlternativeCode: tourFilter }]
+} else {
+  log('SearchTour…')
+  const searchPayload = await searchTours(cfg, tokenCode, {
+    languageCode: 'tr',
+    startDate: addDays(7),
+    endDate: addDays(400),
+    timeoutMs: API_TIMEOUT_MS,
+  })
+  rows = pickTourRows(searchPayload)
 }
 if (!rows.length) {
-  console.error('SearchTour boş veya filtre eşleşmedi:', tourFilter ?? '(tümü)')
+  console.error('Tur satırı yok:', tourFilter ?? '(tümü)')
   process.exit(1)
 }
 
@@ -64,12 +87,26 @@ let usedTour = null
 let usedAttempt = null
 let usedVariant = null
 const errors = []
+let tries = 0
+const maxTries = quick ? 24 : 80
 
-for (const tourRow of rows.slice(0, 16)) {
+for (const tourRow of rows.slice(0, quick ? 1 : 8)) {
   const tourCode = tourRowCode(tourRow)
   let attempts = []
   try {
-    attempts = await resolveTourPriceAttempts(cfg, tokenCode, tourRow, { languageCode: 'tr' })
+    if (tourFilter && quick) {
+      attempts = collectTourPriceAttemptsFromRow(tourRow)
+      if (!attempts.length) {
+        attempts = [{ tourAlternativeCode: tourFilter, departureDate: null, source: 'cli' }]
+      }
+    } else {
+      log(`${tourCode}: fiyat attempt listesi…`)
+      attempts = await resolveTourPriceAttempts(cfg, tokenCode, tourRow, {
+        languageCode: 'tr',
+        skipTourDetails: quick,
+        timeoutMs: API_TIMEOUT_MS,
+      })
+    }
   } catch (e) {
     errors.push({ tourCode, step: 'resolveTourPriceAttempts', error: String(e) })
     continue
@@ -77,8 +114,8 @@ for (const tourRow of rows.slice(0, 16)) {
   if (!attempts.length) continue
 
   tourLoop:
-  for (const attempt of attempts.slice(0, 12)) {
-    const dateOffsets = formatTourApiDate(attempt.departureDate) ? [null] : TOUR_PRICE_DATE_OFFSETS
+  for (const attempt of attempts.slice(0, quick ? 3 : 8)) {
+    const dateOffsets = formatTourApiDate(attempt.departureDate) ? [null] : DATE_OFFSETS
     for (const offset of dateOffsets) {
       const departureDate = offset == null ? attempt.departureDate : addDays(offset)
       const variants = buildTourPriceRequestVariants(
@@ -86,10 +123,18 @@ for (const tourRow of rows.slice(0, 16)) {
         departureDate,
         priceRooms,
         'tr',
-      )
+      ).slice(0, quick ? 2 : 5)
       for (const variant of variants) {
+        if (++tries > maxTries) {
+          log(`deneme limiti (${maxTries}) — durduruluyor`)
+          break tourLoop
+        }
+        log(`GetTourPrices #${tries} ${tourCode} ${variant.departureDate ?? '?'}`)
         try {
-          const payload = await getTourPrices(cfg, tokenCode, variant)
+          const payload = await getTourPrices(cfg, tokenCode, {
+            ...variant,
+            timeoutMs: API_TIMEOUT_MS,
+          })
           const rows2 = pickTourPriceRows(payload)
           if (!rows2.length) {
             errors.push({ tourCode, step: 'GetTourPrices', error: 'fiyat satırı yok', variant })

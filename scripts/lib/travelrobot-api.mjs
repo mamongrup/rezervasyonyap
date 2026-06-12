@@ -53,13 +53,26 @@ function joinUrl(base, path) {
   return `${base}${p}`
 }
 
-async function kplusPost(baseUrl, svcPath, body) {
+async function kplusPost(baseUrl, svcPath, body, opts = {}) {
   const url = joinUrl(baseUrl, svcPath)
-  const res = await fetch(url, {
+  const timeoutMs = Number(opts.timeoutMs ?? process.env.KPLUS_FETCH_TIMEOUT_MS ?? 120000)
+  const fetchOpts = {
     method: 'POST',
     headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  })
+  }
+  if (timeoutMs > 0 && typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    fetchOpts.signal = AbortSignal.timeout(timeoutMs)
+  }
+  let res
+  try {
+    res = await fetch(url, fetchOpts)
+  } catch (e) {
+    if (e?.name === 'TimeoutError' || e?.name === 'AbortError') {
+      throw new Error(`${svcPath}: zaman aşımı (${timeoutMs}ms)`)
+    }
+    throw e
+  }
   const text = await res.text()
   let json = null
   if (text.trim()) {
@@ -236,7 +249,7 @@ export async function searchTours(cfg, tokenCode, opts = {}) {
         LanguageCode: opts.languageCode ?? 'tr',
       },
     },
-  })
+  }, { timeoutMs: opts.timeoutMs })
 }
 
 /**
@@ -245,14 +258,19 @@ export async function searchTours(cfg, tokenCode, opts = {}) {
  *   4=Önemlinotlar, 5=Fiyatnotları, 6=Görseller, 7=Belgeler, 10=Kalkışnoktaları
  */
 export async function getTourDetails(cfg, tokenCode, tourCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetTourDetails', {
-    request: {
-      TourCode: tourCode,
-      Token: tokenObj(tokenCode),
-      DetailTypes: opts.detailTypes ?? [0, 1, 2, 3, 4, 5, 6, 7, 10],
-      LanguageCode: opts.languageCode ?? 'tr',
+  return kplusPost(
+    cfg.baseUrl,
+    '/Tour.svc/Rest/Json/GetTourDetails',
+    {
+      request: {
+        TourCode: tourCode,
+        Token: tokenObj(tokenCode),
+        DetailTypes: opts.detailTypes ?? [0, 1, 2, 3, 4, 5, 6, 7, 10],
+        LanguageCode: opts.languageCode ?? 'tr',
+      },
     },
-  })
+    { timeoutMs: opts.timeoutMs },
+  )
 }
 
 /**
@@ -289,7 +307,7 @@ export async function getTourPrices(cfg, tokenCode, opts = {}) {
         LanguageCode: opts.languageCode ?? 'tr',
       },
     },
-  })
+  }, { timeoutMs: opts.timeoutMs })
 }
 
 /**
@@ -736,11 +754,16 @@ export async function resolveTourPriceAttempts(cfg, tokenCode, searchRow, opts =
   const hasBookableAlt = attempts.some((a) => a.tourAlternativeCode || a.packageId)
   const tourCode = tourRowCode(searchRow)
 
-  if ((!hasBookableAlt || attempts.every((a) => !a.tourAlternativeCode)) && tourCode) {
+  if (
+    !opts.skipTourDetails &&
+    (!hasBookableAlt || attempts.every((a) => !a.tourAlternativeCode)) &&
+    tourCode
+  ) {
     try {
       const details = await getTourDetails(cfg, tokenCode, tourCode, {
         languageCode: opts.languageCode ?? 'tr',
         detailTypes: opts.detailTypes ?? [0, 1, 5, 10],
+        timeoutMs: opts.timeoutMs,
       })
       attempts = [...attempts, ...collectTourPriceAttemptsFromDetails(details)]
     } catch {
