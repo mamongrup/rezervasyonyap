@@ -66,6 +66,7 @@ import {
   pickTourPricesSessionPackageId,
   pickTourRoomBookKeys,
   pickTourPriceBookKeys,
+  pickTourPaymentPackageId,
   // Hotel
   searchHotel,
   pickHotelRows,
@@ -147,7 +148,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v5'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v6'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1271,14 +1272,20 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               return
             }
 
+            const payPackageId = pickTourPaymentPackageId(finalPayload, resultKeys, packageId)
+            if (!payPackageId || !resultKeys.length) {
+              lastPriceErr = 'BookTour için geçerli ResultKey/PackageId yok'
+              continue
+            }
+
             let paymentInfo = TOUR_TEST_PAYMENT
             try {
-              const payPayload = await getTourPaymentOptions(cfg, tokenCode, { packageId })
+              const payPayload = await getTourPaymentOptions(cfg, tokenCode, { packageId: payPackageId })
               log(
                 scenarioName,
                 'GetPaymentOptions',
                 '/Tour.svc/Rest/Json/GetPaymentOptions',
-                { packageId },
+                { packageId: payPackageId },
                 payPayload,
                 !payPayload?.HasError,
               )
@@ -1298,6 +1305,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             try {
               const bookPayload = await bookTour(cfg, {
                 tokenCode,
+                packageId: payPackageId,
                 resultKeys,
                 tourRoomPaxes,
                 contactInfo: TEST_CONTACT,
@@ -1312,8 +1320,10 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
               if (bookPayload?.HasError) {
                 lastPriceErr = bookPayload?.ErrorMessage ?? 'BookTour hata'
-                if (!/invalid|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) break attemptLoop
-                continue
+                if (/packageid|resultkey|invalid|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) {
+                  continue
+                }
+                break attemptLoop
               }
 
               const booking = bookPayload?.Result?.Booking ?? bookPayload?.Result?.booking ?? bookPayload?.Result ?? {}

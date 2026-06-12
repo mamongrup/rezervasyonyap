@@ -361,39 +361,55 @@ export async function getPickupPoints(cfg, tokenCode, opts = {}) {
  *   languageCode, bookingNote
  * }
  */
-export async function bookTour(cfg, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/BookTour', {
-    request: {
-      ProcessId: null,
-      Version: opts.version ?? '2.0',
-      ProductType: opts.productType ?? 2,
-      TokenCode: opts.tokenCode,
-      PaxInfo: {
-        HotelRoomPaxes: null,
-        FlightPaxes: null,
-        CarPax: null,
-        TourRoomPaxes: opts.tourRoomPaxes ?? [],
-        TransferPaxes: null,
-        PackagePaxes: null,
-        VisaPaxes: null,
-        ActivityPaxes: null,
-      },
-      ExtraInfo: null,
-      ContactInfo: opts.contactInfo,
-      InvoiceInfo: opts.invoiceInfo,
-      CorporateInfo: null,
-      BookingNote: opts.bookingNote ?? null,
-      AgentReferenceInfo: opts.agentReferenceInfo ?? null,
-      CorporatePin: null,
-      ResultKeys: opts.resultKeys ?? [],
-      PaymentInfo: opts.paymentInfo,
-      ExtraNote: null,
-      SystemPnr: null,
-      LastName: null,
-      LanguageCode: opts.languageCode ?? 'tr',
-      WithPrice: false,
+function formatTourBookPaymentInfo(payment) {
+  if (!payment) return undefined
+  const out = {
+    PaymentType: payment.PaymentType != null ? String(payment.PaymentType) : undefined,
+    PaymentItemId: payment.PaymentItemId != null ? String(payment.PaymentItemId) : undefined,
+  }
+  if (payment.CardInfo) out.CardInfo = payment.CardInfo
+  return omitNullFields(out)
+}
+
+export function buildTourBookRequest(opts = {}) {
+  const resultKeys = (opts.resultKeys ?? []).map(String).filter(isPlausibleTourBookKey)
+  const request = omitNullFields({
+    ProcessId: null,
+    Version: opts.version ?? '2.0',
+    ProductType: opts.productType ?? 2,
+    TokenCode: opts.tokenCode,
+    PackageId: opts.packageId != null ? String(opts.packageId) : undefined,
+    PaxInfo: {
+      HotelRoomPaxes: null,
+      FlightPaxes: null,
+      CarPax: null,
+      TourRoomPaxes: opts.tourRoomPaxes ?? [],
+      TransferPaxes: null,
+      PackagePaxes: null,
+      VisaPaxes: null,
+      ActivityPaxes: null,
     },
+    ExtraInfo: null,
+    ContactInfo: opts.contactInfo,
+    InvoiceInfo: opts.invoiceInfo,
+    CorporateInfo: null,
+    BookingNote: opts.bookingNote ?? null,
+    AgentReferenceInfo: opts.agentReferenceInfo ?? null,
+    CorporatePin: null,
+    ResultKeys: resultKeys.length ? resultKeys : undefined,
+    PaymentInfo: formatTourBookPaymentInfo(opts.paymentInfo),
+    ExtraNote: null,
+    SystemPnr: null,
+    LastName: null,
+    LanguageCode: opts.languageCode ?? 'tr',
+    WithPrice: false,
   })
+  return { request }
+}
+
+export async function bookTour(cfg, opts = {}) {
+  const body = buildTourBookRequest(opts)
+  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/BookTour', body)
 }
 
 /**
@@ -866,6 +882,14 @@ function isTourCatalogCode(id) {
   return /^T\d{2}-\d{4}-\d+/i.test(String(id ?? '').trim())
 }
 
+function isPlausibleTourBookKey(id) {
+  const s = String(id ?? '').trim()
+  if (!s) return false
+  if (/^tour:/i.test(s) || s.includes('|')) return true
+  if (isTourCatalogCode(s)) return false
+  return s.length >= 8
+}
+
 /** GetTourFinalPrice için aday PackageId listesi — tur kodundan önce ResultKey/tour:... */
 export function collectTourFinalPricePackageIds(priceRow, ctx = {}) {
   const out = []
@@ -973,21 +997,10 @@ export async function getTourFinalPriceSoft(cfg, tokenCode, opts = {}) {
 
 export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) {
   const sessionPackageId = pickTourPricesSessionPackageId(ctx.pricePayload)
-  const bookKeys = pickTourPriceBookKeys(priceRow, ctx.pricePayload)
   const tourRoomsDefault = buildTourFinalPriceRoomsFromPriceRow(
     priceRow,
     ctx.roomOpts ?? [{ Adults: 2 }],
   )
-
-  if (bookKeys.length) {
-    return {
-      packageId: bookKeys[0],
-      payload: null,
-      resultKeys: bookKeys.slice(0, 3),
-      tourRooms: tourRoomsDefault,
-      skippedFinalPrice: true,
-    }
-  }
 
   const packageIds = collectTourFinalPricePackageIds(priceRow, {
     ...ctx,
@@ -1026,7 +1039,7 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     }
   }
 
-  const directKeys = pickTourPriceBookKeys(priceRow, ctx.pricePayload, { allowCatalogCodes: true })
+  const directKeys = pickTourPriceBookKeys(priceRow, ctx.pricePayload).filter(isPlausibleTourBookKey)
   if (directKeys.length) {
     return {
       packageId: directKeys[0],
@@ -1043,10 +1056,50 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
 
 export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {
   const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
-  const keys = r?.ResultKeys ?? r?.resultKeys ?? r?.Keys ?? r?.keys
-  if (Array.isArray(keys) && keys.length) return keys.map(String)
-  const pkg = pickTourPackageId(r) ?? pickTourPackageId(priceRow)
-  return pkg ? [String(pkg)] : []
+  const keys = []
+  const push = (k) => {
+    const s = String(k ?? '').trim()
+    if (s && isPlausibleTourBookKey(s) && !keys.includes(s)) keys.push(s)
+  }
+
+  const walk = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 6) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1)
+      return
+    }
+    const rks = node.ResultKeys ?? node.resultKeys ?? node.Keys ?? node.keys
+    if (Array.isArray(rks)) rks.forEach(push)
+    push(node.ResultKey ?? node.resultKey)
+    for (const k of Object.keys(node)) {
+      if (Array.isArray(node[k]) || (node[k] && typeof node[k] === 'object')) walk(node[k], depth + 1)
+    }
+  }
+
+  walk(r)
+  if (!keys.length) {
+    for (const rk of pickTourRoomBookKeys(r, null)) push(rk)
+  }
+  if (!keys.length && priceRow) {
+    for (const rk of pickTourRoomBookKeys(priceRow, null)) push(rk)
+  }
+  return keys
+}
+
+/** GetPaymentOptions / BookTour için geçerli PackageId — tur katalog kodu değil. */
+export function pickTourPaymentPackageId(finalPayload, resultKeys = [], fallbackPackageId = null) {
+  for (const k of resultKeys) {
+    if (isPlausibleTourBookKey(k)) return String(k)
+  }
+  const r = finalPayload?.Result ?? finalPayload?.result ?? {}
+  for (const f of ['PackageId', 'packageId', 'Id', 'id']) {
+    const v = r[f]
+    if (v != null && isPlausibleTourBookKey(v)) return String(v).trim()
+  }
+  if (fallbackPackageId != null && isPlausibleTourBookKey(fallbackPackageId)) {
+    return String(fallbackPackageId).trim()
+  }
+  return resultKeys[0] != null ? String(resultKeys[0]) : fallbackPackageId != null ? String(fallbackPackageId) : null
 }
 
 /** GetTourFinalPrice / BookTour — TourRooms şeması. */
