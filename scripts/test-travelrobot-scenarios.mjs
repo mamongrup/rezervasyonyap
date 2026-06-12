@@ -152,9 +152,13 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v15'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v18'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
+/** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
+const TOUR_BOOK_TIMEOUT_MS = Number(
+  process.env.KPLUS_TOUR_BOOK_TIMEOUT_MS ?? Math.max(TOUR_API_TIMEOUT_MS, 180000),
+)
 const TOUR_CERT_PREFER_CODE = 'T66-1204-22669'
 const TOUR_CERT_ONLY_CODE = String(
   getArg('--tour-code') ||
@@ -1275,6 +1279,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let finalPayload = null
             let resultKeys = []
             let skippedFinalPrice = false
+            let usedPriceVariantKey = false
             let tourRoomsForBook = finalRooms
             try {
               tourProgress(`book keys ${tourCode}…`)
@@ -1295,6 +1300,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               finalPayload = resolved.payload
               resultKeys = resolved.resultKeys
               skippedFinalPrice = resolved.skippedFinalPrice === true
+              usedPriceVariantKey = resolved.usedPriceVariantKey === true
               tourRoomsForBook = resolved.tourRooms ?? finalRooms
               log(
                 scenarioName,
@@ -1304,6 +1310,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   packageId,
                   departureDate,
                   skippedFinalPrice: resolved.skippedFinalPrice === true,
+                  usedPriceVariantKey: resolved.usedPriceVariantKey === true,
                   resultKeys,
                 },
                 finalPayload ?? { skippedFinalPrice: true, resultKeys },
@@ -1327,8 +1334,8 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               continue
             }
 
-            if (!SKIP_BOOKING && skippedFinalPrice) {
-              lastPriceErr = 'GetTourFinalPrice zorunlu — oturum anahtarı ile BookTour yapılamaz'
+            if (!SKIP_BOOKING && skippedFinalPrice && !usedPriceVariantKey) {
+              lastPriceErr = 'GetTourFinalPrice zorunlu — yalın oturum pipe ile BookTour yapılamaz'
               continue
             }
 
@@ -1368,6 +1375,19 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               languageCode: searchOpts.languageCode ?? 'tr',
             })
 
+            if (!bookBodyVariants.length) {
+              lastPriceErr = 'Strict book key yok (@/tour:) — oturum pipe BookTour için geçersiz'
+              lastTourDebug = {
+                tourCode,
+                departureDate,
+                resultKeys,
+                sessionPackageId,
+                skippedFinalPrice,
+              }
+              if (tourLocked) break attemptLoop
+              continue
+            }
+
             let bookPayload = null
             let bookPayLabel = paymentAttempts[0]?.label ?? 'default'
             let bookBodyLabel = bookBodyVariants[0]?.label ?? 'resultKeys'
@@ -1379,7 +1399,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   bookPayload = await bookTour(cfg, {
                     ...bodyVariant,
                     paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
-                    timeoutMs: TOUR_API_TIMEOUT_MS,
+                    timeoutMs: TOUR_BOOK_TIMEOUT_MS,
                   })
                   bookPayLabel = pay.label
                   bookBodyLabel = bodyVariant.label
