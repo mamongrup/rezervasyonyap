@@ -154,7 +154,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v26'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v27'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1411,6 +1411,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               finalPriceLocked,
               finalPricePackageId,
               finalPricePayload: finalPayload,
+              paymentSessionId: sessionPackageId,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
               priceRow,
               pricePayload,
@@ -1438,6 +1439,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let bookPayload = null
             let bookPayLabel = paymentAttempts[0]?.label ?? 'default'
             let bookBodyLabel = bookBodyVariants[0]?.label ?? 'resultKeys'
+            let bookBodyFirst = bookBodyLabel
             let bookPaxLabel = tourPaxVariants[0]?.label ?? 'pax-std'
             const bookAttempts = []
             let lastBookRequest = null
@@ -1455,6 +1457,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                     timeoutMs: TOUR_BOOK_TIMEOUT_MS,
                   }
                   lastBookRequest = buildTourBookRequest(bookOpts)
+                  if (!bookAttempts.length) bookBodyFirst = bodyVariant.label
                   try {
                     bookPayload = await bookTour(cfg, bookOpts)
                     lastBookResponse = bookPayload
@@ -1492,8 +1495,9 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 bookKeys: bookBodyVariants[0]?.resultKeys ?? [],
                 bookPayLabel,
                 bookBodyLabel,
+                bookBodyFirst,
                 bookPaxLabel,
-                bookAttempts: bookAttempts.slice(-8),
+                bookAttempts: bookAttempts.slice(0, 8),
                 skippedFinalPrice,
                 rowKeys: priceRow ? Object.keys(priceRow) : [],
               }
@@ -1577,7 +1581,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
   if (!booked && !SKIP_BOOKING) {
     const step = /GetTourFinalPrice/i.test(lastPriceErr) ? 'GetTourFinalPrice' : 'BookTour'
     const dbg = lastTourDebug
-      ? ` | debug: session=${lastTourDebug.sessionPackageId ?? '-'} keys=${(lastTourDebug.resultKeys ?? lastTourDebug.roomBookKeys ?? []).join(',') || '-'} body=${lastTourDebug.bookBodyLabel ?? '-'} rowKeys=${(lastTourDebug.rowKeys ?? []).slice(0, 8).join(',')}`
+      ? ` | debug: session=${lastTourDebug.sessionPackageId ?? '-'} first=${lastTourDebug.bookBodyFirst ?? '-'} last=${lastTourDebug.bookBodyLabel ?? '-'} keys=${(lastTourDebug.resultKeys ?? lastTourDebug.roomBookKeys ?? []).join(',') || '-'} rowKeys=${(lastTourDebug.rowKeys ?? []).slice(0, 8).join(',')}`
       : ''
     fail(`[${scenarioName}] ${step}`, (lastPriceErr || 'Uygun tur/fiyat bulunamadı') + dbg)
     if (lastTourDebug) {

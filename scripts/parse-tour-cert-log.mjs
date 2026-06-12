@@ -39,6 +39,9 @@ for (const step of ['GetTourPrices-hit', 'GetTourFinalPrice', 'BookTour-fail', '
   if (!rows.length) continue
   const last = rows.at(-1)
   console.log('\n===', step, '===')
+  if (step === 'BookTour-fail' && last.request?.attempts?.length) {
+    console.log('attempts:', JSON.stringify(last.request.attempts, null, 2))
+  }
   console.log('request:', JSON.stringify(last.request, null, 2)?.slice(0, 6000))
   console.log('response:', JSON.stringify(last.response, null, 2)?.slice(0, 3000))
 }
