@@ -442,10 +442,11 @@ export function buildTourBookRequest(opts = {}) {
     isPlausibleTourBookPackageId(opts.packageId)
   const keepResultKeys = packageInBody && opts.packageIdWithResultKeys === true
   const request = omitNullFields({
-    ProcessId: null,
+    ProcessId: opts.processId != null ? String(opts.processId) : null,
     Version: opts.version ?? '2.0',
     ProductType: opts.productType ?? 2,
-    TokenCode: opts.tokenCode,
+    TokenCode: opts.useTokenObject === true ? undefined : opts.tokenCode,
+    Token: opts.useTokenObject === true ? tokenObj(opts.tokenCode) : undefined,
     PackageId: packageInBody ? String(opts.packageId).trim() : undefined,
     PaxInfo: {
       HotelRoomPaxes: null,
@@ -475,7 +476,30 @@ export function buildTourBookRequest(opts = {}) {
   return { request }
 }
 
-/** BookTour gövde varyantları — finalPriceLocked: TFP# PackageId + |254 ResultKeys önce. */
+/** GetTourFinalPrice yanıtından BookTour PackageId / ResultKeys adayları. */
+export function pickTourBookIdsFromFinalPricePayload(finalPricePayload, lockedPkg = null) {
+  const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
+  let packageId = null
+  const resultKeys = []
+  const pushKey = (k) => {
+    const s = String(k ?? '').trim()
+    if (s && isPlausibleTourBookKey(s) && !resultKeys.includes(s)) resultKeys.push(s)
+  }
+  const pushPkg = (k) => {
+    const s = String(k ?? '').trim()
+    if (s && isPlausibleTourBookPackageId(s)) packageId = packageId ?? s
+  }
+  for (const f of ['PackageId', 'packageId', 'Id', 'id', 'ResultKey', 'resultKey', 'SearchId', 'searchId']) {
+    const v = r[f]
+    if (v == null) continue
+    pushPkg(v)
+    pushKey(v)
+  }
+  if (lockedPkg) pushKey(lockedPkg)
+  return { packageId, resultKeys }
+}
+
+/** BookTour gövde varyantları — finalPriceLocked: sessionPkg+254key önce. */
 export function buildTourBookRequestVariants(opts = {}) {
   const sessionRaw = String(
     opts.sessionRawId ?? pickTourPricesSessionRawId(opts.pricePayload) ?? '',
@@ -515,10 +539,55 @@ export function buildTourBookRequestVariants(opts = {}) {
         : (variant254 ?? pkgForBody)
   const sessionBookKey = pickTourSessionBookKey(sessionRaw, bookPkg)
   const extraInfo = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
+  const fromFinal = pickTourBookIdsFromFinalPricePayload(opts.finalPricePayload, bookPkg)
+  const processId =
+    opts.finalPricePayload?.Result?.ProcessId ??
+    opts.finalPricePayload?.Result?.processId ??
+    opts.finalPricePayload?.result?.ProcessId ??
+    null
 
   if (finalPriceLocked && sessionBookKey && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
+    const locked = [
+      {
+        label: 'sessionPkg+254key',
+        ...base,
+        packageIdInBody: true,
+        packageId: sessionBookKey,
+        packageIdWithResultKeys: true,
+        resultKeys: [bookPkg],
+      },
+      {
+        label: 'pkgSessionOnly',
+        ...base,
+        packageIdInBody: true,
+        packageId: sessionBookKey,
+        resultKeys: [],
+      },
+      {
+        label: 'resultKeys-254',
+        ...base,
+        resultKeys: [bookPkg],
+      },
+      {
+        label: 'pkgLockedOnly',
+        ...base,
+        packageIdInBody: true,
+        packageId: bookPkg,
+        resultKeys: [],
+      },
+    ]
+    if (fromFinal.packageId && fromFinal.packageId !== sessionBookKey && fromFinal.packageId !== bookPkg) {
+      locked.push({
+        label: 'pkgFinalResp',
+        ...base,
+        packageIdInBody: true,
+        packageId: fromFinal.packageId,
+        resultKeys: fromFinal.resultKeys.length ? fromFinal.resultKeys.slice(0, 1) : [],
+        packageIdWithResultKeys: fromFinal.resultKeys.length > 0 || undefined,
+      })
+    }
     if (paymentSessionId && isPlausibleTourBookPackageId(paymentSessionId)) {
-      variants.push({
+      locked.push({
         label: 'pkgTfp+254key',
         ...base,
         packageIdInBody: true,
@@ -526,105 +595,29 @@ export function buildTourBookRequestVariants(opts = {}) {
         packageIdWithResultKeys: true,
         resultKeys: [bookPkg],
       })
-      if (extraInfo) {
-        variants.push({
-          label: 'pkgTfp+254+contract',
-          ...base,
-          packageIdInBody: true,
-          packageId: paymentSessionId,
-          packageIdWithResultKeys: true,
-          resultKeys: [bookPkg],
-          extraInfo,
-        })
-      }
-      variants.push({
-        label: 'pkgTfp+sessionKey',
+    }
+    if (processId != null) {
+      locked.push({
+        label: 'sessionPkg+254+proc',
         ...base,
+        processId: String(processId),
         packageIdInBody: true,
-        packageId: paymentSessionId,
+        packageId: sessionBookKey,
         packageIdWithResultKeys: true,
-        resultKeys: [sessionBookKey],
-      })
-      variants.push({
-        label: 'pkgTfpOnly',
-        ...base,
-        packageIdInBody: true,
-        packageId: paymentSessionId,
-        resultKeys: [],
+        resultKeys: [bookPkg],
       })
     }
-    variants.push({
-      label: 'resultKeys-254',
+    locked.push({
+      label: 'sessionPkg+254+token',
       ...base,
-      resultKeys: [bookPkg],
-    })
-    variants.push({
-      label: 'sessionPkg+254key',
-      ...base,
+      useTokenObject: true,
       packageIdInBody: true,
       packageId: sessionBookKey,
       packageIdWithResultKeys: true,
       resultKeys: [bookPkg],
-      extraInfo: extraInfo ?? undefined,
     })
-    variants.push({
-      label: 'pkg254+sessionKey',
-      ...base,
-      packageIdInBody: true,
-      packageId: bookPkg,
-      packageIdWithResultKeys: true,
-      resultKeys: [sessionBookKey],
-    })
-    if (extraInfo) {
-      variants.push({
-        label: 'pkg254+session+contract',
-        ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        packageIdWithResultKeys: true,
-        resultKeys: [sessionBookKey],
-        extraInfo,
-      })
-    }
-    variants.push({
-      label: 'pkgOnly254',
-      ...base,
-      packageIdInBody: true,
-      packageId: bookPkg,
-      resultKeys: [],
-    })
-    if (extraInfo) {
-      variants.push({
-        label: 'pkgOnly+contract',
-        ...base,
-        packageIdInBody: true,
-        packageId: bookPkg,
-        resultKeys: [],
-        extraInfo,
-      })
-    }
-    variants.push({
-      label: 'resultKeys-session',
-      ...base,
-      resultKeys: [sessionBookKey],
-    })
+    variants.push(...locked)
     return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
-  }
-
-  if (finalPriceLocked && sessionBookKey) {
-    variants.push({
-      label: 'resultKeys-session',
-      ...base,
-      resultKeys: [sessionBookKey],
-    })
-    if (extraInfo) {
-      variants.push({
-        label: 'resultKeys-session+contract',
-        ...base,
-        resultKeys: [sessionBookKey],
-        extraInfo,
-      })
-    }
   }
 
   if (bookPkg && isPlausibleTourBookKey(bookPkg)) {
