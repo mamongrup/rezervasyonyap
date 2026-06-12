@@ -1,7 +1,7 @@
 'use client'
 
 import { useStayListingQuote } from '@/hooks/use-stay-listing-quote'
-import type { MealPlanItem } from '@/lib/travel-api'
+import type { ListingPriceRuleRow, MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { getMessages } from '@/utils/getT'
@@ -24,6 +24,7 @@ export type StayListingMobileStickyBarProps = {
   damageDepositAmount?: number
   ruleFallbackNightly?: number
   ruleNightlyRange?: { min: number; max: number }
+  priceRules?: ListingPriceRuleRow[]
   reservationAnchorId?: string
 }
 
@@ -42,6 +43,7 @@ export default function StayListingMobileStickyBar({
   damageDepositAmount,
   ruleFallbackNightly,
   ruleNightlyRange,
+  priceRules,
   reservationAnchorId = 'stay-reservation-card',
 }: StayListingMobileStickyBarProps) {
   const messages = getMessages(locale)
@@ -80,6 +82,8 @@ export default function StayListingMobileStickyBar({
     damageDepositAmount,
     ruleFallbackNightly,
     ruleNightlyRange,
+    listingId,
+    priceRules,
   })
 
   const sidebar = messages.listing.sidebar

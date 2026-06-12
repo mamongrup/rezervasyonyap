@@ -6,9 +6,16 @@ import {
 } from '@/contexts/preferred-currency-context'
 import { convertAmountWithRates } from '@/lib/currency-convert'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
-import type { MealPlanItem } from '@/lib/travel-api'
+import { computeStayRentalLodgingQuote } from '@/lib/stay-rental-range-quote'
+import {
+  getPublicListingAvailabilityCalendar,
+  type ListingAvailabilityDay,
+  type ListingPriceRuleRow,
+  type MealPlanItem,
+} from '@/lib/travel-api'
 import { parseDiscountPercent } from '@/utils/formatSaleOffLabel'
-import { useCallback, useMemo } from 'react'
+import { formatLocalYmd } from '@/utils/format-local-ymd'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export function diffStayNights(start: Date | null, end: Date | null): number {
   if (!start || !end) return 0
@@ -50,6 +57,8 @@ export function useStayListingQuote({
   damageDepositAmount,
   ruleFallbackNightly,
   ruleNightlyRange,
+  listingId,
+  priceRules,
 }: {
   mealPlans: MealPlanItem[]
   price: string
@@ -72,8 +81,12 @@ export function useStayListingQuote({
   ruleFallbackNightly?: number
   /** Aktif yemek planı fiyatı kullanılmıyorken vitrin «gecelik» başlığında min–max */
   ruleNightlyRange?: { min: number; max: number }
+  /** Tatil evi / yat — seçili tarihlerde dönemsel fiyat için */
+  listingId?: string
+  priceRules?: ListingPriceRuleRow[]
 }) {
   const ctx = usePreferredCurrencyContext()
+  const [rangeDays, setRangeDays] = useState<ListingAvailabilityDay[]>([])
 
   const formatConverted = useCallback(
     (amount: number, fromCurrency: string): string => {
@@ -89,6 +102,29 @@ export function useStayListingQuote({
   )
 
   const nights = useMemo(() => diffStayNights(rangeStart, rangeEnd), [rangeStart, rangeEnd])
+
+  useEffect(() => {
+    if (!listingId?.trim() || !rangeStart || !rangeEnd || nights <= 0) {
+      setRangeDays([])
+      return
+    }
+    let cancelled = false
+    const from = formatLocalYmd(rangeStart)
+    const lastNight = new Date(rangeEnd)
+    lastNight.setHours(0, 0, 0, 0)
+    lastNight.setDate(lastNight.getDate() - 1)
+    const to = formatLocalYmd(lastNight)
+    void getPublicListingAvailabilityCalendar(listingId.trim(), { from, to })
+      .then((rows) => {
+        if (!cancelled) setRangeDays(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setRangeDays([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [listingId, rangeStart, rangeEnd, nights])
 
   const activePlans = useMemo(
     () => mealPlans.filter((p) => p.is_active).sort((a, b) => a.sort_order - b.sort_order),
@@ -172,7 +208,39 @@ export function useStayListingQuote({
 
   const priceNum = cheapestPlanForPricing ? cheapestPlanForPricing.price_per_night : basePriceNum
 
-  const lodgingSubtotal = priceNum > 0 ? priceNum * nights : 0
+  const fallbackNightlyForRange =
+    ruleFallbackNightly != null && ruleFallbackNightly > 0
+      ? ruleFallbackNightly
+      : priceNum > 0
+        ? priceNum
+        : 0
+
+  const seasonalLodgingQuote = useMemo(() => {
+    if (!rangeStart || !rangeEnd || nights <= 0) return null
+    if (!priceRules?.length && !listingId?.trim()) return null
+    return computeStayRentalLodgingQuote({
+      days: rangeDays,
+      priceRules: priceRules ?? [],
+      rangeStart,
+      rangeEnd,
+      fallbackNightly: fallbackNightlyForRange,
+    })
+  }, [
+    rangeDays,
+    priceRules,
+    rangeStart,
+    rangeEnd,
+    nights,
+    listingId,
+    fallbackNightlyForRange,
+  ])
+
+  const lodgingSubtotal =
+    seasonalLodgingQuote != null && seasonalLodgingQuote.total > 0
+      ? seasonalLodgingQuote.total
+      : priceNum > 0
+        ? priceNum * nights
+        : 0
   const heatingSubtotal =
     poolHeating && poolHeatingSelected ? poolHeating.dailyAmount * nights : 0
   const shortStayFeeApplied =
@@ -195,12 +263,34 @@ export function useStayListingQuote({
   const serviceFee = 0
   const grandTotal = subtotalBeforeFee
 
-  const unitForBreakdownLine =
-    cheapestPlanForPricing != null
-      ? formatConverted(cheapestPlanForPricing.price_per_night, cheapestPlanForPricing.currency_code)
-      : showDiscountRow && basePriceNum > 0
-        ? formatConverted(basePriceNum, currencyCode)
-        : convertedListingLabel
+  const unitForBreakdownLine = useMemo(() => {
+    if (seasonalLodgingQuote != null && nights > 0 && seasonalLodgingQuote.total > 0) {
+      if (seasonalLodgingQuote.uniformNightly != null) {
+        return formatConverted(seasonalLodgingQuote.uniformNightly, currencyCode)
+      }
+      if (
+        seasonalLodgingQuote.minNightly != null &&
+        seasonalLodgingQuote.maxNightly != null &&
+        seasonalLodgingQuote.minNightly !== seasonalLodgingQuote.maxNightly
+      ) {
+        return `${formatConverted(seasonalLodgingQuote.minNightly, currencyCode)} – ${formatConverted(seasonalLodgingQuote.maxNightly, currencyCode)}`
+      }
+    }
+    if (cheapestPlanForPricing != null) {
+      return formatConverted(cheapestPlanForPricing.price_per_night, cheapestPlanForPricing.currency_code)
+    }
+    if (showDiscountRow && basePriceNum > 0) return formatConverted(basePriceNum, currencyCode)
+    return convertedListingLabel
+  }, [
+    seasonalLodgingQuote,
+    nights,
+    cheapestPlanForPricing,
+    showDiscountRow,
+    basePriceNum,
+    currencyCode,
+    formatConverted,
+    convertedListingLabel,
+  ])
 
   return {
     nights,
@@ -222,5 +312,6 @@ export function useStayListingQuote({
     formatConverted,
     shortStayFeeApplied,
     cleaningFeeApplied,
+    seasonalLodgingQuote,
   }
 }

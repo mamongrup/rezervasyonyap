@@ -542,6 +542,7 @@ export default async function StayListingDetailPageContent({
         : rulesNightlyCandidate
 
   const ruleFallbackForQuote = isStayRental ? rulesNightlyCandidate : undefined
+  const stayPriceRulesForQuote = isStayRental ? holidayHomePriceRules : undefined
 
   const seasonalExtraCharges: ListingExtraChargesModel | undefined = isStayRental
     ? {
@@ -1178,7 +1179,8 @@ export default async function StayListingDetailPageContent({
         damageDepositAmount={damageDepositAmount}
         ruleFallbackNightly={ruleFallbackForQuote}
         ruleNightlyRange={ruleNightlyRangeForQuote}
-        listingId={listing.id}
+        listingId={stayListingId}
+        priceRules={stayPriceRulesForQuote}
       />
     )
 
@@ -1234,11 +1236,12 @@ export default async function StayListingDetailPageContent({
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackForQuote}
           ruleNightlyRange={ruleNightlyRangeForQuote}
+          priceRules={stayPriceRulesForQuote}
         />
       ) : (
         <StayListingCalendarBookingBlock
           locale={locale}
-          listingId={listing.id}
+          listingId={stayListingId}
           initialDays={availabilityCalendarDays}
           initialMonthsShown={calendarMonthsShown}
           stayBookingRules={listing.stayBookingRules}
@@ -1254,6 +1257,7 @@ export default async function StayListingDetailPageContent({
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackForQuote}
           ruleNightlyRange={ruleNightlyRangeForQuote}
+          priceRules={stayPriceRulesForQuote}
         />
       )}
     </div>
@@ -1581,7 +1585,7 @@ export default async function StayListingDetailPageContent({
       {isStayRental || vertical === 'hotel' ? (
         <StayListingMobileStickyBar
           locale={locale}
-          listingId={listing.id}
+          listingId={stayListingId}
           mealPlans={mealPlans}
           price={price ?? ''}
           priceAmount={reservationPriceAmount}
@@ -1594,6 +1598,7 @@ export default async function StayListingDetailPageContent({
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackForQuote}
           ruleNightlyRange={ruleNightlyRangeForQuote}
+          priceRules={stayPriceRulesForQuote}
         />
       ) : null}
       </VillaStayBookingShell>

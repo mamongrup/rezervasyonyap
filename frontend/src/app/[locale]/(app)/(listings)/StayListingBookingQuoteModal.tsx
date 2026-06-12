@@ -7,7 +7,7 @@ import { hotelActivityLocalizedTitle } from '@/lib/hotel-activity-pricing'
 import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
 import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
 import { intlDateLocaleTag } from '@/lib/i18n-config'
-import type { HotelListingActivity, MealPlanItem } from '@/lib/travel-api'
+import type { HotelListingActivity, ListingPriceRuleRow, MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import type { GuestsObject } from '@/type'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -37,6 +37,7 @@ type VillaQuoteProps = {
   damageDepositAmount?: number
   ruleFallbackNightly?: number
   ruleNightlyRange?: { min: number; max: number }
+  priceRules?: ListingPriceRuleRow[]
   hotelRoomId?: never
   hotelRoomName?: never
   hotelRoom?: never
@@ -120,6 +121,8 @@ export default function StayListingBookingQuoteModal(props: Props) {
     damageDepositAmount: villaProps?.damageDepositAmount,
     ruleFallbackNightly: villaProps?.ruleFallbackNightly,
     ruleNightlyRange: villaProps?.ruleNightlyRange,
+    listingId,
+    priceRules: villaProps?.priceRules,
   })
 
   const hotelRoom = isHotel ? props.hotelRoom : undefined

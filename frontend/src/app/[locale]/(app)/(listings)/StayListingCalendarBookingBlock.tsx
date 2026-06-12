@@ -1,7 +1,7 @@
 'use client'
 
 import type { PoolHeatingOption } from '@/hooks/use-stay-listing-quote'
-import type { ListingAvailabilityDay, MealPlanItem } from '@/lib/travel-api'
+import type { ListingAvailabilityDay, ListingPriceRuleRow, MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import { useState } from 'react'
 import SectionDateRange from './components/SectionDateRange'
@@ -27,6 +27,7 @@ export default function StayListingCalendarBookingBlock({
   damageDepositAmount,
   ruleFallbackNightly,
   ruleNightlyRange,
+  priceRules,
 }: {
   locale: string
   listingId: string
@@ -48,6 +49,7 @@ export default function StayListingCalendarBookingBlock({
   damageDepositAmount?: number
   ruleFallbackNightly?: number
   ruleNightlyRange?: { min: number; max: number }
+  priceRules?: ListingPriceRuleRow[]
 }) {
   const bookingCtx = useOptionalVillaStayBooking()
   const [modalOpen, setModalOpen] = useState(false)
@@ -88,6 +90,7 @@ export default function StayListingCalendarBookingBlock({
           damageDepositAmount={damageDepositAmount}
           ruleFallbackNightly={ruleFallbackNightly}
           ruleNightlyRange={ruleNightlyRange}
+          priceRules={priceRules}
         />
       ) : null}
     </>
