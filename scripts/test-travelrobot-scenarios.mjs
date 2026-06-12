@@ -59,6 +59,9 @@ import {
   buildTourPriceRooms,
   buildTourFinalPriceRooms,
   buildTourRoomPaxes,
+  buildTourBookPaxVariants,
+  getPickupPointsSoft,
+  pickTourPickupPointId,
   pickTourPriceRows,
   pickTourBookResultKeys,
   pickTourPackageId,
@@ -153,7 +156,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v20'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v21'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1127,7 +1130,9 @@ function buildDestinationWideTryList(searchRows, certCodes, limit = 25) {
 }
 
 function makeTourCertPax(firstName, lastName, dob, gender = 1) {
-  return makePax(firstName, lastName, dob, gender, 'TR', 'AA123456')
+  const pax = makePax(firstName, lastName, dob, gender, 'TR', 'AA123456')
+  pax.IdentityNumber = null
+  return pax
 }
 
 async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpts = {}) {
@@ -1281,6 +1286,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let resultKeys = []
             let skippedFinalPrice = false
             let usedPriceVariantKey = false
+            let pkgOnlyMode = false
             let tourRoomsForBook = finalRooms
             try {
               tourProgress(`book keys ${tourCode}…`)
@@ -1302,6 +1308,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               resultKeys = resolved.resultKeys
               skippedFinalPrice = resolved.skippedFinalPrice === true
               usedPriceVariantKey = resolved.usedPriceVariantKey === true
+              pkgOnlyMode = resolved.pkgOnlyMode === true || resolved.usedFinalPricePackageId === true
               tourRoomsForBook = resolved.tourRooms ?? finalRooms
               log(
                 scenarioName,
@@ -1312,6 +1319,8 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   departureDate,
                   skippedFinalPrice: resolved.skippedFinalPrice === true,
                   usedPriceVariantKey: resolved.usedPriceVariantKey === true,
+                  usedFinalPricePackageId: resolved.usedFinalPricePackageId === true,
+                  pkgOnlyMode,
                   resultKeys,
                 },
                 finalPayload ?? { skippedFinalPrice: true, resultKeys },
@@ -1335,7 +1344,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               continue
             }
 
-            if (!SKIP_BOOKING && skippedFinalPrice && !usedPriceVariantKey) {
+            if (!SKIP_BOOKING && skippedFinalPrice && !usedPriceVariantKey && !pkgOnlyMode) {
               lastPriceErr = 'GetTourFinalPrice zorunlu — yalın oturum pipe ile BookTour yapılamaz'
               continue
             }
@@ -1358,18 +1367,45 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             const paymentAttempts = await resolveTourPaymentAttempts(
               cfg,
               tokenCode,
-              resultKeys,
+              pkgOnlyMode ? [packageId] : resultKeys,
               sessionPackageId,
             )
+
+            let pickupPointId = null
+            try {
+              const pickupRes = await getPickupPointsSoft(cfg, tokenCode, {
+                packageId,
+                resultKeys: pkgOnlyMode ? undefined : resultKeys,
+                languageCode: searchOpts.languageCode ?? 'tr',
+              })
+              if (pickupRes.ok) {
+                pickupPointId = pickTourPickupPointId(pickupRes.payload)
+              }
+            } catch {
+              /* opsiyonel */
+            }
+
+            const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax).map((pv) => {
+              if (!pickupPointId) return pv
+              const rooms = (pv.tourRoomPaxes ?? []).map((room, idx) => ({
+                ...room,
+                AdditionalServices:
+                  idx === 0
+                    ? [{ Id: Number(pickupPointId) || pickupPointId }]
+                    : (room.AdditionalServices ?? []),
+              }))
+              return { ...pv, tourRoomPaxes: rooms }
+            })
 
             const bookBodyVariants = buildTourBookRequestVariants({
               tokenCode,
               resultKeys,
               packageId,
+              pkgOnlyMode,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
               priceRow,
               pricePayload,
-              tourRoomPaxes,
+              tourRoomPaxes: tourPaxVariants[0]?.tourRoomPaxes ?? tourRoomPaxes,
               contactInfo: TEST_CONTACT,
               invoiceInfo: TEST_INVOICE,
               bookingNote: clientNotes,
@@ -1393,6 +1429,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let bookPayload = null
             let bookPayLabel = paymentAttempts[0]?.label ?? 'default'
             let bookBodyLabel = bookBodyVariants[0]?.label ?? 'resultKeys'
+            let bookPaxLabel = tourPaxVariants[0]?.label ?? 'pax-std'
             const bookAttempts = []
             let lastBookRequest = null
             let lastBookResponse = null
@@ -1400,30 +1437,39 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             bookPayLoop:
             for (const pay of paymentAttempts.slice(0, 5)) {
               for (const bodyVariant of bookBodyVariants) {
-                const bookOpts = {
-                  ...bodyVariant,
-                  paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
-                  softErrors: true,
-                  timeoutMs: TOUR_BOOK_TIMEOUT_MS,
-                }
-                lastBookRequest = buildTourBookRequest(bookOpts)
-                try {
-                  bookPayload = await bookTour(cfg, bookOpts)
-                  lastBookResponse = bookPayload
-                  bookPayLabel = pay.label
-                  bookBodyLabel = bodyVariant.label
-                  if (!bookPayload?.HasError) break bookPayLoop
-                  lastPriceErr =
-                    bookPayload?.ErrorMessage ??
-                    bookPayload?.UserFriendlyErrorMessage ??
-                    'BookTour hata'
-                } catch (e) {
-                  lastPriceErr = String(e)
-                  lastBookResponse = String(e)
-                }
-                bookAttempts.push({ pay: pay.label, body: bodyVariant.label, error: String(lastPriceErr).slice(0, 300) })
-                if (!/packageid|resultkey|invalid|payment|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) {
-                  break attemptLoop
+                for (const paxVariant of tourPaxVariants) {
+                  const bookOpts = {
+                    ...bodyVariant,
+                    tourRoomPaxes: paxVariant.tourRoomPaxes,
+                    paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
+                    softErrors: true,
+                    timeoutMs: TOUR_BOOK_TIMEOUT_MS,
+                  }
+                  lastBookRequest = buildTourBookRequest(bookOpts)
+                  try {
+                    bookPayload = await bookTour(cfg, bookOpts)
+                    lastBookResponse = bookPayload
+                    bookPayLabel = pay.label
+                    bookBodyLabel = bodyVariant.label
+                    bookPaxLabel = paxVariant.label
+                    if (!bookPayload?.HasError) break bookPayLoop
+                    lastPriceErr =
+                      bookPayload?.ErrorMessage ??
+                      bookPayload?.UserFriendlyErrorMessage ??
+                      'BookTour hata'
+                  } catch (e) {
+                    lastPriceErr = String(e)
+                    lastBookResponse = String(e)
+                  }
+                  bookAttempts.push({
+                    pay: pay.label,
+                    body: bodyVariant.label,
+                    pax: paxVariant.label,
+                    error: String(lastPriceErr).slice(0, 300),
+                  })
+                  if (!/packageid|resultkey|invalid|payment|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) {
+                    break attemptLoop
+                  }
                 }
               }
             }
@@ -1437,6 +1483,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 bookKeys: bookBodyVariants[0]?.resultKeys ?? [],
                 bookPayLabel,
                 bookBodyLabel,
+                bookPaxLabel,
                 bookAttempts: bookAttempts.slice(-8),
                 skippedFinalPrice,
                 rowKeys: priceRow ? Object.keys(priceRow) : [],
@@ -1449,7 +1496,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             }
 
             log(scenarioName, 'BookTour', '/Tour.svc/Rest/Json/BookTour',
-              { resultKeys, sessionPackageId, bookPayLabel, bookBodyLabel, tourCode, departureDate }, bookPayload, true)
+              { resultKeys, sessionPackageId, bookPayLabel, bookBodyLabel, bookPaxLabel, tourCode, departureDate }, bookPayload, true)
 
             ok(
               `[${scenarioName}] GetTourPrices`,

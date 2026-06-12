@@ -383,8 +383,9 @@ export async function getPickupPoints(cfg, tokenCode, opts = {}) {
 function formatTourBookPaymentInfo(payment) {
   if (!payment) return undefined
   const out = {
-    PaymentType: payment.PaymentType != null ? String(payment.PaymentType) : undefined,
+    PaymentType: payment.PaymentType != null ? Number(payment.PaymentType) : undefined,
     PaymentItemId: payment.PaymentItemId != null ? String(payment.PaymentItemId) : undefined,
+    PaymentCommissionType: payment.PaymentCommissionType ?? 0,
   }
   if (payment.CardInfo) out.CardInfo = payment.CardInfo
   return omitNullFields(out)
@@ -431,7 +432,7 @@ export function buildTourBookRequest(opts = {}) {
   return { request }
 }
 
-/** BookTour gövde varyantları — strict (@/tour:) ResultKeys; oturum pipe yalnızca PackageId body. */
+/** BookTour gövde varyantları — pkgOnly öncelikli; strict ResultKeys yoksa yalnız pkgOnly. */
 export function buildTourBookRequestVariants(opts = {}) {
   const sessionRaw = String(
     opts.sessionRawId ?? pickTourPricesSessionRawId(opts.pricePayload) ?? '',
@@ -444,18 +445,42 @@ export function buildTourBookRequestVariants(opts = {}) {
   const explicit = (opts.resultKeys ?? [])
     .map((k) => String(k ?? '').trim())
     .filter(isStrictTourBookResultKey)
-  const keys = explicit.length ? explicit : rowKeys
-  if (!keys.length) return []
-  const unique = keys
+  const unique = (explicit.length ? explicit : rowKeys)
     .filter((id, i, arr) => arr.indexOf(id) === i)
     .sort((a, b) => {
       const rank = (k) =>
         isTourSessionVariantBookKey(k) ? 0 : k.includes('@') || /^tour:/i.test(k) ? 1 : 2
       return rank(a) - rank(b)
     })
-  if (!unique.length) return []
   const { resultKeys: _drop, ...base } = opts
   const variants = []
+  const pkgForBody = String(opts.packageId ?? '').trim() || sessionRaw
+  const pkgOnlyMode = opts.pkgOnlyMode === true
+
+  if (pkgForBody && isPlausibleTourBookKey(pkgForBody)) {
+    variants.push({
+      label: 'pkgOnly',
+      ...base,
+      packageIdInBody: true,
+      packageId: pkgForBody,
+      resultKeys: [],
+    })
+    const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
+    if (variant254 && variant254 !== pkgForBody) {
+      variants.push({
+        label: 'pkgOnly254',
+        ...base,
+        packageIdInBody: true,
+        packageId: variant254,
+        resultKeys: [],
+      })
+    }
+  }
+
+  if (pkgOnlyMode || !unique.length) {
+    return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
+  }
+
   for (let i = 0; i < Math.min(unique.length, 3); i++) {
     variants.push({
       label: i === 0 ? 'resultKeys-1' : `resultKeys-alt${i}`,
@@ -466,27 +491,7 @@ export function buildTourBookRequestVariants(opts = {}) {
   if (unique.length > 1) {
     variants.push({ label: 'resultKeys-all', ...base, resultKeys: unique.slice(0, 2) })
   }
-  const pkgForBody = String(opts.packageId ?? '').trim() || sessionRaw
   if (pkgForBody && isPlausibleTourBookKey(pkgForBody)) {
-    // pkgOnly PackageId doğrulamasını geçiyor (v19 kanıtı) — önce denenir.
-    const front = [{
-      label: 'pkgOnly',
-      ...base,
-      packageIdInBody: true,
-      packageId: pkgForBody,
-      resultKeys: [],
-    }]
-    const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
-    if (variant254 && variant254 !== pkgForBody) {
-      front.push({
-        label: 'pkgOnly254',
-        ...base,
-        packageIdInBody: true,
-        packageId: variant254,
-        resultKeys: [],
-      })
-    }
-    variants.unshift(...front)
     for (let i = 0; i < Math.min(unique.length, 2); i++) {
       variants.push({
         label: `pkgBody+key${i}`,
@@ -1269,6 +1274,16 @@ function buildTourFinalPricePackageCandidates(priceRow, pricePayload, sessionRaw
   return out
 }
 
+export function pickTourFinalPriceBookPackageId(finalPricePayload, fallback = null) {
+  const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
+  for (const f of ['PackageId', 'packageId', 'Id', 'id', 'ResultKey', 'resultKey']) {
+    const v = r[f]
+    if (v != null && isPlausibleTourBookKey(String(v).trim())) return String(v).trim()
+  }
+  const fb = fallback != null ? String(fallback).trim() : ''
+  return fb && isPlausibleTourBookKey(fb) ? fb : null
+}
+
 export function pickTourBookKeysFromFinalPricePayload(finalPricePayload, priceRow = null, opts = {}) {
   const strictOnly = opts.strictOnly === true
   const filterKeys = (list) =>
@@ -1356,6 +1371,18 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
             resultKeys,
             tourRooms,
             skippedFinalPrice: false,
+          }
+        }
+        const bookPkgId = pickTourFinalPriceBookPackageId(res.payload, packageId)
+        if (bookPkgId) {
+          return {
+            packageId: bookPkgId,
+            payload: res.payload,
+            resultKeys: [bookPkgId],
+            tourRooms,
+            skippedFinalPrice: false,
+            usedFinalPricePackageId: true,
+            pkgOnlyMode: true,
           }
         }
         lastErr = requireFinal
@@ -1593,6 +1620,49 @@ export function buildTourRoomPaxes(roomOpts, makePaxFn) {
     })
   }
   return out
+}
+
+/** BookTour pax varyantları — TC kimliksiz (otel cert ile aynı). */
+export function buildTourBookPaxVariants(roomOpts, makePaxFn) {
+  const standard = buildTourRoomPaxes(roomOpts, makePaxFn)
+  const noTc = buildTourRoomPaxes(roomOpts, (fn, ln, dob, gender = 1) => {
+    const pax = makePaxFn(fn, ln, dob, gender)
+    pax.IdentityNumber = null
+    return pax
+  })
+  const variants = [{ label: 'pax-std', tourRoomPaxes: standard }]
+  if (JSON.stringify(noTc) !== JSON.stringify(standard)) {
+    variants.push({ label: 'pax-no-tc', tourRoomPaxes: noTc })
+  }
+  return variants
+}
+
+export async function getPickupPointsSoft(cfg, tokenCode, opts = {}) {
+  try {
+    return { ok: true, payload: await getPickupPoints(cfg, tokenCode, opts) }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
+}
+
+/** GetPickupPoints yanıtından ilk kalkış noktası Id. */
+export function pickTourPickupPointId(pickupPayload) {
+  const r = pickupPayload?.Result ?? pickupPayload?.result ?? pickupPayload
+  const lists = [
+    r?.PickupPoints,
+    r?.pickupPoints,
+    r?.Points,
+    r?.points,
+    r?.Items,
+    r?.items,
+  ].filter(Array.isArray)
+  for (const list of lists) {
+    for (const item of list) {
+      const id = item?.Id ?? item?.id ?? item?.PickupPointId ?? item?.pickupPointId
+      if (id != null && String(id).trim()) return String(id).trim()
+    }
+  }
+  return null
 }
 
 /** Tur rezervasyonu sorgula — System PNR doğrulama. */
