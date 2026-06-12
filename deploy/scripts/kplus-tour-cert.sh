@@ -27,7 +27,7 @@ fi
 echo "══ KPlus tour cert (sandbox) ══"
 echo "[config] git: $(git -C "$APP_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 grep -m1 'TRAVELROBOT_TEST_SCRIPT_VERSION' "$APP_ROOT/scripts/test-travelrobot-scenarios.mjs" || true
-# v35: BookTour pkg254+tfp (|254 PackageId + TFP# ResultKeys) önce
+# v36: BookTour PackagePrice.ResultKey (…|254|308|TFP#) önce
 export KPLUS_FETCH_TIMEOUT_MS="${KPLUS_FETCH_TIMEOUT_MS:-90000}"
 export KPLUS_TOUR_BOOK_TIMEOUT_MS="${KPLUS_TOUR_BOOK_TIMEOUT_MS:-180000}"
 export KPLUS_TOUR_CERT_CODE="${KPLUS_TOUR_CERT_CODE:-T66-1204-22669}"

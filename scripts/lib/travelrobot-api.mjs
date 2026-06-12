@@ -463,7 +463,8 @@ export function isPlausibleTourBookPackageId(id, opts = {}) {
   if (!s || isTourCatalogCode(s) || isTourDisplayTitle(s)) return false
   if (opts.allowBareUuid === true && isBareUuid(s)) return true
   if (/^TFP#/i.test(s)) return true
-  return isPlausibleTourBookKey(s)
+  if (isPlausibleTourBookKey(s)) return true
+  return false
 }
 
 function filterTourBookResultKeys(keys, opts = {}) {
@@ -474,6 +475,7 @@ function filterTourBookResultKeys(keys, opts = {}) {
       if (isPlausibleTourBookKey(s)) return true
       if (opts.allowBareUuid === true && isBareUuid(s)) return true
       if (opts.allowTfpSession === true && /^TFP#/i.test(s)) return true
+      if (opts.allowTfpSession === true && s.includes('TFP#')) return true
       return false
     })
 }
@@ -637,22 +639,46 @@ export function buildTourBookRequestVariants(opts = {}) {
   if (finalPriceLocked && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
     const locked = []
     const push = (v) => locked.push({ ...base, ...v })
-    const procId =
-      refs.processId != null && String(refs.processId).trim()
-        ? String(refs.processId).trim()
-        : null
+    const priceKey = String(refs.packagePriceKey ?? '').trim() || null
 
-    if (tfpId && /^TFP#/i.test(tfpId)) {
+    if (priceKey) {
       push({
-        label: 'pkg254+tfp+contract',
-        packageIdInBody: true,
-        packageId: bookPkg,
+        label: 'resultKeys-priceKey',
         allowTfpSession: true,
-        packageIdWithResultKeys: true,
-        resultKeys: [tfpId],
+        resultKeys: [priceKey],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
+      })
+      push({
+        label: 'pkgPriceKey+contract',
+        packageIdInBody: true,
+        packageId: priceKey,
+        allowTfpSession: true,
+        resultKeys: [],
         extraInfo: contractsOnly,
         skipRoomPickup: true,
       })
+      push({
+        label: 'pkgPriceKey+pickup',
+        packageIdInBody: true,
+        packageId: priceKey,
+        allowTfpSession: true,
+        resultKeys: [],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
+      })
+      push({
+        label: 'pkgPriceKey+price',
+        packageIdInBody: true,
+        packageId: priceKey,
+        allowTfpSession: true,
+        resultKeys: [],
+        withPrice: true,
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
+      })
+    }
+    if (tfpId && /^TFP#/i.test(tfpId)) {
       push({
         label: 'pkg254+tfp+pickup',
         packageIdInBody: true,
@@ -660,47 +686,6 @@ export function buildTourBookRequestVariants(opts = {}) {
         allowTfpSession: true,
         packageIdWithResultKeys: true,
         resultKeys: [tfpId],
-        extraInfo: contractsOnly,
-        roomPickupFormat: 'code',
-      })
-      push({
-        label: 'pkg254+tfp+price',
-        packageIdInBody: true,
-        packageId: bookPkg,
-        allowTfpSession: true,
-        packageIdWithResultKeys: true,
-        resultKeys: [tfpId],
-        extraInfo: contractsOnly,
-        withPrice: true,
-        roomPickupFormat: 'code',
-      })
-      if (procId) {
-        push({
-          label: 'pkg254+tfp+proc',
-          packageIdInBody: true,
-          packageId: bookPkg,
-          allowTfpSession: true,
-          packageIdWithResultKeys: true,
-          resultKeys: [tfpId],
-          extraInfo: contractsOnly,
-          processId: procId,
-          roomPickupFormat: 'code',
-        })
-      }
-      push({
-        label: 'resultKeys-tfp+pickup',
-        allowTfpSession: true,
-        resultKeys: [tfpId],
-        extraInfo: contractsOnly,
-        roomPickupFormat: 'code',
-      })
-      push({
-        label: 'pkgTfp+254+contract',
-        packageIdInBody: true,
-        packageId: tfpId,
-        allowTfpSession: true,
-        packageIdWithResultKeys: true,
-        resultKeys: [bookPkg],
         extraInfo: contractsOnly,
         roomPickupFormat: 'code',
       })
