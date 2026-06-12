@@ -144,7 +144,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v4'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v5'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1190,6 +1190,17 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
           if (!priceRows.length) {
             lastPriceErr = pricePayload?.ErrorMessage ?? 'fiyat satırı yok'
             continue
+          }
+
+          if (!booked) {
+            log(
+              scenarioName,
+              'GetTourPrices-hit',
+              '/Tour.svc/Rest/Json/GetTourPrices',
+              { tourCode, attempt: attempt.source, departureDate, rows: priceRows.length },
+              { rowKeys: priceRows[0] ? Object.keys(priceRows[0]) : [] },
+              true,
+            )
           }
 
           for (const priceRow of priceRows.slice(0, 4)) {

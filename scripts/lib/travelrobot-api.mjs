@@ -767,15 +767,68 @@ export function pickTourPriceContextPackageId(pricePayload) {
   return pickTourPricesSessionPackageId(pricePayload)
 }
 
+/** Otel RoomCode benzeri — GetTourPrices satırından book anahtarı. */
+export function pickTourRoomBookKeys(priceRow, pricePayload = null) {
+  const keys = []
+  const push = (k, priority = 50) => {
+    const s = String(k ?? '').trim()
+    if (!s || keys.some((x) => x.id === s)) return
+    keys.push({ id: s, priority })
+  }
+
+  const walk = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 7) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1)
+      return
+    }
+    push(node.RoomCode ?? node.roomCode, 0)
+    push(node.Key ?? node.key, 1)
+    push(node.OfferId ?? node.offerId, 2)
+    push(node.TourRoomCode ?? node.tourRoomCode, 3)
+    const code = node.Code ?? node.code
+    if (code != null) {
+      const s = String(code).trim()
+      if (s && (s.includes('|') || /^tour:/i.test(s) || s.length > 14)) push(s, 4)
+    }
+    push(node.ResultKey ?? node.resultKey, 5)
+    push(node.PackageId ?? node.packageId, 10)
+    for (const k of [
+      'TourRooms',
+      'tourRooms',
+      'Rooms',
+      'rooms',
+      'RoomAlternatives',
+      'roomAlternatives',
+      'Alternatives',
+      'alternatives',
+      'TourPrices',
+      'tourPrices',
+    ]) {
+      if (Array.isArray(node[k])) for (const item of node[k]) walk(item, depth + 1)
+    }
+  }
+
+  walk(priceRow)
+  if (pricePayload) walk(pricePayload?.Result ?? pricePayload?.result)
+  return keys
+    .sort((a, b) => a.priority - b.priority)
+    .map((x) => x.id)
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+}
+
 /** GetTourPrices yanıtından BookTour ResultKeys (GetTourFinalPrice atlanabilir). */
-export function pickTourPriceBookKeys(priceRow, pricePayload = null) {
+export function pickTourPriceBookKeys(priceRow, pricePayload = null, opts = {}) {
+  const allowCatalog = opts.allowCatalogCodes === true
   const keys = []
   const push = (k) => {
     const s = String(k ?? '').trim()
     if (!s || keys.includes(s)) return
-    if (isTourCatalogCode(s) && !s.includes('|') && !/^tour:/i.test(s)) return
+    if (!allowCatalog && isTourCatalogCode(s) && !s.includes('|') && !/^tour:/i.test(s)) return
     keys.push(s)
   }
+
+  for (const rk of pickTourRoomBookKeys(priceRow, pricePayload)) push(rk)
 
   const walk = (node, depth = 0) => {
     if (!node || typeof node !== 'object' || depth > 7) return
@@ -789,7 +842,7 @@ export function pickTourPriceBookKeys(priceRow, pricePayload = null) {
     const pkg = node.PackageId ?? node.packageId
     if (pkg != null) push(pkg)
     const id = node.Id ?? node.id
-    if (typeof id === 'string' && id.trim()) push(id)
+    if (id != null) push(id)
     for (const v of Object.values(node)) {
       if (typeof v === 'string' && (/^tour:/i.test(v) || v.includes('|'))) push(v)
     }
@@ -800,6 +853,12 @@ export function pickTourPriceBookKeys(priceRow, pricePayload = null) {
 
   walk(priceRow)
   if (pricePayload) walk(pricePayload?.Result ?? pricePayload?.result)
+  if (allowCatalog) {
+    push(priceRow?.TourAlternativeCode ?? priceRow?.tourAlternativeCode)
+    const r = pricePayload?.Result ?? pricePayload?.result
+    push(r?.TourAlternativeCode ?? r?.tourAlternativeCode)
+    push(pickTourPricesSessionPackageId(pricePayload))
+  }
   return keys
 }
 
@@ -857,6 +916,7 @@ export function collectTourFinalPricePackageIds(priceRow, ctx = {}) {
     }
   }
 
+  for (const rk of pickTourRoomBookKeys(priceRow, ctx.pricePayload)) push(rk, -10)
   walk(priceRow)
   if (ctx.pricePayload) walk(ctx.pricePayload?.Result ?? ctx.pricePayload?.result)
   push(ctx.sessionPackageId, -5)
@@ -966,11 +1026,12 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     }
   }
 
-  if (sessionPackageId && !isTourCatalogCode(sessionPackageId)) {
+  const directKeys = pickTourPriceBookKeys(priceRow, ctx.pricePayload, { allowCatalogCodes: true })
+  if (directKeys.length) {
     return {
-      packageId: sessionPackageId,
+      packageId: directKeys[0],
       payload: null,
-      resultKeys: [sessionPackageId],
+      resultKeys: directKeys.slice(0, 3),
       tourRooms: tourRoomsDefault,
       skippedFinalPrice: true,
     }

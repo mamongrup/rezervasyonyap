@@ -18,6 +18,7 @@ import {
   pickTourPriceRows,
   pickTourPricesSessionPackageId,
   pickTourPriceBookKeys,
+  pickTourRoomBookKeys,
   collectTourFinalPricePackageIds,
 } from './lib/travelrobot-api.mjs'
 import { buildSandboxConfigAsync } from './lib/travelrobot-sandbox-config.mjs'
@@ -61,7 +62,9 @@ const report = {
   attempt,
   variant,
   sessionPackageId: pickTourPricesSessionPackageId(pricePayload),
+  roomBookKeys: pickTourRoomBookKeys(priceRow, pricePayload),
   bookKeys: pickTourPriceBookKeys(priceRow, pricePayload),
+  bookKeysAllowCatalog: pickTourPriceBookKeys(priceRow, pricePayload, { allowCatalogCodes: true }),
   packageCandidates: collectTourFinalPricePackageIds(priceRow, {
     pricePayload,
     sessionPackageId: pickTourPricesSessionPackageId(pricePayload),
