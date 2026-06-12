@@ -53,6 +53,7 @@ import {
   getTourPrices,
   getTourPaymentOptions,
   bookTour,
+  buildTourBookRequest,
   buildTourBookRequestVariants,
   getTourBooking,
   buildTourPriceRooms,
@@ -152,7 +153,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v19'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v20'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1393,24 +1394,34 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let bookPayLabel = paymentAttempts[0]?.label ?? 'default'
             let bookBodyLabel = bookBodyVariants[0]?.label ?? 'resultKeys'
             const bookAttempts = []
+            let lastBookRequest = null
+            let lastBookResponse = null
             tourProgress(`BookTour ${tourCode} (${bookBodyVariants.map((v) => v.label).join(', ')})…`)
             bookPayLoop:
             for (const pay of paymentAttempts.slice(0, 5)) {
               for (const bodyVariant of bookBodyVariants) {
+                const bookOpts = {
+                  ...bodyVariant,
+                  paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
+                  softErrors: true,
+                  timeoutMs: TOUR_BOOK_TIMEOUT_MS,
+                }
+                lastBookRequest = buildTourBookRequest(bookOpts)
                 try {
-                  bookPayload = await bookTour(cfg, {
-                    ...bodyVariant,
-                    paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
-                    timeoutMs: TOUR_BOOK_TIMEOUT_MS,
-                  })
+                  bookPayload = await bookTour(cfg, bookOpts)
+                  lastBookResponse = bookPayload
                   bookPayLabel = pay.label
                   bookBodyLabel = bodyVariant.label
                   if (!bookPayload?.HasError) break bookPayLoop
-                  lastPriceErr = bookPayload?.ErrorMessage ?? 'BookTour hata'
+                  lastPriceErr =
+                    bookPayload?.ErrorMessage ??
+                    bookPayload?.UserFriendlyErrorMessage ??
+                    'BookTour hata'
                 } catch (e) {
                   lastPriceErr = String(e)
+                  lastBookResponse = String(e)
                 }
-                bookAttempts.push({ pay: pay.label, body: bodyVariant.label, error: String(lastPriceErr).slice(0, 160) })
+                bookAttempts.push({ pay: pay.label, body: bodyVariant.label, error: String(lastPriceErr).slice(0, 300) })
                 if (!/packageid|resultkey|invalid|payment|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) {
                   break attemptLoop
                 }
@@ -1431,7 +1442,8 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 rowKeys: priceRow ? Object.keys(priceRow) : [],
               }
               log(scenarioName, 'BookTour-fail', '/Tour.svc/Rest/Json/BookTour',
-                { packageId, resultKeys, attempts: bookAttempts.slice(-8) }, bookPayload ?? lastPriceErr, false)
+                { packageId, resultKeys, attempts: bookAttempts.slice(-8), lastBookRequest },
+                lastBookResponse ?? lastPriceErr, false)
               if (tourLocked) break attemptLoop
               continue
             }
