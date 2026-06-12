@@ -198,6 +198,9 @@ const report = {
   finalPricePackageId: finalPriceResolve?.packageId ?? null,
   finalPriceSkipped: finalPriceResolve?.skippedFinalPrice === true,
   finalPriceError: finalPriceResolve?.error ?? null,
+  finalPriceResultTopKeys: Object.keys(
+    finalPriceResolve?.payload?.Result ?? finalPriceResolve?.payload?.result ?? {},
+  ),
   packageCandidates: collectTourFinalPricePackageIds(priceRow, {
     pricePayload,
     sessionPackageId: sessionRawId,
@@ -212,7 +215,14 @@ const report = {
 }
 
 const out = join(root, `debug-tour-prices-${Date.now()}.json`)
-writeFileSync(out, JSON.stringify({ pricePayload, report }, null, 2))
+writeFileSync(
+  out,
+  JSON.stringify(
+    { pricePayload, finalPricePayload: finalPriceResolve?.payload ?? null, report },
+    null,
+    2,
+  ),
+)
 console.log('tur:', tourCode)
 console.log('departureDate:', usedVariant?.departureDate)
 console.log('sessionRawId:', report.sessionRawId?.slice(0, 80) + (report.sessionRawId?.length > 80 ? '…' : ''))
@@ -221,5 +231,6 @@ console.log('strictBookKeys (@/tour:/|254):', report.strictBookKeys)
 console.log('variantBookKeys (|254):', report.variantBookKeys)
 console.log('finalPriceKeys (book):', report.finalPriceKeys)
 console.log('finalPricePackageId:', report.finalPricePackageId)
+console.log('finalPriceResultTopKeys:', report.finalPriceResultTopKeys)
 console.log('packageCandidates:', report.packageCandidates.slice(0, 6))
 console.log('dosya:', out)
