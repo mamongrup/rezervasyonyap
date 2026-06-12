@@ -918,6 +918,7 @@ export const ru: AppMessages = {
       quoteError: 'Не удалось рассчитать цену.',
       calculating: 'Расчёт…',
       continueSoon: 'Продолжить (скоро)',
+      reserve: 'Забронировать',
       timeNotSpecified: 'Время не указано',
       minutesShort: '{min} мин',
     },

@@ -1785,6 +1785,7 @@ export const en = {
       quoteError: 'Could not calculate price.',
       calculating: 'Calculating…',
       continueSoon: 'Continue (coming soon)',
+      reserve: 'Book now',
       timeNotSpecified: 'Time not specified',
       minutesShort: '{min} min',
     },

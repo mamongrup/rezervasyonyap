@@ -118,6 +118,14 @@ const nextConfig = {
     }
     return config
   },
+  async rewrites() {
+    const raw =
+      (process.env.INTERNAL_API_ORIGIN && String(process.env.INTERNAL_API_ORIGIN).trim()) ||
+      (process.env.NEXT_PUBLIC_API_URL && String(process.env.NEXT_PUBLIC_API_URL).trim()) ||
+      'http://127.0.0.1:8080'
+    const dest = raw.replace(/\/$/, '')
+    return [{ source: '/api/v1/:path*', destination: `${dest}/api/v1/:path*` }]
+  },
   async headers() {
     const headers = buildAllSecurityHeaders()
     return [
@@ -172,12 +180,6 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'images.pexels.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'upload.wikimedia.org',
         port: '',
         pathname: '/**',
       },

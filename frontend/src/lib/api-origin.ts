@@ -27,6 +27,11 @@ export function apiOriginForFetch(): string {
     const apiUrl = process.env.API_URL?.trim()
     if (apiUrl) return strip(apiUrl)
   }
+  /** Yerel `next dev`: `/api/v1/*` rewrite ile aynı origin — CORS olmadan kur + katalog istekleri. */
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    const o = window.location?.origin ?? ''
+    if (o) return strip(o)
+  }
   const pub = process.env.NEXT_PUBLIC_API_URL?.trim() ?? ''
 
   if (typeof window !== 'undefined' && pub !== '') {

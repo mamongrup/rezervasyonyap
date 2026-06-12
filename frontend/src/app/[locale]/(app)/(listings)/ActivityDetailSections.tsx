@@ -35,7 +35,7 @@ export default function ActivityOverviewSection({
     <section className={LISTING_SECTION_STACKED}>
       <div>
         <SectionHeading>{ad.aboutTitle}</SectionHeading>
-        <SectionSubheading>{ad.aboutSubtitle}</SectionSubheading>
+        {items.length > 0 ? <SectionSubheading>{ad.aboutSubtitle}</SectionSubheading> : null}
       </div>
       <Divider className="w-14!" />
       {items.length > 0 ? (

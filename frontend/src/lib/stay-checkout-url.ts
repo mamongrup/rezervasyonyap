@@ -1,4 +1,4 @@
-import type { GuestsObject } from '@/type'
+﻿import type { GuestsObject } from '@/type'
 
 /** ISO veya Date → yerel takvim YYYY-MM-DD (konaklama giriş/çıkış). */
 export function checkoutDateYmd(isoOrDate: string | Date | null | undefined): string {
@@ -144,6 +144,38 @@ export function parseHotelCheckoutParams(searchParams: URLSearchParams): HotelCh
     mealPlanId: searchParams.get('mealPlanId')?.trim() || null,
     mealPlanLabel: searchParams.get('mealPlanLabel')?.trim() || null,
   }
+}
+
+/** Aktivite detay → checkout: tarih, seans, katılımcı ve tutar query ile taşınır. */
+export function buildActivityCheckoutUrl(
+  checkoutPath: string,
+  params: {
+    listingId: string
+    date: string
+    sessionId: string
+    adults: number
+    children: number
+    currencyCode: string
+    unitPrice: number
+  },
+): string {
+  const u = new URLSearchParams()
+  u.set('listingId', params.listingId.trim())
+  u.set('checkIn', params.date.trim())
+  u.set('checkOut', params.date.trim())
+  const noon = new Date(`${params.date.trim()}T12:00:00`)
+  if (!Number.isNaN(noon.getTime())) {
+    u.set('startDate', checkoutDateYmd(noon))
+    u.set('endDate', checkoutDateYmd(noon))
+  }
+  u.set('activitySessionId', params.sessionId.trim())
+  u.set('activityAdults', String(Math.max(0, params.adults)))
+  u.set('activityChildren', String(Math.max(0, params.children)))
+  u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
+  const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
+  u.set('unitPrice', price.toFixed(2))
+  const sep = checkoutPath.includes('?') ? '&' : '?'
+  return `${checkoutPath}${sep}${u.toString()}`
 }
 
 export function resolveCheckoutListingId(

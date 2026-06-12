@@ -49,9 +49,23 @@ function sitePublicOrigin(): string {
  */
 function listingUploadsOrigin(): string {
   const explicit = process.env.NEXT_PUBLIC_UPLOADS_ORIGIN?.trim()
+  const pub = process.env.NEXT_PUBLIC_API_URL?.trim() ?? ''
+
+  /** Yerel API + yerel Next: ilan görselleri `public/uploads` altında — uzak origin 404 vermesin. */
+  if (process.env.NODE_ENV === 'development' && explicit && /^https?:\/\//i.test(pub)) {
+    try {
+      const apiHost = hostApexKey(new URL(pub).hostname)
+      if (isLoopbackHost(apiHost)) {
+        const site = sitePublicOrigin()
+        if (site) return site
+      }
+    } catch {
+      /* yoksay */
+    }
+  }
+
   if (explicit) return explicit.replace(/\/+$/, '')
 
-  const pub = process.env.NEXT_PUBLIC_API_URL?.trim() ?? ''
   if (!/^https?:\/\//i.test(pub)) return ''
 
   try {

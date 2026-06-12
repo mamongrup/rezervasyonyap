@@ -14,7 +14,6 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
-import travel/catalog/listing_translation_sql
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/identity/admin_gate
@@ -78,6 +77,32 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
 /// Vitrinde fiyatsız turlar listelenmesin — Wtatil fiyat senkronu sonrası otomatik görünür.
 fn tour_public_must_have_price_sql() -> String {
   "and (pc.code != 'tour' or (tour_price_row.tour_vitrin_price is not null and tour_price_row.tour_vitrin_price > 0)) "
+}
+
+/// Aktivite vitrin fiyatı — aktif seanslardaki en düşük yetişkin ücreti (kişi başı).
+fn activity_listing_vitrin_price_sql() -> String {
+  "(select min(f.price_amount)::text from listing_activity_sessions s "
+  <> "join listing_activity_session_fares f on f.session_id = s.id and f.fare_type = 'adult' "
+  <> "where s.listing_id = l.id and s.is_active = true "
+  <> "and f.price_amount is not null and f.price_amount > 0)"
+}
+
+/// Aktivite vitrin para birimi — en düşük yetişkin ücretinin `currency_code`.
+fn activity_listing_vitrin_fare_currency_sql() -> String {
+  "(select f.currency_code from listing_activity_sessions s "
+  <> "join listing_activity_session_fares f on f.session_id = s.id and f.fare_type = 'adult' "
+  <> "where s.listing_id = l.id and s.is_active = true "
+  <> "and f.price_amount is not null and f.price_amount > 0 "
+  <> "order by f.price_amount asc limit 1)"
+}
+
+fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
+  "left join lateral (select case when ax.v is null or trim(ax.v) = '' then null "
+  <> "when replace(trim(ax.v), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' "
+  <> "then replace(trim(ax.v), ',', '.')::numeric else null end as activity_vitrin_price "
+  <> "from (select "
+  <> activity_listing_vitrin_price_sql()
+  <> " as v) ax) activity_price_row on true "
 }
 
 // ─── Public Listing Search ────────────────────────────────────────────────────
@@ -677,13 +702,14 @@ fn search_listings_impl(
 
   let sql =
     "select l.id::text, l.slug, "
-    <> listing_translation_sql.title_select_sql("l.id", "$4")
-    <> ", "
+    <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
-    // Vitrin fiyat: tur → wtatil `cheapest_price` / dönem tablosu; konaklama → kurallar + yemek planları.
+    // Vitrin fiyat: tur → wtatil; aktivite → seans yetişkin ücreti; konaklama → kurallar + yemek planları.
     <> "coalesce(case when pc.code = 'tour' then "
     <> tour_listing_vitrin_price_sql()
+    <> " else null end, case when pc.code = 'activity' then "
+    <> activity_listing_vitrin_price_sql()
     <> " else null end, nullif((select min(u.v)::text from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
     <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
@@ -709,7 +735,9 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'min_advance_booking_days'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'min_short_stay_nights'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'short_stay_fee'), ''), '') "
-    <> ", coalesce(l.currency_code::text, '') "
+    <> ", coalesce(nullif(trim(case when pc.code = 'activity' then "
+    <> activity_listing_vitrin_fare_currency_sql()
+    <> " else null end), ''), l.currency_code::text, '') "
     <> ", coalesce(l.cleaning_fee_amount::text, '') "
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
@@ -750,6 +778,7 @@ fn search_listings_impl(
     <> "left join listing_hotel_details hotel on hotel.listing_id = l.id "
     <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
     <> tour_listing_vitrin_price_numeric_lateral_sql()
+    <> activity_listing_vitrin_price_numeric_lateral_sql()
     <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
     <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
@@ -791,8 +820,8 @@ fn search_listings_impl(
     <> "    and (la.value_json = 'true'::jsonb or lower(trim(both '\"' from la.value_json::text)) = 'true') "
     <> "  ) "
     <> ")) "
-    <> "and ($12::text is null or coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
-    <> "and ($13::text is null or coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
+    <> "and ($12::text is null or coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, activity_price_row.activity_vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
+    <> "and ($13::text is null or coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, activity_price_row.activity_vitrin_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
     <> "and ($14::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_attr.value_json->>'hotel_type_code', ''))) = any(string_to_array(trim($14), ',')::text[])) "
     <> "and ($15::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_theme_attr.value_json->>'theme_code', ''))) = any(string_to_array(trim($15), ',')::text[])) "
     <> "and ($16::text is null or pc.code != 'hotel' or lower(trim(coalesce(hotel_acc_attr.value_json->>'accommodation_code', ''))) = any(string_to_array(trim($16), ',')::text[])) "

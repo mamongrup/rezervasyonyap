@@ -919,6 +919,7 @@ export const fr: AppMessages = {
       quoteError: 'Impossible de calculer le prix.',
       calculating: 'Calcul en cours…',
       continueSoon: 'Continuer (bientôt)',
+      reserve: 'Réserver',
       timeNotSpecified: 'Heure non précisée',
       minutesShort: '{min} min',
     },

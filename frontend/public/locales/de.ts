@@ -919,6 +919,7 @@ export const de: AppMessages = {
       quoteError: 'Preis konnte nicht berechnet werden.',
       calculating: 'Wird berechnet…',
       continueSoon: 'Weiter (demnächst)',
+      reserve: 'Jetzt buchen',
       timeNotSpecified: 'Uhrzeit nicht angegeben',
       minutesShort: '{min} Min.',
     },

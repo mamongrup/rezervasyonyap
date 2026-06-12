@@ -17,6 +17,7 @@ import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import { SITE_LOCALE_CATALOG } from '@/lib/i18n-catalog-locales'
 import {
   detailPathForVertical,
   experienceBrowsePathForVertical,
@@ -42,7 +43,8 @@ import {
 } from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
-import { regionPlacesSlugFromCity } from '@/lib/region-places-slug'
+import { regionBrowseSlugFromLocationPin, regionPlacesSlugFromCity } from '@/lib/region-places-slug'
+import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
@@ -406,13 +408,6 @@ export default async function ExperienceListingDetailPage({
     : []
   const activityOverviewItems: ActivityOverviewItem[] = isActivity
     ? [
-        activityMeta?.duration_hours
-          ? {
-              label: ad.overview.duration,
-              value: interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours }),
-              icon: 'duration',
-            }
-          : null,
         activityMeta?.min_age
           ? {
               label: ad.overview.minAge,
@@ -420,24 +415,29 @@ export default async function ExperienceListingDetailPage({
               icon: 'age',
             }
           : null,
-        activityMeta?.max_participants
-          ? {
-              label: ad.overview.capacity,
-              value: interpolate(ad.overview.maxParticipants, { count: activityMeta.max_participants }),
-              icon: 'capacity',
-            }
-          : null,
-        activityMeta?.language
-          ? { label: ad.overview.language, value: activityMeta.language, icon: 'language' }
-          : null,
-        activityMeta?.meeting_point
-          ? { label: ad.overview.meetingPoint, value: activityMeta.meeting_point, icon: 'meeting' }
-          : null,
         activityMeta?.equipment_included
           ? { label: ad.overview.equipment, value: activityMeta.equipment_included, icon: 'equipment' }
           : null,
       ].filter((item): item is ActivityOverviewItem => item !== null)
     : []
+
+  const activityDurationLine = isActivity
+    ? activityMeta?.duration_hours
+      ? interpolate(ad.overview.durationHours, { hours: activityMeta.duration_hours })
+      : durationTime?.trim() || td.durationNotSpecified
+    : durationTime || td.durationNotSpecified
+
+  const activityCapacityLine = isActivity
+    ? activityMeta?.max_participants
+      ? interpolate(dp.upToPeople, { count: activityMeta.max_participants })
+      : maxGuests
+        ? interpolate(dp.upToPeople, { count: String(maxGuests) })
+        : td.capacityNotSpecified
+    : maxGuests
+      ? interpolate(dp.upToPeople, { count: String(maxGuests) })
+      : td.capacityNotSpecified
+
+  const siteLanguagesLine = SITE_LOCALE_CATALOG.map((l) => l.name).join(', ')
 
   const renderSidebarPriceAndForm = () => {
     if (isTour) {
@@ -501,16 +501,12 @@ export default async function ExperienceListingDetailPage({
       >
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Clock01Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{isTour ? tourDurationLine : durationTime}</span>
+          <span>{isTour ? tourDurationLine : activityDurationLine}</span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6" strokeWidth={1.75} />
           <span>
-            {isTour
-              ? tourGroupLine
-              : maxGuests
-                ? interpolate(dp.upToPeople, { count: String(maxGuests) })
-                : td.capacityNotSpecified}
+            {isTour ? tourGroupLine : activityCapacityLine}
           </span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
@@ -518,7 +514,11 @@ export default async function ExperienceListingDetailPage({
           <span>
             {isTour
               ? tourLanguages.length > 0 ? tourLanguages.join(', ') : td.languagesNotSpecified
-              : (languages ?? []).length > 0 ? (languages ?? []).join(', ') : td.languagesNotSpecified}
+              : isActivity
+                ? siteLanguagesLine
+                : (languages ?? []).length > 0
+                  ? (languages ?? []).join(', ')
+                  : td.languagesNotSpecified}
           </span>
         </div>
       </SectionHeader>
@@ -604,6 +604,7 @@ export default async function ExperienceListingDetailPage({
               initialDate={activityInitialDate}
               initialSessions={initialActivitySessions.sessions}
               fallbackPrice={price}
+              initialMonthsShown={calendarMonthsShown}
             />
           ) : (
             renderSidebarPriceAndForm()
@@ -650,11 +651,35 @@ export default async function ExperienceListingDetailPage({
           </>
         ) : (
           <>
+            <div id="experience-section-location" className="mt-8 w-full scroll-mt-28 space-y-5">
+              <SectionMap
+                locale={locale}
+                lat={map?.lat}
+                lng={map?.lng}
+                address={address ?? undefined}
+                heading={dp.location}
+              />
+              <NearbyPlacesSection
+                locale={locale}
+                regionSlug={
+                  regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
+                }
+                title={dp.nearbyPlaces}
+                variant="flat"
+                maxPlaces={12}
+                overrideLat={map?.lat}
+                overrideLng={map?.lng}
+                sectionClassName=""
+              />
+            </div>
+
+            <Divider className="my-12" />
+
             <div className="flex flex-col gap-8 lg:flex-row lg:gap-10">
               <div className="w-full lg:w-4/9 xl:w-1/3">
                 <SectionHost {...listingHostForSection(title, host)} locale={locale} />
               </div>
-              <div className="w-full lg:w-2/3">
+              <div className="w-full scroll-mt-28 lg:w-2/3" id="experience-section-reviews">
                 <SectionListingReviews
                   listingId={listing.id}
                   reviewCount={reviewCount ?? 0}
@@ -662,18 +687,6 @@ export default async function ExperienceListingDetailPage({
                 />
               </div>
             </div>
-
-            <div className="scroll-mt-28">
-              <SectionMap locale={locale} />
-            </div>
-
-            <NearbyPlacesSection
-              locale={locale}
-              regionSlug={regionPlacesSlugFromCity(city)}
-              title={dp.nearbyPlaces}
-              maxCategories={3}
-              sectionClassName={LISTING_SECTION_SHELL}
-            />
           </>
         )}
       </div>

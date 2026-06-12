@@ -1237,6 +1237,7 @@ export const tr = {
       quoteError: 'Fiyat hesaplanamadı.',
       calculating: 'Hesaplanıyor…',
       continueSoon: 'Devam et (yakında)',
+      reserve: 'Rezervasyon yap',
       timeNotSpecified: 'Saat belirtilmedi',
       minutesShort: '{min} dk',
     },

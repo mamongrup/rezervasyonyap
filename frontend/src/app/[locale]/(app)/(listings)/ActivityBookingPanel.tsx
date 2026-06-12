@@ -1,24 +1,29 @@
 'use client'
 
-import ButtonPrimary from '@/shared/ButtonPrimary'
-import { Divider } from '@/shared/divider'
+import ActivityParticipantsInputPopover from '@/app/[locale]/(app)/(listings)/components/ActivityParticipantsInputPopover'
+import ActivitySessionInputPopover from '@/app/[locale]/(app)/(listings)/components/ActivitySessionInputPopover'
+import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/SingleDateInputPopover'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { formatLocalYmd } from '@/lib/date-format-local'
+import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
 import {
   listPublicActivitySessions,
   quotePublicActivity,
   type ActivityQuote,
   type ActivitySessionRow,
 } from '@/lib/travel-api'
-import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
-import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import ButtonPrimary from '@/shared/ButtonPrimary'
+import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
+import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
-import { interpolate } from '@/utils/interpolate'
 import { toIntlLocale } from '@/lib/intl-locale'
-import { CalendarDays, Clock3, Minus, Plus, Users } from 'lucide-react'
+import { parseLocalYmd } from '@/utils/format-local-ymd'
+import Form from 'next/form'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 function todayIso() {
-  return new Date().toISOString().slice(0, 10)
+  return formatLocalYmd(new Date())
 }
 
 function money(raw: string | undefined, currency: string, locale: string) {
@@ -31,13 +36,9 @@ function money(raw: string | undefined, currency: string, locale: string) {
   }
 }
 
-function sessionLabel(session: ActivitySessionRow, locale: string) {
-  const ab = getMessages(locale).listing.activityBooking
-  const time = session.start_time?.slice(0, 5) || ab.timeNotSpecified
-  const duration = Number(session.duration_minutes ?? 0)
-  return duration > 0
-    ? `${time} · ${interpolate(ab.minutesShort, { min: String(duration) })}`
-    : time
+function parseMoney(raw: string | undefined): number {
+  const n = Number(String(raw ?? '').replace(',', '.'))
+  return Number.isFinite(n) ? n : 0
 }
 
 export default function ActivityBookingPanel({
@@ -46,17 +47,24 @@ export default function ActivityBookingPanel({
   initialSessions,
   initialDate,
   fallbackPrice,
+  initialMonthsShown = 1,
 }: {
   listingId: string
   locale?: string
   initialSessions: ActivitySessionRow[]
   initialDate?: string
   fallbackPrice?: string
+  initialMonthsShown?: 1 | 2
 }) {
-  const ab = getMessages(locale).listing.activityBooking
+  const m = getMessages(locale)
+  const ab = m.listing.activityBooking
+  const td = m.listing.tourDetail
+  const sidebar = m.listing.sidebar
   const router = useRouter()
   const vitrinHref = useVitrinHref()
+
   const [date, setDate] = useState(initialDate || todayIso())
+  const selectedDate = useMemo(() => parseLocalYmd(date) ?? parseLocalYmd(todayIso()), [date])
   const [sessions, setSessions] = useState<ActivitySessionRow[]>(initialSessions)
   const [sessionId, setSessionId] = useState(initialSessions[0]?.id ?? '')
   const [adults, setAdults] = useState(1)
@@ -91,7 +99,7 @@ export default function ActivityBookingPanel({
     return () => {
       cancelled = true
     }
-  }, [date, listingId])
+  }, [date, listingId, ab.sessionLoadError])
 
   useEffect(() => {
     if (!sessionId || adults + children <= 0) {
@@ -117,19 +125,28 @@ export default function ActivityBookingPanel({
     return () => {
       cancelled = true
     }
-  }, [adults, children, date, listingId, sessionId])
+  }, [adults, children, date, listingId, sessionId, ab.quoteError])
 
-  const selected = useMemo(
-    () => sessions.find((s) => s.id === sessionId) ?? null,
-    [sessionId, sessions],
-  )
-  const currency = quote?.currency_code || selected?.currency_code || 'TRY'
-  const lineTotal = quote ? Number(String(quote.line_total ?? '').replace(',', '.')) : 0
-  const canCheckout = Boolean(listingId.trim()) && Boolean(quote) && lineTotal > 0
+  const currency = quote?.currency_code || sessions.find((s) => s.id === sessionId)?.currency_code || 'TRY'
+  const adultUnit = parseMoney(quote?.adult_unit)
+  const childUnit = parseMoney(quote?.child_unit)
+  const adultsSubtotal = adultUnit * adults
+  const childrenSubtotal = childUnit * children
+  const grandTotal = parseMoney(quote?.line_total)
+
+  const headerPrice = fallbackPrice || ab.priceBySelection
+
+  const canCheckout =
+    Boolean(listingId?.trim()) &&
+    Boolean(sessionId) &&
+    quote != null &&
+    grandTotal > 0 &&
+    adults + children > 0 &&
+    Boolean(date)
 
   function goCheckout() {
     if (!canCheckout || !quote) return
-    const travel = new Date(`${date}T12:00:00`)
+    const travel = parseLocalYmd(date) ?? new Date(`${date}T12:00:00`)
     if (Number.isNaN(travel.getTime())) return
     router.push(
       buildListingCheckoutUrl(vitrinHref('/checkout'), {
@@ -137,7 +154,7 @@ export default function ActivityBookingPanel({
         startDate: travel,
         endDate: travel,
         currencyCode: quote.currency_code || currency,
-        unitPrice: lineTotal,
+        unitPrice: grandTotal,
         guests: {
           guestAdults: adults,
           guestChildren: children,
@@ -154,112 +171,102 @@ export default function ActivityBookingPanel({
   return (
     <div className="listingSection__wrap sm:shadow-xl">
       <div>
-        <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">{ab.startingPrice}</p>
-        <p className="mt-1 text-3xl font-semibold text-neutral-900 dark:text-neutral-100">
-          {quote ? money(quote.line_total, quote.currency_code, locale) : fallbackPrice || ab.priceBySelection}
-        </p>
-        <p className="mt-1 text-xs text-neutral-400">{ab.priceCalcHint}</p>
-      </div>
-      <Divider />
-
-      <div className="space-y-4">
-        <label className="block">
-          <span className="mb-1.5 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            <CalendarDays className="h-4 w-4" /> {ab.dateLabel}
+        <span className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100">
+          {headerPrice}
+          <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
+            {td.pricePerPerson}
           </span>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-sm dark:border-neutral-700 dark:bg-neutral-900"
-          />
-        </label>
-
-        <div>
-          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            <Clock3 className="h-4 w-4" /> {ab.sessionTimeLabel}
-          </p>
-          <div className="grid gap-2">
-            {sessions.length > 0 ? (
-              sessions.map((session) => (
-                <button
-                  key={session.id}
-                  type="button"
-                  onClick={() => setSessionId(session.id ?? '')}
-                  className={`rounded-2xl border px-4 py-3 text-left text-sm transition-colors ${
-                    sessionId === session.id
-                      ? 'border-primary-600 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-900/30 dark:text-primary-200'
-                      : 'border-neutral-200 bg-white text-neutral-700 hover:border-primary-300 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300'
-                  }`}
-                >
-                  <span className="font-semibold">{sessionLabel(session, locale)}</span>
-                  <span className="ml-2 text-xs text-neutral-400">
-                    {session.capacity ? `${ab.capacity} ${session.capacity}` : ''}
-                  </span>
-                </button>
-              ))
-            ) : (
-              <p className="rounded-2xl border border-dashed border-neutral-300 px-4 py-3 text-sm text-neutral-500 dark:border-neutral-700">
-                {ab.noSessions}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <p className="mb-2 flex items-center gap-2 text-sm font-medium text-neutral-700 dark:text-neutral-200">
-            <Users className="h-4 w-4" /> {ab.participantsLabel}
-          </p>
-          <Stepper label={ab.adult} sublabel={quote ? money(quote.adult_unit, currency, locale) : undefined} value={adults} min={0} onChange={setAdults} />
-          <Stepper label={ab.child} sublabel={quote ? money(quote.child_unit, currency, locale) : undefined} value={children} min={0} onChange={setChildren} />
-        </div>
-
-        {msg ? <p className="text-sm text-amber-600 dark:text-amber-300">{msg}</p> : null}
-        <ButtonPrimary type="button" disabled={!canCheckout || loading} onClick={goCheckout}>
-          {loading ? ab.calculating : getMessages(locale).common.Reserve}
-        </ButtonPrimary>
+        </span>
       </div>
-    </div>
-  )
-}
 
-function Stepper({
-  label,
-  sublabel,
-  value,
-  min,
-  onChange,
-}: {
-  label: string
-  sublabel?: string
-  value: number
-  min: number
-  onChange: (value: number) => void
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-neutral-100 py-3 last:border-b-0 dark:border-neutral-800">
-      <div>
-        <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{label}</p>
-        {sublabel ? <p className="text-xs text-neutral-400">{sublabel}</p> : null}
+      <Form
+        action={async () => {
+          goCheckout()
+        }}
+        className="mt-2 flex flex-col overflow-visible rounded-3xl border border-neutral-200 dark:border-neutral-700"
+        id="activity-booking-form"
+      >
+        <SingleDateInputPopover
+          embedded
+          className="z-11 flex-1"
+          locale={locale}
+          selectedDate={selectedDate}
+          initialMonthsShown={initialMonthsShown}
+          onDateChange={(d) => {
+            if (d) setDate(formatLocalYmd(d))
+          }}
+        />
+        <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
+        <ActivitySessionInputPopover
+          className="z-10 flex-1"
+          locale={locale}
+          sessions={sessions}
+          sessionId={sessionId}
+          onSessionChange={setSessionId}
+        />
+        <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
+        <ActivityParticipantsInputPopover
+          className="flex-1"
+          locale={locale}
+          adults={adults}
+          children={children}
+          onAdultsChange={setAdults}
+          onChildrenChange={setChildren}
+        />
+      </Form>
+
+      <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
+        <DescriptionList>
+          {quote && adults > 0 ? (
+            <>
+              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                {money(quote.adult_unit, currency, locale)} × {adults} {ab.adult.toLowerCase()}
+              </DescriptionTerm>
+              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                {money(String(adultsSubtotal), currency, locale)}
+              </DescriptionDetails>
+            </>
+          ) : null}
+          {quote && children > 0 ? (
+            <>
+              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                {money(quote.child_unit, currency, locale)} × {children} {ab.child.toLowerCase()}
+              </DescriptionTerm>
+              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                {money(String(childrenSubtotal), currency, locale)}
+              </DescriptionDetails>
+            </>
+          ) : null}
+        </DescriptionList>
+        {quote ? (
+          <>
+            <Divider />
+            <DescriptionList>
+              <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
+                {sidebar.total}
+              </DescriptionTerm>
+              <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
+                {grandTotal > 0 ? money(quote.line_total, currency, locale) : '—'}
+              </DescriptionDetails>
+            </DescriptionList>
+          </>
+        ) : null}
       </div>
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-neutral-600 disabled:opacity-40 dark:border-neutral-700 dark:text-neutral-300"
-          disabled={value <= min}
-          onClick={() => onChange(Math.max(min, value - 1))}
-        >
-          <Minus className="h-4 w-4" />
-        </button>
-        <span className="w-6 text-center text-sm font-semibold">{value}</span>
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-neutral-200 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300"
-          onClick={() => onChange(value + 1)}
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+
+      {msg ? <p className="mt-3 text-sm text-amber-600 dark:text-amber-300">{msg}</p> : null}
+
+      <ButtonPrimary
+        form="activity-booking-form"
+        type="submit"
+        className="mt-4 w-full"
+        disabled={!canCheckout || loading}
+      >
+        {loading ? ab.calculating : ab.reserve}
+      </ButtonPrimary>
+
+      <p className="mt-3 text-center text-xs text-neutral-500 dark:text-neutral-500">
+        {sidebar.reservationNoFeeNote}
+      </p>
     </div>
   )
 }

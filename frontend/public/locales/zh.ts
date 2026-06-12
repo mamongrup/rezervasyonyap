@@ -901,6 +901,7 @@ export const zh: AppMessages = {
       quoteError: '无法计算价格。',
       calculating: '计算中…',
       continueSoon: '继续（即将推出）',
+      reserve: '立即预订',
       timeNotSpecified: '未注明时间',
       minutesShort: '{min}分钟',
     },

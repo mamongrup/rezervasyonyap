@@ -168,6 +168,7 @@ modules/324_ferry_meis_images_wikimedia_direct.sql
 modules/325_listing_hotel_promotions.sql
 modules/326_listing_hotel_activities.sql
 modules/327_listing_hotel_activities_stay_surcharge.sql
+modules/328_activity_vitrin_from_sessions.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
