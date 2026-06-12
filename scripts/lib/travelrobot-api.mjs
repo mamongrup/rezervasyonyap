@@ -430,19 +430,28 @@ export function buildTourBookRequest(opts = {}) {
   return { request }
 }
 
-/** BookTour gövde varyantları — yalnızca ResultKeys (otel gibi); tek key önce. */
+/** BookTour gövde varyantları — strict (@/tour:) ResultKeys; oturum pipe yalnızca PackageId body. */
 export function buildTourBookRequestVariants(opts = {}) {
-  const keys = collectTourBookKeys(
+  const sessionRaw = String(
+    opts.sessionRawId ?? pickTourPricesSessionRawId(opts.pricePayload) ?? '',
+  ).trim()
+  const rowKeys = collectTourBookKeys(
     opts.priceRow ?? null,
     opts.pricePayload ?? null,
-    opts.sessionRawId ?? null,
-  )
-  if (!keys.length) {
-    const fallback = (opts.resultKeys ?? []).map(String).filter(isPlausibleTourBookKey)
-    if (!fallback.length) return []
-    keys.push(...fallback)
-  }
-  const unique = keys.filter((id, i, arr) => arr.indexOf(id) === i)
+    sessionRaw || null,
+  ).filter(isStrictTourBookResultKey)
+  const explicit = (opts.resultKeys ?? [])
+    .map((k) => String(k ?? '').trim())
+    .filter(isStrictTourBookResultKey)
+  const keys = explicit.length ? explicit : rowKeys
+  if (!keys.length) return []
+  const unique = keys
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+    .sort((a, b) => {
+      const rank = (k) =>
+        isTourSessionVariantBookKey(k) ? 0 : k.includes('@') || /^tour:/i.test(k) ? 1 : 2
+      return rank(a) - rank(b)
+    })
   if (!unique.length) return []
   const { resultKeys: _drop, ...base } = opts
   const variants = []
@@ -455,6 +464,18 @@ export function buildTourBookRequestVariants(opts = {}) {
   }
   if (unique.length > 1) {
     variants.push({ label: 'resultKeys-all', ...base, resultKeys: unique.slice(0, 2) })
+  }
+  if (sessionRaw && isTourSessionCompositeKey(sessionRaw)) {
+    for (let i = 0; i < Math.min(unique.length, 2); i++) {
+      variants.push({
+        label: `pkgBody+key${i}`,
+        ...base,
+        packageIdInBody: true,
+        packageIdWithResultKeys: true,
+        packageId: sessionRaw,
+        resultKeys: [unique[i]],
+      })
+    }
   }
   return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
 }
@@ -994,6 +1015,15 @@ function isTourSessionCompositeKey(id) {
   return /^T\d{2}-\d{4}-\d+\|/i.test(String(id ?? '').trim())
 }
 
+/** Oturum anahtarı + paket varyantı (ör. …|uuid|254) — BookTour ResultKeys adayı. */
+export function isTourSessionVariantBookKey(id) {
+  const s = String(id ?? '').trim()
+  if (!isTourSessionCompositeKey(s)) return false
+  const tail = s.split('|').pop() ?? ''
+  if (!/^\d{1,5}$/.test(tail)) return false
+  return s.length > tail.length + 1
+}
+
 /** İnsan okunur tur başlığı (ör. "Kapadokya | Balon Turu") — API anahtarı değil. */
 function isTourDisplayTitle(id) {
   const s = String(id ?? '').trim()
@@ -1005,11 +1035,11 @@ function isTourDisplayTitle(id) {
   return false
 }
 
-/** GetTourFinalPrice PackageId — tur kodu / başlık / ham oturum anahtarı değil. */
+/** GetTourFinalPrice PackageId — tur kodu / başlık değil; oturum pipe anahtarı geçerli. */
 function isPlausibleTourFinalPricePackageId(id) {
   const s = String(id ?? '').trim()
   if (!s || isTourCatalogCode(s) || isTourDisplayTitle(s)) return false
-  if (/^T\d{2}-\d{4}-\d+\|/i.test(s)) return false
+  if (isTourSessionCompositeKey(s)) return true
   if (s.includes('@')) return true
   if (/^tour:/i.test(s)) return true
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s)) return true
@@ -1030,6 +1060,14 @@ export function isPlausibleTourBookKey(id) {
   if (isTourSessionCompositeKey(s)) return true
   if (s.includes('|') && /[0-9_]{2,}/.test(s) && !/\s\|\s/.test(s)) return true
   return false
+}
+
+/** BookTour ResultKeys — yalın oturum pipe değil; @ / tour: / …|254 paket varyantı OK. */
+export function isStrictTourBookResultKey(id) {
+  const s = String(id ?? '').trim()
+  if (!s || !isPlausibleTourBookKey(s)) return false
+  if (isTourSessionCompositeKey(s)) return isTourSessionVariantBookKey(s)
+  return true
 }
 
 /** GetTourPrices satırı PackagePrices / ResultExp içinden book anahtarları. */
@@ -1058,7 +1096,7 @@ export function pickTourPackagePriceBookKeys(priceRow) {
   return keys
 }
 
-/** BookTour için öncelikli anahtar listesi — Result.Id oturum anahtarı önce, |254 ekleri sonra. */
+/** BookTour için öncelikli anahtar listesi — |254 varyant önce, yalın oturum pipe en sonda. */
 export function collectTourBookKeys(priceRow, pricePayload = null, sessionRawId = null) {
   const session = String(sessionRawId ?? pickTourPricesSessionRawId(pricePayload) ?? '').trim()
   const fromRow = [
@@ -1069,15 +1107,19 @@ export function collectTourBookKeys(priceRow, pricePayload = null, sessionRawId 
     .filter(isPlausibleTourBookKey)
 
   const ordered = []
-  if (session && isPlausibleTourBookKey(session)) ordered.push(session)
   for (const k of fromRow) {
     if (k === session) continue
     if (session && k.startsWith(`${session}|`)) ordered.push(k)
   }
   for (const k of fromRow) {
-    if (!ordered.includes(k)) ordered.push(k)
+    if (!ordered.includes(k) && isStrictTourBookResultKey(k)) ordered.push(k)
   }
+  if (session && isPlausibleTourBookKey(session)) ordered.push(session)
   return ordered.filter((id, i, arr) => arr.indexOf(id) === i)
+}
+
+export function pickTourVariantBookKeys(priceRow, pricePayload = null, sessionRawId = null) {
+  return collectTourBookKeys(priceRow, pricePayload, sessionRawId).filter(isTourSessionVariantBookKey)
 }
 
 /** GetTourFinalPrice için aday PackageId listesi — tur kodundan önce ResultKey/tour:... */
@@ -1185,6 +1227,56 @@ export async function getTourFinalPriceSoft(cfg, tokenCode, opts = {}) {
   }
 }
 
+function buildTourFinalPricePackageCandidates(priceRow, pricePayload, sessionRawId) {
+  const out = []
+  const push = (v) => {
+    const s = String(v ?? '').trim()
+    if (s && isPlausibleTourFinalPricePackageId(s) && !out.includes(s)) out.push(s)
+  }
+  for (const id of collectTourFinalPricePackageIds(priceRow, {
+    pricePayload,
+    sessionPackageId: sessionRawId,
+    parentPackageId: sessionRawId,
+  })) {
+    push(id)
+  }
+  push(extractTourSessionUuid(sessionRawId))
+  if (sessionRawId) push(sessionRawId)
+  return out
+}
+
+export function pickTourBookKeysFromFinalPricePayload(finalPricePayload, priceRow = null, opts = {}) {
+  const strictOnly = opts.strictOnly === true
+  const filterKeys = (list) =>
+    strictOnly ? list.filter(isStrictTourBookResultKey) : list.filter(isPlausibleTourBookKey)
+  const keys = filterKeys(pickTourBookResultKeys(finalPricePayload, priceRow))
+  if (keys.length) return keys
+  const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
+  const extra = []
+  const push = (k) => {
+    const s = String(k ?? '').trim()
+    if (s && isPlausibleTourBookKey(s) && !extra.includes(s)) extra.push(s)
+  }
+  for (const f of ['PackageId', 'packageId', 'ResultKey', 'resultKey', 'Id', 'id']) {
+    push(r[f])
+  }
+  const walk = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 6) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1)
+      return
+    }
+    push(node.PackageId ?? node.packageId)
+    push(node.ResultKey ?? node.resultKey)
+    push(node.RoomCode ?? node.roomCode)
+    for (const k of Object.keys(node)) {
+      if (Array.isArray(node[k]) || (node[k] && typeof node[k] === 'object')) walk(node[k], depth + 1)
+    }
+  }
+  walk(r)
+  return filterKeys([...new Set([...keys, ...extra])])
+}
+
 export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) {
   const sessionRawId = pickTourPricesSessionRawId(ctx.pricePayload)
   const tourRoomsDefault = buildTourFinalPriceRoomsFromPriceRow(
@@ -1192,22 +1284,9 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     ctx.roomOpts ?? [{ Adults: 2 }],
   )
 
+  const packageIds = buildTourFinalPricePackageCandidates(priceRow, ctx.pricePayload, sessionRawId)
   const directKeys = collectTourBookKeys(priceRow, ctx.pricePayload, sessionRawId)
-  if (directKeys.length && ctx.forceFinalPriceApi !== true) {
-    return {
-      packageId: directKeys[0],
-      payload: null,
-      resultKeys: directKeys.slice(0, 3),
-      tourRooms: tourRoomsDefault,
-      skippedFinalPrice: true,
-    }
-  }
-
-  const packageIds = collectTourFinalPricePackageIds(priceRow, {
-    ...ctx,
-    sessionPackageId: sessionRawId,
-    parentPackageId: sessionRawId ?? ctx.parentPackageId,
-  })
+  const requireFinal = ctx.requireFinalPriceForBook === true
   const bedTypes = tourBedTypeCandidates(priceRow, ctx.roomOpts ?? [{ Adults: 2 }])
   let lastErr = 'PackageId adayı yok'
 
@@ -1243,21 +1322,40 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
         timeoutMs: ctx.timeoutMs,
       })
       if (res.ok) {
-        let resultKeys = pickTourBookResultKeys(res.payload, priceRow)
-        if (!resultKeys.length) {
-          resultKeys = collectTourBookKeys(priceRow, ctx.pricePayload, sessionRawId)
-        }
+        const resultKeys = pickTourBookKeysFromFinalPricePayload(res.payload, priceRow, {
+          strictOnly: requireFinal,
+        })
         if (resultKeys.length) {
-          return { packageId, payload: res.payload, resultKeys, tourRooms }
+          return {
+            packageId,
+            payload: res.payload,
+            resultKeys,
+            tourRooms,
+            skippedFinalPrice: false,
+          }
         }
-        lastErr = 'ResultKeys alınamadı'
+        lastErr = requireFinal
+          ? 'GetTourFinalPrice strict book key yok (@/tour:)'
+          : 'GetTourFinalPrice ResultKeys alınamadı'
         continue
       }
       lastErr = res.error ?? lastErr
     }
   }
 
-  if (directKeys.length) {
+  const variantKeys = directKeys.filter(isStrictTourBookResultKey)
+  if (variantKeys.length) {
+    return {
+      packageId: sessionRawId ?? variantKeys[0],
+      payload: null,
+      resultKeys: variantKeys.slice(0, 3),
+      tourRooms: tourRoomsDefault,
+      skippedFinalPrice: true,
+      usedPriceVariantKey: true,
+    }
+  }
+
+  if (!requireFinal && directKeys.length) {
     return {
       packageId: directKeys[0],
       payload: null,
@@ -1271,44 +1369,15 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
   throw new Error(tried ? `${lastErr} (denenen: ${tried})` : lastErr)
 }
 
-/** BookTour öncesi — GetTourFinalPrice ile gerçek ResultKeys (oturum pipe tek başına yetmeyebilir). */
+/** @deprecated resolveTourFinalPrice({ requireFinalPriceForBook: true }) kullanın */
 export async function enrichTourResolveWithFinalPrice(cfg, tokenCode, resolved, priceRow, pricePayload, ctx = {}) {
-  if (resolved.payload) {
-    const keys = pickTourBookResultKeys(resolved.payload, priceRow)
-    if (keys.length) {
-      return { ...resolved, resultKeys: keys, skippedFinalPrice: false }
-    }
-  }
-  const sessionRaw = pickTourPricesSessionRawId(pricePayload)
-  const tourRooms =
-    resolved.tourRooms ??
-    buildTourFinalPriceRoomsFromPriceRow(priceRow, ctx.roomOpts ?? [{ Adults: 2 }])
-  const candidates = collectTourFinalPricePackageIds(priceRow, {
+  if (resolved.payload && resolved.skippedFinalPrice !== true) return resolved
+  return resolveTourFinalPrice(cfg, tokenCode, priceRow, {
+    ...ctx,
     pricePayload,
-    sessionPackageId: sessionRaw,
+    requireFinalPriceForBook: true,
+    forceFinalPriceApi: true,
   })
-  const uuid = extractTourSessionUuid(sessionRaw)
-  if (uuid && !candidates.includes(uuid)) candidates.unshift(uuid)
-
-  for (const packageId of candidates.slice(0, 4)) {
-    const fp = await getTourFinalPriceSoft(cfg, tokenCode, {
-      packageId,
-      tourRooms,
-      timeoutMs: ctx.timeoutMs,
-    })
-    if (!fp.ok) continue
-    const keys = pickTourBookResultKeys(fp.payload, priceRow)
-    if (keys.length) {
-      return {
-        packageId,
-        payload: fp.payload,
-        resultKeys: keys,
-        tourRooms,
-        skippedFinalPrice: false,
-      }
-    }
-  }
-  return resolved
 }
 
 export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {
