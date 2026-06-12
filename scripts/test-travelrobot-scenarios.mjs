@@ -152,7 +152,22 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v11'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v12'
+const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
+const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
+const TOUR_CERT_PREFER_CODE = 'T66-1204-22669'
+
+function tourProgress(msg) {
+  console.log(`  … ${msg}`)
+}
+
+function rankTourRowsForCert(rows) {
+  return [...rows].sort((a, b) => {
+    const ac = tourRowCode(a) === TOUR_CERT_PREFER_CODE ? 0 : 1
+    const bc = tourRowCode(b) === TOUR_CERT_PREFER_CODE ? 0 : 1
+    return ac - bc
+  })
+}
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1114,6 +1129,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
       languageCode: searchOpts.languageCode ?? 'tr',
       startDate: searchOpts.startDate ?? addDays(7),
       endDate: searchOpts.endDate ?? addDays(400),
+      timeoutMs: TOUR_API_TIMEOUT_MS,
     })
     searchRows = pickTourRows(payload)
     log(scenarioName, 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', searchOpts, payload, searchRows.length >= 0)
@@ -1136,11 +1152,19 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
   const priceRooms = buildTourPriceRooms(roomOpts)
   const finalRooms = buildTourFinalPriceRooms(roomOpts)
   const tourRoomPaxes = buildTourRoomPaxes(roomOpts, makeTourCertPax)
-  const tryTours = searchRows.slice(0, Math.min(searchRows.length, searchOpts.maxTours ?? 8))
+  const maxTours = searchOpts.maxTours ?? (TOUR_CERT_QUICK ? 4 : 8)
+  const tryTours = rankTourRowsForCert(searchRows).slice(0, Math.min(searchRows.length, maxTours))
+  const dateOffsetsList = TOUR_CERT_QUICK ? [30, 45, 60] : TOUR_CERT_DATE_OFFSETS
+  const maxAttempts = TOUR_CERT_QUICK ? 4 : 8
+  const maxVariants = TOUR_CERT_QUICK ? 2 : 5
 
   let booked = false
   let lastPriceErr = ''
   let lastTourDebug = null
+  let priceTries = 0
+  const maxPriceTries = TOUR_CERT_QUICK ? 30 : 120
+
+  tourProgress(`tur taraması (${tryTours.length} aday)…`)
 
   for (const tourRow of tryTours) {
     if (booked) break
@@ -1149,8 +1173,11 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
     let attempts = []
     try {
+      tourProgress(`${tourCode}: attempt listesi…`)
       attempts = await resolveTourPriceAttempts(cfg, tokenCode, tourRow, {
         languageCode: searchOpts.languageCode ?? 'tr',
+        skipTourDetails: TOUR_CERT_QUICK,
+        timeoutMs: TOUR_API_TIMEOUT_MS,
       })
     } catch (e) {
       lastPriceErr = String(e)
@@ -1162,10 +1189,10 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
     }
 
     attemptLoop:
-    for (const attempt of attempts.slice(0, 12)) {
+    for (const attempt of attempts.slice(0, maxAttempts)) {
       if (booked) break
 
-      const dateOffsets = formatTourApiDate(attempt.departureDate) ? [null] : TOUR_CERT_DATE_OFFSETS
+      const dateOffsets = formatTourApiDate(attempt.departureDate) ? [null] : dateOffsetsList
       for (const offset of dateOffsets) {
         if (booked) break
         const departureDate = offset == null ? attempt.departureDate : addDays(offset)
@@ -1174,14 +1201,22 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
           departureDate,
           priceRooms,
           searchOpts.languageCode ?? 'tr',
-        )
+        ).slice(0, maxVariants)
 
         for (const variant of variants) {
           if (booked) break
+          if (++priceTries > maxPriceTries) {
+            tourProgress(`deneme limiti (${maxPriceTries})`)
+            break attemptLoop
+          }
           let pricePayload = null
           let priceRows = []
           try {
-            pricePayload = await getTourPrices(cfg, tokenCode, variant)
+            tourProgress(`GetTourPrices #${priceTries} ${tourCode} ${variant.departureDate ?? '?'}`)
+            pricePayload = await getTourPrices(cfg, tokenCode, {
+              ...variant,
+              timeoutMs: TOUR_API_TIMEOUT_MS,
+            })
             priceRows = pickTourPriceRows(pricePayload)
             log(
               scenarioName,
@@ -1220,6 +1255,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let resultKeys = []
             let tourRoomsForBook = finalRooms
             try {
+              tourProgress(`book keys ${tourCode}…`)
               const resolved = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
                 pricePayload,
                 variant,
@@ -1227,6 +1263,9 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 tourCode,
                 roomOpts: roomOpts,
                 languageCode: searchOpts.languageCode ?? 'tr',
+                quick: TOUR_CERT_QUICK,
+                skipTourExtras: true,
+                timeoutMs: TOUR_API_TIMEOUT_MS,
               })
               packageId = resolved.packageId
               finalPayload = resolved.payload
@@ -1302,6 +1341,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let bookPayload = null
             let bookPayLabel = paymentAttempts[0]?.label ?? 'default'
             let bookBodyLabel = bookBodyVariants[0]?.label ?? 'resultKeys'
+            tourProgress(`BookTour ${tourCode}…`)
             bookPayLoop:
             for (const pay of paymentAttempts.slice(0, 5)) {
               for (const bodyVariant of bookBodyVariants) {
@@ -1309,6 +1349,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   bookPayload = await bookTour(cfg, {
                     ...bodyVariant,
                     paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
+                    timeoutMs: TOUR_API_TIMEOUT_MS,
                   })
                   bookPayLabel = pay.label
                   bookBodyLabel = bodyVariant.label

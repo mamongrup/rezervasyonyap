@@ -27,4 +27,6 @@ fi
 echo "══ KPlus tour cert (sandbox) ══"
 echo "[config] git: $(git -C "$APP_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 grep -m1 'TRAVELROBOT_TEST_SCRIPT_VERSION' "$APP_ROOT/scripts/test-travelrobot-scenarios.mjs" || true
+# İlerleme logu + T66 öncelik + oturum anahtarı ile hızlı book (v12). Daha dar tarama: KPLUS_TOUR_CERT_QUICK=1
+export KPLUS_FETCH_TIMEOUT_MS="${KPLUS_FETCH_TIMEOUT_MS:-90000}"
 node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking "${EXTRA[@]}"

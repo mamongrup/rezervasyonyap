@@ -325,7 +325,7 @@ export async function getTourExtras(cfg, tokenCode, opts = {}) {
       OperationType: opts.operationType ?? 0,
       ResultKeys: opts.resultKeys ?? null,
     },
-  })
+  }, { timeoutMs: opts.timeoutMs })
 }
 
 /**
@@ -344,7 +344,7 @@ export async function getTourFinalPrice(cfg, tokenCode, opts = {}) {
       ],
       AdditionalServices: opts.additionalServices ?? [],
     },
-  })
+  }, { timeoutMs: opts.timeoutMs })
 }
 
 /**
@@ -467,7 +467,7 @@ export function buildTourBookRequestVariants(opts = {}) {
 
 export async function bookTour(cfg, opts = {}) {
   const body = buildTourBookRequest(opts)
-  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/BookTour', body)
+  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/BookTour', body, { timeoutMs: opts.timeoutMs })
 }
 
 /**
@@ -1189,6 +1189,17 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     ctx.roomOpts ?? [{ Adults: 2 }],
   )
 
+  const directKeys = collectTourBookKeys(priceRow, ctx.pricePayload, sessionRawId)
+  if (directKeys.length && ctx.forceFinalPriceApi !== true) {
+    return {
+      packageId: directKeys[0],
+      payload: null,
+      resultKeys: directKeys.slice(0, 3),
+      tourRooms: tourRoomsDefault,
+      skippedFinalPrice: true,
+    }
+  }
+
   const packageIds = collectTourFinalPricePackageIds(priceRow, {
     ...ctx,
     sessionPackageId: sessionRawId,
@@ -1201,23 +1212,33 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     lastErr = 'GetTourFinalPrice için geçerli PackageId yok'
   }
 
-  for (const packageId of packageIds.slice(0, 10)) {
-    try {
-      await getTourExtras(cfg, tokenCode, {
-        packageId,
-        languageCode: ctx.languageCode ?? 'tr',
-      })
-    } catch {
-      /* opsiyonel */
+  const pkgLimit = ctx.quick === true ? 3 : 6
+  const bedLimit = ctx.quick === true ? 2 : 3
+
+  for (const packageId of packageIds.slice(0, pkgLimit)) {
+    if (!ctx.skipTourExtras) {
+      try {
+        await getTourExtras(cfg, tokenCode, {
+          packageId,
+          languageCode: ctx.languageCode ?? 'tr',
+          timeoutMs: ctx.timeoutMs,
+        })
+      } catch {
+        /* opsiyonel */
+      }
     }
 
-    for (const bedType of bedTypes.slice(0, 4)) {
+    for (const bedType of bedTypes.slice(0, bedLimit)) {
       const tourRooms = buildTourFinalPriceRoomsFromPriceRow(
         priceRow,
         ctx.roomOpts ?? [{ Adults: 2 }],
         bedType,
       )
-      const res = await getTourFinalPriceSoft(cfg, tokenCode, { packageId, tourRooms })
+      const res = await getTourFinalPriceSoft(cfg, tokenCode, {
+        packageId,
+        tourRooms,
+        timeoutMs: ctx.timeoutMs,
+      })
       if (res.ok) {
         let resultKeys = pickTourBookResultKeys(res.payload, priceRow)
         if (!resultKeys.length) {
@@ -1233,8 +1254,6 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     }
   }
 
-  const directKeys = collectTourBookKeys(priceRow, ctx.pricePayload, sessionRawId)
-
   if (directKeys.length) {
     return {
       packageId: directKeys[0],
@@ -1245,7 +1264,7 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     }
   }
 
-  const tried = packageIds.slice(0, 5).join(', ')
+  const tried = packageIds.slice(0, pkgLimit).join(', ')
   throw new Error(tried ? `${lastErr} (denenen: ${tried})` : lastErr)
 }
 
