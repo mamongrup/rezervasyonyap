@@ -1149,6 +1149,20 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
       }
       return
     }
+    if (TOUR_CERT_ONLY_CODE) {
+      const matched = searchRows.filter((r) => tourRowCode(r) === TOUR_CERT_ONLY_CODE)
+      if (matched.length) {
+        searchRows = matched
+      } else {
+        console.log(
+          `  ℹ️  SearchTour'da ${TOUR_CERT_ONLY_CODE} yok — doğrudan GetTourPrices denenecek`,
+        )
+        searchRows = [
+          { TourCode: TOUR_CERT_ONLY_CODE, TourAlternativeCode: TOUR_CERT_ONLY_CODE },
+        ]
+      }
+      tourProgress(`yalnızca tur: ${TOUR_CERT_ONLY_CODE}`)
+    }
     ok(`[${scenarioName}] SearchTour`, `${searchRows.length} tur`)
   } catch (e) {
     log(scenarioName, 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', {}, String(e), false)
