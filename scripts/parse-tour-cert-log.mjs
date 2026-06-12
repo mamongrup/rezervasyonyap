@@ -28,7 +28,7 @@ const entries = JSON.parse(readFileSync(logPath, 'utf8'))
 const pick = (step) => entries.filter((e) => e.step === step || e.endpoint?.includes(step))
 
 console.log('log:', logPath)
-for (const step of ['GetTourFinalPrice', 'BookTour', 'GetTourPrices-hit']) {
+for (const step of ['GetTourPrices-hit', 'GetTourFinalPrice', 'BookTour']) {
   const rows = pick(step)
   if (!rows.length) continue
   const last = rows.at(-1)

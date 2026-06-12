@@ -21,6 +21,8 @@ import {
   pickTourPriceBookKeys,
   pickTourRoomBookKeys,
   collectTourFinalPricePackageIds,
+  collectTourBookKeys,
+  formatTourApiDate,
   isPlausibleTourBookKey,
 } from './lib/travelrobot-api.mjs'
 import { buildSandboxConfigAsync } from './lib/travelrobot-sandbox-config.mjs'
@@ -60,8 +62,10 @@ let usedAttempt = null
 let usedVariant = null
 let lastErr = null
 
-for (const attempt of attempts.slice(0, 8)) {
-  for (const variant of buildTourPriceRequestVariants(attempt, addDays(30), priceRooms, 'tr').slice(0, 4)) {
+const datedAttempts = attempts.filter((a) => formatTourApiDate(a.departureDate))
+for (const attempt of (datedAttempts.length ? datedAttempts : attempts).slice(0, 12)) {
+  const dep = formatTourApiDate(attempt.departureDate) || addDays(30)
+  for (const variant of buildTourPriceRequestVariants(attempt, dep, priceRooms, 'tr').slice(0, 4)) {
     try {
       const payload = await getTourPrices(cfg, tokenCode, variant)
       const rows2 = pickTourPriceRows(payload)
@@ -85,13 +89,7 @@ if (!priceRow) {
 
 const sessionRawId = pickTourPricesSessionRawId(pricePayload)
 const bookKeysRaw = pickTourPriceBookKeys(priceRow, pricePayload)
-const bookKeys = bookKeysRaw.filter((k) => {
-  try {
-    return isPlausibleTourBookKey(k)
-  } catch {
-    return false
-  }
-})
+const bookKeys = collectTourBookKeys(priceRow, pricePayload, sessionRawId)
 
 const report = {
   tourCode,

@@ -68,6 +68,7 @@ import {
   pickTourRoomBookKeys,
   pickTourPriceBookKeys,
   pickTourPaymentSessionId,
+  pickTourPricesSessionRawId,
   resolveTourPaymentAttempts,
   // Hotel
   searchHotel,
@@ -150,7 +151,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v8'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v9'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1286,6 +1287,9 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             const bookBodyVariants = buildTourBookRequestVariants({
               tokenCode,
               resultKeys,
+              sessionRawId: pickTourPricesSessionRawId(pricePayload),
+              priceRow,
+              pricePayload,
               tourRoomPaxes,
               contactInfo: TEST_CONTACT,
               invoiceInfo: TEST_INVOICE,
