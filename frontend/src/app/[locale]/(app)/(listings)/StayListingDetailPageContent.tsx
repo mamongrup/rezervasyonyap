@@ -31,7 +31,6 @@ import { isStayRentalCategory } from '@/lib/stay-rental-categories'
 import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import {
   getHolidayThemeLabelMap,
-  resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
 import {
   buildAttributeLabelMap,
@@ -584,7 +583,6 @@ export default async function StayListingDetailPageContent({
     : 'holiday_home'
   const stayThemeCodes = isStayRental ? parseHolidayThemeCodes(listing.themeCodes ?? []) : []
   let stayThemeHighlightLabels: Record<string, string> = {}
-  let themePillLabels: string[] = []
   if (isStayRental && stayThemeCodes.length > 0) {
     const themeLabelMap = await getHolidayThemeLabelMap(locale, stayThemeCategory)
     stayThemeHighlightLabels = Object.fromEntries(
@@ -593,7 +591,6 @@ export default async function StayListingDetailPageContent({
         themeLabelMap.get(code) ?? code.replace(/_/g, ' '),
       ]),
     )
-    themePillLabels = resolveHolidayThemeLabelsFromMap(stayThemeCodes, themeLabelMap)
   }
   const hotelTypeCodeNorm = vertical === 'hotel' ? listing.hotelTypeCode?.trim() : ''
   const listingCategoryBadge =
@@ -867,7 +864,6 @@ export default async function StayListingDetailPageContent({
       title={title}
       listingId={listing.id}
       shareGallery={{ galleryUrls: galleryForShare, listingTitle: title, locale }}
-      themePills={isStayRental && themePillLabels.length > 0 ? themePillLabels : undefined}
       regionName={regionName}
       licenseLine={vertical === 'hotel' || isHolidayHome ? ministryLicenseLine : undefined}
       hotelStarRating={vertical === 'hotel' ? hotelStarRating : undefined}
