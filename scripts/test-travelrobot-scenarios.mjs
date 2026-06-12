@@ -76,6 +76,10 @@ import {
   resolveTourPaymentAttempts,
   getPickupPointsSoft,
   pickTourPickupPointId,
+  pickTourPickupPointRef,
+  applyTourPickupToRoomPaxes,
+  buildTourPickupAdditionalServices,
+  getTourFinalPriceSoft,
   // Hotel
   searchHotel,
   pickHotelRows,
@@ -157,7 +161,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v31'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v32'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1371,6 +1375,8 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
             const sessionPackageId = pickTourPaymentSessionId(finalPayload, pricePayload)
             let pickupPayload = null
+            let pickupRef = null
+            let finalPayloadForBook = finalPayload
             if (!SKIP_BOOKING && finalPriceLocked) {
               tourProgress(`GetPickupPoints ${tourCode}…`)
               const pickupRes = await getPickupPointsSoft(cfg, tokenCode, {
@@ -1381,6 +1387,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               })
               if (pickupRes.ok) {
                 pickupPayload = pickupRes.payload
+                pickupRef = pickTourPickupPointRef(pickupPayload)
                 log(
                   scenarioName,
                   'GetPickupPoints',
@@ -1389,10 +1396,40 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                     packageId: finalPricePackageId ?? packageId,
                     resultKeys,
                     pickupPointId: pickTourPickupPointId(pickupPayload),
+                    pickupPointCode: pickupRef?.code ?? null,
                   },
                   pickupPayload,
                   !pickupPayload?.HasError,
                 )
+                const pickupServices = buildTourPickupAdditionalServices(pickupRef)
+                if (pickupServices.length) {
+                  tourProgress(`GetTourFinalPrice+pickup ${tourCode}…`)
+                  const refreshRooms = (tourRoomsForBook ?? finalRooms).map((room) => ({
+                    ...room,
+                    AdditionalServices: pickupServices,
+                  }))
+                  const refresh = await getTourFinalPriceSoft(cfg, tokenCode, {
+                    packageId: finalPricePackageId ?? packageId,
+                    tourRooms: refreshRooms,
+                    additionalServices: pickupServices,
+                    timeoutMs: TOUR_API_TIMEOUT_MS,
+                  })
+                  log(
+                    scenarioName,
+                    'GetTourFinalPrice-pickup',
+                    '/Tour.svc/Rest/Json/GetTourFinalPrice',
+                    {
+                      packageId: finalPricePackageId ?? packageId,
+                      pickupPointCode: pickupRef.code,
+                      pickupServices,
+                    },
+                    refresh.payload ?? { error: refresh.error },
+                    refresh.ok && !refresh.payload?.HasError,
+                  )
+                  if (refresh.ok && !refresh.payload?.HasError) {
+                    finalPayloadForBook = refresh.payload
+                  }
+                }
               }
             }
 
@@ -1435,13 +1472,16 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
             const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax).map((pv) => ({
               ...pv,
-              tourRoomPaxes: (pv.tourRoomPaxes ?? []).map((room) => ({
-                ...room,
-                BedType:
-                  finalPriceBedType != null && !Number.isNaN(Number(finalPriceBedType))
-                    ? Number(finalPriceBedType)
-                    : room.BedType,
-              })),
+              tourRoomPaxes: applyTourPickupToRoomPaxes(
+                (pv.tourRoomPaxes ?? []).map((room) => ({
+                  ...room,
+                  BedType:
+                    finalPriceBedType != null && !Number.isNaN(Number(finalPriceBedType))
+                      ? Number(finalPriceBedType)
+                      : room.BedType,
+                })),
+                pickupRef,
+              ),
             }))
             const tourInvoice = cleanTourBookInvoice(TEST_INVOICE)
 
@@ -1452,7 +1492,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               pkgOnlyMode,
               finalPriceLocked,
               finalPricePackageId,
-              finalPricePayload: finalPayload,
+              finalPricePayload: finalPayloadForBook,
               pickupPayload,
               paymentSessionId: sessionPackageId,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
@@ -1524,7 +1564,9 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                     sentPkg: sent.PackageId ?? null,
                     sentKeys: sent.ResultKeys ?? null,
                     sentContracts: sent.ExtraInfo?.Contracts?.length ?? 0,
-                    sentPickup: sent.ExtraInfo?.PickupPoints?.[0]?.Id ?? null,
+                    sentPickup: sent.ExtraInfo?.PickupPoints?.[0]?.Code ?? sent.ExtraInfo?.PickupPoints?.[0]?.Id ?? null,
+                    sentRoomPickup:
+                      sent.PaxInfo?.TourRoomPaxes?.[0]?.AdditionalServices?.[0]?.Code ?? null,
                     error: String(lastPriceErr).slice(0, 300),
                   })
                   if (!/packageid|resultkey|invalid|payment|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) {

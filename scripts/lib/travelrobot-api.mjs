@@ -415,13 +415,31 @@ export function pickTourBookExtraInfoFromFinalPrice(finalPricePayload) {
 /** Contracts + GetPickupPoints → BookTour ExtraInfo. */
 export function buildTourBookExtraInfo(finalPricePayload, pickupPayload = null) {
   const contracts = pickTourBookExtraInfoFromFinalPrice(finalPricePayload)
-  const pickupId = pickupPayload ? pickTourPickupPointId(pickupPayload) : null
-  if (!contracts && !pickupId) return null
+  const pickupRef = pickupPayload ? pickTourPickupPointRef(pickupPayload) : null
+  if (!contracts && !pickupRef) return null
   const out = { ...(contracts ?? {}) }
-  if (pickupId) {
-    out.PickupPoints = [{ Id: pickupId, Selected: true }]
+  if (pickupRef?.code) {
+    out.PickupPoints = [{ Code: pickupRef.code, Selected: true }]
   }
   return out
+}
+
+/** GetTourFinalPrice / BookTour — kalkış noktası AdditionalServices. */
+export function buildTourPickupAdditionalServices(pickupRef) {
+  if (!pickupRef) return []
+  const code = String(pickupRef.code ?? pickupRef.id ?? '').trim()
+  if (!code) return []
+  return [{ Code: code }]
+}
+
+/** BookTour TourRoomPaxes — pickup AdditionalServices ekle. */
+export function applyTourPickupToRoomPaxes(tourRoomPaxes, pickupRef) {
+  const services = buildTourPickupAdditionalServices(pickupRef)
+  if (!services.length) return tourRoomPaxes
+  return (tourRoomPaxes ?? []).map((room) => ({
+    ...room,
+    AdditionalServices: services,
+  }))
 }
 
 /** GetTourFinalPrice sonrası BookTour ResultKeys — yalın oturum pipe (|254 değil). */
@@ -594,19 +612,27 @@ export function buildTourBookRequestVariants(opts = {}) {
 
     if (sessionKey) {
       push({
+        label: 'pkgSession+contract',
+        packageIdInBody: true,
+        packageId: sessionKey,
+        resultKeys: [],
+      })
+      if (refs.finalResultId && /^TFP#/i.test(refs.finalResultId)) {
+        push({
+          label: 'pkgSession+tfp+contract',
+          packageIdInBody: true,
+          packageId: sessionKey,
+          allowTfpSession: true,
+          packageIdWithResultKeys: true,
+          resultKeys: [refs.finalResultId],
+        })
+      }
+      push({
         label: 'pkg254+sessionKey+contract',
         packageIdInBody: true,
         packageId: bookPkg,
         packageIdWithResultKeys: true,
         resultKeys: [sessionKey],
-      })
-      push({
-        label: 'pkg254+sessionKey+contract+price',
-        packageIdInBody: true,
-        packageId: bookPkg,
-        packageIdWithResultKeys: true,
-        resultKeys: [sessionKey],
-        withPrice: true,
       })
     }
     if (refs.finalResultId && /^TFP#/i.test(refs.finalResultId) && sessionKey) {
@@ -619,27 +645,12 @@ export function buildTourBookRequestVariants(opts = {}) {
         resultKeys: [sessionKey],
       })
     }
-    if (refs.reqPkgId && sessionKey && refs.reqPkgId !== sessionKey) {
-      push({
-        label: 'pkgReqPkg+sessionKey+contract',
-        packageIdInBody: true,
-        packageId: refs.reqPkgId,
-        packageIdWithResultKeys: true,
-        resultKeys: [sessionKey],
-      })
-    }
     if (sessionKey) {
       push({
         label: 'resultKeys-session+contract',
         resultKeys: [sessionKey],
       })
     }
-    push({
-      label: 'pkg254+contract',
-      packageIdInBody: true,
-      packageId: bookPkg,
-      resultKeys: [],
-    })
     variants.push(...locked)
     return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
   }
@@ -1918,24 +1929,39 @@ export async function getPickupPointsSoft(cfg, tokenCode, opts = {}) {
   }
 }
 
-/** GetPickupPoints yanıtından ilk kalkış noktası Id. */
-export function pickTourPickupPointId(pickupPayload) {
+/** GetPickupPoints yanıtından ilk kalkış noktası (Code / Id). */
+export function pickTourPickupPointRef(pickupPayload) {
   const r = pickupPayload?.Result ?? pickupPayload?.result ?? pickupPayload
-  const lists = [
-    r?.PickupPoints,
-    r?.pickupPoints,
-    r?.Points,
-    r?.points,
-    r?.Items,
-    r?.items,
-  ].filter(Array.isArray)
+  const lists = []
+  if (Array.isArray(r)) lists.push(r)
+  if (r && typeof r === 'object') {
+    for (const k of ['PickupPoints', 'pickupPoints', 'Points', 'points', 'Items', 'items']) {
+      if (Array.isArray(r[k])) lists.push(r[k])
+    }
+  }
   for (const list of lists) {
     for (const item of list) {
-      const id = item?.Id ?? item?.id ?? item?.PickupPointId ?? item?.pickupPointId
-      if (id != null && String(id).trim()) return String(id).trim()
+      if (!item || typeof item !== 'object') continue
+      const code = item.Code ?? item.code
+      const id = item.Id ?? item.id ?? item.PickupPointId ?? item.pickupPointId
+      const name = item.Name ?? item.name
+      const codeStr = code != null ? String(code).trim() : ''
+      const idStr = id != null ? String(id).trim() : ''
+      if (codeStr) {
+        return { code: codeStr, id: idStr || codeStr, name: name != null ? String(name).trim() : null }
+      }
+      if (idStr) {
+        return { code: idStr, id: idStr, name: name != null ? String(name).trim() : null }
+      }
     }
   }
   return null
+}
+
+/** @deprecated pickTourPickupPointRef kullanın */
+export function pickTourPickupPointId(pickupPayload) {
+  const ref = pickTourPickupPointRef(pickupPayload)
+  return ref?.code ?? ref?.id ?? null
 }
 
 /** Tur rezervasyonu sorgula — System PNR doğrulama. */
