@@ -28,11 +28,11 @@ const entries = JSON.parse(readFileSync(logPath, 'utf8'))
 const pick = (step) => entries.filter((e) => e.step === step || e.endpoint?.includes(step))
 
 console.log('log:', logPath)
-for (const step of ['GetTourPrices-hit', 'GetTourFinalPrice', 'BookTour']) {
-  const rows = pick(step)
+for (const step of ['GetTourPrices-hit', 'GetTourFinalPrice', 'BookTour-fail', 'BookTour']) {
+  const rows = pick(step).filter((e) => e.step === step)
   if (!rows.length) continue
   const last = rows.at(-1)
   console.log('\n===', step, '===')
-  console.log('request:', JSON.stringify(last.request, null, 2)?.slice(0, 2000))
+  console.log('request:', JSON.stringify(last.request, null, 2)?.slice(0, 4000))
   console.log('response:', JSON.stringify(last.response, null, 2)?.slice(0, 3000))
 }

@@ -83,6 +83,7 @@ async function kplusPost(baseUrl, svcPath, body, opts = {}) {
     }
   }
   if (!res.ok || json?.HasError) {
+    if (opts.noThrowOnHasError === true && json) return json
     const msg =
       json?.ErrorMessage ||
       json?.UserFriendlyErrorMessage ||
@@ -467,14 +468,25 @@ export function buildTourBookRequestVariants(opts = {}) {
   }
   const pkgForBody = String(opts.packageId ?? '').trim() || sessionRaw
   if (pkgForBody && isPlausibleTourBookKey(pkgForBody)) {
-    // GetTourFinalPrice'ın kabul ettiği PackageId ile yalnız PackageId gövdesi (ResultKeys yok).
-    variants.push({
+    // pkgOnly PackageId doğrulamasını geçiyor (v19 kanıtı) — önce denenir.
+    const front = [{
       label: 'pkgOnly',
       ...base,
       packageIdInBody: true,
       packageId: pkgForBody,
       resultKeys: [],
-    })
+    }]
+    const variant254 = unique.find((k) => isTourSessionVariantBookKey(k))
+    if (variant254 && variant254 !== pkgForBody) {
+      front.push({
+        label: 'pkgOnly254',
+        ...base,
+        packageIdInBody: true,
+        packageId: variant254,
+        resultKeys: [],
+      })
+    }
+    variants.unshift(...front)
     for (let i = 0; i < Math.min(unique.length, 2); i++) {
       variants.push({
         label: `pkgBody+key${i}`,
@@ -491,7 +503,10 @@ export function buildTourBookRequestVariants(opts = {}) {
 
 export async function bookTour(cfg, opts = {}) {
   const body = buildTourBookRequest(opts)
-  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/BookTour', body, { timeoutMs: opts.timeoutMs })
+  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/BookTour', body, {
+    timeoutMs: opts.timeoutMs,
+    noThrowOnHasError: opts.softErrors === true,
+  })
 }
 
 /**
