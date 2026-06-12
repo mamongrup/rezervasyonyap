@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
+import { verifyAdminToken } from '@/lib/security'
 
 const INTERNAL = process.env.INTERNAL_API_ORIGIN ?? process.env.NEXT_PUBLIC_API_URL ?? ''
 const FB_GRAPH = 'https://graph.facebook.com/v18.0'
@@ -89,11 +90,13 @@ export async function POST(req: NextRequest) {
   const { listing_id, caption } = body
   if (!listing_id) return NextResponse.json({ error: 'listing_id_required' }, { status: 400 })
 
-  // 3. Kullanıcı doğrula
-  try {
-    await backendGet('/api/v1/auth/me', token)
-  } catch {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  // 3. Admin sosyal paylaşım yetkisi (backend social/jobs ile uyumlu)
+  const auth = await verifyAdminToken(token, 'admin.social.write')
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.status === 403 ? 'forbidden' : 'unauthorized' },
+      { status: auth.status },
+    )
   }
 
   // 4. İlan bilgilerini belirle
@@ -132,7 +135,7 @@ export async function POST(req: NextRequest) {
   let socialApi: SocialApi = {}
   try {
     const sRes = await backendGet<{ settings: { key: string; value_json: string }[] }>(
-      '/api/v1/site-settings?key=social_api',
+      '/api/v1/site/settings?scope=platform&key=social_api',
       token,
     )
     const row = sRes.settings.find((s) => s.key === 'social_api')

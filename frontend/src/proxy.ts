@@ -29,6 +29,9 @@ const PROTECTED: RegExp[] = [
   /^\/[a-z]{2}(-[a-z0-9]+)?\/manage(\/|$)/i,
   /^\/api\/upload-image(\/|$)/,
   /^\/api\/manage(\/|$)/,
+  /** AI / vision — route içi admin kontrolü + edge oturum zorunluluğu */
+  /^\/api\/ai-/,
+  /^\/api\/listing-image-scene-suggest(\/|$)/,
 ]
 
 function isProtected(pathname: string): boolean {
