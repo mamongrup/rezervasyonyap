@@ -450,7 +450,7 @@ export function tourRowAlternativeCode(row) {
 }
 
 function tourDepartureDateFromRow(row) {
-  return String(
+  return normalizeTourDepartureDate(
     row?.DepartureDate ??
       row?.departureDate ??
       row?.StartDate ??
@@ -458,7 +458,17 @@ function tourDepartureDateFromRow(row) {
       row?.TourDate ??
       row?.tourDate ??
       '',
-  ).trim()
+  )
+}
+
+/** GetTourPrices / GetTourFinalPrice — DD.MM.YYYY veya ISO datetime → YYYY-MM-DD. */
+export function normalizeTourDepartureDate(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return ''
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10)
+  const dot = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s)
+  if (dot) return `${dot[3]}-${dot[2]}-${dot[1]}`
+  return s
 }
 
 function tourDeparturePointFromRow(row) {
@@ -652,7 +662,7 @@ export function buildTourPriceRequestVariants(attempt, departureDate, priceRooms
   const alt = attempt.tourAlternativeCode ? String(attempt.tourAlternativeCode).trim() : null
   const pkg = attempt.packageId ? String(attempt.packageId).trim() : null
   const dep = attempt.departurePointCode ? String(attempt.departurePointCode).trim() : null
-  const date = attempt.departureDate || departureDate
+  const date = normalizeTourDepartureDate(attempt.departureDate || departureDate)
   const base = { departureDate: date, rooms: priceRooms, languageCode }
   const variants = []
   const push = (v) => {
@@ -739,6 +749,134 @@ export function pickTourPackageId(row, fallback = null) {
     row?.resultKey ??
     fallback
   )
+}
+
+/** GetTourPrices yanıtındaki üst PackageId / ResultKey. */
+export function pickTourPriceContextPackageId(pricePayload) {
+  const r = pricePayload?.Result ?? pricePayload?.result ?? pricePayload
+  if (!r || typeof r !== 'object') return null
+  for (const node of [r, ...(Array.isArray(r.TourPrices) ? r.TourPrices : []), ...(Array.isArray(r.tourPrices) ? r.tourPrices : [])]) {
+    const id = pickTourPackageId(node)
+    if (id) return String(id).trim()
+  }
+  return null
+}
+
+function isTourCatalogCode(id) {
+  return /^T\d{2}-\d{4}-\d+/i.test(String(id ?? '').trim())
+}
+
+/** GetTourFinalPrice için aday PackageId listesi — tur kodundan önce ResultKey/tour:... */
+export function collectTourFinalPricePackageIds(priceRow, ctx = {}) {
+  const out = []
+  const seen = new Set()
+  const push = (v, priority = 50) => {
+    const s = v != null ? String(v).trim() : ''
+    if (!s || seen.has(s)) return
+    seen.add(s)
+    out.push({ id: s, priority })
+  }
+
+  const walk = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 5) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1)
+      return
+    }
+    const rk = node.ResultKey ?? node.resultKey
+    const pkg = node.PackageId ?? node.packageId
+    const id = node.Id ?? node.id
+    if (typeof rk === 'string' && rk.trim()) {
+      push(rk.trim(), /^tour:/i.test(rk) ? 0 : 5)
+    }
+    if (pkg != null && String(pkg).trim()) {
+      push(String(pkg).trim(), /^tour:/i.test(pkg) ? 1 : 10)
+    }
+    if (typeof id === 'string' && id.trim()) {
+      push(id.trim(), /^tour:/i.test(id) ? 2 : 15)
+    }
+    for (const v of Object.values(node)) {
+      if (typeof v === 'string' && /^tour:/i.test(v)) push(v.trim(), 0)
+    }
+    for (const k of [
+      'Rooms',
+      'rooms',
+      'TourRooms',
+      'tourRooms',
+      'RoomAlternatives',
+      'roomAlternatives',
+      'Alternatives',
+      'alternatives',
+      'TourPrices',
+      'tourPrices',
+      'Prices',
+      'prices',
+    ]) {
+      if (Array.isArray(node[k])) for (const item of node[k]) walk(item, depth + 1)
+    }
+  }
+
+  walk(priceRow)
+  if (ctx.pricePayload) walk(ctx.pricePayload?.Result ?? ctx.pricePayload?.result)
+  push(ctx.parentPackageId, 8)
+  push(ctx.variant?.id, 12)
+  push(ctx.attempt?.packageId, 20)
+  if (ctx.tourCode && isTourCatalogCode(ctx.tourCode)) push(ctx.tourCode, 90)
+
+  return out
+    .sort((a, b) => a.priority - b.priority)
+    .map((x) => x.id)
+    .filter((id, i, arr) => arr.indexOf(id) === i)
+}
+
+export function buildTourFinalPriceRoomsFromPriceRow(priceRow, roomOpts) {
+  const bedType = Number(priceRow?.BedType ?? priceRow?.bedType ?? 0)
+  const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
+  return buildTourFinalPriceRooms(
+    rooms.map((room, index) => ({
+      ...room,
+      BedType: Number(room.BedType ?? room.bedType ?? bedType ?? index),
+    })),
+  )
+}
+
+export async function getTourFinalPriceSoft(cfg, tokenCode, opts = {}) {
+  try {
+    const payload = await getTourFinalPrice(cfg, tokenCode, opts)
+    return { ok: true, payload, error: null }
+  } catch (e) {
+    return { ok: false, payload: null, error: String(e) }
+  }
+}
+
+export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) {
+  const packageIds = collectTourFinalPricePackageIds(priceRow, ctx)
+  const tourRooms = buildTourFinalPriceRoomsFromPriceRow(priceRow, ctx.roomOpts ?? [{ Adults: 2 }])
+  let lastErr = 'PackageId adayı yok'
+  for (const packageId of packageIds.slice(0, 8)) {
+    const res = await getTourFinalPriceSoft(cfg, tokenCode, { packageId, tourRooms })
+    if (res.ok) {
+      const resultKeys = pickTourBookResultKeys(res.payload, priceRow)
+      if (resultKeys.length) return { packageId, payload: res.payload, resultKeys, tourRooms }
+      lastErr = 'ResultKeys alınamadı'
+      continue
+    }
+    lastErr = res.error ?? lastErr
+  }
+
+  const directKey = priceRow?.ResultKey ?? priceRow?.resultKey
+  if (directKey) {
+    return {
+      packageId: String(directKey),
+      payload: null,
+      resultKeys: [String(directKey)],
+      tourRooms,
+      skippedFinalPrice: true,
+    }
+  }
+
+  const tried = packageIds.slice(0, 4).join(', ')
+  throw new Error(tried ? `${lastErr} (denenen: ${tried})` : lastErr)
 }
 
 export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {

@@ -51,7 +51,6 @@ import {
   tourRowCode,
   tourRowAlternativeCode,
   getTourPrices,
-  getTourFinalPrice,
   getTourPaymentOptions,
   bookTour,
   getTourBooking,
@@ -63,6 +62,7 @@ import {
   pickTourPackageId,
   resolveTourPriceAttempts,
   buildTourPriceRequestVariants,
+  resolveTourFinalPrice,
   // Hotel
   searchHotel,
   pickHotelRows,
@@ -144,7 +144,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v2'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v3'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1192,52 +1192,54 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             continue
           }
 
-          ok(
-            `[${scenarioName}] GetTourPrices`,
-            `${tourCode} — ${departureDate} — ${priceRows.length} satır (${attempt.source})`,
-          )
-
           for (const priceRow of priceRows.slice(0, 4)) {
             if (booked) break
-            const packageId =
-              pickTourPackageId(priceRow) ??
-              attempt.packageId ??
-              variant.id ??
-              variant.tourAlternativeCode ??
-              tourCode
-            if (!packageId) continue
 
+            let packageId = null
             let finalPayload = null
+            let resultKeys = []
+            let tourRoomsForBook = finalRooms
             try {
-              finalPayload = await getTourFinalPrice(cfg, tokenCode, {
-                packageId,
-                tourRooms: finalRooms,
+              const resolved = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
+                pricePayload,
+                variant,
+                attempt,
+                tourCode,
+                roomOpts: roomOpts,
               })
+              packageId = resolved.packageId
+              finalPayload = resolved.payload
+              resultKeys = resolved.resultKeys
+              tourRoomsForBook = resolved.tourRooms ?? finalRooms
               log(
                 scenarioName,
                 'GetTourFinalPrice',
                 '/Tour.svc/Rest/Json/GetTourFinalPrice',
-                { packageId, departureDate },
-                finalPayload,
-                !finalPayload?.HasError,
+                {
+                  packageId,
+                  departureDate,
+                  skippedFinalPrice: resolved.skippedFinalPrice === true,
+                  resultKeys,
+                },
+                finalPayload ?? { skippedFinalPrice: true, resultKeys },
+                resultKeys.length > 0,
               )
             } catch (e) {
               lastPriceErr = String(e)
               continue
             }
-            if (finalPayload?.HasError) {
-              lastPriceErr = finalPayload?.ErrorMessage ?? 'GetTourFinalPrice hata'
-              continue
-            }
 
-            const resultKeys = pickTourBookResultKeys(finalPayload, priceRow)
             if (!resultKeys.length) {
               lastPriceErr = 'ResultKeys alınamadı'
               continue
             }
             ok(
+              `[${scenarioName}] GetTourPrices`,
+              `${tourCode} — ${departureDate} — ${priceRows.length} satır (${attempt.source})`,
+            )
+            ok(
               `[${scenarioName}] GetTourFinalPrice`,
-              `${tourCode} — ${departureDate} — ${resultKeys.length} key`,
+              `${tourCode} — ${departureDate} — ${resultKeys.length} key (${packageId})`,
             )
 
             if (SKIP_BOOKING) {
@@ -1353,7 +1355,8 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
   }
 
   if (!booked && !SKIP_BOOKING) {
-    fail(`[${scenarioName}] BookTour`, lastPriceErr || 'Uygun tur/fiyat bulunamadı')
+    const step = /GetTourFinalPrice/i.test(lastPriceErr) ? 'GetTourFinalPrice' : 'BookTour'
+    fail(`[${scenarioName}] ${step}`, lastPriceErr || 'Uygun tur/fiyat bulunamadı')
   }
 }
 
