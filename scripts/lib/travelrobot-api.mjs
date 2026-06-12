@@ -1262,15 +1262,19 @@ function buildTourFinalPricePackageCandidates(priceRow, pricePayload, sessionRaw
     const s = String(v ?? '').trim()
     if (s && isPlausibleTourFinalPricePackageId(s) && !out.includes(s)) out.push(s)
   }
+  const session = String(sessionRawId ?? '').trim()
+  if (session) push(session)
+  const variant254 = collectTourBookKeys(priceRow, pricePayload, session)
+    .find((k) => isTourSessionVariantBookKey(k))
+  if (variant254) push(variant254)
   for (const id of collectTourFinalPricePackageIds(priceRow, {
     pricePayload,
-    sessionPackageId: sessionRawId,
-    parentPackageId: sessionRawId,
+    sessionPackageId: session,
+    parentPackageId: session,
   })) {
     push(id)
   }
-  push(extractTourSessionUuid(sessionRawId))
-  if (sessionRawId) push(sessionRawId)
+  push(extractTourSessionUuid(session))
   return out
 }
 
@@ -1333,8 +1337,9 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
     lastErr = 'GetTourFinalPrice için geçerli PackageId yok'
   }
 
-  const pkgLimit = ctx.quick === true ? 3 : 6
-  const bedLimit = ctx.quick === true ? 2 : 3
+  const pkgLimit = ctx.quick === true ? (ctx.tourLocked ? 8 : 4) : 8
+  const bedLimit = ctx.quick === true ? 3 : 4
+  let lastOkFinalPrice = null
 
   for (const packageId of packageIds.slice(0, pkgLimit)) {
     if (!ctx.skipTourExtras) {
@@ -1361,6 +1366,7 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
         timeoutMs: ctx.timeoutMs,
       })
       if (res.ok) {
+        lastOkFinalPrice = { packageId, payload: res.payload, tourRooms }
         const resultKeys = pickTourBookKeysFromFinalPricePayload(res.payload, priceRow, {
           strictOnly: requireFinal,
         })
@@ -1395,6 +1401,20 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
   }
 
   const variantKeys = directKeys.filter(isStrictTourBookResultKey)
+  if (lastOkFinalPrice) {
+    const bookPkgId =
+      pickTourFinalPriceBookPackageId(lastOkFinalPrice.payload, lastOkFinalPrice.packageId) ??
+      lastOkFinalPrice.packageId
+    return {
+      packageId: bookPkgId,
+      payload: lastOkFinalPrice.payload,
+      resultKeys: [bookPkgId],
+      tourRooms: lastOkFinalPrice.tourRooms,
+      skippedFinalPrice: false,
+      usedFinalPricePackageId: true,
+      pkgOnlyMode: true,
+    }
+  }
   if (variantKeys.length) {
     return {
       packageId: sessionRawId ?? variantKeys[0],
@@ -1403,6 +1423,7 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
       tourRooms: tourRoomsDefault,
       skippedFinalPrice: true,
       usedPriceVariantKey: true,
+      pkgOnlyMode: true,
     }
   }
 
@@ -1419,8 +1440,6 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
   const tried = packageIds.slice(0, pkgLimit).join(', ')
   throw new Error(tried ? `${lastErr} (denenen: ${tried})` : lastErr)
 }
-
-/** @deprecated resolveTourFinalPrice({ requireFinalPriceForBook: true }) kullanın */
 export async function enrichTourResolveWithFinalPrice(cfg, tokenCode, resolved, priceRow, pricePayload, ctx = {}) {
   if (resolved.payload && resolved.skippedFinalPrice !== true) return resolved
   return resolveTourFinalPrice(cfg, tokenCode, priceRow, {
