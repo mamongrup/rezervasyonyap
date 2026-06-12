@@ -144,7 +144,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v3'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v4'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1206,6 +1206,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 attempt,
                 tourCode,
                 roomOpts: roomOpts,
+                languageCode: searchOpts.languageCode ?? 'tr',
               })
               packageId = resolved.packageId
               finalPayload = resolved.payload

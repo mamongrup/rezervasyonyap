@@ -751,15 +751,56 @@ export function pickTourPackageId(row, fallback = null) {
   )
 }
 
-/** GetTourPrices yanıtındaki üst PackageId / ResultKey. */
-export function pickTourPriceContextPackageId(pricePayload) {
+/** GetTourPrices yanıtındaki oturum PackageId (Result.Id — sonraki adımlar için). */
+export function pickTourPricesSessionPackageId(pricePayload) {
   const r = pricePayload?.Result ?? pricePayload?.result ?? pricePayload
   if (!r || typeof r !== 'object') return null
-  for (const node of [r, ...(Array.isArray(r.TourPrices) ? r.TourPrices : []), ...(Array.isArray(r.tourPrices) ? r.tourPrices : [])]) {
-    const id = pickTourPackageId(node)
-    if (id) return String(id).trim()
+  for (const field of ['Id', 'id', 'PackageId', 'packageId', 'SearchId', 'searchId']) {
+    const v = r[field]
+    if (v != null && String(v).trim()) return String(v).trim()
   }
   return null
+}
+
+/** GetTourPrices yanıtındaki üst PackageId / ResultKey. */
+export function pickTourPriceContextPackageId(pricePayload) {
+  return pickTourPricesSessionPackageId(pricePayload)
+}
+
+/** GetTourPrices yanıtından BookTour ResultKeys (GetTourFinalPrice atlanabilir). */
+export function pickTourPriceBookKeys(priceRow, pricePayload = null) {
+  const keys = []
+  const push = (k) => {
+    const s = String(k ?? '').trim()
+    if (!s || keys.includes(s)) return
+    if (isTourCatalogCode(s) && !s.includes('|') && !/^tour:/i.test(s)) return
+    keys.push(s)
+  }
+
+  const walk = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 7) return
+    if (Array.isArray(node)) {
+      for (const item of node) walk(item, depth + 1)
+      return
+    }
+    const rks = node.ResultKeys ?? node.resultKeys
+    if (Array.isArray(rks)) rks.forEach(push)
+    push(node.ResultKey ?? node.resultKey)
+    const pkg = node.PackageId ?? node.packageId
+    if (pkg != null) push(pkg)
+    const id = node.Id ?? node.id
+    if (typeof id === 'string' && id.trim()) push(id)
+    for (const v of Object.values(node)) {
+      if (typeof v === 'string' && (/^tour:/i.test(v) || v.includes('|'))) push(v)
+    }
+    for (const k of Object.keys(node)) {
+      if (Array.isArray(node[k]) || (node[k] && typeof node[k] === 'object')) walk(node[k], depth + 1)
+    }
+  }
+
+  walk(priceRow)
+  if (pricePayload) walk(pricePayload?.Result ?? pricePayload?.result)
+  return keys
 }
 
 function isTourCatalogCode(id) {
@@ -818,6 +859,7 @@ export function collectTourFinalPricePackageIds(priceRow, ctx = {}) {
 
   walk(priceRow)
   if (ctx.pricePayload) walk(ctx.pricePayload?.Result ?? ctx.pricePayload?.result)
+  push(ctx.sessionPackageId, -5)
   push(ctx.parentPackageId, 8)
   push(ctx.variant?.id, 12)
   push(ctx.attempt?.packageId, 20)
@@ -829,8 +871,28 @@ export function collectTourFinalPricePackageIds(priceRow, ctx = {}) {
     .filter((id, i, arr) => arr.indexOf(id) === i)
 }
 
-export function buildTourFinalPriceRoomsFromPriceRow(priceRow, roomOpts) {
-  const bedType = Number(priceRow?.BedType ?? priceRow?.bedType ?? 0)
+function tourBedTypeCandidates(priceRow, roomOpts) {
+  const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
+  const fromRow = Number(priceRow?.BedType ?? priceRow?.bedType)
+  const fromOpt = Number(rooms[0]?.BedType ?? rooms[0]?.bedType)
+  return [...new Set([fromRow, fromOpt, 0, 1, 2].filter((n) => !Number.isNaN(n)))]
+}
+
+export function buildTourFinalPriceRoomsFromPriceRow(priceRow, roomOpts, bedTypeOverride = null) {
+  const bedType = bedTypeOverride ?? Number(priceRow?.BedType ?? priceRow?.bedType ?? 0)
+  if (Array.isArray(priceRow?.Paxes) && priceRow.Paxes.length) {
+    return [
+      {
+        BedType: bedType,
+        Paxes: priceRow.Paxes.map((p) => ({
+          TourPaxType: Number(
+            p.TourPaxType ?? p.tourPaxType ?? p.PaxType ?? p.paxType ?? 0,
+          ),
+        })),
+        AdditionalServices: priceRow.AdditionalServices ?? priceRow.additionalServices ?? [],
+      },
+    ]
+  }
   const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
   return buildTourFinalPriceRooms(
     rooms.map((room, index) => ({
@@ -850,32 +912,71 @@ export async function getTourFinalPriceSoft(cfg, tokenCode, opts = {}) {
 }
 
 export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) {
-  const packageIds = collectTourFinalPricePackageIds(priceRow, ctx)
-  const tourRooms = buildTourFinalPriceRoomsFromPriceRow(priceRow, ctx.roomOpts ?? [{ Adults: 2 }])
-  let lastErr = 'PackageId adayı yok'
-  for (const packageId of packageIds.slice(0, 8)) {
-    const res = await getTourFinalPriceSoft(cfg, tokenCode, { packageId, tourRooms })
-    if (res.ok) {
-      const resultKeys = pickTourBookResultKeys(res.payload, priceRow)
-      if (resultKeys.length) return { packageId, payload: res.payload, resultKeys, tourRooms }
-      lastErr = 'ResultKeys alınamadı'
-      continue
-    }
-    lastErr = res.error ?? lastErr
-  }
+  const sessionPackageId = pickTourPricesSessionPackageId(ctx.pricePayload)
+  const bookKeys = pickTourPriceBookKeys(priceRow, ctx.pricePayload)
+  const tourRoomsDefault = buildTourFinalPriceRoomsFromPriceRow(
+    priceRow,
+    ctx.roomOpts ?? [{ Adults: 2 }],
+  )
 
-  const directKey = priceRow?.ResultKey ?? priceRow?.resultKey
-  if (directKey) {
+  if (bookKeys.length) {
     return {
-      packageId: String(directKey),
+      packageId: bookKeys[0],
       payload: null,
-      resultKeys: [String(directKey)],
-      tourRooms,
+      resultKeys: bookKeys.slice(0, 3),
+      tourRooms: tourRoomsDefault,
       skippedFinalPrice: true,
     }
   }
 
-  const tried = packageIds.slice(0, 4).join(', ')
+  const packageIds = collectTourFinalPricePackageIds(priceRow, {
+    ...ctx,
+    sessionPackageId,
+    parentPackageId: sessionPackageId ?? ctx.parentPackageId,
+  })
+  const bedTypes = tourBedTypeCandidates(priceRow, ctx.roomOpts ?? [{ Adults: 2 }])
+  let lastErr = 'PackageId adayı yok'
+
+  for (const packageId of packageIds.slice(0, 10)) {
+    try {
+      await getTourExtras(cfg, tokenCode, {
+        packageId,
+        languageCode: ctx.languageCode ?? 'tr',
+      })
+    } catch {
+      /* opsiyonel */
+    }
+
+    for (const bedType of bedTypes.slice(0, 4)) {
+      const tourRooms = buildTourFinalPriceRoomsFromPriceRow(
+        priceRow,
+        ctx.roomOpts ?? [{ Adults: 2 }],
+        bedType,
+      )
+      const res = await getTourFinalPriceSoft(cfg, tokenCode, { packageId, tourRooms })
+      if (res.ok) {
+        const resultKeys = pickTourBookResultKeys(res.payload, priceRow)
+        if (resultKeys.length) {
+          return { packageId, payload: res.payload, resultKeys, tourRooms }
+        }
+        lastErr = 'ResultKeys alınamadı'
+        continue
+      }
+      lastErr = res.error ?? lastErr
+    }
+  }
+
+  if (sessionPackageId && !isTourCatalogCode(sessionPackageId)) {
+    return {
+      packageId: sessionPackageId,
+      payload: null,
+      resultKeys: [sessionPackageId],
+      tourRooms: tourRoomsDefault,
+      skippedFinalPrice: true,
+    }
+  }
+
+  const tried = packageIds.slice(0, 5).join(', ')
   throw new Error(tried ? `${lastErr} (denenen: ${tried})` : lastErr)
 }
 
