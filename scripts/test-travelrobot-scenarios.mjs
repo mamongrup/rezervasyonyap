@@ -74,6 +74,8 @@ import {
   pickTourSessionBookKey,
   formatTourApiDate,
   resolveTourPaymentAttempts,
+  getPickupPointsSoft,
+  pickTourPickupPointId,
   // Hotel
   searchHotel,
   pickHotelRows,
@@ -155,7 +157,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v30'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v31'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1368,6 +1370,31 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             }
 
             const sessionPackageId = pickTourPaymentSessionId(finalPayload, pricePayload)
+            let pickupPayload = null
+            if (!SKIP_BOOKING && finalPriceLocked) {
+              tourProgress(`GetPickupPoints ${tourCode}…`)
+              const pickupRes = await getPickupPointsSoft(cfg, tokenCode, {
+                packageId: finalPricePackageId ?? packageId,
+                resultKeys,
+                languageCode: searchOpts.languageCode ?? 'tr',
+                timeoutMs: TOUR_API_TIMEOUT_MS,
+              })
+              if (pickupRes.ok) {
+                pickupPayload = pickupRes.payload
+                log(
+                  scenarioName,
+                  'GetPickupPoints',
+                  '/Tour.svc/Rest/Json/GetPickupPoints',
+                  {
+                    packageId: finalPricePackageId ?? packageId,
+                    resultKeys,
+                    pickupPointId: pickTourPickupPointId(pickupPayload),
+                  },
+                  pickupPayload,
+                  !pickupPayload?.HasError,
+                )
+              }
+            }
 
             if (SKIP_BOOKING) {
               ok(
@@ -1426,6 +1453,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               finalPriceLocked,
               finalPricePackageId,
               finalPricePayload: finalPayload,
+              pickupPayload,
               paymentSessionId: sessionPackageId,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
               priceRow,
@@ -1496,6 +1524,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                     sentPkg: sent.PackageId ?? null,
                     sentKeys: sent.ResultKeys ?? null,
                     sentContracts: sent.ExtraInfo?.Contracts?.length ?? 0,
+                    sentPickup: sent.ExtraInfo?.PickupPoints?.[0]?.Id ?? null,
                     error: String(lastPriceErr).slice(0, 300),
                   })
                   if (!/packageid|resultkey|invalid|payment|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) {

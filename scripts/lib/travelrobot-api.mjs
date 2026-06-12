@@ -412,6 +412,18 @@ export function pickTourBookExtraInfoFromFinalPrice(finalPricePayload) {
   }
 }
 
+/** Contracts + GetPickupPoints → BookTour ExtraInfo. */
+export function buildTourBookExtraInfo(finalPricePayload, pickupPayload = null) {
+  const contracts = pickTourBookExtraInfoFromFinalPrice(finalPricePayload)
+  const pickupId = pickupPayload ? pickTourPickupPointId(pickupPayload) : null
+  if (!contracts && !pickupId) return null
+  const out = { ...(contracts ?? {}) }
+  if (pickupId) {
+    out.PickupPoints = [{ Id: pickupId, Selected: true }]
+  }
+  return out
+}
+
 /** GetTourFinalPrice sonrası BookTour ResultKeys — yalın oturum pipe (|254 değil). */
 export function pickTourSessionBookKey(sessionRawId, finalPricePackageId = null) {
   const session = String(sessionRawId ?? '').trim()
@@ -571,62 +583,63 @@ export function buildTourBookRequestVariants(opts = {}) {
         ? pkgForBody
         : (variant254 ?? pkgForBody)
   const sessionBookKey = pickTourSessionBookKey(sessionRaw, bookPkg)
-  const extraInfo = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
-  const fromFinal = pickTourBookIdsFromFinalPricePayload(opts.finalPricePayload, bookPkg)
+  const extraInfo = buildTourBookExtraInfo(opts.finalPricePayload, opts.pickupPayload)
   const refs = pickTourFinalPriceBookRefs(opts.finalPricePayload, sessionRaw, bookPkg)
+  const sessionKey = refs.sessionBookKey
 
   if (finalPriceLocked && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
     const locked = []
-    const withContract = (v) => (extraInfo ? { ...v, extraInfo } : v)
-    const push = (v) => locked.push(withContract({ ...base, ...v }))
+    const withExtra = (v) => (extraInfo ? { ...v, extraInfo } : v)
+    const push = (v) => locked.push(withExtra({ ...base, ...v }))
 
+    if (sessionKey) {
+      push({
+        label: 'pkg254+sessionKey+contract',
+        packageIdInBody: true,
+        packageId: bookPkg,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionKey],
+      })
+      push({
+        label: 'pkg254+sessionKey+contract+price',
+        packageIdInBody: true,
+        packageId: bookPkg,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionKey],
+        withPrice: true,
+      })
+    }
+    if (refs.finalResultId && /^TFP#/i.test(refs.finalResultId) && sessionKey) {
+      push({
+        label: 'pkgTfp+sessionKey+contract',
+        packageIdInBody: true,
+        packageId: refs.finalResultId,
+        allowTfpSession: true,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionKey],
+      })
+    }
+    if (refs.reqPkgId && sessionKey && refs.reqPkgId !== sessionKey) {
+      push({
+        label: 'pkgReqPkg+sessionKey+contract',
+        packageIdInBody: true,
+        packageId: refs.reqPkgId,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionKey],
+      })
+    }
+    if (sessionKey) {
+      push({
+        label: 'resultKeys-session+contract',
+        resultKeys: [sessionKey],
+      })
+    }
     push({
       label: 'pkg254+contract',
       packageIdInBody: true,
       packageId: bookPkg,
       resultKeys: [],
     })
-    push({
-      label: 'pkg254+contract+price',
-      packageIdInBody: true,
-      packageId: bookPkg,
-      resultKeys: [],
-      withPrice: true,
-    })
-    if (refs.sessionBookKey) {
-      push({
-        label: 'sessionPkg+254+contract',
-        packageIdInBody: true,
-        packageId: refs.sessionBookKey,
-        packageIdWithResultKeys: true,
-        resultKeys: [bookPkg],
-      })
-    }
-    if (paymentSessionId && isPlausibleTourBookPackageId(paymentSessionId)) {
-      push({
-        label: 'pkgTfp+254+contract',
-        packageIdInBody: true,
-        packageId: paymentSessionId,
-        packageIdWithResultKeys: true,
-        resultKeys: [bookPkg],
-      })
-    }
-    push({
-      label: 'pkg254Only',
-      packageIdInBody: true,
-      packageId: bookPkg,
-      resultKeys: [],
-    })
-    if (refs.sessionUuid) {
-      push({
-        label: 'pkgUuid+254+contract',
-        allowBareUuid: true,
-        packageIdInBody: true,
-        packageId: refs.sessionUuid,
-        packageIdWithResultKeys: true,
-        resultKeys: [bookPkg],
-      })
-    }
     variants.push(...locked)
     return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
   }
