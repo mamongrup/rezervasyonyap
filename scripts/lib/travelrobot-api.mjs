@@ -373,12 +373,17 @@ function formatTourBookPaymentInfo(payment) {
 
 export function buildTourBookRequest(opts = {}) {
   const resultKeys = (opts.resultKeys ?? []).map(String).filter(isPlausibleTourBookKey)
+  const packageInBody =
+    opts.packageIdInBody === true &&
+    opts.packageId != null &&
+    isPlausibleTourBookKey(opts.packageId)
+  const keepResultKeys = packageInBody && opts.packageIdWithResultKeys === true
   const request = omitNullFields({
     ProcessId: null,
     Version: opts.version ?? '2.0',
     ProductType: opts.productType ?? 2,
     TokenCode: opts.tokenCode,
-    PackageId: opts.packageId != null ? String(opts.packageId) : undefined,
+    PackageId: packageInBody ? String(opts.packageId).trim() : undefined,
     PaxInfo: {
       HotelRoomPaxes: null,
       FlightPaxes: null,
@@ -396,7 +401,7 @@ export function buildTourBookRequest(opts = {}) {
     BookingNote: opts.bookingNote ?? null,
     AgentReferenceInfo: opts.agentReferenceInfo ?? null,
     CorporatePin: null,
-    ResultKeys: resultKeys.length ? resultKeys : undefined,
+    ResultKeys: packageInBody && !keepResultKeys ? undefined : resultKeys.length ? resultKeys : undefined,
     PaymentInfo: formatTourBookPaymentInfo(opts.paymentInfo),
     ExtraNote: null,
     SystemPnr: null,
@@ -405,6 +410,31 @@ export function buildTourBookRequest(opts = {}) {
     WithPrice: false,
   })
   return { request }
+}
+
+/** BookTour gövde varyantları — önce ResultKeys (otel gibi), gerekirse PackageId. */
+export function buildTourBookRequestVariants(opts = {}) {
+  const keys = (opts.resultKeys ?? []).map(String).filter(isPlausibleTourBookKey)
+  if (!keys.length) return []
+  const base = { ...opts, resultKeys: keys }
+  const variants = [{ label: 'resultKeys', ...base }]
+  if (keys[0]) {
+    variants.push({
+      label: 'packageId',
+      ...base,
+      packageId: keys[0],
+      packageIdInBody: true,
+      resultKeys: [],
+    })
+    variants.push({
+      label: 'both',
+      ...base,
+      packageId: keys[0],
+      packageIdInBody: true,
+      packageIdWithResultKeys: true,
+    })
+  }
+  return variants.map(({ label, ...bookOpts }) => ({ label, ...bookOpts }))
 }
 
 export async function bookTour(cfg, opts = {}) {
@@ -418,13 +448,24 @@ export async function bookTour(cfg, opts = {}) {
  * opts: { packageId, languageCode }
  */
 export async function getTourPaymentOptions(cfg, tokenCode, opts = {}) {
-  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetPaymentOptions', {
-    request: {
-      Token: tokenObj(tokenCode),
-      PackageId: opts.packageId,
-      LanguageCode: opts.languageCode ?? 'tr',
-    },
-  })
+  const request = {
+    Token: tokenObj(tokenCode),
+    LanguageCode: opts.languageCode ?? 'tr',
+  }
+  const keys = opts.resultKeys ?? (opts.resultKey ? [opts.resultKey] : [])
+  if (Array.isArray(keys) && keys.length) request.ResultKeys = keys.map(String)
+  if (opts.packageId != null && String(opts.packageId).trim()) {
+    request.PackageId = String(opts.packageId).trim()
+  }
+  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetPaymentOptions', { request })
+}
+
+export async function getTourPaymentOptionsSoft(cfg, tokenCode, opts = {}) {
+  try {
+    return { ok: true, payload: await getTourPaymentOptions(cfg, tokenCode, opts) }
+  } catch (e) {
+    return { ok: false, error: String(e) }
+  }
 }
 
 export function pickTourRows(payload) {
@@ -882,12 +923,14 @@ function isTourCatalogCode(id) {
   return /^T\d{2}-\d{4}-\d+/i.test(String(id ?? '').trim())
 }
 
+/** BookTour ResultKeys — otel RoomCode gibi @ veya tour:... / pipe içermeli. */
 function isPlausibleTourBookKey(id) {
   const s = String(id ?? '').trim()
   if (!s) return false
-  if (/^tour:/i.test(s) || s.includes('|')) return true
   if (isTourCatalogCode(s)) return false
-  return s.length >= 8
+  if (s.includes('@')) return true
+  if (/^tour:/i.test(s) || s.includes('|')) return true
+  return false
 }
 
 /** GetTourFinalPrice için aday PackageId listesi — tur kodundan önce ResultKey/tour:... */
@@ -1062,6 +1105,39 @@ export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {
     if (s && isPlausibleTourBookKey(s) && !keys.includes(s)) keys.push(s)
   }
 
+  const walkRoomCodes = (node, depth = 0) => {
+    if (!node || typeof node !== 'object' || depth > 7) return
+    if (Array.isArray(node)) {
+      for (const item of node) walkRoomCodes(item, depth + 1)
+      return
+    }
+    for (const code of [
+      node.RoomCode,
+      node.roomCode,
+      node.Key,
+      node.key,
+      node.OfferId,
+      node.offerId,
+    ]) {
+      if (code != null && String(code).includes('@')) push(code)
+    }
+    for (const k of [
+      'TourRooms',
+      'tourRooms',
+      'Rooms',
+      'rooms',
+      'RoomAlternatives',
+      'roomAlternatives',
+      'Alternatives',
+      'alternatives',
+    ]) {
+      if (Array.isArray(node[k])) for (const item of node[k]) walkRoomCodes(item, depth + 1)
+    }
+  }
+
+  walkRoomCodes(r)
+  if (priceRow) walkRoomCodes(priceRow)
+
   const walk = (node, depth = 0) => {
     if (!node || typeof node !== 'object' || depth > 6) return
     if (Array.isArray(node)) {
@@ -1086,20 +1162,61 @@ export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {
   return keys
 }
 
-/** GetPaymentOptions / BookTour için geçerli PackageId — tur katalog kodu değil. */
-export function pickTourPaymentPackageId(finalPayload, resultKeys = [], fallbackPackageId = null) {
-  for (const k of resultKeys) {
-    if (isPlausibleTourBookKey(k)) return String(k)
-  }
+/** GetPaymentOptions — GetTourPrices/FinalPrice oturum Id (Book ResultKey değil). */
+export function pickTourPaymentSessionId(finalPayload, pricePayload = null) {
   const r = finalPayload?.Result ?? finalPayload?.result ?? {}
-  for (const f of ['PackageId', 'packageId', 'Id', 'id']) {
+  for (const f of ['Id', 'id', 'PackageId', 'packageId', 'SearchId', 'searchId']) {
     const v = r[f]
-    if (v != null && isPlausibleTourBookKey(v)) return String(v).trim()
+    if (v != null && String(v).trim()) return String(v).trim()
   }
-  if (fallbackPackageId != null && isPlausibleTourBookKey(fallbackPackageId)) {
-    return String(fallbackPackageId).trim()
+  return pickTourPricesSessionPackageId(pricePayload)
+}
+
+/** @deprecated pickTourPaymentSessionId kullanın */
+export function pickTourPaymentPackageId(finalPayload, resultKeys = [], fallbackPackageId = null) {
+  return (
+    pickTourPaymentSessionId(finalPayload) ??
+    pickTourPricesSessionPackageId({ Result: finalPayload?.Result }) ??
+    fallbackPackageId ??
+    null
+  )
+}
+
+export async function resolveTourPaymentAttempts(cfg, tokenCode, resultKeys, sessionPackageId) {
+  const attempts = [
+    {
+      label: 'agency-2',
+      info: { PaymentType: '2', PaymentItemId: '1', PaymentCommissionType: 0 },
+    },
+  ]
+  const variants = [
+    { resultKeys, packageId: sessionPackageId },
+    { resultKeys },
+    { packageId: sessionPackageId },
+  ]
+  for (const v of variants) {
+    if (!v.resultKeys?.length && !v.packageId) continue
+    const res = await getTourPaymentOptionsSoft(cfg, tokenCode, {
+      ...v,
+      languageCode: 'tr',
+    })
+    if (!res.ok) continue
+    const raw = res.payload?.Result ?? res.payload?.result ?? res.payload
+    const items = raw?.PaymentOptions ?? raw?.Items ?? raw?.paymentOptions ?? []
+    const list = Array.isArray(items) ? items : []
+    for (const item of list.slice(0, 4)) {
+      attempts.unshift({
+        label: `api-${item.PaymentType ?? item.paymentType ?? 'x'}`,
+        info: {
+          PaymentType: String(item.PaymentType ?? item.paymentType ?? 2),
+          PaymentItemId: String(item.PaymentItemId ?? item.Id ?? item.PaymentItemID ?? '1'),
+          PaymentCommissionType: item.PaymentCommissionType ?? 0,
+        },
+      })
+    }
+    if (list.length) break
   }
-  return resultKeys[0] != null ? String(resultKeys[0]) : fallbackPackageId != null ? String(fallbackPackageId) : null
+  return attempts
 }
 
 /** GetTourFinalPrice / BookTour — TourRooms şeması. */
