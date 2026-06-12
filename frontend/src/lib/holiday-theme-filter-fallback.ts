@@ -12,4 +12,6 @@ export const HOLIDAY_THEME_FILTER_FALLBACK: { code: string; label: string }[] = 
   { code: 'family', label: 'Aile' },
   { code: 'nature', label: 'Doğa içinde' },
   { code: 'historic', label: 'Tarihi / butik' },
+  { code: 'pool', label: 'Havuz' },
+  { code: 'jacuzzi', label: 'Jakuzi / spa' },
 ]

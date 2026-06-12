@@ -170,6 +170,8 @@ modules/326_listing_hotel_activities.sql
 modules/327_listing_hotel_activities_stay_surcharge.sql
 modules/328_activity_vitrin_from_sessions.sql
 modules/329_listing_owner_contact_bio.sql
+modules/330_holiday_home_theme_pool_jacuzzi.sql
+modules/331_mara_villa_vitrin_parity.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
