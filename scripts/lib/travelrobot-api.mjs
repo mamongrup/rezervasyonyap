@@ -425,16 +425,17 @@ export function buildTourBookExtraInfo(finalPricePayload, pickupPayload = null) 
 }
 
 /** GetTourFinalPrice / BookTour — kalkış noktası AdditionalServices. */
-export function buildTourPickupAdditionalServices(pickupRef) {
+export function buildTourPickupAdditionalServices(pickupRef, format = 'code') {
   if (!pickupRef) return []
   const code = String(pickupRef.code ?? pickupRef.id ?? '').trim()
   if (!code) return []
+  if (format === 'id') return [{ Id: code }]
   return [{ Code: code }]
 }
 
 /** BookTour TourRoomPaxes — pickup AdditionalServices ekle. */
-export function applyTourPickupToRoomPaxes(tourRoomPaxes, pickupRef) {
-  const services = buildTourPickupAdditionalServices(pickupRef)
+export function applyTourPickupToRoomPaxes(tourRoomPaxes, pickupRef, format = 'code') {
+  const services = buildTourPickupAdditionalServices(pickupRef, format)
   if (!services.length) return tourRoomPaxes
   return (tourRoomPaxes ?? []).map((room) => ({
     ...room,
@@ -601,54 +602,83 @@ export function buildTourBookRequestVariants(opts = {}) {
         ? pkgForBody
         : (variant254 ?? pkgForBody)
   const sessionBookKey = pickTourSessionBookKey(sessionRaw, bookPkg)
-  const extraInfo = buildTourBookExtraInfo(opts.finalPricePayload, opts.pickupPayload)
+  const contractsOnly = pickTourBookExtraInfoFromFinalPrice(opts.finalPricePayload)
+  const extraWithPickup = buildTourBookExtraInfo(opts.finalPricePayload, opts.pickupPayload)
   const refs = pickTourFinalPriceBookRefs(opts.finalPricePayload, sessionRaw, bookPkg)
   const sessionKey = refs.sessionBookKey
+  const tfpId = String(
+    opts.tfpSessionId ?? refs.finalResultId ?? opts.paymentSessionId ?? '',
+  ).trim() || null
 
   if (finalPriceLocked && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
     const locked = []
-    const withExtra = (v) => (extraInfo ? { ...v, extraInfo } : v)
-    const push = (v) => locked.push(withExtra({ ...base, ...v }))
+    const push = (v) => locked.push({ ...base, ...v })
 
+    if (sessionKey && tfpId && /^TFP#/i.test(tfpId)) {
+      push({
+        label: 'pkgSession+tfp+contract',
+        packageIdInBody: true,
+        packageId: sessionKey,
+        allowTfpSession: true,
+        packageIdWithResultKeys: true,
+        resultKeys: [tfpId],
+        extraInfo: contractsOnly,
+        skipRoomPickup: true,
+      })
+      push({
+        label: 'pkgSession+tfp+pickup',
+        packageIdInBody: true,
+        packageId: sessionKey,
+        allowTfpSession: true,
+        packageIdWithResultKeys: true,
+        resultKeys: [tfpId],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
+      })
+      push({
+        label: 'pkgSession+tfp+pickupId',
+        packageIdInBody: true,
+        packageId: sessionKey,
+        allowTfpSession: true,
+        packageIdWithResultKeys: true,
+        resultKeys: [tfpId],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'id',
+      })
+      push({
+        label: 'pkgTfp+session+contract',
+        packageIdInBody: true,
+        packageId: tfpId,
+        allowTfpSession: true,
+        packageIdWithResultKeys: true,
+        resultKeys: [sessionKey],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
+      })
+    }
     if (sessionKey) {
       push({
         label: 'pkgSession+contract',
         packageIdInBody: true,
         packageId: sessionKey,
         resultKeys: [],
+        extraInfo: contractsOnly,
+        skipRoomPickup: true,
       })
-      if (refs.finalResultId && /^TFP#/i.test(refs.finalResultId)) {
-        push({
-          label: 'pkgSession+tfp+contract',
-          packageIdInBody: true,
-          packageId: sessionKey,
-          allowTfpSession: true,
-          packageIdWithResultKeys: true,
-          resultKeys: [refs.finalResultId],
-        })
-      }
       push({
         label: 'pkg254+sessionKey+contract',
         packageIdInBody: true,
         packageId: bookPkg,
         packageIdWithResultKeys: true,
         resultKeys: [sessionKey],
+        extraInfo: contractsOnly,
+        roomPickupFormat: 'code',
       })
-    }
-    if (refs.finalResultId && /^TFP#/i.test(refs.finalResultId) && sessionKey) {
-      push({
-        label: 'pkgTfp+sessionKey+contract',
-        packageIdInBody: true,
-        packageId: refs.finalResultId,
-        allowTfpSession: true,
-        packageIdWithResultKeys: true,
-        resultKeys: [sessionKey],
-      })
-    }
-    if (sessionKey) {
       push({
         label: 'resultKeys-session+contract',
         resultKeys: [sessionKey],
+        extraInfo: contractsOnly,
+        skipRoomPickup: true,
       })
     }
     variants.push(...locked)

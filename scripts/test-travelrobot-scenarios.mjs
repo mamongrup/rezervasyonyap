@@ -161,7 +161,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v32'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v33'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 /** BookTour sandbox bazen 90s+ sürer — cert için ayrı limit. */
@@ -1346,6 +1346,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   pkgOnlyMode,
                   resultKeys,
                   finalPriceAttempts: resolved.finalPriceAttempts ?? [],
+                  tfpSessionId,
                 },
                 finalPayload ?? { skippedFinalPrice: true, resultKeys },
                 resultKeys.length > 0,
@@ -1374,6 +1375,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             }
 
             const sessionPackageId = pickTourPaymentSessionId(finalPayload, pricePayload)
+            const tfpSessionId = sessionPackageId
             let pickupPayload = null
             let pickupRef = null
             let finalPayloadForBook = finalPayload
@@ -1470,18 +1472,16 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                   { label: 'card-0', info: TEST_PAYMENT },
                 ]
 
-            const tourPaxVariants = buildTourBookPaxVariants(roomOpts, makeTourCertPax).map((pv) => ({
+            const tourPaxBase = buildTourBookPaxVariants(roomOpts, makeTourCertPax).map((pv) => ({
               ...pv,
-              tourRoomPaxes: applyTourPickupToRoomPaxes(
-                (pv.tourRoomPaxes ?? []).map((room) => ({
-                  ...room,
-                  BedType:
-                    finalPriceBedType != null && !Number.isNaN(Number(finalPriceBedType))
-                      ? Number(finalPriceBedType)
-                      : room.BedType,
-                })),
-                pickupRef,
-              ),
+              tourRoomPaxes: (pv.tourRoomPaxes ?? []).map((room) => ({
+                ...room,
+                BedType:
+                  finalPriceBedType != null && !Number.isNaN(Number(finalPriceBedType))
+                    ? Number(finalPriceBedType)
+                    : room.BedType,
+                AdditionalServices: [],
+              })),
             }))
             const tourInvoice = cleanTourBookInvoice(TEST_INVOICE)
 
@@ -1494,11 +1494,12 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               finalPricePackageId,
               finalPricePayload: finalPayloadForBook,
               pickupPayload,
+              tfpSessionId,
               paymentSessionId: sessionPackageId,
               sessionRawId: pickTourPricesSessionRawId(pricePayload),
               priceRow,
               pricePayload,
-              tourRoomPaxes: tourPaxVariants[0]?.tourRoomPaxes ?? tourRoomPaxes,
+              tourRoomPaxes: tourPaxBase[0]?.tourRoomPaxes ?? tourRoomPaxes,
               contactInfo: TEST_CONTACT,
               invoiceInfo: tourInvoice,
               bookingNote: clientNotes,
@@ -1523,7 +1524,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let bookPayLabel = paymentAttempts[0]?.label ?? 'default'
             let bookBodyLabel = bookBodyVariants[0]?.label ?? 'resultKeys'
             let bookBodyFirst = bookBodyLabel
-            let bookPaxLabel = tourPaxVariants[0]?.label ?? 'pax-std'
+            let bookPaxLabel = tourPaxBase[0]?.label ?? 'pax-std'
             const bookAttempts = []
             let lastBookRequest = null
             let lastBookResponse = null
@@ -1531,10 +1532,18 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             bookPayLoop:
             for (const pay of paymentAttempts.slice(0, 5)) {
               for (const bodyVariant of bookBodyVariants) {
-                for (const paxVariant of tourPaxVariants) {
+                for (const paxVariant of tourPaxBase) {
+                  const roomPaxes =
+                    bodyVariant.skipRoomPickup === true || !pickupRef
+                      ? paxVariant.tourRoomPaxes
+                      : applyTourPickupToRoomPaxes(
+                          paxVariant.tourRoomPaxes,
+                          pickupRef,
+                          bodyVariant.roomPickupFormat ?? 'code',
+                        )
                   const bookOpts = {
                     ...bodyVariant,
-                    tourRoomPaxes: paxVariant.tourRoomPaxes,
+                    tourRoomPaxes: roomPaxes,
                     paymentInfo: pay.info ?? TOUR_TEST_PAYMENT,
                     softErrors: true,
                     timeoutMs: TOUR_BOOK_TIMEOUT_MS,
