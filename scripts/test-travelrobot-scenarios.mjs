@@ -64,7 +64,6 @@ import {
   resolveTourPriceAttempts,
   buildTourPriceRequestVariants,
   resolveTourFinalPrice,
-  enrichTourResolveWithFinalPrice,
   pickTourPricesSessionPackageId,
   pickTourRoomBookKeys,
   pickTourPriceBookKeys,
@@ -153,7 +152,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v14'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v15'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 const TOUR_CERT_PREFER_CODE = 'T66-1204-22669'
@@ -1275,10 +1274,12 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let packageId = null
             let finalPayload = null
             let resultKeys = []
+            let skippedFinalPrice = false
             let tourRoomsForBook = finalRooms
             try {
               tourProgress(`book keys ${tourCode}…`)
-              let resolved = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
+              tourProgress(`GetTourFinalPrice ${tourCode}…`)
+              const resolved = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
                 pricePayload,
                 variant,
                 attempt,
@@ -1287,22 +1288,13 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 languageCode: searchOpts.languageCode ?? 'tr',
                 quick: TOUR_CERT_QUICK || tourLocked,
                 skipTourExtras: true,
+                requireFinalPriceForBook: !SKIP_BOOKING,
                 timeoutMs: TOUR_API_TIMEOUT_MS,
               })
-              if (resolved.skippedFinalPrice === true) {
-                tourProgress(`GetTourFinalPrice ile key zenginleştirme ${tourCode}…`)
-                resolved = await enrichTourResolveWithFinalPrice(
-                  cfg,
-                  tokenCode,
-                  resolved,
-                  priceRow,
-                  pricePayload,
-                  { roomOpts, timeoutMs: TOUR_API_TIMEOUT_MS },
-                )
-              }
               packageId = resolved.packageId
               finalPayload = resolved.payload
               resultKeys = resolved.resultKeys
+              skippedFinalPrice = resolved.skippedFinalPrice === true
               tourRoomsForBook = resolved.tourRooms ?? finalRooms
               log(
                 scenarioName,
@@ -1332,6 +1324,11 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
             if (!resultKeys.length) {
               lastPriceErr = 'ResultKeys alınamadı (@/tour: anahtar yok)'
+              continue
+            }
+
+            if (!SKIP_BOOKING && skippedFinalPrice) {
+              lastPriceErr = 'GetTourFinalPrice zorunlu — oturum anahtarı ile BookTour yapılamaz'
               continue
             }
 
@@ -1403,8 +1400,10 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 departureDate,
                 sessionPackageId,
                 resultKeys,
+                bookKeys: bookBodyVariants[0]?.resultKeys ?? [],
                 bookPayLabel,
                 bookBodyLabel,
+                skippedFinalPrice,
                 rowKeys: priceRow ? Object.keys(priceRow) : [],
               }
               if (tourLocked) break attemptLoop

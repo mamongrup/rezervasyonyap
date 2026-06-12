@@ -27,6 +27,7 @@ import {
   pickTourRoomBookKeys,
   collectTourFinalPricePackageIds,
   collectTourBookKeys,
+  resolveTourFinalPrice,
   formatTourApiDate,
   TOUR_PRICE_DATE_OFFSETS,
 } from './lib/travelrobot-api.mjs'
@@ -163,6 +164,21 @@ if (!priceRow) {
 
 const tourCode = tourRowCode(usedTour)
 const sessionRawId = pickTourPricesSessionRawId(pricePayload)
+let finalPriceResolve = null
+try {
+  finalPriceResolve = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
+    pricePayload,
+    tourCode,
+    variant: usedVariant,
+    attempt: usedAttempt,
+    requireFinalPriceForBook: true,
+    skipTourExtras: true,
+    quick: true,
+  })
+} catch (e) {
+  finalPriceResolve = { error: String(e) }
+}
+
 const report = {
   tourCode,
   attempt: usedAttempt,
@@ -172,6 +188,10 @@ const report = {
   roomBookKeys: pickTourRoomBookKeys(priceRow, pricePayload),
   bookKeysRaw: pickTourPriceBookKeys(priceRow, pricePayload),
   bookKeys: collectTourBookKeys(priceRow, pricePayload, sessionRawId),
+  finalPriceKeys: finalPriceResolve?.resultKeys ?? [],
+  finalPricePackageId: finalPriceResolve?.packageId ?? null,
+  finalPriceSkipped: finalPriceResolve?.skippedFinalPrice === true,
+  finalPriceError: finalPriceResolve?.error ?? null,
   packageCandidates: collectTourFinalPricePackageIds(priceRow, {
     pricePayload,
     sessionPackageId: sessionRawId,
@@ -190,6 +210,8 @@ writeFileSync(out, JSON.stringify({ pricePayload, report }, null, 2))
 console.log('tur:', tourCode)
 console.log('departureDate:', usedVariant?.departureDate)
 console.log('sessionRawId:', report.sessionRawId?.slice(0, 80) + (report.sessionRawId?.length > 80 ? '…' : ''))
-console.log('bookKeys:', report.bookKeys)
+console.log('bookKeys (fiyat):', report.bookKeys)
+console.log('finalPriceKeys (book):', report.finalPriceKeys)
+console.log('finalPricePackageId:', report.finalPricePackageId)
 console.log('packageCandidates:', report.packageCandidates.slice(0, 6))
 console.log('dosya:', out)

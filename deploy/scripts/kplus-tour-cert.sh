@@ -27,7 +27,7 @@ fi
 echo "══ KPlus tour cert (sandbox) ══"
 echo "[config] git: $(git -C "$APP_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 grep -m1 'TRAVELROBOT_TEST_SCRIPT_VERSION' "$APP_ROOT/scripts/test-travelrobot-scenarios.mjs" || true
-# v14: tek tur (T66-1204-22669), GetTourFinalPrice + BookTour, deneme limiti
+# v15: GetTourFinalPrice zorunlu; BookTour yalnız finalPriceKeys (oturum pipe değil)
 export KPLUS_FETCH_TIMEOUT_MS="${KPLUS_FETCH_TIMEOUT_MS:-90000}"
 export KPLUS_TOUR_CERT_CODE="${KPLUS_TOUR_CERT_CODE:-T66-1204-22669}"
 node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --tour-code "$KPLUS_TOUR_CERT_CODE" "${EXTRA[@]}"
