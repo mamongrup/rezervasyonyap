@@ -30,6 +30,7 @@ import {
   isStrictTourBookResultKey,
   pickTourVariantBookKeys,
   resolveTourFinalPrice,
+  pickTourFinalPriceBookRefs,
   formatTourApiDate,
   TOUR_PRICE_DATE_OFFSETS,
 } from './lib/travelrobot-api.mjs'
@@ -201,6 +202,11 @@ const report = {
   finalPriceResultTopKeys: Object.keys(
     finalPriceResolve?.payload?.Result ?? finalPriceResolve?.payload?.result ?? {},
   ),
+  finalPriceBookRefs: pickTourFinalPriceBookRefs(
+    finalPriceResolve?.payload,
+    sessionRawId,
+    finalPriceResolve?.packageId,
+  ),
   packageCandidates: collectTourFinalPricePackageIds(priceRow, {
     pricePayload,
     sessionPackageId: sessionRawId,
@@ -232,5 +238,6 @@ console.log('variantBookKeys (|254):', report.variantBookKeys)
 console.log('finalPriceKeys (book):', report.finalPriceKeys)
 console.log('finalPricePackageId:', report.finalPricePackageId)
 console.log('finalPriceResultTopKeys:', report.finalPriceResultTopKeys)
+console.log('finalPriceBookRefs:', report.finalPriceBookRefs)
 console.log('packageCandidates:', report.packageCandidates.slice(0, 6))
 console.log('dosya:', out)
