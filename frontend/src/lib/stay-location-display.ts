@@ -32,6 +32,36 @@ export function regionLabelFromHandle(handle: string | undefined | null): string
     .join(' ')
 }
 
+export type ListingLocationHierarchy = {
+  /** Bölge / semt — `listing_meta.district_label` */
+  area?: string | null
+  /** İlçe — `listing_meta.city` */
+  district?: string | null
+  /** İl — `listing_meta.province_city` */
+  province?: string | null
+}
+
+function trimLocationPart(value: string | null | undefined): string {
+  return String(value ?? '').trim()
+}
+
+/** Vitrin başlığı altı — «bölge, ilçe, il» sırası. */
+export function formatListingLocationHierarchy(parts: ListingLocationHierarchy): string {
+  const candidates = [
+    trimLocationPart(parts.area),
+    trimLocationPart(parts.district),
+    trimLocationPart(parts.province),
+  ].filter(Boolean)
+  if (!candidates.length) return ''
+  const deduped: string[] = []
+  for (const part of candidates) {
+    if (!deduped.some((existing) => existing.toLocaleLowerCase('tr') === part.toLocaleLowerCase('tr'))) {
+      deduped.push(part)
+    }
+  }
+  return deduped.join(', ')
+}
+
 /** Kart / detay konum satırı — virgülle ayrılmış parçaları sadeleştirir. */
 export function normalizeStayLocationPin(raw: string | null | undefined): string {
   const text = String(raw ?? '').trim()

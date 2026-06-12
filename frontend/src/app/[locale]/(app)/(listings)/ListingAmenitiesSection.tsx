@@ -5,22 +5,28 @@ import {
   LISTING_AMENITY_ICONS,
   VILLA_AMENITY_IDS,
   buildGroupedAmenities,
-  getListingAmenityIcon,
+  getAmenityGroupId,
+  getAmenityIconForKey,
   type AmenityGroupId,
   type ListingAmenityId,
 } from '@/lib/listing-amenities'
+import { formatAttributeKeyAsDisplayLabel } from '@/lib/listing-attribute-display'
 import ButtonClose from '@/shared/ButtonClose'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import clsx from 'clsx'
-import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 const PREVIEW_COUNT = 9
 const KNOWN_AMENITY_IDS = new Set(Object.keys(LISTING_AMENITY_ICONS))
+
+function isKnownAmenityForVariant(id: string, variant: 'hotel' | 'villa'): id is ListingAmenityId {
+  if (!KNOWN_AMENITY_IDS.has(id)) return false
+  return Boolean(getAmenityGroupId(id as ListingAmenityId, variant))
+}
 
 /** Şablondaki (Chisfis) satır ikonları: 24×24, nötr gri, ince çizgi — `Icons.tsx` (stroke 1.5) ile uyum */
 const AMENITY_ICON_CLASS = 'h-6 w-6 shrink-0 text-neutral-600 dark:text-neutral-400'
@@ -49,6 +55,7 @@ export default function ListingAmenitiesSection({
   customSelectedIds,
   customLabels,
   customIcons,
+  footer,
 }: {
   locale: string
   variant: 'hotel' | 'villa'
@@ -60,6 +67,8 @@ export default function ListingAmenitiesSection({
   customLabels?: Record<string, string>
   /** Öznitelik tanımından yüklenen vitrin ikonları (`/uploads/...`). */
   customIcons?: Record<string, string>
+  /** Olanaklar ızgarasının altında (ör. havuz ölçüleri) */
+  footer?: React.ReactNode
 }) {
   const messages = getMessages(locale)
 
@@ -71,10 +80,10 @@ export default function ListingAmenitiesSection({
 
   // Bilinen + bilinmeyen ayrımı: bilinenler ikon/grup desteği alır, bilinmeyenler "extras" havuzunda gösterilir.
   const knownCustom = useCustom
-    ? (customSelectedIds!.filter((id) => KNOWN_AMENITY_IDS.has(id)) as readonly ListingAmenityId[])
+    ? (customSelectedIds!.filter((id) => isKnownAmenityForVariant(id, variant)) as readonly ListingAmenityId[])
     : fallbackIds
   const extraCustom = useCustom
-    ? customSelectedIds!.filter((id) => !KNOWN_AMENITY_IDS.has(id))
+    ? customSelectedIds!.filter((id) => !isKnownAmenityForVariant(id, variant))
     : []
 
   const [open, setOpen] = useState(false)
@@ -89,8 +98,12 @@ export default function ListingAmenitiesSection({
 
   const modalGroups = buildGroupedAmenities(knownCustom, variant)
 
-  const labelOf = (id: string): string =>
-    KNOWN_AMENITY_IDS.has(id) ? labelFor(messages, id) : (customLabels?.[id] ?? id.replace(/_/g, ' '))
+  const labelOf = (id: string): string => {
+    if (KNOWN_AMENITY_IDS.has(id)) return labelFor(messages, id)
+    const custom = customLabels?.[id]?.trim()
+    if (custom) return custom
+    return formatAttributeKeyAsDisplayLabel(id)
+  }
 
   const iconFor = (id: string) => {
     const customSrc = customIcons?.[id]?.trim()
@@ -105,7 +118,7 @@ export default function ListingAmenitiesSection({
       }
       return CustomAmenityIconSlot
     }
-    return KNOWN_AMENITY_IDS.has(id) ? getListingAmenityIcon(id as ListingAmenityId) : Sparkles
+    return getAmenityIconForKey(id)
   }
 
   return (
@@ -137,6 +150,8 @@ export default function ListingAmenitiesSection({
           </div>
         </div>
       ) : null}
+
+      {footer ? <div className="not-prose">{footer}</div> : null}
 
       <Dialog open={open} onClose={() => setOpen(false)} className="relative z-[60]">
         <DialogBackdrop className="fixed inset-0 bg-black/40 backdrop-blur-sm" />

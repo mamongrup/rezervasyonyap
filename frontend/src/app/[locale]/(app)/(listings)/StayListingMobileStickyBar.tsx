@@ -1,16 +1,13 @@
 'use client'
 
 import { useStayListingQuote } from '@/hooks/use-stay-listing-quote'
-import { defaultStayDateRange } from '@/lib/stay-booking-rules'
-import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { getMessages } from '@/utils/getT'
-import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import clsx from 'clsx'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useOptionalHotelStayBooking } from './hotel-stay-booking-context'
+import { useOptionalVillaStayBooking } from './villa-stay-booking-context'
 
 export type StayListingMobileStickyBarProps = {
   locale: string
@@ -48,12 +45,12 @@ export default function StayListingMobileStickyBar({
   reservationAnchorId = 'stay-reservation-card',
 }: StayListingMobileStickyBarProps) {
   const messages = getMessages(locale)
-  const router = useRouter()
-  const vitrinHref = useVitrinHref()
+  const villaCtx = useOptionalVillaStayBooking()
+  const hotelCtx = useOptionalHotelStayBooking()
 
-  const [rangeStart] = useState<Date | null>(() => defaultStayDateRange(stayBookingRules)[0])
-  const [rangeEnd] = useState<Date | null>(() => defaultStayDateRange(stayBookingRules)[1])
-  const [poolHeatingSelected] = useState(false)
+  const rangeStart = villaCtx?.rangeStart ?? hotelCtx?.rangeStart ?? null
+  const rangeEnd = villaCtx?.rangeEnd ?? hotelCtx?.rangeEnd ?? null
+  const poolHeatingSelected = villaCtx?.poolHeatingSelected ?? false
 
   const {
     nights,
@@ -65,6 +62,7 @@ export default function StayListingMobileStickyBar({
     basePriceNum,
     discountPct,
     formatConverted,
+    heatingSubtotal,
   } = useStayListingQuote({
     mealPlans,
     price,
@@ -97,28 +95,32 @@ export default function StayListingMobileStickyBar({
 
   function onReserve() {
     if (canCheckout && listingId && rangeStart && rangeEnd) {
-      router.push(
-        buildStayCheckoutUrl(vitrinHref('/checkout'), {
+      if (villaCtx) {
+        villaCtx.goCheckout({
           listingId,
-          startDate: rangeStart,
-          endDate: rangeEnd,
           currencyCode,
-          unitPrice: grandTotal,
-        }),
-      )
+          grandTotal,
+          heatingSubtotal,
+        })
+        return
+      }
+    }
+    if (villaCtx) {
+      villaCtx.scrollToReservation()
       return
     }
-    const el = document.getElementById(reservationAnchorId)
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    if (hotelCtx) {
+      hotelCtx.scrollToReservation()
+      return
     }
+    document.getElementById(reservationAnchorId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   return (
     <div
       className={clsx(
         'fixed inset-x-0 z-40 border-t border-neutral-200/80 bg-white/95 px-4 py-3.5 shadow-[0_-12px_40px_rgba(15,23,42,0.12)] backdrop-blur-md lg:hidden dark:border-neutral-700/80 dark:bg-neutral-950/95',
-        'bottom-[calc(4.75rem+env(safe-area-inset-bottom,0px))]',
+        'bottom-above-mobile-nav',
       )}
     >
       <div className="mx-auto flex max-w-lg items-center gap-3">

@@ -16,8 +16,13 @@
  * Panel'de kaydedilmişse:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db
  *
+ * Sertifikasyon (sandbox Test_* kanalı — canlı DB ayarından bağımsız):
+ *   node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only flights
+ *
  * Hotel API Test Cases (PDF) — tam akış + System PNR + adım logları:
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotels
+ *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotel-s1
+ *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-s2
  *
  * Çıktılar:
  *   - Konsol: özet ✅/❌
@@ -48,6 +53,7 @@ import {
   validateHotelRooms,
   getHotelFinalPrice,
   bookHotel,
+  getHotelBooking,
   pickHotelBookResultKeys,
   resolveHotelPaymentAttempts,
   buildHotelBookRequest,
@@ -70,6 +76,8 @@ import {
   validateFlight,
   getPaymentOptions,
   createFlightReservation,
+  extractFlightPassengerRefs,
+  attachPassengerRefsToFlightPaxes,
   issueTicketFromReservation,
   issueTicketDirect,
   // Transfer
@@ -90,6 +98,7 @@ import {
   CERT_HOTEL_FALLBACKS,
   TRAVELROBOT_SANDBOX_HOTELS,
 } from './lib/travelrobot-sandbox-ids.mjs'
+import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -101,17 +110,61 @@ const getArg = (flag) => {
   return i >= 0 ? args[i + 1] : undefined
 }
 const FROM_DB = args.includes('--from-db')
+const USE_SANDBOX = args.includes('--sandbox')
 const SKIP_BOOKING = !args.includes('--with-booking') // booking adımları varsayılan olarak atla
 const ONLY = getArg('--only')?.toLowerCase() ?? ''
-const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel'
-const RUN_FLIGHTS = !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air'
+const ONLY_HOTEL_S1 = ONLY === 'hotel-s1' || ONLY === 's1'
+const ONLY_AIR_S2 = ONLY === 'air-s2' || ONLY === 's2'
+const ONLY_AIR_LCC = ONLY === 'air-lcc' || ONLY === 'lcc'
+const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel' || ONLY_HOTEL_S1
+const RUN_FLIGHTS =
+  !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air' || ONLY_AIR_S2 || ONLY_AIR_LCC
 const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
 const RUN_STATIC = !ONLY || ONLY === 'static'
-const RUN_GENERAL = !ONLY
+const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-08-cert-hotel-book-v8'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-tc-v14'
+/** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
+const KPLUS_DEFAULT_TC = '11111111110'
+
+function generateValidTcKimlik(seed = 1) {
+  const n = 100000000 + ((seed * 7919 + 1234567) % 899999999)
+  const base = String(n).padStart(9, '0').slice(0, 9)
+  const d = [...base].map(Number)
+  const odd = d[0] + d[2] + d[4] + d[6] + d[8]
+  const even = d[1] + d[3] + d[5] + d[7]
+  let d10 = (odd * 7 - even) % 10
+  if (d10 < 0) d10 += 10
+  const d11 = (d.reduce((s, x) => s + x, 0) + d10) % 10
+  return base + String(d10) + String(d11)
+}
+
+function sandboxTcKimlik(index = 0) {
+  if (index === 0) return KPLUS_DEFAULT_TC
+  return generateValidTcKimlik(index)
+}
+
+/** Air-S1 book formatı: benzersiz TC + pasaport (yurt içi LCC). */
+function applyKplusDomesticIdentity(flightPaxes, opts = {}) {
+  let tcIdx = opts.tcStartIndex ?? 0
+  return (flightPaxes ?? []).map((entry, i) => {
+    const copy = { ...entry, Pax: { ...entry.Pax } }
+    const paxType = Number(entry.PaxType ?? entry.FlightPaxType ?? 0)
+    if (opts.infantNoTc === true && paxType === 2) {
+      copy.Pax.IdentityNumber = null
+    } else {
+      copy.Pax.IdentityNumber = sandboxTcKimlik(tcIdx++)
+    }
+    copy.Pax.PassportNumber = copy.Pax.PassportNumber ?? `AA${String(100001 + i).slice(-6)}`
+    copy.Pax.PassportValidityDate = copy.Pax.PassportValidityDate ?? '01.01.2030'
+    return copy
+  })
+}
 /** Sandbox stoğu için alternatif giriş tarihleri (gün). */
 const HOTEL_CERT_DATE_OFFSETS = [14, 21, 30, 45, 60, 75, 90, 120]
+/** İstanbul S1: erken tarih + kısa konaklama (sandbox stoğu). */
+const HOTEL_S1_DATE_OFFSETS = [7, 10, 14, 21, 30, 45, 60, 90]
+const HOTEL_S1_STAY_NIGHTS = [3, 5, 7]
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
 const HOTEL_CERT_RESULTS = []
 const AIR_CERT_RESULTS = []
@@ -203,6 +256,29 @@ function addDays(n) {
 
 // ─── Test pax verisi (Postman koleksiyonu formatında) ─────────────────────────
 
+function formatDobFromDate(d) {
+  const dd = String(d.getUTCDate()).padStart(2, '0')
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+  return `${dd}.${mm}.${d.getUTCFullYear()}`
+}
+
+function infantDateOfBirth(monthsOld = 10) {
+  const d = new Date()
+  d.setUTCMonth(d.getUTCMonth() - monthsOld)
+  return formatDobFromDate(d)
+}
+
+function ageFromDob(dob) {
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(String(dob ?? ''))
+  if (!m) return 0
+  const birth = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])))
+  const now = new Date()
+  let age = now.getUTCFullYear() - birth.getUTCFullYear()
+  const md = now.getUTCMonth() - birth.getUTCMonth()
+  if (md < 0 || (md === 0 && now.getUTCDate() < birth.getUTCDate())) age--
+  return Math.max(0, age)
+}
+
 function makePax(firstName, lastName, dob, gender = 1, nationality = 'TR', passport = null) {
   return {
     PaxId: 0,
@@ -290,6 +366,56 @@ const TEST_PAYMENT = {
   PaymentCommissionType: 0,
   PaymentDescription: null,
   HasWorkMultiCurrency: false,
+}
+
+function makeFlightCertPax(firstName, lastName, dob, gender = 1, passport = null, certOpts = {}) {
+  const pax = makePax(firstName, lastName, dob, gender, 'TR', passport)
+  if (certOpts.useTcKimlik === true && certOpts.tcIndex != null) {
+    pax.IdentityNumber = sandboxTcKimlik(certOpts.tcIndex)
+  } else {
+    pax.IdentityNumber = null
+  }
+  return pax
+}
+
+const FLIGHT_BOOK_RETRY_ERR =
+  /passenger count|passenger type|invalid payment|invalid key|invalid first name|invalid identity/i
+
+async function tryCreateFlightBook(cfg, bookOpts) {
+  const variants = bookOpts.paxVariants ?? [{ label: 'default', flightPaxes: bookOpts.flightPaxes, mapPaxes: true }]
+  let lastPayload = null
+  let lastVariant = null
+  let lastFlightPaxes = null
+  for (const variant of variants) {
+    lastFlightPaxes = variant.flightPaxes
+    let payload
+    try {
+      payload = await createFlightReservation(cfg, {
+        ...bookOpts,
+        flightPaxes: variant.flightPaxes,
+        mapPaxes: variant.mapPaxes ?? true,
+        useFlightPaxType: variant.useFlightPaxType,
+      })
+    } catch (e) {
+      const err = String(e)
+      lastPayload = { HasError: true, ErrorMessage: err }
+      lastVariant = variant.label
+      if (!FLIGHT_BOOK_RETRY_ERR.test(err)) {
+        return { payload: lastPayload, variant: lastVariant, flightPaxes: lastFlightPaxes, fatal: true }
+      }
+      continue
+    }
+    if (!payload?.HasError && (payload?.Result?.Booking?.SystemPnr ?? payload?.Result?.SystemPnr)) {
+      return { payload, variant: variant.label, flightPaxes: variant.flightPaxes }
+    }
+    const err = payload?.ErrorMessage ?? ''
+    lastPayload = payload
+    lastVariant = variant.label
+    if (!FLIGHT_BOOK_RETRY_ERR.test(err)) {
+      return { payload, variant: variant.label, flightPaxes: lastFlightPaxes, fatal: true }
+    }
+  }
+  return lastPayload ? { payload: lastPayload, variant: lastVariant, flightPaxes: lastFlightPaxes } : null
 }
 
 // ─── Uçuş senaryo çalıştırıcı ────────────────────────────────────────────────
@@ -384,25 +510,28 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         ok(`[${scenarioName}] ValidateFlight`, `Fiyat kilitleme başarılı (${bookResultKeys.length} ResultKey)`)
         if (!SKIP_BOOKING) {
           const flightPaxesTry = buildFlightPaxes(opts)
+          const { variants: paxVariants, passengerRefs } = buildFlightBookPaxVariants(opts, validatePayload)
           try {
-            const bookTry = await createFlightReservation(cfg, {
+            const bookHit = await tryCreateFlightBook(cfg, {
               tokenCode,
               resultKeys: bookResultKeys,
               flightPaxes: flightPaxesTry,
-          contactInfo: buildFlightContact(flightPaxesTry),
-          invoiceInfo: TEST_INVOICE,
-          paymentInfo: AIR_TEST_PAYMENT,
-          bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
+              paxVariants,
+              passengerRefCount: passengerRefs.length,
+              contactInfo: buildFlightContact(flightPaxesTry),
+              invoiceInfo: TEST_INVOICE,
+              paymentInfo: AIR_TEST_PAYMENT,
+              bookingNote: `rezervasyonyap.tr sandbox certification — ${scenarioName}`,
               languageCode: opts.languageCode ?? 'tr',
             })
-            if (!bookTry?.HasError && (bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr)) {
-              systemPnr = bookTry?.Result?.Booking?.SystemPnr ?? bookTry?.Result?.SystemPnr ?? null
-              break
+            if (bookHit?.payload && !bookHit.payload?.HasError) {
+              systemPnr =
+                bookHit.payload?.Result?.Booking?.SystemPnr ?? bookHit.payload?.Result?.SystemPnr ?? null
+              if (systemPnr) break
             }
-            const bookErr = bookTry?.ErrorMessage ?? ''
-            if (/passenger count|invalid payment|invalid key|invalid first name/i.test(bookErr)) continue
+            if (bookHit?.fatal) break
           } catch (e) {
-            if (/passenger count|invalid payment|invalid key|invalid first name/i.test(String(e))) continue
+            if (FLIGHT_BOOK_RETRY_ERR.test(String(e))) continue
           }
         } else {
           break
@@ -496,10 +625,13 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   // Adım 4: CreateReservation (Book) — validate döngüsünde yapılmadıysa
   if (!systemPnr) {
     try {
-      const payload = await createFlightReservation(cfg, {
+      const { variants: paxVariants, passengerRefs } = buildFlightBookPaxVariants(opts, validatePayload)
+      const bookHit = await tryCreateFlightBook(cfg, {
         tokenCode,
         resultKeys: bookResultKeys,
         flightPaxes,
+        paxVariants,
+        passengerRefCount: passengerRefs.length,
         contactInfo: flightContact,
         invoiceInfo: TEST_INVOICE,
         paymentInfo: AIR_TEST_PAYMENT,
@@ -507,14 +639,28 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         bookingNote: clientNotes,
         languageCode: opts.languageCode ?? 'tr',
       })
+      const payload = bookHit?.payload ?? null
       log(scenarioName, 'CreateReservation', '/Air.svc/Rest/Json/Book',
-        { resultKeys: bookResultKeys, paxCount: flightPaxes.length }, payload, !payload?.HasError)
-      if (!payload?.HasError) {
+        {
+          resultKeys: bookResultKeys,
+          paxCount: flightPaxes.length,
+          passengerRefCount: passengerRefs.length,
+          variant: bookHit?.variant,
+          paxIdentity: (bookHit?.flightPaxes ?? flightPaxes)?.map((e) => ({
+            type: e.PaxType ?? e.FlightPaxType,
+            tc: e.Pax?.IdentityNumber ?? null,
+            passport: e.Pax?.PassportNumber ?? null,
+          })),
+        },
+        payload,
+        !payload?.HasError)
+      if (payload && !payload?.HasError) {
         const refs = extractAirPnr(payload)
         systemPnr = refs.systemPnr
         certRow.systemPnr = refs.systemPnr
         certRow.pnr = refs.pnr
-        ok(`[${scenarioName}] CreateReservation`, `SystemPNR: ${systemPnr ?? '(yok)'}  PNR: ${refs.pnr ?? '(yok)'}`)
+        ok(`[${scenarioName}] CreateReservation`,
+          `SystemPNR: ${systemPnr ?? '(yok)'}  PNR: ${refs.pnr ?? '(yok)'}${bookHit?.variant ? ` (${bookHit.variant})` : ''}`)
       } else {
         fail(`[${scenarioName}] CreateReservation`, payload?.ErrorMessage ?? 'Hata')
         return
@@ -578,10 +724,14 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
         { offerIndex: directOfferIndex, keys: directKeys.length }, valDirect, !valDirect?.HasError)
       if (!valDirect?.HasError) {
         const directResultKeys = pickFlightBookResultKeys(valDirect, directKeys, directKeyOpts)
+        const { variants: directPaxVariants } = buildFlightBookPaxVariants(opts, valDirect)
+        const directPaxes = directPaxVariants[0]?.flightPaxes ?? flightPaxes
         const directPayload = await issueTicketDirect(cfg, {
           tokenCode,
           resultKeys: directResultKeys,
-          flightPaxes,
+          flightPaxes: directPaxes,
+          mapPaxes: true,
+          useFlightPaxType: true,
           contactInfo: flightContact,
           invoiceInfo: TEST_INVOICE,
           paymentInfo: AIR_TEST_PAYMENT,
@@ -611,45 +761,160 @@ async function runFlightScenario(cfg, tokenCode, scenarioName, opts) {
   if (certRow.systemPnr) AIR_CERT_RESULTS.push(certRow)
 }
 
+/** KPlus sandbox onaylı yolcu isimleri (LCC dahil). */
+function applyFlightCertNames(flightPaxes, certOpts = {}) {
+  let tcIdx = certOpts.tcStartIndex ?? 0
+  return (flightPaxes ?? []).map((entry) => {
+    const copy = { ...entry, Pax: { ...entry.Pax } }
+    const paxType = Number(entry.PaxType ?? entry.FlightPaxType ?? 0)
+    const passport = copy.Pax?.PassportNumber ?? 'AA123456'
+    const paxCertOpts = {
+      useTcKimlik: certOpts.useTcKimlik === true,
+      tcIndex: tcIdx++,
+    }
+    if (paxType === 0 && entry.IsLeader) {
+      copy.Pax = makeFlightCertPax('TEST', 'TRAVELER', '15.06.1990', 1, passport, paxCertOpts)
+      copy.Pax.Age = 30
+    } else if (paxType === 0) {
+      copy.Pax = makeFlightCertPax('TEST', 'GUEST', '15.06.1992', 1, passport, paxCertOpts)
+      copy.Pax.Age = 30
+    } else if (paxType === 1) {
+      const age = Number(copy.Pax?.Age ?? copy.Pax?.ChildAge ?? 5)
+      const y = new Date().getUTCFullYear() - age
+      copy.Pax = makeFlightCertPax('TIM', 'TRAVELER', `15.06.${y}`, 1, passport, paxCertOpts)
+      copy.Pax.Age = age
+      copy.Pax.ChildAge = age
+    } else if (paxType === 2) {
+      const dob = copy.Pax?.DateOfBirth ?? infantDateOfBirth(10)
+      copy.Pax = makeFlightCertPax('BABY', 'TRAVELER', dob, 1, passport, paxCertOpts)
+      copy.Pax.Age = Math.min(1, ageFromDob(dob))
+    }
+    return copy
+  })
+}
+
 function buildFlightPaxes(opts) {
   const paxes = []
   const adults = opts.adults ?? 1
   const children = opts.children ?? 0
   const infants = opts.infants ?? 0
-  const adultNames = [
-    ['JOHN', 'SMITH'],
-    ['MARY', 'SMITH'],
-    ['ALEX', 'BROWN'],
-    ['TEST', 'TRAVELER'],
-  ]
-  const childNames = [
-    ['TIM', 'SMITH'],
-    ['ANN', 'SMITH'],
-    ['KATE', 'BROWN'],
-  ]
+  const useCertNames = opts.useCertNames === true
+  const useTcKimlik = opts.useTcKimlik === true
+  const adultNames = useCertNames
+    ? [
+        ['TEST', 'TRAVELER'],
+        ['TEST', 'GUEST'],
+        ['TEST', 'GUEST2'],
+        ['TEST', 'GUEST3'],
+      ]
+    : [
+        ['JOHN', 'SMITH'],
+        ['MARY', 'SMITH'],
+        ['ALEX', 'BROWN'],
+        ['TEST', 'TRAVELER'],
+      ]
+  const childNames = useCertNames
+    ? [['TIM', 'TRAVELER'], ['ANN', 'TRAVELER'], ['KATE', 'TRAVELER']]
+    : [['TIM', 'SMITH'], ['ANN', 'SMITH'], ['KATE', 'BROWN']]
   const childAges = opts.childAges ?? [5, 5, 5]
+  let paxSeq = 0
 
   for (let i = 0; i < adults; i++) {
-    const [fn, ln] = adultNames[i] ?? ['JOHN', 'SMITH']
-    const pax = makePax(fn, ln, '15.06.1990', 1)
+    const [fn, ln] = adultNames[i] ?? (useCertNames ? ['TEST', 'TRAVELER'] : ['JOHN', 'SMITH'])
+    const pax = makeFlightCertPax(
+      fn,
+      ln,
+      i === 0 ? '15.06.1990' : '15.06.1992',
+      1,
+      `AA${String(100001 + paxSeq).slice(-6)}`,
+      { useTcKimlik, tcIndex: paxSeq },
+    )
     pax.Age = 30
+    paxSeq++
     paxes.push({ RecId: 0, IsLeader: i === 0, PaxType: 0, Pax: pax })
   }
-  const leaderLast = paxes[0]?.Pax?.LastName ?? 'SMITH'
+  const leaderLast = paxes[0]?.Pax?.LastName ?? (useCertNames ? 'TRAVELER' : 'SMITH')
   for (let i = 0; i < children; i++) {
-    const [fn, ln] = childNames[i] ?? ['TIM', leaderLast]
+    const [fn, ln] = childNames[i] ?? [useCertNames ? 'TIM' : 'TIM', leaderLast]
     const age = Number(childAges[i] ?? 5)
     const birthYear = new Date().getUTCFullYear() - age
-    const pax = makePax(fn, ln, `15.06.${birthYear}`, 1)
+    const pax = makeFlightCertPax(
+      fn,
+      ln,
+      `15.06.${birthYear}`,
+      1,
+      `AA${String(100001 + paxSeq).slice(-6)}`,
+      { useTcKimlik, tcIndex: paxSeq },
+    )
     pax.Age = age
+    pax.ChildAge = age
+    paxSeq++
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 1, Pax: pax })
   }
   for (let i = 0; i < infants; i++) {
-    const pax = makePax('INFANT', leaderLast, '15.06.2024', 1)
-    pax.Age = 1
+    const dob = infantDateOfBirth(10)
+    const pax = makeFlightCertPax(
+      'BABY',
+      leaderLast,
+      dob,
+      1,
+      `AA${String(100001 + paxSeq).slice(-6)}`,
+      { useTcKimlik, tcIndex: paxSeq },
+    )
+    pax.Age = Math.min(1, ageFromDob(dob))
+    paxSeq++
     paxes.push({ RecId: 0, IsLeader: false, PaxType: 2, Pax: pax })
   }
   return paxes
+}
+
+/** Validate PassengerRef + Stoplight/legacy pax formatlarını sırayla dene. */
+function buildFlightBookPaxVariants(opts, validatePayload = null) {
+  const standard = buildFlightPaxes(opts)
+  const paxCount = standard.length
+  const passengerRefs = validatePayload ? extractFlightPassengerRefs(validatePayload, paxCount) : []
+  const withRefs = passengerRefs.length
+    ? attachPassengerRefsToFlightPaxes(standard, passengerRefs)
+    : standard
+  const certNames = applyFlightCertNames(withRefs, { useTcKimlik: false })
+  const certNamesTc = applyFlightCertNames(withRefs, { useTcKimlik: true })
+
+  const variantEntry = (label, flightPaxes, mapPaxes, useFlightPaxType = true) => ({
+    label,
+    flightPaxes,
+    mapPaxes,
+    useFlightPaxType,
+  })
+
+  const variants = []
+  if (opts.useCertNames === true) {
+    if (opts.useTcKimlik === true) {
+      const kplusS1 = applyKplusDomesticIdentity(certNames)
+      const kplusS1InfantNoTc = applyKplusDomesticIdentity(certNames, { infantNoTc: true })
+      variants.push(
+        variantEntry('kplus-s1-tc+passport+refs', kplusS1, true, true),
+        variantEntry('kplus-s1-tc+passport+legacy', kplusS1, false),
+        variantEntry('kplus-s1-tc+passport+inf-no-tc', kplusS1InfantNoTc, true, true),
+        variantEntry('cert-tc+flight-pax-type+refs', certNamesTc, true, true),
+        variantEntry('cert-tc+pax-type+refs', certNamesTc, true, false),
+        variantEntry('cert-tc+legacy+refs', certNamesTc, false),
+      )
+    }
+    variants.push(
+      variantEntry('cert-names+flight-pax-type+refs', certNames, true, true),
+      variantEntry('cert-names+pax-type+refs', certNames, true, false),
+      variantEntry('cert-names+legacy+refs', certNames, false),
+    )
+  }
+  variants.push(
+    variantEntry('flight-pax-type+refs', withRefs, true, true),
+    variantEntry('pax-type+refs', withRefs, true, false),
+    variantEntry('legacy+refs', withRefs, false),
+  )
+  if (paxCount > 1 && opts.useCertNames !== true) {
+    variants.push(variantEntry('flight-pax-type+refs-test-names', certNames, true, true))
+  }
+  return { variants, passengerRefs }
 }
 
 function buildFlightContact(flightPaxes) {
@@ -784,6 +1049,23 @@ function buildCertTryHotelList(destId, preferredHotel, searchRows) {
   return out
 }
 
+/** Sertifika otelleri boşsa destinasyondaki diğer otelleri dene (İstanbul S1). */
+function buildDestinationWideTryList(searchRows, certCodes, limit = 25) {
+  const seen = new Set()
+  const out = []
+  for (const row of searchRows) {
+    const c = row?.HotelCode ?? row?.hotelCode ?? row?.ProductCode
+    if (!c || seen.has(c)) continue
+    seen.add(c)
+    out.push(row)
+    if (out.length >= limit) break
+  }
+  if (!out.length) return []
+  const cert = out.filter((r) => certCodes.has(r?.HotelCode ?? r?.hotelCode))
+  const other = out.filter((r) => !certCodes.has(r?.HotelCode ?? r?.hotelCode))
+  return [...cert, ...other]
+}
+
 async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpts) {
   section(`${scenarioName}`)
 
@@ -802,17 +1084,30 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
   let winningCheckin = null
   let winningCheckout = null
 
-  for (const startOffset of HOTEL_CERT_DATE_OFFSETS) {
+  const dateOffsets = hotelOpts.dateOffsets ?? HOTEL_CERT_DATE_OFFSETS
+  const stayNightsList = hotelOpts.stayNights ?? [7]
+  const preferDestinationSearch = Boolean(hotelOpts.preferDestinationSearch)
+  const certCodesForDest = new Set(
+    TRAVELROBOT_SANDBOX_HOTELS.filter((h) => String(h.destinationId) === String(destId)).map((h) => h.code),
+  )
+
+  for (const startOffset of dateOffsets) {
     if (roomOfferKeys.length) break
 
+    for (const stayNights of stayNightsList) {
+      if (roomOfferKeys.length) break
+
     const checkin = addDays(startOffset)
-    const checkout = addDays(startOffset + 7)
+    const checkout = addDays(startOffset + stayNights)
     const baseSearch = {
       checkInDate: checkin,
       checkOutDate: checkout,
       ...hotelOpts,
       rooms: roomOpts,
     }
+    delete baseSearch.dateOffsets
+    delete baseSearch.stayNights
+    delete baseSearch.preferDestinationSearch
 
     let searchRows = []
     try {
@@ -820,7 +1115,20 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       let rows = []
       let searchMode = 'destination'
 
-      if (preferredHotel) {
+      let destPayload = null
+      let destRows = []
+      try {
+        destPayload = await searchHotel(cfg, tokenCode, baseSearch)
+        destRows = pickHotelRows(destPayload)
+      } catch {
+        /* destination araması opsiyonel */
+      }
+
+      if (preferDestinationSearch && destRows.length) {
+        payload = destPayload
+        rows = destRows
+        searchMode = 'destination-first'
+      } else if (preferredHotel) {
         payload = await searchHotel(cfg, tokenCode, {
           ...baseSearch,
           destinationId: destId,
@@ -831,10 +1139,14 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         if (rows.length) searchMode = 'hotelCode-primary'
       }
 
-      if (!rows.length) {
-        payload = await searchHotel(cfg, tokenCode, baseSearch)
-        rows = pickHotelRows(payload)
+      if (!rows.length && destRows.length) {
+        payload = destPayload
+        rows = destRows
         searchMode = 'destination'
+      } else if (destRows.length > rows.length) {
+        payload = destPayload
+        rows = destRows
+        searchMode = 'destination-wide'
       }
 
       if (!rows.length && preferredHotel) {
@@ -851,22 +1163,39 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       searchPayload = payload
       searchRows = rows
       log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
-        { checkin, checkout, searchMode, preferredHotel, dateOffset: startOffset }, payload, rows.length >= 0)
+        {
+          checkin,
+          checkout,
+          searchMode,
+          preferredHotel,
+          dateOffset: startOffset,
+          stayNights,
+        },
+        payload,
+        rows.length >= 0,
+      )
 
       if (rows.length > 0) {
-        ok(`[${scenarioName}] SearchHotel`, `${rows.length} otel (${checkin} → ${checkout}, ${searchMode})`)
+        ok(
+          `[${scenarioName}] SearchHotel`,
+          `${rows.length} otel (${checkin} → ${checkout}, ${stayNights} gece, ${searchMode})`,
+        )
       } else {
         log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
-          { dateOffset: startOffset }, 'Sonuç yok — sonraki tarih denenecek', false)
+          { dateOffset: startOffset, stayNights }, 'Sonuç yok — sonraki tarih denenecek', false)
         continue
       }
     } catch (e) {
       log(scenarioName, 'SearchHotel', '/Hotel.svc/Rest/Json/SearchHotel',
-        { dateOffset: startOffset }, String(e), false)
+        { dateOffset: startOffset, stayNights }, String(e), false)
       continue
     }
 
-    const tryHotels = buildCertTryHotelList(destId, preferredHotel, searchRows)
+    let tryHotels = buildCertTryHotelList(destId, preferredHotel, searchRows)
+    if (preferDestinationSearch && searchRows.length > tryHotels.length) {
+      const wide = buildDestinationWideTryList(searchRows, certCodesForDest, 25)
+      if (wide.length > tryHotels.length) tryHotels = wide
+    }
     triedHotels = 0
     triedCodes = []
 
@@ -939,12 +1268,13 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
         continue
       }
     }
+    }
   }
 
   if (!roomOfferKeys.length) {
     fail(
       `[${scenarioName}] GetHotelRoomPrices`,
-      `${triedHotels} otelde oda teklifi yok — denenen: ${triedCodes.slice(0, 8).join(', ')}${triedCodes.length > 8 ? '…' : ''} (tarih offset: ${HOTEL_CERT_DATE_OFFSETS.join(',')} gün)`,
+      `${triedHotels} otelde oda teklifi yok — denenen: ${triedCodes.slice(0, 12).join(', ')}${triedCodes.length > 12 ? '…' : ''} (tarih offset: ${dateOffsets.join(',')} gün; konaklama: ${stayNightsList.join('/')} gece)`,
     )
     return
   }
@@ -1056,7 +1386,11 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
       const agentReference = `RY-${Date.now()}-${foundHotelCode ?? 'hotel'}`
       const bookPaxes = buildCanonicalHotelBookPaxes(roomOpts)
       const paymentAttempts = await resolveHotelPaymentAttempts(cfg, tokenCode, primaryKeys)
-      const bookAttempts = paymentAttempts.slice(0, 3).map((pay) => ({
+      const paymentPool = [...paymentAttempts]
+      if (!paymentPool.some((p) => String(p.info?.PaymentType) === '0')) {
+        paymentPool.push({ label: 'card-0', info: { ...TEST_PAYMENT } })
+      }
+      const bookAttempts = paymentPool.slice(0, 5).map((pay) => ({
         label: `stoplight-${pay.label}`,
         resultKeys: primaryKeys,
         hotelRoomPaxes: bookPaxes,
@@ -1102,11 +1436,62 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
               bookPayload?.systemPnr ??
               null
             ok(`[${scenarioName}] BookHotel`, `SystemPNR: ${systemPnr ?? '(yok)'}`)
+
+            let verifiedSystemPnr = null
+            let pnrVerified = null
+            if (systemPnr) {
+              try {
+                const verifyPayload = await getHotelBooking(cfg, tokenCode, {
+                  systemPnr,
+                  lastName: TEST_CONTACT.LastName,
+                })
+                verifiedSystemPnr =
+                  verifyPayload?.Result?.Booking?.SystemPnr ??
+                  verifyPayload?.Result?.SystemPnr ??
+                  verifyPayload?.Result?.systemPnr ??
+                  null
+                pnrVerified =
+                  verifiedSystemPnr != null &&
+                  String(verifiedSystemPnr).trim().toUpperCase() ===
+                    String(systemPnr).trim().toUpperCase()
+                log(
+                  scenarioName,
+                  'GetHotelBooking',
+                  '/Hotel.svc/Rest/Json/GetHotelBooking',
+                  { systemPnr, lastName: TEST_CONTACT.LastName },
+                  verifyPayload,
+                  pnrVerified === true,
+                )
+                if (pnrVerified) {
+                  ok(`[${scenarioName}] PNR doğrulama`, `GetHotelBooking SystemPNR eşleşti: ${verifiedSystemPnr}`)
+                } else {
+                  fail(
+                    `[${scenarioName}] PNR doğrulama`,
+                    verifiedSystemPnr
+                      ? `BookHotel=${systemPnr} ≠ GetHotelBooking=${verifiedSystemPnr}`
+                      : 'GetHotelBooking yanıtında SystemPNR yok',
+                  )
+                }
+              } catch (e) {
+                log(
+                  scenarioName,
+                  'GetHotelBooking',
+                  '/Hotel.svc/Rest/Json/GetHotelBooking',
+                  { systemPnr },
+                  String(e),
+                  false,
+                )
+                fail(`[${scenarioName}] PNR doğrulama`, String(e))
+              }
+            }
+
             HOTEL_CERT_RESULTS.push({
               scenario: scenarioName,
               hotelCode: foundHotelCode,
               resultKeys: attempt.resultKeys ?? [attempt.packageId],
               systemPnr,
+              verifiedSystemPnr,
+              pnrVerified,
               clientNotes,
               agentReference,
             })
@@ -1115,18 +1500,20 @@ async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpt
           }
           lastBookErr = bookPayload?.ErrorMessage ?? preview(bookPayload, 300)
           log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, bookPayload, false)
+          if (/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) continue
           if (isDefinitiveBookErr(lastBookErr) || !isRetriableBookErr(lastBookErr)) break outerBook
         } catch (e) {
           lastBookErr = String(e)
           log(scenarioName, 'BookHotel', '/Hotel.svc/Rest/Json/BookHotel', bookRequest, lastBookErr, false)
+          if (/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) continue
           if (isDefinitiveBookErr(lastBookErr) || !isRetriableBookErr(lastBookErr)) break outerBook
         }
       }
       if (booked) break
-      if (isDefinitiveBookErr(lastBookErr)) break
+      if (isDefinitiveBookErr(lastBookErr) && !/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) break
     }
     if (booked) break
-    if (isDefinitiveBookErr(lastBookErr)) break
+    if (isDefinitiveBookErr(lastBookErr) && !/balance is not enough|insufficient balance|yetersiz bakiye/i.test(lastBookErr)) break
   }
 
   if (!validated && lastValErr) {
@@ -1155,13 +1542,25 @@ async function main() {
 
   // Config yükle
   let cfg
-  if (FROM_DB) {
+  if (USE_SANDBOX) {
+    console.log('\n[config] Sandbox test kanalı (KPlus sertifikasyon)…')
+    cfg = buildSandboxConfig(getArg)
+  } else if (FROM_DB) {
     console.log('\n[config] DB\'den yükleniyor…')
     cfg = await loadTravelrobotConfig()
+    if (CREDS.baseUrl || CREDS.channelCode || CREDS.channelPassword) {
+      cfg = {
+        ...cfg,
+        ...(CREDS.baseUrl ? { baseUrl: CREDS.baseUrl.replace(/\/$/, '') } : {}),
+        ...(CREDS.channelCode ? { channelCode: CREDS.channelCode } : {}),
+        ...(CREDS.channelPassword ? { channelPassword: CREDS.channelPassword } : {}),
+      }
+    }
   } else {
     if (!CREDS.baseUrl || !CREDS.channelCode || !CREDS.channelPassword) {
       console.error(
         '\n[hata] Credentials eksik. Kullanım:\n' +
+        '  --sandbox  (TRAVELROBOT_SANDBOX_CHANNEL_* env)\n' +
         '  --base-url "http://sandbox.kplus.com.tr/kplus/v0" \\\n' +
         '  --channel-code <code> --channel-password <pass>\n' +
         '  ya da --from-db',
@@ -1169,6 +1568,12 @@ async function main() {
       process.exit(1)
     }
     cfg = { ...CREDS, enabled: true }
+  }
+
+  if (!USE_SANDBOX && SKIP_BOOKING === false && !isSandboxBaseUrl(cfg.baseUrl)) {
+    console.warn(
+      '\n⚠️  UYARI: --with-booking canlı API ile çalışıyor. Sertifikasyon için --sandbox kullanın.\n',
+    )
   }
 
   // /v0 eksikse uyar
@@ -1305,28 +1710,36 @@ async function main() {
   await runHotelScenario(
     cfg, tokenCode,
     'Hotel-S1: 1 Oda / 2 ADT / İstanbul (destinationId=10033097)',
-    { destinationId: 10033097, languageCode: 'tr' },
+    {
+      destinationId: 10033097,
+      languageCode: 'tr',
+      preferDestinationSearch: true,
+      dateOffsets: HOTEL_S1_DATE_OFFSETS,
+      stayNights: HOTEL_S1_STAY_NIGHTS,
+    },
     [{ RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null }],
   )
 
-  // Hotel Senaryo 2: 1 Oda, 2 Yetişkin + 1 Çocuk (5 yaş), herhangi lokasyon (Prague sandbox)
-  await runHotelScenario(
-    cfg, tokenCode,
-    'Hotel-S2: 1 Oda / 2 ADT + 1 CHD(5) / Prague (destinationId=531096)',
-    { destinationId: 531096, languageCode: 'tr' },
-    [{ RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [5] }],
-  )
+  if (!ONLY_HOTEL_S1) {
+    // Hotel Senaryo 2: 1 Oda, 2 Yetişkin + 1 Çocuk (5 yaş), Prague sandbox
+    await runHotelScenario(
+      cfg, tokenCode,
+      'Hotel-S2: 1 Oda / 2 ADT + 1 CHD(5) / Prague (destinationId=531096)',
+      { destinationId: 531096, languageCode: 'tr' },
+      [{ RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [5] }],
+    )
 
-  // Hotel Senaryo 3: 2 Oda, 3 Yetişkin + 2 Çocuk (2 ve 4 yaş)
-  await runHotelScenario(
-    cfg, tokenCode,
-    'Hotel-S3: 2 Oda / Oda1:2ADT+1CHD(2) + Oda2:1ADT+1CHD(4) / Berlin (destinationId=587926)',
-    { destinationId: 587926, languageCode: 'tr' },
-    [
-      { RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [2] },
-      { RoomIndex: 1, Adults: 1, Children: 1, ChildAges: [4] },
-    ],
-  )
+    // Hotel Senaryo 3: 2 Oda, 3 Yetişkin + 2 Çocuk (2 ve 4 yaş), Berlin
+    await runHotelScenario(
+      cfg, tokenCode,
+      'Hotel-S3: 2 Oda / Oda1:2ADT+1CHD(2) + Oda2:1ADT+1CHD(4) / Berlin (destinationId=587926)',
+      { destinationId: 587926, languageCode: 'tr' },
+      [
+        { RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [2] },
+        { RoomIndex: 1, Adults: 1, Children: 1, ChildAges: [4] },
+      ],
+    )
+  }
   }
 
   if (RUN_FLIGHTS) {
@@ -1334,19 +1747,48 @@ async function main() {
   // UÇUŞ SENARYOLARI (Air API Test Cases belgesinden — 11 senaryo)
   // ═══════════════════════════════════════════════════════════════════════════
 
+  if (!ONLY_AIR_S2 && !ONLY_AIR_LCC) {
   // Air Senaryo 1: Oneway, 1 ADT, IST → LHR
   await runFlightScenario(cfg, tokenCode, 'Air-S1: Oneway / 1ADT / IST→LHR', {
     legs: [{ originCode: 'IST', destinationCode: 'LHR', departureDate: addDays(30) }],
     flightType: 0, resultType: 0, adults: 1, languageCode: 'tr',
   })
+  }
 
+  if (!ONLY_AIR_LCC) {
   // Air Senaryo 2: Oneway, 2 ADT + 1 CHD + 1 INF, IST → LHR
   await runFlightScenario(cfg, tokenCode, 'Air-S2: Oneway / 2ADT+1CHD+1INF / IST→LHR', {
     legs: [{ originCode: 'IST', destinationCode: 'LHR', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
+  }
 
+  if (ONLY_AIR_S2) {
+    /* --only air-s2 */
+  } else if (ONLY_AIR_LCC) {
+  // Air Senaryo 9–11: LCC (sandbox onaylı TEST/TRAVELER isimleri)
+  await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
+    legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
+  })
+  await runFlightScenario(cfg, tokenCode, 'Air-S10: Roundtrip-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
+    legs: [
+      { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
+      { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
+    ],
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
+  })
+  await runFlightScenario(cfg, tokenCode, 'Air-S11: Multiple-LCC / 2ADT+1CHD+1INF / AYT→TZX→IST→ADB', {
+    legs: [
+      { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
+      { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
+      { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
+    ],
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
+  })
+  } else if (
   // Air Senaryo 3: Roundtrip / Combined, 1 ADT, LHR → DXB
+  true) {
   await runFlightScenario(cfg, tokenCode, 'Air-S3: Roundtrip/Combined / 1ADT / LHR→DXB', {
     legs: [
       { originCode: 'LHR', destinationCode: 'DXB', departureDate: addDays(30) },
@@ -1370,7 +1812,7 @@ async function main() {
       { originCode: 'LHR', destinationCode: 'DXB', departureDate: addDays(30) },
       { originCode: 'DXB', destinationCode: 'LHR', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 6: Roundtrip / Separated, 2 ADT + 1 CHD + 1 INF, LHR → DXB
@@ -1379,7 +1821,7 @@ async function main() {
       { originCode: 'LHR', destinationCode: 'DXB', departureDate: addDays(30) },
       { originCode: 'DXB', destinationCode: 'LHR', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 1, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 1, resultType: 1, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 7: Multiple / Combined, 1 ADT, CDG→FCO→LHR→BCN
@@ -1399,13 +1841,13 @@ async function main() {
       { originCode: 'FCO', destinationCode: 'LHR', departureDate: addDays(31) },
       { originCode: 'LHR', destinationCode: 'BCN', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 1, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 2, resultType: 1, adults: 2, children: 1, infants: 1, childAges: [5], languageCode: 'tr',
   })
 
   // Air Senaryo 9: Oneway LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
   await runFlightScenario(cfg, tokenCode, 'Air-S9: Oneway-LCC / 2ADT+1CHD+1INF / AYT→TZX', {
     legs: [{ originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) }],
-    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 0, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
 
   // Air Senaryo 10: Roundtrip LCC, 2 ADT + 1 CHD + 1 INF, AYT → TZX
@@ -1414,7 +1856,7 @@ async function main() {
       { originCode: 'AYT', destinationCode: 'TZX', departureDate: addDays(30) },
       { originCode: 'TZX', destinationCode: 'AYT', departureDate: addDays(37) },
     ],
-    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 1, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
 
   // Air Senaryo 11: Multiple LCC, 2 ADT + 1 CHD + 1 INF, AYT→TZX→IST→ADB
@@ -1424,8 +1866,9 @@ async function main() {
       { originCode: 'TZX', destinationCode: 'IST', departureDate: addDays(31) },
       { originCode: 'IST', destinationCode: 'ADB', departureDate: addDays(32) },
     ],
-    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, languageCode: 'tr',
+    flightType: 2, resultType: 0, adults: 2, children: 1, infants: 1, childAges: [5], useCertNames: true, useTcKimlik: true, languageCode: 'tr',
   })
+  }
   }
 
   if (RUN_GENERAL) {
@@ -1580,12 +2023,15 @@ function printSummary() {
     for (const row of HOTEL_CERT_RESULTS) {
       console.log(`  Senaryo     : ${row.scenario}`)
       console.log(`  System PNR  : ${row.systemPnr ?? '(alınamadı)'}`)
+      if (row.verifiedSystemPnr != null) {
+        console.log(`  Doğrulama   : ${row.pnrVerified ? '✅ eşleşti' : '❌ uyuşmaz'} (${row.verifiedSystemPnr})`)
+      }
       console.log(`  Client Notes: ${row.clientNotes}`)
       console.log(`  Agent Ref   : ${row.agentReference}`)
       console.log(`  Hotel       : ${row.hotelCode}  ResultKeys: ${(row.resultKeys ?? []).length}`)
       console.log('─'.repeat(70))
       SUMMARY_LINES.push(
-        `HOTEL CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | Notes: ${row.clientNotes}`,
+        `HOTEL CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | Verified: ${row.pnrVerified === true ? row.verifiedSystemPnr : row.pnrVerified === false ? 'MISMATCH' : 'skip'} | Notes: ${row.clientNotes}`,
       )
     }
   }

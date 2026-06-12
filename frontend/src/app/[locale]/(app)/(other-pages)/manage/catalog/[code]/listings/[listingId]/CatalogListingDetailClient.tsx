@@ -7,28 +7,33 @@ import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useCatalogListingUi, type CatalogListingUi } from '@/hooks/useCatalogListingUi'
+import { getMessages } from '@/utils/getT'
 import {
   initCatalogManageOrganizationFromMe,
   writeStoredCatalogOrganizationId,
 } from '@/lib/catalog-manage-organization'
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
+import HotelRoomsEditor from '@/components/manage/HotelRoomsEditor'
+import HotelRoomAvailabilityEditor from '@/components/manage/HotelRoomAvailabilityEditor'
+import HotelPromotionsEditor from '@/components/manage/HotelPromotionsEditor'
+import HotelActivitiesEditor from '@/components/manage/HotelActivitiesEditor'
+import HotelVitrinContentEditor from '@/components/manage/HotelVitrinContentEditor'
+import HotelFacetsEditor from '@/components/manage/HotelFacetsEditor'
+import HotelContractEditor from '@/components/manage/HotelContractEditor'
 import {
   formatListingSeasonPeriodLabel,
   listingRuleCompareAtNightly,
 } from '@/lib/listing-price-rules-public'
 import {
-  addManageHotelRoom,
   patchListingBasics,
   getListingBasics,
   deleteListingPriceRule,
-  deleteManageHotelRoom,
   getAuthMe,
   getListingMeta,
   getListingOwnerContact,
   getListingAvailabilityCalendar,
   getManageHotelDetails,
   listListingPriceRules,
-  listManageHotelRooms,
   patchManageHotelDetails,
   putListingMeta,
   putListingOwnerContact,
@@ -68,7 +73,6 @@ import {
   type IcalFeed,
   type ListingExternalBookingRow,
   type ListingPriceRuleRow,
-  type ManageHotelRoomRow,
   type MealPlanItem,
   type MealPlanCode,
   type PriceLineItem,
@@ -977,11 +981,6 @@ export default function CatalogListingDetailClient({
 
   // ── Otel alanları ──
   const [hotelDetails, setHotelDetails] = useState<{ star: string; et: string; tc: string } | null>(null)
-  const [rooms, setRooms] = useState<ManageHotelRoomRow[]>([])
-  const [roomName, setRoomName] = useState('')
-  const [roomCap, setRoomCap] = useState('')
-  const [roomBoard, setRoomBoard] = useState('')
-  const [roomMeta, setRoomMeta] = useState('{}')
 
   // ── Fiyat kuralları ──
   const [rules, setRules] = useState<ListingPriceRuleRow[]>([])
@@ -1154,16 +1153,12 @@ export default function CatalogListingDetailClient({
     if (!token) return
     if (needOrg && !orgId.trim()) return
     try {
-      const [d, r] = await Promise.all([
-        getManageHotelDetails(token, listingId, orgQ),
-        listManageHotelRooms(token, listingId, orgQ),
-      ])
+      const d = await getManageHotelDetails(token, listingId, orgQ)
       setHotelDetails({
         star: d.star_rating ?? '',
         et: d.etstur_property_ref ?? '',
         tc: d.tatilcom_property_ref ?? '',
       })
-      setRooms(r.rooms)
     } catch { /* ignore */ }
   }, [categoryCode, listingId, needOrg, orgId, orgQ])
 
@@ -1610,48 +1605,6 @@ export default function CatalogListingDetailClient({
       await loadHotel()
     } catch (e) {
       setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('save_failed'))
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  // ── Oda ekle ──
-  async function onAddRoom(e: React.FormEvent) {
-    e.preventDefault()
-    const token = getStoredAuthToken()
-    if (!token || !roomName.trim()) return
-    const meta = roomMeta.trim() || '{}'
-    try {
-      JSON.parse(meta)
-    } catch {
-      setErr(formatManageApiError('room_meta_json_invalid'))
-      return
-    }
-    setBusy('room-add')
-    setErr(null)
-    try {
-      await addManageHotelRoom(token, listingId, { name: roomName.trim(), capacity: roomCap.trim() || undefined, board_type: roomBoard.trim() || undefined, meta_json: meta }, orgQ)
-      setRoomName(''); setRoomCap(''); setRoomBoard(''); setRoomMeta('{}')
-      await loadHotel()
-    } catch (e) {
-      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('room_add_failed'))
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  // ── Oda sil ──
-  async function onDeleteRoom(id: string) {
-    if (!confirm(ui.confirmDeleteRoom)) return
-    const token = getStoredAuthToken()
-    if (!token) return
-    setBusy(`room-del-${id}`)
-    setErr(null)
-    try {
-      await deleteManageHotelRoom(token, listingId, id, orgQ)
-      await loadHotel()
-    } catch (e) {
-      setErr(e instanceof Error ? formatManageApiError(e.message) : formatManageApiError('room_del_failed'))
     } finally {
       setBusy(null)
     }
@@ -2195,15 +2148,15 @@ export default function CatalogListingDetailClient({
                 <Input className="mt-1" value={lng} onChange={(e) => setLng(e.target.value)} />
               </Field>
             </div>
-            {categoryCode === 'holiday_home' ? (
+            {categoryCode === 'holiday_home' || categoryCode === 'hotel' ? (
               <div className="mt-4 space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
                 <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
                   Vitrin konumu (kartta görünen)
                 </p>
                 <p className="text-xs text-neutral-500">
-                  Örnek: Ölüdeniz, Fethiye, Muğla — destinasyon listesinden seçebilir veya elle yazabilirsiniz.
+                  Sıra: bölge (semt), ilçe, il — örn. Galata, Beyoğlu, İstanbul
                 </p>
-                {destinationOptions.length > 0 ? (
+                {categoryCode === 'holiday_home' && destinationOptions.length > 0 ? (
                   <Field className="block">
                     <Label>Destinasyondan doldur</Label>
                     <select
@@ -3318,7 +3271,41 @@ export default function CatalogListingDetailClient({
       {/* ═══ SEKME: OTEL & ODALAR (yalnızca hotel kategorisi) ════════════════ */}
       {activeTab === 'hotel' && categoryCode === 'hotel' && (
         <div className="mt-6 space-y-6">
-          {/* Otel meta */}
+          <div className="rounded-xl border border-primary-200 bg-primary-50/50 p-4 text-sm text-primary-950 dark:border-primary-900 dark:bg-primary-950/20 dark:text-primary-100">
+            <p className="font-medium">Vitrin eşlemesi</p>
+            <ul className="mt-2 list-inside list-disc space-y-1 text-primary-900/90 dark:text-primary-100/90">
+              <li>İlan bilgisi → başlık, açıklama, konum, bakanlık belgesi, iptal/ön ödeme</li>
+              <li>Otel profili → yıldız, otel tipi, tema, konaklama tipi</li>
+              <li>Kampanya / etkinlik → otel adı altı banner alanı</li>
+              <li>Oda tipleri + takvim → oda kartları ve sidebar fiyat/müsaitlik</li>
+              <li>Özellikler sekmesi → tesis olanakları (akordeon)</li>
+              <li>Vitrin metinleri → genel şartlar, ek tesis bölümleri, özel SSS</li>
+              <li>Yemek planları → pansiyon seçenekleri ve fiyat tablosu</li>
+              <li>Kurallar → konaklama kuralları + sözleşme</li>
+            </ul>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
+              <Hotel className="h-5 w-5 text-primary-600" />
+              Otel profili
+            </h2>
+            <div className="mt-4">
+              <HotelFacetsEditor
+                listingId={listingId}
+                organizationId={orgQ?.organizationId}
+                locale={locale}
+                starRating={hotelDetails?.star ?? ''}
+                onStarSaved={(star) =>
+                  setHotelDetails((prev) =>
+                    prev ? { ...prev, star } : { star, et: '', tc: '' },
+                  )
+                }
+              />
+            </div>
+          </div>
+
+          {/* Otel meta — entegrasyon referansları */}
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <h2 className="flex items-center gap-2 text-base font-semibold text-neutral-900 dark:text-white">
               <Hotel className="h-5 w-5 text-primary-600" />
@@ -3326,10 +3313,6 @@ export default function CatalogListingDetailClient({
             </h2>
             {hotelDetails ? (
               <div className="mt-4 grid max-w-xl gap-4 sm:grid-cols-2">
-                <Field className="block">
-                  <Label>{ui.hotel.starLabel}</Label>
-                  <Input className="mt-1" value={hotelDetails.star} onChange={(e) => setHotelDetails({ ...hotelDetails, star: e.target.value })} placeholder="4.5" />
-                </Field>
                 <Field className="block sm:col-span-2">
                   <Label>{ui.hotel.etRef}</Label>
                   <Input className="mt-1 font-mono text-sm" value={hotelDetails.et} onChange={(e) => setHotelDetails({ ...hotelDetails, et: e.target.value })} />
@@ -3349,82 +3332,87 @@ export default function CatalogListingDetailClient({
             )}
           </div>
 
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Otel sözleşmesi</h2>
+            <div className="mt-4">
+              <HotelContractEditor
+                listingId={listingId}
+                organizationId={orgQ?.organizationId}
+                categoryCode={categoryCode}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Vitrin metinleri</h2>
+            <div className="mt-4">
+              <HotelVitrinContentEditor listingId={listingId} organizationId={orgQ?.organizationId} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
+              Otel&apos;de geçerli kampanyalar
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
+              Bu otelin vitrin sayfasında (otel adının altında) yalnızca bu ilana özel kampanya kartları.
+              Tüm otellere yayılan genel kampanyalar: Katalog → Otel → Otel detay kampanyaları.
+            </p>
+            <div className="mt-4">
+              <HotelPromotionsEditor listingId={listingId} organizationId={orgQ?.organizationId} />
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">
+              {getMessages(locale).manageCatalogListing.hotel.activities?.sectionTitle ??
+                getMessages('en').manageCatalogListing.hotel.activities.sectionTitle}
+            </h2>
+            <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
+              {getMessages(locale).manageCatalogListing.hotel.activities?.sectionIntro ??
+                getMessages('en').manageCatalogListing.hotel.activities.sectionIntro}
+            </p>
+            <div className="mt-4">
+              <HotelActivitiesEditor
+                listingId={listingId}
+                organizationId={orgQ?.organizationId}
+                locale={locale}
+              />
+            </div>
+          </div>
+
           {/* Odalar */}
           <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <h2 className="text-base font-semibold text-neutral-900 dark:text-white">{ui.hotel.roomsHeading}</h2>
                 <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
-                  Oda kartları vitrindeki “Odalar” bölümünü besler. `meta_json` içinde yatak, m², açıklama, özellik ve görsel alanları varsa kart tasarımı zenginleşir.
+                  Oda tipleri, adetleri ve vitrin kartları. Müsaitlik takvimini aşağıdan oda bazında tanımlayın.
                 </p>
               </div>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
                 <Info className="h-3.5 w-3.5" /> Vitrin ile aynı veri
               </span>
             </div>
-            <div className="mt-4 overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-neutral-50 dark:bg-neutral-800/50">
-                  <tr>
-                    <th className="px-3 py-2">{ui.hotel.thName}</th>
-                    <th className="px-3 py-2">{ui.hotel.thCapacity}</th>
-                    <th className="px-3 py-2">{ui.hotel.thBoard}</th>
-                    <th className="px-3 py-2">{ui.hotel.thMetaJson}</th>
-                    <th className="px-3 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {rooms.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-3 py-4 text-sm text-neutral-400">{ui.hotel.noRooms}</td>
-                    </tr>
-                  ) : rooms.map((r) => (
-                    <tr key={r.id} className="border-t border-neutral-100 dark:border-neutral-800">
-                      <td className="px-3 py-2">{r.name}</td>
-                      <td className="px-3 py-2">{r.capacity ?? '—'}</td>
-                      <td className="px-3 py-2">{r.board_type ?? '—'}</td>
-                      <td className="max-w-xs truncate px-3 py-2 font-mono text-xs">{r.meta_json}</td>
-                      <td className="px-3 py-2">
-                        <button type="button" disabled={busy?.startsWith('room')} onClick={() => void onDeleteRoom(r.id)} className="text-xs text-red-600 underline dark:text-red-400">{ui.common.delete}</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-4">
+              <HotelRoomsEditor
+                listingId={listingId}
+                organizationId={orgQ?.organizationId}
+              />
             </div>
-            <form onSubmit={(e) => void onAddRoom(e)} className="mt-5 grid max-w-2xl gap-4">
-              <Field className="block">
-                <Label>{ui.hotel.roomName}</Label>
-                <Input className="mt-1" value={roomName} onChange={(e) => setRoomName(e.target.value)} required />
-              </Field>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field className="block">
-                  <Label>{ui.hotel.capacity}</Label>
-                  <Input className="mt-1" value={roomCap} onChange={(e) => setRoomCap(e.target.value)} />
-                </Field>
-                <Field className="block">
-                  <Label>{ui.hotel.boardType}</Label>
-                  <Input className="mt-1" value={roomBoard} onChange={(e) => setRoomBoard(e.target.value)} placeholder={ui.hotel.boardPlaceholder} />
-                </Field>
-              </div>
-              <Field className="block">
-                <Label>{ui.hotel.metaJson}</Label>
-                <Textarea className="mt-1 font-mono text-sm" rows={3} value={roomMeta} onChange={(e) => setRoomMeta(e.target.value)} />
-                <p className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">
-                  Örnek alanlar: `beds`, `bed_type`, `size_m2`, `description`, `amenities`, `image`.
-                </p>
-              </Field>
-              <button
-                type="button"
-                className="w-fit text-xs font-medium text-primary-600 underline decoration-primary-600/30 underline-offset-2 hover:text-primary-700 dark:text-primary-400"
-                onClick={() => setRoomMeta(HOTEL_ROOM_META_EXAMPLE)}
-              >
-                Örnek oda JSON’unu doldur
-              </button>
-              <ButtonPrimary type="submit" disabled={busy === 'room-add'}>
-                {busy === 'room-add' ? ui.common.ellipsis : ui.hotel.addRoom}
-              </ButtonPrimary>
-            </form>
+          </div>
+
+          <div className="rounded-xl border border-neutral-200 p-5 dark:border-neutral-700">
+            <h2 className="text-base font-semibold text-neutral-900 dark:text-white">Oda müsaitlik takvimi</h2>
+            <p className="mt-1 max-w-2xl text-sm text-neutral-500 dark:text-neutral-400">
+              Her oda tipi için günlük müsait oda sayısını ayarlayın.
+            </p>
+            <div className="mt-4">
+              <HotelRoomAvailabilityEditor
+                listingId={listingId}
+                organizationId={orgQ?.organizationId}
+              />
+            </div>
           </div>
         </div>
       )}

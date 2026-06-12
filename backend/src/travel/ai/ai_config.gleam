@@ -83,6 +83,11 @@ fn timeout_sec_for_profile(
             Ok(s) -> s
             Error(_) -> def_sec
           }
+        "listing_description_tr" ->
+          case dict.get(mods, "content_writer") {
+            Ok(s) -> s
+            Error(_) -> def_sec
+          }
         "trip_planner" | "blue_cruise_routes" ->
           case dict.get(mods, "trip_planner") {
             Ok(s) -> s

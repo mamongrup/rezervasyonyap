@@ -86,7 +86,7 @@ pub fn load(db: pog.Connection) -> Yolcu360Config {
     base_url: get(
       "base_url",
       "YOLCU360_BASE_URL",
-      "https://staging.api.pro.yolcu360.com/api/v1",
+      "https://api.pro.yolcu360.com/api/v1",
     ),
     api_key: get("api_key", "YOLCU360_API_KEY", ""),
     api_secret: get("api_secret", "YOLCU360_API_SECRET", ""),
@@ -159,6 +159,18 @@ pub fn location_detail_url(cfg: Yolcu360Config, place_id: String) -> String {
 /// POST /search/point — araç araması (lat/lon + tarih).
 pub fn search_point_url(cfg: Yolcu360Config) -> String {
   join_path(cfg.base_url, "/search/point")
+}
+
+pub fn order_url(cfg: Yolcu360Config) -> String {
+  join_path(cfg.base_url, "/order")
+}
+
+pub fn order_detail_url(cfg: Yolcu360Config, order_id: String) -> String {
+  join_path(cfg.base_url, "/order/" <> encode_param(string.trim(order_id)))
+}
+
+pub fn payment_pay_url(cfg: Yolcu360Config) -> String {
+  join_path(cfg.base_url, "/payment/pay")
 }
 
 /// RFC3339 datetime; timezone yoksa ülkeye göre offset ekler.

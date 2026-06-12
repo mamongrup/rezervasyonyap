@@ -87,6 +87,7 @@ import {
   patchListingPerks,
   patchManageListingContract,
   patchManageHotelDetails,
+  getManageHotelDetails,
   putListingAttributeValues,
   putListingMeta,
   putListingOwnerContact,
@@ -116,6 +117,11 @@ import {
 import { mergeCalendarRows, type MergedCalendarRow } from '@/lib/listing-availability-calendar-merge'
 import WizardCalendarGrid from '@/components/wizard/WizardCalendarGrid'
 import HolidayHomeBedroomsEditor from '@/components/manage/HolidayHomeBedroomsEditor'
+import HotelRoomsEditor from '@/components/manage/HotelRoomsEditor'
+import HotelRoomAvailabilityEditor from '@/components/manage/HotelRoomAvailabilityEditor'
+import HotelPromotionsEditor from '@/components/manage/HotelPromotionsEditor'
+import HotelActivitiesEditor from '@/components/manage/HotelActivitiesEditor'
+import HotelVitrinContentEditor from '@/components/manage/HotelVitrinContentEditor'
 import {
   defaultHolidayHomePropertyTypeItems,
   holidayPropertyLabelForLocale,
@@ -808,6 +814,9 @@ export default function CatalogNewListingClient({
 
   // ── Konum ──
   const [address, setAddress] = useState('')
+  const [districtLabel, setDistrictLabel] = useState('')
+  const [cityDisplay, setCityDisplay] = useState('')
+  const [provinceCity, setProvinceCity] = useState('')
   const [lat, setLat] = useState('')
   const [lng, setLng] = useState('')
   const [nearbyPois, setNearbyPois] = useState<NearbyPoi[]>([])
@@ -833,6 +842,8 @@ export default function CatalogNewListingClient({
   const [icalExportRotateBusy, setIcalExportRotateBusy] = useState(false)
   /** Otel yıldızı (1–5) — sadece hotel kategorisinde */
   const [starRating, setStarRating] = useState('')
+  const [hotelEtRef, setHotelEtRef] = useState('')
+  const [hotelTcRef, setHotelTcRef] = useState('')
 
   // ── İlan sahibi ──
   const [ownerName, setOwnerName] = useState('')
@@ -875,6 +886,7 @@ export default function CatalogNewListingClient({
   const [editListingReady, setEditListingReady] = useState(() => !editListingId)
 
   const isVilla = categoryCode === 'holiday_home'
+  const isHotel = categoryCode === 'hotel'
   const isYacht = categoryCode === 'yacht_charter'
   const isStayRentalWizard = isStayRentalCategory(categoryCode)
   const catalogVertical = normalizeCatalogVertical(categoryCode)
@@ -1180,7 +1192,7 @@ export default function CatalogNewListingClient({
   }, [currentStep, editListingId, calLoaded])
 
   useEffect(() => {
-    if (!editListingId || !isStayRentalWizard) {
+    if (!editListingId) {
       setEditListingReady(true)
       galleryKeysAtHydrateRef.current = new Set()
       nearbyPoisHydratedRef.current = false
@@ -1190,6 +1202,10 @@ export default function CatalogNewListingClient({
       setNearbyPois([])
       setNearbyPoisLoading(false)
       setNearbyPoisBusy(false)
+      return
+    }
+    if (!isStayRentalWizard && !isHotel) {
+      setEditListingReady(true)
       return
     }
 
@@ -1238,9 +1254,10 @@ export default function CatalogNewListingClient({
           getListingBasics(token, lid, orgParam).catch(() => null),
           getListingOwnerContact(token, lid, orgParam).catch(() => null),
           getListingMeta(token, lid, orgParam).catch(() => null),
-          getVerticalMeta<Record<string, unknown>>(lid, 'holiday_home').catch(() =>
-            ({} as Record<string, unknown>),
-          ),
+          getVerticalMeta<Record<string, unknown>>(
+            lid,
+            isHotel ? 'hotel' : isYacht ? 'yacht_charter' : 'holiday_home',
+          ).catch(() => ({} as Record<string, unknown>)),
           getListingAttributeValues(token, lid).catch(() => ({ values: [] })),
           getListingPriceLineSelections(token, lid, orgParam).catch(() => ({ item_ids: [] as string[] })),
           listListingImages(token, lid, orgForImg).catch(() => ({ images: [] })),
@@ -1251,7 +1268,9 @@ export default function CatalogNewListingClient({
           listSiteSettings(token, { scope: 'platform', key: HOLIDAY_HOME_FAQ_SITE_KEY }).catch(() => ({
             settings: [] as { value_json?: string }[],
           })),
-          getListingNearbyPois(lid).catch(() => [] as NearbyPoi[]),
+          isStayRentalWizard
+            ? getListingNearbyPois(lid).catch(() => [] as NearbyPoi[])
+            : Promise.resolve([] as NearbyPoi[]),
         ])
 
         if (cancelled) return
@@ -1265,27 +1284,29 @@ export default function CatalogNewListingClient({
             : {}
 
         const faqSiteRow = faqTplRes.settings[0]
-        try {
-          const raw = faqSiteRow?.value_json?.trim()
-            ? parseHolidayHomeFaqTemplatePayload(JSON.parse(faqSiteRow.value_json) as unknown)
-            : { items: [] }
-          const payload = withHolidayHomeFaqTemplateDefaults(raw)
-          setFaqTemplateRows(
-            payload.items.map((it) => ({
-              id: it.id,
-              q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
-              a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
-            })),
-          )
-        } catch {
-          const payload = withHolidayHomeFaqTemplateDefaults({ items: [] })
-          setFaqTemplateRows(
-            payload.items.map((it) => ({
-              id: it.id,
-              q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
-              a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
-            })),
-          )
+        if (isStayRentalWizard && categoryCode === 'holiday_home') {
+          try {
+            const raw = faqSiteRow?.value_json?.trim()
+              ? parseHolidayHomeFaqTemplatePayload(JSON.parse(faqSiteRow.value_json) as unknown)
+              : { items: [] }
+            const payload = withHolidayHomeFaqTemplateDefaults(raw)
+            setFaqTemplateRows(
+              payload.items.map((it) => ({
+                id: it.id,
+                q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+                a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+              })),
+            )
+          } catch {
+            const payload = withHolidayHomeFaqTemplateDefaults({ items: [] })
+            setFaqTemplateRows(
+              payload.items.map((it) => ({
+                id: it.id,
+                q_tr: pickHolidayHomeFaqText(it.question, 'tr'),
+                a_tr: pickHolidayHomeFaqText(it.answer, 'tr'),
+              })),
+            )
+          }
         }
 
         const row = rowsRes.listings.find((x) => x.id === lid)
@@ -1295,6 +1316,19 @@ export default function CatalogNewListingClient({
         }
         if (row?.currency_code?.trim()) setCurrency(row.currency_code.trim().toUpperCase())
         if (row?.category_contract_id?.trim()) setContractId(row.category_contract_id.trim())
+
+        if (categoryCode === 'hotel') {
+          try {
+            const hd = await getManageHotelDetails(token, lid, orgParam)
+            if (!cancelled) {
+              if (hd.star_rating?.trim()) setStarRating(hd.star_rating.trim())
+              setHotelEtRef(hd.etstur_property_ref?.trim() ?? '')
+              setHotelTcRef(hd.tatilcom_property_ref?.trim() ?? '')
+            }
+          } catch {
+            /* ignore */
+          }
+        }
 
         setListingByLocale((prev) => {
           const next = { ...prev }
@@ -1375,6 +1409,9 @@ export default function CatalogNewListingClient({
           setYoutubeUrl(meta.youtube_url ?? '')
           setMinistryLicenseRef((prev) => (prev.trim() ? prev : (meta.tourism_cert_no ?? '')))
           setAddress(meta.address ?? '')
+          setDistrictLabel(meta.district_label ?? '')
+          setCityDisplay(meta.city ?? '')
+          setProvinceCity(meta.province_city ?? '')
           const lt = meta.lat == null ? '' : String(meta.lat).trim()
           const lg = meta.lng == null ? '' : String(meta.lng).trim()
           setLat(lt)
@@ -1551,7 +1588,7 @@ export default function CatalogNewListingClient({
     return () => {
       cancelled = true
     }
-  }, [editListingId, categoryCode, needOrg, orgId, locale, localeCodes])
+  }, [editListingId, categoryCode, needOrg, orgId, locale, localeCodes, isStayRentalWizard, isHotel, isYacht])
 
   async function refreshNearbyPoisFromServer() {
     if (!editListingId || !lat.trim() || !lng.trim()) return
@@ -2727,6 +2764,11 @@ export default function CatalogNewListingClient({
       if (youtubeUrl.trim()) metaBody.youtube_url = youtubeUrl.trim()
       if (ministryLicenseRef.trim()) metaBody.tourism_cert_no = ministryLicenseRef.trim()
       if (address.trim()) metaBody.address = address.trim()
+      if (isHotel) {
+        if (districtLabel.trim()) metaBody.district_label = districtLabel.trim()
+        if (cityDisplay.trim()) metaBody.city = cityDisplay.trim()
+        if (provinceCity.trim()) metaBody.province_city = provinceCity.trim()
+      }
       if (lat.trim()) metaBody.lat = lat.trim()
       if (lng.trim()) metaBody.lng = lng.trim()
       if (shortStayMinNights.trim()) metaBody.min_short_stay_nights = shortStayMinNights.trim()
@@ -2875,13 +2917,21 @@ export default function CatalogNewListingClient({
         }
       }
 
-      // Tur2: Otel yıldızı — `listing_hotel_details.star_rating` (PATCH /hotel-details).
-      if (categoryCode === 'hotel' && starRating.trim()) {
-        const star = Number.parseInt(starRating.trim(), 10)
-        if (Number.isFinite(star) && star >= 1 && star <= 5) {
+      // Otel detayları — yıldız + entegrasyon referansları
+      if (categoryCode === 'hotel') {
+        if (starRating.trim() || hotelEtRef.trim() || hotelTcRef.trim()) {
           await saveRequiredStep(
             'Otel detayları kaydı',
-            patchManageHotelDetails(token, lid, { star_rating: String(star) }, orgParam),
+            patchManageHotelDetails(
+              token,
+              lid,
+              {
+                star_rating: starRating.trim() || undefined,
+                etstur_property_ref: hotelEtRef.trim() || undefined,
+                tatilcom_property_ref: hotelTcRef.trim() || undefined,
+              },
+              orgParam,
+            ),
           )
         }
       }
@@ -3017,7 +3067,44 @@ export default function CatalogNewListingClient({
     )
 
   const locationSection = (
-    <Section title="Konum" subtitle="Adres ve harita">
+    <Section title="Konum" subtitle="Adres, harita ve vitrinde görünen bölge bilgisi">
+      {isHotel ? (
+        <div className="mb-4 space-y-3 rounded-xl border border-neutral-200 p-4 dark:border-neutral-700">
+          <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200">
+            Vitrin konumu (otel adı altında)
+          </p>
+          <p className="text-xs text-neutral-500">Sıra: bölge (semt), ilçe, il — örn. Galata, Beyoğlu, İstanbul</p>
+          <Grid3>
+            <Field className="block">
+              <Label>Semt / bölge</Label>
+              <Input
+                className="mt-1"
+                value={districtLabel}
+                onChange={(e) => setDistrictLabel(e.target.value)}
+                placeholder="Galata"
+              />
+            </Field>
+            <Field className="block">
+              <Label>İlçe</Label>
+              <Input
+                className="mt-1"
+                value={cityDisplay}
+                onChange={(e) => setCityDisplay(e.target.value)}
+                placeholder="Beyoğlu"
+              />
+            </Field>
+            <Field className="block">
+              <Label>İl</Label>
+              <Input
+                className="mt-1"
+                value={provinceCity}
+                onChange={(e) => setProvinceCity(e.target.value)}
+                placeholder="İstanbul"
+              />
+            </Field>
+          </Grid3>
+        </div>
+      ) : null}
       <Field className="block">
         <Label>Gerçek Adres</Label>
         <Input
@@ -3352,6 +3439,19 @@ export default function CatalogNewListingClient({
         title="Otel Profili"
         subtitle="Referans otel sitelerindeki tip, tema, konaklama konsepti ve yıldız bilgilerini bu ilanla eşleştirin."
       >
+        <div className="mb-5 rounded-xl border border-primary-200/80 bg-primary-50/50 p-4 text-xs text-primary-900 dark:border-primary-900/40 dark:bg-primary-950/25 dark:text-primary-100">
+          <p className="font-medium">Vitrin eşlemesi</p>
+          <ul className="mt-2 list-inside list-disc space-y-1 text-primary-900/90 dark:text-primary-100/90">
+            <li>1–2. adım → başlık, konum (semt/ilçe/il), bakanlık belgesi</li>
+            <li>Otel profili → yıldız, otel tipi, tema, konaklama tipi</li>
+            <li>Kampanya / etkinlik → otel adı altı banner alanı</li>
+            <li>3. adım → oda tipleri, vitrin metinleri, kampanya ve etkinlik</li>
+            <li>5. adım takvim → oda bazlı müsaitlik ve fiyat</li>
+            <li>Özellikler → tesis olanakları (akordeon)</li>
+            <li>Vitrin metinleri → genel şartlar, ek tesis bölümleri, özel SSS</li>
+            <li>6. adım → yemek planları (pansiyon seçenekleri)</li>
+          </ul>
+        </div>
         <HotelFacetSelectPanels
           locale={locale}
           selectCls={selectCls}
@@ -3364,11 +3464,31 @@ export default function CatalogNewListingClient({
           hotelStar={starRating}
           setHotelStar={setStarRating}
         />
+        {editListingId ? (
+          <Grid2 className="mt-5">
+            <Field className="block">
+              <Label>Etstur tesis referansı</Label>
+              <Input
+                className="mt-1 font-mono text-sm"
+                value={hotelEtRef}
+                onChange={(e) => setHotelEtRef(e.target.value)}
+              />
+            </Field>
+            <Field className="block">
+              <Label>Tatil.com tesis referansı</Label>
+              <Input
+                className="mt-1 font-mono text-sm"
+                value={hotelTcRef}
+                onChange={(e) => setHotelTcRef(e.target.value)}
+              />
+            </Field>
+          </Grid2>
+        ) : null}
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           {[
-            ['Tesis Özellikleri', 'Wi‑Fi, spa, otopark, aile, plaj gibi öne çıkanları özniteliklerden işaretleyin.'],
-            ['Konsept & Kampanya', 'Her şey dahil, balayı, ultra lüks gibi sınıfları konaklama/tema alanlarıyla eşleyin.'],
-            ['Odalar', editListingId ? 'Kaydettikten sonra otel detay ekranındaki Odalar sekmesinden oda kartlarını yönetin.' : 'İlanı kaydedince Otel sekmesinde oda tipleri ve görselleri açılır.'],
+            ['Tesis Özellikleri', 'Wi‑Fi, spa, otopark — 2. adımdaki özniteliklerden işaretleyin.'],
+            ['Kampanya & Etkinlik', editListingId ? 'Aşağıda ilana özel kampanya ve etkinlik bannerlarını yönetin.' : 'İlan kaydından sonra kampanya ve etkinlik alanları açılır.'],
+            ['Odalar', editListingId ? 'Oda tipleri ve müsaitlik takvimi (4. adım) vitrin rezervasyonunu besler.' : 'Kayıttan sonra oda tipleri ve adet alanları açılır.'],
           ].map(([title, text]) => (
             <div
               key={title}
@@ -4226,6 +4346,58 @@ export default function CatalogNewListingClient({
               </Section>
             ) : null}
 
+            {isHotel ? (
+              <Section
+                title="Oda tipleri"
+                subtitle="Her oda tipi için ad, kapasite, pansiyon, fotoğraf ve özellikleri girin."
+              >
+                {editListingId ? (
+                  <HotelRoomsEditor
+                    listingId={editListingId}
+                    organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                  />
+                ) : (
+                  <p className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800/40 dark:text-neutral-400">
+                    İlanı kaydettikten sonra bu adımda oda tiplerini ekleyebilirsiniz. Önce «Kaydet» ile ilanı
+                    oluşturun; kayıt sonrası aynı sihirbazda oda satırları ve adet alanları açılır.
+                  </p>
+                )}
+              </Section>
+            ) : null}
+
+            {isHotel && editListingId ? (
+              <>
+                <Section
+                  title="Vitrin metinleri"
+                  subtitle="Genel şartlar, ek tesis bölümleri ve özel SSS — otel detay sayfasında gösterilir."
+                >
+                  <HotelVitrinContentEditor
+                    listingId={editListingId}
+                    organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                  />
+                </Section>
+                <Section
+                  title="Otel'de geçerli kampanyalar"
+                  subtitle="Vitrinde otel adının altında yalnızca bu ilana özel kampanya kartları."
+                >
+                  <HotelPromotionsEditor
+                    listingId={editListingId}
+                    organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                  />
+                </Section>
+                <Section
+                  title="Otel etkinlikleri"
+                  subtitle="Kampanyaların altında banner olarak gösterilir; konaklama tarihine göre ek ücret uygulanır."
+                >
+                  <HotelActivitiesEditor
+                    listingId={editListingId}
+                    organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                    locale={locale}
+                  />
+                </Section>
+              </>
+            ) : null}
+
             {STAY_ACCOMMODATION_RULE_CATS.has(categoryCode) && accRules.length > 0 && (
               <Section
                 title={isVilla ? 'Ev Kuralları' : 'Konaklama Kuralları'}
@@ -4335,6 +4507,13 @@ export default function CatalogNewListingClient({
                     {/* ── Müsaitlik Takvimi ── */}
                     {calSubTab === 'calendar' && (
                       <>
+                    {isHotel ? (
+                      <HotelRoomAvailabilityEditor
+                        listingId={editListingId}
+                        organizationId={needOrg && orgId.trim() ? orgId.trim() : undefined}
+                      />
+                    ) : (
+                      <>
                         {/* Tarih aralığı seçici */}
                         <div className="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-neutral-100 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
                           <div>
@@ -4432,6 +4611,8 @@ export default function CatalogNewListingClient({
                             </div>
                           </>
                         )}
+                      </>
+                    )}
                       </>
                     )}
 
@@ -5748,7 +5929,7 @@ export default function CatalogNewListingClient({
             {/* ────────── Vitrin promosyon (Tur2 yeni alanlar) ────────── */}
             <Section
               title="Vitrin Promosyon"
-              subtitle="Anında rezervasyon, mobil indirim, takvim senkronu (iCal) ve otel yıldızı."
+              subtitle="Anında rezervasyon, mobil indirim ve takvim senkronu (iCal)."
             >
               <Grid2>
                 <Field className="block">
@@ -5847,24 +6028,6 @@ export default function CatalogNewListingClient({
                   )}
                   </div>
                 </div>
-              ) : null}
-
-              {categoryCode === 'hotel' ? (
-                <Field className="block max-w-xs">
-                  <Label>Otel yıldızı</Label>
-                  <select
-                    value={starRating}
-                    onChange={(e) => setStarRating(e.target.value)}
-                    className="mt-1 block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100"
-                  >
-                    <option value="">— Belirtilmedi —</option>
-                    {[1, 2, 3, 4, 5].map((n) => (
-                      <option key={n} value={String(n)}>
-                        {`${n} yıldız`}
-                      </option>
-                    ))}
-                  </select>
-                </Field>
               ) : null}
             </Section>
 

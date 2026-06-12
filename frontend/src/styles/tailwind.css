@@ -285,6 +285,36 @@
     rgba(17, 17, 26, 0.05) 0px 8px 32px;
 }
 
+/*
+ * Safe area — Tailwind v4 `@utility` / arbitrary sınıflarda `inset` kelimesini bozar.
+ * env() yalnızca :root değişkenlerinde; utility'ler var() kullanır.
+ */
+:root {
+  --travel-safe-top: env(safe-area-inset-top, 0px);
+  --travel-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+@utility pt-safe {
+  padding-top: var(--travel-safe-top);
+}
+@utility pb-safe {
+  padding-bottom: var(--travel-safe-bottom);
+}
+@utility pb-safe-min-3 {
+  padding-bottom: max(0.75rem, var(--travel-safe-bottom));
+}
+@utility pb-safe-form {
+  padding-bottom: max(0.625rem, var(--travel-safe-bottom));
+}
+@utility top-safe-min-2 {
+  top: max(0.5rem, var(--travel-safe-top));
+}
+@utility bottom-above-mobile-nav {
+  bottom: calc(4.75rem + var(--travel-safe-bottom));
+}
+@utility pb-above-mobile-nav {
+  padding-bottom: calc(4.75rem + var(--travel-safe-bottom));
+}
+
 /* FOR SEARCH FORM DEFAULT */
 @utility hero-search-form__field-after {
   @apply after:absolute after:-end-1 after:top-1/2 after:-z-10 after:hidden after:h-16 after:w-2 after:-translate-y-1/2 after:bg-(--form-bg) data-open:after:block;

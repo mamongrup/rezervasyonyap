@@ -4,6 +4,7 @@ import type { ListingType } from '@/type'
 import { useLayoutEffect, useState } from 'react'
 import HeroSearchForm from './HeroSearchForm'
 import { HeroSearchFormSkeleton } from './HeroSearchFormSkeleton'
+import type { StaySearchPrefill } from './StaySearchForm'
 
 /**
  * `HeroSectionWithSearchForm1` (`topSpacing="minimal"`) hero aramasını `hidden lg:block`
@@ -17,6 +18,8 @@ export default function HeroSearchDesktopOnly({
   categoryBarLayout = 'default',
   activeSlugs,
   collapseOverflowAfterSlug,
+  staySearchTargetPath,
+  staySearchPrefill,
 }: {
   initTab?: ListingType
   locale?: string
@@ -24,6 +27,8 @@ export default function HeroSearchDesktopOnly({
   categoryBarLayout?: 'default' | 'spread'
   activeSlugs?: string[]
   collapseOverflowAfterSlug?: string
+  staySearchTargetPath?: string
+  staySearchPrefill?: StaySearchPrefill
 }) {
   // Desktop ana sayfada formun ilk boyamada skeleton olarak kalmasını önle.
   // Bu bileşenin üst sarmalayıcısı <lg'de zaten `hidden`, effect mobilde kapatır.
@@ -52,6 +57,8 @@ export default function HeroSearchDesktopOnly({
       categoryBarLayout={categoryBarLayout}
       activeSlugs={activeSlugs}
       collapseOverflowAfterSlug={collapseOverflowAfterSlug}
+      staySearchTargetPath={staySearchTargetPath}
+      staySearchPrefill={staySearchPrefill}
     />
   )
 }

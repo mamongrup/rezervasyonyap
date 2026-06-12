@@ -14,6 +14,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/catalog/listing_translation_sql
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/identity/admin_gate
@@ -676,7 +677,8 @@ fn search_listings_impl(
 
   let sql =
     "select l.id::text, l.slug, "
-    <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
+    <> listing_translation_sql.title_select_sql("l.id", "$4")
+    <> ", "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
     // Vitrin fiyat: tur → wtatil `cheapest_price` / dönem tablosu; konaklama → kurallar + yemek planları.

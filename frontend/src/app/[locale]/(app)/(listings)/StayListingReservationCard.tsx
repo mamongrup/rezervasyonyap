@@ -4,23 +4,22 @@ import DatesRangeInputPopover from '@/app/[locale]/(app)/(listings)/components/D
 import GuestsInputPopover from '@/app/[locale]/(app)/(listings)/components/GuestsInputPopover'
 import ListingInstantApprovalTitleBadge from '@/components/listing/ListingInstantApprovalTitleBadge'
 import { useStayListingQuote } from '@/hooks/use-stay-listing-quote'
-import { defaultStayDateRange } from '@/lib/stay-booking-rules'
 import type { MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
-import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import clsx from 'clsx'
 import Form from 'next/form'
-import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useOptionalVillaStayBooking } from './villa-stay-booking-context'
 
 export type StayListingReservationCardProps = {
   locale: string
-  isHolidayHome: boolean
+  /** Tatil evi / yat kiralama — kart stili ve ödeme notları */
+  isStayRental?: boolean
+  /** @deprecated `isStayRental` kullanın */
+  isHolidayHome?: boolean
   mealPlans: MealPlanItem[]
   price: string
   priceAmount: number | undefined
@@ -46,6 +45,7 @@ export type StayListingReservationCardProps = {
 
 export default function StayListingReservationCard({
   locale,
+  isStayRental: isStayRentalProp,
   isHolidayHome,
   mealPlans,
   price,
@@ -63,21 +63,17 @@ export default function StayListingReservationCard({
   listingId,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
-  const router = useRouter()
-  const vitrinHref = useVitrinHref()
+  const isStayRental = isStayRentalProp ?? isHolidayHome ?? false
+  const bookingCtx = useOptionalVillaStayBooking()
 
-  const [rangeStart, setRangeStart] = useState<Date | null>(() =>
-    defaultStayDateRange(stayBookingRules)[0],
-  )
-  const [rangeEnd, setRangeEnd] = useState<Date | null>(() =>
-    defaultStayDateRange(stayBookingRules)[1],
-  )
-  const [poolHeatingSelected, setPoolHeatingSelected] = useState(false)
+  const rangeStart = bookingCtx?.rangeStart ?? null
+  const rangeEnd = bookingCtx?.rangeEnd ?? null
+  const poolHeatingSelected = bookingCtx?.poolHeatingSelected ?? false
+  const guests = bookingCtx?.guests
 
   const onRangeChange = (dates: [Date | null, Date | null]) => {
     const [s, e] = dates
-    setRangeStart(s)
-    setRangeEnd(e)
+    bookingCtx?.setRange(s, e)
   }
 
   const {
@@ -121,27 +117,28 @@ export default function StayListingReservationCard({
   const hasMultiplePlans = activePlans.length > 1
   const hasMealPlan = activePlans.some((p) => p.plan_code !== 'room_only')
 
+  const hasSelectedRange = rangeStart != null && rangeEnd != null
   const canCheckoutWithListing =
-    Boolean(listingId?.trim()) && rangeStart != null && rangeEnd != null && grandTotal > 0
+    Boolean(listingId?.trim()) && hasSelectedRange && grandTotal > 0
 
   function goCheckoutFromSidebar() {
     if (!listingId?.trim() || !rangeStart || !rangeEnd || grandTotal <= 0) return
-    router.push(
-      buildStayCheckoutUrl(vitrinHref('/checkout'), {
+    if (bookingCtx) {
+      bookingCtx.goCheckout({
         listingId,
-        startDate: rangeStart,
-        endDate: rangeEnd,
         currencyCode,
-        unitPrice: grandTotal,
-      }),
-    )
+        grandTotal,
+        heatingSubtotal: heatingSubtotal,
+      })
+      return
+    }
   }
 
   return (
     <div
       className={clsx(
         'listingSection__wrap sm:shadow-xl',
-        isHolidayHome &&
+        isStayRental &&
           'rounded-3xl border border-neutral-200/90 bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:border-neutral-600 dark:bg-neutral-900 dark:ring-white/10 sm:p-6',
       )}
     >
@@ -223,7 +220,12 @@ export default function StayListingReservationCard({
           bookingRules={stayBookingRules}
         />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-        <GuestsInputPopover className="flex-1" />
+        <GuestsInputPopover
+          className="flex-1"
+          locale={locale}
+          value={guests}
+          onChange={bookingCtx ? (g) => bookingCtx.setGuests(g) : undefined}
+        />
         {poolHeating ? (
           <>
             <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
@@ -233,7 +235,7 @@ export default function StayListingReservationCard({
                 <input
                   type="checkbox"
                   checked={poolHeatingSelected}
-                  onChange={(e) => setPoolHeatingSelected(e.target.checked)}
+                  onChange={(e) => bookingCtx?.setPoolHeatingSelected(e.target.checked)}
                   className="mt-1 h-4 w-4 shrink-0 rounded border-neutral-300 text-primary-600 focus:ring-primary-500 dark:border-neutral-600 dark:bg-neutral-800"
                 />
                 <span className="min-w-0">
@@ -251,74 +253,81 @@ export default function StayListingReservationCard({
         ) : null}
       </Form>
 
-      <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
-        <DescriptionList>
-          <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-            {unitForBreakdownLine} × {nights} {messages.listing.sidebar.nightsWord}
-          </DescriptionTerm>
-          <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-            {lodgingSubtotal > 0 ? formatConverted(lodgingSubtotal, currencyCode) : '—'}
-          </DescriptionDetails>
-          {poolHeating && poolHeatingSelected && heatingSubtotal > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.poolInfo.heatingFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(heatingSubtotal, poolHeatingCurrency)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {shortStayFeeApplied > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.sidebar.shortStayFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(shortStayFeeApplied, currencyCode)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {cleaningFeeApplied > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.sidebar.cleaningFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(cleaningFeeApplied, currencyCode)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-          {serviceFee > 0 ? (
-            <>
-              <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {messages.listing.sidebar.serviceFee}
-              </DescriptionTerm>
-              <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {formatConverted(serviceFee, currencyCode)}
-              </DescriptionDetails>
-            </>
-          ) : null}
-        </DescriptionList>
-        <Divider />
-        <DescriptionList>
-          <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
-            {messages.listing.sidebar.total}
-          </DescriptionTerm>
-          <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
-            {grandTotal > 0 ? formatConverted(grandTotal, currencyCode) : '—'}
-          </DescriptionDetails>
-        </DescriptionList>
-      </div>
+      {hasSelectedRange && (
+        <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
+          <DescriptionList>
+            <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+              {unitForBreakdownLine} × {nights} {messages.listing.sidebar.nightsWord}
+            </DescriptionTerm>
+            <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+              {lodgingSubtotal > 0 ? formatConverted(lodgingSubtotal, currencyCode) : '—'}
+            </DescriptionDetails>
+            {poolHeating && poolHeatingSelected && heatingSubtotal > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.poolInfo.heatingFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(heatingSubtotal, poolHeatingCurrency)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {shortStayFeeApplied > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.sidebar.shortStayFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(shortStayFeeApplied, currencyCode)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {cleaningFeeApplied > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.sidebar.cleaningFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(cleaningFeeApplied, currencyCode)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+            {serviceFee > 0 ? (
+              <>
+                <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                  {messages.listing.sidebar.serviceFee}
+                </DescriptionTerm>
+                <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                  {formatConverted(serviceFee, currencyCode)}
+                </DescriptionDetails>
+              </>
+            ) : null}
+          </DescriptionList>
+          <Divider />
+          <DescriptionList>
+            <DescriptionTerm className="font-semibold text-neutral-900 dark:text-white">
+              {messages.listing.sidebar.total}
+            </DescriptionTerm>
+            <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
+              {grandTotal > 0 ? formatConverted(grandTotal, currencyCode) : '—'}
+            </DescriptionDetails>
+          </DescriptionList>
+        </div>
+      )}
 
-      {isHolidayHome ? (
+      {isStayRental ? (
         <ul className="mt-4 list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
           <li>{messages.listing.sidebar.reservationPaymentNoteDeposit}</li>
           <li>{messages.listing.sidebar.reservationPaymentNoteExtras}</li>
         </ul>
       ) : null}
 
-      <ButtonPrimary form="booking-form" type="submit" className="mt-4 w-full">
+      <ButtonPrimary
+        form="booking-form"
+        type="submit"
+        className="mt-4 w-full"
+        disabled={Boolean(listingId?.trim()) && !canCheckoutWithListing}
+      >
         {messages.common.Reserve}
       </ButtonPrimary>
 

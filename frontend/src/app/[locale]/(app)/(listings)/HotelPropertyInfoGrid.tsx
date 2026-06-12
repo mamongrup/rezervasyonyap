@@ -4,43 +4,38 @@ import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
 import {
   BadgeCheck,
-  BedDouble,
   Clock,
   Coffee,
   CreditCard,
-  MapPin,
   Star,
 } from 'lucide-react'
+import Link from 'next/link'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
-/** Booking.com'un "Property info at a glance" / ETStur "Otel Bilgileri" kutusunun
- *  mevcut tasarım temasına uyarlanmış hali. Otel için bir bakışta görülmek istenen
- *  hızlı bilgileri (check-in/out, yıldız, oda tipi sayısı, kahvaltı, ön ödeme, konum)
- *  kompakt bir grid'de toplar. Mevcut üslup (listingSection__wrap, SectionHeading,
- *  Divider, rounded kartlar) bozulmadan kullanılır.
- *
- *  Sadece `vertical === 'hotel'` için çağrılır → yat ve tatil evi dokunulmaz.
- */
+export type HotelPropertyContract = {
+  title: string
+  bodyHtml: string
+  fullPageHref?: string | null
+}
+
+/** Otel detay — «Kurallar»: giriş/çıkış, sınıf, oda tipi vb. + otel sözleşmesi. */
 export type HotelPropertyInfoItem = {
-  /** Doldurulan alanlar gösterilir; null/undefined olanlar otomatik gizlenir. */
   checkInLine?: string | null
   checkOutLine?: string | null
   starRating?: number | null
-  roomTypeCount?: number | null
   hasBreakfast?: boolean | null
-  /** "%25" gibi formatlanmış metin */
   prepaymentLine?: string | null
-  city?: string | null
-  regionLabel?: string | null
 }
 
 export default function HotelPropertyInfoGrid({
   locale,
   source,
+  contract,
   className,
 }: {
   locale: string
   source: HotelPropertyInfoItem
+  contract?: HotelPropertyContract | null
   className?: string
 }) {
   const messages = getMessages(locale)
@@ -79,19 +74,6 @@ export default function HotelPropertyInfoGrid({
       }),
     })
   }
-  if (
-    typeof source.roomTypeCount === 'number' &&
-    source.roomTypeCount > 0
-  ) {
-    items.push({
-      key: 'rooms',
-      icon: BedDouble,
-      label: pi.roomTypesLabel ?? 'Oda tipi',
-      value: interpolate(pi.roomTypesValue ?? '{count} farklı oda tipi', {
-        count: String(source.roomTypeCount),
-      }),
-    })
-  }
   if (source.hasBreakfast === true) {
     items.push({
       key: 'breakfast',
@@ -108,58 +90,75 @@ export default function HotelPropertyInfoGrid({
       value: source.prepaymentLine.trim(),
     })
   }
-  if (source.city?.trim() || source.regionLabel?.trim()) {
-    items.push({
-      key: 'location',
-      icon: MapPin,
-      label: pi.locationLabel ?? 'Konum',
-      value: [source.regionLabel, source.city]
-        .filter((s): s is string => Boolean(s?.trim()))
-        .join(' · ') || '—',
-    })
-  }
 
-  if (items.length === 0) return null
+  const contractHtml = contract?.bodyHtml?.trim()
+  if (items.length === 0 && !contractHtml) return null
 
   return (
-    <div className={clsx('listingSection__wrap', className)}>
+    <div id="stay-section-rules" className={clsx('listingSection__wrap scroll-mt-28', className)}>
       <div>
-        <SectionHeading>{pi.title ?? 'Otel bilgileri'}</SectionHeading>
+        <SectionHeading>{pi.title ?? 'Kurallar'}</SectionHeading>
         <SectionSubheading>
-          {pi.subtitle ?? 'Bir bakışta bu otel hakkında bilmeniz gerekenler.'}
+          {pi.subtitle ?? 'Konaklama koşulları, tesis bilgileri ve sözleşme.'}
         </SectionSubheading>
       </div>
       <Divider className="w-14!" />
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((it) => {
-          const Icon = it.icon
-          return (
-            <li
-              key={it.key}
-              className="flex items-start gap-3 rounded-2xl border border-neutral-100 bg-neutral-50/60 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40"
-            >
-              <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-                <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-              </span>
-              <div className="flex min-w-0 flex-col">
-                <span className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                  {it.label}
-                  {it.key === 'breakfast' && source.hasBreakfast === true ? (
-                    <BadgeCheck
-                      className="h-3 w-3 text-green-500"
-                      strokeWidth={2}
-                      aria-hidden
-                    />
-                  ) : null}
+
+      {items.length > 0 ? (
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((it) => {
+            const Icon = it.icon
+            return (
+              <li
+                key={it.key}
+                className="flex items-start gap-3 rounded-2xl border border-neutral-100 bg-neutral-50/60 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40"
+              >
+                <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                  <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
                 </span>
-                <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
-                  {it.value}
-                </span>
-              </div>
-            </li>
-          )
-        })}
-      </ul>
+                <div className="flex min-w-0 flex-col">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                    {it.label}
+                    {it.key === 'breakfast' && source.hasBreakfast === true ? (
+                      <BadgeCheck
+                        className="h-3 w-3 text-green-500"
+                        strokeWidth={2}
+                        aria-hidden
+                      />
+                    ) : null}
+                  </span>
+                  <span className="truncate text-sm font-medium text-neutral-900 dark:text-white">
+                    {it.value}
+                  </span>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+
+      {contractHtml ? (
+        <div
+          className={clsx(
+            items.length > 0 && 'mt-6 border-t border-neutral-100 pt-6 dark:border-neutral-800',
+          )}
+        >
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-white">
+            {contract?.title?.trim() || pi.contractSectionTitle || 'Otel sözleşmesi'}
+          </h3>
+          <div
+            className="prose prose-sm mt-3 max-w-none leading-relaxed text-neutral-800 dark:prose-invert dark:text-neutral-200"
+            dangerouslySetInnerHTML={{ __html: contractHtml }}
+          />
+          {contract?.fullPageHref ? (
+            <p className="mt-4">
+              <Link href={contract.fullPageHref} className="text-sm text-link-inline">
+                {pi.contractFullLink ?? messages.listing.policies?.contractLink ?? 'İlan sözleşmesi'}
+              </Link>
+            </p>
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -4,7 +4,7 @@ Repoda sabitlenen **hedef** sürümler. Üretim sunucusunda ve Laragon’da bu s
 
 | Bileşen | Hedef sürüm | Not |
 |--------|-------------|-----|
-| **Node.js** | **24.x LTS** (≥ 24.14.0) | `.nvmrc`, `frontend/package.json` engines, CI |
+| **Node.js** | **25.x** (≥ 25.0.0) | `.nvmrc`, `frontend/package.json` engines, CI |
 | **PostgreSQL** | **18.4** | Laragon / Plesk; şema `pgcrypto` dışında özel sürüm bağımlılığı yok |
 | **Gleam** | **≥ 1.16.0** | `backend/gleam.toml`; deploy’da `gleam build` + `export erlang-shipment` |
 | **Erlang/OTP** | **29.0.x** | Gleam shipment export; CI ile uyumlu |
@@ -12,7 +12,7 @@ Repoda sabitlenen **hedef** sürümler. Üretim sunucusunda ve Laragon’da bu s
 Doğrulama:
 
 ```bash
-node -v          # v24.x
+node -v          # v25.x
 psql --version   # 18.4
 gleam --version  # 1.16.x
 erl -eval 'erlang:display(erlang:system_info(otp_release)), halt().' -noshell  # 29
@@ -59,19 +59,34 @@ cd C:\laragon\www\travel
 .\scripts\upgrade-laragon-runtime.ps1
 ```
 
-Laragon menüsünden **Node v24** ve **PostgreSQL 18.4** aktif sürümü seçin.
+Laragon menüsünden **Node v25** ve **PostgreSQL 18.4** aktif sürümü seçin.
 
 ---
 
-**Laragon:** Node 24 LTS kurulumu → Laragon menüsünden aktif sürümü seçin.
+**Laragon:** Node 25 kurulumu → Laragon menüsünden aktif sürümü seçin.
 
-**Linux (NodeSource örnek):**
+**Linux (NodeSource):**
+
+Plesk sunucuları çoğunlukla **RHEL/Alma** — `deb` scripti çalışmaz; **rpm** kullanın:
 
 ```bash
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt-get install -y nodejs
+curl -fsSL https://rpm.nodesource.com/setup_25.x | bash -
+dnf install -y nodejs   # veya: yum install -y nodejs
+/usr/bin/node -v
+which -a node
+```
+
+Eski manuel kurulum varsa `/usr/local/bin/node` (v22) PATH'te `/usr/bin/node` (v25) önüne geçer:
+
+```bash
+/usr/bin/node -v          # v25.x ise kurulum tamam
+/usr/local/bin/node -v    # v22 ise gölgeleme var
+mv /usr/local/bin/node /usr/local/bin/node.bak-v22
+ln -sf /usr/bin/node /usr/local/bin/node
 node -v
 ```
+
+`upgrade-runtime.sh` bunu otomatik dener (`fix_node_path_shadowing`).
 
 `travel-web.service` `/usr/bin/node` kullanır; yeni sürüm farklı yoldaysa `ExecStart` veya symlink güncelleyin:
 

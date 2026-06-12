@@ -4,10 +4,7 @@ import CheckoutContractWizard from '@/components/checkout/CheckoutContractWizard
 import CheckoutGuestForms from '@/components/checkout/CheckoutGuestForms'
 import CheckoutInvoiceForm from '@/components/checkout/CheckoutInvoiceForm'
 import CheckoutCarSummary from '@/components/checkout/CheckoutCarSummary'
-import CheckoutCarTrip from '@/components/checkout/CheckoutCarTrip'
 import CheckoutFlightSummary from '@/components/checkout/CheckoutFlightSummary'
-import CheckoutFlightTrip from '@/components/checkout/CheckoutFlightTrip'
-import PayWith from '@/app/[locale]/(app)/(other-pages)/checkout/PayWith'
 import CheckoutListingSummary from '@/components/checkout/CheckoutListingSummary'
 import CheckoutStaySummary from '@/components/checkout/CheckoutStaySummary'
 import CheckoutCardPayment from '@/components/checkout/CheckoutCardPayment'
@@ -30,6 +27,8 @@ import {
   resolveCheckoutCurrency,
   resolveCheckoutListingId,
   resolveCheckoutUnitPrice,
+  parseCheckoutGuestsFromSearchParams,
+  parseHotelCheckoutParams,
 } from '@/lib/stay-checkout-url'
 import {
   readTurnaFlightBookingDraft,
@@ -153,7 +152,12 @@ function CheckoutPageContent() {
     () => resolveCheckoutStayDates(searchParams),
     [searchParams],
   )
-  const nights = nightsBetween(searchParams.get('startDate'), searchParams.get('endDate'))
+  const hotelCheckout = React.useMemo(
+    () => parseHotelCheckoutParams(searchParams),
+    [searchParams],
+  )
+  const isHotelCheckout = Boolean(hotelCheckout.hotelRoomId)
+  const nights = nightsBetween(stayDates.start, stayDates.end)
 
   const [pending, setPending] = React.useState(false)
   const [fxLockInfo, setFxLockInfo] = React.useState<FxLockSnapshot | null>(null)
@@ -251,6 +255,11 @@ function CheckoutPageContent() {
   }, [])
 
   React.useEffect(() => {
+    if (!checkoutListingId) return
+    setStayGuests(parseCheckoutGuestsFromSearchParams(searchParams))
+  }, [checkoutListingId, searchParams])
+
+  React.useEffect(() => {
     if (!checkoutListingId) {
       setListingLoading(false)
       return
@@ -316,7 +325,11 @@ function CheckoutPageContent() {
         }
         const turnaDraft = searchParams.get('flight') === '1' ? readTurnaFlightBookingDraft() : null
         const yolcu360Draft = searchParams.get('car') === '1' ? readYolcu360CarBookingDraft() : null
-        const cart = await createCart(currency)
+        const hotelRoomId = hotelCheckout.hotelRoomId
+        const hotelRoomName = hotelCheckout.hotelRoomName
+        const hotelBoardLabel = hotelCheckout.hotelBoardLabel
+        const mealPlanId = hotelCheckout.mealPlanId
+        const mealPlanLabel = hotelCheckout.mealPlanLabel
         const lineMeta = turnaDraft
           ? JSON.stringify({
               provider: 'turna',
@@ -335,7 +348,19 @@ function CheckoutPageContent() {
                 checkout: yolcu360Draft.checkout,
                 car: yolcu360Draft.car,
               })
-            : undefined
+            : hotelRoomId
+              ? JSON.stringify({
+                  hotel_room_id: hotelRoomId,
+                  ...(hotelRoomName ? { hotel_room_name: hotelRoomName } : {}),
+                  ...(hotelBoardLabel ? { hotel_board_label: hotelBoardLabel } : {}),
+                  ...(mealPlanId ? { meal_plan_id: mealPlanId } : {}),
+                  ...(mealPlanLabel ? { meal_plan_label: mealPlanLabel } : {}),
+                  guest_adults: stayGuests.guestAdults,
+                  guest_children: stayGuests.guestChildren,
+                  guest_infants: stayGuests.guestInfants,
+                })
+              : undefined
+        const cart = await createCart(currency)
         await addCartLine(cart.id, {
           listing_id: listingId,
           quantity: 1,
@@ -407,6 +432,11 @@ function CheckoutPageContent() {
             car_checkout: carSnap?.checkout,
             listing_title: flightOfferSnap?.airlineName ?? carSnap?.title ?? listingTitle,
             listing_location: carSnap?.pickup ?? listingLocation,
+            hotel_room_name: hotelRoomName ?? undefined,
+            hotel_board_label: mealPlanLabel ?? hotelBoardLabel ?? undefined,
+            guest_adults: stayGuests.guestAdults,
+            guest_children: stayGuests.guestChildren,
+            guest_infants: stayGuests.guestInfants,
             amount_total: grandTotal,
             amount_paid: amountDueNow,
             amount_remaining: amountRemaining,
@@ -441,7 +471,11 @@ function CheckoutPageContent() {
                 ? C.errors.datesRequired
                 : code === 'invalid_date_range'
                   ? C.errors.invalidDateRange
-                  : code === 'listing_contract_required'
+                  : code === 'hotel_room_unavailable'
+                    ? C.errors.hotelRoomUnavailable
+                    : code === 'hotel_price_mismatch'
+                      ? C.errors.hotelPriceMismatch
+                      : code === 'listing_contract_required'
                     ? C.errors.listingContractRequired
                     : code === 'listing_unavailable_or_currency_mismatch'
                       ? C.errors.currencyMismatch
@@ -517,27 +551,14 @@ function CheckoutPageContent() {
   const isHolidayHomeCheckout =
     listingRow?.category_code === 'holiday_home' ||
     listingRow?.listing_vertical === 'holiday_home'
-  const holidayCheckoutReady =
-    !isLiveProductCheckout && hasCheckoutListing && isHolidayHomeCheckout && !listingLoading
-  const twoColumnCheckout = flightCheckoutReady || carCheckoutReady || holidayCheckoutReady
+  const catalogSidebarReady = !isLiveProductCheckout && hasCheckoutListing
+  const catalogListingCheckoutReady = catalogSidebarReady && !listingLoading
+  const twoColumnCheckout =
+    flightCheckoutReady || carCheckoutReady || catalogSidebarReady
+  const sidebarSummaryFirst = twoColumnCheckout
 
   return (
     <main className="container mt-10 mb-24 lg:mb-32">
-      {isFlightCheckout ? (
-        <Link
-          href={flightBackHref}
-          className="mb-6 inline-flex text-link-muted"
-        >
-          ← {C.flightBackToSearch}
-        </Link>
-      ) : null}
-
-      {isCarCheckout ? (
-        <Link href={carBackHref} className="mb-6 inline-flex text-link-muted">
-          ← {C.carBackToSearch}
-        </Link>
-      ) : null}
-
       {flightSessionMissing ? (
         <div
           role="alert"
@@ -578,7 +599,7 @@ function CheckoutPageContent() {
           className={clsx(
             'flex w-full min-w-0 flex-col gap-y-10 border-neutral-200 px-0 sm:rounded-4xl sm:border sm:p-6 xl:p-8 dark:border-neutral-700',
             twoColumnCheckout && 'lg:col-start-1',
-            holidayCheckoutReady && 'max-lg:order-2',
+            sidebarSummaryFirst && 'max-lg:order-2',
           )}
         >
         <h1 className="text-3xl font-semibold lg:text-4xl">{pageTitle}</h1>
@@ -604,23 +625,9 @@ function CheckoutPageContent() {
         {stayDates.start ? <input type="hidden" name="checkIn" value={stayDates.start} /> : null}
         {stayDates.end ? <input type="hidden" name="checkOut" value={stayDates.end} /> : null}
 
-        {flightCheckoutReady ? (
-          <CheckoutFlightTrip
-            locale={locale}
-            offer={flightOffer!}
-            departureDate={flightDraft?.departure_date ?? stayDates.start}
-            passengers={flightPassengers}
-            backHref={flightBackHref}
-          />
-        ) : carCheckoutReady ? (
-          <CheckoutCarTrip
-            locale={locale}
-            car={carDraft!.car}
-            backHref={carBackHref}
-          />
-        ) : (
+        {flightCheckoutReady || carCheckoutReady ? null : (
           <>
-            {!holidayCheckoutReady ? (
+            {!catalogSidebarReady ? (
               <CheckoutSection step={1} title={C.sectionListingInfo}>
                 <CheckoutListingSummary
                   locale={locale}
@@ -636,7 +643,7 @@ function CheckoutPageContent() {
             ) : null}
 
             <CheckoutSection
-              step={holidayCheckoutReady ? 1 : 2}
+              step={catalogListingCheckoutReady ? 1 : 2}
               title={C.sectionReservation}
             >
               <CheckoutReservationDetails
@@ -655,14 +662,14 @@ function CheckoutPageContent() {
                 stayDates={stayDates}
                 showPaymentOptions={showPaymentOptions}
                 fxLockInfo={fxLockInfo}
-                hideAmountSummary={holidayCheckoutReady}
+                hideAmountSummary={catalogListingCheckoutReady}
               />
             </CheckoutSection>
           </>
         )}
 
         <CheckoutSection
-          step={isLiveProductCheckout ? 1 : holidayCheckoutReady ? 2 : 3}
+          step={isLiveProductCheckout ? 1 : catalogListingCheckoutReady ? 2 : 3}
           title={isFlightCheckout ? C.sectionPassengers : C.sectionGuestInfo}
         >
           <CheckoutGuestForms
@@ -708,10 +715,9 @@ function CheckoutPageContent() {
         </CheckoutSection>
 
         <CheckoutSection
-          step={isLiveProductCheckout ? 2 : holidayCheckoutReady ? 3 : 4}
-          title={isLiveProductCheckout ? C.payWithTitle : C.sectionPayment}
+          step={isLiveProductCheckout ? 2 : catalogListingCheckoutReady ? 3 : 4}
+          title={C.sectionPayment}
         >
-          {isLiveProductCheckout ? <PayWith locale={locale} showHeading={false} /> : null}
           <CheckoutPaymentMethods
             locale={locale}
             value={paymentChannel}
@@ -772,7 +778,7 @@ function CheckoutPageContent() {
         )}
 
         {flightCheckoutReady ? (
-          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutFlightSummary
               locale={locale}
               offer={flightOffer!}
@@ -780,22 +786,28 @@ function CheckoutPageContent() {
               currencyCode={checkoutCurrency}
               totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
               passengers={flightPassengers}
+              couponCode={coupon?.code}
+              couponDiscount={couponDiscount}
+              backHref={flightBackHref}
             />
           </aside>
         ) : null}
 
         {carCheckoutReady ? (
-          <aside className="min-w-0 lg:sticky lg:top-24 lg:self-start">
+          <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutCarSummary
               locale={locale}
               car={carDraft!.car}
               currencyCode={checkoutCurrency}
               totalPrice={grandTotal > 0 ? grandTotal : totalPrice}
+              couponCode={coupon?.code}
+              couponDiscount={couponDiscount}
+              backHref={carBackHref}
             />
           </aside>
         ) : null}
 
-        {holidayCheckoutReady ? (
+        {catalogSidebarReady ? (
           <aside className="min-w-0 max-lg:order-1 lg:sticky lg:top-24 lg:col-start-2 lg:self-start">
             <CheckoutStaySummary
               locale={locale}
@@ -815,7 +827,12 @@ function CheckoutPageContent() {
               amountDueNow={amountDueNow}
               amountRemaining={amountRemaining}
               showAmountSplit={showPaymentOptions}
-              isHolidayHome
+              isHolidayHome={isHolidayHomeCheckout}
+              isHotelCheckout={isHotelCheckout}
+              hotelRoomName={hotelCheckout.hotelRoomName}
+              hotelBoardLabel={hotelCheckout.hotelBoardLabel}
+              mealPlanLabel={hotelCheckout.mealPlanLabel}
+              guests={stayGuests}
             />
           </aside>
         ) : null}

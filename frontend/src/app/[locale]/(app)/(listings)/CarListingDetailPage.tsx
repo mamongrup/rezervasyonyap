@@ -1,5 +1,4 @@
 import { getCarListingByHandle, listingHostForSection } from '@/data/listings'
-import StartRating from '@/components/StartRating'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
@@ -7,7 +6,6 @@ import { interpolate } from '@/utils/interpolate'
 import { Backpack02Icon, HumidityIcon, SeatSelectorIcon, Settings03Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
-import Form from 'next/form'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -27,7 +25,7 @@ import {
   resolveYolcu360SearchFromUrl,
   yolcu360ListingFromSnap,
 } from '@/lib/yolcu360-car-search'
-import DatesRangeInputPopover from './components/DatesRangeInputPopover'
+import CarCatalogBookingSidebar from './CarCatalogBookingSidebar'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
 import SectionHeader from './components/SectionHeader'
@@ -140,10 +138,7 @@ export default async function CarListingDetailPage({
   const m = getMessages(locale)
   const cd = m.listing.carDetail
 
-  const handleSubmitForm = async () => {
-    'use server'
-    redirect('/checkout')
-  }
+  const carListingId = catalogListingId ?? listing.id
 
   const renderSectionHeader = () => {
     return (
@@ -200,29 +195,13 @@ export default async function CarListingDetailPage({
           </div>
         </div>
 
-        <Form
-          action={handleSubmitForm}
-          className="sticky top-5 mt-10 listingSection__wrap sm:shadow-xl"
-          id="booking-form"
-        >
-          <div className="flex justify-between">
-            <span className="text-3xl font-semibold">
-              {price}
-              <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
-                {cd.pricePerDay}
-              </span>
-            </span>
-            <StartRating size="lg" point={reviewStart ?? 0} reviewCount={reviewCount ?? 0} />
-          </div>
-
-          <div className="rounded-2xl border border-neutral-200 dark:border-neutral-700">
-            <DatesRangeInputPopover locale={locale} />
-          </div>
-
-          <ButtonPrimary form="booking-form" type="submit" className="w-full">
-            {m.common.Reserve}
-          </ButtonPrimary>
-        </Form>
+        <CarCatalogBookingSidebar
+          listingId={carListingId}
+          price={price}
+          reviewStart={reviewStart ?? 0}
+          reviewCount={reviewCount ?? 0}
+          locale={locale}
+        />
       </>
     )
   }
@@ -262,7 +241,7 @@ export default async function CarListingDetailPage({
           </div>
         </div>
 
-        <SectionMap />
+        <SectionMap locale={locale} />
       </div>
     </div>
   )

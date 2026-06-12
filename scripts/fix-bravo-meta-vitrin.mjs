@@ -1,6 +1,8 @@
 /**
- * Vitrin meta alanları: bedrooms → room_count, bed_count, bath_count
+ * Vitrin meta alanları: bedrooms → room_count, bed_count, bath_count, square_meters
  *   node scripts/fix-bravo-meta-vitrin.mjs
+ *
+ * Havuz + ev sahibi + depozito için: scripts/backfill-bravo-holiday-home-fields.mjs
  */
 
 import path from 'node:path'
@@ -49,6 +51,10 @@ async function main() {
     }
     if (s.bathroom != null) patch.bath_count = String(s.bathroom)
     if (s.max_guests != null) patch.max_guests = String(s.max_guests)
+    if (s.square != null) {
+      patch.square_meters = String(s.square)
+      patch.square_m2 = String(s.square)
+    }
     if (!Object.keys(patch).length) continue
 
     await pgClient.query(

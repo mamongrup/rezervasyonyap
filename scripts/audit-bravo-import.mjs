@@ -52,7 +52,28 @@ const r = await c.query(`
          AND NOT EXISTS (SELECT 1 FROM listing_price_rules pr WHERE pr.listing_id = l.id)) AS no_price_rules,
     (SELECT count(*)::int FROM listings l
        WHERE l.external_listing_ref IS NOT NULL
-         AND NOT EXISTS (SELECT 1 FROM listing_translations lt WHERE lt.listing_id = l.id)) AS no_translation
+         AND NOT EXISTS (SELECT 1 FROM listing_translations lt WHERE lt.listing_id = l.id)) AS no_translation,
+    (SELECT count(*)::int FROM listings l
+       WHERE l.external_listing_ref IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM listing_attributes la
+           WHERE la.listing_id = l.id AND la.group_code = 'vertical_holiday_home'
+             AND la.key = 'v1'
+             AND (la.value_json->'data'->'pools' IS NOT NULL OR la.value_json->'pools' IS NOT NULL)
+         )) AS no_vertical_pools,
+    (SELECT count(*)::int FROM listings l
+       WHERE l.external_listing_ref IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM listing_owner_contacts oc
+           WHERE oc.listing_id = l.id AND trim(coalesce(oc.contact_name,'')) <> ''
+         )) AS no_owner_name,
+    (SELECT count(*)::int FROM listings l
+       WHERE l.external_listing_ref IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM listing_attributes la
+           WHERE la.listing_id = l.id AND la.group_code = 'listing_meta' AND la.key = 'v1'
+             AND nullif(trim(la.value_json->>'square_meters'), '') IS NOT NULL
+         )) AS no_square_meters
 `)
 
 const missingFiles = await c.query(`

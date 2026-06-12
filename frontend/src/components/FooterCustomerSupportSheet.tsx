@@ -134,7 +134,7 @@ export default function FooterCustomerSupportSheet({ open, onClose, locale }: Pr
   return (
     <Dialog open={open} onClose={onClose} className={vitrinOverlayDialogClassName}>
       <DialogBackdrop className="fixed inset-0 bg-neutral-950/50 backdrop-blur-[2px] duration-300 ease-out data-closed:opacity-0" />
-      <div className="fixed inset-x-0 bottom-0 flex justify-center pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))] lg:hidden">
+      <div className="fixed inset-x-0 bottom-0 flex justify-center pb-above-mobile-nav lg:hidden">
         <DialogPanel
           transition
           className="w-full max-w-lg overflow-hidden rounded-t-[1.75rem] bg-white/95 shadow-[0_-12px_40px_rgba(0,0,0,0.12)] ring-1 ring-black/5 backdrop-blur-xl duration-300 ease-out data-closed:translate-y-10 data-closed:opacity-0 dark:bg-neutral-900/95 dark:ring-white/10"

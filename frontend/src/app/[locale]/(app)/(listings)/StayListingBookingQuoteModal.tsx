@@ -1,41 +1,72 @@
 'use client'
 
+import { useHotelRoomStayQuote } from '@/hooks/use-hotel-room-stay-quote'
 import { useStayListingQuote, type PoolHeatingOption } from '@/hooks/use-stay-listing-quote'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { hotelActivityLocalizedTitle } from '@/lib/hotel-activity-pricing'
+import type { HotelRoomBookingOption } from '@/lib/hotel-room-availability-public'
+import { buildBoardTypeLabelsFromMessages, resolveHotelBoardTypeLabel } from '@/lib/hotel-room-board-type'
 import { intlDateLocaleTag } from '@/lib/i18n-config'
-import type { MealPlanItem } from '@/lib/travel-api'
+import type { HotelListingActivity, MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
+import type { GuestsObject } from '@/type'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import ButtonClose from '@/shared/ButtonClose'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
+import { useOptionalHotelStayBooking } from './hotel-stay-booking-context'
+import { useOptionalVillaStayBooking } from './villa-stay-booking-context'
 
-export default function StayListingBookingQuoteModal({
-  locale,
-  listingId,
-  open,
-  onClose,
-  rangeStart,
-  rangeEnd,
-  mealPlans,
-  price,
-  priceAmount,
-  priceCurrency,
-  saleOff,
-  discountPercent,
-  poolHeating,
-  stayBookingRules,
-  isHolidayHome = false,
-  cleaningFeeAmount,
-  damageDepositAmount,
-  ruleFallbackNightly,
-  ruleNightlyRange,
-}: {
+type VillaQuoteProps = {
+  isHotel?: false
+  price: string
+  priceAmount: number | undefined
+  priceCurrency: string | undefined
+  saleOff: string | null | undefined
+  discountPercent: number | null | undefined
+  poolHeating: PoolHeatingOption
+  isHolidayHome?: boolean
+  isStayRental?: boolean
+  cleaningFeeAmount?: number
+  damageDepositAmount?: number
+  ruleFallbackNightly?: number
+  ruleNightlyRange?: { min: number; max: number }
+  hotelRoomId?: never
+  hotelRoomName?: never
+  hotelRoom?: never
+  selectedMealPlanId?: never
+  activitySurchargesTotal?: never
+  activitySurchargeLines?: never
+  guests?: never
+}
+
+type HotelQuoteProps = {
+  isHotel: true
+  hotelRoom: HotelRoomBookingOption
+  selectedMealPlanId?: string
+  activitySurchargesTotal?: number
+  activitySurchargeLines?: Array<{ activity: HotelListingActivity; total: number }>
+  guests?: GuestsObject
+  price?: string
+  priceAmount?: number | undefined
+  priceCurrency?: string | undefined
+  saleOff?: string | null | undefined
+  discountPercent?: number | null | undefined
+  poolHeating?: PoolHeatingOption
+  isHolidayHome?: never
+  cleaningFeeAmount?: never
+  damageDepositAmount?: never
+  ruleFallbackNightly?: never
+  ruleNightlyRange?: never
+}
+
+type Props = {
   locale: string
   listingId: string
   open: boolean
@@ -43,71 +74,127 @@ export default function StayListingBookingQuoteModal({
   rangeStart: Date
   rangeEnd: Date
   mealPlans: MealPlanItem[]
-  price: string
-  priceAmount: number | undefined
-  priceCurrency: string | undefined
-  saleOff: string | null | undefined
-  discountPercent: number | null | undefined
-  poolHeating: PoolHeatingOption
   stayBookingRules?: StayBookingRules
-  /** Tatil evi — depozito / ek ücret ödeme notları */
-  isHolidayHome?: boolean
-  cleaningFeeAmount?: number
-  damageDepositAmount?: number
-  ruleFallbackNightly?: number
-  ruleNightlyRange?: { min: number; max: number }
-}) {
+} & (VillaQuoteProps | HotelQuoteProps)
+
+export default function StayListingBookingQuoteModal(props: Props) {
+  const {
+    locale,
+    listingId,
+    open,
+    onClose,
+    rangeStart,
+    rangeEnd,
+    mealPlans,
+    stayBookingRules,
+    isHotel = false,
+  } = props
+
   const router = useRouter()
   const vitrinHref = useVitrinHref()
   const messages = getMessages(locale)
   const copy = messages.listing.availabilityCalendar
+  const hotelBooking = messages.listing.hotelBooking
   const rangeLocale = intlDateLocaleTag(locale)
-  const [poolHeatingSelected, setPoolHeatingSelected] = useState(false)
+  const villaCtx = useOptionalVillaStayBooking()
+  const [localPoolHeatingSelected, setLocalPoolHeatingSelected] = useState(false)
+  const poolHeatingSelected = villaCtx?.poolHeatingSelected ?? localPoolHeatingSelected
+  const setPoolHeatingSelected = villaCtx?.setPoolHeatingSelected ?? setLocalPoolHeatingSelected
+  const bookingCtx = useOptionalHotelStayBooking()
 
-  const {
-    nights,
-    lodgingSubtotal,
-    heatingSubtotal,
-    serviceFee,
-    grandTotal,
-    unitForBreakdownLine,
-    formatConverted,
-    currencyCode,
-    poolHeatingCurrency,
-    shortStayFeeApplied,
-    cleaningFeeApplied,
-  } = useStayListingQuote({
+  const villaProps = isHotel ? null : props
+  const villaQuote = useStayListingQuote({
     mealPlans,
-    price,
-    priceAmount,
-    priceCurrency,
-    saleOff,
-    discountPercent,
+    price: villaProps?.price ?? '',
+    priceAmount: villaProps?.priceAmount,
+    priceCurrency: villaProps?.priceCurrency,
+    saleOff: villaProps?.saleOff ?? null,
+    discountPercent: villaProps?.discountPercent ?? null,
     rangeStart,
     rangeEnd,
-    poolHeating,
+    poolHeating: villaProps?.poolHeating ?? null,
     poolHeatingSelected,
     minShortStayNights: stayBookingRules?.minShortStayNights,
     shortStayFeeAmount: stayBookingRules?.shortStayFeeAmount,
-    cleaningFeeAmount,
-    damageDepositAmount,
-    ruleFallbackNightly,
-    ruleNightlyRange,
+    cleaningFeeAmount: villaProps?.cleaningFeeAmount,
+    damageDepositAmount: villaProps?.damageDepositAmount,
+    ruleFallbackNightly: villaProps?.ruleFallbackNightly,
+    ruleNightlyRange: villaProps?.ruleNightlyRange,
   })
 
-  const goCheckout = () => {
-    if (!listingId.trim() || grandTotal <= 0) return
-    router.push(
-      buildStayCheckoutUrl(vitrinHref('/checkout'), {
-        listingId,
-        startDate: rangeStart,
-        endDate: rangeEnd,
-        currencyCode,
-        unitPrice: grandTotal,
-      }),
+  const hotelRoom = isHotel ? props.hotelRoom : undefined
+  const hotelQuote = useHotelRoomStayQuote({
+    listingId,
+    selectedRoom: hotelRoom,
+    rangeStart,
+    rangeEnd,
+    fallbackNightly: bookingCtx?.fallbackNightly ?? 0,
+    mealPlans,
+    selectedMealPlanId: isHotel ? (props.selectedMealPlanId ?? bookingCtx?.selectedMealPlanId) : null,
+    activitySurchargesTotal: isHotel
+      ? (props.activitySurchargesTotal ?? bookingCtx?.activitySurchargesTotal ?? 0)
+      : 0,
+    locale,
+  })
+
+  const boardLabels = buildBoardTypeLabelsFromMessages(
+    (messages.listing.roomShowcase ?? {}) as Record<string, string>,
+  )
+  const checkoutBoardLabel = useMemo(() => {
+    if (!isHotel || !hotelRoom) return null
+    return (
+      hotelQuote.selectedPlanLabel ??
+      resolveHotelBoardTypeLabel(hotelRoom.board_type, boardLabels)
     )
+  }, [isHotel, hotelRoom, hotelQuote.selectedPlanLabel, boardLabels])
+
+  const nights = isHotel ? hotelQuote.nights : villaQuote.nights
+  const lodgingSubtotal = isHotel ? hotelQuote.lodgingSubtotal : villaQuote.lodgingSubtotal
+  const grandTotal = isHotel ? hotelQuote.grandTotal : villaQuote.grandTotal
+  const formatConverted = isHotel ? hotelQuote.formatConverted : villaQuote.formatConverted
+  const currencyCode = isHotel ? hotelQuote.currencyCode : villaQuote.currencyCode
+  const canProceed = isHotel
+    ? hotelQuote.grandTotal > 0 && hotelQuote.available
+    : villaQuote.grandTotal > 0
+
+  const goCheckout = () => {
+    if (!listingId.trim() || !canProceed) return
+    if (isHotel && hotelRoom) {
+      router.push(
+        buildStayCheckoutUrl(vitrinHref('/checkout'), {
+          listingId,
+          startDate: rangeStart,
+          endDate: rangeEnd,
+          currencyCode,
+          unitPrice: grandTotal,
+          guests: props.guests ?? bookingCtx?.guests,
+          hotelRoomId: hotelRoom.id,
+          hotelRoomName: hotelRoom.name,
+          hotelBoardLabel: checkoutBoardLabel ?? undefined,
+          mealPlanId: props.selectedMealPlanId ?? bookingCtx?.selectedMealPlanId,
+          mealPlanLabel: checkoutBoardLabel ?? undefined,
+        }),
+      )
+    } else {
+      router.push(
+        buildStayCheckoutUrl(vitrinHref('/checkout'), {
+          listingId,
+          startDate: rangeStart,
+          endDate: rangeEnd,
+          currencyCode,
+          unitPrice: grandTotal,
+          guests: villaCtx?.guests,
+          poolHeatingSelected,
+          poolHeatingFee: villaQuote.heatingSubtotal,
+        }),
+      )
+    }
     onClose()
   }
+
+  const activityLines = isHotel
+    ? (props.activitySurchargeLines ?? bookingCtx?.activitySurchargeLines ?? [])
+    : []
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-[70]">
@@ -131,8 +218,11 @@ export default function StayListingBookingQuoteModal({
                 ({nights} {messages.listing.sidebar.nightsWord})
               </span>
             </p>
+            {isHotel && hotelRoom ? (
+              <p className="mt-2 text-sm font-medium text-neutral-800 dark:text-neutral-200">{hotelRoom.name}</p>
+            ) : null}
 
-            {poolHeating ? (
+            {!isHotel && villaProps?.poolHeating ? (
               <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-2xl border border-neutral-200 p-3 dark:border-neutral-700">
                 <input
                   type="checkbox"
@@ -145,58 +235,88 @@ export default function StayListingBookingQuoteModal({
                     {messages.listing.sidebar.poolHeatingAddOn}
                   </span>
                   <span className="mt-0.5 block text-xs text-neutral-500">
-                    {formatConverted(poolHeating.dailyAmount, poolHeatingCurrency)}{' '}
+                    {formatConverted(villaProps.poolHeating.dailyAmount, villaQuote.poolHeatingCurrency)}{' '}
                     {messages.listing.sidebar.perNight}
                   </span>
                 </span>
               </label>
             ) : null}
 
+            {isHotel && !hotelQuote.available ? (
+              <p className="mt-3 text-sm font-medium text-red-600 dark:text-red-400">{hotelBooking.unavailableRange}</p>
+            ) : null}
+
             <div className="mt-4 space-y-3 rounded-2xl bg-neutral-50 p-4 dark:bg-neutral-800/50">
               <DescriptionList>
                 <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                  {unitForBreakdownLine} × {nights} {messages.listing.sidebar.nightsWord}
+                  {isHotel && hotelRoom
+                    ? `${hotelRoom.name} · ${nights} ${messages.listing.sidebar.nightsWord}`
+                    : `${villaQuote.unitForBreakdownLine} × ${nights} ${messages.listing.sidebar.nightsWord}`}
                 </DescriptionTerm>
                 <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
                   {lodgingSubtotal > 0 ? formatConverted(lodgingSubtotal, currencyCode) : '—'}
                 </DescriptionDetails>
-                {poolHeating && poolHeatingSelected && heatingSubtotal > 0 ? (
+                {isHotel && hotelQuote.mealPlanSupplement > 0 && hotelQuote.selectedPlanLabel ? (
+                  <>
+                    <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {interpolate(hotelBooking.mealPlanSupplementLine, {
+                        label: hotelQuote.selectedPlanLabel,
+                      })}
+                    </DescriptionTerm>
+                    <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                      {formatConverted(hotelQuote.mealPlanSupplement, currencyCode)}
+                    </DescriptionDetails>
+                  </>
+                ) : null}
+                {activityLines.map(({ activity, total }) => (
+                  <Fragment key={activity.id}>
+                    <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
+                      {interpolate(hotelBooking.activitySurchargeLineLabel, {
+                        title: hotelActivityLocalizedTitle(activity, locale),
+                      })}
+                    </DescriptionTerm>
+                    <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
+                      {formatConverted(total, activity.currency_code || currencyCode)}
+                    </DescriptionDetails>
+                  </Fragment>
+                ))}
+                {!isHotel && villaProps?.poolHeating && poolHeatingSelected && villaQuote.heatingSubtotal > 0 ? (
                   <>
                     <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
                       {messages.listing.poolInfo.heatingFee}
                     </DescriptionTerm>
                     <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                      {formatConverted(heatingSubtotal, poolHeatingCurrency)}
+                      {formatConverted(villaQuote.heatingSubtotal, villaQuote.poolHeatingCurrency)}
                     </DescriptionDetails>
                   </>
                 ) : null}
-                {shortStayFeeApplied > 0 ? (
+                {!isHotel && villaQuote.shortStayFeeApplied > 0 ? (
                   <>
                     <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
                       {messages.listing.sidebar.shortStayFee}
                     </DescriptionTerm>
                     <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                      {formatConverted(shortStayFeeApplied, currencyCode)}
+                      {formatConverted(villaQuote.shortStayFeeApplied, currencyCode)}
                     </DescriptionDetails>
                   </>
                 ) : null}
-                {cleaningFeeApplied > 0 ? (
+                {!isHotel && villaQuote.cleaningFeeApplied > 0 ? (
                   <>
                     <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
                       {messages.listing.sidebar.cleaningFee}
                     </DescriptionTerm>
                     <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                      {formatConverted(cleaningFeeApplied, currencyCode)}
+                      {formatConverted(villaQuote.cleaningFeeApplied, currencyCode)}
                     </DescriptionDetails>
                   </>
                 ) : null}
-                {serviceFee > 0 ? (
+                {!isHotel && villaQuote.serviceFee > 0 ? (
                   <>
                     <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
                       {messages.listing.sidebar.serviceFee}
                     </DescriptionTerm>
                     <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                      {formatConverted(serviceFee, currencyCode)}
+                      {formatConverted(villaQuote.serviceFee, currencyCode)}
                     </DescriptionDetails>
                   </>
                 ) : null}
@@ -212,7 +332,9 @@ export default function StayListingBookingQuoteModal({
               </DescriptionList>
             </div>
 
-            {isHolidayHome ? (
+            {!isHotel &&
+            (('isStayRental' in props && props.isStayRental) ||
+              ('isHolidayHome' in props && props.isHolidayHome)) ? (
               <ul className="mt-4 list-disc space-y-1.5 ps-5 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
                 <li>{messages.listing.sidebar.reservationPaymentNoteDeposit}</li>
                 <li>{messages.listing.sidebar.reservationPaymentNoteExtras}</li>
@@ -224,7 +346,7 @@ export default function StayListingBookingQuoteModal({
               type="button"
               className="w-full"
               onClick={goCheckout}
-              disabled={!listingId.trim() || grandTotal <= 0}
+              disabled={!listingId.trim() || !canProceed}
             >
               {copy.bookingModalContinue}
             </ButtonPrimary>

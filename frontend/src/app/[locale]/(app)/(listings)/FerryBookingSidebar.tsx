@@ -3,28 +3,33 @@
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { FerryTicketFare } from '@/lib/travel-api'
+import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
+import type { GuestsObject } from '@/type'
+import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
-import Form from 'next/form'
+import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { DEFAULT_GUESTS_EXPERIENCE } from '@/lib/guest-search-defaults'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import GuestsInputPopover from './components/GuestsInputPopover'
 
 export default function FerryBookingSidebar({
+  listingId,
   fares,
   currencyCode,
   fallbackPrice,
   locale = 'tr',
-  action,
 }: {
+  listingId: string
   fares: FerryTicketFare[]
   currencyCode: string
   fallbackPrice?: string
   locale?: string
-  action: (formData: FormData) => Promise<void>
 }) {
   const fd = getMessages(locale).listing.ferryDetail
   const m = getMessages(locale)
+  const router = useRouter()
+  const vitrinHref = useVitrinHref()
   const ticketLabels = fd.ticketType as Record<string, string>
 
   const options = useMemo(
@@ -38,12 +43,37 @@ export default function FerryBookingSidebar({
   )
 
   const [selectedType, setSelectedType] = useState(options[0]?.id ?? 'OW')
+  const [rangeStart, setRangeStart] = useState<Date | null>(null)
+  const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
+  const [guests, setGuests] = useState<GuestsObject>(DEFAULT_GUESTS_STAY)
+
   const selected = options.find((o) => o.id === selectedType) ?? options[0]
+  const guestCount = Math.max(1, totalGuestCount(guests))
+  const unitTotal =
+    selected != null && Number.isFinite(selected.price) ? selected.price * guestCount : 0
 
   const displayPrice =
     selected != null
       ? formatMoneyIntl(selected.price, currencyCode)
       : fallbackPrice ?? '—'
+
+  const hasDates = rangeStart != null && rangeEnd != null
+  const canCheckout = Boolean(listingId.trim()) && hasDates && unitTotal > 0
+
+  function goCheckout() {
+    if (!canCheckout || !rangeStart || !rangeEnd) return
+    router.push(
+      buildListingCheckoutUrl(vitrinHref('/checkout'), {
+        listingId,
+        startDate: rangeStart,
+        endDate: rangeEnd,
+        currencyCode,
+        unitPrice: unitTotal,
+        guests,
+        extra: { ticket_type: selectedType },
+      }),
+    )
+  }
 
   return (
     <div className="sticky top-5 listingSection__wrap sm:shadow-xl">
@@ -56,11 +86,7 @@ export default function FerryBookingSidebar({
         </span>
       </div>
 
-      <Form
-        action={action}
-        className="mt-4 flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700"
-        id="booking-form"
-      >
+      <div className="mt-4 flex flex-col rounded-3xl border border-neutral-200 dark:border-neutral-700">
         {options.length > 1 ? (
           <>
             <label className="sr-only" htmlFor="ferry-ticket-type">
@@ -85,12 +111,36 @@ export default function FerryBookingSidebar({
           <input type="hidden" name="ticket_type" value={selectedType} />
         )}
 
-        <DatesRangeInputPopover locale={locale} />
+        <DatesRangeInputPopover
+          locale={locale}
+          rangeStart={rangeStart}
+          rangeEnd={rangeEnd}
+          onRangeChange={([s, e]) => {
+            setRangeStart(s)
+            setRangeEnd(e)
+          }}
+        />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
-        <GuestsInputPopover className="flex-1" guestDefaults={DEFAULT_GUESTS_EXPERIENCE} />
-      </Form>
+        <GuestsInputPopover
+          className="flex-1"
+          guestDefaults={DEFAULT_GUESTS_STAY}
+          value={guests}
+          onChange={setGuests}
+        />
+      </div>
 
-      <ButtonPrimary form="booking-form" type="submit" className="mt-4 w-full">
+      {hasDates && unitTotal > 0 ? (
+        <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
+          {fd.pricePerPerson}: {formatMoneyIntl(unitTotal, currencyCode)} ({guestCount}{' '}
+          {m.HeroSearchForm.Guests.toLowerCase()})
+        </p>
+      ) : (
+        <p className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-400">
+          {m.listing.sidebar.addDates}
+        </p>
+      )}
+
+      <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
         {m.common.Reserve}
       </ButtonPrimary>
     </div>

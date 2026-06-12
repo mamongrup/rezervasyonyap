@@ -9,7 +9,7 @@ export default function MobileFixedTopBar({ locale }: { locale: string }) {
   if (type === 'sidebar-navigation') return null
 
   return (
-    <div className="pointer-events-auto fixed inset-x-0 top-0 isolate z-[60] touch-manipulation bg-white pt-[env(safe-area-inset-top,0px)] shadow-xs lg:hidden dark:bg-neutral-900">
+    <div className="pointer-events-auto fixed inset-x-0 top-0 isolate z-[60] touch-manipulation bg-white pt-safe shadow-xs lg:hidden dark:bg-neutral-900">
       <div className="container box-border flex h-auto min-h-0 w-full max-w-full items-center px-2 py-3 sm:px-4">
         <MobileSiteTopBar locale={locale} />
       </div>

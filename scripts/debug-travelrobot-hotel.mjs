@@ -1,0 +1,128 @@
+#!/usr/bin/env node
+/**
+ * Tek Travelrobot otel teşhisi — DB + Statik API görselleri.
+ *   node scripts/debug-travelrobot-hotel.mjs KTR208407
+ */
+import { createTravelrobotToken, loadTravelrobotConfig } from './lib/travelrobot-api.mjs'
+import { authenticateStatic, getHotelContent } from './lib/travelrobot-static-api.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
+
+const code = process.argv[2]?.trim()
+if (!code) {
+  console.error('Kullanım: node scripts/debug-travelrobot-hotel.mjs <HotelCode>')
+  process.exit(1)
+}
+
+function pickUrls(hotel) {
+  const urls = []
+  const push = (u) => {
+    const s = String(u || '').trim()
+    if (s && !urls.includes(s)) urls.push(s)
+  }
+  const nested = hotel?.Hotel ?? hotel?.hotel ?? hotel
+  const fields = ['HotelImageURL', 'ImageUrl', 'ThumbnailUrl', 'CoverPhoto']
+  for (const f of fields) push(nested?.[f] ?? hotel?.[f])
+  for (const key of ['Images', 'images', 'Photos', 'photos', 'Gallery', 'gallery', 'HotelImages']) {
+    const arr = nested?.[key] ?? hotel?.[key]
+    if (!Array.isArray(arr)) continue
+    for (const item of arr) {
+      if (typeof item === 'string') push(item)
+      else push(item?.Url ?? item?.url ?? item?.ImageUrl ?? item?.imageUrl)
+    }
+  }
+  return urls
+}
+
+async function loadFromDb(pg, hotelCode) {
+  const r = await pg.query(
+    `SELECT l.id::text, l.slug, lt.title, l.featured_image_url,
+            (SELECT count(*)::int FROM listing_images li WHERE li.listing_id = l.id) AS image_count,
+            la.value_json::text AS snapshot_json
+     FROM listings l
+     JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
+     LEFT JOIN listing_translations lt ON lt.listing_id = l.id
+     LEFT JOIN locales loc ON loc.id = lt.locale_id AND loc.code = 'tr'
+     LEFT JOIN listing_attributes la
+       ON la.listing_id = l.id AND la.group_code = 'travelrobot' AND la.key = 'snapshot'
+     WHERE lhd.travelrobot_hotel_code = $1
+     LIMIT 1`,
+    [hotelCode],
+  )
+  return r.rows[0] ?? null
+}
+
+async function main() {
+  const cfg = await loadTravelrobotConfig()
+  const pg = createPgClient()
+  await pg.connect()
+  try {
+    const row = await loadFromDb(pg, code)
+    console.log('══ DB ══')
+    if (!row) {
+      console.log(`Kayıt yok: travelrobot_hotel_code = ${code}`)
+    } else {
+      console.log(`slug: ${row.slug}`)
+      console.log(`title: ${row.title}`)
+      console.log(`featured_image_url: ${row.featured_image_url ?? '(yok)'}`)
+      console.log(`listing_images count: ${row.image_count}`)
+      let snapUrls = []
+      try {
+        const snap = JSON.parse(row.snapshot_json || '{}')
+        const catalog = snap?.catalog ?? snap
+        snapUrls = pickUrls(catalog)
+        console.log(`snapshot içi görsel URL: ${snapUrls.length}`)
+        snapUrls.slice(0, 5).forEach((u, i) => console.log(`  [${i + 1}] ${u}`))
+      } catch {
+        console.log('snapshot parse edilemedi')
+      }
+    }
+
+    console.log('\n══ Statik API (getHotels) ══')
+    try {
+      const { token } = await authenticateStatic(cfg)
+      const payload = await getHotelContent(cfg, token, [code])
+      const list = payload?.Result ?? payload?.Hotels ?? payload ?? []
+      const hotel = Array.isArray(list) ? list[0] : list
+      if (!hotel) {
+        console.log('Statik API: otel bulunamadı')
+      } else {
+        const nested = hotel?.Hotel ?? hotel?.hotel ?? hotel
+        const name = nested?.HotelName ?? nested?.Name ?? hotel?.HotelName ?? '?'
+        console.log(`name: ${name}`)
+        const urls = pickUrls(hotel)
+        console.log(`görsel URL sayısı: ${urls.length}`)
+        urls.forEach((u, i) => console.log(`  [${i + 1}] ${u}`))
+      }
+    } catch (e) {
+      console.log(`Statik API hata: ${e.message}`)
+    }
+
+    console.log('\n══ Booking API (SearchHotel örneği — opsiyonel) ══')
+    try {
+      const { tokenCode } = await createTravelrobotToken(cfg)
+      const { searchHotels, pickHotelRows } = await import('./lib/travelrobot-api.mjs')
+      const payload = await searchHotels(cfg, tokenCode, { destinationId: '10033097', limit: 200 })
+      const rows = pickHotelRows(payload)
+      const hit = rows.find((r) => {
+        const c = String(r?.HotelCode ?? r?.Hotel?.HotelCode ?? '').trim()
+        return c === code
+      })
+      if (!hit) {
+        console.log('İstanbul SearchHotel sonuçlarında bu kod yok (normal — kod başka destinasyonda olabilir)')
+      } else {
+        const urls = pickUrls(hit)
+        console.log(`SearchHotel görsel URL: ${urls.length}`)
+        urls.forEach((u, i) => console.log(`  [${i + 1}] ${u}`))
+      }
+    } catch (e) {
+      console.log(`SearchHotel atlandı: ${e.message}`)
+    }
+  } finally {
+    await pg.end()
+  }
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})

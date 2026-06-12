@@ -23,5 +23,9 @@ pub fn capabilities() -> List(AiCapability) {
     AiCapability("price_fomo", "Dinamik fiyat / FOMO metinleri"),
     AiCapability("chat_sales", "7/24 satış + çapraz satış chatbot"),
     AiCapability("ops_agent", "Operasyon (sohbet dışı): provizyon, eskalasyon, alternatif ilan önerisi"),
+    AiCapability(
+      "listing_content_batch",
+      "Kategori bazlı ilan açıklaması (TR) → çeviri → SEO meta",
+    ),
   ]
 }

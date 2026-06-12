@@ -15,32 +15,47 @@ export default function ListingPoolInfoSection({
   pools,
   demo = false,
   className,
+  variant = 'section',
 }: {
   locale: string
   pools: HolidayHomePools | null | undefined
   /** API’de havuz yokken gelen örnek içerik */
   demo?: boolean
   className?: string
+  /** `embedded`: olanaklar bölümünün hemen altında kompakt görünüm */
+  variant?: 'section' | 'embedded'
 }) {
   if (!pools || !hasAnyEnabledPool(pools)) return null
 
   const messages = getMessages(locale)
   const pi = messages.listing.poolInfo
   const typeLabels = pi.types as Record<string, string>
+  const embedded = variant === 'embedded'
 
   return (
-    <div className={clsx('listingSection__wrap', className)}>
-      <div>
-        <SectionHeading>{pi.title}</SectionHeading>
-        <SectionSubheading>{pi.subtitle}</SectionSubheading>
-        {demo ? (
-          <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-            {pi.demoBadge}
-          </p>
-        ) : null}
-      </div>
-      <Divider className="w-14!" />
-      <div className="flex flex-col gap-5">
+    <div
+      className={clsx(
+        embedded ? 'mt-8 border-t border-neutral-200 pt-8 dark:border-neutral-700' : 'listingSection__wrap',
+        className,
+      )}
+    >
+      {embedded ? (
+        <h3 className="text-base font-semibold text-neutral-900 dark:text-white">{pi.title}</h3>
+      ) : (
+        <>
+          <div>
+            <SectionHeading>{pi.title}</SectionHeading>
+            <SectionSubheading>{pi.subtitle}</SectionSubheading>
+            {demo ? (
+              <p className="mt-2 inline-flex rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                {pi.demoBadge}
+              </p>
+            ) : null}
+          </div>
+          <Divider className="w-14!" />
+        </>
+      )}
+      <div className={clsx('flex flex-col gap-5', embedded && 'mt-4')}>
         {POOL_ORDER.map((key) => {
           const row = pools[key]
           if (!row.enabled) return null

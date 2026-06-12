@@ -1,0 +1,10 @@
+[Unit]
+Description=Günlük Travelrobot senkron (05:00 ve 17:00 TR ≈ UTC 02:00 ve 14:00)
+
+[Timer]
+OnCalendar=*-*-* 02,14:00:00
+Persistent=true
+Unit=travel-travelrobot-sync.service
+
+[Install]
+WantedBy=timers.target

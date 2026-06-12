@@ -389,7 +389,7 @@ function HeroSectionWithSearchForm1({
           {!minimalBelowFoldSearch ? (
             <div
               className={clsx(
-                'z-40 hidden w-full min-w-0 md:block',
+                'relative isolate z-[100] hidden w-full min-w-0 overflow-visible md:block',
                 /** Mobil: üst çubukta HeroSearchFormMobile — gövde araması yok; lg+: sol kolon tabanında, hap görsellerin üstüne biner */
                 'lg:mt-0 lg:absolute lg:start-0 lg:w-screen lg:max-w-4xl xl:max-w-6xl',
                 /** `default` / `compact`: üst üste binen arama — `minimal` bu dalda yok (`minimalBelowFoldSearch` ayrı blokta). */
@@ -431,7 +431,7 @@ function HeroSectionWithSearchForm1({
         {minimalBelowFoldSearch ? (
           <div
             className={clsx(
-              'z-40 order-2 w-full min-w-0 max-w-full lg:order-none lg:col-span-2 lg:row-start-2',
+              'relative isolate z-[100] order-2 w-full min-w-0 max-w-full overflow-visible lg:order-none lg:col-span-2 lg:row-start-2',
               /* <lg: üst çubukta HeroSearchFormMobile — hero satırı boş kalmasın */
               'hidden lg:block',
               'lg:max-w-4xl xl:max-w-6xl',

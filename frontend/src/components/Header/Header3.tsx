@@ -144,7 +144,7 @@ const Header3: FC<Header3Props> = ({ className, hasBorderBottom = true, initSear
           className
         )}
       >
-        <div className="relative flex h-16 px-4 lg:px-8">
+        <div className="relative flex h-20 px-4 lg:px-8">
           <div className="flex flex-1 justify-between">
             {/* Logo (lg+) */}
             <div className="relative z-11 flex flex-1/2 items-center">

@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-11T20:36:58.341Z",
+  "thumbnails": {
+    "oteller": {
+      "src": "/uploads/general/hero/oteller-card.avif",
+      "objectPosition": "50% 55%"
+    },
+    "tatil-evleri": {
+      "src": "/uploads/general/hero/tatil-evleri-card.avif",
+      "objectPosition": "50% 45%"
+    },
+    "yat-kiralama": {
+      "src": "/uploads/general/hero/yat-kiralama-card.avif",
+      "objectPosition": "50% 40%"
+    },
+    "turlar": {
+      "src": "/uploads/general/hero/turlar-card.avif",
+      "objectPosition": "50% 35%"
+    },
+    "aktiviteler": "/uploads/general/hero/aktiviteler-card.avif",
+    "kruvaziyer": {
+      "src": "/uploads/general/hero/kruvaziyer-card.avif",
+      "objectPosition": "50% 45%"
+    },
+    "hac-umre": {
+      "src": "/uploads/general/hero/hac-umre-card.avif",
+      "objectPosition": "50% 40%"
+    },
+    "vize": "/uploads/general/hero/vize-card.avif",
+    "ucak-bileti": {
+      "src": "/uploads/general/hero/ucak-bileti-card.avif",
+      "objectPosition": "50% 35%"
+    },
+    "arac-kiralama": {
+      "src": "/uploads/general/hero/arac-kiralama-card.avif",
+      "objectPosition": "50% 55%"
+    },
+    "feribot": "/uploads/general/hero/feribot-card.avif",
+    "transfer": {
+      "src": "/uploads/general/hero/transfer-card.avif",
+      "objectPosition": "50% 45%"
+    }
+  }
+}

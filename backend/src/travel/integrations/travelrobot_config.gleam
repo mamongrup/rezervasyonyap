@@ -85,7 +85,7 @@ pub fn load(db: pog.Connection) -> TravelrobotConfig {
     base_url: get(
       "base_url",
       "TRAVELROBOT_BASE_URL",
-      "http://sandbox.kplus.com.tr/kplus/v0",
+      "https://api.bookingagora.com/v0",
     ),
     channel_code: get("channel_code", "TRAVELROBOT_CHANNEL_CODE", ""),
     channel_password: get("channel_password", "TRAVELROBOT_CHANNEL_PASSWORD", ""),

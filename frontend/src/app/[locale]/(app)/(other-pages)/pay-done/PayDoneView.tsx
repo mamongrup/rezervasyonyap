@@ -4,6 +4,7 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import {
   checkoutStatusLabel,
   checkoutT,
+  fmtCheckout,
   formatCheckoutDate,
   formatCheckoutMoney,
 } from '@/lib/checkout-i18n'
@@ -44,6 +45,41 @@ function turnaRefsFromLines(
   return null
 }
 
+function hotelMetaFromLines(
+  lines: ReservationLineDetail[] | undefined,
+): {
+  roomName: string | null
+  boardLabel: string | null
+  guestAdults: number | null
+  guestChildren: number | null
+  guestInfants: number | null
+} | null {
+  if (!lines?.length) return null
+  for (const line of lines) {
+    const raw = line.meta_json?.trim()
+    if (!raw) continue
+    try {
+      const meta = JSON.parse(raw) as Record<string, unknown>
+      if (!meta.hotel_room_id) continue
+      return {
+        roomName: typeof meta.hotel_room_name === 'string' ? meta.hotel_room_name : null,
+        boardLabel:
+          typeof meta.meal_plan_label === 'string'
+            ? meta.meal_plan_label
+            : typeof meta.hotel_board_label === 'string'
+              ? meta.hotel_board_label
+              : null,
+        guestAdults: typeof meta.guest_adults === 'number' ? meta.guest_adults : null,
+        guestChildren: typeof meta.guest_children === 'number' ? meta.guest_children : null,
+        guestInfants: typeof meta.guest_infants === 'number' ? meta.guest_infants : null,
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+  return null
+}
+
 export default function PayDoneView() {
   const vitrinHref = useVitrinHref()
   const params = useParams()
@@ -62,6 +98,11 @@ export default function PayDoneView() {
     flight_airline?: string
     listing_title?: string | null
     listing_location?: string | null
+    hotel_room_name?: string | null
+    hotel_board_label?: string | null
+    guest_adults?: number
+    guest_children?: number
+    guest_infants?: number
     amount_total?: number
     amount_paid?: number
     amount_remaining?: number
@@ -111,6 +152,23 @@ export default function PayDoneView() {
     () => turnaRefsFromLines(reservation?.lines),
     [reservation?.lines],
   )
+  const hotelMeta = React.useMemo(
+    () => hotelMetaFromLines(reservation?.lines),
+    [reservation?.lines],
+  )
+  const hotelRoomName = confirmExtra?.hotel_room_name ?? hotelMeta?.roomName
+  const hotelBoardLabel = confirmExtra?.hotel_board_label ?? hotelMeta?.boardLabel
+  const guestAdults = confirmExtra?.guest_adults ?? hotelMeta?.guestAdults ?? null
+  const guestChildren = confirmExtra?.guest_children ?? hotelMeta?.guestChildren ?? null
+  const guestInfants = confirmExtra?.guest_infants ?? hotelMeta?.guestInfants ?? null
+  const guestSummary =
+    guestAdults != null
+      ? fmtCheckout(C.guestsLine, {
+          adults: String(guestAdults),
+          children: String(guestChildren ?? 0),
+          infants: String(guestInfants ?? 0),
+        })
+      : null
 
   if (loading) {
     return (
@@ -232,6 +290,24 @@ export default function PayDoneView() {
                     </span>
                   ) : null}
                 </DescriptionDetails>
+              </>
+            ) : null}
+            {hotelRoomName ? (
+              <>
+                <DescriptionTerm>{PD.hotelRoomLabel}</DescriptionTerm>
+                <DescriptionDetails>{hotelRoomName}</DescriptionDetails>
+              </>
+            ) : null}
+            {hotelBoardLabel ? (
+              <>
+                <DescriptionTerm>{PD.hotelBoardLabel}</DescriptionTerm>
+                <DescriptionDetails>{hotelBoardLabel}</DescriptionDetails>
+              </>
+            ) : null}
+            {guestSummary ? (
+              <>
+                <DescriptionTerm>{PD.guestLabel}</DescriptionTerm>
+                <DescriptionDetails>{guestSummary}</DescriptionDetails>
               </>
             ) : null}
             <DescriptionTerm>{PD.codeLabel}</DescriptionTerm>

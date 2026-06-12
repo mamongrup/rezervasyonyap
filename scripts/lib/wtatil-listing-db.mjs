@@ -1,4 +1,11 @@
 import { mergePeriodsById } from './wtatil-enrich.mjs'
+import {
+  applyWtatilTourVitrinFields,
+  buildWtatilTourDescription,
+  buildWtatilTourVitrinPackage,
+  buildWtatilVerticalTourMeta,
+  buildWtatilTourSnapshot,
+} from './wtatil-tour-map.mjs'
 
 const PROVIDER = 'wtatil'
 
@@ -123,14 +130,9 @@ export async function upsertWtatilTourListing(
   const slug = slugForWtatilTour(tour)
   const currency = pickCurrency(tour)
   const title = String(tour.name || `Tur ${tourId}`).trim()
-  const descriptionParts = [
-    tour.tourProgram,
-    tour.generalConditions,
-    tour.paidServices ? `Ücretli: ${tour.paidServices}` : '',
-    tour.freeServices ? `Dahil: ${tour.freeServices}` : '',
-  ].filter(Boolean)
-  const description = descriptionParts.join('\n\n').trim()
+  const description = buildWtatilTourDescription(tour)
   const locName = locationLabel(tour)
+  const vitrin = buildWtatilTourVitrinPackage(tour, enrich)
 
   if (dryRun) {
     return { action: 'dry-run', tourId, slug, title: title.slice(0, 60) }
@@ -165,15 +167,6 @@ export async function upsertWtatilTourListing(
     listingId = ins.rows[0].id
   }
 
-  await pgClient.query(
-    `INSERT INTO listing_translations (listing_id, locale_id, title, description)
-     VALUES ($1::uuid, $2, $3, $4)
-     ON CONFLICT (listing_id, locale_id) DO UPDATE SET
-       title = EXCLUDED.title,
-       description = EXCLUDED.description`,
-    [listingId, ctx.localeTrId, title, description || null],
-  )
-
   const cheapestFromEnrich =
     normalizeCheapestPrice(enrich?.cheapestPrice) ??
     minPeriodPrice(enrich?.periodPrices)
@@ -200,26 +193,13 @@ export async function upsertWtatilTourListing(
     [listingId, tourId, JSON.stringify(programJson)],
   )
 
-  const attrPayload = {
-    catalog: tour,
-    meal_type: tour.mealType ?? null,
-    transport_type: tour.transportType ?? null,
-    tour_type: tour.tourType ?? null,
-    tour_area: tour.tourArea ?? null,
-    countries: tour.countries ?? null,
-    visa_detail: tour.visaDetail ?? null,
-    definite_departure: tour.definiteDeparture ?? null,
-    suggested: tour.suggested ?? null,
-    supplier_id: tour.supplierId ?? null,
-    updated_at: tour.updatedDate ?? null,
-  }
-
-  await pgClient.query(
-    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
-     VALUES ($1::uuid, 'wtatil', 'snapshot', $2::jsonb)
-     ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = EXCLUDED.value_json`,
-    [listingId, JSON.stringify(attrPayload)],
-  )
+  await applyWtatilTourVitrinFields(pgClient, listingId, {
+    snapshot: vitrin.snapshot,
+    verticalTour: vitrin.verticalTour,
+    localeTrId: ctx.localeTrId,
+    title,
+    description,
+  })
 
   const urls = imageUrlsFromWtatilTour(tour)
   const pexelsGuard = await pgClient.query(
@@ -243,6 +223,100 @@ export async function upsertWtatilTourListing(
   }
 
   return { action: isNew ? 'created' : 'updated', listingId, tourId, slug }
+}
+
+/**
+ * Katalog vitrin alanları — dönem/fiyat/görsel/status dokunulmaz.
+ * Otomatik senkron ve backfill için.
+ */
+export async function refreshWtatilTourVitrin(pgClient, ctx, listingId, tour, enrich = null) {
+  const tourId = String(tour.id)
+  const title = String(tour.name || `Tur ${tourId}`).trim()
+  const description = buildWtatilTourDescription(tour)
+  const locName = locationLabel(tour)
+  const currency = pickCurrency(tour)
+  const vitrin = buildWtatilTourVitrinPackage(tour, enrich)
+
+  await applyWtatilTourVitrinFields(pgClient, listingId, {
+    snapshot: vitrin.snapshot,
+    verticalTour: vitrin.verticalTour,
+    localeTrId: ctx.localeTrId,
+    title,
+    description,
+  })
+
+  const prevRes = await pgClient.query(
+    `SELECT program_days_json FROM listing_tour_details WHERE listing_id = $1::uuid`,
+    [listingId],
+  )
+  const prev =
+    prevRes.rows[0]?.program_days_json && typeof prevRes.rows[0].program_days_json === 'object'
+      ? prevRes.rows[0].program_days_json
+      : {}
+
+  const merged = {
+    ...prev,
+    source: PROVIDER,
+    wtatil_tour_id: Number(tour.id),
+    raw_html: tour.tourProgram || null,
+    number_of_nights: tour.numberOfNights ?? prev.number_of_nights ?? null,
+    catalog_synced_at: new Date().toISOString(),
+  }
+  if (enrich?.transport != null) merged.transport = enrich.transport
+
+  await pgClient.query(
+    `INSERT INTO listing_tour_details (listing_id, wtatil_package_ref, is_manual, program_days_json, tour_format)
+     VALUES ($1::uuid, $2, false, $3::jsonb, 'package')
+     ON CONFLICT (listing_id) DO UPDATE SET
+       wtatil_package_ref = EXCLUDED.wtatil_package_ref,
+       program_days_json = EXCLUDED.program_days_json`,
+    [listingId, tourId, JSON.stringify(merged)],
+  )
+
+  await pgClient.query(
+    `UPDATE listings SET
+       location_name = $2,
+       currency_code = $3,
+       last_synced_at = now(),
+       updated_at = now()
+     WHERE id = $1::uuid`,
+    [listingId, locName, currency],
+  )
+
+  return { listingId, tourId, verticalTour: vitrin.verticalTour }
+}
+
+/** Snapshot katalog + program_days_json ile vertical_tour üret (API'siz backfill). */
+export function buildWtatilVerticalTourFromDbRow({ snapshotJson, programDaysJson }) {
+  let snap = snapshotJson
+  if (typeof snap === 'string') {
+    try {
+      snap = JSON.parse(snap)
+    } catch {
+      snap = null
+    }
+  }
+  const catalog = snap?.catalog && typeof snap.catalog === 'object' ? snap.catalog : snap
+  if (!catalog || typeof catalog !== 'object') return null
+
+  let program = programDaysJson
+  if (typeof program === 'string') {
+    try {
+      program = JSON.parse(program)
+    } catch {
+      program = null
+    }
+  }
+
+  return buildWtatilVerticalTourMeta(catalog, {
+    transport: program?.transport ?? null,
+  })
+}
+
+/** Snapshot'tan wtatil snapshot yenile (catalog alanı güncelse). */
+export function refreshWtatilSnapshotFromCatalog(snapshotJson, tour) {
+  if (!tour || typeof tour !== 'object') return buildWtatilTourSnapshot(snapshotJson?.catalog ?? snapshotJson)
+  return buildWtatilTourSnapshot(tour)
 }
 
 /**

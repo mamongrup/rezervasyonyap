@@ -12,14 +12,21 @@ export type WtatilSettings = {
 
 export type TravelrobotSettings = {
   enabled: boolean
+  /** Canlı Booking API (CreateToken, arama, rezervasyon). */
   base_url: string
   channel_code: string
   channel_password: string
+  /** Statik içerik API (otel kodları, destinasyonlar, zenginleştirme). */
+  static_base_url: string
+  static_user: string
+  static_password: string
   listing_status: 'draft' | 'published'
   import_tours: boolean
   import_hotels: boolean
   import_flights: boolean
   import_car_rental: boolean
+  /** Otel vitrininde oda kartları için otel bazlı SearchHotel (import yavaşlar). */
+  import_hotel_rooms: boolean
 }
 
 export type TurnaSettings = {
@@ -29,6 +36,7 @@ export type TurnaSettings = {
   country_code: string
   currency_code: string
   language_code: string
+  listing_status: 'draft' | 'published'
 }
 
 export type Yolcu360Settings = {
@@ -36,6 +44,7 @@ export type Yolcu360Settings = {
   base_url: string
   api_key: string
   api_secret: string
+  listing_status: 'draft' | 'published'
 }
 
 export type ListingApiProvidersSettings = {
@@ -75,6 +84,15 @@ export function mergeListingApiProvidersForSave(
         prev?.travelrobot.channel_password,
       ),
       base_url: preserveString(form.travelrobot.base_url, prev?.travelrobot.base_url),
+      static_user: preserveString(form.travelrobot.static_user, prev?.travelrobot.static_user),
+      static_password: preserveString(
+        form.travelrobot.static_password,
+        prev?.travelrobot.static_password,
+      ),
+      static_base_url: preserveString(
+        form.travelrobot.static_base_url,
+        prev?.travelrobot.static_base_url,
+      ),
     },
     turna: {
       ...form.turna,

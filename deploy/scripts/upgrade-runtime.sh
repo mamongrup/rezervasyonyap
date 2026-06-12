@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Runtime yükseltme: Node 24, PostgreSQL 18.4, Gleam 1.16, OTP 29
+# Runtime yükseltme: Node 25, PostgreSQL 18.4, Gleam 1.16, OTP 29
 # root veya sudo ile çalıştırın.
 #
 #   chmod +x deploy/scripts/upgrade-runtime.sh
@@ -33,23 +33,66 @@ node_version_ok() {
   major="${v%%.*}"
   minor="$(echo "$v" | cut -d. -f2)"
   patch="$(echo "$v" | cut -d. -f3)"
-  [[ "$major" -ge 24 ]] && [[ "$minor" -ge 14 || "$major" -gt 24 ]]
+  [[ "$major" -ge 25 ]]
+}
+
+# Eski manuel kurulum: /usr/local/bin/node (v22) PATH'te /usr/bin/node (v25) önüne geçer.
+fix_node_path_shadowing() {
+  step "Node PATH düzeltme (/usr/local/bin gölgeleme)"
+  local system_node=""
+  for cand in /usr/bin/node /usr/bin/nodejs; do
+    if [[ -x "$cand" ]]; then
+      local maj
+      maj="$("$cand" -v 2>/dev/null | sed 's/^v//' | cut -d. -f1)"
+      if [[ "${maj:-0}" -ge 25 ]]; then
+        system_node="$cand"
+        break
+      fi
+    fi
+  done
+  if [[ -z "$system_node" ]]; then
+    warn "/usr/bin/node Node 25+ degil — rpm kurulumu veya PATH kontrol edin"
+    return 0
+  fi
+  local local_node="/usr/local/bin/node"
+  if [[ -e "$local_node" || -L "$local_node" ]]; then
+    local local_maj
+    local_maj="$("$local_node" -v 2>/dev/null | sed 's/^v//' | cut -d. -f1)"
+    if [[ "${local_maj:-0}" -lt 25 ]]; then
+      local bak="${local_node}.bak.$(date +%Y%m%d%H%M%S)"
+      mv "$local_node" "$bak" 2>/dev/null || rm -f "$local_node"
+      ln -sf "$system_node" "$local_node"
+      ok "Symlink: $local_node -> $system_node ($("$system_node" -v))"
+    fi
+  fi
+  hash -r 2>/dev/null || true
+  ok "Shell node: $(command -v node) $(node -v)"
+  ok "travel-web ExecStart hedefi: /usr/bin/node $("/usr/bin/node" -v 2>/dev/null || echo '?')"
 }
 
 upgrade_node() {
-  step "Node.js 24 LTS"
+  step "Node.js 25"
   if node_version_ok; then
+    fix_node_path_shadowing
     ok "Node zaten uygun: $(node -v)"
     return 0
   fi
-  if command -v apt-get >/dev/null 2>&1; then
-    curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-    apt-get install -y nodejs
-  elif command -v dnf >/dev/null 2>&1; then
-    curl -fsSL https://rpm.nodesource.com/setup_24.x | bash -
+  # Plesk Alma/RHEL/CentOS: dnf/yum — deb script kullanmayin
+  if command -v dnf >/dev/null 2>&1; then
+    curl -fsSL https://rpm.nodesource.com/setup_25.x | bash -
     dnf install -y nodejs
+  elif command -v yum >/dev/null 2>&1; then
+    curl -fsSL https://rpm.nodesource.com/setup_25.x | bash -
+    yum install -y nodejs
+  elif command -v apt-get >/dev/null 2>&1; then
+    curl -fsSL https://deb.nodesource.com/setup_25.x | bash -
+    apt-get install -y nodejs
   else
-    fail "Desteklenmeyen paket yöneticisi — Node 24'ü elle kurun"
+    fail "Desteklenmeyen paket yöneticisi — Node 25'i elle kurun (dnf/yum/apt)"
+  fi
+  fix_node_path_shadowing
+  if ! node_version_ok; then
+    warn "PATH hâlâ eski node gösteriyor olabilir: which -a node; /usr/bin/node -v"
   fi
   ok "Node: $(node -v) npm: $(npm -v)"
 }

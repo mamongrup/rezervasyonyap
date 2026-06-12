@@ -11,23 +11,23 @@
  * --with-rooms: her otel için SearchHotel (oda/fiyat) — 1200+ otelde yavaş; --limit ile parça parça çalıştırın.
  */
 
-import { createTravelrobotToken, loadTravelrobotConfig, searchHotels, pickHotelRows } from './lib/travelrobot-api.mjs'
-import { DEFAULT_HOTEL_DESTINATION_ID } from './lib/travelrobot-sandbox-ids.mjs'
+import { createTravelrobotToken, loadTravelrobotConfig } from './lib/travelrobot-api.mjs'
 import {
   resolveImportContext,
   upsertTravelrobotHotelListing,
   buildStaticHotelMap,
   mergeStaticHotelContent,
-  hotelRef,
 } from './lib/travelrobot-listing-db.mjs'
 import { authenticateStatic, getBulkHotelContent } from './lib/travelrobot-static-api.mjs'
+import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
-const WITH_ROOMS = args.has('--with-rooms')
+const WITH_ROOMS_CLI =
+  args.has('--with-rooms') || args.has('--no-with-rooms') ? args.has('--with-rooms') : null
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const offsetIdx = process.argv.indexOf('--offset')
@@ -38,9 +38,6 @@ const ORG_ID = orgIdIdx >= 0 ? process.argv[orgIdIdx + 1] : (process.env.IMPORT_
 const jobIdIdx = process.argv.indexOf('--job-id')
 const JOB_ID = jobIdIdx >= 0 ? process.argv[jobIdIdx + 1] : (process.env.SYNC_JOB_ID || '')
 const reporter = createJobReporter(JOB_ID)
-
-const HOTEL_DESTINATION_ID =
-  process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID
 
 async function resolveOrgId(pgClient) {
   if (ORG_ID) return ORG_ID
@@ -127,22 +124,21 @@ async function main() {
     let updated = 0
     let skipped = 0
     let withImages = 0
-    let withRooms = 0
+    let roomHitCount = 0
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
       let row = mergeStaticHotelContent(catalogRowFromDb(item), staticMap.get(item.code))
 
-      if (WITH_ROOMS) {
+      const fetchRooms =
+        WITH_ROOMS_CLI != null ? WITH_ROOMS_CLI : cfg.importHotelRooms !== false
+      if (fetchRooms) {
         try {
-          const payload = await searchHotels(cfg, tokenCode, {
-            destinationId: HOTEL_DESTINATION_ID,
-            hotelCode: item.code,
-            showMultipleRate: true,
+          const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
+            withRooms: true,
+            skipStatic: true,
           })
-          const found =
-            pickHotelRows(payload).find((h) => hotelRef(h) === item.code) ?? pickHotelRows(payload)[0]
-          if (found) row = mergeStaticHotelContent(row, found)
+          row = enriched[0] ?? row
         } catch (e) {
           console.warn(`[oda arama] ${item.code}: ${e.message}`)
         }
@@ -157,7 +153,7 @@ async function main() {
         const result = await upsertTravelrobotHotelListing(client, ctx, row, { status })
         updated++
         if (result.imageCount) withImages++
-        if (result.roomCount) withRooms++
+        if (result.roomCount) roomHitCount++
         await reporter.step(
           `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? 0} oda`,
           i + 1,
@@ -172,7 +168,7 @@ async function main() {
 
     const msg = DRY_RUN
       ? `Dry-run — ${items.length} otel kontrol edildi.`
-      : `Tamamlandı: ${updated} güncellendi, ${skipped} atlandı. Görsel: ${withImages}, oda: ${withRooms}`
+      : `Tamamlandı: ${updated} güncellendi, ${skipped} atlandı. Görsel: ${withImages}, oda: ${roomHitCount}`
     await reporter.done(msg)
   } finally {
     await client.end()

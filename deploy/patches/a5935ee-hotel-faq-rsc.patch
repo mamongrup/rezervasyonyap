@@ -1,0 +1,229 @@
+﻿From a5935ee87a5cba8be33c3278cd31a6152722d686 Mon Sep 17 00:00:00 2001
+From: Dev <dev@rezervasyonyap.tr>
+Date: Thu, 11 Jun 2026 10:07:18 +0300
+Subject: [PATCH] fix: buildHotelFaqItems server-client RSC hatasi
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Otel SSS veri fonksiyonunu client bileseninden ayirip server-safe mod├╝le tasidik; chunk 500 ve travel-web cokmelerini onler.
+
+Co-authored-by: Cursor <cursoragent@cursor.com>
+---
+ .../(app)/(listings)/HotelFAQSection.tsx      | 90 +------------------
+ .../StayListingDetailPageContent.tsx          |  3 +-
+ .../(app)/(listings)/hotel-faq-items.ts       | 80 +++++++++++++++++
+ 3 files changed, 86 insertions(+), 87 deletions(-)
+ create mode 100644 frontend/src/app/[locale]/(app)/(listings)/hotel-faq-items.ts
+
+diff --git a/frontend/src/app/[locale]/(app)/(listings)/HotelFAQSection.tsx b/frontend/src/app/[locale]/(app)/(listings)/HotelFAQSection.tsx
+index 750e612..77444a8 100644
+--- a/frontend/src/app/[locale]/(app)/(listings)/HotelFAQSection.tsx
++++ b/frontend/src/app/[locale]/(app)/(listings)/HotelFAQSection.tsx
+@@ -6,6 +6,10 @@ import { Disclosure, DisclosureButton, DisclosurePanel } from '@headlessui/react
+ import clsx from 'clsx'
+ import { ChevronDown } from 'lucide-react'
+ import { SectionHeading, SectionSubheading } from './components/SectionHeading'
++import {
++  buildHotelFaqItems,
++  type HotelFaqSource,
++} from './hotel-faq-items'
+ 
+ /** Ortak akordeon SSS listesi ÔÇö ┼şablon / ├Âzel maddeler ve otel otomatik SSS i├ğin kullan─▒l─▒r. */
+ export function AccordionFaqSection({
+@@ -66,92 +70,6 @@ export function AccordionFaqSection({
+   )
+ }
+ 
+-/** Booking/ETStur tarz─▒ "S─▒k├ğa Sorulan Sorular" b├Âl├╝m├╝.
+- *  Mevcut listing alanlar─▒ndan (check-in/out, ├Ân ├Âdeme y├╝zdesi, iptal
+- *  politikas─▒ metni, bakanl─▒k ruhsat numaras─▒, kahvalt─▒ dahil mi) otomatik
+- *  ├╝retilir; ek backend tablosu gerektirmez.
+- *
+- *  Hi├ğ soru ├╝retilemezse b├Âl├╝m tamamen gizlenir.  Tasar─▒m dili sayfan─▒n geri
+- *  kalan─▒yla ayn─▒ `listingSection__wrap` + `SectionHeading` + `Divider`. */
+-export interface HotelFaqSource {
+-  /** "14:00ÔÇô23:00" gibi serbest metin (locale ile gelir) */
+-  checkInLine?: string
+-  /** "12:00'a kadar" gibi serbest metin (locale ile gelir) */
+-  checkOutLine?: string
+-  /** ├ûn ├Âdeme y├╝zdesi metni (├Ârn. "%30") ÔÇö bo┼şsa gizlenir */
+-  prepaymentNote?: string | null
+-  /** ─░ptal politikas─▒ serbest metni ÔÇö bo┼şsa gizlenir */
+-  cancellationText?: string | null
+-  /** K├╝lt├╝r ve Turizm Bakanl─▒─ş─▒ ruhsat numaras─▒ ÔÇö bo┼şsa gizlenir */
+-  ministryLicenseRef?: string | null
+-  /** Otelin yemek plan─▒ durumu (aksiyon ifadesi i├ğin) */
+-  hasBreakfastIncluded?: boolean
+-  /** Otele ├Âzg├╝ "evcil hayvan kabul ediyor mu?" kural─▒ (rules listesinden) */
+-  petPolicyText?: string | null
+-}
+-
+-export function buildHotelFaqItems(
+-  source: HotelFaqSource,
+-  t: Record<string, string>,
+-): { q: string; a: string }[] {
+-  type Item = { q: string; a: string }
+-  const items: Item[] = []
+-  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
+-
+-  const checkInLine = str(source.checkInLine)
+-  const checkOutLine = str(source.checkOutLine)
+-  if (checkInLine || checkOutLine) {
+-    const parts = [checkInLine, checkOutLine].filter(Boolean)
+-    items.push({
+-      q: t.qCheckInOut ?? 'Check-in ve check-out saatleri nedir?',
+-      a: parts.join(' ┬À '),
+-    })
+-  }
+-
+-  if (source.hasBreakfastIncluded) {
+-    items.push({
+-      q: t.qBreakfast ?? 'Bu otelde kahvalt─▒ sunuluyor mu?',
+-      a:
+-        t.aBreakfast ??
+-        'Evet, otelde kahvalt─▒ sunulmaktad─▒r. Detaylar yemek plan─▒ b├Âl├╝m├╝nde yer al─▒r.',
+-    })
+-  }
+-
+-  const prepaymentNote = str(source.prepaymentNote)
+-  if (prepaymentNote) {
+-    items.push({
+-      q: t.qPrepayment ?? 'Rezervasyon i├ğin ne kadar ├Ân ├Âdeme al─▒n─▒r?',
+-      a: prepaymentNote,
+-    })
+-  }
+-
+-  const cancellationText = str(source.cancellationText)
+-  if (cancellationText) {
+-    items.push({
+-      q: t.qCancellation ?? 'Rezervasyonumu nas─▒l iptal edebilirim?',
+-      a: cancellationText,
+-    })
+-  }
+-
+-  const petPolicyText = str(source.petPolicyText)
+-  if (petPolicyText) {
+-    items.push({
+-      q: t.qPets ?? 'Evcil hayvan kabul ediyor musunuz?',
+-      a: petPolicyText,
+-    })
+-  }
+-
+-  const ministryLicenseRef = str(source.ministryLicenseRef)
+-  if (ministryLicenseRef) {
+-    items.push({
+-      q: t.qLicense ?? 'Tesisin Bakanl─▒k ruhsat numaras─▒ nedir?',
+-      a: ministryLicenseRef,
+-    })
+-  }
+-
+-  return items
+-}
+-
+ export default function HotelFAQSection({
+   locale,
+   source,
+diff --git a/frontend/src/app/[locale]/(app)/(listings)/StayListingDetailPageContent.tsx b/frontend/src/app/[locale]/(app)/(listings)/StayListingDetailPageContent.tsx
+index f07e893..bbc64bc 100644
+--- a/frontend/src/app/[locale]/(app)/(listings)/StayListingDetailPageContent.tsx
++++ b/frontend/src/app/[locale]/(app)/(listings)/StayListingDetailPageContent.tsx
+@@ -73,7 +73,8 @@ import Link from 'next/link'
+ import { redirect } from 'next/navigation'
+ import clsx from 'clsx'
+ import HeaderGallery from './components/HeaderGallery'
+-import HotelFAQSection, { AccordionFaqSection, buildHotelFaqItems } from './HotelFAQSection'
++import { buildHotelFaqItems } from './hotel-faq-items'
++import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
+ import HotelHighlightsSection from './HotelHighlightsSection'
+ import HotelImportantNotesSection from './HotelImportantNotesSection'
+ import HotelLocationInfoSection from './HotelLocationInfoSection'
+diff --git a/frontend/src/app/[locale]/(app)/(listings)/hotel-faq-items.ts b/frontend/src/app/[locale]/(app)/(listings)/hotel-faq-items.ts
+new file mode 100644
+index 0000000..bdd600b
+--- /dev/null
++++ b/frontend/src/app/[locale]/(app)/(listings)/hotel-faq-items.ts
+@@ -0,0 +1,80 @@
++/** Otel SSS maddeleri ÔÇö saf veri; server ve client'tan g├╝venle ├ğa─şr─▒labilir. */
++
++export interface HotelFaqSource {
++  /** "14:00ÔÇô23:00" gibi serbest metin (locale ile gelir) */
++  checkInLine?: string
++  /** "12:00'a kadar" gibi serbest metin (locale ile gelir) */
++  checkOutLine?: string
++  /** ├ûn ├Âdeme y├╝zdesi metni (├Ârn. "%30") ÔÇö bo┼şsa gizlenir */
++  prepaymentNote?: string | null
++  /** ─░ptal politikas─▒ serbest metni ÔÇö bo┼şsa gizlenir */
++  cancellationText?: string | null
++  /** K├╝lt├╝r ve Turizm Bakanl─▒─ş─▒ ruhsat numaras─▒ ÔÇö bo┼şsa gizlenir */
++  ministryLicenseRef?: string | null
++  /** Otelin yemek plan─▒ durumu (aksiyon ifadesi i├ğin) */
++  hasBreakfastIncluded?: boolean
++  /** Otele ├Âzg├╝ "evcil hayvan kabul ediyor mu?" kural─▒ (rules listesinden) */
++  petPolicyText?: string | null
++}
++
++export function buildHotelFaqItems(
++  source: HotelFaqSource,
++  t: Record<string, string>,
++): { q: string; a: string }[] {
++  type Item = { q: string; a: string }
++  const items: Item[] = []
++  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
++
++  const checkInLine = str(source.checkInLine)
++  const checkOutLine = str(source.checkOutLine)
++  if (checkInLine || checkOutLine) {
++    const parts = [checkInLine, checkOutLine].filter(Boolean)
++    items.push({
++      q: t.qCheckInOut ?? 'Check-in ve check-out saatleri nedir?',
++      a: parts.join(' ┬À '),
++    })
++  }
++
++  if (source.hasBreakfastIncluded) {
++    items.push({
++      q: t.qBreakfast ?? 'Bu otelde kahvalt─▒ sunuluyor mu?',
++      a:
++        t.aBreakfast ??
++        'Evet, otelde kahvalt─▒ sunulmaktad─▒r. Detaylar yemek plan─▒ b├Âl├╝m├╝nde yer al─▒r.',
++    })
++  }
++
++  const prepaymentNote = str(source.prepaymentNote)
++  if (prepaymentNote) {
++    items.push({
++      q: t.qPrepayment ?? 'Rezervasyon i├ğin ne kadar ├Ân ├Âdeme al─▒n─▒r?',
++      a: prepaymentNote,
++    })
++  }
++
++  const cancellationText = str(source.cancellationText)
++  if (cancellationText) {
++    items.push({
++      q: t.qCancellation ?? 'Rezervasyonumu nas─▒l iptal edebilirim?',
++      a: cancellationText,
++    })
++  }
++
++  const petPolicyText = str(source.petPolicyText)
++  if (petPolicyText) {
++    items.push({
++      q: t.qPets ?? 'Evcil hayvan kabul ediyor musunuz?',
++      a: petPolicyText,
++    })
++  }
++
++  const ministryLicenseRef = str(source.ministryLicenseRef)
++  if (ministryLicenseRef) {
++    items.push({
++      q: t.qLicense ?? 'Tesisin Bakanl─▒k ruhsat numaras─▒ nedir?',
++      a: ministryLicenseRef,
++    })
++  }
++
++  return items
++}
+-- 
+2.54.0.windows.1
+

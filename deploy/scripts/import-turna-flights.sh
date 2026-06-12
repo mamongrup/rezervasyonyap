@@ -27,14 +27,10 @@ if [[ -f "$TURNA_ENV" ]]; then
   # shellcheck disable=SC1090
   source "$TURNA_ENV"
   set +a
-else
-  echo "[FAIL] $TURNA_ENV bulunamadı (TURNA_API_KEY, TURNA_BASE_URL)." >&2
-  exit 1
 fi
 
 if [[ -z "${TURNA_API_KEY:-}" ]]; then
-  echo "[FAIL] TURNA_API_KEY tanımlı değil ($TURNA_ENV)." >&2
-  exit 1
+  echo "[UYARI] TURNA_API_KEY env yok — panel/DB kaydı kullanılacak (DATABASE_URL gerekli)." >&2
 fi
 
 # Canlı ApiKey + apitest URL → 403 (daha önce doğrulandı)

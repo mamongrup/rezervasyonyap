@@ -24,7 +24,7 @@ export default async function Layout({
     <ApplicationLayout
       locale={locale}
       header={
-        /** Üstte sabit: scroll’da kaybolmaz — sağdaki `sticky top-16` harita ile hizalı kalır, üstte beyaz boşluk oluşmaz */
+        /** Üstte sabit: scroll’da kaybolmaz — sağdaki `sticky top-20` harita ile hizalı kalır, üstte beyaz boşluk oluşmaz */
         <div className="sticky top-0 z-50 w-full border-b border-neutral-100 bg-white dark:border-neutral-700 dark:bg-neutral-900">
           <Header3 initSearchFormTab={tab} />
         </div>

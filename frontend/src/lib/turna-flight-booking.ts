@@ -182,7 +182,7 @@ export function buildTurnaReserveForm(
 
 /**
  * Turna reserve + ödeme + checkout (geliştirme / manuel test).
- * Üretim akışı: ödeme webhook → `turna_flight_booking_sync.fulfill_after_payment` (backend).
+ * Üretim akışı: ödeme webhook → `booking_fulfillment.fulfill_after_payment` (backend).
  */
 export async function completeTurnaFlightBooking(
   draft: TurnaFlightBookingDraft,

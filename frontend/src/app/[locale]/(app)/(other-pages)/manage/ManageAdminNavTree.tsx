@@ -208,6 +208,7 @@ const GROUPS: NavGroupDef[] = [
         items: [
           { path: '/manage/admin/settings?tab=ai', label: 'Yapay zeka ayarları' },
           { path: '/manage/ai/content', label: 'İçerik oluşturucu' },
+          { path: '/manage/ai/listing-content', label: 'İlan içerik & SEO (toplu)' },
           { path: '/manage/ai/regions', label: 'Bölge oluşturucu' },
           { path: '/manage/ai/seo', label: 'SEO oluşturucu' },
           { path: '/manage/ai/translate', label: 'Çeviri asistanı' },

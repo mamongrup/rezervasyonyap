@@ -7,6 +7,7 @@ import type { ServicePoi } from '@/lib/travel-api'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { Divider } from '@/shared/divider'
+import clsx from 'clsx'
 import type { ReactNode } from 'react'
 import {
   Bus,
@@ -76,26 +77,36 @@ interface Props {
   amenities: ServicePoi[]
   transport: ServicePoi[]
   locale?: string
+  /** Konum haritasının hemen altında — ayrı bölüm başlığı yok */
+  variant?: 'section' | 'embedded'
 }
 
 export default function ListingServicePoisSection({
   amenities,
   transport,
   locale = 'tr',
+  variant = 'section',
 }: Props) {
   if (!amenities.length && !transport.length) return null
 
   const sp = getMessages(locale).listing.servicePois
   const region = getMessages(locale).site.region
+  const embedded = variant === 'embedded'
 
   return (
-    <section className="listingSection__wrap">
-      <div>
-        <SectionHeading>{sp.title}</SectionHeading>
-        <SectionSubheading>{sp.subtitle}</SectionSubheading>
-      </div>
-      <Divider className="w-14!" />
-      <div className="grid gap-6 sm:grid-cols-2">
+    <section className={clsx(!embedded && 'listingSection__wrap')}>
+      {embedded ? (
+        <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">{sp.title}</h3>
+      ) : (
+        <>
+          <div>
+            <SectionHeading>{sp.title}</SectionHeading>
+            <SectionSubheading>{sp.subtitle}</SectionSubheading>
+          </div>
+          <Divider className="w-14!" />
+        </>
+      )}
+      <div className={clsx('grid gap-6 sm:grid-cols-2', embedded && 'mt-4')}>
         {amenities.length > 0 && (
           <div className="rounded-2xl border border-neutral-100 bg-white p-5 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/40">
             <h3 className="mb-3 text-base font-semibold text-neutral-900 dark:text-white">

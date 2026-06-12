@@ -1,7 +1,7 @@
 import LikeSaveBtns from '@/components/LikeSaveBtns'
 import StartRating from '@/components/StartRating'
 import { Divider } from '@/shared/divider'
-import { Location06Icon } from '@hugeicons/core-free-icons'
+import { Location06Icon, StarIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import React from 'react'
 
@@ -17,6 +17,14 @@ interface Props {
   referenceCode?: string | null
   /** Örn. «Referans kodu:» — `listing.detailHeader.referenceCode` */
   referenceCodeLabel?: string
+  /** Otel adının altında gösterilen turizm işletme belgesi satırı */
+  licenseLine?: string | null
+  /** Otel sınıfı (yıldız sayısı) — görsel yıldızlar için */
+  hotelStarRating?: number | null
+  /** Otel sınıfı metni — örn. «4 yıldız» */
+  hotelStarLine?: string | null
+  /** Konaklama / pansiyon tipleri — virgülle birleştirilmiş metin */
+  hotelBoardTypesLine?: string | null
   children?: React.ReactNode
   /** Galeriden en fazla 10 görsel seçerek paylaşım */
   shareGallery?: { galleryUrls: string[]; listingTitle: string; locale: string }
@@ -24,7 +32,7 @@ interface Props {
   shareTitle?: string
   /** Tatil evi tema etiketleri (yönetim panelindeki tema kodlarından çözümlenmiş metinler) */
   themePills?: string[]
-  /** Şehir / bölge (ör. Kapadokya) — konum ikonunun yanında gösterilir */
+  /** Bölge, ilçe, il — konum ikonunun yanında gösterilir (ör. Galata, Beyoğlu, İstanbul) */
   regionName?: string | null
   /** Yıldız puanı satırını gizle (tur vb.) */
   showReviews?: boolean
@@ -46,9 +54,19 @@ const SectionHeader = ({
   listingId,
   referenceCode,
   referenceCodeLabel,
+  licenseLine,
+  hotelStarRating,
+  hotelStarLine,
+  hotelBoardTypesLine,
   showReviews = true,
   stackedSections = false,
 }: Props) => {
+  const starCount =
+    typeof hotelStarRating === 'number' && hotelStarRating > 0
+      ? Math.min(5, Math.floor(hotelStarRating))
+      : 0
+  const boardTypes = hotelBoardTypesLine?.trim() ?? ''
+  const showHotelMeta = starCount > 0 || boardTypes.length > 0
   const region = regionName?.trim() ?? ''
   const addr = address?.trim() ?? ''
   /** Pin satırı: tatil evinde şehir/bölge; aksi halde adres (sokak üst başlıkta tekrarlanmaz) */
@@ -73,6 +91,36 @@ const SectionHeader = ({
             listingId={listingId}
           />
         </div>
+
+        {showHotelMeta ? (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+            {starCount > 0 ? (
+              <span className="inline-flex items-center gap-1">
+                <span className="inline-flex items-center" aria-hidden>
+                  {Array.from({ length: starCount }, (_, index) => (
+                    <HugeiconsIcon
+                      key={index}
+                      icon={StarIcon}
+                      className="size-4 text-amber-500"
+                      strokeWidth={1.75}
+                    />
+                  ))}
+                </span>
+                {hotelStarLine?.trim() ? <span>{hotelStarLine.trim()}</span> : null}
+              </span>
+            ) : null}
+            {starCount > 0 && boardTypes ? (
+              <span className="text-neutral-400 dark:text-neutral-500" aria-hidden>
+                ·
+              </span>
+            ) : null}
+            {boardTypes ? <span>{boardTypes}</span> : null}
+          </div>
+        ) : null}
+
+        {licenseLine?.trim() ? (
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">{licenseLine.trim()}</p>
+        ) : null}
 
         {referenceCode?.trim() ? (
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -100,6 +148,8 @@ const SectionHeader = ({
           </div>
         ) : null}
 
+        <Divider className="w-14" />
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           {showReviews ? <StartRating size="lg" point={reviewStart} reviewCount={reviewCount} /> : null}
           {pinPrimary ? (
@@ -121,11 +171,13 @@ const SectionHeader = ({
           ) : null}
         </div>
 
-        <Divider className="w-14" />
+        {children ? <Divider className="w-14" /> : null}
 
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-neutral-700 dark:text-neutral-300">
-          {children}
-        </div>
+        {children ? (
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+            {children}
+          </div>
+        ) : null}
       </div>
     </div>
   )

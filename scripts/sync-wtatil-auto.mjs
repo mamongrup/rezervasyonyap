@@ -23,6 +23,7 @@ import {
   findListingByWtatilRef,
   updateWtatilTourPricesOnly,
   upsertWtatilTourListing,
+  refreshWtatilTourVitrin,
 } from './lib/wtatil-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
@@ -141,6 +142,8 @@ async function main() {
         currencyCode: pickCurrency(tour),
         replacePeriods: true,
       })
+
+      await refreshWtatilTourVitrin(client, ctx, listingId, tour, enrich)
 
       const periodCount = Array.isArray(enrich.periods) ? enrich.periods.length : 0
       if (result.cheapest_price != null) {

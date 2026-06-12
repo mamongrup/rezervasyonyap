@@ -1,8 +1,10 @@
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
+import { getMessages } from '@/utils/getT'
 import { Divider } from '@/shared/divider'
 import { SectionHeading, SectionSubheading } from './SectionHeading'
 
 interface Props {
+  locale: string
   lat?: number
   lng?: number
   address?: string
@@ -10,7 +12,9 @@ interface Props {
   subheading?: string
 }
 
-const SectionMap = async ({ lat, lng, address, heading = 'Konum', subheading }: Props) => {
+const SectionMap = async ({ locale, lat, lng, address, heading, subheading }: Props) => {
+  const dp = getMessages(locale).listing.detailPage
+  const dpFallback = getMessages('en').listing.detailPage
   const cfg = await getCachedSiteConfig()
   const mapsApiKey =
     (cfg?.maps as Record<string, unknown> | undefined)?.api_key as string | undefined
@@ -21,10 +25,13 @@ const SectionMap = async ({ lat, lng, address, heading = 'Konum', subheading }: 
     ? `https://www.google.com/maps?q=${lat},${lng}&z=14&output=embed`
     : undefined
 
+  const headingLabel = heading ?? dp.location ?? dpFallback.location
+  const mapUnavailable = dp.mapUnavailable ?? dpFallback.mapUnavailable
+
   return (
     <div className="listingSection__wrap">
       <div>
-        <SectionHeading>{heading}</SectionHeading>
+        <SectionHeading>{headingLabel}</SectionHeading>
         {(subheading ?? address) && (
           <SectionSubheading>{subheading ?? address}</SectionSubheading>
         )}
@@ -32,7 +39,7 @@ const SectionMap = async ({ lat, lng, address, heading = 'Konum', subheading }: 
       <Divider className="w-14!" />
 
       {mapSrc ? (
-        <div className="aspect-w-5 rounded-2xl ring-1 ring-black/10 aspect-h-6 sm:aspect-h-3 lg:aspect-h-2 overflow-hidden">
+        <div className="h-52 w-full overflow-hidden rounded-2xl ring-1 ring-black/10 sm:h-56 lg:h-60">
           <iframe
             width="100%"
             height="100%"
@@ -44,8 +51,8 @@ const SectionMap = async ({ lat, lng, address, heading = 'Konum', subheading }: 
           />
         </div>
       ) : (
-        <div className="flex h-48 items-center justify-center rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-400 text-sm">
-          Harita bilgisi mevcut değil
+        <div className="flex h-48 items-center justify-center rounded-2xl bg-neutral-100 text-sm text-neutral-400 dark:bg-neutral-800">
+          {mapUnavailable}
         </div>
       )}
 

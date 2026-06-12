@@ -2,8 +2,8 @@ import ListingDescriptionExpandable from '@/components/listing/ListingDescriptio
 import { getFerryListingByHandle } from '@/data/listings'
 import { fetchCategoryListings } from '@/lib/listings-fetcher'
 import type { TListingFerry } from '@/types/listing-types'
-import ButtonPrimary from '@/shared/ButtonPrimary'
-import { FerryBoatIcon, Timer02Icon } from '@hugeicons/core-free-icons'
+import FerryBookingSidebar from './FerryBookingSidebar'
+import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -19,8 +19,8 @@ import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
 import FerryPriceTableSection from './FerryPriceTableSection'
 import FerrySailingsSection from './FerrySailingsSection'
-import FerryBookingSidebar from './FerryBookingSidebar'
 import { Divider } from '@/shared/divider'
+import { FerryBoatIcon, Timer02Icon } from '@hugeicons/core-free-icons'
 
 export async function generateFerryListingMetadata({
   params,
@@ -119,10 +119,7 @@ export default async function FerryListingDetailPage({
         ? [featuredImage]
         : []
 
-  const handleSubmitForm = async () => {
-    'use server'
-    redirect('/checkout')
-  }
+  const ferryListingId = catalogListingId ?? listing.id
 
   return (
     <div>
@@ -202,21 +199,14 @@ export default async function FerryListingDetailPage({
         <div className="grow">
           {ferryDetails?.ticket_fares?.length ? (
             <FerryBookingSidebar
+              listingId={ferryListingId}
               fares={ferryDetails.ticket_fares}
               currencyCode={ferryDetails.currency_code}
               fallbackPrice={price}
               locale={locale}
-              action={handleSubmitForm}
             />
           ) : (
-            <div className="sticky top-5 listingSection__wrap sm:shadow-xl">
-              <span className="text-3xl font-semibold">{price ?? '—'}</span>
-              <form action={handleSubmitForm} className="mt-4">
-                <ButtonPrimary type="submit" className="w-full">
-                  {m.common.Reserve}
-                </ButtonPrimary>
-              </form>
-            </div>
+            <ExperienceBookingSidebar listingId={ferryListingId} price={price} locale={locale} />
           )}
         </div>
       </main>
@@ -230,8 +220,6 @@ export default async function FerryListingDetailPage({
           listings={similarFerryListings}
           title={dp.similarListings}
           perNightSuffix={fd.pricePerPerson}
-          ariaPrev={dp.carouselPrevAria}
-          ariaNext={dp.carouselNextAria}
         />
       ) : null}
     </div>

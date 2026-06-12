@@ -21,6 +21,10 @@ export function ensureCarRentalCheckout(
 
 export interface Yolcu360Car {
   id: string
+  /** Arama oturumu — POST /order için zorunlu */
+  searchID?: string
+  /** Araç ürün kodu — POST /order `code` alanı */
+  productCode?: string
   vehicleClass?: string
   brand?: string
   model?: string
@@ -87,7 +91,10 @@ export function flattenYolcu360CarItem(item: unknown, index: number): Yolcu360Ca
   const totalMoney = asRecord(pricing?.['total']) ?? asRecord(pricing?.['fee'])
   const days = pickNum(r['rentalDurationInDays'])
 
-  const id = pickStr(r['id'], r['productId'], r['searchId'], r['code']) || `idx-${index}`
+  const searchID = pickStr(r['searchID'], r['searchId']) || undefined
+  const productCode = pickStr(r['code']) || undefined
+  const id =
+    productCode || pickStr(r['id'], r['productId']) || searchID || `idx-${index}`
   const totalPrice = moneyAmount(
     pickNum(r['totalPrice'], r['total_price'], totalMoney?.['amount'], pricing?.['total']),
   )
@@ -106,6 +113,8 @@ export function flattenYolcu360CarItem(item: unknown, index: number): Yolcu360Ca
 
   return {
     id,
+    searchID,
+    productCode,
     vehicleClass:
       pickStr(
         r['vehicleClass'],
@@ -176,6 +185,8 @@ export function mapYolcu360CarToListing(
   seats?: number
   gearshift?: string
   yolcu360RawId?: string
+  yolcu360SearchId?: string
+  yolcu360ProductCode?: string
   yolcu360TotalPrice?: number
   yolcu360FuelType?: string
   yolcu360VendorName?: string
@@ -206,6 +217,8 @@ export function mapYolcu360CarToListing(
     handle,
     detailSearchQuery: detailQuery,
     yolcu360RawId: rawId,
+    yolcu360SearchId: car.searchID,
+    yolcu360ProductCode: car.productCode,
     yolcu360TotalPrice: car.totalPrice,
     yolcu360FuelType: car.fuelType,
     yolcu360VendorName: car.vendorName,

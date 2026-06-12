@@ -5,8 +5,18 @@
  */
 import NearbyPoiCardImage from '@/components/travel/NearbyPoiCardImage'
 import type { NearbyPoi } from '@/lib/travel-api'
+import { getMessages } from '@/utils/getT'
+import { interpolate } from '@/utils/interpolate'
 import { BookOpen, MapPin } from 'lucide-react'
 import Link from 'next/link'
+
+function formatPoiDistance(km: number, locale: string): string {
+  if (!Number.isFinite(km) || km <= 0) return ''
+  const sp = getMessages(locale).listing.servicePois
+  return km < 1
+    ? interpolate(sp.distanceMeters, { m: String(Math.round(km * 1000)) })
+    : interpolate(sp.distanceKm, { km: km.toFixed(km >= 10 ? 0 : 1) })
+}
 
 
 interface Props {
@@ -54,6 +64,11 @@ export default function ListingNearbyPoisSection({ pois, title, locale }: Props)
                   </p>
                 )}
               </div>
+              {poi.distance_km > 0 ? (
+                <p className="mt-1 text-xs font-medium tabular-nums text-primary-700 dark:text-primary-300">
+                  {formatPoiDistance(poi.distance_km, lang)}
+                </p>
+              ) : null}
               {poi.summary ? (
                 <p className="mt-1 line-clamp-2 text-xs text-neutral-500 dark:text-neutral-400">
                   {poi.summary}

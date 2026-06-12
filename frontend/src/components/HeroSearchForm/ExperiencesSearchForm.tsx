@@ -47,7 +47,7 @@ export const ExperiencesSearchForm = ({ className, formStyle = 'default' }: Prop
   return (
     <Form
       className={clsx(
-        'relative z-10 flex w-full items-stretch rounded-full bg-white [--form-bg:var(--color-white)] dark:bg-neutral-800 dark:[--form-bg:var(--color-neutral-800)]',
+        'relative isolate z-[100] flex w-full items-stretch overflow-visible rounded-full bg-white [--form-bg:var(--color-white)] dark:bg-neutral-800 dark:[--form-bg:var(--color-neutral-800)]',
         className,
         formStyle === 'small' && 'custom-shadow-1',
         formStyle === 'default' &&

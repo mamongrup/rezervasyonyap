@@ -18,6 +18,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/io
 import gleam/string
+import gleam/time/calendar
 import pog
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
@@ -144,6 +145,231 @@ fn date_range_invalid_for_listing(
         _ -> False
       }
     _ -> stay_range_invalid(start, end)
+  }
+}
+
+fn meta_hotel_room_id(meta_json: String) -> Option(String) {
+  case json.parse(meta_json, decode.at(["hotel_room_id"], decode.string)) {
+    Ok(id) ->
+      case string.trim(id) {
+        "" -> None
+        s -> Some(s)
+      }
+    Error(_) -> None
+  }
+}
+
+fn meta_json_string_field(meta_json: String, key: String) -> Option(String) {
+  case json.parse(meta_json, decode.at([key], decode.string)) {
+    Ok(v) ->
+      case string.trim(v) {
+        "" -> None
+        s -> Some(s)
+      }
+    Error(_) -> None
+  }
+}
+
+fn parse_price_text(raw: String) -> Result(Float, Nil) {
+  float.parse(string.trim(raw))
+}
+
+/// Otel satırı — takvim gecelik toplamı + pansiyon farkı; istemci unit_price ile karşılaştırılır.
+fn hotel_expected_line_total(
+  db: pog.Connection,
+  listing_id: String,
+  room_id: String,
+  start_date: calendar.Date,
+  end_date: calendar.Date,
+  meal_plan_id: Option(String),
+) -> Result(Float, String) {
+  let meal_sql = case meal_plan_id {
+    None -> ""
+    Some(id) -> string.trim(id)
+  }
+  case
+    pog.query(
+      "with bounds as (select $3::date as s, $4::date as e), "
+        <> "night_series as ( "
+        <> "  select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
+        <> "  from bounds b where b.e > b.s "
+        <> "), "
+        <> "nights as (select count(*)::int as n from night_series), "
+        <> "fallback as ( "
+        <> "  select coalesce( "
+        <> "    (select m.price_per_night from listing_meal_plans m "
+        <> "      where m.listing_id = $1::uuid and m.is_active = true and m.plan_code = 'room_only' "
+        <> "      order by m.sort_order asc limit 1), "
+        <> "    (select min(m.price_per_night) from listing_meal_plans m "
+        <> "      where m.listing_id = $1::uuid and m.is_active = true), "
+        <> "    0::numeric "
+        <> "  ) as nightly "
+        <> "), "
+        <> "lodging as ( "
+        <> "  select coalesce(sum(coalesce(c.price_override, f.nightly)), 0) as total "
+        <> "  from night_series ns "
+        <> "  cross join fallback f "
+        <> "  left join hotel_room_availability_calendar c "
+        <> "    on c.hotel_room_id = $2::uuid and c.day = ns.day "
+        <> "), "
+        <> "base_plan as ( "
+        <> "  select coalesce( "
+        <> "    (select m.price_per_night from listing_meal_plans m "
+        <> "      where m.listing_id = $1::uuid and m.is_active = true and m.plan_code = 'room_only' "
+        <> "      order by m.sort_order asc limit 1), "
+        <> "    (select min(m.price_per_night) from listing_meal_plans m "
+        <> "      where m.listing_id = $1::uuid and m.is_active = true), "
+        <> "    f.nightly "
+        <> "  ) as nightly from fallback f "
+        <> "), "
+        <> "sel_plan as ( "
+        <> "  select m.price_per_night as nightly from listing_meal_plans m "
+        <> "  where m.listing_id = $1::uuid and m.is_active = true "
+        <> "    and ($5::text = '' or m.id::text = $5::text) "
+        <> "  order by m.sort_order asc limit 1 "
+        <> ") "
+        <> "select ( "
+        <> "  l.total + greatest(0, coalesce(sp.nightly, bp.nightly) - bp.nightly) * n.n "
+        <> ")::text "
+        <> "from lodging l, nights n, base_plan bp "
+        <> "left join sel_plan sp on true",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(room_id))
+    |> pog.parameter(pog.calendar_date(start_date))
+    |> pog.parameter(pog.calendar_date(end_date))
+    |> pog.parameter(pog.text(meal_sql))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(db)
+  {
+    Error(_) -> Error("hotel_price_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [total_raw] ->
+          case parse_price_text(total_raw) {
+            Ok(n) -> Ok(n)
+            Error(_) -> Error("hotel_price_parse_failed")
+          }
+        _ -> Error("hotel_price_empty")
+      }
+  }
+}
+
+fn hotel_line_price_mismatch(
+  db: pog.Connection,
+  listing_id: String,
+  room_id: String,
+  start_date: calendar.Date,
+  end_date: calendar.Date,
+  client_price: String,
+  meta_json: String,
+) -> Bool {
+  case parse_price_text(client_price) {
+    Error(_) -> True
+    Ok(client_total) ->
+      case
+        hotel_expected_line_total(
+          db,
+          listing_id,
+          room_id,
+          start_date,
+          end_date,
+          meta_json_string_field(meta_json, "meal_plan_id"),
+        )
+      {
+        Error(_) -> False
+        Ok(expected) -> float.absolute_value(client_total -. expected) >. 0.05
+      }
+  }
+}
+
+/// Konaklama geceleri (çıkış günü hariç) oda envanterini karşılamıyorsa true.
+fn hotel_room_stay_unavailable(
+  db: pog.Connection,
+  listing_id: String,
+  room_id: String,
+  start_date: calendar.Date,
+  end_date: calendar.Date,
+  quantity: Int,
+) -> Bool {
+  case
+    pog.query(
+      "select ( "
+        <> "not exists ( "
+        <> "  select 1 from hotel_rooms hr "
+        <> "  where hr.id = $2::uuid and hr.listing_id = $1::uuid "
+        <> ") "
+        <> "or exists ( "
+        <> "  with bounds as (select $3::date as s, $4::date as e), "
+        <> "  room_info as ( "
+        <> "    select hr.unit_count::int as unit_count from hotel_rooms hr "
+        <> "    where hr.id = $2::uuid and hr.listing_id = $1::uuid "
+        <> "  ), "
+        <> "  night_series as ( "
+        <> "    select generate_series(b.s, b.e - interval '1 day', interval '1 day')::date as day "
+        <> "    from bounds b where b.e > b.s "
+        <> "  ) "
+        <> "  select 1 from night_series ns "
+        <> "  cross join room_info ri "
+        <> "  left join hotel_room_availability_calendar c "
+        <> "    on c.hotel_room_id = $2::uuid and c.day = ns.day "
+        <> "  where coalesce(c.available_units, ri.unit_count) < $5::int "
+        <> "  limit 1 "
+        <> ") "
+        <> ")::text",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.text(room_id))
+    |> pog.parameter(pog.calendar_date(start_date))
+    |> pog.parameter(pog.calendar_date(end_date))
+    |> pog.parameter(pog.int(quantity))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(db)
+  {
+    Error(_) -> True
+    Ok(ret) ->
+      case ret.rows {
+        ["t"] -> True
+        _ -> False
+      }
+  }
+}
+
+fn insert_cart_line_row(
+  conn: pog.Connection,
+  cart_id: String,
+  listing_id: String,
+  quantity: Int,
+  start_date: calendar.Date,
+  end_date: calendar.Date,
+  price_trim: String,
+  meta_sql: String,
+) -> Result(String, String) {
+  case
+    pog.query(
+      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, $7::jsonb) returning id::text",
+    )
+    |> pog.parameter(pog.text(cart_id))
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.int(quantity))
+    |> pog.parameter(pog.calendar_date(start_date))
+    |> pog.parameter(pog.calendar_date(end_date))
+    |> pog.parameter(pog.text(price_trim))
+    |> pog.parameter(pog.text(meta_sql))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(conn)
+  {
+    Error(e) -> {
+      io.println(
+        "[cart_line] " <> pog_errors.query_error_to_string(e),
+      )
+      Error(pog_errors.cart_line_insert_error_code(e))
+    }
+    Ok(r) ->
+      case r.rows {
+        [lid] -> Ok(lid)
+        _ -> Error("unexpected")
+      }
   }
 }
 
@@ -293,45 +519,60 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                 }
                                               case gate {
                                                 Error(e) -> Error(e)
-                                                Ok(Nil) -> {
-                                                  case
-                                                    pog.query(
-                                                      "insert into cart_lines (cart_id, listing_id, quantity, starts_on, ends_on, unit_price, tax_amount, fee_amount, meta_json) values ($1::uuid, $2::uuid, $3, $4::date, $5::date, $6::numeric, 0, 0, $7::jsonb) returning id::text",
-                                                    )
-                                                    |> pog.parameter(pog.text(cart_id))
-                                                    |> pog.parameter(pog.text(listing_id))
-                                                    |> pog.parameter(pog.int(quantity))
-                                                    |> pog.parameter(pog.calendar_date(
-                                                      start_date,
-                                                    ))
-                                                    |> pog.parameter(pog.calendar_date(
-                                                      end_date,
-                                                    ))
-                                                    |> pog.parameter(pog.text(price_trim))
-                                                    |> pog.parameter(pog.text(meta_sql))
-                                                    |> pog.returning(row_dec.col0_string())
-                                                    |> pog.execute(conn)
-                                                  {
-                                                    Error(e) -> {
-                                                      io.println(
-                                                        "[cart_line] "
-                                                          <> pog_errors.query_error_to_string(
-                                                            e,
-                                                          ),
-                                                      )
-                                                      Error(
-                                                        pog_errors.cart_line_insert_error_code(
-                                                          e,
-                                                        ),
-                                                      )
-                                                    }
-                                                    Ok(r) ->
-                                                      case r.rows {
-                                                        [lid] -> Ok(lid)
-                                                        _ -> Error("unexpected")
+                                                Ok(Nil) ->
+                                                  case meta_hotel_room_id(meta_sql) {
+                                                    Some(room_id) ->
+                                                      case
+                                                        hotel_room_stay_unavailable(
+                                                          conn,
+                                                          listing_id,
+                                                          room_id,
+                                                          start_date,
+                                                          end_date,
+                                                          quantity,
+                                                        )
+                                                      {
+                                                        True ->
+                                                          Error("hotel_room_unavailable")
+                                                        False ->
+                                                          case
+                                                            hotel_line_price_mismatch(
+                                                              conn,
+                                                              listing_id,
+                                                              room_id,
+                                                              start_date,
+                                                              end_date,
+                                                              price_trim,
+                                                              meta_sql,
+                                                            )
+                                                          {
+                                                            True ->
+                                                              Error("hotel_price_mismatch")
+                                                            False ->
+                                                              insert_cart_line_row(
+                                                                conn,
+                                                                cart_id,
+                                                                listing_id,
+                                                                quantity,
+                                                                start_date,
+                                                                end_date,
+                                                                price_trim,
+                                                                meta_sql,
+                                                              )
+                                                          }
                                                       }
+                                                    None ->
+                                                      insert_cart_line_row(
+                                                        conn,
+                                                        cart_id,
+                                                        listing_id,
+                                                        quantity,
+                                                        start_date,
+                                                        end_date,
+                                                        price_trim,
+                                                        meta_sql,
+                                                      )
                                                   }
-                                                }
                                               }
                                             }
                                           }

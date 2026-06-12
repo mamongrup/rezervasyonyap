@@ -17,7 +17,13 @@ import {
   type HolidayHomeFaqTemplatePayload,
 } from '@/lib/holiday-home-faq-merge'
 import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
+import { safeTrim, safeTrimOrNull } from '@/lib/safe-string'
 import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
+import {
+  HOTEL_DEMO_LISTING_HANDLE,
+  HOTEL_DEMO_LOCATION_PIN,
+} from '@/lib/hotel-detail-demo-content'
+import { formatListingLocationHierarchy, normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { normalizeCatalogVertical, type CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import { stripHtml } from '@/lib/social-share/strip-html'
 import {
@@ -151,11 +157,27 @@ export const getStayListingByHandle = async (
   const api = mapPublicListingItemToListingBase(item)
   const pinFromSearch = (api.city ?? api.address ?? '').trim()
   const pinFromVitrine = vitrine?.location_label?.trim() ?? ''
-  const displayPin = pinFromSearch || pinFromVitrine
+  const pinFromHierarchy = formatListingLocationHierarchy({
+    area: vitrine?.location_area,
+    district: vitrine?.location_district,
+    province: vitrine?.location_province,
+  })
+  let displayPin =
+    pinFromHierarchy ||
+    normalizeStayLocationPin(pinFromSearch || pinFromVitrine) ||
+    pinFromSearch ||
+    pinFromVitrine
+  if (
+    !pinFromHierarchy &&
+    handle === HOTEL_DEMO_LISTING_HANDLE &&
+    (!displayPin || !displayPin.includes(','))
+  ) {
+    displayPin = HOTEL_DEMO_LOCATION_PIN
+  }
   let listing: TStayListing = {
     ...api,
     ...(displayPin ? { city: displayPin, address: displayPin } : {}),
-    title: vitrine?.title?.trim() || api.title,
+    title: vitrine?.title?.trim() || api.title?.trim() || handle,
     description: vitrine?.description?.trim() || '',
     galleryImgs: api.galleryImgs,
   } as TStayListing
@@ -243,15 +265,14 @@ export const getStayListingByHandle = async (
   }
 
   if (item) {
-    if (item.theme_codes?.trim()) {
+    if (safeTrim(item.theme_codes)) {
       themeCodes = parseHolidayThemeCodes(item.theme_codes)
     }
-    if (item.ministry_license_ref?.trim()) {
-      ministryLicenseRef = item.ministry_license_ref.trim()
-    }
-    const pp = item.prepayment_percent?.trim()
+    const mlr = safeTrimOrNull(item.ministry_license_ref)
+    if (mlr) ministryLicenseRef = mlr
+    const pp = safeTrimOrNull(item.prepayment_percent)
     if (pp) prepaymentPercent = pp
-    const cpt = item.cancellation_policy_text?.trim()
+    const cpt = safeTrimOrNull(item.cancellation_policy_text)
     if (cpt) cancellationPolicyText = cpt
   }
 

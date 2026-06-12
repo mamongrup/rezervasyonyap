@@ -57,6 +57,9 @@ function moduleTimeoutSec(
   if (profileCode === 'region_blog_writer' || profileCode === 'place_blog_writer') {
     return moduleTimeoutSec(mod, 'content_writer', defSec)
   }
+  if (profileCode === 'listing_description_tr') {
+    return moduleTimeoutSec(mod, 'content_writer', defSec)
+  }
   return defSec
 }
 
@@ -102,6 +105,12 @@ export const AI_PROFILE_MODULES = [
     label: 'İçerik oluşturucu',
     path: '/manage/ai/content',
     desc: 'Blog, sayfa, ilan metinleri — profil: content_writer',
+  },
+  {
+    profileCode: 'listing_description_tr',
+    label: 'İlan içerik & SEO (toplu)',
+    path: '/manage/ai/listing-content',
+    desc: 'Kategori bazlı TR açıklama, çeviri ve SEO — profil: listing_description_tr',
   },
   {
     profileCode: 'region_hierarchy',

@@ -77,7 +77,7 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
   return (
     <Form
       className={clsx(
-        'relative z-10 w-full bg-white [--form-bg:var(--color-white)] dark:bg-neutral-800 dark:[--form-bg:var(--color-neutral-800)]',
+        'relative isolate z-[100] w-full overflow-visible bg-white [--form-bg:var(--color-white)] dark:bg-neutral-800 dark:[--form-bg:var(--color-neutral-800)]',
         className,
         formStyle === 'small' && 'rounded-t-2xl rounded-b-4xl custom-shadow-1',
         formStyle === 'default' &&
@@ -112,7 +112,7 @@ const RentalCarSearchFormInner: FC<Props> = ({ className, formStyle = 'default' 
       </RadioGroup>
 
       {/*  */}
-      <div className="relative flex">
+      <div className="relative isolate z-[100] flex overflow-visible">
         <LocationInputField
           placeholder={hf['City or Airport']}
           description={hf['Pick up location']}

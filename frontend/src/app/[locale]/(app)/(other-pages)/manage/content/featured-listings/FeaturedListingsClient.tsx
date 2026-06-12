@@ -22,17 +22,24 @@ const MANAGED_CATEGORIES = [
 interface Props {
   categorySlug: string
   categoryLabel: string
+  locale: string
   allListings: TStayListing[]
+  totalListings: number
 }
 
 export default function FeaturedListingsClient({
   categorySlug,
   categoryLabel,
+  locale,
   allListings,
+  totalListings,
 }: Props) {
   const [featuredIds, setFeaturedIds] = useState<string[]>([])
   const [displayCount, setDisplayCount] = useState(DEFAULT_FEATURED_DISPLAY_COUNT)
   const [query, setQuery] = useState('')
+  const [poolListings, setPoolListings] = useState<TStayListing[]>(allListings)
+  const [poolTotal, setPoolTotal] = useState(totalListings)
+  const [searchLoading, setSearchLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -49,7 +56,44 @@ export default function FeaturedListingsClient({
       .finally(() => setLoading(false))
   }, [categorySlug])
 
-  const byId = useMemo(() => new Map(allListings.map((l) => [l.id, l])), [allListings])
+  useEffect(() => {
+    setPoolListings(allListings)
+    setPoolTotal(totalListings)
+    setQuery('')
+  }, [allListings, totalListings, categorySlug])
+
+  useEffect(() => {
+    const q = query.trim()
+    if (!q) {
+      setPoolListings(allListings)
+      setPoolTotal(totalListings)
+      setSearchLoading(false)
+      return
+    }
+
+    setSearchLoading(true)
+    const timer = window.setTimeout(() => {
+      fetch(
+        `/api/featured-listings/search?category=${encodeURIComponent(categorySlug)}&q=${encodeURIComponent(q)}&locale=${encodeURIComponent(locale)}`,
+      )
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data?.listings)) {
+            setPoolListings(data.listings as TStayListing[])
+            setPoolTotal(typeof data.total === 'number' ? data.total : data.listings.length)
+          }
+        })
+        .finally(() => setSearchLoading(false))
+    }, 300)
+
+    return () => window.clearTimeout(timer)
+  }, [query, categorySlug, locale, allListings, totalListings])
+
+  const byId = useMemo(() => {
+    const map = new Map(allListings.map((l) => [l.id, l]))
+    for (const listing of poolListings) map.set(listing.id, listing)
+    return map
+  }, [allListings, poolListings])
 
   const featuredListings = useMemo(
     () => featuredIds.map((id) => byId.get(id)).filter((l): l is TStayListing => Boolean(l)),
@@ -57,15 +101,11 @@ export default function FeaturedListingsClient({
   )
 
   const filteredPool = useMemo(() => {
-    const q = query.trim().toLowerCase()
     const featuredSet = new Set(featuredIds)
-    return allListings.filter((l) => {
-      if (featuredSet.has(l.id)) return false
-      if (!q) return true
-      const hay = `${l.title} ${l.city ?? ''} ${l.address ?? ''}`.toLowerCase()
-      return hay.includes(q)
-    })
-  }, [allListings, featuredIds, query])
+    return poolListings.filter((l) => !featuredSet.has(l.id))
+  }, [poolListings, featuredIds])
+
+  const poolTruncated = query.trim() !== '' && poolTotal > poolListings.length
 
   async function handleSave() {
     setSaving(true)
@@ -249,19 +289,29 @@ export default function FeaturedListingsClient({
           <div>
             <h2 className="font-semibold text-neutral-800 dark:text-neutral-200">İlan ekle</h2>
             <p className="mt-0.5 text-xs text-neutral-400">
-              {allListings.length} yayında ilan · arama başlık ve konuma göre
+              {poolTotal} yayında ilan
+              {query.trim() ? ' · arama tüm ilanlar arasında' : ''}
+              {searchLoading ? ' · aranıyor…' : ''}
             </p>
           </div>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="İlan ara…"
+            placeholder="Başlık veya slug ile ara…"
             className="w-full max-w-xs rounded-xl border border-neutral-300 bg-white px-4 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-800 dark:text-white"
           />
         </div>
 
+        {poolTruncated ? (
+          <p className="mb-3 text-xs text-amber-600 dark:text-amber-400">
+            {poolListings.length} sonuç gösteriliyor — aramanızı daraltın veya daha spesifik yazın.
+          </p>
+        ) : null}
+
         {filteredPool.length === 0 ? (
-          <p className="text-sm text-neutral-400">Eklenecek ilan bulunamadı.</p>
+          <p className="text-sm text-neutral-400">
+            {searchLoading ? 'Aranıyor…' : 'Eklenecek ilan bulunamadı.'}
+          </p>
         ) : (
           <ul className="max-h-[28rem] space-y-1.5 overflow-y-auto">
             {filteredPool.map((listing) => (

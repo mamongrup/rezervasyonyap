@@ -8,10 +8,13 @@ import {
   type ActivityQuote,
   type ActivitySessionRow,
 } from '@/lib/travel-api'
+import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { toIntlLocale } from '@/lib/intl-locale'
 import { CalendarDays, Clock3, Minus, Plus, Users } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 function todayIso() {
@@ -51,6 +54,8 @@ export default function ActivityBookingPanel({
   fallbackPrice?: string
 }) {
   const ab = getMessages(locale).listing.activityBooking
+  const router = useRouter()
+  const vitrinHref = useVitrinHref()
   const [date, setDate] = useState(initialDate || todayIso())
   const [sessions, setSessions] = useState<ActivitySessionRow[]>(initialSessions)
   const [sessionId, setSessionId] = useState(initialSessions[0]?.id ?? '')
@@ -119,6 +124,32 @@ export default function ActivityBookingPanel({
     [sessionId, sessions],
   )
   const currency = quote?.currency_code || selected?.currency_code || 'TRY'
+  const lineTotal = quote ? Number(String(quote.line_total ?? '').replace(',', '.')) : 0
+  const canCheckout = Boolean(listingId.trim()) && Boolean(quote) && lineTotal > 0
+
+  function goCheckout() {
+    if (!canCheckout || !quote) return
+    const travel = new Date(`${date}T12:00:00`)
+    if (Number.isNaN(travel.getTime())) return
+    router.push(
+      buildListingCheckoutUrl(vitrinHref('/checkout'), {
+        listingId,
+        startDate: travel,
+        endDate: travel,
+        currencyCode: quote.currency_code || currency,
+        unitPrice: lineTotal,
+        guests: {
+          guestAdults: adults,
+          guestChildren: children,
+          guestInfants: 0,
+        },
+        extra: {
+          activity_session_id: sessionId,
+          activity_date: date,
+        },
+      }),
+    )
+  }
 
   return (
     <div className="listingSection__wrap sm:shadow-xl">
@@ -184,8 +215,8 @@ export default function ActivityBookingPanel({
         </div>
 
         {msg ? <p className="text-sm text-amber-600 dark:text-amber-300">{msg}</p> : null}
-        <ButtonPrimary type="button" disabled>
-          {loading ? ab.calculating : ab.continueSoon}
+        <ButtonPrimary type="button" disabled={!canCheckout || loading} onClick={goCheckout}>
+          {loading ? ab.calculating : getMessages(locale).common.Reserve}
         </ButtonPrimary>
       </div>
     </div>

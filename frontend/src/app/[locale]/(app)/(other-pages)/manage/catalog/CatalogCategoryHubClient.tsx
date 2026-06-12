@@ -87,6 +87,11 @@ export default function CatalogCategoryHubClient({ code }: { code: string }) {
     ...(code === 'hotel'
       ? [
           {
+            href: `${prefix}/valid-campaigns`,
+            label: 'Otel detay kampanyaları',
+            note: 'Otel adının altında — genel veya seçili otellere kampanya kartları',
+          },
+          {
             href: `${prefix}/room-features`,
             label: 'Oda öznitelikleri',
             note: 'Oda tipleri ve meta_json — ilan detayından yönetim',

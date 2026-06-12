@@ -46,13 +46,14 @@ export function resolveHolidayThemeLabelsFromMap(codes: string[], map: Map<strin
   return out
 }
 
-/** Tatil evi tema kodlarını vitrin etiketlerine çevirir (API + yedek sözlük). */
+/** Konaklama kiralama (tatil evi / yat) tema kodlarını vitrin etiketlerine çevirir. */
 export async function resolveHolidayThemeLabels(
   codes: string[],
   locale: string | undefined,
+  categoryCode: 'holiday_home' | 'yacht_charter' = 'holiday_home',
 ): Promise<string[]> {
   const normalized = parseHolidayThemeCodes(codes)
   if (!normalized.length) return []
-  const map = await getHolidayThemeLabelMap(locale?.trim() || 'tr')
+  const map = await getHolidayThemeLabelMap(locale?.trim() || 'tr', categoryCode)
   return resolveHolidayThemeLabelsFromMap(normalized, map)
 }

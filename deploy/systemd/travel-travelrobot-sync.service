@@ -1,0 +1,15 @@
+[Unit]
+Description=Travelrobot otomatik senkron (tur · otel incremental · uçuş)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+Environment=TRAVEL_DB_ENV=/etc/rezervasyonyap/backend.env
+ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/sync-travelrobot-auto.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

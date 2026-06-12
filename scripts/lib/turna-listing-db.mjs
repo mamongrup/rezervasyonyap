@@ -84,6 +84,24 @@ export async function findListingByTurnaRef(pgClient, orgId, extRef) {
   return r.rows[0]?.id || null
 }
 
+async function upsertMinPriceRule(pgClient, listingId, amount, currency = 'TRY') {
+  await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])
+  if (amount == null || !Number.isFinite(amount) || amount <= 0) return
+  await pgClient.query(
+    `INSERT INTO listing_price_rules (listing_id, rule_json, valid_from, valid_to)
+     VALUES ($1::uuid, $2::jsonb, NULL, NULL)`,
+    [
+      listingId,
+      JSON.stringify({
+        base_nightly: String(amount),
+        base_price: String(amount),
+        source: PROVIDER,
+        currency,
+      }),
+    ],
+  )
+}
+
 async function upsertListingCore(pgClient, ctx, { extRef, slug, title, description, locName, status, dryRun }) {
   if (dryRun) return { listingId: null, slug, extRef, created: false, dryRun: true }
 
@@ -167,12 +185,12 @@ export async function upsertTurnaFlightListing(
     [core.listingId, JSON.stringify({ route, search: searchPayload })],
   )
 
-  // Turna search yanıtından min fiyat çek → listings.price_from güncelle
   const minPrice = extractMinPriceFromTurnaSearch(searchPayload)
   if (minPrice != null) {
+    await upsertMinPriceRule(pgClient, core.listingId, minPrice, 'TRY')
     await pgClient.query(
-      `UPDATE listings SET price_from = $2, currency_code = 'TRY', updated_at = now() WHERE id = $1::uuid`,
-      [core.listingId, String(minPrice)],
+      `UPDATE listings SET currency_code = 'TRY', updated_at = now() WHERE id = $1::uuid`,
+      [core.listingId],
     )
   }
 

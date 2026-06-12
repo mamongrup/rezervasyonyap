@@ -18,6 +18,10 @@ import {
   type HolidayHomePropertyTypeItem,
   parseHolidayHomePropertyTypesPayload,
 } from '@/lib/holiday-property-type-options'
+import {
+  parseHotelValidCampaignsPayload,
+  type HotelValidCampaignsPayload,
+} from '@/lib/hotel-valid-campaigns'
 
 const base = () => apiOriginForFetch()
 
@@ -236,6 +240,7 @@ export type PublicHotelRoom = {
   capacity: string | null
   board_type: string | null
   meta_json: string
+  unit_count?: number
 }
 
 /** Vitrin için otel oda listesi — auth gerektirmez. Boş dönerse vitrinin demo akışı çalışır. */
@@ -243,13 +248,18 @@ export async function getPublicHotelRooms(
   listingId: string,
 ): Promise<{ rooms: PublicHotelRoom[] }> {
   const b = base()
-  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
-  const res = await fetch(
-    `${b}/api/v1/verticals/listings/${encodeURIComponent(listingId)}/hotel-rooms`,
-    { cache: 'no-store' },
-  )
-  if (!res.ok) throw new Error(`hotel_rooms_public_${res.status}`)
-  return json(res)
+  if (!b) return { rooms: [] }
+  try {
+    const res = await fetch(
+      `${b}/api/v1/verticals/listings/${encodeURIComponent(listingId)}/hotel-rooms`,
+      { cache: 'no-store' },
+    )
+    if (!res.ok) return { rooms: [] }
+    const data = await json<{ rooms?: PublicHotelRoom[] }>(res)
+    return { rooms: Array.isArray(data.rooms) ? data.rooms : [] }
+  } catch {
+    return { rooms: [] }
+  }
 }
 
 /** Vitrin "Bu ilanı bildir" formundan gönderilen şikayet. */
@@ -292,6 +302,21 @@ export async function getPublicListingAttributes(
   )
   if (!res.ok) throw new Error(`public_attrs_${res.status}`)
   return json(res)
+}
+
+/** Vitrin detay — attributes API hata/boş yanıtta sayfa kırılmasın */
+export async function fetchPublicListingAttributesSafe(
+  listingId: string,
+): Promise<{ values: PublicListingAttribute[]; icons: Record<string, string> }> {
+  try {
+    const attrs = await getPublicListingAttributes(listingId)
+    return {
+      values: Array.isArray(attrs.values) ? attrs.values : [],
+      icons: attrs.icons ?? {},
+    }
+  } catch {
+    return { values: [], icons: {} }
+  }
 }
 
 /** value_json string'inden boolean true tespit eder; "true", "1", `{value:true}` gibi serbest formatları kabul eder. */
@@ -1111,6 +1136,13 @@ export type ManageHotelRoomRow = {
   capacity: string | null
   board_type: string | null
   meta_json: string
+  unit_count?: number
+}
+
+export type HotelRoomAvailabilityDay = {
+  day: string
+  available_units: number
+  price_override: string | null
 }
 
 export async function listManageHotelRooms(
@@ -1134,7 +1166,13 @@ export async function listManageHotelRooms(
 export async function addManageHotelRoom(
   token: string,
   listingId: string,
-  body: { name: string; capacity?: string; board_type?: string; meta_json?: string },
+  body: {
+    name: string
+    capacity?: string
+    board_type?: string
+    meta_json?: string
+    unit_count?: number
+  },
   params?: { organizationId?: string },
 ): Promise<{ id: string }> {
   const b = base()
@@ -1169,6 +1207,86 @@ export async function deleteManageHotelRoom(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `hotel_room_delete_${res.status}`)
+  }
+  return json(res)
+}
+
+export type ManageHotelRoomInput = {
+  id?: string
+  name: string
+  capacity?: string
+  board_type?: string
+  meta_json?: string
+  unit_count?: number
+}
+
+export async function putManageHotelRooms(
+  token: string,
+  listingId: string,
+  rooms: ManageHotelRoomInput[],
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-rooms${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ rooms }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_rooms_put_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function getHotelRoomAvailabilityCalendar(
+  token: string,
+  listingId: string,
+  roomId: string,
+  range: { from: string; to: string },
+  params?: { organizationId?: string },
+): Promise<{ days: HotelRoomAvailabilityDay[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const u = new URLSearchParams()
+  u.set('from', range.from)
+  u.set('to', range.to)
+  if (params?.organizationId?.trim()) u.set('organization_id', params.organizationId.trim())
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-rooms/${encodeURIComponent(roomId)}/availability-calendar?${u.toString()}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_room_availability_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function putHotelRoomAvailabilityCalendar(
+  token: string,
+  listingId: string,
+  roomId: string,
+  body: { days: HotelRoomAvailabilityDay[] },
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-rooms/${encodeURIComponent(roomId)}/availability-calendar${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_room_availability_put_${res.status}`)
   }
   return json(res)
 }
@@ -1409,6 +1527,316 @@ export async function getPublicMealPlans(listingId: string): Promise<MealPlanIte
   }
 }
 
+export type HotelListingPromotion = {
+  id: string
+  title: string
+  title_en: string
+  image_url: string
+  link_url: string
+  sort_order: number
+  is_active: boolean
+}
+
+type HotelListingPromotionRow = {
+  id: string
+  title: string
+  title_en: string
+  image_url: string
+  link_url: string
+  sort_order: string
+  is_active: string
+}
+
+function parseHotelPromotionRow(r: HotelListingPromotionRow): HotelListingPromotion {
+  return {
+    id: r.id,
+    title: r.title,
+    title_en: r.title_en,
+    image_url: r.image_url,
+    link_url: r.link_url,
+    sort_order: parseInt(r.sort_order, 10) || 0,
+    is_active: r.is_active === 'true',
+  }
+}
+
+export async function listManageHotelPromotions(
+  token: string,
+  listingId: string,
+  params?: { organizationId?: string },
+): Promise<{ promotions: HotelListingPromotion[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-promotions${catalogListingQs(params)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_promotions_${res.status}`)
+  }
+  const data = await json<{ promotions: HotelListingPromotionRow[] }>(res)
+  return { promotions: (data.promotions ?? []).map(parseHotelPromotionRow) }
+}
+
+export async function createManageHotelPromotion(
+  token: string,
+  listingId: string,
+  body: { title: string; title_en?: string; image_url?: string; link_url?: string },
+  params?: { organizationId?: string },
+): Promise<{ id: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-promotions${catalogListingQs(params)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_promotion_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function updateManageHotelPromotion(
+  token: string,
+  listingId: string,
+  promotionId: string,
+  body: {
+    title: string
+    title_en?: string
+    image_url?: string
+    link_url?: string
+    is_active?: boolean
+    sort_order?: number
+  },
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-promotions/${encodeURIComponent(promotionId)}${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        ...body,
+        is_active: String(body.is_active ?? true),
+        sort_order: String(body.sort_order ?? 0),
+      }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_promotion_update_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function deleteManageHotelPromotion(
+  token: string,
+  listingId: string,
+  promotionId: string,
+  params?: { organizationId?: string },
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-promotions/${encodeURIComponent(promotionId)}${catalogListingQs(params)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_promotion_delete_${res.status}`)
+  }
+  return json(res)
+}
+
+/** Önyüz — galeri altı otel kampanya kartları */
+export async function getPublicHotelPromotions(listingId: string): Promise<HotelListingPromotion[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/hotel-promotions`,
+      { next: { revalidate: 60 } },
+    )
+    if (!res.ok) return []
+    const data = await json<{ promotions: HotelListingPromotionRow[] }>(res)
+    return (data.promotions ?? []).map(parseHotelPromotionRow)
+  } catch {
+    return []
+  }
+}
+
+export type HotelListingActivity = {
+  id: string
+  title: string
+  title_en: string
+  description: string
+  description_en: string
+  image_url: string
+  activity_date: string
+  /** Etkinlik günü konaklamaya eklenen tutar; 0 = ücretsiz / bilgilendirme banner'ı */
+  stay_surcharge_amount: number
+  currency_code: string
+  sort_order: number
+  is_active: boolean
+}
+
+type HotelListingActivityRow = {
+  id: string
+  title: string
+  title_en: string
+  description: string
+  description_en: string
+  image_url: string
+  activity_date: string
+  stay_surcharge_amount: string
+  currency_code: string
+  sort_order: string
+  is_active: string
+}
+
+function parseHotelActivityRow(r: HotelListingActivityRow): HotelListingActivity {
+  return {
+    id: r.id,
+    title: r.title,
+    title_en: r.title_en,
+    description: r.description,
+    description_en: r.description_en,
+    image_url: r.image_url,
+    activity_date: r.activity_date,
+    stay_surcharge_amount: Number.parseFloat(r.stay_surcharge_amount) || 0,
+    currency_code: r.currency_code || 'TRY',
+    sort_order: parseInt(r.sort_order, 10) || 0,
+    is_active: r.is_active === 'true',
+  }
+}
+
+export async function listManageHotelActivities(
+  token: string,
+  listingId: string,
+  params?: { organizationId?: string },
+): Promise<{ activities: HotelListingActivity[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-activities${catalogListingQs(params)}`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_activities_${res.status}`)
+  }
+  const data = await json<{ activities: HotelListingActivityRow[] }>(res)
+  return { activities: (data.activities ?? []).map(parseHotelActivityRow) }
+}
+
+export async function createManageHotelActivity(
+  token: string,
+  listingId: string,
+  body: {
+    title: string
+    title_en?: string
+    description?: string
+    description_en?: string
+    image_url?: string
+    activity_date: string
+    stay_surcharge_amount?: number
+    currency_code?: string
+  },
+  params?: { organizationId?: string },
+): Promise<{ id: string }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-activities${catalogListingQs(params)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_activity_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function updateManageHotelActivity(
+  token: string,
+  listingId: string,
+  activityId: string,
+  body: {
+    title: string
+    title_en?: string
+    description?: string
+    description_en?: string
+    image_url?: string
+    activity_date: string
+    stay_surcharge_amount?: number
+    currency_code?: string
+    is_active?: boolean
+    sort_order?: number
+  },
+  params?: { organizationId?: string },
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-activities/${encodeURIComponent(activityId)}${catalogListingQs(params)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_activity_update_${res.status}`)
+  }
+}
+
+export async function deleteManageHotelActivity(
+  token: string,
+  listingId: string,
+  activityId: string,
+  params?: { organizationId?: string },
+): Promise<void> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/listings/${encodeURIComponent(listingId)}/hotel-activities/${encodeURIComponent(activityId)}${catalogListingQs(params)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `hotel_activity_delete_${res.status}`)
+  }
+}
+
+/** Önyüz — otel etkinlik kartları */
+export async function getPublicHotelActivities(listingId: string): Promise<HotelListingActivity[]> {
+  const b = base()
+  if (!b) return []
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/hotel-activities`,
+      { next: { revalidate: 60 } },
+    )
+    if (!res.ok) return []
+    const data = await json<{ activities: HotelListingActivityRow[] }>(res)
+    return (data.activities ?? []).map(parseHotelActivityRow)
+  } catch {
+    return []
+  }
+}
+
 /** Yayında ilan — katalogdan başlık, açıklama, iletişim adı (vitrin detay sayfası) */
 export type PublicListingVitrine = {
   title: string
@@ -1416,6 +1844,12 @@ export type PublicListingVitrine = {
   contact_name: string | null
   /** `location_name` veya panel `listing_meta.address` birleşimi — başlık altı konum satırı */
   location_label?: string | null
+  /** listing_meta.district_label — bölge / semt */
+  location_area?: string | null
+  /** listing_meta.city — ilçe */
+  location_district?: string | null
+  /** listing_meta.province_city — il */
+  location_province?: string | null
   external_listing_ref?: string | null
 }
 
@@ -2100,7 +2534,13 @@ export async function putManageCategoryAccommodationRules(
 /** Vitrin — kategori kuralları + ilanın seçtiği id’ler (yayınlanmış ilan) */
 export async function getPublicListingAccommodationRules(
   listingId: string,
-): Promise<{ rules: CategoryAccommodationRuleItem[]; selectedIds: string[] } | null> {
+): Promise<{
+  rules: CategoryAccommodationRuleItem[]
+  selectedIds: string[]
+  checkInTime?: string
+  checkOutTime?: string
+  ruleCodes?: string[]
+} | null> {
   const b = base()
   if (!b) return null
   try {
@@ -2109,10 +2549,28 @@ export async function getPublicListingAccommodationRules(
       { next: { revalidate: 120 } },
     )
     if (!res.ok) return null
-    const data = await json<{ rules_json: string; selected_ids_json: string }>(res)
+    const data = await json<{
+      rules_json: string
+      selected_ids_json: string
+      check_in_time?: string
+      check_out_time?: string
+      rule_codes_json?: string
+    }>(res)
+    let ruleCodes: string[] = []
+    try {
+      const parsed = JSON.parse(data.rule_codes_json ?? '[]') as unknown
+      if (Array.isArray(parsed)) {
+        ruleCodes = parsed.filter((x): x is string => typeof x === 'string' && x.trim() !== '')
+      }
+    } catch {
+      ruleCodes = []
+    }
     return {
       rules: parseCategoryAccommodationRulesJson(data.rules_json ?? '[]'),
       selectedIds: parseListingAccommodationRuleIdsJson(data.selected_ids_json ?? '[]'),
+      checkInTime: data.check_in_time?.trim() || undefined,
+      checkOutTime: data.check_out_time?.trim() || undefined,
+      ruleCodes: ruleCodes.length > 0 ? ruleCodes : undefined,
     }
   } catch {
     return null
@@ -2189,6 +2647,29 @@ export async function fetchPublicListingBedroomsSafe(
 ): Promise<ListingBedroomRow[]> {
   if (!listingId?.trim()) return []
   return getPublicListingBedrooms(listingId.trim())
+}
+
+export async function fetchPublicVerticalYachtSafe(
+  listingId: string | null | undefined,
+): Promise<Record<string, string>> {
+  if (!listingId?.trim()) return {}
+  try {
+    return await getVerticalYacht(listingId.trim())
+  } catch {
+    return {}
+  }
+}
+
+export async function fetchPublicVerticalMetaSafe<T = Record<string, unknown>>(
+  listingId: string | null | undefined,
+  category: string,
+): Promise<T> {
+  if (!listingId?.trim() || !category.trim()) return {} as T
+  try {
+    return await getVerticalMeta<T>(listingId.trim(), category.trim())
+  } catch {
+    return {} as T
+  }
 }
 
 /** POST — yeni para birimi (yönetici oturumu; TCMB sonrası kur için önce ekleyin). */
@@ -6304,6 +6785,47 @@ export async function getSitePublicConfig(
   const res = await fetch(`${b}/api/v1/site/public-config${q.toString() ? `?${q}` : ''}`, init)
   if (!res.ok) throw new Error(`site_public_config_${res.status}`)
   return json(res)
+}
+
+/** Otel detay — galeri altı kampanya kartları (`catalog.hotel_valid_campaigns`). */
+async function fetchHotelValidCampaignsFromOrigin(
+  origin: string,
+  init?: RequestInit,
+): Promise<HotelValidCampaignsPayload> {
+  const res = await fetch(`${origin.replace(/\/$/, '')}/api/v1/catalog/public/hotel-valid-campaigns`, init)
+  if (!res.ok) return parseHotelValidCampaignsPayload({ items: [] })
+  const raw: unknown = await json(res)
+  return parseHotelValidCampaignsPayload(raw)
+}
+
+export async function fetchPublicHotelValidCampaigns(
+  init?: RequestInit,
+): Promise<HotelValidCampaignsPayload> {
+  const b = base()
+  if (!b) {
+    return parseHotelValidCampaignsPayload({ items: [] })
+  }
+  try {
+    const primary = await fetchHotelValidCampaignsFromOrigin(b, init)
+    if (primary.items.length > 0) return primary
+
+    const localDev = 'http://127.0.0.1:8080'
+    if (
+      process.env.NODE_ENV === 'development' &&
+      b.replace(/\/$/, '') !== localDev
+    ) {
+      try {
+        const local = await fetchHotelValidCampaignsFromOrigin(localDev, init)
+        if (local.items.length > 0) return local
+      } catch {
+        /* yerel API kapalı */
+      }
+    }
+
+    return primary
+  } catch {
+    return parseHotelValidCampaignsPayload({ items: [] })
+  }
 }
 
 /** Tatil evi vitrin SSS şablonu — kimlik doğrulama gerekmez. */
@@ -10806,6 +11328,121 @@ export async function processNextDistrictIdea(
   })
   if (!res.ok) throw new Error(`district_ideas_process_${res.status}`)
   return json<DistrictIdeasProcessResult>(res)
+}
+
+// ---------------------------------------------------------------------------
+// Kategori bazlı ilan içerik — TR açıklama → çeviri → SEO
+// ---------------------------------------------------------------------------
+
+export interface ListingContentStats {
+  total_listings: number
+  listings_need_work: number
+  category_code: string
+  batches: Record<string, number>
+  pending_phases: Record<string, number>
+}
+
+export async function getListingContentStats(
+  token: string,
+  categoryCode: string,
+): Promise<ListingContentStats> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const qs = categoryCode.trim() ? `?category_code=${encodeURIComponent(categoryCode.trim())}` : ''
+  const res = await fetch(`${b}/api/v1/ai/listing-content/stats${qs}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'listing_content_stats_failed'))
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    total_listings: coerceInt(raw.total_listings),
+    listings_need_work: coerceInt(raw.listings_need_work),
+    category_code: typeof raw.category_code === 'string' ? raw.category_code : categoryCode,
+    batches: stringRecordInts(raw.batches),
+    pending_phases: stringRecordInts(raw.pending_phases),
+  }
+}
+
+export async function queueAllListingContent(
+  token: string,
+  opts: {
+    category_code: string
+    only_incomplete?: boolean
+    overwrite?: boolean
+  },
+): Promise<{
+  queued: number
+  total_found: number
+  message?: string
+  category_code?: string
+  only_incomplete?: boolean
+  overwrite?: boolean
+}> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/listing-content/queue-all`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      category_code: opts.category_code,
+      only_incomplete: opts.only_incomplete !== false,
+      overwrite: opts.overwrite === true,
+    }),
+  })
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'listing_content_queue_failed'))
+  const raw = await json<Record<string, unknown>>(res)
+  const message = typeof raw.message === 'string' ? raw.message.trim() : undefined
+  return {
+    queued: coerceInt(raw.queued),
+    total_found: coerceInt(raw.total_found),
+    message,
+    category_code: typeof raw.category_code === 'string' ? raw.category_code : opts.category_code,
+    only_incomplete: raw.only_incomplete === true,
+    overwrite: raw.overwrite === true,
+  }
+}
+
+export interface ListingContentProcessResult {
+  done: boolean
+  message?: string
+  failed?: boolean
+  error?: string
+  batch_id?: string
+  listing_id?: string
+  category_code?: string
+  phase?: string
+  next_phase?: string
+  progressed?: boolean
+}
+
+export async function processNextListingContent(
+  token: string,
+  opts?: { upstreamTimeoutMs?: number },
+): Promise<ListingContentProcessResult> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/listing-content/process-next`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    ...fetchInitUpstreamOptional(opts?.upstreamTimeoutMs),
+  })
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'listing_content_process_failed'))
+  return json<ListingContentProcessResult>(res)
+}
+
+export async function resetStuckListingContent(
+  token: string,
+): Promise<{ reset: number; ids: string[] }> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const res = await fetch(`${b}/api/v1/ai/listing-content/reset-stuck`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'listing_content_reset_failed'))
+  const raw = await json<Record<string, unknown>>(res)
+  const ids = Array.isArray(raw.ids) ? raw.ids.filter((x): x is string => typeof x === 'string') : []
+  return { reset: coerceInt(raw.reset), ids }
 }
 
 // ---------------------------------------------------------------------------
