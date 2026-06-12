@@ -9,6 +9,7 @@
  *
  *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox
  *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox --summary travelrobot-test-summary-2026-06-12T22-56-10.txt
+ *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox --log travelrobot-test-log-2026-06-12T22-56-10.json
  */
 import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join, dirname, isAbsolute } from 'path'
@@ -48,6 +49,27 @@ function parseTourPnrsFromSummaryText(text) {
   return rows
 }
 
+function parseTourPnrsFromLogText(text) {
+  const entries = JSON.parse(text)
+  if (!Array.isArray(entries)) return []
+  const rows = []
+  const seen = new Set()
+  for (const entry of entries) {
+    if (entry?.method !== 'BookTour' || !entry?.success) continue
+    const scenario = entry.scenario
+    const booking = entry.response?.Result?.Booking ?? entry.response?.Result ?? {}
+    const systemPnr =
+      booking?.SystemPnr ??
+      booking?.systemPnr ??
+      entry.response?.Result?.SystemPnr ??
+      null
+    if (!scenario || !systemPnr || seen.has(systemPnr)) continue
+    seen.add(systemPnr)
+    rows.push([scenario, systemPnr])
+  }
+  return rows
+}
+
 function resolveSummaryPath(explicit) {
   if (explicit) {
     return isAbsolute(explicit) ? explicit : join(repoRoot, explicit)
@@ -58,9 +80,47 @@ function resolveSummaryPath(explicit) {
   return files.length ? join(repoRoot, files.at(-1)) : null
 }
 
+function resolveLogPath(explicit) {
+  if (explicit) {
+    return isAbsolute(explicit) ? explicit : join(repoRoot, explicit)
+  }
+  const files = readdirSync(repoRoot)
+    .filter((f) => f.startsWith('travelrobot-test-log-') && f.endsWith('.json'))
+    .sort()
+  return files.length ? join(repoRoot, files.at(-1)) : null
+}
+
 function resolveTourPnrs() {
   const summaryArg = getArg('--summary')
-  const summaryPath = resolveSummaryPath(summaryArg)
+  if (summaryArg) {
+    const summaryPath = resolveSummaryPath(summaryArg)
+    if (summaryPath && existsSync(summaryPath)) {
+      const parsed = parseTourPnrsFromSummaryText(readFileSync(summaryPath, 'utf8'))
+      if (parsed.length) {
+        console.log(`[config] PNR kaynağı: ${summaryPath} (${parsed.length} tur)`)
+        return parsed
+      }
+    }
+  }
+
+  const logArg = getArg('--log')
+  if (logArg) {
+    const logPath = resolveLogPath(logArg)
+    if (logPath && existsSync(logPath)) {
+      const parsed = parseTourPnrsFromLogText(readFileSync(logPath, 'utf8'))
+      if (parsed.length) {
+        console.log(`[config] PNR kaynağı: ${logPath} (${parsed.length} tur)`)
+        return parsed
+      }
+    }
+  }
+
+  if (TOUR_PNRS.length) {
+    console.log(`[config] PNR kaynağı: TOUR_PNRS sabit listesi (${TOUR_PNRS.length} tur)`)
+    return TOUR_PNRS
+  }
+
+  const summaryPath = resolveSummaryPath(null)
   if (summaryPath && existsSync(summaryPath)) {
     const parsed = parseTourPnrsFromSummaryText(readFileSync(summaryPath, 'utf8'))
     if (parsed.length) {
@@ -68,10 +128,16 @@ function resolveTourPnrs() {
       return parsed
     }
   }
-  if (TOUR_PNRS.length) {
-    console.log(`[config] PNR kaynağı: TOUR_PNRS sabit listesi (${TOUR_PNRS.length} tur)`)
-    return TOUR_PNRS
+
+  const logPath = resolveLogPath(null)
+  if (logPath && existsSync(logPath)) {
+    const parsed = parseTourPnrsFromLogText(readFileSync(logPath, 'utf8'))
+    if (parsed.length) {
+      console.log(`[config] PNR kaynağı: ${logPath} (${parsed.length} tur)`)
+      return parsed
+    }
   }
+
   return []
 }
 
@@ -89,7 +155,7 @@ async function main() {
     console.log('  node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only tours')
     console.log('Ardından:')
     console.log('  node scripts/verify-kplus-tour-pnrs.mjs --sandbox')
-    console.log('  node scripts/verify-kplus-tour-pnrs.mjs --sandbox --summary travelrobot-test-summary-....txt')
+    console.log('  node scripts/verify-kplus-tour-pnrs.mjs --sandbox --log travelrobot-test-log-....json')
     process.exit(0)
   }
 

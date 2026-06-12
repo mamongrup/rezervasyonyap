@@ -2723,6 +2723,11 @@ function printSummary() {
   console.log('\nImport komutları (token sonrası çalıştırın):')
   console.log('  node scripts/import-travelrobot-tours.mjs --dry-run --limit 5')
   console.log('  node scripts/import-travelrobot-hotels.mjs --dry-run --limit 5')
+  try {
+    writeFileSync(summaryFile, SUMMARY_LINES.join('\n'), 'utf8')
+  } catch (e) {
+    console.warn('Özet dosyası güncellenemedi:', e.message)
+  }
 }
 
 main().catch((e) => {
