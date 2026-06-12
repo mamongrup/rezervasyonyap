@@ -63,6 +63,9 @@ import {
   resolveTourPriceAttempts,
   buildTourPriceRequestVariants,
   resolveTourFinalPrice,
+  pickTourPricesSessionPackageId,
+  pickTourRoomBookKeys,
+  pickTourPriceBookKeys,
   // Hotel
   searchHotel,
   pickHotelRows,
@@ -1132,6 +1135,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
   let booked = false
   let lastPriceErr = ''
+  let lastTourDebug = null
 
   for (const tourRow of tryTours) {
     if (booked) break
@@ -1238,6 +1242,14 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
               )
             } catch (e) {
               lastPriceErr = String(e)
+              lastTourDebug = {
+                tourCode,
+                departureDate,
+                rowKeys: priceRow ? Object.keys(priceRow) : [],
+                sessionPackageId: pickTourPricesSessionPackageId(pricePayload),
+                roomBookKeys: pickTourRoomBookKeys(priceRow, pricePayload).slice(0, 3),
+                bookKeys: pickTourPriceBookKeys(priceRow, pricePayload).slice(0, 3),
+              }
               continue
             }
 
@@ -1368,7 +1380,13 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
 
   if (!booked && !SKIP_BOOKING) {
     const step = /GetTourFinalPrice/i.test(lastPriceErr) ? 'GetTourFinalPrice' : 'BookTour'
-    fail(`[${scenarioName}] ${step}`, lastPriceErr || 'Uygun tur/fiyat bulunamadı')
+    const dbg = lastTourDebug
+      ? ` | debug: session=${lastTourDebug.sessionPackageId ?? '-'} roomKeys=${(lastTourDebug.roomBookKeys ?? []).join(',') || '-'} rowKeys=${(lastTourDebug.rowKeys ?? []).slice(0, 8).join(',')}`
+      : ''
+    fail(`[${scenarioName}] ${step}`, (lastPriceErr || 'Uygun tur/fiyat bulunamadı') + dbg)
+    if (lastTourDebug) {
+      console.log('  ℹ️  Tur cert teşhis: git pull sonrası node scripts/debug-tour-prices.mjs çalıştırın')
+    }
   }
 }
 
