@@ -69,6 +69,7 @@ import {
   pickTourPriceBookKeys,
   pickTourPaymentSessionId,
   pickTourPricesSessionRawId,
+  formatTourApiDate,
   resolveTourPaymentAttempts,
   // Hotel
   searchHotel,
@@ -151,7 +152,7 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v9'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v10'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -1164,7 +1165,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
     for (const attempt of attempts.slice(0, 12)) {
       if (booked) break
 
-      const dateOffsets = attempt.departureDate ? [null] : TOUR_CERT_DATE_OFFSETS
+      const dateOffsets = formatTourApiDate(attempt.departureDate) ? [null] : TOUR_CERT_DATE_OFFSETS
       for (const offset of dateOffsets) {
         if (booked) break
         const departureDate = offset == null ? attempt.departureDate : addDays(offset)

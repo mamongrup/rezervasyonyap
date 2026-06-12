@@ -532,12 +532,25 @@ function tourDepartureDateFromRow(row) {
 export function normalizeTourDepartureDate(raw) {
   const s = String(raw ?? '').trim()
   if (!s) return ''
+  const ms = /\/Date\((-?\d+)\)\//.exec(s)
+  if (ms) {
+    const d = new Date(Number(ms[1]))
+    if (!Number.isNaN(d.getTime())) {
+      const yyyy = d.getUTCFullYear()
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+      const dd = String(d.getUTCDate()).padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}`
+    }
+  }
   if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10)
   const dot = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(s)
   if (dot) return `${dot[3]}-${dot[2]}-${dot[1]}`
+  const slash = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(s)
+  if (slash) return `${slash[3]}-${slash[2]}-${slash[1]}`
   const compact = /^(\d{4})(\d{2})(\d{2})$/.exec(s)
   if (compact) return `${compact[1]}-${compact[2]}-${compact[3]}`
-  return s
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+  return ''
 }
 
 /** GetTourPrices DepartureDate — KPlus DD.MM.YYYY bekler. */
@@ -545,11 +558,12 @@ export function formatTourApiDate(raw) {
   const iso = normalizeTourDepartureDate(raw)
   if (!iso) return ''
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
-  if (m) return `${m[3]}.${m[2]}.${m[1]}`
-  const s = String(raw ?? '').trim()
-  if (/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return s
-  return s
+  if (!m) return ''
+  return `${m[3]}.${m[2]}.${m[1]}`
 }
+
+/** Cert/debug — attempt'te tarih yoksa denenecek gün ofsetleri. */
+export const TOUR_PRICE_DATE_OFFSETS = [30, 45, 60, 90, 120, 150]
 
 /** GetTourPrices Result.Id sonundaki oturum UUID (pipe birleşik anahtardan). */
 export function extractTourSessionUuid(raw) {
@@ -751,9 +765,11 @@ export function buildTourPriceRequestVariants(attempt, departureDate, priceRooms
   const pkg = attempt.packageId ? String(attempt.packageId).trim() : null
   const dep = attempt.departurePointCode ? String(attempt.departurePointCode).trim() : null
   const date = formatTourApiDate(attempt.departureDate || departureDate)
+  if (!date) return []
   const base = { departureDate: date, rooms: priceRooms, languageCode }
   const variants = []
   const push = (v) => {
+    if (!v.departureDate) return
     const key = JSON.stringify(v)
     if (!variants.some((x) => JSON.stringify(x) === key)) variants.push(v)
   }
