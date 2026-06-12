@@ -968,8 +968,13 @@ export function pickTourPriceBookKeys(priceRow, pricePayload = null, opts = {}) 
   return keys
 }
 
+/** Yalnızca tam tur kodu (T66-1204-22669) — pipe oturum anahtarını eşleştirme. */
 function isTourCatalogCode(id) {
-  return /^T\d{2}-\d{4}-\d+/i.test(String(id ?? '').trim())
+  return /^T\d{2}-\d{4}-\d+$/i.test(String(id ?? '').trim())
+}
+
+function isTourSessionCompositeKey(id) {
+  return /^T\d{2}-\d{4}-\d+\|/i.test(String(id ?? '').trim())
 }
 
 /** İnsan okunur tur başlığı (ör. "Kapadokya | Balon Turu") — API anahtarı değil. */
@@ -1005,7 +1010,7 @@ export function isPlausibleTourBookKey(id) {
   if (!s || isTourCatalogCode(s) || isTourDisplayTitle(s) || isBareUuid(s)) return false
   if (s.includes('@')) return true
   if (/^tour:/i.test(s)) return true
-  if (/^T\d{2}-\d{4}-\d+\|/i.test(s)) return true
+  if (isTourSessionCompositeKey(s)) return true
   if (s.includes('|') && /[0-9_]{2,}/.test(s) && !/\s\|\s/.test(s)) return true
   return false
 }
