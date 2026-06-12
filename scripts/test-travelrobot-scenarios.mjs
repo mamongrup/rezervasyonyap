@@ -115,7 +115,8 @@ import {
   CERT_HOTEL_FALLBACKS,
   TRAVELROBOT_SANDBOX_HOTELS,
 } from './lib/travelrobot-sandbox-ids.mjs'
-import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
+import { buildSandboxConfigAsync, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
+import { loadBackendEnvFile } from './lib/load-backend-env.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -1795,11 +1796,14 @@ async function main() {
   }
   if (ONLY) console.log(`  📌 Filtre: --only ${ONLY}`)
 
+  loadBackendEnvFile()
+
   // Config yükle
   let cfg
   if (USE_SANDBOX) {
     console.log('\n[config] Sandbox test kanalı (KPlus sertifikasyon)…')
-    cfg = buildSandboxConfig(getArg)
+    cfg = await buildSandboxConfigAsync(getArg)
+    console.log(`[config] Kanal: ${cfg.channelCode}  base: ${cfg.baseUrl}`)
   } else if (FROM_DB) {
     console.log('\n[config] DB\'den yükleniyor…')
     cfg = await loadTravelrobotConfig()

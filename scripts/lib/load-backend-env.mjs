@@ -30,6 +30,15 @@ const DB_ENV_KEYS = new Set([
   'PGDATABASE',
 ])
 
+/** Node script'leri shell `source` olmadan çalışınca dosyadan okunmalı. */
+const TRAVELROBOT_ENV_KEYS = new Set([
+  'TRAVELROBOT_SANDBOX_CHANNEL_CODE',
+  'TRAVELROBOT_SANDBOX_CHANNEL_PASSWORD',
+  'TRAVELROBOT_CHANNEL_CODE',
+  'TRAVELROBOT_CHANNEL_PASSWORD',
+  'TRAVELROBOT_BASE_URL',
+])
+
 function stripQuotes(value) {
   const v = String(value ?? '').trim()
   if (
@@ -72,7 +81,7 @@ export function loadBackendEnvFile(filePath = resolveEnvFile(process.env.TRAVEL_
   }
   for (const [key] of parsed) {
     const resolved = draft[key] ?? ''
-    const forceFromFile = DB_ENV_KEYS.has(key)
+    const forceFromFile = DB_ENV_KEYS.has(key) || TRAVELROBOT_ENV_KEYS.has(key)
     if (forceFromFile || process.env[key] == null || process.env[key] === '') {
       if (process.env[key] !== resolved) loaded += 1
       process.env[key] = resolved

@@ -8,7 +8,7 @@
  *   node scripts/verify-kplus-tour-pnrs.mjs --sandbox
  */
 import { createTravelrobotToken, getTourBooking } from './lib/travelrobot-api.mjs'
-import { buildSandboxConfig, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
+import { buildSandboxConfigAsync, isSandboxBaseUrl } from './lib/travelrobot-sandbox-config.mjs'
 
 const args = process.argv.slice(2)
 const USE_SANDBOX = args.includes('--sandbox')
@@ -25,7 +25,7 @@ function loadCfg() {
   if (!USE_SANDBOX) {
     throw new Error('Tur PNR kontrolü için --sandbox kullanın.')
   }
-  return buildSandboxConfig(getArg)
+  return buildSandboxConfigAsync(getArg)
 }
 
 async function main() {
