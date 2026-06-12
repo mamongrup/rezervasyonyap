@@ -1271,6 +1271,46 @@ export async function resolveTourFinalPrice(cfg, tokenCode, priceRow, ctx = {}) 
   throw new Error(tried ? `${lastErr} (denenen: ${tried})` : lastErr)
 }
 
+/** BookTour öncesi — GetTourFinalPrice ile gerçek ResultKeys (oturum pipe tek başına yetmeyebilir). */
+export async function enrichTourResolveWithFinalPrice(cfg, tokenCode, resolved, priceRow, pricePayload, ctx = {}) {
+  if (resolved.payload) {
+    const keys = pickTourBookResultKeys(resolved.payload, priceRow)
+    if (keys.length) {
+      return { ...resolved, resultKeys: keys, skippedFinalPrice: false }
+    }
+  }
+  const sessionRaw = pickTourPricesSessionRawId(pricePayload)
+  const tourRooms =
+    resolved.tourRooms ??
+    buildTourFinalPriceRoomsFromPriceRow(priceRow, ctx.roomOpts ?? [{ Adults: 2 }])
+  const candidates = collectTourFinalPricePackageIds(priceRow, {
+    pricePayload,
+    sessionPackageId: sessionRaw,
+  })
+  const uuid = extractTourSessionUuid(sessionRaw)
+  if (uuid && !candidates.includes(uuid)) candidates.unshift(uuid)
+
+  for (const packageId of candidates.slice(0, 4)) {
+    const fp = await getTourFinalPriceSoft(cfg, tokenCode, {
+      packageId,
+      tourRooms,
+      timeoutMs: ctx.timeoutMs,
+    })
+    if (!fp.ok) continue
+    const keys = pickTourBookResultKeys(fp.payload, priceRow)
+    if (keys.length) {
+      return {
+        packageId,
+        payload: fp.payload,
+        resultKeys: keys,
+        tourRooms,
+        skippedFinalPrice: false,
+      }
+    }
+  }
+  return resolved
+}
+
 export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {
   const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
   const keys = []

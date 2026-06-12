@@ -64,6 +64,7 @@ import {
   resolveTourPriceAttempts,
   buildTourPriceRequestVariants,
   resolveTourFinalPrice,
+  enrichTourResolveWithFinalPrice,
   pickTourPricesSessionPackageId,
   pickTourRoomBookKeys,
   pickTourPriceBookKeys,
@@ -152,10 +153,16 @@ const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v13'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v14'
 const TOUR_CERT_QUICK = args.includes('--tour-cert-quick') || process.env.KPLUS_TOUR_CERT_QUICK === '1'
 const TOUR_API_TIMEOUT_MS = Number(process.env.KPLUS_FETCH_TIMEOUT_MS ?? 90000)
 const TOUR_CERT_PREFER_CODE = 'T66-1204-22669'
+const TOUR_CERT_ONLY_CODE = String(
+  getArg('--tour-code') ||
+    process.env.KPLUS_TOUR_CERT_CODE ||
+    (USE_SANDBOX && ONLY_TOUR_S1 ? TOUR_CERT_PREFER_CODE : '') ||
+    '',
+).trim()
 
 function tourProgress(msg) {
   console.log(`  … ${msg}`)
@@ -1152,17 +1159,18 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
   const priceRooms = buildTourPriceRooms(roomOpts)
   const finalRooms = buildTourFinalPriceRooms(roomOpts)
   const tourRoomPaxes = buildTourRoomPaxes(roomOpts, makeTourCertPax)
-  const maxTours = searchOpts.maxTours ?? (TOUR_CERT_QUICK ? 4 : 8)
+  const tourLocked = Boolean(TOUR_CERT_ONLY_CODE)
+  const maxTours = searchOpts.maxTours ?? (tourLocked ? 1 : TOUR_CERT_QUICK ? 4 : 8)
   const tryTours = rankTourRowsForCert(searchRows).slice(0, Math.min(searchRows.length, maxTours))
-  const dateOffsetsList = TOUR_CERT_QUICK ? [30, 45, 60] : TOUR_CERT_DATE_OFFSETS
-  const maxAttempts = TOUR_CERT_QUICK ? 4 : 8
-  const maxVariants = TOUR_CERT_QUICK ? 2 : 5
+  const dateOffsetsList = tourLocked ? [30, 45, 60, 90] : TOUR_CERT_QUICK ? [30, 45, 60] : TOUR_CERT_DATE_OFFSETS
+  const maxAttempts = tourLocked ? 3 : TOUR_CERT_QUICK ? 4 : 8
+  const maxVariants = tourLocked ? 2 : TOUR_CERT_QUICK ? 2 : 5
 
   let booked = false
   let lastPriceErr = ''
   let lastTourDebug = null
   let priceTries = 0
-  const maxPriceTries = TOUR_CERT_QUICK ? 30 : 120
+  const maxPriceTries = tourLocked ? 12 : TOUR_CERT_QUICK ? 30 : 120
 
   tourProgress(`tur taraması (${tryTours.length} aday)…`)
 
@@ -1247,7 +1255,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             )
           }
 
-          for (const priceRow of priceRows.slice(0, 4)) {
+          for (const priceRow of priceRows.slice(0, tourLocked ? 1 : 4)) {
             if (booked) break
 
             let packageId = null
@@ -1256,17 +1264,28 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
             let tourRoomsForBook = finalRooms
             try {
               tourProgress(`book keys ${tourCode}…`)
-              const resolved = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
+              let resolved = await resolveTourFinalPrice(cfg, tokenCode, priceRow, {
                 pricePayload,
                 variant,
                 attempt,
                 tourCode,
                 roomOpts: roomOpts,
                 languageCode: searchOpts.languageCode ?? 'tr',
-                quick: TOUR_CERT_QUICK,
+                quick: TOUR_CERT_QUICK || tourLocked,
                 skipTourExtras: true,
                 timeoutMs: TOUR_API_TIMEOUT_MS,
               })
+              if (resolved.skippedFinalPrice === true) {
+                tourProgress(`GetTourFinalPrice ile key zenginleştirme ${tourCode}…`)
+                resolved = await enrichTourResolveWithFinalPrice(
+                  cfg,
+                  tokenCode,
+                  resolved,
+                  priceRow,
+                  pricePayload,
+                  { roomOpts, timeoutMs: TOUR_API_TIMEOUT_MS },
+                )
+              }
               packageId = resolved.packageId
               finalPayload = resolved.payload
               resultKeys = resolved.resultKeys
@@ -1374,6 +1393,7 @@ async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpt
                 bookBodyLabel,
                 rowKeys: priceRow ? Object.keys(priceRow) : [],
               }
+              if (tourLocked) break attemptLoop
               continue
             }
 
