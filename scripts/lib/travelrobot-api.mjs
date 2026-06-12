@@ -424,6 +424,168 @@ export function pickTourRows(payload) {
   return []
 }
 
+export function tourRowCode(row) {
+  const nested = row?.Tour ?? row?.tour
+  return String(
+    row?.TourCode ??
+      row?.tourCode ??
+      row?.TourAlternativeCode ??
+      row?.tourAlternativeCode ??
+      nested?.Code ??
+      nested?.code ??
+      row?.ProductCode ??
+      '',
+  ).trim()
+}
+
+export function tourRowAlternativeCode(row) {
+  return String(
+    row?.TourAlternativeCode ??
+      row?.tourAlternativeCode ??
+      row?.AlternativeCode ??
+      row?.alternativeCode ??
+      row?.PackageId ??
+      row?.packageId ??
+      tourRowCode(row) ??
+      '',
+  ).trim()
+}
+
+/** GetTourPrices — oda/kişi sayısı (Hotel SearchRooms benzeri). */
+export function buildTourPriceRooms(roomOpts) {
+  const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
+  return rooms.map((room, index) => {
+    const adults = Number(room.Adults ?? room.adults ?? 2)
+    const children = Number(room.Children ?? room.children ?? 0)
+    const childAges = Array.isArray(room.ChildAges) ? room.ChildAges : room.childAges ?? []
+    const paxes = []
+    if (adults > 0) paxes.push({ PaxType: 0, Count: adults, ChildAgeList: null })
+    if (children > 0) paxes.push({ PaxType: 1, Count: children, ChildAgeList: childAges })
+    return { Index: Number(room.RoomIndex ?? room.Index ?? index), Paxes: paxes }
+  })
+}
+
+export function pickTourPriceRows(payload) {
+  const r = payload?.Result ?? payload?.result ?? payload
+  if (!r || typeof r !== 'object') return []
+  if (Array.isArray(r)) return r
+  for (const k of [
+    'TourPrices',
+    'tourPrices',
+    'Prices',
+    'prices',
+    'Alternatives',
+    'alternatives',
+    'Items',
+    'items',
+    'Packages',
+    'packages',
+  ]) {
+    if (Array.isArray(r[k])) return r[k]
+  }
+  return []
+}
+
+export function pickTourPackageId(row, fallback = null) {
+  return (
+    row?.PackageId ??
+    row?.packageId ??
+    row?.Id ??
+    row?.id ??
+    row?.ResultKey ??
+    row?.resultKey ??
+    fallback
+  )
+}
+
+export function pickTourBookResultKeys(finalPricePayload, priceRow = null) {
+  const r = finalPricePayload?.Result ?? finalPricePayload?.result ?? {}
+  const keys = r?.ResultKeys ?? r?.resultKeys ?? r?.Keys ?? r?.keys
+  if (Array.isArray(keys) && keys.length) return keys.map(String)
+  const pkg = pickTourPackageId(r) ?? pickTourPackageId(priceRow)
+  return pkg ? [String(pkg)] : []
+}
+
+/** GetTourFinalPrice / BookTour — TourRooms şeması. */
+export function buildTourFinalPriceRooms(roomOpts) {
+  const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
+  return rooms.map((room) => {
+    const adults = Number(room.Adults ?? room.adults ?? 2)
+    const children = Number(room.Children ?? room.children ?? 0)
+    const paxes = []
+    for (let i = 0; i < adults; i++) paxes.push({ TourPaxType: 0 })
+    for (let i = 0; i < children; i++) paxes.push({ TourPaxType: 1 })
+    return {
+      BedType: Number(room.BedType ?? room.bedType ?? 0),
+      Paxes: paxes,
+      AdditionalServices: [],
+    }
+  })
+}
+
+/** BookTour — oda/kişi sayısına göre TourRoomPaxes (sertifikasyon). */
+export function buildTourRoomPaxes(roomOpts, makePaxFn) {
+  const rooms = Array.isArray(roomOpts) ? roomOpts : [roomOpts]
+  const out = []
+  const adultNames = [
+    ['TEST', 'TRAVELER'],
+    ['JOHN', 'SMITH'],
+    ['MARY', 'SMITH'],
+  ]
+  const childNames = [['TIM', 'SMITH'], ['ANN', 'SMITH']]
+  let globalNameIdx = 0
+  for (let ri = 0; ri < rooms.length; ri++) {
+    const r = rooms[ri]
+    const adults = Number(r.Adults ?? r.adults ?? 2)
+    const children = Number(r.Children ?? r.children ?? 0)
+    const childAges = Array.isArray(r.ChildAges) ? r.ChildAges : r.childAges ?? []
+    const paxes = []
+    let roomLeaderLast = 'TRAVELER'
+    for (let i = 0; i < adults; i++) {
+      const [fn, ln] = adultNames[globalNameIdx % adultNames.length] ?? ['TEST', 'TRAVELER']
+      globalNameIdx++
+      if (i === 0) roomLeaderLast = ln
+      const pax = makePaxFn(fn, ln, '15.06.1990', 1)
+      pax.Age = 30
+      paxes.push({
+        IsLeader: ri === 0 && i === 0,
+        TourPaxType: 0,
+        Pax: pax,
+      })
+    }
+    for (let i = 0; i < children; i++) {
+      const age = Number(childAges[i] ?? 5)
+      const y = new Date().getUTCFullYear() - age
+      const [fn] = childNames[i % childNames.length] ?? ['TIM', 'SMITH']
+      const pax = makePaxFn(fn, roomLeaderLast, `15.06.${y}`, 1)
+      pax.Age = age
+      pax.IdentityNumber = null
+      paxes.push({
+        IsLeader: false,
+        TourPaxType: 1,
+        Pax: pax,
+      })
+    }
+    out.push({
+      BedType: Number(r.BedType ?? r.bedType ?? 0),
+      Paxes: paxes,
+      AdditionalServices: [],
+    })
+  }
+  return out
+}
+
+/** Tur rezervasyonu sorgula — System PNR doğrulama. */
+export async function getTourBooking(cfg, tokenCode, opts = {}) {
+  return kplusPost(cfg.baseUrl, '/Tour.svc/Rest/Json/GetBooking', {
+    request: {
+      TokenCode: tokenCode,
+      SystemPnr: opts.systemPnr ?? null,
+      LastName: opts.lastName ?? null,
+    },
+  })
+}
+
 // ─── OTEL ─────────────────────────────────────────────────────────────────────
 
 /**

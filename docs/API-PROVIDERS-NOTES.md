@@ -152,9 +152,38 @@ Tek kaynak (kod): `scripts/lib/travelrobot-sandbox-ids.mjs`
 ### Tur
 `
 createToken → searchTours → getTourPrices → getTourExtras
-→ getTourFinalPrice → getPickupPoints → bookTour
+→ getTourFinalPrice → getPickupPoints → bookTour → GetTourBooking (PNR doğrulama)
 `
 Postman koleksiyonu: D:\agora\Travelrobot Tour API.postman_collection (1).json
+
+Tur PNR sertifikasyon senaryoları (`scripts/test-travelrobot-scenarios.mjs`):
+
+| Senaryo | Kişi |
+|---------|------|
+| Tour-S1 | 2 ADT |
+| Tour-S2 | 2 ADT + 1 CHD (5) |
+| Tour-S3 | 2 ADT + 1 CHD (8) |
+
+```bash
+# Sandbox Test_* kanalı (backend.env: TRAVELROBOT_SANDBOX_CHANNEL_*)
+node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only tours
+node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only tour-s1
+
+# Windows kısayol
+powershell -File scripts/run-kplus-tour-cert.ps1
+
+# PNR doğrulama (cert sonrası TOUR_PNRS listesini scripts/verify-kplus-tour-pnrs.mjs içinde güncelleyin)
+node scripts/verify-kplus-tour-pnrs.mjs --sandbox
+```
+
+Uçuş ilan import (canlı API — sunucu IP whitelist gerekir):
+
+```bash
+node scripts/import-travelrobot-flights.mjs --ping
+node scripts/import-travelrobot-flights.mjs
+node scripts/import-travelrobot-all.mjs --only flights
+./deploy/scripts/sync-travelrobot-auto.sh
+```
 
 ### Otel
 `

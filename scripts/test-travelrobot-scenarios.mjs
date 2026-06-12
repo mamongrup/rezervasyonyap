@@ -24,6 +24,10 @@
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only hotel-s1
  *   node scripts/test-travelrobot-scenarios.mjs --from-db --with-booking --only air-s2
  *
+ * Tour PNR sertifikasyon (sandbox):
+ *   node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only tours
+ *   node scripts/test-travelrobot-scenarios.mjs --sandbox --with-booking --only tour-s1
+ *
  * Çıktılar:
  *   - Konsol: özet ✅/❌
  *   - travelrobot-test-log-YYYYMMDD-HHmmss.json: tam istek/yanıt logları
@@ -44,6 +48,19 @@ import {
   // Tour
   searchTours,
   pickTourRows,
+  tourRowCode,
+  tourRowAlternativeCode,
+  getTourPrices,
+  getTourFinalPrice,
+  getTourPaymentOptions,
+  bookTour,
+  getTourBooking,
+  buildTourPriceRooms,
+  buildTourFinalPriceRooms,
+  buildTourRoomPaxes,
+  pickTourPriceRows,
+  pickTourBookResultKeys,
+  pickTourPackageId,
   // Hotel
   searchHotel,
   pickHotelRows,
@@ -119,11 +136,12 @@ const ONLY_AIR_LCC = ONLY === 'air-lcc' || ONLY === 'lcc'
 const RUN_HOTELS = !ONLY || ONLY === 'hotels' || ONLY === 'hotel' || ONLY_HOTEL_S1
 const RUN_FLIGHTS =
   !ONLY || ONLY === 'flights' || ONLY === 'flight' || ONLY === 'air' || ONLY_AIR_S2 || ONLY_AIR_LCC
-const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour'
+const ONLY_TOUR_S1 = ONLY === 'tour-s1' || ONLY === 'tours1'
+const RUN_TOURS = !ONLY || ONLY === 'tours' || ONLY === 'tour' || ONLY_TOUR_S1
 const RUN_STATIC = !ONLY || ONLY === 'static'
 const RUN_GENERAL = !ONLY && !ONLY_HOTEL_S1
 /** Sunucuda doğru sürüm çalıştığını doğrulamak için (git pull sonrası değişmeli). */
-const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-10-cert-air-lcc-tc-v14'
+const TRAVELROBOT_TEST_SCRIPT_VERSION = '2026-06-12-cert-tour-pnr-v1'
 /** Başarılı Air-S1 book yanıtında dönen sandbox TC (TEST/TRAVELER + pasaport). */
 const KPLUS_DEFAULT_TC = '11111111110'
 
@@ -168,6 +186,8 @@ const HOTEL_S1_STAY_NIGHTS = [3, 5, 7]
 /** KPlus Hotel API Test Cases PDF — System PNR özeti (Client Notes ile birlikte gönderilir). */
 const HOTEL_CERT_RESULTS = []
 const AIR_CERT_RESULTS = []
+const TOUR_CERT_RESULTS = []
+const TOUR_CERT_DATE_OFFSETS = [30, 45, 60, 90, 120, 150]
 
 function rankHotelRowsForPricing(rows, preferredHotel, fallbackCodes = []) {
   const prefer = new Set([preferredHotel, ...fallbackCodes].filter(Boolean))
@@ -345,6 +365,9 @@ const HOTEL_TEST_PAYMENT = {
   PaymentDescription: null,
   HasWorkMultiCurrency: false,
 }
+
+// Sandbox tur book — otel ile aynı (acente kredisi)
+const TOUR_TEST_PAYMENT = HOTEL_TEST_PAYMENT
 
 // Sandbox ödeme — uçuş vb. (kart test)
 const TEST_PAYMENT = {
@@ -1066,6 +1089,238 @@ function buildDestinationWideTryList(searchRows, certCodes, limit = 25) {
   return [...cert, ...other]
 }
 
+function makeTourCertPax(firstName, lastName, dob, gender = 1) {
+  return makePax(firstName, lastName, dob, gender, 'TR', 'AA123456')
+}
+
+async function runTourScenario(cfg, tokenCode, scenarioName, roomOpts, searchOpts = {}) {
+  section(`${scenarioName}`)
+
+  const clientNotes = `rezervasyonyap.tr sandbox certification — ${scenarioName}`
+  let searchRows = []
+  try {
+    const payload = await searchTours(cfg, tokenCode, {
+      languageCode: searchOpts.languageCode ?? 'tr',
+      startDate: searchOpts.startDate ?? addDays(7),
+      endDate: searchOpts.endDate ?? addDays(400),
+    })
+    searchRows = pickTourRows(payload)
+    log(scenarioName, 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', searchOpts, payload, searchRows.length >= 0)
+    if (!searchRows.length) {
+      if (!payload?.HasError) {
+        console.log(`  ℹ️  [${scenarioName}] SearchTour: boş katalog (sandbox)`)
+        SUMMARY_LINES.push(`  ℹ️  ${scenarioName}: tur katalog boş`)
+      } else {
+        fail(`[${scenarioName}] SearchTour`, payload?.ErrorMessage ?? preview(payload, 400))
+      }
+      return
+    }
+    ok(`[${scenarioName}] SearchTour`, `${searchRows.length} tur`)
+  } catch (e) {
+    log(scenarioName, 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', {}, String(e), false)
+    fail(`[${scenarioName}] SearchTour`, e)
+    return
+  }
+
+  const priceRooms = buildTourPriceRooms(roomOpts)
+  const finalRooms = buildTourFinalPriceRooms(roomOpts)
+  const tourRoomPaxes = buildTourRoomPaxes(roomOpts, makeTourCertPax)
+  const tryTours = searchRows.slice(0, Math.min(searchRows.length, searchOpts.maxTours ?? 8))
+
+  let booked = false
+  let lastPriceErr = ''
+
+  for (const tourRow of tryTours) {
+    if (booked) break
+    const altCode = tourRowAlternativeCode(tourRow)
+    const tourCode = tourRowCode(tourRow)
+    if (!altCode && !tourCode) continue
+
+    for (const offset of TOUR_CERT_DATE_OFFSETS) {
+      if (booked) break
+      const departureDate = addDays(offset)
+      let pricePayload = null
+      let priceRows = []
+      try {
+        pricePayload = await getTourPrices(cfg, tokenCode, {
+          tourAlternativeCode: altCode || tourCode,
+          nationalityCode: 'TR',
+          departureDate,
+          rooms: priceRooms,
+          languageCode: searchOpts.languageCode ?? 'tr',
+        })
+        priceRows = pickTourPriceRows(pricePayload)
+        log(
+          scenarioName,
+          'GetTourPrices',
+          '/Tour.svc/Rest/Json/GetTourPrices',
+          { tourCode, altCode, departureDate, offset },
+          pricePayload,
+          priceRows.length >= 0,
+        )
+      } catch (e) {
+        lastPriceErr = String(e)
+        continue
+      }
+
+      if (!priceRows.length) {
+        lastPriceErr = pricePayload?.ErrorMessage ?? 'fiyat satırı yok'
+        continue
+      }
+
+      for (const priceRow of priceRows.slice(0, 4)) {
+        if (booked) break
+        const packageId = pickTourPackageId(priceRow, altCode || tourCode)
+        if (!packageId) continue
+
+        let finalPayload = null
+        try {
+          finalPayload = await getTourFinalPrice(cfg, tokenCode, {
+            packageId,
+            tourRooms: finalRooms,
+          })
+          log(
+            scenarioName,
+            'GetTourFinalPrice',
+            '/Tour.svc/Rest/Json/GetTourFinalPrice',
+            { packageId, departureDate },
+            finalPayload,
+            !finalPayload?.HasError,
+          )
+        } catch (e) {
+          lastPriceErr = String(e)
+          continue
+        }
+        if (finalPayload?.HasError) {
+          lastPriceErr = finalPayload?.ErrorMessage ?? 'GetTourFinalPrice hata'
+          continue
+        }
+
+        const resultKeys = pickTourBookResultKeys(finalPayload, priceRow)
+        if (!resultKeys.length) {
+          lastPriceErr = 'ResultKeys alınamadı'
+          continue
+        }
+        ok(
+          `[${scenarioName}] GetTourFinalPrice`,
+          `${tourCode || altCode} — ${departureDate} — ${resultKeys.length} key`,
+        )
+
+        if (SKIP_BOOKING) {
+          console.log(`  ℹ️  BookTour adımı atlandı (--with-booking flag'i ile etkinleştir)`)
+          return
+        }
+
+        let paymentInfo = TOUR_TEST_PAYMENT
+        try {
+          const payPayload = await getTourPaymentOptions(cfg, tokenCode, { packageId })
+          log(
+            scenarioName,
+            'GetPaymentOptions',
+            '/Tour.svc/Rest/Json/GetPaymentOptions',
+            { packageId },
+            payPayload,
+            !payPayload?.HasError,
+          )
+          const items = payPayload?.Result?.PaymentOptions ?? payPayload?.Result ?? []
+          const first = Array.isArray(items) ? items[0] : null
+          if (first?.PaymentItemId != null) {
+            paymentInfo = {
+              ...TOUR_TEST_PAYMENT,
+              PaymentItemId: String(first.PaymentItemId),
+              PaymentType: first.PaymentType != null ? Number(first.PaymentType) : TOUR_TEST_PAYMENT.PaymentType,
+            }
+          }
+        } catch {
+          /* varsayılan ödeme */
+        }
+
+        try {
+          const bookPayload = await bookTour(cfg, {
+            tokenCode,
+            resultKeys,
+            tourRoomPaxes,
+            contactInfo: TEST_CONTACT,
+            invoiceInfo: TEST_INVOICE,
+            paymentInfo,
+            bookingNote: clientNotes,
+            agentReferenceInfo: `RY-${Date.now()}-tour`,
+            languageCode: searchOpts.languageCode ?? 'tr',
+          })
+          log(scenarioName, 'BookTour', '/Tour.svc/Rest/Json/BookTour',
+            { resultKeys, tourCode, departureDate }, bookPayload, !bookPayload?.HasError)
+
+          if (bookPayload?.HasError) {
+            lastPriceErr = bookPayload?.ErrorMessage ?? 'BookTour hata'
+            if (!/invalid|availability|passenger|balance|yetersiz/i.test(lastPriceErr)) break
+            continue
+          }
+
+          const booking = bookPayload?.Result?.Booking ?? bookPayload?.Result?.booking ?? bookPayload?.Result ?? {}
+          const systemPnr =
+            booking?.SystemPnr ??
+            booking?.systemPnr ??
+            bookPayload?.Result?.SystemPnr ??
+            bookPayload?.SystemPnr ??
+            null
+          ok(`[${scenarioName}] BookTour`, `SystemPNR: ${systemPnr ?? '(yok)'}`)
+
+          let verifiedSystemPnr = null
+          let pnrVerified = null
+          if (systemPnr) {
+            try {
+              const verifyPayload = await getTourBooking(cfg, tokenCode, {
+                systemPnr,
+                lastName: TEST_CONTACT.LastName,
+              })
+              verifiedSystemPnr =
+                verifyPayload?.Result?.Booking?.SystemPnr ??
+                verifyPayload?.Result?.SystemPnr ??
+                null
+              pnrVerified =
+                verifiedSystemPnr != null &&
+                String(verifiedSystemPnr).trim().toUpperCase() === String(systemPnr).trim().toUpperCase()
+              log(
+                scenarioName,
+                'GetTourBooking',
+                '/Tour.svc/Rest/Json/GetBooking',
+                { systemPnr, lastName: TEST_CONTACT.LastName },
+                verifyPayload,
+                pnrVerified === true,
+              )
+              if (pnrVerified) {
+                ok(`[${scenarioName}] PNR doğrulama`, `GetTourBooking eşleşti: ${verifiedSystemPnr}`)
+              }
+            } catch (e) {
+              log(scenarioName, 'GetTourBooking', '/Tour.svc/Rest/Json/GetBooking', { systemPnr }, String(e), false)
+            }
+          }
+
+          TOUR_CERT_RESULTS.push({
+            scenario: scenarioName,
+            systemPnr,
+            tourCode: tourCode || altCode,
+            departureDate,
+            resultKeys,
+            pnrVerified,
+            verifiedSystemPnr,
+            clientNotes,
+          })
+          booked = true
+          break
+        } catch (e) {
+          lastPriceErr = String(e)
+          continue
+        }
+      }
+    }
+  }
+
+  if (!booked && !SKIP_BOOKING) {
+    fail(`[${scenarioName}] BookTour`, lastPriceErr || 'Uygun tur/fiyat bulunamadı')
+  }
+}
+
 async function runHotelScenario(cfg, tokenCode, scenarioName, hotelOpts, roomOpts) {
   section(`${scenarioName}`)
 
@@ -1673,31 +1928,59 @@ async function main() {
   }
 
   if (RUN_TOURS) {
-  // ── Tur Arama ─────────────────────────────────────────────────────────────
-  section('S1 — SearchTour (Tur Katalog)')
-  try {
-    const payload = await searchTours(cfg, tokenCode, {
-      languageCode: 'tr',
-      startDate: addDays(7),
-      endDate: addDays(400),
-    })
-    const rows = pickTourRows(payload)
-    log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour',
-      { languageCode: 'tr' }, payload, rows.length >= 0)
-    if (rows.length > 0) {
-      ok('SearchTour', `${rows.length} tur`)
-      const f = rows[0]
-      const tour = f?.Tour ?? f?.tour ?? f
-      ok('İlk tur', `${tour?.TourCode ?? tour?.Code ?? '?'} — ${tour?.Name ?? tour?.TourName ?? '?'}`)
-    } else if (!payload?.HasError) {
-      console.log(`  ℹ️  SearchTour: HasError=false ama liste boş (sandbox katalog sınırlı) — ${preview(payload, 200)}`)
-      SUMMARY_LINES.push('  ℹ️  SearchTour: boş katalog (sandbox)')
-    } else {
-      fail('SearchTour', payload?.ErrorMessage ?? preview(payload, 400))
+  // ═══════════════════════════════════════════════════════════════════════════
+  // TUR SENARYOLARI — SearchTour → GetTourPrices → GetTourFinalPrice → BookTour
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  if (SKIP_BOOKING) {
+    section('S1 — SearchTour (Tur Katalog)')
+    try {
+      const payload = await searchTours(cfg, tokenCode, {
+        languageCode: 'tr',
+        startDate: addDays(7),
+        endDate: addDays(400),
+      })
+      const rows = pickTourRows(payload)
+      log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour',
+        { languageCode: 'tr' }, payload, rows.length >= 0)
+      if (rows.length > 0) {
+        ok('SearchTour', `${rows.length} tur`)
+        const f = rows[0]
+        const tour = f?.Tour ?? f?.tour ?? f
+        ok('İlk tur', `${tour?.TourCode ?? tour?.Code ?? '?'} — ${tour?.Name ?? tour?.TourName ?? '?'}`)
+      } else if (!payload?.HasError) {
+        console.log(`  ℹ️  SearchTour: HasError=false ama liste boş (sandbox katalog sınırlı) — ${preview(payload, 200)}`)
+        SUMMARY_LINES.push('  ℹ️  SearchTour: boş katalog (sandbox)')
+      } else {
+        fail('SearchTour', payload?.ErrorMessage ?? preview(payload, 400))
+      }
+    } catch (e) {
+      log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', {}, String(e), false)
+      fail('SearchTour', e)
     }
-  } catch (e) {
-    log('S1-SearchTour', 'SearchTour', '/Tour.svc/Rest/Json/SearchTour', {}, String(e), false)
-    fail('SearchTour', e)
+  } else {
+    await runTourScenario(
+      cfg,
+      tokenCode,
+      'Tour-S1: 2 ADT / tek oda',
+      [{ RoomIndex: 0, Adults: 2, Children: 0, ChildAges: null }],
+    )
+
+    if (!ONLY_TOUR_S1) {
+      await runTourScenario(
+        cfg,
+        tokenCode,
+        'Tour-S2: 2 ADT + 1 CHD(5) / tek oda',
+        [{ RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [5] }],
+      )
+
+      await runTourScenario(
+        cfg,
+        tokenCode,
+        'Tour-S3: 2 ADT + 1 CHD(8) / tek oda',
+        [{ RoomIndex: 0, Adults: 2, Children: 1, ChildAges: [8] }],
+      )
+    }
   }
   }
 
@@ -2014,6 +2297,24 @@ function printSummary() {
       console.log('─'.repeat(70))
       SUMMARY_LINES.push(
         `AIR CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | PNR: ${row.pnr ?? '-'}`,
+      )
+    }
+  }
+  if (TOUR_CERT_RESULTS.length > 0) {
+    console.log('\n🚌 TOUR API — KPlus formu için:')
+    console.log('─'.repeat(70))
+    for (const row of TOUR_CERT_RESULTS) {
+      console.log(`  Senaryo     : ${row.scenario}`)
+      console.log(`  System PNR  : ${row.systemPnr ?? '(alınamadı)'}`)
+      console.log(`  Tur kodu    : ${row.tourCode ?? '-'}`)
+      console.log(`  Kalkış      : ${row.departureDate ?? '-'}`)
+      if (row.verifiedSystemPnr != null) {
+        console.log(`  Doğrulama   : ${row.pnrVerified ? '✅ eşleşti' : '❌ uyuşmaz'} (${row.verifiedSystemPnr})`)
+      }
+      console.log(`  Client Notes: ${row.clientNotes}`)
+      console.log('─'.repeat(70))
+      SUMMARY_LINES.push(
+        `TOUR CERT | ${row.scenario} | SystemPNR: ${row.systemPnr ?? '-'} | Tour: ${row.tourCode ?? '-'}`,
       )
     }
   }
