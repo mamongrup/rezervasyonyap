@@ -577,73 +577,54 @@ export function buildTourBookRequestVariants(opts = {}) {
 
   if (finalPriceLocked && bookPkg && isTourSessionVariantBookKey(bookPkg)) {
     const locked = []
-    const push = (v) => locked.push({ ...base, ...v })
+    const withContract = (v) => (extraInfo ? { ...v, extraInfo } : v)
+    const push = (v) => locked.push(withContract({ ...base, ...v }))
 
-    if (refs.sessionUuid) {
-      push({ label: 'resultKeys-uuid', allowBareUuid: true, resultKeys: [refs.sessionUuid] })
-      push({
-        label: 'pkgUuid+254',
-        allowBareUuid: true,
-        packageIdInBody: true,
-        packageId: refs.sessionUuid,
-        packageIdWithResultKeys: true,
-        resultKeys: [bookPkg],
-      })
-      push({
-        label: 'pkgUuidOnly',
-        allowBareUuid: true,
-        packageIdInBody: true,
-        packageId: refs.sessionUuid,
-        resultKeys: [],
-      })
-    }
-    if (refs.finalResultId && refs.finalResultId !== refs.sessionUuid) {
-      const isTfp = /^TFP#/i.test(refs.finalResultId)
-      push({
-        label: 'resultKeys-finalId',
-        allowBareUuid: !isTfp,
-        allowTfpSession: isTfp,
-        resultKeys: [refs.finalResultId],
-      })
-    }
-    if (refs.reqPkgId && refs.reqPkgId !== bookPkg && refs.reqPkgId !== refs.sessionBookKey) {
-      push({
-        label: 'pkgReqPkg+254',
-        packageIdInBody: true,
-        packageId: refs.reqPkgId,
-        packageIdWithResultKeys: true,
-        resultKeys: [bookPkg],
-      })
-    }
+    push({
+      label: 'pkg254+contract',
+      packageIdInBody: true,
+      packageId: bookPkg,
+      resultKeys: [],
+    })
+    push({
+      label: 'pkg254+contract+price',
+      packageIdInBody: true,
+      packageId: bookPkg,
+      resultKeys: [],
+      withPrice: true,
+    })
     if (refs.sessionBookKey) {
       push({
-        label: 'sessionPkg+254key',
+        label: 'sessionPkg+254+contract',
         packageIdInBody: true,
         packageId: refs.sessionBookKey,
         packageIdWithResultKeys: true,
         resultKeys: [bookPkg],
       })
-      push({ label: 'resultKeys-pipe', resultKeys: [refs.sessionBookKey] })
     }
-    push({ label: 'resultKeys-254', resultKeys: [bookPkg] })
     if (paymentSessionId && isPlausibleTourBookPackageId(paymentSessionId)) {
       push({
-        label: 'pkgTfp+254key',
+        label: 'pkgTfp+254+contract',
         packageIdInBody: true,
         packageId: paymentSessionId,
         packageIdWithResultKeys: true,
         resultKeys: [bookPkg],
       })
     }
-    if (fromFinal.packageId && fromFinal.packageId !== refs.sessionBookKey) {
+    push({
+      label: 'pkg254Only',
+      packageIdInBody: true,
+      packageId: bookPkg,
+      resultKeys: [],
+    })
+    if (refs.sessionUuid) {
       push({
-        label: 'pkgFinalResp',
-        packageIdInBody: true,
-        packageId: fromFinal.packageId,
-        resultKeys: fromFinal.resultKeys.length ? fromFinal.resultKeys.slice(0, 1) : [],
-        packageIdWithResultKeys: fromFinal.resultKeys.length > 0 || undefined,
+        label: 'pkgUuid+254+contract',
         allowBareUuid: true,
-        allowTfpSession: /^TFP#/i.test(fromFinal.packageId),
+        packageIdInBody: true,
+        packageId: refs.sessionUuid,
+        packageIdWithResultKeys: true,
+        resultKeys: [bookPkg],
       })
     }
     variants.push(...locked)
