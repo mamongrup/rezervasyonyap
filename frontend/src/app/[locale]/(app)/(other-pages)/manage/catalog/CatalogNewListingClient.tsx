@@ -432,6 +432,32 @@ async function saveRequiredStep<T>(label: string, step: Promise<T>): Promise<T> 
   }
 }
 
+/** Panel metin alanları → API/SQL uyumlu ondalık (virgül → nokta). */
+function basicsDecimalField(raw: string): string | undefined {
+  const t = raw.trim().replace(/\s/g, '').replace(',', '.')
+  if (!t || t === '__null__') return undefined
+  const n = Number.parseFloat(t)
+  if (!Number.isFinite(n)) return undefined
+  return String(n)
+}
+
+/** Tam sayı alanları (min stay, onay süresi saat). */
+function basicsIntField(raw: string): string | undefined {
+  const t = raw.trim().replace(/\s/g, '').replace(',', '.')
+  if (!t || t === '__null__') return undefined
+  const n = Number.parseFloat(t)
+  if (!Number.isFinite(n)) return undefined
+  return String(Math.max(0, Math.round(n)))
+}
+
+function basicsHighSeasonJson(ranges: Array<{ from: string; to: string }>): string | undefined {
+  const clean = ranges
+    .map((r) => ({ from: r.from.trim(), to: r.to.trim() }))
+    .filter((r) => r.from !== '' && r.to !== '')
+  if (clean.length === 0) return undefined
+  return JSON.stringify(clean)
+}
+
 /** Plaj/villa dikey formu ile uyumlu havuz satırları (Laravel sitedeki yapıya paralel) */
 interface PoolRow {
   enabled: boolean
@@ -2716,18 +2742,27 @@ export default function CatalogNewListingClient({
 
       // 4. Temel ilan alanları
       const basicsBody: Parameters<typeof patchListingBasics>[2] = { status }
-      if (minStayNights.trim()) basicsBody.min_stay_nights = minStayNights.trim()
-      if (cleaningFee.trim()) basicsBody.cleaning_fee_amount = cleaningFee.trim()
+      const msn = basicsIntField(minStayNights)
+      if (msn) basicsBody.min_stay_nights = msn
+      const cleaning = basicsDecimalField(cleaningFee)
+      if (cleaning) basicsBody.cleaning_fee_amount = cleaning
       else if (editListingId) basicsBody.cleaning_fee_amount = '__null__'
-      if (depositAmount.trim()) basicsBody.first_charge_amount = depositAmount.trim()
-      if (prepaymentPercent.trim()) basicsBody.prepayment_percent = prepaymentPercent.trim()
-      if (commissionPercent.trim()) basicsBody.commission_percent = commissionPercent.trim()
+      const deposit = basicsDecimalField(depositAmount)
+      if (deposit) basicsBody.first_charge_amount = deposit
+      const prepay = basicsDecimalField(prepaymentPercent)
+      if (prepay) basicsBody.prepayment_percent = prepay
+      const comm = basicsDecimalField(commissionPercent)
+      if (comm) basicsBody.commission_percent = comm
       if (poolSizeLabel.trim()) basicsBody.pool_size_label = poolSizeLabel.trim()
       if (supplierPaymentNote.trim()) basicsBody.supplier_payment_note = supplierPaymentNote.trim()
-      if (confirmDeadlineNormal.trim()) basicsBody.confirm_deadline_normal_h = confirmDeadlineNormal.trim()
-      if (confirmDeadlineHigh.trim()) basicsBody.confirm_deadline_high_h = confirmDeadlineHigh.trim()
-      if (highSeasonDates.length > 0) basicsBody.high_season_dates_json = JSON.stringify(highSeasonDates)
-      if (avgAdCostPercent.trim()) basicsBody.avg_ad_cost_percent = avgAdCostPercent.trim()
+      const cdn = basicsIntField(confirmDeadlineNormal)
+      if (cdn) basicsBody.confirm_deadline_normal_h = cdn
+      const cdh = basicsIntField(confirmDeadlineHigh)
+      if (cdh) basicsBody.confirm_deadline_high_h = cdh
+      const hsd = basicsHighSeasonJson(highSeasonDates)
+      if (hsd) basicsBody.high_season_dates_json = hsd
+      const aac = basicsDecimalField(avgAdCostPercent)
+      if (aac) basicsBody.avg_ad_cost_percent = aac
       if (cancellationPolicyText.trim()) basicsBody.cancellation_policy_text = cancellationPolicyText.trim()
       if (ministryLicenseRef.trim()) basicsBody.ministry_license_ref = ministryLicenseRef.trim()
       if (externalListingRef.trim()) basicsBody.external_listing_ref = externalListingRef.trim()

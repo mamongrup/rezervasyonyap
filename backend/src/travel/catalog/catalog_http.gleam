@@ -3380,6 +3380,48 @@ fn basics_patch_bool_param(opt: Option(Bool)) -> String {
   }
 }
 
+fn basics_normalize_decimal_param(raw: String) -> String {
+  let t = string.trim(raw)
+  case t == "" || t == "__null__" {
+    True -> t
+    False -> string.replace(t, ",", ".")
+  }
+}
+
+fn basics_normalize_int_param(raw: String) -> Result(String, Nil) {
+  let t = string.trim(raw)
+  case t == "" || t == "__null__" {
+    True -> Ok(t)
+    False -> {
+      let norm = string.replace(t, ",", ".")
+      case int.parse(norm) {
+        Ok(n) -> Ok(int.to_string(n))
+        Error(_) ->
+          case float.parse(norm) {
+            Ok(f) -> Ok(int.to_string(float.round(f)))
+            Error(_) -> Error(Nil)
+          }
+      }
+    }
+  }
+}
+
+fn basics_validate_high_season_json(raw: String) -> Result(String, Nil) {
+  let t = string.trim(raw)
+  case t == "" {
+    True -> Ok("")
+    False ->
+      case json.parse(t, decode.list(decode.dynamic)) {
+        Ok(_) -> Ok(t)
+        Error(_) -> Error(Nil)
+      }
+  }
+}
+
+fn basics_patch_field_error_code(field: String) -> String {
+  "basics_invalid_" <> field
+}
+
 /// GET /api/v1/catalog/listings/:id/basics — panel temel ilan alanları (listings tablosu).
 pub fn get_listing_basics(
   req: Request,
@@ -3573,62 +3615,89 @@ fn do_patch_listing_basics(
   p: BasicsPatch,
   status_t: String,
 ) -> Response {
-  case
-    pog.query(
-      "update listings set "
-      <> "status = case when $3 = '' then status else $3::text end, "
-      <> "min_stay_nights = case when $4 = '__null__' then null when $4 = '' then min_stay_nights else $4::integer end, "
-      <> "cleaning_fee_amount = case when $5 = '__null__' then null when $5 = '' then cleaning_fee_amount else $5::numeric end, "
-      <> "first_charge_amount = case when $6 = '__null__' then null when $6 = '' then first_charge_amount else $6::numeric end, "
-      <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
-      <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
-      <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
-      <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
-      <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
-      <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
-      <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
-      <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
-      <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
-      <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
-      <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
-      <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
-      <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
-      <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
-      <> "is_locked = case when $21 = '' then is_locked when $21 = 'true' then true else false end, "
-      <> "updated_at = now() "
-      <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
-    )
-    |> pog.parameter(pog.text(listing_id))
-    |> pog.parameter(pog.text(org_id))
-    |> pog.parameter(pog.text(status_t))
-    |> pog.parameter(pog.text(string.trim(p.min_stay_nights)))
-    |> pog.parameter(pog.text(string.trim(p.cleaning_fee_amount)))
-    |> pog.parameter(pog.text(string.trim(p.first_charge_amount)))
-    |> pog.parameter(pog.text(string.trim(p.prepayment_percent)))
-    |> pog.parameter(pog.text(string.trim(p.pool_size_label)))
-    |> pog.parameter(pog.text(string.trim(p.commission_percent)))
-    |> pog.parameter(pog.text(string.trim(p.high_season_dates_json)))
-    |> pog.parameter(pog.text(string.trim(p.confirm_deadline_normal_h)))
-    |> pog.parameter(pog.text(string.trim(p.confirm_deadline_high_h)))
-    |> pog.parameter(pog.text(string.trim(p.supplier_payment_note)))
-    |> pog.parameter(pog.text(string.trim(p.avg_ad_cost_percent)))
-    |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
-    |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
-    |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
-    |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
-    |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
-    |> pog.parameter(pog.text(basics_patch_bool_param(
-      p.allow_sub_min_stay_gap_booking,
-    )))
-    |> pog.parameter(pog.text(basics_patch_bool_param(p.is_locked)))
-    |> pog.returning(one_string_row())
-    |> pog.execute(db)
-  {
-    Error(_) -> json_err(500, "basics_update_failed")
-    Ok(ret) ->
-      case ret.rows {
-        [] -> json_err(404, "listing_not_found")
-        _ -> wisp.json_response("{\"ok\":true}", 200)
+  case basics_normalize_int_param(p.min_stay_nights) {
+    Error(_) -> json_err(400, basics_patch_field_error_code("min_stay_nights"))
+    Ok(min_stay) ->
+      case basics_normalize_int_param(p.confirm_deadline_normal_h) {
+        Error(_) -> json_err(400, basics_patch_field_error_code("confirm_deadline_normal_h"))
+        Ok(cdn) ->
+          case basics_normalize_int_param(p.confirm_deadline_high_h) {
+            Error(_) -> json_err(400, basics_patch_field_error_code("confirm_deadline_high_h"))
+            Ok(cdh) ->
+              case basics_validate_high_season_json(p.high_season_dates_json) {
+                Error(_) -> json_err(400, basics_patch_field_error_code("high_season_dates_json"))
+                Ok(hsd) ->
+                  case
+                    pog.query(
+                      "update listings set "
+                      <> "status = case when $3 = '' then status else $3::text end, "
+                      <> "min_stay_nights = case when $4 = '__null__' then null when $4 = '' then min_stay_nights else $4::integer end, "
+                      <> "cleaning_fee_amount = case when $5 = '__null__' then null when $5 = '' then cleaning_fee_amount else $5::numeric end, "
+                      <> "first_charge_amount = case when $6 = '__null__' then null when $6 = '' then first_charge_amount else $6::numeric end, "
+                      <> "prepayment_percent = case when $7 = '__null__' then null when $7 = '' then prepayment_percent else $7::numeric end, "
+                      <> "pool_size_label = case when $8 = '__null__' then null when $8 = '' then pool_size_label else $8::text end, "
+                      <> "commission_percent = case when $9 = '__null__' then null when $9 = '' then commission_percent else $9::numeric end, "
+                      <> "high_season_dates_json = case when $10 = '' then high_season_dates_json else ($10::text)::jsonb end, "
+                      <> "confirm_deadline_normal_h = case when $11 = '' then confirm_deadline_normal_h else $11::integer end, "
+                      <> "confirm_deadline_high_h = case when $12 = '' then confirm_deadline_high_h else $12::integer end, "
+                      <> "supplier_payment_note = case when $13 = '' then supplier_payment_note else $13::text end, "
+                      <> "avg_ad_cost_percent = case when $14 = '' then avg_ad_cost_percent else $14::numeric end, "
+                      <> "cancellation_policy_text = case when $15 = '' then cancellation_policy_text else $15::text end, "
+                      <> "ministry_license_ref = case when $16 = '' then ministry_license_ref else $16::text end, "
+                      <> "external_listing_ref = case when $17 = '' then external_listing_ref else $17::text end, "
+                      <> "share_to_social = case when $18 = '' then share_to_social when $18 = 'true' then true else false end, "
+                      <> "allow_ai_caption = case when $19 = '' then allow_ai_caption when $19 = 'true' then true else false end, "
+                      <> "allow_sub_min_stay_gap_booking = case when $20 = '' then allow_sub_min_stay_gap_booking when $20 = 'true' then true else false end, "
+                      <> "is_locked = case when $21 = '' then is_locked when $21 = 'true' then true else false end, "
+                      <> "updated_at = now() "
+                      <> "where id = $1::uuid and organization_id = $2::uuid returning id::text",
+                    )
+                    |> pog.parameter(pog.text(listing_id))
+                    |> pog.parameter(pog.text(org_id))
+                    |> pog.parameter(pog.text(status_t))
+                    |> pog.parameter(pog.text(min_stay))
+                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.cleaning_fee_amount)))
+                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.first_charge_amount)))
+                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.prepayment_percent)))
+                    |> pog.parameter(pog.text(string.trim(p.pool_size_label)))
+                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.commission_percent)))
+                    |> pog.parameter(pog.text(hsd))
+                    |> pog.parameter(pog.text(cdn))
+                    |> pog.parameter(pog.text(cdh))
+                    |> pog.parameter(pog.text(string.trim(p.supplier_payment_note)))
+                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.avg_ad_cost_percent)))
+                    |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
+                    |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
+                    |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
+                    |> pog.parameter(pog.text(basics_patch_bool_param(p.share_to_social)))
+                    |> pog.parameter(pog.text(basics_patch_bool_param(p.allow_ai_caption)))
+                    |> pog.parameter(pog.text(basics_patch_bool_param(
+                      p.allow_sub_min_stay_gap_booking,
+                    )))
+                    |> pog.parameter(pog.text(basics_patch_bool_param(p.is_locked)))
+                    |> pog.returning(one_string_row())
+                    |> pog.execute(db)
+                  {
+                    Error(e) -> {
+                      let detail = string.lowercase(pog_errors.query_error_to_string(e))
+                      let code =
+                        case
+                          string.contains(detail, "invalid input syntax")
+                          || string.contains(detail, "invalid_text_representation")
+                        {
+                          True -> "basics_invalid_field_value"
+                          False -> "basics_update_failed"
+                        }
+                      json_err(500, code)
+                    }
+                    Ok(ret) ->
+                      case ret.rows {
+                        [] -> json_err(404, "listing_not_found")
+                        _ -> wisp.json_response("{\"ok\":true}", 200)
+                      }
+                  }
+              }
+          }
       }
   }
 }

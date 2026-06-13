@@ -37,6 +37,11 @@ const TR_BY_CODE: Record<string, string> = {
   unknown_title_locale: 'Bilinmeyen başlık dili.',
   listing_translations_query_failed: 'İlan çevirileri alınamadı.',
   basics_update_failed: 'İlan temel bilgileri güncellenemedi.',
+  basics_invalid_field_value: 'İlan temel bilgilerinde geçersiz sayı veya tarih formatı var.',
+  basics_invalid_min_stay_nights: 'Minimum konaklama gecesi geçersiz.',
+  basics_invalid_confirm_deadline_normal_h: 'Normal sezon onay süresi (saat) geçersiz.',
+  basics_invalid_confirm_deadline_high_h: 'Yüksek sezon onay süresi (saat) geçersiz.',
+  basics_invalid_high_season_dates_json: 'Yüksek sezon tarih aralığı geçersiz.',
   basics_query_failed: 'İlan temel bilgileri veritabanından alınamadı.',
   listing_is_locked: 'Bu ilan kilitli — önce kilidi kaldırın, ardından arşivleyebilirsiniz.',
   listing_lock_check_failed: 'İlan kilit durumu kontrol edilemedi.',
@@ -363,6 +368,11 @@ export function formatManageApiError(raw: string): string {
   }
   const mapped = TR_BY_CODE[key]
   if (mapped) return mapped
+  if (key.startsWith('basics_invalid_')) {
+    const mappedField = TR_BY_CODE[key]
+    if (mappedField) return mappedField
+    return 'İlan temel bilgilerinde geçersiz alan değeri var; sayıları nokta ile girin (ör. 15.5).'
+  }
   if (key.startsWith('listing_content_locale_not_found:')) {
     const locale = key.slice('listing_content_locale_not_found:'.length).trim() || '?'
     return `Dil kaydı bulunamadı (${locale}). locales tablosunda bu kodun tanımlı olduğundan emin olun.`
