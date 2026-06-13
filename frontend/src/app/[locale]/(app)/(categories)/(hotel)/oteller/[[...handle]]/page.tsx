@@ -7,6 +7,7 @@ import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata({
