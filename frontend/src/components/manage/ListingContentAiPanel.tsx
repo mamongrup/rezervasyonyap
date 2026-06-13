@@ -1,6 +1,8 @@
 'use client'
 
 import { CATEGORY_LABEL_TR } from '@/lib/catalog-category-ui'
+import { getStoredAuthToken } from '@/lib/auth-storage'
+import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   getListingContentStats,
   listProductCategories,
