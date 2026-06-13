@@ -9,7 +9,7 @@ import {
 } from '@/lib/catalog-manage-organization'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { useManageT } from '@/lib/manage-i18n-context'
-import { getAuthMe, listManageCatalogListings, type ManageListingRow } from '@/lib/travel-api'
+import { getAuthMe, listManageCatalogListings, deleteManageCatalogListing, deleteManageCatalogListingsBulk, type ManageListingRow } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import Input from '@/shared/Input'
 import { Field, Label } from '@/shared/fieldset'
@@ -25,6 +25,7 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Trash2,
   X,
 } from 'lucide-react'
 import { useParams } from 'next/navigation'
@@ -120,6 +121,9 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const [scopeReady, setScopeReady] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     const token = getStoredAuthToken()
@@ -137,6 +141,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         if (admin) {
+          setIsAdmin(true)
           const resolved = initCatalogManageOrganizationFromMe(me)
           setOrgId(resolved)
           // Org ID otomatik çözüldüyse alanı gösterme
@@ -221,6 +226,94 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const pageSizeSelectClass =
     'min-w-[4.25rem] appearance-none rounded-lg border border-neutral-200 bg-white py-1.5 pl-3 pr-8 text-sm tabular-nums text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
 
+  const orgParam = orgId.trim() || undefined
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllOnPage() {
+    const pageIds = rows.map((r) => r.id)
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) {
+        for (const id of pageIds) next.delete(id)
+      } else {
+        for (const id of pageIds) next.add(id)
+      }
+      return next
+    })
+  }
+
+  async function handleDeleteOne(row: ManageListingRow) {
+    const token = getStoredAuthToken()
+    if (!token) return
+    const title = row.title?.trim() || row.slug
+    if (
+      !window.confirm(
+        `«${title}» ilanı kalıcı olarak silinsin mi?\n\nÇeviriler, görseller ve fiyat kuralları da silinir. Rezervasyonu olan ilan silinemez.`,
+      )
+    ) {
+      return
+    }
+    setDeleting(true)
+    setErr(null)
+    try {
+      await deleteManageCatalogListing(token, row.id, orgParam)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(row.id)
+        return next
+      })
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'İlan silinemedi.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleDeleteSelected() {
+    const token = getStoredAuthToken()
+    if (!token || selectedIds.size === 0) return
+    const n = selectedIds.size
+    if (
+      !window.confirm(
+        `${n} ilan kalıcı olarak silinsin mi?\n\nRezervasyonu olan kayıtlar atlanır; diğerleri tamamen kaldırılır.`,
+      )
+    ) {
+      return
+    }
+    setDeleting(true)
+    setErr(null)
+    try {
+      const r = await deleteManageCatalogListingsBulk(token, [...selectedIds], orgParam)
+      setSelectedIds(new Set())
+      if (r.failed.length > 0) {
+        const sample = r.failed
+          .slice(0, 3)
+          .map((f) => formatManageApiError(f.error))
+          .join(' · ')
+        setErr(
+          `${r.deleted} silindi, ${r.failed.length} başarısız.${sample ? ` Örnek: ${sample}` : ''}`,
+        )
+      }
+      await load()
+    } catch (e) {
+      setErr(e instanceof Error ? formatManageApiError(e.message) : 'Toplu silme başarısız.')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const allOnPageSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id))
+
   return (
     <div className="min-w-0">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -290,6 +383,17 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
             className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2.5 pl-10 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
+        {isAdmin && selectedIds.size > 0 ? (
+          <button
+            type="button"
+            onClick={() => void handleDeleteSelected()}
+            disabled={deleting || loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-300 dark:hover:bg-red-950/60"
+          >
+            {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Seçilenleri sil ({selectedIds.size})
+          </button>
+        ) : null}
       </div>
 
       {err ? (
@@ -329,6 +433,17 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50/90 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400">
+                  {isAdmin ? (
+                    <th className="w-10 px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={allOnPageSelected}
+                        onChange={toggleSelectAllOnPage}
+                        aria-label="Bu sayfadaki tüm ilanları seç"
+                        className="h-4 w-4 rounded border-neutral-300"
+                      />
+                    </th>
+                  ) : null}
                   <th className="px-4 py-3">{t('catalog.col_title')}</th>
                   <th className="px-4 py-3">{t('catalog.col_status')}</th>
                   <th className="px-4 py-3">{t('catalog.col_source')}</th>
@@ -346,6 +461,17 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                       key={r.id}
                       className="transition-colors hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40"
                     >
+                      {isAdmin ? (
+                        <td className="px-3 py-3 align-middle">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(r.id)}
+                            onChange={() => toggleSelected(r.id)}
+                            aria-label={`${title} seç`}
+                            className="h-4 w-4 rounded border-neutral-300"
+                          />
+                        </td>
+                      ) : null}
                       <td className="px-4 py-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div
@@ -400,6 +526,18 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                             <Languages className="h-3.5 w-3.5" />
                             {t('catalog.translations_link')}
                           </Link>
+                          {isAdmin ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleDeleteOne(r)}
+                              disabled={deleting}
+                              title="Kalıcı sil"
+                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/40 dark:bg-neutral-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Sil
+                            </button>
+                          ) : null}
                         </div>
                       </td>
                     </tr>

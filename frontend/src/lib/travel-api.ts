@@ -870,6 +870,77 @@ export async function listManageCatalogListings(
   }
 }
 
+export type ManageListingDeleteBulkResult = {
+  ok: boolean
+  deleted: number
+  deleted_ids: string[]
+  failed: { listing_id: string; error: string }[]
+}
+
+function manageListingsOrgQuery(organizationId?: string): string {
+  const o = organizationId?.trim()
+  return o ? `?organization_id=${encodeURIComponent(o)}` : ''
+}
+
+/** Kalıcı silme — rezervasyon satırı varsa API reddeder. */
+export async function deleteManageCatalogListing(
+  token: string,
+  listingId: string,
+  organizationId?: string,
+): Promise<{ ok: boolean; deleted: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(
+    `${b}/api/v1/catalog/manage-listings/${encodeURIComponent(listingId)}${manageListingsOrgQuery(organizationId)}`,
+    { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `listing_delete_${res.status}`)
+  }
+  return json(res)
+}
+
+/** Toplu kalıcı silme (en fazla 100 id). */
+export async function deleteManageCatalogListingsBulk(
+  token: string,
+  listingIds: string[],
+  organizationId?: string,
+): Promise<ManageListingDeleteBulkResult> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/catalog/manage-listings/delete-bulk${manageListingsOrgQuery(organizationId)}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ listing_ids: listingIds }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `listing_delete_bulk_${res.status}`)
+  }
+  const raw = await json<Record<string, unknown>>(res)
+  const failed = Array.isArray(raw.failed)
+    ? raw.failed
+        .filter((x): x is Record<string, unknown> => x != null && typeof x === 'object')
+        .map((x) => ({
+          listing_id: typeof x.listing_id === 'string' ? x.listing_id : '',
+          error: typeof x.error === 'string' ? x.error : 'listing_delete_failed',
+        }))
+    : []
+  const deletedIds = Array.isArray(raw.deleted_ids)
+    ? raw.deleted_ids.filter((x): x is string => typeof x === 'string')
+    : []
+  return {
+    ok: raw.ok === true,
+    deleted: typeof raw.deleted === 'number' ? raw.deleted : deletedIds.length,
+    deleted_ids: deletedIds,
+    failed,
+  }
+}
+
 export async function createManageCatalogListing(
   token: string,
   body: {

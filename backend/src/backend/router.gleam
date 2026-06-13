@@ -145,6 +145,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "catalog", "manage-listings"] ->
       catalog_http.create_manage_listing(req, ctx)
 
+    http.Post, ["api", "v1", "catalog", "manage-listings", "delete-bulk"] ->
+      catalog_http.delete_manage_listings_bulk(req, ctx)
+
+    http.Delete, ["api", "v1", "catalog", "manage-listings", lid] ->
+      catalog_http.delete_manage_listing(req, ctx, lid)
+
     http.Get, ["api", "v1", "catalog", "listings", lid, "translations"] ->
       catalog_http.get_listing_translations(req, ctx, lid)
 

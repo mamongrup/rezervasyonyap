@@ -19,6 +19,7 @@ import gleam/time/calendar
 import gleam/dynamic/decode
 import pog
 import travel/catalog/listing_translation_sql
+import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/identity/admin_gate
 import travel/identity/permissions
@@ -779,6 +780,172 @@ pub fn listing_in_manage_org(
       case ret.rows {
         [b] -> Ok(b)
         _ -> Error(Nil)
+      }
+  }
+}
+
+fn listing_has_reservation_lines(
+  conn: pog.Connection,
+  listing_id: String,
+) -> Result(Bool, Nil) {
+  case
+    pog.query(
+      "select exists(select 1 from reservation_line_items where listing_id = $1::uuid limit 1)",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(pg_bool_row())
+    |> pog.execute(conn)
+  {
+    Error(_) -> Error(Nil)
+    Ok(ret) ->
+      case ret.rows {
+        [b] -> Ok(b)
+        _ -> Error(Nil)
+      }
+  }
+}
+
+fn delete_listing_in_org(
+  conn: pog.Connection,
+  listing_id: String,
+  org_id: String,
+) -> Result(Nil, String) {
+  case listing_in_manage_org(conn, listing_id, org_id) {
+    Error(_) -> Error("listing_scope_check_failed")
+    Ok(False) -> Error("listing_not_found")
+    Ok(True) ->
+      case listing_has_reservation_lines(conn, listing_id) {
+        Error(_) -> Error("listing_delete_check_failed")
+        Ok(True) -> Error("listing_has_bookings")
+        Ok(False) ->
+          case
+            pog.query(
+              "delete from listings where id = $1::uuid and organization_id = $2::uuid returning id::text",
+            )
+            |> pog.parameter(pog.text(listing_id))
+            |> pog.parameter(pog.text(org_id))
+            |> pog.returning(row_dec.col0_string())
+            |> pog.execute(conn)
+          {
+            Error(e) -> {
+              let detail = string.lowercase(pog_errors.query_error_to_string(e))
+              case
+                string.contains(detail, "foreign key")
+                || string.contains(detail, "violates")
+              {
+                True -> Error("listing_has_bookings")
+                False -> Error("listing_delete_failed")
+              }
+            }
+            Ok(ret) ->
+              case ret.rows {
+                [_] -> Ok(Nil)
+                _ -> Error("listing_not_found")
+              }
+          }
+      }
+  }
+}
+
+fn bulk_delete_ids_decoder() -> decode.Decoder(List(String)) {
+  decode.field("listing_ids", decode.list(decode.string), decode.success)
+}
+
+/// DELETE /api/v1/catalog/manage-listings/:id?organization_id=
+pub fn delete_manage_listing(
+  req: Request,
+  ctx: Context,
+  listing_id: String,
+) -> Response {
+  use <- wisp.require_method(req, http.Delete)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case delete_listing_in_org(ctx.db, string.trim(listing_id), org_id) {
+        Error("listing_not_found") -> json_err(404, "listing_not_found")
+        Error("listing_has_bookings") -> json_err(409, "listing_has_bookings")
+        Error(msg) -> json_err(500, msg)
+        Ok(Nil) ->
+          wisp.json_response(
+            json.object([#("ok", json.bool(True)), #("deleted", json.int(1))])
+            |> json.to_string,
+            200,
+          )
+      }
+  }
+}
+
+/// POST /api/v1/catalog/manage-listings/delete-bulk
+pub fn delete_manage_listings_bulk(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case resolve_manage_listings_scope(req, ctx) {
+    Error(r) -> r
+    Ok(#(_, org_id)) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, bulk_delete_ids_decoder()) {
+            Error(_) -> json_err(400, "listing_ids_required")
+            Ok(ids_raw) -> {
+              let ids =
+                list.filter(
+                  list.map(ids_raw, string.trim),
+                  fn(id) { id != "" },
+                )
+              case ids {
+                [] -> json_err(400, "listing_ids_required")
+                _ ->
+                  case list.length(ids) > 100 {
+                    True -> json_err(400, "listing_delete_bulk_limit")
+                    False -> {
+                      let results =
+                        list.map(ids, fn(lid) {
+                          case delete_listing_in_org(ctx.db, lid, org_id) {
+                            Ok(Nil) -> Ok(lid)
+                            Error(e) -> Error(#(lid, e))
+                          }
+                        })
+                      let deleted =
+                        list.filter_map(results, fn(r) {
+                          case r {
+                            Ok(lid) -> Ok(lid)
+                            Error(_) -> Error(Nil)
+                          }
+                        })
+                      let failed =
+                        list.filter_map(results, fn(r) {
+                          case r {
+                            Error(#(lid, err)) ->
+                              Ok(#(lid, err))
+                            Ok(_) -> Error(Nil)
+                          }
+                        })
+                      let body =
+                        json.object([
+                          #("ok", json.bool(list.length(failed) == 0)),
+                          #("deleted", json.int(list.length(deleted))),
+                          #(
+                            "deleted_ids",
+                            json.array(deleted, json.string),
+                          ),
+                          #(
+                            "failed",
+                            json.array(failed, fn(pair) {
+                              let #(lid, err) = pair
+                              json.object([
+                                #("listing_id", json.string(lid)),
+                                #("error", json.string(err)),
+                              ])
+                            }),
+                          ),
+                        ])
+                        |> json.to_string
+                      wisp.json_response(body, 200)
+                    }
+                  }
+              }
+            }
+          }
       }
   }
 }
