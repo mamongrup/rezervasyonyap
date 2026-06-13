@@ -116,6 +116,7 @@ export default async function Page({
         regionLabel,
         propertyTypeLabel,
         fromApi,
+        lastMinute: query.last_minute === '1',
       }}
       flexibleListingCards={
         flexibleForUi.length > 0

@@ -9498,6 +9498,8 @@ export interface PublicListingSearchParams {
   checkin?: string
   /** Çıkış tarihi ISO-8601 */
   checkout?: string
+  /** API `flex_days` — tarih aralığını genişletir (müsaitlik araması) */
+  flexDays?: number
   /** Toplam misafir sayısı */
   guests?: number
   /** Sayfa numarası (1 tabanlı) */
@@ -9653,8 +9655,11 @@ export async function searchPublicListings(
   if (params.q?.trim())            u.set('q', params.q.trim())
   if (params.categoryCode?.trim()) u.set('category_code', params.categoryCode.trim())
   if (params.location?.trim())     u.set('location', params.location.trim())
-  if (params.checkin?.trim())      u.set('checkin', params.checkin.trim())
-  if (params.checkout?.trim())     u.set('checkout', params.checkout.trim())
+  if (params.checkin?.trim())      u.set('start_date', params.checkin.trim())
+  if (params.checkout?.trim())     u.set('end_date', params.checkout.trim())
+  if (params.flexDays != null && params.flexDays >= 0) {
+    u.set('flex_days', String(params.flexDays))
+  }
   if (params.guests && params.guests > 0) u.set('guests', String(params.guests))
   if (params.page && params.page > 1)     u.set('page', String(params.page))
   // Backend catalog public search uses `limit` (see collections_http.search_public_listings)

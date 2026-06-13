@@ -18,7 +18,7 @@ import {
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import type { TListingBase } from '@/types/listing-types'
 import { categoryMetadata } from '@/lib/category-page-metadata'
-import { Metadata } from 'next'
+import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata({
@@ -116,6 +116,8 @@ export default async function Page({
         regionLabel,
         propertyTypeLabel,
         fromApi,
+        lastMinute: query.last_minute === '1',
+        vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),
       }}
       flexibleListingCards={
         flexibleForUi.length > 0

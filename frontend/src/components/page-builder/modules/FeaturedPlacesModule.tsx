@@ -4,11 +4,17 @@ import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { getFeaturedListingsConfig } from '@/lib/featured-listings-config'
 import {
   categorySupportsLuxuryEconomicTabs,
+  categorySupportsLastMinuteTab,
   DEFAULT_FEATURED_DISPLAY_COUNT,
   loadFeaturedPlacesListingPool,
   normalizeFeaturedListingsConfig,
   type FeaturedTabDef,
 } from '@/lib/featured-listings-utils'
+import { fetchCategoryListings } from '@/lib/listings-fetcher'
+import {
+  buildLastMinuteViewAllHref,
+  resolveLastMinuteDateWindow,
+} from '@/lib/last-minute-availability'
 import type { TListingBase } from '@/types/listing-types'
 import { getMessages, type AppMessages } from '@/utils/getT'
 
@@ -30,9 +36,14 @@ function buildFeaturedTabDefs(
   const f = t.site.featured
   const tabs: FeaturedTabDef[] = [
     { label: f.tabRecommended, kind: 'recommended' },
+  ]
+  if (categorySupportsLastMinuteTab(categorySlug)) {
+    tabs.push({ label: f.tabLastMinute, kind: 'lastMinute' })
+  }
+  tabs.push(
     { label: f.tabNew, kind: 'new' },
     { label: f.tabDiscounted, kind: 'discounted' },
-  ]
+  )
   if (categorySupportsLuxuryEconomicTabs(categorySlug)) {
     const luxuryLabel = categorySlug === 'oteller' ? f.tabLuxuryHotel : f.tabLuxury
     const economicLabel = categorySlug === 'oteller' ? f.tabEconomicHotel : f.tabEconomic
@@ -56,13 +67,30 @@ export default async function FeaturedPlacesModule({
   const tabIds = featuredConfig?.tabs ?? normalizeFeaturedListingsConfig(null, categorySlug).tabs
   const displayCount = featuredConfig?.displayCount ?? DEFAULT_FEATURED_DISPLAY_COUNT
 
-  const listings: TListingBase[] = await loadFeaturedPlacesListingPool(
-    categorySlug,
-    tabIds,
-    locale,
-  )
+  const lastMinutePromise = categorySupportsLastMinuteTab(categorySlug)
+    ? Promise.all([
+        resolveLastMinuteDateWindow(),
+        fetchCategoryListings(
+          categorySlug,
+          { last_minute: '1' },
+          { perPage: Math.max(displayCount, 48) },
+          locale,
+        ),
+      ])
+    : Promise.resolve(null)
 
-  if (listings.length === 0) return null
+  const [listings, lastMinutePack] = await Promise.all([
+    loadFeaturedPlacesListingPool(categorySlug, tabIds, locale),
+    lastMinutePromise,
+  ])
+
+  const lastMinuteListings = lastMinutePack?.[1].listings ?? []
+  const lastMinuteViewAllHref =
+    lastMinutePack != null
+      ? buildLastMinuteViewAllHref(categorySlug, lastMinutePack[0])
+      : undefined
+
+  if (listings.length === 0 && lastMinuteListings.length === 0) return null
 
   const t = getMessages(locale)
   const categoryFeatured = t.homePage.featuredByCategory?.[categorySlug as FeaturedCategoryKey]
@@ -86,6 +114,9 @@ export default async function FeaturedPlacesModule({
       subHeading={subHeading}
       tabDefs={tabDefs}
       tabListingIds={tabIds}
+      lastMinuteListings={lastMinuteListings}
+      lastMinuteViewAllHref={lastMinuteViewAllHref}
+      categorySlug={categorySlug}
       maxCount={displayCount}
       rightButtonHref={viewAllHref}
     />

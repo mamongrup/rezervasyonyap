@@ -1075,6 +1075,7 @@ export const ru: AppMessages = {
       tabRecommended: 'Рекомендуемые',
       tabNew: 'Новые',
       tabDiscounted: 'Со скидкой',
+      tabLastMinute: 'Горящие',
       tabFeatured: 'Избранные',
       tabLuxury: 'Люксовые дома для отдыха',
       tabEconomic: 'Бюджетные дома для отдыха',

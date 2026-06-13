@@ -1076,6 +1076,7 @@ export const fr: AppMessages = {
       tabRecommended: 'Recommandés',
       tabNew: 'Nouveau',
       tabDiscounted: 'En promo',
+      tabLastMinute: 'Dernière minute',
       tabFeatured: 'À la une',
       tabLuxury: 'Maisons de vacances de luxe',
       tabEconomic: 'Maisons de vacances économiques',

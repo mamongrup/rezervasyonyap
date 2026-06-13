@@ -1,6 +1,6 @@
 'use client'
 
-import type { TListingBase } from '@/types/listing-types'
+import type { FeaturedTabListingIds, TListingBase } from '@/types/listing-types'
 import {
   DEFAULT_FEATURED_DISPLAY_COUNT,
   EMPTY_FEATURED_TAB_IDS,
@@ -8,7 +8,7 @@ import {
   pickListingsForFeaturedTab,
   type FeaturedTabDef,
 } from '@/lib/featured-listings-utils'
-import type { FeaturedTabListingIds } from '@/types/listing-types'
+import { buildFeaturedTabViewAllHref } from '@/lib/featured-tab-view-all'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { useAppLocale } from '@/hooks/useAppLocale'
@@ -33,12 +33,18 @@ interface SectionGridFeaturePlacesProps {
   tabDefs?: FeaturedTabDef[]
   /** Panelden sekme başına sabitlenen ilan id'leri */
   tabListingIds?: FeaturedTabListingIds
+  /** Son dakika — müsaitlik API'sinden otomatik */
+  lastMinuteListings?: TListingBase[]
+  /** Son dakika «Tümünü gör» */
+  lastMinuteViewAllHref?: string
   /** @deprecated `tabListingIds` kullanın */
   featuredListingIds?: string[]
   /** Sekme başına gösterilecek kart sayısı */
   maxCount?: number
-  /** "Daha fazla" butonu href */
+  /** "Daha fazla" butonu href (varsayılan kategori listesi) */
   rightButtonHref?: string
+  /** Lüks / ekonomik «Tümünü gör» için kategori slug */
+  categorySlug?: string
 }
 
 const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
@@ -50,14 +56,16 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
   tabActive,
   tabDefs: tabDefsProp,
   tabListingIds,
+  lastMinuteListings = [],
+  lastMinuteViewAllHref,
   featuredListingIds = [],
   maxCount = DEFAULT_FEATURED_DISPLAY_COUNT,
   rightButtonHref = '/oteller/all',
+  categorySlug,
   cardType = 'card2',
 }) => {
   const { messages } = useAppLocale()
   const vitrinHref = useVitrinHref()
-  const resolvedRightHref = vitrinHref(rightButtonHref)
 
   const resolvedTabIds = useMemo<FeaturedTabListingIds>(() => {
     if (tabListingIds) return tabListingIds
@@ -78,10 +86,11 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
 
   const visibleTabEntries = useMemo(
     () =>
-      tabDefs.filter(
-        (tab) => pickListingsForFeaturedTab(stayListings, tab.kind, resolvedTabIds).length > 0,
-      ),
-    [tabDefs, stayListings, resolvedTabIds],
+      tabDefs.filter((tab) => {
+        if (tab.kind === 'lastMinute') return lastMinuteListings.length > 0
+        return pickListingsForFeaturedTab(stayListings, tab.kind, resolvedTabIds).length > 0
+      }),
+    [tabDefs, stayListings, resolvedTabIds, lastMinuteListings],
   )
 
   const visibleTabLabels = useMemo(
@@ -101,13 +110,27 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
 
   const activeEntry =
     visibleTabEntries.find((entry) => entry.label === activeTab) ?? visibleTabEntries[0]
-  const filtered = pickListingsForFeaturedTab(
-    stayListings,
-    activeEntry?.kind ?? 'recommended',
-    resolvedTabIds,
-  )
+  const filtered =
+    activeEntry?.kind === 'lastMinute'
+      ? lastMinuteListings
+      : pickListingsForFeaturedTab(
+          stayListings,
+          activeEntry?.kind ?? 'recommended',
+          resolvedTabIds,
+        )
   const displayCount = normalizeFeaturedDisplayCount(maxCount)
   const displayListings = filtered.slice(0, displayCount)
+
+  const resolvedViewAllHref = (() => {
+    const kind = activeEntry?.kind
+    if (kind === 'lastMinute' && lastMinuteViewAllHref) return lastMinuteViewAllHref
+    if (categorySlug && kind === 'luxury') return buildFeaturedTabViewAllHref(categorySlug, 'luxury')
+    if (categorySlug && kind === 'economic') {
+      return buildFeaturedTabViewAllHref(categorySlug, 'economic')
+    }
+    return rightButtonHref
+  })()
+  const resolvedRightHref = vitrinHref(resolvedViewAllHref)
 
   let CardName = StayCard
   if (cardType === 'card1') {
@@ -124,7 +147,7 @@ const SectionGridFeaturePlaces: FC<SectionGridFeaturePlacesProps> = ({
         tabs={visibleTabLabels}
         heading={heading ?? ''}
         onChangeTab={setActiveTab}
-        rightButtonHref={rightButtonHref}
+        rightButtonHref={resolvedViewAllHref}
       />
       <div
         className={`mt-8 grid gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:grid-cols-3 xl:grid-cols-4 ${gridClass}`}

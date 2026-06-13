@@ -162,6 +162,7 @@ modules/318_ferry_meis_express_seed.sql
 modules/319_ferry_return_routes_ensure.sql
 modules/320_hotel_rooms_unit_count_and_availability.sql
 modules/321_ai_listing_content_batch.sql
+modules/322_locales_tr_active_ensure.sql
 modules/322_ferry_meis_images_pexels_fix.sql
 modules/323_ferry_meis_images_kas_kastellorizo.sql
 modules/324_ferry_meis_images_wikimedia_direct.sql

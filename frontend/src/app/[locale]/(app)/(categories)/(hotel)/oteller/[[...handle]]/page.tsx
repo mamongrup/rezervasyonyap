@@ -6,7 +6,7 @@ import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
-import { Metadata } from 'next'
+import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 import { redirect } from 'next/navigation'
 
 export async function generateMetadata({
@@ -70,6 +70,8 @@ export default async function Page({
         guests: query.guests,
         regionLabel,
         fromApi,
+        lastMinute: query.last_minute === '1',
+        vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),
       }}
       listingPagination={{ page, total, perPage }}
     />

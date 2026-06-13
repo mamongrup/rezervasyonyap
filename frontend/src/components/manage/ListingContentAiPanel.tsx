@@ -361,6 +361,20 @@ export default function ListingContentAiPanel() {
               </div>
             </dl>
           ) : null}
+          {stats && pendingTotal > 0 && (stats.batches.done ?? 0) === 0 && !running ? (
+            <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+              <strong>{pendingTotal} ilan kuyrukta.</strong> Kuyruğa alma tamamlandı; üretim henüz
+              başlamadı. Devam etmek için <strong>İşle (sıradaki)</strong> düğmesine tıklayın. Her
+              ilan için 3 adım gerekir (TR açıklama → çeviri → SEO); tamamlanan sayısı ancak o
+              zaman artar.
+            </p>
+          ) : null}
+          {stats && (stats.batches.running ?? 0) > 0 ? (
+            <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
+              {(stats.batches.running ?? 0)} iş şu an çalışıyor. Uzun sürerse DeepSeek yanıtını
+              bekliyor olabilir; takılı kaldıysa <strong>Takılı sıfırla</strong> deneyin.
+            </p>
+          ) : null}
           <p className="mt-4 text-xs text-neutral-500">
             Her &quot;İşle&quot; adımı bir ilan için tek faz çalıştırır (TR → çeviri → SEO). Tam pipeline için
             aynı ilanda 3 adım gerekir.

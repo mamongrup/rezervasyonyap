@@ -581,38 +581,69 @@ fn create_and_run_job(
   }
 }
 
+fn lookup_locale_id(conn: pog.Connection, locale_code: String) -> Result(Int, Nil) {
+  let int_col0 = {
+    use n <- decode.field(0, decode.int)
+    decode.success(n)
+  }
+  case
+    pog.query(
+      "select id from locales where lower(code) = lower($1) limit 1",
+    )
+    |> pog.parameter(pog.text(locale_code))
+    |> pog.returning(int_col0)
+    |> pog.execute(conn)
+  {
+    Error(_) -> Error(Nil)
+    Ok(ret) ->
+      case ret.rows {
+        [id] -> Ok(id)
+        _ -> Error(Nil)
+      }
+  }
+}
+
 fn upsert_translation(
   conn: pog.Connection,
   listing_id: String,
   locale_code: String,
   title: String,
   description: String,
-) -> Result(Nil, Nil) {
-  let desc_param = case description == "" {
-    True -> pog.null()
-    False -> pog.text(description)
-  }
-  case
-    pog.query(
-      "insert into listing_translations (listing_id, locale_id, title, description) "
-      <> "select $1::uuid, loc.id, $3::text, $4::text from locales loc "
-      <> "where lower(loc.code) = lower($2) and coalesce(loc.is_active, true) = true limit 1 "
-      <> "on conflict (listing_id, locale_id) do update set title = excluded.title, description = excluded.description "
-      <> "returning 1",
-    )
-    |> pog.parameter(pog.text(listing_id))
-    |> pog.parameter(pog.text(locale_code))
-    |> pog.parameter(pog.text(title))
-    |> pog.parameter(desc_param)
-    |> pog.returning(row_dec.col0_string())
-    |> pog.execute(conn)
-  {
-    Error(_) -> Error(Nil)
-    Ok(ret) ->
-      case ret.rows {
-        [_] -> Ok(Nil)
-        _ -> Error(Nil)
+) -> Result(Nil, String) {
+  case lookup_locale_id(conn, locale_code) {
+    Error(_) -> Error("listing_content_locale_not_found:" <> locale_code)
+    Ok(locale_id) -> {
+      let title_save = case string.trim(title) == "" {
+        True -> "İlan"
+        False -> string.trim(title)
       }
+      let desc_param = case string.trim(description) == "" {
+        True -> pog.null()
+        False -> pog.text(description)
+      }
+      case
+        pog.query(
+          "insert into listing_translations (listing_id, locale_id, title, description) "
+          <> "values ($1::uuid, $2::int, $3::text, $4::text) "
+          <> "on conflict (listing_id, locale_id) do update set "
+          <> "title = excluded.title, description = excluded.description "
+          <> "returning 1",
+        )
+        |> pog.parameter(pog.text(listing_id))
+        |> pog.parameter(pog.int(locale_id))
+        |> pog.parameter(pog.text(title_save))
+        |> pog.parameter(desc_param)
+        |> pog.returning(row_dec.col0_int())
+        |> pog.execute(conn)
+      {
+        Error(_) -> Error("listing_content_tr_save_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [_] -> Ok(Nil)
+            _ -> Error("listing_content_tr_save_failed")
+          }
+      }
+    }
   }
 }
 
@@ -623,29 +654,32 @@ fn upsert_seo(
   title: String,
   description: String,
   keywords: String,
-) -> Result(Nil, Nil) {
-  case
-    pog.query(
-      "insert into seo_metadata (entity_type, entity_id, locale_id, title, description, keywords) "
-      <> "select 'listing', $1::uuid, loc.id, nullif($3,''), nullif($4,''), nullif($5,'') "
-      <> "from locales loc where lower(loc.code) = lower($2) and coalesce(loc.is_active, true) = true limit 1 "
-      <> "on conflict (entity_type, entity_id, locale_id) do update set "
-      <> "title = excluded.title, description = excluded.description, keywords = excluded.keywords "
-      <> "returning 1",
-    )
-    |> pog.parameter(pog.text(listing_id))
-    |> pog.parameter(pog.text(locale_code))
-    |> pog.parameter(pog.text(title))
-    |> pog.parameter(pog.text(description))
-    |> pog.parameter(pog.text(keywords))
-    |> pog.returning(row_dec.col0_string())
-    |> pog.execute(conn)
-  {
-    Error(_) -> Error(Nil)
-    Ok(ret) ->
-      case ret.rows {
-        [_] -> Ok(Nil)
-        _ -> Error(Nil)
+) -> Result(Nil, String) {
+  case lookup_locale_id(conn, locale_code) {
+    Error(_) -> Error("listing_content_locale_not_found:" <> locale_code)
+    Ok(locale_id) ->
+      case
+        pog.query(
+          "insert into seo_metadata (entity_type, entity_id, locale_id, title, description, keywords) "
+          <> "values ('listing', $1::uuid, $2::int, nullif($3,''), nullif($4,''), nullif($5,'')) "
+          <> "on conflict (entity_type, entity_id, locale_id) do update set "
+          <> "title = excluded.title, description = excluded.description, keywords = excluded.keywords "
+          <> "returning 1",
+        )
+        |> pog.parameter(pog.text(listing_id))
+        |> pog.parameter(pog.int(locale_id))
+        |> pog.parameter(pog.text(title))
+        |> pog.parameter(pog.text(description))
+        |> pog.parameter(pog.text(keywords))
+        |> pog.returning(row_dec.col0_int())
+        |> pog.execute(conn)
+      {
+        Error(_) -> Error("listing_content_seo_save_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [_] -> Ok(Nil)
+            _ -> Error("listing_content_seo_save_failed")
+          }
       }
   }
 }
@@ -733,7 +767,7 @@ fn run_tr_phase(
             Error(_) -> Error("listing_content_tr_parse_failed")
             Ok(description) ->
               case upsert_translation(ctx.db, listing_id, tr_locale, title_tr, description) {
-                Error(_) -> Error("listing_content_tr_save_failed")
+                Error(e) -> Error(e)
                 Ok(Nil) ->
                   case advance_batch(ctx.db, batch_id, "translations", "pending") {
                     Error(_) -> Error("listing_content_batch_advance_failed")
@@ -798,7 +832,7 @@ fn run_translations_phase(
                               t_desc,
                             )
                           {
-                            Error(_) -> Error("listing_content_i18n_save_failed")
+                            Error(e) -> Error(e)
                             Ok(Nil) -> Ok(Nil)
                           }
                       }
@@ -915,7 +949,7 @@ fn persist_seo(
   let mt = string.slice(meta_title, 0, 70)
   let md = string.slice(meta_desc, 0, 160)
   case upsert_seo(ctx.db, listing_id, locale_code, mt, md, kw) {
-    Error(_) -> Error("listing_content_seo_save_failed")
+    Error(e) -> Error(e)
     Ok(Nil) -> Ok(Nil)
   }
 }

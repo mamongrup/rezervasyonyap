@@ -1057,6 +1057,7 @@ export const zh: AppMessages = {
       tabRecommended: '推荐',
       tabNew: '最新',
       tabDiscounted: '特价',
+      tabLastMinute: '尾单',
       tabFeatured: '精选',
       tabLuxury: '豪华度假屋',
       tabEconomic: '经济型度假屋',

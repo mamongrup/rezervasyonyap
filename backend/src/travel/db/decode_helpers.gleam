@@ -7,3 +7,9 @@ pub fn col0_string() -> decode.Decoder(String) {
   use s <- decode.field(0, decode.string)
   decode.success(s)
 }
+
+/// Tek tamsayı sütunu (ör. `RETURNING 1`).
+pub fn col0_int() -> decode.Decoder(Int) {
+  use n <- decode.field(0, decode.int)
+  decode.success(n)
+}

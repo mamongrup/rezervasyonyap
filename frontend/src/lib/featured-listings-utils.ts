@@ -1,11 +1,15 @@
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { fetchCategoryListings, fetchListingsByIds } from '@/lib/listings-fetcher'
+import {
+  filterEconomicListings,
+  filterLuxuryListings,
+} from '@/lib/featured-listing-filters'
 import { slugifyListingSlug, transliterateTurkishForSlug } from '@/lib/slug-latin-tr'
 import type { FeaturedListingsConfig, FeaturedTabListingIds, TListingBase } from '@/types/listing-types'
 
 /** Vitrin öne çıkan ilan yardımcıları — istemci + sunucu güvenli (fs yok). */
 
-export type FeaturedTabKind = 'recommended' | 'new' | 'discounted' | 'luxury' | 'economic'
+export type FeaturedTabKind = 'recommended' | 'new' | 'discounted' | 'luxury' | 'economic' | 'lastMinute'
 
 export interface FeaturedTabDef {
   label: string
@@ -19,12 +23,19 @@ export function categorySupportsLuxuryEconomicTabs(categorySlug: string): boolea
   return FEATURED_LUXURY_ECONOMIC_CATEGORY_SLUGS.has(categorySlug)
 }
 
+/** Son dakika vitrin sekmesi — otel, tatil evi, yat */
+export {
+  categorySupportsLastMinuteTab,
+  LAST_MINUTE_CATEGORY_SLUGS as FEATURED_LAST_MINUTE_CATEGORY_SLUGS,
+} from '@/lib/last-minute-availability'
+
 export const EMPTY_FEATURED_TAB_IDS: FeaturedTabListingIds = {
   recommended: [],
   luxury: [],
   economic: [],
   new: [],
   discounted: [],
+  lastMinute: [],
 }
 
 const FEATURED_TAB_KINDS: FeaturedTabKind[] = [
@@ -33,7 +44,11 @@ const FEATURED_TAB_KINDS: FeaturedTabKind[] = [
   'economic',
   'new',
   'discounted',
+  'lastMinute',
 ]
+
+/** Panel kaydından çekilecek id'ler — son dakika otomatik */
+const FEATURED_TAB_KINDS_FOR_FETCH = FEATURED_TAB_KINDS.filter((k) => k !== 'lastMinute')
 
 function filterFeaturedIdList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
@@ -54,6 +69,7 @@ export function normalizeFeaturedTabListingIds(
     economic: filterFeaturedIdList(raw?.economic),
     new: filterFeaturedIdList(raw?.new),
     discounted: filterFeaturedIdList(raw?.discounted),
+    lastMinute: filterFeaturedIdList(raw?.lastMinute),
   }
 }
 
@@ -74,7 +90,7 @@ export function normalizeFeaturedListingsConfig(
 export function collectAllFeaturedListingIds(tabs: FeaturedTabListingIds): string[] {
   const seen = new Set<string>()
   const out: string[] = []
-  for (const kind of FEATURED_TAB_KINDS) {
+  for (const kind of FEATURED_TAB_KINDS_FOR_FETCH) {
     for (const id of tabs[kind]) {
       if (seen.has(id)) continue
       seen.add(id)
@@ -147,23 +163,6 @@ export function pickFeaturedTabListings<T extends { id: string; isCampaign?: boo
   return listings.filter((l) => l.isCampaign)
 }
 
-function isLuxuryListing(l: TListingBase): boolean {
-  const themes = l.themeCodes ?? []
-  if (themes.some((t) => t === 'luxury' || t === 'honeymoon_villa')) return true
-  const stars = 'stars' in l ? Number((l as { stars?: number }).stars) : 0
-  if (stars >= 4) return true
-  return false
-}
-
-function pickEconomicListings(listings: TListingBase[]): TListingBase[] {
-  const withPrice = listings.filter((l) => l.priceAmount != null && l.priceAmount > 0)
-  if (withPrice.length === 0) return []
-  const sorted = [...withPrice].sort((a, b) => (a.priceAmount ?? 0) - (b.priceAmount ?? 0))
-  const idx = Math.max(0, Math.floor(sorted.length * 0.35))
-  const threshold = sorted[idx]?.priceAmount ?? sorted[0]!.priceAmount!
-  return sorted.filter((l) => (l.priceAmount ?? Number.POSITIVE_INFINITY) <= threshold)
-}
-
 /** Anasayfa vitrin sekmesi — panel seçimi varsa onu, yoksa otomatik filtre */
 export function pickListingsForFeaturedTab(
   listings: TListingBase[],
@@ -176,6 +175,8 @@ export function pickListingsForFeaturedTab(
   switch (kind) {
     case 'recommended':
       return listings
+    case 'lastMinute':
+      return []
     case 'new': {
       const exclude = new Set(tabIds.recommended)
       const pool = listings.filter((l) => !exclude.has(l.id))
@@ -190,9 +191,9 @@ export function pickListingsForFeaturedTab(
     case 'discounted':
       return listings.filter((l) => (l.discountPercent ?? 0) > 0)
     case 'luxury':
-      return listings.filter(isLuxuryListing)
+      return filterLuxuryListings(listings)
     case 'economic':
-      return pickEconomicListings(listings)
+      return filterEconomicListings(listings)
     default:
       return listings
   }

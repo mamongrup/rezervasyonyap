@@ -320,6 +320,7 @@ export interface FeaturedTabListingIds {
   economic: string[]
   new: string[]
   discounted: string[]
+  lastMinute: string[]
 }
 
 /** Kategori vitrini (featured_places) — panelden seçilen öne çıkan ilanlar */

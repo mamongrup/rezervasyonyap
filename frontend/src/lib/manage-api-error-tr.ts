@@ -230,6 +230,10 @@ const TR_BY_CODE: Record<string, string> = {
   listing_content_stats_failed: 'İlan içerik istatistikleri yüklenemedi.',
   listing_content_queue_failed: 'İlan içerik kuyruğu oluşturulamadı.',
   listing_content_process_failed: 'İlan içerik işlemi başarısız.',
+  listing_content_tr_save_failed: 'Türkçe açıklama veritabanına yazılamadı.',
+  listing_content_i18n_save_failed: 'Çeviri veritabanına yazılamadı.',
+  listing_content_seo_save_failed: 'SEO meta verisi kaydedilemedi.',
+  listing_content_locale_not_found: 'Dil kaydı bulunamadı — `locales` tablosunda tr/en vb. eksik.',
   listing_content_reset_failed: 'Takılı ilan içerik işleri sıfırlanamadı.',
   empty_response: 'API boş yanıt döndü; vekil veya backend loglarını kontrol edin.',
   region_content_queue_401: 'Oturum süresi dolmuş olabilir; yeniden giriş yapın.',
@@ -352,6 +356,10 @@ export function formatManageApiError(raw: string): string {
   }
   const mapped = TR_BY_CODE[key]
   if (mapped) return mapped
+  if (key.startsWith('listing_content_locale_not_found:')) {
+    const locale = key.slice('listing_content_locale_not_found:'.length).trim() || '?'
+    return `Dil kaydı bulunamadı (${locale}). locales tablosunda bu kodun tanımlı olduğundan emin olun.`
+  }
   if (key.startsWith('deepseek_http:')) {
     const detail = key.slice(key.indexOf(':') + 1).trim()
     if (detail === 'timeout' || detail.toLowerCase().includes('timeout')) {

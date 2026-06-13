@@ -35,7 +35,12 @@ import type { TListingBase } from '@/types/listing-types'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 import { normalizeStayRentalAttrsParam } from '@/lib/stay-rental-filter-attrs'
-import { isTourSubcategorySlug, tourSubcategoryRoute } from '@/lib/tour-subcategory-routes'
+import { applyLastMinuteSearchQuery } from '@/lib/last-minute-availability'
+import {
+  filterEconomicListings,
+  filterLuxuryListings,
+} from '@/lib/featured-listing-filters'
+import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 
 export { HOLIDAY_TYPE_HANDLE_MAP, YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 
@@ -64,6 +69,10 @@ export interface SearchQuery {
   location?: string
   checkin?: string
   checkout?: string
+  /** Son dakika vitrin / liste — müsaitlik tarih penceresi otomatik uygulanır */
+  last_minute?: string
+  /** API `flex_days` — tarih aralığını genişletir */
+  flex_days?: string
   guests?: string
   page?: string
   /** Araç kiralama formu */
@@ -93,6 +102,8 @@ export interface SearchQuery {
   tour_travel_type?: string
   tour_accommodation?: string
   tour_duration?: string
+  /** Vitrin «Tümünü gör» — lüks / ekonomik tam liste */
+  vitrin_tab?: string
 }
 
 export interface ListingsResult {
@@ -117,6 +128,8 @@ export function parseSearchParamsFromUrl(
     location: g('location'),
     checkin: g('checkin') ?? g('date'),
     checkout: g('checkout'),
+    last_minute: g('last_minute'),
+    flex_days: g('flex_days'),
     guests: g('guests'),
     page: g('page'),
     drop_off: g('drop_off'),
@@ -139,6 +152,7 @@ export function parseSearchParamsFromUrl(
     tour_travel_type: g('tour_travel_type'),
     tour_accommodation: g('tour_accommodation'),
     tour_duration: g('tour_duration'),
+    vitrin_tab: g('vitrin_tab'),
   }
 }
 
@@ -482,7 +496,7 @@ export function applyStayRentalListingQueryFilters(
     out = out.filter((l) => {
       const codes = (l as { themeCodes?: string[] }).themeCodes ?? []
       const set = new Set(codes.map((c) => c.toLowerCase()))
-      return themeNeedle.every((c) => set.has(c))
+      return themeNeedle.some((c) => set.has(c))
     })
   }
 
@@ -611,8 +625,22 @@ export async function fetchCategoryListings(
 ): Promise<ListingsResult> {
   const categoryCode = SLUG_TO_CODE[categorySlug]
   const page = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
+
+  const queryWithLastMinute = await applyLastMinuteSearchQuery(categorySlug, query)
+
+  const vitrinTab = parseFeaturedVitrinTab(queryWithLastMinute.vitrin_tab)
+  const apiQuery: SearchQuery = { ...queryWithLastMinute }
+  if (vitrinTab === 'luxury' && !apiQuery.sort?.trim()) {
+    apiQuery.sort = 'price_desc'
+  }
+  if (vitrinTab === 'economic' && !apiQuery.sort?.trim()) {
+    apiQuery.sort = 'price_asc'
+  }
+
   const defaultPerPage = isStayRentalCategory(categoryCode) ? 48 : 12
-  const perPage = Math.min(100, Math.max(1, opts.perPage ?? defaultPerPage))
+  const perPage = vitrinTab
+    ? 100
+    : Math.min(100, Math.max(1, opts.perPage ?? defaultPerPage))
 
   const region = opts.regionHandle
   /** `/turlar/yurtici-turlar` gibi eski slug URL — bölge değil, tur alt kategori filtresi */
@@ -621,8 +649,8 @@ export async function fetchCategoryListings(
       ? tourSubcategoryRoute(region)
       : undefined
   const effectiveQuery: SearchQuery = tourSubRoute
-    ? { ...query, ...tourSubRoute.query }
-    : query
+    ? { ...apiQuery, ...tourSubRoute.query }
+    : apiQuery
 
   const regionPropertyType =
     categoryCode && isStayRentalCategory(categoryCode)
@@ -646,6 +674,9 @@ export async function fetchCategoryListings(
       propertyType: regionPropertyType || undefined,
       checkin: effectiveQuery.checkin,
       checkout: effectiveQuery.checkout,
+      flexDays: effectiveQuery.flex_days
+        ? Math.max(0, parseInt(effectiveQuery.flex_days, 10) || 0)
+        : undefined,
       guests: effectiveQuery.guests ? parseInt(effectiveQuery.guests, 10) : undefined,
       page,
       perPage,
@@ -694,9 +725,14 @@ export async function fetchCategoryListings(
     if (isStayRentalCategory(categoryCode)) {
       rows = applyStayRentalListingQueryFilters(rows, effectiveQuery)
     }
+    if (vitrinTab === 'luxury') {
+      rows = filterLuxuryListings(rows)
+    } else if (vitrinTab === 'economic') {
+      rows = filterEconomicListings(rows)
+    }
     return {
       listings: rows,
-      total: apiResult.total,
+      total: vitrinTab ? rows.length : apiResult.total,
       page,
       perPage: apiResult.per_page ?? perPage,
       fromApi: true,

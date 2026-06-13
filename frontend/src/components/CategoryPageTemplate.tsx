@@ -82,6 +82,10 @@ export interface ActiveSearchSummary {
   to?: string
   /** true: backend API; false: ön yüz mock */
   fromApi?: boolean
+  /** Son dakika müsaitlik listesi */
+  lastMinute?: boolean
+  /** Vitrin lüks / ekonomik tam liste */
+  vitrinTab?: 'luxury' | 'economic'
 }
 
 interface CategoryPageTemplateProps {
@@ -358,7 +362,9 @@ export default async function CategoryPageTemplate({
       activeSearch.propertyTypeLabel ||
       activeSearch.drop_off ||
       activeSearch.from ||
-      activeSearch.to)
+      activeSearch.to ||
+      activeSearch.lastMinute ||
+      activeSearch.vitrinTab)
 
   const searchResultsSection = hideListingsOnLanding && isAll && !hasActiveSearch ? null : (
     <div className={`${heroBelowContentClassName} container mt-10 lg:mt-16`}>
@@ -390,6 +396,21 @@ export default async function CategoryPageTemplate({
           {hasActiveSearch && (
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">{cat.activeSearch}</span>
+              {activeSearch?.lastMinute && (
+                <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                  {cat.badgeLastMinute ?? 'Son dakika'}
+                </span>
+              )}
+              {activeSearch?.vitrinTab === 'luxury' && (
+                <span className="rounded-full bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-900 dark:bg-violet-950/50 dark:text-violet-200">
+                  {cat.badgeVitrinLuxury ?? 'Lüks'}
+                </span>
+              )}
+              {activeSearch?.vitrinTab === 'economic' && (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-200">
+                  {cat.badgeVitrinEconomic ?? 'Ekonomik'}
+                </span>
+              )}
               {activeSearch?.propertyTypeLabel && (
                 <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-medium text-primary-800 dark:bg-primary-900/40 dark:text-primary-200">
                   {cat.badgePropertyType ?? 'Tür:'} {activeSearch.propertyTypeLabel}
