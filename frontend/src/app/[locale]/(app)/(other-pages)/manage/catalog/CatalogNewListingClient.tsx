@@ -6327,8 +6327,10 @@ export default function CatalogNewListingClient({
                 <button
                   type="button"
                   onClick={() => setStatus(status === 'published' ? 'draft' : 'published')}
+                  disabled={Boolean(editListingId) && !editListingReady}
                   className={clsx(
                     'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors',
+                    Boolean(editListingId) && !editListingReady ? 'opacity-40 cursor-wait' : '',
                     status === 'published' ? 'bg-emerald-500' : 'bg-neutral-300 dark:bg-neutral-600',
                   )}
                   aria-pressed={status === 'published'}
