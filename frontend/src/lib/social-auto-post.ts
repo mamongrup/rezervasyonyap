@@ -107,7 +107,7 @@ export async function fetchPendingSocialJobs(
   return { jobs: data.jobs ?? [], socialApi }
 }
 
-pub interface SocialPostPlan {
+export interface SocialPostPlan {
   title: string
   description: string
   caption: string
