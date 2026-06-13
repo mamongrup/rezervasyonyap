@@ -3408,11 +3408,19 @@ fn basics_validate_decimal_param(raw: String, field: String) -> Result(String, S
     True -> Ok(t)
     False ->
       case float.parse(t) {
-        Error(_) -> Error(basics_patch_field_error_code(field))
         Ok(f) ->
           case f <. 0.0 {
             True -> Error(basics_patch_field_error_code(field))
             False -> Ok(t)
+          }
+        Error(_) ->
+          case int.parse(t) {
+            Ok(n) ->
+              case n < 0 {
+                True -> Error(basics_patch_field_error_code(field))
+                False -> Ok(t)
+              }
+            Error(_) -> Error(basics_patch_field_error_code(field))
           }
       }
   }
@@ -3431,7 +3439,11 @@ fn parse_optional_decimal_text(raw: String) -> option.Option(Float) {
     False ->
       case float.parse(t) {
         Ok(f) -> option.Some(f)
-        Error(_) -> option.None
+        Error(_) ->
+          case int.parse(t) {
+            Ok(n) -> option.Some(int.to_float(n))
+            Error(_) -> option.None
+          }
       }
   }
 }
