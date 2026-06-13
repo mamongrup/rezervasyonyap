@@ -173,17 +173,122 @@ fn slice_json_object_loose(s: String) -> Result(String, Nil) {
   }
 }
 
-fn json_field_string(raw: String, field: String) -> Result(String, Nil) {
-  let cleaned = clean_json_text(raw)
-  let slice =
-    case json.parse(cleaned, decode.string) {
-      Ok(_) -> Ok(cleaned)
-      Error(_) -> slice_json_object_loose(cleaned)
+fn find_char_index(gs: List(String), target: String) -> Result(Int, Nil) {
+  list.index_fold(gs, Error(Nil), fn(acc, g, idx) {
+    case acc {
+      Ok(_) -> acc
+      Error(_) ->
+        case g == target {
+          True -> Ok(idx)
+          False -> Error(Nil)
+        }
     }
-  use body <- result.try(slice)
+  })
+}
+
+fn find_matching_close_brace_loop(
+  gs: List(String),
+  idx: Int,
+  depth: Int,
+  in_string: Bool,
+  escaped: Bool,
+) -> Result(Int, Nil) {
+  case list.drop(gs, idx) {
+    [] -> Error(Nil)
+    [g, ..] -> {
+      let next =
+        fn(i_str: Bool, esc: Bool) {
+          find_matching_close_brace_loop(gs, idx + 1, depth, i_str, esc)
+        }
+      case in_string {
+        True ->
+          case escaped {
+            True -> next(True, False)
+            False ->
+              case g == "\\" {
+                True -> next(True, True)
+                False ->
+                  case g == "\"" {
+                    True -> next(False, False)
+                    False -> next(True, False)
+                  }
+              }
+          }
+        False ->
+          case g == "\"" {
+            True -> next(True, False)
+            False ->
+              case g == "{" {
+                True ->
+                  find_matching_close_brace_loop(gs, idx + 1, depth + 1, False, False)
+                False ->
+                  case g == "}" {
+                    True ->
+                      case depth == 1 {
+                        True -> Ok(idx)
+                        False ->
+                          find_matching_close_brace_loop(gs, idx + 1, depth - 1, False, False)
+                      }
+                    False -> next(False, False)
+                  }
+              }
+          }
+      }
+    }
+  }
+}
+
+fn slice_json_object_balanced(s: String) -> Result(String, Nil) {
+  let gs = string.to_graphemes(string.trim(s))
+  case find_char_index(gs, "{") {
+    Error(_) -> Error(Nil)
+    Ok(open_idx) ->
+      case find_matching_close_brace_loop(gs, open_idx + 1, 1, False, False) {
+        Error(_) -> Error(Nil)
+        Ok(close_idx) -> {
+          let part =
+            list.drop(gs, open_idx)
+            |> list.take(close_idx - open_idx + 1)
+          Ok(string.join(part, ""))
+        }
+      }
+  }
+}
+
+fn json_body_from_ai(raw: String) -> Result(String, Nil) {
+  let cleaned = clean_json_text(raw)
+  case json.parse(cleaned, decode.string) {
+    Ok(_) -> Ok(cleaned)
+    Error(_) ->
+      case slice_json_object_balanced(cleaned) {
+        Ok(body) -> Ok(body)
+        Error(_) -> slice_json_object_loose(cleaned)
+      }
+  }
+}
+
+fn json_field_string(raw: String, field: String) -> Result(String, Nil) {
+  use body <- result.try(json_body_from_ai(raw))
   case json.parse(body, decode.field(field, decode.string, decode.success)) {
     Ok(val) -> Ok(string.trim(val))
     Error(_) -> Error(Nil)
+  }
+}
+
+fn parse_ai_description(raw: String) -> Result(String, Nil) {
+  case json_field_string(raw, "description") {
+    Ok(d) -> Ok(d)
+    Error(_) ->
+      case json_field_string(raw, "text") {
+        Ok(t) -> Ok(t)
+        Error(_) -> {
+          let cleaned = clean_json_text(raw)
+          case string.starts_with(cleaned, "<") && string.length(cleaned) >= 80 {
+            True -> Ok(cleaned)
+            False -> Error(Nil)
+          }
+        }
+      }
   }
 }
 
@@ -763,7 +868,7 @@ fn run_tr_phase(
       case create_and_run_job(ctx, profile_tr, input) {
         Error(e) -> Error(e)
         Ok(raw) -> {
-          case json_field_string(raw, "description") {
+          case parse_ai_description(raw) {
             Error(_) -> Error("listing_content_tr_parse_failed")
             Ok(description) ->
               case upsert_translation(ctx.db, listing_id, tr_locale, title_tr, description) {

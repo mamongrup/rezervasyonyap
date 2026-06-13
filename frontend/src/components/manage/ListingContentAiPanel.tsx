@@ -107,6 +107,7 @@ export default function ListingContentAiPanel() {
     setRunning(true)
     setRunErr(null)
     let processed = 0
+    let failed = 0
     const limit = Math.max(0, batchLimit)
     try {
       const settings = await listSiteSettings(token).catch(() => ({ settings: [] as { key: string; value_json: string }[] }))
@@ -128,9 +129,10 @@ export default function ListingContentAiPanel() {
           break
         }
         if (r.failed) {
+          failed += 1
           appendLog(`Hata [${r.phase ?? '?'}]: ${r.error ?? 'bilinmeyen'}`)
-          if (r.listing_id) appendLog(`İlan: ${r.listing_id}`)
-          break
+          if (r.listing_id) appendLog(`İlan: ${r.listing_id} (atlandı, devam)`)
+          continue
         }
         processed += 1
         appendLog(
@@ -140,6 +142,9 @@ export default function ListingContentAiPanel() {
       }
       if (limit > 0 && processed >= limit) {
         appendLog(`${processed} adım işlendi (limit).`)
+      }
+      if (failed > 0) {
+        appendLog(`${failed} ilan hata ile atlandı — yeniden «Kuyruğa al» ile deneyebilirsiniz.`)
       }
     } catch (e) {
       setRunErr(formatManageApiCatch(e, 'listing_content_process_failed'))

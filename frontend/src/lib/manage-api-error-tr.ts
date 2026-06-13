@@ -234,6 +234,7 @@ const TR_BY_CODE: Record<string, string> = {
   listing_content_i18n_save_failed: 'Çeviri veritabanına yazılamadı.',
   listing_content_seo_save_failed: 'SEO meta verisi kaydedilemedi.',
   listing_content_locale_not_found: 'Dil kaydı bulunamadı — `locales` tablosunda tr/en vb. eksik.',
+  listing_content_tr_parse_failed: 'AI yanıtından Türkçe açıklama okunamadı (JSON/HTML formatı).',
   listing_content_batch_advance_failed: 'İlan içerik aşaması güncellenemedi (batch durumu).',
   listing_content_reset_failed: 'Takılı ilan içerik işleri sıfırlanamadı.',
   empty_response: 'API boş yanıt döndü; vekil veya backend loglarını kontrol edin.',
