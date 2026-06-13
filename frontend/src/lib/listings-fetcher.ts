@@ -41,6 +41,10 @@ import {
   filterLuxuryListings,
 } from '@/lib/featured-listing-filters'
 import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
+import {
+  isTourSubcategorySlug,
+  tourSubcategoryRoute,
+} from '@/lib/tour-subcategory-routes'
 
 export { HOLIDAY_TYPE_HANDLE_MAP, YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 
