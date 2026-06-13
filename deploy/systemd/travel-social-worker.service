@@ -1,0 +1,26 @@
+# Sosyal medya worker — villa / yat / aktivite kuyruğu + bekleyen paylaşımlar.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-social-worker.service /etc/systemd/system/
+#   sudo cp deploy/systemd/travel-social-worker.timer /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/social-process-pending.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-social-worker.timer
+#
+# Önkoşul: aynı TRAVEL_SOCIAL_WORKER_SECRET hem
+#   /etc/rezervasyonyap/frontend.env hem backend.env içinde tanımlı olmalı.
+
+[Unit]
+Description=Travel social worker — enqueue rotate + process pending (oneshot)
+After=network-online.target travel-web.service travel-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/rezervasyonyap/frontend.env
+Environment=WEB_ORIGIN=http://127.0.0.1:3000
+Environment=SOCIAL_WORKER_LIMIT=5
+ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/social-process-pending.sh
+
+[Install]
+WantedBy=multi-user.target

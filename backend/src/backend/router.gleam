@@ -1000,6 +1000,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "social", "instagram-shop-links", islid] ->
       social_http.delete_instagram_shop_link(req, ctx, islid)
 
+    http.Post, ["api", "v1", "social", "worker", "enqueue-rotate"] ->
+      social_worker_http.post_worker_enqueue_rotate(req, ctx)
+
     http.Get, ["api", "v1", "social", "worker", "pending"] ->
       social_worker_http.get_worker_pending(req, ctx)
 

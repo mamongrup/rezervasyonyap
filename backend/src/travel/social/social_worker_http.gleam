@@ -15,6 +15,8 @@ import gleam/string
 import pog
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
+import travel/social/listing_social_enqueue
+import travel/social/social_ai_parse
 import wisp.{type Request, type Response}
 
 const worker_secret_header = "x-travel-social-worker-secret"
@@ -173,6 +175,36 @@ fn run_caption_profile(ctx: Context, input_json: String) -> Result(String, Strin
         }
         _ -> Error("social_caption_unexpected_rows")
       }
+  }
+}
+
+/// POST /api/v1/social/worker/enqueue-rotate — villa/yat/aktivite döngü kuyruğu.
+pub fn post_worker_enqueue_rotate(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Post)
+  case auth_worker(req) {
+    Error(r) -> r
+    Ok(Nil) -> {
+      let limit = case list.key_find(wisp.get_query(req), "limit") {
+        Error(_) -> 0
+        Ok(v) ->
+          case int.parse(string.trim(v)) {
+            Ok(n) -> n
+            Error(_) -> 0
+          }
+      }
+      case listing_social_enqueue.enqueue_rotation(ctx.db, limit) {
+        Error(_) -> json_err(500, "rotation_enqueue_failed")
+        Ok(count) -> {
+          let body =
+            json.object([
+              #("ok", json.bool(True)),
+              #("enqueued", json.int(count)),
+            ])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+    }
   }
 }
 
@@ -344,13 +376,20 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
   }
 }
 
-fn caption_body_decoder() -> decode.Decoder(#(String, String, String, Bool, List(String))) {
-  decode.field("listing_title", decode.string, fn(title) {
-    decode.field("listing_url", decode.string, fn(url) {
-      decode.field("network", decode.string, fn(network) {
-        decode.optional_field("allow_ai_caption", False, decode.bool, fn(allow_ai) {
-          decode.optional_field("image_keys", [], decode.list(decode.string), fn(keys) {
-            decode.success(#(title, url, network, allow_ai, keys))
+fn caption_body_decoder() ->
+  decode.Decoder(#(String, String, String, String, String, String, Bool, List(String))) {
+  decode.field("entity_id", decode.string, fn(entity_id) {
+    decode.field("listing_title", decode.string, fn(title) {
+      decode.optional_field("listing_description", "", decode.string, fn(desc) {
+        decode.field("listing_url", decode.string, fn(url) {
+          decode.field("network", decode.string, fn(network) {
+            decode.optional_field("category_code", "", decode.string, fn(cat) {
+              decode.optional_field("allow_ai_caption", False, decode.bool, fn(allow_ai) {
+                decode.optional_field("image_keys", [], decode.list(decode.string), fn(keys) {
+                  decode.success(#(entity_id, title, desc, url, network, cat, allow_ai, keys))
+                })
+              })
+            })
           })
         })
       })
@@ -358,15 +397,86 @@ fn caption_body_decoder() -> decode.Decoder(#(String, String, String, Bool, List
   })
 }
 
-fn default_caption(title: String, url: String) -> String {
-  let t = string.trim(title)
-  case t == "" {
-    True -> "🔗 " <> string.trim(url)
-    False -> t <> "\n\n🔗 " <> string.trim(url)
+fn listing_context_row() -> decode.Decoder(#(String, String, String, String)) {
+  use title <- decode.field(0, decode.string)
+  use desc <- decode.field(1, decode.string)
+  use cat <- decode.field(2, decode.string)
+  use feat <- decode.field(3, decode.string)
+  decode.success(#(title, desc, cat, feat))
+}
+
+fn fetch_listing_social_context(
+  db: pog.Connection,
+  entity_id: String,
+) -> Result(#(String, String, String, List(String)), Nil) {
+  let eid = string.trim(entity_id)
+  case eid == "" {
+    True -> Error(Nil)
+    False ->
+      case
+        pog.query(
+          "select "
+          <> "coalesce((select lt.title from listing_translations lt "
+          <> "inner join locales loc on loc.id = lt.locale_id "
+          <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
+          <> "coalesce((select left(lt.description, 4000) from listing_translations lt "
+          <> "inner join locales loc on loc.id = lt.locale_id "
+          <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
+          <> "coalesce(pc.code::text, ''), "
+          <> "coalesce(l.featured_image_url::text, '') "
+          <> "from listings l "
+          <> "inner join product_categories pc on pc.id = l.category_id "
+          <> "where l.id = $1::uuid and l.status = 'published' limit 1",
+        )
+        |> pog.parameter(pog.text(eid))
+        |> pog.returning(listing_context_row())
+        |> pog.execute(db)
+      {
+        Error(_) -> Error(Nil)
+        Ok(ret) ->
+          case ret.rows {
+            [#(title, desc, cat, feat)] -> {
+              let imgs = listing_social_enqueue.listing_image_candidates(db, eid, feat)
+              Ok(#(title, desc, cat, imgs))
+            }
+            _ -> Error(Nil)
+          }
+      }
   }
 }
 
-/// POST /api/v1/social/worker/caption — AI veya şablon metin (worker secret).
+fn image_candidates_json(keys: List(String)) -> json.Json {
+  json.array(
+    from: list.index_map(keys, fn(k, i) {
+      json.object([
+        #("index", json.int(i)),
+        #("storage_key", json.string(k)),
+      ])
+    }),
+    of: fn(x) { x },
+  )
+}
+
+fn post_plan_json(
+  title: String,
+  description: String,
+  caption: String,
+  image_keys: List(String),
+  ai_generated: Bool,
+  fallback: Bool,
+) -> String {
+  json.object([
+    #("title", json.string(title)),
+    #("description", json.string(description)),
+    #("caption", json.string(caption)),
+    #("image_keys", json.array(from: image_keys, of: json.string)),
+    #("ai_generated", json.bool(ai_generated)),
+    #("fallback", json.bool(fallback)),
+  ])
+  |> json.to_string
+}
+
+/// POST /api/v1/social/worker/caption — AI başlık/açıklama/10 görsel + caption (worker secret).
 pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case auth_worker(req) {
@@ -377,66 +487,110 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
         Ok(body) ->
           case json.parse(body, caption_body_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
-            Ok(#(title, url, network, allow_ai, image_keys)) -> {
-              let page_url = string.trim(url)
+            Ok(#(entity_id, title_in, desc_in, url_in, network, cat_in, allow_ai, keys_in)) -> {
+              let page_url = string.trim(url_in)
               case page_url == "" {
                 True -> json_err(400, "listing_url_required")
-                False ->
+                False -> {
+                  let #(title, desc, cat, candidates) = case
+                    fetch_listing_social_context(ctx.db, entity_id)
+                  {
+                    Error(_) -> #(
+                      string.trim(title_in),
+                      string.trim(desc_in),
+                      string.trim(cat_in),
+                      list.filter(keys_in, fn(s) { string.trim(s) != "" }),
+                    )
+                    Ok(#(t, d, c, imgs)) -> #(
+                      case string.trim(t) == "" {
+                        True -> string.trim(title_in)
+                        False -> string.trim(t)
+                      },
+                      case string.trim(d) == "" {
+                        True -> string.trim(desc_in)
+                        False -> string.trim(d)
+                      },
+                      case string.trim(c) == "" {
+                        True -> string.trim(cat_in)
+                        False -> string.trim(c)
+                      },
+                      case list.is_empty(imgs) {
+                        True ->
+                          list.filter(keys_in, fn(s) { string.trim(s) != "" })
+                        False -> imgs
+                      },
+                    )
+                  }
                   case allow_ai {
                     False -> {
-                      let cap = default_caption(title, page_url)
-                      let out =
-                        json.object([
-                          #("caption", json.string(cap)),
-                          #("ai_generated", json.bool(False)),
-                        ])
-                        |> json.to_string
-                      wisp.json_response(out, 200)
+                      let #(pt, pd, pc, pks) =
+                        social_ai_parse.plan_from_ai_or_fallback(
+                          "",
+                          title,
+                          desc,
+                          page_url,
+                          candidates,
+                        )
+                      wisp.json_response(
+                        post_plan_json(pt, pd, pc, pks, False, False),
+                        200,
+                      )
                     }
                     True -> {
                       let input =
                         json.object([
-                          #("task", json.string("social_caption")),
+                          #("task", json.string("social_post_plan")),
                           #("locale", json.string("tr")),
-                          #("network", json.string(string.lowercase(string.trim(network)))),
-                          #("listing_title", json.string(string.trim(title))),
-                          #("listing_url", json.string(page_url)),
                           #(
-                            "image_keys",
-                            json.array(from: image_keys, of: json.string),
+                            "network",
+                            json.string(string.lowercase(string.trim(network))),
                           ),
+                          #("category_code", json.string(cat)),
+                          #("listing_title", json.string(title)),
+                          #("listing_description", json.string(desc)),
+                          #("listing_url", json.string(page_url)),
+                          #("image_candidates", image_candidates_json(candidates)),
                           #(
                             "instruction",
                             json.string(
-                              "Türkçe, kısa ve çekici bir sosyal medya paylaşım metni yaz. Emoji kullanabilirsin. Hashtag ekle (en fazla 5). URL metnin sonunda ayrı satırda olsun.",
+                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel).",
                             ),
                           ),
                         ])
                         |> json.to_string
                       case run_caption_profile(ctx, input) {
                         Error(_) -> {
-                          let cap = default_caption(title, page_url)
-                          let out =
-                            json.object([
-                              #("caption", json.string(cap)),
-                              #("ai_generated", json.bool(False)),
-                              #("fallback", json.bool(True)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(out, 200)
+                          let #(pt, pd, pc, pks) =
+                            social_ai_parse.plan_from_ai_or_fallback(
+                              "",
+                              title,
+                              desc,
+                              page_url,
+                              candidates,
+                            )
+                          wisp.json_response(
+                            post_plan_json(pt, pd, pc, pks, False, True),
+                            200,
+                          )
                         }
-                        Ok(cap) -> {
-                          let out =
-                            json.object([
-                              #("caption", json.string(cap)),
-                              #("ai_generated", json.bool(True)),
-                            ])
-                            |> json.to_string
-                          wisp.json_response(out, 200)
+                        Ok(ai_raw) -> {
+                          let #(pt, pd, pc, pks) =
+                            social_ai_parse.plan_from_ai_or_fallback(
+                              ai_raw,
+                              title,
+                              desc,
+                              page_url,
+                              candidates,
+                            )
+                          wisp.json_response(
+                            post_plan_json(pt, pd, pc, pks, True, False),
+                            200,
+                          )
                         }
                       }
                     }
                   }
+                }
               }
             }
           }

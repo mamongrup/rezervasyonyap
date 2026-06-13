@@ -1,4 +1,4 @@
-//// İlan yayına alındığında sosyal kuyruğa iş ekler (facebook / instagram / pinterest).
+//// İlan yayına alındığında ve periyodik döngüde sosyal kuyruğa iş ekler.
 
 import gleam/dynamic/decode
 import gleam/json
@@ -9,6 +9,10 @@ import pog
 import travel/db/decode_helpers as row_dec
 
 const social_api_key = "social_api"
+
+const default_rotation_categories = [
+  "holiday_home", "yacht_charter", "activity",
+]
 
 fn pick_bool(raw: String, path: List(String), default: Bool) -> Bool {
   case json.parse(raw, decode.at(path, decode.bool)) {
@@ -21,6 +25,32 @@ fn pick_str(raw: String, path: List(String)) -> String {
   case json.parse(raw, decode.at(path, decode.string)) {
     Ok(s) -> string.trim(s)
     Error(_) -> ""
+  }
+}
+
+fn pick_int(raw: String, path: List(String), default: Int) -> Int {
+  case json.parse(raw, decode.at(path, decode.int)) {
+    Ok(n) -> n
+    Error(_) -> default
+  }
+}
+
+fn pick_category_codes(raw: String) -> List(String) {
+  case
+    json.parse(
+      raw,
+      decode.at(["rotation", "category_codes"], decode.list(decode.string)),
+    )
+  {
+    Ok(codes) -> {
+      let trimmed = list.map(codes, fn(s) { string.lowercase(string.trim(s)) })
+      let filtered = list.filter(trimmed, fn(s) { s != "" })
+      case list.is_empty(filtered) {
+        True -> default_rotation_categories
+        False -> filtered
+      }
+    }
+    Error(_) -> default_rotation_categories
   }
 }
 
@@ -107,7 +137,7 @@ fn listing_image_keys(db: pog.Connection, listing_id: String, featured: String) 
   let from_db =
     case
       pog.query(
-        "select storage_key::text from listing_images where listing_id = $1::uuid order by sort_order asc nulls last limit 6",
+        "select storage_key::text from listing_images where listing_id = $1::uuid order by sort_order asc nulls last limit 40",
       )
       |> pog.parameter(pog.text(listing_id))
       |> pog.returning(row_dec.col0_string())
@@ -125,6 +155,15 @@ fn listing_image_keys(db: pog.Connection, listing_id: String, featured: String) 
       }
     _ -> keys
   }
+}
+
+/// Worker: ilan galerisi adayları (en fazla 40).
+pub fn listing_image_candidates(
+  db: pog.Connection,
+  listing_id: String,
+  featured: String,
+) -> List(String) {
+  listing_image_keys(db, listing_id, featured)
 }
 
 fn insert_pending_job(
@@ -206,6 +245,108 @@ pub fn listing_status(db: pog.Connection, listing_id: String) -> Result(String, 
         [s] -> Ok(s)
         _ -> Ok("")
       }
+  }
+}
+
+fn rotation_listing_row() -> decode.Decoder(#(String, String)) {
+  use id <- decode.field(0, decode.string)
+  use feat <- decode.field(1, decode.string)
+  decode.success(#(id, feat))
+}
+
+fn fetch_next_rotation_listings(
+  db: pog.Connection,
+  network: String,
+  category_codes: List(String),
+  min_repost_hours: Int,
+  limit: Int,
+) -> List(#(String, String)) {
+  let hours = case min_repost_hours < 1 {
+    True -> 24
+    False -> min_repost_hours
+  }
+  let lim = case limit < 1 {
+    True -> 1
+    False -> limit
+  }
+  case list.is_empty(category_codes) {
+    True -> []
+    False ->
+      case
+        pog.query(
+          "select l.id::text, coalesce(l.featured_image_url::text, '') "
+          <> "from listings l "
+          <> "inner join product_categories pc on pc.id = l.category_id "
+          <> "where l.status = 'published' "
+          <> "and coalesce(l.share_to_social, false) = true "
+          <> "and pc.code = any($1::text[]) "
+          <> "and ( "
+          <> "  exists (select 1 from listing_images li where li.listing_id = l.id limit 1) "
+          <> "  or coalesce(nullif(btrim(l.featured_image_url::text), ''), '') != '' "
+          <> ") "
+          <> "and not exists ( "
+          <> "  select 1 from social_share_jobs j "
+          <> "  where j.entity_type = 'listing' and j.entity_id = l.id "
+          <> "    and j.network = $2 and j.status = 'pending' "
+          <> ") "
+          <> "and not exists ( "
+          <> "  select 1 from social_share_jobs j2 "
+          <> "  where j2.entity_type = 'listing' and j2.entity_id = l.id "
+          <> "    and j2.network = $2 and j2.status = 'posted' "
+          <> "    and j2.posted_at > now() - ($3::integer * interval '1 hour') "
+          <> ") "
+          <> "order by ( "
+          <> "  select max(j3.posted_at) from social_share_jobs j3 "
+          <> "  where j3.entity_type = 'listing' and j3.entity_id = l.id "
+          <> "    and j3.network = $2 and j3.status = 'posted' "
+          <> ") asc nulls first, l.updated_at desc "
+          <> "limit $4",
+        )
+        |> pog.parameter(pog.array(pog.text, category_codes))
+        |> pog.parameter(pog.text(network))
+        |> pog.parameter(pog.int(hours))
+        |> pog.parameter(pog.int(lim))
+        |> pog.returning(rotation_listing_row())
+        |> pog.execute(db)
+      {
+        Error(_) -> []
+        Ok(ret) -> ret.rows
+      }
+  }
+}
+
+/// Periyodik döngü: villa / yat / aktivite ilanlarını sırayla kuyruğa ekler.
+pub fn enqueue_rotation(
+  db: pog.Connection,
+  per_network_limit: Int,
+) -> Result(Int, Nil) {
+  let api_raw = fetch_social_api_raw(db)
+  case pick_bool(api_raw, ["rotation", "enabled"], True) {
+    False -> Ok(0)
+    True -> {
+      let cats = pick_category_codes(api_raw)
+      let min_hours = pick_int(api_raw, ["rotation", "min_repost_hours"], 24)
+      let per_net = case per_network_limit < 1 {
+        True -> pick_int(api_raw, ["rotation", "per_run_limit"], 1)
+        False -> per_network_limit
+      }
+      let nets = networks_to_enqueue(api_raw)
+      let count =
+        list.fold(nets, 0, fn(acc: Int, net: String) {
+          let candidates =
+            fetch_next_rotation_listings(db, net, cats, min_hours, per_net)
+          list.fold(candidates, acc, fn(a: Int, row: #(String, String)) {
+            let #(lid, feat) = row
+            let imgs = listing_image_keys(db, lid, feat)
+            case insert_pending_job(db, lid, net, imgs) {
+              Error(_) -> a
+              Ok(True) -> a + 1
+              Ok(False) -> a
+            }
+          })
+        })
+      Ok(count)
+    }
   }
 }
 

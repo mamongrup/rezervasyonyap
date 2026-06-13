@@ -34,6 +34,12 @@ export interface SocialApiSettings {
     board_id?: string
     auto_post?: boolean
   }
+  rotation?: {
+    enabled?: boolean
+    category_codes?: string[]
+    min_repost_hours?: number
+    per_run_limit?: number
+  }
 }
 
 export interface PendingSocialJob {
@@ -101,17 +107,27 @@ export async function fetchPendingSocialJobs(
   return { jobs: data.jobs ?? [], socialApi }
 }
 
-export async function fetchSocialCaption(
+pub interface SocialPostPlan {
+  title: string
+  description: string
+  caption: string
+  image_keys: string[]
+  ai_generated: boolean
+}
+
+export async function fetchSocialPostPlan(
   apiOrigin: string,
   secret: string,
   body: {
+    entity_id: string
     listing_title: string
     listing_url: string
     network: string
+    category_code: string
     allow_ai_caption: boolean
     image_keys: string[]
   },
-): Promise<string> {
+): Promise<SocialPostPlan> {
   const res = await fetch(`${apiOrigin.replace(/\/$/, '')}/api/v1/social/worker/caption`, {
     method: 'POST',
     headers: workerHeaders(secret),
@@ -122,8 +138,41 @@ export async function fetchSocialCaption(
     const e = (await res.json().catch(() => ({}))) as { error?: string }
     throw new Error(e.error ?? `caption_${res.status}`)
   }
-  const data = (await res.json()) as { caption?: string }
-  return (data.caption ?? '').trim()
+  const data = (await res.json()) as Partial<SocialPostPlan> & { caption?: string }
+  const keys = (data.image_keys ?? body.image_keys).filter((k) => k.trim() !== '').slice(0, 10)
+  return {
+    title: (data.title ?? body.listing_title).trim(),
+    description: (data.description ?? '').trim(),
+    caption: (data.caption ?? '').trim(),
+    image_keys: keys,
+    ai_generated: Boolean(data.ai_generated),
+  }
+}
+
+/** @deprecated fetchSocialPostPlan kullanın */
+export async function fetchSocialCaption(
+  apiOrigin: string,
+  secret: string,
+  body: {
+    entity_id?: string
+    listing_title: string
+    listing_url: string
+    network: string
+    category_code?: string
+    allow_ai_caption: boolean
+    image_keys: string[]
+  },
+): Promise<string> {
+  const plan = await fetchSocialPostPlan(apiOrigin, secret, {
+    entity_id: body.entity_id ?? '',
+    listing_title: body.listing_title,
+    listing_url: body.listing_url,
+    network: body.network,
+    category_code: body.category_code ?? '',
+    allow_ai_caption: body.allow_ai_caption,
+    image_keys: body.image_keys,
+  })
+  return plan.caption
 }
 
 export async function patchSocialJob(
@@ -156,38 +205,70 @@ async function postFacebook(
   meta: NonNullable<SocialApiSettings['meta']>,
   message: string,
   pageUrl: string,
+  imageUrls: string[] = [],
 ): Promise<string> {
   const pageId = meta.page_id?.trim()
   const token = meta.page_access_token?.trim()
   if (!pageId || !token) throw new Error('facebook_not_configured')
 
-  const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
+  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
+
+  if (httpsUrls.length <= 1) {
+    const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, link: pageUrl, access_token: token }),
+    })
+    const fbData = (await fbRes.json()) as {
+      id?: string
+      error?: { message: string }
+    }
+    if (!fbRes.ok || fbData.error) {
+      throw new Error(fbData.error?.message ?? `fb_${fbRes.status}`)
+    }
+    return fbData.id ?? ''
+  }
+
+  const mediaIds: string[] = []
+  for (const url of httpsUrls) {
+    const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, published: false, access_token: token }),
+    })
+    const photoData = (await photoRes.json()) as { id?: string; error?: { message: string } }
+    if (!photoRes.ok || photoData.error || !photoData.id) {
+      throw new Error(photoData.error?.message ?? `fb_photo_${photoRes.status}`)
+    }
+    mediaIds.push(photoData.id)
+  }
+
+  const feedRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, link: pageUrl, access_token: token }),
+    body: JSON.stringify({
+      message,
+      link: pageUrl,
+      attached_media: mediaIds.map((id) => ({ media_fbid: id })),
+      access_token: token,
+    }),
   })
-  const fbData = (await fbRes.json()) as {
+  const feedData = (await feedRes.json()) as {
     id?: string
     error?: { message: string }
   }
-  if (!fbRes.ok || fbData.error) {
-    throw new Error(fbData.error?.message ?? `fb_${fbRes.status}`)
+  if (!feedRes.ok || feedData.error) {
+    throw new Error(feedData.error?.message ?? `fb_feed_${feedRes.status}`)
   }
-  return fbData.id ?? ''
+  return feedData.id ?? ''
 }
 
-async function postInstagram(
-  meta: NonNullable<SocialApiSettings['meta']>,
+async function postInstagramSingle(
+  igId: string,
+  token: string,
   caption: string,
   imageUrl: string,
 ): Promise<string> {
-  const igId = meta.instagram_account_id?.trim()
-  const token = meta.page_access_token?.trim()
-  if (!igId || !token) throw new Error('instagram_not_configured')
-  if (!imageUrl.startsWith('https://')) {
-    throw new Error('instagram_requires_https_image')
-  }
-
   const createRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -223,6 +304,82 @@ async function postInstagram(
     throw new Error(pubData.error?.message ?? `ig_publish_${pubRes.status}`)
   }
   return pubData.id ?? createData.id ?? ''
+}
+
+async function postInstagram(
+  meta: NonNullable<SocialApiSettings['meta']>,
+  caption: string,
+  imageUrls: string[],
+): Promise<string> {
+  const igId = meta.instagram_account_id?.trim()
+  const token = meta.page_access_token?.trim()
+  if (!igId || !token) throw new Error('instagram_not_configured')
+
+  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://'))
+  if (httpsUrls.length === 0) throw new Error('instagram_requires_https_image')
+
+  if (httpsUrls.length === 1) {
+    return postInstagramSingle(igId, token, caption, httpsUrls[0])
+  }
+
+  const childIds: string[] = []
+  for (const url of httpsUrls.slice(0, 10)) {
+    const createRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_url: url,
+        is_carousel_item: true,
+        access_token: token,
+      }),
+    })
+    const createData = (await createRes.json()) as {
+      id?: string
+      error?: { message: string }
+    }
+    if (!createRes.ok || createData.error || !createData.id) {
+      throw new Error(createData.error?.message ?? `ig_carousel_item_${createRes.status}`)
+    }
+    childIds.push(createData.id)
+    await new Promise((r) => setTimeout(r, 1500))
+  }
+
+  const carouselRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      media_type: 'CAROUSEL',
+      caption,
+      children: childIds.join(','),
+      access_token: token,
+    }),
+  })
+  const carouselData = (await carouselRes.json()) as {
+    id?: string
+    error?: { message: string }
+  }
+  if (!carouselRes.ok || carouselData.error || !carouselData.id) {
+    throw new Error(carouselData.error?.message ?? `ig_carousel_${carouselRes.status}`)
+  }
+
+  await new Promise((r) => setTimeout(r, 2500))
+
+  const pubRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media_publish`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      creation_id: carouselData.id,
+      access_token: token,
+    }),
+  })
+  const pubData = (await pubRes.json()) as {
+    id?: string
+    error?: { message: string }
+  }
+  if (!pubRes.ok || pubData.error) {
+    throw new Error(pubData.error?.message ?? `ig_publish_${pubRes.status}`)
+  }
+  return pubData.id ?? carouselData.id ?? ''
 }
 
 async function postPinterest(
@@ -271,38 +428,50 @@ export async function processOneSocialJob(
   siteUrl: string,
 ): Promise<{ ok: boolean; network: string; job_id: string; post_id?: string; error?: string }> {
   const pageUrl = listingPublicUrl(job.category_code, job.listing_slug)
-  const firstImageKey = job.image_keys.find((k) => k.trim() !== '') ?? ''
-  const imageUrl = absoluteMediaUrl(siteUrl, firstImageKey)
 
-  let caption = (job.caption_ai_generated ?? '').trim()
-  if (!caption) {
-    caption = await fetchSocialCaption(apiOrigin, secret, {
+  let plan: SocialPostPlan | null = null
+  const cachedCaption = (job.caption_ai_generated ?? '').trim()
+  if (!cachedCaption) {
+    plan = await fetchSocialPostPlan(apiOrigin, secret, {
+      entity_id: job.entity_id,
       listing_title: job.listing_title,
       listing_url: pageUrl,
       network: job.network,
+      category_code: job.category_code,
       allow_ai_caption: job.allow_ai_caption,
       image_keys: job.image_keys,
     })
   }
 
+  const caption = cachedCaption || plan?.caption || ''
+  const title = plan?.title || job.listing_title
+  const description = plan?.description || caption
+  const selectedKeys =
+    plan?.image_keys?.length
+      ? plan.image_keys
+      : job.image_keys.filter((k) => k.trim() !== '').slice(0, 10)
+  const imageUrls = selectedKeys
+    .map((k) => absoluteMediaUrl(siteUrl, k))
+    .filter((u) => u.startsWith('https://'))
+
   try {
     let postId = ''
     switch (job.network) {
       case 'facebook':
-        postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl)
+        postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl, imageUrls)
         break
       case 'instagram':
-        if (!imageUrl) throw new Error('instagram_image_required')
-        postId = await postInstagram(socialApi.meta ?? {}, caption, imageUrl)
+        if (imageUrls.length === 0) throw new Error('instagram_image_required')
+        postId = await postInstagram(socialApi.meta ?? {}, caption, imageUrls)
         break
       case 'pinterest':
-        if (!imageUrl) throw new Error('pinterest_image_required')
+        if (imageUrls.length === 0) throw new Error('pinterest_image_required')
         postId = await postPinterest(
           socialApi.pinterest ?? {},
-          job.listing_title,
-          caption,
+          title,
+          description,
           pageUrl,
-          imageUrl,
+          imageUrls[0],
         )
         break
       default:
@@ -328,6 +497,38 @@ export async function processOneSocialJob(
     }
     return { ok: false, network: job.network, job_id: job.id, error: msg }
   }
+}
+
+export async function enqueueRotationSocialJobs(options?: {
+  apiOrigin?: string
+  secret?: string
+  limit?: number
+}): Promise<{ enqueued: number }> {
+  const apiOrigin =
+    options?.apiOrigin ??
+    process.env.INTERNAL_API_ORIGIN ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    ''
+  const secret = options?.secret ?? process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? ''
+  const limit = options?.limit ?? 0
+
+  if (!apiOrigin.trim()) throw new Error('api_origin_missing')
+  if (!secret.trim()) throw new Error('worker_secret_missing')
+
+  const res = await fetch(
+    `${apiOrigin.replace(/\/$/, '')}/api/v1/social/worker/enqueue-rotate?limit=${limit}`,
+    {
+      method: 'POST',
+      headers: workerHeaders(secret),
+      cache: 'no-store',
+    },
+  )
+  if (!res.ok) {
+    const e = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new Error(e.error ?? `enqueue_rotate_${res.status}`)
+  }
+  const data = (await res.json()) as { enqueued?: number }
+  return { enqueued: data.enqueued ?? 0 }
 }
 
 export async function processPendingSocialJobs(options?: {

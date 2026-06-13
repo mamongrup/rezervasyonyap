@@ -64,6 +64,13 @@ interface LinkedInSettings {
   auto_post: boolean
 }
 
+interface RotationSettings {
+  enabled: boolean
+  category_codes: string[]
+  min_repost_hours: number
+  per_run_limit: number
+}
+
 interface SocialApiSettings {
   meta: MetaSettings
   twitter: TwitterSettings
@@ -71,6 +78,14 @@ interface SocialApiSettings {
   tiktok: TikTokSettings
   youtube: YouTubeSettings
   linkedin: LinkedInSettings
+  rotation: RotationSettings
+}
+
+const DEFAULT_ROTATION: RotationSettings = {
+  enabled: true,
+  category_codes: ['holiday_home', 'yacht_charter', 'activity'],
+  min_repost_hours: 24,
+  per_run_limit: 1,
 }
 
 const EMPTY: SocialApiSettings = {
@@ -80,9 +95,10 @@ const EMPTY: SocialApiSettings = {
   tiktok: { client_key: '', client_secret: '', access_token: '', auto_post: false },
   youtube: { api_key: '', channel_id: '', auto_post: false },
   linkedin: { client_id: '', client_secret: '', access_token: '', organization_id: '', auto_post: false },
+  rotation: DEFAULT_ROTATION,
 }
 
-type PlatformId = keyof SocialApiSettings
+type PlatformId = 'meta' | 'twitter' | 'pinterest' | 'tiktok' | 'youtube' | 'linkedin'
 
 // ─── Platform tanımları ───────────────────────────────────────────────────────
 
@@ -400,6 +416,14 @@ export default function AdminSocialApiSection() {
           tiktok: { ...EMPTY.tiktok, ...(parsed.tiktok ?? {}) },
           youtube: { ...EMPTY.youtube, ...(parsed.youtube ?? {}) },
           linkedin: { ...EMPTY.linkedin, ...(parsed.linkedin ?? {}) },
+          rotation: {
+            ...DEFAULT_ROTATION,
+            ...(parsed.rotation ?? {}),
+            category_codes:
+              parsed.rotation?.category_codes?.length
+                ? parsed.rotation.category_codes
+                : DEFAULT_ROTATION.category_codes,
+          },
         })
       }
     } catch (e) {
@@ -491,6 +515,76 @@ export default function AdminSocialApiSection() {
           {configuredCount === 0 && (
             <span className="ml-2 text-neutral-400">— Aşağıdan platform genişletin ve API bilgilerini girin.</span>
           )}
+        </div>
+      )}
+
+      {!loading && (
+        <div className="rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-5 backdrop-blur-sm">
+          <h3 className="text-sm font-semibold text-[color:var(--manage-text)]">Otomatik vitrin yansıtma (10 dk)</h3>
+          <p className="mt-1 text-xs text-[color:var(--manage-text-muted)]">
+            Villa (tatil evi), yat ve aktivite ilanları sırayla sosyal medya kuyruğuna eklenir. Sunucuda{' '}
+            <code className="rounded bg-neutral-100 px-1 dark:bg-neutral-800">travel-social-worker.timer</code> her 10 dakikada bir çalışmalıdır.
+          </p>
+          <div className="mt-4 space-y-3">
+            <ToggleField
+              label="Periyodik otomatik paylaşım"
+              checked={settings.rotation.enabled}
+              onChange={(v) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  rotation: { ...prev.rotation, enabled: v },
+                }))
+              }
+              hint="Kapalıyken yalnızca yeni yayınlanan ilanlar (auto_post açıksa) kuyruğa girer."
+            />
+            <PlainField
+              label="Kategori kodları (virgülle)"
+              value={settings.rotation.category_codes.join(', ')}
+              onChange={(v) =>
+                setSettings((prev) => ({
+                  ...prev,
+                  rotation: {
+                    ...prev.rotation,
+                    category_codes: v
+                      .split(',')
+                      .map((s) => s.trim().toLowerCase())
+                      .filter(Boolean),
+                  },
+                }))
+              }
+              hint="Varsayılan: holiday_home (villa), yacht_charter (yat), activity (aktivite)"
+            />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <PlainField
+                label="Tekrar paylaşım aralığı (saat)"
+                value={String(settings.rotation.min_repost_hours)}
+                onChange={(v) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    rotation: {
+                      ...prev.rotation,
+                      min_repost_hours: Math.max(1, Number.parseInt(v, 10) || 24),
+                    },
+                  }))
+                }
+                hint="Aynı ilan aynı platformda bu süre dolmadan tekrar paylaşılmaz."
+              />
+              <PlainField
+                label="Her çalışmada platform başına ilan"
+                value={String(settings.rotation.per_run_limit)}
+                onChange={(v) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    rotation: {
+                      ...prev.rotation,
+                      per_run_limit: Math.max(1, Number.parseInt(v, 10) || 1),
+                    },
+                  }))
+                }
+                hint="10 dakikada bir tetikte her platform için en fazla bu kadar yeni kuyruk işi."
+              />
+            </div>
+          </div>
         </div>
       )}
 
@@ -605,7 +699,9 @@ export default function AdminSocialApiSection() {
         <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-400">Nasıl Çalışır?</h3>
         <ul className="space-y-1.5 text-xs text-blue-700 dark:text-blue-300">
           <li>• API anahtarları <code className="rounded bg-blue-100 px-1 dark:bg-blue-950/50">site_settings</code> tablosuna JSON olarak kaydedilir.</li>
-          <li>• Sosyal medya worker&apos;ı her platform için ayrı kuyrukları işler ve <strong>auto_post</strong> aktifse yeni ilanları otomatik paylaşır.</li>
+          <li>• Sosyal medya worker&apos;ı her 10 dakikada kuyruğa villa/yat/aktivite ekler ve bekleyen paylaşımları işler (<strong>auto_post</strong> + API anahtarları gerekir).</li>
+          <li>• İlan formunda <strong>Sosyal paylaşım açık</strong> + <strong>Yapay zeka caption</strong> işaretli ilanlar döngüye girer.</li>
+          <li>• <strong>Yapay zeka</strong> başlık, açıklama, en iyi 10 görsel ve paylaşım metnini üretir (Instagram carousel / Facebook çoklu foto).</li>
           <li>• <strong>Meta (Instagram/Facebook)</strong>: Graph API v17+ gerekir; sayfa token&apos;ı 60 günde bir uzun ömürlüye çevrilmeli.</li>
           <li>• <strong>Twitter/X</strong>: v2 API &quot;Free&quot; planında ayda 500 tweet yazma hakkı var.</li>
           <li>• Herhangi bir platform için token süresi dolduğunda paylaşım kuyruğu &quot;failed&quot; durumuna geçer, admin panelinden takip edebilirsiniz.</li>

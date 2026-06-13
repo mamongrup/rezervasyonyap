@@ -12,7 +12,7 @@ pub fn capabilities() -> List(AiCapability) {
     AiCapability("content_writer", "Bölge, blog, sayfa, ilan gövde metni"),
     AiCapability("seo_pack", "Tüm diller için SEO başlık/açıklama/meta"),
     AiCapability("translator", "Dil kuralları + SEO uyumlu çeviri"),
-    AiCapability("social_caption", "Seçilen görsellere göre paylaşım metni"),
+    AiCapability("social_caption", "Başlık, açıklama, 10 görsel seçimi ve paylaşım metni"),
     AiCapability("review_summary", "Yorum özeti (in-site + harici)"),
     AiCapability("nlp_search", "Semantik / doğal dil arama ayrıştırma"),
     AiCapability("trip_planner", "Günlük kara gezi rotası (bölge başına JSON)"),

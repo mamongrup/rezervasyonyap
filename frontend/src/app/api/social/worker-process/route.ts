@@ -6,10 +6,11 @@
  *
  * Header: x-travel-social-worker-secret: TRAVEL_SOCIAL_WORKER_SECRET
  * Query: limit=5 (isteğe bağlı, max 20)
+ * Query: rotate=0 — döngü kuyruğu ekleme atlanır (varsayılan: açık)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { processPendingSocialJobs } from '@/lib/social-auto-post'
+import { enqueueRotationSocialJobs, processPendingSocialJobs } from '@/lib/social-auto-post'
 
 export async function POST(req: NextRequest) {
   const expected = (process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? '').trim()
@@ -28,10 +29,16 @@ export async function POST(req: NextRequest) {
 
   const limitRaw = req.nextUrl.searchParams.get('limit')
   const limit = limitRaw ? Math.min(20, Math.max(1, Number.parseInt(limitRaw, 10) || 5)) : 5
+  const rotate = req.nextUrl.searchParams.get('rotate') !== '0'
 
   try {
+    let enqueued = 0
+    if (rotate) {
+      const rot = await enqueueRotationSocialJobs({ limit: 0 })
+      enqueued = rot.enqueued
+    }
     const out = await processPendingSocialJobs({ limit })
-    return NextResponse.json({ ok: true, ...out })
+    return NextResponse.json({ ok: true, enqueued, ...out })
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     return NextResponse.json({ ok: false, error: msg }, { status: 500 })

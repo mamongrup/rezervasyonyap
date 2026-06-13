@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# Sosyal paylaşım worker: POST /api/social/worker-process (Facebook / Instagram / Pinterest).
+# Sosyal paylaşım worker: POST /api/social/worker-process
+#   1) villa/yat/aktivite döngü kuyruğu (enqueue-rotate)
+#   2) bekleyen Facebook / Instagram / Pinterest paylaşımları
 #
-# Gerekli: /etc/rezervasyonyap/frontend.env içinde TRAVEL_SOCIAL_WORKER_SECRET (veya ortamda export).
+# Gerekli:
+#   TRAVEL_SOCIAL_WORKER_SECRET — /etc/rezervasyonyap/frontend.env VE backend.env (aynı değer)
+#   Meta/Pinterest API — Yönetim → Pazarlama → Sosyal Medya API
+#
+# Zamanlayıcı (önerilen): deploy/systemd/travel-social-worker.timer (10 dk)
 #
 # Kullanım:
 #   chmod +x deploy/scripts/social-process-pending.sh

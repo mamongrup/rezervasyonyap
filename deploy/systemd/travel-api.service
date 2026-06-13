@@ -5,6 +5,9 @@
 # uzun rastgele bir TRAVEL_AI_WORKER_SECRET ekleyin. Cron yerine önerilen:
 # `deploy/scripts/ai-worker-run-steps.sh` + isteğe bağlı `deploy/systemd/travel-ai-worker.timer`.
 #
+# Sosyal medya worker: TRAVEL_SOCIAL_WORKER_SECRET (frontend.env ile aynı değer) +
+# `deploy/systemd/travel-social-worker.timer` (10 dk).
+#
 # Sunucuda:
 #   sudo cp deploy/systemd/travel-api.service /etc/systemd/system/travel-api.service
 #   sudo systemctl daemon-reload
