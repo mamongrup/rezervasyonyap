@@ -1,16 +1,12 @@
 'use client'
 
 import { CATEGORY_LABEL_TR } from '@/lib/catalog-category-ui'
-import { timeoutMsForProfile } from '@/lib/ai-upstream-timeouts'
-import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
-import { getStoredAuthToken } from '@/lib/auth-storage'
 import {
   getListingContentStats,
   listProductCategories,
   processNextListingContent,
   queueAllListingContent,
   resetStuckListingContent,
-  listSiteSettings,
   type ListingContentStats,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -110,20 +106,8 @@ export default function ListingContentAiPanel() {
     let failed = 0
     const limit = Math.max(0, batchLimit)
     try {
-      const settings = await listSiteSettings(token).catch(() => ({ settings: [] as { key: string; value_json: string }[] }))
-      const aiRow = settings.settings.find((x) => x.key === 'ai')
-      let aiJson: Record<string, unknown> | null = null
-      if (aiRow?.value_json) {
-        try {
-          aiJson = JSON.parse(aiRow.value_json) as Record<string, unknown>
-        } catch {
-          aiJson = null
-        }
-      }
-      const timeoutMs = timeoutMsForProfile(aiJson, 'listing_description_tr')
-
       while (!stopRef.current && (limit === 0 || processed < limit)) {
-        const r = await processNextListingContent(token, { upstreamTimeoutMs: timeoutMs })
+        const r = await processNextListingContent(token, { upstreamTimeoutMs: 0 })
         if (r.done) {
           appendLog('Kuyruk boş — işlem tamamlandı.')
           break
@@ -369,9 +353,9 @@ export default function ListingContentAiPanel() {
           {stats && pendingTotal > 0 && (stats.batches.done ?? 0) === 0 && !running ? (
             <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
               <strong>{pendingTotal} ilan kuyrukta.</strong> Kuyruğa alma tamamlandı; üretim henüz
-              başlamadı. Devam etmek için <strong>İşle (sıradaki)</strong> düğmesine tıklayın. Her
-              ilan için 3 adım gerekir (TR açıklama → çeviri → SEO); tamamlanan sayısı ancak o
-              zaman artar.
+              başlamadı. Devam etmek için <strong>İşle (sıradaki)</strong> düğmesine tıklayın.
+              Her adım tek bir AI çağrısıdır (süre sınırı yok); tam bir ilan TR + 5 çeviri + 6 SEO
+              adımı ister. Hatalı ilanlar atlanır, kuyruk devam eder.
             </p>
           ) : null}
           {stats && (stats.batches.running ?? 0) > 0 ? (
@@ -381,8 +365,8 @@ export default function ListingContentAiPanel() {
             </p>
           ) : null}
           <p className="mt-4 text-xs text-neutral-500">
-            Her &quot;İşle&quot; adımı bir ilan için tek faz çalıştırır (TR → çeviri → SEO). Tam pipeline için
-            aynı ilanda 3 adım gerekir.
+            Her &quot;İşle&quot; tek AI isteği çalıştırır (tarayıcı zaman aşımı kapalı). Çeviri ve SEO
+            dilleri sırayla işlenir; tamamlanan yalnızca bir ilanın tüm aşamaları bitince artar.
           </p>
         </div>
       </div>

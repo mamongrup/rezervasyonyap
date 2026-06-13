@@ -275,19 +275,89 @@ fn json_field_string(raw: String, field: String) -> Result(String, Nil) {
   }
 }
 
+fn collect_until_close_quote(
+  gs: List(String),
+  acc: String,
+  escaped: Bool,
+) -> Result(String, Nil) {
+  case gs {
+    [] ->
+      case string.length(acc) >= 80 {
+        True -> Ok(acc)
+        False -> Error(Nil)
+      }
+    [g, ..rest] ->
+      case escaped {
+        True -> collect_until_close_quote(rest, acc <> g, False)
+        False ->
+          case g == "\\" {
+            True -> collect_until_close_quote(rest, acc, True)
+            False ->
+              case g == "\"" {
+                True -> Ok(acc)
+                False -> collect_until_close_quote(rest, acc <> g, False)
+              }
+          }
+      }
+  }
+}
+
+fn strip_json_colon_prefix(s: String) -> Result(String, Nil) {
+  let t = string.trim(s)
+  case string.starts_with(t, ":") {
+    True -> {
+      let after = string.trim(string.drop_start(t, 1))
+      case string.starts_with(after, "\"") {
+        True -> Ok(string.drop_start(after, 1))
+        False -> Error(Nil)
+      }
+    }
+    False -> Error(Nil)
+  }
+}
+
+fn extract_json_string_field_loose(raw: String, field: String) -> Result(String, Nil) {
+  let cleaned = clean_json_text(raw)
+  case string.split_once(cleaned, "\"" <> field <> "\"") {
+    Error(_) -> Error(Nil)
+    Ok(#(_, after_key)) ->
+      case strip_json_colon_prefix(after_key) {
+        Error(_) -> Error(Nil)
+        Ok(after_quote) ->
+          collect_until_close_quote(string.to_graphemes(after_quote), "", False)
+          |> result.map(string.trim)
+      }
+  }
+}
+
 fn parse_ai_description(raw: String) -> Result(String, Nil) {
   case json_field_string(raw, "description") {
     Ok(d) -> Ok(d)
     Error(_) ->
       case json_field_string(raw, "text") {
         Ok(t) -> Ok(t)
-        Error(_) -> {
-          let cleaned = clean_json_text(raw)
-          case string.starts_with(cleaned, "<") && string.length(cleaned) >= 80 {
-            True -> Ok(cleaned)
-            False -> Error(Nil)
+        Error(_) ->
+          case extract_json_string_field_loose(raw, "description") {
+            Ok(d) -> Ok(d)
+            Error(_) ->
+              case extract_json_string_field_loose(raw, "text") {
+                Ok(t) -> Ok(t)
+                Error(_) -> {
+                  let cleaned = clean_json_text(raw)
+                  case string.starts_with(cleaned, "<") && string.length(cleaned) >= 80 {
+                    True -> Ok(cleaned)
+                    False ->
+                      case
+                        string.length(cleaned) >= 200
+                        && !string.starts_with(cleaned, "{")
+                      {
+                        True -> Ok(cleaned)
+                        False -> Error(Nil)
+                      }
+                  }
+                }
+              }
           }
-        }
       }
   }
 }
@@ -898,62 +968,73 @@ fn run_translations_phase(
   let desc_src = string.trim(desc_tr)
   case title_src == "" || desc_src == "" {
     True -> Error("listing_content_tr_missing_for_translate")
-    False ->
-      case
-        list.try_map(target_locales(), fn(locale_code) {
-          case overwrite || !locale_has_translation(ctx.db, listing_id, locale_code) {
-            False -> Ok(Nil)
-            True -> {
-              let input =
-                json.object([
-                  #("task", json.string("listing_i18n")),
-                  #("source_locale", json.string(tr_locale)),
-                  #("target_locale", json.string(locale_code)),
-                  #("title", json.string(title_src)),
-                  #("description", json.string(desc_src)),
-                  #(
-                    "instruction",
-                    json.string(
-                      "Kaynak Türkçe ilan başlık ve açıklamayı hedef dile SEO uyumlu çevir. HTML yapısını koru. JSON: {\"title\":\"...\",\"description\":\"<HTML>\"}",
-                    ),
-                  ),
-                ])
-                |> json.to_string
-              case create_and_run_job(ctx, profile_translator, input) {
-                Error(e) -> Error(e)
-                Ok(raw) -> {
-                  case json_field_string(raw, "title") {
-                    Error(_) -> Error("listing_content_i18n_parse_failed")
-                    Ok(t_title) ->
-                      case json_field_string(raw, "description") {
-                        Error(_) -> Error("listing_content_i18n_parse_failed")
-                        Ok(t_desc) ->
-                          case
-                            upsert_translation(
-                              ctx.db,
-                              listing_id,
-                              locale_code,
-                              t_title,
-                              t_desc,
-                            )
-                          {
-                            Error(e) -> Error(e)
-                            Ok(Nil) -> Ok(Nil)
-                          }
-                      }
-                  }
-                }
-              }
-            }
-          }
+    False -> {
+      let pending =
+        list.filter(target_locales(), fn(locale_code) {
+          overwrite || !locale_has_translation(ctx.db, listing_id, locale_code)
         })
-      {
-        Error(e) -> Error(e)
-        Ok(_) ->
+      case pending {
+        [] ->
           case advance_batch(ctx.db, batch_id, "seo", "pending") {
             Error(_) -> Error("listing_content_batch_advance_failed")
             Ok(Nil) -> Ok(Nil)
           }
+        [locale_code, ..] -> {
+          let input =
+            json.object([
+              #("task", json.string("listing_i18n")),
+              #("source_locale", json.string(tr_locale)),
+              #("target_locale", json.string(locale_code)),
+              #("title", json.string(title_src)),
+              #("description", json.string(desc_src)),
+              #(
+                "instruction",
+                json.string(
+                  "Kaynak Türkçe ilan başlık ve açıklamayı hedef dile SEO uyumlu çevir. HTML yapısını koru. JSON: {\"title\":\"...\",\"description\":\"<HTML>\"}",
+                ),
+              ),
+            ])
+            |> json.to_string
+          case create_and_run_job(ctx, profile_translator, input) {
+            Error(e) -> Error(e)
+            Ok(raw) -> {
+              case json_field_string(raw, "title") {
+                Error(_) ->
+                  case extract_json_string_field_loose(raw, "title") {
+                    Error(_) -> Error("listing_content_i18n_parse_failed")
+                    Ok(t_title) -> save_i18n_translation(ctx, listing_id, locale_code, t_title, raw)
+                  }
+                Ok(t_title) -> save_i18n_translation(ctx, listing_id, locale_code, t_title, raw)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn save_i18n_translation(
+  ctx: Context,
+  listing_id: String,
+  locale_code: String,
+  t_title: String,
+  raw: String,
+) -> Result(Nil, String) {
+  case json_field_string(raw, "description") {
+    Error(_) ->
+      case extract_json_string_field_loose(raw, "description") {
+        Error(_) -> Error("listing_content_i18n_parse_failed")
+        Ok(t_desc) ->
+          case upsert_translation(ctx.db, listing_id, locale_code, t_title, t_desc) {
+            Error(e) -> Error(e)
+            Ok(Nil) -> Ok(Nil)
+          }
+      }
+    Ok(t_desc) ->
+      case upsert_translation(ctx.db, listing_id, locale_code, t_title, t_desc) {
+        Error(e) -> Error(e)
+        Ok(Nil) -> Ok(Nil)
       }
   }
 }
@@ -965,58 +1046,65 @@ fn run_seo_phase(
   category_code: String,
   overwrite: Bool,
 ) -> Result(Nil, String) {
-  case
-    list.try_map(all_locales(), fn(locale_code) {
+  let pending =
+    list.filter(all_locales(), fn(locale_code) {
       case overwrite || !locale_has_seo(ctx.db, listing_id, locale_code) {
-        False -> Ok(Nil)
-        True -> {
+        False -> False
+        True ->
           case load_locale_title_desc(ctx, listing_id, locale_code) {
-            Error(_) -> Error("listing_content_seo_locale_load_failed")
-            Ok(#(title, desc)) ->
-              case title == "" {
-                True -> Ok(Nil)
-                False -> {
-                  let input =
-                    json.object([
-                      #("task", json.string("listing_seo_pack")),
-                      #("locale", json.string(locale_code)),
-                      #("listing_id", json.string(listing_id)),
-                      #("category_code", json.string(category_code)),
-                      #("title", json.string(title)),
-                      #("description", json.string(desc)),
-                      #(
-                        "instruction",
-                        json.string(
-                          "Bu dilde arama sonucu meta başlık (max 70 karakter) ve meta açıklama (max 160 karakter) yaz. JSON: {\"meta_title\":\"...\",\"meta_description\":\"...\",\"keywords\":\"virgülle\"}",
-                        ),
-                      ),
-                    ])
-                    |> json.to_string
-                  case create_and_run_job(ctx, profile_seo, input) {
-                    Error(e) -> Error(e)
-                    Ok(raw) -> {
-                      case json_field_string(raw, "meta_title") {
+            Ok(#(title, _)) -> string.trim(title) != ""
+            Error(_) -> False
+          }
+      }
+    })
+  case pending {
+    [] ->
+      case advance_batch(ctx.db, batch_id, "done", "done") {
+        Error(_) -> Error("listing_content_batch_advance_failed")
+        Ok(Nil) -> Ok(Nil)
+      }
+    [locale_code, ..] ->
+      case load_locale_title_desc(ctx, listing_id, locale_code) {
+        Error(_) -> Error("listing_content_seo_locale_load_failed")
+        Ok(#(title, desc)) ->
+          case title == "" {
+            True -> Ok(Nil)
+            False -> {
+              let input =
+                json.object([
+                  #("task", json.string("listing_seo_pack")),
+                  #("locale", json.string(locale_code)),
+                  #("listing_id", json.string(listing_id)),
+                  #("category_code", json.string(category_code)),
+                  #("title", json.string(title)),
+                  #("description", json.string(desc)),
+                  #(
+                    "instruction",
+                    json.string(
+                      "Bu dilde arama sonucu meta başlık (max 70 karakter) ve meta açıklama (max 160 karakter) yaz. JSON: {\"meta_title\":\"...\",\"meta_description\":\"...\",\"keywords\":\"virgülle\"}",
+                    ),
+                  ),
+                ])
+                |> json.to_string
+              case create_and_run_job(ctx, profile_seo, input) {
+                Error(e) -> Error(e)
+                Ok(raw) -> {
+                  case json_field_string(raw, "meta_title") {
+                    Error(_) ->
+                      case json_field_string(raw, "title") {
                         Error(_) ->
-                          case json_field_string(raw, "title") {
+                          case extract_json_string_field_loose(raw, "meta_title") {
                             Error(_) -> Error("listing_content_seo_parse_failed")
                             Ok(mt) -> save_seo_fields(ctx, listing_id, locale_code, mt, raw)
                           }
                         Ok(mt) -> save_seo_fields(ctx, listing_id, locale_code, mt, raw)
                       }
-                    }
+                    Ok(mt) -> save_seo_fields(ctx, listing_id, locale_code, mt, raw)
                   }
                 }
               }
+            }
           }
-        }
-      }
-    })
-  {
-    Error(e) -> Error(e)
-    Ok(_) ->
-      case advance_batch(ctx.db, batch_id, "done", "done") {
-        Error(_) -> Error("listing_content_batch_advance_failed")
-        Ok(Nil) -> Ok(Nil)
       }
   }
 }

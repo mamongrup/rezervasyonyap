@@ -27,8 +27,9 @@ const base = () => apiOriginForFetch()
 
 export type { HolidayHomePropertyTypeItem }
 
-/** Uzun AI admin çağrıları — tarayıcı iptali; `upstreamTimeoutMs` yoksa panel üst sınırı. */
+/** Uzun AI admin çağrıları — tarayıcı iptali; `upstreamTimeoutMs: 0` = süre sınırı yok. */
 function fetchInitUpstreamOptional(upstreamTimeoutMs?: number): Pick<RequestInit, 'signal'> {
+  if (upstreamTimeoutMs === 0) return {}
   const raw =
     upstreamTimeoutMs != null && Number.isFinite(upstreamTimeoutMs) && upstreamTimeoutMs > 0
       ? Math.round(Number(upstreamTimeoutMs))
