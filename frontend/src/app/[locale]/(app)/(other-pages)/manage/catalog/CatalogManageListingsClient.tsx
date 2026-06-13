@@ -121,7 +121,6 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
   const [scopeReady, setScopeReady] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
   const [deleting, setDeleting] = useState(false)
 
@@ -141,7 +140,6 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
           roles.some((r) => r.role_code === 'admin') ||
           perms.some((p) => p === 'admin.users.read' || p.startsWith('admin.'))
         if (admin) {
-          setIsAdmin(true)
           const resolved = initCatalogManageOrganizationFromMe(me)
           setOrgId(resolved)
           // Org ID otomatik çözüldüyse alanı gösterme
@@ -227,6 +225,10 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
     'min-w-[4.25rem] appearance-none rounded-lg border border-neutral-200 bg-white py-1.5 pl-3 pr-8 text-sm tabular-nums text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200'
 
   const orgParam = orgId.trim() || undefined
+
+  /** Yönetici, tedarikçi (ilan sahibi), acente ve personel — kendi kurumlarındaki ilanları silebilir. */
+  const canDeleteListings =
+    scopeReady && !!getStoredAuthToken() && !(needOrg && !orgId.trim())
 
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
@@ -383,7 +385,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
             className="w-full rounded-xl border border-neutral-200 bg-neutral-50 py-2.5 pl-10 pr-3 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500/30 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-100"
           />
         </div>
-        {isAdmin && selectedIds.size > 0 ? (
+        {canDeleteListings && selectedIds.size > 0 ? (
           <button
             type="button"
             onClick={() => void handleDeleteSelected()}
@@ -433,7 +435,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50/90 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400">
-                  {isAdmin ? (
+                  {canDeleteListings ? (
                     <th className="w-10 px-3 py-3">
                       <input
                         type="checkbox"
@@ -461,7 +463,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                       key={r.id}
                       className="transition-colors hover:bg-neutral-50/80 dark:hover:bg-neutral-800/40"
                     >
-                      {isAdmin ? (
+                      {canDeleteListings ? (
                         <td className="px-3 py-3 align-middle">
                           <input
                             type="checkbox"
@@ -526,7 +528,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                             <Languages className="h-3.5 w-3.5" />
                             {t('catalog.translations_link')}
                           </Link>
-                          {isAdmin ? (
+                          {canDeleteListings ? (
                             <button
                               type="button"
                               onClick={() => void handleDeleteOne(r)}
