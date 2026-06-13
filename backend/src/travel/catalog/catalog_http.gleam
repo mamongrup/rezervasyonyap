@@ -3418,6 +3418,75 @@ fn basics_validate_decimal_param(raw: String, field: String) -> Result(String, S
   }
 }
 
+fn basics_decimal_row() -> decode.Decoder(#(String, String)) {
+  use pp <- decode.field(0, decode.string)
+  use comm <- decode.field(1, decode.string)
+  decode.success(#(pp, comm))
+}
+
+fn parse_optional_decimal_text(raw: String) -> option.Option(Float) {
+  let t = basics_normalize_decimal_param(raw)
+  case t == "" || t == "__null__" {
+    True -> option.None
+    False ->
+      case float.parse(t) {
+        Ok(f) -> option.Some(f)
+        Error(_) -> option.None
+      }
+  }
+}
+
+fn effective_decimal_after_patch(
+  patch_norm: String,
+  current_raw: String,
+) -> option.Option(Float) {
+  case patch_norm == "" {
+    False ->
+      case patch_norm == "__null__" {
+        True -> option.None
+        False -> parse_optional_decimal_text(patch_norm)
+      }
+    True -> parse_optional_decimal_text(current_raw)
+  }
+}
+
+fn validate_prepayment_commission_after_patch(
+  db: pog.Connection,
+  listing_id: String,
+  pp_patch: String,
+  comm_patch: String,
+) -> Result(Nil, String) {
+  case
+    pog.query(
+      "select coalesce(prepayment_percent::text, ''), coalesce(commission_percent::text, '') "
+      <> "from listings where id = $1::uuid limit 1",
+    )
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.returning(basics_decimal_row())
+    |> pog.execute(db)
+  {
+    Error(_) -> Error("basics_prepayment_commission_check_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [#(cur_pp, cur_comm)] -> {
+          let eff_pp =
+            effective_decimal_after_patch(pp_patch, cur_pp)
+          let eff_comm =
+            effective_decimal_after_patch(comm_patch, cur_comm)
+          case eff_pp, eff_comm {
+            option.Some(pp), option.Some(comm) ->
+              case pp <. comm {
+                True -> Error("basics_prepayment_lt_commission")
+                False -> Ok(Nil)
+              }
+            _, _ -> Ok(Nil)
+          }
+        }
+        _ -> Error("listing_not_found")
+      }
+  }
+}
+
 fn basics_normalize_int_param(raw: String) -> Result(String, Nil) {
   let t = string.trim(raw)
   case t == "" || t == "__null__" {
@@ -3677,6 +3746,16 @@ fn do_patch_listing_basics(
                                     Error(code) -> json_err(400, code)
                                     Ok(aac_norm) ->
                                       case
+                                        validate_prepayment_commission_after_patch(
+                                          db,
+                                          listing_id,
+                                          pp_norm,
+                                          comm_norm,
+                                        )
+                                      {
+                                        Error(code) -> json_err(400, code)
+                                        Ok(Nil) ->
+                                          case
                     pog.query(
                       "update listings set "
                       <> "status = case when $3 = '' then status else $3::text end, "
@@ -3736,8 +3815,9 @@ fn do_patch_listing_basics(
                           string.contains(detail, "invalid input syntax")
                           || string.contains(detail, "invalid_text_representation")
                           || string.contains(detail, "numeric field overflow")
+                          || string.contains(detail, "chk_listing_prepayment_ge_commission")
                         {
-                          True -> "basics_invalid_field_value"
+                          True -> "basics_prepayment_lt_commission"
                           False -> "basics_update_failed"
                         }
                       json_err(500, code)
@@ -3760,16 +3840,17 @@ fn do_patch_listing_basics(
                         }
                       }
                   }
+                                      }
+                                    }
                                   }
                                 }
                               }
                             }
-                          }
-              }
-          }
-      }
+                }
+            }
+        }
+    }
   }
-}
 
 /// PATCH /api/v1/catalog/listings/:id/basics — temel ilan alanlarını güncelle.
 pub fn patch_listing_basics(

@@ -42,6 +42,10 @@ const TR_BY_CODE: Record<string, string> = {
   basics_invalid_confirm_deadline_normal_h: 'Normal sezon onay süresi (saat) geçersiz.',
   basics_invalid_confirm_deadline_high_h: 'Yüksek sezon onay süresi (saat) geçersiz.',
   basics_invalid_high_season_dates_json: 'Yüksek sezon tarih aralığı geçersiz.',
+  basics_prepayment_lt_commission:
+    'Ön ödeme yüzdesi komisyon oranından küçük olamaz. Komisyonu düşürün veya ön ödemeyi yükseltin.',
+  basics_prepayment_commission_check_failed:
+    'Komisyon / ön ödeme doğrulaması yapılamadı.',
   basics_query_failed: 'İlan temel bilgileri veritabanından alınamadı.',
   listing_is_locked: 'Bu ilan kilitli — önce kilidi kaldırın, ardından arşivleyebilirsiniz.',
   listing_lock_check_failed: 'İlan kilit durumu kontrol edilemedi.',

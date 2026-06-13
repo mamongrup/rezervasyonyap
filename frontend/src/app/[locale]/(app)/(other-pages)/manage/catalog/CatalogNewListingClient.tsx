@@ -436,9 +436,12 @@ async function saveRequiredStep<T>(label: string, step: Promise<T>): Promise<T> 
 function basicsDecimalField(raw: string): string | undefined {
   let t = raw.trim().replace(/\s/g, '').replace(/%/g, '')
   if (!t || t === '__null__') return undefined
-  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) {
+  // Türkçe binlik yalnızca net örüntülerde: 1.234,56 veya 1.234.567 (DB'deki 20.000 ≠ 20000)
+  if (t.includes(',') && t.includes('.')) {
     t = t.replace(/\./g, '').replace(',', '.')
-  } else {
+  } else if (/^\d{1,3}(\.\d{3}){2,}$/.test(t)) {
+    t = t.replace(/\./g, '')
+  } else if (t.includes(',')) {
     t = t.replace(',', '.')
   }
   const n = Number.parseFloat(t)
@@ -2653,9 +2656,9 @@ export default function CatalogNewListingClient({
     if (contracts.length > 0 && !contractId.trim()) {
       setErr('Bu kategori için sözleşme havuzundan bir şablon seçin.'); return
     }
-    if (commissionPercent.trim() && prepaymentPercent.trim()) {
-      const c = parseFloat(commissionPercent.replace(',', '.'))
-      const p = parseFloat(prepaymentPercent.replace(',', '.'))
+    if (commissionPercent.trim() || prepaymentPercent.trim()) {
+      const c = parseFloat(commissionPercent.replace(',', '.').replace(/%/g, ''))
+      const p = parseFloat(prepaymentPercent.replace(',', '.').replace(/%/g, ''))
       if (Number.isFinite(c) && Number.isFinite(p) && p < c) {
         setErr('Ön ödeme yüzdesi, komisyon oranından küçük olamaz (eşit veya büyük olmalı).')
         return
