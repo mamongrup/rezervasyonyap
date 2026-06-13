@@ -23,6 +23,7 @@ import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/identity/admin_gate
 import travel/identity/permissions
+import travel/social/listing_social_enqueue
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -3381,10 +3382,39 @@ fn basics_patch_bool_param(opt: Option(Bool)) -> String {
 }
 
 fn basics_normalize_decimal_param(raw: String) -> String {
-  let t = string.trim(raw)
+  let t0 = string.trim(raw)
+  case t0 == "" || t0 == "__null__" {
+    True -> t0
+    False -> {
+      let no_pct = string.replace(t0, "%", "")
+      let t = string.trim(no_pct)
+      // Türkçe binlik: 1.234,56 → 1234.56
+      let norm =
+        case string.contains(t, ",") && string.contains(t, ".") {
+          True -> {
+            let no_dots = string.replace(t, ".", "")
+            string.replace(no_dots, ",", ".")
+          }
+          False -> string.replace(t, ",", ".")
+        }
+      norm
+    }
+  }
+}
+
+fn basics_validate_decimal_param(raw: String, field: String) -> Result(String, String) {
+  let t = basics_normalize_decimal_param(raw)
   case t == "" || t == "__null__" {
-    True -> t
-    False -> string.replace(t, ",", ".")
+    True -> Ok(t)
+    False ->
+      case float.parse(t) {
+        Error(_) -> Error(basics_patch_field_error_code(field))
+        Ok(f) ->
+          case f <. 0.0 {
+            True -> Error(basics_patch_field_error_code(field))
+            False -> Ok(t)
+          }
+      }
   }
 }
 
@@ -3615,6 +3645,10 @@ fn do_patch_listing_basics(
   p: BasicsPatch,
   status_t: String,
 ) -> Response {
+  let old_status = case listing_social_enqueue.listing_status(db, listing_id) {
+    Error(_) -> ""
+    Ok(s) -> s
+  }
   case basics_normalize_int_param(p.min_stay_nights) {
     Error(_) -> json_err(400, basics_patch_field_error_code("min_stay_nights"))
     Ok(min_stay) ->
@@ -3627,7 +3661,22 @@ fn do_patch_listing_basics(
               case basics_validate_high_season_json(p.high_season_dates_json) {
                 Error(_) -> json_err(400, basics_patch_field_error_code("high_season_dates_json"))
                 Ok(hsd) ->
-                  case
+                  case basics_validate_decimal_param(p.cleaning_fee_amount, "cleaning_fee_amount") {
+                    Error(code) -> json_err(400, code)
+                    Ok(cfa_norm) ->
+                      case basics_validate_decimal_param(p.first_charge_amount, "first_charge_amount") {
+                        Error(code) -> json_err(400, code)
+                        Ok(fca_norm) ->
+                          case basics_validate_decimal_param(p.prepayment_percent, "prepayment_percent") {
+                            Error(code) -> json_err(400, code)
+                            Ok(pp_norm) ->
+                              case basics_validate_decimal_param(p.commission_percent, "commission_percent") {
+                                Error(code) -> json_err(400, code)
+                                Ok(comm_norm) ->
+                                  case basics_validate_decimal_param(p.avg_ad_cost_percent, "avg_ad_cost_percent") {
+                                    Error(code) -> json_err(400, code)
+                                    Ok(aac_norm) ->
+                                      case
                     pog.query(
                       "update listings set "
                       <> "status = case when $3 = '' then status else $3::text end, "
@@ -3656,16 +3705,16 @@ fn do_patch_listing_basics(
                     |> pog.parameter(pog.text(org_id))
                     |> pog.parameter(pog.text(status_t))
                     |> pog.parameter(pog.text(min_stay))
-                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.cleaning_fee_amount)))
-                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.first_charge_amount)))
-                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.prepayment_percent)))
+                    |> pog.parameter(pog.text(cfa_norm))
+                    |> pog.parameter(pog.text(fca_norm))
+                    |> pog.parameter(pog.text(pp_norm))
                     |> pog.parameter(pog.text(string.trim(p.pool_size_label)))
-                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.commission_percent)))
+                    |> pog.parameter(pog.text(comm_norm))
                     |> pog.parameter(pog.text(hsd))
                     |> pog.parameter(pog.text(cdn))
                     |> pog.parameter(pog.text(cdh))
                     |> pog.parameter(pog.text(string.trim(p.supplier_payment_note)))
-                    |> pog.parameter(pog.text(basics_normalize_decimal_param(p.avg_ad_cost_percent)))
+                    |> pog.parameter(pog.text(aac_norm))
                     |> pog.parameter(pog.text(string.trim(p.cancellation_policy_text)))
                     |> pog.parameter(pog.text(string.trim(p.ministry_license_ref)))
                     |> pog.parameter(pog.text(string.trim(p.external_listing_ref)))
@@ -3680,10 +3729,13 @@ fn do_patch_listing_basics(
                   {
                     Error(e) -> {
                       let detail = string.lowercase(pog_errors.query_error_to_string(e))
+                      let _ =
+                        io.println("[catalog.patch_listing_basics] " <> detail)
                       let code =
                         case
                           string.contains(detail, "invalid input syntax")
                           || string.contains(detail, "invalid_text_representation")
+                          || string.contains(detail, "numeric field overflow")
                         {
                           True -> "basics_invalid_field_value"
                           False -> "basics_update_failed"
@@ -3693,9 +3745,26 @@ fn do_patch_listing_basics(
                     Ok(ret) ->
                       case ret.rows {
                         [] -> json_err(404, "listing_not_found")
-                        _ -> wisp.json_response("{\"ok\":true}", 200)
+                        _ -> {
+                          let new_status = case status_t == "" {
+                            True -> old_status
+                            False -> status_t
+                          }
+                          listing_social_enqueue.enqueue_if_status_published(
+                            db,
+                            listing_id,
+                            old_status,
+                            new_status,
+                          )
+                          wisp.json_response("{\"ok\":true}", 200)
+                        }
                       }
                   }
+                                  }
+                                }
+                              }
+                            }
+                          }
               }
           }
       }

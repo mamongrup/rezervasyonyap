@@ -432,12 +432,17 @@ async function saveRequiredStep<T>(label: string, step: Promise<T>): Promise<T> 
   }
 }
 
-/** Panel metin alanları → API/SQL uyumlu ondalık (virgül → nokta). */
+/** Panel metin alanları → API/SQL uyumlu ondalık (virgül/binlik → nokta). */
 function basicsDecimalField(raw: string): string | undefined {
-  const t = raw.trim().replace(/\s/g, '').replace(',', '.')
+  let t = raw.trim().replace(/\s/g, '').replace(/%/g, '')
   if (!t || t === '__null__') return undefined
+  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) {
+    t = t.replace(/\./g, '').replace(',', '.')
+  } else {
+    t = t.replace(',', '.')
+  }
   const n = Number.parseFloat(t)
-  if (!Number.isFinite(n)) return undefined
+  if (!Number.isFinite(n) || n < 0) return undefined
   return String(n)
 }
 
