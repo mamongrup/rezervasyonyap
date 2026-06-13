@@ -467,7 +467,7 @@ fn advance_batch(
     |> pog.parameter(pog.text(batch_id))
     |> pog.parameter(pog.text(next_phase))
     |> pog.parameter(pog.text(next_status))
-    |> pog.returning(row_dec.col0_string())
+    |> pog.returning(row_dec.col0_int())
     |> pog.execute(conn)
   {
     Error(_) -> Error(Nil)
@@ -695,7 +695,7 @@ fn locale_has_seo(conn: pog.Connection, listing_id: String, locale_code: String)
     |> pog.parameter(pog.text(locale_code))
     |> pog.parameter(pog.int(min_seo_title_chars))
     |> pog.parameter(pog.int(min_seo_desc_chars))
-    |> pog.returning(row_dec.col0_string())
+    |> pog.returning(row_dec.col0_int())
     |> pog.execute(conn)
   {
     Error(_) -> False
@@ -716,7 +716,7 @@ fn locale_has_translation(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale_code))
-    |> pog.returning(row_dec.col0_string())
+    |> pog.returning(row_dec.col0_int())
     |> pog.execute(conn)
   {
     Error(_) -> False
