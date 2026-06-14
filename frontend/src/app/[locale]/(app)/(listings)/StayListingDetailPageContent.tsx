@@ -1368,7 +1368,7 @@ export default async function StayListingDetailPageContent({
                     : null
                 }
               />
-              {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing ? (
+              {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && !mealPlans.every((m) => m.plan_code === 'room_only') ? (
                 <div id="stay-section-meal-plans" className="scroll-mt-28">
                   <SectionMealPlans
                     mealPlans={mealPlans}
@@ -1476,7 +1476,7 @@ export default async function StayListingDetailPageContent({
             </div>
           )}
           {!isStayRental && renderSectionRoomTypes()}
-          {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && (
+          {mealPlans.length > 0 && !mergeHolidayMealsIntoPricing && !(isHolidayHome && mealPlans.every((m) => m.plan_code === 'room_only')) && (
             <div className="scroll-mt-28">
               <SectionMealPlans
                 mealPlans={mealPlans}

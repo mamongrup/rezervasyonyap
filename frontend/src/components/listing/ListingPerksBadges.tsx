@@ -56,8 +56,9 @@ export default function ListingPerksBadges({
 
   if (!perks) return null
 
-  const mobileDiscount =
-    isMobile && perks.mobile_discount_percent > 0 && basePrice && basePrice > 0
+  const hasMobileDiscount = isMobile && perks.mobile_discount_percent > 0
+  const mobileDiscountAmount =
+    hasMobileDiscount && basePrice && basePrice > 0
       ? (basePrice * perks.mobile_discount_percent) / 100
       : 0
 
@@ -69,7 +70,7 @@ export default function ListingPerksBadges({
     items.push({ icon: '⭐', label: 'Süper Ev Sahibi', tone: 'amber' })
   }
 
-  if (items.length === 0 && mobileDiscount === 0) return null
+  if (items.length === 0 && !hasMobileDiscount) return null
 
   return (
     <div className={`flex flex-col gap-2 ${className ?? ''}`}>
@@ -94,11 +95,11 @@ export default function ListingPerksBadges({
           })}
         </div>
       )}
-      {mobileDiscount > 0 && (
+      {hasMobileDiscount && (
         <div className="rounded-xl border border-fuchsia-300 bg-fuchsia-50 px-3 py-2 text-xs font-medium text-fuchsia-800 dark:border-fuchsia-700 dark:bg-fuchsia-900/30 dark:text-fuchsia-200">
-          📱 Mobil cihazınızdasınız — %{perks.mobile_discount_percent} ek indirim:{' '}
-          {currencySymbol}
-          {mobileDiscount.toFixed(2)} tasarruf
+          {mobileDiscountAmount > 0
+            ? `📱 Mobil cihazınızdasınız — %${perks.mobile_discount_percent} ek indirim: ${currencySymbol}${mobileDiscountAmount.toFixed(0)} tasarruf`
+            : `📱 Mobil cihazınızdasınız — %${perks.mobile_discount_percent} mobil indirim aktif`}
         </div>
       )}
     </div>
