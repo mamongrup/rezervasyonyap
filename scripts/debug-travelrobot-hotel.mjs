@@ -97,6 +97,31 @@ async function main() {
       console.log(`Statik API hata: ${e.message}`)
     }
 
+    console.log('\n══ Booking API (GetHotelDetails galeri) ══')
+    try {
+      const { tokenCode } = await createTravelrobotToken(cfg)
+      const { getHotelDetails } = await import('./lib/travelrobot-api.mjs')
+      const { mergeHotelDetailsGallery } = await import('./lib/travelrobot-hotel-details.mjs')
+      const { collectHotelImageUrls } = await import('./lib/travelrobot-listing-db.mjs')
+      const payload = await getHotelDetails(cfg, tokenCode, code, { languageCode: 'tr' })
+      if (payload?.HasError) {
+        console.log(`GetHotelDetails hata: ${payload?.ErrorMessage ?? 'HasError'}`)
+      } else {
+        const result = payload?.Result ?? {}
+        const imgs = result?.HotelImages ?? []
+        console.log(`HotelImages: ${Array.isArray(imgs) ? imgs.length : 0}`)
+        if (Array.isArray(imgs)) {
+          imgs.slice(0, 5).forEach((m, i) =>
+            console.log(`  [${i + 1}] ${m?.ImageTitle ?? ''} ${m?.ImageUrl ?? m?.url ?? ''}`),
+          )
+        }
+        const merged = mergeHotelDetailsGallery({}, payload)
+        console.log(`merge sonrası URL: ${collectHotelImageUrls(merged).length}`)
+      }
+    } catch (e) {
+      console.log(`GetHotelDetails atlandı: ${e.message}`)
+    }
+
     console.log('\n══ Booking API (SearchHotel örneği — opsiyonel) ══')
     try {
       const { tokenCode } = await createTravelrobotToken(cfg)

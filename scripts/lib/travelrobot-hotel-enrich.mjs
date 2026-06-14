@@ -14,6 +14,7 @@ import {
   hotelRef,
   hotelHasRooms,
 } from './travelrobot-listing-db.mjs'
+import { enrichHotelRowsWithDetailsGallery } from './travelrobot-hotel-details.mjs'
 
 export { hotelHasRooms }
 
@@ -23,11 +24,13 @@ const HOTEL_DESTINATION_ID =
 /**
  * @param {object} opts
  * @param {boolean} [opts.withRooms]
+ * @param {boolean} [opts.withGallery]
  * @param {boolean} [opts.skipStatic]
  * @param {(msg: string) => void | Promise<void>} [opts.log]
  */
 export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}) {
   const withRooms = opts.withRooms ?? false
+  const withGallery = opts.withGallery ?? true
   const skipStatic = opts.skipStatic ?? false
   const log = opts.log ?? (() => {})
 
@@ -54,6 +57,10 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
         await log(`Otel: Static API atlandı — ${String(e.message).slice(0, 100)}`)
       }
     }
+  }
+
+  if (withGallery && tokenCode) {
+    enriched = await enrichHotelRowsWithDetailsGallery(cfg, tokenCode, enriched, { log })
   }
 
   if (!withRooms) return enriched

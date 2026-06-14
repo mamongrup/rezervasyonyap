@@ -170,7 +170,7 @@ function normalizeCurrency(raw) {
   return ['TRY', 'EUR', 'USD', 'GBP'].includes(c) ? c : 'TRY'
 }
 
-function collectHotelImageUrls(hotel) {
+export function collectHotelImageUrls(hotel) {
   const nested = hotel?.Hotel ?? hotel?.hotel
   const urls = []
   const push = (raw) => {
@@ -217,7 +217,18 @@ export function mergeStaticHotelContent(searchRow, staticRow) {
       pickText(staticRow, 'Description', 'description', 'Details', 'details') ||
       pickText(nestedStatic, 'Description', 'description', 'Details', 'details') ||
       pickText(searchRow, 'Description', 'description', 'Details', 'details'),
-    Images: staticRow?.Images ?? staticRow?.images ?? searchRow?.Images ?? searchRow?.images,
+    Images:
+      staticRow?.HotelImages ??
+      staticRow?.hotelImages ??
+      staticRow?.Images ??
+      staticRow?.images ??
+      searchRow?.Images ??
+      searchRow?.images,
+    HotelImages:
+      staticRow?.HotelImages ??
+      staticRow?.hotelImages ??
+      searchRow?.HotelImages ??
+      searchRow?.hotelImages,
     Hotel: { ...nestedSearch, ...nestedStatic },
     Rooms: searchRow?.Rooms ?? searchRow?.rooms ?? staticRow?.Rooms ?? staticRow?.rooms,
   }
