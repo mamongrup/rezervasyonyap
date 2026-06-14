@@ -122,14 +122,20 @@ async function syncHotelsIncremental(cfg, tokenCode, client, orgId) {
   await reporter.log(`Otel: statik incremental${lastHotelAt ? ` (since ${lastHotelAt})` : ' (ilk tam tarama)'}…`)
 
   const { token: staticToken } = await authenticateStatic(cfg)
-  const codesPayload = await getHotelCodes(cfg, staticToken, {
-    lastUpdateDateTime: lastHotelAt,
-  })
-  let codes = pickStaticHotelCodes(codesPayload)
-  if (!codes.length && !lastHotelAt) {
-    await reporter.log('Otel: incremental boş — tam statik kod listesi deneniyor…')
+  let codes = []
+  if (!lastHotelAt) {
+    // İlk tarama: LastUpdateDateTime zorunlu olduğu için getHotelCodes atla
+    await reporter.log('Otel: ilk tam tarama — getAllHotelCodes kullanılıyor…')
     const allPayload = await getAllHotelCodes(cfg, staticToken)
     codes = pickStaticHotelCodes(allPayload).slice(0, Number(process.env.TRAVELROBOT_SYNC_HOTEL_LIMIT || 200))
+  } else {
+    const codesPayload = await getHotelCodes(cfg, staticToken, {
+      lastUpdateDateTime: lastHotelAt,
+    })
+    codes = pickStaticHotelCodes(codesPayload)
+    if (!codes.length) {
+      await reporter.log('Otel: incremental boş — yeni otel yok')
+    }
   }
   await reporter.log(`Otel: ${codes.length} kod işlenecek`)
   if (!codes.length) return { created: 0, updated: 0, skipped: 0, total: 0 }
