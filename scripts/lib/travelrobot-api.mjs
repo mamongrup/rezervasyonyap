@@ -2976,7 +2976,7 @@ function firstRoomCodeFromRoom(room, minAdults = 1) {
   return null
 }
 
-function hotelNodeFromPayload(payload) {
+export function hotelNodeFromPayload(payload) {
   const p = payload?.Result ?? payload?.result ?? payload
   const hotels = p?.Hotels ?? p?.hotels
   if (!Array.isArray(hotels) || !hotels[0]) return null
