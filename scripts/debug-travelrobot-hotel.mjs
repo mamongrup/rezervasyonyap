@@ -144,6 +144,7 @@ async function main() {
     }
 
     console.log('\n══ Booking API (SearchHotel örneği — opsiyonel) ══')
+    try {
       const { tokenCode } = await createTravelrobotToken(cfg)
       const { searchHotels, pickHotelRows } = await import('./lib/travelrobot-api.mjs')
       const payload = await searchHotels(cfg, tokenCode, { destinationId: '10033097', limit: 200 })
