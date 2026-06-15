@@ -5,6 +5,7 @@
  *
  *   node scripts/enrich-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/enrich-travelrobot-hotels.mjs --limit 100
+ *   node scripts/enrich-travelrobot-hotels.mjs --no-with-rooms --skip-static
  *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms
  *   node scripts/enrich-travelrobot-hotels.mjs --skip-static --with-rooms
  *
@@ -132,16 +133,15 @@ async function main() {
 
       const fetchRooms =
         WITH_ROOMS_CLI != null ? WITH_ROOMS_CLI : cfg.importHotelRooms !== false
-      if (fetchRooms) {
-        try {
-          const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
-            withRooms: true,
-            skipStatic: true,
-          })
-          row = enriched[0] ?? row
-        } catch (e) {
-          console.warn(`[oda arama] ${item.code}: ${e.message}`)
-        }
+      try {
+        const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
+          withRooms: fetchRooms,
+          withGallery: true,
+          skipStatic: true,
+        })
+        row = enriched[0] ?? row
+      } catch (e) {
+        console.warn(`[zenginleştirme] ${item.code}: ${e.message}`)
       }
 
       if (DRY_RUN) {
