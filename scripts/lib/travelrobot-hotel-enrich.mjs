@@ -1,7 +1,6 @@
 /**
- * KPlus otel import — Static API + otel bazlı SearchHotel (oda/fiyat) zenginleştirme.
+ * KPlus otel import — Static API + GetHotelDetails galeri + GetHotelRoomPrices odalar.
  */
-import { searchHotels, pickHotelRows } from './travelrobot-api.mjs'
 import { DEFAULT_HOTEL_DESTINATION_ID } from './travelrobot-sandbox-ids.mjs'
 import {
   authenticateStatic,
@@ -12,11 +11,11 @@ import {
   buildStaticHotelMap,
   mergeStaticHotelContent,
   hotelRef,
-  hotelHasRooms,
 } from './travelrobot-listing-db.mjs'
 import { enrichHotelRowsWithDetailsGallery } from './travelrobot-hotel-details.mjs'
+import { enrichHotelRowsWithRoomPrices } from './travelrobot-hotel-rooms.mjs'
 
-export { hotelHasRooms }
+export { hotelHasRooms } from './travelrobot-listing-db.mjs'
 
 const HOTEL_DESTINATION_ID =
   process.env.TRAVELROBOT_HOTEL_DESTINATION_ID || DEFAULT_HOTEL_DESTINATION_ID
@@ -65,36 +64,9 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
 
   if (!withRooms) return enriched
 
-  const out = []
-  let roomHits = 0
-  for (let i = 0; i < enriched.length; i++) {
-    const row = enriched[i]
-    if (hotelHasRooms(row)) {
-      out.push(row)
-      roomHits++
-      continue
-    }
-    const code = hotelRef(row)
-    if (!code) {
-      out.push(row)
-      continue
-    }
-    try {
-      const payload = await searchHotels(cfg, tokenCode, {
-        destinationId: HOTEL_DESTINATION_ID,
-        hotelCode: code,
-        showMultipleRate: true,
-      })
-      const found = pickHotelRows(payload).find((h) => hotelRef(h) === code) ?? pickHotelRows(payload)[0]
-      out.push(found ? mergeStaticHotelContent(row, found) : row)
-      if (found && hotelHasRooms(found)) roomHits++
-    } catch {
-      out.push(row)
-    }
-    if ((i + 1) % 25 === 0) {
-      await log(`Otel: oda araması ${i + 1}/${enriched.length}…`)
-    }
-  }
-  await log(`Otel: ${roomHits}/${enriched.length} kayıtta oda/fiyat verisi`)
-  return out
+  enriched = await enrichHotelRowsWithRoomPrices(cfg, tokenCode, enriched, {
+    destinationId: HOTEL_DESTINATION_ID,
+    log,
+  })
+  return enriched
 }

@@ -6,7 +6,7 @@
  *   node scripts/enrich-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/enrich-travelrobot-hotels.mjs --limit 100
  *   node scripts/enrich-travelrobot-hotels.mjs --no-with-rooms --skip-static
- *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms
+ *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms --skip-static
  *   node scripts/enrich-travelrobot-hotels.mjs --skip-static --with-rooms
  *
  * --with-rooms: her otel için SearchHotel (oda/fiyat) — 1200+ otelde yavaş; --limit ile parça parça çalıştırın.

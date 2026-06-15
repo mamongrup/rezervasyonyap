@@ -268,12 +268,12 @@ export function hotelHasRooms(row) {
 
 function extractHotelRoomRows(hotel) {
   const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
-  const out = []
+  const raw = []
   for (const room of rooms) {
     const roomName = pickText(room, 'Name', 'name', 'RoomName', 'roomName') || 'Standart Oda'
     const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
     if (!alts.length) {
-      out.push({ name: roomName, boardType: null, price: null, currency: 'TRY', meta: {} })
+      raw.push({ name: roomName, boardType: null, price: null, currency: 'TRY', meta: {} })
       continue
     }
     for (const alt of alts) {
@@ -283,7 +283,7 @@ function extractHotelRoomRows(hotel) {
       const currency = normalizeCurrency(alt?.CurrencyCode ?? alt?.currencyCode)
       const roomCode = pickText(alt, 'RoomCode', 'roomCode', 'Key', 'key')
       const image = pickText(alt, 'ImageUrl', 'imageUrl', 'RoomImageUrl', 'roomImageUrl')
-      out.push({
+      raw.push({
         name: name.slice(0, 200),
         boardType: board || null,
         price:
@@ -299,7 +299,20 @@ function extractHotelRoomRows(hotel) {
       })
     }
   }
-  return out
+  // Aynı oda adı + farklı pansiyon → vitrinde tek satır (en ucuz teklif)
+  const byName = new Map()
+  for (const r of raw) {
+    const key = r.name.toLowerCase().replace(/\s+/g, ' ').trim()
+    const prev = byName.get(key)
+    if (!prev) {
+      byName.set(key, r)
+      continue
+    }
+    const pPrev = prev.price ?? Number.POSITIVE_INFINITY
+    const pNew = r.price ?? Number.POSITIVE_INFINITY
+    if (pNew < pPrev) byName.set(key, r)
+  }
+  return [...byName.values()]
 }
 
 async function upsertHotelGallery(pgClient, listingId, urls) {

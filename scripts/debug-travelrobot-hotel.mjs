@@ -122,8 +122,28 @@ async function main() {
       console.log(`GetHotelDetails atlandı: ${e.message}`)
     }
 
-    console.log('\n══ Booking API (SearchHotel örneği — opsiyonel) ══')
+    console.log('\n══ Booking API (GetHotelRoomPrices — oda tipleri) ══')
     try {
+      const { tokenCode } = await createTravelrobotToken(cfg)
+      const { enrichHotelRowWithRoomPrices, countHotelRoomOffers } = await import(
+        './lib/travelrobot-hotel-rooms.mjs'
+      )
+      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, { HotelCode: code }, {})
+      const offers = countHotelRoomOffers(merged)
+      console.log(`RoomAlternatives (API): ${offers}`)
+      const names = new Set()
+      for (const r of merged?.Rooms ?? merged?.rooms ?? []) {
+        for (const a of r?.RoomAlternatives ?? r?.roomAlternatives ?? []) {
+          names.add(a?.RoomName ?? a?.Name ?? '?')
+        }
+      }
+      console.log(`Benzersiz oda adı: ${names.size}`)
+      ;[...names].slice(0, 10).forEach((n, i) => console.log(`  [${i + 1}] ${n}`))
+    } catch (e) {
+      console.log(`GetHotelRoomPrices atlandı: ${e.message}`)
+    }
+
+    console.log('\n══ Booking API (SearchHotel örneği — opsiyonel) ══')
       const { tokenCode } = await createTravelrobotToken(cfg)
       const { searchHotels, pickHotelRows } = await import('./lib/travelrobot-api.mjs')
       const payload = await searchHotels(cfg, tokenCode, { destinationId: '10033097', limit: 200 })
