@@ -2976,10 +2976,20 @@ function firstRoomCodeFromRoom(room, minAdults = 1) {
   return null
 }
 
-export function hotelNodeFromPayload(payload) {
+export function hotelNodeFromPayload(payload, hotelCode = null) {
   const p = payload?.Result ?? payload?.result ?? payload
   const hotels = p?.Hotels ?? p?.hotels
-  if (!Array.isArray(hotels) || !hotels[0]) return null
+  if (!Array.isArray(hotels) || !hotels.length) return null
+  const code = hotelCode != null ? String(hotelCode).trim() : ''
+  if (code) {
+    for (const h of hotels) {
+      const nested = h?.Hotel ?? h?.hotel ?? h
+      const c = String(
+        nested?.HotelCode ?? nested?.hotelCode ?? h?.HotelCode ?? h?.hotelCode ?? '',
+      ).trim()
+      if (c === code) return h
+    }
+  }
   return hotels[0]
 }
 

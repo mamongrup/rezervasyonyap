@@ -15,6 +15,10 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+function pickRoomName(room) {
+  return String(room?.Name ?? room?.name ?? room?.RoomName ?? room?.roomName ?? '').trim()
+}
+
 /** Toplam RoomAlternative sayısı (SearchHotel / GetHotelRoomPrices). */
 export function countHotelRoomOffers(hotel) {
   const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
@@ -27,13 +31,28 @@ export function countHotelRoomOffers(hotel) {
   return n
 }
 
-function pickRoomName(room) {
-  return String(room?.Name ?? room?.name ?? room?.RoomName ?? room?.roomName ?? '').trim()
+/** Vitrin için benzersiz oda adı sayısı (pansiyon varyantları birleştirilir). */
+export function countUniqueHotelRoomNames(hotel) {
+  const names = new Set()
+  for (const r of hotel?.Rooms ?? hotel?.rooms ?? []) {
+    const roomName = pickRoomName(r) || 'Standart Oda'
+    const alts = r?.RoomAlternatives ?? r?.roomAlternatives ?? []
+    if (!alts.length) {
+      names.add(roomName.toLowerCase())
+      continue
+    }
+    for (const alt of alts) {
+      const name = String(alt?.RoomName ?? alt?.roomName ?? alt?.Name ?? alt?.name ?? roomName).trim()
+      if (name) names.add(name.toLowerCase())
+    }
+  }
+  return names.size
 }
 
 /** GetHotelRoomPrices yanıtındaki Rooms[] satıra birleştirilir. */
 export function mergeHotelRoomPrices(row, pricesPayload, searchRow = null) {
-  const hotel = hotelNodeFromPayload(pricesPayload)
+  const code = hotelRef(row)
+  const hotel = hotelNodeFromPayload(pricesPayload, code)
   const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
   if (!Array.isArray(rooms) || !rooms.length) {
     return searchRow ? mergeStaticHotelContent(row, searchRow) : row
@@ -44,11 +63,10 @@ export function mergeHotelRoomPrices(row, pricesPayload, searchRow = null) {
     ...base,
     Rooms: rooms,
     SearchKey:
+      pickHotelSearchKey(pricesPayload, searchRow ?? hotel) ??
       base?.SearchKey ??
       base?.searchKey ??
-      searchRow?.SearchKey ??
-      searchRow?.searchKey ??
-      pickHotelSearchKey(pricesPayload, hotel),
+      null,
     Hotel: {
       ...nested,
       ...(hotel?.Hotel ?? hotel?.hotel ?? {}),
@@ -61,25 +79,24 @@ export function mergeHotelRoomPrices(row, pricesPayload, searchRow = null) {
  */
 export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {}) {
   const minOffers = Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)
-  if (countHotelRoomOffers(row) >= minOffers) return row
+  if (countUniqueHotelRoomNames(row) >= minOffers) return row
 
   const code = hotelRef(row)
   if (!code || !tokenCode) return row
 
+  // hotelCode yeterli; destinationId yanlış destinasyonda aramayı boşaltır.
   const searchPayload = await searchHotels(cfg, tokenCode, {
-    destinationId: opts.destinationId,
     hotelCode: code,
     showMultipleRate: true,
     checkInDate: opts.checkInDate,
     checkOutDate: opts.checkOutDate,
   })
-  const found =
-    pickHotelRows(searchPayload).find((h) => hotelRef(h) === code) ?? pickHotelRows(searchPayload)[0]
+  const found = pickHotelRows(searchPayload).find((h) => hotelRef(h) === code) ?? null
   let merged = found ? mergeStaticHotelContent(row, found) : row
 
-  if (countHotelRoomOffers(merged) >= minOffers) return merged
+  if (countUniqueHotelRoomNames(merged) >= minOffers) return merged
 
-  const sk = pickHotelSearchKey(searchPayload, found ?? merged)
+  const sk = pickHotelSearchKey(searchPayload, found)
   if (!sk) return merged
 
   const pricesPayload = await getHotelRooms(cfg, tokenCode, {
@@ -90,7 +107,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   })
   if (pricesPayload?.HasError) return merged
 
-  return mergeHotelRoomPrices(merged, pricesPayload, found ?? merged)
+  return mergeHotelRoomPrices(row, pricesPayload, found)
 }
 
 /**
@@ -101,6 +118,7 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
   if (!rows.length || !tokenCode) return rows
 
   const delayMs = Number(opts.delayMs ?? process.env.TRAVELROBOT_ROOM_DELAY_MS ?? 300)
+  const minOffers = Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)
   const log = opts.log ?? (() => {})
   const out = []
   let expanded = 0
@@ -109,17 +127,17 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
 
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i]
-    const before = countHotelRoomOffers(row)
+    const before = countUniqueHotelRoomNames(row)
 
-    if (before >= Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)) {
+    if (before >= minOffers) {
       out.push(row)
       skipped++
       continue
     }
 
     try {
-      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts)
-      const after = countHotelRoomOffers(merged)
+      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, { ...opts, minOffers })
+      const after = countUniqueHotelRoomNames(merged)
       if (after > before) expanded++
       out.push(merged)
     } catch {

@@ -199,12 +199,28 @@ function extractHotelImageUrl(hotel) {
   return collectHotelImageUrls(hotel)[0] ?? ''
 }
 
+function countRoomAlternatives(rooms) {
+  if (!Array.isArray(rooms)) return 0
+  let n = 0
+  for (const r of rooms) {
+    const alts = r?.RoomAlternatives ?? r?.roomAlternatives ?? []
+    n += alts.length || (pickText(r, 'Name', 'name', 'RoomName', 'roomName') ? 1 : 0)
+  }
+  return n
+}
+
 /** Static Content API yanıtını SearchHotel satırıyla birleştirir (görseller, açıklama). */
 export function mergeStaticHotelContent(searchRow, staticRow) {
   if (!staticRow || typeof staticRow !== 'object') return searchRow
   const nestedSearch = searchRow?.Hotel ?? searchRow?.hotel ?? {}
   const nestedStatic = staticRow?.Hotel ?? staticRow?.hotel ?? staticRow
   const code = hotelRef(searchRow) || hotelRef(staticRow)
+  const searchRooms = searchRow?.Rooms ?? searchRow?.rooms
+  const staticRooms = staticRow?.Rooms ?? staticRow?.rooms
+  const rooms =
+    countRoomAlternatives(staticRooms) > countRoomAlternatives(searchRooms)
+      ? staticRooms
+      : searchRooms ?? staticRooms
   return {
     ...searchRow,
     ...staticRow,
@@ -230,7 +246,7 @@ export function mergeStaticHotelContent(searchRow, staticRow) {
       searchRow?.HotelImages ??
       searchRow?.hotelImages,
     Hotel: { ...nestedSearch, ...nestedStatic },
-    Rooms: searchRow?.Rooms ?? searchRow?.rooms ?? staticRow?.Rooms ?? staticRow?.rooms,
+    Rooms: rooms,
   }
 }
 

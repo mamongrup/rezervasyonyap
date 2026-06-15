@@ -6,7 +6,7 @@
  *   node scripts/enrich-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/enrich-travelrobot-hotels.mjs --limit 100
  *   node scripts/enrich-travelrobot-hotels.mjs --no-with-rooms --skip-static
- *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms --skip-static
+ *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms --rooms-only --skip-static
  *   node scripts/enrich-travelrobot-hotels.mjs --skip-static --with-rooms
  *
  * --with-rooms: her otel için SearchHotel (oda/fiyat) — 1200+ otelde yavaş; --limit ile parça parça çalıştırın.
@@ -21,12 +21,14 @@ import {
 } from './lib/travelrobot-listing-db.mjs'
 import { authenticateStatic, getBulkHotelContent } from './lib/travelrobot-static-api.mjs'
 import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
+import { countUniqueHotelRoomNames } from './lib/travelrobot-hotel-rooms.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
+const ROOMS_ONLY = args.has('--rooms-only')
 const WITH_ROOMS_CLI =
   args.has('--with-rooms') || args.has('--no-with-rooms') ? args.has('--with-rooms') : null
 const limitIdx = process.argv.indexOf('--limit')
@@ -136,13 +138,15 @@ async function main() {
       try {
         const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
           withRooms: fetchRooms,
-          withGallery: true,
+          withGallery: !ROOMS_ONLY,
           skipStatic: true,
         })
         row = enriched[0] ?? row
       } catch (e) {
         console.warn(`[zenginleştirme] ${item.code}: ${e.message}`)
       }
+
+      const previewRooms = countUniqueHotelRoomNames(row)
 
       if (DRY_RUN) {
         await reporter.step(`[dry-run ${i + 1}/${items.length}] ${item.slug}`, i + 1, items.length)
@@ -155,7 +159,7 @@ async function main() {
         if (result.imageCount) withImages++
         if (result.roomCount) roomHitCount++
         await reporter.step(
-          `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? 0} oda`,
+          `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? previewRooms} oda`,
           i + 1,
           items.length,
         )
