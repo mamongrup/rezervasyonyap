@@ -119,6 +119,7 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
 
   const delayMs = Number(opts.delayMs ?? process.env.TRAVELROBOT_ROOM_DELAY_MS ?? 300)
   const minOffers = Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)
+  const force = opts.force === true
   const log = opts.log ?? (() => {})
   const out = []
   let expanded = 0

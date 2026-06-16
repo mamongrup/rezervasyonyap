@@ -67,7 +67,8 @@ async function loadHotelRows(pg) {
              WHERE la.listing_id = l.id AND la.group_code = 'otel_kplus') AS amenity_count,
            (SELECT count(*)::int FROM listing_meal_plans mp WHERE mp.listing_id = l.id) AS meal_plan_count,
            (SELECT count(*)::int FROM hotel_room_availability_calendar c
-             WHERE c.listing_id = l.id) AS calendar_day_count,
+             JOIN hotel_rooms hr_cal ON hr_cal.id = c.hotel_room_id
+             WHERE hr_cal.listing_id = l.id) AS calendar_day_count,
            (SELECT count(*)::int FROM listing_price_rules pr WHERE pr.listing_id = l.id) AS price_rule_count,
            (SELECT la.value_json->'data' IS NOT NULL FROM listing_attributes la
              WHERE la.listing_id = l.id AND la.group_code = 'vertical_hotel' AND la.key = 'v1'

@@ -26,6 +26,7 @@ const HOTEL_DESTINATION_ID =
  * @param {boolean} [opts.withRooms]
  * @param {boolean} [opts.withGallery]
  * @param {boolean} [opts.withVitrin] — GetHotelDetails vitrin (özellik/kural/facet)
+ * @param {boolean} [opts.withI18n] — GetHotelDetails ek diller (en, de, ru, zh, fr)
  * @param {boolean} [opts.force] — mevcut veriyi atlayıp API'den yeniden çek
  * @param {boolean} [opts.skipStatic]
  * @param {(msg: string) => void | Promise<void>} [opts.log]

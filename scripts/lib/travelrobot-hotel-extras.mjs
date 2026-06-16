@@ -182,6 +182,18 @@ function imagesFromAlt(alt, room) {
 function altMetaFromOffer(alt, room, hotel) {
   const roomCode = pickText(alt, 'RoomCode', 'roomCode')
   const resultKey = pickText(alt, 'ResultKey', 'resultKey') || pickText(alt, 'Key', 'key')
+  const combinationId = pickText(alt, 'CombinationId', 'combinationId')
+  const packageId = pickText(alt, 'PackageId', 'packageId')
+  const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
+  const amount = sanePrice(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount)
+  const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
+  const cancel = cancellationFromAlt(alt)
+  const bedType =
+    pickText(alt, 'BedType', 'bedType', 'BedTypeName', 'bedTypeName') ||
+    pickText(room, 'BedType', 'bedType')
+  const description =
+    pickText(alt, 'RoomDescription', 'roomDescription', 'Description', 'description') ||
+    pickText(room, 'Description', 'description')
   return {
     travelrobot_room_code: roomCode || null,
     result_key: resultKey || null,
