@@ -31,8 +31,10 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
 const ROOMS_ONLY = args.has('--rooms-only')
-const WITH_VITRIN = args.has('--with-vitrin')
-const WITH_I18N = args.has('--with-i18n')
+const FORCE = args.has('--force')
+const FULL = args.has('--full')
+const WITH_VITRIN = args.has('--with-vitrin') || FULL || FORCE
+const WITH_I18N = args.has('--with-i18n') || FULL
 const WITH_ROOMS_CLI =
   args.has('--with-rooms') || args.has('--no-with-rooms') ? args.has('--with-rooms') : null
 const limitIdx = process.argv.indexOf('--limit')
@@ -158,6 +160,7 @@ async function main() {
           withVitrin: WITH_VITRIN,
           withI18n: WITH_I18N,
           skipStatic: true,
+          force: FORCE || FULL,
           log: (msg) => cliLog(msg),
         })
         row = enriched[0] ?? row
@@ -173,7 +176,11 @@ async function main() {
       }
 
       try {
-        const result = await upsertTravelrobotHotelListing(client, ctx, row, { status })
+        const result = await upsertTravelrobotHotelListing(client, ctx, row, {
+          status,
+          overwriteExtras: FORCE || FULL,
+          overwriteVitrin: FORCE || FULL,
+        })
         updated++
         if (result.imageCount) withImages++
         if (result.roomCount) roomHitCount++

@@ -79,7 +79,7 @@ export function mergeHotelRoomPrices(row, pricesPayload, searchRow = null) {
  */
 export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {}) {
   const minOffers = Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)
-  if (countUniqueHotelRoomNames(row) >= minOffers) return row
+  if (opts.force !== true && countUniqueHotelRoomNames(row) >= minOffers) return row
 
   const code = hotelRef(row)
   if (!code || !tokenCode) return row
@@ -94,7 +94,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   const found = pickHotelRows(searchPayload).find((h) => hotelRef(h) === code) ?? null
   let merged = found ? mergeStaticHotelContent(row, found) : row
 
-  if (countUniqueHotelRoomNames(merged) >= minOffers) return merged
+  if (opts.force !== true && countUniqueHotelRoomNames(merged) >= minOffers) return merged
 
   const sk = pickHotelSearchKey(searchPayload, found)
   if (!sk) return merged
@@ -129,7 +129,7 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
     const row = rows[i]
     const before = countUniqueHotelRoomNames(row)
 
-    if (before >= minOffers) {
+    if (!force && before >= minOffers) {
       out.push(row)
       skipped++
       continue

@@ -2081,13 +2081,14 @@ export const searchHotels = searchHotel
  * opts: { hotelCode, languageCode }
  */
 export async function getHotelDetails(cfg, tokenCode, productCode, opts = {}) {
-  // Gerçek şema: request.{ ProductCode, TokenCode }
-  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelDetails', {
-    request: {
-      ProductCode: productCode ?? opts.productCode,
-      TokenCode: tokenCode,
-    },
-  })
+  // Gerçek şema: request.{ ProductCode, TokenCode, LanguageCode? }
+  const request = {
+    ProductCode: productCode ?? opts.productCode,
+    TokenCode: tokenCode,
+  }
+  const lang = String(opts.languageCode ?? 'tr').trim()
+  if (lang) request.LanguageCode = lang
+  return kplusPost(cfg.baseUrl, '/Hotel.svc/Rest/Json/GetHotelDetails', { request })
 }
 
 /**

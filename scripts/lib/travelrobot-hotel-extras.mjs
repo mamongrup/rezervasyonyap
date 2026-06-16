@@ -180,21 +180,11 @@ function imagesFromAlt(alt, room) {
 }
 
 function altMetaFromOffer(alt, room, hotel) {
-  const roomCode = pickText(alt, 'RoomCode', 'roomCode', 'Key', 'key')
-  const combinationId = pickText(alt, 'CombinationId', 'combinationId')
-  const packageId = pickText(alt, 'PackageId', 'packageId')
-  const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
-  const amount = sanePrice(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount)
-  const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
-  const cancel = cancellationFromAlt(alt)
-  const bedType =
-    pickText(alt, 'BedType', 'bedType', 'BedTypeName', 'bedTypeName') ||
-    pickText(room, 'BedType', 'bedType')
-  const description =
-    pickText(alt, 'RoomDescription', 'roomDescription', 'Description', 'description') ||
-    pickText(room, 'Description', 'description')
+  const roomCode = pickText(alt, 'RoomCode', 'roomCode')
+  const resultKey = pickText(alt, 'ResultKey', 'resultKey') || pickText(alt, 'Key', 'key')
   return {
     travelrobot_room_code: roomCode || null,
+    result_key: resultKey || null,
     combination_id: combinationId || null,
     package_id: packageId || null,
     board_type: board || null,
@@ -375,6 +365,18 @@ export function extractTravelrobotListingMeta(hotel) {
       .filter(Boolean)
       .join(', ')
 
+  const categoriesRaw = node?.HotelCategories ?? node?.hotelCategories ?? node?.Categories ?? node?.categories
+  const hotel_categories = Array.isArray(categoriesRaw)
+    ? categoriesRaw
+        .map((c) =>
+          typeof c === 'string'
+            ? c.trim()
+            : pickText(c, 'Name', 'name', 'CategoryName', 'categoryName', 'Code', 'code'),
+        )
+        .filter(Boolean)
+        .slice(0, 20)
+    : []
+
   return {
     address: address || null,
     city: pickText(node, 'City', 'city', 'CityName', 'cityName') || null,
@@ -384,6 +386,12 @@ export function extractTravelrobotListingMeta(hotel) {
     check_out_time: checkOut ? normalizeTime(checkOut) : null,
     phone: pickText(node, 'Phone', 'phone', 'PhoneNumber', 'phoneNumber', 'Tel', 'tel') || null,
     email: pickText(node, 'Email', 'email', 'ContactEmail', 'contactEmail') || null,
+    website: pickText(node, 'Website', 'website', 'WebSite', 'webSite', 'Url', 'url') || null,
+    fax: pickText(node, 'Fax', 'fax', 'FaxNumber', 'faxNumber') || null,
+    postal_code: pickText(node, 'PostalCode', 'postalCode', 'ZipCode', 'zipCode', 'Zip', 'zip') || null,
+    country_code: pickText(node, 'CountryCode', 'countryCode', 'Country', 'country') || null,
+    destination_id: pickText(node, 'DestinationId', 'destinationId', 'DestinationID', 'destinationID') || null,
+    hotel_categories: hotel_categories.length ? hotel_categories : null,
   }
 }
 

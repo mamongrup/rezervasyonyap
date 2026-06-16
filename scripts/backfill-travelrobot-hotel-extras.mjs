@@ -98,6 +98,7 @@ async function main() {
           withVitrin: true,
           withI18n: WITH_I18N,
           skipStatic: true,
+          force: FORCE,
           log: (msg) => console.log(msg),
         })
         row = enriched[0] ?? row

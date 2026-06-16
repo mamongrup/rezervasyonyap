@@ -26,7 +26,7 @@ const HOTEL_DESTINATION_ID =
  * @param {boolean} [opts.withRooms]
  * @param {boolean} [opts.withGallery]
  * @param {boolean} [opts.withVitrin] — GetHotelDetails vitrin (özellik/kural/facet)
- * @param {boolean} [opts.withI18n] — GetHotelDetails ek diller (en, de, ru, zh, fr)
+ * @param {boolean} [opts.force] — mevcut veriyi atlayıp API'den yeniden çek
  * @param {boolean} [opts.skipStatic]
  * @param {(msg: string) => void | Promise<void>} [opts.log]
  */
@@ -35,6 +35,7 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
   const withGallery = opts.withGallery ?? true
   const withVitrin = opts.withVitrin ?? false
   const withI18n = opts.withI18n ?? false
+  const force = opts.force === true
   const skipStatic = opts.skipStatic ?? false
   const log = opts.log ?? (() => {})
 
@@ -66,12 +67,16 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
   if ((withGallery || withVitrin) && tokenCode) {
     enriched = await enrichHotelRowsWithDetailsGallery(cfg, tokenCode, enriched, {
       log,
-      force: withVitrin,
+      force: force || withVitrin,
     })
   }
 
   if (withI18n && tokenCode) {
-    enriched = await enrichHotelRowsWithI18nDetails(cfg, tokenCode, enriched, { log, withI18n: true })
+    enriched = await enrichHotelRowsWithI18nDetails(cfg, tokenCode, enriched, {
+      log,
+      withI18n: true,
+      force,
+    })
   }
 
   if (!withRooms) return enriched
@@ -79,6 +84,7 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
   enriched = await enrichHotelRowsWithRoomPrices(cfg, tokenCode, enriched, {
     destinationId: HOTEL_DESTINATION_ID,
     log,
+    force,
   })
   return enriched
 }
