@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Travel frontend güvenlik kontrol listesi (8 madde).
+ * Travel frontend güvenlik kontrol listesi (9 madde).
  *
  * Next.js 16: edge giriş noktası `frontend/src/proxy.ts` (`export function proxy`).
  * `middleware.ts` + `proxy.ts` birlikte build kırar; varsa yalnızca proxy.ts’e re-export köprüsü kabul edilir.
@@ -12,6 +12,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { spawnSync } from 'node:child_process'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const fe = path.join(root, 'frontend')
@@ -210,6 +211,37 @@ function check(id, label, ok, detail) {
     ok,
     ok ? 'register → validatePassword' : 'register route validatePassword kullanmıyor',
   )
+}
+
+// 9 — npm audit (frontend bağımlılıkları)
+{
+  const lock = path.join(fe, 'package-lock.json')
+  if (!fs.existsSync(lock)) {
+    check('9', 'npm audit (frontend)', false, 'package-lock.json yok — cd frontend && npm ci')
+  } else {
+    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+    const r = spawnSync(npmCmd, ['audit', '--audit-level=moderate', '--json'], {
+      cwd: fe,
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    })
+    let moderatePlus = 0
+    let detail = '0 moderate+ açık'
+    try {
+      const j = JSON.parse(r.stdout || '{}')
+      const v = j.metadata?.vulnerabilities ?? {}
+      moderatePlus =
+        (v.critical ?? 0) + (v.high ?? 0) + (v.moderate ?? 0)
+      if (moderatePlus > 0) {
+        detail = `${moderatePlus} moderate+ — cd frontend && npm audit fix`
+      }
+    } catch {
+      detail = r.status === 0 ? 'npm audit geçti' : 'npm audit çıktısı okunamadı'
+      moderatePlus = r.status === 0 ? 0 : 1
+    }
+    const ok = moderatePlus === 0 && r.status === 0
+    check('9', 'npm audit (frontend)', ok, ok ? detail : detail)
+  }
 }
 
 const passed = results.filter((r) => r.ok).length

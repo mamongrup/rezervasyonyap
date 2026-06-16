@@ -1,4 +1,4 @@
-# Güvenlik denetimi (8 kontrol)
+# Güvenlik denetimi (9 kontrol)
 
 Projede statik güvenlik kontrol listesi:
 
@@ -34,6 +34,7 @@ Güvenlik (CORS, rate limit, Host, korumalı rotalar) tamamen `proxy.ts` + `http
 | 6 | Backend `catalog/public/listings` → `status = 'published'` |
 | 7 | `isAllowedRevalidatePath` whitelist |
 | 8 | `api/auth/register` → `validatePassword` |
+| 9 | `frontend` → `npm audit --audit-level=moderate` (0 moderate+) |
 
 ## İlgili dosyalar
 
