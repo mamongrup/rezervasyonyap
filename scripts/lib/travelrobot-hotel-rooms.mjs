@@ -84,6 +84,9 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   const code = hotelRef(row)
   if (!code || !tokenCode) return row
 
+  const log = opts.log ?? (() => {})
+  await log(`  SearchHotel ${code}…`)
+
   // hotelCode yeterli; destinationId yanlış destinasyonda aramayı boşaltır.
   const searchPayload = await searchHotels(cfg, tokenCode, {
     hotelCode: code,
@@ -137,7 +140,7 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
     }
 
     try {
-      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, { ...opts, minOffers })
+      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, { ...opts, minOffers, force: opts.force })
       const after = countUniqueHotelRoomNames(merged)
       if (after > before) expanded++
       out.push(merged)

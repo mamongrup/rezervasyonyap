@@ -9,6 +9,7 @@
  */
 
 import { createPgClient } from './lib/pg-client.mjs'
+import { cliLog } from './lib/cli-log.mjs'
 
 const args = new Set(process.argv.slice(2))
 const AS_JSON = args.has('--json')
@@ -51,6 +52,7 @@ const API_GAPS_INFO = [
 ]
 
 async function loadHotelRows(pg) {
+  cliLog('DB sorgusu çalışıyor (otel sayısına göre 10–60 sn sürebilir)…')
   const params = [OFFSET, I18N_LOCALES]
   let sql = `
     SELECT l.id::text AS listing_id,
@@ -60,34 +62,60 @@ async function loadHotelRows(pg) {
            l.map_lat,
            l.map_lng,
            l.cancellation_policy_text,
-           l.featured_image_url,
-           (SELECT count(*)::int FROM listing_images li WHERE li.listing_id = l.id) AS image_count,
-           (SELECT count(*)::int FROM hotel_rooms hr WHERE hr.listing_id = l.id) AS room_count,
-           (SELECT count(*)::int FROM listing_attributes la
-             WHERE la.listing_id = l.id AND la.group_code = 'otel_kplus') AS amenity_count,
-           (SELECT count(*)::int FROM listing_meal_plans mp WHERE mp.listing_id = l.id) AS meal_plan_count,
-           (SELECT count(*)::int FROM hotel_room_availability_calendar c
-             JOIN hotel_rooms hr_cal ON hr_cal.id = c.hotel_room_id
-             WHERE hr_cal.listing_id = l.id) AS calendar_day_count,
-           (SELECT count(*)::int FROM listing_price_rules pr WHERE pr.listing_id = l.id) AS price_rule_count,
-           (SELECT la.value_json->'data' IS NOT NULL FROM listing_attributes la
-             WHERE la.listing_id = l.id AND la.group_code = 'vertical_hotel' AND la.key = 'v1'
-             LIMIT 1) AS has_vertical_meta,
-           (SELECT length(coalesce(lt.description, '')) FROM listing_translations lt
-             JOIN locales loc ON loc.id = lt.locale_id AND loc.code = 'tr'
-             WHERE lt.listing_id = l.id LIMIT 1) AS desc_len,
-           (SELECT la.value_json FROM listing_attributes la
-             WHERE la.listing_id = l.id AND la.group_code = 'listing_meta' AND la.key = 'v1'
-             LIMIT 1) AS listing_meta,
-           (SELECT count(DISTINCT loc.code)::int
-            FROM listing_translations lt
-            JOIN locales loc ON loc.id = lt.locale_id
-            WHERE lt.listing_id = l.id
-              AND loc.code = ANY($2::text[])
-              AND length(trim(coalesce(lt.description, ''))) > 80) AS i18n_rich_count
+           coalesce(img.cnt, 0) AS image_count,
+           coalesce(hr.cnt, 0) AS room_count,
+           coalesce(am.cnt, 0) AS amenity_count,
+           coalesce(mp.cnt, 0) AS meal_plan_count,
+           coalesce(cal.cnt, 0) AS calendar_day_count,
+           coalesce(pr.cnt, 0) AS price_rule_count,
+           (vh.value_json->'data' IS NOT NULL) AS has_vertical_meta,
+           coalesce(tr_desc.len, 0) AS desc_len,
+           lm.value_json AS listing_meta,
+           coalesce(i18n.cnt, 0) AS i18n_rich_count
     FROM listings l
     JOIN product_categories pc ON pc.id = l.category_id AND pc.code = 'hotel'
     JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
+    LEFT JOIN (
+      SELECT listing_id, count(*)::int AS cnt FROM listing_images GROUP BY listing_id
+    ) img ON img.listing_id = l.id
+    LEFT JOIN (
+      SELECT listing_id, count(*)::int AS cnt FROM hotel_rooms GROUP BY listing_id
+    ) hr ON hr.listing_id = l.id
+    LEFT JOIN (
+      SELECT listing_id, count(*)::int AS cnt
+      FROM listing_attributes
+      WHERE group_code = 'otel_kplus'
+      GROUP BY listing_id
+    ) am ON am.listing_id = l.id
+    LEFT JOIN (
+      SELECT listing_id, count(*)::int AS cnt FROM listing_meal_plans GROUP BY listing_id
+    ) mp ON mp.listing_id = l.id
+    LEFT JOIN (
+      SELECT hr2.listing_id, count(*)::int AS cnt
+      FROM hotel_room_availability_calendar c
+      JOIN hotel_rooms hr2 ON hr2.id = c.hotel_room_id
+      GROUP BY hr2.listing_id
+    ) cal ON cal.listing_id = l.id
+    LEFT JOIN (
+      SELECT listing_id, count(*)::int AS cnt FROM listing_price_rules GROUP BY listing_id
+    ) pr ON pr.listing_id = l.id
+    LEFT JOIN listing_attributes vh
+      ON vh.listing_id = l.id AND vh.group_code = 'vertical_hotel' AND vh.key = 'v1'
+    LEFT JOIN listing_attributes lm
+      ON lm.listing_id = l.id AND lm.group_code = 'listing_meta' AND lm.key = 'v1'
+    LEFT JOIN (
+      SELECT lt.listing_id, length(coalesce(lt.description, ''))::int AS len
+      FROM listing_translations lt
+      JOIN locales loc ON loc.id = lt.locale_id AND loc.code = 'tr'
+    ) tr_desc ON tr_desc.listing_id = l.id
+    LEFT JOIN (
+      SELECT lt.listing_id, count(DISTINCT loc.code)::int AS cnt
+      FROM listing_translations lt
+      JOIN locales loc ON loc.id = lt.locale_id
+      WHERE loc.code = ANY($2::text[])
+        AND length(trim(coalesce(lt.description, ''))) > 80
+      GROUP BY lt.listing_id
+    ) i18n ON i18n.listing_id = l.id
     WHERE l.external_provider_code = 'travelrobot'
       AND lhd.travelrobot_hotel_code IS NOT NULL
       AND trim(lhd.travelrobot_hotel_code) <> ''
@@ -131,10 +159,14 @@ function gapsForRow(row) {
 }
 
 async function main() {
+  cliLog('Audit başlıyor…')
   const pg = createPgClient()
+  cliLog('PostgreSQL bağlanılıyor…')
   await pg.connect()
+  cliLog('DB bağlantısı OK')
   try {
     const rows = await loadHotelRows(pg)
+    cliLog(`${rows.length} otel yüklendi — rapor hesaplanıyor…`)
     const summary = Object.fromEntries(GAP_CHECKS.map((g) => [g.id, 0]))
     const perHotel = []
 

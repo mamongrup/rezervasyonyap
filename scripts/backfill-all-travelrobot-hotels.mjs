@@ -90,12 +90,16 @@ async function main() {
     `Tam backfill — offset=${OFFSET}, batch=${effectiveBatch}, rooms=${WITH_ROOMS}, i18n=${WITH_I18N}, dry-run=${DRY_RUN}`,
   )
 
+  cliLog('Panel ayarları yükleniyor…')
   const cfg = await loadTravelrobotConfig()
   cliLog('KPlus token alınıyor…')
   const { tokenCode } = await createTravelrobotToken(cfg)
+  cliLog('Token alındı')
 
+  cliLog('PostgreSQL bağlanılıyor…')
   const pg = createPgClient()
   await pg.connect()
+  cliLog('DB bağlantısı OK')
   try {
     const orgId = (await pg.query(`SELECT id::text FROM organizations ORDER BY created_at LIMIT 1`)).rows[0]?.id
     if (!orgId) throw new Error('organizations kaydı yok')
