@@ -43,6 +43,9 @@ export function createPgClient() {
   const url = (process.env.DATABASE_URL || '').trim()
   const pgPassword =
     process.env.PGPASSWORD == null ? '' : String(process.env.PGPASSWORD)
+  const connectTimeout = Number(process.env.PG_CONNECT_TIMEOUT_MS ?? 15000)
+
+  const baseOpts = { connectionTimeoutMillis: connectTimeout }
 
   if (url) {
     try {
@@ -58,6 +61,7 @@ export function createPgClient() {
         )
       }
       return new pg.Client({
+        ...baseOpts,
         host: u.hostname || process.env.PGHOST || '127.0.0.1',
         port: Number(u.port || process.env.PGPORT || 5432),
         user,
@@ -66,11 +70,12 @@ export function createPgClient() {
       })
     } catch (e) {
       if (e.message?.includes('backend.env')) throw e
-      return new pg.Client({ connectionString: url })
+      return new pg.Client({ ...baseOpts, connectionString: url })
     }
   }
 
   return new pg.Client({
+    ...baseOpts,
     host: process.env.PGHOST || '127.0.0.1',
     port: Number(process.env.PGPORT || 5432),
     user: process.env.PGUSER || 'postgres',

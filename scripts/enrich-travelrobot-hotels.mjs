@@ -25,6 +25,7 @@ import { enrichTravelrobotHotelRows } from './lib/travelrobot-hotel-enrich.mjs'
 import { countUniqueHotelRoomNames } from './lib/travelrobot-hotel-rooms.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
+import { cliLog } from './lib/cli-log.mjs'
 
 const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
@@ -95,18 +96,29 @@ function catalogRowFromDb(item) {
 }
 
 async function main() {
+  cliLog(
+    `Başlıyor — limit=${LIMIT || 'yok'}, offset=${OFFSET}, with-rooms=${WITH_ROOMS_CLI ?? 'panel'}, skip-static=${SKIP_STATIC}`,
+  )
+  cliLog('Panel ayarları yükleniyor (DB)…')
   const cfg = await loadTravelrobotConfig()
+  cliLog('KPlus token alınıyor…')
   const { tokenCode } = await createTravelrobotToken(cfg)
+  cliLog('Token alındı')
 
+  cliLog('PostgreSQL bağlanılıyor…')
   const client = createPgClient()
   await client.connect()
+  cliLog('DB bağlantısı OK')
   try {
     const orgId = await resolveOrgId(client)
     const items = await loadTravelrobotHotels(client, orgId)
     if (!items.length) {
+      cliLog('Zenginleştirilecek Travelrobot oteli bulunamadı.')
       await reporter.done('Zenginleştirilecek Travelrobot oteli bulunamadı.')
       return
     }
+
+    cliLog(`${items.length} otel listelendi — otel başına SearchHotel+GetHotelRoomPrices (yavaş olabilir)`)
 
     await reporter.start(items.length)
     await reporter.log(`${items.length} otel yüklendi (offset=${OFFSET}, limit=${LIMIT || 'yok'})`)
@@ -138,6 +150,7 @@ async function main() {
 
       const fetchRooms =
         WITH_ROOMS_CLI != null ? WITH_ROOMS_CLI : cfg.importHotelRooms !== false
+      cliLog(`[${i + 1}/${items.length}] ${item.code} — API zenginleştirme…`)
       try {
         const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
           withRooms: fetchRooms,
@@ -145,6 +158,7 @@ async function main() {
           withVitrin: WITH_VITRIN,
           withI18n: WITH_I18N,
           skipStatic: true,
+          log: (msg) => cliLog(msg),
         })
         row = enriched[0] ?? row
       } catch (e) {
@@ -186,6 +200,7 @@ async function main() {
     const msg = DRY_RUN
       ? `Dry-run — ${items.length} otel kontrol edildi.`
       : `Tamamlandı: ${updated} güncellendi, ${skipped} atlandı. Görsel: ${withImages}, oda: ${roomHitCount}`
+    cliLog(msg)
     await reporter.done(msg)
   } finally {
     await client.end()
