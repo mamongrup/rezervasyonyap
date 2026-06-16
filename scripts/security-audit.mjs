@@ -27,6 +27,24 @@ function exists(relFromRoot) {
   return fs.existsSync(path.join(root, relFromRoot))
 }
 
+function resolveNpmExecutable() {
+  if (process.env.npm_execpath && fs.existsSync(process.env.npm_execpath)) {
+    return process.env.npm_execpath
+  }
+  const candidates = [
+    process.platform === 'win32' ? 'npm.cmd' : 'npm',
+    path.join(path.dirname(process.execPath), process.platform === 'win32' ? 'npm.cmd' : 'npm'),
+    'C:\\laragon\\bin\\nodejs\\node-v22\\npm.cmd',
+    'C:\\laragon\\bin\\nodejs\\node-v25\\npm.cmd',
+    path.join(process.env.ProgramFiles || 'C:\\Program Files', 'nodejs', 'npm.cmd'),
+  ]
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) return c
+  }
+  return null
+}
+
+
 /** @type {{ id: string, label: string, ok: boolean, detail: string }[]} */
 const results = []
 
@@ -219,7 +237,10 @@ function check(id, label, ok, detail) {
   if (!fs.existsSync(lock)) {
     check('9', 'npm audit (frontend)', false, 'package-lock.json yok — cd frontend && npm ci')
   } else {
-    const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+    const npmCmd = resolveNpmExecutable()
+    if (!npmCmd) {
+      check('9', 'npm audit (frontend)', false, 'npm bulunamadı — PATH veya Laragon node kurulumu')
+    } else {
     const r = spawnSync(npmCmd, ['audit', '--audit-level=moderate', '--json'], {
       cwd: fe,
       encoding: 'utf8',
@@ -236,11 +257,15 @@ function check(id, label, ok, detail) {
         detail = `${moderatePlus} moderate+ — cd frontend && npm audit fix`
       }
     } catch {
-      detail = r.status === 0 ? 'npm audit geçti' : 'npm audit çıktısı okunamadı'
+      detail =
+        r.status === 0
+          ? 'npm audit geçti'
+          : r.error?.message || r.stderr?.slice(0, 120) || 'npm audit çıktısı okunamadı'
       moderatePlus = r.status === 0 ? 0 : 1
     }
     const ok = moderatePlus === 0 && r.status === 0
     check('9', 'npm audit (frontend)', ok, ok ? detail : detail)
+    }
   }
 }
 
