@@ -855,6 +855,7 @@ export const tr = {
       calendarModalTitle: 'Müsaitlik takvimi',
       calendarLoading: 'Takvim yükleniyor…',
       clickForDetails: 'Detaylar için tıklayın',
+      showMoreRooms: 'Devamını göster',
       roomFeaturesTitle: 'Oda özellikleri',
       showMoreFeatures: 'Diğer özellikleri göster',
       moreFeaturesModalTitle: 'Diğer oda özellikleri',

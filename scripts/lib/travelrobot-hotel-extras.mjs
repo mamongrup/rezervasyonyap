@@ -1,0 +1,499 @@
+/**
+ * Travelrobot / KPlus otel — API'den vitrin/DB için ek alan eşlemesi.
+ * (pansiyon planları, günlük fiyat, iptal, oda detayı, iletişim, i18n)
+ */
+import { extractHotelDetailsNode } from './travelrobot-hotel-vitrin.mjs'
+
+export const MAX_SANE_NIGHTLY = 500_000
+
+const BOARD_TO_PLAN = [
+  { codes: ['UAI', 'ULTRA', 'ULTRA ALL INCLUSIVE'], plan: 'all_inclusive', label: 'Ultra Her Şey Dahil' },
+  { codes: ['AI', 'ALL INCLUSIVE', 'ALL_INCLUSIVE'], plan: 'all_inclusive', label: 'Her Şey Dahil' },
+  { codes: ['FB', 'FULL BOARD', 'FULL_BOARD'], plan: 'full_board', label: 'Tam Pansiyon' },
+  { codes: ['HB', 'HALF BOARD', 'HALF_BOARD'], plan: 'half_board', label: 'Yarım Pansiyon' },
+  { codes: ['BB', 'BED AND BREAKFAST', 'BED_BREAKFAST', 'B&B'], plan: 'bed_breakfast', label: 'Oda & Kahvaltı' },
+  { codes: ['RO', 'ROOM ONLY', 'ROOM_ONLY', 'SC', 'NO BOARD'], plan: 'room_only', label: 'Yemeksiz' },
+]
+
+const PLAN_LABEL_EN = {
+  room_only: 'Room Only',
+  bed_breakfast: 'Bed & Breakfast',
+  half_board: 'Half Board',
+  full_board: 'Full Board',
+  all_inclusive: 'All Inclusive',
+  custom: 'Custom Plan',
+}
+
+function pickText(obj, ...keys) {
+  for (const k of keys) {
+    const v = String(obj?.[k] ?? '').trim()
+    if (v) return v
+  }
+  return ''
+}
+
+function stripHtml(html) {
+  return String(html ?? '')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function roomNameKey(name) {
+  return String(name || 'standart oda')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sanePrice(amount) {
+  const n = Number(amount)
+  if (!Number.isFinite(n) || n <= 0 || n > MAX_SANE_NIGHTLY) return null
+  return n
+}
+
+export function boardToMealPlan(boardRaw, boardNameRaw) {
+  const code = String(boardRaw ?? boardNameRaw ?? '')
+    .trim()
+    .toUpperCase()
+  if (!code) return { plan_code: 'room_only', label: PLAN_LABEL_EN.room_only, label_en: PLAN_LABEL_EN.room_only }
+  for (const row of BOARD_TO_PLAN) {
+    if (row.codes.some((c) => code.includes(c))) {
+      return {
+        plan_code: row.plan,
+        label: row.label,
+        label_en: PLAN_LABEL_EN[row.plan] ?? row.label,
+      }
+    }
+  }
+  const label = String(boardNameRaw ?? boardRaw ?? 'Özel Plan').trim() || 'Özel Plan'
+  return { plan_code: 'custom', label, label_en: label }
+}
+
+function dailyPricesFromAlt(alt) {
+  const raw =
+    alt?.DailyPrices ??
+    alt?.DaliyPrices ??
+    alt?.dailyPrices ??
+    alt?.DailyPriceList ??
+    alt?.PriceList ??
+    []
+  return Array.isArray(raw) ? raw : []
+}
+
+/** KPlus tarih → YYYY-MM-DD */
+export function parseKplusDate(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return null
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const dot = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (dot) {
+    const dd = String(dot[1]).padStart(2, '0')
+    const mm = String(dot[2]).padStart(2, '0')
+    return `${dot[3]}-${mm}-${dd}`
+  }
+  const slash = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
+  if (slash) {
+    const dd = String(slash[1]).padStart(2, '0')
+    const mm = String(slash[2]).padStart(2, '0')
+    return `${slash[3]}-${mm}-${dd}`
+  }
+  return null
+}
+
+function priceFromDailyRow(row) {
+  return sanePrice(
+    row?.Price ??
+      row?.price ??
+      row?.Amount ??
+      row?.amount ??
+      row?.TotalAmount ??
+      row?.BaseAmount ??
+      row?.NightlyPrice,
+  )
+}
+
+function cancellationFromAlt(alt) {
+  const parts = []
+  const direct = pickText(alt, 'CancellationPolicy', 'cancellationPolicy', 'CancelPolicy', 'cancelPolicy')
+  if (direct) parts.push(direct)
+  for (const key of ['CancellationPolicies', 'cancellationPolicies', 'Policies', 'policies']) {
+    const arr = alt?.[key]
+    if (!Array.isArray(arr)) continue
+    for (const p of arr) {
+      const t = pickText(p, 'Description', 'description', 'Text', 'text', 'Policy', 'policy', 'Name', 'name')
+      if (t) parts.push(t)
+    }
+  }
+  if (alt?.IsRefundable === false || alt?.NonRefundable === true || alt?.nonRefundable === true) {
+    parts.push('İade edilemez (non-refundable)')
+  }
+  return parts.join(' · ').trim()
+}
+
+function capacityFromAlt(alt, room) {
+  const candidates = [
+    alt?.MaxOccupancy,
+    alt?.maxOccupancy,
+    alt?.MaxPax,
+    alt?.maxPax,
+    alt?.PaxCount,
+    alt?.paxCount,
+    alt?.Capacity,
+    alt?.capacity,
+    room?.MaxOccupancy,
+    room?.Capacity,
+    room?.PaxCount,
+  ]
+  for (const c of candidates) {
+    const n = Number(c)
+    if (Number.isFinite(n) && n > 0 && n <= 20) return n
+  }
+  return null
+}
+
+function allotmentFromAlt(alt) {
+  const n = Number(alt?.Allotment ?? alt?.allotment ?? alt?.AvailableCount ?? alt?.availableCount)
+  if (!Number.isFinite(n) || n < 0) return null
+  return Math.min(Math.max(Math.trunc(n), 0), 99)
+}
+
+function imagesFromAlt(alt, room) {
+  const urls = []
+  const push = (u) => {
+    const s = String(u || '').trim()
+    if (s && !urls.includes(s)) urls.push(s)
+  }
+  push(pickText(alt, 'ImageUrl', 'imageUrl', 'RoomImageUrl', 'roomImageUrl'))
+  for (const key of ['Images', 'images', 'RoomImages', 'roomImages', 'Photos', 'photos']) {
+    const arr = alt?.[key] ?? room?.[key]
+    if (!Array.isArray(arr)) continue
+    for (const item of arr) {
+      if (typeof item === 'string') push(item)
+      else push(pickText(item, 'Url', 'url', 'ImageUrl', 'imageUrl'))
+    }
+  }
+  return urls
+}
+
+function altMetaFromOffer(alt, room, hotel) {
+  const roomCode = pickText(alt, 'RoomCode', 'roomCode', 'Key', 'key')
+  const combinationId = pickText(alt, 'CombinationId', 'combinationId')
+  const packageId = pickText(alt, 'PackageId', 'packageId')
+  const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
+  const amount = sanePrice(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount)
+  const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
+  const cancel = cancellationFromAlt(alt)
+  const bedType =
+    pickText(alt, 'BedType', 'bedType', 'BedTypeName', 'bedTypeName') ||
+    pickText(room, 'BedType', 'bedType')
+  const description =
+    pickText(alt, 'RoomDescription', 'roomDescription', 'Description', 'description') ||
+    pickText(room, 'Description', 'description')
+  return {
+    travelrobot_room_code: roomCode || null,
+    combination_id: combinationId || null,
+    package_id: packageId || null,
+    board_type: board || null,
+    price: amount != null ? String(amount) : null,
+    currency: ['TRY', 'EUR', 'USD', 'GBP'].includes(currency) ? currency : 'TRY',
+    cancellation_policy: cancel || null,
+    is_refundable: alt?.IsRefundable ?? alt?.isRefundable ?? null,
+    non_refundable: alt?.NonRefundable ?? alt?.nonRefundable ?? null,
+    bed_type: bedType || null,
+    description: description || null,
+    search_key: pickText(hotel, 'SearchKey', 'searchKey') || null,
+    images: imagesFromAlt(alt, room),
+  }
+}
+
+/** Vitrin oda satırları — aynı oda adında en ucuz teklif + zengin meta. */
+export function buildTravelrobotHotelRoomRows(hotel) {
+  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
+  const raw = []
+  for (const room of rooms) {
+    const roomName = pickText(room, 'Name', 'name', 'RoomName', 'roomName') || 'Standart Oda'
+    const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
+    if (!alts.length) {
+      raw.push({
+        name: roomName.slice(0, 200),
+        boardType: null,
+        price: null,
+        currency: 'TRY',
+        capacity: capacityFromAlt({}, room),
+        unitCount: 1,
+        meta: { source: 'travelrobot' },
+        dailyCalendar: [],
+      })
+      continue
+    }
+    for (const alt of alts) {
+      const name = pickText(alt, 'RoomName', 'roomName', 'Name', 'name') || roomName
+      const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
+      const amount = sanePrice(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount)
+      const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
+      const meta = altMetaFromOffer(alt, room, hotel)
+      const image = meta.images?.[0]
+      if (image) meta.image = image
+      const dailyCalendar = []
+      for (const dp of dailyPricesFromAlt(alt)) {
+        const day = parseKplusDate(dp?.Date ?? dp?.date ?? dp?.Day ?? dp?.day)
+        const price = priceFromDailyRow(dp) ?? amount
+        if (!day || price == null) continue
+        dailyCalendar.push({
+          day,
+          price,
+          available_units: allotmentFromAlt(alt) ?? 1,
+        })
+      }
+      raw.push({
+        name: name.slice(0, 200),
+        boardType: board || null,
+        price: amount,
+        currency: ['TRY', 'EUR', 'USD', 'GBP'].includes(currency) ? currency : 'TRY',
+        capacity: capacityFromAlt(alt, room),
+        unitCount: Math.max(1, allotmentFromAlt(alt) ?? 1),
+        meta: { ...meta, source: 'travelrobot' },
+        dailyCalendar,
+      })
+    }
+  }
+
+  const byName = new Map()
+  for (const r of raw) {
+    const key = roomNameKey(r.name)
+    const prev = byName.get(key)
+    if (!prev) {
+      byName.set(key, r)
+      continue
+    }
+    const pPrev = prev.price ?? Number.POSITIVE_INFINITY
+    const pNew = r.price ?? Number.POSITIVE_INFINITY
+    if (pNew < pPrev) {
+      byName.set(key, r)
+      continue
+    }
+    if (pNew === pPrev && (r.dailyCalendar?.length ?? 0) > (prev.dailyCalendar?.length ?? 0)) {
+      byName.set(key, r)
+    }
+  }
+  return [...byName.values()]
+}
+
+/** listing_meal_plans satırları — tüm tekliflerden benzersiz pansiyon. */
+export function extractTravelrobotMealPlans(hotel, currency = 'TRY') {
+  const byPlan = new Map()
+  for (const r of buildTravelrobotHotelRoomRows(hotel)) {
+    const mapped = boardToMealPlan(r.boardType, r.boardType)
+    const planKey = mapped.plan_code === 'custom' ? `custom:${mapped.label.toLowerCase()}` : mapped.plan_code
+    const price = r.price ?? sanePrice(r.meta?.price)
+    const prev = byPlan.get(planKey)
+    if (!prev) {
+      byPlan.set(planKey, {
+        plan_code: mapped.plan_code,
+        label: mapped.label,
+        label_en: mapped.label_en,
+        price_per_night: price ?? 0,
+        currency_code: r.currency || currency,
+        sort_order: planSort(mapped.plan_code),
+      })
+      continue
+    }
+    if (price != null && (prev.price_per_night === 0 || price < prev.price_per_night)) {
+      prev.price_per_night = price
+    }
+  }
+  return [...byPlan.values()].filter((p) => p.price_per_night > 0 || p.plan_code === 'room_only')
+}
+
+function planSort(planCode) {
+  const order = {
+    room_only: 0,
+    bed_breakfast: 1,
+    half_board: 2,
+    full_board: 3,
+    all_inclusive: 4,
+    custom: 5,
+  }
+  return order[planCode] ?? 9
+}
+
+export function extractHotelMinNightlyPrice(hotel) {
+  let min = null
+  for (const r of buildTravelrobotHotelRoomRows(hotel)) {
+    if (r.price != null && (min == null || r.price < min)) min = r.price
+  }
+  return min
+}
+
+/** Otel düzeyinde iptal metni — tekliflerden en uzun anlamlı metin. */
+export function extractTravelrobotCancellationText(hotel) {
+  let best = ''
+  for (const r of buildTravelrobotHotelRoomRows(hotel)) {
+    const t = String(r.meta?.cancellation_policy ?? '').trim()
+    if (t.length > best.length) best = t
+  }
+  const node = extractHotelDetailsNode(hotel)
+  const summary = stripHtml(node?.SummaryText ?? node?.summaryText ?? '')
+  const cancelInSummary = summary.match(/cancel[^.]{10,240}\./i)?.[0]
+  if (cancelInSummary && cancelInSummary.length > best.length) best = cancelInSummary.trim()
+  return best.slice(0, 4000) || null
+}
+
+function normalizeTime(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return null
+  const m = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i)
+  if (!m) return s.slice(0, 8)
+  let h = Number(m[1])
+  const min = m[2] ? String(m[2]).padStart(2, '0') : '00'
+  const ap = (m[3] ?? '').toLowerCase()
+  if (ap === 'pm' && h < 12) h += 12
+  if (ap === 'am' && h === 12) h = 0
+  return `${String(h).padStart(2, '0')}:${min}`
+}
+
+export function extractTravelrobotListingMeta(hotel) {
+  const node = extractHotelDetailsNode(hotel)
+  const summary = stripHtml(node?.SummaryText ?? node?.summaryText ?? '')
+
+  let checkIn =
+    pickText(node, 'CheckInTime', 'checkInTime', 'CheckIn', 'checkIn') ||
+    summary.match(/check[\s-]?in[^:]*[:]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i)?.[1] ||
+    summary.match(/giri[sş][^:]*[:]\s*(\d{1,2}(?::\d{2})?)/i)?.[1]
+  let checkOut =
+    pickText(node, 'CheckOutTime', 'checkOutTime', 'CheckOut', 'checkOut') ||
+    summary.match(/check[\s-]?out[^:]*[:]\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/i)?.[1] ||
+    summary.match(/[çc][iı]k[iı][sş][^:]*[:]\s*(\d{1,2}(?::\d{2})?)/i)?.[1]
+
+  const address =
+    pickText(node, 'Address', 'address', 'HotelAddress', 'hotelAddress', 'FullAddress', 'fullAddress') ||
+    [pickText(node, 'Street', 'street'), pickText(node, 'City', 'city'), pickText(node, 'Country', 'country')]
+      .filter(Boolean)
+      .join(', ')
+
+  return {
+    address: address || null,
+    city: pickText(node, 'City', 'city', 'CityName', 'cityName') || null,
+    province_city: pickText(node, 'State', 'state', 'Region', 'region') || null,
+    district_label: pickText(node, 'District', 'district', 'Area', 'area') || null,
+    check_in_time: checkIn ? normalizeTime(checkIn) : null,
+    check_out_time: checkOut ? normalizeTime(checkOut) : null,
+    phone: pickText(node, 'Phone', 'phone', 'PhoneNumber', 'phoneNumber', 'Tel', 'tel') || null,
+    email: pickText(node, 'Email', 'email', 'ContactEmail', 'contactEmail') || null,
+  }
+}
+
+export function collectHotelGalleryEntries(hotel) {
+  const nested = hotel?.Hotel ?? hotel?.hotel
+  const entries = []
+  const seen = new Set()
+  const push = (url, title = '') => {
+    const u = String(url || '').trim()
+    if (!u || seen.has(u)) return
+    seen.add(u)
+    entries.push({ url: u, title: String(title || '').trim() })
+  }
+
+  for (const src of [hotel, nested]) {
+    if (!src || typeof src !== 'object') continue
+    for (const key of [
+      'HotelImages',
+      'hotelImages',
+      'Images',
+      'images',
+      'Photos',
+      'photos',
+      'Gallery',
+      'gallery',
+    ]) {
+      const arr = src[key]
+      if (!Array.isArray(arr)) continue
+      for (const item of arr) {
+        if (typeof item === 'string') push(item)
+        else {
+          push(
+            pickText(item, 'Url', 'url', 'ImageUrl', 'imageUrl', 'Path', 'path'),
+            pickText(item, 'ImageTitle', 'imageTitle', 'Title', 'title', 'Caption', 'caption'),
+          )
+        }
+      }
+    }
+  }
+
+  push(
+    pickText(hotel, 'HotelImageURL', 'ImageUrl', 'ThumbnailUrl') ||
+      pickText(nested ?? {}, 'HotelImageURL', 'ImageUrl', 'ThumbnailUrl'),
+  )
+
+  return entries
+}
+
+/** listing_price_rules — ardışık aynı fiyat günlerinden dönem bantları (listing düzeyi). */
+export function extractTravelrobotSeasonalPriceRules(hotel, currency = 'TRY') {
+  const byDay = new Map()
+  for (const room of buildTravelrobotHotelRoomRows(hotel)) {
+    for (const row of room.dailyCalendar ?? []) {
+      const prev = byDay.get(row.day)
+      if (prev == null || row.price < prev) byDay.set(row.day, row.price)
+    }
+  }
+  if (!byDay.size) return []
+
+  const days = [...byDay.keys()].sort()
+  const bands = []
+  let start = days[0]
+  let end = days[0]
+  let price = byDay.get(days[0])
+
+  for (let i = 1; i < days.length; i++) {
+    const d = days[i]
+    const p = byDay.get(d)
+    const prevDay = days[i - 1]
+    const consecutive =
+      new Date(`${prevDay}T12:00:00Z`).getTime() + 86400000 === new Date(`${d}T12:00:00Z`).getTime()
+    if (consecutive && p === price) {
+      end = d
+      continue
+    }
+    bands.push({ valid_from: start, valid_to: end, base_nightly: price, currency })
+    start = d
+    end = d
+    price = p
+  }
+  bands.push({ valid_from: start, valid_to: end, base_nightly: price, currency })
+
+  return bands.map((b) => ({
+    valid_from: b.valid_from,
+    valid_to: b.valid_to,
+    rule_json: {
+      base_nightly: String(b.base_nightly),
+      base_price: String(b.base_nightly),
+      source: 'travelrobot',
+      currency: b.currency || currency,
+    },
+  }))
+}
+
+/** GetHotelDetails çoklu dil birleşimi → locale kodu → { title, description } */
+export function extractTravelrobotTranslations(hotel) {
+  const out = {}
+  const i18n = hotel?.I18nDetails ?? hotel?.i18nDetails ?? {}
+  for (const [locale, block] of Object.entries(i18n)) {
+    if (!block || typeof block !== 'object') continue
+    const title = pickText(block, 'HotelName', 'hotelName', 'Name', 'name')
+    const desc = stripHtml(
+      block?.SummaryText ?? block?.summaryText ?? block?.Description ?? block?.description ?? '',
+    )
+    if (title || desc) {
+      out[locale] = {
+        title: title || null,
+        description: desc ? desc.slice(0, 4000) : null,
+      }
+    }
+  }
+  return out
+}

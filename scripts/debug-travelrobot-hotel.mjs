@@ -143,6 +143,81 @@ async function main() {
       console.log(`GetHotelRoomPrices atlandı: ${e.message}`)
     }
 
+    console.log('\n══ Vitrin eşlemesi (tema / pansiyon / özellik / kurallar) ══')
+    try {
+      const { buildTravelrobotHotelVitrinPackage } = await import('./lib/travelrobot-hotel-vitrin.mjs')
+      const { mergeHotelDetails } = await import('./lib/travelrobot-hotel-details.mjs')
+      const { getHotelDetails } = await import('./lib/travelrobot-api.mjs')
+      const dbRow = await loadFromDb(pg, code)
+      let catalog = { HotelCode: code }
+      if (dbRow?.snapshot_json) {
+        try {
+          const snap = JSON.parse(dbRow.snapshot_json)
+          catalog = snap?.catalog ?? snap ?? catalog
+        } catch {
+          /* ignore */
+        }
+      }
+      const { tokenCode: vitrinToken } = await createTravelrobotToken(cfg)
+      const detailsPayload = await getHotelDetails(cfg, vitrinToken, code, { languageCode: 'tr' })
+      const merged = mergeHotelDetails(catalog, detailsPayload)
+      const pkg = buildTravelrobotHotelVitrinPackage(merged)
+      console.log(`hotel_type: ${pkg.facets.hotel_type_code ?? '-'}`)
+      console.log(`theme: ${pkg.facets.theme_code ?? '-'}`)
+      console.log(`accommodation: ${pkg.facets.accommodation_code ?? '-'}`)
+      console.log(`özellik (otel_kplus): ${pkg.amenities.length}`)
+      console.log(`genel şartlar HTML: ${pkg.verticalHotel.general_terms_html ? 'var' : 'yok'}`)
+      console.log(`ek bölüm: ${pkg.verticalHotel.facility_sections?.length ?? 0}`)
+      console.log(`SSS: ${pkg.verticalHotel.faq_items?.length ?? 0}`)
+      pkg.amenities.slice(0, 8).forEach((a, i) => console.log(`  [${i + 1}] ${a.value_json.label}`))
+    } catch (e) {
+      console.log(`Vitrin eşlemesi atlandı: ${e.message}`)
+    }
+
+    console.log('\n══ Ek alan eşlemesi (pansiyon / fiyat / iptal / meta) ══')
+    try {
+      const {
+        extractTravelrobotMealPlans,
+        extractTravelrobotCancellationText,
+        extractTravelrobotListingMeta,
+        extractTravelrobotSeasonalPriceRules,
+        buildTravelrobotHotelRoomRows,
+      } = await import('./lib/travelrobot-hotel-extras.mjs')
+      const { mergeHotelDetails } = await import('./lib/travelrobot-hotel-details.mjs')
+      const { getHotelDetails } = await import('./lib/travelrobot-api.mjs')
+      const dbRow = await loadFromDb(pg, code)
+      let catalog = { HotelCode: code }
+      if (dbRow?.snapshot_json) {
+        try {
+          const snap = JSON.parse(dbRow.snapshot_json)
+          catalog = snap?.catalog ?? snap ?? catalog
+        } catch {
+          /* ignore */
+        }
+      }
+      const { tokenCode: extrasToken } = await createTravelrobotToken(cfg)
+      const detailsPayload = await getHotelDetails(cfg, extrasToken, code, { languageCode: 'tr' })
+      const merged = mergeHotelDetails(catalog, detailsPayload)
+      const rooms = buildTravelrobotHotelRoomRows(merged)
+      const plans = extractTravelrobotMealPlans(merged)
+      const meta = extractTravelrobotListingMeta(merged)
+      const cancel = extractTravelrobotCancellationText(merged)
+      const bands = extractTravelrobotSeasonalPriceRules(merged)
+      console.log(`oda satırı: ${rooms.length}`)
+      console.log(`pansiyon planı: ${plans.length}`)
+      console.log(`dönemsel fiyat bandı: ${bands.length}`)
+      console.log(`iptal metni: ${cancel ? `${cancel.slice(0, 80)}…` : 'yok'}`)
+      console.log(`check-in/out: ${meta.check_in_time ?? '-'} / ${meta.check_out_time ?? '-'}`)
+      console.log(`adres: ${meta.address ? 'var' : 'yok'}`)
+      rooms.slice(0, 3).forEach((r, i) => {
+        console.log(
+          `  [${i + 1}] ${r.name} — kap:${r.capacity ?? '-'}, gün:${r.dailyCalendar?.length ?? 0}, kod:${r.meta?.travelrobot_room_code ?? '-'}`,
+        )
+      })
+    } catch (e) {
+      console.log(`Ek alan eşlemesi atlandı: ${e.message}`)
+    }
+
     console.log('\n══ Booking API (SearchHotel örneği — opsiyonel) ══')
     try {
       const { tokenCode } = await createTravelrobotToken(cfg)

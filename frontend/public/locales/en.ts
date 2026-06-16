@@ -1339,6 +1339,7 @@ export const en = {
       calendarModalTitle: 'Availability calendar',
       calendarLoading: 'Loading calendar…',
       clickForDetails: 'Click for details',
+      showMoreRooms: 'Show more',
       roomFeaturesTitle: 'Room features',
       showMoreFeatures: 'Show more features',
       moreFeaturesModalTitle: 'Other room features',

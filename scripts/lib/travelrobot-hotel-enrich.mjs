@@ -14,6 +14,7 @@ import {
 } from './travelrobot-listing-db.mjs'
 import { enrichHotelRowsWithDetailsGallery } from './travelrobot-hotel-details.mjs'
 import { enrichHotelRowsWithRoomPrices } from './travelrobot-hotel-rooms.mjs'
+import { enrichHotelRowsWithI18nDetails } from './travelrobot-hotel-i18n.mjs'
 
 export { hotelHasRooms } from './travelrobot-listing-db.mjs'
 
@@ -24,12 +25,16 @@ const HOTEL_DESTINATION_ID =
  * @param {object} opts
  * @param {boolean} [opts.withRooms]
  * @param {boolean} [opts.withGallery]
+ * @param {boolean} [opts.withVitrin] — GetHotelDetails vitrin (özellik/kural/facet)
+ * @param {boolean} [opts.withI18n] — GetHotelDetails ek diller (en, de, ru, zh, fr)
  * @param {boolean} [opts.skipStatic]
  * @param {(msg: string) => void | Promise<void>} [opts.log]
  */
 export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}) {
   const withRooms = opts.withRooms ?? false
   const withGallery = opts.withGallery ?? true
+  const withVitrin = opts.withVitrin ?? false
+  const withI18n = opts.withI18n ?? false
   const skipStatic = opts.skipStatic ?? false
   const log = opts.log ?? (() => {})
 
@@ -58,8 +63,15 @@ export async function enrichTravelrobotHotelRows(cfg, tokenCode, rows, opts = {}
     }
   }
 
-  if (withGallery && tokenCode) {
-    enriched = await enrichHotelRowsWithDetailsGallery(cfg, tokenCode, enriched, { log })
+  if ((withGallery || withVitrin) && tokenCode) {
+    enriched = await enrichHotelRowsWithDetailsGallery(cfg, tokenCode, enriched, {
+      log,
+      force: withVitrin,
+    })
+  }
+
+  if (withI18n && tokenCode) {
+    enriched = await enrichHotelRowsWithI18nDetails(cfg, tokenCode, enriched, { log, withI18n: true })
   }
 
   if (!withRooms) return enriched

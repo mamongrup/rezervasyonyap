@@ -53,6 +53,7 @@ export type HotelRoomShowcaseItem = {
 }
 
 const ICON_STROKE = 1.5
+const ROOMS_PAGE_SIZE = 5
 const PREVIEW_ICON_WRAP =
   'flex size-8 shrink-0 items-center justify-center rounded-lg bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300'
 
@@ -413,6 +414,14 @@ export default function HotelRoomShowcase({
   const [calendarRoomIds, setCalendarRoomIds] = useState<Set<string>>(new Set())
   const [detailRoom, setDetailRoom] = useState<HotelRoomShowcaseItem | null>(null)
   const [calendarRoom, setCalendarRoom] = useState<HotelRoomBookingOption | null>(null)
+  const [visibleCount, setVisibleCount] = useState(ROOMS_PAGE_SIZE)
+
+  useEffect(() => {
+    setVisibleCount(ROOMS_PAGE_SIZE)
+  }, [rooms])
+
+  const visibleRooms = useMemo(() => rooms.slice(0, visibleCount), [rooms, visibleCount])
+  const hasMoreRooms = visibleCount < rooms.length
 
   useEffect(() => {
     const listingId = booking?.listingId
@@ -447,7 +456,7 @@ export default function HotelRoomShowcase({
       <Divider className="w-14!" />
 
       <div className="flex flex-col gap-5">
-        {rooms.map((room) => (
+        {visibleRooms.map((room) => (
           <HotelRoomListRow
             key={room.id}
             room={room}
@@ -463,6 +472,18 @@ export default function HotelRoomShowcase({
           />
         ))}
       </div>
+
+      {hasMoreRooms ? (
+        <div className="flex justify-center pt-1">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((n) => Math.min(n + ROOMS_PAGE_SIZE, rooms.length))}
+            className="inline-flex items-center justify-center rounded-2xl border border-neutral-200 bg-white px-6 py-3 text-sm font-semibold text-neutral-800 transition hover:border-neutral-300 hover:bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+          >
+            {rs.showMoreRooms ?? 'Devamını göster'}
+          </button>
+        </div>
+      ) : null}
 
       <HotelRoomDetailModal
         open={detailRoom != null}

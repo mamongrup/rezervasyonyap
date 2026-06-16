@@ -8,6 +8,7 @@
  *   node scripts/enrich-travelrobot-hotels.mjs --no-with-rooms --skip-static
  *   node scripts/enrich-travelrobot-hotels.mjs --with-rooms --rooms-only --skip-static
  *   node scripts/enrich-travelrobot-hotels.mjs --skip-static --with-rooms
+ *   node scripts/enrich-travelrobot-hotels.mjs --with-i18n --limit 50
  *
  * --with-rooms: her otel için SearchHotel (oda/fiyat) — 1200+ otelde yavaş; --limit ile parça parça çalıştırın.
  */
@@ -29,6 +30,8 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const SKIP_STATIC = args.has('--skip-static')
 const ROOMS_ONLY = args.has('--rooms-only')
+const WITH_VITRIN = args.has('--with-vitrin')
+const WITH_I18N = args.has('--with-i18n')
 const WITH_ROOMS_CLI =
   args.has('--with-rooms') || args.has('--no-with-rooms') ? args.has('--with-rooms') : null
 const limitIdx = process.argv.indexOf('--limit')
@@ -139,6 +142,8 @@ async function main() {
         const enriched = await enrichTravelrobotHotelRows(cfg, tokenCode, [row], {
           withRooms: fetchRooms,
           withGallery: !ROOMS_ONLY,
+          withVitrin: WITH_VITRIN,
+          withI18n: WITH_I18N,
           skipStatic: true,
         })
         row = enriched[0] ?? row
@@ -158,8 +163,16 @@ async function main() {
         updated++
         if (result.imageCount) withImages++
         if (result.roomCount) roomHitCount++
+        const vitrin = result.vitrinStats
+        const extras = result.extrasStats
+        const vitrinNote = vitrin
+          ? `, ${vitrin.amenities ?? 0} özellik${vitrin.meta ? ', kurallar' : ''}${vitrin.facets ? `, ${vitrin.facets} facet` : ''}`
+          : ''
+        const extrasNote = extras
+          ? `, ${extras.mealPlans ?? 0} pansiyon, ${extras.calendarDays ?? 0} gün fiyat${extras.translations ? `, ${extras.translations} dil` : ''}`
+          : ''
         await reporter.step(
-          `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? previewRooms} oda`,
+          `[${i + 1}/${items.length}] ${result.slug} — ${result.imageCount ?? 0} görsel, ${result.roomCount ?? previewRooms} oda${vitrinNote}${extrasNote}`,
           i + 1,
           items.length,
         )

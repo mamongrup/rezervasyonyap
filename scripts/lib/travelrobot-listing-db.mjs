@@ -2,6 +2,11 @@
  * Travelrobot (KPlus) listing DB upsert — tur, otel, uçak.
  * GTC ve Wtatil DB modülleri ile aynı convention.
  */
+import { applyTravelrobotHotelVitrinFields } from './travelrobot-hotel-vitrin-db.mjs'
+import { applyTravelrobotHotelExtrasFields } from './travelrobot-hotel-extras-db.mjs'
+import { extractHotelMinNightlyPrice, collectHotelGalleryEntries } from './travelrobot-hotel-extras.mjs'
+
+export { extractHotelMinNightlyPrice } from './travelrobot-hotel-extras.mjs'
 
 const PROVIDER = 'travelrobot'
 /** Sandbox/API anomali fiyatlarını vitrine taşıma (ör. 3.5B TRY). */
@@ -282,55 +287,6 @@ export function hotelHasRooms(row) {
   )
 }
 
-function extractHotelRoomRows(hotel) {
-  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
-  const raw = []
-  for (const room of rooms) {
-    const roomName = pickText(room, 'Name', 'name', 'RoomName', 'roomName') || 'Standart Oda'
-    const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
-    if (!alts.length) {
-      raw.push({ name: roomName, boardType: null, price: null, currency: 'TRY', meta: {} })
-      continue
-    }
-    for (const alt of alts) {
-      const name = pickText(alt, 'RoomName', 'roomName', 'Name', 'name') || roomName
-      const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
-      const amount = Number(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount ?? NaN)
-      const currency = normalizeCurrency(alt?.CurrencyCode ?? alt?.currencyCode)
-      const roomCode = pickText(alt, 'RoomCode', 'roomCode', 'Key', 'key')
-      const image = pickText(alt, 'ImageUrl', 'imageUrl', 'RoomImageUrl', 'roomImageUrl')
-      raw.push({
-        name: name.slice(0, 200),
-        boardType: board || null,
-        price:
-          Number.isFinite(amount) && amount > 0 && amount <= MAX_SANE_NIGHTLY_TRY ? amount : null,
-        currency,
-        meta: {
-          travelrobot_room_code: roomCode || null,
-          board_type: board || null,
-          price: Number.isFinite(amount) && amount > 0 ? String(amount) : null,
-          currency,
-          ...(image && !isKplusPlaceholderImage(image) ? { image } : {}),
-        },
-      })
-    }
-  }
-  // Aynı oda adı + farklı pansiyon → vitrinde tek satır (en ucuz teklif)
-  const byName = new Map()
-  for (const r of raw) {
-    const key = r.name.toLowerCase().replace(/\s+/g, ' ').trim()
-    const prev = byName.get(key)
-    if (!prev) {
-      byName.set(key, r)
-      continue
-    }
-    const pPrev = prev.price ?? Number.POSITIVE_INFINITY
-    const pNew = r.price ?? Number.POSITIVE_INFINITY
-    if (pNew < pPrev) byName.set(key, r)
-  }
-  return [...byName.values()]
-}
-
 async function upsertHotelGallery(pgClient, listingId, urls) {
   const list = (urls ?? []).filter((u) => u && !isKplusPlaceholderImage(u))
   if (!list.length) {
@@ -349,43 +305,6 @@ async function upsertHotelGallery(pgClient, listingId, urls) {
       [listingId, i, list[i]],
     )
   }
-}
-
-async function upsertTravelrobotHotelRooms(pgClient, listingId, hotel) {
-  const rows = extractHotelRoomRows(hotel)
-  // KPlus toplu arama odasız dönebilir; mevcut vitrin odalarını silme.
-  if (!rows.length) return 0
-  await pgClient.query(`DELETE FROM hotel_rooms WHERE listing_id = $1::uuid`, [listingId])
-  for (const r of rows) {
-    await pgClient.query(
-      `INSERT INTO hotel_rooms (listing_id, name, capacity, board_type, meta_json)
-       VALUES ($1::uuid, $2, NULL, $3, $4::jsonb)`,
-      [listingId, r.name, r.boardType, JSON.stringify(r.meta)],
-    )
-  }
-  return rows.length
-}
-
-function extractHotelMinNightlyPrice(hotel) {
-  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
-  let min = null
-  for (const room of rooms) {
-    const alts = room?.RoomAlternatives ?? room?.roomAlternatives ?? []
-    for (const alt of alts) {
-      const amount = Number(
-        alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount ?? NaN,
-      )
-      if (
-        Number.isFinite(amount) &&
-        amount > 0 &&
-        amount <= MAX_SANE_NIGHTLY_TRY &&
-        (min == null || amount < min)
-      ) {
-        min = amount
-      }
-    }
-  }
-  return min
 }
 
 function extractFlightMinPrice(flight) {
@@ -466,10 +385,13 @@ export async function resolveImportContext(pgClient, orgId, categoryCode) {
   )
   if (!cat.rows[0]) throw new Error(`product_categories.code = '${categoryCode}' bulunamadı`)
   const loc = await pgClient.query(
-    `SELECT id FROM locales WHERE code = 'tr' AND is_active = true LIMIT 1`,
+    `SELECT id, code FROM locales WHERE is_active = true`,
   )
-  if (!loc.rows[0]) throw new Error("locales.code = 'tr' bulunamadı")
-  return { categoryId: cat.rows[0].id, localeTrId: loc.rows[0].id, orgId }
+  const localeIds = {}
+  for (const row of loc.rows) localeIds[row.code] = row.id
+  const localeTrId = localeIds.tr
+  if (!localeTrId) throw new Error("locales.code = 'tr' bulunamadı")
+  return { categoryId: cat.rows[0].id, localeTrId, localeIds, orgId }
 }
 
 // ── Mevcut listing arama ────────────────────────────────────────────────────
@@ -609,7 +531,14 @@ export async function upsertTravelrobotHotelListing(
   pgClient,
   ctx,
   hotel,
-  { status = 'draft', dryRun = false } = {},
+  {
+    status = 'draft',
+    dryRun = false,
+    applyVitrin = true,
+    overwriteVitrin = false,
+    applyExtras = true,
+    overwriteExtras = false,
+  } = {},
 ) {
   const ref = hotelRef(hotel)
   if (!ref) throw new Error('Travelrobot otel satırında HotelId/id yok')
@@ -620,7 +549,9 @@ export async function upsertTravelrobotHotelListing(
     pickText(hotel, 'HotelName', 'hotelName', 'Name', 'name') ||
     pickText(nested ?? {}, 'HotelName', 'hotelName', 'Name', 'name') ||
     `Otel ${ref}`
-  const description = pickText(hotel, 'Description', 'description', 'Details', 'details')
+  const description =
+    pickText(hotel, 'Description', 'description', 'Details', 'details') ||
+    pickText(nested ?? {}, 'SummaryText', 'summaryText', 'Description', 'description')
   const city = pickText(nested ?? {}, 'City', 'city', 'CityName', 'cityName', 'Location', 'location')
   const country = pickText(nested ?? {}, 'Country', 'country', 'CountryName', 'countryName', 'CountryCode', 'countryCode')
   const locName =
@@ -673,23 +604,48 @@ export async function upsertTravelrobotHotelListing(
     [core.listingId, JSON.stringify({ catalog: hotel })],
   )
 
-  const galleryUrls = collectHotelImageUrls(hotel)
-  if (galleryUrls.length) {
-    await upsertHotelGallery(pgClient, core.listingId, galleryUrls)
+  let extrasStats = null
+  if (applyExtras) {
+    extrasStats = await applyTravelrobotHotelExtrasFields(pgClient, core.listingId, hotel, currency, {
+      overwriteExtras,
+      localeIds: ctx.localeIds ?? {},
+    })
+    const hasGallery = collectHotelGalleryEntries(hotel).some(
+      (e) => e.url && !isKplusPlaceholderImage(e.url),
+    )
+    if (!hasGallery) await clearListingCover(pgClient, core.listingId)
   } else {
-    await clearListingCover(pgClient, core.listingId)
+    const galleryUrls = collectHotelImageUrls(hotel)
+    if (galleryUrls.length) {
+      await upsertHotelGallery(pgClient, core.listingId, galleryUrls)
+    } else {
+      await clearListingCover(pgClient, core.listingId)
+    }
+    await upsertNightlyPriceRule(
+      pgClient,
+      core.listingId,
+      extractHotelMinNightlyPrice(hotel) ?? nightlyPrice,
+      currency,
+    )
   }
 
-  const roomCount = await upsertTravelrobotHotelRooms(pgClient, core.listingId, hotel)
-  const priceFromRooms = extractHotelMinNightlyPrice(hotel)
-  await upsertNightlyPriceRule(pgClient, core.listingId, priceFromRooms ?? nightlyPrice, currency)
+  let vitrinStats = null
+  if (applyVitrin) {
+    vitrinStats = await applyTravelrobotHotelVitrinFields(pgClient, core.listingId, hotel, {
+      localeTrId: ctx.localeTrId,
+      overwriteFacets: overwriteVitrin,
+      overwriteMeta: overwriteVitrin,
+    })
+  }
 
   return {
     ...core,
     action: core.created ? 'created' : 'updated',
     kind: 'hotel',
-    roomCount,
-    imageCount: galleryUrls.length,
+    roomCount: extrasStats?.rooms ?? 0,
+    imageCount: extrasStats?.gallery ?? collectHotelImageUrls(hotel).length,
+    vitrinStats,
+    extrasStats,
   }
 }
 

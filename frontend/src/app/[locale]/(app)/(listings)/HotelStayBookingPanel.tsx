@@ -252,12 +252,6 @@ export function HotelStayBookingSidebar(props: SharedProps) {
       </div>
 
       <div className="mt-4 space-y-4">
-        <RoomTypeSelect
-          locale={locale}
-          rooms={rooms}
-          value={booking.selectedRoomId}
-          onChange={booking.setSelectedRoomId}
-        />
         <MealPlanSelect
           locale={locale}
           plans={quote.activePlans}
