@@ -215,7 +215,7 @@ export default function HolidayListingFilters({
     return n
   }, [sort, priceFilterActive, beds, bedrooms, bathrooms, subActive, themeActive, selectedAttrKeys.size])
 
-  const pricePanelCount = (priceFilterActive ? 1 : 0) + (beds || bedrooms || bathrooms ? 1 : 0)
+  const pricePanelCount = priceFilterActive ? 1 : 0
 
   const sortShortLabel =
     sort === 'price_asc'
@@ -453,7 +453,7 @@ export default function HolidayListingFilters({
 
   const pricePopover = (
     <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
-      <div className="max-h-[28rem] overflow-y-auto px-5 py-6">
+      <div className="px-5 py-6">
         <p className="text-sm font-medium">{l.byPrice}</p>
         <div className="mt-4">
           <PriceRangeSlider
@@ -475,42 +475,14 @@ export default function HolidayListingFilters({
             }}
           />
         </div>
-        <p className="mt-8 text-sm font-medium">{l.roomsBeds}</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-3">
-          <Field className="block">
-            <Label className="text-xs">{l.beds}</Label>
-            <Input
-              type="number"
-              min={0}
-              className="mt-1"
-              value={beds}
-              onChange={(e) => setQuery({ beds: e.target.value || null })}
-            />
-          </Field>
-          <Field className="block">
-            <Label className="text-xs">{l.bedrooms}</Label>
-            <Input
-              type="number"
-              min={0}
-              className="mt-1"
-              value={bedrooms}
-              onChange={(e) => setQuery({ bedrooms: e.target.value || null })}
-            />
-          </Field>
-          <Field className="block">
-            <Label className="text-xs">{l.bathrooms}</Label>
-            <Input
-              type="number"
-              min={0}
-              className="mt-1"
-              value={bathrooms}
-              onChange={(e) => setQuery({ bathrooms: e.target.value || null })}
-            />
-          </Field>
-        </div>
       </div>
       <div className="flex items-center justify-between rounded-b-2xl border-t border-neutral-100 bg-neutral-50 p-5 dark:border-neutral-800 dark:bg-neutral-900">
-        <CloseButton as={ButtonThird} type="button" className="-mx-3" onClick={() => clearFilters()}>
+        <CloseButton
+          as={ButtonThird}
+          type="button"
+          className="-mx-3"
+          onClick={() => setQuery({ price_min: null, price_max: null })}
+        >
           {l.clear}
         </CloseButton>
         <CloseButton as={ButtonPrimary} type="button">
