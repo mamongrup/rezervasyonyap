@@ -9,6 +9,9 @@ interface ListingPriceProps {
   priceAmountMax?: number
   priceCurrency?: string
   className?: string
+  /** Aktivite kartları — "From " / "'den" gibi min seans fiyatı vurgusu */
+  priceFromPrefix?: string
+  priceFromSuffix?: string
 }
 
 /** Header’daki seçilen para birimi + TCMB kurları ile tutar gösterimi */
@@ -18,9 +21,20 @@ const ListingPrice: FC<ListingPriceProps> = ({
   priceAmountMax,
   priceCurrency,
   className,
+  priceFromPrefix = '',
+  priceFromSuffix = '',
 }) => {
   const text = useConvertedListingPrice(price, priceAmount, priceCurrency, priceAmountMax)
-  return <span className={className}>{text}</span>
+  if (!text?.trim() || text === '—') {
+    return <span className={className}>{text}</span>
+  }
+  return (
+    <span className={className}>
+      {priceFromPrefix}
+      {text}
+      {priceFromSuffix}
+    </span>
+  )
 }
 
 export default ListingPrice

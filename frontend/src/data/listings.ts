@@ -36,6 +36,7 @@ import {
 } from '@/lib/travel-api'
 import type { FilterOption, MealPlanSummary, TListingBase, TListingFerry } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
+import { STAY_RENTAL_PRICE_FILTER_MAX } from '@/lib/stay-rental-price-filter'
 
 /** SectionHost vitrin tipi — konaklama birleştirmesi ve araç / deneyim kısmi host bilgisi */
 export type StayListingHost = {
@@ -428,10 +429,10 @@ export async function getStayListingFilterOptions(): Promise<FilterOption[]> {
     },
     {
       label: 'Price range',
-      name: 'priceRange',
+      name: 'price',
       tabUIType: 'price-range',
       min: 0,
-      max: 1000,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
     {
       label: 'Rooms & Beds',
@@ -623,10 +624,10 @@ export async function getExperienceListingFilterOptions(locale?: string): Promis
     },
     {
       label: filters.priceRangeLabel,
-      name: 'priceRange',
+      name: 'price',
       tabUIType: 'price-range',
       min: 0,
-      max: 1000,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
     {
       label: filters.durationLabel,
@@ -787,10 +788,10 @@ export async function getCarListingFilterOptions(): Promise<FilterOption[]> {
     },
     {
       label: 'Price range',
-      name: 'Price-range',
+      name: 'price',
       tabUIType: 'price-range',
       min: 0,
-      max: 1000,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
     {
       label: 'Fuel type',
@@ -874,10 +875,10 @@ export async function getFlightFilterOptions(): Promise<FilterOption[]> {
   return [
     {
       label: 'Price range',
-      name: 'priceRange',
+      name: 'price',
       tabUIType: 'price-range',
       min: 0,
-      max: 50000,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
   ]
 }

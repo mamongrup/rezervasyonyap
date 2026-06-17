@@ -691,6 +691,8 @@ export default async function ExperienceListingDetailPage({
               initialDate={activityInitialDate}
               initialSessions={initialActivitySessions.sessions}
               fallbackPrice={price}
+              fallbackPriceAmount={(listing as { priceAmount?: number }).priceAmount}
+              fallbackPriceCurrency={(listing as { priceCurrency?: string }).priceCurrency}
               initialMonthsShown={calendarMonthsShown}
             />
           ) : (

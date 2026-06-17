@@ -9,7 +9,7 @@ import {
   dedupeSearchListings,
   publicListingDetailPath,
 } from '@/lib/search-listings-display'
-import { toIntlLocale } from '@/lib/intl-locale'
+import { formatPublicListingCardPrice } from '@/lib/activity-listing-price-display'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { getMessages } from '@/utils/getT'
 import Image from 'next/image'
@@ -38,12 +38,12 @@ function ListingCard({
   href: string
 }) {
   const img = item.featured_image_url ?? item.thumbnail_url
-  const price = item.price_from ? parseFloat(item.price_from) : null
   const m = getMessages(locale)
   const catLabel = categoryLabelForSearch(
     item.category_code,
     m.listing.browseCategory as Record<string, string>,
   )
+  const priceLabel = formatPublicListingCardPrice(item, locale)
 
   const mealBadge =
     item.meal_plan_summary === 'meal_only' ? (
@@ -94,11 +94,8 @@ function ListingCard({
           {item.title}
         </h3>
         <div className="mt-2 flex items-center justify-between">
-          {price ? (
-            <span className="text-sm font-bold">
-              {new Intl.NumberFormat(toIntlLocale(locale), { minimumFractionDigits: 0 }).format(price)}{' '}
-              {item.currency_code}
-            </span>
+          {priceLabel ? (
+            <span className="text-sm font-bold">{priceLabel}</span>
           ) : (
             <span />
           )}

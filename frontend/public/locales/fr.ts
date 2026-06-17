@@ -899,6 +899,8 @@ export const fr: AppMessages = {
       distanceKm: '{km} km',
     },
     cardMeta: {
+      priceFromPrefix: 'À partir de ',
+      priceFromSuffix: '',
       priceUnit: {
         perNight: '/nuit',
         perPerson: '/personne',

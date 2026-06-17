@@ -19,6 +19,7 @@ import {
   computeCheckoutPriceBreakdown,
   resolveListingPrepaymentPercent,
 } from '@/lib/checkout-price-breakdown'
+import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
@@ -29,6 +30,7 @@ import {
   resolveCheckoutUnitPrice,
   parseCheckoutGuestsFromSearchParams,
   parseHotelCheckoutParams,
+  parseActivityCheckoutParams,
 } from '@/lib/stay-checkout-url'
 import {
   readTurnaFlightBookingDraft,
@@ -156,7 +158,12 @@ function CheckoutPageContent() {
     () => parseHotelCheckoutParams(searchParams),
     [searchParams],
   )
+  const activityCheckout = React.useMemo(
+    () => parseActivityCheckoutParams(searchParams),
+    [searchParams],
+  )
   const isHotelCheckout = Boolean(hotelCheckout.hotelRoomId)
+  const isActivityCheckout = Boolean(activityCheckout.sessionId)
   const nights = nightsBetween(stayDates.start, stayDates.end)
 
   const [pending, setPending] = React.useState(false)
@@ -187,7 +194,9 @@ function CheckoutPageContent() {
     setContractBlocking(p.blocking_reason)
   }, [])
 
-  const envPrepaymentPercent = Number(process.env.NEXT_PUBLIC_CHECKOUT_PREPAYMENT_PERCENT ?? 30)
+  const envPrepaymentPercent = Number(
+    process.env.NEXT_PUBLIC_CHECKOUT_PREPAYMENT_PERCENT ?? DEFAULT_LISTING_PREPAYMENT_PERCENT,
+  )
   const listingPrepaymentPercent = resolveListingPrepaymentPercent(
     listingRow?.prepayment_percent,
     envPrepaymentPercent,
@@ -256,8 +265,16 @@ function CheckoutPageContent() {
 
   React.useEffect(() => {
     if (!checkoutListingId) return
+    if (isActivityCheckout) {
+      setStayGuests({
+        guestAdults: activityCheckout.adults,
+        guestChildren: activityCheckout.children,
+        guestInfants: 0,
+      })
+      return
+    }
     setStayGuests(parseCheckoutGuestsFromSearchParams(searchParams))
-  }, [checkoutListingId, searchParams])
+  }, [checkoutListingId, searchParams, isActivityCheckout, activityCheckout.adults, activityCheckout.children])
 
   React.useEffect(() => {
     if (!checkoutListingId) {
@@ -348,18 +365,27 @@ function CheckoutPageContent() {
                 checkout: yolcu360Draft.checkout,
                 car: yolcu360Draft.car,
               })
-            : hotelRoomId
+            : isActivityCheckout && activityCheckout.sessionId
               ? JSON.stringify({
-                  hotel_room_id: hotelRoomId,
-                  ...(hotelRoomName ? { hotel_room_name: hotelRoomName } : {}),
-                  ...(hotelBoardLabel ? { hotel_board_label: hotelBoardLabel } : {}),
-                  ...(mealPlanId ? { meal_plan_id: mealPlanId } : {}),
-                  ...(mealPlanLabel ? { meal_plan_label: mealPlanLabel } : {}),
-                  guest_adults: stayGuests.guestAdults,
-                  guest_children: stayGuests.guestChildren,
-                  guest_infants: stayGuests.guestInfants,
+                  activity_session_id: activityCheckout.sessionId,
+                  activity_adults: activityCheckout.adults,
+                  activity_children: activityCheckout.children,
+                  ...(activityCheckout.startTime
+                    ? { activity_start_time: activityCheckout.startTime }
+                    : {}),
                 })
-              : undefined
+              : hotelRoomId
+                ? JSON.stringify({
+                    hotel_room_id: hotelRoomId,
+                    ...(hotelRoomName ? { hotel_room_name: hotelRoomName } : {}),
+                    ...(hotelBoardLabel ? { hotel_board_label: hotelBoardLabel } : {}),
+                    ...(mealPlanId ? { meal_plan_id: mealPlanId } : {}),
+                    ...(mealPlanLabel ? { meal_plan_label: mealPlanLabel } : {}),
+                    guest_adults: stayGuests.guestAdults,
+                    guest_children: stayGuests.guestChildren,
+                    guest_infants: stayGuests.guestInfants,
+                  })
+                : undefined
         const cart = await createCart(currency)
         await addCartLine(cart.id, {
           listing_id: listingId,
@@ -475,7 +501,11 @@ function CheckoutPageContent() {
                     ? C.errors.hotelRoomUnavailable
                     : code === 'hotel_price_mismatch'
                       ? C.errors.hotelPriceMismatch
-                      : code === 'listing_contract_required'
+                      : code === 'activity_price_mismatch'
+                        ? C.errors.activityPriceMismatch
+                        : code === 'activity_session_not_available'
+                          ? C.errors.activitySessionNotAvailable
+                          : code === 'listing_contract_required'
                     ? C.errors.listingContractRequired
                     : code === 'listing_unavailable_or_currency_mismatch'
                       ? C.errors.currencyMismatch
@@ -829,6 +859,8 @@ function CheckoutPageContent() {
               showAmountSplit={showPaymentOptions}
               isHolidayHome={isHolidayHomeCheckout}
               isHotelCheckout={isHotelCheckout}
+              isActivityCheckout={isActivityCheckout}
+              activitySessionTime={activityCheckout.startTime}
               hotelRoomName={hotelCheckout.hotelRoomName}
               hotelBoardLabel={hotelCheckout.hotelBoardLabel}
               mealPlanLabel={hotelCheckout.mealPlanLabel}

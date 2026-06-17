@@ -9,7 +9,7 @@ alwaysApply: true
 
 1. **Backend** dosyası değişti mi? → `gleam build` (CWD: `backend/`).
 2. **Frontend** dosyası değişti mi? → `ReadLints` ve mümkünse `cd frontend && npx tsc --noEmit`; pre-existing olmayan hataları düzelt.
-3. **SQL** dosyası eklediysen → Manuel çalıştırma komutunu cevaba ekle (`psql ... -f modules/NNN_*.sql`).
+3. **SQL** dosyası eklediysen → **yerelde** `psql ... -f modules/NNN_*.sql` çalıştır; üretim için ayrıca komutu cevaba ekle.
 
 ## Güvenlik denetimi (8 kontrol)
 

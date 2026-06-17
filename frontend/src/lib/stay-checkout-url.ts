@@ -136,6 +136,45 @@ export type HotelCheckoutQueryParams = {
   mealPlanLabel: string | null
 }
 
+/** Aktivite checkout query parametreleri (seans + katılımcı). */
+export type ActivityCheckoutQueryParams = {
+  sessionId: string | null
+  adults: number
+  children: number
+  startTime: string | null
+}
+
+function readActivityCount(
+  searchParams: URLSearchParams,
+  primary: string,
+  fallbackKey: string,
+  defaultValue: number,
+  min = 0,
+): number {
+  const raw = searchParams.get(primary)?.trim() || searchParams.get(fallbackKey)?.trim()
+  if (!raw) return defaultValue
+  const v = parseInt(raw, 10)
+  return Number.isFinite(v) && v >= min ? v : defaultValue
+}
+
+export function parseActivityCheckoutParams(
+  searchParams: URLSearchParams,
+): ActivityCheckoutQueryParams {
+  const sessionId =
+    searchParams.get('activitySessionId')?.trim() ||
+    searchParams.get('activity_session_id')?.trim() ||
+    null
+  return {
+    sessionId,
+    adults: readActivityCount(searchParams, 'activityAdults', 'activity_adults', 1, 1),
+    children: readActivityCount(searchParams, 'activityChildren', 'activity_children', 0),
+    startTime:
+      searchParams.get('activityStartTime')?.trim() ||
+      searchParams.get('activity_start_time')?.trim() ||
+      null,
+  }
+}
+
 export function parseHotelCheckoutParams(searchParams: URLSearchParams): HotelCheckoutQueryParams {
   return {
     hotelRoomId: searchParams.get('hotelRoomId')?.trim() || null,
@@ -157,6 +196,7 @@ export function buildActivityCheckoutUrl(
     children: number
     currencyCode: string
     unitPrice: number
+    startTime?: string
   },
 ): string {
   const u = new URLSearchParams()
@@ -169,11 +209,17 @@ export function buildActivityCheckoutUrl(
     u.set('endDate', checkoutDateYmd(noon))
   }
   u.set('activitySessionId', params.sessionId.trim())
-  u.set('activityAdults', String(Math.max(0, params.adults)))
+  u.set('activityAdults', String(Math.max(1, params.adults)))
   u.set('activityChildren', String(Math.max(0, params.children)))
+  if (params.startTime?.trim()) u.set('activityStartTime', params.startTime.trim())
   u.set('currency', (params.currencyCode || 'TRY').trim().toUpperCase())
   const price = Number.isFinite(params.unitPrice) && params.unitPrice > 0 ? params.unitPrice : 0
   u.set('unitPrice', price.toFixed(2))
+  appendCheckoutGuestParams(u, {
+    guestAdults: Math.max(1, params.adults),
+    guestChildren: Math.max(0, params.children),
+    guestInfants: 0,
+  })
   const sep = checkoutPath.includes('?') ? '&' : '?'
   return `${checkoutPath}${sep}${u.toString()}`
 }

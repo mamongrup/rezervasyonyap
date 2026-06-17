@@ -5,6 +5,7 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import { formatManageApiError } from '@/lib/manage-api-error-tr'
+import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { useManageT } from '@/lib/manage-i18n-context'
 import { useCatalogListingUi, type CatalogListingUi } from '@/hooks/useCatalogListingUi'
 import { getMessages } from '@/utils/getT'
@@ -1052,7 +1053,7 @@ export default function CatalogListingDetailClient({
   const [minStayNights, setMinStayNights] = useState('')
   const [cleaningFee, setCleaningFee] = useState('')
   const [depositAmount, setDepositAmount] = useState('')
-  const [prepaymentPercent, setPrepaymentPercent] = useState('')
+  const [prepaymentPercent, setPrepaymentPercent] = useState(String(DEFAULT_LISTING_PREPAYMENT_PERCENT))
   const [commissionPercent, setCommissionPercent] = useState('')
   const [cancellationPolicy, setCancellationPolicy] = useState('')
   const [licenseRef, setLicenseRef] = useState('')
@@ -1190,7 +1191,7 @@ export default function CatalogListingDetailClient({
         setMinStayNights(basics.min_stay_nights ?? '')
         setCleaningFee(basics.cleaning_fee_amount ?? '')
         setDepositAmount(basics.first_charge_amount ?? '')
-        setPrepaymentPercent(basics.prepayment_percent ?? '')
+        setPrepaymentPercent(basics.prepayment_percent ?? String(DEFAULT_LISTING_PREPAYMENT_PERCENT))
         setCommissionPercent(basics.commission_percent ?? '')
         setCancellationPolicy(basics.cancellation_policy_text ?? '')
         setLicenseRef(basics.ministry_license_ref ?? '')
@@ -1402,7 +1403,8 @@ export default function CatalogListingDetailClient({
           min_stay_nights: minStayNights.trim() || undefined,
           cleaning_fee_amount: cleaningFee.trim() ? cleaningFee.trim() : '__null__',
           first_charge_amount: depositAmount.trim() || undefined,
-          prepayment_percent: prepaymentPercent.trim() || undefined,
+          prepayment_percent:
+            prepaymentPercent.trim() || String(DEFAULT_LISTING_PREPAYMENT_PERCENT),
           commission_percent: commissionPercent.trim() || undefined,
           cancellation_policy_text: cancellationPolicy.trim() || undefined,
           ministry_license_ref: licenseRef.trim() || undefined,
@@ -2058,7 +2060,22 @@ export default function CatalogListingDetailClient({
               </Field>
               <Field className="block">
                 <Label>{ui.listingForm.prepaymentPercent}</Label>
-                <Input className="mt-1" value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)} />
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  className="mt-1"
+                  value={prepaymentPercent}
+                  onChange={(e) => setPrepaymentPercent(e.target.value)}
+                  placeholder={String(DEFAULT_LISTING_PREPAYMENT_PERCENT)}
+                />
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+                  {ui.listingForm.prepaymentPercentHint.replace(
+                    '{percent}',
+                    String(DEFAULT_LISTING_PREPAYMENT_PERCENT),
+                  )}
+                </p>
               </Field>
               <Field className="block">
                 <Label>{ui.listingForm.cleaningFee}</Label>

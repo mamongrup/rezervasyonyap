@@ -898,6 +898,8 @@ export const ru: AppMessages = {
       distanceKm: '{km} км',
     },
     cardMeta: {
+      priceFromPrefix: 'от ',
+      priceFromSuffix: '',
       priceUnit: {
         perNight: '/ночь',
         perPerson: '/чел.',

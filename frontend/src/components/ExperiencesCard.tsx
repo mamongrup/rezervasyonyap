@@ -6,12 +6,15 @@ import GallerySlider from '@/components/GallerySlider'
 import SaleOffBadge from '@/components/SaleOffBadge'
 import StartRating from '@/components/StartRating'
 import { TExperienceListing } from '@/data/listings'
+import { activityPriceFromAffix } from '@/lib/activity-listing-price-display'
 import { Badge } from '@/shared/Badge'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical } from '@/lib/listing-detail-routes'
+import { getMessages } from '@/utils/getT'
 import Link from 'next/link'
-import { FC } from 'react'
+import { useParams } from 'next/navigation'
+import { FC, useMemo } from 'react'
 
 interface Props {
   className?: string
@@ -26,7 +29,10 @@ const ExperiencesCard: FC<Props> = ({
   data,
   ratioClass = 'aspect-w-3 aspect-h-3',
 }) => {
+  const params = useParams()
+  const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
   const vitrinHref = useVitrinHref()
+  const cardMeta = useMemo(() => getMessages(locale).listing.cardMeta, [locale])
   const {
     galleryImgs,
     address,
@@ -43,6 +49,13 @@ const ExperiencesCard: FC<Props> = ({
     id,
     listingVertical,
   } = data as TExperienceListing & { priceAmount?: number; priceCurrency?: string }
+  const fromAffix = useMemo(
+    () =>
+      priceAmount != null || price?.trim()
+        ? activityPriceFromAffix(locale)
+        : null,
+    [locale, price, priceAmount],
+  )
 
   const base = detailPathForVertical(normalizeCatalogVertical(listingVertical) ?? 'activity')
   const listingHref = vitrinHref(`${base}/${listingHandle}`)
@@ -78,11 +91,15 @@ const ExperiencesCard: FC<Props> = ({
               price={price}
               priceAmount={priceAmount}
               priceCurrency={priceCurrency}
+              priceFromPrefix={fromAffix?.prefix}
+              priceFromSuffix={fromAffix?.suffix}
             />
             {size === 'default' && (
               <>
                 <span className="mx-1 text-xs font-normal text-neutral-400 dark:text-neutral-500">/</span>
-                <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">guest</span>
+                <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                  {cardMeta.priceUnit.perPerson.replace(/^\//, '')}
+                </span>
               </>
             )}
           </div>

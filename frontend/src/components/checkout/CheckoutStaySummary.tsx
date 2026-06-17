@@ -31,6 +31,8 @@ type Props = {
   showAmountSplit: boolean
   isHolidayHome: boolean
   isHotelCheckout?: boolean
+  isActivityCheckout?: boolean
+  activitySessionTime?: string | null
   hotelRoomName?: string | null
   hotelBoardLabel?: string | null
   mealPlanLabel?: string | null
@@ -64,6 +66,8 @@ export default function CheckoutStaySummary({
   showAmountSplit,
   isHolidayHome,
   isHotelCheckout = false,
+  isActivityCheckout = false,
+  activitySessionTime,
   hotelRoomName,
   hotelBoardLabel,
   mealPlanLabel,
@@ -100,14 +104,25 @@ export default function CheckoutStaySummary({
   }
   const metaLine = metaParts.join(' · ')
 
-  const dateLine =
-    stayDates.start && stayDates.end
+  const dateLine = isActivityCheckout
+    ? stayDates.start
+      ? [
+          formatCheckoutDate(locale, stayDates.start),
+          activitySessionTime?.trim()
+            ? fmtCheckout(C.activitySessionLine, { time: activitySessionTime.trim().slice(0, 5) })
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
+      : null
+    : stayDates.start && stayDates.end
       ? `${formatCheckoutDate(locale, stayDates.start)} — ${formatCheckoutDate(locale, stayDates.end)}`
       : null
 
   const nightsWord = listingMessages.sidebar.nightsWord
-  const lodgingLine =
-    breakdown.nights > 0
+  const lodgingLine = isActivityCheckout
+    ? C.activityLineLabel
+    : breakdown.nights > 0
       ? `${C.lodgingLine} × ${breakdown.nights} ${nightsWord}`
       : C.lodgingLine
 
@@ -153,7 +168,7 @@ export default function CheckoutStaySummary({
         {dateLine ? (
           <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
             {dateLine}
-            {breakdown.nights > 0 ? (
+            {!isActivityCheckout && breakdown.nights > 0 ? (
               <span className="text-neutral-500">
                 {' '}
                 ({breakdown.nights} {nightsWord})

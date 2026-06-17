@@ -24,9 +24,13 @@ import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/compon
 import clsx from 'clsx'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PriceRangeSlider } from './PriceRangeSlider'
 import type { FilterOption } from '@/types/listing-types'
+import {
+  STAY_RENTAL_PRICE_FILTER_MAX,
+  STAY_RENTAL_PRICE_FILTER_MIN,
+} from '@/lib/stay-rental-price-filter'
 
 type CheckboxFilter = {
   label: string
@@ -100,7 +104,20 @@ const PriceRagePanel = ({
   minLabel?: string
   maxLabel?: string
 }) => {
-  const [rangePrices, setRangePrices] = useState([min, max])
+  const searchParams = useSearchParams()
+  const urlMin = searchParams.get(`${name}_min`)
+  const urlMax = searchParams.get(`${name}_max`)
+  const [rangePrices, setRangePrices] = useState([
+    urlMin ? parseInt(urlMin, 10) || min : min,
+    urlMax ? parseInt(urlMax, 10) || max : max,
+  ])
+
+  useEffect(() => {
+    setRangePrices([
+      urlMin ? parseInt(urlMin, 10) || min : min,
+      urlMax ? parseInt(urlMax, 10) || max : max,
+    ])
+  }, [urlMin, urlMax, min, max])
 
   return (
     <>
@@ -155,12 +172,14 @@ const ListingFilterTabs = ({
   const handleFormSubmit = (formData: FormData) => {
     const next = new URLSearchParams(searchParams.toString())
     const filterNames = new Set<string>()
+    const priceRangeOptions: PriceRangeFilter[] = []
 
     for (const option of filterOptions) {
       filterNames.add(option.name)
       if (option.tabUIType === 'price-range') {
         filterNames.add(`${option.name}_min`)
         filterNames.add(`${option.name}_max`)
+        priceRangeOptions.push(option as PriceRangeFilter)
       }
       if (option.tabUIType === 'select-number') {
         for (const item of option.options) filterNames.add(item.name)
@@ -169,12 +188,29 @@ const ListingFilterTabs = ({
 
     filterNames.forEach((name) => next.delete(name))
     for (const name of filterNames) {
+      if (name.endsWith('_min') || name.endsWith('_max')) continue
       const values = formData
         .getAll(name)
         .map((value) => String(value).trim())
         .filter(Boolean)
       if (values.length > 0) next.set(name, values.join(','))
     }
+
+    for (const option of priceRangeOptions) {
+      const sliderMin = option.min ?? STAY_RENTAL_PRICE_FILTER_MIN
+      const sliderMax = option.max ?? STAY_RENTAL_PRICE_FILTER_MAX
+      const rawMin = String(formData.get(`${option.name}_min`) ?? sliderMin).trim()
+      const rawMax = String(formData.get(`${option.name}_max`) ?? sliderMax).trim()
+      const minN = parseInt(rawMin, 10)
+      const maxN = parseInt(rawMax, 10)
+      if (Number.isFinite(minN) && minN > sliderMin) {
+        next.set(`${option.name}_min`, String(minN))
+      }
+      if (Number.isFinite(maxN) && maxN < sliderMax) {
+        next.set(`${option.name}_max`, String(maxN))
+      }
+    }
+
     next.delete('page')
     const qs = next.toString()
     router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false })
@@ -270,7 +306,7 @@ const ListingFilterTabs = ({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+    <div className="relative z-30 mb-8 flex flex-wrap items-center gap-2 md:gap-3">
       {renderTabAllFilters()}
       <PopoverGroup className="hidden flex-wrap items-center gap-2 md:flex md:gap-3" as="form" onSubmit={handleSubmit}>
         {filterOptions.map((filterOption, index) => {
@@ -308,7 +344,7 @@ const ListingFilterTabs = ({
               <PopoverPanel
                 transition
                 unmount={false}
-                className="absolute -start-5 top-full z-10 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
+                className="absolute -start-5 top-full z-50 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
               >
                 <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
                   <div className="hidden-scrollbar max-h-[28rem] overflow-y-auto px-5 py-6">

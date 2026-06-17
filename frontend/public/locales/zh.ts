@@ -881,6 +881,8 @@ export const zh: AppMessages = {
       distanceKm: '{km}公里',
     },
     cardMeta: {
+      priceFromPrefix: '起 ',
+      priceFromSuffix: '',
       priceUnit: {
         perNight: '/晚',
         perPerson: '/人',

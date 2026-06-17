@@ -15,6 +15,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
+import { activityPriceFromAffix, isActivityListingCategory } from '@/lib/activity-listing-price-display'
 
 interface ListingCardProps {
   className?: string
@@ -138,6 +139,12 @@ const ListingCard: FC<ListingCardProps> = ({
     ''
   const puKey = linkToPriceUnit[config.linkBase]
   const priceUnit = puKey ? cardMeta.priceUnit[puKey] : (config.priceUnit ?? '')
+  const isActivityCard =
+    config.linkBase === '/aktivite' || isActivityListingCategory(undefined, data.listingVertical)
+  const activityFromAffix =
+    isActivityCard && (priceAmount != null || price?.trim())
+      ? activityPriceFromAffix(locale)
+      : null
   const extraInfo = config.extraInfo ? config.extraInfo(data, locale) : null
   const metaLines = config.metaLines ? config.metaLines(data, locale).filter(Boolean) : []
   const isHolidayHomeCard =
@@ -245,6 +252,8 @@ const ListingCard: FC<ListingCardProps> = ({
                 priceAmount={priceAmount}
                 priceAmountMax={priceAmountMax}
                 priceCurrency={priceCurrency}
+                priceFromPrefix={activityFromAffix?.prefix}
+                priceFromSuffix={activityFromAffix?.suffix}
               />
               {priceUnit && size === 'default' && (
                 <span className="text-sm font-normal text-neutral-500 dark:text-neutral-400">

@@ -24,7 +24,7 @@ import {
 } from '@/lib/holiday-listing-hero-preview'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { isStayRentalCategory } from '@/lib/stay-rental-categories'
-import { YACHT_CHARTER_FAQ_SITE_KEY } from '@/lib/yacht-property-type-options'
+import { DEFAULT_LISTING_PREPAYMENT_PERCENT } from '@/lib/listing-prepayment'
 import { managePublicDetailPathForVertical } from '@/lib/stay-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getStoredAuthProfile, getStoredAuthToken } from '@/lib/auth-storage'
@@ -788,7 +788,7 @@ export default function CatalogNewListingClient({
   const [shortStayFee, setShortStayFee] = useState('')
   const [shortStayMinNights, setShortStayMinNights] = useState('')
   const [depositAmount, setDepositAmount] = useState('')
-  const [prepaymentPercent, setPrepaymentPercent] = useState('')
+  const [prepaymentPercent, setPrepaymentPercent] = useState(String(DEFAULT_LISTING_PREPAYMENT_PERCENT))
   const [commissionPercent, setCommissionPercent] = useState('')
   const [confirmDeadlineNormal, setConfirmDeadlineNormal] = useState('24')
   const [confirmDeadlineHigh, setConfirmDeadlineHigh] = useState('2')
@@ -1381,7 +1381,7 @@ export default function CatalogNewListingClient({
           setMinStayNights(basics.min_stay_nights ?? '')
           setCleaningFee(basics.cleaning_fee_amount ?? '')
           setDepositAmount(basics.first_charge_amount ?? '')
-          setPrepaymentPercent(basics.prepayment_percent ?? '')
+          setPrepaymentPercent(basics.prepayment_percent ?? String(DEFAULT_LISTING_PREPAYMENT_PERCENT))
           setCommissionPercent(basics.commission_percent ?? '')
           setCancellationPolicyText(basics.cancellation_policy_text ?? '')
           setMinistryLicenseRef(basics.ministry_license_ref ?? '')
@@ -2757,7 +2757,9 @@ export default function CatalogNewListingClient({
       else if (editListingId) basicsBody.cleaning_fee_amount = '__null__'
       const deposit = basicsDecimalField(depositAmount)
       if (deposit) basicsBody.first_charge_amount = deposit
-      const prepay = basicsDecimalField(prepaymentPercent)
+      const prepay = basicsDecimalField(
+        prepaymentPercent.trim() || String(DEFAULT_LISTING_PREPAYMENT_PERCENT),
+      )
       if (prepay) basicsBody.prepayment_percent = prepay
       const comm = basicsDecimalField(commissionPercent)
       if (comm) basicsBody.commission_percent = comm
@@ -5029,9 +5031,12 @@ export default function CatalogNewListingClient({
                       <Input
                         type="number" min="0" max="100" step="1" className="mt-1"
                         value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)}
-                        placeholder="30"
+                        placeholder={String(DEFAULT_LISTING_PREPAYMENT_PERCENT)}
                       />
-                      <HintText>Komisyon oranından küçük olamaz (ikisi de girildiyse). Boşsa varsayılan uygulanır.</HintText>
+                      <HintText>
+                        Standart %{DEFAULT_LISTING_PREPAYMENT_PERCENT}. İlan sahibine göre değiştirebilirsiniz; komisyon
+                        oranından küçük olamaz (ikisi de girildiyse).
+                      </HintText>
                     </Field>
                   </Grid3>
 
@@ -5462,9 +5467,12 @@ export default function CatalogNewListingClient({
                       <Input
                         type="number" min="0" max="100" step="1" className="mt-1"
                         value={prepaymentPercent} onChange={(e) => setPrepaymentPercent(e.target.value)}
-                        placeholder="30"
+                        placeholder={String(DEFAULT_LISTING_PREPAYMENT_PERCENT)}
                       />
-                      <HintText>Komisyon oranından küçük olamaz (ikisi de girildiyse). Boşsa varsayılan uygulanır.</HintText>
+                      <HintText>
+                        Standart %{DEFAULT_LISTING_PREPAYMENT_PERCENT}. İlan sahibine göre değiştirebilirsiniz; komisyon
+                        oranından küçük olamaz (ikisi de girildiyse).
+                      </HintText>
                     </Field>
                   </Grid3>
 

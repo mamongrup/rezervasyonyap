@@ -96,6 +96,7 @@ export default function HolidayListingFilters({
         if (val == null || val === '') sp.delete(key)
         else sp.set(key, val)
       })
+      sp.delete('page')
       const q = sp.toString()
       router.push(q ? `${pathname}?${q}` : pathname, { scroll: false })
     },
@@ -192,18 +193,29 @@ export default function HolidayListingFilters({
     pathHandle !== 'all' &&
     subcategories.some((s) => s.slug === pathHandle)
 
+  const priceFilterActive = useMemo(() => {
+    const minN = priceMin.trim() ? parseInt(priceMin, 10) : STAY_RENTAL_PRICE_FILTER_MIN
+    const maxN = priceMax.trim()
+      ? defaultStayRentalPriceFilterMax(priceMax)
+      : STAY_RENTAL_PRICE_FILTER_MAX
+    return (
+      (Number.isFinite(minN) && minN > STAY_RENTAL_PRICE_FILTER_MIN) ||
+      (Number.isFinite(maxN) && maxN < STAY_RENTAL_PRICE_FILTER_MAX)
+    )
+  }, [priceMin, priceMax])
+
   const activeCount = useMemo(() => {
     let n = 0
     if (sort) n += 1
-    if (priceMin || priceMax) n += 1
+    if (priceFilterActive) n += 1
     if (beds || bedrooms || bathrooms) n += 1
     if (themeActive) n += 1
     else if (subActive) n += 1
     if (selectedAttrKeys.size > 0) n += 1
     return n
-  }, [sort, priceMin, priceMax, beds, bedrooms, bathrooms, subActive, themeActive, selectedAttrKeys.size])
+  }, [sort, priceFilterActive, beds, bedrooms, bathrooms, subActive, themeActive, selectedAttrKeys.size])
 
-  const pricePanelCount = (priceMin || priceMax ? 1 : 0) + (beds || bedrooms || bathrooms ? 1 : 0)
+  const pricePanelCount = (priceFilterActive ? 1 : 0) + (beds || bedrooms || bathrooms ? 1 : 0)
 
   const sortShortLabel =
     sort === 'price_asc'

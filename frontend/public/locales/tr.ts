@@ -1221,6 +1221,8 @@ export const tr = {
       distanceKm: '{km} km',
     },
     cardMeta: {
+      priceFromPrefix: '',
+      priceFromSuffix: "'den",
       priceUnit: {
         perNight: '/gece',
         perPerson: '/kişi',
@@ -1840,6 +1842,8 @@ export const tr = {
       cleaningFee: 'Temizlik ücreti',
       depositAmount: 'Depozito / ilk tahsilat',
       prepaymentPercent: 'Ön ödeme (%)',
+      prepaymentPercentHint:
+        'Standart %{percent}. İlan sahibine göre değiştirebilirsiniz; komisyon oranından küçük olamaz (ikisi de girildiyse).',
       commissionPercent: 'Komisyon (%)',
       licenseRef: 'Lisans referansı',
       externalListingRef: 'İlan referans kodu',

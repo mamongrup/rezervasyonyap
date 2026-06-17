@@ -102,6 +102,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   const sk = pickHotelSearchKey(searchPayload, found)
   if (!sk) return merged
 
+  await log(`  GetHotelRoomPrices ${code}…`)
   const pricesPayload = await getHotelRooms(cfg, tokenCode, {
     productCode: code,
     hotelCode: code,

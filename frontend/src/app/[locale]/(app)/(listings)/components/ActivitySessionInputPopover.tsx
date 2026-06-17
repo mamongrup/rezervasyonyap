@@ -1,6 +1,7 @@
 'use client'
 
 import type { ActivitySessionRow } from '@/lib/travel-api'
+import { toIntlLocale } from '@/lib/intl-locale'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
@@ -8,6 +9,19 @@ import { Clock01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import clsx from 'clsx'
 import { FC, useMemo } from 'react'
+
+function sessionPrice(session: ActivitySessionRow, locale: string) {
+  const raw = session.adult_price
+  if (!raw?.trim()) return null
+  const n = Number(String(raw).replace(',', '.'))
+  if (!Number.isFinite(n) || n <= 0) return null
+  const currency = (session.currency_code || 'TRY').trim().toUpperCase()
+  try {
+    return new Intl.NumberFormat(toIntlLocale(locale), { style: 'currency', currency }).format(n)
+  } catch {
+    return `${n} ${currency}`
+  }
+}
 
 function sessionLabel(session: ActivitySessionRow, locale: string) {
   const ab = getMessages(locale).listing.activityBooking
@@ -83,6 +97,11 @@ const ActivitySessionInputPopover: FC<Props> = ({
                     )}
                   >
                     <span className="font-semibold">{sessionLabel(session, locale ?? 'tr')}</span>
+                    {sessionPrice(session, locale ?? 'tr') ? (
+                      <span className="ml-2 text-xs font-medium text-neutral-600 dark:text-neutral-300">
+                        {sessionPrice(session, locale ?? 'tr')}
+                      </span>
+                    ) : null}
                     {session.capacity ? (
                       <span className="ml-2 text-xs text-neutral-400">
                         {ab.capacity} {session.capacity}

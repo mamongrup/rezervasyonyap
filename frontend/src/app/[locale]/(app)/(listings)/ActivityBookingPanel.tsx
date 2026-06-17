@@ -5,7 +5,7 @@ import ActivitySessionInputPopover from '@/app/[locale]/(app)/(listings)/compone
 import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/SingleDateInputPopover'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { formatLocalYmd } from '@/lib/date-format-local'
-import { buildListingCheckoutUrl } from '@/lib/stay-checkout-url'
+import { buildActivityCheckoutUrl } from '@/lib/stay-checkout-url'
 import {
   listPublicActivitySessions,
   quotePublicActivity,
@@ -13,6 +13,8 @@ import {
   type ActivitySessionRow,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
+import ListingPrice from '@/components/ListingPrice'
+import { activityPriceFromAffix } from '@/lib/activity-listing-price-display'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
@@ -47,6 +49,8 @@ export default function ActivityBookingPanel({
   initialSessions,
   initialDate,
   fallbackPrice,
+  fallbackPriceAmount,
+  fallbackPriceCurrency,
   initialMonthsShown = 1,
 }: {
   listingId: string
@@ -54,6 +58,8 @@ export default function ActivityBookingPanel({
   initialSessions: ActivitySessionRow[]
   initialDate?: string
   fallbackPrice?: string
+  fallbackPriceAmount?: number
+  fallbackPriceCurrency?: string
   initialMonthsShown?: 1 | 2
 }) {
   const m = getMessages(locale)
@@ -135,6 +141,9 @@ export default function ActivityBookingPanel({
   const grandTotal = parseMoney(quote?.line_total)
 
   const headerPrice = fallbackPrice || ab.priceBySelection
+  const activityFromAffix = activityPriceFromAffix(locale)
+  const showFromPrice =
+    fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
 
   const canCheckout =
     Boolean(listingId?.trim()) &&
@@ -145,25 +154,17 @@ export default function ActivityBookingPanel({
     Boolean(date)
 
   function goCheckout() {
-    if (!canCheckout || !quote) return
-    const travel = parseLocalYmd(date) ?? new Date(`${date}T12:00:00`)
-    if (Number.isNaN(travel.getTime())) return
+    if (!canCheckout || !quote || !date.trim()) return
     router.push(
-      buildListingCheckoutUrl(vitrinHref('/checkout'), {
+      buildActivityCheckoutUrl(vitrinHref('/checkout'), {
         listingId,
-        startDate: travel,
-        endDate: travel,
+        date,
+        sessionId,
+        adults,
+        children,
         currencyCode: quote.currency_code || currency,
         unitPrice: grandTotal,
-        guests: {
-          guestAdults: adults,
-          guestChildren: children,
-          guestInfants: 0,
-        },
-        extra: {
-          activity_session_id: sessionId,
-          activity_date: date,
-        },
+        startTime: quote.start_time,
       }),
     )
   }
@@ -172,7 +173,18 @@ export default function ActivityBookingPanel({
     <div className="listingSection__wrap sm:shadow-xl">
       <div>
         <span className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100">
-          {headerPrice}
+          {showFromPrice ? (
+            <ListingPrice
+              className="text-3xl font-semibold"
+              price={fallbackPrice}
+              priceAmount={fallbackPriceAmount}
+              priceCurrency={fallbackPriceCurrency || currency}
+              priceFromPrefix={activityFromAffix.prefix}
+              priceFromSuffix={activityFromAffix.suffix}
+            />
+          ) : (
+            headerPrice
+          )}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
             {td.pricePerPerson}
           </span>

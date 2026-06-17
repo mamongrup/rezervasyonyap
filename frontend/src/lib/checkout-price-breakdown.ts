@@ -47,12 +47,7 @@ export function computeCheckoutPriceBreakdown(input: {
   }
 }
 
-export function resolveListingPrepaymentPercent(
-  listingPercent: string | null | undefined,
-  envFallback: number,
-): number {
-  const raw = listingPercent?.trim()
-  if (!raw) return envFallback
-  const n = parseFloat(raw.replace(',', '.'))
-  return Number.isFinite(n) && n > 0 && n <= 100 ? n : envFallback
-}
+export {
+  DEFAULT_LISTING_PREPAYMENT_PERCENT,
+  resolveListingPrepaymentPercent,
+} from '@/lib/listing-prepayment'

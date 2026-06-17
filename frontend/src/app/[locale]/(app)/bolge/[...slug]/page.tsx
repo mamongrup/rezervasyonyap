@@ -34,7 +34,8 @@ import { getStayListingFilterOptions } from '@/data/listings'
 import { heroCategoryInlineLabel } from '@/lib/hero-category-inline-labels'
 import { loadHomepageHeroPack } from '@/lib/homepage-hero-pack'
 import { normalizeHrefForLocale, prefixLocale } from '@/lib/i18n-config'
-import { mapPublicListingItemToListingBase } from '@/lib/listings-fetcher'
+import { mapPublicListingItemToListingBase, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { activeCatalogPriceFilterParams } from '@/lib/stay-rental-price-filter'
 import { resolveGalleryBundleForSlug } from '@/lib/hero-gallery-slots'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { regionPublicHref } from '@/lib/region-public-path'
@@ -336,6 +337,12 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
     : (['', '', ''] as [string, string, string])
   const [g0] = galleryUrls
 
+  const filterQuery = parseSearchParamsFromUrl(sp)
+  const { priceMin, priceMax } = activeCatalogPriceFilterParams(
+    filterQuery.price_min,
+    filterQuery.price_max,
+  )
+
   const [listingsResult, subdivisionSlider, pbModules] = await Promise.all([
     searchPublicListings({
       location: regionName,
@@ -343,6 +350,22 @@ export default async function RegionDetailPage({ params, searchParams }: Props) 
       locale,
       categoryCode,
       page: pageNum > 1 ? pageNum : undefined,
+      priceMin,
+      priceMax,
+      sort: filterQuery.sort?.trim() || undefined,
+      theme: filterQuery.theme?.trim() || undefined,
+      attrs: filterQuery.attrs?.trim() || filterQuery.amenities?.trim() || undefined,
+      bedsMin: filterQuery.beds?.trim() || undefined,
+      bedroomsMin: filterQuery.bedrooms?.trim() || undefined,
+      bathroomsMin: filterQuery.bathrooms?.trim() || undefined,
+      hotelType: filterQuery.hotel_type?.trim() || undefined,
+      hotelTheme: filterQuery.hotel_theme?.trim() || undefined,
+      hotelAccommodation: filterQuery.hotel_accommodation?.trim() || undefined,
+      hotelStars: filterQuery.hotel_stars?.trim() || undefined,
+      tourTravelType: filterQuery.tour_travel_type?.trim() || undefined,
+      tourAccommodation: filterQuery.tour_accommodation?.trim() || undefined,
+      tourDuration: filterQuery.tour_duration?.trim() || undefined,
+      tourDeparture: filterQuery.tour_departure?.trim() || undefined,
     }),
     loadBolgeSubdivisionSlider(locale, slug, slugPath, pageData),
     getRegionDetailPageBuilderConfig(locale),

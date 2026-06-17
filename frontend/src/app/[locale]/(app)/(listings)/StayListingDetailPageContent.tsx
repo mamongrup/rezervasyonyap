@@ -161,6 +161,7 @@ import {
 import { pickLocalized } from '@/lib/localized-text'
 import { safeTrim, safeTrimOrNull } from '@/lib/safe-string'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
+import { resolveListingPrepaymentPercent } from '@/lib/listing-prepayment'
 
 function formatPrepaymentPercentForDisplay(raw: string): string {
   const n = parseFloat(raw.replace(',', '.'))
@@ -486,13 +487,11 @@ export default async function StayListingDetailPageContent({
   const messages = getMessages(locale)
   const dp = messages.listing.detailPage
   const listingCurrencyUpper = (priceCurrency ?? 'TRY').trim().toUpperCase()
-  const prepaymentRaw = safeTrimOrNull(listing.prepaymentPercent)
-  const prepaymentNoteText = prepaymentRaw
-    ? messages.listing.detailHeader.prepaymentNote.replace(
-        '{percent}',
-        formatPrepaymentPercentForDisplay(prepaymentRaw),
-      )
-    : null
+  const prepaymentDisplayPercent = resolveListingPrepaymentPercent(listing.prepaymentPercent)
+  const prepaymentNoteText = messages.listing.detailHeader.prepaymentNote.replace(
+    '{percent}',
+    formatPrepaymentPercentForDisplay(String(prepaymentDisplayPercent)),
+  )
   /** API `meal_plan_summary === 'both'` — ücret tablosunda yemekli / yemeksiz sütunları */
   const dualMealPricing = isStayRental && listing.mealPlanSummary === 'both'
   let holidayHomePriceRules: ListingPriceRuleRow[] = []

@@ -8,6 +8,7 @@ import {
 } from '@/lib/tour-filter-options'
 import type { FilterOption } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
+import { STAY_RENTAL_PRICE_FILTER_MAX } from '@/lib/stay-rental-price-filter'
 
 type CodeLabel = { code: string; label: string }
 
@@ -74,7 +75,7 @@ export async function getHotelCategoryFilterOptions(locale: string): Promise<Fil
       name: 'price',
       tabUIType: 'price-range',
       min: 0,
-      max: 50000,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
   ].filter((option): option is FilterOption => option != null)
 }
@@ -110,7 +111,7 @@ export async function getTourCategoryFilterOptions(locale: string): Promise<Filt
       name: 'price',
       tabUIType: 'price-range',
       min: 0,
-      max: 50000,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
     },
   ].filter((option): option is FilterOption => option != null)
 }

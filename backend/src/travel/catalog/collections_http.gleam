@@ -486,6 +486,21 @@ fn normalize_listing_search_q(raw: String) -> String {
 const listing_search_match_sql: String =
   "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
 
+fn min_count_filter_param(raw: String) -> pog.Value {
+  case string.trim(raw) {
+    "" -> pog.null()
+    s ->
+      case int.parse(s) {
+        Ok(n) ->
+          case n > 0 {
+            True -> pog.text(int.to_string(n))
+            False -> pog.null()
+          }
+        Error(_) -> pog.null()
+      }
+  }
+}
+
 /// GET /api/v1/catalog/public/listings?q=&category_code=&location=&limit=&locale=&listing_ids=id1,id2
 pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   search_listings_impl(req, ctx, None)
@@ -666,7 +681,7 @@ fn search_listings_impl(
     |> string.lowercase
   let tour_departure_param = case tour_departure_raw == "" {
     True -> pog.null()
-    False -> pog.text("%" <> tour_departure_raw <> "%")
+    False -> pog.text(tour_departure_raw)
   }
 
   // $23: tatil evi ilan tipi (villa | apart | daire | bungalov)
@@ -680,14 +695,38 @@ fn search_listings_impl(
     False -> pog.text(property_type_raw)
   }
 
+  // $25–$27: tatil evi / yat — yatak, oda, banyo (minimum)
+  let beds_raw =
+    list.key_find(qs, "beds")
+    |> result.unwrap("")
+  let bedrooms_raw =
+    list.key_find(qs, "bedrooms")
+    |> result.unwrap("")
+  let bathrooms_raw =
+    list.key_find(qs, "bathrooms")
+    |> result.unwrap("")
+  let beds_param = min_count_filter_param(beds_raw)
+  let bedrooms_param = min_count_filter_param(bedrooms_raw)
+  let bathrooms_param = min_count_filter_param(bathrooms_raw)
+
   let sort_raw =
     list.key_find(qs, "sort")
     |> result.unwrap("")
     |> string.trim
     |> string.lowercase
+  let vitrin_price_sql =
+    "coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, activity_price_row.activity_vitrin_price, l.first_charge_amount) "
   // Varsayılan: `created_at` — yorum/puanı olmayan yeni ilanlar sayfa sonuna itilmesin.
   // Eski davranış (önce yüksek puan): `?sort=recommended` veya `sort=rating`.
   let order_sql = case sort_raw {
+    "price_asc" ->
+      "order by "
+        <> vitrin_price_sql
+        <> "asc nulls last, l.created_at desc "
+    "price_desc" ->
+      "order by "
+        <> vitrin_price_sql
+        <> "desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
     _ ->
@@ -900,21 +939,34 @@ fn search_listings_impl(
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
-    <> "and ($24::text is null or pc.code != 'tour' or ("
-    <> "  lower(coalesce("
+    <> "and ($24::text is null or pc.code != 'tour' or exists ( "
+    <> "  select 1 from unnest(string_to_array(trim($24), ',')::text[]) as dep(v) "
+    <> "  where lower(coalesce("
     <> "    nullif(trim(tour_attr.value_json->'data'->>'departure_city'), ''), "
     <> "    nullif(trim(tour_attr.value_json->>'departure_city'), ''), "
     <> "    nullif(trim((regexp_match(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', ''), '\\(([A-Za-z]{3})\\)'))[1]), ''), "
-    <> "    '')) ilike $24"
-    <> "  or lower(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', '')) ilike $24"
+    <> "    '')) ilike '%' || trim(dep.v) || '%' "
+    <> "  or lower(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', '')) ilike '%' || trim(dep.v) || '%' "
+    <> ")) "
+    <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
+    <> "  nullif(trim(lm.meta->>'bed_count'), '') is not null "
+    <> "  and nullif(trim(lm.meta->>'bed_count'), '')::int >= nullif($25::text, '')::int "
+    <> ")) "
+    <> "and ($26::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
+    <> "  nullif(trim(lm.meta->>'room_count'), '') is not null "
+    <> "  and nullif(trim(lm.meta->>'room_count'), '')::int >= nullif($26::text, '')::int "
+    <> ")) "
+    <> "and ($27::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
+    <> "  nullif(trim(lm.meta->>'bath_count'), '') is not null "
+    <> "  and nullif(trim(lm.meta->>'bath_count'), '')::int >= nullif($27::text, '')::int "
     <> ")) "
 
   let sql_core = sql <> order_sql
-  // Count subquery must reference $5, $21, $23 and $24 so PostgreSQL can infer parameter types.
+  // Count subquery must reference $5, $21, $23–$27 so PostgreSQL can infer parameter types.
   let count_sql =
     "select count(*)::int from ("
     <> sql_core
-    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep) __pg_params"
+    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep, $25::text as __beds, $26::text as __br, $27::text as __ba) __pg_params"
   let sql_paged = sql_core <> " offset $21 limit $5"
   let int_col0 = {
     use n <- decode.field(0, decode.int)
@@ -952,6 +1004,9 @@ fn search_listings_impl(
     |> pog.parameter(agency_param)
     |> pog.parameter(property_type_param)
     |> pog.parameter(tour_departure_param)
+    |> pog.parameter(beds_param)
+    |> pog.parameter(bedrooms_param)
+    |> pog.parameter(bathrooms_param)
   }
 
   case

@@ -483,7 +483,9 @@ export default async function CategoryPageTemplate({
           </Suspense>
           </div>
         ) : (
-          <ListingFilterTabs filterOptions={filterOptions} locale={locale} />
+          <div className="relative z-30 mb-8">
+            <ListingFilterTabs filterOptions={filterOptions} locale={locale} />
+          </div>
         ))}
 
       <div className="mt-8 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-2 md:gap-x-8 md:gap-y-12 lg:mt-10 lg:grid-cols-3 xl:grid-cols-4">

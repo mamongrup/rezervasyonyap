@@ -35,6 +35,10 @@ import type { TListingBase } from '@/types/listing-types'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 import { normalizeStayRentalAttrsParam } from '@/lib/stay-rental-filter-attrs'
+import {
+  activeCatalogPriceFilterParams,
+  resolveCatalogPriceQueryKeys,
+} from '@/lib/stay-rental-price-filter'
 import { applyLastMinuteSearchQuery } from '@/lib/last-minute-availability'
 import {
   filterEconomicListings,
@@ -95,6 +99,8 @@ export interface SearchQuery {
   bathrooms?: string
   /** virgülle: pool,kitchen,wifi,... */
   attrs?: string
+  /** Deneyim şablonu — API `attrs` ile aynı mantık */
+  amenities?: string
   /** Tatil evi tema kodları (virgülle) */
   theme?: string
   /** Otel filtreleri */
@@ -106,6 +112,7 @@ export interface SearchQuery {
   tour_travel_type?: string
   tour_accommodation?: string
   tour_duration?: string
+  tour_departure?: string
   /** Vitrin «Tümünü gör» — lüks / ekonomik tam liste */
   vitrin_tab?: string
 }
@@ -127,7 +134,7 @@ export function parseSearchParamsFromUrl(
     if (Array.isArray(v)) return v[0]
     return v
   }
-  return {
+  const base: SearchQuery = {
     q: g('q'),
     location: g('location'),
     checkin: g('checkin') ?? g('date'),
@@ -148,6 +155,7 @@ export function parseSearchParamsFromUrl(
     bedrooms: g('bedrooms'),
     bathrooms: g('bathrooms'),
     attrs: g('attrs'),
+    amenities: g('amenities'),
     theme: g('theme'),
     hotel_type: g('hotel_type'),
     hotel_theme: g('hotel_theme'),
@@ -156,8 +164,18 @@ export function parseSearchParamsFromUrl(
     tour_travel_type: g('tour_travel_type'),
     tour_accommodation: g('tour_accommodation'),
     tour_duration: g('tour_duration'),
+    tour_departure: g('tour_departure'),
     vitrin_tab: g('vitrin_tab'),
   }
+  const priceKeys = resolveCatalogPriceQueryKeys({
+    price_min: g('price_min'),
+    price_max: g('price_max'),
+    priceRange_min: g('priceRange_min'),
+    priceRange_max: g('priceRange_max'),
+    'Price-range_min': g('Price-range_min'),
+    'Price-range_max': g('Price-range_max'),
+  })
+  return { ...base, ...priceKeys }
 }
 
 function parseMetaInt(v: string | null | undefined): number | undefined {
@@ -443,74 +461,36 @@ export function mapPublicListingItemToListingBase(
     maxGuests: parseMetaInt(item.max_guests ?? undefined),
     bedrooms: parseMetaInt(metaRoomCountForDisplay(item)),
     bathrooms: parseMetaInt(item.bath_count ?? undefined),
+    beds:
+      parseMetaInt(item.bed_count ?? undefined) ??
+      parseMetaInt(metaRoomCountForDisplay(item)),
     themeCodes: themeCodes.length ? themeCodes : undefined,
     ...(cpt ? { cancellationPolicyText: cpt } : {}),
     ...(opts?.detailSearchQuery ? { detailSearchQuery: opts.detailSearchQuery } : {}),
   } as TListingBase
 }
 
-function listingNumericPrice(l: TListingBase): number {
-  if (l.priceAmount != null && Number.isFinite(l.priceAmount)) return l.priceAmount
-  const raw = l.price?.replace(/[^\d.,]/g, '').replace(',', '.') ?? ''
-  const n = parseFloat(raw)
-  return Number.isFinite(n) ? n : 0
+function resolveListingAttrsParam(
+  categoryCode: string | undefined,
+  query: SearchQuery,
+): string | undefined {
+  if (categoryCode && isStayRentalCategory(categoryCode)) {
+    return normalizeStayRentalAttrsParam(query.attrs) || undefined
+  }
+  const parts = [query.attrs, query.amenities]
+    .flatMap((v) => (v ?? '').split(','))
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const unique = [...new Set(parts)]
+  return unique.length > 0 ? unique.join(',') : undefined
 }
 
-/** Konaklama kiralama URL filtreleri — API yanıtı sonrası istemci tarafı sıralama/fiyat */
+/** Konaklama kiralama URL filtreleri — API tarafında uygulanır; yalnızca geriye dönük uyumluluk. */
 export function applyStayRentalListingQueryFilters(
   listings: TListingBase[],
-  query: SearchQuery,
+  _query: SearchQuery,
 ): TListingBase[] {
-  let out = listings.slice()
-  const min = query.price_min?.trim() ? parseFloat(query.price_min) : NaN
-  const max = query.price_max?.trim() ? parseFloat(query.price_max) : NaN
-  if (Number.isFinite(min)) out = out.filter((l) => listingNumericPrice(l) >= min)
-  if (Number.isFinite(max)) out = out.filter((l) => listingNumericPrice(l) <= max)
-
-  const nb = query.beds?.trim() ? parseInt(query.beds, 10) : NaN
-  if (Number.isFinite(nb) && nb > 0) {
-    out = out.filter((l) => {
-      const v = (l as { beds?: number }).beds
-      return v != null && v >= nb
-    })
-  }
-  const nbr = query.bedrooms?.trim() ? parseInt(query.bedrooms, 10) : NaN
-  if (Number.isFinite(nbr) && nbr > 0) {
-    out = out.filter((l) => {
-      const v = (l as { bedrooms?: number }).bedrooms
-      return v != null && v >= nbr
-    })
-  }
-  const nba = query.bathrooms?.trim() ? parseInt(query.bathrooms, 10) : NaN
-  if (Number.isFinite(nba) && nba > 0) {
-    out = out.filter((l) => {
-      const v = (l as { bathrooms?: number }).bathrooms
-      return v != null && v >= nba
-    })
-  }
-
-  // `attrs` — API `listing_attributes` üzerinden filtreler (`searchPublicListings`); istemci tekrar filtrelemez.
-
-  const themeNeedle =
-    query.theme
-      ?.split(',')
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean) ?? []
-  if (themeNeedle.length > 0) {
-    out = out.filter((l) => {
-      const codes = (l as { themeCodes?: string[] }).themeCodes ?? []
-      const set = new Set(codes.map((c) => c.toLowerCase()))
-      return themeNeedle.some((c) => set.has(c))
-    })
-  }
-
-  const sort = query.sort?.trim()
-  if (sort === 'price_asc') {
-    out.sort((a, b) => listingNumericPrice(a) - listingNumericPrice(b))
-  } else if (sort === 'price_desc') {
-    out.sort((a, b) => listingNumericPrice(b) - listingNumericPrice(a))
-  }
-  return out
+  return listings
 }
 
 /** @deprecated `applyStayRentalListingQueryFilters` */
@@ -670,6 +650,11 @@ export async function fetchCategoryListings(
   const apiLocation =
     effectiveQuery.location?.trim() || regionAsLocation || undefined
 
+  const { priceMin: apiPriceMin, priceMax: apiPriceMax } = activeCatalogPriceFilterParams(
+    effectiveQuery.price_min,
+    effectiveQuery.price_max,
+  )
+
   const apiResult = await searchPublicListings(
     {
       categoryCode,
@@ -690,9 +675,12 @@ export async function fetchCategoryListings(
       drop_off: effectiveQuery.drop_off,
       theme: effectiveQuery.theme,
       sort: effectiveQuery.sort?.trim() || undefined,
-      attrs: normalizeStayRentalAttrsParam(effectiveQuery.attrs) || undefined,
-      priceMin: effectiveQuery.price_min?.trim() || undefined,
-      priceMax: effectiveQuery.price_max?.trim() || undefined,
+      attrs: resolveListingAttrsParam(categoryCode, effectiveQuery),
+      priceMin: apiPriceMin,
+      priceMax: apiPriceMax,
+      bedsMin: effectiveQuery.beds?.trim() || undefined,
+      bedroomsMin: effectiveQuery.bedrooms?.trim() || undefined,
+      bathroomsMin: effectiveQuery.bathrooms?.trim() || undefined,
       hotelType: effectiveQuery.hotel_type?.trim() || undefined,
       hotelTheme: effectiveQuery.hotel_theme?.trim() || undefined,
       hotelAccommodation: effectiveQuery.hotel_accommodation?.trim() || undefined,
@@ -700,6 +688,7 @@ export async function fetchCategoryListings(
       tourTravelType: effectiveQuery.tour_travel_type?.trim() || undefined,
       tourAccommodation: effectiveQuery.tour_accommodation?.trim() || undefined,
       tourDuration: effectiveQuery.tour_duration?.trim() || undefined,
+      tourDeparture: effectiveQuery.tour_departure?.trim() || undefined,
     },
     { cache: 'no-store' },
   )

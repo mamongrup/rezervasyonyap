@@ -17,6 +17,7 @@ export const PriceRangeSlider = ({
   inputMaxName = 'price_max',
   inputMinName = 'price_min',
   showTitle = true,
+  step,
 }: {
   min: number
   max: number
@@ -29,11 +30,13 @@ export const PriceRangeSlider = ({
   inputMaxName?: string
   inputMinName?: string
   showTitle?: boolean
+  step?: number
 }) => {
   const [rangePrices, setRangePrices] = useState<number[]>([defaultValue?.[0] ?? min, defaultValue?.[1] ?? max])
   const [minValue, maxValue] = rangePrices
   const ctx = usePreferredCurrencyContext()
   const currencyCode = ctx?.preferredCode ?? 'TRY'
+  const rangeStep = step ?? (max >= 100_000 ? 5_000 : max >= 10_000 ? 500 : 1)
 
   const updateRange = (nextMin: number, nextMax: number) => {
     const normalized = [Math.max(min, Math.min(nextMin, nextMax)), Math.min(max, Math.max(nextMin, nextMax))]
@@ -58,7 +61,7 @@ export const PriceRangeSlider = ({
             type="range"
             min={min}
             max={max}
-            step={1}
+            step={rangeStep}
             value={minValue}
             onChange={(e) => updateRange(Number(e.target.value), maxValue)}
             aria-label="Minimum price"
@@ -68,7 +71,7 @@ export const PriceRangeSlider = ({
             type="range"
             min={min}
             max={max}
-            step={1}
+            step={rangeStep}
             value={maxValue}
             onChange={(e) => updateRange(minValue, Number(e.target.value))}
             aria-label="Maximum price"

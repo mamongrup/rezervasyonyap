@@ -9597,6 +9597,10 @@ export interface PublicListingSearchParams {
   /** Ortak fiyat filtresi */
   priceMin?: string
   priceMax?: string
+  /** Tatil evi / yat — minimum yatak, oda, banyo sayısı */
+  bedsMin?: string
+  bedroomsMin?: string
+  bathroomsMin?: string
   /** Otel kategori filtreleri */
   hotelType?: string
   hotelTheme?: string
@@ -9606,6 +9610,8 @@ export interface PublicListingSearchParams {
   tourTravelType?: string
   tourAccommodation?: string
   tourDuration?: string
+  /** Tur — kalkış şehri / havalimanı (virgülle çoklu) */
+  tourDeparture?: string
   /** Tatil evi ilan tipi: villa | apart | daire | bungalov */
   propertyType?: string
 }
@@ -9746,6 +9752,9 @@ export async function searchPublicListings(
   if (params.attrs?.trim())        u.set('attrs', params.attrs.trim())
   if (params.priceMin?.trim())     u.set('price_min', params.priceMin.trim())
   if (params.priceMax?.trim())     u.set('price_max', params.priceMax.trim())
+  if (params.bedsMin?.trim())      u.set('beds', params.bedsMin.trim())
+  if (params.bedroomsMin?.trim())  u.set('bedrooms', params.bedroomsMin.trim())
+  if (params.bathroomsMin?.trim()) u.set('bathrooms', params.bathroomsMin.trim())
   if (params.hotelType?.trim())    u.set('hotel_type', params.hotelType.trim())
   if (params.hotelTheme?.trim())   u.set('hotel_theme', params.hotelTheme.trim())
   if (params.hotelAccommodation?.trim()) u.set('hotel_accommodation', params.hotelAccommodation.trim())
@@ -9753,6 +9762,7 @@ export async function searchPublicListings(
   if (params.tourTravelType?.trim()) u.set('tour_travel_type', params.tourTravelType.trim())
   if (params.tourAccommodation?.trim()) u.set('tour_accommodation', params.tourAccommodation.trim())
   if (params.tourDuration?.trim()) u.set('tour_duration', params.tourDuration.trim())
+  if (params.tourDeparture?.trim()) u.set('tour_departure', params.tourDeparture.trim())
   if (params.propertyType?.trim()) u.set('property_type', params.propertyType.trim())
 
   try {

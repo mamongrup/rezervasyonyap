@@ -37,10 +37,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+import { formatPublicListingCardPrice } from '@/lib/activity-listing-price-display'
+
 // ─── Listing Card ─────────────────────────────────────────────────────────────
-function ListingCard({ item }: { item: PublicListingItem }) {
+function ListingCard({ item, locale = 'tr' }: { item: PublicListingItem; locale?: string }) {
   const img = item.featured_image_url ?? item.thumbnail_url
-  const price = item.price_from ? parseFloat(item.price_from) : null
+  const priceLabel = formatPublicListingCardPrice(item, locale)
 
   return (
     <Link
@@ -86,13 +88,10 @@ function ListingCard({ item }: { item: PublicListingItem }) {
           {item.title}
         </h3>
         <div className="mt-auto flex items-end justify-between pt-2 border-t border-neutral-100 dark:border-neutral-800">
-          {price ? (
+          {priceLabel ? (
             <div>
               <span className="text-xs text-neutral-400">Başlangıç</span>
-              <div className="font-bold text-neutral-900 dark:text-white">
-                {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 0 }).format(price)}{' '}
-                <span className="text-sm font-normal">{item.currency_code}</span>
-              </div>
+              <div className="font-bold text-neutral-900 dark:text-white">{priceLabel}</div>
             </div>
           ) : (
             <div className="text-sm text-neutral-400">Fiyat sorunuz</div>
@@ -251,7 +250,7 @@ export default async function CollectionPage({ params }: Props) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {listings.map((item) => (
-              <ListingCard key={item.id} item={item} />
+              <ListingCard key={item.id} item={item} locale={locale} />
             ))}
           </div>
         )}

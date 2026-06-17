@@ -137,9 +137,9 @@ fn date_range_invalid_for_listing(
   start: String,
   end: String,
 ) -> Bool {
-  // Uçak: tek yön — kalkış günü = bitiş günü geçerli
+  // Uçak / aktivite: tek gün — başlangıç = bitiş geçerli
   case listing_category_code(db, listing_id) {
-    Ok("flight") ->
+    Ok("flight") | Ok("activity") ->
       case string.compare(start, end) {
         order.Gt -> True
         _ -> False
@@ -156,6 +156,115 @@ fn meta_hotel_room_id(meta_json: String) -> Option(String) {
         s -> Some(s)
       }
     Error(_) -> None
+  }
+}
+
+fn meta_activity_session_id(meta_json: String) -> Option(String) {
+  case meta_json_string_field(meta_json, "activity_session_id") {
+    Some(id) -> Some(id)
+    None -> meta_json_string_field(meta_json, "activitySessionId")
+  }
+}
+
+fn meta_activity_int_field(meta_json: String, key: String) -> Option(Int) {
+  case json.parse(meta_json, decode.at([key], decode.int)) {
+    Ok(n) -> Some(n)
+    Error(_) ->
+      case meta_json_string_field(meta_json, key) {
+        None -> None
+        Some(raw) ->
+          case int.parse(string.trim(raw)) {
+            Ok(n) -> Some(n)
+            Error(_) -> None
+          }
+      }
+  }
+}
+
+fn meta_activity_participants(meta_json: String) -> #(Int, Int) {
+  let adults =
+    case
+      meta_activity_int_field(meta_json, "activity_adults"),
+      meta_activity_int_field(meta_json, "activityAdults")
+    {
+      Some(n), _ | _, Some(n) -> n
+      _, _ -> 1
+    }
+  let children =
+    case
+      meta_activity_int_field(meta_json, "activity_children"),
+      meta_activity_int_field(meta_json, "activityChildren")
+    {
+      Some(n), _ | _, Some(n) -> n
+      _, _ -> 0
+    }
+  #(adults, children)
+}
+
+/// Aktivite seans satırı — yetişkin/çocuk birim fiyat × adet toplamı.
+fn activity_expected_line_total(
+  db: pog.Connection,
+  listing_id: String,
+  session_id: String,
+  travel_date: calendar.Date,
+  adults: Int,
+  children: Int,
+) -> Result(Float, String) {
+  case
+    pog.query(
+      "select ((coalesce(ad.price_amount, 0) * $4::int) + (coalesce(ch.price_amount, 0) * $5::int))::text "
+        <> "from listing_activity_sessions s "
+        <> "left join listing_activity_session_fares ad on ad.session_id = s.id and ad.fare_type = 'adult' "
+        <> "left join listing_activity_session_fares ch on ch.session_id = s.id and ch.fare_type = 'child' "
+        <> "where s.id = $1::uuid and s.listing_id = $2::uuid and s.is_active = true "
+        <> "and $3::date >= s.valid_from and $3::date <= s.valid_to limit 1",
+    )
+    |> pog.parameter(pog.text(session_id))
+    |> pog.parameter(pog.text(listing_id))
+    |> pog.parameter(pog.calendar_date(travel_date))
+    |> pog.parameter(pog.int(adults))
+    |> pog.parameter(pog.int(children))
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(db)
+  {
+    Error(_) -> Error("activity_price_query_failed")
+    Ok(ret) ->
+      case ret.rows {
+        [total_raw] ->
+          case parse_price_text(total_raw) {
+            Ok(n) -> Ok(n)
+            Error(_) -> Error("activity_price_parse_failed")
+          }
+        _ -> Error("activity_session_not_available")
+      }
+  }
+}
+
+fn activity_line_price_mismatch(
+  db: pog.Connection,
+  listing_id: String,
+  session_id: String,
+  travel_date: calendar.Date,
+  client_price: String,
+  adults: Int,
+  children: Int,
+) -> Bool {
+  case parse_price_text(client_price) {
+    Error(_) -> True
+    Ok(client_total) ->
+      case
+        activity_expected_line_total(
+          db,
+          listing_id,
+          session_id,
+          travel_date,
+          adults,
+          children,
+        )
+      {
+        Error(_) -> True
+        Ok(expected) -> float.absolute_value(client_total -. expected) >. 0.05
+      }
   }
 }
 
@@ -520,34 +629,29 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                               case gate {
                                                 Error(e) -> Error(e)
                                                 Ok(Nil) ->
-                                                  case meta_hotel_room_id(meta_sql) {
-                                                    Some(room_id) ->
-                                                      case
-                                                        hotel_room_stay_unavailable(
-                                                          conn,
-                                                          listing_id,
-                                                          room_id,
-                                                          start_date,
-                                                          end_date,
-                                                          quantity,
-                                                        )
-                                                      {
+                                                  case meta_activity_session_id(meta_sql) {
+                                                    Some(session_id) -> {
+                                                      let #(
+                                                        adults,
+                                                        children,
+                                                      ) = meta_activity_participants(meta_sql)
+                                                      case adults + children <= 0 {
                                                         True ->
-                                                          Error("hotel_room_unavailable")
+                                                          Error("invalid_participant_count")
                                                         False ->
                                                           case
-                                                            hotel_line_price_mismatch(
+                                                            activity_line_price_mismatch(
                                                               conn,
                                                               listing_id,
-                                                              room_id,
+                                                              session_id,
                                                               start_date,
-                                                              end_date,
                                                               price_trim,
-                                                              meta_sql,
+                                                              adults,
+                                                              children,
                                                             )
                                                           {
                                                             True ->
-                                                              Error("hotel_price_mismatch")
+                                                              Error("activity_price_mismatch")
                                                             False ->
                                                               insert_cart_line_row(
                                                                 conn,
@@ -561,17 +665,61 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                               )
                                                           }
                                                       }
+                                                    }
                                                     None ->
-                                                      insert_cart_line_row(
-                                                        conn,
-                                                        cart_id,
-                                                        listing_id,
-                                                        quantity,
-                                                        start_date,
-                                                        end_date,
-                                                        price_trim,
-                                                        meta_sql,
-                                                      )
+                                                      case meta_hotel_room_id(meta_sql) {
+                                                        Some(room_id) ->
+                                                          case
+                                                            hotel_room_stay_unavailable(
+                                                              conn,
+                                                              listing_id,
+                                                              room_id,
+                                                              start_date,
+                                                              end_date,
+                                                              quantity,
+                                                            )
+                                                          {
+                                                            True ->
+                                                              Error("hotel_room_unavailable")
+                                                            False ->
+                                                              case
+                                                                hotel_line_price_mismatch(
+                                                                  conn,
+                                                                  listing_id,
+                                                                  room_id,
+                                                                  start_date,
+                                                                  end_date,
+                                                                  price_trim,
+                                                                  meta_sql,
+                                                                )
+                                                              {
+                                                                True ->
+                                                                  Error("hotel_price_mismatch")
+                                                                False ->
+                                                                  insert_cart_line_row(
+                                                                    conn,
+                                                                    cart_id,
+                                                                    listing_id,
+                                                                    quantity,
+                                                                    start_date,
+                                                                    end_date,
+                                                                    price_trim,
+                                                                    meta_sql,
+                                                                  )
+                                                              }
+                                                          }
+                                                        None ->
+                                                          insert_cart_line_row(
+                                                            conn,
+                                                            cart_id,
+                                                            listing_id,
+                                                            quantity,
+                                                            start_date,
+                                                            end_date,
+                                                            price_trim,
+                                                            meta_sql,
+                                                          )
+                                                      }
                                                   }
                                               }
                                             }

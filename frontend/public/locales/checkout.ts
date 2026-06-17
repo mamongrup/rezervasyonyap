@@ -88,6 +88,8 @@ const checkoutBase = {
     bookingFailed: '',
     hotelRoomUnavailable: '',
     hotelPriceMismatch: '',
+    activityPriceMismatch: '',
+    activitySessionNotAvailable: '',
     turnaBookFailed: '',
   },
   payDone: {
@@ -178,6 +180,8 @@ const checkoutBase = {
   sectionPayment: '',
   sectionConfirmationNote: '',
   lodgingLine: '',
+  activityLineLabel: '',
+  activitySessionLine: '',
   poolHeatingFee: '',
   extraCharges: '',
   hotelRoomLabel: '',
@@ -366,6 +370,10 @@ export const checkoutEn: CheckoutMessages = {
       'The selected room type is not available for these dates. Choose different dates or another room.',
     hotelPriceMismatch:
       'The price has changed. Please restart checkout from the hotel page.',
+    activityPriceMismatch:
+      'The activity price has changed. Please restart checkout from the activity page.',
+    activitySessionNotAvailable:
+      'The selected session is no longer available for this date.',
     turnaBookFailed:
       'The flight could not be confirmed with Turna. Your hold was created — please contact support.',
   },
@@ -462,6 +470,8 @@ export const checkoutEn: CheckoutMessages = {
   sectionPayment: 'Payment',
   sectionConfirmationNote: 'Confirmation summary is sent after payment.',
   lodgingLine: 'Accommodation',
+  activityLineLabel: 'Activity total',
+  activitySessionLine: 'Session {time}',
   hotelRoomLabel: 'Room type',
   hotelBoardLabel: 'Board',
   mealPlanLine: 'Meal plan',
@@ -651,6 +661,10 @@ export const checkoutTr: CheckoutMessages = {
       'Seçilen oda tipi bu tarihlerde müsait değil. Farklı tarih veya oda tipi seçin.',
     hotelPriceMismatch:
       'Fiyat güncellendi. Lütfen otel sayfasından checkout\'a yeniden girin.',
+    activityPriceMismatch:
+      'Aktivite fiyatı güncellendi. Lütfen aktivite sayfasından checkout\'a yeniden girin.',
+    activitySessionNotAvailable:
+      'Seçilen seans bu tarih için artık müsait değil.',
     turnaBookFailed:
       'Uçuş rezervasyonu Turna tarafında tamamlanamadı. Yerel kayıt oluştu; destek ile iletişime geçin.',
   },
@@ -695,6 +709,8 @@ export const checkoutTr: CheckoutMessages = {
   sectionPayment: 'Ödeme bilgisi',
   sectionConfirmationNote: 'Onay özeti ödeme sonrası bu sayfada ve bildirimlerle iletilir.',
   lodgingLine: 'Konaklama',
+  activityLineLabel: 'Aktivite tutarı',
+  activitySessionLine: 'Seans {time}',
   hotelRoomLabel: 'Oda tipi',
   hotelBoardLabel: 'Pansiyon',
   mealPlanLine: 'Yemek planı',
@@ -890,6 +906,8 @@ export const checkoutDe: CheckoutMessages = {
   sectionInvoice: 'Rechnungsdaten',
   sectionPayment: 'Zahlung',
   lodgingLine: 'Unterkunft',
+  activityLineLabel: 'Aktivität gesamt',
+  activitySessionLine: 'Termin {time}',
   guestsLine: '{adults} Erwachsene, {children} Kinder, {infants} Kleinkinder',
   poolHeatingFee: 'Poolheizung',
   extraCharges: 'Zusatzgebühren',
@@ -984,6 +1002,8 @@ export const checkoutRu: CheckoutMessages = {
   sectionInvoice: 'Платёжные данные',
   sectionPayment: 'Оплата',
   lodgingLine: 'Проживание',
+  activityLineLabel: 'Сумма за активность',
+  activitySessionLine: 'Сеанс {time}',
   guestsLine: '{adults} взрослых, {children} детей, {infants} младенцев',
   poolHeatingFee: 'Подогрев бассейна',
   extraCharges: 'Дополнительные сборы',
@@ -1077,6 +1097,8 @@ export const checkoutZh: CheckoutMessages = {
   sectionInvoice: '发票信息',
   sectionPayment: '付款',
   lodgingLine: '住宿',
+  activityLineLabel: '活动总价',
+  activitySessionLine: '场次 {time}',
   guestsLine: '{adults} 位成人，{children} 位儿童，{infants} 位婴儿',
   poolHeatingFee: '泳池加热',
   extraCharges: '额外费用',
@@ -1169,6 +1191,8 @@ export const checkoutFr: CheckoutMessages = {
   sectionInvoice: 'Facturation',
   sectionPayment: 'Paiement',
   lodgingLine: 'Hébergement',
+  activityLineLabel: 'Total activité',
+  activitySessionLine: 'Créneau {time}',
   guestsLine: '{adults} adultes, {children} enfants, {infants} bébés',
   poolHeatingFee: 'Chauffage de la piscine',
   extraCharges: 'Frais supplémentaires',

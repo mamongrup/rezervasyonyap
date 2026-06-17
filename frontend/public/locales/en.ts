@@ -1769,6 +1769,8 @@ export const en = {
       distanceKm: '{km} km',
     },
     cardMeta: {
+      priceFromPrefix: 'From ',
+      priceFromSuffix: '',
       priceUnit: {
         perNight: '/night',
         perPerson: '/person',
@@ -1897,6 +1899,8 @@ export const en = {
       cleaningFee: 'Cleaning fee',
       depositAmount: 'Deposit / upfront charge',
       prepaymentPercent: 'Prepayment (%)',
+      prepaymentPercentHint:
+        'Default is {percent}%. Set a different rate per listing for checkout partial payment; cannot be below commission when both are set.',
       commissionPercent: 'Commission (%)',
       licenseRef: 'License reference',
       externalListingRef: 'Listing reference code',
