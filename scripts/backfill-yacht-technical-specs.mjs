@@ -89,11 +89,17 @@ async function resolveWebLayer(row, currentExtra) {
   if (NO_WEB) return {}
   const missing = missingCoreTechnicalFields(currentExtra)
   if (!FORCE && missing.length <= 3) return {}
-  const hit = await enrichFromYatreyonu(row.title, { slug: row.slug })
-  if (!hit?.detail) return {}
-  const fromWeb = technicalSpecsFromYatreyonuDetail(hit.detail)
-  const fromWebDesc = parseDescriptionSpecsBlock(hit.detail.description)
-  return mergeTechnicalSpecs(fromWeb, fromWebDesc)
+  try {
+    const hit = await enrichFromYatreyonu(row.title, { slug: row.slug })
+    if (!hit?.detail) return {}
+    const fromWeb = technicalSpecsFromYatreyonuDetail(hit.detail)
+    const fromWebDesc = parseDescriptionSpecsBlock(hit.detail.description)
+    return mergeTechnicalSpecs(fromWeb, fromWebDesc)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`  [web] ${row.slug}: ${msg}`)
+    return {}
+  }
 }
 
 async function main() {
@@ -134,65 +140,72 @@ async function main() {
 
   let updated = 0
   let skipped = 0
+  let errors = 0
 
   for (const row of targets) {
     process.stdout.write(`  ${row.slug} … `)
-    const prevExtra = row.yacht_extra || {}
-    const yachtRow = { length_meters: row.length_meters, cabin_count: row.cabin_count }
-    const localLayer = layerFromListingRow(row, yachtRow)
-    const baransenLayer = await resolveBaransenLayer(row)
-    const draft = buildYachtExtraFromTechnical(
-      mergeTechnicalSpecs(prevExtra, localLayer, baransenLayer),
-      prevExtra,
-    )
-    const webLayer = await resolveWebLayer(row, draft)
-    const next = buildYachtExtraFromTechnical(
-      mergeTechnicalSpecs(localLayer, baransenLayer, webLayer),
-      prevExtra,
-    )
-
-    const before = countCoreTechnicalFields(prevExtra)
-    const after = countCoreTechnicalFields(next)
-    const changed = JSON.stringify(prevExtra) !== JSON.stringify(next)
-
-    if (!changed && after <= before) {
-      console.log(`değişiklik yok (${after} alan)`)
-      skipped += 1
-      continue
-    }
-
-    if (DRY_RUN) {
-      console.log(`[dry] ${before} → ${after} alan, eksik: ${missingCoreTechnicalFields(next).join(', ') || '—'}`)
-      continue
-    }
-
-    await upsertVerticalYachtExtra(pg, row.listing_id, mergeTechnicalSpecs(localLayer, baransenLayer, webLayer))
-
-    if (next.length_meters && !row.length_meters) {
-      await pg.query(
-        `INSERT INTO listing_yacht_details (listing_id, length_meters, theme_codes, rule_codes, ical_managed)
-         VALUES ($1::uuid, $2::numeric, '{}', '{}', false)
-         ON CONFLICT (listing_id) DO UPDATE SET
-           length_meters = COALESCE(listing_yacht_details.length_meters, EXCLUDED.length_meters)`,
-        [row.listing_id, next.length_meters],
+    try {
+      const prevExtra = row.yacht_extra || {}
+      const yachtRow = { length_meters: row.length_meters, cabin_count: row.cabin_count }
+      const localLayer = layerFromListingRow(row, yachtRow)
+      const baransenLayer = await resolveBaransenLayer(row)
+      const draft = buildYachtExtraFromTechnical(
+        mergeTechnicalSpecs(prevExtra, localLayer, baransenLayer),
+        prevExtra,
       )
-    }
-    if (next.cabin_count && !row.cabin_count) {
-      await pg.query(
-        `INSERT INTO listing_yacht_details (listing_id, cabin_count, theme_codes, rule_codes, ical_managed)
-         VALUES ($1::uuid, $2::smallint, '{}', '{}', false)
-         ON CONFLICT (listing_id) DO UPDATE SET
-           cabin_count = COALESCE(listing_yacht_details.cabin_count, EXCLUDED.cabin_count)`,
-        [row.listing_id, next.cabin_count],
+      const webLayer = await resolveWebLayer(row, draft)
+      const next = buildYachtExtraFromTechnical(
+        mergeTechnicalSpecs(localLayer, baransenLayer, webLayer),
+        prevExtra,
       )
-    }
 
-    console.log(`güncellendi (${before} → ${after})`)
-    updated += 1
+      const before = countCoreTechnicalFields(prevExtra)
+      const after = countCoreTechnicalFields(next)
+      const changed = JSON.stringify(prevExtra) !== JSON.stringify(next)
+
+      if (!changed && after <= before) {
+        console.log(`değişiklik yok (${after} alan)`)
+        skipped += 1
+        continue
+      }
+
+      if (DRY_RUN) {
+        console.log(`[dry] ${before} → ${after} alan, eksik: ${missingCoreTechnicalFields(next).join(', ') || '—'}`)
+        continue
+      }
+
+      await upsertVerticalYachtExtra(pg, row.listing_id, mergeTechnicalSpecs(localLayer, baransenLayer, webLayer))
+
+      if (next.length_meters && !row.length_meters) {
+        await pg.query(
+          `INSERT INTO listing_yacht_details (listing_id, length_meters, theme_codes, rule_codes, ical_managed)
+           VALUES ($1::uuid, $2::numeric, '{}', '{}', false)
+           ON CONFLICT (listing_id) DO UPDATE SET
+             length_meters = COALESCE(listing_yacht_details.length_meters, EXCLUDED.length_meters)`,
+          [row.listing_id, next.length_meters],
+        )
+      }
+      if (next.cabin_count && !row.cabin_count) {
+        await pg.query(
+          `INSERT INTO listing_yacht_details (listing_id, cabin_count, theme_codes, rule_codes, ical_managed)
+           VALUES ($1::uuid, $2::smallint, '{}', '{}', false)
+           ON CONFLICT (listing_id) DO UPDATE SET
+             cabin_count = COALESCE(listing_yacht_details.cabin_count, EXCLUDED.cabin_count)`,
+          [row.listing_id, next.cabin_count],
+        )
+      }
+
+      console.log(`güncellendi (${before} → ${after})`)
+      updated += 1
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.log(`HATA: ${msg}`)
+      errors += 1
+    }
   }
 
   await pg.end()
-  console.log(`Bitti — güncellenen: ${updated}, atlanan: ${skipped}`)
+  console.log(`Bitti — güncellenen: ${updated}, atlanan: ${skipped}, hata: ${errors}`)
 }
 
 main().catch((err) => {

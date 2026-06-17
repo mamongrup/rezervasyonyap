@@ -215,7 +215,14 @@ export async function findYatreyonuMatch(queryTitle, { minScore = 55, slug = '',
   let lastCandidateCount = 0
 
   for (const q of queries) {
-    const html = await fetchText(searchUrl(q))
+    let html
+    try {
+      html = await fetchText(searchUrl(q))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.warn(`  [yatreyonu] arama atlandı (${q}): ${msg}`)
+      continue
+    }
     const candidates = parseSearchResults(html)
     if (!candidates.length) continue
     lastCandidateCount = candidates.length
@@ -238,8 +245,14 @@ export async function findYatreyonuMatch(queryTitle, { minScore = 55, slug = '',
 
 export async function fetchYatreyonuDetail(url) {
   await sleep(UA_DELAY_MS)
-  const html = await fetchText(url)
-  return parseYatDetail(html, url)
+  try {
+    const html = await fetchText(url)
+    return parseYatDetail(html, url)
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(`  [yatreyonu] detay atlandı: ${msg}`)
+    return null
+  }
 }
 
 export async function enrichFromYatreyonu(queryTitle, { minScore = 55, slug = '', boatName = '' } = {}) {
