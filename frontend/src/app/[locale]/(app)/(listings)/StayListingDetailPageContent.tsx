@@ -457,6 +457,19 @@ export default async function StayListingDetailPageContent({
     realHotelRooms = applyHotelRoomDemoContent(handle, realHotelRooms)
   }
 
+  // Oda API'si resim döndürmüyorsa (Travelrobot) → hotel galerisinden ilk görsel
+  const hotelFallbackImages: string[] =
+    vertical === 'hotel' && listing.galleryImgs?.length
+      ? listing.galleryImgs.filter((u: string) => u?.trim()).slice(0, 5)
+      : []
+  if (hotelFallbackImages.length > 0 && realHotelRooms.length > 0) {
+    realHotelRooms = realHotelRooms.map((room) =>
+      room.image || (room.images && room.images.length > 0)
+        ? room
+        : { ...room, image: hotelFallbackImages[0], images: hotelFallbackImages },
+    )
+  }
+
   const {
     address,
     bathrooms,
