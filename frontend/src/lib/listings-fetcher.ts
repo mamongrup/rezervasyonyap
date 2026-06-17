@@ -6,6 +6,7 @@
  * Tüm kategori sayfaları bu helper'ı kullanmalı.
  */
 
+import { enrichFlightListingFromCatalogItem, dedupeFlightListingsByRoute } from '@/lib/flight-catalog-vitrin'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { holidayHomeRulePriceRangeEnabled } from '@/lib/holiday-home-rule-price-range'
@@ -420,11 +421,12 @@ export function mapPublicListingItemToListingBase(
           ...(arrival ? { toPort: arrival } : {}),
         } as TListingBase
       }
-      return {
+      const flightBase = {
         ...base,
         ...(departure ? { departure } : {}),
         ...(arrival ? { arrival } : {}),
       } as TListingBase
+      return enrichFlightListingFromCatalogItem(flightBase, item)
     }
 
     return {
@@ -715,6 +717,9 @@ export async function fetchCategoryListings(
       detailSearchQuery,
     }
     let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
+    if (categoryCode === 'flight') {
+      rows = dedupeFlightListingsByRoute(rows)
+    }
     if (isStayRentalCategory(categoryCode)) {
       rows = applyStayRentalListingQueryFilters(rows, effectiveQuery)
     }

@@ -8,6 +8,11 @@ import { extractHotelMinNightlyPrice, collectHotelGalleryEntries } from './trave
 
 export { extractHotelMinNightlyPrice } from './travelrobot-hotel-extras.mjs'
 
+import {
+  extractKplusFlightVitrin,
+  mergeListingMetaFlightFields,
+} from './flight-vitrin-meta.mjs'
+
 const PROVIDER = 'travelrobot'
 /** Sandbox/API anomali fiyatlarını vitrine taşıma (ör. 3.5B TRY). */
 const MAX_SANE_NIGHTLY_TRY = 500_000
@@ -107,7 +112,7 @@ export function hotelRef(hotel) {
   ).trim()
 }
 
-function normalizeFlightRow(raw) {
+export function normalizeFlightRow(raw) {
   const legs = raw?.Legs ?? raw?.legs ?? []
   let origin = ''
   let dest = ''
@@ -307,7 +312,7 @@ async function upsertHotelGallery(pgClient, listingId, urls) {
   }
 }
 
-function extractFlightMinPrice(flight) {
+export function extractFlightMinPrice(flight) {
   const fares = flight?.Fares ?? flight?.fares ?? []
   let min = null
   for (const fare of fares) {
@@ -704,6 +709,12 @@ export async function upsertTravelrobotFlightListing(
 
   const flightPrice = extractFlightMinPrice(flight)
   await upsertNightlyPriceRule(pgClient, core.listingId, flightPrice, 'TRY')
+
+  await mergeListingMetaFlightFields(
+    pgClient,
+    core.listingId,
+    extractKplusFlightVitrin(normalizeFlightRow(flight)),
+  )
 
   return { ...core, action: core.created ? 'created' : 'updated', kind: 'flight', price: flightPrice }
 }

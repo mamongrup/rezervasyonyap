@@ -155,6 +155,11 @@ fn pub_listing_row() -> decode.Decoder(
     String,
     String,
     String,
+    String,
+    String,
+    String,
+    String,
+    String,
   ),
 ) {
   use id <- decode.field(0, decode.string)
@@ -203,6 +208,11 @@ fn pub_listing_row() -> decode.Decoder(
   use tour_transport_type <- decode.field(43, decode.string)
   use tour_visa_required <- decode.field(44, decode.string)
   use tour_departure_place <- decode.field(45, decode.string)
+  use external_provider_code <- decode.field(46, decode.string)
+  use flight_airline_code <- decode.field(47, decode.string)
+  use flight_airline_name <- decode.field(48, decode.string)
+  use flight_stop_count <- decode.field(49, decode.string)
+  use flight_duration <- decode.field(50, decode.string)
   decode.success(#(
     id,
     slug,
@@ -250,6 +260,11 @@ fn pub_listing_row() -> decode.Decoder(
     tour_transport_type,
     tour_visa_required,
     tour_departure_place,
+    external_provider_code,
+    flight_airline_code,
+    flight_airline_name,
+    flight_stop_count,
+    flight_duration,
   ))
 }
 
@@ -289,6 +304,11 @@ fn gallery_urls_json(raw: String) -> json.Json {
 
 fn pub_listing_json(
   row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
     String,
     String,
     String,
@@ -384,6 +404,11 @@ fn pub_listing_json(
     tour_transport_type,
     tour_visa_required,
     tour_departure_place,
+    external_provider_code,
+    flight_airline_code,
+    flight_airline_name,
+    flight_stop_count,
+    flight_duration,
   ) = row
   let fij = case fi == "" { True -> json.null()  False -> json.string(fi) }
   let pj = case price == "" { True -> json.null()  False -> json.string(price) }
@@ -451,6 +476,11 @@ fn pub_listing_json(
     #("tour_transport_type", json_opt_str(tour_transport_type)),
     #("tour_visa_required", json_opt_str(tour_visa_required)),
     #("tour_departure_place", json_opt_str(tour_departure_place)),
+    #("external_provider_code", json_opt_str(external_provider_code)),
+    #("flight_airline_code", json_opt_str(flight_airline_code)),
+    #("flight_airline_name", json_opt_str(flight_airline_name)),
+    #("flight_stop_count", json_opt_str(flight_stop_count)),
+    #("flight_duration", json_opt_str(flight_duration)),
   ])
 }
 
@@ -843,6 +873,11 @@ fn search_listings_impl(
     <> "  limit 1)), ''), nullif(trim(tour_det.program_days_json->'transport'->>'departureTransportDetail'), ''), "
     <> "nullif(trim(tour_attr.value_json->'data'->>'departure_city'), ''), nullif(trim(tour_attr.value_json->>'departure_city'), ''), "
     <> "nullif(trim((regexp_match(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', ''), '\\(([A-Z]{3})\\)'))[1]), ''), '') "
+    <> ", coalesce(nullif(trim(l.external_provider_code), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'flight_airline_code'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'flight_airline_name'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'flight_stop_count'), ''), '') "
+    <> ", coalesce(nullif(trim(lm.meta->>'flight_duration'), ''), '') "
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "

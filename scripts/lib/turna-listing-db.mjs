@@ -1,5 +1,10 @@
 const PROVIDER = 'turna'
 
+import {
+  extractTurnaFlightVitrin,
+  mergeListingMetaFlightFields,
+} from './flight-vitrin-meta.mjs'
+
 /**
  * Turna arama yanıtından minimum fiyatı çeker.
  * Desteklenen yapılar:
@@ -193,6 +198,12 @@ export async function upsertTurnaFlightListing(
       [core.listingId],
     )
   }
+
+  await mergeListingMetaFlightFields(
+    pgClient,
+    core.listingId,
+    extractTurnaFlightVitrin({ route, search: searchPayload }),
+  )
 
   return { ...core, action: core.created ? 'created' : 'updated', kind: 'flight', price: minPrice }
 }

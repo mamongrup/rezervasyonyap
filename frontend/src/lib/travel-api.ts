@@ -9689,6 +9689,12 @@ export interface PublicListingItem {
   tour_visa_required?: string | null
   /** Tur — kalkış noktası (dönem ulaşım detayı, havalimanı kodu veya şehir) */
   tour_departure_place?: string | null
+  /** Uçuş — turna | travelrobot (Kplus) */
+  external_provider_code?: string | null
+  flight_airline_code?: string | null
+  flight_airline_name?: string | null
+  flight_stop_count?: string | null
+  flight_duration?: string | null
   /** Kültür ve Turizm Bakanlığı / tesis belge no — `listings.ministry_license_ref` */
   ministry_license_ref?: string | null
   /** Ön ödeme yüzdesi — `listings.prepayment_percent` */
@@ -11154,6 +11160,54 @@ export async function getAgentOverview(token: string): Promise<AgentOverview> {
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `agent_overview_${res.status}`)
+  }
+  return json(res)
+}
+
+export type CommerceAgentOverview = {
+  agents: Array<{
+    code: string
+    display_name: string
+    description: string
+    mode: string
+    status: string
+    risk_level: string
+    last_run_at: string
+  }>
+  recent_jobs: Array<{
+    id: string
+    profile_code: string
+    status: string
+    created_at: string
+    error: string
+  }>
+  recommendation_counts: Array<{ status: string; count: number }>
+}
+
+export async function getCommerceAgentOverview(token: string): Promise<CommerceAgentOverview> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/commerce/overview`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `commerce_overview_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function runDueCommerceAgents(token: string): Promise<{ processed: number }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/agents/commerce/run-due`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `commerce_run_due_${res.status}`)
   }
   return json(res)
 }
