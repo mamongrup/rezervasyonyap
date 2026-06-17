@@ -176,8 +176,23 @@ main() {
     set +a
   fi
   # Küçük VPS: ENOMEM önlemek için NEXT_NODE_HEAP_MB=3072 (veya 4G swap) — deploy/PLESK_VITRIN.md
+  export NEXT_NODE_HEAP_MB="${NEXT_NODE_HEAP_MB:-4096}"
   # Build icin tum bagimliliklar; canli sunucuda test araclari (playwright/vitest) kalmasin.
-  (cd "$APP_ROOT/frontend" && rm -rf .next node_modules && npm ci && npm run build && npm prune --omit=dev)
+  (
+    cd "$APP_ROOT/frontend"
+    rm -rf .next node_modules
+    npm ci
+    NEXT_VER="$(node -p "require('next/package.json').version" 2>/dev/null || echo unknown)"
+    echo "[deploy] next@${NEXT_VER} (HEAD $(git -C "$APP_ROOT" rev-parse --short HEAD))"
+    case "$NEXT_VER" in
+      16.*|17.*) ;;
+      *)
+        fail "Beklenen Next.js 16.x; kurulu: ${NEXT_VER}. git pull origin main && npm ci — eski httpdocs klonu olabilir."
+        ;;
+    esac
+    npm run build
+    npm prune --omit=dev
+  )
   ok "frontend build tamam"
   if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "$RESTART_WEB" != "1" ]]; then
     systemctl start travel-web.service
