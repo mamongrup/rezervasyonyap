@@ -287,6 +287,13 @@ export default async function StayListingDetailPageContent({
       ? parseYachtCharterSpecs(
           await fetchPublicVerticalYachtSafe(catalogListingId),
           await fetchPublicVerticalMetaSafe(catalogListingId, 'yacht_extra'),
+          {
+            description: listing.description,
+            locationLabel: listing.city || listing.address,
+            maxGuests: listing.maxGuests,
+            roomCount: listing.bedrooms,
+            bathCount: listing.bathrooms,
+          },
         )
       : null
   const [rawNearbyPois, servicePois] = await Promise.all([

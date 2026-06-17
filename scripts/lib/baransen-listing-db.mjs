@@ -4,7 +4,61 @@ import { formatYachtTitleTr } from './yacht-title-tr.mjs'
 import { buildBaransenDescription } from './baransen-api.mjs'
 import { findMatchingYachtListing } from './yacht-listing-match.mjs'
 import { applyYachtLocationToMeta } from './yacht-location-resolve.mjs'
+import {
+  mergeTechnicalSpecs,
+  normalizeSpecsMap,
+  parseDescriptionSpecsBlock,
+  technicalSpecsFromBaransenDetail,
+  upsertVerticalYachtExtra,
+} from './yacht-technical-specs.mjs'
 const PROVIDER = 'baransen'
+
+async function syncBaransenYachtTechnicalExtra(
+  pgClient,
+  listingId,
+  {
+    detail,
+    description,
+    incomingMeta,
+    propertyType,
+    marina,
+    cabinCount,
+    bathCount,
+    prevExtra = {},
+  },
+) {
+  const fromBaransen = technicalSpecsFromBaransenDetail({
+    ...detail,
+    specs: detail?.specs ?? incomingMeta?.specs,
+    propertyType,
+    marina,
+    cabinCount,
+    bathroomCount: bathCount,
+    pax: parseIntMeta(incomingMeta?.max_guests),
+  })
+  const merged = mergeTechnicalSpecs(
+    prevExtra,
+    normalizeSpecsMap(incomingMeta?.specs ?? detail?.specs),
+    parseDescriptionSpecsBlock(description),
+    {
+      port_name: marina || incomingMeta?.marina || null,
+      length_meters: detail?.lengthM != null ? String(detail.lengthM) : incomingMeta?.length_m ?? null,
+      cabin_count: cabinCount != null ? String(cabinCount) : incomingMeta?.room_count ?? null,
+      bathroom_count: bathCount != null ? String(bathCount) : incomingMeta?.bath_count ?? null,
+      passenger_count: incomingMeta?.max_guests ?? null,
+      yacht_type: propertyType ? String(propertyType).replace(/_/g, ' ') : null,
+    },
+    fromBaransen,
+  )
+  await upsertVerticalYachtExtra(pgClient, listingId, merged)
+}
+
+function parseIntMeta(raw) {
+  const m = String(raw ?? '').match(/(\d+)/)
+  if (!m) return null
+  const n = parseInt(m[1], 10)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
 
 export async function resolveBaransenImportContext(pgClient, orgId) {
   const cat = await pgClient.query(
@@ -213,6 +267,16 @@ export async function upsertBaransenYachtListing(
       )
     }
 
+    await syncBaransenYachtTechnicalExtra(pgClient, listingId, {
+      detail,
+      description: finalDesc || description,
+      incomingMeta: mergedMeta,
+      propertyType,
+      marina,
+      cabinCount,
+      bathCount,
+    })
+
     if (dailyPrice != null && dailyPrice > 0) {
       await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])
       await pgClient.query(
@@ -300,6 +364,16 @@ export async function upsertBaransenYachtListing(
        cabin_count = COALESCE($3::smallint, listing_yacht_details.cabin_count)`,
     [listingId, detail?.lengthM ?? null, cabinCount],
   )
+
+  await syncBaransenYachtTechnicalExtra(pgClient, listingId, {
+    detail,
+    description,
+    incomingMeta,
+    propertyType,
+    marina,
+    cabinCount,
+    bathCount,
+  })
 
   if (dailyPrice != null && dailyPrice > 0) {
     await pgClient.query(`DELETE FROM listing_price_rules WHERE listing_id = $1::uuid`, [listingId])

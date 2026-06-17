@@ -3,10 +3,25 @@ import {
   yachtCharterSpecsHasGridFields,
   type YachtCharterSpecs,
 } from '@/lib/yacht-charter-specs'
+import { formatAirConditioningLabel } from '@/lib/yacht-technical-specs-normalize'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import clsx from 'clsx'
-import { Anchor, Fuel, Gauge, Ruler, Sailboat, Ship, Users } from 'lucide-react'
+import {
+  Anchor,
+  Calendar,
+  Fuel,
+  Gauge,
+  Hash,
+  MapPin,
+  MoveHorizontal,
+  Ruler,
+  Sailboat,
+  Ship,
+  Users,
+  Wind,
+  Zap,
+} from 'lucide-react'
 import { SectionHeading, SectionSubheading } from './components/SectionHeading'
 
 export default function YachtCharterSpecsSection({
@@ -36,15 +51,22 @@ export default function YachtCharterSpecsSection({
     }
   })()
 
+  const airLabel = formatAirConditioningLabel(specs.airConditioning, {
+    yes: ys.airYes ?? 'Var',
+    no: ys.airNo ?? 'Yok',
+  })
+
   const items: Array<{ key: string; icon: typeof Ship; label: string; value: string }> = []
-  if (specs.yachtType?.trim()) {
-    items.push({
-      key: 'type',
-      icon: Sailboat,
-      label: ys.yachtType ?? 'Yat tipi',
-      value: specs.yachtType.trim(),
-    })
+  const push = (key: string, icon: typeof Ship, label: string, value: string | null | undefined) => {
+    const v = value?.trim()
+    if (!v) return
+    items.push({ key, icon, label, value: v })
   }
+
+  push('boatCode', Hash, ys.boatCode ?? 'Tekne kodu', specs.boatCode)
+  push('type', Sailboat, ys.yachtType ?? 'Tekne sınıfı', specs.yachtType)
+  push('buildYear', Calendar, ys.buildYear ?? 'Yapım yılı', specs.buildYear)
+  push('portName', MapPin, ys.portName ?? 'Liman', specs.portName)
   if (specs.lengthMeters?.trim()) {
     items.push({
       key: 'length',
@@ -53,36 +75,26 @@ export default function YachtCharterSpecsSection({
       value: interpolate(ys.lengthValue ?? '{m} m', { m: specs.lengthMeters.trim() }),
     })
   }
+  if (specs.beamMeters?.trim()) {
+    items.push({
+      key: 'beam',
+      icon: MoveHorizontal,
+      label: ys.beam ?? 'En',
+      value: interpolate(ys.beamValue ?? '{m} m', { m: specs.beamMeters.trim() }),
+    })
+  }
+  push('cabins', Ship, ys.cabins ?? 'Kabin', specs.cabinCount)
+  push('bathrooms', Ship, ys.bathrooms ?? 'Banyo', specs.bathroomCount)
+  push('air', Wind, ys.airConditioning ?? 'Klima', airLabel)
+  push('crew', Users, ys.crew ?? 'Personel', specs.crewCount)
+  push('passengers', Users, ys.guestCapacity ?? ys.passengers ?? 'Misafir kapasitesi', specs.passengerCount)
+  push('generator', Zap, ys.generator ?? 'Jeneratör', specs.generator)
   if (specs.speedKnots?.trim()) {
     items.push({
       key: 'speed',
       icon: Gauge,
       label: ys.speed ?? 'Hız',
       value: interpolate(ys.speedValue ?? '{knots} knot', { knots: specs.speedKnots.trim() }),
-    })
-  }
-  if (specs.cabinCount?.trim()) {
-    items.push({
-      key: 'cabins',
-      icon: Ship,
-      label: ys.cabins ?? 'Kabin',
-      value: specs.cabinCount.trim(),
-    })
-  }
-  if (specs.bathroomCount?.trim()) {
-    items.push({
-      key: 'bathrooms',
-      icon: Ship,
-      label: ys.bathrooms ?? 'Banyo',
-      value: specs.bathroomCount.trim(),
-    })
-  }
-  if (specs.passengerCount?.trim()) {
-    items.push({
-      key: 'passengers',
-      icon: Users,
-      label: ys.passengers ?? 'Maks. yolcu',
-      value: specs.passengerCount.trim(),
     })
   }
   if (captainLabel) {
@@ -93,17 +105,10 @@ export default function YachtCharterSpecsSection({
       value: captainLabel,
     })
   }
-  if (specs.fuelPolicy?.trim()) {
+  push('fuel', Fuel, ys.fuelPolicy ?? 'Yakıt politikası', specs.fuelPolicy)
+  if (!specs.portName?.trim() && specs.portLat?.trim() && specs.portLng?.trim()) {
     items.push({
-      key: 'fuel',
-      icon: Fuel,
-      label: ys.fuelPolicy ?? 'Yakıt politikası',
-      value: specs.fuelPolicy.trim(),
-    })
-  }
-  if (specs.portLat?.trim() && specs.portLng?.trim()) {
-    items.push({
-      key: 'port',
+      key: 'portCoords',
       icon: Anchor,
       label: ys.port ?? 'Kalkış noktası',
       value: `${specs.portLat.trim()}, ${specs.portLng.trim()}`,
@@ -120,7 +125,7 @@ export default function YachtCharterSpecsSection({
       </div>
       <Divider className="w-14!" />
       {showGrid ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2">
           {items.map((item) => {
             const Icon = item.icon
             return (
