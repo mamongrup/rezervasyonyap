@@ -19,14 +19,16 @@ export const AKASIA_RENT_CATEGORIES = [
 
 const UA = 'TravelImport/1.0 (+rezervasyonyap)'
 
-export function fetchText(url) {
+/** @param {string} url
+ *  @param {{ timeoutMs?: number }} [opts] */
+export function fetchText(url, { timeoutMs = 90000 } = {}) {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http
     lib
-      .get(url, { timeout: 90000, headers: { 'User-Agent': UA } }, (res) => {
+      .get(url, { timeout: timeoutMs, headers: { 'User-Agent': UA } }, (res) => {
         if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           res.resume()
-          fetchText(res.headers.location).then(resolve, reject)
+          fetchText(res.headers.location, { timeoutMs }).then(resolve, reject)
           return
         }
         if (res.statusCode !== 200) {

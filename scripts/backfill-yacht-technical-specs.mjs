@@ -3,7 +3,7 @@
  *
  * Kaynak sırası: mevcut extra → listing_meta.specs → açıklama → listing_yacht_details → Baransen → yatreyonu.
  *
- *   node scripts/backfill-yacht-technical-specs.mjs --dry-run --limit 10
+ *   node scripts/backfill-yacht-technical-specs.mjs --dry-run --limit 10   # web çağrısı yok
  *   node scripts/backfill-yacht-technical-specs.mjs
  *   node scripts/backfill-yacht-technical-specs.mjs --no-web
  *   node scripts/backfill-yacht-technical-specs.mjs --slug blue-bird
@@ -86,7 +86,7 @@ async function resolveBaransenLayer(row) {
 }
 
 async function resolveWebLayer(row, currentExtra) {
-  if (NO_WEB) return {}
+  if (NO_WEB || DRY_RUN) return {}
   const missing = missingCoreTechnicalFields(currentExtra)
   if (!FORCE && missing.length <= 3) return {}
   try {
@@ -135,7 +135,7 @@ async function main() {
   if (LIMIT > 0) targets = targets.slice(0, LIMIT)
 
   console.log(
-    `Yat teknik özellik backfill — ${targets.length} ilan, dry-run=${DRY_RUN}, web=${!NO_WEB}`,
+    `Yat teknik özellik backfill — ${targets.length} ilan, dry-run=${DRY_RUN}, web=${!NO_WEB && !DRY_RUN}`,
   )
 
   let updated = 0

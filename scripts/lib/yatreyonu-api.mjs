@@ -6,6 +6,12 @@ import { fetchText } from './akasia-api.mjs'
 
 const BASE = 'https://www.yatreyonu.com'
 const UA_DELAY_MS = 900
+/** VPS → yatreyonu yavaş/engelli olabiliyor; 90s yerine kısa timeout + sonraki sorgu */
+const FETCH_TIMEOUT_MS = 25000
+
+function fetchYatreyonuText(url) {
+  return fetchText(url, { timeoutMs: FETCH_TIMEOUT_MS })
+}
 
 function decodeHtml(s) {
   return String(s || '')
@@ -217,7 +223,7 @@ export async function findYatreyonuMatch(queryTitle, { minScore = 55, slug = '',
   for (const q of queries) {
     let html
     try {
-      html = await fetchText(searchUrl(q))
+      html = await fetchYatreyonuText(searchUrl(q))
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.warn(`  [yatreyonu] arama atlandı (${q}): ${msg}`)
@@ -246,7 +252,7 @@ export async function findYatreyonuMatch(queryTitle, { minScore = 55, slug = '',
 export async function fetchYatreyonuDetail(url) {
   await sleep(UA_DELAY_MS)
   try {
-    const html = await fetchText(url)
+    const html = await fetchYatreyonuText(url)
     return parseYatDetail(html, url)
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
