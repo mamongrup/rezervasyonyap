@@ -41,6 +41,12 @@ import { getMessages } from '@/utils/getT'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import {
+  STAY_RENTAL_PRICE_FILTER_MAX,
+  STAY_RENTAL_PRICE_FILTER_MIN,
+  STAY_RENTAL_PRICE_FILTER_STEP,
+  defaultStayRentalPriceFilterMax,
+} from '@/lib/stay-rental-price-filter'
 
 /** ListingFilterTabs ile aynı hap görünümü (kategori vitrininde tutarlılık) */
 const filterPillBase =
@@ -290,13 +296,14 @@ export default function HolidayListingFilters({
               <div className="mt-4">
                 <PriceRangeSlider
                   key={`all-${priceMin}-${priceMax}`}
-                  min={0}
-                  max={50_000}
+                  min={STAY_RENTAL_PRICE_FILTER_MIN}
+                  max={STAY_RENTAL_PRICE_FILTER_MAX}
+                  step={STAY_RENTAL_PRICE_FILTER_STEP}
                   name=""
                   showTitle={false}
                   defaultValue={[
-                    priceMin ? parseInt(priceMin, 10) || 0 : 0,
-                    priceMax ? parseInt(priceMax, 10) || 50_000 : 50_000,
+                    priceMin ? parseInt(priceMin, 10) || STAY_RENTAL_PRICE_FILTER_MIN : STAY_RENTAL_PRICE_FILTER_MIN,
+                    defaultStayRentalPriceFilterMax(priceMax),
                   ]}
                   onChange={(range) => {
                     setQuery({
@@ -439,13 +446,14 @@ export default function HolidayListingFilters({
         <div className="mt-4">
           <PriceRangeSlider
             key={`pop-${priceMin}-${priceMax}`}
-            min={0}
-            max={50_000}
+            min={STAY_RENTAL_PRICE_FILTER_MIN}
+            max={STAY_RENTAL_PRICE_FILTER_MAX}
+            step={STAY_RENTAL_PRICE_FILTER_STEP}
             name=""
             showTitle={false}
             defaultValue={[
-              priceMin ? parseInt(priceMin, 10) || 0 : 0,
-              priceMax ? parseInt(priceMax, 10) || 50_000 : 50_000,
+              priceMin ? parseInt(priceMin, 10) || STAY_RENTAL_PRICE_FILTER_MIN : STAY_RENTAL_PRICE_FILTER_MIN,
+              defaultStayRentalPriceFilterMax(priceMax),
             ]}
             onChange={(range) => {
               setQuery({
@@ -501,7 +509,7 @@ export default function HolidayListingFilters({
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-2 md:gap-3">
+    <div className="relative z-30 flex flex-wrap items-center gap-2 md:gap-3">
       <div className="relative min-w-0 shrink-0 grow md:grow-0">
         <button
           type="button"
@@ -535,7 +543,7 @@ export default function HolidayListingFilters({
           <PopoverPanel
             transition
             unmount={false}
-            className="absolute -start-5 top-full z-10 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
+            className="absolute -start-5 top-full z-50 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
           >
             {pricePopover}
           </PopoverPanel>
@@ -558,7 +566,7 @@ export default function HolidayListingFilters({
           <PopoverPanel
             transition
             unmount={false}
-            className="absolute -start-5 top-full z-10 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
+            className="absolute -start-5 top-full z-50 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
           >
             <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
               <div className="max-h-[24rem] overflow-y-auto px-5 py-4">
@@ -635,7 +643,7 @@ export default function HolidayListingFilters({
             <PopoverPanel
               transition
               unmount={false}
-              className="absolute -start-5 top-full z-10 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
+              className="absolute -start-5 top-full z-50 mt-3 w-sm transition data-closed:translate-y-1 data-closed:opacity-0"
             >
               <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
                 <div className="max-h-[24rem] overflow-y-auto px-5 py-4">{attrCheckboxList}</div>
@@ -673,7 +681,7 @@ export default function HolidayListingFilters({
           <PopoverPanel
             transition
             unmount={false}
-            className="absolute -end-5 top-full z-10 mt-3 min-w-[12rem] transition data-closed:translate-y-1 data-closed:opacity-0"
+            className="absolute -end-5 top-full z-50 mt-3 min-w-[12rem] transition data-closed:translate-y-1 data-closed:opacity-0"
           >
             <div className="rounded-2xl border border-neutral-200 bg-white py-2 shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
               <button

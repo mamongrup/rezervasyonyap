@@ -468,6 +468,7 @@ export default async function CategoryPageTemplate({
 
       {filterOptions.length > 0 &&
         (isStayRentalPage && m.categoryPage.listingFilters ? (
+          <div className="relative z-30 mb-8">
           <Suspense
             fallback={
               <div className="mb-8 h-12 max-w-3xl animate-pulse rounded-xl bg-neutral-100 dark:bg-neutral-800" />
@@ -480,6 +481,7 @@ export default async function CategoryPageTemplate({
               themeOptions={stayRentalThemeOptions.length > 0 ? stayRentalThemeOptions : undefined}
             />
           </Suspense>
+          </div>
         ) : (
           <ListingFilterTabs filterOptions={filterOptions} locale={locale} />
         ))}
