@@ -4,7 +4,13 @@
  */
 import { extractHotelDetailsNode } from './travelrobot-hotel-vitrin.mjs'
 
-export const MAX_SANE_NIGHTLY = 500_000
+/** TRY gecelik üst sınır — anomali API yanıtlarını vitrine taşımaz. */
+export const MAX_SANE_NIGHTLY = 80_000
+
+const DEFAULT_SEARCH_NIGHTS = Math.max(
+  1,
+  Number.parseInt(String(process.env.TRAVELROBOT_HOTEL_SEARCH_NIGHTS ?? '7'), 10) || 7,
+)
 
 const BOARD_TO_PLAN = [
   { codes: ['UAI', 'ULTRA', 'ULTRA ALL INCLUSIVE'], plan: 'all_inclusive', label: 'Ultra Her Şey Dahil' },
@@ -104,16 +110,185 @@ export function parseKplusDate(raw) {
   return null
 }
 
-function priceFromDailyRow(row) {
+function parseNightCount(raw) {
+  const n = Number.parseInt(String(raw ?? '').trim(), 10)
+  return Number.isFinite(n) && n > 0 && n <= 60 ? n : null
+}
+
+function diffNightsBetween(checkIn, checkOut) {
+  const start = parseKplusDate(checkIn)
+  const end = parseKplusDate(checkOut)
+  if (!start || !end) return 0
+  const ms = new Date(`${end}T12:00:00Z`).getTime() - new Date(`${start}T12:00:00Z`).getTime()
+  const nights = Math.round(ms / 86_400_000)
+  return nights > 0 ? nights : 0
+}
+
+/** SearchHotel varsayılanı (+30…+37 gün) veya snapshot üzerindeki tarihler. */
+export function inferSearchNightsFromHotel(hotel) {
+  const nights = diffNightsBetween(
+    pickText(hotel, 'CheckInDate', 'checkInDate', 'CheckinDate', 'checkinDate'),
+    pickText(hotel, 'CheckOutDate', 'checkOutDate', 'CheckoutDate', 'checkoutDate'),
+  )
+  if (nights > 0) return nights
+  const fromMeta = parseNightCount(hotel?._searchNights ?? hotel?.searchNights)
+  if (fromMeta != null) return fromMeta
+  return DEFAULT_SEARCH_NIGHTS
+}
+
+/** Otel satırına arama penceresi (gece sayısı için). */
+export function stampHotelSearchWindow(hotel, { checkInDate, checkOutDate } = {}) {
+  if (!hotel || typeof hotel !== 'object') return hotel
+  const checkIn = String(checkInDate ?? hotel.CheckInDate ?? hotel.checkInDate ?? '').trim()
+  const checkOut = String(checkOutDate ?? hotel.CheckOutDate ?? hotel.checkOutDate ?? '').trim()
+  const nights = diffNightsBetween(checkIn, checkOut) || DEFAULT_SEARCH_NIGHTS
+  return {
+    ...hotel,
+    ...(checkIn ? { CheckInDate: checkIn } : {}),
+    ...(checkOut ? { CheckOutDate: checkOut } : {}),
+    _searchNights: nights,
+  }
+}
+
+function eachStayNightYmd(checkIn, checkOut) {
+  const start = parseKplusDate(checkIn)
+  const end = parseKplusDate(checkOut)
+  if (!start || !end) return []
+  const out = []
+  const cur = new Date(`${start}T12:00:00Z`)
+  const endD = new Date(`${end}T12:00:00Z`)
+  while (cur < endD) {
+    out.push(cur.toISOString().slice(0, 10))
+    cur.setUTCDate(cur.getUTCDate() + 1)
+  }
+  return out
+}
+
+function offerTotalAmount(alt) {
+  const price = alt?.Price ?? alt?.price
+  if (price && typeof price === 'object' && !Array.isArray(price)) {
+    const nested = sanePrice(
+      price?.TotalAmount ??
+        price?.totalAmount ??
+        price?.BaseAmount ??
+        price?.baseAmount ??
+        price?.Amount ??
+        price?.amount,
+    )
+    if (nested != null) return nested
+  }
   return sanePrice(
-    row?.Price ??
+    alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount ?? alt?.Amount ?? alt?.amount,
+  )
+}
+
+function explicitNightlyFromAlt(alt) {
+  const price = alt?.Price ?? alt?.price
+  const nested =
+    price && typeof price === 'object' && !Array.isArray(price)
+      ? sanePrice(
+          price?.NightlyPrice ??
+            price?.nightlyPrice ??
+            price?.PerNightPrice ??
+            price?.perNightPrice ??
+            price?.PricePerNight ??
+            price?.pricePerNight,
+        )
+      : null
+  if (nested != null) return nested
+  return sanePrice(
+    alt?.NightlyPrice ??
+      alt?.nightlyPrice ??
+      alt?.PerNightPrice ??
+      alt?.perNightPrice ??
+      alt?.PricePerNight ??
+      alt?.pricePerNight ??
+      alt?.DailyPrice ??
+      alt?.dailyPrice,
+  )
+}
+
+function resolveStayNights(alt, hotel) {
+  const fromAlt = parseNightCount(
+    alt?.NightCount ?? alt?.nightCount ?? alt?.NumberOfNights ?? alt?.numberOfNights ?? alt?.StayNights,
+  )
+  if (fromAlt != null) return fromAlt
+
+  const daily = dailyPricesFromAlt(alt)
+  if (daily.length > 1) return daily.length
+
+  const fromHotel = inferSearchNightsFromHotel(hotel)
+  if (fromHotel > 1) return fromHotel
+  return 1
+}
+
+/** Günlük fiyat satırı — yalnızca gecelik alanlar; TotalAmount çok gece toplamı olabilir. */
+function nightlyPriceFromDailyRow(row, stayNights = 1) {
+  const direct = sanePrice(
+    row?.NightlyPrice ??
+      row?.nightlyPrice ??
+      row?.PerNightPrice ??
+      row?.perNightPrice ??
+      row?.Price ??
       row?.price ??
       row?.Amount ??
-      row?.amount ??
-      row?.TotalAmount ??
-      row?.BaseAmount ??
-      row?.NightlyPrice,
+      row?.amount,
   )
+  if (direct != null) return direct
+
+  const total = sanePrice(row?.TotalAmount ?? row?.totalAmount ?? row?.BaseAmount ?? row?.baseAmount)
+  if (total == null) return null
+  const nights = Math.max(stayNights, 1)
+  if (nights > 1) return Math.round((total / nights) * 100) / 100
+  return total
+}
+
+/** RoomAlternative — KPlus TotalAmount çoğunlukla konaklama toplamıdır. */
+export function resolveOfferNightlyPrice(alt, room, hotel) {
+  const stayNights = resolveStayNights(alt, hotel)
+  const dailyRows = dailyPricesFromAlt(alt)
+  const nightlyFromDaily = []
+  for (const dp of dailyRows) {
+    const p = nightlyPriceFromDailyRow(dp, stayNights)
+    if (p != null) nightlyFromDaily.push(p)
+  }
+  if (nightlyFromDaily.length > 0) return Math.min(...nightlyFromDaily)
+
+  const explicit = explicitNightlyFromAlt(alt)
+  if (explicit != null) return explicit
+
+  const total = offerTotalAmount(alt)
+  if (total == null) return null
+  const nights = Math.max(stayNights, dailyRows.length, 1)
+  if (nights > 1) return Math.round((total / nights) * 100) / 100
+  return total
+}
+
+function buildDailyCalendarForAlt(alt, room, hotel, nightly) {
+  const stayNights = resolveStayNights(alt, hotel)
+  const dailyCalendar = []
+  for (const dp of dailyPricesFromAlt(alt)) {
+    const day = parseKplusDate(dp?.Date ?? dp?.date ?? dp?.Day ?? dp?.day)
+    const price = nightlyPriceFromDailyRow(dp, stayNights) ?? nightly
+    if (!day || price == null) continue
+    dailyCalendar.push({
+      day,
+      price,
+      available_units: allotmentFromAlt(alt) ?? 1,
+    })
+  }
+  if (!dailyCalendar.length && nightly != null) {
+    const checkIn = pickText(hotel, 'CheckInDate', 'checkInDate')
+    const checkOut = pickText(hotel, 'CheckOutDate', 'checkOutDate')
+    for (const day of eachStayNightYmd(checkIn, checkOut)) {
+      dailyCalendar.push({
+        day,
+        price: nightly,
+        available_units: allotmentFromAlt(alt) ?? 1,
+      })
+    }
+  }
+  return dailyCalendar
 }
 
 function cancellationFromAlt(alt) {
@@ -185,7 +360,7 @@ function altMetaFromOffer(alt, room, hotel) {
   const combinationId = pickText(alt, 'CombinationId', 'combinationId')
   const packageId = pickText(alt, 'PackageId', 'packageId')
   const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
-  const amount = sanePrice(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount)
+  const nightly = resolveOfferNightlyPrice(alt, room, hotel)
   const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
   const cancel = cancellationFromAlt(alt)
   const bedType =
@@ -200,7 +375,7 @@ function altMetaFromOffer(alt, room, hotel) {
     combination_id: combinationId || null,
     package_id: packageId || null,
     board_type: board || null,
-    price: amount != null ? String(amount) : null,
+    price: nightly != null ? String(nightly) : null,
     currency: ['TRY', 'EUR', 'USD', 'GBP'].includes(currency) ? currency : 'TRY',
     cancellation_policy: cancel || null,
     is_refundable: alt?.IsRefundable ?? alt?.isRefundable ?? null,
@@ -235,26 +410,16 @@ export function buildTravelrobotHotelRoomRows(hotel) {
     for (const alt of alts) {
       const name = pickText(alt, 'RoomName', 'roomName', 'Name', 'name') || roomName
       const board = pickText(alt, 'BoardType', 'boardType', 'BoardName', 'boardName', 'MealType', 'mealType')
-      const amount = sanePrice(alt?.TotalAmount ?? alt?.totalAmount ?? alt?.BaseAmount ?? alt?.baseAmount)
+      const nightly = resolveOfferNightlyPrice(alt, room, hotel)
       const currency = String(alt?.CurrencyCode ?? alt?.currencyCode ?? 'TRY').trim().toUpperCase()
       const meta = altMetaFromOffer(alt, room, hotel)
       const image = meta.images?.[0]
       if (image) meta.image = image
-      const dailyCalendar = []
-      for (const dp of dailyPricesFromAlt(alt)) {
-        const day = parseKplusDate(dp?.Date ?? dp?.date ?? dp?.Day ?? dp?.day)
-        const price = priceFromDailyRow(dp) ?? amount
-        if (!day || price == null) continue
-        dailyCalendar.push({
-          day,
-          price,
-          available_units: allotmentFromAlt(alt) ?? 1,
-        })
-      }
+      const dailyCalendar = buildDailyCalendarForAlt(alt, room, hotel, nightly)
       raw.push({
         name: name.slice(0, 200),
         boardType: board || null,
-        price: amount,
+        price: nightly,
         currency: ['TRY', 'EUR', 'USD', 'GBP'].includes(currency) ? currency : 'TRY',
         capacity: capacityFromAlt(alt, room),
         unitCount: Math.max(1, allotmentFromAlt(alt) ?? 1),

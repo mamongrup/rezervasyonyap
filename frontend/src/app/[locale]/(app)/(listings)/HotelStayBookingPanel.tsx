@@ -246,7 +246,11 @@ export function HotelStayBookingSidebar(props: SharedProps) {
           <span className="text-2xl font-semibold text-neutral-900 sm:text-3xl dark:text-neutral-100">
             {quote.displayMainPrice}
           </span>
-          <span className="text-base text-neutral-500 dark:text-neutral-400">{messages.listing.sidebar.perNight}</span>
+          <span className="text-base text-neutral-500 dark:text-neutral-400">
+            {hasSelectedRange && quote.nights > 0
+              ? messages.listing.sidebar.total
+              : messages.listing.sidebar.perNight}
+          </span>
         </div>
         <ListingInstantApprovalTitleBadge listingId={listingId} />
       </div>

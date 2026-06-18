@@ -9,10 +9,27 @@ import {
   pickHotelSearchKey,
   hotelNodeFromPayload,
 } from './travelrobot-api.mjs'
-import { hotelRef, mergeStaticHotelContent } from './travelrobot-listing-db.mjs'
+import { stampHotelSearchWindow } from './travelrobot-hotel-extras.mjs'
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
+}
+
+function defaultHotelSearchDates(opts = {}) {
+  const addDays = (n) => {
+    const d = new Date()
+    d.setHours(12, 0, 0, 0)
+    d.setDate(d.getDate() + n)
+    return d.toISOString().slice(0, 10)
+  }
+  return {
+    checkInDate: opts.checkInDate || addDays(30),
+    checkOutDate: opts.checkOutDate || addDays(37),
+  }
+}
+
+function withSearchDates(row, opts = {}) {
+  return stampHotelSearchWindow(row, defaultHotelSearchDates(opts))
 }
 
 function pickRoomName(room) {
@@ -91,11 +108,12 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   const searchPayload = await searchHotels(cfg, tokenCode, {
     hotelCode: code,
     showMultipleRate: true,
-    checkInDate: opts.checkInDate,
-    checkOutDate: opts.checkOutDate,
+    checkInDate: opts.checkInDate ?? defaultHotelSearchDates(opts).checkInDate,
+    checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
   })
   const found = pickHotelRows(searchPayload).find((h) => hotelRef(h) === code) ?? null
   let merged = found ? mergeStaticHotelContent(row, found) : row
+  merged = withSearchDates(merged, opts)
 
   if (opts.force !== true && countUniqueHotelRoomNames(merged) >= minOffers) return merged
 
@@ -111,7 +129,7 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   })
   if (pricesPayload?.HasError) return merged
 
-  return mergeHotelRoomPrices(row, pricesPayload, found)
+  return withSearchDates(mergeHotelRoomPrices(row, pricesPayload, found), opts)
 }
 
 /**

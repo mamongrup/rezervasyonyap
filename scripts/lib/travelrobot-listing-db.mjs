@@ -15,7 +15,7 @@ import {
 
 const PROVIDER = 'travelrobot'
 /** Sandbox/API anomali fiyatlarını vitrine taşıma (ör. 3.5B TRY). */
-const MAX_SANE_NIGHTLY_TRY = 500_000
+const MAX_SANE_NIGHTLY_TRY = 80_000
 
 // ── Slug yardımcıları ────────────────────────────────────────────────────────
 
