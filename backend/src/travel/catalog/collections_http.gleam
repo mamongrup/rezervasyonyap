@@ -802,8 +802,8 @@ fn search_listings_impl(
     False -> pog.text(end_raw)
   }
 
-  let sql =
-    "select l.id::text, l.slug, "
+  let listing_search_select_sql =
+    "l.id::text, l.slug, "
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
@@ -872,7 +872,9 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'flight_airline_name'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_stop_count'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_duration'), ''), '') "
-    <> "from listings l "
+
+  let listing_search_from_where_sql =
+    "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
@@ -990,15 +992,16 @@ fn search_listings_impl(
     <> "  and nullif(trim(lm.meta->>'bath_count'), '')::int >= nullif($27::text, '')::int "
     <> ")) "
 
+  let sql =
+    "select "
+    <> listing_search_select_sql
+    <> " "
+    <> listing_search_from_where_sql
+
   let sql_core = sql <> order_sql
-  // Count: ağır SELECT listesi yok — yalnızca FROM/WHERE; $4/$5/$21 parametreleri WHERE'de bağlanır.
-  let count_from_sql = case string.split_once(sql, "from listings l ") {
-    Ok(#(_select, rest)) -> "from listings l " <> rest
-    Error(_) -> sql
-  }
   let count_from_conditional =
     string.replace(
-      count_from_sql,
+      listing_search_from_where_sql,
       ") price_rule on true ",
       ") price_rule on ($12::text is not null or $13::text is not null) ",
     )
