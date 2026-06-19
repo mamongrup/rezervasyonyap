@@ -7,6 +7,7 @@ import wisp/wisp_mist
 
 import backend/config
 import backend/router
+import travel/currency/currency_rates_runtime
 
 pub fn main() {
   wisp.configure_logger()
@@ -17,6 +18,9 @@ pub fn main() {
     Ok(c) -> c
     Error(msg) -> panic as { "Travel backend: " <> msg }
   }
+
+  // TCMB döviz kurlarını başlangıçta ve 24 saatte bir otomatik yenile
+  currency_rates_runtime.start(ctx.db)
 
   let handle = fn(request: wisp.Request) {
     router.handle_request(request, ctx)

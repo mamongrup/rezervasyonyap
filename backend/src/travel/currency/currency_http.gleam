@@ -372,37 +372,9 @@ fn insert_rates_batch(
   rates: List(#(String, Float)),
   fetched_at: String,
 ) -> Response {
-  let try_pair =
-    list.filter(rates, fn(p) { p.0 != "TRY" })
-  case
-    pog.query(
-      "select code::text from currencies where is_active = true",
-    )
-    |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
-  {
-    Error(_) -> json_err(500, "currencies_lookup_failed")
-    Ok(codes_ret) -> {
-      let allowed = codes_ret.rows
-      let to_insert =
-        list.filter(try_pair, fn(p) {
-          list.contains(allowed, p.0) || list.contains(allowed, string.uppercase(p.0))
-        })      let count =
-        list.fold(to_insert, 0, fn(acc, pair) {
-          let #(code, rate) = pair
-          case
-            pog.query(
-              "insert into currency_rates (base_code, quote_code, rate, source, fetched_at) values ($1::char(3), 'TRY'::char(3), $2::numeric, $3, now())",
-            )
-            |> pog.parameter(pog.text(code))
-            |> pog.parameter(pog.float(rate))
-            |> pog.parameter(pog.text("tcmb"))
-            |> pog.execute(ctx.db)
-          {
-            Ok(_) -> acc + 1
-            Error(_) -> acc
-          }
-        })
+  case do_insert_tcmb_rates(ctx.db, rates) {
+    Error(e) -> json_err(500, e)
+    Ok(count) -> {
       let body =
         json.object([
           #("ok", json.bool(True)),
@@ -412,6 +384,46 @@ fn insert_rates_batch(
         ])
         |> json.to_string
       wisp.json_response(body, 200)
+    }
+  }
+}
+
+/// TCMB kur listesini DB'ye yazar. Arka plan worker ve HTTP handler tarafından paylaşılır.
+pub fn do_insert_tcmb_rates(
+  db: pog.Connection,
+  rates: List(#(String, Float)),
+) -> Result(Int, String) {
+  let try_pair = list.filter(rates, fn(p) { p.0 != "TRY" })
+  case
+    pog.query("select code::text from currencies where is_active = true")
+    |> pog.returning(row_dec.col0_string())
+    |> pog.execute(db)
+  {
+    Error(_) -> Error("currencies_lookup_failed")
+    Ok(codes_ret) -> {
+      let allowed = codes_ret.rows
+      let to_insert =
+        list.filter(try_pair, fn(p) {
+          list.contains(allowed, p.0)
+          || list.contains(allowed, string.uppercase(p.0))
+        })
+      let count =
+        list.fold(to_insert, 0, fn(acc, pair) {
+          let #(code, rate) = pair
+          case
+            pog.query(
+              "insert into currency_rates (base_code, quote_code, rate, source, fetched_at) values ($1::char(3), 'TRY'::char(3), $2::numeric, $3, now())",
+            )
+            |> pog.parameter(pog.text(code))
+            |> pog.parameter(pog.float(rate))
+            |> pog.parameter(pog.text("tcmb"))
+            |> pog.execute(db)
+          {
+            Ok(_) -> acc + 1
+            Error(_) -> acc
+          }
+        })
+      Ok(count)
     }
   }
 }
