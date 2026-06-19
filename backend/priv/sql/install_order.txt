@@ -177,6 +177,7 @@ modules/332_social_caption_post_plan.sql
 modules/333_listing_prepayment_default_20.sql
 modules/334_ai_commerce_operations_center.sql
 modules/335_perf_catalog_listings_indexes.sql
+modules/336_perf_index_cleanup_and_extras.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql
