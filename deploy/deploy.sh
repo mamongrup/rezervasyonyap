@@ -7,8 +7,11 @@
 # Opsiyonel:
 #   DEPLOY_REF=stable/b92d735 ./deploy/deploy.sh
 #   DEPLOY_REF=main RESTART_API=0 ./deploy/deploy.sh
-#   SKIP_FRONTEND_BUILD=1 RESTART_WEB=0 ./deploy/deploy.sh   # yalniz API (~dakikalar)
+#   SKIP_FRONTEND_BUILD=1 ./deploy/deploy.sh                  # yalniz API (~5 dk)
+#   SKIP_BACKEND_BUILD=1 ./deploy/deploy.sh                   # yalniz frontend (~15 dk, node_modules aynıysa ~5 dk)
+#   SKIP_BACKEND_BUILD=1 FORCE_NPM_CI=0 ./deploy/deploy.sh   # frontend, node_modules koru (~5 dk)
 #   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
+#   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
 #   ./deploy/deploy-api-only.sh                               # API-only kisa yol
 #   TRAVEL_API_DEPLOY_LOCK=/run/travel-shipment.lock (flock dosyasi; varsayilan: APP_ROOT/.travel-deploy-shipment.lock)
 set -euo pipefail
@@ -127,13 +130,20 @@ main() {
   step "Backend build + Erlang shipment"
   # travel-api.service genelde httpdocs DIŞINDA bir WorkingDirectory kullanır (ör. /opt/.../erlang-shipment).
   # Yalnızca `gleam build` yapılırsa servis ESKİ beam dosyalarıyla çalışmaya devam eder — deploy bomboş kalır.
+  SKIP_BACKEND_BUILD="${SKIP_BACKEND_BUILD:-0}"
+  if [[ "$SKIP_BACKEND_BUILD" == "1" ]]; then
+    warn "SKIP_BACKEND_BUILD=1 — backend build atlandı (mevcut shipment kullanılır)."
+  else
   (
     cd "$APP_ROOT/backend"
     gleam build
     gleam export erlang-shipment
   )
+  fi
   SHIP="$APP_ROOT/backend/build/erlang-shipment"
-  [[ -d "$SHIP" ]] || fail "Erlang shipment yok: $SHIP — gleam export erlang-shipment başarısız (gleam sürümü, Hex/Rebar)."
+  if [[ "$SKIP_BACKEND_BUILD" != "1" ]]; then
+    [[ -d "$SHIP" ]] || fail "Erlang shipment yok: $SHIP — gleam export erlang-shipment başarısız (gleam sürümü, Hex/Rebar)."
+  fi
   SHIP_ABS="$(cd "$SHIP" && pwd -P)"
   UNIT_WD="$(systemctl show travel-api.service -p WorkingDirectory --value 2>/dev/null || true)"
   if [[ -n "${TRAVEL_API_SHIP_DEST_OVERRIDE:-}" ]]; then
@@ -161,13 +171,6 @@ main() {
   if [[ "${SKIP_FRONTEND_BUILD:-0}" == "1" ]]; then
     warn "SKIP_FRONTEND_BUILD=1 — frontend npm ci/build atlandı (mevcut .next kullanılır)."
   else
-  # Çalışan next start .next/cache dosyalarını kilitler; rm/build yarım kalmasın.
-  WEB_STOPPED_FOR_BUILD=0
-  if systemctl is-active --quiet travel-web.service 2>/dev/null; then
-    systemctl stop travel-web.service
-    WEB_STOPPED_FOR_BUILD=1
-    ok "travel-web durduruldu (.next temizligi icin)"
-  fi
   # NEXT_PUBLIC_* build sirasinda gomulur; ayni env travel-web.service ile tanimli olmali.
   if [[ -f /etc/rezervasyonyap/frontend.env ]]; then
     set -a
@@ -177,11 +180,26 @@ main() {
   fi
   # Küçük VPS: ENOMEM önlemek için NEXT_NODE_HEAP_MB=3072 (veya 4G swap) — deploy/PLESK_VITRIN.md
   export NEXT_NODE_HEAP_MB="${NEXT_NODE_HEAP_MB:-4096}"
-  # Build icin tum bagimliliklar; canli sunucuda test araclari (playwright/vitest) kalmasin.
+
   (
     cd "$APP_ROOT/frontend"
-    rm -rf .next node_modules
-    npm ci
+
+    # --- Akıllı npm ci: package-lock.json değişmediyse node_modules'u koru (10-20 dk kazanır) ---
+    LOCK_HASH_FILE="$APP_ROOT/.deploy-npm-lock-hash"
+    LOCK_CURRENT="$(md5sum package-lock.json 2>/dev/null | cut -d' ' -f1 || echo "none")"
+    LOCK_PREV="$(cat "$LOCK_HASH_FILE" 2>/dev/null || echo "")"
+    FORCE_NPM_CI="${FORCE_NPM_CI:-0}"
+
+    if [[ "$LOCK_CURRENT" != "$LOCK_PREV" ]] || [[ ! -d node_modules ]] || [[ "$FORCE_NPM_CI" == "1" ]]; then
+      echo "[deploy] package-lock.json değişti veya node_modules yok — npm ci çalıştırılıyor..."
+      rm -rf node_modules
+      npm ci
+      echo "$LOCK_CURRENT" > "$LOCK_HASH_FILE"
+      ok "npm ci tamam"
+    else
+      echo "[deploy] package-lock.json aynı — node_modules korundu (npm ci atlandı)"
+    fi
+
     NEXT_VER="$(node -p "require('next/package.json').version" 2>/dev/null || echo unknown)"
     echo "[deploy] next@${NEXT_VER} (HEAD $(git -C "$APP_ROOT" rev-parse --short HEAD))"
     case "$NEXT_VER" in
@@ -190,14 +208,25 @@ main() {
         fail "Beklenen Next.js 16.x; kurulu: ${NEXT_VER}. git pull origin main && npm ci — eski httpdocs klonu olabilir."
         ;;
     esac
+
+    # Çalışan next start .next/cache dosyalarını kilitler; build öncesi durdur.
+    WEB_STOPPED_FOR_BUILD=0
+    if systemctl is-active --quiet travel-web.service 2>/dev/null; then
+      systemctl stop travel-web.service
+      WEB_STOPPED_FOR_BUILD=1
+      ok "travel-web durduruldu (build için)"
+    fi
+
+    rm -rf .next
     npm run build
     npm prune --omit=dev
+
+    if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "${RESTART_WEB}" != "1" ]]; then
+      systemctl start travel-web.service
+      ok "travel-web yeniden baslatildi (RESTART_WEB=0)"
+    fi
   )
   ok "frontend build tamam"
-  if [[ "$WEB_STOPPED_FOR_BUILD" == "1" ]] && [[ "$RESTART_WEB" != "1" ]]; then
-    systemctl start travel-web.service
-    ok "travel-web yeniden baslatildi (RESTART_WEB=0)"
-  fi
   fi
 
   step "Servis restart"
