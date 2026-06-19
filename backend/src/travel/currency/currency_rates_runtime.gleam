@@ -3,17 +3,18 @@
 import gleam/erlang/process
 import gleam/int
 import gleam/io
+import gleam/otp/task
 import pog
 import travel/currency/currency_http
 import travel/currency/tcmb
 import travel/net/http_client
 
-/// Saniye cinsinden 24 saat.
+/// 24 saat (ms)
 const refresh_interval_ms: Int = 86_400_000
 
-/// Arka plan işlemini başlatır (linked=False — crash ana işlemi etkilemez).
+/// Arka plan görevi başlatır — ebeveyn process'e bağlı değil.
 pub fn start(db: pog.Connection) -> Nil {
-  let _ = process.start(fn() { loop(db) }, False)
+  let _ = task.async(fn() { loop(db) })
   Nil
 }
 
