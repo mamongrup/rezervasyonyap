@@ -14,6 +14,8 @@ import {
   listAiFeatureProfiles,
   listAiJobs,
   listSiteSettings,
+  fetchSiteSettingsFromPanel,
+  upsertSiteSettingFromPanel,
   listAiProviders,
   listAgentRecommendations,
   patchAgentRecommendation,
@@ -225,21 +227,18 @@ export default function AdminAiSection() {
   const [heroSyncRunning, setHeroSyncRunning] = useState(false)
   const [heroSyncLog, setHeroSyncLog] = useState<string[]>([])
 
-  // DB'de kalıcı tut: maps ayarları + pexels keyleri (site_settings, platform scope).
+  // Platform ayarlarını HttpOnly session cookie ile yükle (localStorage token gerekmez → her oturumda çalışır).
   useEffect(() => {
-    const token = getStoredAuthToken()
-    if (!token) return
-
     ;(async () => {
       try {
         const [mapsJsonRaw, pexelsJsonRaw, servicePoiRaw] = await Promise.all([
-          listSiteSettings(token, { scope: 'platform', key: 'maps' })
+          fetchSiteSettingsFromPanel({ scope: 'platform', key: 'maps' })
             .then((r) => r.settings?.[0]?.value_json ?? '')
             .catch(() => ''),
-          listSiteSettings(token, { scope: 'platform', key: 'pexels' })
+          fetchSiteSettingsFromPanel({ scope: 'platform', key: 'pexels' })
             .then((r) => r.settings?.[0]?.value_json ?? '')
             .catch(() => ''),
-          listSiteSettings(token, { scope: 'platform', key: 'service_poi_types' })
+          fetchSiteSettingsFromPanel({ scope: 'platform', key: 'service_poi_types' })
             .then((r) => r.settings?.[0]?.value_json ?? '')
             .catch(() => ''),
         ])
@@ -274,11 +273,6 @@ export default function AdminAiSection() {
   }, [])
 
   async function savePexelsKeysToDb() {
-    const token = getStoredAuthToken()
-    if (!token) {
-      setPexelsErr('Kaydetmek için yönetici oturumu gerekli.')
-      return
-    }
     const keys = pexelsApiKeys.map((k) => k.trim()).filter(Boolean)
     if (!keys.length) {
       setPexelsErr('En az bir Pexels API anahtarı gerekli.')
@@ -288,7 +282,7 @@ export default function AdminAiSection() {
     setPexelsKeysSaved(false)
     setPexelsErr(null)
     try {
-      await upsertSiteSetting(token, { key: 'pexels', value_json: JSON.stringify({ api_keys: keys }) })
+      await upsertSiteSettingFromPanel({ key: 'pexels', value_json: JSON.stringify({ api_keys: keys }) })
       setPexelsKeysSaved(true)
       setTimeout(() => setPexelsKeysSaved(false), 2500)
     } catch (e) {
