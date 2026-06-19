@@ -91,7 +91,7 @@ async function sleep(ms) {
 
 async function main() {
   const cfg = await loadTravelrobotConfig()
-  if (!cfg.channelCode && !cfg.channel_code) {
+  if (!cfg.channelCode || !cfg.channelPassword) {
     throw new Error('Travelrobot credentials eksik — site_settings veya env kontrol edin.')
   }
 

@@ -812,7 +812,7 @@ fn search_listings_impl(
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
-    <> " else null end, nullif(price_rule.min_price::text, ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
+    <> " else null end, nullif(price_rule.min_price::text, ''), nullif(l.first_charge_amount::text, ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
     <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'district_label'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
@@ -991,19 +991,21 @@ fn search_listings_impl(
     <> ")) "
 
   let sql_core = sql <> order_sql
-  // Count: ORDER BY is removed (prevents expensive per-row subqueries like EXISTS on listing_images).
-  // price_rule lateral is also made conditional: when no price filter params ($12/$13) are passed,
-  // skip the per-row listing_price_rules scan entirely — the lateral result is unused anyway.
-  let count_base =
+  // Count: ağır SELECT listesi yok — yalnızca FROM/WHERE; price_rule lateral fiyat filtresi yoksa atlanır.
+  let count_from_sql = case string.split_once(sql, "from listings l ") {
+    Ok(#(_select, rest)) -> "from listings l " <> rest
+    Error(_) -> sql
+  }
+  let count_from_conditional =
     string.replace(
-      sql,
+      count_from_sql,
       ") price_rule on true ",
       ") price_rule on ($12::text is not null or $13::text is not null) ",
     )
   let count_sql =
-    "select count(*)::int from ("
-    <> count_base
-    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep, $25::text as __beds, $26::text as __br, $27::text as __ba) __pg_params"
+    "select count(*)::int "
+    <> count_from_conditional
+    <> " cross join (select $4::text as __loc, $5::int as __lim, $21::int as __off) __pg_params"
   let sql_paged = sql_core <> " offset $21 limit $5"
   let int_col0 = {
     use n <- decode.field(0, decode.int)
