@@ -54,7 +54,6 @@ import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { MapsLocation01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import SectionSubcategories from '@/components/SectionSubcategories'
 import { getSubcategoriesByParent } from '@/data/subcategory-registry'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
@@ -549,19 +548,7 @@ export default async function CategoryPageTemplate({
     category.slug === 'turlar' &&
     !hasActiveSearch &&
     (currentHandle === 'all' || !hasEnabledCategoryHub)
-  const subcategoryBelowHeadingSlot =
-    isAll &&
-    subcategoryItems.length > 0 &&
-    !isTourHubLanding &&
-    !(category.slug === 'turlar' && hasEnabledCategoryHub) ? (
-      <SectionSubcategories
-        parentCategorySlug={category.slug}
-        locale={locale}
-        subcategories={subcategoryItems}
-        showHeading={true}
-        variant="icon-grid"
-      />
-    ) : null
+  const subcategoryBelowHeadingSlot = null
 
   // Category landing view: hero + builder modules (her zaman resolvedModules var)
   if (isAll) {
