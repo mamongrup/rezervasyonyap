@@ -122,6 +122,14 @@ main() {
   git_sync_ref "$DEPLOY_REF"
   ok "HEAD: $(git rev-parse --short HEAD)"
 
+  # Uploads dizini gitignored — ilk deploy veya git clean sonrası yoksa oluştur.
+  mkdir -p "$APP_ROOT/frontend/public/uploads/general/hero"
+  mkdir -p "$APP_ROOT/frontend/public/uploads/site/page-builder/kategori-kartlari"
+  mkdir -p "$APP_ROOT/frontend/public/uploads/listings"
+  mkdir -p "$APP_ROOT/frontend/public/uploads/regions"
+  mkdir -p "$APP_ROOT/frontend/public/uploads/branding"
+  ok "uploads dizinleri hazır"
+
   if [[ -f "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" ]]; then
     chmod +x "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" || true
   fi

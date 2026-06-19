@@ -71,8 +71,10 @@ function CategoryCardImageSlot({
     () =>
       ({
         folder: 'site',
-        subPath: `page-builder/kategori-kartlari/${slugifyMediaSegment(categorySlug)}`,
-        prefix: 'kart',
+        // Üst klasörden başla → tüm kategori klasörleri görünür; yükleme slug adlı dosya üretir.
+        subPath: 'page-builder/kategori-kartlari',
+        prefix: slugifyMediaSegment(categorySlug),
+        fileBase: slugifyMediaSegment(categorySlug),
       }) as const,
     [categorySlug],
   )
