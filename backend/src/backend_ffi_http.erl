@@ -6,8 +6,14 @@
   post_json/3,
   post_json_with_timeout/4,
   post_json_turna/5,
-  parse_tcmb_xml/1
+  parse_tcmb_xml/1,
+  spawn_unlinked/1
 ]).
+
+%% Gleam closure'ı bağımsız (unlinked) bir Erlang process olarak başlatır.
+spawn_unlinked(Fun) ->
+  erlang:spawn(fun() -> Fun() end),
+  nil.
 
 post_urlencoded(Url, Body) when is_binary(Url), is_binary(Body) ->
   {ok, _} = application:ensure_all_started(inets),

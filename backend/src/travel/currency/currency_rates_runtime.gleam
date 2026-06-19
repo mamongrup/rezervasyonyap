@@ -3,7 +3,6 @@
 import gleam/erlang/process
 import gleam/int
 import gleam/io
-import gleam/otp/task
 import pog
 import travel/currency/currency_http
 import travel/currency/tcmb
@@ -12,10 +11,13 @@ import travel/net/http_client
 /// 24 saat (ms)
 const refresh_interval_ms: Int = 86_400_000
 
-/// Arka plan görevi başlatır — ebeveyn process'e bağlı değil.
+/// Erlang FFI — bağımsız (unlinked) process başlatır.
+@external(erlang, "backend_ffi_http", "spawn_unlinked")
+fn spawn_unlinked(f: fn() -> Nil) -> Nil
+
+/// Arka plan kur yenileme döngüsünü başlatır.
 pub fn start(db: pog.Connection) -> Nil {
-  let _ = task.async(fn() { loop(db) })
-  Nil
+  spawn_unlinked(fn() { loop(db) })
 }
 
 fn loop(db: pog.Connection) -> Nil {
