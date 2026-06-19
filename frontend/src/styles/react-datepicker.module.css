@@ -9,7 +9,7 @@
 }
 
 @media (min-width: 768px) {
-  .datepickerScope :global(.listing-availability-calendar .react-datepicker:has(.react-datepicker__month-container ~ .react-datepicker__month-container)) {
+  .datepickerScope :global(.react-datepicker:has(.react-datepicker__month-container ~ .react-datepicker__month-container)) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 3rem;
   }
