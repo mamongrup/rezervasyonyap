@@ -812,9 +812,7 @@ fn search_listings_impl(
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
-    <> " else null end, nullif((select min(u.v)::text from listing_price_rules r cross join lateral "
-    <> listing_price_rule_nightly_lateral_values_sql()
-    <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
+    <> " else null end, nullif(price_rule.min_price::text, ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
     <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'district_label'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
@@ -844,12 +842,8 @@ fn search_listings_impl(
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
     <> ", coalesce(l.created_at::text, ''), coalesce(nullif(trim(l.mobile_discount_percent::text), ''), '0'), case when coalesce(l.instant_book, false) then 'true' else 'false' end, coalesce(nullif(trim((select string_agg(s.path::text, E'\\x1f') from (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null::text when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end as path from listing_images li where li.listing_id = l.id and trim(coalesce(li.storage_key, '')) <> '' order by li.sort_order asc, li.created_at asc limit 12) s where s.path is not null)), ''), '') "
-    <> ", coalesce(nullif((select min(u.v)::text from listing_price_rules r cross join lateral "
-    <> listing_price_rule_nightly_lateral_values_sql()
-    <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), '') "
-    <> ", coalesce(nullif((select max(u.v)::text from listing_price_rules r cross join lateral "
-    <> listing_price_rule_nightly_lateral_values_sql()
-    <> " as u(v) where r.listing_id = l.id and u.v is not null), ''), '') "
+    <> ", coalesce(price_rule.min_price::text, '') "
+    <> ", coalesce(price_rule.max_price::text, '') "
     <> ", coalesce(nullif(hotel.star_rating::text, ''), '') "
     <> ", coalesce(nullif(trim(hotel_attr.value_json->>'hotel_type_code'), ''), '') "
     <> ", coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '') "
