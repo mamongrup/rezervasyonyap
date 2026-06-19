@@ -837,7 +837,7 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'short_stay_fee'), ''), '') "
     <> ", coalesce(nullif(trim(case when pc.code = 'activity' then "
     <> activity_listing_vitrin_fare_currency_sql()
-    <> " else null end), ''), nullif(trim(l.currency_code::text), ''), (select m.currency_code from listing_meal_plans m where m.listing_id = l.id and m.is_active = true order by m.sort_order asc, m.created_at asc limit 1), '') "
+    <> " else null end), ''), l.currency_code::text, '') "
     <> ", coalesce(l.cleaning_fee_amount::text, '') "
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
