@@ -1,0 +1,40 @@
+---
+description: Laragon yerel ortam — migration, artisan, sync; komutları agent çalıştırır
+alwaysApply: true
+---
+
+# Yerel işlemler (Laragon — zorunlu)
+
+**Migration, cache temizliği, veri eşitleme ve doğrulama komutlarını kullanıcıya bırakma — önce yerelde sen çalıştır.**
+
+## Yollar
+
+| Ortam | Kök |
+|--------|-----|
+| travel (Gleam + Next) | `c:\laragon\www\travel` |
+| mamontravel / Booking Core | `c:\laragon\www\mamontravel\bc-cms` |
+
+**PHP (Laragon):** `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe` — yoksa `Get-Command php` ile bul.
+
+**PostgreSQL (travel):** `C:\laragon\bin\postgresql\postgresql\bin\psql.exe` — `-h 127.0.0.1 -p 5432 -U postgres -d travel`
+
+**MySQL (bc-cms):** `.env` → `DB_DATABASE=mamontravel`, kullanıcı `root`, şifre genelde boş.
+
+PowerShell’de `&&` kullanma; `;` veya ayrı komut.
+
+## Ne zaman ne çalıştır
+
+| Değişiklik | Yerel komut |
+|------------|-------------|
+| `backend/**/*.gleam` | `cd backend` → `gleam build` |
+| `backend/priv/sql/modules/NNN_*.sql` (travel) | `psql ... -f backend\priv\sql\modules\NNN_*.sql` |
+| Laravel migration (bc-cms) | `php artisan migrate --path=... --force` |
+| Blade / config (bc-cms) | `php artisan view:clear` + `cache:clear` |
+| Turizm belge eşitleme | `php scripts\sync_turizm_belge_from_tourism.php` (bc-cms kökü) |
+| Frontend TS (travel) | `ReadLints` + mümkünse `npx tsc --noEmit` |
+
+## Cevap formatı
+
+- Başarılı yerel çalıştırmayı özetle (`migration ✓`, `817 ilan eşleşti` vb.).
+- **Yalnızca üretim/sunucu** için manuel adım yaz; yerel için “şunu çalıştırın” deme — zaten çalıştırmış ol.
+- Komut PATH’te yoksa alternatif yolu dene; yine olmazsa hatayı ve engeli bildir.

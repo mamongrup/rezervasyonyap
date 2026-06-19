@@ -621,7 +621,7 @@ export const zh: AppMessages = {
         heated_pool: '热水 / 恒温泳池',
         children_pool: '儿童泳池',
       },
-      dimensions: '尺寸（宽 × 长 × 深）',
+      dimensions: '尺寸（宽 x 长 x 深）',
       heatingFee: '加热费（每日）',
       notes: '备注',
     },

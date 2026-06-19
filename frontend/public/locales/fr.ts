@@ -631,7 +631,7 @@ export const fr: AppMessages = {
         heated_pool: 'Piscine chauffée / eau chaude',
         children_pool: 'Piscine pour enfants',
       },
-      dimensions: 'Dimensions (L × l × p)',
+      dimensions: 'Dimensions (L x l x p)',
       heatingFee: 'Frais de chauffage (par jour)',
       notes: 'Remarques',
     },

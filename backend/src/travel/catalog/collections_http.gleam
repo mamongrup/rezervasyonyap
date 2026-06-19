@@ -1397,6 +1397,208 @@ pub fn delete_manage_theme_item(req: Request, ctx: Context, item_id: String) -> 
   }
 }
 
+// ─── Travel Bridge (hafif senkron) ───────────────────────────────────────────
+
+fn bridge_listing_row() -> decode.Decoder(#(
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+  String,
+)) {
+  use id <- decode.field(0, decode.string)
+  use slug <- decode.field(1, decode.string)
+  use title <- decode.field(2, decode.string)
+  use category_code <- decode.field(3, decode.string)
+  use featured_image_url <- decode.field(4, decode.string)
+  use price_from <- decode.field(5, decode.string)
+  use location <- decode.field(6, decode.string)
+  use map_lat <- decode.field(7, decode.string)
+  use map_lng <- decode.field(8, decode.string)
+  use hotel_star_rating <- decode.field(9, decode.string)
+  use tour_duration_days <- decode.field(10, decode.string)
+  use meal_plan_summary <- decode.field(11, decode.string)
+  use flight_airline_code <- decode.field(12, decode.string)
+  use flight_airline_name <- decode.field(13, decode.string)
+  use flight_duration <- decode.field(14, decode.string)
+  decode.success(#(
+    id,
+    slug,
+    title,
+    category_code,
+    featured_image_url,
+    price_from,
+    location,
+    map_lat,
+    map_lng,
+    hotel_star_rating,
+    tour_duration_days,
+    meal_plan_summary,
+    flight_airline_code,
+    flight_airline_name,
+    flight_duration,
+  ))
+}
+
+fn bridge_listing_json(
+  row: #(
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+    String,
+  ),
+) -> json.Json {
+  let #(
+    id,
+    slug,
+    title,
+    category_code,
+    featured_image_url,
+    price_from,
+    location,
+    map_lat,
+    map_lng,
+    hotel_star_rating,
+    tour_duration_days,
+    meal_plan_summary,
+    flight_airline_code,
+    flight_airline_name,
+    flight_duration,
+  ) = row
+  json.object([
+    #("id", json.string(id)),
+    #("slug", json.string(slug)),
+    #("title", json.string(title)),
+    #("category_code", json.string(category_code)),
+    #("featured_image_url", json_opt_str(featured_image_url)),
+    #("price_from", json_opt_str(price_from)),
+    #("location", json_opt_str(location)),
+    #("map_lat", json_opt_str(map_lat)),
+    #("map_lng", json_opt_str(map_lng)),
+    #("hotel_star_rating", json_opt_str(hotel_star_rating)),
+    #("tour_duration_days", json_opt_str(tour_duration_days)),
+    #("meal_plan_summary", json_opt_str(meal_plan_summary)),
+    #("flight_airline_code", json_opt_str(flight_airline_code)),
+    #("flight_airline_name", json_opt_str(flight_airline_name)),
+    #("flight_duration", json_opt_str(flight_duration)),
+  ])
+}
+
+/// GET /api/v1/catalog/bridge/listings — Travel Bridge için hafif katalog (sayım sorgusu yok).
+pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let cat_raw =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let locale_raw =
+    list.key_find(qs, "locale")
+    |> result.unwrap("tr")
+    |> string.trim
+    |> string.lowercase
+  let locale = case locale_raw == "" { True -> "tr"  False -> locale_raw }
+  let lim_str =
+    list.key_find(qs, "limit")
+    |> result.unwrap("50")
+    |> string.trim
+  let lim = case int.parse(lim_str) {
+    Ok(n) -> case n > 100 { True -> 100  False -> case n < 1 { True -> 50  False -> n } }
+    Error(_) -> 50
+  }
+  let page_raw =
+    list.key_find(qs, "page")
+    |> result.unwrap("1")
+    |> string.trim
+  let page_num = case int.parse(page_raw) {
+    Ok(n) -> case n < 1 { True -> 1  False -> n }
+    Error(_) -> 1
+  }
+  let offset = int.multiply(page_num - 1, lim)
+  let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
+
+  let sql =
+    "select l.id::text, l.slug, "
+    <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id "
+    <> "where lt.listing_id = l.id and lower(lo.code) = lower($1) limit 1), l.slug), "
+    <> "coalesce(pc.code::text, ''), "
+    <> "coalesce(nullif(trim(l.featured_image_url), ''), ''), "
+    <> "coalesce(l.first_charge_amount::text, ''), "
+    <> "coalesce(nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), ''), "
+    <> "coalesce(l.map_lat::text, ''), coalesce(l.map_lng::text, ''), "
+    <> "coalesce(nullif(trim(lm.meta->>'hotel_star_rating'), ''), ''), "
+    <> "coalesce(nullif(trim(lm.meta->>'tour_duration_days'), ''), ''), "
+    <> "coalesce(nullif(trim(lm.meta->>'meal_plan_summary'), ''), ''), "
+    <> "coalesce(nullif(trim(lm.meta->>'flight_airline_code'), ''), ''), "
+    <> "coalesce(nullif(trim(lm.meta->>'flight_airline_name'), ''), ''), "
+    <> "coalesce(nullif(trim(lm.meta->>'flight_duration'), ''), '') "
+    <> "from listings l "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "left join lateral (select la.value_json as meta from listing_attributes la "
+    <> "where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
+    <> "where l.status = 'published' "
+    <> "and ($2::text is null or pc.code = $2) "
+    <> "order by l.created_at desc "
+    <> "offset $3 limit $4"
+
+  case
+    pog.query(sql)
+    |> pog.parameter(pog.text(locale))
+    |> pog.parameter(cat_param)
+    |> pog.parameter(pog.int(offset))
+    |> pog.parameter(pog.int(lim))
+    |> pog.returning(bridge_listing_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ =
+        io.println(
+          "[catalog.bridge.listings] "
+            <> pog_errors.query_error_to_string(e),
+        )
+      json_err(500, "bridge_search_failed")
+    }
+    Ok(ret) -> {
+      let rows = ret.rows
+      let has_more = list.length(rows) == lim
+      let arr = list.map(rows, bridge_listing_json)
+      let body =
+        json.object([
+          #("listings", json.array(from: arr, of: fn(x) { x })),
+          #("has_more", json.bool(has_more)),
+          #("page", json.int(page_num)),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
 // ─── Public Category Stats ────────────────────────────────────────────────────
 
 fn cat_stats_row() -> decode.Decoder(#(String, Int)) {

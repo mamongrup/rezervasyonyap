@@ -630,7 +630,7 @@ export const ru: AppMessages = {
         heated_pool: 'С подогревом / горячая вода',
         children_pool: 'Детский бассейн',
       },
-      dimensions: 'Размеры (Ш × Д × Г)',
+      dimensions: 'Размеры (Ш x Д x Г)',
       heatingFee: 'Плата за подогрев (в сутки)',
       notes: 'Примечания',
     },

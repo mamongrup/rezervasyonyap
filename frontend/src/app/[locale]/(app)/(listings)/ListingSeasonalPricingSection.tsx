@@ -363,29 +363,29 @@ export default function ListingSeasonalPricingSection({
       ) : null}
 
       {extraCharges && (showExtraFeesList || showDamageDeposit) ? (
-        <div className={clsx(rows.length > 0 && 'mt-8')}>
+        <div className={clsx('listing-extra-charges', rows.length > 0 && 'mt-8')}>
           {showExtraFeesList ? (
             <>
               <h3 className="text-base font-semibold text-neutral-900 dark:text-neutral-100">
                 {sp.extraChargesTitle}
               </h3>
-              <ul className="mt-3 space-y-2 text-sm text-neutral-700 dark:text-neutral-300">
+              <ul className="mt-3 divide-y divide-neutral-100 dark:divide-neutral-800">
                 {extraCharges.shortStay != null &&
                 extraCharges.shortStay.minNights > 0 &&
                 extraCharges.shortStay.feeAmount > 0 ? (
-                  <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
-                    <span>
+                  <li className="flex items-baseline justify-between gap-x-4 py-3 text-sm">
+                    <span className="text-neutral-600 dark:text-neutral-400">
                       {sp.shortStayExtraLine.replace('{n}', String(extraCharges.shortStay.minNights))}
                     </span>
-                    <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                    <span className="shrink-0 tabular-nums font-semibold text-neutral-900 dark:text-neutral-100">
                       {formatConverted(extraCharges.shortStay.feeAmount, listingCur)}
                     </span>
                   </li>
                 ) : null}
                 {extraCharges.cleaningFee != null && extraCharges.cleaningFee.amount > 0 ? (
-                  <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800">
-                    <span>{sp.cleaningFeeLine}</span>
-                    <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                  <li className="flex items-baseline justify-between gap-x-4 py-3 text-sm">
+                    <span className="text-neutral-600 dark:text-neutral-400">{sp.cleaningFeeLine}</span>
+                    <span className="shrink-0 tabular-nums font-semibold text-neutral-900 dark:text-neutral-100">
                       {formatConverted(extraCharges.cleaningFee.amount, listingCur)}
                     </span>
                   </li>
@@ -397,38 +397,37 @@ export default function ListingSeasonalPricingSection({
                   return (
                     <li
                       key={`${row.label}-${idx}`}
-                      className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b border-neutral-100 pb-2 dark:border-neutral-800"
+                      className="flex items-baseline justify-between gap-x-4 py-3 text-sm"
                     >
-                      <span>
+                      <span className="text-neutral-600 dark:text-neutral-400">
                         {row.label}
-                        <span className="text-neutral-500 dark:text-neutral-500">
+                        <span className="text-neutral-400 dark:text-neutral-500">
                           {' '}
                           ({unitLabel(row.unit)})
                         </span>
                       </span>
-                      <span className="shrink-0 tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                      <span className="shrink-0 tabular-nums font-semibold text-neutral-900 dark:text-neutral-100">
                         {amountDisplay}
                       </span>
                     </li>
                   )
                 })}
-                {extraCharges.prepaymentLine?.trim() ? (
-                  <li className="mt-3 border-t border-neutral-200 pt-3 text-sm leading-relaxed text-neutral-700 dark:border-neutral-700 dark:text-neutral-300">
-                    {extraCharges.prepaymentLine.trim()}
-                  </li>
-                ) : null}
               </ul>
+              {extraCharges.prepaymentLine?.trim() ? (
+                <p className="mt-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                  {extraCharges.prepaymentLine.trim()}
+                </p>
+              ) : null}
             </>
           ) : null}
           {showDamageDeposit && extraCharges.damageDeposit ? (
             <div
               className={clsx(
-                'text-sm text-neutral-700 dark:text-neutral-300',
                 showExtraFeesList && 'mt-5 border-t border-neutral-100 pt-5 dark:border-neutral-800',
               )}
             >
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <span className="font-medium text-neutral-900 dark:text-neutral-100">
+              <div className="flex items-baseline justify-between gap-x-4 text-sm">
+                <span className="font-semibold text-neutral-900 dark:text-neutral-100">
                   {sp.damageDeposit}
                 </span>
                 <span className="shrink-0 tabular-nums font-semibold text-neutral-900 dark:text-neutral-100">
@@ -436,7 +435,7 @@ export default function ListingSeasonalPricingSection({
                 </span>
               </div>
               {sp.damageDepositNote?.trim() ? (
-                <p className="mt-2 text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+                <p className="mt-2 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
                   {sp.damageDepositNote.trim()}
                 </p>
               ) : null}

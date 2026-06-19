@@ -1,5 +1,6 @@
 'use client'
 
+import AiCommerceOperationsPanel from '@/app/[locale]/(app)/(other-pages)/manage/admin/AiCommerceOperationsPanel'
 import {
   getAiJob,
   getAgentOverview,
@@ -1445,6 +1446,9 @@ export default function AdminAiSection() {
           </ul>
         </AiPanel>
       </div>
+
+      {/* Ticari İşletim Merkezi */}
+      <AiCommerceOperationsPanel />
 
       {/* DeepSeek Agent Merkezi */}
       <div className="rounded-2xl border border-amber-200 bg-white p-6 shadow-sm dark:border-amber-900 dark:bg-neutral-900/40">

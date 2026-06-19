@@ -6,6 +6,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/ai/commerce_ops_enqueue
 import travel/booking/supplier_notification
 import travel/integrations/booking_fulfillment
 import travel/db/decode_helpers as row_dec
@@ -179,6 +180,12 @@ fn capture_paratika(
               booking_fulfillment.fulfill_after_payment(conn, reservation_id)
               let _ = supplier_notification.notify_new_reservation(conn, reservation_id)
               let _ = supplier_notification.notify_platform_ops(conn, reservation_id)
+              let _ =
+                commerce_ops_enqueue.enqueue_commerce_ops_jobs(
+                  conn,
+                  reservation_id,
+                  "payment_confirmed",
+                )
               Ok(Nil)
             }
           }

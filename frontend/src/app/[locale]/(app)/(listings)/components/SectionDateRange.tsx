@@ -18,13 +18,11 @@ import {
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import { useResponsiveCalendarMonthsShown } from '@/hooks/use-responsive-calendar-months-shown'
-import { Divider } from '@/shared/divider'
 import clsx from 'clsx'
 import { getMessages } from '@/utils/getT'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import DatePicker from 'react-datepicker'
 import datepickerStyles from '@/styles/react-datepicker.module.css'
-import { SectionHeading, SectionSubheading } from './SectionHeading'
 
 function startOfToday(): Date {
   return startOfLocalDay(new Date())
@@ -192,22 +190,31 @@ export default function SectionDateRange({
   }, [bookingRules, copy])
 
   return (
-    <div className={embedded ? undefined : 'listingSection__wrap'}>
+    <div
+      className={clsx(
+        embedded
+          ? undefined
+          : 'rounded-[20px] border border-indigo-100 bg-white p-6 shadow-[0_8px_32px_rgba(0,0,0,0.04)] md:p-10 dark:border-neutral-700 dark:bg-neutral-900',
+      )}
+    >
       {embedded ? null : (
-        <>
-          <div>
-            <SectionHeading>{copy.title}</SectionHeading>
-            <SectionSubheading>{copy.subtitle}</SectionSubheading>
-            {rulesLines.length > 0 ? (
-              <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
-                {rulesLines.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-          <Divider className="w-14!" />
-        </>
+        <div className="mb-7">
+          <h2 className="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">{copy.title}</h2>
+          <p className="mt-1.5 text-sm font-medium text-neutral-500 dark:text-neutral-400">{copy.subtitle}</p>
+          {rulesLines.length > 0 ? (
+            <ul className="mt-6 flex flex-col gap-2.5">
+              {rulesLines.map((line) => (
+                <li key={line} className="flex items-center text-sm text-neutral-600 dark:text-neutral-400">
+                  <span
+                    aria-hidden
+                    className="mr-3 inline-block size-1.5 shrink-0 rounded-full bg-gradient-to-br from-indigo-600 to-violet-600 shadow-sm"
+                  />
+                  {line}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       )}
 
       <SectionDateRangeCalendar
@@ -218,27 +225,36 @@ export default function SectionDateRange({
         initialMonthsShown={initialMonthsShown}
       />
 
-      <ul className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-neutral-600 dark:text-neutral-400">
-        <li className="flex items-center gap-2">
-          <span className="inline-block size-3 rounded-sm border border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-900" />
-          {copy.legendAvailable}
-        </li>
-        <li className="flex items-center gap-2">
+      <ul className="mt-8 flex flex-wrap gap-x-8 gap-y-3 border-t border-indigo-100 pt-7 dark:border-neutral-700">
+        <li className="flex items-center gap-2.5">
           <span
             aria-hidden
-            className="inline-flex min-w-[1.25rem] items-center justify-center text-sm font-normal text-neutral-300 line-through decoration-neutral-300 dark:text-neutral-500 dark:decoration-neutral-500"
+            className="inline-block size-4 shrink-0 rounded-full border-2 border-indigo-100 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
+          />
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendAvailable}</span>
+        </li>
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="relative inline-block size-4 shrink-0 overflow-hidden rounded-full border-2 border-indigo-100 bg-white shadow-sm dark:border-neutral-600 dark:bg-neutral-900"
           >
-            12
+            <span className="absolute top-[7px] left-[-2px] block h-0.5 w-[140%] rotate-45 bg-neutral-300 dark:bg-neutral-500" />
           </span>
-          {copy.legendBlocked}
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendBlocked}</span>
         </li>
-        <li className="flex items-center gap-2">
-          <span className="inline-block size-3 rounded-sm ring-2 ring-amber-400/90 bg-amber-50 dark:bg-amber-950/40" />
-          {copy.legendOption}
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="inline-block size-4 shrink-0 rounded-full border-2 border-amber-500 bg-amber-400 shadow-sm"
+          />
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendOption}</span>
         </li>
-        <li className="flex items-center gap-2">
-          <span className="inline-block size-3 rounded-sm ring-2 ring-emerald-500/80 bg-emerald-50 dark:bg-emerald-950/40" />
-          {copy.legendPromo}
+        <li className="flex items-center gap-2.5">
+          <span
+            aria-hidden
+            className="inline-block size-4 shrink-0 rounded-full border-2 border-emerald-600 bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm"
+          />
+          <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-400">{copy.legendPromo}</span>
         </li>
       </ul>
     </div>

@@ -631,7 +631,7 @@ export const de: AppMessages = {
         heated_pool: 'Beheizter / Warmwasser-Pool',
         children_pool: 'Kinderpool',
       },
-      dimensions: 'Maße (B × L × T)',
+      dimensions: 'Maße (B x L x T)',
       heatingFee: 'Heizgebühr (pro Tag)',
       notes: 'Hinweise',
     },

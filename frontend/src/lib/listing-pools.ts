@@ -133,12 +133,12 @@ export function getPoolHeatingReservationOption(
   return { dailyAmount, feeSummary: raw, currencyCode }
 }
 
-/** Ölçülerden en az biri doluysa göster */
+/** Ölçüler: en x boy x derinlik (mm/metin alanlarından) */
 export function formatPoolDimensionsMm(row: HolidayHomePoolRow): string | null {
   const w = row.width.trim()
   const l = row.length.trim()
   const d = row.depth.trim()
   if (!w && !l && !d) return null
   const parts = [w, l, d].filter(Boolean)
-  return parts.join(' × ')
+  return parts.join(' x ')
 }

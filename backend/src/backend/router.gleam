@@ -57,6 +57,7 @@ import travel/support/helpdesk_catalog_http
 import travel/integrations/integrations_http
 import travel/ai/ai_http
 import travel/ai_agents/agent_center_http
+import travel/ai/commerce_agent_center_http
 import travel/ai/ai_worker_http
 import travel/ai/district_ideas_http
 import travel/ai/region_content_http
@@ -1126,6 +1127,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "banners", "placements", bid] ->
       banner_http.delete_placement(req, ctx, bid)
 
+    http.Get, ["api", "v1", "catalog", "bridge", "listings"] ->
+      collections_http.search_bridge_listings(req, ctx)
+
     http.Get, ["api", "v1", "catalog", "public", "listings"] ->
       collections_http.search_public_listings(req, ctx)
 
@@ -1545,6 +1549,15 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Patch, ["api", "v1", "agents", "recommendations", rid] ->
       agent_center_http.patch_recommendation(req, ctx, rid)
+
+    http.Get, ["api", "v1", "agents", "commerce", "overview"] ->
+      commerce_agent_center_http.overview(req, ctx)
+
+    http.Post, ["api", "v1", "agents", "commerce", "run-due"] ->
+      commerce_agent_center_http.run_due(req, ctx)
+
+    http.Post, ["api", "v1", "agents", "commerce", "enqueue"] ->
+      commerce_agent_center_http.enqueue_for_reservation(req, ctx)
 
     http.Get, ["api", "v1", "ai", "region-tasks"] ->
       ai_http.list_region_tasks(req, ctx)

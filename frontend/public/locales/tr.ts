@@ -956,7 +956,7 @@ export const tr = {
         heated_pool: 'Sıcak su havuzu',
         children_pool: 'Çocuk havuzu',
       },
-      dimensions: 'Ölçüler (en × boy × derinlik)',
+      dimensions: 'Ölçüler (en x boy x derinlik)',
       heatingFee: 'Isıtma ücreti (günlük)',
       notes: 'Not',
     },

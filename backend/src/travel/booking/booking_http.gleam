@@ -2,6 +2,7 @@
 
 import backend/context.{type Context}
 import travel/booking/cart_fx
+import travel/ai/commerce_ops_enqueue
 import travel/booking/supplier_notification
 import travel/messaging/notification_runtime
 import travel/identity/admin_gate
@@ -1924,6 +1925,11 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
                 _ -> {
                   supplier_notification.notify_new_reservation(ctx.db, rid)
                   supplier_notification.notify_platform_ops(ctx.db, rid)
+                  commerce_ops_enqueue.enqueue_commerce_ops_for_reservation(
+                    ctx,
+                    rid,
+                    "payment_confirmed",
+                  )
                 }
               }
               let out =

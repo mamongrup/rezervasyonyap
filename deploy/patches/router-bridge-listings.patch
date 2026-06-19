@@ -1,0 +1,12 @@
+--- a/backend/src/backend/router.gleam
++++ b/backend/src/backend/router.gleam
+@@ -1126,6 +1126,9 @@ fn route(req: Request, ctx: Context) -> Response {
+     http.Delete, ["api", "v1", "banners", "placements", bid] ->
+       banner_http.delete_placement(req, ctx, bid)
+ 
++    http.Get, ["api", "v1", "catalog", "bridge", "listings"] ->
++      collections_http.search_bridge_listings(req, ctx)
++
+     http.Get, ["api", "v1", "catalog", "public", "listings"] ->
+       collections_http.search_public_listings(req, ctx)
+ 

@@ -1438,7 +1438,7 @@ export const en = {
         heated_pool: 'Hot water / heated pool',
         children_pool: 'Children’s pool',
       },
-      dimensions: 'Dimensions (W × L × D)',
+      dimensions: 'Dimensions (W x L x D)',
       heatingFee: 'Heating fee (per day)',
       notes: 'Notes',
     },
