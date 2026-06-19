@@ -762,7 +762,7 @@ fn search_listings_impl(
     _ ->
       case cat_raw {
         "yacht_charter" ->
-          "order by case when coalesce(trim(l.featured_image_url), '') <> '' or exists (select 1 from listing_images li where li.listing_id = l.id) then 0 else 1 end, l.created_at desc "
+          "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
         _ -> "order by l.created_at desc "
       }
   }
@@ -991,10 +991,18 @@ fn search_listings_impl(
     <> ")) "
 
   let sql_core = sql <> order_sql
-  // Count subquery must reference $5, $21, $23–$27 so PostgreSQL can infer parameter types.
+  // Count: ORDER BY is removed (prevents expensive per-row subqueries like EXISTS on listing_images).
+  // price_rule lateral is also made conditional: when no price filter params ($12/$13) are passed,
+  // skip the per-row listing_price_rules scan entirely — the lateral result is unused anyway.
+  let count_base =
+    string.replace(
+      sql,
+      ") price_rule on true ",
+      ") price_rule on ($12::text is not null or $13::text is not null) ",
+    )
   let count_sql =
     "select count(*)::int from ("
-    <> sql_core
+    <> count_base
     <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep, $25::text as __beds, $26::text as __br, $27::text as __ba) __pg_params"
   let sql_paged = sql_core <> " offset $21 limit $5"
   let int_col0 = {
