@@ -812,7 +812,7 @@ fn search_listings_impl(
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
-    <> " else null end, nullif(price_rule.min_price::text, ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and (l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)), ''), case when l.first_charge_amount is null then (select min(mp.price_per_night)::text from listing_meal_plans mp where mp.listing_id = l.id and mp.is_active = true) else null end, ''), "
+    <> " else null end, nullif(price_rule.min_price::text, ''), nullif(l.first_charge_amount::text, ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true), ''), ''), "
     <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'district_label'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
@@ -837,7 +837,7 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'short_stay_fee'), ''), '') "
     <> ", coalesce(nullif(trim(case when pc.code = 'activity' then "
     <> activity_listing_vitrin_fare_currency_sql()
-    <> " else null end), ''), l.currency_code::text, '') "
+    <> " else null end), ''), nullif(trim(l.currency_code::text), ''), (select m.currency_code from listing_meal_plans m where m.listing_id = l.id and m.is_active = true order by m.sort_order asc, m.created_at asc limit 1), '') "
     <> ", coalesce(l.cleaning_fee_amount::text, '') "
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
