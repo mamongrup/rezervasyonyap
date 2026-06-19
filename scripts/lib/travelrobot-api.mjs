@@ -111,6 +111,16 @@ function formatDate(d) {
   return `${dd}.${mm}.${yyyy}`
 }
 
+/** SearchHotel CheckIn/CheckOut — KPlus DD.MM.YYYY bekler; ISO YYYY-MM-DD de kabul edilir. */
+function normalizeHotelApiDate(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s) return ''
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return s
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (iso) return `${iso[3]}.${iso[2]}.${iso[1]}`
+  return s
+}
+
 function tokenObj(tokenCode) {
   return { TokenCode: tokenCode }
 }
@@ -2040,8 +2050,8 @@ export async function getTourBooking(cfg, tokenCode, opts = {}) {
  * opts: { checkInDate, checkOutDate, destinationId, hotelCode, rooms, languageCode }
  */
 export async function searchHotel(cfg, tokenCode, opts = {}) {
-  const checkin = opts.checkInDate || formatDate(addDays(30))
-  const checkout = opts.checkOutDate || formatDate(addDays(37))
+  const checkin = normalizeHotelApiDate(opts.checkInDate) || formatDate(addDays(30))
+  const checkout = normalizeHotelApiDate(opts.checkOutDate) || formatDate(addDays(37))
   // Gerçek şema (Hotel.json /SearchHotel):
   //   filter.Destinations[] = { DestinationId }, filter.Hotels[] = { HotelCode }
   //   filter.Rooms[] = { Paxes:[{ Count, PaxType, ChildAgeList }] }

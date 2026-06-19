@@ -71,7 +71,7 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> "then replace(trim(px.v), ',', '.')::numeric else null end as tour_vitrin_price "
   <> "from (select "
   <> tour_listing_vitrin_price_sql()
-  <> " as v) px) tour_price_row on true "
+  <> " as v) px) tour_price_row on pc.code = 'tour' "
 }
 
 /// Vitrinde fiyatsız turlar listelenmesin — Wtatil fiyat senkronu sonrası otomatik görünür.
@@ -102,7 +102,7 @@ fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> "then replace(trim(ax.v), ',', '.')::numeric else null end as activity_vitrin_price "
   <> "from (select "
   <> activity_listing_vitrin_price_sql()
-  <> " as v) ax) activity_price_row on true "
+  <> " as v) ax) activity_price_row on pc.code = 'activity' "
 }
 
 // ─── Public Listing Search ────────────────────────────────────────────────────

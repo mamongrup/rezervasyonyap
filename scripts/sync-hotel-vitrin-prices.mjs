@@ -36,12 +36,6 @@ const OFFSET = offsetIdx >= 0 ? Number(args[offsetIdx + 1]) : 0
 const delayIdx = args.indexOf('--delay')
 const DELAY_MS = delayIdx >= 0 ? Number(args[delayIdx + 1]) : 500
 
-function addDays(n) {
-  const d = new Date()
-  d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
-}
-
 async function loadHotels(pg, orgId) {
   const params = [orgId, OFFSET]
   // Fiyatı olmayan oteller önce (boş listing_meal_plans)
@@ -115,10 +109,7 @@ async function main() {
 
     const { tokenCode } = await createTravelrobotToken(cfg)
     console.log(`Token: ${tokenCode.slice(0, 8)}…`)
-
-    const checkInDate = addDays(30)
-    const checkOutDate = addDays(32)
-    console.log(`Tarih penceresi: ${checkInDate} → ${checkOutDate}`)
+    console.log('Tarih penceresi: SearchHotel varsayilan (bugun+30 / +37 gun, DD.MM.YYYY)')
 
     let ok = 0
     let skip = 0
@@ -131,8 +122,6 @@ async function main() {
       try {
         const payload = await searchHotels(cfg, tokenCode, {
           hotelCode: hotel.code,
-          checkInDate,
-          checkOutDate,
           showMultipleRate: true,
           isAsync: false,
         })
