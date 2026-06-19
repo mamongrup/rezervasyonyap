@@ -991,7 +991,7 @@ fn search_listings_impl(
     <> ")) "
 
   let sql_core = sql <> order_sql
-  // Count: ağır SELECT listesi yok — yalnızca FROM/WHERE; price_rule lateral fiyat filtresi yoksa atlanır.
+  // Count: ağır SELECT listesi yok — yalnızca FROM/WHERE; $4/$5/$21 parametreleri WHERE'de bağlanır.
   let count_from_sql = case string.split_once(sql, "from listings l ") {
     Ok(#(_select, rest)) -> "from listings l " <> rest
     Error(_) -> sql
@@ -1005,7 +1005,7 @@ fn search_listings_impl(
   let count_sql =
     "select count(*)::int "
     <> count_from_conditional
-    <> " cross join (select $4::text as __loc, $5::int as __lim, $21::int as __off) __pg_params"
+    <> " and $5::int >= 0 and $21::int >= 0 and ($4::text is not null or $4::text is null) "
   let sql_paged = sql_core <> " offset $21 limit $5"
   let int_col0 = {
     use n <- decode.field(0, decode.int)
