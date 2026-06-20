@@ -10,6 +10,7 @@ import {
   hotelNodeFromPayload,
 } from './travelrobot-api.mjs'
 import { stampHotelSearchWindow } from './travelrobot-hotel-extras.mjs'
+import { hotelRef, mergeStaticHotelContent } from './travelrobot-listing-db.mjs'
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -110,6 +111,8 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
     showMultipleRate: true,
     checkInDate: opts.checkInDate ?? defaultHotelSearchDates(opts).checkInDate,
     checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
+    onRequest: opts.onRequest,
+    isAsync: opts.isAsync,
   })
   const found = pickHotelRows(searchPayload).find((h) => hotelRef(h) === code) ?? null
   let merged = found ? mergeStaticHotelContent(row, found) : row
