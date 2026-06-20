@@ -556,8 +556,12 @@ fn search_listings_impl(
     |> result.unwrap("")
     |> string.trim
   let cat_raw =
-    list.key_find(qs, "category_code")
-    |> result.unwrap("")
+    case list.key_find(qs, "category_code") {
+      Ok(v) -> v
+      Error(_) ->
+        list.key_find(qs, "category")
+        |> result.unwrap("")
+    }
     |> string.trim
     |> string.lowercase
   let loc_raw =
