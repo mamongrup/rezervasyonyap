@@ -1658,12 +1658,18 @@ export const en = {
     activityDetail: {
       aboutTitle: 'About this activity',
       aboutSubtitle: 'Duration, meeting point and participation info.',
-      descriptionTitle: 'Description',
-      similarListings: 'Similar listings',
-      regionListings: 'Listings in the region',
+      descriptionTitle: 'About this activity',
+      similarListings: 'Other listings in the region',
+      regionListings: 'Other listings in the region',
       extraFeesTitle: 'Extra charges',
-      rulesTitle: 'Rules',
+      rulesTitle: 'Activity rules',
       rulesSubtitle: 'Please read before booking.',
+      defaultRules: [
+        'Be ready at least 15 minutes before your reservation time.',
+        'Follow the guide or instructor instructions.',
+        'Use clothing and equipment suitable for the activity.',
+        'The schedule may change depending on weather conditions.',
+      ],
       extraFees: {
         units: {
           per_stay: 'Per booking',

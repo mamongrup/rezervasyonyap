@@ -788,12 +788,18 @@ export const de: AppMessages = {
     activityDetail: {
       aboutTitle: 'Über diese Aktivität',
       aboutSubtitle: 'Dauer, Treffpunkt und Teilnahmeinfos.',
-      descriptionTitle: 'Beschreibung',
-      similarListings: 'Ähnliche Inserate',
-      regionListings: 'Inserate in der Region',
+      descriptionTitle: 'Über diese Aktivität',
+      similarListings: 'Weitere Inserate in der Region',
+      regionListings: 'Weitere Inserate in der Region',
       extraFeesTitle: 'Zusatzgebühren',
-      rulesTitle: 'Regeln',
+      rulesTitle: 'Aktivitätsregeln',
       rulesSubtitle: 'Bitte vor der Buchung lesen.',
+      defaultRules: [
+        'Seien Sie mindestens 15 Minuten vor Ihrer Reservierungszeit bereit.',
+        'Befolgen Sie die Anweisungen des Guides oder Trainers.',
+        'Verwenden Sie Kleidung und Ausrüstung, die für die Aktivität geeignet sind.',
+        'Der Ablauf kann sich je nach Wetterbedingungen ändern.',
+      ],
       extraFees: {
         units: {
           per_stay: 'Pro Buchung',

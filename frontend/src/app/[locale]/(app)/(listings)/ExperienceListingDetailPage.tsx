@@ -57,6 +57,7 @@ import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { buildExperienceListingDetailJsonLd } from '@/lib/seo/listing-detail-jsonld'
+import { galleryUrlsForStayDetailHeader } from '@/lib/listing-gallery-hero-order'
 import type { TListingBase } from '@/types/listing-types'
 import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import HeaderGallery from './components/HeaderGallery'
@@ -465,18 +466,17 @@ export default async function ExperienceListingDetailPage({
         mode: 'region',
       })
     : []
-  const similarListingsTitle = pickActivitySectionTitle(
-    activityVitrin ?? undefined,
-    'similar',
-    locale,
-    ad.similarListings ?? dp.similarListings,
-  )
   const regionListingsTitle = pickActivitySectionTitle(
     activityVitrin ?? undefined,
     'region',
     locale,
     ad.regionListings ?? dp.nearbyListings,
   )
+  const activityRegionCarouselListings = isActivity
+    ? regionActivityListings.length > 0
+      ? regionActivityListings
+      : similarActivityListings
+    : []
   const extraFeesTitle = pickActivitySectionTitle(
     activityVitrin ?? undefined,
     'extra_fees',
@@ -564,6 +564,7 @@ export default async function ExperienceListingDetailPage({
   const galleryForShare = Array.from(
     new Set([featuredImage, ...(galleryImgs ?? [])].filter((u): u is string => Boolean(u))),
   )
+  const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
 
   const renderSectionHeader = () => {
     return (
@@ -653,9 +654,7 @@ export default async function ExperienceListingDetailPage({
                 <ListingDescriptionExpandable locale={locale} html={description} />
               </ActivityDescriptionSection>
             ) : null}
-            {(activityMeta?.rules?.length ?? 0) > 0 ? (
-              <ActivityRulesSection rules={activityMeta?.rules ?? []} locale={locale} />
-            ) : null}
+            <ActivityRulesSection rules={activityMeta?.rules ?? []} locale={locale} />
             {(activityVitrin?.extra_fees?.length ?? 0) > 0 ? (
               <ActivityExtraFeesSection
                 fees={activityVitrin?.extra_fees ?? []}
@@ -693,6 +692,7 @@ export default async function ExperienceListingDetailPage({
               fallbackPrice={price}
               fallbackPriceAmount={(listing as { priceAmount?: number }).priceAmount}
               fallbackPriceCurrency={(listing as { priceCurrency?: string }).priceCurrency}
+              pageCurrency={(listing as { listingCurrencyCode?: string }).listingCurrencyCode}
               initialMonthsShown={calendarMonthsShown}
             />
           ) : (
@@ -711,7 +711,7 @@ export default async function ExperienceListingDetailPage({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(detailJsonLd) }}
         />
       )}
-      <HeaderGallery gridType="grid4" images={galleryImgs ?? []} />
+      <HeaderGallery gridType={galleryImages.length >= 4 ? 'grid4' : 'grid1'} images={galleryImages} />
 
       <div className={`relative z-[1] mt-10 pb-16 lg:pb-24 ${LISTING_DETAIL_SECTION_GAP}`}>
         {isTour ? (
@@ -763,25 +763,14 @@ export default async function ExperienceListingDetailPage({
 
             <Divider className="my-12" />
 
-            {isActivity &&
-            (similarActivityListings.length > 0 || regionActivityListings.length > 0) ? (
+            {isActivity && activityRegionCarouselListings.length > 0 ? (
               <div className="mb-12 flex w-full flex-col gap-y-8">
-                {similarActivityListings.length > 0 ? (
-                  <SimilarListings
-                    listings={similarActivityListings}
-                    title={similarListingsTitle}
-                    sectionClassName={LISTING_SECTION_SHELL}
-                    perNightSuffix=""
-                  />
-                ) : null}
-                {regionActivityListings.length > 0 ? (
-                  <SimilarListings
-                    listings={regionActivityListings}
-                    title={regionListingsTitle}
-                    sectionClassName={LISTING_SECTION_SHELL}
-                    perNightSuffix=""
-                  />
-                ) : null}
+                <SimilarListings
+                  listings={activityRegionCarouselListings}
+                  title={regionListingsTitle}
+                  sectionClassName={LISTING_SECTION_SHELL}
+                  perNightSuffix=""
+                />
               </div>
             ) : null}
 

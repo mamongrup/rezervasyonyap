@@ -776,12 +776,18 @@ export const zh: AppMessages = {
     activityDetail: {
       aboutTitle: '关于此活动',
       aboutSubtitle: '时长、集合点与参与信息。',
-      descriptionTitle: '描述',
-      similarListings: '相似房源',
-      regionListings: '该地区房源',
+      descriptionTitle: '关于此活动',
+      similarListings: '该地区的其他项目',
+      regionListings: '该地区的其他项目',
       extraFeesTitle: '额外费用',
-      rulesTitle: '规则',
+      rulesTitle: '活动规则',
       rulesSubtitle: '预订前请阅读。',
+      defaultRules: [
+        '请至少在预约时间前 15 分钟准备好。',
+        '请遵守导游或教练的指示。',
+        '请穿着并使用适合该活动的服装和装备。',
+        '行程可能会根据天气情况调整。',
+      ],
       extraFees: {
         units: {
           per_stay: '每次预订',

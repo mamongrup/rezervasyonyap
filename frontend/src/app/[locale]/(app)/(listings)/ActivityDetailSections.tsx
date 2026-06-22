@@ -88,8 +88,9 @@ export function ActivityRulesSection({
   locale?: string
 }) {
   const visibleRules = rules.map((r) => r.trim()).filter(Boolean)
-  if (visibleRules.length === 0) return null
   const ad = getMessages(locale).listing.activityDetail
+  const rulesToShow = visibleRules.length > 0 ? visibleRules : (ad.defaultRules ?? [])
+  if (rulesToShow.length === 0) return null
 
   return (
     <section id="activity-section-rules" className={LISTING_SECTION_STACKED}>
@@ -99,7 +100,7 @@ export function ActivityRulesSection({
       </div>
       <Divider className="w-14!" />
       <div className="grid gap-3 sm:grid-cols-2">
-        {visibleRules.map((rule, index) => (
+        {rulesToShow.map((rule, index) => (
           <div
             key={`${index}:${rule}`}
             className="flex items-start gap-2.5 text-sm text-neutral-700 dark:text-neutral-300"

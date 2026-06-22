@@ -37,6 +37,8 @@ export interface TListingBase {
   priceAmountMax?: number
   /** ISO para kodu (örn. TRY, EUR) */
   priceCurrency?: string
+  /** İlanın ana para birimi (`listings.currency_code`); fiyat satırı para biriminden farklı olabilir. */
+  listingCurrencyCode?: string
   reviewStart?: number
   reviewCount?: number
   like?: boolean

@@ -269,6 +269,7 @@ export function mapPublicListingItemToListingBase(
 ): TListingBase {
   const stayBookingRules = parseStayBookingRulesFromPublicItem(item)
   const cur = (item.currency_code?.trim() || 'TRY').toUpperCase()
+  const listingCurrencyCode = (item.listing_currency_code?.trim() || cur).toUpperCase()
   const raw = item.price_from
   const num =
     raw != null && String(raw).trim() !== ''
@@ -364,6 +365,7 @@ export function mapPublicListingItemToListingBase(
     priceAmount,
     ...(priceAmountMax != null ? { priceAmountMax } : {}),
     priceCurrency: cur,
+    listingCurrencyCode,
     reviewStart,
     reviewCount: item.review_count ?? 0,
     featuredImage: imgs[0] ?? (coverRaw !== '' ? coverRaw : undefined),

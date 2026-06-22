@@ -4,6 +4,8 @@ import ActivityParticipantsInputPopover from '@/app/[locale]/(app)/(listings)/co
 import ActivitySessionInputPopover from '@/app/[locale]/(app)/(listings)/components/ActivitySessionInputPopover'
 import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/SingleDateInputPopover'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { convertAmountWithRates } from '@/lib/currency-convert'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { buildActivityCheckoutUrl } from '@/lib/stay-checkout-url'
 import {
@@ -13,12 +15,11 @@ import {
   type ActivitySessionRow,
 } from '@/lib/travel-api'
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import ListingPrice from '@/components/ListingPrice'
-import { activityPriceFromAffix } from '@/lib/activity-listing-price-display'
+import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
 import { Divider } from '@/shared/divider'
 import { getMessages } from '@/utils/getT'
-import { toIntlLocale } from '@/lib/intl-locale'
+import { parseListingPriceString } from '@/lib/parse-listing-price'
 import { parseLocalYmd } from '@/utils/format-local-ymd'
 import Form from 'next/form'
 import { useRouter } from 'next/navigation'
@@ -28,19 +29,20 @@ function todayIso() {
   return formatLocalYmd(new Date())
 }
 
-function money(raw: string | undefined, currency: string, locale: string) {
-  const n = Number(String(raw ?? '').replace(',', '.'))
-  if (!Number.isFinite(n)) return raw ?? ''
-  try {
-    return new Intl.NumberFormat(toIntlLocale(locale), { style: 'currency', currency }).format(n)
-  } catch {
-    return `${n.toLocaleString(toIntlLocale(locale))} ${currency}`
-  }
-}
-
 function parseMoney(raw: string | undefined): number {
   const n = Number(String(raw ?? '').replace(',', '.'))
   return Number.isFinite(n) ? n : 0
+}
+
+function displayMoney(amount: number, currency: string) {
+  return amount > 0 ? formatMoneyIntl(amount, currency) : '—'
+}
+
+function stripActivityFromAffix(raw: string | undefined) {
+  return (raw ?? '')
+    .replace(/['’]den\b/gi, '')
+    .replace(/\bfrom\b/gi, '')
+    .trim()
 }
 
 export default function ActivityBookingPanel({
@@ -51,6 +53,7 @@ export default function ActivityBookingPanel({
   fallbackPrice,
   fallbackPriceAmount,
   fallbackPriceCurrency,
+  pageCurrency,
   initialMonthsShown = 1,
 }: {
   listingId: string
@@ -60,6 +63,7 @@ export default function ActivityBookingPanel({
   fallbackPrice?: string
   fallbackPriceAmount?: number
   fallbackPriceCurrency?: string
+  pageCurrency?: string
   initialMonthsShown?: 1 | 2
 }) {
   const m = getMessages(locale)
@@ -68,6 +72,7 @@ export default function ActivityBookingPanel({
   const sidebar = m.listing.sidebar
   const router = useRouter()
   const vitrinHref = useVitrinHref()
+  const currencyContext = usePreferredCurrencyContext()
 
   const [date, setDate] = useState(initialDate || todayIso())
   const selectedDate = useMemo(() => parseLocalYmd(date) ?? parseLocalYmd(todayIso()), [date])
@@ -139,11 +144,31 @@ export default function ActivityBookingPanel({
   const adultsSubtotal = adultUnit * adults
   const childrenSubtotal = childUnit * children
   const grandTotal = parseMoney(quote?.line_total)
+  const targetCurrency = (pageCurrency || fallbackPriceCurrency || currencyContext?.preferredCode || currency || 'TRY')
+    .trim()
+    .toUpperCase()
+  const convertForDisplay = (amount: number, sourceCurrency: string): number => {
+    const source = (sourceCurrency || currency || 'TRY').trim().toUpperCase()
+    if (amount <= 0 || source === targetCurrency) return amount
+    const converted = convertAmountWithRates(amount, source, targetCurrency, currencyContext?.rates ?? [])
+    return converted ?? amount
+  }
+  const displayAdultUnit = convertForDisplay(adultUnit, currency)
+  const displayChildUnit = convertForDisplay(childUnit, currency)
+  const displayAdultsSubtotal = convertForDisplay(adultsSubtotal, currency)
+  const displayChildrenSubtotal = convertForDisplay(childrenSubtotal, currency)
+  const displayGrandTotal = convertForDisplay(grandTotal, currency)
+  const displayCurrency = targetCurrency
 
-  const headerPrice = fallbackPrice || ab.priceBySelection
-  const activityFromAffix = activityPriceFromAffix(locale)
-  const showFromPrice =
+  const parsedFallbackPrice = parseListingPriceString(stripActivityFromAffix(fallbackPrice))
+  const convertedHeaderPrice =
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
+      ? convertForDisplay(fallbackPriceAmount, fallbackPriceCurrency || currency)
+      : parsedFallbackPrice
+        ? convertForDisplay(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
+        : displayAdultUnit
+  const headerPrice =
+    convertedHeaderPrice > 0 ? displayMoney(convertedHeaderPrice, displayCurrency) : ab.priceBySelection
 
   const canCheckout =
     Boolean(listingId?.trim()) &&
@@ -162,8 +187,8 @@ export default function ActivityBookingPanel({
         sessionId,
         adults,
         children,
-        currencyCode: quote.currency_code || currency,
-        unitPrice: grandTotal,
+        currencyCode: displayCurrency,
+        unitPrice: displayGrandTotal,
         startTime: quote.start_time,
       }),
     )
@@ -173,19 +198,8 @@ export default function ActivityBookingPanel({
     <div className="listingSection__wrap sm:shadow-xl">
       <div>
         <span className="text-3xl font-semibold text-neutral-900 dark:text-neutral-100">
-          {showFromPrice ? (
-            <ListingPrice
-              className="text-3xl font-semibold"
-              price={fallbackPrice}
-              priceAmount={fallbackPriceAmount}
-              priceCurrency={fallbackPriceCurrency || currency}
-              priceFromPrefix={activityFromAffix.prefix}
-              priceFromSuffix={activityFromAffix.suffix}
-            />
-          ) : (
-            headerPrice
-          )}
-          <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
+          {headerPrice}
+          <span className="text-base font-normal text-neutral-500 dark:text-neutral-400">
             {td.pricePerPerson}
           </span>
         </span>
@@ -221,6 +235,8 @@ export default function ActivityBookingPanel({
           className="flex-1"
           locale={locale}
           adults={adults}
+          // Existing popover API uses a `children` count prop, not React children.
+          // eslint-disable-next-line react/no-children-prop
           children={children}
           onAdultsChange={setAdults}
           onChildrenChange={setChildren}
@@ -232,20 +248,20 @@ export default function ActivityBookingPanel({
           {quote && adults > 0 ? (
             <>
               <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {money(quote.adult_unit, currency, locale)} × {adults} {ab.adult.toLowerCase()}
+                {displayMoney(displayAdultUnit, displayCurrency)} × {adults} {ab.adult.toLowerCase()}
               </DescriptionTerm>
               <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {money(String(adultsSubtotal), currency, locale)}
+                {displayMoney(displayAdultsSubtotal, displayCurrency)}
               </DescriptionDetails>
             </>
           ) : null}
           {quote && children > 0 ? (
             <>
               <DescriptionTerm className="text-sm text-neutral-600 dark:text-neutral-400">
-                {money(quote.child_unit, currency, locale)} × {children} {ab.child.toLowerCase()}
+                {displayMoney(displayChildUnit, displayCurrency)} × {children} {ab.child.toLowerCase()}
               </DescriptionTerm>
               <DescriptionDetails className="text-sm text-neutral-800 sm:text-right dark:text-neutral-200">
-                {money(String(childrenSubtotal), currency, locale)}
+                {displayMoney(displayChildrenSubtotal, displayCurrency)}
               </DescriptionDetails>
             </>
           ) : null}
@@ -258,7 +274,7 @@ export default function ActivityBookingPanel({
                 {sidebar.total}
               </DescriptionTerm>
               <DescriptionDetails className="font-semibold text-neutral-900 sm:text-right dark:text-white">
-                {grandTotal > 0 ? money(quote.line_total, currency, locale) : '—'}
+                {displayMoney(displayGrandTotal, displayCurrency)}
               </DescriptionDetails>
             </DescriptionList>
           </>

@@ -9627,6 +9627,8 @@ export interface PublicListingItem {
   listing_vertical?: string
   status?: string
   currency_code?: string
+  /** `listings.currency_code` — detay sayfasının/checkout'un ana para birimi. */
+  listing_currency_code?: string | null
   featured_image_url: string | null
   thumbnail_url: string | null
   price_from: string | null

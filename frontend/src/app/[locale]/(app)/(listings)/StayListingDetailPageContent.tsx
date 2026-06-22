@@ -26,6 +26,7 @@ import {
   shortRegionLabelFromLocationPin,
 } from '@/lib/region-places-slug'
 import {
+  detailPathForVertical,
   HOLIDAY_HOME_DETAIL_PATH,
   STAY_DETAIL_HOTEL_PATH,
   STAY_DETAIL_YACHT_PATH,
@@ -238,6 +239,10 @@ export default async function StayListingDetailPageContent({
           ? 'hotel'
           : undefined
   const vertical = verticalFromListing ?? verticalFromUrl
+  if (vertical && vertical !== 'hotel' && !isStayRentalCategory(vertical)) {
+    redirect(await vitrinHref(locale, `${detailPathForVertical(vertical)}/${handle}`))
+  }
+
   const canonicalPath = stayDetailPathForVertical(vertical)
   if (linkBase !== canonicalPath) {
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))

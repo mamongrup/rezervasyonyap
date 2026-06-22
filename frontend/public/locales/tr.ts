@@ -1110,12 +1110,18 @@ export const tr = {
     activityDetail: {
       aboutTitle: 'Aktivite Hakkında',
       aboutSubtitle: 'Süre, buluşma noktası ve katılım bilgileri.',
-      descriptionTitle: 'Açıklama',
-      similarListings: 'Benzeri İlanlar',
-      regionListings: 'Bölgedeki İlanlar',
+      descriptionTitle: 'Aktivite hakkında',
+      similarListings: 'Bölgedeki Diğer İlanlar',
+      regionListings: 'Bölgedeki Diğer İlanlar',
       extraFeesTitle: 'Ek Ücretler',
-      rulesTitle: 'Kurallar',
+      rulesTitle: 'Aktivite Kuralları',
       rulesSubtitle: 'Katılım öncesi bilmeniz gereken koşullar.',
+      defaultRules: [
+        'Rezervasyon saatinden en az 15 dakika önce hazır olun.',
+        'Rehber veya eğitmen talimatlarına uyun.',
+        'Aktiviteye uygun kıyafet ve ekipman kullanın.',
+        'Hava koşullarına göre programda değişiklik olabilir.',
+      ],
       extraFees: {
         units: {
           per_stay: 'Rezervasyon başına',
