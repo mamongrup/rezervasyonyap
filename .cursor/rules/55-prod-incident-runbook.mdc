@@ -1,0 +1,75 @@
+---
+description: Üretim olay kayıtları — deploy, log, index, bağlantı tükenmesi (tekrar önleme)
+alwaysApply: true
+---
+
+# Üretim olay runbook'u (rezervasyonyap.tr)
+
+2026-06 gecesinde çözülen gerçek olaylar. Aynı hataları tekrar yaşamamak için **önce buraya bak**.
+Tamamlayıcı: `51-rezervasyonyap-production.mdc`, `53-regression-scope.mdc`.
+
+## 1. Backend deploy: `gleam build` TEK BAŞINA YETMEZ
+
+- `travel-api.service` `WorkingDirectory=/opt/rezervasyonyap/backend/build/erlang-shipment` ile **shipment'ten** çalışır — `httpdocs/backend` kaynak ağacından değil.
+- `httpdocs`'ta sadece `gleam build` + `systemctl restart` yaparsan **çalışan servis eski kodda kalır** (deploy görünüşte başarılı, davranış değişmez).
+- **Doğru:** git klonu `httpdocs`'tan deploy et; script `gleam export erlang-shipment` yapıp shipment'i `/opt`'a kopyalar, sonra restart eder:
+  ```bash
+  cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+  git fetch origin <branch> && git reset --hard origin/<branch>
+  DEPLOY_REF=<branch> ./deploy/deploy-api-only.sh   # backend; frontend için ./deploy/deploy.sh
+  ```
+- `/opt/rezervasyonyap` bir **git deposu değildir** (`fatal: not a git repository`) — oradan `git pull` deneme.
+
+## 2. travel-api logu journalctl'de DEĞİL
+
+- `StandardOutput/StandardError=append:/var/log/travel-api.log` (bkz. `deploy/systemd/travel-api.service`).
+- `journalctl -u travel-api` yalnız systemd start/stop gösterir; **uygulama hatası için**:
+  ```bash
+  tail -n 60 /var/log/travel-api.log
+  ```
+- `[catalog.public.listings]` / `[catalog.public.listings:count]` satırları gerçek pog hatasını verir.
+
+## 3. `CREATE INDEX CONCURRENTLY` → INVALID index riski
+
+- CONCURRENTLY üretimde yarıda kesilirse **INVALID** index bırakır; planner kullanmaz (Seq Scan), `IF NOT EXISTS` "var" görüp onarmaz. Sonuç: satır başı full-scan, sorgu 5s+ → timeout/500.
+- **Teşhis:**
+  ```bash
+  sudo -u postgres psql -c "select c.relname, t.relname as tbl from pg_index i join pg_class c on c.oid=i.indexrelid join pg_class t on t.oid=i.indrelid where i.indisvalid=false;"
+  ```
+- **Onarım:** invalid index'i düşür, **CONCURRENTLY olmadan** yeniden kur (küçük tablo ms'ler), `ANALYZE`. Örnek: `backend/priv/sql/modules/339_perf_fix_invalid_price_rules_index.sql`.
+- Yeni perf index migration'ı yazarken: küçük tablolarda CONCURRENTLY'den kaçın veya kurulum sonrası `indisvalid` doğrula.
+
+## 4. Vitrin liste sayımı (total) GERÇEK olmalı
+
+- `collections_http.gleam` fast-path'inde `total` **yaklaşık** dönerse kategori sayfası yanlış gösterir (ör. 868 ilan → "49"; `limit+1` artefaktı).
+- Fast-path'te projeksiyonsuz **gerçek** `count` çalıştır (`fast_count_sql`); yalnız karmaşık aramalarda tam `count_sql`. `approximate_public_listing_total` sadece count hatasında fallback olmalı.
+
+## 5. PostgreSQL bağlantı tükenmesi (SQLSTATE 53300)
+
+- Belirti: log'da `remaining connection slots are reserved ... SUPERUSER`, kod `53300`, `connection_unavailable` → tüm API 500.
+- Kök neden: **çok sayıda restart/deploy** eski Erlang VM'lerinin bağlantılarını bırakmamasına yol açar; ölü instance'ların **orphan idle bağlantıları** PostgreSQL'de TCP keepalive zaman aşımına kadar durur. Süreç öldürmek (`pkill`) bunları DÜŞÜRMEZ.
+- `travel-api` havuzu `pool_size=10` (bkz. `backend/src/backend/config.gleam`); tek instance 10 bağlantıdır. Kullanıcı `travel_prod` 197 = ~20 ölü instance.
+- **Teşhis:**
+  ```bash
+  sudo -u postgres psql -c "select datname, usename, count(*) from pg_stat_activity group by 1,2 order by 3 desc;"
+  ```
+- **Onarım (orphan bağlantıları elle sonlandır, sonra restart):**
+  ```bash
+  sudo -u postgres psql -c "select pg_terminate_backend(pid) from pg_stat_activity where usename='travel_prod' and pid <> pg_backend_pid();"
+  systemctl restart travel-api.service
+  sleep 6
+  sudo -u postgres psql -c "select count(*) from pg_stat_activity where usename='travel_prod';"  # ~10 olmalı
+  ```
+- **Önleme:** Çok turlu redeploy oturumlarından sonra bağlantı sayısını kontrol et; >30 ise orphan'ları sonlandır. Gereksiz arka arkaya restart yapma.
+
+## 6. Restart sonrası test zamanlaması
+
+- `systemctl restart travel-api` sonrası port birkaç saniye kapalıdır; hemen `curl` atarsan **yanıltıcı** `HTTP=000 / Connection refused` alırsın.
+- `sleep 6` bekle veya önce `curl .../api/v1/meta` ile ayağa kalktığını doğrula, sonra ölç. Soğuk önbellek için ölçümü **2-3 kez** çalıştır (ilk istek yavaş olabilir).
+
+## 7. Performans teşhisi sırası (vitrin liste 4-5s)
+
+1. `tail -n 60 /var/log/travel-api.log` — timeout mı, connection mı, SQL mi?
+2. `EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)` — `apply-sql.sh` ile app DB'sinde çalıştır; `Seq Scan ... Rows Removed by Filter` ve `loops=N` darboğazı gösterir.
+3. Index var ama Seq Scan → `indisvalid=false` (bkz. §3).
+4. Yerelde reprodüksiyon: `scripts/start-travel-api.ps1` (OTP 27 zorunlu değil; `gleam run` ile PORT override), `psql` ile `pg_indexes` karşılaştır.
