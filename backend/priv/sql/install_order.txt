@@ -182,6 +182,7 @@ modules/337_reseed_location_pages_all.sql
 modules/338_yolcu360_production_url.sql
 modules/339_perf_fix_invalid_price_rules_index.sql
 modules/340_role_idle_session_timeout.sql
+modules/341_listing_vitrin_price_cache.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

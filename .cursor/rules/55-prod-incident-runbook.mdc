@@ -73,3 +73,15 @@ Tamamlayıcı: `51-rezervasyonyap-production.mdc`, `53-regression-scope.mdc`.
 2. `EXPLAIN (ANALYZE, BUFFERS, COSTS OFF)` — `apply-sql.sh` ile app DB'sinde çalıştır; `Seq Scan ... Rows Removed by Filter` ve `loops=N` darboğazı gösterir.
 3. Index var ama Seq Scan → `indisvalid=false` (bkz. §3).
 4. Yerelde reprodüksiyon: `scripts/start-travel-api.ps1` (OTP 27 zorunlu değil; `gleam run` ile PORT override), `psql` ile `pg_indexes` karşılaştır.
+
+## 8. Fiyata göre sıralama 500/timeout (vitrin_price cache)
+
+- **Belirti:** `?sort=price_asc` (veya `price_min/price_max`) ile `hotel` 500/5s, `tour/holiday` 2-5s; `created_at` (varsayılan) sıralama hızlı.
+- **Kök neden:** `order by coalesce(price_rule.min_price, …)` her eşleşen satırın fiyatını canlı lateral ile hesaplıyordu → maliyet satır sayısıyla büyür.
+- **Çözüm:** `listings.vitrin_price` önbellek sütunu + `idx_listings_cat_status_vitrin` (migration `341`). Sıralama/fiyat filtresi/tur "fiyatı olmalı" koşulu artık bu sütunu kullanır; fast path bunları index ile karşılar. Ekrandaki `price_from` hâlâ canlı hesaplanır (doğruluk).
+- **ÖNEMLİ — tazeleme:** `vitrin_price` otomatik güncellenmez. **Yeni eklenen/fiyatı değişen ilanlar** tazeleme yapılana kadar fiyat filtresinde/sıralamada eksik kalır; **fiyatsız turlar gizli kalır**. Bu yüzden:
+  ```sql
+  -- import/fiyat güncellemesi sonrası ve periyodik (ör. systemd timer, 10 dk) çalıştır:
+  SELECT refresh_listing_vitrin_prices();
+  ```
+- **Doğrulama:** `?sort=price_asc` ilk satır en ucuz, `price_desc` en pahalı olmalı; `total` ile dönen `rows` tutarlı olmalı.
