@@ -1051,6 +1051,23 @@ fn search_listings_impl(
     <> count_base
     <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep, $25::text as __beds, $26::text as __br, $27::text as __ba) __pg_params"
   let sql_paged = sql_core <> " offset $21 limit $5"
+  let fast_page_order_sql = case cat_raw {
+    "yacht_charter" ->
+      "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
+    _ -> "order by l.created_at desc "
+  }
+  let fast_category_page_sql =
+    "with page_ids as ("
+    <> "select l.id from listings l "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "where l.status = 'published' "
+    <> "and ($2::text is null or pc.code = $2) "
+    <> fast_page_order_sql
+    <> "offset $21 limit $5"
+    <> ") "
+    <> sql
+    <> "and l.id in (select id from page_ids) "
+    <> order_sql
   let int_col0 = {
     use n <- decode.field(0, decode.int)
     decode.success(n)
@@ -1119,9 +1136,14 @@ fn search_listings_impl(
     || string.trim(bathrooms_raw) != ""
     || start_raw != ""
     || end_raw != ""
+    || sort_raw != ""
+  let page_sql = case exact_count_needed {
+    True -> sql_paged
+    False -> fast_category_page_sql
+  }
 
   case
-    pog.query(sql_paged)
+    pog.query(page_sql)
     |> run_params
     |> pog.returning(pub_listing_row())
     |> pog.execute(ctx.db)
