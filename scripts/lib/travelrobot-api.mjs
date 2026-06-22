@@ -2468,6 +2468,10 @@ export function pickHotelRows(payload) {
           row.searchKey ??
           row.Data?.SearchKey ??
           row.data?.searchKey ??
+          row.Data?.Key ??
+          row.data?.key ??
+          row.Key ??
+          row.key ??
           p?.SearchKey ??
           p?.searchKey,
         ProductCode: h.HotelCode ?? h.ProductCode ?? row.ProductCode,
@@ -2925,8 +2929,14 @@ export function pickHotelSearchKey(searchPayload, hotelRow = null) {
     row.searchKey ??
     row.Data?.SearchKey ??
     row.data?.searchKey ??
+    row.Data?.Key ??
+    row.data?.key ??
+    row.Key ??
+    row.key ??
     p?.SearchKey ??
     p?.searchKey ??
+    p?.Key ??
+    p?.key ??
     null
   )
 }

@@ -28,6 +28,22 @@ function defaultHotelSearchDates(opts = {}) {
   }
 }
 
+function summarizeApiIssue(issue) {
+  if (!issue) return ''
+  if (typeof issue === 'string') return issue
+  if (issue instanceof Error) return issue.message
+  try {
+    return JSON.stringify(issue)
+  } catch {
+    return String(issue)
+  }
+}
+
+function summarizeRoomPricesError(code, err) {
+  const msg = summarizeApiIssue(err)
+  return `[uyarı] GetHotelRoomPrices ${code}: ${msg.slice(0, 500) || 'bilinmeyen hata'}`
+}
+
 function withSearchDates(row, opts = {}) {
   return stampHotelSearchWindow(row, defaultHotelSearchDates(opts))
 }
@@ -121,13 +137,28 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   if (!sk) return merged
 
   await log(`  GetHotelRoomPrices ${code}…`)
-  const pricesPayload = await getHotelRooms(cfg, tokenCode, {
-    productCode: code,
-    hotelCode: code,
-    searchKey: sk,
-    languageCode: 'tr',
-  })
-  if (pricesPayload?.HasError) return merged
+  let pricesPayload = null
+  try {
+    pricesPayload = await getHotelRooms(cfg, tokenCode, {
+      productCode: code,
+      hotelCode: code,
+      searchKey: sk,
+      languageCode: 'tr',
+    })
+  } catch (e) {
+    await log(summarizeRoomPricesError(code, e))
+    return merged
+  }
+  if (pricesPayload?.HasError) {
+    const err =
+      pricesPayload?.ErrorMessage ??
+      pricesPayload?.ErrorCode ??
+      pricesPayload?.Message ??
+      pricesPayload?.ResultMessage ??
+      pricesPayload
+    await log(summarizeRoomPricesError(code, err))
+    return merged
+  }
 
   return withSearchDates(mergeHotelRoomPrices(row, pricesPayload, found), opts)
 }
@@ -163,8 +194,9 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
       const after = countUniqueHotelRoomNames(merged)
       if (after > before) expanded++
       out.push(merged)
-    } catch {
+    } catch (e) {
       failed++
+      await log(summarizeRoomPricesError(hotelRef(row) || `#${i + 1}`, e))
       out.push(row)
     }
 
