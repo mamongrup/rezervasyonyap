@@ -1072,13 +1072,14 @@ fn search_listings_impl(
       "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
     _ -> "order by l.created_at desc "
   }
-  // Ana projeksiyonu page_ids ile JOIN ederek lateral'lar (tur fiyatı vb.) yalnız
-  // sayfadaki N satır için hesaplanır; aksi halde planlayıcı tüm tabloda hesaplar (5s timeout).
+  // page_ids'i FROM'un sürücü tablosu yapıyoruz; planlayıcı nested-loop'u 24 satırdan
+  // başlatır ve pahalı lateral'lar (tur fiyatı, listing_images vb.) yalnız o satırlar için
+  // çalışır. Aksi halde planlayıcı tüm yayındaki ilanlarda hesaplayıp sonra join yapıyor (4-5s).
   let fast_main_sql =
     string.replace(
       sql,
       "from listings l ",
-      "from listings l join page_ids __pids on __pids.id = l.id ",
+      "from page_ids __pids join listings l on l.id = __pids.id ",
     )
   let fast_category_page_sql =
     "with page_ids as materialized ("
