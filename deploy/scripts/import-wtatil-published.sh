@@ -53,6 +53,9 @@ node scripts/import-wtatil-tours.mjs --ping
 echo "→ Tur import…"
 node scripts/import-wtatil-tours.mjs "$@"
 
+echo "→ Vitrin fiyat önbelleği tazeleniyor (yeni turlar hemen görünür/sıralanır)…"
+"$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" || echo "[WARN] vitrin_price tazeleme atlandı"
+
 echo "→ Vitrin kontrolü…"
 curl -sS "http://127.0.0.1:8080/api/v1/catalog/public/listings?category_code=tour&limit=1&locale=tr" | head -c 200
 echo
