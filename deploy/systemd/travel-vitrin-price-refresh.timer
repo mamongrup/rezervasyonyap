@@ -1,0 +1,16 @@
+# Vitrin fiyat önbelleğini her 10 dakikada bir tazeler.
+# Yeni eklenen / fiyatı değişen ilanların fiyat sıralama-filtresine ve
+# turların görünürlüğüne en geç ~10 dk içinde yansımasını sağlar.
+
+[Unit]
+Description=Travel — vitrin_price önbellek tazeleme (10 dk)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=10min
+AccuracySec=1min
+Persistent=true
+Unit=travel-vitrin-price-refresh.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,26 @@
+# Vitrin fiyat önbelleği (listings.vitrin_price) tazeleme — oneshot.
+# travel-vitrin-price-refresh.timer tarafından periyodik çağrılır.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-vitrin-price-refresh.service /etc/systemd/system/
+#   sudo cp deploy/systemd/travel-vitrin-price-refresh.timer /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/refresh-vitrin-prices.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-vitrin-price-refresh.timer
+#
+# Log: journalctl -u travel-vitrin-price-refresh.service -n 100 --no-pager
+
+[Unit]
+Description=Travel — vitrin_price önbellek tazeleme (oneshot)
+After=network-online.target travel-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/refresh-vitrin-prices.sh
+Nice=10
+IOSchedulingClass=best-effort
+
+[Install]
+WantedBy=multi-user.target
