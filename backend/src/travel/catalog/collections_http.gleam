@@ -525,6 +525,17 @@ fn normalize_listing_search_q(raw: String) -> String {
   |> string.join(with: " ")
 }
 
+fn normalize_location_search_q(raw: String) -> String {
+  normalize_listing_search_q(raw)
+  |> string.replace(",", " ")
+  |> string.replace("/", " ")
+  |> string.replace("\\", " ")
+  |> string.split(on: " ")
+  |> list.map(string.trim)
+  |> list.filter(fn(t) { t != "" })
+  |> string.join(with: " ")
+}
+
 const listing_search_match_sql: String =
   "translate(lower(coalesce((select lt2.title from listing_translations lt2 join locales lo2 on lo2.id = lt2.locale_id where lt2.listing_id = l.id order by case when lower(lo2.code) = 'tr' then 0 else 1 end limit 1), l.slug) || ' ' || replace(l.slug, '-', ' ')), 'üğışöç', 'ugisoc')"
 
@@ -620,9 +631,10 @@ fn search_listings_impl(
     False -> pog.text(q_normalized)
   }
   let cat_param = case cat_raw == "" { True -> pog.null()  False -> pog.text(cat_raw) }
-  let loc_param = case loc_raw == "" {
+  let loc_normalized = normalize_location_search_q(loc_raw)
+  let loc_param = case loc_normalized == "" {
     True -> pog.null()
-    False -> pog.text("%" <> loc_raw <> "%")
+    False -> pog.text(loc_normalized)
   }
   // Pass ids as a single comma-separated text; SQL splits via string_to_array
   let ids_param = case ids_raw == "" { True -> pog.null()  False -> pog.text(ids_raw) }
@@ -766,6 +778,8 @@ fn search_listings_impl(
     |> string.lowercase
   let vitrin_price_sql =
     "coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, activity_price_row.activity_vitrin_price, l.first_charge_amount) "
+  let location_search_sql =
+    "translate(lower(coalesce(l.location_name, '') || ' ' || coalesce(lm.meta->>'address', '') || ' ' || coalesce(lm.meta->>'province_city', '') || ' ' || coalesce(lm.meta->>'city', '') || ' ' || coalesce(lm.meta->>'district_label', '') || ' ' || coalesce(lm.meta->>'region_display', '')), 'üğışöç', 'ugisoc')"
   let tour_duration_days_sql =
     safe_int_sql("coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')")
   let meta_bed_count_sql = safe_int_sql("coalesce(lm.meta->>'bed_count', '')")
@@ -920,7 +934,9 @@ fn search_listings_impl(
     <> listing_search_match_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
     <> "and ($2::text is null or pc.code = $2) "
-    <> "and ($3::text is null or (lower(coalesce(l.location_name, '')) ilike $3 or lower(coalesce(lm.meta->>'address', '')) ilike $3 or lower(coalesce(lm.meta->>'province_city', '')) ilike $3 or lower(coalesce(lm.meta->>'city', '')) ilike $3 or lower(coalesce(lm.meta->>'district_label', '')) ilike $3 or lower(coalesce(lm.meta->>'region_display', '')) ilike $3)) "
+    <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
+    <> location_search_sql
+    <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($3), ' ')) as u(tok) where trim(tok) <> '')) "
     <> "and ($6::text is null or l.id = ANY(string_to_array($6, ',')::uuid[])) "
     <> "and ($7::text is null or $7 = '' or pc.code not in ('holiday_home', 'yacht_charter') or ( "
     <> "  (pc.code = 'holiday_home' and coalesce(h.theme_codes, '{}'::text[]) && string_to_array(trim($7), ',')::text[]) "
