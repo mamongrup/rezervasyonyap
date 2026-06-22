@@ -65,6 +65,13 @@ export function unwrapData(json) {
   return json.data
 }
 
+function isTokenExpiredResponse(json) {
+  const msg = String(json?.message || json?.Message || json?.error || '')
+    .trim()
+    .toLowerCase()
+  return msg.includes('token is expired') || msg.includes('token expired')
+}
+
 export async function wtatilRequest(method, path, body = null, query = null) {
   const { baseUrl } = await loadWtatilConfigAsync()
   const url = new URL(joinUrl(baseUrl, path))
@@ -122,15 +129,33 @@ function authBody(userName, token, extra = {}) {
   }
 }
 
+async function wtatilPostAuthWithRetry(path, body) {
+  const first = await wtatilRequest('POST', path, body)
+  if (!isTokenExpiredResponse(first)) return first
+
+  const currentUser = String(body?.authorization?.userName || '').trim()
+  if (!currentUser) return first
+
+  const fresh = await fetchWtatilToken()
+  const retryBody = {
+    ...body,
+    authorization: {
+      ...body.authorization,
+      userName: fresh.userName || currentUser,
+      token: fresh.token,
+    },
+  }
+  return wtatilRequest('POST', path, retryBody)
+}
+
 /** Auth gövdesi gerektiren katalog uçları — Wtatil v2 POST (GET+body Node fetch’te reddedilir). */
 async function wtatilPostAuth(path, body) {
-  return wtatilRequest('POST', path, body)
+  return wtatilPostAuthWithRetry(path, body)
 }
 
 /** POST /api/TourCatalog/getall-tour-async — tek sayfa */
 export async function fetchTourCatalogPage(userName, token, pageNumber, pageSize, ids = null) {
-  const json = await wtatilRequest(
-    'POST',
+  const json = await wtatilPostAuth(
     '/api/TourCatalog/getall-tour-async',
     authBody(userName, token, {
       pageNumber,
@@ -201,8 +226,7 @@ export async function fetchTourTransportDetail(userName, token, tourId) {
 
 /** POST /api/TourCatalog/search-tour-async — detail: 0 liste, 1 detay (dikkatli kullan) */
 export async function searchTours(userName, token, searchParameters) {
-  const json = await wtatilRequest(
-    'POST',
+  const json = await wtatilPostAuth(
     '/api/TourCatalog/search-tour-async',
     authBody(userName, token, { searchParameters }),
   )

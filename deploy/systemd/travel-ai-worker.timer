@@ -5,7 +5,7 @@ Description=Travel AI worker zamanlayıcısı
 
 [Timer]
 OnBootSec=3min
-OnUnitActiveSec=1min
+OnUnitActiveSec=3min
 AccuracySec=30s
 RandomizedDelaySec=45s
 Unit=travel-ai-worker.service

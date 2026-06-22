@@ -10,7 +10,6 @@
 
 import backend/context.{type Context}
 import envoy
-import gleam/erlang/process
 import gleam/http
 import gleam/http/request
 import gleam/int
@@ -19,14 +18,10 @@ import gleam/list
 import gleam/string
 import travel/ai/district_ideas_http
 import travel/ai/region_content_http
-import travel/ai/trip_routes_http
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
 const worker_secret_header = "x-travel-ai-worker-secret"
-
-@external(erlang, "backend_ffi_http", "spawn_unlinked")
-fn spawn_unlinked(f: fn() -> Nil) -> Nil
 
 fn json_err(status: Int, msg: String) -> Response {
   let body =
@@ -87,25 +82,6 @@ fn query_loops(req: Request) -> Int {
             False ->
               case n > 15 {
                 True -> 15
-                False -> n
-              }
-          }
-      }
-  }
-}
-
-fn query_int_clamped(req: Request, key: String, default: Int, min: Int, max: Int) -> Int {
-  case list.key_find(wisp.get_query(req), key) {
-    Error(_) -> default
-    Ok(v) ->
-      case int.parse(string.trim(v)) {
-        Error(_) -> default
-        Ok(n) ->
-          case n < min {
-            True -> min
-            False ->
-              case n > max {
-                True -> max
                 False -> n
               }
           }
@@ -279,113 +255,32 @@ pub fn post_run_steps(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn background_loop(
-  ctx: Context,
-  steps_left: Int,
-  delay_ms: Int,
-  want_district: Bool,
-  want_region: Bool,
-  want_place: Bool,
-  want_trip: Bool,
-  want_blue: Bool,
-) -> Nil {
-  case steps_left < 1 {
-    True -> Nil
-    False -> {
-      case want_district {
-        True -> {
-          let _ = district_ideas_http.worker_try_district_travel_ideas(ctx)
-          Nil
-        }
-        False -> Nil
-      }
-      case want_region {
-        True -> {
-          let _ = region_content_http.worker_try_region_geo_batch(ctx)
-          Nil
-        }
-        False -> Nil
-      }
-      case want_place {
-        True -> {
-          let _ = region_content_http.worker_try_place_blog_batch(ctx)
-          Nil
-        }
-        False -> Nil
-      }
-      case want_trip {
-        True -> {
-          let _ = trip_routes_http.worker_try_route_job(ctx, trip_routes_http.TripPlanner)
-          Nil
-        }
-        False -> Nil
-      }
-      case want_blue {
-        True -> {
-          let _ = trip_routes_http.worker_try_route_job(ctx, trip_routes_http.BlueCruiseRoutes)
-          Nil
-        }
-        False -> Nil
-      }
-      case delay_ms > 0 {
-        True -> process.sleep(delay_ms)
-        False -> Nil
-      }
-      background_loop(
-        ctx,
-        steps_left - 1,
-        delay_ms,
-        want_district,
-        want_region,
-        want_place,
-        want_trip,
-        want_blue,
-      )
-    }
-  }
-}
-
 /// POST /api/v1/ai/worker/start-background — `admin.users.read`
 ///
-/// Panelden uzun AI işlerini başlatır ve hemen cevap döner. İşler aynı BEAM
-/// sürecinde arka planda adım adım sürer; ilerleme mevcut stats endpointlerinden
-/// takip edilir.
+/// Panel için güvenli başlatma onayıdır. Uzun AI işleri API sürecinde
+/// başlatılmaz; `travel-ai-worker.timer` tarafından tekil ve kilitli çalıştırılır.
 pub fn post_start_background(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Post)
   case admin_gate.require_admin_users_read(req, ctx) {
     Error(r) -> r
     Ok(_) -> {
-      let steps = query_int_clamped(req, "steps", 200, 1, 5000)
-      let delay_ms = query_int_clamped(req, "delay_ms", 20_000, 0, 300_000)
       let want_district = query_enabled(req, "district")
       let want_region = query_enabled(req, "region")
       let want_place = query_enabled(req, "place")
-      let want_trip = query_enabled(req, "trip")
-      let want_blue = query_enabled(req, "blue")
-
-      spawn_unlinked(fn() {
-        background_loop(
-          ctx,
-          steps,
-          delay_ms,
-          want_district,
-          want_region,
-          want_place,
-          want_trip,
-          want_blue,
-        )
-      })
 
       let body =
         json.object([
           #("started", json.bool(True)),
-          #("steps", json.int(steps)),
-          #("delay_ms", json.int(delay_ms)),
+          #("mode", json.string("systemd_timer")),
+          #(
+            "message",
+            json.string(
+              "AI kuyrukları travel-ai-worker.timer ile arka planda işlenir; panel kapansa da zamanlayıcı devam eder.",
+            ),
+          ),
           #("district", json.bool(want_district)),
           #("region", json.bool(want_region)),
           #("place", json.bool(want_place)),
-          #("trip", json.bool(want_trip)),
-          #("blue", json.bool(want_blue)),
         ])
         |> json.to_string
       wisp.json_response(body, 202)

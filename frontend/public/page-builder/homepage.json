@@ -41,7 +41,7 @@
     {
       "id": "homepage-module-3",
       "type": "featured_by_region",
-      "enabled": true,
+      "enabled": false,
       "order": 4,
       "config": {
         "heading": "Öne Çıkan Konaklama",
@@ -56,6 +56,7 @@
       "enabled": true,
       "order": 5,
       "config": {
+        "heading": "Öne çıkan oteller",
         "categorySlug": "oteller",
         "viewAllHref": "/oteller/all"
       }

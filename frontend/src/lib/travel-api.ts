@@ -12261,13 +12261,15 @@ export interface AiWorkerBackgroundOptions {
 
 export interface AiWorkerBackgroundStartResult {
   started: boolean
-  steps: number
-  delay_ms: number
+  mode?: string
+  message?: string
+  steps?: number
+  delay_ms?: number
   district: boolean
   region: boolean
   place: boolean
-  trip: boolean
-  blue: boolean
+  trip?: boolean
+  blue?: boolean
 }
 
 function appendAiWorkerFlag(qs: URLSearchParams, key: string, value: boolean | undefined): void {
@@ -12300,8 +12302,10 @@ export async function startAiWorkerBackground(
   const raw = await json<Record<string, unknown>>(res)
   return {
     started: raw.started === true,
-    steps: coerceInt(raw.steps),
-    delay_ms: coerceInt(raw.delay_ms),
+    mode: typeof raw.mode === 'string' ? raw.mode : undefined,
+    message: typeof raw.message === 'string' ? raw.message : undefined,
+    steps: raw.steps == null ? undefined : coerceInt(raw.steps),
+    delay_ms: raw.delay_ms == null ? undefined : coerceInt(raw.delay_ms),
     district: raw.district === true,
     region: raw.region === true,
     place: raw.place === true,

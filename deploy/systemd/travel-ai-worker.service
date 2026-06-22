@@ -18,7 +18,9 @@ Wants=network-online.target
 Type=oneshot
 EnvironmentFile=-/etc/rezervasyonyap/backend.env
 Environment=API_ORIGIN=http://127.0.0.1:8080
-Environment=WORKER_LOOPS=3
+Environment=WORKER_LOOPS=1
+Environment=WORKER_CURL_MAX_TIME=1800
+TimeoutStartSec=1900
 # Repo kökündeki script — DEPLOY kökünüze göre düzenleyin:
 ExecStart=/var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/ai-worker-run-steps.sh
 

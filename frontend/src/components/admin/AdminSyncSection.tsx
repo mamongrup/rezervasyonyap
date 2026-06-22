@@ -392,7 +392,9 @@ export default function AdminSyncSection() {
       })
       setAiWorkerMsg({
         type: 'ok',
-        text: `AI işçisi arka planda başladı. ${result.steps} adım planlandı; paneli kapatsanız da sunucuda devam eder.`,
+        text:
+          result.message ??
+          'AI işleri sunucu zamanlayıcısına bırakıldı; paneli kapatsanız da arka planda kontrollü devam eder.',
       })
     } catch (e) {
       setAiWorkerMsg({ type: 'err', text: formatManageApiCatch(e, 'AI işçisi başlatılamadı') })

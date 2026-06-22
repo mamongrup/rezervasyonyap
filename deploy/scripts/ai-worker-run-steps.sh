@@ -5,7 +5,7 @@
 #
 # Kullanım:
 #   chmod +x deploy/scripts/ai-worker-run-steps.sh
-#   ./deploy/scripts/ai-worker-run-steps.sh           # WORKER_LOOPS veya varsayılan 3
+#   ./deploy/scripts/ai-worker-run-steps.sh           # WORKER_LOOPS veya varsayılan 1
 #   ./deploy/scripts/ai-worker-run-steps.sh 5
 #   API_ORIGIN=http://127.0.0.1:8080 WORKER_LOOPS=2 ./deploy/scripts/ai-worker-run-steps.sh
 #
@@ -16,8 +16,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_ENV_FILE="${BACKEND_ENV_FILE:-/etc/rezervasyonyap/backend.env}"
 API_ORIGIN="${API_ORIGIN:-http://127.0.0.1:8080}"
 WORKER_PATH="${WORKER_PATH:-/api/v1/ai/worker/run-steps}"
-LOOPS="${1:-${WORKER_LOOPS:-3}}"
+LOOPS="${1:-${WORKER_LOOPS:-1}}"
 EXTRA_QUERY="${WORKER_QUERY:-}"
+LOCK_FILE="${WORKER_LOCK_FILE:-/tmp/travel-ai-worker-run-steps.lock}"
+CURL_MAX_TIME="${WORKER_CURL_MAX_TIME:-1800}"
+
+if command -v flock >/dev/null 2>&1; then
+  exec 9>"$LOCK_FILE"
+  if ! flock -n 9; then
+    echo "[SKIP] ai-worker zaten calisiyor ($LOCK_FILE)" >&2
+    exit 0
+  fi
+fi
 
 if [[ -f "$BACKEND_ENV_FILE" ]]; then
   set -a
@@ -42,6 +52,7 @@ trap 'rm -f "$TMP"' EXIT
 
 if [[ "${WORKER_VERBOSE:-0}" == "1" ]]; then
   code="$(curl -sS -o "$TMP" -w "%{http_code}" \
+    --max-time "$CURL_MAX_TIME" \
     -X POST \
     -H "x-travel-ai-worker-secret: ${SECRET}" \
     -H "Accept: application/json" \
@@ -50,6 +61,7 @@ if [[ "${WORKER_VERBOSE:-0}" == "1" ]]; then
   echo
 else
   code="$(curl -sS -o "$TMP" -w "%{http_code}" \
+    --max-time "$CURL_MAX_TIME" \
     -X POST \
     -H "x-travel-ai-worker-secret: ${SECRET}" \
     -H "Accept: application/json" \
