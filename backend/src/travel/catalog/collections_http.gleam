@@ -841,7 +841,7 @@ fn search_listings_impl(
     False -> pog.text(end_raw)
   }
 
-  let sql =
+  let sql_select_cols =
     "select l.id::text, l.slug, "
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
@@ -912,7 +912,8 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'flight_airline_name'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_stop_count'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_duration'), ''), '') "
-    <> "from listings l "
+  let sql_from_where =
+    "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
@@ -1051,8 +1052,8 @@ fn search_listings_impl(
     <> meta_bath_count_sql
     <> " >= nullif($27::text, '')::int "
     <> ")) "
+  let sql = sql_select_cols <> sql_from_where
 
-  let sql_core = sql <> order_sql
   // Count: ORDER BY is removed (prevents expensive per-row subqueries like EXISTS on listing_images).
   // price_rule lateral is also made conditional: when no price filter params ($12/$13) are passed,
   // skip the per-row listing_price_rules scan entirely — the lateral result is unused anyway.
@@ -1066,7 +1067,6 @@ fn search_listings_impl(
     "select count(*)::int from ("
     <> count_base
     <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep, $25::text as __beds, $26::text as __br, $27::text as __ba) __pg_params"
-  let sql_paged = sql_core <> " offset $21 limit $5"
   let fast_page_order_sql = case cat_raw {
     "yacht_charter" ->
       "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
@@ -1087,6 +1087,8 @@ fn search_listings_impl(
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
+    <> "left join listing_tour_details tour_det on tour_det.listing_id = l.id "
+    <> tour_listing_vitrin_price_numeric_lateral_sql()
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
     <> "and ($2::text is null or pc.code = $2) "
@@ -1131,6 +1133,7 @@ fn search_listings_impl(
     <> " is not null and "
     <> meta_bath_count_sql
     <> " >= nullif($27::text, '')::int)) "
+    <> tour_public_must_have_price_sql()
   let fast_category_page_sql =
     "with page_ids as materialized (select l.id "
     <> fast_filter_body
@@ -1145,6 +1148,17 @@ fn search_listings_impl(
     "select count(*)::int from (select l.id "
     <> fast_filter_body
     <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24) __allp"
+  // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
+  // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
+  // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
+  let deferred_page_sql =
+    "with page_ids as materialized (select l.id "
+    <> sql_from_where
+    <> order_sql
+    <> " offset $21 limit $5"
+    <> ") "
+    <> fast_main_sql
+    <> order_sql
   let int_col0 = {
     use n <- decode.field(0, decode.int)
     decode.success(n)
@@ -1233,7 +1247,7 @@ fn search_listings_impl(
     || sort_raw != ""
   let page_sql = case fast_page_allowed {
     True -> fast_category_page_sql
-    False -> sql_paged
+    False -> deferred_page_sql
   }
 
   case
