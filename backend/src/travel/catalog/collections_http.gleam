@@ -1081,9 +1081,9 @@ fn search_listings_impl(
       "from listings l ",
       "from page_ids __pids join listings l on l.id = __pids.id ",
     )
-  let fast_category_page_sql =
-    "with page_ids as materialized ("
-    <> "select l.id from listings l "
+  // page_ids ve fast-path sayımının paylaştığı filtre gövdesi (FROM + WHERE).
+  let fast_filter_body =
+    "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
@@ -1131,11 +1131,20 @@ fn search_listings_impl(
     <> " is not null and "
     <> meta_bath_count_sql
     <> " >= nullif($27::text, '')::int)) "
+  let fast_category_page_sql =
+    "with page_ids as materialized (select l.id "
+    <> fast_filter_body
     <> fast_page_order_sql
     <> "offset $21 limit $5"
     <> ") "
     <> fast_main_sql
     <> order_sql
+  // Fast-path için projeksiyonsuz, GERÇEK toplam sayım (yaklaşık değil).
+  // Kullanılmayan parametreler dummy cross join ile bağlanır (bind sayısı $1..$27 ile eşleşsin).
+  let fast_count_sql =
+    "select count(*)::int from (select l.id "
+    <> fast_filter_body
+    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24) __allp"
   let int_col0 = {
     use n <- decode.field(0, decode.int)
     decode.success(n)
@@ -1244,31 +1253,36 @@ fn search_listings_impl(
     Ok(ret) -> {
       let fallback_total =
         approximate_public_listing_total(offset, lim, list.length(ret.rows))
-      let total_count = case exact_count_needed && !fast_page_allowed {
-        False -> fallback_total
-        True -> {
-          case
-            pog.query(count_sql)
-            |> run_params
-            |> pog.returning(int_col0)
-            |> pog.execute(ctx.db)
-          {
-            Error(e) -> {
-              let _ =
-                io.println(
-                  "[catalog.public.listings:count] "
-                    <> pog_errors.query_error_to_string(e),
-                )
-              fallback_total
-            }
-            Ok(count_ret) -> {
-              case count_ret.rows {
-                [n] -> n
-                _ -> fallback_total
-              }
-            }
+      let run_count = fn(count_q: String) -> Int {
+        case
+          pog.query(count_q)
+          |> run_params
+          |> pog.returning(int_col0)
+          |> pog.execute(ctx.db)
+        {
+          Error(e) -> {
+            let _ =
+              io.println(
+                "[catalog.public.listings:count] "
+                  <> pog_errors.query_error_to_string(e),
+              )
+            fallback_total
           }
+          Ok(count_ret) ->
+            case count_ret.rows {
+              [n] -> n
+              _ -> fallback_total
+            }
         }
+      }
+      // Fast-path: ucuz gerçek sayım. Karmaşık (fast olmayan) aramalar: tam count_sql.
+      let total_count = case fast_page_allowed {
+        True -> run_count(fast_count_sql)
+        False ->
+          case exact_count_needed {
+            True -> run_count(count_sql)
+            False -> fallback_total
+          }
       }
       let arr = list.map(ret.rows, pub_listing_json)
       let body =
