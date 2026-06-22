@@ -105,10 +105,17 @@ fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> " as v) ax) activity_price_row on true "
 }
 
+fn safe_int_sql(value_sql: String) -> String {
+  "case when nullif(trim(" <> value_sql <> "), '') ~ '^[0-9]+$' then nullif(trim("
+    <> value_sql
+    <> "), '')::int else null end"
+}
+
 // ─── Public Listing Search ────────────────────────────────────────────────────
 
 fn pub_listing_row() -> decode.Decoder(
   #(
+    String,
     String,
     String,
     String,
@@ -187,32 +194,33 @@ fn pub_listing_row() -> decode.Decoder(
   use min_short_stay_nights <- decode.field(22, decode.string)
   use short_stay_fee <- decode.field(23, decode.string)
   use currency_code <- decode.field(24, decode.string)
-  use cleaning_fee_amount <- decode.field(25, decode.string)
-  use first_charge_amount <- decode.field(26, decode.string)
-  use meta_bed_count <- decode.field(27, decode.string)
-  use created_at_raw <- decode.field(28, decode.string)
-  use mobile_discount_raw <- decode.field(29, decode.string)
-  use instant_book_raw <- decode.field(30, decode.string)
-  use gallery_paths_agg <- decode.field(31, decode.string)
-  use price_rules_nightly_min <- decode.field(32, decode.string)
-  use price_rules_nightly_max <- decode.field(33, decode.string)
-  use hotel_star_rating <- decode.field(34, decode.string)
-  use hotel_type_code <- decode.field(35, decode.string)
-  use tour_duration_days <- decode.field(36, decode.string)
-  use tour_max_people <- decode.field(37, decode.string)
-  use tour_travel_type <- decode.field(38, decode.string)
-  use tour_accommodation_type <- decode.field(39, decode.string)
-  use tour_languages <- decode.field(40, decode.string)
-  use tour_nights <- decode.field(41, decode.string)
-  use tour_meal_type <- decode.field(42, decode.string)
-  use tour_transport_type <- decode.field(43, decode.string)
-  use tour_visa_required <- decode.field(44, decode.string)
-  use tour_departure_place <- decode.field(45, decode.string)
-  use external_provider_code <- decode.field(46, decode.string)
-  use flight_airline_code <- decode.field(47, decode.string)
-  use flight_airline_name <- decode.field(48, decode.string)
-  use flight_stop_count <- decode.field(49, decode.string)
-  use flight_duration <- decode.field(50, decode.string)
+  use listing_currency_code <- decode.field(25, decode.string)
+  use cleaning_fee_amount <- decode.field(26, decode.string)
+  use first_charge_amount <- decode.field(27, decode.string)
+  use meta_bed_count <- decode.field(28, decode.string)
+  use created_at_raw <- decode.field(29, decode.string)
+  use mobile_discount_raw <- decode.field(30, decode.string)
+  use instant_book_raw <- decode.field(31, decode.string)
+  use gallery_paths_agg <- decode.field(32, decode.string)
+  use price_rules_nightly_min <- decode.field(33, decode.string)
+  use price_rules_nightly_max <- decode.field(34, decode.string)
+  use hotel_star_rating <- decode.field(35, decode.string)
+  use hotel_type_code <- decode.field(36, decode.string)
+  use tour_duration_days <- decode.field(37, decode.string)
+  use tour_max_people <- decode.field(38, decode.string)
+  use tour_travel_type <- decode.field(39, decode.string)
+  use tour_accommodation_type <- decode.field(40, decode.string)
+  use tour_languages <- decode.field(41, decode.string)
+  use tour_nights <- decode.field(42, decode.string)
+  use tour_meal_type <- decode.field(43, decode.string)
+  use tour_transport_type <- decode.field(44, decode.string)
+  use tour_visa_required <- decode.field(45, decode.string)
+  use tour_departure_place <- decode.field(46, decode.string)
+  use external_provider_code <- decode.field(47, decode.string)
+  use flight_airline_code <- decode.field(48, decode.string)
+  use flight_airline_name <- decode.field(49, decode.string)
+  use flight_stop_count <- decode.field(50, decode.string)
+  use flight_duration <- decode.field(51, decode.string)
   decode.success(#(
     id,
     slug,
@@ -239,6 +247,7 @@ fn pub_listing_row() -> decode.Decoder(
     min_short_stay_nights,
     short_stay_fee,
     currency_code,
+    listing_currency_code,
     cleaning_fee_amount,
     first_charge_amount,
     meta_bed_count,
@@ -355,6 +364,7 @@ fn pub_listing_json(
     String,
     String,
     String,
+    String,
   ),
 ) -> json.Json {
   let #(
@@ -383,6 +393,7 @@ fn pub_listing_json(
     min_short_stay_nights,
     short_stay_fee,
     currency_code,
+    listing_currency_code,
     cleaning_fee_amount,
     first_charge_amount,
     meta_bed_count,
@@ -456,6 +467,7 @@ fn pub_listing_json(
     #("min_short_stay_nights", json_opt_str(min_short_stay_nights)),
     #("short_stay_fee", json_opt_str(short_stay_fee)),
     #("currency_code", json_opt_str(currency_code)),
+    #("listing_currency_code", json_opt_str(listing_currency_code)),
     #("cleaning_fee_amount", json_opt_str(cleaning_fee_amount)),
     #("first_charge_amount", json_opt_str(first_charge_amount)),
     #("created_at", json_opt_str(created_at_raw)),
@@ -528,6 +540,14 @@ fn min_count_filter_param(raw: String) -> pog.Value {
           }
         Error(_) -> pog.null()
       }
+  }
+}
+
+fn approximate_public_listing_total(offset: Int, limit: Int, row_count: Int) -> Int {
+  let seen = offset + row_count
+  case row_count == limit {
+    True -> seen + 1
+    False -> seen
   }
 }
 
@@ -746,6 +766,11 @@ fn search_listings_impl(
     |> string.lowercase
   let vitrin_price_sql =
     "coalesce(price_rule.min_price, tour_price_row.tour_vitrin_price, activity_price_row.activity_vitrin_price, l.first_charge_amount) "
+  let tour_duration_days_sql =
+    safe_int_sql("coalesce(tour_attr.value_json->'data'->>'duration_days', tour_attr.value_json->>'duration_days', '')")
+  let meta_bed_count_sql = safe_int_sql("coalesce(lm.meta->>'bed_count', '')")
+  let meta_room_count_sql = safe_int_sql("coalesce(lm.meta->>'room_count', '')")
+  let meta_bath_count_sql = safe_int_sql("coalesce(lm.meta->>'bath_count', '')")
   // Varsayılan: `created_at` — yorum/puanı olmayan yeni ilanlar sayfa sonuna itilmesin.
   // Eski davranış (önce yüksek puan): `?sort=recommended` veya `sort=rating`.
   let order_sql = case sort_raw {
@@ -838,6 +863,7 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(case when pc.code = 'activity' then "
     <> activity_listing_vitrin_fare_currency_sql()
     <> " else null end), ''), nullif(trim(l.currency_code::text), ''), (select m.currency_code from listing_meal_plans m where m.listing_id = l.id and m.is_active = true order by m.sort_order asc, m.created_at asc limit 1), '') "
+    <> ", coalesce(nullif(trim(l.currency_code::text), ''), '') "
     <> ", coalesce(l.cleaning_fee_amount::text, '') "
     <> ", coalesce(l.first_charge_amount::text, '') "
     <> ", coalesce(nullif(trim(lm.meta->>'bed_count'), ''), '') "
@@ -862,7 +888,7 @@ fn search_listings_impl(
     <> "  else 'false' end, '') "
     <> ", coalesce(nullif(trim(("
     <> "  select pd.item->>'departureTransportDetail' "
-    <> "  from jsonb_array_elements(coalesce(tour_det.program_days_json->'periods', '[]'::jsonb)) pd(item) "
+    <> "  from jsonb_array_elements(case jsonb_typeof(tour_det.program_days_json->'periods') when 'array' then tour_det.program_days_json->'periods' else '[]'::jsonb end) pd(item) "
     <> "  where nullif(trim(pd.item->>'departureTransportDetail'), '') is not null "
     <> "  limit 1)), ''), nullif(trim(tour_det.program_days_json->'transport'->>'departureTransportDetail'), ''), "
     <> "nullif(trim(tour_attr.value_json->'data'->>'departure_city'), ''), nullif(trim(tour_attr.value_json->>'departure_city'), ''), "
@@ -959,10 +985,18 @@ fn search_listings_impl(
     <> "and ($19::text is null or pc.code != 'tour' or lower(trim(coalesce(tour_attr.value_json->'data'->>'accommodation_type', tour_attr.value_json->>'accommodation_type', ''))) = any(string_to_array(trim($19), ',')::text[])) "
     <> "and ($20::text is null or pc.code != 'tour' or exists ( "
     <> "  select 1 from unnest(string_to_array(trim($20), ',')::text[]) as bucket(v) "
-    <> "  where (bucket.v = '1' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int = 1) "
-    <> "     or (bucket.v = '2-3' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 2 and 3) "
-    <> "     or (bucket.v = '4-7' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int between 4 and 7) "
-    <> "     or (bucket.v = '8+' and coalesce(nullif(trim(tour_attr.value_json->'data'->>'duration_days'), ''), nullif(trim(tour_attr.value_json->>'duration_days'), ''), '0')::int >= 8) "
+    <> "  where (bucket.v = '1' and coalesce("
+    <> tour_duration_days_sql
+    <> ", 0) = 1) "
+    <> "     or (bucket.v = '2-3' and coalesce("
+    <> tour_duration_days_sql
+    <> ", 0) between 2 and 3) "
+    <> "     or (bucket.v = '4-7' and coalesce("
+    <> tour_duration_days_sql
+    <> ", 0) between 4 and 7) "
+    <> "     or (bucket.v = '8+' and coalesce("
+    <> tour_duration_days_sql
+    <> ", 0) >= 8) "
     <> ")) "
     <> tour_public_must_have_price_sql()
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
@@ -978,16 +1012,28 @@ fn search_listings_impl(
     <> "  or lower(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', '')) ilike '%' || trim(dep.v) || '%' "
     <> ")) "
     <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
-    <> "  nullif(trim(lm.meta->>'bed_count'), '') is not null "
-    <> "  and nullif(trim(lm.meta->>'bed_count'), '')::int >= nullif($25::text, '')::int "
+    <> "  "
+    <> meta_bed_count_sql
+    <> " is not null "
+    <> "  and "
+    <> meta_bed_count_sql
+    <> " >= nullif($25::text, '')::int "
     <> ")) "
     <> "and ($26::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
-    <> "  nullif(trim(lm.meta->>'room_count'), '') is not null "
-    <> "  and nullif(trim(lm.meta->>'room_count'), '')::int >= nullif($26::text, '')::int "
+    <> "  "
+    <> meta_room_count_sql
+    <> " is not null "
+    <> "  and "
+    <> meta_room_count_sql
+    <> " >= nullif($26::text, '')::int "
     <> ")) "
     <> "and ($27::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
-    <> "  nullif(trim(lm.meta->>'bath_count'), '') is not null "
-    <> "  and nullif(trim(lm.meta->>'bath_count'), '')::int >= nullif($27::text, '')::int "
+    <> "  "
+    <> meta_bath_count_sql
+    <> " is not null "
+    <> "  and "
+    <> meta_bath_count_sql
+    <> " >= nullif($27::text, '')::int "
     <> ")) "
 
   let sql_core = sql <> order_sql
@@ -1046,50 +1092,85 @@ fn search_listings_impl(
     |> pog.parameter(bathrooms_param)
   }
 
+  let is_agent_search = case agency_org_opt {
+    Some(_) -> True
+    None -> False
+  }
+  let exact_count_needed =
+    is_agent_search
+    || q_normalized != ""
+    || loc_raw != ""
+    || ids_raw != ""
+    || theme_raw != ""
+    || attrs_raw != ""
+    || price_min_raw != ""
+    || price_max_raw != ""
+    || hotel_type_raw != ""
+    || hotel_theme_raw != ""
+    || hotel_accommodation_raw != ""
+    || hotel_stars_raw != ""
+    || tour_travel_type_raw != ""
+    || tour_accommodation_raw != ""
+    || tour_duration_raw != ""
+    || tour_departure_raw != ""
+    || property_type_raw != ""
+    || string.trim(beds_raw) != ""
+    || string.trim(bedrooms_raw) != ""
+    || string.trim(bathrooms_raw) != ""
+    || start_raw != ""
+    || end_raw != ""
+
   case
-    pog.query(count_sql)
+    pog.query(sql_paged)
     |> run_params
-    |> pog.returning(int_col0)
+    |> pog.returning(pub_listing_row())
     |> pog.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
         io.println(
-          "[catalog.public.listings:count] "
+          "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
       json_err(500, "search_failed")
     }
-    Ok(count_ret) -> {
-      let total_count = case count_ret.rows {
-        [n] -> n
-        _ -> 0
-      }
-      case
-        pog.query(sql_paged)
-        |> run_params
-        |> pog.returning(pub_listing_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(e) -> {
-          let _ =
-            io.println(
-              "[catalog.public.listings] "
-                <> pog_errors.query_error_to_string(e),
-            )
-          json_err(500, "search_failed")
+    Ok(ret) -> {
+      let fallback_total =
+        approximate_public_listing_total(offset, lim, list.length(ret.rows))
+      let total_count = case exact_count_needed {
+        False -> fallback_total
+        True -> {
+          case
+            pog.query(count_sql)
+            |> run_params
+            |> pog.returning(int_col0)
+            |> pog.execute(ctx.db)
+          {
+            Error(e) -> {
+              let _ =
+                io.println(
+                  "[catalog.public.listings:count] "
+                    <> pog_errors.query_error_to_string(e),
+                )
+              fallback_total
+            }
+            Ok(count_ret) -> {
+              case count_ret.rows {
+                [n] -> n
+                _ -> fallback_total
+              }
+            }
+          }
         }
-        Ok(ret) -> {
-          let arr = list.map(ret.rows, pub_listing_json)
-          let body =
-            json.object([
-              #("listings", json.array(from: arr, of: fn(x) { x })),
-              #("total", json.int(total_count)),
-            ])
-            |> json.to_string
-          wisp.json_response(body, 200)
-        }
       }
+      let arr = list.map(ret.rows, pub_listing_json)
+      let body =
+        json.object([
+          #("listings", json.array(from: arr, of: fn(x) { x })),
+          #("total", json.int(total_count)),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
     }
   }
 }
