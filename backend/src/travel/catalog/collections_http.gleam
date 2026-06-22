@@ -1076,8 +1076,52 @@ fn search_listings_impl(
     "with page_ids as ("
     <> "select l.id from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
+    <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+    <> "left join listing_yacht_details y on y.listing_id = l.id "
+    <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
     <> "and ($2::text is null or pc.code = $2) "
+    <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
+    <> location_search_sql
+    <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($3), ' ')) as u(tok) where trim(tok) <> '')) "
+    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "  select 1 from inventory_holds ih "
+    <> "  where ih.listing_id = l.id and ih.status = 'active' "
+    <> "    and ih.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
+    <> "    and ih.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> ")) "
+    <> "and ($8::text is null or $9::text is null or not exists ( "
+    <> "  select 1 from reservations r "
+    <> "  where r.listing_id = l.id and r.status in ('held','confirmed') "
+    <> "    and r.starts_on <= ($9::date + ($10 || ' days')::interval)::date "
+    <> "    and r.ends_on >= ($8::date - ($10 || ' days')::interval)::date "
+    <> ")) "
+    <> "and ($8::text is null or $9::text is null or pc.code not in ('holiday_home', 'yacht_charter') or not exists ( "
+    <> "  select 1 from generate_series( "
+    <> "    ($8::date - ($10 || ' days')::interval)::date, "
+    <> "    ($9::date + ($10 || ' days')::interval - interval '1 day')::date, "
+    <> "    interval '1 day' "
+    <> "  ) as d(day) "
+    <> "  left join listing_availability_calendar c on c.listing_id = l.id and c.day = d.day::date "
+    <> "  where coalesce(c.am_available, c.is_available, true) = false "
+    <> "    and coalesce(c.pm_available, c.is_available, true) = false "
+    <> ")) "
+    <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
+    <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ("
+    <> meta_bed_count_sql
+    <> " is not null and "
+    <> meta_bed_count_sql
+    <> " >= nullif($25::text, '')::int)) "
+    <> "and ($26::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ("
+    <> meta_room_count_sql
+    <> " is not null and "
+    <> meta_room_count_sql
+    <> " >= nullif($26::text, '')::int)) "
+    <> "and ($27::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ("
+    <> meta_bath_count_sql
+    <> " is not null and "
+    <> meta_bath_count_sql
+    <> " >= nullif($27::text, '')::int)) "
     <> fast_page_order_sql
     <> "offset $21 limit $5"
     <> ") "
@@ -1129,6 +1173,23 @@ fn search_listings_impl(
     Some(_) -> True
     None -> False
   }
+  let fast_page_allowed =
+    !is_agent_search
+    && q_normalized == ""
+    && ids_raw == ""
+    && theme_raw == ""
+    && attrs_raw == ""
+    && price_min_raw == ""
+    && price_max_raw == ""
+    && hotel_type_raw == ""
+    && hotel_theme_raw == ""
+    && hotel_accommodation_raw == ""
+    && hotel_stars_raw == ""
+    && tour_travel_type_raw == ""
+    && tour_accommodation_raw == ""
+    && tour_duration_raw == ""
+    && tour_departure_raw == ""
+    && sort_raw == ""
   let exact_count_needed =
     is_agent_search
     || q_normalized != ""
@@ -1153,9 +1214,9 @@ fn search_listings_impl(
     || start_raw != ""
     || end_raw != ""
     || sort_raw != ""
-  let page_sql = case exact_count_needed {
-    True -> sql_paged
-    False -> fast_category_page_sql
+  let page_sql = case fast_page_allowed {
+    True -> fast_category_page_sql
+    False -> sql_paged
   }
 
   case
@@ -1175,7 +1236,7 @@ fn search_listings_impl(
     Ok(ret) -> {
       let fallback_total =
         approximate_public_listing_total(offset, lim, list.length(ret.rows))
-      let total_count = case exact_count_needed {
+      let total_count = case exact_count_needed && !fast_page_allowed {
         False -> fallback_total
         True -> {
           case
