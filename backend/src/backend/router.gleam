@@ -1664,6 +1664,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "ai", "worker", "run-steps"] ->
       ai_worker_http.post_run_steps(req, ctx)
 
+    http.Post, ["api", "v1", "ai", "worker", "start-background"] ->
+      ai_worker_http.post_start_background(req, ctx)
+
     http.Delete, ["api", "v1", "verticals", "listings", lid, "hotel-rooms", rid] ->
       verticals_http.delete_hotel_room(req, ctx, lid, rid)
 

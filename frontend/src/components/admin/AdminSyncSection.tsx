@@ -2,8 +2,9 @@
 
 import React from 'react'
 import { Loader2, Play, Clock, CheckCircle2, XCircle, RefreshCw } from 'lucide-react'
+import { getStoredAuthToken } from '@/lib/auth-storage'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
-import { fetchSiteSettingsFromPanel, upsertSiteSettingFromPanel } from '@/lib/travel-api'
+import { fetchSiteSettingsFromPanel, startAiWorkerBackground, upsertSiteSettingFromPanel } from '@/lib/travel-api'
 
 // ──────────────────────────────────────────────────────────
 // Types
@@ -323,6 +324,8 @@ export default function AdminSyncSection() {
   const [loadingSchedule, setLoadingSchedule] = React.useState(true)
   const [savingSchedule, setSavingSchedule] = React.useState(false)
   const [scheduleMsg, setScheduleMsg] = React.useState<string | null>(null)
+  const [aiWorkerRunning, setAiWorkerRunning] = React.useState(false)
+  const [aiWorkerMsg, setAiWorkerMsg] = React.useState<{ type: 'ok' | 'err'; text: string } | null>(null)
 
   React.useEffect(() => {
     const load = async () => {
@@ -368,6 +371,36 @@ export default function AdminSyncSection() {
     }
   }
 
+  const startAiWorker = async () => {
+    if (aiWorkerRunning) return
+    const token = getStoredAuthToken()
+    if (!token) {
+      setAiWorkerMsg({ type: 'err', text: 'Oturum bulunamadı. Lütfen tekrar giriş yapın.' })
+      return
+    }
+    setAiWorkerRunning(true)
+    setAiWorkerMsg(null)
+    try {
+      const result = await startAiWorkerBackground(token, {
+        steps: 1000,
+        delayMs: 20000,
+        district: true,
+        region: true,
+        place: true,
+        trip: true,
+        blue: true,
+      })
+      setAiWorkerMsg({
+        type: 'ok',
+        text: `AI işçisi arka planda başladı. ${result.steps} adım planlandı; paneli kapatsanız da sunucuda devam eder.`,
+      })
+    } catch (e) {
+      setAiWorkerMsg({ type: 'err', text: formatManageApiCatch(e, 'AI işçisi başlatılamadı') })
+    } finally {
+      setAiWorkerRunning(false)
+    }
+  }
+
   if (loadingSchedule) {
     return (
       <div className="flex items-center gap-2 py-4 text-neutral-400 text-sm">
@@ -384,6 +417,38 @@ export default function AdminSyncSection() {
           Her entegrasyon için manuel import başlatın veya otomatik çalışma saatlerini ayarlayın.
           İlerleme çubuğu her 3 saniyede güncellenir.
         </p>
+      </div>
+
+      <div className="rounded-2xl border border-violet-200 bg-violet-50/70 p-5 shadow-sm dark:border-violet-900/60 dark:bg-violet-950/20">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-base font-semibold text-neutral-900 dark:text-white">AI içerik işçisi</h3>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+              İlçe gezi fikirleri, bölge tanıtımı, blog yazıları ve rota kuyruklarını arka planda işler.
+              Panel veya bağlantı kapansa da sunucuda devam eder.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void startAiWorker()}
+            disabled={aiWorkerRunning}
+            className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+          >
+            {aiWorkerRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            Arka Planda Başlat
+          </button>
+        </div>
+        {aiWorkerMsg ? (
+          <p
+            className={
+              aiWorkerMsg.type === 'ok'
+                ? 'mt-3 text-sm text-emerald-700 dark:text-emerald-300'
+                : 'mt-3 text-sm text-red-700 dark:text-red-300'
+            }
+          >
+            {aiWorkerMsg.text}
+          </p>
+        ) : null}
       </div>
 
       {scheduleMsg && (

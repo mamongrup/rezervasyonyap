@@ -12249,6 +12249,67 @@ export async function resetStuckBatchJobs(token: string): Promise<{ geo_reset: n
   return { geo_reset: coerceInt(raw.geo_reset), place_reset: coerceInt(raw.place_reset) }
 }
 
+export interface AiWorkerBackgroundOptions {
+  steps?: number
+  delayMs?: number
+  district?: boolean
+  region?: boolean
+  place?: boolean
+  trip?: boolean
+  blue?: boolean
+}
+
+export interface AiWorkerBackgroundStartResult {
+  started: boolean
+  steps: number
+  delay_ms: number
+  district: boolean
+  region: boolean
+  place: boolean
+  trip: boolean
+  blue: boolean
+}
+
+function appendAiWorkerFlag(qs: URLSearchParams, key: string, value: boolean | undefined): void {
+  if (value === false) qs.set(key, '0')
+  if (value === true) qs.set(key, '1')
+}
+
+export async function startAiWorkerBackground(
+  token: string,
+  opts: AiWorkerBackgroundOptions = {},
+): Promise<AiWorkerBackgroundStartResult> {
+  const b = base()
+  if (!b) throw new Error('api_not_configured')
+  const qs = new URLSearchParams()
+  if (opts.steps != null) qs.set('steps', String(Math.trunc(opts.steps)))
+  if (opts.delayMs != null) qs.set('delay_ms', String(Math.trunc(opts.delayMs)))
+  appendAiWorkerFlag(qs, 'district', opts.district)
+  appendAiWorkerFlag(qs, 'region', opts.region)
+  appendAiWorkerFlag(qs, 'place', opts.place)
+  appendAiWorkerFlag(qs, 'trip', opts.trip)
+  appendAiWorkerFlag(qs, 'blue', opts.blue)
+
+  const query = qs.toString()
+  const suffix = query ? `?${query}` : ''
+  const res = await fetch(`${b}/api/v1/ai/worker/start-background${suffix}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`ai_worker_start_background_${res.status}`)
+  const raw = await json<Record<string, unknown>>(res)
+  return {
+    started: raw.started === true,
+    steps: coerceInt(raw.steps),
+    delay_ms: coerceInt(raw.delay_ms),
+    district: raw.district === true,
+    region: raw.region === true,
+    place: raw.place === true,
+    trip: raw.trip === true,
+    blue: raw.blue === true,
+  }
+}
+
 // ─── Listing nearby POIs ──────────────────────────────────────────────────────
 
 export async function computeAllListingsNearbyPois(
