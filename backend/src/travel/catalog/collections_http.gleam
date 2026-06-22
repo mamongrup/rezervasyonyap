@@ -1072,8 +1072,16 @@ fn search_listings_impl(
       "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
     _ -> "order by l.created_at desc "
   }
+  // Ana projeksiyonu page_ids ile JOIN ederek lateral'lar (tur fiyatı vb.) yalnız
+  // sayfadaki N satır için hesaplanır; aksi halde planlayıcı tüm tabloda hesaplar (5s timeout).
+  let fast_main_sql =
+    string.replace(
+      sql,
+      "from listings l ",
+      "from listings l join page_ids __pids on __pids.id = l.id ",
+    )
   let fast_category_page_sql =
-    "with page_ids as ("
+    "with page_ids as materialized ("
     <> "select l.id from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
@@ -1125,8 +1133,7 @@ fn search_listings_impl(
     <> fast_page_order_sql
     <> "offset $21 limit $5"
     <> ") "
-    <> sql
-    <> "and l.id in (select id from page_ids) "
+    <> fast_main_sql
     <> order_sql
   let int_col0 = {
     use n <- decode.field(0, decode.int)
