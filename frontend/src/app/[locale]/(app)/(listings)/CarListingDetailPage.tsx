@@ -16,7 +16,7 @@ import {
   transportBrowsePathForVertical,
 } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { fetchPublicListingAvailabilityDaysSafe, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
+import { fetchPublicListingAvailabilityDaysSafe } from '@/lib/travel-api'
 import Yolcu360CarReserveButton from '@/components/listings/Yolcu360CarReserveButton'
 import {
   carRentalBrowseQueryFromContext,
@@ -110,7 +110,8 @@ export default async function CarListingDetailPage({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
 
-  const catalogListingId = await resolvePublishedListingIdForStayPage(handle, locale)
+  // listing.id zaten yayınlanmış katalog id'si; tekrar çözmeye gerek yok.
+  const catalogListingId = listing.id
   const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
 
   const {

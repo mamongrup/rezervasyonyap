@@ -28,7 +28,6 @@ import {
   getPublicTourPeriods,
   getVerticalMeta,
   listPublicActivitySessions,
-  resolvePublishedListingIdForStayPage,
 } from '@/lib/travel-api'
 import { mergeTourPeriodOptions } from '@/lib/tour-periods'
 import {
@@ -283,7 +282,9 @@ export default async function ExperienceListingDetailPage({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
 
-  const catalogListingId = (await resolvePublishedListingIdForStayPage(handle, locale)) ?? listing.id
+  // listing.id zaten yayınlanmış katalog id'si (getExperienceListingByHandle →
+  // getStayListingByHandle içinde çözülür); tekrar çözmek fazladan arama isteğiydi.
+  const catalogListingId = listing.id
   const activityInitialDate = new Date().toISOString().slice(0, 10)
   const [
     availabilityCalendarDays,

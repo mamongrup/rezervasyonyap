@@ -1,9 +1,9 @@
 import {
-  searchPublicListings,
   listCollections,
   type PublicListingItem,
   type ListingCollection,
 } from '@/lib/travel-api'
+import { searchPublicListingsCached } from '@/lib/search-listings-cache'
 import {
   categoryLabelForSearch,
   dedupeSearchListings,
@@ -159,13 +159,7 @@ export default async function SearchResultsModule({ config, query, categoryFilte
 
   if (query) {
     const [listRes, colRes] = await Promise.allSettled([
-      searchPublicListings({
-        q: query,
-        locale,
-        page,
-        perPage,
-        ...(categoryFilter ? { categoryCode: categoryFilter } : {}),
-      }),
+      searchPublicListingsCached(query, locale, page, perPage, categoryFilter),
       !categoryFilter ? listCollections() : Promise.resolve({ collections: [] }),
     ])
 

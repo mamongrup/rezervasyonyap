@@ -70,7 +70,6 @@ import {
   getVerticalMeta,
   isAttributeValueTrue,
   listPublicThemeItems,
-  resolvePublishedListingIdForStayPage,
   type ListingPriceRuleRow,
 } from '@/lib/travel-api'
 import type { TListingHolidayHome } from '@/types/listing-types'
@@ -248,7 +247,10 @@ export default async function StayListingDetailPageContent({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
 
-  const catalogListingId = await resolvePublishedListingIdForStayPage(handle, locale)
+  // listing.id zaten getStayListingByHandle içinde resolvePublishedListingIdForStayPage
+  // ile çözülen yayınlanmış katalog id'sidir; burada tekrar çözmek fazladan bir
+  // arama isteğiydi. Doğrudan kullan.
+  const catalogListingId = listing.id
   const localeLang = locale.split('-')[0] ?? 'tr'
   const catalogAccommodationRules =
     catalogListingId != null ? await getPublicListingAccommodationRules(catalogListingId) : null

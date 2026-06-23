@@ -7,7 +7,7 @@ import {
   stayDetailPathForVertical,
   type StayDetailLinkBase,
 } from '@/lib/listing-detail-routes'
-import { fetchPublicListingContractSafe, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
+import { fetchPublicListingContractSafe } from '@/lib/travel-api'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { getMessages } from '@/utils/getT'
 import Link from 'next/link'
@@ -38,7 +38,8 @@ export default async function StayListingContractPageContent({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}/sozlesme`))
   }
 
-  const catalogListingId = await resolvePublishedListingIdForStayPage(handle, locale)
+  // listing.id zaten yayınlanmış katalog id'si; tekrar çözmeye gerek yok.
+  const catalogListingId = listing.id
   if (!catalogListingId) notFound()
 
   const contract = await fetchPublicListingContractSafe(catalogListingId, locale)

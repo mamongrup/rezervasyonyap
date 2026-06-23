@@ -131,14 +131,8 @@ async function SearchPagination({
 }) {
   if (!query) return null
 
-  const { searchPublicListings } = await import('@/lib/travel-api')
-  const result = await searchPublicListings({
-    q: query,
-    locale,
-    page,
-    perPage,
-    ...(categoryFilter ? { categoryCode: categoryFilter } : {}),
-  })
+  const { searchPublicListingsCached } = await import('@/lib/search-listings-cache')
+  const result = await searchPublicListingsCached(query, locale, page, perPage, categoryFilter)
 
   if (!result) return null
 

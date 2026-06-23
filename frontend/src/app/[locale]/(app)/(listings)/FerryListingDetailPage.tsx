@@ -10,7 +10,7 @@ import { redirect } from 'next/navigation'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { detailPathForVertical, transportBrowsePathForVertical } from '@/lib/listing-detail-routes'
 import { vitrinHref } from '@/lib/vitrin-href'
-import { getPublicFerryDetails, resolvePublishedListingIdForStayPage } from '@/lib/travel-api'
+import { getPublicFerryDetails } from '@/lib/travel-api'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import HeaderGallery from './components/HeaderGallery'
@@ -61,7 +61,8 @@ export default async function FerryListingDetailPage({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
 
-  const catalogListingId = await resolvePublishedListingIdForStayPage(handle, locale)
+  // listing.id zaten yayınlanmış katalog id'si; tekrar çözmeye gerek yok.
+  const catalogListingId = listing.id
   const [ferryDetails, similarRes] = await Promise.all([
     catalogListingId ? getPublicFerryDetails(catalogListingId) : Promise.resolve(null),
     fetchCategoryListings('feribot', {}, {}, locale).catch(() => ({ listings: [] })),
