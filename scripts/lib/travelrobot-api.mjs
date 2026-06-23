@@ -3005,14 +3005,22 @@ export function hotelNodeFromPayload(payload, hotelCode = null) {
   const p = payload?.Result ?? payload?.result ?? payload
   const hotels = p?.Hotels ?? p?.hotels
   if (!Array.isArray(hotels) || !hotels.length) return null
-  const code = hotelCode != null ? String(hotelCode).trim() : ''
+  const norm = (v) => String(v ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+  const code = norm(hotelCode)
   if (code) {
     for (const h of hotels) {
       const nested = h?.Hotel ?? h?.hotel ?? h
-      const c = String(
-        nested?.HotelCode ?? nested?.hotelCode ?? h?.HotelCode ?? h?.hotelCode ?? '',
-      ).trim()
-      if (c === code) return h
+      const candidates = [
+        h?.HotelCode,
+        h?.hotelCode,
+        nested?.HotelCode,
+        nested?.hotelCode,
+        h?.ProductCode,
+        h?.productCode,
+        nested?.ProductCode,
+        nested?.productCode,
+      ]
+      if (candidates.some((c) => norm(c) === code)) return h
     }
   }
   return hotels[0]

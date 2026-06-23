@@ -3,6 +3,7 @@
  * Tüm Travelrobot oteller — batch batch otomatik backfill (elle offset yazmadan).
  *
  *   node scripts/run-travelrobot-hotel-backfill-loop.mjs --batch-size 50 --start-offset 450
+ *   node scripts/run-travelrobot-hotel-backfill-loop.mjs --priceless-only --batch-size 25
  *   nohup node scripts/run-travelrobot-hotel-backfill-loop.mjs --batch-size 50 --start-offset 450 > /tmp/backfill-loop.log 2>&1 &
  *   tail -f /tmp/backfill-loop.log
  *
@@ -31,6 +32,7 @@ const MAX_BATCHES = Number(argValue('--max-batches', '0'))
 const SLEEP_MS = Number(argValue('--sleep-ms', '1500'))
 const WITH_I18N = process.argv.includes('--with-i18n')
 const NO_ROOMS = process.argv.includes('--no-with-rooms')
+const PRICELESS_ONLY = process.argv.includes('--priceless-only')
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -47,7 +49,8 @@ async function countHotels() {
        JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
        WHERE l.external_provider_code = 'travelrobot'
          AND lhd.travelrobot_hotel_code IS NOT NULL
-         AND trim(lhd.travelrobot_hotel_code) <> ''`,
+         AND trim(lhd.travelrobot_hotel_code) <> ''
+         ${PRICELESS_ONLY ? 'AND coalesce(l.vitrin_price, l.first_charge_amount, 0) <= 0' : ''}`,
     )
     return r.rows[0]?.n ?? 0
   } finally {
@@ -65,6 +68,7 @@ function runBatch(offset) {
   ]
   if (WITH_I18N) args.push('--with-i18n')
   if (NO_ROOMS) args.push('--no-with-rooms')
+  if (PRICELESS_ONLY) args.push('--priceless-only')
 
   return new Promise((resolve, reject) => {
     cliLog(`=== Batch offset=${offset} size=${BATCH} başlıyor ===`)
@@ -82,31 +86,40 @@ function runBatch(offset) {
 
 async function main() {
   cliLog(
-    `Backfill döngüsü — start-offset=${START_OFFSET}, batch=${BATCH}, max-batches=${MAX_BATCHES || 'sınırsız'}, i18n=${WITH_I18N}`,
+    `Backfill döngüsü — start-offset=${START_OFFSET}, batch=${BATCH}, max-batches=${MAX_BATCHES || 'sınırsız'}, i18n=${WITH_I18N}, pricelessOnly=${PRICELESS_ONLY}`,
   )
-  const total = await countHotels()
-  cliLog(`Toplam otel: ${total}`)
 
   let offset = START_OFFSET
   let batches = 0
 
-  while (offset < total) {
+  while (true) {
+    const total = await countHotels()
+    cliLog(`Toplam otel: ${total}`)
+    if (total <= 0) {
+      cliLog('Tamamlandı — işlenecek otel kalmadı.')
+      break
+    }
+    if (!PRICELESS_ONLY && offset >= total) {
+      cliLog(`Tamamlandı — offset ${offset}, toplam ${total}.`)
+      break
+    }
     if (MAX_BATCHES > 0 && batches >= MAX_BATCHES) {
       cliLog(`max-batches (${MAX_BATCHES}) doldu — durduruldu. Sonraki offset: ${offset}`)
       break
     }
 
-    await runBatch(offset)
+    await runBatch(PRICELESS_ONLY ? 0 : offset)
     batches++
-    offset += BATCH
+    if (!PRICELESS_ONLY) offset += BATCH
 
-    if (offset >= total) {
+    if (!PRICELESS_ONLY && offset >= total) {
       cliLog(`Tamamlandı — ${batches} batch, tüm oteller işlendi (toplam ${total}).`)
       cliLog('Kontrol: node scripts/audit-travelrobot-hotel-gaps.mjs --worst 20')
       break
     }
 
-    cliLog(`Kalan ~${total - offset} otel — ${SLEEP_MS}ms sonra sonraki batch…`)
+    const remaining = PRICELESS_ONLY ? Math.max(0, total - BATCH) : Math.max(0, total - offset)
+    cliLog(`Kalan ~${remaining} otel — ${SLEEP_MS}ms sonra sonraki batch…`)
     if (SLEEP_MS > 0) await sleep(SLEEP_MS)
   }
 }

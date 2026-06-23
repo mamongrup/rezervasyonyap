@@ -10,7 +10,7 @@ import {
   hotelNodeFromPayload,
 } from './travelrobot-api.mjs'
 import { stampHotelSearchWindow } from './travelrobot-hotel-extras.mjs'
-import { hotelRef, mergeStaticHotelContent } from './travelrobot-listing-db.mjs'
+import { hotelCodeMatches, hotelRef, mergeStaticHotelContent } from './travelrobot-listing-db.mjs'
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -47,6 +47,43 @@ function summarizeRoomPricesError(code, err) {
 
 function withSearchDates(row, opts = {}) {
   return stampHotelSearchWindow(row, defaultHotelSearchDates(opts))
+}
+
+function findDestinationId(obj, seen = new Set()) {
+  if (!obj || typeof obj !== 'object' || seen.has(obj)) return null
+  seen.add(obj)
+  for (const [k, v] of Object.entries(obj)) {
+    if (/^destinationid$/i.test(k) && v != null && String(v).trim() !== '' && String(v).trim() !== '0') {
+      return String(v).trim()
+    }
+  }
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === 'object') {
+      const found = findDestinationId(v, seen)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+function destinationIdForHotel(row, fallback = null) {
+  return findDestinationId(row) ?? (fallback != null && String(fallback).trim() ? String(fallback).trim() : null)
+}
+
+async function searchHotelsByDestination(cfg, tokenCode, destinationId, opts = {}) {
+  const cache = opts.destinationSearchCache
+  const dates = defaultHotelSearchDates(opts)
+  const key = `${destinationId}|${opts.checkInDate ?? dates.checkInDate}|${opts.checkOutDate ?? dates.checkOutDate}`
+  if (cache?.has(key)) return cache.get(key)
+
+  const promise = searchHotels(cfg, tokenCode, {
+    destinationId,
+    showMultipleRate: true,
+    checkInDate: opts.checkInDate ?? dates.checkInDate,
+    checkOutDate: opts.checkOutDate ?? dates.checkOutDate,
+  })
+  if (cache) cache.set(key, promise)
+  return promise
 }
 
 function pickRoomName(room) {
@@ -121,14 +158,31 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
   const log = opts.log ?? (() => {})
   await log(`  SearchHotel ${code}…`)
 
-  // hotelCode yeterli; destinationId yanlış destinasyonda aramayı boşaltır.
-  const searchPayload = await searchHotels(cfg, tokenCode, {
-    hotelCode: code,
-    showMultipleRate: true,
-    checkInDate: opts.checkInDate ?? defaultHotelSearchDates(opts).checkInDate,
-    checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
-  })
-  const found = pickHotelRows(searchPayload).find((h) => hotelRef(h) === code) ?? null
+  let searchPayload = null
+  let found = null
+  try {
+    searchPayload = await searchHotels(cfg, tokenCode, {
+      hotelCode: code,
+      showMultipleRate: true,
+      checkInDate: opts.checkInDate ?? defaultHotelSearchDates(opts).checkInDate,
+      checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
+    })
+    found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null
+  } catch (e) {
+    await log(`  [uyarı] SearchHotel ${code} hotelCode hata: ${String(e.message).slice(0, 180)}`)
+  }
+
+  const destinationId = destinationIdForHotel(row, opts.destinationId)
+  if (!found && destinationId) {
+    await log(`  SearchHotel destinationId=${destinationId} içinde ${code} aranıyor…`)
+    try {
+      searchPayload = await searchHotelsByDestination(cfg, tokenCode, destinationId, opts)
+      found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null
+    } catch (e) {
+      await log(`  [uyarı] SearchHotel ${code} destinationId=${destinationId} hata: ${String(e.message).slice(0, 180)}`)
+    }
+  }
+
   let merged = found ? mergeStaticHotelContent(row, found) : row
   merged = withSearchDates(merged, opts)
 
@@ -139,10 +193,11 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
 
   await log(`  GetHotelRoomPrices ${code}…`)
   let pricesPayload = null
+  const priceCode = found ? hotelRef(found) || code : code
   try {
     pricesPayload = await getHotelRooms(cfg, tokenCode, {
-      productCode: code,
-      hotelCode: code,
+      productCode: priceCode,
+      hotelCode: priceCode,
       searchKey: sk,
       languageCode: 'tr',
     })
@@ -175,6 +230,7 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
   const minOffers = Number(opts.minOffers ?? process.env.TRAVELROBOT_ROOM_MIN_OFFERS ?? 3)
   const force = opts.force === true
   const log = opts.log ?? (() => {})
+  const destinationSearchCache = opts.destinationSearchCache ?? new Map()
   const out = []
   let expanded = 0
   let skipped = 0
@@ -191,7 +247,12 @@ export async function enrichHotelRowsWithRoomPrices(cfg, tokenCode, rows, opts =
     }
 
     try {
-      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, { ...opts, minOffers, force: opts.force })
+      const merged = await enrichHotelRowWithRoomPrices(cfg, tokenCode, row, {
+        ...opts,
+        minOffers,
+        force: opts.force,
+        destinationSearchCache,
+      })
       const after = countUniqueHotelRoomNames(merged)
       if (after > before) expanded++
       out.push(merged)

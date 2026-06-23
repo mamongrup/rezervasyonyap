@@ -4,6 +4,7 @@
  *
  *   node scripts/backfill-all-travelrobot-hotels.mjs --dry-run --limit 5
  *   node scripts/backfill-all-travelrobot-hotels.mjs --batch-size 50 --offset 0
+ *   node scripts/backfill-all-travelrobot-hotels.mjs --priceless-only --batch-size 25
  *   node scripts/backfill-all-travelrobot-hotels.mjs --with-i18n --batch-size 20
  *   node scripts/backfill-all-travelrobot-hotels.mjs --no-with-rooms --batch-size 100
  *
@@ -20,12 +21,17 @@ const args = new Set(process.argv.slice(2))
 const DRY_RUN = args.has('--dry-run')
 const WITH_I18N = args.has('--with-i18n')
 const WITH_ROOMS = !args.has('--no-with-rooms')
+const PRICELESS_ONLY = args.has('--priceless-only')
 const batchIdx = process.argv.indexOf('--batch-size')
 const BATCH = batchIdx >= 0 ? Number(process.argv[batchIdx + 1]) : 50
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 const offsetIdx = process.argv.indexOf('--offset')
 const OFFSET = offsetIdx >= 0 ? Number(process.argv[offsetIdx + 1]) : 0
+
+function pricelessWhereSql() {
+  return PRICELESS_ONLY ? ' AND coalesce(l.vitrin_price, l.first_charge_amount, 0) <= 0' : ''
+}
 
 async function countHotels(pg) {
   const r = await pg.query(
@@ -35,7 +41,8 @@ async function countHotels(pg) {
      JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
      WHERE l.external_provider_code = 'travelrobot'
        AND lhd.travelrobot_hotel_code IS NOT NULL
-       AND trim(lhd.travelrobot_hotel_code) <> ''`,
+       AND trim(lhd.travelrobot_hotel_code) <> ''
+       ${pricelessWhereSql()}`,
   )
   return r.rows[0]?.n ?? 0
 }
@@ -55,6 +62,7 @@ async function loadHotels(pg, orgId, offset, limit) {
        AND l.external_provider_code = 'travelrobot'
        AND lhd.travelrobot_hotel_code IS NOT NULL
        AND trim(lhd.travelrobot_hotel_code) <> ''
+       ${pricelessWhereSql()}
      ORDER BY l.updated_at ASC, l.slug ASC
      OFFSET $2
      LIMIT $3`,
@@ -87,7 +95,7 @@ function catalogRow(item) {
 async function main() {
   const effectiveBatch = LIMIT > 0 ? LIMIT : BATCH
   cliLog(
-    `Tam backfill — offset=${OFFSET}, batch=${effectiveBatch}, rooms=${WITH_ROOMS}, i18n=${WITH_I18N}, dry-run=${DRY_RUN}`,
+    `Tam backfill — offset=${OFFSET}, batch=${effectiveBatch}, rooms=${WITH_ROOMS}, i18n=${WITH_I18N}, pricelessOnly=${PRICELESS_ONLY}, dry-run=${DRY_RUN}`,
   )
 
   cliLog('Panel ayarları yükleniyor…')
@@ -165,8 +173,9 @@ async function main() {
       : `Batch bitti — ${ok} güncellendi, ${fail} hata. Kalan ~${remaining} otel.`
     cliLog(msg)
     if (!DRY_RUN && remaining > 0) {
+      const suggestedOffset = PRICELESS_ONLY ? 0 : nextOffset
       cliLog(
-        `Sonraki batch:\n  node scripts/backfill-all-travelrobot-hotels.mjs --offset ${nextOffset} --batch-size ${effectiveBatch}${WITH_I18N ? ' --with-i18n' : ''}${!WITH_ROOMS ? ' --no-with-rooms' : ''}`,
+        `Sonraki batch:\n  node scripts/backfill-all-travelrobot-hotels.mjs --offset ${suggestedOffset} --batch-size ${effectiveBatch}${PRICELESS_ONLY ? ' --priceless-only' : ''}${WITH_I18N ? ' --with-i18n' : ''}${!WITH_ROOMS ? ' --no-with-rooms' : ''}`,
       )
     }
     if (!DRY_RUN && remaining === 0) {

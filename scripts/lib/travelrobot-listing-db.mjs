@@ -65,10 +65,7 @@ export function slugForTravelrobotTour(tour) {
 }
 
 export function slugForTravelrobotHotel(hotel) {
-  const nested = hotel?.Hotel ?? hotel?.hotel
-  const id = String(
-    hotel?.HotelId ?? hotel?.hotelId ?? hotel?.HotelCode ?? hotel?.hotelCode ?? nested?.HotelCode ?? hotel?.ItemId ?? hotel?.id ?? '',
-  )
+  const id = hotelRef(hotel)
   const suffix = `-tr-${id || 'hotel'}`
   const name = hotel?.HotelName ?? hotel?.hotelName ?? hotel?.Name ?? hotel?.name ?? ''
   const base = slugify(name, `otel-${id || 'x'}`)
@@ -96,20 +93,46 @@ function tourRef(tour) {
   ).trim()
 }
 
-export function hotelRef(hotel) {
+export function normalizeTravelrobotHotelCode(value) {
+  return String(value ?? '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+}
+
+export function hotelCodeCandidates(hotel) {
   const nested = hotel?.Hotel ?? hotel?.hotel
-  return String(
-    hotel?.HotelId ??
-      hotel?.hotelId ??
-      hotel?.HotelCode ??
-      hotel?.hotelCode ??
-      nested?.HotelCode ??
-      nested?.hotelCode ??
-      hotel?.ProductCode ??
-      hotel?.ItemId ??
-      hotel?.id ??
-      '',
-  ).trim()
+  const candidates = [
+    hotel?.HotelCode,
+    hotel?.hotelCode,
+    nested?.HotelCode,
+    nested?.hotelCode,
+    hotel?.ProductCode,
+    hotel?.productCode,
+    nested?.ProductCode,
+    nested?.productCode,
+    hotel?.ItemId,
+    hotel?.itemId,
+    hotel?.id,
+    hotel?.HotelId,
+    hotel?.hotelId,
+  ]
+  const seen = new Set()
+  const out = []
+  for (const c of candidates) {
+    const s = String(c ?? '').trim()
+    const key = normalizeTravelrobotHotelCode(s)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    out.push(s)
+  }
+  return out
+}
+
+export function hotelCodeMatches(hotel, code) {
+  const target = normalizeTravelrobotHotelCode(code)
+  return Boolean(target && hotelCodeCandidates(hotel).some((c) => normalizeTravelrobotHotelCode(c) === target))
+}
+
+export function hotelRef(hotel) {
+  return hotelCodeCandidates(hotel)[0] ?? ''
 }
 
 export function normalizeFlightRow(raw) {
