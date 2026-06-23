@@ -127,11 +127,19 @@ async function runSearch(cfg, label, opts) {
       for (const h of hits.slice(0, 6)) {
         console.log(`       hotelRef="${hotelRef(h)}"  isim="${hotelName(h)}"  fiyat=${firstRoomPrice(h) ?? '-'}`)
       }
-      const exact = hits.find((h) => hotelRef(h) === code) ?? hits[0]
-      if (exact) {
-        console.log(`\n    -- EŞLEŞEN satırın tam yapısı (anahtar alanlar için) --`)
-        console.log(`    hotelRef(satır)="${hotelRef(exact)}" | bizim code="${code}" | eşit mi: ${hotelRef(exact) === code}`)
-        console.log(trunc(shape(exact), 4000))
+      const norm = (s) => String(s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+      const exactRow = rows.find((h) => hotelRef(h) === code)
+      const normRow = rows.find((h) => norm(hotelRef(h)) === norm(code))
+      console.log(`\n    -- EŞLEŞTİRME TEŞHİSİ --`)
+      console.log(`    exact match: ${exactRow ? 'VAR' : 'yok'} | normalize match: ${normRow ? 'VAR' : 'yok'}`)
+      const cand = exactRow ?? normRow ?? hits[0]
+      if (cand) {
+        const ref = hotelRef(cand)
+        const cc = (s) => Array.from(String(s)).map((ch) => ch.charCodeAt(0)).join(',')
+        console.log(`    satır hotelRef=${JSON.stringify(ref)} (len=${String(ref).length}, codes=${cc(ref)})`)
+        console.log(`    bizim  code   =${JSON.stringify(code)} (len=${code.length}, codes=${cc(code)})`)
+        console.log(`    fiyat=${firstRoomPrice(cand) ?? '-'}`)
+        console.log(trunc(shape(cand), 3500))
       }
     }
   }
