@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /**
- * Tek otel için KPlus SearchHotel + GetHotelRoomPrices ham yanıtını döker.
- * "Invalid Key" / "Invalid data(Hotels)" / fiyat gelmiyor teşhisi için.
+ * Tek otel için KPlus SearchHotel arama modlarını karşılaştırır:
+ *   (a) yalnız hotelCode  (b) yalnız destinationId  (c) destinationId + hotelCode
+ * Amaç: "Invalid data(Hotels)" / fiyat gelmiyor için DOĞRU arama yöntemini bulmak.
  *
  *   set -a; source /etc/rezervasyonyap/backend.env; set +a
- *   node scripts/debug-travelrobot-hotel-rooms.mjs KDE1959013
- *   node scripts/debug-travelrobot-hotel-rooms.mjs KBA489914
+ *   node scripts/debug-travelrobot-hotel-rooms.mjs KC21285403
+ *   node scripts/debug-travelrobot-hotel-rooms.mjs KDE1959013 531096   # destId elle
  */
 import {
   createTravelrobotToken,
@@ -15,10 +16,13 @@ import {
   pickHotelRows,
   pickHotelSearchKey,
 } from './lib/travelrobot-api.mjs'
+import { hotelRef } from './lib/travelrobot-listing-db.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
 
 const code = (process.argv[2] || '').trim()
+const destArg = (process.argv[3] || '').trim()
 if (!code) {
-  console.error('Kullanım: node scripts/debug-travelrobot-hotel-rooms.mjs <HOTEL_CODE>')
+  console.error('Kullanım: node scripts/debug-travelrobot-hotel-rooms.mjs <HOTEL_CODE> [DESTINATION_ID]')
   process.exit(1)
 }
 
@@ -40,16 +44,14 @@ function shape(value, depth = 0) {
   return value
 }
 
-function trunc(obj, n = 7000) {
+function trunc(obj, n = 6000) {
   const s = JSON.stringify(obj, null, 2)
   return s.length > n ? s.slice(0, n) + '\n…(kısaltıldı)' : s
 }
 
 function firstRoomPrice(hotel) {
-  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
-  for (const r of rooms) {
-    const alts = r?.RoomAlternatives ?? r?.roomAlternatives ?? []
-    for (const a of alts) {
+  for (const r of hotel?.Rooms ?? hotel?.rooms ?? []) {
+    for (const a of r?.RoomAlternatives ?? r?.roomAlternatives ?? []) {
       const p = a?.Price ?? a?.price ?? a?.TotalAmount ?? a?.totalAmount ?? a?.Amount
       if (p != null) return p
     }
@@ -57,52 +59,95 @@ function firstRoomPrice(hotel) {
   return null
 }
 
+// Snapshot/katalog içinde DestinationId benzeri ilk değeri özyinelemeli bul.
+function findDestinationId(obj, seen = new Set()) {
+  if (!obj || typeof obj !== 'object' || seen.has(obj)) return null
+  seen.add(obj)
+  for (const [k, v] of Object.entries(obj)) {
+    if (/^destinationid$/i.test(k) && v != null && String(v).trim() !== '' && String(v) !== '0') return String(v)
+  }
+  for (const v of Object.values(obj)) {
+    if (v && typeof v === 'object') {
+      const r = findDestinationId(v, seen)
+      if (r) return r
+    }
+  }
+  return null
+}
+
+async function resolveDestinationIdFromDb(code) {
+  const pg = createPgClient()
+  await pg.connect()
+  try {
+    const r = await pg.query(
+      `SELECT la.value_json::text AS snap
+       FROM listings l
+       JOIN listing_hotel_details lhd ON lhd.listing_id = l.id
+       LEFT JOIN listing_attributes la ON la.listing_id = l.id AND la.group_code = 'travelrobot' AND la.key = 'snapshot'
+       WHERE lhd.travelrobot_hotel_code = $1 LIMIT 1`,
+      [code],
+    )
+    const snap = r.rows[0]?.snap
+    if (!snap) return null
+    let parsed = {}
+    try { parsed = JSON.parse(snap) } catch { return null }
+    return findDestinationId(parsed?.catalog ?? parsed)
+  } finally {
+    await pg.end()
+  }
+}
+
+async function runSearch(cfg, label, opts) {
+  const { tokenCode } = await createTravelrobotToken(cfg)
+  let payload
+  try {
+    payload = await searchHotels(cfg, tokenCode, { showMultipleRate: true, checkInDate: addDays(30), checkOutDate: addDays(37), ...opts })
+  } catch (e) {
+    console.log(`  [${label}] istek hatası: ${e.message}`)
+    return null
+  }
+  const rows = pickHotelRows(payload)
+  const mine = rows.find((h) => hotelRef(h) === code) ?? null
+  const err = payload?.ErrorMessage ?? payload?.Message ?? (payload?.HasError ? 'HasError' : '-')
+  console.log(`  [${label}] Hotels=${rows.length}, otelimiz=${mine ? 'VAR' : 'yok'}, ilkFiyat=${mine ? firstRoomPrice(mine) : '-'}, hata=${err}`)
+  return { payload, rows, mine, tokenCode }
+}
+
 async function main() {
   const cfg = await loadTravelrobotConfig()
 
-  // ── 1) Tarih penceresi taraması: hangi pencerede otel/teklif dönüyor? ──
-  const windows = [
-    [30, 37], [45, 52], [60, 67], [90, 97], [120, 127], [180, 187],
-  ]
-  console.log('===== Tarih penceresi taraması (kod:', code, ') =====')
-  let workingWindow = null
-  for (const [a, b] of windows) {
-    const { tokenCode } = await createTravelrobotToken(cfg)
-    const checkInDate = addDays(a)
-    const checkOutDate = addDays(b)
-    let search
-    try {
-      search = await searchHotels(cfg, tokenCode, { hotelCode: code, showMultipleRate: true, checkInDate, checkOutDate })
-    } catch (e) {
-      console.log(`  +${a}/+${b} (${checkInDate}→${checkOutDate}): istek hatası ${e.message}`)
-      continue
-    }
-    const rows = pickHotelRows(search)
-    const err = search?.ErrorMessage ?? search?.Message ?? (search?.HasError ? 'HasError' : '-')
-    const price = rows.length ? firstRoomPrice(rows[0]) : null
-    console.log(`  +${a}/+${b} (${checkInDate}→${checkOutDate}): Hotels=${rows.length}, ilkFiyat=${price ?? '-'}, hata=${err}`)
-    if (rows.length && !workingWindow) workingWindow = { a, b, checkInDate, checkOutDate, search, found: rows[0] }
+  let destId = destArg
+  if (!destId) {
+    try { destId = await resolveDestinationIdFromDb(code) } catch (e) { console.log('DB destId çözümlenemedi:', e.message) }
+  }
+  console.log('Kod:', code, '| destinationId:', destId || '(yok)')
+
+  console.log('\n===== Arama modu karşılaştırması (+30/+37) =====')
+  await runSearch(cfg, 'a) yalnız hotelCode', { hotelCode: code })
+  let best = null
+  if (destId) {
+    const c = await runSearch(cfg, 'c) destinationId + hotelCode', { destinationId: destId, hotelCode: code })
+    if (c?.mine) best = c
+    const b = await runSearch(cfg, 'b) yalnız destinationId', { destinationId: destId })
+    if (!best && b?.mine) best = b
+  } else {
+    console.log('  (destinationId yok → b/c modları atlandı)')
   }
 
-  if (!workingWindow) {
-    console.log('\nSONUÇ: Hiçbir tarih penceresinde otel/teklif dönmedi → bu otel için KPlus müsaitlik yok.')
+  if (!best) {
+    console.log('\nSONUÇ: Otelimiz hiçbir modda teklifle dönmedi.')
     return
   }
 
-  // ── 2) Çalışan pencerede tam yapı + GetHotelRoomPrices ──
-  console.log(`\n===== Çalışan pencere: +${workingWindow.a}/+${workingWindow.b} =====`)
-  const { tokenCode } = await createTravelrobotToken(cfg)
-  const { search, found } = workingWindow
-  const sk = pickHotelSearchKey(search, found)
-  console.log('SearchKey:', sk)
-  console.log('\n-- SearchHotel Hotels[0] yapısı --')
-  console.log(trunc(shape(found)))
+  const sk = pickHotelSearchKey(best.payload, best.mine)
+  console.log('\nÇalışan mod bulundu. SearchKey:', sk)
+  console.log('\n-- Hotels[0] (otelimiz) yapısı --')
+  console.log(trunc(shape(best.mine)))
 
   if (!sk) return
   console.log('\n===== GetHotelRoomPrices =====')
-  const prices = await getHotelRooms(cfg, tokenCode, { productCode: code, hotelCode: code, searchKey: sk, languageCode: 'tr' })
+  const prices = await getHotelRooms(cfg, best.tokenCode, { productCode: code, hotelCode: code, searchKey: sk, languageCode: 'tr' })
   console.log('HasError:', prices?.HasError, '| ErrorMessage:', prices?.ErrorMessage ?? prices?.Message ?? '-')
-  console.log('\n-- GetHotelRoomPrices yapısı (örnek) --')
   console.log(trunc(shape(prices)))
 }
 
