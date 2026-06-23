@@ -81,6 +81,8 @@ async function searchHotelsByDestination(cfg, tokenCode, destinationId, opts = {
     showMultipleRate: true,
     checkInDate: opts.checkInDate ?? dates.checkInDate,
     checkOutDate: opts.checkOutDate ?? dates.checkOutDate,
+    onRequest: opts.onRequest,
+    isAsync: opts.isAsync,
   })
   if (cache) cache.set(key, promise)
   return promise
@@ -166,6 +168,8 @@ export async function enrichHotelRowWithRoomPrices(cfg, tokenCode, row, opts = {
       showMultipleRate: true,
       checkInDate: opts.checkInDate ?? defaultHotelSearchDates(opts).checkInDate,
       checkOutDate: opts.checkOutDate ?? defaultHotelSearchDates(opts).checkOutDate,
+      onRequest: opts.onRequest,
+      isAsync: opts.isAsync,
     })
     found = pickHotelRows(searchPayload).find((h) => hotelCodeMatches(h, code)) ?? null
   } catch (e) {

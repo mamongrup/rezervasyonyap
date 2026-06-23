@@ -71,7 +71,7 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> "then replace(trim(px.v), ',', '.')::numeric else null end as tour_vitrin_price "
   <> "from (select "
   <> tour_listing_vitrin_price_sql()
-  <> " as v) px) tour_price_row on true "
+  <> " as v) px) tour_price_row on pc.code = 'tour' "
 }
 
 /// Vitrinde fiyatsız turlar listelenmesin — Wtatil fiyat senkronu sonrası otomatik görünür.
@@ -104,10 +104,29 @@ fn activity_listing_vitrin_fare_currency_sql() -> String {
   <> "and f.price_amount is not null and f.price_amount > 0 "
   <> "order by f.price_amount asc limit 1)"
 }
+
 fn safe_int_sql(value_sql: String) -> String {
   "case when nullif(trim(" <> value_sql <> "), '') ~ '^[0-9]+$' then nullif(trim("
     <> value_sql
     <> "), '')::int else null end"
+}
+
+fn activity_listing_vitrin_price_numeric_lateral_sql() -> String {
+  "left join lateral (select case when ax.v is null or trim(ax.v) = '' then null "
+  <> "when replace(trim(ax.v), ',', '.') ~ '^[0-9]+(\\.[0-9]{1,2})?$' "
+  <> "then replace(trim(ax.v), ',', '.')::numeric else null end as activity_vitrin_price "
+  <> "from (select "
+  <> activity_listing_vitrin_price_sql()
+  <> " as v) ax) activity_price_row on pc.code = 'activity' "
+}
+
+/// Konaklama vitrin fiyatı — tek lateral tarama (SELECT içinde 3 correlated subquery yerine).
+fn listing_meal_plan_vitrin_lateral_sql() -> String {
+  "left join lateral (select "
+  <> "nullif((array_agg(m.price_per_night order by m.sort_order asc) filter (where m.plan_code = 'room_only'))[1]::text, '') as room_only_price, "
+  <> "nullif(min(m.price_per_night) filter (where l.first_charge_amount is null or m.price_per_night is distinct from l.first_charge_amount)::text, '') as min_other_price, "
+  <> "nullif(case when l.first_charge_amount is null then min(m.price_per_night)::text else null end, '') as min_fallback_price "
+  <> "from listing_meal_plans m where m.listing_id = l.id and m.is_active = true) meal_vitrin on true "
 }
 
 // ─── Public Listing Search ────────────────────────────────────────────────────
@@ -586,8 +605,12 @@ fn search_listings_impl(
     |> result.unwrap("")
     |> string.trim
   let cat_raw =
-    list.key_find(qs, "category_code")
-    |> result.unwrap("")
+    case list.key_find(qs, "category_code") {
+      Ok(v) -> v
+      Error(_) ->
+        list.key_find(qs, "category")
+        |> result.unwrap("")
+    }
     |> string.trim
     |> string.lowercase
   let loc_raw =
@@ -841,8 +864,8 @@ fn search_listings_impl(
     False -> pog.text(end_raw)
   }
 
-  let sql_select_cols =
-    "select l.id::text, l.slug, "
+  let listing_search_select_sql =
+    "l.id::text, l.slug, "
     <> "coalesce((select lt.title from listing_translations lt join locales lo on lo.id = lt.locale_id where lt.listing_id = l.id and lower(lo.code) = lower($4) limit 1), l.slug), "
     <> "coalesce(pc.code::text, ''), "
     <> "coalesce(case when trim(coalesce(l.featured_image_url, '')) = '' then null when trim(l.featured_image_url) ilike 'http%' then trim(l.featured_image_url) when trim(l.featured_image_url) like '/%' then trim(l.featured_image_url) else '/' || trim(l.featured_image_url) end, case when trim(coalesce(l.thumbnail_url, '')) = '' then null when trim(l.thumbnail_url) ilike 'http%' then trim(l.thumbnail_url) when trim(l.thumbnail_url) like '/%' then trim(l.thumbnail_url) else '/' || trim(l.thumbnail_url) end, (select case when trim(li.storage_key) is null or trim(li.storage_key) = '' then null when trim(li.storage_key) ilike 'http%' then trim(li.storage_key) when trim(li.storage_key) like '/%' then trim(li.storage_key) else '/' || trim(li.storage_key) end from listing_images li where li.listing_id = l.id order by li.sort_order asc, li.created_at asc limit 1), ''), "
@@ -851,7 +874,7 @@ fn search_listings_impl(
     <> tour_listing_vitrin_price_sql()
     <> " else null end, case when pc.code = 'activity' then "
     <> activity_listing_vitrin_price_sql()
-    <> " else null end, nullif(price_rule.min_price::text, ''), nullif(l.first_charge_amount::text, ''), nullif((select m.price_per_night::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true and m.plan_code = 'room_only' order by m.sort_order asc limit 1), ''), nullif((select min(m.price_per_night)::text from listing_meal_plans m where m.listing_id = l.id and m.is_active = true), ''), ''), "
+    <> " else null end, nullif(price_rule.min_price::text, ''), nullif(l.first_charge_amount::text, ''), nullif(meal_vitrin.room_only_price, ''), nullif(meal_vitrin.min_other_price, ''), nullif(meal_vitrin.min_fallback_price, ''), ''), "
     <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'district_label'), ''), (case when trim(coalesce(lm.meta->>'province_city', '')) ~ '/' then nullif(trim(substring(trim(lm.meta->>'province_city') from '[^/]+$')), '') else nullif(trim(lm.meta->>'province_city'), '') end))), ''), nullif(trim(l.location_name), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(lm.meta->>'address'), ''), ''), "
     <> "coalesce(l.review_avg::text, ''), "
     <> "coalesce((select case "
@@ -912,7 +935,7 @@ fn search_listings_impl(
     <> ", coalesce(nullif(trim(lm.meta->>'flight_airline_name'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_stop_count'), ''), '') "
     <> ", coalesce(nullif(trim(lm.meta->>'flight_duration'), ''), '') "
-  let sql_from_where =
+  let listing_search_from_where_sql =
     "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
@@ -922,6 +945,7 @@ fn search_listings_impl(
     <> "left join lateral (select min(u.v) as min_price, max(u.v) as max_price from listing_price_rules r cross join lateral "
     <> listing_price_rule_nightly_lateral_values_sql()
     <> " as u(v) where r.listing_id = l.id and u.v is not null) price_rule on true "
+    <> listing_meal_plan_vitrin_lateral_sql()
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'hotel_type_code' limit 1) hotel_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'theme_code' limit 1) hotel_theme_attr on true "
@@ -1051,21 +1075,27 @@ fn search_listings_impl(
     <> meta_bath_count_sql
     <> " >= nullif($27::text, '')::int "
     <> ")) "
-  let sql = sql_select_cols <> sql_from_where
+  let sql =
+    "select "
+    <> listing_search_select_sql
+    <> " "
+    <> listing_search_from_where_sql
+  let sql_core = sql <> order_sql
 
   // Count: ORDER BY is removed (prevents expensive per-row subqueries like EXISTS on listing_images).
   // price_rule lateral is also made conditional: when no price filter params ($12/$13) are passed,
   // skip the per-row listing_price_rules scan entirely — the lateral result is unused anyway.
-  let count_base =
+  let count_from_conditional =
     string.replace(
-      sql,
+      listing_search_from_where_sql,
       ") price_rule on true ",
       ") price_rule on ($12::text is not null or $13::text is not null) ",
     )
   let count_sql =
-    "select count(*)::int from ("
-    <> count_base
-    <> ") _cnt cross join (select $5::int as __lim, $21::int as __off, $23::text as __pt, $24::text as __dep, $25::text as __beds, $26::text as __br, $27::text as __ba) __pg_params"
+    "select count(*)::int "
+    <> count_from_conditional
+    <> " and $5::int >= 0 and $21::int >= 0 and ($4::text is not null or $4::text is null) "
+  let sql_paged = sql_core <> " offset $21 limit $5"
   let fast_page_order_sql = case sort_raw {
     "price_asc" ->
       "order by coalesce(l.vitrin_price, l.first_charge_amount) asc nulls last, l.created_at desc "
@@ -1164,7 +1194,7 @@ fn search_listings_impl(
   // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
   let deferred_page_sql =
     "with page_ids as materialized (select l.id "
-    <> sql_from_where
+    <> listing_search_from_where_sql
     <> order_sql
     <> " offset $21 limit $5"
     <> ") "
@@ -1272,7 +1302,7 @@ fn search_listings_impl(
           "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
-      json_err(500, "search_failed")
+      search_listings_paged_response(ctx, sql_paged, run_params, offset, lim, None)
     }
     Ok(ret) -> {
       let fallback_total =
@@ -1307,6 +1337,46 @@ fn search_listings_impl(
             True -> run_count(count_sql)
             False -> fallback_total
           }
+      }
+      let arr = list.map(ret.rows, pub_listing_json)
+      let body =
+        json.object([
+          #("listings", json.array(from: arr, of: fn(x) { x })),
+          #("total", json.int(total_count)),
+        ])
+        |> json.to_string
+      wisp.json_response(body, 200)
+    }
+  }
+}
+
+fn search_listings_paged_response(
+  ctx: Context,
+  sql_paged: String,
+  run_params,
+  offset: Int,
+  lim: Int,
+  total_opt: Option(Int),
+) -> Response {
+  case
+    pog.query(sql_paged)
+    |> run_params
+    |> pog.returning(pub_listing_row())
+    |> pog.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ =
+        io.println(
+          "[catalog.public.listings] "
+            <> pog_errors.query_error_to_string(e),
+        )
+      json_err(500, "search_failed")
+    }
+    Ok(ret) -> {
+      let row_count = list.length(ret.rows)
+      let total_count = case total_opt {
+        Some(n) -> n
+        None -> int.add(offset, row_count)
       }
       let arr = list.map(ret.rows, pub_listing_json)
       let body =
