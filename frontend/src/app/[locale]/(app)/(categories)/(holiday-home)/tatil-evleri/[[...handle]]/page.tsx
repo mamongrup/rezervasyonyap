@@ -45,18 +45,19 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings(
-    'tatil-evleri',
-    query,
-    {
-      regionHandle: currentHandle,
-    },
-    locale,
-  )
+  // Ana ilan listesini, listeden bağımsız verilerle (filtre seçenekleri, bölge
+  // hero, tema etiketleri) paralel çek. flexibleListings ana listenin id'lerine
+  // bağlı olduğu için ondan sonra gelir.
+  const [mainResult, filterOptions, heroOverride, themeLabelMap] = await Promise.all([
+    fetchCategoryListings('tatil-evleri', query, { regionHandle: currentHandle }, locale),
+    getStayListingFilterOptions(),
+    getRegionHeroConfig('tatil-evleri', currentHandle ?? ''),
+    getHolidayThemeLabelMap(locale),
+  ])
+  const { listings, total, page, perPage, fromApi } = mainResult
 
-  const pageNum = page
   const flexibleListings =
-    pageNum === 1
+    page === 1
       ? await fetchFlexibleHolidayListings(
           new Set(listings.map((l) => l.id)),
           query,
@@ -64,11 +65,6 @@ export default async function Page({
           locale,
         )
       : []
-
-  const [filterOptions, heroOverride] = await Promise.all([
-    getStayListingFilterOptions(),
-    getRegionHeroConfig('tatil-evleri', currentHandle ?? ''),
-  ])
 
   const isPropertyTypeHandle =
     currentHandle && currentHandle !== 'all' && !!HOLIDAY_TYPE_HANDLE_MAP[currentHandle]
@@ -80,7 +76,6 @@ export default async function Page({
       ? currentHandle.replace(/-/g, ' ')
       : undefined
 
-  const themeLabelMap = await getHolidayThemeLabelMap(locale)
   function withHolidayThemeChips<L extends TListingBase>(l: L): L {
     const codes = filterHolidayThemeCodesForListingCards(l.themeCodes ?? [])
     if (!codes.length) return l
