@@ -252,20 +252,41 @@ export default async function StayListingDetailPageContent({
   // arama isteğiydi. Doğrudan kullan.
   const catalogListingId = listing.id
   const localeLang = locale.split('-')[0] ?? 'tr'
-  const catalogAccommodationRules =
-    catalogListingId != null ? await getPublicListingAccommodationRules(catalogListingId) : null
+  // Birbirinden bağımsız (yalnızca catalogListingId/listing/vertical'a dayanan)
+  // salt-okunur API çağrıları tek Promise.all'da paralel çalışır → detay sayfası
+  // TTFB'si için sıralı round-trip zinciri kısalır.
+  const [
+    catalogAccommodationRules,
+    pubContractForListing,
+    mealPlans,
+    hotelPromotions,
+    availabilityCalendarDays,
+    listingBedrooms,
+  ] = await Promise.all([
+    catalogListingId != null
+      ? getPublicListingAccommodationRules(catalogListingId)
+      : Promise.resolve(null),
+    catalogListingId
+      ? fetchPublicListingContractSafe(catalogListingId, locale)
+      : Promise.resolve(null),
+    getPublicMealPlans(catalogListingId ?? listing.id),
+    vertical === 'hotel'
+      ? getPublicHotelPromotions(catalogListingId ?? listing.id)
+      : Promise.resolve([]),
+    fetchPublicListingAvailabilityDaysSafe(catalogListingId),
+    isStayRentalCategory(vertical) && catalogListingId
+      ? fetchPublicListingBedroomsSafe(catalogListingId)
+      : Promise.resolve([]),
+  ])
 
   let listingContractHref: string | null = null
   let listingContractBody: { title: string; bodyHtml: string } | null = null
-  if (catalogListingId) {
-    const pubContract = await fetchPublicListingContractSafe(catalogListingId, locale)
-    if (pubContract?.contract_id) {
-      listingContractBody = {
-        title: pubContract.title,
-        bodyHtml: sanitizeRichCmsHtml(pubContract.body_text),
-      }
-      listingContractHref = await vitrinHref(locale, `${canonicalPath}/${handle}/sozlesme`)
+  if (pubContractForListing?.contract_id) {
+    listingContractBody = {
+      title: pubContractForListing.title,
+      bodyHtml: sanitizeRichCmsHtml(pubContractForListing.body_text),
     }
+    listingContractHref = await vitrinHref(locale, `${canonicalPath}/${handle}/sozlesme`)
   }
   if (
     vertical === 'hotel' &&
@@ -278,17 +299,6 @@ export default async function StayListingDetailPageContent({
     }
     listingContractHref = await vitrinHref(locale, `${canonicalPath}/${handle}/sozlesme`)
   }
-
-  const mealPlans = await getPublicMealPlans(catalogListingId ?? listing.id)
-  const hotelPromotions =
-    vertical === 'hotel'
-      ? await getPublicHotelPromotions(catalogListingId ?? listing.id)
-      : []
-  const availabilityCalendarDays = await fetchPublicListingAvailabilityDaysSafe(catalogListingId)
-  const listingBedrooms =
-    isStayRentalCategory(vertical) && catalogListingId
-      ? await fetchPublicListingBedroomsSafe(catalogListingId)
-      : []
   const yachtCharterSpecs =
     vertical === 'yacht_charter' && catalogListingId
       ? parseYachtCharterSpecs(
@@ -303,31 +313,32 @@ export default async function StayListingDetailPageContent({
           },
         )
       : null
-  const [rawNearbyPois, servicePois] = await Promise.all([
+  const regionSlugForPlaces =
+    regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
+  const [rawNearbyPois, servicePois, regionPlacesInitialData] = await Promise.all([
     getListingNearbyPois(listing.id),
     getComputedServicePois(listing.id),
+    resolveRegionPlacesForListingPage(
+      regionSlugForPlaces,
+      locale,
+      shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
+    ),
   ])
   const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
   const nearbyPois = rawNearbyPois.map((p) => ({
     ...p,
     blog_slug: blogSlugMap[p.title] ?? p.blog_slug,
   }))
-  const regionSlugForPlaces =
-    regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
-  const regionPlacesInitialData = await resolveRegionPlacesForListingPage(
-    regionSlugForPlaces,
-    locale,
-    shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
-  )
   const isHotelDemoListing = vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE
-  const hotelVitrinMeta =
+  const [hotelVitrinMetaRaw, fetchedHotelActivities] = await Promise.all([
     vertical === 'hotel' && catalogListingId
-      ? parseHotelVitrinMeta(await getVerticalMeta(catalogListingId, 'hotel').catch(() => ({})))
-      : null
-  const fetchedHotelActivities =
+      ? getVerticalMeta(catalogListingId, 'hotel').catch(() => ({}))
+      : Promise.resolve(null),
     vertical === 'hotel'
-      ? await getPublicHotelActivities(catalogListingId ?? listing.id)
-      : []
+      ? getPublicHotelActivities(catalogListingId ?? listing.id)
+      : Promise.resolve([]),
+  ])
+  const hotelVitrinMeta = hotelVitrinMetaRaw != null ? parseHotelVitrinMeta(hotelVitrinMetaRaw) : null
   const hotelActivities =
     vertical === 'hotel'
       ? fetchedHotelActivities.length > 0
@@ -357,7 +368,19 @@ export default async function StayListingDetailPageContent({
   )
   const hasServicePoiDistances =
     servicePois.amenities.length > 0 || servicePois.transport.length > 0
-  const fetchedReviewCriteriaSummary = await fetchListingReviewCriteriaSummarySafe(listing.id)
+  const [
+    fetchedReviewCriteriaSummary,
+    attrs,
+    hotelValidCampaignsPayload,
+    hotelRoomsResult,
+  ] = await Promise.all([
+    fetchListingReviewCriteriaSummarySafe(listing.id),
+    fetchPublicListingAttributesSafe(catalogListingId ?? listing.id),
+    vertical === 'hotel'
+      ? fetchPublicHotelValidCampaigns({ next: { revalidate: 60 } })
+      : Promise.resolve(null),
+    getPublicHotelRooms(catalogListingId ?? listing.id).catch(() => null),
+  ])
   const listingReviewCriteriaSummary =
     fetchedReviewCriteriaSummary ??
     (vertical === 'hotel' && isHotelDemoListing ? HOTEL_DEMO_REVIEW_CRITERIA : null)
@@ -367,7 +390,6 @@ export default async function StayListingDetailPageContent({
   let amenityKeys: string[] = []
   let amenityLabels: Record<string, string> = {}
   let amenityIcons: Record<string, string> = {}
-  const attrs = await fetchPublicListingAttributesSafe(catalogListingId ?? listing.id)
   const amenityRows = buildVitrinAmenityRows(attrs.values, vertical, isAttributeValueTrue)
   amenityKeys = Array.from(new Set(amenityRows.map((a) => a.key)))
   amenityLabels = buildAttributeLabelMap(amenityRows)
@@ -376,8 +398,6 @@ export default async function StayListingDetailPageContent({
     amenityKeys = HOTEL_DEMO_AMENITY_ROWS.map((row) => row.key)
   }
 
-  const hotelValidCampaignsPayload =
-    vertical === 'hotel' ? await fetchPublicHotelValidCampaigns({ next: { revalidate: 60 } }) : null
   const hotelValidCampaignSplit =
     hotelValidCampaignsPayload != null
       ? splitHotelValidCampaignsForListing(
@@ -395,8 +415,8 @@ export default async function StayListingDetailPageContent({
   let realHotelRooms: HotelRoomShowcaseItem[] = []
   let hotelBookingRooms = normalizeHotelRoomOptions([])
   try {
-    const r = await getPublicHotelRooms(catalogListingId ?? listing.id)
-    hotelBookingRooms = normalizeHotelRoomOptions(Array.isArray(r.rooms) ? r.rooms : [])
+    const r = hotelRoomsResult
+    hotelBookingRooms = normalizeHotelRoomOptions(r && Array.isArray(r.rooms) ? r.rooms : [])
     realHotelRooms = hotelBookingRooms.map((row): HotelRoomShowcaseItem => {
       const cap = row.capacity ? Number.parseInt(row.capacity, 10) : null
       let meta: Record<string, unknown> = {}
@@ -502,10 +522,14 @@ export default async function StayListingDetailPageContent({
   const isHolidayHome = vertical === 'holiday_home'
   const isYachtCharter = vertical === 'yacht_charter'
   const isStayRental = isStayRentalCategory(vertical)
-  const priceLines =
+  const [priceLines, prefetchedHolidayHomePriceRules] = await Promise.all([
     isStayRental && catalogListingId
-      ? await getPublicListingPriceLines(catalogListingId, locale)
-      : null
+      ? getPublicListingPriceLines(catalogListingId, locale)
+      : Promise.resolve(null),
+    isStayRental && catalogListingId
+      ? getPublicListingPriceRules(catalogListingId)
+      : Promise.resolve([]),
+  ])
   const holidayHomePools = isHolidayHome ? (listing as TListingHolidayHome).pools : undefined
   const poolHeatingOption = isHolidayHome
     ? getPoolHeatingReservationOption(holidayHomePools, (priceCurrency ?? 'TRY').trim())
@@ -530,7 +554,7 @@ export default async function StayListingDetailPageContent({
       rangeFromOpen: messages.listing.seasonalPricing.rangeFromOpen,
       rangeUntil: messages.listing.seasonalPricing.rangeUntil,
     }
-    holidayHomePriceRules = catalogListingId ? await getPublicListingPriceRules(catalogListingId) : []
+    holidayHomePriceRules = prefetchedHolidayHomePriceRules
     seasonalPricingRows = buildSeasonalPricingTableRows(
       holidayHomePriceRules,
       locale,
@@ -780,14 +804,17 @@ export default async function StayListingDetailPageContent({
 
   const galleryImages = galleryUrlsForStayDetailHeader(featuredImage, galleryImgs)
 
-  const reviews = (await getListingReviews(handle)).slice(0, 3)
   const categorySlug =
     vertical === 'holiday_home'
       ? 'tatil-evleri'
       : vertical === 'yacht_charter'
         ? 'yat-kiralama'
         : 'oteller'
-  const similarRes = await fetchCategoryListings(categorySlug, {}, {}, locale)
+  const [reviewsRaw, similarRes] = await Promise.all([
+    getListingReviews(handle),
+    fetchCategoryListings(categorySlug, {}, {}, locale),
+  ])
+  const reviews = reviewsRaw.slice(0, 3)
   const otherStays = similarRes.listings.filter((l) => l.handle !== handle)
   const mapSimilar = (l: (typeof otherStays)[number]) => ({
     id: l.id,
