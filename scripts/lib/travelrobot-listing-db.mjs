@@ -442,7 +442,7 @@ export async function findListingByTravelrobotRef(pgClient, orgId, extRef) {
 async function upsertListingCore(
   pgClient,
   ctx,
-  { extRef, slug, title, description, locName, currency, status, dryRun },
+  { extRef, slug, title, description, translations = {}, locName, currency, status, dryRun },
 ) {
   if (dryRun) return { listingId: null, slug, extRef, created: false, dryRun: true }
 
@@ -478,6 +478,22 @@ async function upsertListingCore(
        description = COALESCE(EXCLUDED.description, listing_translations.description)`,
     [listingId, ctx.localeTrId, title, description || null],
   )
+
+  for (const [localeCode, row] of Object.entries(translations ?? {})) {
+    const localeId = ctx.localeIds?.[localeCode]
+    if (!localeId) continue
+    const t = String(row?.title ?? title ?? '').trim()
+    const d = String(row?.description ?? '').trim()
+    if (!t && !d) continue
+    await pgClient.query(
+      `INSERT INTO listing_translations (listing_id, locale_id, title, description)
+       VALUES ($1::uuid, $2, $3, $4)
+       ON CONFLICT (listing_id, locale_id) DO UPDATE SET
+         title = COALESCE(NULLIF(EXCLUDED.title, ''), listing_translations.title),
+         description = COALESCE(NULLIF(EXCLUDED.description, ''), listing_translations.description)`,
+      [listingId, localeId, t, d || null],
+    )
+  }
 
   return { listingId, slug, extRef, created: !existed }
 }
@@ -581,7 +597,11 @@ export async function upsertTravelrobotHotelListing(
   const description =
     pickText(hotel, 'Description', 'description', 'Details', 'details') ||
     pickText(nested ?? {}, 'SummaryText', 'summaryText', 'Description', 'description')
-  const trDescription = looksLikeEnglishHotelText(description) ? null : description
+  const descriptionIsEnglish = looksLikeEnglishHotelText(description)
+  const trDescription = descriptionIsEnglish ? null : description
+  const translations = descriptionIsEnglish
+    ? { en: { title, description } }
+    : {}
   const city = pickText(nested ?? {}, 'City', 'city', 'CityName', 'cityName', 'Location', 'location')
   const country = pickText(nested ?? {}, 'Country', 'country', 'CountryName', 'countryName', 'CountryCode', 'countryCode')
   const locName =
@@ -598,6 +618,7 @@ export async function upsertTravelrobotHotelListing(
     slug,
     title,
     description: trDescription,
+    translations,
     locName,
     currency,
     status,

@@ -915,24 +915,31 @@ fn run_tr_phase(
         Ok(Nil) -> Ok(Nil)
       }
     True -> {
+      let en_source_desc = case load_locale_title_desc(ctx, listing_id, "en") {
+        Ok(#(_, en_desc)) -> string.trim(en_desc)
+        Error(_) -> ""
+      }
+      let tr_instruction = case en_source_desc != "" {
+        True ->
+          "Kaynak İngilizce otel açıklamasını Türkçeye çevir ve Türkçe site için doğal, SEO uyumlu hale getir. HTML yapısını koru. JSON: {\"description\":\"<HTML>\"}"
+        False ->
+          "Türkçe ilan açıklaması yaz. JSON: {\"description\":\"<HTML>\"}"
+      }
       let input =
         json.object([
           #("task", json.string("listing_tr_description")),
           #("locale", json.string(tr_locale)),
+          #("source_locale", json.string(case en_source_desc != "" { True -> "en" False -> "" })),
           #("listing_id", json.string(listing_id)),
           #("slug", json.string(slug)),
           #("category_code", json.string(category_code)),
           #("category_hint", json.string(category_hint(category_code))),
           #("title", json.string(title_tr)),
           #("existing_description", json.string(desc_tr)),
+          #("source_description_en", json.string(en_source_desc)),
           #("status", json.string(status)),
           #("attributes_json", json.string(attrs_json)),
-          #(
-            "instruction",
-            json.string(
-              "Türkçe ilan açıklaması yaz. JSON: {\"description\":\"<HTML>\"}",
-            ),
-          ),
+          #("instruction", json.string(tr_instruction)),
         ])
         |> json.to_string
       case create_and_run_job(ctx, profile_tr, input) {
