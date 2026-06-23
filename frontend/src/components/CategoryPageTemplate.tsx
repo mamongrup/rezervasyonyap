@@ -180,62 +180,67 @@ export default async function CategoryPageTemplate({
     priceUnit ?? resolveListingPriceUnit(category.detailRoute, locale)
   const isAll = !currentHandle || currentHandle === 'all'
 
-  const categoryRouteVitrin = await vitrinHref(locale, category.categoryRoute)
-  /** Hero başlık + istatistik satırı bu kategorinin «tüm ilanlar» vitrinine gider (/, /all ile aynı mantık) */
-  const categoryPageHref = await vitrinHref(locale, `${category.categoryRoute}/all`)
-  const listingLinkBaseVitrin = await vitrinHref(locale, listingLinkBase)
-  const mapOnMapHref =
-    category.mapRoute != null && String(category.mapRoute).trim() !== ''
-      ? await vitrinHref(locale, `${category.mapRoute}/${currentHandle ?? 'all'}`)
-      : null
-
-  /** Google ItemList / carousel uyumu — otel, villa, yat, tur, aktivite vb. kategori liste sayfaları */
-  const itemListJsonLd =
-    allListings && allListings.length > 0
-      ? await buildListingsItemListJsonLd({
-          category,
-          listings: allListings,
-          locale,
-          currentHandle,
-        })
-      : null
-
-  // modules geçirilmemişse önce kaydedilmiş page builder config'e bak, yoksa kod varsayılanlarını kullan
-  const resolvedModules =
-    (modules ??
-      (await getCategoryPageBuilderConfig(category.slug, locale).catch(() =>
-        getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
-          ...mod,
-          id: `default-${category.slug}-${i}`,
-        })),
-      ))) as PageBuilderModule[]
-
-  // Bölge istatistiklerini dışarıdan geçilmemişse çek (sadece "all" görünümünde)
+  // Saf (senkron) türetmeler — async batch'ten önce hazırlanır.
   const categoryCode = SLUG_TO_CODE[category.slug] ?? category.slug
   const isStayRentalPage = isStayRentalCategory(categoryCode)
   const stayRentalCode = isStayRentalPage ? (categoryCode as StayRentalCategoryCode) : null
   const stayRentalSubs = isStayRentalPage ? getSubcategoriesByParent(category.slug) : []
-  const stayRentalThemeOptions =
-    stayRentalCode
-      ? (await listPublicThemeItems({ categoryCode: stayRentalCode, locale }))?.items ?? []
-      : []
   const stayRentalPropertyTypeForRegions =
     stayRentalCode && currentHandle && currentHandle !== 'all'
       ? stayRentalPropertyTypeFromHandle(stayRentalCode, currentHandle)
       : undefined
-  const resolvedRegionStats: RegionSliderItem[] = regionsWithListings(
-    filterRegionsForHandle(
-      regionStats ??
-        (await getPublicRegionStats(
+
+  // Birbirinden bağımsız async işleri tek Promise.all'da paralelleştir:
+  // vitrinHref'ler (istek-içi cache'li), ItemList JSON-LD, page builder config,
+  // tema öğeleri ve bölge istatistikleri ayrı ayrı sıralı beklenmez.
+  const [
+    categoryRouteVitrin,
+    categoryPageHref,
+    listingLinkBaseVitrin,
+    mapOnMapHref,
+    itemListJsonLd,
+    resolvedModulesRaw,
+    stayRentalThemeOptions,
+    rawRegionStats,
+  ] = await Promise.all([
+    vitrinHref(locale, category.categoryRoute),
+    // Hero başlık + istatistik satırı bu kategorinin «tüm ilanlar» vitrinine gider.
+    vitrinHref(locale, `${category.categoryRoute}/all`),
+    vitrinHref(locale, listingLinkBase),
+    category.mapRoute != null && String(category.mapRoute).trim() !== ''
+      ? vitrinHref(locale, `${category.mapRoute}/${currentHandle ?? 'all'}`)
+      : Promise.resolve(null),
+    // Google ItemList / carousel uyumu — kategori liste sayfaları
+    allListings && allListings.length > 0
+      ? buildListingsItemListJsonLd({ category, listings: allListings, locale, currentHandle })
+      : Promise.resolve(null),
+    // modules geçirilmemişse kaydedilmiş config, yoksa kod varsayılanları
+    modules
+      ? Promise.resolve(modules)
+      : getCategoryPageBuilderConfig(category.slug, locale).catch(() =>
+          getLocalizedDefaultModules(category.slug, m).map((mod, i) => ({
+            ...mod,
+            id: `default-${category.slug}-${i}`,
+          })),
+        ),
+    stayRentalCode
+      ? listPublicThemeItems({ categoryCode: stayRentalCode, locale }).then((r) => r?.items ?? [])
+      : Promise.resolve([]),
+    // Bölge istatistikleri — dışarıdan geçilmemişse çek
+    regionStats
+      ? Promise.resolve(regionStats)
+      : getPublicRegionStats(
           categoryCode,
           12,
           { next: { revalidate: 300 } } as RequestInit,
           stayRentalPropertyTypeForRegions
             ? { propertyType: stayRentalPropertyTypeForRegions }
             : undefined,
-        ).catch(() => [])),
-      currentHandle,
-    ),
+        ).catch(() => []),
+  ])
+  const resolvedModules = resolvedModulesRaw as PageBuilderModule[]
+  const resolvedRegionStats: RegionSliderItem[] = regionsWithListings(
+    filterRegionsForHandle(rawRegionStats, currentHandle),
   )
 
   /** Page builder (client) modüllerine fonksiyon yerine id → kart node geçir */
