@@ -6,6 +6,7 @@
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
+import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 
 const FB_GRAPH = 'https://graph.facebook.com/v18.0'
 const PINTEREST_API = 'https://api.pinterest.com/v5/pins'
@@ -59,6 +60,23 @@ export function listingPublicUrl(categoryCode: string, slug: string): string {
   const siteUrl = getPublicSiteUrl()
   const seg = LISTING_SEGMENT[categoryCode] ?? categoryCode
   return `${siteUrl}/${seg}/${slug}`
+}
+
+function listingSocialOgKind(categoryCode: string): 'stay' | 'experience' {
+  return categoryCode === 'activity' || categoryCode === 'tour' || categoryCode === 'cruise'
+    ? 'experience'
+    : 'stay'
+}
+
+function listingSocialCoverUrl(categoryCode: string, slug: string): string {
+  return (
+    buildListingOgImageUrl({
+      kind: listingSocialOgKind(categoryCode),
+      handle: slug,
+      locale: 'tr',
+      variant: 'social',
+    }) ?? ''
+  )
 }
 
 export function absoluteMediaUrl(siteUrl: string, storageKey: string): string {
@@ -213,7 +231,7 @@ async function postFacebook(
 
   const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
 
-  if (httpsUrls.length <= 1) {
+  if (httpsUrls.length === 0) {
     const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -227,6 +245,23 @@ async function postFacebook(
       throw new Error(fbData.error?.message ?? `fb_${fbRes.status}`)
     }
     return fbData.id ?? ''
+  }
+
+  if (httpsUrls.length === 1) {
+    const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: httpsUrls[0],
+        caption: `${message}\n\n${pageUrl}`.trim(),
+        access_token: token,
+      }),
+    })
+    const photoData = (await photoRes.json()) as { id?: string; post_id?: string; error?: { message: string } }
+    if (!photoRes.ok || photoData.error) {
+      throw new Error(photoData.error?.message ?? `fb_photo_${photoRes.status}`)
+    }
+    return photoData.post_id ?? photoData.id ?? ''
   }
 
   const mediaIds: string[] = []
@@ -453,25 +488,30 @@ export async function processOneSocialJob(
   const imageUrls = selectedKeys
     .map((k) => absoluteMediaUrl(siteUrl, k))
     .filter((u) => u.startsWith('https://'))
+  const coverUrl = listingSocialCoverUrl(job.category_code, job.listing_slug)
+  const postImageUrls = [coverUrl, ...imageUrls]
+    .filter((u) => u.startsWith('https://'))
+    .filter((u, i, arr) => arr.indexOf(u) === i)
+    .slice(0, 10)
 
   try {
     let postId = ''
     switch (job.network) {
       case 'facebook':
-        postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl, imageUrls)
+        postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl, postImageUrls)
         break
       case 'instagram':
-        if (imageUrls.length === 0) throw new Error('instagram_image_required')
-        postId = await postInstagram(socialApi.meta ?? {}, caption, imageUrls)
+        if (postImageUrls.length === 0) throw new Error('instagram_image_required')
+        postId = await postInstagram(socialApi.meta ?? {}, caption, postImageUrls)
         break
       case 'pinterest':
-        if (imageUrls.length === 0) throw new Error('pinterest_image_required')
+        if (postImageUrls.length === 0) throw new Error('pinterest_image_required')
         postId = await postPinterest(
           socialApi.pinterest ?? {},
           title,
           description,
           pageUrl,
-          imageUrls[0],
+          postImageUrls[0],
         )
         break
       default:

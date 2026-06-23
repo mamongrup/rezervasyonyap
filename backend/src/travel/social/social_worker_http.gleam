@@ -397,18 +397,19 @@ fn caption_body_decoder() ->
   })
 }
 
-fn listing_context_row() -> decode.Decoder(#(String, String, String, String)) {
+fn listing_context_row() -> decode.Decoder(#(String, String, String, String, String)) {
   use title <- decode.field(0, decode.string)
   use desc <- decode.field(1, decode.string)
-  use cat <- decode.field(2, decode.string)
-  use feat <- decode.field(3, decode.string)
-  decode.success(#(title, desc, cat, feat))
+  use region <- decode.field(2, decode.string)
+  use cat <- decode.field(3, decode.string)
+  use feat <- decode.field(4, decode.string)
+  decode.success(#(title, desc, region, cat, feat))
 }
 
 fn fetch_listing_social_context(
   db: pog.Connection,
   entity_id: String,
-) -> Result(#(String, String, String, List(String)), Nil) {
+) -> Result(#(String, String, String, String, List(String)), Nil) {
   let eid = string.trim(entity_id)
   case eid == "" {
     True -> Error(Nil)
@@ -422,10 +423,17 @@ fn fetch_listing_social_context(
           <> "coalesce((select left(lt.description, 4000) from listing_translations lt "
           <> "inner join locales loc on loc.id = lt.locale_id "
           <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
+          <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', "
+          <> "nullif(trim(lm.meta->>'region_display'), ''), "
+          <> "nullif(trim(lm.meta->>'district_label'), ''), "
+          <> "nullif(trim(lm.meta->>'city'), ''), "
+          <> "nullif(trim(l.location_name), '')"
+          <> ")), ''), ''), "
           <> "coalesce(pc.code::text, ''), "
           <> "coalesce(l.featured_image_url::text, '') "
           <> "from listings l "
           <> "inner join product_categories pc on pc.id = l.category_id "
+          <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
           <> "where l.id = $1::uuid and l.status = 'published' limit 1",
         )
         |> pog.parameter(pog.text(eid))
@@ -435,9 +443,9 @@ fn fetch_listing_social_context(
         Error(_) -> Error(Nil)
         Ok(ret) ->
           case ret.rows {
-            [#(title, desc, cat, feat)] -> {
+            [#(title, desc, region, cat, feat)] -> {
               let imgs = listing_social_enqueue.listing_image_candidates(db, eid, feat)
-              Ok(#(title, desc, cat, imgs))
+              Ok(#(title, desc, region, cat, imgs))
             }
             _ -> Error(Nil)
           }
@@ -492,16 +500,17 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
               case page_url == "" {
                 True -> json_err(400, "listing_url_required")
                 False -> {
-                  let #(title, desc, cat, candidates) = case
+                  let #(title, desc, region, cat, candidates) = case
                     fetch_listing_social_context(ctx.db, entity_id)
                   {
                     Error(_) -> #(
                       string.trim(title_in),
                       string.trim(desc_in),
+                      "",
                       string.trim(cat_in),
                       list.filter(keys_in, fn(s) { string.trim(s) != "" }),
                     )
-                    Ok(#(t, d, c, imgs)) -> #(
+                    Ok(#(t, d, r, c, imgs)) -> #(
                       case string.trim(t) == "" {
                         True -> string.trim(title_in)
                         False -> string.trim(t)
@@ -510,6 +519,7 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
                         True -> string.trim(desc_in)
                         False -> string.trim(d)
                       },
+                      string.trim(r),
                       case string.trim(c) == "" {
                         True -> string.trim(cat_in)
                         False -> string.trim(c)
@@ -548,12 +558,13 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
                           #("category_code", json.string(cat)),
                           #("listing_title", json.string(title)),
                           #("listing_description", json.string(desc)),
+                          #("listing_region", json.string(region)),
                           #("listing_url", json.string(page_url)),
                           #("image_candidates", image_candidates_json(candidates)),
                           #(
                             "instruction",
                             json.string(
-                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel).",
+                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan.",
                             ),
                           ),
                         ])
