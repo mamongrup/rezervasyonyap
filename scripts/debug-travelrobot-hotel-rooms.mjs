@@ -127,6 +127,12 @@ async function runSearch(cfg, label, opts) {
       for (const h of hits.slice(0, 6)) {
         console.log(`       hotelRef="${hotelRef(h)}"  isim="${hotelName(h)}"  fiyat=${firstRoomPrice(h) ?? '-'}`)
       }
+      const exact = hits.find((h) => hotelRef(h) === code) ?? hits[0]
+      if (exact) {
+        console.log(`\n    -- EŞLEŞEN satırın tam yapısı (anahtar alanlar için) --`)
+        console.log(`    hotelRef(satır)="${hotelRef(exact)}" | bizim code="${code}" | eşit mi: ${hotelRef(exact) === code}`)
+        console.log(trunc(shape(exact), 4000))
+      }
     }
   }
   return { payload, rows, mine, tokenCode }
