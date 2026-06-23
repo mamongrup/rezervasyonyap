@@ -30,7 +30,19 @@ const offsetIdx = process.argv.indexOf('--offset')
 const OFFSET = offsetIdx >= 0 ? Number(process.argv[offsetIdx + 1]) : 0
 
 function pricelessWhereSql() {
-  return PRICELESS_ONLY ? ' AND coalesce(l.vitrin_price, l.first_charge_amount, 0) <= 0' : ''
+  if (!PRICELESS_ONLY) return ''
+  return `
+       AND coalesce(l.first_charge_amount, 0) <= 0
+       AND NOT EXISTS (
+         SELECT 1 FROM listing_price_rules r
+         WHERE r.listing_id = l.id
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM listing_meal_plans m
+         WHERE m.listing_id = l.id
+           AND m.is_active = true
+           AND m.price_per_night > 0
+       )`
 }
 
 async function countHotels(pg) {

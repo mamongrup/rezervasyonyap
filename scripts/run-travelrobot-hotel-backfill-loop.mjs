@@ -50,7 +50,18 @@ async function countHotels() {
        WHERE l.external_provider_code = 'travelrobot'
          AND lhd.travelrobot_hotel_code IS NOT NULL
          AND trim(lhd.travelrobot_hotel_code) <> ''
-         ${PRICELESS_ONLY ? 'AND coalesce(l.vitrin_price, l.first_charge_amount, 0) <= 0' : ''}`,
+         ${PRICELESS_ONLY ? `
+         AND coalesce(l.first_charge_amount, 0) <= 0
+         AND NOT EXISTS (
+           SELECT 1 FROM listing_price_rules r
+           WHERE r.listing_id = l.id
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM listing_meal_plans m
+           WHERE m.listing_id = l.id
+             AND m.is_active = true
+             AND m.price_per_night > 0
+         )` : ''}`,
     )
     return r.rows[0]?.n ?? 0
   } finally {
