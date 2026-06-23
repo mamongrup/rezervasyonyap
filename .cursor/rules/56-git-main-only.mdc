@@ -1,0 +1,17 @@
+---
+description: Git push/deploy branch policy for this project
+alwaysApply: true
+---
+
+# Git Branch Policy
+
+- Varsayılan push hedefi her zaman `main` olmalıdır.
+- Kullanıcı açıkça başka branch istemedikçe `cursor/*` veya geçici branch'e push yapma.
+- Commit sonrası gerekiyorsa `git push origin HEAD:main` kullan.
+- Deploy komutlarında varsayılan ref `main` olmalıdır:
+
+```bash
+DEPLOY_REF=main ./deploy/deploy.sh
+```
+
+- `main` dışında bir branch kullanmak gerekirse önce kullanıcıdan açık onay al.
