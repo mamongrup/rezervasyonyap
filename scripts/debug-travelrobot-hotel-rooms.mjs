@@ -103,8 +103,7 @@ async function resolveDestinationIdFromDb(code) {
   }
 }
 
-async function runSearch(cfg, label, opts) {
-  const { tokenCode } = await createTravelrobotToken(cfg)
+async function runSearch(cfg, tokenCode, label, opts) {
   let payload
   try {
     payload = await searchHotels(cfg, tokenCode, { showMultipleRate: true, checkInDate: addDays(30), checkOutDate: addDays(37), ...opts })
@@ -143,7 +142,7 @@ async function runSearch(cfg, label, opts) {
       }
     }
   }
-  return { payload, rows, mine, tokenCode }
+  return { payload, rows, mine }
 }
 
 async function main() {
@@ -155,13 +154,16 @@ async function main() {
   }
   console.log('Kod:', code, '| destinationId:', destId || '(yok)')
 
+  // Tek token üret, tüm aramalarda paylaş (token başına rate-limit/Unauthorised'ı önler).
+  const { tokenCode } = await createTravelrobotToken(cfg)
+
   console.log('\n===== Arama modu karşılaştırması (+30/+37) =====')
-  await runSearch(cfg, 'a) yalnız hotelCode', { hotelCode: code })
+  await runSearch(cfg, tokenCode, 'a) yalnız hotelCode', { hotelCode: code })
   let best = null
   if (destId) {
-    const c = await runSearch(cfg, 'c) destinationId + hotelCode', { destinationId: destId, hotelCode: code })
+    const c = await runSearch(cfg, tokenCode, 'c) destinationId + hotelCode', { destinationId: destId, hotelCode: code })
     if (c?.mine) best = c
-    const b = await runSearch(cfg, 'b) yalnız destinationId', { destinationId: destId })
+    const b = await runSearch(cfg, tokenCode, 'b) yalnız destinationId', { destinationId: destId })
     if (!best && b?.mine) best = b
   } else {
     console.log('  (destinationId yok → b/c modları atlandı)')
@@ -179,7 +181,7 @@ async function main() {
 
   if (!sk) return
   console.log('\n===== GetHotelRoomPrices =====')
-  const prices = await getHotelRooms(cfg, best.tokenCode, { productCode: code, hotelCode: code, searchKey: sk, languageCode: 'tr' })
+  const prices = await getHotelRooms(cfg, tokenCode, { productCode: code, hotelCode: code, searchKey: sk, languageCode: 'tr' })
   console.log('HasError:', prices?.HasError, '| ErrorMessage:', prices?.ErrorMessage ?? prices?.Message ?? '-')
   console.log(trunc(shape(prices)))
 }
