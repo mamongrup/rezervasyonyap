@@ -111,6 +111,20 @@ function formatDate(d) {
   return `${dd}.${mm}.${yyyy}`
 }
 
+// KPlus SearchHotel CheckInDate/CheckOutDate'i DD.MM.YYYY bekler. Çağıranlar bazen
+// ISO (YYYY-MM-DD) veya Date geçtiği için tek noktada normalize edilir; aksi halde
+// API "Invalid date" döndürür ve oda fiyatları hiç çekilemez.
+function toKplusDate(value) {
+  if (value == null || value === '') return ''
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' : formatDate(value)
+  const s = String(value).trim()
+  if (/^\d{2}\.\d{2}\.\d{4}$/.test(s)) return s
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (iso) return `${iso[3]}.${iso[2]}.${iso[1]}`
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? s : formatDate(d)
+}
+
 function tokenObj(tokenCode) {
   return { TokenCode: tokenCode }
 }
@@ -2040,8 +2054,8 @@ export async function getTourBooking(cfg, tokenCode, opts = {}) {
  * opts: { checkInDate, checkOutDate, destinationId, hotelCode, rooms, languageCode }
  */
 export async function searchHotel(cfg, tokenCode, opts = {}) {
-  const checkin = opts.checkInDate || formatDate(addDays(30))
-  const checkout = opts.checkOutDate || formatDate(addDays(37))
+  const checkin = toKplusDate(opts.checkInDate) || formatDate(addDays(30))
+  const checkout = toKplusDate(opts.checkOutDate) || formatDate(addDays(37))
   // Gerçek şema (Hotel.json /SearchHotel):
   //   filter.Destinations[] = { DestinationId }, filter.Hotels[] = { HotelCode }
   //   filter.Rooms[] = { Paxes:[{ Count, PaxType, ChildAgeList }] }
