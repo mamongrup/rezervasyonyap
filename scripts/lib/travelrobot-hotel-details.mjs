@@ -5,6 +5,7 @@
 import { getHotelDetails } from './travelrobot-api.mjs'
 import { collectHotelImageUrls, hotelRef } from './travelrobot-listing-db.mjs'
 import { catalogHasTravelrobotVitrinSource } from './travelrobot-hotel-vitrin-db.mjs'
+import { looksLikeEnglishHotelText } from './travelrobot-hotel-vitrin.mjs'
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
@@ -19,10 +20,13 @@ export function mergeHotelDetails(row, detailsPayload) {
   const nested = row?.Hotel ?? row?.hotel ?? {}
   const summary =
     result.SummaryText ?? result.summaryText ?? result.Description ?? result.description ?? null
+  const existingDescription = row?.Description || row?.description || null
+  const preferredDescription =
+    summary && !looksLikeEnglishHotelText(summary) ? summary : existingDescription
 
   return {
     ...row,
-    Description: row?.Description || row?.description || summary || null,
+    Description: preferredDescription,
     ...(Array.isArray(hotelImages) && hotelImages.length
       ? { Images: hotelImages, HotelImages: hotelImages }
       : {}),

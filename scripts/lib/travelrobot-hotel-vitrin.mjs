@@ -30,6 +30,46 @@ function stripHtml(html) {
     .trim()
 }
 
+export function looksLikeEnglishHotelText(raw) {
+  const text = stripHtml(raw)
+  if (text.length < 80) return false
+  if (/[çğıöşüÇĞİÖŞÜ]/.test(text)) return false
+
+  const lower = text.toLowerCase()
+  const trSignals = [
+    ' ve ',
+    ' ile ',
+    ' için ',
+    ' otel',
+    ' tesis',
+    ' misafir',
+    ' konaklama',
+    ' kahvalt',
+    ' ücretsiz',
+    ' odalar',
+    ' bulunur',
+    ' sunar',
+  ]
+  if (trSignals.some((s) => lower.includes(s))) return false
+
+  const enSignals = [
+    ' the ',
+    ' and ',
+    ' with ',
+    ' guests ',
+    ' rooms ',
+    ' property ',
+    ' located ',
+    ' offers ',
+    ' features ',
+    ' breakfast ',
+    ' check-in ',
+    ' airport ',
+    ' accommodation ',
+  ]
+  return enSignals.filter((s) => lower.includes(s)).length >= 2
+}
+
 /** SearchHotel / snapshot / GetHotelDetails birleşik otel düğümü. */
 export function extractHotelDetailsNode(hotel) {
   if (!hotel || typeof hotel !== 'object') return {}
@@ -248,18 +288,19 @@ function buildAdditionalTabSections(node) {
 export function buildTravelrobotHotelVitrinMeta(hotel) {
   const node = extractHotelDetailsNode(hotel)
   const summaryHtml = String(node?.SummaryText ?? node?.summaryText ?? '').trim()
+  const useSummary = summaryHtml && !looksLikeEnglishHotelText(summaryHtml)
   const facilitySections = [
     buildDistanceSection(node),
     ...buildAdditionalTabSections(node),
   ].filter(Boolean)
 
-  const faqItems = parseSummaryFaq(summaryHtml)
+  const faqItems = useSummary ? parseSummaryFaq(summaryHtml) : []
 
   return {
-    general_terms_html: summaryHtml || null,
+    general_terms_html: useSummary ? summaryHtml : null,
     facility_sections: facilitySections.length ? facilitySections : null,
     faq_items: faqItems.length ? faqItems : null,
-    descriptionPlain: summaryHtml ? stripHtml(summaryHtml).slice(0, 4000) : null,
+    descriptionPlain: useSummary ? stripHtml(summaryHtml).slice(0, 4000) : null,
   }
 }
 

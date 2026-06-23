@@ -5,6 +5,7 @@
 import { applyTravelrobotHotelVitrinFields } from './travelrobot-hotel-vitrin-db.mjs'
 import { applyTravelrobotHotelExtrasFields } from './travelrobot-hotel-extras-db.mjs'
 import { extractHotelMinNightlyPrice, collectHotelGalleryEntries } from './travelrobot-hotel-extras.mjs'
+import { looksLikeEnglishHotelText } from './travelrobot-hotel-vitrin.mjs'
 
 export { extractHotelMinNightlyPrice } from './travelrobot-hotel-extras.mjs'
 
@@ -474,7 +475,7 @@ async function upsertListingCore(
      VALUES ($1::uuid, $2, $3, $4)
      ON CONFLICT (listing_id, locale_id) DO UPDATE SET
        title = EXCLUDED.title,
-       description = EXCLUDED.description`,
+       description = COALESCE(EXCLUDED.description, listing_translations.description)`,
     [listingId, ctx.localeTrId, title, description || null],
   )
 
@@ -580,6 +581,7 @@ export async function upsertTravelrobotHotelListing(
   const description =
     pickText(hotel, 'Description', 'description', 'Details', 'details') ||
     pickText(nested ?? {}, 'SummaryText', 'summaryText', 'Description', 'description')
+  const trDescription = looksLikeEnglishHotelText(description) ? null : description
   const city = pickText(nested ?? {}, 'City', 'city', 'CityName', 'cityName', 'Location', 'location')
   const country = pickText(nested ?? {}, 'Country', 'country', 'CountryName', 'countryName', 'CountryCode', 'countryCode')
   const locName =
@@ -595,7 +597,7 @@ export async function upsertTravelrobotHotelListing(
     extRef: ref,
     slug,
     title,
-    description,
+    description: trDescription,
     locName,
     currency,
     status,
