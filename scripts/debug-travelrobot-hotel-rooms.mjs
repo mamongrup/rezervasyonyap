@@ -45,46 +45,63 @@ function trunc(obj, n = 7000) {
   return s.length > n ? s.slice(0, n) + '\n…(kısaltıldı)' : s
 }
 
+function firstRoomPrice(hotel) {
+  const rooms = hotel?.Rooms ?? hotel?.rooms ?? []
+  for (const r of rooms) {
+    const alts = r?.RoomAlternatives ?? r?.roomAlternatives ?? []
+    for (const a of alts) {
+      const p = a?.Price ?? a?.price ?? a?.TotalAmount ?? a?.totalAmount ?? a?.Amount
+      if (p != null) return p
+    }
+  }
+  return null
+}
+
 async function main() {
   const cfg = await loadTravelrobotConfig()
-  const { tokenCode } = await createTravelrobotToken(cfg)
-  console.log('Token OK; kod:', code)
 
-  const checkInDate = addDays(30)
-  const checkOutDate = addDays(37)
-  console.log('Tarihler (ISO girdi):', checkInDate, '→', checkOutDate)
+  // ── 1) Tarih penceresi taraması: hangi pencerede otel/teklif dönüyor? ──
+  const windows = [
+    [30, 37], [45, 52], [60, 67], [90, 97], [120, 127], [180, 187],
+  ]
+  console.log('===== Tarih penceresi taraması (kod:', code, ') =====')
+  let workingWindow = null
+  for (const [a, b] of windows) {
+    const { tokenCode } = await createTravelrobotToken(cfg)
+    const checkInDate = addDays(a)
+    const checkOutDate = addDays(b)
+    let search
+    try {
+      search = await searchHotels(cfg, tokenCode, { hotelCode: code, showMultipleRate: true, checkInDate, checkOutDate })
+    } catch (e) {
+      console.log(`  +${a}/+${b} (${checkInDate}→${checkOutDate}): istek hatası ${e.message}`)
+      continue
+    }
+    const rows = pickHotelRows(search)
+    const err = search?.ErrorMessage ?? search?.Message ?? (search?.HasError ? 'HasError' : '-')
+    const price = rows.length ? firstRoomPrice(rows[0]) : null
+    console.log(`  +${a}/+${b} (${checkInDate}→${checkOutDate}): Hotels=${rows.length}, ilkFiyat=${price ?? '-'}, hata=${err}`)
+    if (rows.length && !workingWindow) workingWindow = { a, b, checkInDate, checkOutDate, search, found: rows[0] }
+  }
 
-  console.log('\n===== SearchHotel =====')
-  const search = await searchHotels(cfg, tokenCode, {
-    hotelCode: code,
-    showMultipleRate: true,
-    checkInDate,
-    checkOutDate,
-  })
-  console.log('HasError:', search?.HasError, '| ErrorMessage:', search?.ErrorMessage ?? search?.Message ?? '-')
-  console.log('Üst seviye anahtarlar:', Object.keys(search ?? {}))
-  const rows = pickHotelRows(search)
-  console.log('pickHotelRows sayısı:', rows.length)
-  const found = rows.find((h) => String(h?.HotelId ?? h?.Hotel?.HotelCode ?? h?.HotelCode ?? '').includes(code)) ?? rows[0] ?? null
-  console.log('SearchKey (pickHotelSearchKey):', pickHotelSearchKey(search, found))
-  console.log('\n-- SearchHotel yapısı (örnek) --')
-  console.log(trunc(shape(search)))
-
-  const sk = pickHotelSearchKey(search, found)
-  if (!sk) {
-    console.log('\nSearchKey bulunamadı — GetHotelRoomPrices atlanıyor.')
+  if (!workingWindow) {
+    console.log('\nSONUÇ: Hiçbir tarih penceresinde otel/teklif dönmedi → bu otel için KPlus müsaitlik yok.')
     return
   }
 
+  // ── 2) Çalışan pencerede tam yapı + GetHotelRoomPrices ──
+  console.log(`\n===== Çalışan pencere: +${workingWindow.a}/+${workingWindow.b} =====`)
+  const { tokenCode } = await createTravelrobotToken(cfg)
+  const { search, found } = workingWindow
+  const sk = pickHotelSearchKey(search, found)
+  console.log('SearchKey:', sk)
+  console.log('\n-- SearchHotel Hotels[0] yapısı --')
+  console.log(trunc(shape(found)))
+
+  if (!sk) return
   console.log('\n===== GetHotelRoomPrices =====')
-  const prices = await getHotelRooms(cfg, tokenCode, {
-    productCode: code,
-    hotelCode: code,
-    searchKey: sk,
-    languageCode: 'tr',
-  })
+  const prices = await getHotelRooms(cfg, tokenCode, { productCode: code, hotelCode: code, searchKey: sk, languageCode: 'tr' })
   console.log('HasError:', prices?.HasError, '| ErrorMessage:', prices?.ErrorMessage ?? prices?.Message ?? '-')
-  console.log('Üst seviye anahtarlar:', Object.keys(prices ?? {}))
   console.log('\n-- GetHotelRoomPrices yapısı (örnek) --')
   console.log(trunc(shape(prices)))
 }
