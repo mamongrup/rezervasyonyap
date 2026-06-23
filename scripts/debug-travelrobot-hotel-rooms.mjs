@@ -21,6 +21,7 @@ import { createPgClient } from './lib/pg-client.mjs'
 
 const code = (process.argv[2] || '').trim()
 const destArg = (process.argv[3] || '').trim()
+const nameFilter = (process.argv[4] || '').trim().toLowerCase()
 if (!code) {
   console.error('Kullanım: node scripts/debug-travelrobot-hotel-rooms.mjs <HOTEL_CODE> [DESTINATION_ID]')
   process.exit(1)
@@ -47,6 +48,11 @@ function shape(value, depth = 0) {
 function trunc(obj, n = 6000) {
   const s = JSON.stringify(obj, null, 2)
   return s.length > n ? s.slice(0, n) + '\n…(kısaltıldı)' : s
+}
+
+function hotelName(h) {
+  const n = h?.Hotel ?? h?.hotel ?? h
+  return String(n?.HotelName ?? n?.hotelName ?? n?.Name ?? n?.name ?? h?.HotelName ?? h?.Name ?? '').trim()
 }
 
 function firstRoomPrice(hotel) {
@@ -110,6 +116,19 @@ async function runSearch(cfg, label, opts) {
   const mine = rows.find((h) => hotelRef(h) === code) ?? null
   const err = payload?.ErrorMessage ?? payload?.Message ?? (payload?.HasError ? 'HasError' : '-')
   console.log(`  [${label}] Hotels=${rows.length}, otelimiz=${mine ? 'VAR' : 'yok'}, ilkFiyat=${mine ? firstRoomPrice(mine) : '-'}, hata=${err}`)
+  if (rows.length && !mine) {
+    console.log(`    -- ilk 12 sonucun kod/isim formatı (bizim kod: "${code}") --`)
+    for (const h of rows.slice(0, 12)) {
+      console.log(`       hotelRef="${hotelRef(h)}"  isim="${hotelName(h)}"  fiyat=${firstRoomPrice(h) ?? '-'}`)
+    }
+    if (nameFilter) {
+      const hits = rows.filter((h) => hotelName(h).toLowerCase().includes(nameFilter))
+      console.log(`    -- isim "${nameFilter}" içeren ${hits.length} sonuç --`)
+      for (const h of hits.slice(0, 6)) {
+        console.log(`       hotelRef="${hotelRef(h)}"  isim="${hotelName(h)}"  fiyat=${firstRoomPrice(h) ?? '-'}`)
+      }
+    }
+  }
   return { payload, rows, mine, tokenCode }
 }
 
