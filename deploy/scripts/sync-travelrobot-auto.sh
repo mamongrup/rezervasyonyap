@@ -26,3 +26,6 @@ node scripts/sync-travelrobot-auto.mjs --ping
 
 echo "→ Otomatik senkron…"
 node scripts/sync-travelrobot-auto.mjs "$@"
+
+echo "→ Vitrin fiyat önbelleği tazeleniyor (fiyatı olan oteller görünür, fiyatsızlar gizli)…"
+"$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" || echo "[WARN] vitrin_price tazeleme atlandı"

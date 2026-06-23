@@ -79,6 +79,15 @@ fn tour_public_must_have_price_sql() -> String {
   "and (pc.code != 'tour' or coalesce(l.vitrin_price, 0) > 0) "
 }
 
+/// Vitrinde fiyatsız oteller listelenmesin (KPlus/Travelrobot import'ta fiyatı
+/// gelmeyen oteller). vitrin_price; price_rules + meal_plans + first_charge'ı
+/// kapsar (342 nolu migration) → kartta fiyat görünen otel asla gizlenmez,
+/// yalnızca hiçbir kaynakta fiyatı olmayan otel gizlenir.
+/// refresh_listing_vitrin_prices() import sonrası ve periyodik çalışmalıdır.
+fn hotel_public_must_have_price_sql() -> String {
+  "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
+}
+
 /// Aktivite vitrin fiyatı — aktif seanslardaki en düşük yetişkin ücreti (kişi başı).
 fn activity_listing_vitrin_price_sql() -> String {
   "(select min(f.price_amount)::text from listing_activity_sessions s "
@@ -1005,6 +1014,7 @@ fn search_listings_impl(
     <> ", 0) >= 8) "
     <> ")) "
     <> tour_public_must_have_price_sql()
+    <> hotel_public_must_have_price_sql()
     <> "and ($22::uuid is null or not exists (select 1 from agency_category_grants g where g.agency_organization_id = $22::uuid) "
     <> "or exists (select 1 from agency_category_grants g2 where g2.agency_organization_id = $22::uuid and g2.approved = true and g2.category_code = pc.code)) "
     <> "and ($23::text is null or pc.code not in ('holiday_home', 'yacht_charter') or lower(trim(coalesce(lm.meta->>'property_type', ''))) = $23) "
@@ -1134,6 +1144,7 @@ fn search_listings_impl(
     <> "and ($12::text is null or coalesce(l.vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
     <> "and ($13::text is null or coalesce(l.vitrin_price, l.first_charge_amount) <= nullif($13::text, '')::numeric) "
     <> tour_public_must_have_price_sql()
+    <> hotel_public_must_have_price_sql()
   let fast_category_page_sql =
     "with page_ids as materialized (select l.id "
     <> fast_filter_body

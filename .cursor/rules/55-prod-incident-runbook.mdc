@@ -85,3 +85,13 @@ Tamamlayıcı: `51-rezervasyonyap-production.mdc`, `53-regression-scope.mdc`.
   SELECT refresh_listing_vitrin_prices();
   ```
 - **Doğrulama:** `?sort=price_asc` ilk satır en ucuz, `price_desc` en pahalı olmalı; `total` ile dönen `rows` tutarlı olmalı.
+
+## 9. KPlus/Travelrobot oteller — bazılarının fiyatı gelmiyor
+
+- **Belirti:** Bazı oteller vitrinde fiyatsız görünüyor (kartta fiyat yok) veya fiyatı olmasına rağmen sıralama/filtrede eksik.
+- **Kök neden:** KPlus import'unda gecelik fiyat ancak `RoomAlternatives` (oda+offer) varsa yazılır. Statik katalog import'u veya `import_hotel_rooms=false` ya da boş offer → `listing_price_rules`/`listing_meal_plans` hiç yazılmaz. Ayrıca `vitrin_price` eskiden `listing_meal_plans`'ı okumuyordu → yalnızca yemek planıyla fiyatlanan otel vitrin_price=NULL kalıyordu.
+- **Çözüm (migration `342`):** `refresh_listing_vitrin_prices()` artık `listing_meal_plans` minimumunu da kaynak alır (price_rules → meal_plans → tur → aktivite → first_charge). Böylece `vitrin_price ≈ price_from` (kartta görünen fiyat).
+- **Gizleme:** `collections_http.gleam` → `hotel_public_must_have_price_sql()`: `and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0)`. Hiçbir kaynakta fiyatı olmayan otel listelenmez; kartta fiyat görünen otel ASLA gizlenmez. Hem deferred hem fast path'e eklenir (count tutarlı).
+- **ÖNEMLİ — tazeleme:** Kapı `vitrin_price`'a dayanır; import sonrası `refresh_listing_vitrin_prices()` çalışmazsa fiyatlı yeni otel ~10 dk (timer) gizli kalabilir. Bu yüzden `deploy/scripts/import-travelrobot-all.sh` ve `sync-travelrobot-auto.sh` import sonrası `refresh-vitrin-prices.sh` çağırır.
+- **Gerçek onarım (fiyatı geri getirme):** Statik import'la gelmiş fiyatsız otelleri fiyatlandırmak için oda zenginleştirmeli yeniden import: `ONLY=hotels ./deploy/scripts/import-travelrobot-all.sh` (panelde `import_hotel_rooms` açık) veya `scripts/backfill-all-travelrobot-hotels.mjs --with-rooms`. Boşlukları görmek: `node scripts/audit-travelrobot-hotel-gaps.mjs`.
+- **Doğrulama:** `?category_code=hotel` listesinde fiyatsız otel kalmamalı; `audit-travelrobot-hotel-gaps.mjs` `no_price_rules` sayısı import sonrası düşmeli.

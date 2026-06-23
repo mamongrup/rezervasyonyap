@@ -46,3 +46,6 @@ fi
 echo ""
 echo "══ Travelrobot import (tur · otel · uçuş) ══"
 node scripts/import-travelrobot-all.mjs "${EXTRA_ARGS[@]}" "$@"
+
+echo "→ Vitrin fiyat önbelleği tazeleniyor (fiyatı olan oteller görünür, fiyatsızlar gizli)…"
+"$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" || echo "[WARN] vitrin_price tazeleme atlandı"
