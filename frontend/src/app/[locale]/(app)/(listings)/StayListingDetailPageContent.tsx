@@ -110,7 +110,11 @@ import {
 import { parseHotelVitrinMeta } from '@/lib/hotel-vitrin-meta'
 import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
 import HotelFacilityAccordionSections from './HotelFacilityAccordionSections'
-import { buildHotelFacilityAccordionContent } from '@/lib/hotel-facility-sections'
+import {
+  buildHotelFacilityAccordionContent,
+  isHotelDistanceFacilitySection,
+  type HotelFacilityAccordionContent,
+} from '@/lib/hotel-facility-sections'
 import HotelListingPromotionsSection from './HotelListingPromotionsSection'
 import HotelListingActivitiesSection from './HotelListingActivitiesSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
@@ -745,8 +749,21 @@ export default async function StayListingDetailPageContent({
           ),
           generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
           vitrinMeta: hotelVitrinMeta,
+          excludeDistanceSections: true,
           useDemoFallback: isHotelDemoListing,
         })
+      : null
+  const hotelDistanceFacilitySections =
+    vertical === 'hotel'
+      ? (hotelVitrinMeta?.facility_sections ?? []).filter(isHotelDistanceFacilitySection)
+      : []
+  const hotelDistanceFacilityContent: HotelFacilityAccordionContent | null =
+    hotelDistanceFacilitySections.length > 0
+      ? {
+          sections: hotelDistanceFacilitySections,
+          generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
+          generalTermsHtml: null,
+        }
       : null
   const hotelCheckInOut = formatListingCheckInOutLines(catalogAccommodationRules, {
     checkInRuleTemplate: dp.checkInRuleTemplate ?? dp.checkInRule,
@@ -1292,6 +1309,12 @@ export default async function StayListingDetailPageContent({
           amenities={servicePois.amenities}
           transport={servicePois.transport}
           variant="embedded"
+        />
+      ) : null}
+      {hotelDistanceFacilityContent ? (
+        <HotelFacilityAccordionSections
+          id="stay-section-location-distances"
+          content={hotelDistanceFacilityContent}
         />
       ) : null}
     </div>

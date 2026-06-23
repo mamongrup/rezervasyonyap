@@ -26,6 +26,19 @@ function sectionHasContent(section: HotelFacilityAccordionSection): boolean {
   )
 }
 
+export function isHotelDistanceFacilitySection(section: HotelFacilityAccordionSection): boolean {
+  const id = String(section.id ?? '').trim().toLowerCase()
+  const title = String(section.title ?? '').trim().toLowerCase()
+  return (
+    id === 'distances' ||
+    id === 'distance' ||
+    id.includes('distance') ||
+    id.includes('mesafe') ||
+    title === 'mesafeler' ||
+    title.includes('distance')
+  )
+}
+
 export function buildHotelFacilityAccordionContent(input: {
   handle: string
   amenityKeys: readonly string[]
@@ -37,6 +50,7 @@ export function buildHotelFacilityAccordionContent(input: {
     general_terms_html?: string | null
     facility_sections?: HotelFacilityAccordionSection[] | null
   } | null
+  excludeDistanceSections?: boolean
   /** API / panel gelene kadar demo otel fallback */
   useDemoFallback?: boolean
 }): HotelFacilityAccordionContent | null {
@@ -68,6 +82,7 @@ export function buildHotelFacilityAccordionContent(input: {
 
   for (const extra of input.vitrinMeta?.facility_sections ?? []) {
     if (extra.id === 'facility_features') continue
+    if (input.excludeDistanceSections && isHotelDistanceFacilitySection(extra)) continue
     if (sectionHasContent(extra)) sections.push({ ...extra })
   }
 

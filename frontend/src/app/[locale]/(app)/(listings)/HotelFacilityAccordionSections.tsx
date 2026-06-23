@@ -9,14 +9,16 @@ import { ChevronDown } from 'lucide-react'
 export default function HotelFacilityAccordionSections({
   content,
   className,
+  id = 'stay-section-facility-details',
 }: {
   content: HotelFacilityAccordionContent
   className?: string
+  id?: string
 }) {
   if (content.sections.length === 0 && !content.generalTermsHtml?.trim()) return null
 
   return (
-    <div id="stay-section-facility-details" className={clsx('scroll-mt-28', className)}>
+    <div id={id} className={clsx('scroll-mt-28', className)}>
       <div className="flex flex-col gap-2">
         {content.sections.map((section) => (
           <Disclosure
