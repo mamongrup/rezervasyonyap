@@ -1,0 +1,26 @@
+# Fiyatsız (vitrinde gizli) otel raporu — oneshot.
+# travel-priceless-hotels-report.timer tarafından günlük çağrılır.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-priceless-hotels-report.service /etc/systemd/system/
+#   sudo cp deploy/systemd/travel-priceless-hotels-report.timer /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/report-priceless-hotels.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-priceless-hotels-report.timer
+#
+# Log: journalctl -u travel-priceless-hotels-report.service -n 100 --no-pager
+
+[Unit]
+Description=Travel — fiyatsız otel raporu (oneshot)
+After=network-online.target travel-api.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/report-priceless-hotels.sh
+Nice=10
+IOSchedulingClass=best-effort
+
+[Install]
+WantedBy=multi-user.target

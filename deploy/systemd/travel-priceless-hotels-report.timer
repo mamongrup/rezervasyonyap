@@ -1,0 +1,14 @@
+# Fiyatsız (vitrinde gizli) otel sayısını günlük raporlar (journald).
+# Sayı beklenmedik şekilde artarsa import/backfill gerektiğini gösterir.
+
+[Unit]
+Description=Travel — fiyatsız otel raporu (günlük)
+
+[Timer]
+OnCalendar=*-*-* 06:30:00
+AccuracySec=5min
+Persistent=true
+Unit=travel-priceless-hotels-report.service
+
+[Install]
+WantedBy=timers.target
