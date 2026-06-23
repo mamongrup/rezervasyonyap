@@ -5,6 +5,7 @@ import Header from '@/components/Header/Header'
 import MobileFixedTopBar from '@/components/MobileFixedTopBar'
 import MobileLayoutSpacer from '@/components/MobileLayoutSpacer'
 import Aside from '@/components/aside'
+import PageContentSkeleton from '@/components/PageContentSkeleton'
 import type { ReactNode } from 'react'
 import { Suspense } from 'react'
 
@@ -27,7 +28,9 @@ export async function ApplicationLayout({ children, header, locale = 'tr' }: Pro
           touch-manipulation: 300ms tıklama gecikmesini kaldırır. */}
       <MobileFixedTopBar locale={locale} />
       <MobileLayoutSpacer />
-      {children}
+      {/* Sayfa gövdesi Suspense ile sarıldı: rota geçişinde header kalır, içerik
+          verisi gelene kadar anında iskelet gösterilir (algılanan hız artar). */}
+      <Suspense fallback={<PageContentSkeleton />}>{children}</Suspense>
       <Suspense fallback={null}>
         <AsideSidebarNavigation locale={locale} />
       </Suspense>

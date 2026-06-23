@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import avatars1 from '@/images/avatars/Image-1.png'
 import { dedupeGalleryUrlsPreserveOrder, orderGalleryUrlsBySortOrder } from '@/lib/listing-gallery-hero-order'
 import {
@@ -138,7 +139,10 @@ export type TStayListingResolved = TStayListing & {
   holidayHomeFaqItems?: { q: string; a: string }[]
 }
 
-export const getStayListingByHandle = async (
+// React.cache: aynı istek içinde generateMetadata + sayfa gövdesi (ve experience
+// sarmalayıcısı) aynı (handle, locale) ile çağırınca tek sefer çalışır → detay
+// sayfasındaki ~yarısı yinelenen API çağrıları kaldırılır.
+export const getStayListingByHandle = cache(async (
   handle: string,
   locale?: string,
 ): Promise<TStayListingResolved | null> => {
@@ -314,7 +318,7 @@ export const getStayListingByHandle = async (
   } as unknown as TStayListingResolved
 
   return merged
-}
+})
 
 
 //  CAR LISTING  //
