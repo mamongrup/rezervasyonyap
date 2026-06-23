@@ -10,6 +10,7 @@ import {
   hotelNodeFromPayload,
 } from './travelrobot-api.mjs'
 import { stampHotelSearchWindow } from './travelrobot-hotel-extras.mjs'
+import { hotelRef, mergeStaticHotelContent } from './travelrobot-listing-db.mjs'
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
