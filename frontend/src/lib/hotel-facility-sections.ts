@@ -39,6 +39,72 @@ export function isHotelDistanceFacilitySection(section: HotelFacilityAccordionSe
   )
 }
 
+function textFromHtml(html: string): string {
+  return String(html)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function cleanBodyFragment(html: string): string {
+  let out = String(html ?? '')
+    .replace(/^(\s|<br\s*\/?>|<\/p>|<\/div>)+/gi, '')
+    .replace(/(<p[^>]*>\s*)+$/gi, '')
+    .trim()
+  if (!out) return ''
+  if (!/^<(p|div|ul|ol|table|blockquote)\b/i.test(out)) out = `<p>${out}</p>`
+  return out
+}
+
+function splitBodyHtmlByHeadings(section: HotelFacilityAccordionSection): HotelFacilityAccordionSection[] {
+  const html = section.bodyHtml?.trim()
+  if (!html) return [section]
+
+  const headingPattern = /<(h[1-6]|strong|b)[^>]*>([\s\S]*?)<\/\1>/gi
+  const matches = [...html.matchAll(headingPattern)]
+    .map((match) => ({
+      index: match.index ?? 0,
+      end: (match.index ?? 0) + match[0].length,
+      title: textFromHtml(match[2] ?? ''),
+    }))
+    .filter((match) => match.title.length >= 3 && match.title.length <= 100)
+
+  if (matches.length < 2) return [section]
+
+  const out: HotelFacilityAccordionSection[] = []
+  const introHtml = cleanBodyFragment(html.slice(0, matches[0].index))
+  if (textFromHtml(introHtml)) {
+    out.push({
+      ...section,
+      bodyHtml: introHtml,
+    })
+  }
+
+  for (let i = 0; i < matches.length; i++) {
+    const current = matches[i]
+    const next = matches[i + 1]
+    const bodyHtml = cleanBodyFragment(html.slice(current.end, next?.index ?? html.length))
+    if (!textFromHtml(bodyHtml)) continue
+    out.push({
+      id: `${section.id}-${i + 1}`,
+      title: current.title,
+      bodyHtml,
+    })
+  }
+
+  return out.length > 1 ? out : [section]
+}
+
+export function expandHotelFacilitySections(
+  sections: readonly HotelFacilityAccordionSection[],
+): HotelFacilityAccordionSection[] {
+  return sections.flatMap(splitBodyHtmlByHeadings)
+}
+
 export function buildHotelFacilityAccordionContent(input: {
   handle: string
   amenityKeys: readonly string[]
@@ -86,7 +152,7 @@ export function buildHotelFacilityAccordionContent(input: {
     if (sectionHasContent(extra)) sections.push({ ...extra })
   }
 
-  const filtered = sections.filter(sectionHasContent)
+  const filtered = expandHotelFacilitySections(sections).filter(sectionHasContent)
   const generalTermsHtml =
     input.vitrinMeta?.general_terms_html?.trim() ||
     (isDemo ? HOTEL_DEMO_GENERAL_TERMS_HTML : null)

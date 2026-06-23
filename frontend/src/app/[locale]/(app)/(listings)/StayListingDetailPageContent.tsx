@@ -112,6 +112,7 @@ import HotelFAQSection, { AccordionFaqSection } from './HotelFAQSection'
 import HotelFacilityAccordionSections from './HotelFacilityAccordionSections'
 import {
   buildHotelFacilityAccordionContent,
+  expandHotelFacilitySections,
   isHotelDistanceFacilitySection,
   type HotelFacilityAccordionContent,
 } from '@/lib/hotel-facility-sections'
@@ -760,7 +761,7 @@ export default async function StayListingDetailPageContent({
   const hotelDistanceFacilityContent: HotelFacilityAccordionContent | null =
     hotelDistanceFacilitySections.length > 0
       ? {
-          sections: hotelDistanceFacilitySections,
+          sections: expandHotelFacilitySections(hotelDistanceFacilitySections),
           generalTermsTitle: hd?.generalTermsTitle ?? 'Genel Şartlar',
           generalTermsHtml: null,
         }
