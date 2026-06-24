@@ -70,21 +70,27 @@ function pickPrice(row: Record<string, unknown>): number | null {
 }
 
 function periodRowId(row: Record<string, unknown>): string {
-  const raw = row.id ?? row.periodId ?? row.tourPeriodId
+  const raw = row.id ?? row.ID ?? row.periodId ?? row.PeriodId ?? row.tourPeriodId ?? row.TourPeriodId
   return raw != null ? String(raw).trim() : ''
 }
 
 /** Wtatil dönem satışa kapalı mı (Stop&Sale, kota dolu vb.) */
 function isWtatilPeriodSellable(row: Record<string, unknown>): boolean {
-  if (row.isStopSale === true || row.stopSale === true || row.is_stop_sale === true) return false
-  if (row.askSell === true) return false
-  const quota = row.quota
+  if (
+    row.isStopSale === true ||
+    row.IsStopSale === true ||
+    row.stopSale === true ||
+    row.StopSale === true ||
+    row.is_stop_sale === true
+  ) return false
+  if (row.askSell === true || row.AskSell === true) return false
+  const quota = row.quota ?? row.Quota
   if (quota != null && quota !== '' && Number(quota) === 0) return false
   return true
 }
 
 function priceRowPeriodId(row: Record<string, unknown>): string {
-  const raw = row.periodId ?? row.tourPeriodId ?? row.id
+  const raw = row.periodId ?? row.PeriodId ?? row.tourPeriodId ?? row.TourPeriodId ?? row.id ?? row.ID
   return raw != null ? String(raw).trim() : ''
 }
 
@@ -112,8 +118,32 @@ export function mergeTourPeriodOptions(data: PublicTourPeriodsResponse): TourPer
     if (!row) continue
     if (!isWtatilPeriodSellable(row)) continue
     const id = periodRowId(row)
-    const startDate = pickDate(row, ['startDate', 'periodStartDate', 'beginDate', 'fromDate', 'start'])
-    const endDate = pickDate(row, ['endDate', 'periodEndDate', 'finishDate', 'toDate', 'end'])
+    const startDate = pickDate(row, [
+      'startDate',
+      'StartDate',
+      'periodStartDate',
+      'PeriodStartDate',
+      'beginDate',
+      'BeginDate',
+      'fromDate',
+      'FromDate',
+      'departureDate',
+      'DepartureDate',
+      'start',
+    ])
+    const endDate = pickDate(row, [
+      'endDate',
+      'EndDate',
+      'periodEndDate',
+      'PeriodEndDate',
+      'finishDate',
+      'FinishDate',
+      'toDate',
+      'ToDate',
+      'returnDate',
+      'ReturnDate',
+      'end',
+    ])
     if (!startDate && !endDate) continue
     if (endDate && endDate < today) continue
 

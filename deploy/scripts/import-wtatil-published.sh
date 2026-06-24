@@ -51,7 +51,11 @@ echo "→ Wtatil ping…"
 node scripts/import-wtatil-tours.mjs --ping
 
 echo "→ Tur import…"
-node scripts/import-wtatil-tours.mjs "$@"
+IMPORT_ARGS=("$@")
+if [[ " ${IMPORT_ARGS[*]} " != *" --full "* && " ${IMPORT_ARGS[*]} " != *" --enrich "* && " ${IMPORT_ARGS[*]} " != *" --prices "* ]]; then
+  IMPORT_ARGS=(--full "${IMPORT_ARGS[@]}")
+fi
+node scripts/import-wtatil-tours.mjs "${IMPORT_ARGS[@]}"
 
 echo "→ Vitrin fiyat önbelleği tazeleniyor (yeni turlar hemen görünür/sıralanır)…"
 "$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" || echo "[WARN] vitrin_price tazeleme atlandı"

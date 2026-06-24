@@ -65,6 +65,27 @@ export function unwrapData(json) {
   return json.data
 }
 
+function pickArray(value, keys = []) {
+  if (Array.isArray(value)) return value
+  if (!value || typeof value !== 'object') return []
+  for (const key of keys) {
+    const direct = value[key]
+    if (Array.isArray(direct)) return direct
+  }
+  const lowerKeys = keys.map((key) => String(key).toLowerCase())
+  for (const [key, direct] of Object.entries(value)) {
+    if (lowerKeys.includes(key.toLowerCase()) && Array.isArray(direct)) return direct
+  }
+  return []
+}
+
+function pageCountFrom(data) {
+  return Math.max(
+    1,
+    Number(data?.pageCount ?? data?.PageCount ?? data?.totalPages ?? data?.TotalPages) || 1,
+  )
+}
+
 function isTokenExpiredResponse(json) {
   const msg = String(json?.message || json?.Message || json?.error || '')
     .trim()
@@ -173,9 +194,9 @@ export async function fetchAllTours(userName, token, pageSize = 50, ids = null) 
   let pageCount = 1
   while (pageNumber <= pageCount) {
     const data = await fetchTourCatalogPage(userName, token, pageNumber, pageSize, ids)
-    const items = data?.items || []
+    const items = pickArray(data, ['items', 'tours', 'Tours'])
     all.push(...items)
-    pageCount = Math.max(1, Number(data?.pageCount) || 1)
+    pageCount = pageCountFrom(data)
     if (!items.length && pageNumber > 1) break
     pageNumber += 1
   }
@@ -184,7 +205,7 @@ export async function fetchAllTours(userName, token, pageSize = 50, ids = null) 
 
 export async function fetchTourCategories(userName, token) {
   const json = await wtatilPostAuth('/api/TourCatalog/getall-tour-category-async', authBody(userName, token))
-  return unwrapData(json) || []
+  return pickArray(unwrapData(json), ['items', 'categories', 'Categories'])
 }
 
 export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) {
@@ -197,9 +218,9 @@ export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) 
       authBody(userName, token, { tourId, pageNumber, pageSize }),
     )
     const data = unwrapData(json)
-    const items = data?.items || []
+    const items = pickArray(data, ['items', 'periods', 'tourPeriods', 'TourPeriods'])
     all.push(...items)
-    pageCount = Math.max(1, Number(data?.pageCount) || 1)
+    pageCount = pageCountFrom(data)
     if (!items.length && pageNumber > 1) break
     pageNumber += 1
   }
@@ -208,12 +229,22 @@ export async function fetchTourPeriods(userName, token, tourId, pageSize = 100) 
 
 export async function fetchTourPeriodPrices(userName, token, periodIds, pageSize = 200) {
   if (!periodIds?.length) return []
-  const json = await wtatilPostAuth(
-    '/api/TourCatalog/getall-tour-period-price-async',
-    authBody(userName, token, { ids: periodIds, pageNumber: 1, pageSize }),
-  )
-  const data = unwrapData(json)
-  return data?.items || (Array.isArray(data) ? data : [])
+  const all = []
+  let pageNumber = 1
+  let pageCount = 1
+  while (pageNumber <= pageCount) {
+    const json = await wtatilPostAuth(
+      '/api/TourCatalog/getall-tour-period-price-async',
+      authBody(userName, token, { ids: periodIds, pageNumber, pageSize }),
+    )
+    const data = unwrapData(json)
+    const items = pickArray(data, ['items', 'prices', 'Prices', 'periodPrices', 'PeriodPrices'])
+    all.push(...items)
+    pageCount = pageCountFrom(data)
+    if (!items.length && pageNumber > 1) break
+    pageNumber += 1
+  }
+  return all
 }
 
 export async function fetchTourTransportDetail(userName, token, tourId) {

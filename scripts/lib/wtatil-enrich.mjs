@@ -17,7 +17,7 @@ export function mergePeriodsById(existing, incoming) {
     for (const p of list) {
       if (!p || typeof p !== 'object') continue
       const id = p.id ?? p.periodId ?? p.tourPeriodId
-      if (id != null) byId.set(Number(id), p)
+      if (id != null) byId.set(String(id).trim(), p)
     }
   }
   return [...byId.values()].sort((a, b) => {
@@ -60,8 +60,8 @@ export async function searchTourPeriodsWide(userName, token, tourId, agencyId, o
       })
       const row = hits.find((h) => Number(h.id) === Number(tourId)) || hits[0]
       for (const p of row?.periods || []) {
-        const id = p?.id ?? p?.periodId
-        if (id != null) byId.set(Number(id), p)
+        const id = p?.id ?? p?.periodId ?? p?.tourPeriodId
+        if (id != null) byId.set(String(id).trim(), p)
       }
     } catch (e) {
       console.warn(`  [uyarı] search-tour pencere ${w + 1}/${windows} tur ${tourId}: ${e.message}`)
@@ -111,7 +111,9 @@ export async function enrichWtatilTour(userName, token, tour, agencyId, { withPr
     }
   }
 
-  const periodIds = (enrich.periods || []).map((p) => p.id).filter(Boolean)
+  const periodIds = (enrich.periods || [])
+    .map((p) => p?.id ?? p?.periodId ?? p?.tourPeriodId)
+    .filter((id) => id != null && String(id).trim())
   if (periodIds.length) {
     try {
       enrich.periodPrices = await fetchTourPeriodPrices(userName, token, periodIds)
