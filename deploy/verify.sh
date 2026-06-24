@@ -18,6 +18,7 @@ WEB_ORIGIN="${WEB_ORIGIN:-http://127.0.0.1:3000}"
 ok() { echo "[OK] $*"; }
 warn() { echo "[WARN] $*"; }
 fail() { echo "[FAIL] $*" >&2; exit 1; }
+step() { echo "==> verify: $*"; }
 
 require_cmd() {
   command -v "$1" >/dev/null 2>&1 || fail "Missing required command: $1"
@@ -215,17 +216,26 @@ check_endpoints() {
 }
 
 main() {
+  step "komutlar kontrol ediliyor"
   require_cmd systemctl
   require_cmd curl
 
+  step "servis durumlari"
   check_service_active "$WEB_SERVICE"
   check_service_active "$API_SERVICE"
+  step "travel-web WorkingDirectory"
   check_working_directory
+  step "frontend env"
   check_env
+  step "backend env"
   check_backend_env
+  step "deploy dizini ile systemd dizini"
   check_workdir_matches_deploy_root
+  step "travel-web HTTP hazirlik"
   wait_travel_web_listening
+  step "Next static chunk"
   check_next_static_chunk
+  step "API ve Next endpointleri"
   check_endpoints
 
   ok "Deploy verification completed successfully"

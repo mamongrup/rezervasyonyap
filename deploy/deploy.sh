@@ -252,7 +252,14 @@ main() {
     warn "SKIP_VERIFY=1 — verify.sh atlandi (API curl testini elle yapin)."
   else
     step "Deploy dogrulama"
-    VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" bash "$APP_ROOT/deploy/verify.sh"
+    VERIFY_TIMEOUT_SECONDS="${VERIFY_TIMEOUT_SECONDS:-180}"
+    if command -v timeout >/dev/null 2>&1; then
+      VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" timeout "$VERIFY_TIMEOUT_SECONDS" bash "$APP_ROOT/deploy/verify.sh" \
+        || fail "deploy verify başarısız veya ${VERIFY_TIMEOUT_SECONDS}s içinde tamamlanmadı. Log: tail -n 120 .deploy/travel-deploy.log"
+    else
+      warn "timeout komutu yok — verify süre sınırı olmadan çalışacak."
+      VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" bash "$APP_ROOT/deploy/verify.sh"
+    fi
   fi
 }
 
