@@ -6,6 +6,10 @@ import { formatLocalYmd } from '@/lib/date-format-local'
 import { datePickerLocaleId, intlDateLocaleTag } from '@/lib/i18n-config'
 import '@/lib/register-datepicker-locales'
 import {
+  listingDayAmPm,
+  listingDayVisualStatus,
+} from '@/lib/listing-availability-day'
+import {
   earliestCheckInDate,
   resolvedMinStayNights,
   startOfLocalDay,
@@ -40,7 +44,7 @@ interface Props {
   onRangeChange?: (dates: [Date | null, Date | null]) => void
   /** Konaklama rezervasyon kuralları (min. gece, önceden rezervasyon) */
   bookingRules?: StayBookingRules
-  /** Otel oda müsaitliği — takvimde dolu günleri filtreler */
+  /** Konaklama müsaitliği — takvimde dolu günleri filtreler */
   availabilityDays?: ListingAvailabilityDay[]
   /** Takvim paneli konumu / genişliği (checkout vb.) */
   panelClassName?: string
@@ -99,6 +103,11 @@ const DatesRangeInputPopover: FC<Props> = ({
     () => earliestCheckInDate(todayStart, bookingRules?.minAdvanceBookingDays),
     [todayStart, bookingRules?.minAdvanceBookingDays],
   )
+  const maxDate = useMemo(() => {
+    const t = new Date(effectiveMinDate)
+    t.setMonth(t.getMonth() + 24)
+    return t
+  }, [effectiveMinDate])
   const minNights = useMemo(() => resolvedMinStayNights(bookingRules), [bookingRules])
   const byYmd = useMemo(() => {
     const m = new Map<string, ListingAvailabilityDay>()
@@ -201,11 +210,26 @@ const DatesRangeInputPopover: FC<Props> = ({
                     showPopperArrow={false}
                     inline
                     minDate={effectiveMinDate}
+                    maxDate={maxDate}
                     filterDate={filterDate}
                     renderCustomHeader={(p) => (
                       <DatePickerCustomHeaderTwoMonth {...p} monthLocale={intlLocale} monthsShown={monthsShown} />
                     )}
-                    renderDayContents={(day, date) => <DatePickerCustomDay dayOfMonth={day} date={date} />}
+                    renderDayContents={(day, date) => {
+                      const ymd = date ? formatLocalYmd(date) : ''
+                      const row = ymd ? byYmd.get(ymd) : undefined
+                      const { am, pm } = listingDayAmPm(row)
+                      const visualStatus = listingDayVisualStatus(row)
+                      return (
+                        <DatePickerCustomDay
+                          dayOfMonth={day}
+                          date={date}
+                          am={am}
+                          pm={pm}
+                          visualStatus={visualStatus}
+                        />
+                      )
+                    }}
                   />
                 </div>
               </div>

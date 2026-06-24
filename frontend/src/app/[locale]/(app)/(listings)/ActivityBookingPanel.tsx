@@ -49,6 +49,7 @@ export default function ActivityBookingPanel({
   listingId,
   locale = 'tr',
   initialSessions,
+  allSessions,
   initialDate,
   fallbackPrice,
   fallbackPriceAmount,
@@ -59,6 +60,7 @@ export default function ActivityBookingPanel({
   listingId: string
   locale?: string
   initialSessions: ActivitySessionRow[]
+  allSessions?: ActivitySessionRow[]
   initialDate?: string
   fallbackPrice?: string
   fallbackPriceAmount?: number
@@ -138,6 +140,17 @@ export default function ActivityBookingPanel({
     }
   }, [adults, children, date, listingId, sessionId, ab.quoteError])
 
+  const allSessionRanges = allSessions ?? initialSessions
+  const dateHasSession = (d: Date): boolean => {
+    if (allSessionRanges.length === 0) return true
+    const ymd = formatLocalYmd(d)
+    return allSessionRanges.some((session) => {
+      const from = session.valid_from?.trim().slice(0, 10)
+      const to = session.valid_to?.trim().slice(0, 10)
+      return Boolean(from && to && from <= ymd && ymd <= to && session.is_active !== false)
+    })
+  }
+
   const currency = quote?.currency_code || sessions.find((s) => s.id === sessionId)?.currency_code || 'TRY'
   const adultUnit = parseMoney(quote?.adult_unit)
   const childUnit = parseMoney(quote?.child_unit)
@@ -187,8 +200,8 @@ export default function ActivityBookingPanel({
         sessionId,
         adults,
         children,
-        currencyCode: displayCurrency,
-        unitPrice: displayGrandTotal,
+        currencyCode: currency,
+        unitPrice: grandTotal,
         startTime: quote.start_time,
       }),
     )
@@ -218,6 +231,7 @@ export default function ActivityBookingPanel({
           locale={locale}
           selectedDate={selectedDate}
           initialMonthsShown={initialMonthsShown}
+          filterDate={dateHasSession}
           onDateChange={(d) => {
             if (d) setDate(formatLocalYmd(d))
           }}

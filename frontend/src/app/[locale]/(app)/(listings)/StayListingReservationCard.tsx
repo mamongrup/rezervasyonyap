@@ -4,7 +4,7 @@ import DatesRangeInputPopover from '@/app/[locale]/(app)/(listings)/components/D
 import GuestsInputPopover from '@/app/[locale]/(app)/(listings)/components/GuestsInputPopover'
 import ListingInstantApprovalTitleBadge from '@/components/listing/ListingInstantApprovalTitleBadge'
 import { useStayListingQuote } from '@/hooks/use-stay-listing-quote'
-import type { ListingPriceRuleRow, MealPlanItem } from '@/lib/travel-api'
+import type { ListingAvailabilityDay, ListingPriceRuleRow, MealPlanItem } from '@/lib/travel-api'
 import type { StayBookingRules } from '@/types/listing-types'
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import { DescriptionDetails, DescriptionList, DescriptionTerm } from '@/shared/description-list'
@@ -43,6 +43,8 @@ export type StayListingReservationCardProps = {
   listingId?: string
   /** Dönemsel fiyat kuralları — seçili tarihte gecelik hesabı */
   priceRules?: ListingPriceRuleRow[]
+  /** İlan günlük müsaitlik satırları — mobil/yan kart tarih seçimini filtreler */
+  availabilityDays?: ListingAvailabilityDay[]
 }
 
 export default function StayListingReservationCard({
@@ -64,6 +66,7 @@ export default function StayListingReservationCard({
   ruleNightlyRange,
   listingId,
   priceRules,
+  availabilityDays,
 }: StayListingReservationCardProps) {
   const messages = getMessages(locale)
   const isStayRental = isStayRentalProp ?? isHolidayHome ?? false
@@ -223,6 +226,7 @@ export default function StayListingReservationCard({
           rangeEnd={rangeEnd}
           onRangeChange={onRangeChange}
           bookingRules={stayBookingRules}
+          availabilityDays={availabilityDays}
         />
         <div className="w-full border-b border-neutral-200 dark:border-neutral-700" />
         <GuestsInputPopover

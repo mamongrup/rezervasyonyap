@@ -1279,6 +1279,7 @@ export default async function StayListingDetailPageContent({
         ruleNightlyRange={ruleNightlyRangeForQuote}
         listingId={stayListingId}
         priceRules={stayPriceRulesForQuote}
+        availabilityDays={availabilityCalendarDays}
       />
     )
 

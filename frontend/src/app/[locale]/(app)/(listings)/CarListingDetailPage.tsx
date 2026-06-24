@@ -199,6 +199,7 @@ export default async function CarListingDetailPage({
         <CarCatalogBookingSidebar
           listingId={carListingId}
           price={price}
+          availabilityDays={availabilityCalendarDays}
           reviewStart={reviewStart ?? 0}
           reviewCount={reviewCount ?? 0}
           locale={locale}

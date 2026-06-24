@@ -27,6 +27,7 @@ interface Props {
   /** SSR genişlik tahmini — istemcide `useResponsiveCalendarMonthsShown` ile güncellenir */
   initialMonthsShown?: 1 | 2
   panelClassName?: string
+  filterDate?: (date: Date) => boolean
   /** Rezervasyon kartı içi — DatesRangeInputPopover ile aynı tetikleyici */
   embedded?: boolean
 }
@@ -40,6 +41,7 @@ const SingleDateInputPopover: FC<Props> = ({
   minDate,
   initialMonthsShown = 1,
   panelClassName,
+  filterDate,
   embedded = false,
 }) => {
   const msgs = useMemo(() => getMessages(locale), [locale])
@@ -88,6 +90,7 @@ const SingleDateInputPopover: FC<Props> = ({
             showPopperArrow={false}
             inline
             minDate={effectiveMinDate}
+            filterDate={filterDate}
             renderCustomHeader={(p) => (
               <DatePickerCustomHeaderTwoMonth {...p} monthLocale={intlLocale} monthsShown={monthsShown} />
             )}

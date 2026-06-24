@@ -9,6 +9,7 @@ import { getMessages } from '@/utils/getT'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
+import type { ListingAvailabilityDay } from '@/lib/travel-api'
 
 function rentalDays(start: Date, end: Date): number {
   const diff = Math.round((end.getTime() - start.getTime()) / 86400000)
@@ -19,6 +20,7 @@ export default function CarCatalogBookingSidebar({
   listingId,
   price,
   priceCurrency,
+  availabilityDays,
   reviewStart,
   reviewCount,
   locale = 'tr',
@@ -26,6 +28,7 @@ export default function CarCatalogBookingSidebar({
   listingId: string
   price?: string
   priceCurrency?: string
+  availabilityDays?: ListingAvailabilityDay[]
   reviewStart?: number
   reviewCount?: number
   locale?: string
@@ -77,6 +80,7 @@ export default function CarCatalogBookingSidebar({
           locale={locale}
           rangeStart={rangeStart}
           rangeEnd={rangeEnd}
+          availabilityDays={availabilityDays}
           onRangeChange={([s, e]) => {
             setRangeStart(s)
             setRangeEnd(e)

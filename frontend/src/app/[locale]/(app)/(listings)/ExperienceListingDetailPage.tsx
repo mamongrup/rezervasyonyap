@@ -28,6 +28,7 @@ import {
   getPublicTourPeriods,
   getVerticalMeta,
   listPublicActivitySessions,
+  type ActivitySessionRow,
 } from '@/lib/travel-api'
 import { mergeTourPeriodOptions } from '@/lib/tour-periods'
 import {
@@ -207,6 +208,36 @@ function parseActivityMeta(raw: unknown): ActivityMeta {
   }
 }
 
+function activitySessionDate(raw: string | null | undefined): string {
+  const s = String(raw ?? '').trim()
+  return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : ''
+}
+
+function activitySessionCoversDate(session: ActivitySessionRow, date: string): boolean {
+  const from = activitySessionDate(session.valid_from)
+  const to = activitySessionDate(session.valid_to)
+  if (!from || !to) return false
+  return from <= date && date <= to && session.is_active !== false
+}
+
+function firstActivityBookingDate(sessions: ActivitySessionRow[], today: string): string {
+  let best: string | null = null
+  for (const session of sessions) {
+    if (session.is_active === false) continue
+    const from = activitySessionDate(session.valid_from)
+    const to = activitySessionDate(session.valid_to)
+    if (!from || !to || to < today) continue
+    if (from <= today && today <= to) return today
+    const candidate = from > today ? from : today
+    if (best == null || candidate < best) best = candidate
+  }
+  return best ?? today
+}
+
+function activitySessionsForDate(sessions: ActivitySessionRow[], date: string): ActivitySessionRow[] {
+  return sessions.filter((session) => activitySessionCoversDate(session, date))
+}
+
 export async function generateExperienceListingMetadata({
   params,
 }: {
@@ -287,12 +318,12 @@ export default async function ExperienceListingDetailPage({
   // listing.id zaten yayınlanmış katalog id'si (getExperienceListingByHandle →
   // getStayListingByHandle içinde çözülür); tekrar çözmek fazladan arama isteğiydi.
   const catalogListingId = listing.id
-  const activityInitialDate = new Date().toISOString().slice(0, 10)
+  const activityToday = new Date().toISOString().slice(0, 10)
   const [
     availabilityCalendarDays,
     rawTourMeta,
     rawActivityMeta,
-    initialActivitySessions,
+    activitySessionsResult,
     rawTourPeriods,
     tourCountryCards,
     similarToursRes,
@@ -308,7 +339,7 @@ export default async function ExperienceListingDetailPage({
       ? getVerticalMeta(catalogListingId, 'activity').catch(() => null)
       : Promise.resolve(null),
     vertical === 'activity'
-      ? listPublicActivitySessions(catalogListingId, activityInitialDate).catch(() => ({ sessions: [] }))
+      ? listPublicActivitySessions(catalogListingId).catch(() => ({ sessions: [] }))
       : Promise.resolve({ sessions: [] }),
     vertical === 'tour'
       ? getPublicTourPeriods(catalogListingId).catch(() => null)
@@ -374,6 +405,13 @@ export default async function ExperienceListingDetailPage({
   const activityVitrin = isActivity
     ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta))
     : null
+  const allActivitySessions = isActivity ? activitySessionsResult.sessions : []
+  const activityInitialDate = isActivity
+    ? firstActivityBookingDate(allActivitySessions, activityToday)
+    : activityToday
+  const initialActivitySessions = isActivity
+    ? activitySessionsForDate(allActivitySessions, activityInitialDate)
+    : []
   const tourLanguages = splitMetaList(tourMeta?.languages)
   const tourGroupLine = tourMeta?.max_people
     ? interpolate(td.maxPeople, { count: tourMeta.max_people })
@@ -691,7 +729,8 @@ export default async function ExperienceListingDetailPage({
               listingId={catalogListingId}
               locale={locale}
               initialDate={activityInitialDate}
-              initialSessions={initialActivitySessions.sessions}
+              initialSessions={initialActivitySessions}
+              allSessions={allActivitySessions}
               fallbackPrice={price}
               fallbackPriceAmount={(listing as { priceAmount?: number }).priceAmount}
               fallbackPriceCurrency={(listing as { priceCurrency?: string }).priceCurrency}

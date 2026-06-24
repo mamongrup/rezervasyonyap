@@ -2664,7 +2664,7 @@ export async function getPublicListingAvailabilityCalendar(
     u.set('to', range.to)
     const res = await fetch(
       `${b}/api/v1/catalog/public/listings/${encodeURIComponent(listingId)}/availability-calendar?${u.toString()}`,
-      { next: { revalidate: 120 } },
+      { cache: 'no-store' },
     )
     if (!res.ok) return []
     const data = await json<{ days: ListingAvailabilityDay[] }>(res)
@@ -2674,7 +2674,7 @@ export async function getPublicListingAvailabilityCalendar(
   }
 }
 
-/** Yaklaşık 18 ay; API yok veya hata → boş dizi (tüm günler seçilebilir varsayılır) */
+/** Yaklaşık 24 ay; API yok veya hata → boş dizi (tüm günler seçilebilir varsayılır) */
 export async function fetchPublicListingAvailabilityDaysSafe(
   listingId: string | null | undefined,
 ): Promise<ListingAvailabilityDay[]> {
@@ -2682,7 +2682,7 @@ export async function fetchPublicListingAvailabilityDaysSafe(
   const from = new Date()
   from.setHours(0, 0, 0, 0)
   const to = new Date(from)
-  to.setMonth(to.getMonth() + 18)
+  to.setMonth(to.getMonth() + 24)
   return getPublicListingAvailabilityCalendar(listingId.trim(), {
     from: formatLocalYmd(from),
     to: formatLocalYmd(to),
