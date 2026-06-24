@@ -5,7 +5,7 @@ import {
   createSocialTemplate,
   getPublicListingImages,
   listSocialJobs,
-  listManageCatalogListings,
+  listSocialListings,
   listSocialTemplates,
   patchListingSocial,
   postListingToFacebook,
@@ -78,11 +78,10 @@ function ListingPicker({
     setSearching(true)
     setLoadError(null)
     try {
-      const res = await listManageCatalogListings(token, {
+      const res = await listSocialListings(token, {
         categoryCode,
         search: nextQuery.trim() || undefined,
-        page: 1,
-        perPage: 20,
+        limit: 20,
         titleLocale: 'tr',
       })
       setResults(res.listings)
@@ -388,10 +387,9 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     setMessage(null)
     try {
       const tplId = await ensureTemplate(token)
-      const res = await listManageCatalogListings(token, {
+      const res = await listSocialListings(token, {
         categoryCode,
-        page: 1,
-        perPage: 500,
+        limit: 500,
         titleLocale: 'tr',
       })
       const published = res.listings.filter((l) => l.status === 'published')

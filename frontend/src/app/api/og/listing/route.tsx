@@ -62,7 +62,7 @@ function socialListingImage({
   const titleTop = truncate(title, 24).toLocaleUpperCase('tr-TR')
   const badgeText = truncate(badge, 18).toLocaleUpperCase('tr-TR')
   const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
-  const brandText = brand.trim() || 'Rezervasyon Yap'
+  const brandText = 'Rezervasyon'
 
   return new ImageResponse(
     (
@@ -175,9 +175,9 @@ function socialListingImage({
             R
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-            <div style={{ color: '#334155', fontSize: 34, fontWeight: 500 }}>{brandText}</div>
-            <div style={{ color: '#f97316', fontSize: 20, fontWeight: 700, marginTop: 4 }}>
-              rezervasyonyap.tr
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ color: '#334155', fontSize: 36, fontWeight: 500 }}>{brandText}</span>
+              <span style={{ color: '#f97316', fontSize: 24, fontWeight: 800 }}>yap.com.tr</span>
             </div>
           </div>
         </div>
@@ -193,10 +193,10 @@ function socialListingImage({
             maxWidth: 500,
           }}
         >
-          <div style={{ color: '#ef1f24', fontSize: 70, fontWeight: 900, letterSpacing: 1.4 }}>
+          <div style={{ color: '#ef1f24', fontSize: 72, fontWeight: 900, letterSpacing: 1.4 }}>
             {titleTop}
           </div>
-          <div style={{ color: '#1e3a8a', fontSize: 58, fontWeight: 500, letterSpacing: 1 }}>
+          <div style={{ color: '#1e3a8a', fontSize: 60, fontWeight: 500, letterSpacing: 1 }}>
             {badgeText}
           </div>
           {regionText ? (

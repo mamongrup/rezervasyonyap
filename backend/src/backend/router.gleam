@@ -982,6 +982,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Post, ["api", "v1", "social", "templates"] ->
       social_http.create_template(req, ctx)
 
+    http.Get, ["api", "v1", "social", "listings"] ->
+      social_http.list_listings(req, ctx)
+
     http.Get, ["api", "v1", "social", "jobs"] -> social_http.list_jobs(req, ctx)
 
     http.Post, ["api", "v1", "social", "jobs"] -> social_http.create_job(req, ctx)

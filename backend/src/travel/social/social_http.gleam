@@ -57,6 +57,57 @@ fn template_to_json(row: #(String, String, String, String, String)) -> json.Json
   ])
 }
 
+fn social_listing_row() ->
+  decode.Decoder(#(String, String, String, String, String, String, String, Bool, Bool)) {
+  use id <- decode.field(0, decode.string)
+  use slug <- decode.field(1, decode.string)
+  use st <- decode.field(2, decode.string)
+  use cur <- decode.field(3, decode.string)
+  use cat <- decode.field(4, decode.string)
+  use title <- decode.field(5, decode.string)
+  use created <- decode.field(6, decode.string)
+  use sh <- decode.field(7, decode.bool)
+  use ai <- decode.field(8, decode.bool)
+  decode.success(#(id, slug, st, cur, cat, title, created, sh, ai))
+}
+
+fn social_listing_to_json(
+  row: #(String, String, String, String, String, String, String, Bool, Bool),
+) -> json.Json {
+  let #(id, slug, st, cur, cat, title, created, sh, ai) = row
+  json.object([
+    #("id", json.string(id)),
+    #("slug", json.string(slug)),
+    #("status", json.string(st)),
+    #("currency_code", json.string(cur)),
+    #("category_code", json.string(cat)),
+    #("title", json.string(title)),
+    #("commission_percent", json.string("")),
+    #("prepayment_amount", json.string("")),
+    #("prepayment_percent", json.string("")),
+    #("created_at", json.string(created)),
+    #("listing_source", json.string("")),
+    #("share_to_social", json.bool(sh)),
+    #("allow_ai_caption", json.bool(ai)),
+    #("category_contract_id", json.string("")),
+  ])
+}
+
+fn parse_limit(raw: String) -> Int {
+  case int.parse(string.trim(raw)) {
+    Ok(n) ->
+      case n < 1 {
+        True -> 20
+        False ->
+          case n > 500 {
+            True -> 500
+            False -> n
+          }
+      }
+    Error(_) -> 20
+  }
+}
+
 fn supplier_org_id_for_user(
   conn: pog.Connection,
   user_id: String,
@@ -99,6 +150,84 @@ pub fn list_templates(req: Request, ctx: Context) -> Response {
               let arr = list.map(ret.rows, template_to_json)
               let body =
                 json.object([#("templates", json.array(from: arr, of: fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+      }
+  }
+}
+
+/// GET /api/v1/social/listings?category_code=&search=&limit=
+/// Sosyal paylaşım paneli için admin kapsamındaki ilan seçici. Normal katalog
+/// yönetim listesi admin'de organization_id istediği için burada tüm ilanlarda
+/// `admin.social.read` yetkisiyle arama yapılır.
+pub fn list_listings(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let cat_raw =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let search_raw =
+    list.key_find(qs, "search")
+    |> result.unwrap("")
+    |> string.trim
+  let title_loc =
+    list.key_find(qs, "title_locale")
+    |> result.unwrap("tr")
+    |> string.trim
+    |> string.lowercase
+  let limit_n =
+    list.key_find(qs, "limit")
+    |> result.unwrap("20")
+    |> parse_limit
+  let cat_param = case cat_raw == "" {
+    True -> pog.null()
+    False -> pog.text(cat_raw)
+  }
+  let like_param = case search_raw == "" {
+    True -> pog.null()
+    False -> pog.text("%" <> search_raw <> "%")
+  }
+
+  case permissions.session_user_from_request(req, ctx.db) {
+    Error(r) -> r
+    Ok(uid) ->
+      case permissions.user_has_permission(ctx.db, uid, "admin.social.read") {
+        False -> json_err(403, "forbidden")
+        True ->
+          case
+            pog.query(
+              "select l.id::text, l.slug, l.status::text, l.currency_code::text, pc.code::text, "
+              <> "coalesce((select lt.title from listing_translations lt join locales loc on loc.id = lt.locale_id where lt.listing_id = l.id and lower(loc.code) = lower($3::text) limit 1), ''), "
+              <> "to_char(l.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), coalesce(l.share_to_social, false), coalesce(l.allow_ai_caption, false) "
+              <> "from listings l join product_categories pc on pc.id = l.category_id "
+              <> "where ($1::text is null or pc.code = $1) "
+              <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2 or exists (select 1 from listing_translations lt_search where lt_search.listing_id = l.id and lt_search.title ilike $2)) "
+              <> "order by case when l.status::text = 'published' then 0 else 1 end, l.created_at desc limit $4::int",
+            )
+            |> pog.parameter(cat_param)
+            |> pog.parameter(like_param)
+            |> pog.parameter(pog.text(title_loc))
+            |> pog.parameter(pog.int(limit_n))
+            |> pog.returning(social_listing_row())
+            |> pog.execute(ctx.db)
+          {
+            Error(_) -> json_err(500, "social_listings_query_failed")
+            Ok(ret) -> {
+              let arr = list.map(ret.rows, social_listing_to_json)
+              let body =
+                json.object([
+                  #("listings", json.array(from: arr, of: fn(x) { x })),
+                  #("total", json.int(list.length(arr))),
+                  #("page", json.int(1)),
+                  #("per_page", json.int(limit_n)),
+                ])
                 |> json.to_string
               wisp.json_response(body, 200)
             }

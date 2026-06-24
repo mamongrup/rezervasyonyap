@@ -4867,6 +4867,44 @@ export async function createSocialTemplate(
   return json(res)
 }
 
+export async function listSocialListings(
+  token: string,
+  params?: {
+    categoryCode?: string
+    search?: string
+    titleLocale?: string
+    limit?: number
+  },
+): Promise<ManageCatalogListingsResult> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const q = new URLSearchParams()
+  if (params?.categoryCode) q.set('category_code', params.categoryCode)
+  if (params?.search?.trim()) q.set('search', params.search.trim())
+  if (params?.titleLocale?.trim()) q.set('title_locale', params.titleLocale.trim().toLowerCase())
+  if (params?.limit != null && params.limit >= 1) q.set('limit', String(Math.floor(params.limit)))
+  const res = await fetch(`${b}/api/v1/social/listings${q.toString() ? `?${q}` : ''}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `social_listings_${res.status}`)
+  }
+  const data = await json<{
+    listings: ManageListingRow[]
+    total?: number
+    page?: number
+    per_page?: number
+  }>(res)
+  const listings = data.listings ?? []
+  return {
+    listings,
+    total: data.total ?? listings.length,
+    page: data.page ?? 1,
+    per_page: data.per_page ?? listings.length,
+  }
+}
+
 export type SocialShareJob = {
   id: string
   entity_type: string
