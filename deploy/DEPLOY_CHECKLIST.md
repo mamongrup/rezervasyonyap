@@ -71,6 +71,30 @@ chmod +x deploy/deploy.sh deploy/verify.sh
 ./deploy/deploy.sh
 ```
 
+### SSH kopunca deploy devam etsin (onerilen — uzun frontend build)
+
+SSH oturumu kapansa bile deploy sunucuda surer. Log: `.deploy/travel-deploy.log`
+
+```bash
+chmod +x deploy/deploy-detached.sh deploy/deploy.sh deploy/verify.sh
+DEPLOY_REF=main ./deploy/deploy-detached.sh
+# Izlemek (ayri SSH oturumu veya ayni):
+tail -f .deploy/travel-deploy.log
+# veya:
+./deploy/deploy-detached.sh status
+./deploy/deploy-detached.sh tail
+```
+
+Elle (script olmadan):
+
+```bash
+nohup env DEPLOY_REF=main ./deploy/deploy.sh >> .deploy/travel-deploy.log 2>&1 &
+disown
+tail -f .deploy/travel-deploy.log
+```
+
+**Not:** `Ctrl+C` ile `./deploy/deploy.sh` durdurursaniz yarım build kalabilir; kopan SSH icin `deploy-detached.sh` kullanin.
+
 ### Hizli deploy (yalniz API degisti)
 
 Tam `deploy.sh` en cok **frontend** adiminda uzar: `rm -rf node_modules .next && npm ci && npm run build` (genelde 5–15+ dk).

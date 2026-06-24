@@ -86,7 +86,18 @@ function faviconUploadProfile(folder: string, fixedStem: string): FolderProfile 
 
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads')
 const MAX_SIZE = 8 * 1024 * 1024 // 8 MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']
+/** Giriş formatları serbest; raster çıktı her zaman `.avif` (PDF hariç). */
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+  'image/gif',
+  'image/svg+xml',
+  'image/x-icon',
+  'image/vnd.microsoft.icon',
+]
+const ALLOWED_EXT = new Set(['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'svg', 'ico'])
 /** Tedarikçi belgeleri için ek izinli MIME — PDF/dokuman; yalnızca `folder=supplier-docs`. */
 const DOC_ALLOWED_TYPES = new Set(['application/pdf'])
 const DOC_ALLOWED_EXTS = new Set(['pdf'])
@@ -197,9 +208,6 @@ async function getProfile(folder: string): Promise<FolderProfile> {
   return profileCache.data[folder] ?? profileCache.data.general ?? FALLBACK_PROFILES.general!
 }
 
-// SVG ve ICO: sharp ile işlenmez, olduğu gibi kaydedilir.
-const PASSTHROUGH_TYPES = new Set(['image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'])
-
 // Minimum kabul edilebilir boyut: hedefin %50'si (altı bulanık görünür)
 const MIN_RATIO = 0.5
 
@@ -208,11 +216,21 @@ function toUint8Array(buf: Buffer): Uint8Array {
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength)
 }
 
+/** SVG vektör → raster; diğer formatlar doğrudan sharp'a verilir. */
+function sharpFromUploadBuffer(buffer: Buffer, originalExt: string) {
+  const input = toUint8Array(buffer)
+  if (originalExt === 'svg') {
+    return sharp(input, { density: 220, limitInputPixels: false })
+  }
+  return sharp(input, { failOn: 'none', limitInputPixels: false })
+}
+
 async function processImage(
   buffer: Buffer,
   profile: FolderProfile,
+  originalExt: string,
 ): Promise<{ output: Buffer; thumb?: Buffer; warning?: string }> {
-  const meta = await sharp(toUint8Array(buffer)).metadata()
+  const meta = await sharpFromUploadBuffer(buffer, originalExt).metadata()
   const w = meta.width ?? 0
   const h = meta.height ?? 0
 
@@ -222,7 +240,7 @@ async function processImage(
     ? `Resim çok küçük (${w}×${h}px). Önerilen minimum ${Math.ceil(profile.width * MIN_RATIO)}×${Math.ceil(profile.height * MIN_RATIO)}px; büyütülmedi, yalnızca AVIF olarak kaydedildi.`
     : undefined
 
-  let pipeline = sharp(toUint8Array(buffer)).resize(profile.width, profile.height, {
+  let pipeline = sharpFromUploadBuffer(buffer, originalExt).resize(profile.width, profile.height, {
     fit: profile.fit,
     position: profile.fit === 'cover' ? 'attention' : undefined,
     /** Küçük görseller bulanık büyütülmesin; yine de çıktı her zaman AVIF. */
@@ -259,7 +277,7 @@ async function processImage(
   const thumbQuality = Math.min(profile.quality, 78)
   let thumb: Buffer | undefined
   if (profile.thumb > 0) {
-    thumb = await sharp(toUint8Array(buffer))
+    thumb = await sharpFromUploadBuffer(buffer, originalExt)
       .resize({
         width: profile.thumb,
         height: profile.thumb,
@@ -301,15 +319,15 @@ export async function POST(req: NextRequest) {
     // Dosya adı güvenliği: orijinal adı sanitize et
     const safeFileName = sanitizeFilename(file.name)
     const fileExt = safeFileName.split('.').pop()?.toLowerCase() ?? ''
-    const isImageType = ALLOWED_TYPES.includes(file.type) || ['svg', 'ico'].includes(fileExt)
+    const isImageType = ALLOWED_TYPES.includes(file.type) || ALLOWED_EXT.has(fileExt)
     const isDocType =
       folder === 'supplier-docs' && (DOC_ALLOWED_TYPES.has(file.type) || DOC_ALLOWED_EXTS.has(fileExt))
 
     if (!isImageType && !isDocType && file.type !== '') {
       const allowedMsg =
         folder === 'supplier-docs'
-          ? 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, SVG, ICO veya PDF yükleyin.'
-          : 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, SVG veya ICO yükleyin.'
+          ? 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, GIF, SVG, ICO veya PDF yükleyin. Görseller AVIF olarak kaydedilir.'
+          : 'Geçersiz dosya türü. JPEG, PNG, WebP, AVIF, GIF, SVG veya ICO yükleyin. Kayıt her zaman AVIF olur.'
       return NextResponse.json({ ok: false, error: allowedMsg }, { status: 400 })
     }
 
@@ -373,8 +391,6 @@ export async function POST(req: NextRequest) {
     const originalExt = safeFileName.split('.').pop()?.toLowerCase() ?? 'bin'
 
     const isPdf = isDocType && (file.type === 'application/pdf' || originalExt === 'pdf')
-    const isPassthrough =
-      isPdf || PASSTHROUGH_TYPES.has(file.type) || ['svg', 'ico'].includes(originalExt)
 
     let outputBuffer: Buffer
     let thumbBuffer: Buffer | undefined
@@ -384,24 +400,21 @@ export async function POST(req: NextRequest) {
     if (isPdf) {
       outputBuffer = rawBuffer
       ext = 'pdf'
-    } else if (isPassthrough) {
-      outputBuffer = rawBuffer
-      ext = originalExt === 'ico' ? 'ico' : 'svg'
     } else {
       const profile = faviconUploadProfile(folder, fixedStem) ?? await getProfile(folder)
       try {
-        const result = await processImage(rawBuffer, profile)
+        const result = await processImage(rawBuffer, profile, originalExt)
         outputBuffer = result.output
         thumbBuffer = result.thumb
         warning = result.warning
         ext = 'avif'
       } catch (sharpErr) {
         /**
-         * Profil pipeline başarısız olursa önce minimal AVIF denenir; raster için çıktı her zaman .avif olmalı.
+         * Profil pipeline başarısız olursa minimal AVIF denenir; görsel çıktı her zaman .avif olmalı.
          */
         console.error('[upload-image] sharp', sharpErr)
         try {
-          outputBuffer = await sharp(toUint8Array(rawBuffer))
+          outputBuffer = await sharpFromUploadBuffer(rawBuffer, originalExt)
             .rotate()
             .avif({ quality: profile.quality, effort: profile.effort })
             .toBuffer()

@@ -83,7 +83,7 @@ const CATALOG_FB_TR: Record<string, string> = {
   'catalog.org_uuid_hint':
     'Tarayıcıda saklanır. Tedarikçi / personel / acente için gerekmez.',
   'catalog.save_load': 'Kaydet & yükle',
-  'catalog.search_placeholder': 'Ara (slug / UUID)',
+  'catalog.search_placeholder': 'Ara (başlık veya ilan no)',
   'catalog.refresh': 'Yenile',
   'catalog.new_listing': 'Yeni ilan',
   'catalog.col_title': 'Başlık',
@@ -170,7 +170,7 @@ const CATALOG_FB_EN: Record<string, string> = {
   'catalog.org_uuid_hint':
     'Stored in the browser. Not required for supplier / staff / agency.',
   'catalog.save_load': 'Save & load',
-  'catalog.search_placeholder': 'Search (slug / UUID)',
+  'catalog.search_placeholder': 'Search (title or listing ID)',
   'catalog.refresh': 'Refresh',
   'catalog.new_listing': 'New listing',
   'catalog.col_title': 'Title',

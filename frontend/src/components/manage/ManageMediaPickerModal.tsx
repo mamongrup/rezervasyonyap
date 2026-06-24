@@ -1108,7 +1108,7 @@ export function ManageMediaPickerModal({
           <input
             ref={fileRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
+            accept="image/jpeg,image/png,image/webp,image/avif,image/gif,image/svg+xml,image/x-icon,image/vnd.microsoft.icon"
             multiple={fileInputMultiple}
             className="hidden"
             onChange={(e) => {

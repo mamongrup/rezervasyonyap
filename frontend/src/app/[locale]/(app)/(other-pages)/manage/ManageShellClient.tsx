@@ -127,7 +127,7 @@ export default function ManageShellClient({ children }: { children: React.ReactN
         </button>
 
         <ManagePanelTopBar />
-        <main className="w-full shrink-0">{children}</main>
+        <main className="min-w-0 w-full max-w-full shrink-0 overflow-x-hidden">{children}</main>
       </div>
     </div>
   )

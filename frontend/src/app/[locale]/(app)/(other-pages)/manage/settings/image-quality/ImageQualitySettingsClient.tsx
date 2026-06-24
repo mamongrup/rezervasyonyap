@@ -168,7 +168,8 @@ export default function ImageQualitySettingsClient() {
         </h1>
         <p className="mt-2 max-w-3xl text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
           Panelden yüklenen görseller burada tanımlı kurallara göre otomatik
-          küçültülür ve <strong>AVIF</strong> formatına dönüştürülür. Kalite
+          küçültülür ve <strong>AVIF</strong> formatına dönüştürülür (JPEG, PNG, WebP, GIF, SVG ve ICO
+          dahil). Kalite
           değerleri PSI / Lighthouse hedefleri için <strong>60</strong> (denge)
           olarak kalibre edilmiştir; daha yüksek değerler dosyayı büyütür.
         </p>

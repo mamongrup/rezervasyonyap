@@ -390,7 +390,7 @@ export default function HolidayHomeAvailabilityHub({
                     <span className="font-mono text-[11px] text-neutral-500 dark:text-neutral-400">
                       #{listingShortRef(row.id)}
                     </span>
-                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{row.title || row.slug}</span>
+                    <span className="font-medium text-neutral-900 dark:text-neutral-100">{row.title?.trim() || '—'}</span>
                   </button>
                 )
               })

@@ -13,6 +13,7 @@
 #   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
 #   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
 #   ./deploy/deploy-api-only.sh                               # API-only kisa yol
+#   ./deploy/deploy-detached.sh                               # SSH kopunca da devam (nohup/setsid)
 #   TRAVEL_API_DEPLOY_LOCK=/run/travel-shipment.lock (flock dosyasi; varsayilan: APP_ROOT/.travel-deploy-shipment.lock)
 set -euo pipefail
 

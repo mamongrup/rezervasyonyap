@@ -261,7 +261,6 @@ export default function AgencySalesClient() {
             <thead className="bg-neutral-50 dark:bg-neutral-800/50">
               <tr>
                 <th className="px-4 py-2">Başlık</th>
-                <th className="px-4 py-2">Slug</th>
                 <th className="px-4 py-2">Para</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -269,7 +268,7 @@ export default function AgencySalesClient() {
             <tbody>
               {listings.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-neutral-500">
+                  <td colSpan={3} className="px-4 py-6 text-neutral-500">
                     Sonuç yok. “Listele” ile yayınlanan ilanları getirin.
                   </td>
                 </tr>
@@ -277,7 +276,6 @@ export default function AgencySalesClient() {
                 listings.map((row) => (
                   <tr key={row.id} className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="px-4 py-2">{row.title}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{row.slug}</td>
                     <td className="px-4 py-2">{row.currency_code}</td>
                     <td className="px-4 py-2">
                       <button

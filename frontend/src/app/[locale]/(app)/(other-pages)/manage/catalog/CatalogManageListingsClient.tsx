@@ -407,7 +407,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
         </div>
       ) : null}
 
-      <div className="mt-5 overflow-hidden rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="mt-5 min-w-0 max-w-full overflow-x-auto rounded-2xl border border-neutral-100 bg-white shadow-sm dark:border-neutral-700 dark:bg-neutral-900">
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-20 text-sm text-neutral-500">
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -431,12 +431,11 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+          <table className="w-full table-auto text-left text-sm">
               <thead>
                 <tr className="border-b border-neutral-100 bg-neutral-50/90 text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:border-neutral-800 dark:bg-neutral-900/80 dark:text-neutral-400">
                   {canDeleteListings ? (
-                    <th className="w-10 px-3 py-3">
+                    <th className="w-10 px-2 py-3 sm:px-3">
                       <input
                         type="checkbox"
                         checked={allOnPageSelected}
@@ -446,12 +445,12 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                       />
                     </th>
                   ) : null}
-                  <th className="px-4 py-3">{t('catalog.col_title')}</th>
-                  <th className="px-4 py-3">{t('catalog.col_status')}</th>
-                  <th className="px-4 py-3">{t('catalog.col_source')}</th>
-                  <th className="px-4 py-3">{t('catalog.col_currency')}</th>
-                  <th className="px-4 py-3">{t('catalog.col_created')}</th>
-                  <th className="px-4 py-3 text-end">İşlem</th>
+                  <th className="min-w-[10rem] px-3 py-3 sm:px-4">{t('catalog.col_title')}</th>
+                  <th className="whitespace-nowrap px-3 py-3 sm:px-4">{t('catalog.col_status')}</th>
+                  <th className="hidden whitespace-nowrap px-3 py-3 md:table-cell sm:px-4">{t('catalog.col_source')}</th>
+                  <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell sm:px-4">{t('catalog.col_currency')}</th>
+                  <th className="hidden whitespace-nowrap px-3 py-3 lg:table-cell sm:px-4">{t('catalog.col_created')}</th>
+                  <th className="whitespace-nowrap px-3 py-3 text-end sm:px-4">İşlem</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-100 dark:divide-neutral-800">
@@ -474,7 +473,7 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                           />
                         </td>
                       ) : null}
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3 sm:px-4">
                         <div className="flex min-w-0 items-center gap-3">
                           <div
                             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold text-white"
@@ -488,45 +487,44 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                               href={detailHref}
                               className="font-medium text-neutral-900 hover:text-primary-600 dark:text-neutral-100 dark:hover:text-neutral-200"
                             >
-                              <span className="line-clamp-2">{title}</span>
+                              <span className="line-clamp-2 break-words">{title}</span>
                             </Link>
-                            <p className="mt-0.5 truncate font-mono text-xs text-neutral-400 dark:text-neutral-500">
-                              {r.slug}
-                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="px-3 py-3 align-middle sm:px-4">
                         <StatusBadge status={r.status} />
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="hidden px-3 py-3 align-middle md:table-cell sm:px-4">
                         <span className="inline-flex rounded-md bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300">
                           {SOURCE_LABEL[r.listing_source?.toLowerCase()] ?? r.listing_source ?? '—'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 align-middle">
+                      <td className="hidden px-3 py-3 align-middle lg:table-cell sm:px-4">
                         <span className="font-mono text-xs font-medium text-neutral-700 dark:text-neutral-300">
                           {r.currency_code || '—'}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 align-middle text-xs text-neutral-500 dark:text-neutral-400">
+                      <td className="hidden whitespace-nowrap px-3 py-3 align-middle text-xs text-neutral-500 dark:text-neutral-400 lg:table-cell sm:px-4">
                         {formatListingDate(r.created_at)}
                       </td>
-                      <td className="px-4 py-3 align-middle">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-3 py-3 align-middle sm:px-4">
+                        <div className="flex flex-wrap items-center justify-end gap-1">
                           <Link
                             href={detailHref}
-                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-neutral-200"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-neutral-200"
+                            title="Detay"
                           >
                             <FileText className="h-3.5 w-3.5" />
-                            Detay
+                            <span className="hidden xl:inline">Detay</span>
                           </Link>
                           <Link
                             href={`${detailHref}/translations`}
-                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-neutral-200"
+                            className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-xs font-medium text-neutral-700 hover:border-primary-300 hover:text-primary-700 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-200 dark:hover:border-primary-600 dark:hover:text-neutral-200"
+                            title={t('catalog.translations_link')}
                           >
                             <Languages className="h-3.5 w-3.5" />
-                            {t('catalog.translations_link')}
+                            <span className="hidden xl:inline">{t('catalog.translations_link')}</span>
                           </Link>
                           {canDeleteListings ? (
                             <button
@@ -534,10 +532,10 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                               onClick={() => void handleDeleteOne(r)}
                               disabled={deleting}
                               title="Kalıcı sil"
-                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/40 dark:bg-neutral-800 dark:text-red-400 dark:hover:bg-red-950/30"
+                              className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-white px-2 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50 dark:border-red-900/40 dark:bg-neutral-800 dark:text-red-400 dark:hover:bg-red-950/30"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
-                              Sil
+                              <span className="hidden xl:inline">Sil</span>
                             </button>
                           ) : null}
                         </div>
@@ -547,7 +545,6 @@ export default function CatalogManageListingsClient({ categoryCode }: { category
                 })}
               </tbody>
             </table>
-          </div>
         )}
       </div>
 

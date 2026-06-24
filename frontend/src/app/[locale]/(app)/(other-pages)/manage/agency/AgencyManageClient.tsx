@@ -710,7 +710,6 @@ export default function AgencyManageClient() {
             <thead>
               <tr className="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-800/50">
                 <th className="px-3 py-2 font-medium">Başlık</th>
-                <th className="px-3 py-2 font-medium">Slug</th>
                 <th className="px-3 py-2 font-medium">PB</th>
                 <th className="px-3 py-2 font-medium">İlk tutar / ön ödeme</th>
                 <th className="px-3 py-2 font-medium">Tedarikçi org.</th>
@@ -720,13 +719,13 @@ export default function AgencyManageClient() {
             <tbody>
               {browseLoading && browseListings.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-4 text-neutral-500" colSpan={6}>
+                  <td className="px-3 py-4 text-neutral-500" colSpan={5}>
                     Yükleniyor…
                   </td>
                 </tr>
               ) : browseListings.length === 0 ? (
                 <tr>
-                  <td className="px-3 py-4 text-neutral-500" colSpan={6}>
+                  <td className="px-3 py-4 text-neutral-500" colSpan={5}>
                     Kayıt yok.
                   </td>
                 </tr>
@@ -734,7 +733,6 @@ export default function AgencyManageClient() {
                 browseListings.map((row) => (
                   <tr key={row.id} className="border-t border-neutral-100 dark:border-neutral-800">
                     <td className="max-w-[14rem] px-3 py-2 text-neutral-800 dark:text-neutral-200">{row.title}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{row.slug}</td>
                     <td className="px-3 py-2 font-mono text-xs">{row.currency_code}</td>
                     <td className="px-3 py-2 font-mono text-xs">
                       {row.first_charge_amount || '—'} / {row.prepayment_amount || '—'}

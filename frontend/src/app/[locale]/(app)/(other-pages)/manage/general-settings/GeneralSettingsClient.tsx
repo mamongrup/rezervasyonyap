@@ -1112,7 +1112,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <div className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2">
                 <BrandingImageUploadRow
                   label="Logo (açık tema)"
-                  hint="PNG, JPEG, WebP, AVIF veya SVG. En fazla 2 MB."
+                  hint="JPEG, PNG, WebP, GIF, SVG veya ICO. Kayıt her zaman AVIF olur. En fazla 2 MB."
                   url={logoUrl}
                   onChange={setLogoUrl}
                   purpose="brand-logo-light"
@@ -1227,7 +1227,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <div className="min-w-0 flex-1">
                 <BrandingImageUploadRow
                   label="Favicon"
-                  hint="PNG, ICO, WebP veya SVG. En fazla 2 MB."
+                  hint="PNG, ICO, WebP, GIF veya SVG. Kayıt her zaman AVIF olur. En fazla 2 MB."
                   url={faviconUrl}
                   onChange={setFaviconUrl}
                   purpose="brand-favicon"

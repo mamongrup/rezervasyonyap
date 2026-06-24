@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Travelrobot / KPlus API istemcisi.
  *
  * Sandbox base URL: http://sandbox.kplus.com.tr/kplus/v0

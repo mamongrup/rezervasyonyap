@@ -900,6 +900,7 @@ export default function CatalogNewListingClient({
   const [contracts, setContracts] = useState<{ id: string; code: string }[]>([])
   const [contractId, setContractId] = useState('')
   const [contractsErr, setContractsErr] = useState<string | null>(null)
+  const loadedContractIdRef = useRef('')
 
   // ── Öznitelikler (ilan eklemede seçim) ──
   const [attributeGroups, setAttributeGroups] = useState<AttributeGroup[]>([])
@@ -1033,10 +1034,17 @@ export default function CatalogNewListingClient({
   }, [])
 
   useEffect(() => {
+    loadedContractIdRef.current = ''
+  }, [editListingId])
+
+  useEffect(() => {
     const token = getStoredAuthToken()
     if (!token) return
     if (needOrg && !orgId.trim()) {
-      setContracts([]); setContractsErr(null); setContractId(''); return
+      setContracts([])
+      setContractsErr(null)
+      if (!editListingId) setContractId('')
+      return
     }
     let cancelled = false
     void listManageCategoryContracts(token, {
@@ -1049,7 +1057,12 @@ export default function CatalogNewListingClient({
         const rows = r.contracts.filter((c) => c.is_active === 'true' || c.is_active === 't')
         setContracts(rows.map((c) => ({ id: c.id, code: c.code })))
         setContractsErr(null)
-        if (!editListingId) setContractId('')
+        if (editListingId) {
+          const pending = loadedContractIdRef.current.trim()
+          if (pending) setContractId(pending)
+        } else {
+          setContractId('')
+        }
       })
       .catch((e) => {
         if (cancelled) return
@@ -1350,7 +1363,11 @@ export default function CatalogNewListingClient({
           setSlugManual(true)
         }
         if (row?.currency_code?.trim()) setCurrency(row.currency_code.trim().toUpperCase())
-        if (row?.category_contract_id?.trim()) setContractId(row.category_contract_id.trim())
+        if (row?.category_contract_id?.trim()) {
+          const ccId = row.category_contract_id.trim()
+          loadedContractIdRef.current = ccId
+          setContractId(ccId)
+        }
 
         if (categoryCode === 'hotel') {
           try {
@@ -3577,76 +3594,64 @@ export default function CatalogNewListingClient({
                     {listingByLocale[primaryLocale]?.title?.trim() ||
                       `Yeni ilan — ${categoryLabelTr(categoryCode)}`}
                   </p>
-                  {(slug.trim() || editListingId) && (
-                    <div className="mt-0.5 flex min-w-0 flex-col gap-1">
-                      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-                        {editListingId && headerSlugEdit ? (
-                          <>
-                            <span className="shrink-0 font-mono text-xs text-neutral-400">/</span>
-                            <Input
-                              value={headerSlugDraft}
-                              onChange={(e) => {
-                                setHeaderSlugErr(null)
-                                setHeaderSlugDraft(slugifyListingSlug(e.target.value))
-                              }}
-                              className="h-8 min-w-[10rem] flex-1 font-mono text-xs"
-                              disabled={headerSlugBusy || saveLocked}
-                              aria-label="Slug"
-                            />
-                            <button
-                              type="button"
-                              disabled={headerSlugBusy || saveLocked}
-                              onClick={() => void persistHeaderSlug()}
-                              title="Kaydet"
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70"
-                            >
-                              {headerSlugBusy ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Check className="h-4 w-4" />
-                              )}
-                            </button>
-                            <button
-                              type="button"
-                              disabled={headerSlugBusy}
-                              onClick={() => {
-                                setHeaderSlugEdit(false)
-                                setHeaderSlugErr(null)
-                                setHeaderSlugDraft(slug.trim())
-                              }}
-                              title="İptal"
-                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </>
-                        ) : (
-                          <>
-                            {slug.trim() ? (
-                              <p className="min-w-0 flex-1 break-all font-mono text-xs text-neutral-400">
-                                /{slug.trim()}
-                              </p>
+                  {editListingId && (
+                    <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                      {headerSlugEdit ? (
+                        <>
+                          <Input
+                            value={headerSlugDraft}
+                            onChange={(e) => {
+                              setHeaderSlugErr(null)
+                              setHeaderSlugDraft(slugifyListingSlug(e.target.value))
+                            }}
+                            className="h-8 min-w-[10rem] flex-1 font-mono text-xs"
+                            disabled={headerSlugBusy || saveLocked}
+                            aria-label="Adres kodu"
+                            placeholder="adres-kodu"
+                          />
+                          <button
+                            type="button"
+                            disabled={headerSlugBusy || saveLocked}
+                            onClick={() => void persistHeaderSlug()}
+                            title="Kaydet"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/70"
+                          >
+                            {headerSlugBusy ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
                             ) : (
-                              <p className="flex-1 text-xs text-neutral-400">Slug</p>
+                              <Check className="h-4 w-4" />
                             )}
-                            {editListingId ? (
-                              <button
-                                type="button"
-                                disabled={saveLocked || headerSlugBusy}
-                                onClick={() => {
-                                  setHeaderSlugDraft(slug.trim() ? slug.trim() : '')
-                                  setHeaderSlugErr(null)
-                                  setHeaderSlugEdit(true)
-                                }}
-                                title="Slug düzenle"
-                                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-600 dark:text-neutral-400 dark:hover:bg-neutral-800"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                            ) : null}
-                          </>
-                        )}
-                      </div>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={headerSlugBusy}
+                            onClick={() => {
+                              setHeaderSlugEdit(false)
+                              setHeaderSlugErr(null)
+                              setHeaderSlugDraft(slug.trim())
+                            }}
+                            title="İptal"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-neutral-200 text-neutral-600 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={saveLocked || headerSlugBusy}
+                          onClick={() => {
+                            setHeaderSlugDraft(slug.trim() ? slug.trim() : '')
+                            setHeaderSlugErr(null)
+                            setHeaderSlugEdit(true)
+                          }}
+                          title="Adres kodunu düzenle"
+                          className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-50 disabled:opacity-40 dark:border-neutral-600 dark:text-neutral-400 dark:hover:bg-neutral-800"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Adres kodu
+                        </button>
+                      )}
                       {headerSlugErr ? (
                         <p className="text-xs text-red-600 dark:text-red-400">{headerSlugErr}</p>
                       ) : null}

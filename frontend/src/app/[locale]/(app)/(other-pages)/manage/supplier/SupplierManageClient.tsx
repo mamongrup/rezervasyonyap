@@ -714,7 +714,7 @@ export default function SupplierManageClient() {
             <table className="min-w-full text-left text-sm">
               <thead className="bg-neutral-50 dark:bg-neutral-800/50">
                 <tr>
-                  <th className="px-4 py-2">Slug (URL Yolu)</th>
+                  <th className="px-4 py-2">İlan no</th>
                   <th className="px-4 py-2">Durum</th>
                   <th className="px-4 py-2">PB</th>
                   <th className="px-4 py-2">Komisyon %</th>
@@ -736,7 +736,9 @@ export default function SupplierManageClient() {
                   }
                   return (
                     <tr key={r.id} className="border-t border-neutral-100 dark:border-neutral-800">
-                      <td className="px-4 py-2 font-mono text-xs">{r.slug}</td>
+                      <td className="max-w-[16rem] truncate px-4 py-2 font-mono text-xs text-neutral-700 dark:text-neutral-300">
+                        #{r.id.slice(0, 8)}
+                      </td>
                       <td className="px-4 py-2">{r.status}</td>
                       <td className="px-4 py-2 font-mono text-xs">{r.currency_code}</td>
                       <td className="px-4 py-2">
