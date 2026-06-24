@@ -281,6 +281,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
   /** site_settings key `ai` — DeepSeek anahtarı/modeli + süreler; süre yalnız buradan (5–10000 sn). */
   const [aiRest, setAiRest] = useState<Record<string, unknown>>({})
   const [deepseekApiKey, setDeepseekApiKey] = useState('')
+  const [openaiApiKey, setOpenaiApiKey] = useState('')
   const [deepseekModel, setDeepseekModel] = useState('deepseek-chat')
   const [deepseekApiUrl, setDeepseekApiUrl] = useState('https://api.deepseek.com/v1/chat/completions')
   const [requestTimeoutSec, setRequestTimeoutSec] = useState('300')
@@ -448,6 +449,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             }
             setAiRest(obj)
             setDeepseekApiKey(typeof obj.deepseek_api_key === 'string' ? obj.deepseek_api_key : '')
+            setOpenaiApiKey(typeof obj.openai_api_key === 'string' ? obj.openai_api_key : '')
             setDeepseekModel(
               typeof obj.deepseek_model === 'string' && obj.deepseek_model.trim()
                 ? obj.deepseek_model.trim()
@@ -478,6 +480,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
           } else {
             setAiRest({})
             setDeepseekApiKey('')
+            setOpenaiApiKey('')
             setDeepseekModel('deepseek-chat')
             setDeepseekApiUrl('https://api.deepseek.com/v1/chat/completions')
             setRequestTimeoutSec('300')
@@ -551,6 +554,7 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
       const next = {
         ...aiRest,
         deepseek_api_key: deepseekApiKey.trim(),
+        openai_api_key: openaiApiKey.trim(),
         deepseek_model: deepseekModel.trim() || 'deepseek-chat',
         deepseek_api_url: deepseekApiUrl.trim() || 'https://api.deepseek.com/v1/chat/completions',
         request_timeout_sec: rtParsed,
@@ -1513,12 +1517,13 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
             <div className="flex items-start gap-3 mb-5">
               <span className="text-2xl">🤖</span>
               <div>
-                <h2 className="text-base font-semibold">DeepSeek (API)</h2>
+                <h2 className="text-base font-semibold">Yapay zeka API anahtarları</h2>
                 <p className="text-sm text-neutral-500">
-                  Blog çevirisi ve paneldeki yapay zeka çağrıları için. Ortam değişkeni{' '}
+                  Blog çevirisi, paneldeki yapay zeka çağrıları ve sosyal medya AI kapak üretimi için. Ortam değişkeni{' '}
                   <code className="font-mono text-xs">DEEPSEEK_API_KEY</code> tanımlıysa o önceliklidir; boşsa
-                  buradaki anahtar kullanılır. Aşağıdaki &quot;chat&quot; ifadeleri API adıdır: aynı uç nokta ve
-                  model çeviri, özet vb. metin görevleri için de kullanılır; yalnızca sohbet anlamına gelmez.
+                  buradaki DeepSeek anahtarı kullanılır. OpenAI anahtarı sosyal kapak üretiminde kullanılır. Aşağıdaki
+                  &quot;chat&quot; ifadeleri API adıdır: aynı uç nokta ve model çeviri, özet vb. metin görevleri için de
+                  kullanılır; yalnızca sohbet anlamına gelmez.
                 </p>
               </div>
             </div>
@@ -1540,6 +1545,21 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
                     rel="noopener noreferrer"
                     className="text-primary-600 underline">DeepSeek Platform</a>
                   &apos;dan alın. Üretimde anahtarı güvenli tutun.
+                </p>
+              </Field>
+              <Field className="block sm:col-span-2">
+                <Label>OpenAI API anahtarı</Label>
+                <Input
+                  type="password"
+                  className="mt-1 font-mono"
+                  value={openaiApiKey}
+                  onChange={(e) => setOpenaiApiKey(e.target.value)}
+                  autoComplete="off"
+                  placeholder="sk-…"
+                />
+                <p className="mt-1 text-xs text-neutral-400">
+                  Sosyal medya AI kapak üretimi için kullanılır. Boşsa sunucudaki{' '}
+                  <code className="font-mono">OPENAI_API_KEY</code> yedeği denenir.
                 </p>
               </Field>
               <Field className="block">

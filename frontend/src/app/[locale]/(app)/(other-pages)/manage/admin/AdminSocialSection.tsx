@@ -3,6 +3,7 @@ import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
   createSocialJob,
   createSocialTemplate,
+  generateSocialCover,
   getPublicListingImages,
   listSocialJobs,
   listSocialListings,
@@ -50,6 +51,59 @@ const TEMPLATE_FIELDS = [
   { token: '{{description}}', label: 'Açıklama', hint: 'İlan açıklaması' },
   { token: '{{url}}', label: 'URL', hint: 'İlan bağlantısı' },
 ]
+
+type SocialImageQuality = 'low' | 'medium' | 'high'
+type SocialDesignTheme =
+  | 'auto'
+  | 'luxury'
+  | 'honeymoon'
+  | 'large_family'
+  | 'beachfront'
+  | 'sea_view'
+  | 'nature'
+  | 'conservative'
+
+const IMAGE_QUALITY_OPTIONS: Array<{ code: SocialImageQuality; label: string; cost: string; hint: string }> = [
+  { code: 'low', label: 'Düşük', cost: '~$0.005-$0.016', hint: 'Toplu deneme ve yüksek hacim' },
+  { code: 'medium', label: 'Orta', cost: '~$0.011-$0.063', hint: 'Sosyal medya için önerilen denge' },
+  { code: 'high', label: 'Yüksek', cost: '~$0.05-$0.21', hint: 'Premium görsel, daha pahalı' },
+]
+
+const DESIGN_THEME_OPTIONS: Array<{ code: SocialDesignTheme; label: string; hint: string; match?: string[] }> = [
+  { code: 'auto', label: 'Otomatik', hint: 'İlan temasından seç' },
+  { code: 'luxury', label: 'Lüks', hint: 'Gold, premium, sakin tipografi', match: ['luxury', 'jacuzzi', 'sauna'] },
+  { code: 'honeymoon', label: 'Balayı', hint: 'Romantik, sıcak ve yumuşak tonlar', match: ['honeymoon', 'romantic'] },
+  { code: 'large_family', label: 'Büyük aile', hint: 'Ferah, güven veren, kapasite vurgusu', match: ['family', 'child_friendly'] },
+  { code: 'beachfront', label: 'Denize sıfır', hint: 'Turkuaz, sahil ve yaz hissi', match: ['beachfront'] },
+  { code: 'sea_view', label: 'Deniz manzaralı', hint: 'Mavi tonlar, manzara vurgusu', match: ['sea_view'] },
+  { code: 'nature', label: 'Doğa', hint: 'Yeşil, doğal, sakin tatil hissi', match: ['nature', 'garden', 'mountain_view'] },
+  { code: 'conservative', label: 'Muhafazakar', hint: 'Mahremiyet, aile ve güven vurgusu', match: ['conservative'] },
+]
+
+function listingThemeCodes(listing: ManageListingRow | null): string[] {
+  return (listing?.theme_codes ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function inferDesignThemeFromListing(listing: ManageListingRow | null): Exclude<SocialDesignTheme, 'auto'> {
+  const codes = listingThemeCodes(listing)
+  const title = listing?.title.toLocaleLowerCase('tr-TR') ?? ''
+  const has = (keys: string[]) => keys.some((k) => codes.includes(k) || title.includes(k.replace('_', ' ')))
+  if (has(['luxury', 'jacuzzi', 'sauna', 'lüks'])) return 'luxury'
+  if (has(['honeymoon', 'romantic', 'balayı'])) return 'honeymoon'
+  if (has(['family', 'child_friendly', 'aile'])) return 'large_family'
+  if (has(['beachfront', 'denize sıfır', 'sahil'])) return 'beachfront'
+  if (has(['sea_view', 'deniz manzarası', 'deniz'])) return 'sea_view'
+  if (has(['nature', 'garden', 'mountain_view', 'doğa', 'bahçe'])) return 'nature'
+  if (has(['conservative', 'muhafazakar'])) return 'conservative'
+  return 'luxury'
+}
+
+function designThemeLabel(code: SocialDesignTheme): string {
+  return DESIGN_THEME_OPTIONS.find((t) => t.code === code)?.label ?? code
+}
 
 // ─── İlan arama + seçici ──────────────────────────────────────────────────────
 
@@ -201,7 +255,11 @@ function ogKindForCategory(categoryCode: string): 'stay' | 'experience' {
     : 'stay'
 }
 
-function socialCoverPreviewUrl(listing: ManageListingRow | null): string {
+function socialCoverPreviewUrl(
+  listing: ManageListingRow | null,
+  quality: SocialImageQuality,
+  designTheme: Exclude<SocialDesignTheme, 'auto'>,
+): string {
   if (!listing?.slug) return ''
   const kind = ogKindForCategory(listing.category_code)
   const q = new URLSearchParams({
@@ -209,6 +267,8 @@ function socialCoverPreviewUrl(listing: ManageListingRow | null): string {
     handle: listing.slug,
     locale: 'tr',
     variant: 'social',
+    image_quality: quality,
+    design_theme: designTheme,
   })
   return `/api/og/listing?${q.toString()}`
 }
@@ -237,7 +297,11 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   const [templateId, setTemplateId] = useState('')
   const [templateName, setTemplateName] = useState('Kategori kampanya şablonu')
   const [templateBody, setTemplateBody] = useState(DEFAULT_TEMPLATE_BODY)
+  const [imageQuality, setImageQuality] = useState<SocialImageQuality>('medium')
+  const [designTheme, setDesignTheme] = useState<SocialDesignTheme>('auto')
   const [selectedListing, setSelectedListing] = useState<ManageListingRow | null>(null)
+  const [generatedCover, setGeneratedCover] = useState<{ url: string; storage_key: string } | null>(null)
+  const [coverBusy, setCoverBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -247,6 +311,10 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   const activeTemplates = templates.filter((t) => activeNetworks.includes(t.network as SocialNetwork))
   const selectedTemplate = templates.find((t) => t.id === templateId) ?? null
   const selectedCategory = SOCIAL_CATEGORIES.find((c) => c.code === categoryCode) ?? SOCIAL_CATEGORIES[0]
+  const resolvedDesignTheme = designTheme === 'auto'
+    ? inferDesignThemeFromListing(selectedListing)
+    : designTheme
+  const selectedThemeCodes = listingThemeCodes(selectedListing)
 
   const loadTemplates = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -276,7 +344,12 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
 
   useEffect(() => {
     setSelectedListing(null)
+    setGeneratedCover(null)
   }, [categoryCode])
+
+  useEffect(() => {
+    setGeneratedCover(null)
+  }, [selectedListing?.id, imageQuality, resolvedDesignTheme])
 
   function insertTemplateToken(token: string) {
     const el = templateTextareaRef.current
@@ -300,13 +373,25 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     insertTemplateToken(token)
   }
 
+  function socialDesignInstruction(body: string): string {
+    const quality = IMAGE_QUALITY_OPTIONS.find((q) => q.code === imageQuality)?.label ?? imageQuality
+    const theme = designThemeLabel(resolvedDesignTheme)
+    const themeCodes = selectedThemeCodes.length > 0 ? selectedThemeCodes.join(', ') : 'tema kodu yok'
+    return [
+      body.trim() || DEFAULT_TEMPLATE_BODY,
+      '',
+      `AI görsel kalite tercihi: ${quality} (${imageQuality}).`,
+      `Tasarım ipucu: ${theme}. İlan tema kodları: ${themeCodes}. Kapakta logo, ilan adı, bölge, kişi/oda/banyo ve iletişim net okunmalı.`,
+    ].join('\n')
+  }
+
   async function ensureTemplate(token: string): Promise<string | undefined> {
     if (templateId) return templateId
     const network = activeNetworks[0] ?? 'facebook'
     const created = await createSocialTemplate(token, {
       network,
       name: `[${categoryCode}] ${templateName.trim() || 'Sosyal paylaşım şablonu'}`,
-      template_body: templateBody.trim() || DEFAULT_TEMPLATE_BODY,
+      template_body: socialDesignInstruction(templateBody),
     })
     setTemplates((prev) => [created, ...prev])
     setTemplateId(created.id)
@@ -315,7 +400,11 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
 
   async function queueListing(token: string, listing: ManageListingRow, tplId: string | undefined) {
     const keys = await listingImageKeys(listing.id)
-    if (keys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
+    const imageKeys =
+      generatedCover && listing.id === selectedListing?.id
+        ? [generatedCover.storage_key, ...keys.filter((k) => k !== generatedCover.storage_key)].slice(0, 10)
+        : keys
+    if (imageKeys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
     await patchListingSocial(token, listing.id, {
       share_to_social: true,
       allow_ai_caption: true,
@@ -326,8 +415,29 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
         entity_id: listing.id,
         network,
         template_id: tplId,
-        image_keys: keys,
+        image_keys: imageKeys,
       })
+    }
+  }
+
+  async function onGenerateCover() {
+    if (!selectedListing) return
+    setCoverBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const res = await generateSocialCover({
+        listing: selectedListing,
+        quality: imageQuality,
+        design_theme: resolvedDesignTheme,
+        prompt_hint: socialDesignInstruction(templateBody),
+      })
+      setGeneratedCover({ url: res.url, storage_key: res.storage_key })
+      setMessage('AI kapak üretildi. Önizleme ve tek ilan kuyruğu artık bu kapağı kullanacak.')
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'social_cover_generate_failed'))
+    } finally {
+      setCoverBusy(false)
     }
   }
 
@@ -341,7 +451,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
       const created = await createSocialTemplate(token, {
         network: activeNetworks[0] ?? 'facebook',
         name: `[${categoryCode}] ${templateName.trim() || 'Sosyal paylaşım şablonu'}`,
-        template_body: templateBody.trim() || DEFAULT_TEMPLATE_BODY,
+        template_body: socialDesignInstruction(templateBody),
       })
       setTemplates((prev) => [created, ...prev])
       setTemplateId(created.id)
@@ -414,7 +524,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     }
   }
 
-  const coverUrl = socialCoverPreviewUrl(selectedListing)
+  const coverUrl = generatedCover?.url ?? socialCoverPreviewUrl(selectedListing, imageQuality, resolvedDesignTheme)
 
   return (
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
@@ -437,7 +547,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
         </button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-5">
         <div className="space-y-4">
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
             <div>
@@ -489,6 +599,78 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
                   {n.label}
                 </label>
               ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                AI görsel kalitesi
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {IMAGE_QUALITY_OPTIONS.map((opt) => {
+                  const active = imageQuality === opt.code
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => setImageQuality(opt.code)}
+                      className={[
+                        'rounded-xl border px-3 py-2 text-left transition',
+                        active
+                          ? 'border-blue-500 bg-blue-600 text-white shadow-sm'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-blue-300 hover:bg-blue-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
+                      ].join(' ')}
+                      title={opt.hint}
+                    >
+                      <span className="block text-xs font-semibold">{opt.label}</span>
+                      <span className={active ? 'block text-[10px] text-blue-100' : 'block text-[10px] text-neutral-400'}>
+                        {opt.cost}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label className="block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                  Tasarım ipucu
+                </label>
+                <span className="text-[11px] text-neutral-500">
+                  Aktif: {designThemeLabel(resolvedDesignTheme)}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {DESIGN_THEME_OPTIONS.map((opt) => {
+                  const active = designTheme === opt.code
+                  return (
+                    <button
+                      key={opt.code}
+                      type="button"
+                      onClick={() => setDesignTheme(opt.code)}
+                      className={[
+                        'rounded-xl border px-3 py-2 text-left text-xs transition',
+                        active
+                          ? 'border-amber-500 bg-amber-500 text-white shadow-sm'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-amber-300 hover:bg-amber-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200',
+                      ].join(' ')}
+                      title={opt.hint}
+                    >
+                      <span className="block font-semibold">{opt.label}</span>
+                      <span className={active ? 'block text-[10px] text-amber-50' : 'block text-[10px] text-neutral-400'}>
+                        {opt.hint}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedListing && designTheme === 'auto' ? (
+                <p className="mt-1 text-[11px] text-neutral-500">
+                  İlan teması: {selectedThemeCodes.length > 0 ? selectedThemeCodes.join(', ') : 'tema kodu yok'} → {designThemeLabel(resolvedDesignTheme)}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -580,18 +762,44 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
           {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{error}</p>}
         </div>
 
-        <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+        <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-semibold text-neutral-700 dark:text-neutral-200">
             <ImageIcon className="h-4 w-4" />
             Kapak önizleme
-          </div>
-          {coverUrl ? (
-            <img src={coverUrl} alt="Sosyal paylaşım kapağı" className="aspect-[1200/1500] w-full rounded-xl object-cover" />
-          ) : (
-            <div className="flex aspect-[1200/1500] items-center justify-center rounded-xl bg-neutral-100 px-6 text-center text-xs text-neutral-500 dark:bg-neutral-800">
-              Önizleme için tek ilan seçin.
             </div>
-          )}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {generatedCover ? (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  AI kapak hazır
+                </span>
+              ) : (
+                <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+                  Statik önizleme
+                </span>
+              )}
+              <button
+                type="button"
+                disabled={coverBusy || !selectedListing}
+                onClick={() => void onGenerateCover()}
+                className="flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+              >
+                {coverBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {coverBusy ? 'Üretiliyor…' : 'AI Kapak Üret'}
+              </button>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <div className="w-full max-w-[620px]">
+              {coverUrl ? (
+                <img src={coverUrl} alt="Sosyal paylaşım kapağı" className="aspect-square w-full rounded-2xl object-cover shadow-sm ring-1 ring-neutral-200 dark:ring-neutral-700" />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center rounded-2xl bg-neutral-100 px-8 text-center text-sm text-neutral-500 ring-1 ring-neutral-200 dark:bg-neutral-800 dark:ring-neutral-700">
+                  Önizleme için tek ilan seçin.
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

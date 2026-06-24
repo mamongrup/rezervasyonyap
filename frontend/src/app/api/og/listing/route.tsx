@@ -1,6 +1,8 @@
 import { getExperienceListingByHandle, getStayListingByHandle } from '@/data/listings'
+import { apiOriginForFetch } from '@/lib/api-origin'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
+import { normalizeSiteLogoUrl, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import type { TListingBase } from '@/types/listing-types'
 import {
   buildExperienceListingShareRows,
@@ -9,6 +11,7 @@ import {
 } from '@/lib/social-share/listing-share-templates'
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
+import sharp from 'sharp'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -18,10 +21,181 @@ const OG_H = 630
 const SOCIAL_W = 1080
 const SOCIAL_H = 1080
 
+type SocialImageQuality = 'low' | 'medium' | 'high'
+type SocialDesignTheme =
+  | 'luxury'
+  | 'honeymoon'
+  | 'large_family'
+  | 'beachfront'
+  | 'sea_view'
+  | 'nature'
+  | 'conservative'
+
+function parseImageQuality(raw: string | null): SocialImageQuality {
+  return raw === 'low' || raw === 'high' ? raw : 'medium'
+}
+
+function parseDesignTheme(raw: string | null): SocialDesignTheme {
+  switch (raw) {
+    case 'honeymoon':
+    case 'large_family':
+    case 'beachfront':
+    case 'sea_view':
+    case 'nature':
+    case 'conservative':
+      return raw
+    case 'luxury':
+    default:
+      return 'luxury'
+  }
+}
+
+function socialThemeStyle(theme: SocialDesignTheme) {
+  switch (theme) {
+    case 'honeymoon':
+      return { title: '#db2777', secondary: '#7c2d12', panel: '#be185d', glow: '#fff1f2' }
+    case 'large_family':
+      return { title: '#ea580c', secondary: '#1e3a8a', panel: '#0f766e', glow: '#fef3c7' }
+    case 'beachfront':
+      return { title: '#0891b2', secondary: '#0f3d6e', panel: '#0284c7', glow: '#e0f7ff' }
+    case 'sea_view':
+      return { title: '#0e7490', secondary: '#1e3a8a', panel: '#0f91a1', glow: '#e5fbff' }
+    case 'nature':
+      return { title: '#15803d', secondary: '#365314', panel: '#047857', glow: '#ecfdf5' }
+    case 'conservative':
+      return { title: '#0f766e', secondary: '#1e3a8a', panel: '#115e59', glow: '#f0fdfa' }
+    case 'luxury':
+    default:
+      return { title: '#ef1f24', secondary: '#1e3a8a', panel: '#078fa0', glow: '#e5fbff' }
+  }
+}
+
 function truncate(s: string, max: number): string {
   const t = s.trim()
   if (t.length <= max) return t
   return `${t.slice(0, max - 1)}…`
+}
+
+function assetBaseUrl(pageBase: string): string {
+  return (
+    process.env.NEXT_PUBLIC_UPLOADS_ORIGIN?.trim().replace(/\/$/, '') ||
+    process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '') ||
+    pageBase
+  )
+}
+
+function toAbsoluteAssetUrl(pageBase: string, path: string): string | null {
+  const p = path.trim()
+  if (!p) return null
+  if (/^https?:\/\//i.test(p)) return p
+  const base = p.startsWith('/uploads/') || p.startsWith('/api/site-upload/')
+    ? assetBaseUrl(pageBase)
+    : pageBase
+  return toAbsoluteSiteUrl(base, p) ?? null
+}
+
+function titleWithoutBadge(title: string, badge: string): string {
+  const t = title.trim()
+  const b = badge.trim()
+  if (!t || !b) return t
+  const re = new RegExp(`\\s+${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
+  return t.replace(re, '').trim() || t
+}
+
+function titleLinesForCover(title: string): string[] {
+  const words = title.toLocaleUpperCase('tr-TR').split(/\s+/).filter(Boolean)
+  const lines: string[] = []
+  for (const word of words) {
+    const current = lines[lines.length - 1] ?? ''
+    if (!current || `${current} ${word}`.length > 13) {
+      lines.push(word)
+    } else {
+      lines[lines.length - 1] = `${current} ${word}`
+    }
+  }
+  return lines.slice(0, 3)
+}
+
+async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal, cache: 'no-store' })
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function imageDataUrlForOg(
+  url: string | null,
+  opts: { width: number; height: number; fit: 'cover' | 'inside' },
+): Promise<string | null> {
+  if (!url) return null
+  try {
+    const res = await fetchWithTimeout(url, 3500)
+    if (!res.ok) return null
+    const input = Buffer.from(await res.arrayBuffer())
+    const output = await sharp(input)
+      .resize({
+        width: opts.width,
+        height: opts.height,
+        fit: opts.fit,
+        withoutEnlargement: opts.fit === 'inside',
+        background: { r: 255, g: 255, b: 255, alpha: 0 },
+      })
+      .png()
+      .toBuffer()
+    return `data:image/png;base64,${output.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+function brandingText(b: Record<string, unknown> | null | undefined, key: string): string {
+  const v = b?.[key]
+  return typeof v === 'string' ? v.trim() : ''
+}
+
+async function fetchOgBranding(base: string): Promise<{
+  logoUrl: string | null
+  logoTextLine1: string
+  logoTextLine2: string
+  logoTextLine2Color: string
+  phone: string
+  tursabNo: string
+}> {
+  const fallback = {
+    logoUrl: null,
+    logoTextLine1: 'Rezervasyon',
+    logoTextLine2: 'yap.com.tr',
+    logoTextLine2Color: '#f97316',
+    phone: process.env.NEXT_PUBLIC_SITE_PHONE?.trim() || '0850 466 0464 - 0532 397 7957',
+    tursabNo: process.env.NEXT_PUBLIC_TURSAB_NO?.trim() || '13127',
+  }
+  const apiBase = apiOriginForFetch()
+  if (!apiBase) return fallback
+  try {
+    const res = await fetchWithTimeout(`${apiBase}/api/v1/site/public-config`, 2500)
+    if (!res.ok) return fallback
+    const data = (await res.json()) as { branding?: Record<string, unknown> | null }
+    const b = data.branding ?? null
+    const rawLogo =
+      normalizeSiteLogoUrl(brandingText(b, 'logo_url')) ??
+      normalizeSiteLogoUrl(brandingText(b, 'logo_url_dark')) ??
+      normalizeSiteLogoUrl(brandingText(b, 'logo_icon_url')) ??
+      normalizeSiteLogoUrl(process.env.NEXT_PUBLIC_ORG_LOGO_URL)
+    const resolvedLogo = rawLogo ? resolveSiteLogoUrl(rawLogo) : ''
+    return {
+      logoUrl: resolvedLogo ? toAbsoluteAssetUrl(base, resolvedLogo) ?? resolvedLogo : null,
+      logoTextLine1: brandingText(b, 'logo_text_line1') || brandingText(b, 'site_name') || fallback.logoTextLine1,
+      logoTextLine2: brandingText(b, 'logo_text_line2') || fallback.logoTextLine2,
+      logoTextLine2Color: brandingText(b, 'logo_text_line2_color') || fallback.logoTextLine2Color,
+      phone: brandingText(b, 'public_phone') || fallback.phone,
+      tursabNo: brandingText(b, 'tursab_no') || fallback.tursabNo,
+    }
+  } catch {
+    return fallback
+  }
 }
 
 function socialListingImage({
@@ -29,14 +203,17 @@ function socialListingImage({
   badge,
   title,
   rows,
-  brand,
+  branding,
+  designTheme,
 }: {
   bgUrl: string | null
   badge: string
   title: string
   rows: { label: string; value: string }[]
-  brand: string
+  branding: Awaited<ReturnType<typeof fetchOgBranding>>
+  designTheme: SocialDesignTheme
 }) {
+  const style = socialThemeStyle(designTheme)
   const region = rows.find((r) => /bölge|location/i.test(r.label))?.value
   const rowPriority = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
@@ -59,10 +236,11 @@ function socialListingImage({
     .filter((r) => !/fiyat|price|bölge|location/i.test(r.label))
     .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
     .slice(0, 3)
-  const titleTop = truncate(title, 24).toLocaleUpperCase('tr-TR')
+  const cleanTitle = titleWithoutBadge(title, badge)
+  const titleLines = titleLinesForCover(truncate(cleanTitle, 28))
   const badgeText = truncate(badge, 18).toLocaleUpperCase('tr-TR')
   const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
-  const brandText = 'Rezervasyon'
+  const titleFont = titleLines.some((line) => line.length > 11) ? 46 : 54
 
   return new ImageResponse(
     (
@@ -81,7 +259,7 @@ function socialListingImage({
           style={{
             position: 'absolute',
             inset: 0,
-            background: 'linear-gradient(135deg, #ffffff 0%, #ffffff 52%, #e5fbff 100%)',
+          background: `linear-gradient(135deg, #ffffff 0%, #ffffff 52%, ${style.glow} 100%)`,
           }}
         />
         <div
@@ -112,35 +290,35 @@ function socialListingImage({
         <div
           style={{
             position: 'absolute',
-            right: -124,
-            top: -42,
-            width: 690,
-            height: 1130,
+            right: -135,
+            top: -48,
+            width: 710,
+            height: 1138,
             display: 'flex',
             borderRadius: '390px 0 0 390px',
-            background: '#078fa0',
+            background: style.panel,
           }}
         />
         <div
           style={{
             position: 'absolute',
-            right: 0,
-            top: 0,
-            width: 630,
-            height: 1080,
+            right: 18,
+            top: 18,
+            width: 610,
+            height: 1044,
             display: 'flex',
             borderRadius: '360px 0 0 360px',
             overflow: 'hidden',
-            borderLeft: '22px solid #ffffff',
-            boxShadow: '-26px 0 70px rgba(15, 23, 42, 0.22)',
+            borderLeft: '24px solid #ffffff',
+            boxShadow: '-24px 0 62px rgba(15, 23, 42, 0.20)',
           }}
         >
           {bgUrl ? (
             <img
               src={bgUrl}
               alt=""
-              width={630}
-              height={1080}
+              width={610}
+              height={1044}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -152,57 +330,80 @@ function socialListingImage({
           style={{
             position: 'absolute',
             left: 54,
-            top: 48,
+            top: 54,
             display: 'flex',
             alignItems: 'center',
-            gap: 14,
+            gap: 16,
+            width: 430,
+            height: 92,
           }}
         >
-          <div
-            style={{
-              display: 'flex',
-              width: 72,
-              height: 72,
-              borderRadius: 999,
-              background: 'linear-gradient(135deg, #f97316, #facc15 46%, #0891b2 47%, #14b8a6)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#ffffff',
-              fontSize: 34,
-              fontWeight: 900,
-            }}
-          >
-            R
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ color: '#334155', fontSize: 36, fontWeight: 500 }}>{brandText}</span>
-              <span style={{ color: '#f97316', fontSize: 24, fontWeight: 800 }}>yap.com.tr</span>
+          {branding.logoUrl ? (
+            <img
+              src={branding.logoUrl}
+              alt=""
+              width={360}
+              height={96}
+              style={{ width: 360, height: 96, objectFit: 'contain', objectPosition: 'left center' }}
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div
+                style={{
+                  display: 'flex',
+                  width: 72,
+                  height: 72,
+                  borderRadius: 999,
+                background: `linear-gradient(135deg, #f97316, #facc15 46%, ${style.panel} 47%, #14b8a6)`,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#ffffff',
+                  fontSize: 34,
+                  fontWeight: 900,
+                }}
+              >
+                R
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                  <span style={{ color: '#334155', fontSize: 36, fontWeight: 500 }}>{branding.logoTextLine1}</span>
+                  <span style={{ color: branding.logoTextLine2Color, fontSize: 24, fontWeight: 800 }}>
+                    {branding.logoTextLine2}
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         <div
           style={{
             position: 'absolute',
             left: 58,
-            top: 178,
+            top: 190,
             display: 'flex',
             flexDirection: 'column',
-            gap: 4,
-            maxWidth: 500,
+            gap: 12,
+            maxWidth: 390,
           }}
         >
-          <div style={{ color: '#ef1f24', fontSize: 72, fontWeight: 900, letterSpacing: 1.4 }}>
-            {titleTop}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {titleLines.map((line, i) => (
+              <div
+                key={`${line}-${i}`}
+                style={{ color: style.title, fontSize: titleFont, fontWeight: 900, letterSpacing: 1, lineHeight: 0.95 }}
+              >
+                {line}
+              </div>
+            ))}
           </div>
-          <div style={{ color: '#1e3a8a', fontSize: 60, fontWeight: 500, letterSpacing: 1 }}>
+          <div style={{ color: style.secondary, fontSize: 54, fontWeight: 500, letterSpacing: 1, lineHeight: 1 }}>
             {badgeText}
           </div>
           {regionText ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
               <div style={{ color: '#facc15', fontSize: 54, lineHeight: 1 }}>●</div>
-              <div style={{ color: '#1e3a8a', fontSize: 36, fontWeight: 900 }}>{regionText}</div>
+              <div style={{ color: style.secondary, fontSize: 36, fontWeight: 900 }}>{regionText}</div>
             </div>
           ) : null}
         </div>
@@ -211,7 +412,7 @@ function socialListingImage({
           style={{
             position: 'absolute',
             left: 74,
-            top: 558,
+            top: 560,
             display: 'flex',
             flexDirection: 'column',
             gap: 24,
@@ -235,8 +436,8 @@ function socialListingImage({
                 {rowIcon(row.label)}
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                <span style={{ color: '#1e3a8a', fontSize: 38, fontWeight: 900 }}>{row.value}</span>
-                <span style={{ color: '#1e3a8a', fontSize: 34, fontWeight: 900 }}>
+                <span style={{ color: style.secondary, fontSize: 38, fontWeight: 900 }}>{row.value}</span>
+                <span style={{ color: style.secondary, fontSize: 34, fontWeight: 900 }}>
                   {row.label.toLocaleUpperCase('tr-TR')}
                 </span>
               </div>
@@ -263,7 +464,7 @@ function socialListingImage({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ color: '#ef4444', fontSize: 24 }}>●</span>
-            <span>0850 466 0464 - 0532 397 7957</span>
+            <span>{branding.phone}</span>
           </div>
         </div>
 
@@ -271,18 +472,18 @@ function socialListingImage({
           style={{
             position: 'absolute',
             right: 58,
-            bottom: 52,
+            bottom: 34,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
             color: '#ffffff',
-            fontSize: 26,
+            fontSize: 25,
             fontWeight: 900,
             textShadow: '0 2px 12px rgba(15, 23, 42, 0.35)',
           }}
         >
           <span>TURSAB</span>
-          <span>NO : 13127</span>
+          <span>NO : {branding.tursabNo}</span>
         </div>
       </div>
     ),
@@ -296,6 +497,8 @@ export async function GET(req: NextRequest) {
   const handle = searchParams.get('handle')?.trim()
   const locale = searchParams.get('locale')?.trim() || 'tr'
   const variant = searchParams.get('variant') === 'social' ? 'social' : 'og'
+  const imageQuality = parseImageQuality(searchParams.get('image_quality'))
+  const designTheme = parseDesignTheme(searchParams.get('design_theme'))
   if (!handle) {
     return new Response('Missing handle', { status: 400 })
   }
@@ -305,7 +508,15 @@ export async function GET(req: NextRequest) {
     return new Response('NEXT_PUBLIC_SITE_URL required for OG images', { status: 503 })
   }
 
-  const brand = (process.env.NEXT_PUBLIC_SITE_NAME ?? '').trim() || 'Travel'
+  const rawBranding = await fetchOgBranding(base)
+  const branding = {
+    ...rawBranding,
+    logoUrl: await imageDataUrlForOg(rawBranding.logoUrl, {
+      width: 330,
+      height: 92,
+      fit: 'inside',
+    }),
+  }
 
   if (kind === 'stay') {
     const listing = await getStayListingByHandle(handle, locale)
@@ -338,7 +549,7 @@ export async function GET(req: NextRequest) {
     )
 
     const rawImg = listing.featuredImage || listing.galleryImgs?.[0]
-    const bgUrl = rawImg ? toAbsoluteSiteUrl(base, rawImg) ?? rawImg : null
+    const bgUrl = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
     const badge =
       vertical === 'holiday_home'
         ? locale.startsWith('en')
@@ -353,12 +564,18 @@ export async function GET(req: NextRequest) {
             : 'Otel'
 
     if (variant === 'social') {
+      const socialBgUrl = await imageDataUrlForOg(bgUrl, {
+        width: 610,
+        height: 1044,
+        fit: 'cover',
+      })
       return socialListingImage({
-        bgUrl,
+        bgUrl: socialBgUrl ?? bgUrl,
         badge,
         title: listing.title,
         rows,
-        brand,
+        branding,
+        designTheme,
       })
     }
 
@@ -458,7 +675,7 @@ export async function GET(req: NextRequest) {
                 </div>
               ))}
             </div>
-            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>{brand}</div>
+            <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>{branding.logoTextLine1}</div>
           </div>
         </div>
       ),
@@ -486,7 +703,7 @@ export async function GET(req: NextRequest) {
   )
 
   const rawImg = listing.featuredImage || listing.galleryImgs?.[0]
-  const bgUrl = rawImg ? toAbsoluteSiteUrl(base, rawImg) ?? rawImg : null
+  const bgUrl = rawImg ? toAbsoluteAssetUrl(base, rawImg) ?? rawImg : null
 
   const v = normalizeCatalogVertical(listing.listingVertical)
   const badge =
@@ -499,12 +716,18 @@ export async function GET(req: NextRequest) {
         : 'Tur'
 
   if (variant === 'social') {
+    const socialBgUrl = await imageDataUrlForOg(bgUrl, {
+      width: 610,
+      height: 1044,
+      fit: 'cover',
+    })
     return socialListingImage({
-      bgUrl,
+      bgUrl: socialBgUrl ?? bgUrl,
       badge,
       title: listing.title,
       rows,
-      brand,
+      branding,
+      designTheme,
     })
   }
 
@@ -603,7 +826,7 @@ export async function GET(req: NextRequest) {
               </div>
             ))}
           </div>
-          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>{brand}</div>
+          <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 15 }}>{branding.logoTextLine1}</div>
         </div>
       </div>
     ),

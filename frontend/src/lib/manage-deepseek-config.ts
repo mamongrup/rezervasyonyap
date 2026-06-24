@@ -9,28 +9,29 @@ export type ManageDeepseekConfig = {
   timeoutMs: number
 }
 
+async function loadAiSettings(token: string): Promise<Record<string, unknown> | null> {
+  const apiBase = apiOriginForFetch()
+  if (!apiBase) return null
+  try {
+    const r = await fetch(`${apiBase}/api/v1/site/settings?scope=platform&key=ai`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
+    if (!r.ok) return null
+    const data = (await r.json()) as { settings?: Array<{ value_json?: string }> }
+    const row = data.settings?.[0]
+    if (!row?.value_json) return null
+    return JSON.parse(row.value_json) as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
 export async function resolveDeepseekConfigForManage(
   token: string,
 ): Promise<ManageDeepseekConfig | null> {
   const apiBase = apiOriginForFetch()
-  let settings: Record<string, unknown> | null = null
-  if (apiBase) {
-    try {
-      const r = await fetch(`${apiBase}/api/v1/site/settings?scope=platform&key=ai`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      })
-      if (r.ok) {
-        const data = (await r.json()) as { settings?: Array<{ value_json?: string }> }
-        const row = data.settings?.[0]
-        if (row?.value_json) {
-          settings = JSON.parse(row.value_json) as Record<string, unknown>
-        }
-      }
-    } catch {
-      settings = null
-    }
-  }
+  const settings = await loadAiSettings(token)
 
   const timeoutMs = resolveTranslatorTimeoutMs(settings)
 
@@ -62,4 +63,12 @@ export async function resolveDeepseekConfigForManage(
         : 'https://api.deepseek.com/v1/chat/completions',
     timeoutMs,
   }
+}
+
+export async function resolveOpenAiApiKeyForManage(token: string): Promise<string | null> {
+  const settings = await loadAiSettings(token)
+  const panelKey = typeof settings?.openai_api_key === 'string' ? settings.openai_api_key.trim() : ''
+  if (panelKey) return panelKey
+  const envKey = process.env.OPENAI_API_KEY?.trim()
+  return envKey || null
 }

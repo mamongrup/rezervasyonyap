@@ -814,6 +814,8 @@ export type ManageListingRow = {
   allow_ai_caption: boolean
   /** Seçili kategori sözleşmesi (havuz); boş ise atanmamış. */
   category_contract_id: string
+  /** Sosyal tasarım ipucu için virgülle tema kodları (`sea_view,luxury,family`). */
+  theme_codes?: string
 }
 
 export type ManageCatalogListingsResult = {
@@ -4957,6 +4959,24 @@ export async function createSocialJob(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as { error?: string }).error ?? `social_job_create_${res.status}`)
+  }
+  return json(res)
+}
+
+export async function generateSocialCover(body: {
+  listing: Pick<ManageListingRow, 'id' | 'slug' | 'title' | 'category_code'> & { theme_codes?: string }
+  quality: 'low' | 'medium' | 'high'
+  design_theme: string
+  prompt_hint?: string
+}): Promise<{ ok: boolean; url: string; storage_key: string; quality: string; design_theme: string }> {
+  const res = await fetch('/api/social/generate-cover', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `social_cover_generate_${res.status}`)
   }
   return json(res)
 }

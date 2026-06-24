@@ -58,7 +58,7 @@ fn template_to_json(row: #(String, String, String, String, String)) -> json.Json
 }
 
 fn social_listing_row() ->
-  decode.Decoder(#(String, String, String, String, String, String, String, Bool, Bool)) {
+  decode.Decoder(#(String, String, String, String, String, String, String, Bool, Bool, String)) {
   use id <- decode.field(0, decode.string)
   use slug <- decode.field(1, decode.string)
   use st <- decode.field(2, decode.string)
@@ -68,13 +68,14 @@ fn social_listing_row() ->
   use created <- decode.field(6, decode.string)
   use sh <- decode.field(7, decode.bool)
   use ai <- decode.field(8, decode.bool)
-  decode.success(#(id, slug, st, cur, cat, title, created, sh, ai))
+  use themes <- decode.field(9, decode.string)
+  decode.success(#(id, slug, st, cur, cat, title, created, sh, ai, themes))
 }
 
 fn social_listing_to_json(
-  row: #(String, String, String, String, String, String, String, Bool, Bool),
+  row: #(String, String, String, String, String, String, String, Bool, Bool, String),
 ) -> json.Json {
-  let #(id, slug, st, cur, cat, title, created, sh, ai) = row
+  let #(id, slug, st, cur, cat, title, created, sh, ai, themes) = row
   json.object([
     #("id", json.string(id)),
     #("slug", json.string(slug)),
@@ -90,6 +91,7 @@ fn social_listing_to_json(
     #("share_to_social", json.bool(sh)),
     #("allow_ai_caption", json.bool(ai)),
     #("category_contract_id", json.string("")),
+    #("theme_codes", json.string(themes)),
   ])
 }
 
@@ -205,8 +207,11 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
             pog.query(
               "select l.id::text, l.slug, l.status::text, l.currency_code::text, pc.code::text, "
               <> "coalesce((select lt.title from listing_translations lt join locales loc on loc.id = lt.locale_id where lt.listing_id = l.id and lower(loc.code) = lower($3::text) limit 1), ''), "
-              <> "to_char(l.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), coalesce(l.share_to_social, false), coalesce(l.allow_ai_caption, false) "
+              <> "to_char(l.created_at, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"'), coalesce(l.share_to_social, false), coalesce(l.allow_ai_caption, false), "
+              <> "coalesce(nullif(array_to_string(h.theme_codes, ','), ''), nullif(array_to_string(y.theme_codes, ','), ''), '') "
               <> "from listings l join product_categories pc on pc.id = l.category_id "
+              <> "left join listing_holiday_home_details h on h.listing_id = l.id "
+              <> "left join listing_yacht_details y on y.listing_id = l.id "
               <> "where ($1::text is null or pc.code = $1) "
               <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2 or exists (select 1 from listing_translations lt_search where lt_search.listing_id = l.id and lt_search.title ilike $2)) "
               <> "order by case when l.status::text = 'published' then 0 else 1 end, l.created_at desc limit $4::int",
