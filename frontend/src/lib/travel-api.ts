@@ -11620,7 +11620,7 @@ export async function getTripRoutesStats(
   const res = await fetch(`${b}/api/v1/ai/trip-routes/stats?profile=${profile}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
-  if (!res.ok) throw new Error(`trip_routes_stats_${res.status}`)
+  if (!res.ok) throw new Error(await errorCodeFromJsonOrStatus(res, 'trip_routes_stats'))
   const raw = await json<Record<string, unknown>>(res)
   return {
     profile,

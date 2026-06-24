@@ -185,6 +185,7 @@ modules/340_role_idle_session_timeout.sql
 modules/341_listing_vitrin_price_cache.sql
 modules/342_vitrin_price_include_meal_plans.sql
 modules/343_social_caption_region_prompt.sql
+modules/344_ai_panel_stats_schema_guard.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

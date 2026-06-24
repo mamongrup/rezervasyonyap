@@ -5,6 +5,14 @@ import {
   uploadManageImagesWithConcurrency,
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
+import {
+  initialMediaBrowsePrefix,
+  mediaCanBrowseUp,
+  mediaBrowseAllowed,
+  mediaUploadBasePath,
+  parentMediaBrowsePrefix,
+  resolveMediaLibraryBase,
+} from '@/lib/manage-media-library-scope'
 import { managePanelUploadPreviewSrc } from '@/lib/site-upload-browser-href'
 import {
   ChevronRight,
@@ -63,29 +71,6 @@ function posixDirname(relPath: string): string {
   return i === -1 ? '' : relPath.slice(0, i)
 }
 
-function uploadBasePath(target: ManageMediaPickerUploadTarget): string {
-  const top = target.folder.trim()
-  const sub = (target.subPath ?? '').trim().replace(/^\/+|\/+$/g, '')
-  return sub ? `${top}/${sub}` : top
-}
-
-function normalizeMediaPath(raw: string | undefined): string {
-  return (raw ?? '')
-    .trim()
-    .replace(/^[\\/]+|[\\/]+$/g, '')
-    .split(/[\\/]+/)
-    .filter((s) => s && s !== '.' && s !== '..')
-    .join('/')
-}
-
-function defaultLibraryRootForTarget(target: ManageMediaPickerUploadTarget): string | undefined {
-  const folder = target.folder.trim()
-  const sub = normalizeMediaPath(target.subPath)
-  if (folder === 'site' && sub.startsWith('page-builder/')) return 'site/page-builder'
-  if (folder === 'site' && sub.startsWith('vitrin-kategori/')) return 'site/vitrin-kategori'
-  return undefined
-}
-
 function effectiveTargetFromBrowse(
   base: ManageMediaPickerUploadTarget,
   browsePrefix: string,
@@ -95,10 +80,6 @@ function effectiveTargetFromBrowse(
   const folder = parts[0]!
   const subPath = parts.slice(1).join('/')
   return { ...base, folder, subPath }
-}
-
-function browseAllowed(uploadBase: string, browsePrefix: string): boolean {
-  return browsePrefix === uploadBase || browsePrefix.startsWith(`${uploadBase}/`)
 }
 
 function joinBrowsePrefix(parent: string, child: string): string {
@@ -189,11 +170,11 @@ export function ManageMediaPickerModal({
   const fileRef = useRef<HTMLInputElement>(null)
   const dragDepth = useRef(0)
 
-  const uploadBase = useMemo(() => uploadBasePath(uploadTarget), [uploadTarget])
-  const libraryBase = useMemo(() => {
-    const normalized = normalizeMediaPath(libraryRoot) || defaultLibraryRootForTarget(uploadTarget)
-    return normalized && browseAllowed(normalized, uploadBase) ? normalized : uploadBase
-  }, [libraryRoot, uploadTarget, uploadBase])
+  const uploadBase = useMemo(() => mediaUploadBasePath(uploadTarget), [uploadTarget])
+  const libraryBase = useMemo(
+    () => resolveMediaLibraryBase(uploadTarget, libraryRoot),
+    [uploadTarget, libraryRoot],
+  )
   const folderFeaturesEnabled = !uploadTarget.fixedStem?.trim()
 
   const effectiveUploadTarget = useMemo(
@@ -251,7 +232,7 @@ export function ManageMediaPickerModal({
   useEffect(() => {
     if (open) {
       setSearch('')
-      setBrowsePrefix(browseAllowed(libraryBase, uploadBase) ? uploadBase : libraryBase)
+      setBrowsePrefix(initialMediaBrowsePrefix(uploadTarget, libraryRoot))
       setExtraFolders([])
       setCreatingFolder(false)
       setNewFolderName('')
@@ -269,8 +250,8 @@ export function ManageMediaPickerModal({
 
   useEffect(() => {
     if (!open || !folderFeaturesEnabled) return
-    if (!browseAllowed(libraryBase, browsePrefix)) {
-      setBrowsePrefix(browseAllowed(libraryBase, uploadBase) ? uploadBase : libraryBase)
+    if (!mediaBrowseAllowed(libraryBase, browsePrefix)) {
+      setBrowsePrefix(initialMediaBrowsePrefix(uploadTarget, libraryRoot))
     }
   }, [open, folderFeaturesEnabled, uploadBase, libraryBase, browsePrefix])
 
@@ -445,7 +426,7 @@ export function ManageMediaPickerModal({
         )
         if (browsePrefix === folderFullPath || browsePrefix.startsWith(`${folderFullPath}/`)) {
           const parent = posixDirname(folderFullPath)
-          setBrowsePrefix(browseAllowed(libraryBase, parent) ? parent || libraryBase : libraryBase)
+          setBrowsePrefix(mediaBrowseAllowed(libraryBase, parent) ? parent || libraryBase : libraryBase)
         }
         await load()
       } catch {
@@ -531,7 +512,7 @@ export function ManageMediaPickerModal({
     const relPaths = [...selectedPaths]
     if (relPaths.length === 0 || !moveDest.trim()) return
     const dest = moveDest.trim()
-    if (!browseAllowed(libraryBase, dest)) {
+    if (!mediaBrowseAllowed(libraryBase, dest)) {
       setError('Geçersiz hedef klasör.')
       return
     }
@@ -654,7 +635,7 @@ export function ManageMediaPickerModal({
   if (!open) return null
 
   const showFolderChrome = folderFeaturesEnabled
-  const canGoUp = showFolderChrome && browsePrefix !== uploadBase
+  const canGoUp = showFolderChrome && mediaCanBrowseUp(libraryBase, browsePrefix)
   const emptyLibrary = items.length === 0
   const emptyView = !loading && filteredFolders.length === 0 && filteredFiles.length === 0
   const selectedCount = selectedPaths.size
@@ -778,8 +759,7 @@ export function ManageMediaPickerModal({
                 <button
                   type="button"
                   onClick={() => {
-                    const parent = posixDirname(browsePrefix)
-                    if (browseAllowed(uploadBase, parent)) setBrowsePrefix(parent || uploadBase)
+                    setBrowsePrefix(parentMediaBrowsePrefix(libraryBase, browsePrefix))
                   }}
                   className="rounded-lg border border-neutral-200 px-2 py-1 text-[11px] font-medium text-neutral-700 hover:bg-neutral-50 dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
                 >

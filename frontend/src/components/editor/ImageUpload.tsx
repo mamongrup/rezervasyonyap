@@ -5,6 +5,7 @@ import {
   uploadManageImagesWithConcurrency,
   type ManageMediaPickerUploadTarget,
 } from '@/lib/manage-upload-image-form'
+import { defaultMediaLibraryRootForTarget, normalizeMediaPath } from '@/lib/manage-media-library-scope'
 import clsx from 'clsx'
 import { AlertTriangle, ImagePlus, Loader2, Pencil, Trash2, X } from 'lucide-react'
 import NextImage from 'next/image'
@@ -88,12 +89,8 @@ export default function ImageUpload({
   }, [folder, subPath, prefix, imageIndex, fileBase, fixedStem, useOriginalStem])
 
   const pickerLibraryRoot = useMemo(() => {
-    if (libraryRoot?.trim()) return libraryRoot.trim()
-    const base = subPath?.trim().replace(/^\/+|\/+$/g, '') ?? ''
-    if (folder === 'site' && base.startsWith('page-builder/')) return 'site/page-builder'
-    if (folder === 'site' && base.startsWith('vitrin-kategori/')) return 'site/vitrin-kategori'
-    return undefined
-  }, [folder, subPath, libraryRoot])
+    return normalizeMediaPath(libraryRoot) || defaultMediaLibraryRootForTarget(pickerUploadTarget)
+  }, [libraryRoot, pickerUploadTarget])
 
   const allowMultiPick = multiple || Boolean(onBatchComplete)
 
