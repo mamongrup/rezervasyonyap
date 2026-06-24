@@ -4871,6 +4871,7 @@ export type SocialShareJob = {
   id: string
   entity_type: string
   entity_id: string
+  network?: string
   template_id: string | null
   status: string
   caption_ai_generated: string | null
@@ -4902,6 +4903,7 @@ export async function createSocialJob(
   body: {
     entity_type: string
     entity_id: string
+    network?: SocialNetwork
     template_id?: string
     image_keys: string[]
     caption_ai_generated?: string

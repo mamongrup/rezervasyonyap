@@ -30,7 +30,10 @@ export default async function SearchPageRenderer({
   buildUrl,
   // messages is available for future module use
 }: Props) {
-  const categoryFilter = activeCategory !== 'all' ? activeCategory : undefined
+  const categoryFilter =
+    activeCategory !== 'all'
+      ? SLUG_TO_CODE[activeCategory] ?? activeCategory
+      : undefined
   const hasQuery = query.trim().length > 0
   const enabled = [...modules]
     .filter((m) => m.enabled)

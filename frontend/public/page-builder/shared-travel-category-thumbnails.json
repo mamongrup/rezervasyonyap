@@ -1,45 +1,54 @@
 {
   "version": 1,
-  "updatedAt": "2026-06-11T20:36:58.341Z",
+  "updatedAt": "2026-06-24T12:55:00.000Z",
   "thumbnails": {
     "oteller": {
-      "src": "/uploads/general/hero/oteller-card.avif",
-      "objectPosition": "50% 55%"
+      "src": "/page-builder/category-cards/oteller-card.svg",
+      "objectPosition": "50% 52%"
     },
     "tatil-evleri": {
-      "src": "/uploads/general/hero/tatil-evleri-card.avif",
-      "objectPosition": "50% 45%"
+      "src": "/page-builder/category-cards/tatil-evleri-card.svg",
+      "objectPosition": "50% 52%"
     },
     "yat-kiralama": {
-      "src": "/uploads/general/hero/yat-kiralama-card.avif",
-      "objectPosition": "50% 40%"
+      "src": "/page-builder/category-cards/yat-kiralama-card.svg",
+      "objectPosition": "50% 50%"
     },
     "turlar": {
-      "src": "/uploads/general/hero/turlar-card.avif",
-      "objectPosition": "50% 35%"
+      "src": "/page-builder/category-cards/turlar-card.svg",
+      "objectPosition": "50% 50%"
     },
-    "aktiviteler": "/uploads/general/hero/aktiviteler-card.avif",
+    "aktiviteler": {
+      "src": "/page-builder/category-cards/aktiviteler-card.svg",
+      "objectPosition": "50% 50%"
+    },
     "kruvaziyer": {
-      "src": "/uploads/general/hero/kruvaziyer-card.avif",
-      "objectPosition": "50% 45%"
+      "src": "/page-builder/category-cards/kruvaziyer-card.svg",
+      "objectPosition": "50% 50%"
     },
     "hac-umre": {
-      "src": "/uploads/general/hero/hac-umre-card.avif",
-      "objectPosition": "50% 40%"
+      "src": "/page-builder/category-cards/hac-umre-card.svg",
+      "objectPosition": "50% 50%"
     },
-    "vize": "/uploads/general/hero/vize-card.avif",
+    "vize": {
+      "src": "/page-builder/category-cards/vize-card.svg",
+      "objectPosition": "50% 50%"
+    },
     "ucak-bileti": {
-      "src": "/uploads/general/hero/ucak-bileti-card.avif",
-      "objectPosition": "50% 35%"
+      "src": "/page-builder/category-cards/ucak-bileti-card.svg",
+      "objectPosition": "50% 50%"
     },
     "arac-kiralama": {
-      "src": "/uploads/general/hero/arac-kiralama-card.avif",
-      "objectPosition": "50% 55%"
+      "src": "/page-builder/category-cards/arac-kiralama-card.svg",
+      "objectPosition": "50% 50%"
     },
-    "feribot": "/uploads/general/hero/feribot-card.avif",
+    "feribot": {
+      "src": "/page-builder/category-cards/feribot-card.svg",
+      "objectPosition": "50% 50%"
+    },
     "transfer": {
-      "src": "/uploads/general/hero/transfer-card.avif",
-      "objectPosition": "50% 45%"
+      "src": "/page-builder/category-cards/transfer-card.svg",
+      "objectPosition": "50% 50%"
     }
   }
 }

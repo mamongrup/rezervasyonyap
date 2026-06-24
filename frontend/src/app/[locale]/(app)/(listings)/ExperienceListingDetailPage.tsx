@@ -286,8 +286,10 @@ export default async function ExperienceListingDetailPage({
   linkBase: string
 }) {
   const { handle, locale } = await params
-  const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
-  const listing = await getExperienceListingByHandle(handle, locale)
+  const [calendarMonthsShown, listing] = await Promise.all([
+    guessCalendarMonthsShownFromRequest(),
+    getExperienceListingByHandle(handle, locale),
+  ])
   if (!listing?.id) {
     return redirect(await vitrinHref(locale, '/turlar/all'))
   }
@@ -319,6 +321,9 @@ export default async function ExperienceListingDetailPage({
   // getStayListingByHandle içinde çözülür); tekrar çözmek fazladan arama isteğiydi.
   const catalogListingId = listing.id
   const activityToday = new Date().toISOString().slice(0, 10)
+  const city = (listing as TListingBase).city
+  const regionSlugForPlaces =
+    regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
   const [
     availabilityCalendarDays,
     rawTourMeta,
@@ -328,6 +333,7 @@ export default async function ExperienceListingDetailPage({
     tourCountryCards,
     similarToursRes,
     similarActivitiesRes,
+    regionPlacesInitialData,
   ] = await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
@@ -353,6 +359,13 @@ export default async function ExperienceListingDetailPage({
     vertical === 'activity'
       ? fetchCategoryListings('aktiviteler', {}, {}, locale).catch(() => ({ listings: [] }))
       : Promise.resolve({ listings: [] }),
+    isActivity
+      ? resolveRegionPlacesForListingPage(
+          regionSlugForPlaces,
+          locale,
+          shortRegionLabelFromLocationPin(city) || city || undefined,
+        )
+      : Promise.resolve(null),
   ])
 
   const {
@@ -372,16 +385,6 @@ export default async function ExperienceListingDetailPage({
     languages,
   } = listing
 
-  const city = (listing as TListingBase).city
-  const regionSlugForPlaces =
-    regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
-  const regionPlacesInitialData = isActivity
-    ? await resolveRegionPlacesForListingPage(
-        regionSlugForPlaces,
-        locale,
-        shortRegionLabelFromLocationPin(city) || city || undefined,
-      )
-    : null
   const m = getMessages(locale)
   const dp = m.listing.detailPage
   const td = m.listing.tourDetail

@@ -54,6 +54,7 @@ export interface PendingSocialJob {
   listing_title: string
   listing_slug: string
   category_code: string
+  template_body?: string | null
 }
 
 export function listingPublicUrl(categoryCode: string, slug: string): string {
@@ -144,6 +145,7 @@ export async function fetchSocialPostPlan(
     category_code: string
     allow_ai_caption: boolean
     image_keys: string[]
+    template_body?: string | null
   },
 ): Promise<SocialPostPlan> {
   const res = await fetch(`${apiOrigin.replace(/\/$/, '')}/api/v1/social/worker/caption`, {
@@ -475,6 +477,7 @@ export async function processOneSocialJob(
       category_code: job.category_code,
       allow_ai_caption: job.allow_ai_caption,
       image_keys: job.image_keys,
+      template_body: job.template_body,
     })
   }
 

@@ -81,7 +81,7 @@ fn fetch_social_api_json(db: pog.Connection) -> String {
 }
 
 fn pending_job_row() ->
-  decode.Decoder(#(String, String, String, String, String, Bool, String, String, String)) {
+  decode.Decoder(#(String, String, String, String, String, Bool, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use net <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
@@ -91,13 +91,14 @@ fn pending_job_row() ->
   use title <- decode.field(6, decode.string)
   use slug <- decode.field(7, decode.string)
   use cat <- decode.field(8, decode.string)
-  decode.success(#(id, net, eid, imgs, cap, allow_ai, title, slug, cat))
+  use tpl <- decode.field(9, decode.string)
+  decode.success(#(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl))
 }
 
 fn pending_job_json(
-  row: #(String, String, String, String, String, Bool, String, String, String),
+  row: #(String, String, String, String, String, Bool, String, String, String, String),
 ) -> json.Json {
-  let #(id, net, eid, imgs, cap, allow_ai, title, slug, cat) = row
+  let #(id, net, eid, imgs, cap, allow_ai, title, slug, cat, tpl) = row
   let img_list =
     string.split(imgs, "\u{001F}")
     |> list.map(string.trim)
@@ -117,6 +118,7 @@ fn pending_job_json(
     #("listing_title", json.string(title)),
     #("listing_slug", json.string(slug)),
     #("category_code", json.string(cat)),
+    #("template_body", json.string(tpl)),
   ])
 }
 
@@ -238,10 +240,11 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
           <> "coalesce((select lt.title from listing_translations lt "
           <> "inner join locales loc on loc.id = lt.locale_id "
           <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
-          <> "l.slug::text, coalesce(pc.code::text, '') "
+          <> "l.slug::text, coalesce(pc.code::text, ''), coalesce(t.template_body, '') "
           <> "from social_share_jobs j "
           <> "inner join listings l on l.id = j.entity_id and j.entity_type = 'listing' "
           <> "inner join product_categories pc on pc.id = l.category_id "
+          <> "left join social_share_templates t on t.id = j.template_id "
           <> "where j.status = 'pending' and l.status = 'published' "
           <> "order by j.created_at asc limit "
           <> int.to_string(limit),
@@ -377,7 +380,7 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
 }
 
 fn caption_body_decoder() ->
-  decode.Decoder(#(String, String, String, String, String, String, Bool, List(String))) {
+  decode.Decoder(#(String, String, String, String, String, String, Bool, List(String), String)) {
   decode.field("entity_id", decode.string, fn(entity_id) {
     decode.field("listing_title", decode.string, fn(title) {
       decode.optional_field("listing_description", "", decode.string, fn(desc) {
@@ -386,7 +389,19 @@ fn caption_body_decoder() ->
             decode.optional_field("category_code", "", decode.string, fn(cat) {
               decode.optional_field("allow_ai_caption", False, decode.bool, fn(allow_ai) {
                 decode.optional_field("image_keys", [], decode.list(decode.string), fn(keys) {
-                  decode.success(#(entity_id, title, desc, url, network, cat, allow_ai, keys))
+                  decode.optional_field("template_body", "", decode.string, fn(tpl) {
+                    decode.success(#(
+                      entity_id,
+                      title,
+                      desc,
+                      url,
+                      network,
+                      cat,
+                      allow_ai,
+                      keys,
+                      tpl,
+                    ))
+                  })
                 })
               })
             })
@@ -495,7 +510,7 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
         Ok(body) ->
           case json.parse(body, caption_body_decoder()) {
             Error(_) -> json_err(400, "invalid_json")
-            Ok(#(entity_id, title_in, desc_in, url_in, network, cat_in, allow_ai, keys_in)) -> {
+            Ok(#(entity_id, title_in, desc_in, url_in, network, cat_in, allow_ai, keys_in, template_body)) -> {
               let page_url = string.trim(url_in)
               case page_url == "" {
                 True -> json_err(400, "listing_url_required")
@@ -564,7 +579,8 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
                           #(
                             "instruction",
                             json.string(
-                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan.",
+                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan. Seçili paylaşım şablonunu uygula; {{title}}, {{description}}, {{region}}, {{price}}, {{url}} gibi yer tutucuları doğal metne çevir. Şablon: "
+                              <> string.slice(string.trim(template_body), 0, 1800),
                             ),
                           ),
                         ])

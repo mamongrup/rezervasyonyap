@@ -1,15 +1,40 @@
 'use client'
 import { formatManageApiCatch } from '@/lib/manage-api-error-tr'
 import {
+  createSocialJob,
+  createSocialTemplate,
+  getPublicListingImages,
   listSocialJobs,
   listManageCatalogListings,
+  listSocialTemplates,
+  patchListingSocial,
   postListingToFacebook,
   type ManageListingRow,
+  type SocialNetwork,
   type SocialShareJob,
+  type SocialTemplate,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle, ChevronDown, ExternalLink, Facebook, Loader2, RefreshCw, Search, X, XCircle } from 'lucide-react'
+import { CheckCircle, ChevronDown, ExternalLink, Facebook, ImageIcon, Layers, Loader2, RefreshCw, Search, Send, Sparkles, X, XCircle } from 'lucide-react'
+
+const SOCIAL_CATEGORIES = [
+  { code: 'hotel', label: 'Otel' },
+  { code: 'holiday_home', label: 'Villa / Tatil Evi' },
+  { code: 'yacht_charter', label: 'Yat' },
+  { code: 'tour', label: 'Tur' },
+  { code: 'activity', label: 'Aktivite' },
+  { code: 'flight', label: 'Uçak' },
+  { code: 'car_rental', label: 'Araç Kiralama' },
+]
+
+const SOCIAL_NETWORKS: Array<{ code: SocialNetwork; label: string }> = [
+  { code: 'facebook', label: 'Facebook' },
+  { code: 'instagram', label: 'Instagram' },
+]
+
+const DEFAULT_TEMPLATE_BODY =
+  '{{title}} için dikkat çekici Türkçe başlık yaz. Bölge: {{region}}. Fiyat/öne çıkan bilgi varsa doğal kullan. Açıklamada güven veren, satış odaklı ama abartısız bir metin yaz. Sonunda uygun ikonlar ve kısa çağrı ekle. URL: {{url}}'
 
 // ─── İlan arama + seçici ──────────────────────────────────────────────────────
 
@@ -123,6 +148,329 @@ interface FbResult {
   message_preview?: string
   error?: string
   hint?: string
+}
+
+function ogKindForCategory(categoryCode: string): 'stay' | 'experience' {
+  return categoryCode === 'tour' || categoryCode === 'activity' || categoryCode === 'cruise'
+    ? 'experience'
+    : 'stay'
+}
+
+function socialCoverPreviewUrl(listing: ManageListingRow | null): string {
+  if (!listing?.slug) return ''
+  const kind = ogKindForCategory(listing.category_code)
+  const q = new URLSearchParams({
+    kind,
+    handle: listing.slug,
+    locale: 'tr',
+    variant: 'social',
+  })
+  return `/api/og/listing?${q.toString()}`
+}
+
+async function listingImageKeys(listingId: string): Promise<string[]> {
+  const res = await getPublicListingImages(listingId).catch(() => null)
+  return (res?.images ?? [])
+    .map((img) => img.storage_key?.trim() ?? '')
+    .filter(Boolean)
+    .slice(0, 10)
+}
+
+function selectedNetworksFromState(state: Record<SocialNetwork, boolean>): SocialNetwork[] {
+  return SOCIAL_NETWORKS.map((n) => n.code).filter((code) => state[code])
+}
+
+function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
+  const [categoryCode, setCategoryCode] = useState('holiday_home')
+  const [networkState, setNetworkState] = useState<Record<SocialNetwork, boolean>>({
+    facebook: true,
+    instagram: true,
+    twitter: false,
+    pinterest: false,
+  })
+  const [templates, setTemplates] = useState<SocialTemplate[]>([])
+  const [templateId, setTemplateId] = useState('')
+  const [templateName, setTemplateName] = useState('Kategori kampanya şablonu')
+  const [templateBody, setTemplateBody] = useState(DEFAULT_TEMPLATE_BODY)
+  const [selectedListing, setSelectedListing] = useState<ManageListingRow | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const activeNetworks = selectedNetworksFromState(networkState)
+  const activeTemplates = templates.filter((t) => activeNetworks.includes(t.network as SocialNetwork))
+  const selectedTemplate = templates.find((t) => t.id === templateId) ?? null
+
+  const loadTemplates = useCallback(async () => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    try {
+      const res = await listSocialTemplates(token)
+      setTemplates(res.templates)
+      if (!templateId && res.templates[0]) {
+        setTemplateId(res.templates[0].id)
+        setTemplateName(res.templates[0].name)
+        setTemplateBody(res.templates[0].template_body)
+      }
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'social_templates_failed'))
+    }
+  }, [templateId])
+
+  useEffect(() => {
+    void loadTemplates()
+  }, [loadTemplates])
+
+  useEffect(() => {
+    if (!selectedTemplate) return
+    setTemplateName(selectedTemplate.name)
+    setTemplateBody(selectedTemplate.template_body)
+  }, [selectedTemplate])
+
+  async function ensureTemplate(token: string): Promise<string | undefined> {
+    if (templateId) return templateId
+    const network = activeNetworks[0] ?? 'facebook'
+    const created = await createSocialTemplate(token, {
+      network,
+      name: `[${categoryCode}] ${templateName.trim() || 'Sosyal paylaşım şablonu'}`,
+      template_body: templateBody.trim() || DEFAULT_TEMPLATE_BODY,
+    })
+    setTemplates((prev) => [created, ...prev])
+    setTemplateId(created.id)
+    return created.id
+  }
+
+  async function queueListing(token: string, listing: ManageListingRow, tplId: string | undefined) {
+    const keys = await listingImageKeys(listing.id)
+    if (keys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
+    await patchListingSocial(token, listing.id, {
+      share_to_social: true,
+      allow_ai_caption: true,
+    })
+    for (const network of activeNetworks) {
+      await createSocialJob(token, {
+        entity_type: 'listing',
+        entity_id: listing.id,
+        network,
+        template_id: tplId,
+        image_keys: keys,
+      })
+    }
+  }
+
+  async function onSaveTemplate() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const created = await createSocialTemplate(token, {
+        network: activeNetworks[0] ?? 'facebook',
+        name: `[${categoryCode}] ${templateName.trim() || 'Sosyal paylaşım şablonu'}`,
+        template_body: templateBody.trim() || DEFAULT_TEMPLATE_BODY,
+      })
+      setTemplates((prev) => [created, ...prev])
+      setTemplateId(created.id)
+      setMessage('Şablon kaydedildi ve seçildi.')
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'social_template_create_failed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onQueueSingle() {
+    const token = getStoredAuthToken()
+    if (!token || !selectedListing) return
+    if (activeNetworks.length === 0) {
+      setError('En az bir platform seçin.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const tplId = await ensureTemplate(token)
+      await queueListing(token, selectedListing, tplId)
+      setMessage('Tek ilan test kuyruğuna alındı. Worker çalıştığında AI metni ve kapakla paylaşılacak.')
+      onQueued()
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'social_single_queue_failed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function onQueueCategory() {
+    const token = getStoredAuthToken()
+    if (!token) return
+    if (activeNetworks.length === 0) {
+      setError('En az bir platform seçin.')
+      return
+    }
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const tplId = await ensureTemplate(token)
+      const res = await listManageCatalogListings(token, {
+        categoryCode,
+        page: 1,
+        perPage: 500,
+        titleLocale: 'tr',
+      })
+      const published = res.listings.filter((l) => l.status === 'published')
+      let queued = 0
+      let skipped = 0
+      for (const listing of published) {
+        try {
+          await queueListing(token, listing, tplId)
+          queued += activeNetworks.length
+        } catch {
+          skipped += 1
+        }
+      }
+      setMessage(
+        `${published.length} yayınlanmış ilan tarandı. ${queued} paylaşım işi kuyruğa alındı, ${skipped} ilan görsel/iş hatası nedeniyle atlandı.`,
+      )
+      onQueued()
+    } catch (e) {
+      setError(formatManageApiCatch(e, 'social_category_queue_failed'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const coverUrl = socialCoverPreviewUrl(selectedListing)
+
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
+            <Sparkles className="h-4 w-4 text-emerald-600" />
+            Kategori Bazlı AI Sosyal Paylaşım
+          </h3>
+          <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+            Kategori + şablon seçin; AI başlık/açıklama üretir, kapak ve 10 görselle kuyruğa alır. Worker panel kapalıyken 10 dakikalık zamanlayıcıyla paylaşır.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadTemplates()}
+          className="rounded-xl border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-neutral-900 dark:text-emerald-300"
+        >
+          Şablonları Yenile
+        </button>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Kategori</label>
+              <select
+                value={categoryCode}
+                onChange={(e) => setCategoryCode(e.target.value)}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+              >
+                {SOCIAL_CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Şablon</label>
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+              >
+                <option value="">Yeni şablon / elle düzenle</option>
+                {activeTemplates.map((t) => <option key={t.id} value={t.id}>{t.network} · {t.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Platformlar</label>
+            <div className="flex flex-wrap gap-2">
+              {SOCIAL_NETWORKS.map((n) => (
+                <label key={n.code} className="flex cursor-pointer items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm dark:border-neutral-700 dark:bg-neutral-900">
+                  <input
+                    type="checkbox"
+                    checked={networkState[n.code]}
+                    onChange={(e) => setNetworkState((prev) => ({ ...prev, [n.code]: e.target.checked }))}
+                  />
+                  {n.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[220px_1fr]">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Şablon adı</label>
+              <input
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Tek ilan test seçimi</label>
+              <ListingPicker value={selectedListing} onSelect={setSelectedListing} />
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+              AI şablon talimatı
+            </label>
+            <textarea
+              rows={4}
+              value={templateBody}
+              onChange={(e) => setTemplateBody(e.target.value)}
+              className="w-full resize-none rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
+            />
+            <p className="mt-1 text-[11px] text-neutral-500">
+              Yer tutucular: {'{{title}}'}, {'{{description}}'}, {'{{region}}'}, {'{{price}}'}, {'{{url}}'}. AI bunları ilan bilgileriyle doğal metne çevirir ve ikonlar ekler.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy} onClick={() => void onSaveTemplate()} className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-800 dark:bg-neutral-900 dark:text-emerald-300">
+              Şablonu Kaydet
+            </button>
+            <button type="button" disabled={busy || !selectedListing} onClick={() => void onQueueSingle()} className="flex items-center gap-2 rounded-xl bg-[#1877F2] px-4 py-2 text-sm font-semibold text-white hover:bg-[#166FE5] disabled:opacity-50">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              Tek İlanı Test Kuyruğuna Al
+            </button>
+            <button type="button" disabled={busy} onClick={() => void onQueueCategory()} className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
+              Bu Kategoriyi Toplu Kuyruğa Al
+            </button>
+          </div>
+
+          {message && <p className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-neutral-900 dark:text-emerald-300">{message}</p>}
+          {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{error}</p>}
+        </div>
+
+        <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-neutral-600 dark:text-neutral-300">
+            <ImageIcon className="h-4 w-4" />
+            Kapak önizleme
+          </div>
+          {coverUrl ? (
+            <img src={coverUrl} alt="Sosyal paylaşım kapağı" className="aspect-[1200/1500] w-full rounded-xl object-cover" />
+          ) : (
+            <div className="flex aspect-[1200/1500] items-center justify-center rounded-xl bg-neutral-100 px-6 text-center text-xs text-neutral-500 dark:bg-neutral-800">
+              Önizleme için tek ilan seçin.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function FacebookQuickPost() {
@@ -249,6 +597,11 @@ function JobRow({ j }: { j: SocialShareJob }) {
       <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[j.status] ?? 'bg-neutral-100 text-neutral-600'}`}>
         {j.status}
       </span>
+      {j.network && (
+        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+          {j.network}
+        </span>
+      )}
       <span className="font-mono text-xs text-neutral-700 dark:text-neutral-300">{j.entity_type}</span>
       <span className="truncate font-mono text-xs text-neutral-500 dark:text-neutral-400" title={j.entity_id}>
         {j.entity_id.slice(0, 8)}…
@@ -306,8 +659,8 @@ export default function AdminSocialSection() {
 
   return (
     <div className="space-y-6">
-      {/* Hızlı paylaşım */}
-      <FacebookQuickPost />
+      {/* Kategori bazlı AI paylaşım */}
+      <SocialCampaignPlanner onQueued={() => void refresh()} />
 
       {/* Paylaşım kuyruğu */}
       <div className="rounded-2xl border border-[color:var(--manage-card-border)] bg-[color:var(--manage-card-bg)] p-6 backdrop-blur-sm">

@@ -226,6 +226,12 @@ export default async function PageBuilderRenderer({
     // `resolveLocalizedDeep` stringleştirir; tip daraltması için union yapıyı koruyoruz.
     config: resolveLocalizedDeep(m.config) as PageBuilderModule['config'],
   })) as PageBuilderModule[]
+  const needsCategoryThumbnails = enabled.some(
+    (m) =>
+      m.type === 'category_slider' ||
+      m.type === 'category_grid' ||
+      m.type === 'travel_category_images',
+  )
 
   /**
    * Kategori kart thumb birleşim sırası (sonrakiler öncekini ezer):
@@ -234,11 +240,13 @@ export default async function PageBuilderRenderer({
    * 3) `travel_category_images` modülü (çoğunlukla ana sayfa)
    * Modül satırındaki `categoryThumbnails` en son yayına girer (slider/grid özel alanı).
    */
-  const sharedCategoryThumbnails = mergeRawThumbnailMaps(
-    await getSharedTravelCategoryThumbnailsRaw(),
-    implicitSharedThumbnailsRawFirstWins(enabled),
-    thumbnailsFromTravelCategoryImagesModulesRaw(enabled),
-  )
+  const sharedCategoryThumbnails = needsCategoryThumbnails
+    ? mergeRawThumbnailMaps(
+        await getSharedTravelCategoryThumbnailsRaw(),
+        implicitSharedThumbnailsRawFirstWins(enabled),
+        thumbnailsFromTravelCategoryImagesModulesRaw(enabled),
+      )
+    : {}
 
   const Root = rootAs
 

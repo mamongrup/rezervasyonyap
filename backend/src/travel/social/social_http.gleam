@@ -168,20 +168,24 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn job_row() -> decode.Decoder(#(String, String, String, String, String, String, String, String)) {
+fn job_row() ->
+  decode.Decoder(#(String, String, String, String, String, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use et <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
-  use tid <- decode.field(3, decode.string)
-  use status <- decode.field(4, decode.string)
-  use cap <- decode.field(5, decode.string)
-  use imgs <- decode.field(6, decode.string)
-  use created <- decode.field(7, decode.string)
-  decode.success(#(id, et, eid, tid, status, cap, imgs, created))
+  use net <- decode.field(3, decode.string)
+  use tid <- decode.field(4, decode.string)
+  use status <- decode.field(5, decode.string)
+  use cap <- decode.field(6, decode.string)
+  use imgs <- decode.field(7, decode.string)
+  use created <- decode.field(8, decode.string)
+  decode.success(#(id, et, eid, net, tid, status, cap, imgs, created))
 }
 
-fn job_to_json(row: #(String, String, String, String, String, String, String, String)) -> json.Json {
-  let #(id, et, eid, tid, status, cap, imgs, created) = row
+fn job_to_json(
+  row: #(String, String, String, String, String, String, String, String, String),
+) -> json.Json {
+  let #(id, et, eid, net, tid, status, cap, imgs, created) = row
   let template_field = case tid == "" {
     True -> json.null()
     False -> json.string(tid)
@@ -198,6 +202,7 @@ fn job_to_json(row: #(String, String, String, String, String, String, String, St
     #("id", json.string(id)),
     #("entity_type", json.string(et)),
     #("entity_id", json.string(eid)),
+    #("network", json.string(net)),
     #("template_id", template_field),
     #("status", json.string(status)),
     #("caption_ai_generated", cap_field),
@@ -243,7 +248,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     Error(_) -> 50
   }
   let sel =
-    "select id::text, entity_type, entity_id::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), created_at::text from social_share_jobs "
+    "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), created_at::text from social_share_jobs "
   case status_filter == "" {
     True ->
       case
@@ -275,7 +280,9 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
   }
 }
 
-fn jobs_response(rows: List(#(String, String, String, String, String, String, String, String))) -> Response {
+fn jobs_response(
+  rows: List(#(String, String, String, String, String, String, String, String, String)),
+) -> Response {
   let arr = list.map(rows, job_to_json)
   let body =
     json.object([#("jobs", json.array(from: arr, of: fn(x) { x }))])
@@ -283,27 +290,37 @@ fn jobs_response(rows: List(#(String, String, String, String, String, String, St
   wisp.json_response(body, 200)
 }
 
-fn create_job_decoder() -> decode.Decoder(#(String, String, Option(String), List(String), Option(String))) {
+fn create_job_decoder() ->
+  decode.Decoder(#(String, String, String, Option(String), List(String), Option(String))) {
   decode.field("entity_type", decode.string, fn(entity_type) {
     decode.field("entity_id", decode.string, fn(entity_id) {
-      decode.optional_field("template_id", "", decode.string, fn(tpl) {
-        decode.field("image_keys", decode.list(decode.string), fn(image_keys) {
-          decode.optional_field(
-            "caption_ai_generated",
-            "",
-            decode.string,
-            fn(cap) {
-              let tid = case string.trim(tpl) == "" {
-                True -> None
-                False -> Some(string.trim(tpl))
-              }
-              let cap_opt = case string.trim(cap) == "" {
-                True -> None
-                False -> Some(string.trim(cap))
-              }
-              decode.success(#(entity_type, entity_id, tid, image_keys, cap_opt))
-            },
-          )
+      decode.optional_field("network", "facebook", decode.string, fn(network) {
+        decode.optional_field("template_id", "", decode.string, fn(tpl) {
+          decode.field("image_keys", decode.list(decode.string), fn(image_keys) {
+            decode.optional_field(
+              "caption_ai_generated",
+              "",
+              decode.string,
+              fn(cap) {
+                let tid = case string.trim(tpl) == "" {
+                  True -> None
+                  False -> Some(string.trim(tpl))
+                }
+                let cap_opt = case string.trim(cap) == "" {
+                  True -> None
+                  False -> Some(string.trim(cap))
+                }
+                decode.success(#(
+                  entity_type,
+                  entity_id,
+                  network,
+                  tid,
+                  image_keys,
+                  cap_opt,
+                ))
+              },
+            )
+          })
         })
       })
     })
@@ -324,49 +341,55 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
             Ok(body) ->
               case json.parse(body, create_job_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
-                Ok(#(entity_type, entity_id, template_id, image_keys, caption_opt)) -> {
+                Ok(#(entity_type, entity_id, network_raw, template_id, image_keys, caption_opt)) -> {
+                  let network = string.lowercase(string.trim(network_raw))
                   case string.trim(entity_type) == "" || string.trim(entity_id) == "" {
                     True -> json_err(400, "entity_required")
                     False ->
-                      case list.is_empty(image_keys) {
-                        True -> json_err(400, "image_keys_required")
-                        False -> {
-                          let tpl_param = case template_id {
-                            Some(t) -> pog.text(t)
-                            None -> pog.null()
-                          }
-                          let cap_param = case caption_opt {
-                            Some(c) -> pog.text(c)
-                            None -> pog.null()
-                          }
-                          case
-                            pog.query(
-                              "insert into social_share_jobs (entity_type, entity_id, template_id, image_keys, caption_ai_generated) values ($1, $2::uuid, $3::uuid, $4::text[], $5) returning id::text",
-                            )
-                            |> pog.parameter(pog.text(string.trim(entity_type)))
-                            |> pog.parameter(pog.text(string.trim(entity_id)))
-                            |> pog.parameter(tpl_param)
-                            |> pog.parameter(pog.array(pog.text, image_keys))
-                            |> pog.parameter(cap_param)
-                            |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
-                          {
-                            Error(_) -> json_err(500, "job_insert_failed")
-                            Ok(r) ->
-                              case r.rows {
-                                [jid] -> {
-                                  let body =
-                                    json.object([
-                                      #("id", json.string(jid)),
-                                      #("status", json.string("pending")),
-                                    ])
-                                    |> json.to_string
-                                  wisp.json_response(body, 201)
-                                }
-                                _ -> json_err(500, "unexpected_return")
+                      case valid_network(network) {
+                        False -> json_err(400, "invalid_network")
+                        True ->
+                          case list.is_empty(image_keys) {
+                            True -> json_err(400, "image_keys_required")
+                            False -> {
+                              let tpl_param = case template_id {
+                                Some(t) -> pog.text(t)
+                                None -> pog.null()
                               }
+                              let cap_param = case caption_opt {
+                                Some(c) -> pog.text(c)
+                                None -> pog.null()
+                              }
+                              case
+                                pog.query(
+                                  "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated) values ($1, $2::uuid, $3, $4::uuid, $5::text[], $6) returning id::text",
+                                )
+                                |> pog.parameter(pog.text(string.trim(entity_type)))
+                                |> pog.parameter(pog.text(string.trim(entity_id)))
+                                |> pog.parameter(pog.text(network))
+                                |> pog.parameter(tpl_param)
+                                |> pog.parameter(pog.array(pog.text, image_keys))
+                                |> pog.parameter(cap_param)
+                                |> pog.returning(row_dec.col0_string())
+                                |> pog.execute(ctx.db)
+                              {
+                                Error(_) -> json_err(500, "job_insert_failed")
+                                Ok(r) ->
+                                  case r.rows {
+                                    [jid] -> {
+                                      let body =
+                                        json.object([
+                                          #("id", json.string(jid)),
+                                          #("status", json.string("pending")),
+                                        ])
+                                        |> json.to_string
+                                      wisp.json_response(body, 201)
+                                    }
+                                    _ -> json_err(500, "unexpected_return")
+                                  }
+                              }
+                            }
                           }
-                        }
                       }
                   }
                 }

@@ -213,11 +213,11 @@ export default async function StayListingDetailPageContent({
   linkBase: StayDetailLinkBase | string
 }) {
   const { handle, locale } = await params
-  const [calendarMonthsShown, sitePubApi] = await Promise.all([
+  const [calendarMonthsShown, sitePubApi, listing] = await Promise.all([
     guessCalendarMonthsShownFromRequest(),
     getCachedSiteConfig(),
+    getStayListingByHandle(handle, locale),
   ])
-  const listing = await getStayListingByHandle(handle, locale)
   if (!listing?.id) {
     const browse =
       linkBase === HOLIDAY_HOME_DETAIL_PATH
