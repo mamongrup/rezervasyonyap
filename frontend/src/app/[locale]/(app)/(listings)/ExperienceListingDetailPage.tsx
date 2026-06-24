@@ -262,6 +262,8 @@ export default async function ExperienceListingDetailPage({
   }
 
   const vertical = normalizeCatalogVertical(listing.listingVertical) ?? 'activity'
+  const isTour = vertical === 'tour'
+  const isActivity = vertical === 'activity'
   const experienceCodes: CatalogListingVerticalCode[] = [
     'tour',
     'activity',
@@ -315,7 +317,7 @@ export default async function ExperienceListingDetailPage({
       ? resolveTourCountryCards(catalogListingId).catch(() => [])
       : Promise.resolve([]),
     vertical === 'tour'
-      ? fetchCategoryListings('turlar', {}, {}, locale).catch(() => ({ listings: [] }))
+      ? fetchCategoryListings('turlar', {}, { perPage: 9 }, locale).catch(() => ({ listings: [] }))
       : Promise.resolve({ listings: [] }),
     vertical === 'activity'
       ? fetchCategoryListings('aktiviteler', {}, {}, locale).catch(() => ({ listings: [] }))
@@ -342,17 +344,17 @@ export default async function ExperienceListingDetailPage({
   const city = (listing as TListingBase).city
   const regionSlugForPlaces =
     regionBrowseSlugFromLocationPin(city) ?? regionPlacesSlugFromCity(city)
-  const regionPlacesInitialData = await resolveRegionPlacesForListingPage(
-    regionSlugForPlaces,
-    locale,
-    shortRegionLabelFromLocationPin(city) || city || undefined,
-  )
+  const regionPlacesInitialData = isActivity
+    ? await resolveRegionPlacesForListingPage(
+        regionSlugForPlaces,
+        locale,
+        shortRegionLabelFromLocationPin(city) || city || undefined,
+      )
+    : null
   const m = getMessages(locale)
   const dp = m.listing.detailPage
   const td = m.listing.tourDetail
   const ad = m.listing.activityDetail
-  const isTour = vertical === 'tour'
-  const isActivity = vertical === 'activity'
   const tourMeta = isTour ? parseTourMeta(rawTourMeta) : null
   const tourPeriodOptions = isTour && rawTourPeriods ? mergeTourPeriodOptions(rawTourPeriods) : []
   const tourFlightSchedules =

@@ -9531,6 +9531,7 @@ export async function getVerticalMeta<T = Record<string, unknown>>(
   if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
   const res = await fetch(
     v(listingId, `/vertical-meta?category=${encodeURIComponent(category)}`),
+    typeof window === 'undefined' ? { next: { revalidate: 120 } } : undefined,
   )
   if (!res.ok) throw new Error(`vertical_meta_${res.status}`)
   return json(res) as Promise<T>

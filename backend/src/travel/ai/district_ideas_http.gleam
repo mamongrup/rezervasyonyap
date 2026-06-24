@@ -1190,10 +1190,10 @@ pub fn reset_stuck_jobs(req: Request, ctx: Context) -> Response {
       case
         pog.query(
           "update ai_jobs
-           set    status = 'failed', error = 'reset_stuck'
+           set    status = 'failed', error = 'reset_stuck', finished_at = now()
            where  status = 'running'
              and  profile_code in ('district_travel_ideas')
-           returning id",
+           returning id::text",
         )
         |> pog.returning(row_dec.col0_string())
         |> pog.execute(ctx.db)

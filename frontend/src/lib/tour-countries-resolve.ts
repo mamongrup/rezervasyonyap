@@ -55,22 +55,30 @@ export async function resolveTourCountryCards(listingId: string): Promise<TourCo
   }
 
   const seen = new Set<string>()
-  const cards: TourCountryCard[] = []
-
-  for (const ref of refs) {
+  const uniqueRefs = refs.filter((ref) => {
     const iso2 = ref.code?.trim().toUpperCase()
-    if (!iso2 || iso2.length !== 2 || seen.has(iso2)) continue
+    if (!iso2 || iso2.length !== 2 || seen.has(iso2)) return false
     seen.add(iso2)
+    return true
+  })
 
-    const page = await getLocationPageBySlug(iso2).catch(() => null)
-    const info = parseCountryTourInfo(page?.country_info_json ?? '{}')
-    cards.push({
-      iso2,
-      name: countryNameFromPage(page, iso2, ref.name),
-      page,
-      info,
-    })
-  }
+  const cards = await Promise.all(
+    uniqueRefs.map(async (ref): Promise<TourCountryCard | null> => {
+      const iso2 = ref.code?.trim().toUpperCase()
+      if (!iso2 || iso2.length !== 2) return null
+      const page = await getLocationPageBySlug(iso2).catch(() => null)
+      const info = parseCountryTourInfo(page?.country_info_json ?? '{}')
+      return {
+        iso2,
+        name: countryNameFromPage(page, iso2, ref.name),
+        page,
+        info,
+      }
+    }),
+  )
 
-  return cards.filter((c) => countryTourInfoHasContent(c.info) || c.name.trim())
+  return cards.filter(
+    (c): c is TourCountryCard =>
+      Boolean(c && (countryTourInfoHasContent(c.info) || c.name.trim())),
+  )
 }
