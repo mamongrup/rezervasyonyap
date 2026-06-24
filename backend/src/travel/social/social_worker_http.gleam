@@ -579,7 +579,7 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
                           #(
                             "instruction",
                             json.string(
-                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan. Seçili paylaşım şablonunu uygula; {{title}}, {{description}}, {{region}}, {{price}}, {{url}} gibi yer tutucuları doğal metne çevir. Şablon: "
+                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan. Seçili paylaşım şablonunu uygula; {{title}}, {{description}}, {{region}}, {{price}}, {{rooms}}, {{bathrooms}}, {{bedrooms}}, {{guests}}, {{area}}, {{pool}}, {{url}} gibi yer tutucuları ilan başlığı/açıklaması/bölge/url bilgisinden doğal metne çevir. Oda, banyo, yatak odası, kişi, m2, havuz veya fiyat bilgisi açıkça yoksa uydurma; cümleyi bozmadan o alanı atla. Şablon: "
                               <> string.slice(string.trim(template_body), 0, 1800),
                             ),
                           ),

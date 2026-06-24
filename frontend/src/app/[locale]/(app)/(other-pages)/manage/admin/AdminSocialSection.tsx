@@ -15,8 +15,9 @@ import {
   type SocialTemplate,
 } from '@/lib/travel-api'
 import { getStoredAuthToken } from '@/lib/auth-storage'
+import type { DragEvent } from 'react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { CheckCircle, ChevronDown, ExternalLink, Facebook, ImageIcon, Layers, Loader2, RefreshCw, Search, Send, Sparkles, X, XCircle } from 'lucide-react'
+import { CheckCircle, ChevronDown, ExternalLink, Facebook, GripVertical, ImageIcon, Layers, Loader2, Plus, RefreshCw, Search, Send, Sparkles, X, XCircle } from 'lucide-react'
 
 const SOCIAL_CATEGORIES = [
   { code: 'hotel', label: 'Otel' },
@@ -34,23 +35,66 @@ const SOCIAL_NETWORKS: Array<{ code: SocialNetwork; label: string }> = [
 ]
 
 const DEFAULT_TEMPLATE_BODY =
-  '{{title}} için dikkat çekici Türkçe başlık yaz. Bölge: {{region}}. Fiyat/öne çıkan bilgi varsa doğal kullan. Açıklamada güven veren, satış odaklı ama abartısız bir metin yaz. Sonunda uygun ikonlar ve kısa çağrı ekle. URL: {{url}}'
+  '{{title}}\n{{region}} bölgesinde öne çıkan bu ilan için dikkat çekici Türkçe paylaşım metni yaz.\nÖne çıkan alanlar: fiyat {{price}}, oda {{rooms}}, banyo {{bathrooms}}, kişi {{guests}}.\nAçıklamada güven veren, satış odaklı ama abartısız bir ton kullan. Sonunda uygun ikonlar ve kısa çağrı ekle.\nURL: {{url}}'
+
+const TEMPLATE_FIELDS = [
+  { token: '{{title}}', label: 'Başlık', hint: 'İlan başlığı' },
+  { token: '{{region}}', label: 'Bölge', hint: 'Şehir / bölge' },
+  { token: '{{price}}', label: 'Fiyat', hint: 'Başlangıç fiyatı' },
+  { token: '{{rooms}}', label: 'Oda', hint: 'Oda sayısı' },
+  { token: '{{bathrooms}}', label: 'Banyo', hint: 'Banyo sayısı' },
+  { token: '{{bedrooms}}', label: 'Yatak odası', hint: 'Yatak odası' },
+  { token: '{{guests}}', label: 'Kişi', hint: 'Kapasite' },
+  { token: '{{area}}', label: 'm²', hint: 'Alan bilgisi' },
+  { token: '{{pool}}', label: 'Havuz', hint: 'Havuz bilgisi' },
+  { token: '{{description}}', label: 'Açıklama', hint: 'İlan açıklaması' },
+  { token: '{{url}}', label: 'URL', hint: 'İlan bağlantısı' },
+]
 
 // ─── İlan arama + seçici ──────────────────────────────────────────────────────
 
 function ListingPicker({
   value,
   onSelect,
+  categoryCode,
+  categoryLabel,
 }: {
   value: ManageListingRow | null
   onSelect: (listing: ManageListingRow | null) => void
+  categoryCode?: string
+  categoryLabel?: string
 }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ManageListingRow[]>([])
   const [searching, setSearching] = useState(false)
   const [open, setOpen] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
+
+  const loadListings = useCallback(async (nextQuery: string) => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setSearching(true)
+    setLoadError(null)
+    try {
+      const res = await listManageCatalogListings(token, {
+        categoryCode,
+        search: nextQuery.trim() || undefined,
+        page: 1,
+        perPage: 20,
+        titleLocale: 'tr',
+      })
+      setResults(res.listings)
+      setOpen(true)
+    } catch {
+      setLoadError('İlanlar yüklenemedi.')
+      setResults([])
+      setOpen(true)
+    } finally {
+      setSearching(false)
+    }
+  }, [categoryCode])
 
   useEffect(() => {
     function onOutside(e: MouseEvent) {
@@ -62,26 +106,28 @@ function ListingPicker({
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!query.trim()) { setResults([]); return }
+    if (!query.trim()) return
     debounceRef.current = setTimeout(async () => {
-      const token = getStoredAuthToken()
-      if (!token) return
-      setSearching(true)
-      try {
-        const res = await listManageCatalogListings(token, { search: query.trim() })
-        setResults(res.listings.slice(0, 10))
-        setOpen(true)
-      } catch { /* ignore */ }
-      finally { setSearching(false) }
+      await loadListings(query.trim())
     }, 350)
-  }, [query])
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [loadListings, query])
+
+  useEffect(() => {
+    setQuery('')
+    setResults([])
+    setOpen(false)
+    setLoadError(null)
+  }, [categoryCode])
 
   if (value) {
     return (
       <div className="flex items-center justify-between rounded-xl border border-blue-300 bg-white px-4 py-3 dark:border-blue-700 dark:bg-neutral-900">
         <div className="min-w-0">
           <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{value.title}</p>
-          <p className="mt-0.5 text-xs text-neutral-400">{value.category_code} · {value.status}</p>
+          <p className="mt-0.5 text-xs text-neutral-400">{categoryLabel ?? value.category_code} · {value.status}</p>
         </div>
         <button
           type="button"
@@ -105,8 +151,8 @@ function ListingPicker({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => results.length > 0 && setOpen(true)}
-          placeholder="İlan adı ile arayın…"
+          onFocus={() => { setOpen(true); if (results.length === 0) void loadListings(query.trim()) }}
+          placeholder={categoryLabel ? `${categoryLabel} ilanlarında ara…` : 'İlan adı ile arayın…'}
           className="w-full bg-transparent py-2.5 pl-2 text-sm text-neutral-800 placeholder:text-neutral-400 focus:outline-none dark:text-neutral-200"
         />
         {query && <ChevronDown className="h-4 w-4 shrink-0 text-neutral-400" />}
@@ -123,16 +169,16 @@ function ListingPicker({
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-neutral-800 dark:text-neutral-100">{l.title}</p>
-                <p className="text-xs text-neutral-400">{l.category_code} · {l.status}</p>
+                <p className="text-xs text-neutral-400">{categoryLabel ?? l.category_code} · {l.status}</p>
               </div>
             </button>
           ))}
         </div>
       )}
 
-      {open && !searching && query.trim() && results.length === 0 && (
+      {open && !searching && results.length === 0 && (
         <div className="absolute z-50 mt-1 w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
-          <p className="text-sm text-neutral-400">Sonuç bulunamadı.</p>
+          <p className="text-sm text-neutral-400">{loadError ?? 'Sonuç bulunamadı.'}</p>
         </div>
       )}
     </div>
@@ -196,10 +242,12 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const templateTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const activeNetworks = selectedNetworksFromState(networkState)
   const activeTemplates = templates.filter((t) => activeNetworks.includes(t.network as SocialNetwork))
   const selectedTemplate = templates.find((t) => t.id === templateId) ?? null
+  const selectedCategory = SOCIAL_CATEGORIES.find((c) => c.code === categoryCode) ?? SOCIAL_CATEGORIES[0]
 
   const loadTemplates = useCallback(async () => {
     const token = getStoredAuthToken()
@@ -226,6 +274,32 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     setTemplateName(selectedTemplate.name)
     setTemplateBody(selectedTemplate.template_body)
   }, [selectedTemplate])
+
+  useEffect(() => {
+    setSelectedListing(null)
+  }, [categoryCode])
+
+  function insertTemplateToken(token: string) {
+    const el = templateTextareaRef.current
+    const start = el?.selectionStart ?? templateBody.length
+    const end = el?.selectionEnd ?? templateBody.length
+    const spacerBefore = start > 0 && !/\s/.test(templateBody[start - 1] ?? '') ? ' ' : ''
+    const spacerAfter = templateBody[end] && !/\s/.test(templateBody[end] ?? '') ? ' ' : ''
+    const next = `${templateBody.slice(0, start)}${spacerBefore}${token}${spacerAfter}${templateBody.slice(end)}`
+    const cursor = start + spacerBefore.length + token.length + spacerAfter.length
+    setTemplateBody(next)
+    window.setTimeout(() => {
+      el?.focus()
+      el?.setSelectionRange(cursor, cursor)
+    }, 0)
+  }
+
+  function onTemplateDrop(e: DragEvent<HTMLTextAreaElement>) {
+    const token = e.dataTransfer.getData('text/plain')
+    if (!token.startsWith('{{')) return
+    e.preventDefault()
+    insertTemplateToken(token)
+  }
 
   async function ensureTemplate(token: string): Promise<string | undefined> {
     if (templateId) return templateId
@@ -367,16 +441,29 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
 
       <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
         <div className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(220px,0.9fr)]">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Kategori</label>
-              <select
-                value={categoryCode}
-                onChange={(e) => setCategoryCode(e.target.value)}
-                className="w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-              >
-                {SOCIAL_CATEGORIES.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-              </select>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+                {SOCIAL_CATEGORIES.map((c) => {
+                  const active = c.code === categoryCode
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => setCategoryCode(c.code)}
+                      className={[
+                        'rounded-xl border px-3 py-2 text-left text-xs font-medium transition',
+                        active
+                          ? 'border-emerald-500 bg-emerald-600 text-white shadow-sm'
+                          : 'border-neutral-200 bg-white text-neutral-700 hover:border-emerald-300 hover:bg-emerald-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-200 dark:hover:bg-emerald-950/30',
+                      ].join(' ')}
+                    >
+                      {c.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Şablon</label>
@@ -418,23 +505,63 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Tek ilan test seçimi</label>
-              <ListingPicker value={selectedListing} onSelect={setSelectedListing} />
+              <ListingPicker
+                value={selectedListing}
+                onSelect={setSelectedListing}
+                categoryCode={categoryCode}
+                categoryLabel={selectedCategory.label}
+              />
             </div>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
-              AI şablon talimatı
-            </label>
-            <textarea
-              rows={4}
-              value={templateBody}
-              onChange={(e) => setTemplateBody(e.target.value)}
-              className="w-full resize-none rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm dark:border-neutral-600 dark:bg-neutral-900"
-            />
-            <p className="mt-1 text-[11px] text-neutral-500">
-              Yer tutucular: {'{{title}}'}, {'{{description}}'}, {'{{region}}'}, {'{{price}}'}, {'{{url}}'}. AI bunları ilan bilgileriyle doğal metne çevirir ve ikonlar ekler.
-            </p>
+          <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_260px]">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                AI şablon talimatı
+              </label>
+              <textarea
+                ref={templateTextareaRef}
+                rows={8}
+                value={templateBody}
+                onChange={(e) => setTemplateBody(e.target.value)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={onTemplateDrop}
+                className="w-full resize-y rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm leading-6 dark:border-neutral-600 dark:bg-neutral-900"
+                placeholder="Alanları sağdan sürükleyip metinde görünmesini istediğiniz yere bırakın."
+              />
+              <p className="mt-1 text-[11px] text-neutral-500">
+                Alanları sürükleyip metindeki istediğiniz sıraya bırakın veya etikete tıklayarak imlecin olduğu yere ekleyin. AI boş kalan oda/banyo gibi bilgileri açıklamadan çıkarmaya çalışır; bulamazsa doğal şekilde atlar.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-3 dark:border-neutral-700 dark:bg-neutral-900">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-neutral-700 dark:text-neutral-200">
+                <GripVertical className="h-4 w-4 text-emerald-600" />
+                Sürüklenebilir alanlar
+              </div>
+              <div className="grid grid-cols-2 gap-2 xl:grid-cols-1">
+                {TEMPLATE_FIELDS.map((field) => (
+                  <button
+                    key={field.token}
+                    type="button"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', field.token)
+                      e.dataTransfer.effectAllowed = 'copy'
+                    }}
+                    onClick={() => insertTemplateToken(field.token)}
+                    className="group flex cursor-grab items-center justify-between gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left text-xs transition hover:border-emerald-300 hover:bg-emerald-50 active:cursor-grabbing dark:border-neutral-700 dark:bg-neutral-800 dark:hover:bg-emerald-950/30"
+                    title={`${field.hint}: ${field.token}`}
+                  >
+                    <span>
+                      <span className="block font-semibold text-neutral-800 dark:text-neutral-100">{field.label}</span>
+                      <span className="block font-mono text-[10px] text-neutral-400">{field.token}</span>
+                    </span>
+                    <Plus className="h-3.5 w-3.5 text-neutral-400 group-hover:text-emerald-600" />
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">

@@ -357,7 +357,7 @@ const manage_listings_scope_sql: String =
   "from listings l "
   <> "join product_categories pc on pc.id = l.category_id "
   <> "where l.organization_id = $1::uuid "
-  <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2) "
+  <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2 or exists (select 1 from listing_translations lt_search where lt_search.listing_id = l.id and lt_search.title ilike $2)) "
   <> "and ($3::text is null or pc.code = $3)"
 
 /// GET /api/v1/catalog/product-categories?active_only=true — yalnızca yayında kategoriler.
