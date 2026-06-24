@@ -26,6 +26,7 @@ const SAFE_FOLDERS: Record<string, true> = {
 const IMAGE_EXT = /\.(avif|webp|jpe?g|png|gif|svg|ico)$/i
 
 const MAX_FILES = 800
+const MAX_PREFIX_FILES = 3000
 const MAX_DEPTH = 10
 
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads')
@@ -41,12 +42,26 @@ function toPosixRel(p: string): string {
   return p.split(path.sep).filter(Boolean).join('/')
 }
 
-async function collectMediaFiles(): Promise<MediaFileRow[]> {
+function sanitizePrefix(raw: string | null): string | null {
+  if (!raw || !String(raw).trim()) return null
+  const normalized = String(raw)
+    .replace(/^[\\/]+|[\\/]+$/g, '')
+    .split(/[\\/]+/)
+    .filter((s) => s && s !== '.' && s !== '..')
+    .join('/')
+  if (!normalized) return null
+  const top = normalized.split('/')[0] ?? ''
+  if (!SAFE_FOLDERS[top]) return null
+  return normalized
+}
+
+async function collectMediaFiles(prefix: string | null = null): Promise<MediaFileRow[]> {
   const rows: MediaFileRow[] = []
   let count = 0
+  const limit = prefix ? MAX_PREFIX_FILES : MAX_FILES
 
   async function walk(absDir: string, relDir: string, depth: number): Promise<void> {
-    if (depth > MAX_DEPTH || count >= MAX_FILES) return
+    if (depth > MAX_DEPTH || count >= limit) return
 
     let dirents: import('node:fs').Dirent[]
     try {
@@ -55,16 +70,12 @@ async function collectMediaFiles(): Promise<MediaFileRow[]> {
       return
     }
 
+    // Önce bulunduğumuz klasördeki dosyaları ekle; yoğun alt klasörlerde MAX_FILES
+    // limitine takılınca logo/favicon gibi kök görseller listeden düşmesin.
     for (const d of dirents) {
       if (d.name.startsWith('.')) continue
       const abs = path.join(absDir, d.name)
       const rel = relDir ? path.join(relDir, d.name) : d.name
-
-      if (d.isDirectory()) {
-        await walk(abs, rel, depth + 1)
-        if (count >= MAX_FILES) return
-        continue
-      }
 
       if (!d.isFile()) continue
       if (!IMAGE_EXT.test(d.name)) continue
@@ -83,6 +94,21 @@ async function collectMediaFiles(): Promise<MediaFileRow[]> {
         /* yoksay */
       }
     }
+
+    for (const d of dirents) {
+      if (d.name.startsWith('.')) continue
+      if (!d.isDirectory()) continue
+      const abs = path.join(absDir, d.name)
+      const rel = relDir ? path.join(relDir, d.name) : d.name
+      await walk(abs, rel, depth + 1)
+      if (count >= limit) return
+    }
+  }
+
+  if (prefix) {
+    await walk(path.join(UPLOADS_ROOT, prefix), prefix, 1)
+    rows.sort((a, b) => b.mtime.localeCompare(a.mtime))
+    return rows
   }
 
   let top: import('node:fs').Dirent[] = []
@@ -97,14 +123,14 @@ async function collectMediaFiles(): Promise<MediaFileRow[]> {
     if (!SAFE_FOLDERS[d.name]) continue
     const abs = path.join(UPLOADS_ROOT, d.name)
     await walk(abs, d.name, 1)
-    if (count >= MAX_FILES) break
+    if (count >= limit) break
   }
 
   rows.sort((a, b) => b.mtime.localeCompare(a.mtime))
   return rows
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const cookieStore = await cookies()
   const auth = await verifyAdminMediaToken(cookieStore.get('travel_auth_token')?.value)
   if (!auth.ok) {
@@ -112,7 +138,8 @@ export async function GET() {
   }
 
   try {
-    const items = await collectMediaFiles()
+    const prefix = sanitizePrefix(req.nextUrl.searchParams.get('prefix'))
+    const items = await collectMediaFiles(prefix)
     const res = NextResponse.json({
       ok: true,
       items,

@@ -71,6 +71,19 @@ function stemFromOriginalFilename(name: string): string {
   return sanitizePathSegment(base) || 'gorsel'
 }
 
+function faviconUploadProfile(folder: string, fixedStem: string): FolderProfile | null {
+  if (folder !== 'site' || !/favicon/i.test(fixedStem)) return null
+  return {
+    width: 512,
+    height: 512,
+    fit: 'inside',
+    vivid: false,
+    quality: 90,
+    effort: 6,
+    thumb: 0,
+  }
+}
+
 const UPLOADS_ROOT = path.join(process.cwd(), 'public', 'uploads')
 const MAX_SIZE = 8 * 1024 * 1024 // 8 MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']
@@ -375,7 +388,7 @@ export async function POST(req: NextRequest) {
       outputBuffer = rawBuffer
       ext = originalExt === 'ico' ? 'ico' : 'svg'
     } else {
-      const profile = await getProfile(folder)
+      const profile = faviconUploadProfile(folder, fixedStem) ?? await getProfile(folder)
       try {
         const result = await processImage(rawBuffer, profile)
         outputBuffer = result.output

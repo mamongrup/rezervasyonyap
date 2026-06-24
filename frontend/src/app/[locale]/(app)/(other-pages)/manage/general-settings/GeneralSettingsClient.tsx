@@ -98,9 +98,9 @@ function BrandingImageUploadRow({
 
   const previewBox =
     preview === 'favicon' ? (
-      <div className="mt-3 flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-900">
+      <div className="mt-3 flex aspect-square h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-neutral-200 bg-white p-1 dark:border-neutral-700 dark:bg-neutral-900">
         {previewSrc ? (
-          <img src={previewSrc} alt="" className="h-9 w-9 object-contain" />
+          <img src={previewSrc} alt="" className="h-full w-full object-contain" />
         ) : (
           <span className="text-[10px] text-neutral-400">—</span>
         )}

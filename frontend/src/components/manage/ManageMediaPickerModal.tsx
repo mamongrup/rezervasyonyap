@@ -42,6 +42,8 @@ type Props = {
   /** Galeri seçimi veya tek dosya yükleme sonrası */
   onSelect: (url: string, meta?: ManageMediaPickMeta) => void
   uploadTarget: ManageMediaPickerUploadTarget
+  /** Galeride gezilecek üst kök; yükleme hedefi `uploadTarget` olarak kalır. */
+  libraryRoot?: string
   /** Birden fazla dosya seçimi (sıralı isim: batchStartIndex + i; `fixedStem` / `slot` ile uyumsuz) */
   allowMultipleUpload?: boolean
   batchStartIndex?: number
@@ -65,6 +67,23 @@ function uploadBasePath(target: ManageMediaPickerUploadTarget): string {
   const top = target.folder.trim()
   const sub = (target.subPath ?? '').trim().replace(/^\/+|\/+$/g, '')
   return sub ? `${top}/${sub}` : top
+}
+
+function normalizeMediaPath(raw: string | undefined): string {
+  return (raw ?? '')
+    .trim()
+    .replace(/^[\\/]+|[\\/]+$/g, '')
+    .split(/[\\/]+/)
+    .filter((s) => s && s !== '.' && s !== '..')
+    .join('/')
+}
+
+function defaultLibraryRootForTarget(target: ManageMediaPickerUploadTarget): string | undefined {
+  const folder = target.folder.trim()
+  const sub = normalizeMediaPath(target.subPath)
+  if (folder === 'site' && sub.startsWith('page-builder/')) return 'site/page-builder'
+  if (folder === 'site' && sub.startsWith('vitrin-kategori/')) return 'site/vitrin-kategori'
+  return undefined
 }
 
 function effectiveTargetFromBrowse(
@@ -143,6 +162,7 @@ export function ManageMediaPickerModal({
   onClose,
   onSelect,
   uploadTarget,
+  libraryRoot,
   allowMultipleUpload = false,
   batchStartIndex,
   onSelectBatch,
@@ -170,6 +190,10 @@ export function ManageMediaPickerModal({
   const dragDepth = useRef(0)
 
   const uploadBase = useMemo(() => uploadBasePath(uploadTarget), [uploadTarget])
+  const libraryBase = useMemo(() => {
+    const normalized = normalizeMediaPath(libraryRoot) || defaultLibraryRootForTarget(uploadTarget)
+    return normalized && browseAllowed(normalized, uploadBase) ? normalized : uploadBase
+  }, [libraryRoot, uploadTarget, uploadBase])
   const folderFeaturesEnabled = !uploadTarget.fixedStem?.trim()
 
   const effectiveUploadTarget = useMemo(
@@ -182,7 +206,9 @@ export function ManageMediaPickerModal({
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch('/api/manage/media-library', { credentials: 'include', cache: 'no-store' })
+      const u = new URL('/api/manage/media-library', window.location.origin)
+      if (libraryBase.trim()) u.searchParams.set('prefix', libraryBase)
+      const res = await fetch(u.toString(), { credentials: 'include', cache: 'no-store' })
       const data = (await res.json().catch(() => ({}))) as {
         ok?: boolean
         items?: ApiRow[]
@@ -200,7 +226,7 @@ export function ManageMediaPickerModal({
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [libraryBase])
 
   const fetchRefs = useCallback(async (paths: string[]): Promise<Record<string, string[]>> => {
     if (paths.length === 0) return {}
@@ -225,7 +251,7 @@ export function ManageMediaPickerModal({
   useEffect(() => {
     if (open) {
       setSearch('')
-      setBrowsePrefix(uploadBase)
+      setBrowsePrefix(browseAllowed(libraryBase, uploadBase) ? uploadBase : libraryBase)
       setExtraFolders([])
       setCreatingFolder(false)
       setNewFolderName('')
@@ -235,7 +261,7 @@ export function ManageMediaPickerModal({
       setViewMode('grid')
       void load()
     }
-  }, [open, uploadBase, load])
+  }, [open, uploadBase, libraryBase, load])
 
   useEffect(() => {
     setSelectedPaths(new Set())
@@ -243,15 +269,15 @@ export function ManageMediaPickerModal({
 
   useEffect(() => {
     if (!open || !folderFeaturesEnabled) return
-    if (!browseAllowed(uploadBase, browsePrefix)) {
-      setBrowsePrefix(uploadBase)
+    if (!browseAllowed(libraryBase, browsePrefix)) {
+      setBrowsePrefix(browseAllowed(libraryBase, uploadBase) ? uploadBase : libraryBase)
     }
-  }, [open, folderFeaturesEnabled, uploadBase, browsePrefix])
+  }, [open, folderFeaturesEnabled, uploadBase, libraryBase, browsePrefix])
 
   const scopedFlatItems = useMemo(() => {
-    const base = uploadBase
+    const base = libraryBase
     return items.filter((it) => it.relPath === base || it.relPath.startsWith(`${base}/`))
-  }, [items, uploadBase])
+  }, [items, libraryBase])
 
   const foldersHere = useMemo(() => {
     if (!folderFeaturesEnabled) return []
@@ -265,9 +291,9 @@ export function ManageMediaPickerModal({
 
   const destFolderOptions = useMemo(() => {
     const set = new Set<string>()
-    set.add(uploadBase)
+    set.add(libraryBase)
     set.add(browsePrefix)
-    const base = uploadBase
+    const base = libraryBase
     for (const it of items) {
       const rp = it.relPath
       if (rp !== base && !rp.startsWith(`${base}/`)) continue
@@ -279,7 +305,7 @@ export function ManageMediaPickerModal({
       }
     }
     return [...set].sort((a, b) => a.localeCompare(b, 'tr'))
-  }, [items, uploadBase, browsePrefix])
+  }, [items, libraryBase, browsePrefix])
 
   useEffect(() => {
     if (moveDialogOpen && !moveDest) {
@@ -304,7 +330,7 @@ export function ManageMediaPickerModal({
 
   const breadcrumbSegments = useMemo(() => {
     if (!folderFeaturesEnabled) return []
-    const baseParts = uploadBase.split('/').filter(Boolean)
+    const baseParts = libraryBase.split('/').filter(Boolean)
     const browseParts = browsePrefix.split('/').filter(Boolean)
     const crumbs: { label: string; prefix: string }[] = []
     for (let i = baseParts.length; i <= browseParts.length; i++) {
@@ -313,7 +339,7 @@ export function ManageMediaPickerModal({
       if (label) crumbs.push({ label, prefix })
     }
     return crumbs
-  }, [folderFeaturesEnabled, uploadBase, browsePrefix])
+  }, [folderFeaturesEnabled, libraryBase, browsePrefix])
 
   const fileInputMultiple = useMemo(() => {
     const t = effectiveUploadTarget
@@ -419,14 +445,14 @@ export function ManageMediaPickerModal({
         )
         if (browsePrefix === folderFullPath || browsePrefix.startsWith(`${folderFullPath}/`)) {
           const parent = posixDirname(folderFullPath)
-          setBrowsePrefix(browseAllowed(uploadBase, parent) ? parent || uploadBase : uploadBase)
+          setBrowsePrefix(browseAllowed(libraryBase, parent) ? parent || libraryBase : libraryBase)
         }
         await load()
       } catch {
         setError('Klasör silinirken ağ hatası.')
       }
     },
-    [browsePrefix, uploadBase, load],
+    [browsePrefix, libraryBase, load],
   )
 
   const runDeletePaths = useCallback(
@@ -505,7 +531,7 @@ export function ManageMediaPickerModal({
     const relPaths = [...selectedPaths]
     if (relPaths.length === 0 || !moveDest.trim()) return
     const dest = moveDest.trim()
-    if (!browseAllowed(uploadBase, dest)) {
+    if (!browseAllowed(libraryBase, dest)) {
       setError('Geçersiz hedef klasör.')
       return
     }
@@ -538,7 +564,7 @@ export function ManageMediaPickerModal({
     } finally {
       setMoveBusy(false)
     }
-  }, [selectedPaths, moveDest, uploadBase, load])
+  }, [selectedPaths, moveDest, libraryBase, load])
 
   const handleUploadFiles = useCallback(
     async (fileList: FileList | File[]) => {

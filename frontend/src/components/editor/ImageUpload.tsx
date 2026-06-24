@@ -27,6 +27,8 @@ interface ImageUploadProps {
   fileBase?: string
   /** Tek sabit dosya adı — `{fixedStem}.{ext}` (ör. kapak, logo) */
   fixedStem?: string
+  /** Galeride gezilecek üst kök; yükleme hedefinden daha geniş olabilir. */
+  libraryRoot?: string
   /** Sıra verilmezse orijinal dosya adından güvenli gövde kullanılır */
   useOriginalStem?: boolean
   /** Placeholder metin */
@@ -56,6 +58,7 @@ export default function ImageUpload({
   prefix = 'img',
   fileBase,
   fixedStem,
+  libraryRoot,
   useOriginalStem,
   placeholder = 'Galeriden seçin veya yükleyin',
   aspectRatio = '16/9',
@@ -83,6 +86,14 @@ export default function ImageUpload({
       ...(useOriginalStem ? { useOriginalStem: true } : {}),
     }
   }, [folder, subPath, prefix, imageIndex, fileBase, fixedStem, useOriginalStem])
+
+  const pickerLibraryRoot = useMemo(() => {
+    if (libraryRoot?.trim()) return libraryRoot.trim()
+    const base = subPath?.trim().replace(/^\/+|\/+$/g, '') ?? ''
+    if (folder === 'site' && base.startsWith('page-builder/')) return 'site/page-builder'
+    if (folder === 'site' && base.startsWith('vitrin-kategori/')) return 'site/vitrin-kategori'
+    return undefined
+  }, [folder, subPath, libraryRoot])
 
   const allowMultiPick = multiple || Boolean(onBatchComplete)
 
@@ -170,6 +181,7 @@ export default function ImageUpload({
       open={pickerOpen}
       title={placeholder}
       uploadTarget={pickerUploadTarget}
+      libraryRoot={pickerLibraryRoot}
       onClose={() => setPickerOpen(false)}
       onSelect={(url, meta) => applyPick(url, meta)}
       allowMultipleUpload={allowMultiPick}
