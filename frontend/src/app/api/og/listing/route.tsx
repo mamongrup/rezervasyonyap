@@ -38,7 +38,31 @@ function socialListingImage({
   brand: string
 }) {
   const region = rows.find((r) => /bölge|location/i.test(r.label))?.value
-  const infoRows = rows.filter((r) => !/fiyat|price/i.test(r.label)).slice(0, 4)
+  const rowPriority = (label: string) => {
+    const l = label.toLocaleLowerCase('tr-TR')
+    if (/kişi|guest|kapasite|capacity/.test(l)) return 0
+    if (/oda|bedroom|kabin|cabin/.test(l)) return 1
+    if (/banyo|bath/.test(l)) return 2
+    if (/yatak|bed\b/.test(l)) return 3
+    if (/süre|duration/.test(l)) return 4
+    return 9
+  }
+  const rowIcon = (label: string) => {
+    const l = label.toLocaleLowerCase('tr-TR')
+    if (/kişi|guest|kapasite|capacity/.test(l)) return '👨‍👩‍👧'
+    if (/oda|bedroom|kabin|cabin|yatak|bed\b/.test(l)) return '🛏'
+    if (/banyo|bath/.test(l)) return '🛁'
+    if (/süre|duration/.test(l)) return '⏱'
+    return '✓'
+  }
+  const infoRows = rows
+    .filter((r) => !/fiyat|price|bölge|location/i.test(r.label))
+    .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
+    .slice(0, 3)
+  const titleTop = truncate(title, 24).toLocaleUpperCase('tr-TR')
+  const badgeText = truncate(badge, 18).toLocaleUpperCase('tr-TR')
+  const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
+  const brandText = brand.trim() || 'Rezervasyon Yap'
 
   return new ImageResponse(
     (
@@ -56,157 +80,209 @@ function socialListingImage({
         <div
           style={{
             position: 'absolute',
-            inset: 38,
-            display: 'flex',
-            borderRadius: 52,
-            border: '10px solid #0ea5b7',
-            background: '#fff',
-            boxShadow: '0 28px 80px rgba(15, 23, 42, 0.22)',
-            overflow: 'hidden',
+            inset: 0,
+            background: 'linear-gradient(135deg, #ffffff 0%, #ffffff 52%, #e5fbff 100%)',
           }}
         />
         <div
           style={{
             position: 'absolute',
-            left: 68,
-            top: 68,
-            right: 68,
-            bottom: 68,
+            left: -160,
+            top: 222,
+            width: 720,
+            height: 720,
             display: 'flex',
-            borderRadius: 38,
+            borderRadius: 999,
+            border: '34px solid rgba(251, 146, 60, 0.18)',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            left: -70,
+            top: 310,
+            width: 620,
+            height: 620,
+            display: 'flex',
+            borderRadius: 999,
+            border: '22px solid rgba(20, 184, 166, 0.12)',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            right: -124,
+            top: -42,
+            width: 690,
+            height: 1130,
+            display: 'flex',
+            borderRadius: '390px 0 0 390px',
+            background: '#078fa0',
+          }}
+        />
+        <div
+          style={{
+            position: 'absolute',
+            right: 0,
+            top: 0,
+            width: 630,
+            height: 1080,
+            display: 'flex',
+            borderRadius: '360px 0 0 360px',
             overflow: 'hidden',
-            background: 'linear-gradient(135deg, #fff 0%, #fff 36%, #e0f7fa 100%)',
+            borderLeft: '22px solid #ffffff',
+            boxShadow: '-26px 0 70px rgba(15, 23, 42, 0.22)',
+          }}
+        >
+          {bgUrl ? (
+            <img
+              src={bgUrl}
+              alt=""
+              width={630}
+              height={1080}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', background: '#0f172a' }} />
+          )}
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 54,
+            top: 48,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
           }}
         >
           <div
             style={{
-              position: 'absolute',
-              left: -180,
-              top: 160,
-              width: 560,
-              height: 560,
-              borderRadius: 999,
-              background: 'rgba(251, 146, 60, 0.18)',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              right: -130,
-              bottom: -110,
-              width: 620,
-              height: 620,
-              borderRadius: 999,
-              background: '#0ea5b7',
-            }}
-          />
-          <div
-            style={{
-              position: 'absolute',
-              right: 72,
-              top: 170,
-              width: 580,
-              height: 580,
               display: 'flex',
-              borderRadius: 80,
-              overflow: 'hidden',
-              border: '14px solid #ffffff',
-              boxShadow: '0 28px 80px rgba(15, 23, 42, 0.35)',
-              transform: 'rotate(-2deg)',
+              width: 72,
+              height: 72,
+              borderRadius: 999,
+              background: 'linear-gradient(135deg, #f97316, #facc15 46%, #0891b2 47%, #14b8a6)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontSize: 34,
+              fontWeight: 900,
             }}
           >
-            {bgUrl ? (
-              <img
-                src={bgUrl}
-                alt=""
-                width={580}
-                height={580}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-            ) : (
-              <div style={{ width: '100%', height: '100%', background: '#0f172a' }} />
-            )}
+            R
           </div>
-
-          <div
-            style={{
-              position: 'absolute',
-              left: 54,
-              top: 42,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <div style={{ color: '#0f766e', fontSize: 38, fontWeight: 800 }}>{brand}</div>
-            <div style={{ color: '#ef4444', fontSize: 66, fontWeight: 900, letterSpacing: 1 }}>
-              {truncate(title, 24).toLocaleUpperCase('tr-TR')}
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+            <div style={{ color: '#334155', fontSize: 34, fontWeight: 500 }}>{brandText}</div>
+            <div style={{ color: '#f97316', fontSize: 20, fontWeight: 700, marginTop: 4 }}>
+              rezervasyonyap.tr
             </div>
-            <div style={{ color: '#1e3a8a', fontSize: 52, fontWeight: 700 }}>{badge}</div>
-            {region ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
-                <span style={{ color: '#f59e0b', fontSize: 44 }}>●</span>
-                <span style={{ color: '#0f172a', fontSize: 34, fontWeight: 800 }}>
-                  {truncate(region, 18).toLocaleUpperCase('tr-TR')}
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 58,
+            top: 178,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 4,
+            maxWidth: 500,
+          }}
+        >
+          <div style={{ color: '#ef1f24', fontSize: 70, fontWeight: 900, letterSpacing: 1.4 }}>
+            {titleTop}
+          </div>
+          <div style={{ color: '#1e3a8a', fontSize: 58, fontWeight: 500, letterSpacing: 1 }}>
+            {badgeText}
+          </div>
+          {regionText ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
+              <div style={{ color: '#facc15', fontSize: 54, lineHeight: 1 }}>●</div>
+              <div style={{ color: '#1e3a8a', fontSize: 36, fontWeight: 900 }}>{regionText}</div>
+            </div>
+          ) : null}
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 74,
+            top: 558,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 24,
+          }}
+        >
+          {infoRows.map((row, i) => (
+            <div key={`${row.label}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+              <div
+                style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#0f766e',
+                  background: 'rgba(20,184,166,0.12)',
+                  fontSize: 30,
+                }}
+              >
+                {rowIcon(row.label)}
+              </div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                <span style={{ color: '#1e3a8a', fontSize: 38, fontWeight: 900 }}>{row.value}</span>
+                <span style={{ color: '#1e3a8a', fontSize: 34, fontWeight: 900 }}>
+                  {row.label.toLocaleUpperCase('tr-TR')}
                 </span>
               </div>
-            ) : null}
-          </div>
+            </div>
+          ))}
+        </div>
 
-          <div
-            style={{
-              position: 'absolute',
-              left: 66,
-              bottom: 104,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 18,
-            }}
-          >
-            {infoRows.map((row, i) => (
-              <div key={`${row.label}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 999,
-                    background: '#0ea5b7',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontSize: 20,
-                    fontWeight: 900,
-                  }}
-                >
-                  {i + 1}
-                </div>
-                <div style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
-                  <span style={{ color: '#0f172a', fontSize: 34, fontWeight: 900 }}>{row.value}</span>
-                  <span style={{ color: '#334155', fontSize: 30, fontWeight: 700 }}>
-                    {row.label.toLocaleUpperCase('tr-TR')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              position: 'absolute',
-              left: 54,
-              right: 54,
-              bottom: 34,
-              display: 'flex',
-              justifyContent: 'space-between',
-              color: '#0f172a',
-              fontSize: 24,
-              fontWeight: 700,
-            }}
-          >
+        <div
+          style={{
+            position: 'absolute',
+            left: 58,
+            bottom: 54,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            color: '#334155',
+            fontSize: 23,
+            fontWeight: 700,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: '#ef4444', fontSize: 24 }}>●</span>
             <span>rezervasyonyap.tr</span>
-            <span>TURSAB NO: 13127</span>
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ color: '#ef4444', fontSize: 24 }}>●</span>
+            <span>0850 466 0464 - 0532 397 7957</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            right: 58,
+            bottom: 52,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            color: '#ffffff',
+            fontSize: 26,
+            fontWeight: 900,
+            textShadow: '0 2px 12px rgba(15, 23, 42, 0.35)',
+          }}
+        >
+          <span>TURSAB</span>
+          <span>NO : 13127</span>
         </div>
       </div>
     ),

@@ -85,6 +85,7 @@ const PROPERTY_SLUG_TO_ILAN_TIPI = {
 const args = new Set(process.argv.slice(2))
 const SKIP_IMAGES = args.has('--skip-images')
 const DRY_RUN = args.has('--dry-run')
+const CREATE_MISSING_ONLY = args.has('--create-missing-only')
 const limitIdx = process.argv.indexOf('--limit')
 const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
 
@@ -399,6 +400,14 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
   const existing = await findExistingListing(pgClient, slug, legacyId)
   let listingId = existing?.id
 
+  if (CREATE_MISSING_ONLY && existing) {
+    stats.skippedExisting++
+    if (stats.skippedExisting <= 10 || stats.skippedExisting % 100 === 0) {
+      log('skip existing', legacyId, existing.slug || slug)
+    }
+    return
+  }
+
   const terms = await loadTermsForSpace(mysql, legacyId)
   const vitrin = buildBravoHolidayHomeVitrinPackage(space, {}, terms)
   const meta = vitrin.meta
@@ -532,7 +541,16 @@ async function importOne(pgClient, mysql, space, mediaMap, stats) {
 
 async function main() {
   log('=== import-bravo-spaces start ===')
-  log('skip-images=', SKIP_IMAGES, 'dry-run=', DRY_RUN, 'limit=', LIMIT || 'all')
+  log(
+    'skip-images=',
+    SKIP_IMAGES,
+    'dry-run=',
+    DRY_RUN,
+    'create-missing-only=',
+    CREATE_MISSING_ONLY,
+    'limit=',
+    LIMIT || 'all',
+  )
 
   const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
 
@@ -574,6 +592,7 @@ async function main() {
     imagesFail: 0,
     calendarDays: 0,
     dryRun: 0,
+    skippedExisting: 0,
   }
 
   let n = 0
