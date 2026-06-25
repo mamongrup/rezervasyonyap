@@ -85,6 +85,12 @@ function isGeneratedSocialCoverKey(storageKey: string): boolean {
   return k.startsWith('uploads/social-covers/')
 }
 
+function socialShareJpegUrl(siteUrl: string, src: string): string {
+  const u = src.trim()
+  if (!u.startsWith('https://')) return ''
+  return `${siteUrl.replace(/\/$/, '')}/api/social/share-jpeg?src=${encodeURIComponent(u)}`
+}
+
 export function absoluteMediaUrl(siteUrl: string, storageKey: string): string {
   const rel = storageKeyToPublicUrl(storageKey.trim())
   if (!rel) return ''
@@ -239,10 +245,13 @@ async function postFacebook(
   const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
 
   if (httpsUrls.length === 0) {
+    const body = new URLSearchParams({
+      message: `${message}\n\n${pageUrl}`.trim(),
+      access_token: token,
+    })
     const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, link: pageUrl, access_token: token }),
+      body,
     })
     const fbData = (await fbRes.json()) as {
       id?: string
@@ -255,14 +264,14 @@ async function postFacebook(
   }
 
   if (httpsUrls.length === 1) {
+    const body = new URLSearchParams({
+      url: httpsUrls[0],
+      caption: `${message}\n\n${pageUrl}`.trim(),
+      access_token: token,
+    })
     const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: httpsUrls[0],
-        caption: `${message}\n\n${pageUrl}`.trim(),
-        access_token: token,
-      }),
+      body,
     })
     const photoData = (await photoRes.json()) as { id?: string; post_id?: string; error?: { message: string } }
     if (!photoRes.ok || photoData.error) {
@@ -273,10 +282,14 @@ async function postFacebook(
 
   const mediaIds: string[] = []
   for (const url of httpsUrls) {
+    const body = new URLSearchParams({
+      url,
+      published: 'false',
+      access_token: token,
+    })
     const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, published: false, access_token: token }),
+      body,
     })
     const photoData = (await photoRes.json()) as { id?: string; error?: { message: string } }
     if (!photoRes.ok || photoData.error || !photoData.id) {
@@ -285,15 +298,14 @@ async function postFacebook(
     mediaIds.push(photoData.id)
   }
 
+  const body = new URLSearchParams({
+    message: `${message}\n\n${pageUrl}`.trim(),
+    attached_media: JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))),
+    access_token: token,
+  })
   const feedRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      message,
-      link: pageUrl,
-      attached_media: mediaIds.map((id) => ({ media_fbid: id })),
-      access_token: token,
-    }),
+    body,
   })
   const feedData = (await feedRes.json()) as {
     id?: string
@@ -502,16 +514,20 @@ export async function processOneSocialJob(
     .filter((u) => u.startsWith('https://'))
     .filter((u, i, arr) => arr.indexOf(u) === i)
     .slice(0, 10)
+  const metaPostImageUrls = postImageUrls
+    .map((url) => socialShareJpegUrl(siteUrl, url))
+    .filter((url) => url.startsWith('https://'))
+    .slice(0, 10)
 
   try {
     let postId = ''
     switch (job.network) {
       case 'facebook':
-        postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl, postImageUrls)
+        postId = await postFacebook(socialApi.meta ?? {}, caption, pageUrl, metaPostImageUrls)
         break
       case 'instagram':
-        if (postImageUrls.length === 0) throw new Error('instagram_image_required')
-        postId = await postInstagram(socialApi.meta ?? {}, caption, postImageUrls)
+        if (metaPostImageUrls.length === 0) throw new Error('instagram_image_required')
+        postId = await postInstagram(socialApi.meta ?? {}, caption, metaPostImageUrls)
         break
       case 'pinterest':
         if (postImageUrls.length === 0) throw new Error('pinterest_image_required')
