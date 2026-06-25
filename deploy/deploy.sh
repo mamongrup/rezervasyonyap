@@ -11,6 +11,8 @@
 #   SKIP_BACKEND_BUILD=1 ./deploy/deploy.sh                   # yalniz frontend (~15 dk, node_modules aynıysa ~5 dk)
 #   SKIP_BACKEND_BUILD=1 FORCE_NPM_CI=0 ./deploy/deploy.sh   # frontend, node_modules koru (~5 dk)
 #   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
+#   SKIP_DB_CONN_GUARD=1 ./deploy/deploy.sh                   # PostgreSQL orphan bağlantı temizliğini atla
+#   TRAVEL_DB_CONN_THRESHOLD=30 ./deploy/deploy.sh             # bağlantı guard eşiği
 #   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
 #   ./deploy/deploy-api-only.sh                               # API-only kisa yol
 #   ./deploy/deploy-detached.sh                               # SSH kopunca da devam (nohup/setsid)
@@ -247,6 +249,16 @@ main() {
     systemctl restart travel-web.service
   fi
   ok "servis restart tamam"
+
+  if [[ "${SKIP_DB_CONN_GUARD:-0}" == "1" ]]; then
+    warn "SKIP_DB_CONN_GUARD=1 — PostgreSQL bağlantı guard atlandı."
+  elif [[ -f "$APP_ROOT/deploy/scripts/guard-postgres-connections.sh" ]]; then
+    step "PostgreSQL bağlantı guard"
+    sleep "${DB_CONN_GUARD_SLEEP:-6}"
+    bash "$APP_ROOT/deploy/scripts/guard-postgres-connections.sh" || warn "PostgreSQL bağlantı guard tamamlanamadı; verify/log kontrol edin."
+  else
+    warn "PostgreSQL bağlantı guard script yok."
+  fi
 
   if [[ "${SKIP_VERIFY:-0}" == "1" ]]; then
     warn "SKIP_VERIFY=1 — verify.sh atlandi (API curl testini elle yapin)."

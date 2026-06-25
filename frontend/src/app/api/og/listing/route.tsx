@@ -107,7 +107,7 @@ function titleLinesForCover(title: string): string[] {
   const lines: string[] = []
   for (const word of words) {
     const current = lines[lines.length - 1] ?? ''
-    if (!current || `${current} ${word}`.length > 13) {
+    if (!current || `${current} ${word}`.length > 15) {
       lines.push(word)
     } else {
       lines[lines.length - 1] = `${current} ${word}`
@@ -226,10 +226,11 @@ function socialListingImage({
   }
   const rowIcon = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
-    if (/kişi|guest|kapasite|capacity/.test(l)) return '👨‍👩‍👧'
-    if (/oda|bedroom|kabin|cabin|yatak|bed\b/.test(l)) return '🛏'
-    if (/banyo|bath/.test(l)) return '🛁'
-    if (/süre|duration/.test(l)) return '⏱'
+    if (/kişi|guest|kapasite|capacity/.test(l)) return 'K'
+    if (/oda|bedroom|kabin|cabin/.test(l)) return 'O'
+    if (/banyo|bath/.test(l)) return 'B'
+    if (/yatak|bed\b/.test(l)) return 'Y'
+    if (/süre|duration/.test(l)) return 'S'
     return '✓'
   }
   const infoRows = rows
@@ -240,7 +241,7 @@ function socialListingImage({
   const titleLines = titleLinesForCover(truncate(cleanTitle, 28))
   const badgeText = truncate(badge, 18).toLocaleUpperCase('tr-TR')
   const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
-  const titleFont = titleLines.some((line) => line.length > 11) ? 46 : 54
+  const titleFont = titleLines.some((line) => line.length > 12) ? 42 : 50
 
   return new ImageResponse(
     (
@@ -251,7 +252,7 @@ function socialListingImage({
           display: 'flex',
           position: 'relative',
           overflow: 'hidden',
-          background: '#ffffff',
+          background: '#f8fafc',
           fontFamily: 'Arial, sans-serif',
         }}
       >
@@ -259,66 +260,67 @@ function socialListingImage({
           style={{
             position: 'absolute',
             inset: 0,
-          background: `linear-gradient(135deg, #ffffff 0%, #ffffff 52%, ${style.glow} 100%)`,
+            background: `linear-gradient(135deg, #ffffff 0%, #f8fafc 48%, ${style.glow} 100%)`,
           }}
         />
         <div
           style={{
             position: 'absolute',
-            left: -160,
-            top: 222,
-            width: 720,
-            height: 720,
+            left: -250,
+            top: 470,
+            width: 760,
+            height: 760,
             display: 'flex',
             borderRadius: 999,
-            border: '34px solid rgba(251, 146, 60, 0.18)',
+            border: '38px solid rgba(251, 146, 60, 0.14)',
           }}
         />
         <div
           style={{
             position: 'absolute',
-            left: -70,
-            top: 310,
-            width: 620,
-            height: 620,
+            left: 315,
+            top: -200,
+            width: 520,
+            height: 520,
             display: 'flex',
             borderRadius: 999,
-            border: '22px solid rgba(20, 184, 166, 0.12)',
+            background: 'rgba(255,255,255,0.52)',
           }}
         />
 
         <div
           style={{
             position: 'absolute',
-            right: -135,
-            top: -48,
-            width: 710,
-            height: 1138,
+            right: 38,
+            top: 104,
+            width: 500,
+            height: 826,
             display: 'flex',
-            borderRadius: '390px 0 0 390px',
+            borderRadius: 54,
             background: style.panel,
+            boxShadow: '0 36px 80px rgba(15, 23, 42, 0.18)',
           }}
         />
         <div
           style={{
             position: 'absolute',
-            right: 18,
-            top: 18,
-            width: 610,
-            height: 1044,
+            right: 66,
+            top: 130,
+            width: 472,
+            height: 774,
             display: 'flex',
-            borderRadius: '360px 0 0 360px',
+            borderRadius: 42,
             overflow: 'hidden',
-            borderLeft: '24px solid #ffffff',
-            boxShadow: '-24px 0 62px rgba(15, 23, 42, 0.20)',
+            border: '12px solid #ffffff',
+            boxShadow: '0 28px 72px rgba(15, 23, 42, 0.25)',
           }}
         >
           {bgUrl ? (
             <img
               src={bgUrl}
               alt=""
-              width={610}
-              height={1044}
+              width={472}
+              height={774}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
           ) : (
@@ -336,15 +338,16 @@ function socialListingImage({
             gap: 16,
             width: 430,
             height: 92,
+            zIndex: 3,
           }}
         >
           {branding.logoUrl ? (
             <img
               src={branding.logoUrl}
               alt=""
-              width={360}
-              height={96}
-              style={{ width: 360, height: 96, objectFit: 'contain', objectPosition: 'left center' }}
+              width={320}
+              height={86}
+              style={{ width: 320, height: 86, objectFit: 'contain', objectPosition: 'left center' }}
             />
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -354,7 +357,7 @@ function socialListingImage({
                   width: 72,
                   height: 72,
                   borderRadius: 999,
-                background: `linear-gradient(135deg, #f97316, #facc15 46%, ${style.panel} 47%, #14b8a6)`,
+                  background: `linear-gradient(135deg, #f97316, #facc15 46%, ${style.panel} 47%, #14b8a6)`,
                   alignItems: 'center',
                   justifyContent: 'center',
                   color: '#ffffff',
@@ -379,31 +382,59 @@ function socialListingImage({
         <div
           style={{
             position: 'absolute',
-            left: 58,
-            top: 190,
+            left: 44,
+            top: 172,
+            width: 462,
+            height: 728,
+            display: 'flex',
+            borderRadius: 42,
+            background: 'rgba(255,255,255,0.82)',
+            border: '1px solid rgba(226,232,240,0.95)',
+            boxShadow: '0 28px 70px rgba(15, 23, 42, 0.10)',
+          }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 76,
+            top: 210,
             display: 'flex',
             flexDirection: 'column',
             gap: 12,
-            maxWidth: 390,
+            maxWidth: 392,
+            zIndex: 3,
           }}
         >
+          <div
+            style={{
+              alignSelf: 'flex-start',
+              display: 'flex',
+              borderRadius: 999,
+              background: style.panel,
+              color: '#ffffff',
+              padding: '9px 18px',
+              fontSize: 20,
+              fontWeight: 900,
+              letterSpacing: 1.2,
+            }}
+          >
+            {badgeText}
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
             {titleLines.map((line, i) => (
               <div
                 key={`${line}-${i}`}
-                style={{ color: style.title, fontSize: titleFont, fontWeight: 900, letterSpacing: 1, lineHeight: 0.95 }}
+                style={{ color: style.title, fontSize: titleFont, fontWeight: 900, letterSpacing: 0.5, lineHeight: 0.98 }}
               >
                 {line}
               </div>
             ))}
           </div>
-          <div style={{ color: style.secondary, fontSize: 54, fontWeight: 500, letterSpacing: 1, lineHeight: 1 }}>
-            {badgeText}
-          </div>
           {regionText ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 18 }}>
-              <div style={{ color: '#facc15', fontSize: 54, lineHeight: 1 }}>●</div>
-              <div style={{ color: style.secondary, fontSize: 36, fontWeight: 900 }}>{regionText}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
+              <div style={{ display: 'flex', width: 18, height: 18, borderRadius: 999, background: '#facc15' }} />
+              <div style={{ color: style.secondary, fontSize: 28, fontWeight: 900 }}>{regionText}</div>
             </div>
           ) : null}
         </div>
@@ -411,33 +442,47 @@ function socialListingImage({
         <div
           style={{
             position: 'absolute',
-            left: 74,
-            top: 560,
+            left: 76,
+            top: 565,
             display: 'flex',
             flexDirection: 'column',
-            gap: 24,
+            gap: 14,
+            zIndex: 3,
           }}
         >
           {infoRows.map((row, i) => (
-            <div key={`${row.label}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            <div
+              key={`${row.label}-${i}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                width: 350,
+                padding: '12px 16px',
+                borderRadius: 20,
+                background: '#ffffff',
+                boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
+              }}
+            >
               <div
                 style={{
-                  width: 50,
-                  height: 50,
-                  borderRadius: 12,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 14,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#0f766e',
-                  background: 'rgba(20,184,166,0.12)',
-                  fontSize: 30,
+                  color: '#ffffff',
+                  background: style.panel,
+                  fontSize: 24,
+                  fontWeight: 900,
                 }}
               >
                 {rowIcon(row.label)}
               </div>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
-                <span style={{ color: style.secondary, fontSize: 38, fontWeight: 900 }}>{row.value}</span>
-                <span style={{ color: style.secondary, fontSize: 34, fontWeight: 900 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                <span style={{ color: style.secondary, fontSize: 34, fontWeight: 900, lineHeight: 1 }}>{row.value}</span>
+                <span style={{ color: '#64748b', fontSize: 18, fontWeight: 800, letterSpacing: 1 }}>
                   {row.label.toLocaleUpperCase('tr-TR')}
                 </span>
               </div>
@@ -452,10 +497,11 @@ function socialListingImage({
             bottom: 54,
             display: 'flex',
             flexDirection: 'column',
-            gap: 10,
+            gap: 8,
             color: '#334155',
-            fontSize: 23,
+            fontSize: 21,
             fontWeight: 700,
+            zIndex: 3,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -565,8 +611,8 @@ export async function GET(req: NextRequest) {
 
     if (variant === 'social') {
       const socialBgUrl = await imageDataUrlForOg(bgUrl, {
-        width: 610,
-        height: 1044,
+        width: 472,
+        height: 774,
         fit: 'cover',
       })
       return socialListingImage({
@@ -717,8 +763,8 @@ export async function GET(req: NextRequest) {
 
   if (variant === 'social') {
     const socialBgUrl = await imageDataUrlForOg(bgUrl, {
-      width: 610,
-      height: 1044,
+      width: 472,
+      height: 774,
       fit: 'cover',
     })
     return socialListingImage({

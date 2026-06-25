@@ -46,6 +46,33 @@ function normalizeQuality(raw: unknown): Quality {
   return raw === 'low' || raw === 'high' ? raw : 'medium'
 }
 
+function openAiQualityForModel(model: string, quality: Quality): string {
+  const m = model.trim().toLowerCase()
+  if (m === 'dall-e-3') return quality === 'high' ? 'hd' : 'standard'
+  return quality
+}
+
+function openAiErrorCode(status: number, text: string): string {
+  const lower = text.toLowerCase()
+  if (lower.includes('billing') || lower.includes('quota') || lower.includes('insufficient_quota')) {
+    return 'openai_billing_or_quota'
+  }
+  if (lower.includes('invalid_api_key') || lower.includes('incorrect api key')) {
+    return 'openai_api_key_invalid'
+  }
+  if (lower.includes('model') && (lower.includes('does not exist') || lower.includes('not found'))) {
+    return 'openai_image_model_invalid'
+  }
+  if (lower.includes('organization') && lower.includes('verified')) {
+    return 'openai_image_model_access'
+  }
+  if (lower.includes('content_policy') || lower.includes('safety') || lower.includes('policy')) {
+    return 'openai_image_policy'
+  }
+  if (status === 400) return 'openai_image_bad_request'
+  return `openai_image_${status}`
+}
+
 function promptFor(body: Body, quality: Quality): string {
   const listing = body.listing ?? {}
   const title = (listing.title ?? 'Tatil ilanı').trim()
@@ -72,24 +99,26 @@ function promptFor(body: Body, quality: Quality): string {
 async function openAiImage(apiKey: string, prompt: string, quality: Quality): Promise<Buffer> {
   if (!apiKey) throw new Error('openai_api_key_missing')
   const model = process.env.OPENAI_SOCIAL_IMAGE_MODEL?.trim() || 'gpt-image-1'
+  const requestBody: Record<string, unknown> = {
+    model,
+    prompt,
+    size: '1024x1024',
+    n: 1,
+  }
+  const mappedQuality = openAiQualityForModel(model, quality)
+  if (mappedQuality) requestBody.quality = mappedQuality
   const res = await fetch('https://api.openai.com/v1/images/generations', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      model,
-      prompt,
-      size: '1024x1024',
-      quality,
-      n: 1,
-    }),
+    body: JSON.stringify(requestBody),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     console.error('[social-generate-cover] openai', res.status, text)
-    throw new Error(`openai_image_${res.status}`)
+    throw new Error(openAiErrorCode(res.status, text))
   }
   const data = (await res.json()) as { data?: Array<{ b64_json?: string; url?: string }> }
   const first = data.data?.[0]
