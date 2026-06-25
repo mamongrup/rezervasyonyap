@@ -167,6 +167,35 @@ async function imageDataUrlForOg(
   }
 }
 
+function uniqueAbsoluteImageUrls(base: string, images: Array<string | null | undefined>): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of images) {
+    const src = raw?.trim()
+    if (!src) continue
+    const abs = toAbsoluteAssetUrl(base, src) ?? src
+    if (!abs || seen.has(abs)) continue
+    seen.add(abs)
+    out.push(abs)
+    if (out.length >= 3) break
+  }
+  return out
+}
+
+async function socialMosaicDataUrls(base: string, images: Array<string | null | undefined>): Promise<string[]> {
+  const urls = uniqueAbsoluteImageUrls(base, images)
+  const dataUrls = await Promise.all(
+    urls.map((url) =>
+      imageDataUrlForOg(url, {
+        width: 620,
+        height: 820,
+        fit: 'cover',
+      }),
+    ),
+  )
+  return dataUrls.filter((url): url is string => Boolean(url))
+}
+
 function brandingText(b: Record<string, unknown> | null | undefined, key: string): string {
   const v = b?.[key]
   return typeof v === 'string' ? v.trim() : ''
@@ -216,6 +245,7 @@ async function fetchOgBranding(base: string): Promise<{
 
 function socialListingImage({
   bgUrl,
+  mosaicUrls,
   badge,
   title,
   rows,
@@ -224,6 +254,7 @@ function socialListingImage({
   themeLabels,
 }: {
   bgUrl: string | null
+  mosaicUrls?: string[]
   badge: string
   title: string
   rows: { label: string; value: string }[]
@@ -260,6 +291,10 @@ function socialListingImage({
   const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
   const titleFont = titleText.length > 20 ? 34 : titleText.length > 15 ? 39 : 46
   const chips = (themeLabels ?? []).slice(0, 5)
+  const photos = (mosaicUrls ?? []).filter(Boolean)
+  const mainPhoto = photos[0] ?? bgUrl
+  const topPhoto = photos[1] ?? mainPhoto
+  const bottomPhoto = photos[2] ?? topPhoto
 
   return new ImageResponse(
     (
@@ -322,28 +357,77 @@ function socialListingImage({
         <div
           style={{
             position: 'absolute',
-            right: 66,
+            right: 272,
             top: 130,
-            width: 472,
+            width: 274,
             height: 774,
             display: 'flex',
             borderRadius: 42,
             overflow: 'hidden',
             border: '12px solid #ffffff',
-            boxShadow: '0 28px 72px rgba(15, 23, 42, 0.25)',
+            boxShadow: '0 28px 72px rgba(15, 23, 42, 0.24)',
+            background: '#0f172a',
           }}
         >
-          {bgUrl ? (
+          {mainPhoto ? (
             <img
-              src={bgUrl}
+              src={mainPhoto}
               alt=""
-              width={472}
+              width={274}
               height={774}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
-          ) : (
-            <div style={{ width: '100%', height: '100%', background: '#0f172a' }} />
-          )}
+          ) : null}
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            right: 66,
+            top: 130,
+            width: 188,
+            height: 372,
+            display: 'flex',
+            borderRadius: 34,
+            overflow: 'hidden',
+            border: '10px solid #ffffff',
+            boxShadow: '0 20px 54px rgba(15, 23, 42, 0.18)',
+            background: '#0f172a',
+          }}
+        >
+          {topPhoto ? (
+            <img
+              src={topPhoto}
+              alt=""
+              width={188}
+              height={372}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : null}
+        </div>
+        <div
+          style={{
+            position: 'absolute',
+            right: 66,
+            top: 532,
+            width: 188,
+            height: 372,
+            display: 'flex',
+            borderRadius: 34,
+            overflow: 'hidden',
+            border: '10px solid #ffffff',
+            boxShadow: '0 20px 54px rgba(15, 23, 42, 0.18)',
+            background: '#0f172a',
+          }}
+        >
+          {bottomPhoto ? (
+            <img
+              src={bottomPhoto}
+              alt=""
+              width={188}
+              height={372}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          ) : null}
         </div>
 
         <div
@@ -647,6 +731,10 @@ export async function GET(req: NextRequest) {
             : 'Otel'
 
     if (variant === 'social') {
+      const mosaicUrls = await socialMosaicDataUrls(base, [
+        listing.featuredImage,
+        ...(listing.galleryImgs ?? []),
+      ])
       const socialBgUrl = await imageDataUrlForOg(bgUrl, {
         width: 472,
         height: 774,
@@ -654,6 +742,7 @@ export async function GET(req: NextRequest) {
       })
       return socialListingImage({
         bgUrl: socialBgUrl ?? bgUrl,
+        mosaicUrls,
         badge,
         title: listing.title,
         rows,
@@ -800,6 +889,10 @@ export async function GET(req: NextRequest) {
         : 'Tur'
 
   if (variant === 'social') {
+    const mosaicUrls = await socialMosaicDataUrls(base, [
+      listing.featuredImage,
+      ...(listing.galleryImgs ?? []),
+    ])
     const socialBgUrl = await imageDataUrlForOg(bgUrl, {
       width: 472,
       height: 774,
@@ -807,6 +900,7 @@ export async function GET(req: NextRequest) {
     })
     return socialListingImage({
       bgUrl: socialBgUrl ?? bgUrl,
+      mosaicUrls,
       badge,
       title: listing.title,
       rows,
