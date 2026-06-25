@@ -1,6 +1,7 @@
 import { getExperienceListingByHandle, getStayListingByHandle } from '@/data/listings'
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { normalizeSiteLogoUrl, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import type { TListingBase } from '@/types/listing-types'
@@ -102,18 +103,33 @@ function titleWithoutBadge(title: string, badge: string): string {
   return t.replace(re, '').trim() || t
 }
 
-function titleLinesForCover(title: string): string[] {
-  const words = title.toLocaleUpperCase('tr-TR').split(/\s+/).filter(Boolean)
-  const lines: string[] = []
-  for (const word of words) {
-    const current = lines[lines.length - 1] ?? ''
-    if (!current || `${current} ${word}`.length > 15) {
-      lines.push(word)
-    } else {
-      lines[lines.length - 1] = `${current} ${word}`
-    }
+function themeLabelsForCover(codes: readonly string[] | undefined): string[] {
+  const preset = new Map(VILLA_THEME_CHIP_PRESETS.map((x) => [x.code, x.label] as const))
+  const overrides: Record<string, string> = {
+    sea_view: 'Deniz manzaralı',
+    beachfront: 'Denize sıfır',
+    conservative: 'Muhafazakar',
+    luxury: 'Lüks',
+    modern: 'Modern',
+    nature: 'Doğa içinde',
+    garden: 'Doğa içinde',
+    mountain_view: 'Doğa içinde',
+    jacuzzi: 'Jakuzi',
+    sauna: 'Sauna',
+    pool: 'Özel havuz',
   }
-  return lines.slice(0, 3)
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const raw of codes ?? []) {
+    const code = raw.trim().toLowerCase()
+    if (!code || seen.has(code)) continue
+    const label = overrides[code] ?? preset.get(code)
+    if (!label) continue
+    seen.add(code)
+    out.push(label)
+    if (out.length >= 5) break
+  }
+  return out
 }
 
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
@@ -205,6 +221,7 @@ function socialListingImage({
   rows,
   branding,
   designTheme,
+  themeLabels,
 }: {
   bgUrl: string | null
   badge: string
@@ -212,6 +229,7 @@ function socialListingImage({
   rows: { label: string; value: string }[]
   branding: Awaited<ReturnType<typeof fetchOgBranding>>
   designTheme: SocialDesignTheme
+  themeLabels?: string[]
 }) {
   const style = socialThemeStyle(designTheme)
   const region = rows.find((r) => /bölge|location/i.test(r.label))?.value
@@ -226,11 +244,11 @@ function socialListingImage({
   }
   const rowIcon = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
-    if (/kişi|guest|kapasite|capacity/.test(l)) return 'K'
-    if (/oda|bedroom|kabin|cabin/.test(l)) return 'O'
-    if (/banyo|bath/.test(l)) return 'B'
-    if (/yatak|bed\b/.test(l)) return 'Y'
-    if (/süre|duration/.test(l)) return 'S'
+    if (/kişi|guest|kapasite|capacity/.test(l)) return '👥'
+    if (/oda|bedroom|kabin|cabin/.test(l)) return '🛏'
+    if (/banyo|bath/.test(l)) return '🛁'
+    if (/yatak|bed\b/.test(l)) return '🛏'
+    if (/süre|duration/.test(l)) return '⏱'
     return '✓'
   }
   const infoRows = rows
@@ -238,10 +256,10 @@ function socialListingImage({
     .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
     .slice(0, 3)
   const cleanTitle = titleWithoutBadge(title, badge)
-  const titleLines = titleLinesForCover(truncate(cleanTitle, 28))
-  const badgeText = truncate(badge, 18).toLocaleUpperCase('tr-TR')
+  const titleText = truncate(cleanTitle.toLocaleUpperCase('tr-TR'), 26)
   const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
-  const titleFont = titleLines.some((line) => line.length > 12) ? 42 : 50
+  const titleFont = titleText.length > 20 ? 34 : titleText.length > 15 ? 39 : 46
+  const chips = (themeLabels ?? []).slice(0, 5)
 
   return new ImageResponse(
     (
@@ -406,30 +424,40 @@ function socialListingImage({
             zIndex: 3,
           }}
         >
-          <div
-            style={{
-              alignSelf: 'flex-start',
-              display: 'flex',
-              borderRadius: 999,
-              background: style.panel,
-              color: '#ffffff',
-              padding: '9px 18px',
-              fontSize: 20,
-              fontWeight: 900,
-              letterSpacing: 1.2,
-            }}
-          >
-            {badgeText}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {titleLines.map((line, i) => (
-              <div
-                key={`${line}-${i}`}
-                style={{ color: style.title, fontSize: titleFont, fontWeight: 900, letterSpacing: 0.5, lineHeight: 0.98 }}
-              >
-                {line}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div
+              style={{
+                color: style.title,
+                fontSize: titleFont,
+                fontWeight: 900,
+                letterSpacing: 0.2,
+                lineHeight: 1.02,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {titleText}
+            </div>
+            {chips.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: 360 }}>
+                {chips.map((chip) => (
+                  <div
+                    key={chip}
+                    style={{
+                      display: 'flex',
+                      borderRadius: 999,
+                      background: 'rgba(15, 145, 161, 0.10)',
+                      border: `1px solid ${style.panel}`,
+                      color: style.secondary,
+                      padding: '6px 10px',
+                      fontSize: 14,
+                      fontWeight: 800,
+                    }}
+                  >
+                    {chip}
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : null}
           </div>
           {regionText ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
@@ -474,7 +502,7 @@ function socialListingImage({
                   justifyContent: 'center',
                   color: '#ffffff',
                   background: style.panel,
-                  fontSize: 24,
+                  fontSize: 25,
                   fontWeight: 900,
                 }}
               >
@@ -518,14 +546,19 @@ function socialListingImage({
           style={{
             position: 'absolute',
             right: 58,
-            bottom: 34,
+            bottom: 42,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
             color: '#ffffff',
-            fontSize: 25,
+            fontSize: 24,
             fontWeight: 900,
             textShadow: '0 2px 12px rgba(15, 23, 42, 0.35)',
+            background: 'rgba(15, 23, 42, 0.72)',
+            border: '1px solid rgba(255,255,255,0.32)',
+            borderRadius: 18,
+            padding: '10px 14px',
+            lineHeight: 1.08,
           }}
         >
           <span>TURSAB</span>
@@ -622,6 +655,7 @@ export async function GET(req: NextRequest) {
         rows,
         branding,
         designTheme,
+        themeLabels: themeLabelsForCover(listing.themeCodes),
       })
     }
 
@@ -774,6 +808,7 @@ export async function GET(req: NextRequest) {
       rows,
       branding,
       designTheme,
+      themeLabels: [],
     })
   }
 
