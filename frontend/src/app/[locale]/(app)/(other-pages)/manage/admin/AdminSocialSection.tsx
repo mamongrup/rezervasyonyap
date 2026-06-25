@@ -53,6 +53,7 @@ const TEMPLATE_FIELDS = [
 ]
 
 type SocialImageQuality = 'low' | 'medium' | 'high'
+type SocialCoverMode = 'free' | 'premium'
 type SocialDesignTheme =
   | 'auto'
   | 'luxury'
@@ -67,6 +68,21 @@ const IMAGE_QUALITY_OPTIONS: Array<{ code: SocialImageQuality; label: string; co
   { code: 'low', label: 'Düşük', cost: '~$0.005-$0.016', hint: 'Toplu deneme ve yüksek hacim' },
   { code: 'medium', label: 'Orta', cost: '~$0.011-$0.063', hint: 'Sosyal medya için önerilen denge' },
   { code: 'high', label: 'Yüksek', cost: '~$0.05-$0.21', hint: 'Premium görsel, daha pahalı' },
+]
+
+const COVER_MODE_OPTIONS: Array<{ code: SocialCoverMode; label: string; badge: string; hint: string }> = [
+  {
+    code: 'free',
+    label: 'Ücretsiz şablon',
+    badge: '0 maliyet',
+    hint: 'İlan fotoğrafı, logo, tema çipleri ve bilgilerle otomatik kapak üretir. Toplu paylaşımlar için önerilir.',
+  },
+  {
+    code: 'premium',
+    label: 'Premium AI',
+    badge: 'OpenAI',
+    hint: 'OpenAI ile ilana özel farklı görsel üretir. Özel ilan ve kampanyalarda kullanın.',
+  },
 ]
 
 const DESIGN_THEME_OPTIONS: Array<{ code: SocialDesignTheme; label: string; hint: string; match?: string[] }> = [
@@ -259,6 +275,7 @@ function socialCoverPreviewUrl(
   listing: ManageListingRow | null,
   quality: SocialImageQuality,
   designTheme: Exclude<SocialDesignTheme, 'auto'>,
+  cacheKey: number,
 ): string {
   if (!listing?.slug) return ''
   const kind = ogKindForCategory(listing.category_code)
@@ -269,6 +286,7 @@ function socialCoverPreviewUrl(
     variant: 'social',
     image_quality: quality,
     design_theme: designTheme,
+    v: String(cacheKey),
   })
   return `/api/og/listing?${q.toString()}`
 }
@@ -297,10 +315,12 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   const [templateId, setTemplateId] = useState('')
   const [templateName, setTemplateName] = useState('Kategori kampanya şablonu')
   const [templateBody, setTemplateBody] = useState(DEFAULT_TEMPLATE_BODY)
+  const [coverMode, setCoverMode] = useState<SocialCoverMode>('free')
   const [imageQuality, setImageQuality] = useState<SocialImageQuality>('medium')
   const [designTheme, setDesignTheme] = useState<SocialDesignTheme>('auto')
   const [selectedListing, setSelectedListing] = useState<ManageListingRow | null>(null)
   const [generatedCover, setGeneratedCover] = useState<{ url: string; storage_key: string } | null>(null)
+  const [coverPreviewRev, setCoverPreviewRev] = useState(() => Date.now())
   const [coverBusy, setCoverBusy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
@@ -349,7 +369,8 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
 
   useEffect(() => {
     setGeneratedCover(null)
-  }, [selectedListing?.id, imageQuality, resolvedDesignTheme])
+    setCoverPreviewRev(Date.now())
+  }, [selectedListing?.id, imageQuality, resolvedDesignTheme, coverMode])
 
   function insertTemplateToken(token: string) {
     const el = templateTextareaRef.current
@@ -377,10 +398,13 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     const quality = IMAGE_QUALITY_OPTIONS.find((q) => q.code === imageQuality)?.label ?? imageQuality
     const theme = designThemeLabel(resolvedDesignTheme)
     const themeCodes = selectedThemeCodes.length > 0 ? selectedThemeCodes.join(', ') : 'tema kodu yok'
+    const coverInstruction = coverMode === 'premium'
+      ? `Premium AI görsel kalite tercihi: ${quality} (${imageQuality}).`
+      : 'Kapak modu: ücretsiz statik şablon; OpenAI görsel üretimi kullanılmayacak.'
     return [
       body.trim() || DEFAULT_TEMPLATE_BODY,
       '',
-      `AI görsel kalite tercihi: ${quality} (${imageQuality}).`,
+      coverInstruction,
       `Tasarım ipucu: ${theme}. İlan tema kodları: ${themeCodes}. Kapakta logo, ilan adı, bölge, kişi/oda/banyo ve iletişim net okunmalı.`,
     ].join('\n')
   }
@@ -401,7 +425,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
   async function queueListing(token: string, listing: ManageListingRow, tplId: string | undefined) {
     const keys = await listingImageKeys(listing.id)
     const imageKeys =
-      generatedCover && listing.id === selectedListing?.id
+      coverMode === 'premium' && generatedCover && listing.id === selectedListing?.id
         ? [generatedCover.storage_key, ...keys.filter((k) => k !== generatedCover.storage_key)].slice(0, 10)
         : keys
     if (imageKeys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
@@ -422,6 +446,10 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
 
   async function onGenerateCover() {
     if (!selectedListing) return
+    if (coverMode !== 'premium') {
+      setError('Premium AI modunu seçmeden AI kapak üretilemez.')
+      return
+    }
     setCoverBusy(true)
     setError(null)
     setMessage(null)
@@ -476,7 +504,11 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     try {
       const tplId = await ensureTemplate(token)
       await queueListing(token, selectedListing, tplId)
-      setMessage('Tek ilan test kuyruğuna alındı. Worker çalıştığında AI metni ve kapakla paylaşılacak.')
+      setMessage(
+        coverMode === 'premium' && generatedCover
+          ? 'Tek ilan test kuyruğuna alındı. Worker premium AI kapağı ilk görsel olarak paylaşacak.'
+          : 'Tek ilan test kuyruğuna alındı. Worker ücretsiz statik kapak şablonu ile paylaşacak.',
+      )
       onQueued()
     } catch (e) {
       setError(formatManageApiCatch(e, 'social_single_queue_failed'))
@@ -524,7 +556,7 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     }
   }
 
-  const coverUrl = generatedCover?.url ?? socialCoverPreviewUrl(selectedListing, imageQuality, resolvedDesignTheme)
+  const coverUrl = generatedCover?.url ?? socialCoverPreviewUrl(selectedListing, imageQuality, resolvedDesignTheme, coverPreviewRev)
 
   return (
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 dark:border-emerald-900/40 dark:bg-emerald-950/20">
@@ -532,10 +564,10 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
         <div>
           <h3 className="flex items-center gap-2 text-sm font-semibold text-neutral-900 dark:text-neutral-100">
             <Sparkles className="h-4 w-4 text-emerald-600" />
-            Kategori Bazlı AI Sosyal Paylaşım
+            Kategori Bazlı Sosyal Paylaşım
           </h3>
           <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-            Kategori + şablon seçin; AI başlık/açıklama üretir, kapak ve 10 görselle kuyruğa alır. Worker panel kapalıyken 10 dakikalık zamanlayıcıyla paylaşır.
+            Ücretsiz şablonla maliyetsiz kapak kullanın veya özel ilanlarda Premium AI kapak üretin. Worker panel kapalıyken 10 dakikalık zamanlayıcıyla paylaşır.
           </p>
         </div>
         <button
@@ -602,6 +634,37 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
             </div>
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">Kapak üretim modu</label>
+            <div className="grid gap-2 md:grid-cols-2">
+              {COVER_MODE_OPTIONS.map((opt) => {
+                const active = coverMode === opt.code
+                return (
+                  <button
+                    key={opt.code}
+                    type="button"
+                    onClick={() => setCoverMode(opt.code)}
+                    className={[
+                      'rounded-2xl border p-4 text-left transition',
+                      active
+                        ? 'border-emerald-500 bg-white shadow-sm ring-2 ring-emerald-100 dark:bg-neutral-900 dark:ring-emerald-950/60'
+                        : 'border-neutral-200 bg-white hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-neutral-700 dark:bg-neutral-900 dark:hover:bg-emerald-950/20',
+                    ].join(' ')}
+                  >
+                    <span className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{opt.label}</span>
+                      <span className={active ? 'rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white' : 'rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-500 dark:bg-neutral-800'}>
+                        {opt.badge}
+                      </span>
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-neutral-500 dark:text-neutral-400">{opt.hint}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {coverMode === 'premium' ? (
           <div className="grid gap-3 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)]">
             <div>
               <label className="mb-1.5 block text-xs font-medium text-neutral-700 dark:text-neutral-300">
@@ -673,6 +736,11 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
               ) : null}
             </div>
           </div>
+          ) : (
+            <p className="rounded-xl border border-emerald-200 bg-white px-4 py-3 text-xs text-emerald-700 dark:border-emerald-900/40 dark:bg-neutral-900 dark:text-emerald-300">
+              Ücretsiz mod seçili: paylaşımda statik kapak şablonu kullanılır, OpenAI maliyeti oluşmaz. Özel ilan için Premium AI moduna geçip kapak üretebilirsiniz.
+            </p>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-[220px_1fr]">
             <div>
@@ -758,8 +826,14 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
             </button>
           </div>
 
-          {message && <p className="rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-neutral-900 dark:text-emerald-300">{message}</p>}
-          {error && <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">{error}</p>}
+          <div className={message || error ? 'space-y-2' : 'hidden'} aria-live="polite">
+            <p className={message ? 'rounded-xl border border-emerald-200 bg-white px-4 py-2 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-neutral-900 dark:text-emerald-300' : 'hidden'}>
+              {message ?? ''}
+            </p>
+            <p className={error ? 'rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300' : 'hidden'}>
+              {error ?? ''}
+            </p>
+          </div>
         </div>
 
         <div className="rounded-2xl border border-neutral-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
@@ -768,24 +842,40 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
             <ImageIcon className="h-4 w-4" />
             Kapak önizleme
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {generatedCover ? (
-                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                  AI kapak hazır
-                </span>
-              ) : (
-                <span className="rounded-full bg-neutral-100 px-2.5 py-1 text-[11px] font-medium text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
-                  Statik önizleme
-                </span>
-              )}
+            <div className="flex flex-wrap items-center justify-end gap-2" translate="no">
+              <span
+                className={[
+                  'rounded-full px-2.5 py-1 text-[11px] font-medium',
+                  generatedCover
+                    ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : 'bg-neutral-100 text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400',
+                ].join(' ')}
+              >
+                {generatedCover ? 'AI kapak hazır' : coverMode === 'free' ? 'Ücretsiz şablon' : 'Statik önizleme'}
+              </span>
               <button
                 type="button"
-                disabled={coverBusy || !selectedListing}
-                onClick={() => void onGenerateCover()}
-                className="flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50"
+                disabled={!selectedListing || Boolean(generatedCover)}
+                onClick={() => setCoverPreviewRev(Date.now())}
+                className={[
+                  'rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-50 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-300',
+                  generatedCover ? 'hidden' : '',
+                ].join(' ')}
               >
-                {coverBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {coverBusy ? 'Üretiliyor…' : 'AI Kapak Üret'}
+                Önizlemeyi yenile
+              </button>
+              <button
+                type="button"
+                disabled={coverBusy || !selectedListing || coverMode !== 'premium'}
+                onClick={() => void onGenerateCover()}
+                className={[
+                  'flex items-center gap-2 rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-50',
+                  coverMode === 'premium' ? '' : 'hidden',
+                ].join(' ')}
+              >
+                <Loader2 className={coverBusy ? 'h-4 w-4 animate-spin' : 'hidden h-4 w-4'} />
+                <Sparkles className={coverBusy ? 'hidden h-4 w-4' : 'h-4 w-4'} />
+                <span>{coverBusy ? 'Üretiliyor…' : 'Premium AI Kapak Üret'}</span>
               </button>
             </div>
           </div>

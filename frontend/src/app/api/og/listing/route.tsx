@@ -566,7 +566,11 @@ function socialListingImage({
         </div>
       </div>
     ),
-    { width: SOCIAL_W, height: SOCIAL_H },
+    {
+      width: SOCIAL_W,
+      height: SOCIAL_H,
+      headers: { 'Cache-Control': 'no-store, max-age=0' },
+    },
   )
 }
 

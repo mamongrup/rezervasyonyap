@@ -80,6 +80,11 @@ function listingSocialCoverUrl(categoryCode: string, slug: string): string {
   )
 }
 
+function isGeneratedSocialCoverKey(storageKey: string): boolean {
+  const k = storageKey.trim().replace(/^\/+/, '')
+  return k.startsWith('uploads/social-covers/')
+}
+
 export function absoluteMediaUrl(siteUrl: string, storageKey: string): string {
   const rel = storageKeyToPublicUrl(storageKey.trim())
   if (!rel) return ''
@@ -492,7 +497,8 @@ export async function processOneSocialJob(
     .map((k) => absoluteMediaUrl(siteUrl, k))
     .filter((u) => u.startsWith('https://'))
   const coverUrl = listingSocialCoverUrl(job.category_code, job.listing_slug)
-  const postImageUrls = [coverUrl, ...imageUrls]
+  const hasGeneratedCover = selectedKeys.some(isGeneratedSocialCoverKey)
+  const postImageUrls = [hasGeneratedCover ? '' : coverUrl, ...imageUrls]
     .filter((u) => u.startsWith('https://'))
     .filter((u, i, arr) => arr.indexOf(u) === i)
     .slice(0, 10)
