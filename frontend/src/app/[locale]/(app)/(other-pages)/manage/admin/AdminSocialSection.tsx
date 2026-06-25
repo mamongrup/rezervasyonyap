@@ -430,10 +430,11 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
         ? [generatedCover.storage_key, ...keys.filter((k) => k !== generatedCover.storage_key)].slice(0, 10)
         : keys
     if (imageKeys.length === 0) throw new Error(`${listing.title}: image_keys_required`)
+    // Bayraklar otomatik rotasyon için yardımcıdır; manuel kuyruk kaydı için zorunlu değildir.
     await patchListingSocial(token, listing.id, {
       share_to_social: true,
       allow_ai_caption: true,
-    })
+    }).catch(() => undefined)
     for (const network of activeNetworks) {
       await createSocialJob(token, {
         entity_type: 'listing',
@@ -1016,26 +1017,34 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 function JobRow({ j }: { j: SocialShareJob }) {
+  const err = (j.error_message ?? '').trim()
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
-      <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[j.status] ?? 'bg-neutral-100 text-neutral-600'}`}>
-        {j.status}
-      </span>
-      {j.network && (
-        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-          {j.network}
+    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3 dark:border-neutral-700 dark:bg-neutral-800/40">
+      <div className="flex flex-wrap items-center gap-3">
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_COLORS[j.status] ?? 'bg-neutral-100 text-neutral-600'}`}>
+          {j.status}
         </span>
-      )}
-      <span className="font-mono text-xs text-neutral-700 dark:text-neutral-300">{j.entity_type}</span>
-      <span className="truncate font-mono text-xs text-neutral-500 dark:text-neutral-400" title={j.entity_id}>
-        {j.entity_id.slice(0, 8)}…
-      </span>
-      {j.caption_ai_generated && (
-        <span className="max-w-xs truncate text-xs text-neutral-600 dark:text-neutral-400" title={j.caption_ai_generated}>
-          &ldquo;{j.caption_ai_generated.slice(0, 60)}&rdquo;
+        {j.network && (
+          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+            {j.network}
+          </span>
+        )}
+        <span className="font-mono text-xs text-neutral-700 dark:text-neutral-300">{j.entity_type}</span>
+        <span className="truncate font-mono text-xs text-neutral-500 dark:text-neutral-400" title={j.entity_id}>
+          {j.entity_id.slice(0, 8)}…
         </span>
+        {j.caption_ai_generated && (
+          <span className="max-w-xs truncate text-xs text-neutral-600 dark:text-neutral-400" title={j.caption_ai_generated}>
+            &ldquo;{j.caption_ai_generated.slice(0, 60)}&rdquo;
+          </span>
+        )}
+        <span className="ml-auto text-[10px] text-neutral-400">{j.created_at ? new Date(j.created_at).toLocaleDateString('tr') : ''}</span>
+      </div>
+      {err && (
+        <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950/30 dark:text-red-300">
+          {err}
+        </p>
       )}
-      <span className="ml-auto text-[10px] text-neutral-400">{j.created_at ? new Date(j.created_at).toLocaleDateString('tr') : ''}</span>
     </div>
   )
 }

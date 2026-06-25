@@ -4915,6 +4915,7 @@ export type SocialShareJob = {
   template_id: string | null
   status: string
   caption_ai_generated: string | null
+  error_message?: string | null
   image_keys: string[]
   created_at: string
 }

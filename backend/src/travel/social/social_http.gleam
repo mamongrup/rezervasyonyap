@@ -303,7 +303,7 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
 }
 
 fn job_row() ->
-  decode.Decoder(#(String, String, String, String, String, String, String, String, String)) {
+  decode.Decoder(#(String, String, String, String, String, String, String, String, String, String)) {
   use id <- decode.field(0, decode.string)
   use et <- decode.field(1, decode.string)
   use eid <- decode.field(2, decode.string)
@@ -312,14 +312,15 @@ fn job_row() ->
   use status <- decode.field(5, decode.string)
   use cap <- decode.field(6, decode.string)
   use imgs <- decode.field(7, decode.string)
-  use created <- decode.field(8, decode.string)
-  decode.success(#(id, et, eid, net, tid, status, cap, imgs, created))
+  use err <- decode.field(8, decode.string)
+  use created <- decode.field(9, decode.string)
+  decode.success(#(id, et, eid, net, tid, status, cap, imgs, err, created))
 }
 
 fn job_to_json(
-  row: #(String, String, String, String, String, String, String, String, String),
+  row: #(String, String, String, String, String, String, String, String, String, String),
 ) -> json.Json {
-  let #(id, et, eid, net, tid, status, cap, imgs, created) = row
+  let #(id, et, eid, net, tid, status, cap, imgs, err, created) = row
   let template_field = case tid == "" {
     True -> json.null()
     False -> json.string(tid)
@@ -327,6 +328,10 @@ fn job_to_json(
   let cap_field = case cap == "" {
     True -> json.null()
     False -> json.string(cap)
+  }
+  let err_field = case err == "" {
+    True -> json.null()
+    False -> json.string(err)
   }
   let img_list =
     string.split(imgs, "\u{001F}")
@@ -340,6 +345,7 @@ fn job_to_json(
     #("template_id", template_field),
     #("status", json.string(status)),
     #("caption_ai_generated", cap_field),
+    #("error_message", err_field),
     #("image_keys", json.array(from: img_list, of: json.string)),
     #("created_at", json.string(created)),
   ])
@@ -382,7 +388,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     Error(_) -> 50
   }
   let sel =
-    "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), created_at::text from social_share_jobs "
+    "select id::text, entity_type, entity_id::text, network::text, coalesce(template_id::text, ''), status::text, coalesce(caption_ai_generated, ''), coalesce(array_to_string(image_keys, chr(31)), ''), coalesce(error_message, ''), created_at::text from social_share_jobs "
   case status_filter == "" {
     True ->
       case
@@ -415,7 +421,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
 }
 
 fn jobs_response(
-  rows: List(#(String, String, String, String, String, String, String, String, String)),
+  rows: List(#(String, String, String, String, String, String, String, String, String, String)),
 ) -> Response {
   let arr = list.map(rows, job_to_json)
   let body =
