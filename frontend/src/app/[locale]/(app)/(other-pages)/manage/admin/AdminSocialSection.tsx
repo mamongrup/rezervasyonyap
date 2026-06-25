@@ -10,6 +10,7 @@ import {
   listSocialTemplates,
   patchListingSocial,
   postListingToFacebook,
+  processSocialPendingJobs,
   type ManageListingRow,
   type SocialNetwork,
   type SocialShareJob,
@@ -1045,20 +1046,17 @@ export default function AdminSocialSection() {
   const [jobs, setJobs] = useState<SocialShareJob[]>([])
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'posted' | 'failed'>('all')
   const [loadErr, setLoadErr] = useState<string | null>(null)
+  const [processMsg, setProcessMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
-  const statusFilterRef = useRef(statusFilter)
-  statusFilterRef.current = statusFilter
+  const [processing, setProcessing] = useState(false)
 
   const refresh = useCallback(async () => {
     const token = getStoredAuthToken()
     if (!token) return
     setLoadErr(null)
     setLoading(true)
-    const st = statusFilterRef.current
     try {
       const j = await listSocialJobs(token, {
-        ...(st !== 'all' ? { status: st } : {}),
         limit: 100,
       })
       setJobs(j.jobs)
@@ -1070,6 +1068,25 @@ export default function AdminSocialSection() {
   }, [])
 
   useEffect(() => { void refresh() }, [refresh])
+
+  const processPending = useCallback(async () => {
+    const token = getStoredAuthToken()
+    if (!token) return
+    setLoadErr(null)
+    setProcessMsg(null)
+    setProcessing(true)
+    try {
+      const out = await processSocialPendingJobs(token, { limit: 5, rotate: false })
+      setProcessMsg(
+        `İşlenen: ${out.processed}, paylaşılan: ${out.posted}, başarısız: ${out.failed}.`,
+      )
+      await refresh()
+    } catch (e) {
+      setLoadErr(formatManageApiCatch(e, 'social_worker_process_failed'))
+    } finally {
+      setProcessing(false)
+    }
+  }, [refresh])
 
   const counts = {
     all: jobs.length,
@@ -1090,17 +1107,28 @@ export default function AdminSocialSection() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="text-base font-semibold text-[color:var(--manage-text)]">Paylaşım Geçmişi</h3>
-            <p className="mt-0.5 text-xs text-[color:var(--manage-text-muted)]">Facebook&apos;a gönderilen paylaşım kayıtları</p>
+            <p className="mt-0.5 text-xs text-[color:var(--manage-text-muted)]">Facebook / Instagram paylaşım kuyruğu ve kayıtları</p>
           </div>
-          <button
-            type="button"
-            onClick={() => void refresh()}
-            disabled={loading}
-            className="flex items-center gap-1.5 rounded-xl border border-[color:var(--manage-card-border)] px-3 py-2 text-sm text-[color:var(--manage-text-muted)] hover:bg-[color:var(--manage-hover-bg)] disabled:opacity-50"
-          >
-            <RefreshCw className={['h-3.5 w-3.5', loading ? 'animate-spin' : ''].join(' ')} />
-            Yenile
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => void processPending()}
+              disabled={processing || loading || counts.pending === 0}
+              className="flex items-center gap-1.5 rounded-xl bg-primary-600 px-3 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {processing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+              Bekleyenleri işle
+            </button>
+            <button
+              type="button"
+              onClick={() => void refresh()}
+              disabled={loading}
+              className="flex items-center gap-1.5 rounded-xl border border-[color:var(--manage-card-border)] px-3 py-2 text-sm text-[color:var(--manage-text-muted)] hover:bg-[color:var(--manage-hover-bg)] disabled:opacity-50"
+            >
+              <RefreshCw className={['h-3.5 w-3.5', loading ? 'animate-spin' : ''].join(' ')} />
+              Yenile
+            </button>
+          </div>
         </div>
 
         {/* Durum filtreleri */}
@@ -1127,6 +1155,11 @@ export default function AdminSocialSection() {
         {loadErr && (
           <p className="mb-3 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300">
             {loadErr}
+          </p>
+        )}
+        {processMsg && (
+          <p className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/20 dark:text-emerald-300">
+            {processMsg}
           </p>
         )}
 

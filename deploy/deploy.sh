@@ -11,6 +11,7 @@
 #   SKIP_BACKEND_BUILD=1 ./deploy/deploy.sh                   # yalniz frontend (~15 dk, node_modules aynıysa ~5 dk)
 #   SKIP_BACKEND_BUILD=1 FORCE_NPM_CI=0 ./deploy/deploy.sh   # frontend, node_modules koru (~5 dk)
 #   SKIP_VERIFY=1 ./deploy/deploy.sh                          # verify bekleme atlanir
+#   SKIP_SOCIAL_WORKER_TIMER=1 ./deploy/deploy.sh             # sosyal paylaşım worker timer kurulumunu atla
 #   SKIP_DB_CONN_GUARD=1 ./deploy/deploy.sh                   # PostgreSQL orphan bağlantı temizliğini atla
 #   TRAVEL_DB_CONN_THRESHOLD=30 ./deploy/deploy.sh             # bağlantı guard eşiği
 #   FORCE_NPM_CI=1 ./deploy/deploy.sh                         # node_modules'u zorla yenile
@@ -136,6 +137,9 @@ main() {
   if [[ -f "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" ]]; then
     chmod +x "$APP_ROOT/deploy/scripts/ai-worker-run-steps.sh" || true
   fi
+  if [[ -f "$APP_ROOT/deploy/scripts/social-process-pending.sh" ]]; then
+    chmod +x "$APP_ROOT/deploy/scripts/social-process-pending.sh" || true
+  fi
   chmod +x "$APP_ROOT/deploy/deploy-api-only.sh" 2>/dev/null || true
 
   step "Backend build + Erlang shipment"
@@ -238,6 +242,20 @@ main() {
     fi
   )
   ok "frontend build tamam"
+  fi
+
+  if [[ "${SKIP_SOCIAL_WORKER_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_SOCIAL_WORKER_TIMER=1 — sosyal paylaşım worker timer kurulumu atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-social-worker.service" && -f "$APP_ROOT/deploy/systemd/travel-social-worker.timer" ]]; then
+    step "Sosyal paylaşım worker timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-social-worker.service" /etc/systemd/system/travel-social-worker.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-social-worker.timer" /etc/systemd/system/travel-social-worker.timer \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-social-worker.timer \
+      && ok "travel-social-worker.timer etkin" \
+      || warn "travel-social-worker.timer kurulamadı; bekleyen sosyal paylaşımlar için systemd/log kontrol edin."
+  else
+    warn "Sosyal paylaşım worker systemd dosyaları bulunamadı."
   fi
 
   step "Servis restart"

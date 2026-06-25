@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { enqueueRotationSocialJobs, processPendingSocialJobs } from '@/lib/social-auto-post'
+import { verifyAdminToken } from '@/lib/security'
 
 export async function POST(req: NextRequest) {
   const expected = (process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? '').trim()
@@ -23,8 +24,18 @@ export async function POST(req: NextRequest) {
     req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim() ??
     ''
 
-  if (!provided || provided !== expected) {
+  if (!provided) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  }
+
+  if (provided !== expected) {
+    const auth = await verifyAdminToken(provided, 'admin.social.write')
+    if (!auth.ok) {
+      return NextResponse.json(
+        { error: auth.status === 403 ? 'forbidden' : 'unauthorized' },
+        { status: auth.status },
+      )
+    }
   }
 
   const limitRaw = req.nextUrl.searchParams.get('limit')

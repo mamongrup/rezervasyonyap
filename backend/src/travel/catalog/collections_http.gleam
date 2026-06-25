@@ -88,6 +88,14 @@ fn hotel_public_must_have_price_sql() -> String {
   "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
+/// Public vitrin/kategori listelerinde görselsiz ilan gösterilmez.
+/// Kart görseli üç kaynaktan gelebilir: featured_image_url, thumbnail_url veya listing_images.
+fn public_listing_must_have_image_sql() -> String {
+  "and (coalesce(trim(l.featured_image_url), '') <> '' "
+  <> "or coalesce(trim(l.thumbnail_url), '') <> '' "
+  <> "or exists (select 1 from listing_images li_img where li_img.listing_id = l.id and trim(coalesce(li_img.storage_key, '')) <> '' limit 1)) "
+}
+
 /// Aktivite vitrin fiyatı — aktif seanslardaki en düşük yetişkin ücreti (kişi başı).
 fn activity_listing_vitrin_price_sql() -> String {
   "(select min(f.price_amount)::text from listing_activity_sessions s "
@@ -953,6 +961,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
     <> "where l.status = 'published' "
+    <> public_listing_must_have_image_sql()
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
     <> listing_search_match_sql
     <> " ilike '%' || trim(tok) || '%'), true) from unnest(string_to_array(trim($1), ' ')) as u(tok) where trim(tok) <> '')) "
@@ -1127,6 +1136,7 @@ fn search_listings_impl(
     <> "left join listing_yacht_details y on y.listing_id = l.id "
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
+    <> public_listing_must_have_image_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "and ($3::text is null or trim($3) = '' or (select coalesce(bool_and("
     <> location_search_sql
@@ -1860,6 +1870,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     <> "left join lateral (select la.value_json as meta from listing_attributes la "
     <> "where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
     <> "where l.status = 'published' "
+    <> public_listing_must_have_image_sql()
     <> "and ($2::text is null or pc.code = $2) "
     <> "order by l.created_at desc "
     <> "offset $3 limit $4"
@@ -1914,6 +1925,7 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
     <> "from listings l "
     <> "join product_categories pc on pc.id = l.category_id "
     <> "where l.status = 'published' "
+    <> public_listing_must_have_image_sql()
     <> "group by pc.code"
   case
     pog.query(sql)
@@ -2041,6 +2053,7 @@ fn region_stats_domestic_district_sql() -> String {
   <> "  left join listing_attributes lm on lm.listing_id = l.id "
   <> "    and lm.group_code = 'listing_meta' and lm.key = 'v1' "
   <> "  where l.status = 'published' and pc.code = $2 "
+  <> public_listing_must_have_image_sql()
   <> "    and ($3::text is null or lower(trim(coalesce(lm.value_json->>'property_type', ''))) = $3) "
   <> "), matched as ( "
   <> "  select distinct on (b.id) "
@@ -2100,6 +2113,7 @@ fn region_stats_tour_sql() -> String {
   <> "  left join listing_attributes w on w.listing_id = l.id "
   <> "    and w.group_code = 'wtatil' and w.key = 'snapshot' "
   <> "  where l.status = 'published' and pc.code = 'tour' "
+  <> public_listing_must_have_image_sql()
   <> "    and tour_price_row.tour_vitrin_price is not null and tour_price_row.tour_vitrin_price > 0 "
   <> "), tour_dest as ( "
   <> "  select distinct on (tb.id) "

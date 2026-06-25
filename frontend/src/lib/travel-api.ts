@@ -4919,6 +4919,22 @@ export type SocialShareJob = {
   created_at: string
 }
 
+export type SocialWorkerProcessResult = {
+  ok: boolean
+  enqueued?: number
+  processed: number
+  posted: number
+  failed: number
+  results?: Array<{
+    ok: boolean
+    network: string
+    job_id: string
+    post_id?: string
+    error?: string
+  }>
+  error?: string
+}
+
 export async function listSocialJobs(
   token: string,
   params?: { status?: string; limit?: number },
@@ -4936,6 +4952,24 @@ export async function listSocialJobs(
     throw new Error((err as { error?: string }).error ?? `social_jobs_${res.status}`)
   }
   return json(res)
+}
+
+export async function processSocialPendingJobs(
+  token: string,
+  params?: { limit?: number; rotate?: boolean },
+): Promise<SocialWorkerProcessResult> {
+  const q = new URLSearchParams()
+  if (params?.limit != null) q.set('limit', String(params.limit))
+  if (params?.rotate === false) q.set('rotate', '0')
+  const res = await fetch(`/api/social/worker-process${q.toString() ? `?${q}` : ''}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  const data = await res.json().catch(() => ({ ok: false, error: `social_worker_${res.status}` })) as SocialWorkerProcessResult
+  if (!res.ok) {
+    throw new Error(data.error ?? `social_worker_${res.status}`)
+  }
+  return data
 }
 
 export async function createSocialJob(
