@@ -4,6 +4,8 @@ import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { normalizeSiteLogoUrl, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
+import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
+import { parseHolidayThemeCodes } from '@/lib/holiday-theme-codes'
 import type { TListingBase } from '@/types/listing-types'
 import { getPublicListingImages } from '@/lib/travel-api'
 import {
@@ -31,8 +33,9 @@ const SOCIAL_TEMPLATE_FILE = path.join(process.cwd(), 'public', 'social', 'socia
 const SOCIAL_FRAME_FILE = path.join(process.cwd(), 'public', 'social', 'social-cover-frame.png')
 const SOCIAL_PHOTO_MASK_FILE = path.join(process.cwd(), 'public', 'social', 'social-cover-photo-mask.png')
 const SOCIAL_PHOTO_BLEED = 1.06
+const SOCIAL_ICON_DIR = path.join(process.cwd(), 'public', 'social', 'icons')
 /** Logo altı metin alanı (sol) */
-const SOCIAL_TEMPLATE_TEXT = { x: 32, y: 210, w: 300 }
+const SOCIAL_TEMPLATE_TEXT = { x: 52, y: 250, w: 410 }
 
 function scaleSocialTemplate(n: number): number {
   return Math.round(n * (SOCIAL_W / SOCIAL_TEMPLATE_BASE))
@@ -44,6 +47,15 @@ async function pngFileDataUrl(file: string): Promise<string | null> {
       .resize(SOCIAL_W, SOCIAL_H)
       .png()
       .toBuffer()
+    return `data:image/png;base64,${input.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+async function pngFileNativeDataUrl(file: string): Promise<string | null> {
+  try {
+    const input = await sharp(file).png().toBuffer()
     return `data:image/png;base64,${input.toString('base64')}`
   } catch {
     return null
@@ -91,9 +103,28 @@ async function buildMaskedSocialPhotoDataUrl(
       .png()
       .toBuffer()
 
-    const mask = await sharp(SOCIAL_PHOTO_MASK_FILE)
+    const maskAlpha = await sharp(SOCIAL_PHOTO_MASK_FILE)
       .resize(SOCIAL_W, SOCIAL_H)
       .ensureAlpha()
+      .extractChannel('alpha')
+      .threshold(160)
+      .erode(1)
+      .blur(0.45)
+      .raw()
+      .toBuffer()
+
+    const mask = await sharp({
+      create: {
+        width: SOCIAL_W,
+        height: SOCIAL_H,
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 },
+      },
+    })
+      .joinChannel(maskAlpha, {
+        raw: { width: SOCIAL_W, height: SOCIAL_H, channels: 1 },
+      })
+      .png()
       .toBuffer()
 
     const masked = await sharp(placed)
@@ -111,6 +142,18 @@ function truncate(s: string, max: number): string {
   const t = s.trim()
   if (t.length <= max) return t
   return `${t.slice(0, max - 1)}…`
+}
+
+function socialThemeLabels(codes: string[] | string | null | undefined, locale: string): string[] {
+  const labelMap = new Map(HOLIDAY_THEME_FILTER_FALLBACK.map((item) => [item.code, item.label]))
+  return parseHolidayThemeCodes(codes)
+    .map((code) => {
+      if (!locale.startsWith('en')) return labelMap.get(code) ?? code.replaceAll('_', ' ')
+      return code
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    })
+    .slice(0, 3)
 }
 
 function assetBaseUrl(pageBase: string): string {
@@ -276,12 +319,14 @@ async function socialListingImage({
   badge,
   title,
   rows,
+  themes,
   pageBase,
 }: {
   bgUrl: string | null
   badge: string
   title: string
   rows: { label: string; value: string }[]
+  themes: string[]
   pageBase: string
 }) {
   const text = {
@@ -294,6 +339,12 @@ async function socialListingImage({
   const frameUrl = await pngFileDataUrl(SOCIAL_FRAME_FILE)
   const maskedPhotoUrl = bgUrl ? await buildMaskedSocialPhotoDataUrl(bgUrl, pageBase) : null
   const displayTitle = truncate(titleWithoutBadge(title, badge), 52)
+  const [guestsIcon, bedroomsIcon, bathroomsIcon, locationIcon, linkIcon, phoneIcon] =
+    await Promise.all(
+      ['guests.png', 'bedrooms.png', 'bathrooms.png', 'location.png', 'link.png', 'phone.png'].map(
+        (file) => pngFileNativeDataUrl(path.join(SOCIAL_ICON_DIR, file)),
+      ),
+    )
 
   const rowPriority = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
@@ -307,6 +358,15 @@ async function socialListingImage({
     .filter((r) => !/fiyat|price/i.test(r.label))
     .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
     .slice(0, 4)
+  const locationRow = detailRows.find((row) => rowPriority(row.label) === 0)
+  const featureRows = detailRows.filter((row) => row !== locationRow).slice(0, 3)
+  const featureIcon = (label: string) => {
+    const l = label.toLocaleLowerCase('tr-TR')
+    if (/kişi|guest|kapasite|capacity/.test(l)) return guestsIcon
+    if (/oda|bedroom|kabin|cabin/.test(l)) return bedroomsIcon
+    if (/banyo|bath/.test(l)) return bathroomsIcon
+    return null
+  }
 
   return new ImageResponse(
     (
@@ -378,29 +438,159 @@ async function socialListingImage({
             width: text.w,
             display: 'flex',
             flexDirection: 'column',
-            gap: 8,
+            gap: 5,
           }}
         >
           <div
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              color: '#0f172a',
-              fontSize: 24,
+              color: '#ef1010',
+              fontSize: 42,
               fontWeight: 900,
-              lineHeight: 1.15,
-              maxHeight: 88,
+              lineHeight: 1.04,
+              maxHeight: 96,
               overflow: 'hidden',
+              textTransform: 'uppercase',
             }}
           >
             {displayTitle}
           </div>
-          {detailRows.map((row) => (
-            <div key={`${row.label}-${row.value}`} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
-                {row.label.toLocaleUpperCase('tr-TR')}
+          <div
+            style={{
+              display: 'flex',
+              color: '#13294b',
+              fontSize: 34,
+              fontWeight: 500,
+              lineHeight: 1.05,
+              textTransform: 'uppercase',
+            }}
+          >
+            {badge}
+          </div>
+          {locationRow ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
+              {locationIcon ? <img src={locationIcon} alt="" width={36} height={36} /> : null}
+              <span style={{ color: '#13294b', fontSize: 25, fontWeight: 800, textTransform: 'uppercase' }}>
+                {truncate(locationRow.value, 24)}
               </span>
-              <span style={{ color: '#0f172a', fontSize: 15, fontWeight: 800 }}>{row.value}</span>
+            </div>
+          ) : null}
+        </div>
+
+        {themes.length > 0 ? (
+          <div
+            style={{
+              position: 'absolute',
+              left: text.x,
+              top: scaleSocialTemplate(465),
+              width: scaleSocialTemplate(260),
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 8,
+            }}
+          >
+            {themes.map((theme) => (
+              <div
+                key={theme}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '7px 10px',
+                  border: '1px solid #0c93a0',
+                  borderRadius: 6,
+                  background: 'rgba(255,255,255,0.9)',
+                  color: '#13294b',
+                  fontSize: 17,
+                  fontWeight: 700,
+                }}
+              >
+                {theme}
+              </div>
+            ))}
+          </div>
+        ) : null}
+
+        <div
+          style={{
+            position: 'absolute',
+            left: text.x,
+            top: scaleSocialTemplate(635),
+            width: text.w,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 20,
+          }}
+        >
+          {featureRows.map((row) => (
+            <div
+              key={`${row.label}-${row.value}`}
+              style={{ display: 'flex', alignItems: 'center', gap: 10 }}
+            >
+              {featureIcon(row.label) ? (
+                <img src={featureIcon(row.label)!} alt="" width={50} height={50} />
+              ) : (
+                <span style={{ width: 50, height: 50 }} />
+              )}
+              <span style={{ color: '#13294b', fontSize: 27, fontWeight: 800, textTransform: 'uppercase' }}>
+                {row.value} {row.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: scaleSocialTemplate(52),
+            bottom: scaleSocialTemplate(18),
+            width: scaleSocialTemplate(430),
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          {[
+            { text: 'Mamon Plus Travel Agency', icon: null },
+            {
+              text: 'www.rezervasyonyap.com.tr - info@rezervasyonyap.com.tr',
+              icon: linkIcon,
+            },
+            { text: '0850 466 0 464 - 0532 397 7957', icon: phoneIcon },
+            { text: 'TURSAB NO : 13127', icon: null },
+          ].map((line, index) => (
+            <div
+              key={line.text}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              {line.icon ? (
+                <span
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#ef1010',
+                  }}
+                >
+                  <img src={line.icon} alt="" width={13} height={13} />
+                </span>
+              ) : null}
+              <span
+                style={{
+                  color: '#13294b',
+                  fontSize: index === 0 ? 21 : index === 1 ? 13 : 15,
+                  fontWeight: index === 0 || index === 3 ? 800 : 500,
+                }}
+              >
+                {line.text}
+              </span>
             </div>
           ))}
         </div>
@@ -443,14 +633,26 @@ export async function GET(req: NextRequest) {
   const fallbackListingId = searchParams.get('listing_id')?.trim() || null
   const fallbackTitle = searchParams.get('title')?.trim() || ''
   const fallbackCategoryCode = searchParams.get('category_code')?.trim() || (kind === 'experience' ? 'tour' : 'hotel')
+  const fallbackImagePath = searchParams.get('image')?.trim() || ''
+  const fallbackThemes = socialThemeLabels(searchParams.get('theme_codes'), locale)
+  const fallbackRows = [
+    { label: locale.startsWith('en') ? 'Location' : 'Bölge', value: searchParams.get('location')?.trim() || '' },
+    { label: locale.startsWith('en') ? 'Guests' : 'Kişi', value: searchParams.get('guests')?.trim() || '' },
+    { label: locale.startsWith('en') ? 'Bedrooms' : 'Oda', value: searchParams.get('rooms')?.trim() || '' },
+    { label: locale.startsWith('en') ? 'Bathrooms' : 'Banyo', value: searchParams.get('bathrooms')?.trim() || '' },
+  ].filter((row) => row.value)
   const renderFallbackSocial = async () => {
     if (variant !== 'social' || !fallbackTitle) return null
     const imageUrls = await listingImageUrlsFromId(base, fallbackListingId)
+    const fallbackImageUrl = fallbackImagePath.startsWith('/')
+      ? toAbsoluteAssetUrl(base, fallbackImagePath)
+      : null
     return socialListingImage({
-      bgUrl: imageUrls[0] ?? null,
+      bgUrl: imageUrls[0] ?? fallbackImageUrl,
       badge: badgeFromCategoryCode(fallbackCategoryCode, locale),
       title: fallbackTitle,
-      rows: [],
+      rows: fallbackRows,
+      themes: fallbackThemes,
       pageBase: base,
     })
   }
@@ -508,6 +710,7 @@ export async function GET(req: NextRequest) {
         badge,
         title: listing.title,
         rows,
+        themes: socialThemeLabels(listing.themeCodes, locale),
         pageBase: base,
       })
     }
@@ -656,6 +859,7 @@ export async function GET(req: NextRequest) {
       badge,
       title: listing.title,
       rows,
+      themes: [],
       pageBase: base,
     })
   }
