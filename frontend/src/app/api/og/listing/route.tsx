@@ -52,22 +52,33 @@ function parseDesignTheme(raw: string | null): SocialDesignTheme {
 }
 
 function socialThemeStyle(theme: SocialDesignTheme) {
+  const luxury = {
+    glass: 'rgba(6, 28, 48, 0.94)',
+    glassChip: 'rgba(0, 0, 0, 0.38)',
+    glassBorder: 'rgba(255,255,255,0.42)',
+    gold: '#F0C020',
+    goldLight: '#FFE566',
+    white: '#FFFFFF',
+    muted: 'rgba(255,255,255,0.92)',
+    accent: '#7EE8FF',
+    navy: '#041525',
+  }
   switch (theme) {
     case 'honeymoon':
-      return { title: '#db2777', secondary: '#7c2d12', panel: '#be185d', glow: '#fff1f2' }
+      return { ...luxury, glass: 'rgba(88,28,56,0.78)', accent: '#fda4af', gold: '#fda4af' }
     case 'large_family':
-      return { title: '#ea580c', secondary: '#1e3a8a', panel: '#0f766e', glow: '#fef3c7' }
+      return { ...luxury, glass: 'rgba(30,58,95,0.78)', gold: '#fdba74' }
     case 'beachfront':
-      return { title: '#0891b2', secondary: '#0f3d6e', panel: '#0284c7', glow: '#e0f7ff' }
+      return { ...luxury, glass: 'rgba(8,70,90,0.78)', accent: '#20C5D8' }
     case 'sea_view':
-      return { title: '#0e7490', secondary: '#1e3a8a', panel: '#0f91a1', glow: '#e5fbff' }
+      return { ...luxury, glass: 'rgba(8,60,80,0.78)', accent: '#20C5D8' }
     case 'nature':
-      return { title: '#15803d', secondary: '#365314', panel: '#047857', glow: '#ecfdf5' }
+      return { ...luxury, glass: 'rgba(20,60,40,0.78)', gold: '#bef264', accent: '#86efac' }
     case 'conservative':
-      return { title: '#0f766e', secondary: '#1e3a8a', panel: '#115e59', glow: '#f0fdfa' }
+      return { ...luxury, glass: 'rgba(15,70,65,0.78)', gold: '#5eead4' }
     case 'luxury':
     default:
-      return { title: '#ef1f24', secondary: '#1e3a8a', panel: '#078fa0', glow: '#e5fbff' }
+      return luxury
   }
 }
 
@@ -80,19 +91,35 @@ function truncate(s: string, max: number): string {
 function assetBaseUrl(pageBase: string): string {
   return (
     process.env.NEXT_PUBLIC_UPLOADS_ORIGIN?.trim().replace(/\/$/, '') ||
+    process.env.INTERNAL_API_ORIGIN?.trim().replace(/\/$/, '') ||
     process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '') ||
     pageBase
   )
 }
 
+function rewriteLoopbackUploadUrl(url: string, fallbackBase: string): string {
+  try {
+    if (!/^https?:\/\//i.test(url)) return url
+    const u = new URL(url)
+    const host = u.hostname.toLowerCase()
+    if ((host === 'localhost' || host === '127.0.0.1') && u.pathname.startsWith('/uploads/')) {
+      return `${assetBaseUrl(fallbackBase)}${u.pathname}${u.search}`
+    }
+  } catch {
+    /* yoksay */
+  }
+  return url
+}
+
 function toAbsoluteAssetUrl(pageBase: string, path: string): string | null {
   const p = path.trim()
   if (!p) return null
-  if (/^https?:\/\//i.test(p)) return p
+  if (/^https?:\/\//i.test(p)) return rewriteLoopbackUploadUrl(p, pageBase)
   const base = p.startsWith('/uploads/') || p.startsWith('/api/site-upload/')
     ? assetBaseUrl(pageBase)
     : pageBase
-  return toAbsoluteSiteUrl(base, p) ?? null
+  const abs = toAbsoluteSiteUrl(base, p) ?? null
+  return abs ? rewriteLoopbackUploadUrl(abs, pageBase) : null
 }
 
 function titleWithoutBadge(title: string, badge: string): string {
@@ -145,10 +172,12 @@ async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Respons
 async function imageDataUrlForOg(
   url: string | null,
   opts: { width: number; height: number; fit: 'cover' | 'inside' },
+  pageBase?: string,
 ): Promise<string | null> {
   if (!url) return null
+  const fetchUrl = pageBase ? rewriteLoopbackUploadUrl(url, pageBase) : url
   try {
-    const res = await fetchWithTimeout(url, 3500)
+    const res = await fetchWithTimeout(fetchUrl, 3500)
     if (!res.ok) return null
     const input = Buffer.from(await res.arrayBuffer())
     const output = await sharp(input)
@@ -185,12 +214,16 @@ function uniqueAbsoluteImageUrls(base: string, images: Array<string | null | und
 async function socialMosaicDataUrls(base: string, images: Array<string | null | undefined>): Promise<string[]> {
   const urls = uniqueAbsoluteImageUrls(base, images)
   const dataUrls = await Promise.all(
-    urls.map((url) =>
-      imageDataUrlForOg(url, {
-        width: 620,
-        height: 820,
-        fit: 'cover',
-      }),
+    urls.map((url, index) =>
+      imageDataUrlForOg(
+        url,
+        {
+          width: index === 0 ? SOCIAL_W : 620,
+          height: index === 0 ? SOCIAL_H : 820,
+          fit: 'cover',
+        },
+        base,
+      ),
     ),
   )
   return dataUrls.filter((url): url is string => Boolean(url))
@@ -243,6 +276,44 @@ async function fetchOgBranding(base: string): Promise<{
   }
 }
 
+function rowSvg(label: string, color: string, size = 26) {
+  const iconStyle = { width: size, height: size }
+  const l = label.toLocaleLowerCase('tr-TR')
+  if (/kişi|guest|kapasite|capacity/.test(l)) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    )
+  }
+  if (/oda|bedroom|kabin|cabin/.test(l)) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
+        <path d="M2 4v16" />
+        <path d="M2 8h18a2 2 0 0 1 2 2v10" />
+        <path d="M2 17h20" />
+      </svg>
+    )
+  }
+  if (/banyo|bath/.test(l)) {
+    return (
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
+        <path d="M4 12h16" />
+        <path d="M6 12v5c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-5" />
+        <path d="M8 12V8a4 4 0 0 1 8 0v4" />
+      </svg>
+    )
+  }
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+
 function socialListingImage({
   bgUrl,
   mosaicUrls,
@@ -269,384 +340,331 @@ function socialListingImage({
     if (/kişi|guest|kapasite|capacity/.test(l)) return 0
     if (/oda|bedroom|kabin|cabin/.test(l)) return 1
     if (/banyo|bath/.test(l)) return 2
-    if (/yatak|bed\b/.test(l)) return 3
-    if (/süre|duration/.test(l)) return 4
     return 9
-  }
-  const rowIcon = (label: string) => {
-    const l = label.toLocaleLowerCase('tr-TR')
-    if (/kişi|guest|kapasite|capacity/.test(l)) return '👥'
-    if (/oda|bedroom|kabin|cabin/.test(l)) return '🛏'
-    if (/banyo|bath/.test(l)) return '🛁'
-    if (/yatak|bed\b/.test(l)) return '🛏'
-    if (/süre|duration/.test(l)) return '⏱'
-    return '✓'
   }
   const infoRows = rows
     .filter((r) => !/fiyat|price|bölge|location/i.test(r.label))
     .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
     .slice(0, 3)
-  const cleanTitle = titleWithoutBadge(title, badge)
-  const titleText = truncate(cleanTitle.toLocaleUpperCase('tr-TR'), 26)
-  const regionText = region ? truncate(region, 20).toLocaleUpperCase('tr-TR') : ''
-  const titleFont = titleText.length > 20 ? 34 : titleText.length > 15 ? 39 : 46
-  const chips = (themeLabels ?? []).slice(0, 5)
+  const titleText = title.trim()
+  const titleLen = titleText.length
+  const titleFont =
+    titleLen > 40 ? 28 : titleLen > 32 ? 32 : titleLen > 24 ? 36 : titleLen > 18 ? 40 : 44
+  const regionText = region ? truncate(region, 24).toLocaleUpperCase('tr-TR') : badge.toLocaleUpperCase('tr-TR')
+  const textShadow = '0 2px 10px rgba(0,0,0,0.65)'
+  const chips = (themeLabels ?? []).slice(0, 4)
   const photos = (mosaicUrls ?? []).filter(Boolean)
   const mainPhoto = photos[0] ?? bgUrl
-  const topPhoto = photos[1] ?? mainPhoto
-  const bottomPhoto = photos[2] ?? topPhoto
+  const mainImgData = mainPhoto?.startsWith('data:') ? mainPhoto : null
+  const footerAgency = 'Mamon Plus Travel Agency'
+  const footerWebsite = 'www.rezervasyonyap.com.tr'
+  const footerEmail = 'info@rezervasyonyap.com.tr'
+  const footerPhone = branding.phone || '0850 466 0464 - 0532 397 7957'
+  const CARD_W = 500
+  const CARD_H = 1000
+  const CARD_LEFT = 40
+  const CARD_TOP = 40
+  const LOGO_H = 76
+  const LOGO_PAD_X = 22
+  const LOGO_PAD_Y = 10
+  const LOGO_IMG_W = CARD_W - LOGO_PAD_X * 2
+  const LOGO_IMG_H = LOGO_H - LOGO_PAD_Y * 2
+  const CONTENT_W = CARD_W - 80
 
   return new ImageResponse(
     (
       <div
         style={{
-          width: '100%',
-          height: '100%',
+          width: SOCIAL_W,
+          height: SOCIAL_H,
           display: 'flex',
           position: 'relative',
           overflow: 'hidden',
-          background: '#f8fafc',
-          fontFamily: 'Arial, sans-serif',
+          background: style.navy,
+          fontFamily: 'Arial, Helvetica, sans-serif',
         }}
       >
+        {/* Katman 1 — tam ekran villa fotoğrafı */}
+        {mainImgData ? (
+          <img
+            src={mainImgData}
+            alt=""
+            width={SOCIAL_W}
+            height={SOCIAL_H}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: SOCIAL_W,
+              height: SOCIAL_H,
+              objectFit: 'cover',
+            }}
+          />
+        ) : (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: SOCIAL_W,
+              height: SOCIAL_H,
+              display: 'flex',
+              background: `linear-gradient(135deg, ${style.navy} 0%, #0a3558 100%)`,
+            }}
+          />
+        )}
+
+        {/* Katman 2 — sol panel okunabilirliği için koyu scrim */}
         <div
           style={{
             position: 'absolute',
-            inset: 0,
-            background: `linear-gradient(135deg, #ffffff 0%, #f8fafc 48%, ${style.glow} 100%)`,
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            left: -250,
-            top: 470,
-            width: 760,
-            height: 760,
+            left: 0,
+            top: 0,
+            width: SOCIAL_W,
+            height: SOCIAL_H,
             display: 'flex',
-            borderRadius: 999,
-            border: '38px solid rgba(251, 146, 60, 0.14)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            left: 315,
-            top: -200,
-            width: 520,
-            height: 520,
-            display: 'flex',
-            borderRadius: 999,
-            background: 'rgba(255,255,255,0.52)',
+            background: `linear-gradient(90deg, rgba(4,12,24,0.92) 0%, rgba(4,12,24,0.82) 48%, rgba(4,12,24,0.35) 72%, rgba(4,12,24,0.12) 100%)`,
           }}
         />
 
+        {/* Katman 3 — premium glass kart (tüm içerik tek panelde) */}
         <div
           style={{
             position: 'absolute',
-            right: 38,
-            top: 104,
-            width: 500,
-            height: 826,
+            left: CARD_LEFT,
+            top: CARD_TOP,
+            width: CARD_W,
+            height: CARD_H,
             display: 'flex',
-            borderRadius: 54,
-            background: style.panel,
-            boxShadow: '0 36px 80px rgba(15, 23, 42, 0.18)',
-          }}
-        />
-        <div
-          style={{
-            position: 'absolute',
-            right: 272,
-            top: 130,
-            width: 274,
-            height: 774,
-            display: 'flex',
-            borderRadius: 42,
-            overflow: 'hidden',
-            border: '12px solid #ffffff',
-            boxShadow: '0 28px 72px rgba(15, 23, 42, 0.24)',
-            background: '#0f172a',
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            borderRadius: 32,
+            background: style.glass,
+            border: `1px solid ${style.glassBorder}`,
+            boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
+            padding: '0 0 40px 0',
           }}
         >
-          {mainPhoto ? (
-            <img
-              src={mainPhoto}
-              alt=""
-              width={274}
-              height={774}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : null}
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            right: 66,
-            top: 130,
-            width: 188,
-            height: 372,
-            display: 'flex',
-            borderRadius: 34,
-            overflow: 'hidden',
-            border: '10px solid #ffffff',
-            boxShadow: '0 20px 54px rgba(15, 23, 42, 0.18)',
-            background: '#0f172a',
-          }}
-        >
-          {topPhoto ? (
-            <img
-              src={topPhoto}
-              alt=""
-              width={188}
-              height={372}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : null}
-        </div>
-        <div
-          style={{
-            position: 'absolute',
-            right: 66,
-            top: 532,
-            width: 188,
-            height: 372,
-            display: 'flex',
-            borderRadius: 34,
-            overflow: 'hidden',
-            border: '10px solid #ffffff',
-            boxShadow: '0 20px 54px rgba(15, 23, 42, 0.18)',
-            background: '#0f172a',
-          }}
-        >
-          {bottomPhoto ? (
-            <img
-              src={bottomPhoto}
-              alt=""
-              width={188}
-              height={372}
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            />
-          ) : null}
-        </div>
+          {/* Koyu okuma — metin kontrastı */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: CARD_W,
+              height: CARD_H,
+              display: 'flex',
+              borderRadius: 32,
+              background: 'rgba(4, 16, 32, 0.82)',
+            }}
+          />
 
-        <div
-          style={{
-            position: 'absolute',
-            left: 54,
-            top: 54,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            width: 430,
-            height: 92,
-            zIndex: 3,
-          }}
-        >
-          {branding.logoUrl ? (
-            <img
-              src={branding.logoUrl}
-              alt=""
-              width={320}
-              height={86}
-              style={{ width: 320, height: 86, objectFit: 'contain', objectPosition: 'left center' }}
-            />
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div
+          {/* Cam üst parlama çizgisi */}
+          <div
+            style={{
+              position: 'absolute',
+              left: 32,
+              top: 32,
+              width: CARD_W - 64,
+              height: 1,
+              display: 'flex',
+              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)',
+            }}
+          />
+
+          {/* Logo — kart üstü, orantılı ve ortalı */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderTopLeftRadius: 32,
+              borderTopRightRadius: 32,
+              background: 'rgba(255,255,255,0.96)',
+              width: CARD_W,
+              height: LOGO_H,
+              padding: `${LOGO_PAD_Y}px ${LOGO_PAD_X}px`,
+            }}
+          >
+            {branding.logoUrl ? (
+              <img
+                src={branding.logoUrl}
+                alt=""
+                width={LOGO_IMG_W}
+                height={LOGO_IMG_H}
                 style={{
-                  display: 'flex',
-                  width: 72,
-                  height: 72,
-                  borderRadius: 999,
-                  background: `linear-gradient(135deg, #f97316, #facc15 46%, ${style.panel} 47%, #14b8a6)`,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                  fontSize: 34,
-                  fontWeight: 900,
+                  width: LOGO_IMG_W,
+                  height: LOGO_IMG_H,
+                  objectFit: 'contain',
+                  objectPosition: 'center center',
                 }}
-              >
-                R
+              />
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: LOGO_IMG_W, height: LOGO_IMG_H }}>
+                <span style={{ color: style.gold, fontSize: 26, fontWeight: 900 }}>✈</span>
+                <span style={{ color: style.navy, fontSize: 22, fontWeight: 800 }}>{branding.logoTextLine1}</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                  <span style={{ color: '#334155', fontSize: 36, fontWeight: 500 }}>{branding.logoTextLine1}</span>
-                  <span style={{ color: branding.logoTextLine2Color, fontSize: 24, fontWeight: 800 }}>
-                    {branding.logoTextLine2}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div
-          style={{
-            position: 'absolute',
-            left: 44,
-            top: 172,
-            width: 462,
-            height: 728,
-            display: 'flex',
-            borderRadius: 42,
-            background: 'rgba(255,255,255,0.82)',
-            border: '1px solid rgba(226,232,240,0.95)',
-            boxShadow: '0 28px 70px rgba(15, 23, 42, 0.10)',
-          }}
-        />
-
-        <div
-          style={{
-            position: 'absolute',
-            left: 76,
-            top: 210,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 12,
-            maxWidth: 392,
-            zIndex: 3,
-          }}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div
-              style={{
-                color: style.title,
-                fontSize: titleFont,
-                fontWeight: 900,
-                letterSpacing: 0.2,
-                lineHeight: 1.02,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {titleText}
-            </div>
-            {chips.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxWidth: 360 }}>
-                {chips.map((chip) => (
-                  <div
-                    key={chip}
-                    style={{
-                      display: 'flex',
-                      borderRadius: 999,
-                      background: 'rgba(15, 145, 161, 0.10)',
-                      border: `1px solid ${style.panel}`,
-                      color: style.secondary,
-                      padding: '6px 10px',
-                      fontSize: 14,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {chip}
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            )}
           </div>
-          {regionText ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14 }}>
-              <div style={{ display: 'flex', width: 18, height: 18, borderRadius: 999, background: '#facc15' }} />
-              <div style={{ color: style.secondary, fontSize: 28, fontWeight: 900 }}>{regionText}</div>
+
+          <div
+            style={{
+              display: 'flex',
+              flex: 1,
+              flexDirection: 'column',
+              alignItems: 'stretch',
+              padding: '28px 40px 0',
+            }}
+          >
+
+          {/* Villa adı — tam başlık, uzunluğa göre küçük punto */}
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              width: CONTENT_W,
+              marginTop: 32,
+              color: style.white,
+              fontSize: titleFont,
+              fontWeight: 900,
+              lineHeight: 1.14,
+              letterSpacing: 0.2,
+              textShadow,
+            }}
+          >
+            {titleText}
+          </div>
+
+          {/* Altın ayırıcı */}
+          <div
+            style={{
+              display: 'flex',
+              marginTop: 16,
+              width: 64,
+              height: 4,
+              borderRadius: 999,
+              background: style.gold,
+            }}
+          />
+
+          {/* Tema etiketleri */}
+          {chips.length > 0 ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 18 }}>
+              {chips.map((chip) => (
+                <div
+                  key={chip}
+                  style={{
+                    display: 'flex',
+                    padding: '9px 16px',
+                    borderRadius: 999,
+                    background: 'rgba(0,0,0,0.45)',
+                    border: `1px solid rgba(240,192,32,0.55)`,
+                    color: style.white,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    letterSpacing: 0.5,
+                    textShadow,
+                  }}
+                >
+                  {chip.toLocaleUpperCase('tr-TR')}
+                </div>
+              ))}
             </div>
           ) : null}
-        </div>
 
-        <div
-          style={{
-            position: 'absolute',
-            left: 76,
-            top: 565,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 14,
-            zIndex: 3,
-          }}
-        >
-          {infoRows.map((row, i) => (
+          {/* Konum */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, padding: '10px 14px', borderRadius: 12, background: 'rgba(0,0,0,0.45)', width: CONTENT_W }}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={style.gold} style={{ width: 20, height: 20 }}>
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            </svg>
+            <span style={{ color: style.white, fontSize: 19, fontWeight: 900, letterSpacing: 1.2, textShadow }}>{regionText}</span>
+          </div>
+
+          {/* Özellikler — kapasite / oda / banyo (aşağıda, ortalı) */}
+          {infoRows.length > 0 ? (
             <div
-              key={`${row.label}-${i}`}
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                width: 350,
-                padding: '12px 16px',
-                borderRadius: 20,
-                background: '#ffffff',
-                boxShadow: '0 10px 24px rgba(15,23,42,0.06)',
+                gap: 12,
+                marginTop: 52,
+                marginLeft: 12,
+                padding: '20px 18px',
+                borderRadius: 18,
+                background: 'rgba(0,0,0,0.42)',
+                border: `1px solid ${style.glassBorder}`,
+                width: CONTENT_W - 24,
               }}
             >
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 14,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#ffffff',
-                  background: style.panel,
-                  fontSize: 25,
-                  fontWeight: 900,
-                }}
-              >
-                {rowIcon(row.label)}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                <span style={{ color: style.secondary, fontSize: 34, fontWeight: 900, lineHeight: 1 }}>{row.value}</span>
-                <span style={{ color: '#64748b', fontSize: 18, fontWeight: 800, letterSpacing: 1 }}>
-                  {row.label.toLocaleUpperCase('tr-TR')}
-                </span>
-              </div>
+              {infoRows.map((row, i) => (
+                <div
+                  key={`${row.label}-${i}`}
+                  style={{
+                    display: 'flex',
+                    flex: 1,
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    padding: '10px 6px',
+                    borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.18)' : 'none',
+                  }}
+                >
+                  {rowSvg(row.label, style.gold, 26)}
+                  <span style={{ color: style.white, fontSize: 28, fontWeight: 900, lineHeight: 1, textShadow }}>{row.value}</span>
+                  <span style={{ color: style.muted, fontSize: 13, fontWeight: 800, letterSpacing: 0.8, textShadow }}>
+                    {row.label.toLocaleUpperCase('tr-TR')}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          ) : null}
 
-        <div
-          style={{
-            position: 'absolute',
-            left: 58,
-            bottom: 54,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            color: '#334155',
-            fontSize: 21,
-            fontWeight: 700,
-            zIndex: 3,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ color: '#ef4444', fontSize: 24 }}>●</span>
-            <span>rezervasyonyap.tr</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ color: '#ef4444', fontSize: 24 }}>●</span>
-            <span>{branding.phone}</span>
-          </div>
-        </div>
+          <div style={{ display: 'flex', flex: 1, minHeight: 48 }} />
 
-        <div
-          style={{
-            position: 'absolute',
-            right: 58,
-            bottom: 42,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-            color: '#ffffff',
-            fontSize: 24,
-            fontWeight: 900,
-            textShadow: '0 2px 12px rgba(15, 23, 42, 0.35)',
-            background: 'rgba(15, 23, 42, 0.72)',
-            border: '1px solid rgba(255,255,255,0.32)',
-            borderRadius: 18,
-            padding: '10px 14px',
-            lineHeight: 1.08,
-          }}
-        >
-          <span>TURSAB</span>
-          <span>NO : {branding.tursabNo}</span>
+          {/* CTA — altın buton, koyu metin */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: CONTENT_W,
+              marginLeft: 0,
+              height: 58,
+              borderRadius: 999,
+              background: `linear-gradient(135deg, ${style.goldLight} 0%, ${style.gold} 100%)`,
+              color: '#1a1a1a',
+              fontSize: 17,
+              fontWeight: 900,
+              letterSpacing: 1.8,
+              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+            }}
+          >
+            Detayları İncele
+          </div>
+
+          {/* İletişim — alt bilgi */}
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              marginTop: 24,
+              padding: '20px 18px',
+              borderRadius: 18,
+              background: 'rgba(0,0,0,0.48)',
+              border: `1px solid ${style.glassBorder}`,
+              width: CONTENT_W,
+              marginLeft: 0,
+            }}
+          >
+            <span style={{ color: style.gold, fontSize: 18, fontWeight: 900, letterSpacing: 0.4, textShadow }}>
+              {footerAgency}
+            </span>
+            <span style={{ color: style.white, fontSize: 17, fontWeight: 800, textShadow }}>{footerWebsite}</span>
+            <span style={{ color: style.white, fontSize: 17, fontWeight: 800, textShadow }}>{footerEmail}</span>
+            <span style={{ color: style.white, fontSize: 17, fontWeight: 800, textShadow }}>{footerPhone}</span>
+          </div>
+          </div>
         </div>
       </div>
     ),
@@ -678,11 +696,15 @@ export async function GET(req: NextRequest) {
   const rawBranding = await fetchOgBranding(base)
   const branding = {
     ...rawBranding,
-    logoUrl: await imageDataUrlForOg(rawBranding.logoUrl, {
-      width: 330,
-      height: 92,
-      fit: 'inside',
-    }),
+    logoUrl: await imageDataUrlForOg(
+      rawBranding.logoUrl,
+      {
+        width: 330,
+        height: 92,
+        fit: 'inside',
+      },
+      base,
+    ),
   }
 
   if (kind === 'stay') {
@@ -735,11 +757,15 @@ export async function GET(req: NextRequest) {
         listing.featuredImage,
         ...(listing.galleryImgs ?? []),
       ])
-      const socialBgUrl = await imageDataUrlForOg(bgUrl, {
-        width: 472,
-        height: 774,
-        fit: 'cover',
-      })
+      const socialBgUrl = await imageDataUrlForOg(
+        bgUrl,
+        {
+          width: SOCIAL_W,
+          height: SOCIAL_H,
+          fit: 'cover',
+        },
+        base,
+      )
       return socialListingImage({
         bgUrl: socialBgUrl ?? bgUrl,
         mosaicUrls,
@@ -893,11 +919,15 @@ export async function GET(req: NextRequest) {
       listing.featuredImage,
       ...(listing.galleryImgs ?? []),
     ])
-    const socialBgUrl = await imageDataUrlForOg(bgUrl, {
-      width: 472,
-      height: 774,
-      fit: 'cover',
-    })
+    const socialBgUrl = await imageDataUrlForOg(
+      bgUrl,
+      {
+        width: SOCIAL_W,
+        height: SOCIAL_H,
+        fit: 'cover',
+      },
+      base,
+    )
     return socialListingImage({
       bgUrl: socialBgUrl ?? bgUrl,
       mosaicUrls,

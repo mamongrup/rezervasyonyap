@@ -63,6 +63,58 @@ export function listingPublicUrl(categoryCode: string, slug: string): string {
   return `${siteUrl}/${seg}/${slug}`
 }
 
+function hashtagSlug(raw: string): string {
+  return raw
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/ğ/g, 'g')
+    .replace(/Ğ/g, 'G')
+    .replace(/ı/g, 'i')
+    .replace(/İ/g, 'I')
+    .replace(/ş/g, 's')
+    .replace(/Ş/g, 'S')
+    .replace(/ö/g, 'o')
+    .replace(/Ö/g, 'O')
+    .replace(/ü/g, 'u')
+    .replace(/Ü/g, 'U')
+    .replace(/ç/g, 'c')
+    .replace(/Ç/g, 'C')
+    .replace(/[^a-zA-Z0-9]+/g, '')
+}
+
+function categoryHashtags(categoryCode: string): string[] {
+  switch (categoryCode) {
+    case 'hotel':
+      return ['#Otel', '#Tatil', '#Konaklama']
+    case 'holiday_home':
+      return ['#Villa', '#TatilEvi', '#MuhafazakarVilla']
+    case 'yacht_charter':
+      return ['#YatKiralama', '#MaviTur', '#DenizTatili']
+    case 'tour':
+      return ['#Tur', '#KulturTuru', '#Seyahat']
+    case 'activity':
+      return ['#Aktivite', '#Deneyim', '#Seyahat']
+    default:
+      return ['#Tatil', '#Seyahat', '#Rezervasyon']
+  }
+}
+
+function captionWithHashtags(caption: string, job: PendingSocialJob): string {
+  const base = caption.trim()
+  const titleTag = hashtagSlug(job.listing_title)
+  const tags = [
+    '#RezervasyonYap',
+    ...categoryHashtags(job.category_code),
+    '#Tatil',
+    '#Seyahat',
+    ...(titleTag ? [`#${titleTag.slice(0, 40)}`] : []),
+  ].filter((tag, index, arr) => arr.indexOf(tag) === index)
+
+  const hashtagBlock = tags.slice(0, 8).join(' ')
+  if (!hashtagBlock || base.includes('#RezervasyonYap')) return base
+  return `${base}\n\n${hashtagBlock}`.trim()
+}
+
 function listingSocialOgKind(categoryCode: string): 'stay' | 'experience' {
   return categoryCode === 'activity' || categoryCode === 'tour' || categoryCode === 'cruise'
     ? 'experience'
@@ -498,7 +550,7 @@ export async function processOneSocialJob(
     })
   }
 
-  const caption = cachedCaption || plan?.caption || ''
+  const caption = captionWithHashtags(cachedCaption || plan?.caption || '', job)
   const title = plan?.title || job.listing_title
   const description = plan?.description || caption
   const selectedKeys =
