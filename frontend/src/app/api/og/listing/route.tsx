@@ -1,7 +1,6 @@
 import { getExperienceListingByHandle, getStayListingByHandle } from '@/data/listings'
 import { apiOriginForFetch } from '@/lib/api-origin'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
-import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { normalizeSiteLogoUrl, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
 import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
@@ -23,65 +22,19 @@ const OG_W = 1200
 const OG_H = 630
 const SOCIAL_W = 1080
 const SOCIAL_H = 1080
+const SOCIAL_TEMPLATE_BASE = 1024
 
-type SocialImageQuality = 'low' | 'medium' | 'high'
-type SocialDesignTheme =
-  | 'luxury'
-  | 'honeymoon'
-  | 'large_family'
-  | 'beachfront'
-  | 'sea_view'
-  | 'nature'
-  | 'conservative'
+/** 1024×1024 marka şablonu — gri alan (ilk ilan fotoğrafı) */
+const SOCIAL_TEMPLATE_PHOTO = { x: 342, y: 152, w: 592, h: 792, radius: 56 }
+/** Logo altı metin alanı (sol) */
+const SOCIAL_TEMPLATE_TEXT = { x: 32, y: 210, w: 300 }
 
-function parseImageQuality(raw: string | null): SocialImageQuality {
-  return raw === 'low' || raw === 'high' ? raw : 'medium'
+function scaleSocialTemplate(n: number): number {
+  return Math.round(n * (SOCIAL_W / SOCIAL_TEMPLATE_BASE))
 }
 
-function parseDesignTheme(raw: string | null): SocialDesignTheme {
-  switch (raw) {
-    case 'honeymoon':
-    case 'large_family':
-    case 'beachfront':
-    case 'sea_view':
-    case 'nature':
-    case 'conservative':
-      return raw
-    case 'luxury':
-    default:
-      return 'luxury'
-  }
-}
-
-function socialThemeStyle(theme: SocialDesignTheme) {
-  const luxury = {
-    glass: 'rgba(6, 28, 48, 0.94)',
-    glassChip: 'rgba(0, 0, 0, 0.38)',
-    glassBorder: 'rgba(255,255,255,0.42)',
-    gold: '#F0C020',
-    goldLight: '#FFE566',
-    white: '#FFFFFF',
-    muted: 'rgba(255,255,255,0.92)',
-    accent: '#7EE8FF',
-    navy: '#041525',
-  }
-  switch (theme) {
-    case 'honeymoon':
-      return { ...luxury, glass: 'rgba(88,28,56,0.78)', accent: '#fda4af', gold: '#fda4af' }
-    case 'large_family':
-      return { ...luxury, glass: 'rgba(30,58,95,0.78)', gold: '#fdba74' }
-    case 'beachfront':
-      return { ...luxury, glass: 'rgba(8,70,90,0.78)', accent: '#20C5D8' }
-    case 'sea_view':
-      return { ...luxury, glass: 'rgba(8,60,80,0.78)', accent: '#20C5D8' }
-    case 'nature':
-      return { ...luxury, glass: 'rgba(20,60,40,0.78)', gold: '#bef264', accent: '#86efac' }
-    case 'conservative':
-      return { ...luxury, glass: 'rgba(15,70,65,0.78)', gold: '#5eead4' }
-    case 'luxury':
-    default:
-      return luxury
-  }
+function socialCoverTemplateUrl(pageBase: string): string {
+  return `${pageBase.replace(/\/$/, '')}/social/social-cover-template.png`
 }
 
 function truncate(s: string, max: number): string {
@@ -137,42 +90,6 @@ function titleWithoutBadge(title: string, badge: string): string {
   return t.replace(re, '').trim() || t
 }
 
-function themeLabelsForCover(codes: readonly string[] | undefined): string[] {
-  const preset = new Map(VILLA_THEME_CHIP_PRESETS.map((x) => [x.code, x.label] as const))
-  const overrides: Record<string, string> = {
-    sea_view: 'Deniz manzaralı',
-    beachfront: 'Denize sıfır',
-    conservative: 'Muhafazakar',
-    luxury: 'Lüks',
-    modern: 'Modern',
-    nature: 'Doğa içinde',
-    garden: 'Doğa içinde',
-    mountain_view: 'Doğa içinde',
-    jacuzzi: 'Jakuzi',
-    sauna: 'Sauna',
-    pool: 'Özel havuz',
-  }
-  const out: string[] = []
-  const seen = new Set<string>()
-  for (const raw of codes ?? []) {
-    const code = raw.trim().toLowerCase()
-    if (!code || seen.has(code)) continue
-    const label = overrides[code] ?? preset.get(code)
-    if (!label) continue
-    seen.add(code)
-    out.push(label)
-    if (out.length >= 5) break
-  }
-  return out
-}
-
-function themeCodesFromQuery(raw: string | null): string[] {
-  return (raw ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-}
-
 function badgeFromCategoryCode(categoryCode: string, locale: string): string {
   switch (categoryCode.trim().toLowerCase()) {
     case 'holiday_home':
@@ -224,39 +141,6 @@ async function imageDataUrlForOg(
   } catch {
     return null
   }
-}
-
-function uniqueAbsoluteImageUrls(base: string, images: Array<string | null | undefined>): string[] {
-  const seen = new Set<string>()
-  const out: string[] = []
-  for (const raw of images) {
-    const src = raw?.trim()
-    if (!src) continue
-    const abs = toAbsoluteAssetUrl(base, src) ?? src
-    if (!abs || seen.has(abs)) continue
-    seen.add(abs)
-    out.push(abs)
-    if (out.length >= 3) break
-  }
-  return out
-}
-
-async function socialMosaicDataUrls(base: string, images: Array<string | null | undefined>): Promise<string[]> {
-  const urls = uniqueAbsoluteImageUrls(base, images)
-  const dataUrls = await Promise.all(
-    urls.map((url, index) =>
-      imageDataUrlForOg(
-        url,
-        {
-          width: index === 0 ? SOCIAL_W : 620,
-          height: index === 0 ? SOCIAL_H : 820,
-          fit: 'cover',
-        },
-        base,
-      ),
-    ),
-  )
-  return dataUrls.filter((url): url is string => Boolean(url))
 }
 
 async function listingImageUrlsFromId(base: string, listingId: string | null): Promise<string[]> {
@@ -317,100 +201,48 @@ async function fetchOgBranding(base: string): Promise<{
   }
 }
 
-function rowSvg(label: string, color: string, size = 26) {
-  const iconStyle = { width: size, height: size }
-  const l = label.toLocaleLowerCase('tr-TR')
-  if (/kişi|guest|kapasite|capacity/.test(l)) {
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    )
-  }
-  if (/oda|bedroom|kabin|cabin/.test(l)) {
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
-        <path d="M2 4v16" />
-        <path d="M2 8h18a2 2 0 0 1 2 2v10" />
-        <path d="M2 17h20" />
-      </svg>
-    )
-  }
-  if (/banyo|bath/.test(l)) {
-    return (
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
-        <path d="M4 12h16" />
-        <path d="M6 12v5c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-5" />
-        <path d="M8 12V8a4 4 0 0 1 8 0v4" />
-      </svg>
-    )
-  }
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={iconStyle}>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  )
-}
-
-function socialListingImage({
+async function socialListingImage({
   bgUrl,
-  mosaicUrls,
   badge,
   title,
   rows,
-  branding,
-  designTheme,
-  themeLabels,
+  pageBase,
 }: {
   bgUrl: string | null
-  mosaicUrls?: string[]
   badge: string
   title: string
   rows: { label: string; value: string }[]
-  branding: Awaited<ReturnType<typeof fetchOgBranding>>
-  designTheme: SocialDesignTheme
-  themeLabels?: string[]
+  pageBase: string
 }) {
-  const style = socialThemeStyle(designTheme)
-  const region = rows.find((r) => /bölge|location/i.test(r.label))?.value
+  const photoInset = scaleSocialTemplate(20)
+  const photo = {
+    x: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.x) + photoInset,
+    y: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.y) + photoInset,
+    w: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w) - photoInset * 2,
+    h: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h) - photoInset * 2,
+    radius: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.radius),
+  }
+  const text = {
+    x: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.x),
+    y: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.y),
+    w: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.w),
+  }
+
+  const templateUrl = socialCoverTemplateUrl(pageBase)
+  const displayTitle = truncate(titleWithoutBadge(title, badge), 52)
+
   const rowPriority = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
-    if (/kişi|guest|kapasite|capacity/.test(l)) return 0
-    if (/oda|bedroom|kabin|cabin/.test(l)) return 1
-    if (/banyo|bath/.test(l)) return 2
+    if (/bölge|location|konum/.test(l)) return 0
+    if (/kişi|guest|kapasite|capacity/.test(l)) return 1
+    if (/oda|bedroom|kabin|cabin/.test(l)) return 2
+    if (/banyo|bath/.test(l)) return 3
     return 9
   }
-  const infoRows = rows
-    .filter((r) => !/fiyat|price|bölge|location/i.test(r.label))
+  const detailRows = rows
+    .filter((r) => !/fiyat|price/i.test(r.label))
     .sort((a, b) => rowPriority(a.label) - rowPriority(b.label))
-    .slice(0, 3)
-  const titleText = title.trim()
-  const titleLen = titleText.length
-  const titleFont =
-    titleLen > 40 ? 28 : titleLen > 32 ? 32 : titleLen > 24 ? 36 : titleLen > 18 ? 40 : 44
-  const regionText = region ? truncate(region, 24).toLocaleUpperCase('tr-TR') : badge.toLocaleUpperCase('tr-TR')
-  const textShadow = '0 2px 10px rgba(0,0,0,0.65)'
-  const chips = (themeLabels ?? []).slice(0, 4)
-  const photos = (mosaicUrls ?? []).filter(Boolean)
-  const mainPhoto = photos[0] ?? bgUrl
-  const mainImgData = mainPhoto?.startsWith('data:') ? mainPhoto : null
-  const footerAgency = 'Mamon Plus Travel Agency'
-  const footerWebsite = 'www.rezervasyonyap.com.tr'
-  const footerEmail = 'info@rezervasyonyap.com.tr'
-  const footerPhone = branding.phone || '0850 466 0464 - 0532 397 7957'
-  const CARD_W = 500
-  const CARD_H = 1000
-  const CARD_LEFT = 40
-  const CARD_TOP = 40
-  const LOGO_H = 76
-  const LOGO_PAD_X = 22
-  const LOGO_PAD_Y = 10
-  const LOGO_IMG_W = CARD_W - LOGO_PAD_X * 2
-  const LOGO_IMG_H = LOGO_H - LOGO_PAD_Y * 2
-  const CONTENT_W = CARD_W - 80
+    .slice(0, 4)
 
   return new ImageResponse(
     (
@@ -421,291 +253,75 @@ function socialListingImage({
           display: 'flex',
           position: 'relative',
           overflow: 'hidden',
-          background: style.navy,
+          background: '#ffffff',
           fontFamily: 'Arial, Helvetica, sans-serif',
         }}
       >
-        {/* Katman 1 — tam ekran villa fotoğrafı */}
-        {mainImgData ? (
-          <img
-            src={mainImgData}
-            alt=""
-            width={SOCIAL_W}
-            height={SOCIAL_H}
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: SOCIAL_W,
-              height: SOCIAL_H,
-              objectFit: 'cover',
-            }}
-          />
-        ) : (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: SOCIAL_W,
-              height: SOCIAL_H,
-              display: 'flex',
-              background: `linear-gradient(135deg, ${style.navy} 0%, #0a3558 100%)`,
-            }}
-          />
-        )}
-
-        {/* Katman 2 — sol panel okunabilirliği için koyu scrim */}
-        <div
+        <img
+          src={templateUrl}
+          alt=""
+          width={SOCIAL_W}
+          height={SOCIAL_H}
           style={{
             position: 'absolute',
             left: 0,
             top: 0,
             width: SOCIAL_W,
             height: SOCIAL_H,
-            display: 'flex',
-            background: `linear-gradient(90deg, rgba(4,12,24,0.92) 0%, rgba(4,12,24,0.82) 48%, rgba(4,12,24,0.35) 72%, rgba(4,12,24,0.12) 100%)`,
           }}
         />
 
-        {/* Katman 3 — premium glass kart (tüm içerik tek panelde) */}
+        {bgUrl ? (
+          <img
+            src={bgUrl}
+            alt=""
+            width={photo.w}
+            height={photo.h}
+            style={{
+              position: 'absolute',
+              left: photo.x,
+              top: photo.y,
+              width: photo.w,
+              height: photo.h,
+              objectFit: 'cover',
+              borderRadius: photo.radius,
+            }}
+          />
+        ) : null}
+
         <div
           style={{
             position: 'absolute',
-            left: CARD_LEFT,
-            top: CARD_TOP,
-            width: CARD_W,
-            height: CARD_H,
+            left: text.x,
+            top: text.y,
+            width: text.w,
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'stretch',
-            borderRadius: 32,
-            background: style.glass,
-            border: `1px solid ${style.glassBorder}`,
-            boxShadow: '0 24px 64px rgba(0,0,0,0.45)',
-            padding: '0 0 40px 0',
+            gap: 8,
           }}
         >
-          {/* Koyu okuma — metin kontrastı */}
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              width: CARD_W,
-              height: CARD_H,
-              display: 'flex',
-              borderRadius: 32,
-              background: 'rgba(4, 16, 32, 0.82)',
-            }}
-          />
-
-          {/* Cam üst parlama çizgisi */}
-          <div
-            style={{
-              position: 'absolute',
-              left: 32,
-              top: 32,
-              width: CARD_W - 64,
-              height: 1,
-              display: 'flex',
-              background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 50%, transparent 100%)',
-            }}
-          />
-
-          {/* Logo — kart üstü, orantılı ve ortalı */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderTopLeftRadius: 32,
-              borderTopRightRadius: 32,
-              background: 'rgba(255,255,255,0.96)',
-              width: CARD_W,
-              height: LOGO_H,
-              padding: `${LOGO_PAD_Y}px ${LOGO_PAD_X}px`,
-            }}
-          >
-            {branding.logoUrl ? (
-              <img
-                src={branding.logoUrl}
-                alt=""
-                width={LOGO_IMG_W}
-                height={LOGO_IMG_H}
-                style={{
-                  width: LOGO_IMG_W,
-                  height: LOGO_IMG_H,
-                  objectFit: 'contain',
-                  objectPosition: 'center center',
-                }}
-              />
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: LOGO_IMG_W, height: LOGO_IMG_H }}>
-                <span style={{ color: style.gold, fontSize: 26, fontWeight: 900 }}>✈</span>
-                <span style={{ color: style.navy, fontSize: 22, fontWeight: 800 }}>{branding.logoTextLine1}</span>
-              </div>
-            )}
-          </div>
-
-          <div
-            style={{
-              display: 'flex',
-              flex: 1,
-              flexDirection: 'column',
-              alignItems: 'stretch',
-              padding: '28px 40px 0',
-            }}
-          >
-
-          {/* Villa adı — tam başlık, uzunluğa göre küçük punto */}
           <div
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              width: CONTENT_W,
-              marginTop: 32,
-              color: style.white,
-              fontSize: titleFont,
+              color: '#0f172a',
+              fontSize: 24,
               fontWeight: 900,
-              lineHeight: 1.14,
-              letterSpacing: 0.2,
-              textShadow,
+              lineHeight: 1.15,
+              maxHeight: 88,
+              overflow: 'hidden',
             }}
           >
-            {titleText}
+            {displayTitle}
           </div>
-
-          {/* Altın ayırıcı */}
-          <div
-            style={{
-              display: 'flex',
-              marginTop: 16,
-              width: 64,
-              height: 4,
-              borderRadius: 999,
-              background: style.gold,
-            }}
-          />
-
-          {/* Tema etiketleri */}
-          {chips.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 18 }}>
-              {chips.map((chip) => (
-                <div
-                  key={chip}
-                  style={{
-                    display: 'flex',
-                    padding: '9px 16px',
-                    borderRadius: 999,
-                    background: 'rgba(0,0,0,0.45)',
-                    border: `1px solid rgba(240,192,32,0.55)`,
-                    color: style.white,
-                    fontSize: 14,
-                    fontWeight: 800,
-                    letterSpacing: 0.5,
-                    textShadow,
-                  }}
-                >
-                  {chip.toLocaleUpperCase('tr-TR')}
-                </div>
-              ))}
+          {detailRows.map((row) => (
+            <div key={`${row.label}-${row.value}`} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: '0.04em' }}>
+                {row.label.toLocaleUpperCase('tr-TR')}
+              </span>
+              <span style={{ color: '#0f172a', fontSize: 15, fontWeight: 800 }}>{row.value}</span>
             </div>
-          ) : null}
-
-          {/* Konum */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, padding: '10px 14px', borderRadius: 12, background: 'rgba(0,0,0,0.45)', width: CONTENT_W }}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={style.gold} style={{ width: 20, height: 20 }}>
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-            </svg>
-            <span style={{ color: style.white, fontSize: 19, fontWeight: 900, letterSpacing: 1.2, textShadow }}>{regionText}</span>
-          </div>
-
-          {/* Özellikler — kapasite / oda / banyo (aşağıda, ortalı) */}
-          {infoRows.length > 0 ? (
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-                marginTop: 52,
-                marginLeft: 12,
-                padding: '20px 18px',
-                borderRadius: 18,
-                background: 'rgba(0,0,0,0.42)',
-                border: `1px solid ${style.glassBorder}`,
-                width: CONTENT_W - 24,
-              }}
-            >
-              {infoRows.map((row, i) => (
-                <div
-                  key={`${row.label}-${i}`}
-                  style={{
-                    display: 'flex',
-                    flex: 1,
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 8,
-                    padding: '10px 6px',
-                    borderLeft: i > 0 ? '1px solid rgba(255,255,255,0.18)' : 'none',
-                  }}
-                >
-                  {rowSvg(row.label, style.gold, 26)}
-                  <span style={{ color: style.white, fontSize: 28, fontWeight: 900, lineHeight: 1, textShadow }}>{row.value}</span>
-                  <span style={{ color: style.muted, fontSize: 13, fontWeight: 800, letterSpacing: 0.8, textShadow }}>
-                    {row.label.toLocaleUpperCase('tr-TR')}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <div style={{ display: 'flex', flex: 1, minHeight: 48 }} />
-
-          {/* CTA — altın buton, koyu metin */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: CONTENT_W,
-              marginLeft: 0,
-              height: 58,
-              borderRadius: 999,
-              background: `linear-gradient(135deg, ${style.goldLight} 0%, ${style.gold} 100%)`,
-              color: '#1a1a1a',
-              fontSize: 17,
-              fontWeight: 900,
-              letterSpacing: 1.8,
-              boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-            }}
-          >
-            Detayları İncele
-          </div>
-
-          {/* İletişim — alt bilgi */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              marginTop: 24,
-              padding: '20px 18px',
-              borderRadius: 18,
-              background: 'rgba(0,0,0,0.48)',
-              border: `1px solid ${style.glassBorder}`,
-              width: CONTENT_W,
-              marginLeft: 0,
-            }}
-          >
-            <span style={{ color: style.gold, fontSize: 18, fontWeight: 900, letterSpacing: 0.4, textShadow }}>
-              {footerAgency}
-            </span>
-            <span style={{ color: style.white, fontSize: 17, fontWeight: 800, textShadow }}>{footerWebsite}</span>
-            <span style={{ color: style.white, fontSize: 17, fontWeight: 800, textShadow }}>{footerEmail}</span>
-            <span style={{ color: style.white, fontSize: 17, fontWeight: 800, textShadow }}>{footerPhone}</span>
-          </div>
-          </div>
+          ))}
         </div>
       </div>
     ),
@@ -723,8 +339,6 @@ export async function GET(req: NextRequest) {
   const handle = searchParams.get('handle')?.trim()
   const locale = searchParams.get('locale')?.trim() || 'tr'
   const variant = searchParams.get('variant') === 'social' ? 'social' : 'og'
-  const imageQuality = parseImageQuality(searchParams.get('image_quality'))
-  const designTheme = parseDesignTheme(searchParams.get('design_theme'))
   if (!handle) {
     return new Response('Missing handle', { status: 400 })
   }
@@ -754,22 +368,18 @@ export async function GET(req: NextRequest) {
     const socialBgUrl = await imageDataUrlForOg(
       imageUrls[0] ?? null,
       {
-        width: SOCIAL_W,
-        height: SOCIAL_H,
+        width: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w),
+        height: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h),
         fit: 'cover',
       },
       base,
     )
-    const mosaicUrls = await socialMosaicDataUrls(base, imageUrls)
     return socialListingImage({
       bgUrl: socialBgUrl ?? imageUrls[0] ?? null,
-      mosaicUrls,
       badge: badgeFromCategoryCode(fallbackCategoryCode, locale),
       title: fallbackTitle,
       rows: [],
-      branding,
-      designTheme,
-      themeLabels: themeLabelsForCover(themeCodesFromQuery(searchParams.get('theme_codes'))),
+      pageBase: base,
     })
   }
 
@@ -821,28 +431,21 @@ export async function GET(req: NextRequest) {
             : 'Otel'
 
     if (variant === 'social') {
-      const mosaicUrls = await socialMosaicDataUrls(base, [
-        listing.featuredImage,
-        ...(listing.galleryImgs ?? []),
-      ])
       const socialBgUrl = await imageDataUrlForOg(
         bgUrl,
         {
-          width: SOCIAL_W,
-          height: SOCIAL_H,
+          width: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w),
+          height: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h),
           fit: 'cover',
         },
         base,
       )
       return socialListingImage({
         bgUrl: socialBgUrl ?? bgUrl,
-        mosaicUrls,
         badge,
         title: listing.title,
         rows,
-        branding,
-        designTheme,
-        themeLabels: themeLabelsForCover(listing.themeCodes),
+        pageBase: base,
       })
     }
 
@@ -985,28 +588,21 @@ export async function GET(req: NextRequest) {
         : 'Tur'
 
   if (variant === 'social') {
-    const mosaicUrls = await socialMosaicDataUrls(base, [
-      listing.featuredImage,
-      ...(listing.galleryImgs ?? []),
-    ])
     const socialBgUrl = await imageDataUrlForOg(
       bgUrl,
       {
-        width: SOCIAL_W,
-        height: SOCIAL_H,
+        width: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w),
+        height: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h),
         fit: 'cover',
       },
       base,
     )
     return socialListingImage({
       bgUrl: socialBgUrl ?? bgUrl,
-      mosaicUrls,
       badge,
       title: listing.title,
       rows,
-      branding,
-      designTheme,
-      themeLabels: [],
+      pageBase: base,
     })
   }
 
