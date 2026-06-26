@@ -19,7 +19,7 @@ import {
   getPoolHeatingReservationOption,
   hasAnyEnabledPool,
 } from '@/lib/listing-pools'
-import { resolveRegionPlacesForListingPage } from '@/lib/region-places-from-location-page'
+import { resolveRegionPlacesBundleForListingPage } from '@/lib/region-places-from-location-page'
 import {
   regionBrowseSlugFromLocationPin,
   regionPlacesSlugFromCity,
@@ -150,7 +150,7 @@ import SectionMap from './components/SectionMap'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
 import NearbyPlacesSection from '@/components/travel/NearbyPlacesSection'
-import ListingNearbyPoisSection from '@/components/travel/ListingNearbyPoisSection'
+import ListingNearbyPlacesVitrinSection from '@/components/travel/ListingNearbyPlacesVitrinSection'
 import ListingServicePoisSection from '@/components/travel/ListingServicePoisSection'
 import HotelListingDistancesSection from '@/components/travel/HotelListingDistancesSection'
 import SectionMealPlans from '@/components/listing/SectionMealPlans'
@@ -320,15 +320,19 @@ export default async function StayListingDetailPageContent({
       : null
   const regionSlugForPlaces =
     regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
-  const [rawNearbyPois, servicePois, regionPlacesInitialData] = await Promise.all([
+  const isHolidayHomeListing = vertical === 'holiday_home'
+  const [rawNearbyPois, servicePois, regionPlacesBundle] = await Promise.all([
     getListingNearbyPois(listing.id),
     getComputedServicePois(listing.id),
-    resolveRegionPlacesForListingPage(
+    resolveRegionPlacesBundleForListingPage(
       regionSlugForPlaces,
       locale,
       shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
+      { villaFourColumns: isHolidayHomeListing },
     ),
   ])
+  const regionPlacesInitialData = regionPlacesBundle.places
+  const villaNearbyVitrinConfig = regionPlacesBundle.vitrinConfig
   const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
   const nearbyPois = rawNearbyPois.map((p) => ({
     ...p,
@@ -1298,7 +1302,17 @@ export default async function StayListingDetailPageContent({
   const renderListingLocationSection = () => (
     <div id="stay-section-location" className="scroll-mt-28 space-y-5">
       <SectionMap locale={locale} lat={map?.lat} lng={map?.lng} address={address} heading={dp.location} />
-      {hasListingDistanceColumns && listingDistanceColumns ? (
+      {isHolidayHome && regionPlacesInitialData ? (
+        <ListingNearbyPlacesVitrinSection
+          locale={locale}
+          placesData={regionPlacesInitialData}
+          config={villaNearbyVitrinConfig}
+          listingLat={map?.lat}
+          listingLng={map?.lng}
+          nearbyPois={nearbyPois}
+          title={dp.nearbyPlaces}
+        />
+      ) : hasListingDistanceColumns && listingDistanceColumns ? (
         <HotelListingDistancesSection
           locale={locale}
           historicPlaces={listingDistanceColumns.historic}
@@ -1604,17 +1618,20 @@ export default async function StayListingDetailPageContent({
             )}
             </>
           )}
-          <NearbyPlacesSection
-            locale={locale}
-            regionSlug={regionSlugForPlaces}
-            initialData={regionPlacesInitialData}
-            title={dp.nearbyPlaces}
-            variant="flat"
-            maxPlaces={12}
-            overrideLat={map?.lat}
-            overrideLng={map?.lng}
-          />
-          <ListingNearbyPoisSection pois={nearbyPois} locale={locale} />
+          {!isHolidayHome ? (
+            <>
+              <NearbyPlacesSection
+                locale={locale}
+                regionSlug={regionSlugForPlaces}
+                initialData={regionPlacesInitialData}
+                title={dp.nearbyPlaces}
+                variant="flat"
+                maxPlaces={12}
+                overrideLat={map?.lat}
+                overrideLng={map?.lng}
+              />
+            </>
+          ) : null}
         </div>
 
         {/* RIGHT SIDEBAR — lg:self-stretch: main lg:items-start iken sağ kolon sol kadar uzar, sticky takip eder */}

@@ -14,6 +14,11 @@ import {
 } from '@/lib/travel-api'
 import { asTrimmedString, parseTravelIdeas, pickTravelIdeasMapCoords } from '@/lib/travel-ideas-parse'
 import { getMessages } from '@/utils/getT'
+import {
+  buildVillaListingNearbyVitrinColumns,
+  resolveNearbyVitrinConfig,
+  type NearbyVitrinColumnsConfig,
+} from '@/lib/nearby-vitrin-columns'
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
   const R = 6371
@@ -282,4 +287,73 @@ export async function resolveRegionPlacesForListingPage(
 
   const displayName = regionLabel?.trim() || page?.title || regionSlug
   return resolveRegionPlacesForBolgePage(fileData, page, regionSlug, displayName, locale)
+}
+
+/** İlan koordinatından bölge mekan mesafelerini yeniden hesapla. */
+export function applyListingCoordsToRegionPlaces(
+  data: RegionPlaceData,
+  listingLat: number,
+  listingLng: number,
+): RegionPlaceData {
+  return {
+    ...data,
+    categories: data.categories.map((cat) => ({
+      ...cat,
+      types: cat.types.map((tp) => ({
+        ...tp,
+        places: tp.places
+          .map((p) => {
+            if (p.lat != null && p.lng != null) {
+              return { ...p, distanceKm: haversineKm(listingLat, listingLng, p.lat, p.lng) }
+            }
+            return p
+          })
+          .sort((a, b) => a.distanceKm - b.distanceKm),
+      })),
+    })),
+  }
+}
+
+export async function resolveRegionPlacesBundleForListingPage(
+  regionSlug: string | undefined,
+  locale: string,
+  regionLabel?: string,
+  options?: { villaFourColumns?: boolean },
+): Promise<{
+  places: RegionPlaceData | null
+  vitrinConfig: NearbyVitrinColumnsConfig
+}> {
+  if (!regionSlug?.trim()) {
+    return {
+      places: null,
+      vitrinConfig: options?.villaFourColumns
+        ? buildVillaListingNearbyVitrinColumns(locale)
+        : resolveNearbyVitrinConfig(locale, null),
+    }
+  }
+
+  const fileData = await readRegionPlacesFile(regionSlug)
+
+  const slugPath = regionSlug.replace(/-/g, '/')
+  const slugCandidates = [slugPath, `tr/${slugPath}`, regionSlug]
+
+  let page: LocationPage | null = null
+  for (const candidate of slugCandidates) {
+    page = await getLocationPageBySlug(candidate)
+    if (page) break
+  }
+
+  if (!page && regionLabel?.trim()) {
+    page = await getLocationPageByName(regionLabel.trim())
+  }
+
+  const displayName = regionLabel?.trim() || page?.title || regionSlug
+  const places = resolveRegionPlacesForBolgePage(fileData, page, regionSlug, displayName, locale)
+  const parsed = page ? resolveNearbyVitrinConfig(locale, page.nearby_vitrin_columns_json) : null
+  const vitrinConfig =
+    options?.villaFourColumns || !parsed?.columns?.length
+      ? buildVillaListingNearbyVitrinColumns(locale)
+      : parsed
+
+  return { places, vitrinConfig }
 }

@@ -147,7 +147,7 @@ function googleMapsHrefForVitrinPick(picked: VitrinPlaceCandidate | null): strin
   return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(pid)}`
 }
 
-function formatKm(km: number): string {
+export function formatNearbyVitrinDistanceKm(km: number): string {
   if (!Number.isFinite(km) || km < 0) return ''
   return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`
 }
@@ -215,6 +215,55 @@ export function inferServicePoiCategoryForColumn(
     return order[columnIndex] ?? 'amenity'
   }
   return 'amenity'
+}
+
+/** Villa ilan detayı — harita altı 4 sütun (gezilecek yerler ikiye bölünür). */
+export function buildVillaListingNearbyVitrinColumns(locale: string): NearbyVitrinColumnsConfig {
+  const r = getMessages(locale).site.region
+  return {
+    columns: [
+      {
+        title: r.nearbyVitrinColSightseeing,
+        rows: [
+          { label: r.nearbyVitrinRowBeaches, googleTypes: ['beach'] },
+          {
+            label: r.nearbyVitrinRowHistoric,
+            googleTypes: ['tourist_attraction', 'historical_landmark', 'church', 'mosque'],
+          },
+        ],
+      },
+      {
+        title: r.nearbyVitrinRowMuseums,
+        rows: [
+          {
+            label: r.nearbyVitrinRowRuins,
+            googleTypes: ['archaeological_site', 'tourist_attraction', 'historical_landmark', 'monument'],
+          },
+          { label: r.nearbyVitrinRowMuseums, googleTypes: ['museum', 'art_gallery'] },
+          { label: r.nearbyVitrinRowEntertainment, googleTypes: ['amusement_park', 'night_club', 'casino'] },
+        ],
+      },
+      {
+        title: r.nearbyVitrinColEssentials,
+        rows: [
+          {
+            label: r.nearbyVitrinRowMarket,
+            googleTypes: ['supermarket', 'grocery_store', 'convenience_store'],
+          },
+          { label: r.nearbyVitrinRowRestaurants, googleTypes: ['restaurant', 'meal_takeaway', 'cafe'] },
+          { label: r.nearbyVitrinRowPharmacy, googleTypes: ['pharmacy', 'drugstore'] },
+        ],
+      },
+      {
+        title: r.nearbyVitrinColTransport,
+        rows: [
+          { label: r.nearbyVitrinRowAirport, googleTypes: ['airport'] },
+          { label: r.nearbyVitrinRowBusStation, googleTypes: ['bus_station'] },
+          { label: r.nearbyVitrinRowMinibus, googleTypes: ['bus_stop'] },
+        ],
+      },
+    ],
+  }
 }
 
 export function buildDefaultNearbyVitrinColumns(locale: string): NearbyVitrinColumnsConfig {
@@ -290,7 +339,7 @@ export function resolveNearbyVitrinForDisplay(
       return {
         rowLabel: row.label,
         placeName: picked?.name ?? null,
-        distanceLabel: picked != null ? formatKm(picked.distanceKm) : null,
+        distanceLabel: picked != null ? formatNearbyVitrinDistanceKm(picked.distanceKm) : null,
         mapsHref,
       }
     }),

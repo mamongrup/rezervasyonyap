@@ -228,20 +228,20 @@ async function main() {
     process.exit(0)
   }
 
-  const cfg = loadCfg()
-  console.log(`KPlus Tour PNR doğrulama — ${cfg.baseUrl}`)
-  console.log(`Channel: ${cfg.channelCode}`)
-  if (!isSandboxBaseUrl(cfg.baseUrl)) {
-    console.warn('⚠️  Uyarı: baseUrl sandbox değil.\n')
-  }
-
   if (USE_LIVE) {
+    const cfg = loadCfg()
+    console.log(`KPlus Tour PNR doğrulama — ${cfg.baseUrl}`)
+    console.log(`Channel: ${cfg.channelCode}`)
+    if (!isSandboxBaseUrl(cfg.baseUrl)) {
+      console.warn('⚠️  Uyarı: baseUrl sandbox değil.\n')
+    }
     console.log('[config] Mod: canlı API (GetTourBooking — Tour API dokümantasyonunda yok, 404 olabilir)\n')
     const { ok, fail } = await verifyLive(cfg, tourPnrs)
     console.log(`\nÖzet: ${ok} OK, ${fail} FAIL`)
     process.exit(fail > 0 ? 1 : 0)
   }
 
+  console.log('KPlus Tour PNR doğrulama — cert log')
   const { logPath, entries } = loadCertLogEntries()
   console.log(
     '[config] Mod: cert log (BookTour yanıtı — KPlus Tour API sertifikasyon kanıtı)\n',
