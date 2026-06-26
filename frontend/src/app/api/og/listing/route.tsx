@@ -13,6 +13,7 @@ import {
 } from '@/lib/social-share/listing-share-templates'
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
+import path from 'node:path'
 import sharp from 'sharp'
 
 export const runtime = 'nodejs'
@@ -24,8 +25,12 @@ const SOCIAL_W = 1080
 const SOCIAL_H = 1080
 const SOCIAL_TEMPLATE_BASE = 1024
 
-/** 1024×1024 marka şablonu — gri alan (ilk ilan fotoğrafı) */
-const SOCIAL_TEMPLATE_PHOTO = { x: 342, y: 152, w: 592, h: 792, radius: 56 }
+/** 1024×1024 marka şablonu — gri pebble alanı (piksel analizi) */
+const SOCIAL_TEMPLATE_PHOTO = { x: 283, y: 75, w: 741, h: 835 }
+const SOCIAL_TEMPLATE_FILE = path.join(process.cwd(), 'public', 'social', 'social-cover-template.png')
+const SOCIAL_FRAME_FILE = path.join(process.cwd(), 'public', 'social', 'social-cover-frame.png')
+const SOCIAL_PHOTO_MASK_FILE = path.join(process.cwd(), 'public', 'social', 'social-cover-photo-mask.png')
+const SOCIAL_PHOTO_BLEED = 1.06
 /** Logo altı metin alanı (sol) */
 const SOCIAL_TEMPLATE_TEXT = { x: 32, y: 210, w: 300 }
 
@@ -33,8 +38,73 @@ function scaleSocialTemplate(n: number): number {
   return Math.round(n * (SOCIAL_W / SOCIAL_TEMPLATE_BASE))
 }
 
-function socialCoverTemplateUrl(pageBase: string): string {
-  return `${pageBase.replace(/\/$/, '')}/social/social-cover-template.png`
+async function pngFileDataUrl(file: string): Promise<string | null> {
+  try {
+    const input = await sharp(file)
+      .resize(SOCIAL_W, SOCIAL_H)
+      .png()
+      .toBuffer()
+    return `data:image/png;base64,${input.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+async function buildMaskedSocialPhotoDataUrl(
+  bgUrl: string,
+  pageBase: string,
+): Promise<string | null> {
+  try {
+    const scale = SOCIAL_W / SOCIAL_TEMPLATE_BASE
+    const slot = SOCIAL_TEMPLATE_PHOTO
+    const coverW = Math.round(slot.w * scale * SOCIAL_PHOTO_BLEED)
+    const coverH = Math.round(slot.h * scale * SOCIAL_PHOTO_BLEED)
+    const left = Math.round(slot.x * scale) - Math.round((coverW - slot.w * scale) / 2)
+    const top = Math.round(slot.y * scale) - Math.round((coverH - slot.h * scale) / 2)
+
+    let input: Buffer
+    if (bgUrl.startsWith('data:')) {
+      const b64 = bgUrl.split(',')[1]
+      if (!b64) return null
+      input = Buffer.from(b64, 'base64')
+    } else {
+      const fetchUrl = rewriteLoopbackUploadUrl(bgUrl, pageBase)
+      const res = await fetchWithTimeout(fetchUrl, 3500)
+      if (!res.ok) return null
+      input = Buffer.from(await res.arrayBuffer())
+    }
+
+    const resized = await sharp(input)
+      .resize({ width: coverW, height: coverH, fit: 'cover' })
+      .png()
+      .toBuffer()
+
+    const placed = await sharp({
+      create: {
+        width: SOCIAL_W,
+        height: SOCIAL_H,
+        channels: 4,
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      },
+    })
+      .composite([{ input: resized, left, top }])
+      .png()
+      .toBuffer()
+
+    const mask = await sharp(SOCIAL_PHOTO_MASK_FILE)
+      .resize(SOCIAL_W, SOCIAL_H)
+      .ensureAlpha()
+      .toBuffer()
+
+    const masked = await sharp(placed)
+      .composite([{ input: mask, blend: 'dest-in' }])
+      .png()
+      .toBuffer()
+
+    return `data:image/png;base64,${masked.toString('base64')}`
+  } catch {
+    return null
+  }
 }
 
 function truncate(s: string, max: number): string {
@@ -214,21 +284,15 @@ async function socialListingImage({
   rows: { label: string; value: string }[]
   pageBase: string
 }) {
-  const photoInset = scaleSocialTemplate(20)
-  const photo = {
-    x: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.x) + photoInset,
-    y: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.y) + photoInset,
-    w: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w) - photoInset * 2,
-    h: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h) - photoInset * 2,
-    radius: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.radius),
-  }
   const text = {
     x: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.x),
     y: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.y),
     w: scaleSocialTemplate(SOCIAL_TEMPLATE_TEXT.w),
   }
 
-  const templateUrl = socialCoverTemplateUrl(pageBase)
+  const templateUrl = await pngFileDataUrl(SOCIAL_TEMPLATE_FILE)
+  const frameUrl = await pngFileDataUrl(SOCIAL_FRAME_FILE)
+  const maskedPhotoUrl = bgUrl ? await buildMaskedSocialPhotoDataUrl(bgUrl, pageBase) : null
   const displayTitle = truncate(titleWithoutBadge(title, badge), 52)
 
   const rowPriority = (label: string) => {
@@ -257,36 +321,53 @@ async function socialListingImage({
           fontFamily: 'Arial, Helvetica, sans-serif',
         }}
       >
-        <img
-          src={templateUrl}
-          alt=""
-          width={SOCIAL_W}
-          height={SOCIAL_H}
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            width: SOCIAL_W,
-            height: SOCIAL_H,
-          }}
-        />
-
-        {bgUrl ? (
+        {!maskedPhotoUrl && templateUrl ? (
           <img
-            src={bgUrl}
+            src={templateUrl}
             alt=""
-            width={photo.w}
-            height={photo.h}
+            width={SOCIAL_W}
+            height={SOCIAL_H}
             style={{
               position: 'absolute',
-              left: photo.x,
-              top: photo.y,
-              width: photo.w,
-              height: photo.h,
-              objectFit: 'cover',
-              borderRadius: photo.radius,
+              left: 0,
+              top: 0,
+              width: SOCIAL_W,
+              height: SOCIAL_H,
             }}
           />
+        ) : null}
+
+        {maskedPhotoUrl ? (
+          <>
+            <img
+              src={maskedPhotoUrl}
+              alt=""
+              width={SOCIAL_W}
+              height={SOCIAL_H}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: SOCIAL_W,
+                height: SOCIAL_H,
+              }}
+            />
+            {frameUrl ? (
+              <img
+                src={frameUrl}
+                alt=""
+                width={SOCIAL_W}
+                height={SOCIAL_H}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: SOCIAL_W,
+                  height: SOCIAL_H,
+                }}
+              />
+            ) : null}
+          </>
         ) : null}
 
         <div
@@ -365,17 +446,8 @@ export async function GET(req: NextRequest) {
   const renderFallbackSocial = async () => {
     if (variant !== 'social' || !fallbackTitle) return null
     const imageUrls = await listingImageUrlsFromId(base, fallbackListingId)
-    const socialBgUrl = await imageDataUrlForOg(
-      imageUrls[0] ?? null,
-      {
-        width: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w),
-        height: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h),
-        fit: 'cover',
-      },
-      base,
-    )
     return socialListingImage({
-      bgUrl: socialBgUrl ?? imageUrls[0] ?? null,
+      bgUrl: imageUrls[0] ?? null,
       badge: badgeFromCategoryCode(fallbackCategoryCode, locale),
       title: fallbackTitle,
       rows: [],
@@ -431,17 +503,8 @@ export async function GET(req: NextRequest) {
             : 'Otel'
 
     if (variant === 'social') {
-      const socialBgUrl = await imageDataUrlForOg(
-        bgUrl,
-        {
-          width: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w),
-          height: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h),
-          fit: 'cover',
-        },
-        base,
-      )
       return socialListingImage({
-        bgUrl: socialBgUrl ?? bgUrl,
+        bgUrl,
         badge,
         title: listing.title,
         rows,
@@ -588,17 +651,8 @@ export async function GET(req: NextRequest) {
         : 'Tur'
 
   if (variant === 'social') {
-    const socialBgUrl = await imageDataUrlForOg(
-      bgUrl,
-      {
-        width: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.w),
-        height: scaleSocialTemplate(SOCIAL_TEMPLATE_PHOTO.h),
-        fit: 'cover',
-      },
-      base,
-    )
     return socialListingImage({
-      bgUrl: socialBgUrl ?? bgUrl,
+      bgUrl,
       badge,
       title: listing.title,
       rows,
