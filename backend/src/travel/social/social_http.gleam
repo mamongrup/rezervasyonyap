@@ -502,7 +502,18 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                               }
                               case
                                 pog.query(
-                                  "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated) values ($1, $2::uuid, $3, $4::uuid, $5::text[], $6) returning id::text",
+                                  "with existing as ( "
+                                  <> "update social_share_jobs set "
+                                  <> "template_id = $4::uuid, image_keys = $5::text[], "
+                                  <> "caption_ai_generated = $6, error_message = null "
+                                  <> "where entity_type = trim($1::text) and entity_id = $2::uuid "
+                                  <> "and network = $3 and status = 'pending' "
+                                  <> "returning id::text "
+                                  <> "), inserted as ( "
+                                  <> "insert into social_share_jobs (entity_type, entity_id, network, template_id, image_keys, caption_ai_generated) "
+                                  <> "select trim($1::text), $2::uuid, $3, $4::uuid, $5::text[], $6 "
+                                  <> "where not exists (select 1 from existing) returning id::text "
+                                  <> ") select id from existing union all select id from inserted limit 1",
                                 )
                                 |> pog.parameter(pog.text(string.trim(entity_type)))
                                 |> pog.parameter(pog.text(string.trim(entity_id)))

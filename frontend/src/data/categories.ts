@@ -7,7 +7,7 @@ import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { normalizeSiteRelativeUploadSrc } from '@/lib/normalize-site-upload-src'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
-import { getPublicCategoryStats } from '@/lib/travel-api'
+import { getPublicCategoryStats, searchPublicListings } from '@/lib/travel-api'
 import { recordToNormalizedThumbnails } from '@/lib/category-thumbnail-entry'
 import {
   categoryCardUploadPath,
@@ -632,6 +632,28 @@ const CATEGORY_STATS: Record<string, { listingCount: number; regionCount: number
   transfer:         { listingCount: 1450,  regionCount: 38  },
 }
 
+async function getCategoryStatsFromListingTotals(
+  entries: ReadonlyArray<{ listingType: string }>,
+): Promise<Record<string, number>> {
+  const uniqueCodes = Array.from(
+    new Set(
+      entries
+        .map((entry) => LISTING_TYPE_TO_CAT_CODE[entry.listingType] ?? entry.listingType)
+        .filter(Boolean),
+    ),
+  )
+  const pairs = await Promise.all(
+    uniqueCodes.map(async (code) => {
+      const res = await searchPublicListings(
+        { categoryCode: code, perPage: 1, page: 1, locale: 'tr' },
+        withDevNoStore({ next: { revalidate: 300 } }),
+      )
+      return [code, typeof res?.total === 'number' ? res.total : 0] as const
+    }),
+  )
+  return Object.fromEntries(pairs.filter(([, total]) => total > 0))
+}
+
 /**
  * Returns all 12 travel categories from CATEGORY_REGISTRY as TCategory-compatible objects,
  * suitable for use in SectionSliderNewCategories and SectionGridCategoryBox.
@@ -643,19 +665,22 @@ export async function getTravelCategories() {
   let apiSucceeded = false
 
   try {
-    const [pub, stats] = await Promise.all([
-      getCachedSiteConfig(),
-      getPublicCategoryStats(withDevNoStore({ next: { revalidate: 300 } })),
-    ])
+    const pub = await getCachedSiteConfig()
     const raw =
       pub?.ui && typeof pub.ui === 'object'
         ? (pub.ui as Record<string, unknown>).travel_category_home_slugs
         : undefined
     slugOrder = normalizeTravelCategoryHomeOrder(raw)
-    apiStats = stats
-    apiSucceeded = true
   } catch {
-    /* API yok — varsayılan sıra ve sayılar */
+    /* site config yok — varsayılan sıra */
+  }
+
+  try {
+    const stats = await getPublicCategoryStats(withDevNoStore({ next: { revalidate: 300 } }))
+    apiStats = stats
+    apiSucceeded = Object.keys(stats).length > 0
+  } catch {
+    /* stats API yok — aşağıda listing total fallback denenir */
   }
 
   const rank = (slug: string) => {
@@ -665,6 +690,15 @@ export async function getTravelCategories() {
   const entries = [...CATEGORY_REGISTRY].sort(
     (a, b) => rank(a.slug) - rank(b.slug) || a.navOrder - b.navOrder,
   )
+
+  if (!apiSucceeded) {
+    try {
+      apiStats = await getCategoryStatsFromListingTotals(entries)
+      apiSucceeded = Object.keys(apiStats).length > 0
+    } catch {
+      /* public listings de erişilemezse statik fallback */
+    }
+  }
 
   return entries.map((entry) => {
     const fallback = CATEGORY_STATS[entry.slug] ?? { listingCount: 0, regionCount: 0 }

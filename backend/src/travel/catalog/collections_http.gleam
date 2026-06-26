@@ -1955,6 +1955,18 @@ fn cat_stats_row() -> decode.Decoder(#(String, Int)) {
   decode.success(#(code, cnt))
 }
 
+fn cat_stats_response(rows: List(#(String, Int))) -> Response {
+  let pairs =
+    list.map(rows, fn(row) {
+      let #(code, cnt) = row
+      #(code, json.int(cnt))
+    })
+  let body =
+    json.object([#("stats", json.object(pairs))])
+    |> json.to_string
+  wisp.json_response(body, 200)
+}
+
 /// GET /api/v1/catalog/public/category-stats
 /// Yayımlanan ilanların kategori koduna göre sayısını döner.
 pub fn public_category_stats(req: Request, ctx: Context) -> Response {
@@ -1966,23 +1978,27 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
     <> "where l.status = 'published' "
     <> public_listing_must_have_image_sql()
     <> "group by pc.code"
+  let fallback_sql =
+    "select coalesce(pc.code,''), count(*)::int "
+    <> "from listings l "
+    <> "join product_categories pc on pc.id = l.category_id "
+    <> "where l.status = 'published' "
+    <> "group by pc.code"
   case
     pog.query(sql)
     |> pog.returning(cat_stats_row())
     |> pog.execute(ctx.db)
   {
-    Error(_) -> json_err(500, "stats_failed")
-    Ok(ret) -> {
-      let pairs =
-        list.map(ret.rows, fn(row) {
-          let #(code, cnt) = row
-          #(code, json.int(cnt))
-        })
-      let body =
-        json.object([#("stats", json.object(pairs))])
-        |> json.to_string
-      wisp.json_response(body, 200)
-    }
+    Error(_) ->
+      case
+        pog.query(fallback_sql)
+        |> pog.returning(cat_stats_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "stats_failed")
+        Ok(ret) -> cat_stats_response(ret.rows)
+      }
+    Ok(ret) -> cat_stats_response(ret.rows)
   }
 }
 

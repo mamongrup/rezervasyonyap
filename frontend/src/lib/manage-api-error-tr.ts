@@ -317,6 +317,11 @@ const TR_BY_CODE: Record<string, string> = {
   commission_refresh_failed: 'Komisyon bilgisi yenilenemedi.',
   social_patch_failed: 'Sosyal bağlantılar güncellenemedi.',
   social_cover_generate_failed: 'AI sosyal kapak üretilemedi.',
+  social_single_queue_failed: 'Tek ilan sosyal paylaşım kuyruğuna alınamadı.',
+  social_category_queue_failed: 'Kategori sosyal paylaşım kuyruğuna alınamadı.',
+  job_insert_failed:
+    'Sosyal paylaşım işi kuyruğa yazılamadı. Aynı ilan/platform için bekleyen iş varsa sayfayı yenileyip Bekleyenler listesini kontrol edin.',
+  image_keys_required: 'Bu ilanda paylaşım için uygun görsel bulunamadı. Önce ilan galerisine en az bir görsel ekleyin.',
   social_worker_process_failed: 'Bekleyen sosyal paylaşımlar işlenemedi. Worker secret, Meta API ayarları veya sunucu bağlantısını kontrol edin.',
   worker_secret_not_configured: 'Sosyal medya worker secret tanımlı değil. /etc/rezervasyonyap/frontend.env içinde TRAVEL_SOCIAL_WORKER_SECRET eklenmeli ve frontend yeniden başlatılmalı.',
   worker_secret_missing: 'Sosyal medya worker secret okunamadı. Frontend ortam değişkenlerini kontrol edin.',
