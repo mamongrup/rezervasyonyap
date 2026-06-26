@@ -7,7 +7,8 @@ import { withDevNoStore } from '@/lib/api-fetch-dev'
 import { normalizeSiteRelativeUploadSrc } from '@/lib/normalize-site-upload-src'
 import { siteUploadBrowserHref } from '@/lib/site-upload-browser-href'
 import { getCachedSiteConfig } from '@/lib/site-config-cache'
-import { getPublicCategoryStats, searchPublicListings } from '@/lib/travel-api'
+import { getPublicCategoryStats } from '@/lib/travel-api'
+import { searchPublicListingsResilient } from '@/lib/public-listings-resilient'
 import { recordToNormalizedThumbnails } from '@/lib/category-thumbnail-entry'
 import {
   categoryCardUploadPath,
@@ -644,11 +645,11 @@ async function getCategoryStatsFromListingTotals(
   )
   const pairs = await Promise.all(
     uniqueCodes.map(async (code) => {
-      const res = await searchPublicListings(
+      const { result } = await searchPublicListingsResilient(
         { categoryCode: code, perPage: 1, page: 1, locale: 'tr' },
         withDevNoStore({ next: { revalidate: 300 } }),
       )
-      return [code, typeof res?.total === 'number' ? res.total : 0] as const
+      return [code, typeof result?.total === 'number' ? result.total : 0] as const
     }),
   )
   return Object.fromEntries(pairs.filter(([, total]) => total > 0))
@@ -708,7 +709,7 @@ export async function getTravelCategories() {
     // API başarılı olduysa gerçek sayıyı kullan (0 dahil); başarısız olduysa fallback
     const listingCount = apiSucceeded
       ? (typeof liveCount === 'number' ? liveCount : 0)
-      : fallback.listingCount
+      : 0
     const regionCount = apiSucceeded ? 0 : fallback.regionCount
     return {
       id: `travel-cat://${entry.slug}`,

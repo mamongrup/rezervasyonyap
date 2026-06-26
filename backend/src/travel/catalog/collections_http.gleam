@@ -97,6 +97,66 @@ fn strip_vitrin_price_cache_sql(sql: String) -> String {
   |> string.replace("coalesce(l.vitrin_price, 0)", "coalesce(l.first_charge_amount, 0)")
 }
 
+/// Vitrin liste sayımı ile aynı filtreler (görsel + tur/otel fiyat kapısı).
+fn public_category_stats_filter_sql() -> String {
+  public_listing_must_have_image_sql()
+  <> tour_public_must_have_price_sql()
+  <> hotel_public_must_have_price_sql()
+}
+
+fn public_category_stats_query_sql(filter: String) -> String {
+  "select coalesce(pc.code,''), count(*)::int "
+  <> "from listings l "
+  <> "join product_categories pc on pc.id = l.category_id "
+  <> "where l.status = 'published' "
+  <> filter
+  <> "group by pc.code"
+}
+
+fn listing_count_col() -> decode.Decoder(Int) {
+  use n <- decode.field(0, decode.int)
+  decode.success(n)
+}
+
+fn run_listing_count_sql(
+  ctx: Context,
+  sql: String,
+  run_params,
+  fallback: Int,
+  allow_vitrin_strip: Bool,
+) -> Int {
+  case
+    pog.query(sql)
+    |> run_params
+    |> pog.returning(listing_count_col())
+    |> pog.execute(ctx.db)
+  {
+    Error(e) -> {
+      let _ =
+        io.println(
+          "[catalog.public.listings:count] "
+            <> pog_errors.query_error_to_string(e),
+        )
+      case allow_vitrin_strip {
+        False -> fallback
+        True -> {
+          let legacy = strip_vitrin_price_cache_sql(sql)
+          case legacy != sql {
+            True ->
+              run_listing_count_sql(ctx, legacy, run_params, fallback, False)
+            False -> fallback
+          }
+        }
+      }
+    }
+    Ok(count_ret) ->
+      case count_ret.rows {
+        [n] -> n
+        _ -> fallback
+      }
+  }
+}
+
 /// Public vitrin/kategori listelerinde görselsiz ilan gösterilmez.
 /// Kart görseli üç kaynaktan gelebilir: featured_image_url, thumbnail_url veya listing_images.
 fn public_listing_must_have_image_sql() -> String {
@@ -1258,10 +1318,6 @@ fn search_listings_impl(
     <> ") "
     <> fast_main_sql
     <> order_sql
-  let int_col0 = {
-    use n <- decode.field(0, decode.int)
-    decode.success(n)
-  }
 
   let agency_param = case agency_org_opt {
     None -> pog.null()
@@ -1360,6 +1416,10 @@ fn search_listings_impl(
           "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
+      let fallback_count_sql = case fast_page_allowed {
+        True -> strip_vitrin_price_cache_sql(fast_count_sql)
+        False -> strip_vitrin_price_cache_sql(count_sql)
+      }
       search_listings_paged_response(
         ctx,
         strip_vitrin_price_cache_sql(sql_paged),
@@ -1367,32 +1427,14 @@ fn search_listings_impl(
         offset,
         lim,
         None,
+        Some(fallback_count_sql),
       )
     }
     Ok(ret) -> {
       let fallback_total =
         approximate_public_listing_total(offset, lim, list.length(ret.rows))
       let run_count = fn(count_q: String) -> Int {
-        case
-          pog.query(count_q)
-          |> run_params
-          |> pog.returning(int_col0)
-          |> pog.execute(ctx.db)
-        {
-          Error(e) -> {
-            let _ =
-              io.println(
-                "[catalog.public.listings:count] "
-                  <> pog_errors.query_error_to_string(e),
-              )
-            fallback_total
-          }
-          Ok(count_ret) ->
-            case count_ret.rows {
-              [n] -> n
-              _ -> fallback_total
-            }
-        }
+        run_listing_count_sql(ctx, count_q, run_params, fallback_total, True)
       }
       // Fast-path: ucuz gerçek sayım. Karmaşık (fast olmayan) aramalar: tam count_sql.
       let total_count = case fast_page_allowed {
@@ -1422,8 +1464,18 @@ fn search_listings_paged_response(
   offset: Int,
   lim: Int,
   total_opt: Option(Int),
+  count_sql_opt: Option(String),
 ) -> Response {
-  search_listings_paged_response_impl(ctx, sql_paged, run_params, offset, lim, total_opt, True)
+  search_listings_paged_response_impl(
+    ctx,
+    sql_paged,
+    run_params,
+    offset,
+    lim,
+    total_opt,
+    count_sql_opt,
+    True,
+  )
 }
 
 fn search_listings_paged_response_impl(
@@ -1433,6 +1485,7 @@ fn search_listings_paged_response_impl(
   offset: Int,
   lim: Int,
   total_opt: Option(Int),
+  count_sql_opt: Option(String),
   allow_legacy: Bool,
 ) -> Response {
   case
@@ -1460,6 +1513,7 @@ fn search_listings_paged_response_impl(
                 offset,
                 lim,
                 total_opt,
+                count_sql_opt,
                 False,
               )
             False -> json_err(500, "search_failed")
@@ -1469,9 +1523,15 @@ fn search_listings_paged_response_impl(
     }
     Ok(ret) -> {
       let row_count = list.length(ret.rows)
+      let page_fallback = int.add(offset, row_count)
       let total_count = case total_opt {
         Some(n) -> n
-        None -> int.add(offset, row_count)
+        None ->
+          case count_sql_opt {
+            Some(q) ->
+              run_listing_count_sql(ctx, q, run_params, page_fallback, allow_legacy)
+            None -> page_fallback
+          }
       }
       let arr = list.map(ret.rows, pub_listing_json)
       let body =
@@ -2017,40 +2077,37 @@ fn cat_stats_response(rows: List(#(String, Int))) -> Response {
 /// Yayımlanan ilanların kategori koduna göre sayısını döner.
 pub fn public_category_stats(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
-  let sql =
-    "select coalesce(pc.code,''), count(*)::int "
-    <> "from listings l "
-    <> "join product_categories pc on pc.id = l.category_id "
-    <> "where l.status = 'published' "
-    <> public_listing_must_have_image_sql()
-    <> "group by pc.code"
-  let fallback_sql =
-    "select coalesce(pc.code,''), count(*)::int "
-    <> "from listings l "
-    <> "join product_categories pc on pc.id = l.category_id "
-    <> "where l.status = 'published' "
-    <> "group by pc.code"
-  case
-    pog.query(sql)
+  let sql = public_category_stats_query_sql(public_category_stats_filter_sql())
+  let legacy_sql =
+    public_category_stats_query_sql(strip_vitrin_price_cache_sql(
+      public_category_stats_filter_sql(),
+    ))
+  let image_only_sql =
+    public_category_stats_query_sql(public_listing_must_have_image_sql())
+  let run_stats = fn(q: String) {
+    pog.query(q)
     |> pog.returning(cat_stats_row())
     |> pog.execute(ctx.db)
-  {
+  }
+  case run_stats(sql) {
     Error(e) ->
-      case
-        pog.query(fallback_sql)
-        |> pog.returning(cat_stats_row())
-        |> pog.execute(ctx.db)
-      {
-        Error(e2) -> {
-          let _ =
-            io.println(
-              "[catalog.public.category-stats] "
-                <> pog_errors.query_error_to_string(e)
-                <> " | fallback: "
-                <> pog_errors.query_error_to_string(e2),
-            )
-          cat_stats_response([])
-        }
+      case run_stats(legacy_sql) {
+        Error(e2) ->
+          case run_stats(image_only_sql) {
+            Error(e3) -> {
+              let _ =
+                io.println(
+                  "[catalog.public.category-stats] "
+                    <> pog_errors.query_error_to_string(e)
+                    <> " | legacy: "
+                    <> pog_errors.query_error_to_string(e2)
+                    <> " | image_only: "
+                    <> pog_errors.query_error_to_string(e3),
+                )
+              cat_stats_response([])
+            }
+            Ok(ret) -> cat_stats_response(ret.rows)
+          }
         Ok(ret) -> cat_stats_response(ret.rows)
       }
     Ok(ret) -> cat_stats_response(ret.rows)
