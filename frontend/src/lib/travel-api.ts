@@ -9917,6 +9917,27 @@ export async function listPublicThemeItems(params: {
 const STAY_PAGE_LISTING_UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+/** GET /catalog/public/listings/by-slug/:slug — tam slug eşleşmesi (detay sayfası). */
+export async function resolvePublicListingIdBySlug(slug: string): Promise<string | null> {
+  const s = slug.trim()
+  if (!s) return null
+  const b = base()
+  if (!b) return null
+  try {
+    const res = await fetch(
+      `${b}/api/v1/catalog/public/listings/by-slug/${encodeURIComponent(s)}`,
+      { next: { revalidate: 60 } },
+    )
+    if (res.status === 404) return null
+    if (!res.ok) return null
+    const data = (await res.json()) as { id?: string }
+    const id = data.id?.trim()
+    return id || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Konaklama vitrin URL'sindeki handle (slug veya UUID) için yayında ilan id'si.
  * Mock stay verisindeki sahte id'ler yerine API UUID kullanılır; yemek planları vitrinde görünür.
@@ -9928,6 +9949,9 @@ export async function resolvePublishedListingIdForStayPage(
   const h = handle.trim()
   if (!h) return null
   if (STAY_PAGE_LISTING_UUID_RE.test(h)) return h
+
+  const byExactSlug = await resolvePublicListingIdBySlug(h)
+  if (byExactSlug) return byExactSlug
 
   const res = await searchPublicListings({ q: h, locale, perPage: 40 })
   if (!res?.listings?.length) return null

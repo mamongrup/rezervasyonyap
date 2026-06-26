@@ -588,6 +588,45 @@ fn approximate_public_listing_total(offset: Int, limit: Int, row_count: Int) -> 
   }
 }
 
+fn listing_id_only_row() -> decode.Decoder(String) {
+  use id <- decode.field(0, decode.string)
+  decode.success(id)
+}
+
+/// GET /api/v1/catalog/public/listings/by-slug/:slug — vitrin detay URL slug → yayın ilan id
+pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let s = string.trim(slug)
+  case s == "" {
+    True -> json_err(400, "slug_required")
+    False ->
+      case
+        pog.query(
+          "select l.id::text from listings l "
+            <> "where l.status = 'published' "
+            <> public_listing_must_have_image_sql()
+            <> "and lower(l.slug) = lower($1) limit 1",
+        )
+        |> pog.parameter(pog.text(s))
+        |> pog.returning(listing_id_only_row())
+        |> pog.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "listing_slug_lookup_failed")
+        Ok(ret) ->
+          case ret.rows {
+            [] -> json_err(404, "not_found")
+            [id] -> {
+              let body =
+                json.object([#("id", json.string(id))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+            _ -> json_err(500, "unexpected")
+          }
+      }
+  }
+}
+
 /// GET /api/v1/catalog/public/listings?q=&category_code=&location=&limit=&locale=&listing_ids=id1,id2
 pub fn search_public_listings(req: Request, ctx: Context) -> Response {
   search_listings_impl(req, ctx, None)

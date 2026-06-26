@@ -196,7 +196,6 @@ export default async function CategoryPageTemplate({
   const [
     categoryRouteVitrin,
     categoryPageHref,
-    listingLinkBaseVitrin,
     mapOnMapHref,
     itemListJsonLd,
     resolvedModulesRaw,
@@ -206,7 +205,6 @@ export default async function CategoryPageTemplate({
     vitrinHref(locale, category.categoryRoute),
     // Hero başlık + istatistik satırı bu kategorinin «tüm ilanlar» vitrinine gider.
     vitrinHref(locale, `${category.categoryRoute}/all`),
-    vitrinHref(locale, listingLinkBase),
     category.mapRoute != null && String(category.mapRoute).trim() !== ''
       ? vitrinHref(locale, `${category.mapRoute}/${currentHandle ?? 'all'}`)
       : Promise.resolve(null),
@@ -610,7 +608,7 @@ export default async function CategoryPageTemplate({
             }
             categoriesNode={destinationCards}
             allListings={allListings}
-            listingLinkBase={listingLinkBaseVitrin}
+            listingLinkBase={listingLinkBase}
             priceUnit={effectivePriceUnit}
             authors={authors}
             listingCardsById={listingCardsById}

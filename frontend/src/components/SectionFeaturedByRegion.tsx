@@ -7,6 +7,11 @@ import { ButtonCircle } from '@/shared/Button'
 import ButtonSecondary from '@/shared/ButtonSecondary'
 import { Heading, Subheading } from '@/shared/Heading'
 import { displayListingCategoryLine } from '@/lib/listing-category-display'
+import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import {
+  detailPathForVertical,
+  stayDetailPathForVertical,
+} from '@/lib/listing-detail-routes'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { ArrowLeft02Icon, ArrowRight02Icon, Location06Icon } from '@hugeicons/core-free-icons'
@@ -49,11 +54,19 @@ function RegionListingCard({ listing, linkBase, priceUnit, nightLabel, locale }:
     galleryImgs,
     like,
     handle,
+    listingVertical,
   } = listing
   const categoryLine = displayListingCategoryLine(listing, locale)
   const unitFromProp = priceUnit?.replace(/^\//, '').trim()
   const unitLabel = unitFromProp || nightLabel || 'gece'
-  const listingHref = vitrinHref(`${linkBase}/${handle}`)
+  const vertical = normalizeCatalogVertical(listingVertical)
+  const detailBase =
+    vertical === 'hotel' || vertical === 'holiday_home' || vertical === 'yacht_charter'
+      ? stayDetailPathForVertical(vertical)
+      : vertical
+        ? detailPathForVertical(vertical)
+        : linkBase
+  const listingHref = vitrinHref(`${detailBase}/${handle}`)
 
   const imgSrcRaw =
     (galleryImgs?.[0] && typeof galleryImgs[0] === 'string' ? galleryImgs[0] : undefined) ||

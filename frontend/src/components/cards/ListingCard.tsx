@@ -16,6 +16,11 @@ import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { getMessages } from '@/utils/getT'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
 import { activityPriceFromAffix, isActivityListingCategory } from '@/lib/activity-listing-price-display'
+import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
+import {
+  detailPathForVertical,
+  stayDetailPathForVertical,
+} from '@/lib/listing-detail-routes'
 
 interface ListingCardProps {
   className?: string
@@ -57,6 +62,7 @@ const ListingCard: FC<ListingCardProps> = ({
     reviewCount,
     mealPlanSummary,
     themeChipLabels,
+    listingVertical,
   } = data
 
   const maxThemeChips = 3
@@ -97,7 +103,14 @@ const ListingCard: FC<ListingCardProps> = ({
     if (s) return `?${s}`
     return data.detailSearchQuery ? `?${data.detailSearchQuery}` : legacyQuery
   }, [data.detailSearchQuery, legacyQuery, pageSearch, pathHandle])
-  const listingHref = vitrinHref(`${config.linkBase}/${pathHandle}`) + searchQuery
+  const vertical = normalizeCatalogVertical(listingVertical)
+  const detailBase =
+    vertical === 'hotel' || vertical === 'holiday_home' || vertical === 'yacht_charter'
+      ? stayDetailPathForVertical(vertical)
+      : vertical
+        ? detailPathForVertical(vertical)
+        : config.linkBase
+  const listingHref = vitrinHref(`${detailBase}/${pathHandle}`) + searchQuery
   const ratioClass = config.ratioClass ?? 'aspect-w-4 aspect-h-3'
   const cardMeta = m.listing.cardMeta
   const verticalLabels = m.categoryPage.verticalLabels as Record<string, string>

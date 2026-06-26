@@ -1133,6 +1133,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Get, ["api", "v1", "catalog", "bridge", "listings"] ->
       collections_http.search_bridge_listings(req, ctx)
 
+    http.Get, ["api", "v1", "catalog", "public", "listings", "by-slug", slug] ->
+      collections_http.get_public_listing_id_by_slug(req, ctx, slug)
+
     http.Get, ["api", "v1", "catalog", "public", "listings"] ->
       collections_http.search_public_listings(req, ctx)
 
