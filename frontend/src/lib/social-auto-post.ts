@@ -121,13 +121,16 @@ function listingSocialOgKind(categoryCode: string): 'stay' | 'experience' {
     : 'stay'
 }
 
-function listingSocialCoverUrl(categoryCode: string, slug: string): string {
+function listingSocialCoverUrl(job: PendingSocialJob): string {
   return (
     buildListingOgImageUrl({
-      kind: listingSocialOgKind(categoryCode),
-      handle: slug,
+      kind: listingSocialOgKind(job.category_code),
+      handle: job.listing_slug,
       locale: 'tr',
       variant: 'social',
+      listingId: job.entity_id,
+      title: job.listing_title,
+      categoryCode: job.category_code,
     }) ?? ''
   )
 }
@@ -560,7 +563,7 @@ export async function processOneSocialJob(
   const imageUrls = selectedKeys
     .map((k) => absoluteMediaUrl(siteUrl, k))
     .filter((u) => u.startsWith('https://'))
-  const coverUrl = listingSocialCoverUrl(job.category_code, job.listing_slug)
+  const coverUrl = listingSocialCoverUrl(job)
   const hasGeneratedCover = selectedKeys.some(isGeneratedSocialCoverKey)
   const postImageUrls = [hasGeneratedCover ? '' : coverUrl, ...imageUrls]
     .filter((u) => u.startsWith('https://'))

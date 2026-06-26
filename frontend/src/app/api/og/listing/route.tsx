@@ -4,7 +4,9 @@ import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { VILLA_THEME_CHIP_PRESETS } from '@/lib/villa-theme-chip-presets'
 import { getPublicSiteUrl, toAbsoluteSiteUrl } from '@/lib/site-branding-seo'
 import { normalizeSiteLogoUrl, resolveSiteLogoUrl } from '@/lib/resolve-site-logo-url'
+import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import type { TListingBase } from '@/types/listing-types'
+import { getPublicListingImages } from '@/lib/travel-api'
 import {
   buildExperienceListingShareRows,
   buildStayListingShareRows,
@@ -91,8 +93,6 @@ function truncate(s: string, max: number): string {
 function assetBaseUrl(pageBase: string): string {
   return (
     process.env.NEXT_PUBLIC_UPLOADS_ORIGIN?.trim().replace(/\/$/, '') ||
-    process.env.INTERNAL_API_ORIGIN?.trim().replace(/\/$/, '') ||
-    process.env.NEXT_PUBLIC_API_URL?.trim().replace(/\/$/, '') ||
     pageBase
   )
 }
@@ -109,6 +109,13 @@ function rewriteLoopbackUploadUrl(url: string, fallbackBase: string): string {
     /* yoksay */
   }
   return url
+}
+
+function requestOriginBase(req: NextRequest): string {
+  const configured = getPublicSiteUrl()
+  if (configured) return configured
+  const u = new URL(req.url)
+  return `${u.protocol}//${u.host}`.replace(/\/$/, '')
 }
 
 function toAbsoluteAssetUrl(pageBase: string, path: string): string | null {
@@ -157,6 +164,29 @@ function themeLabelsForCover(codes: readonly string[] | undefined): string[] {
     if (out.length >= 5) break
   }
   return out
+}
+
+function themeCodesFromQuery(raw: string | null): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+}
+
+function badgeFromCategoryCode(categoryCode: string, locale: string): string {
+  switch (categoryCode.trim().toLowerCase()) {
+    case 'holiday_home':
+      return locale.startsWith('en') ? 'Holiday home' : 'Villa'
+    case 'yacht_charter':
+      return locale.startsWith('en') ? 'Yacht' : 'Yat'
+    case 'tour':
+      return locale.startsWith('en') ? 'Tour' : 'Tur'
+    case 'activity':
+      return locale.startsWith('en') ? 'Activity' : 'Aktivite'
+    case 'hotel':
+    default:
+      return locale.startsWith('en') ? 'Hotel' : 'Otel'
+  }
 }
 
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
@@ -227,6 +257,17 @@ async function socialMosaicDataUrls(base: string, images: Array<string | null | 
     ),
   )
   return dataUrls.filter((url): url is string => Boolean(url))
+}
+
+async function listingImageUrlsFromId(base: string, listingId: string | null): Promise<string[]> {
+  const id = listingId?.trim()
+  if (!id) return []
+  const res = await getPublicListingImages(id).catch(() => null)
+  return (res?.images ?? [])
+    .map((img) => storageKeyToPublicUrl(img.storage_key ?? ''))
+    .map((src) => (src ? toAbsoluteAssetUrl(base, src) ?? src : ''))
+    .filter(Boolean)
+    .slice(0, 6)
 }
 
 function brandingText(b: Record<string, unknown> | null | undefined, key: string): string {
@@ -688,10 +729,7 @@ export async function GET(req: NextRequest) {
     return new Response('Missing handle', { status: 400 })
   }
 
-  const base = getPublicSiteUrl()
-  if (!base) {
-    return new Response('NEXT_PUBLIC_SITE_URL required for OG images', { status: 503 })
-  }
+  const base = requestOriginBase(req)
 
   const rawBranding = await fetchOgBranding(base)
   const branding = {
@@ -707,9 +745,39 @@ export async function GET(req: NextRequest) {
     ),
   }
 
+  const fallbackListingId = searchParams.get('listing_id')?.trim() || null
+  const fallbackTitle = searchParams.get('title')?.trim() || ''
+  const fallbackCategoryCode = searchParams.get('category_code')?.trim() || (kind === 'experience' ? 'tour' : 'hotel')
+  const renderFallbackSocial = async () => {
+    if (variant !== 'social' || !fallbackTitle) return null
+    const imageUrls = await listingImageUrlsFromId(base, fallbackListingId)
+    const socialBgUrl = await imageDataUrlForOg(
+      imageUrls[0] ?? null,
+      {
+        width: SOCIAL_W,
+        height: SOCIAL_H,
+        fit: 'cover',
+      },
+      base,
+    )
+    const mosaicUrls = await socialMosaicDataUrls(base, imageUrls)
+    return socialListingImage({
+      bgUrl: socialBgUrl ?? imageUrls[0] ?? null,
+      mosaicUrls,
+      badge: badgeFromCategoryCode(fallbackCategoryCode, locale),
+      title: fallbackTitle,
+      rows: [],
+      branding,
+      designTheme,
+      themeLabels: themeLabelsForCover(themeCodesFromQuery(searchParams.get('theme_codes'))),
+    })
+  }
+
   if (kind === 'stay') {
     const listing = await getStayListingByHandle(handle, locale)
     if (!listing?.id) {
+      const fallback = await renderFallbackSocial()
+      if (fallback) return fallback
       return new Response('Not found', { status: 404 })
     }
 
@@ -884,6 +952,8 @@ export async function GET(req: NextRequest) {
 
   const listing = await getExperienceListingByHandle(handle, locale)
   if (!listing?.id) {
+    const fallback = await renderFallbackSocial()
+    if (fallback) return fallback
     return new Response('Not found', { status: 404 })
   }
 

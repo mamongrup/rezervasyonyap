@@ -283,12 +283,16 @@ function socialCoverPreviewUrl(
   const q = new URLSearchParams({
     kind,
     handle: listing.slug,
+    listing_id: listing.id,
+    title: listing.title,
+    category_code: listing.category_code,
     locale: 'tr',
     variant: 'social',
     image_quality: quality,
     design_theme: designTheme,
     v: String(cacheKey),
   })
+  if (listing.theme_codes) q.set('theme_codes', listing.theme_codes)
   return `/api/og/listing?${q.toString()}`
 }
 
