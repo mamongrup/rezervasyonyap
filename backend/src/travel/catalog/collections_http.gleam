@@ -88,6 +88,15 @@ fn hotel_public_must_have_price_sql() -> String {
   "and (pc.code != 'hotel' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
+/// `vitrin_price` sütunu / önbellek migration'ı uygulanmamış DB'lerde arama 500 vermesin.
+fn strip_vitrin_price_cache_sql(sql: String) -> String {
+  sql
+  |> string.replace(tour_public_must_have_price_sql(), "")
+  |> string.replace(hotel_public_must_have_price_sql(), "")
+  |> string.replace("coalesce(l.vitrin_price, l.first_charge_amount)", "l.first_charge_amount")
+  |> string.replace("coalesce(l.vitrin_price, 0)", "coalesce(l.first_charge_amount, 0)")
+}
+
 /// Public vitrin/kategori listelerinde görselsiz ilan gösterilmez.
 /// Kart görseli üç kaynaktan gelebilir: featured_image_url, thumbnail_url veya listing_images.
 fn public_listing_must_have_image_sql() -> String {
@@ -1351,7 +1360,14 @@ fn search_listings_impl(
           "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
-      search_listings_paged_response(ctx, sql_paged, run_params, offset, lim, None)
+      search_listings_paged_response(
+        ctx,
+        strip_vitrin_price_cache_sql(sql_paged),
+        run_params,
+        offset,
+        lim,
+        None,
+      )
     }
     Ok(ret) -> {
       let fallback_total =
@@ -1407,6 +1423,18 @@ fn search_listings_paged_response(
   lim: Int,
   total_opt: Option(Int),
 ) -> Response {
+  search_listings_paged_response_impl(ctx, sql_paged, run_params, offset, lim, total_opt, True)
+}
+
+fn search_listings_paged_response_impl(
+  ctx: Context,
+  sql_paged: String,
+  run_params,
+  offset: Int,
+  lim: Int,
+  total_opt: Option(Int),
+  allow_legacy: Bool,
+) -> Response {
   case
     pog.query(sql_paged)
     |> run_params
@@ -1419,7 +1447,25 @@ fn search_listings_paged_response(
           "[catalog.public.listings] "
             <> pog_errors.query_error_to_string(e),
         )
-      json_err(500, "search_failed")
+      case allow_legacy {
+        False -> json_err(500, "search_failed")
+        True -> {
+          let legacy = strip_vitrin_price_cache_sql(sql_paged)
+          case legacy != sql_paged {
+            True ->
+              search_listings_paged_response_impl(
+                ctx,
+                legacy,
+                run_params,
+                offset,
+                lim,
+                total_opt,
+                False,
+              )
+            False -> json_err(500, "search_failed")
+          }
+        }
+      }
     }
     Ok(ret) -> {
       let row_count = list.length(ret.rows)
@@ -1989,13 +2035,22 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
     |> pog.returning(cat_stats_row())
     |> pog.execute(ctx.db)
   {
-    Error(_) ->
+    Error(e) ->
       case
         pog.query(fallback_sql)
         |> pog.returning(cat_stats_row())
         |> pog.execute(ctx.db)
       {
-        Error(_) -> json_err(500, "stats_failed")
+        Error(e2) -> {
+          let _ =
+            io.println(
+              "[catalog.public.category-stats] "
+                <> pog_errors.query_error_to_string(e)
+                <> " | fallback: "
+                <> pog_errors.query_error_to_string(e2),
+            )
+          cat_stats_response([])
+        }
         Ok(ret) -> cat_stats_response(ret.rows)
       }
     Ok(ret) -> cat_stats_response(ret.rows)

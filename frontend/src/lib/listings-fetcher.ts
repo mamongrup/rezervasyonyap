@@ -1,7 +1,7 @@
 /**
  * Merkezi ilan arama yardımcısı.
  *
- * Backend API (`searchPublicListings`) yanıt vermezse boş liste döner — yerel demo/mock yok.
+ * Backend API (`searchPublicListings`) yanıt vermezse son başarılı snapshot'a düşer.
  *
  * Tüm kategori sayfaları bu helper'ı kullanmalı.
  */
@@ -24,11 +24,11 @@ import {
 import { buildStayDetailSearchQuery } from '@/lib/stay-listing-booking-init'
 import { displayYachtPropertyTypeLine, type YachtCharterPropertyTypeItem } from '@/lib/yacht-property-type-options'
 import {
-  searchPublicListings,
   fetchPublicHolidayHomePropertyTypes,
   fetchPublicYachtCharterPropertyTypes,
   type PublicListingItem,
 } from '@/lib/travel-api'
+import { searchPublicListingsResilient } from '@/lib/public-listings-resilient'
 import { categoryLabelTr } from '@/lib/catalog-category-ui'
 import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
@@ -549,24 +549,23 @@ export async function fetchFlexibleStayRentalListings(
     region && region !== 'all' && !regionPropertyType ? region.replace(/-/g, ' ') : undefined
   const apiLocation = query.location?.trim() || regionAsLocation || undefined
 
-  const [apiResult, holidayPtItems, yachtPtItems] = await Promise.all([
-    searchPublicListings(
-      {
-        categoryCode,
-        location: apiLocation,
-        propertyType: regionPropertyType || undefined,
-        checkin: relaxed.checkin,
-        checkout: relaxed.checkout,
-        guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
-        page: 1,
-        perPage: 36,
-        locale: locale || 'tr',
-        from: relaxed.from,
-        to: relaxed.to,
-        drop_off: relaxed.drop_off,
-      },
-      CATALOG_LISTINGS_FETCH_INIT,
-    ),
+  const apiParams = {
+    categoryCode,
+    location: apiLocation,
+    propertyType: regionPropertyType || undefined,
+    checkin: relaxed.checkin,
+    checkout: relaxed.checkout,
+    guests: relaxed.guests ? parseInt(String(relaxed.guests), 10) : undefined,
+    page: 1,
+    perPage: 36,
+    locale: locale || 'tr',
+    from: relaxed.from,
+    to: relaxed.to,
+    drop_off: relaxed.drop_off,
+  }
+
+  const [apiSearch, holidayPtItems, yachtPtItems] = await Promise.all([
+    searchPublicListingsResilient(apiParams, CATALOG_LISTINGS_FETCH_INIT),
     categoryCode === 'holiday_home'
       ? fetchPublicHolidayHomePropertyTypes(CATALOG_META_FETCH_INIT).catch(
           (): HolidayHomePropertyTypeItem[] => [],
@@ -587,8 +586,8 @@ export async function fetchFlexibleStayRentalListings(
     detailSearchQuery,
   }
 
-  if (apiResult) {
-    let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
+  if (apiSearch.result) {
+    let rows = apiSearch.result.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     rows = applyStayRentalListingQueryFilters(rows, relaxed)
     return rows.filter((l) => !excludeIds.has(l.id)).slice(0, maxItems)
   }
@@ -667,44 +666,43 @@ export async function fetchCategoryListings(
   const needsHolidayPt = categoryCode === 'holiday_home'
   const needsYachtPt = categoryCode === 'yacht_charter'
 
-  const [apiResult, holidayPtItems, yachtPtItems] = await Promise.all([
-    searchPublicListings(
-      {
-        categoryCode,
-        q: effectiveQuery.q?.trim() || undefined,
-        location: apiLocation,
-        propertyType: regionPropertyType || undefined,
-        checkin: effectiveQuery.checkin,
-        checkout: effectiveQuery.checkout,
-        flexDays: effectiveQuery.flex_days
-          ? Math.max(0, parseInt(effectiveQuery.flex_days, 10) || 0)
-          : undefined,
-        guests: effectiveQuery.guests ? parseInt(effectiveQuery.guests, 10) : undefined,
-        page,
-        perPage,
-        locale: locale || 'tr',
-        from: effectiveQuery.from,
-        to: effectiveQuery.to,
-        drop_off: effectiveQuery.drop_off,
-        theme: effectiveQuery.theme,
-        sort: effectiveQuery.sort?.trim() || undefined,
-        attrs: resolveListingAttrsParam(categoryCode, effectiveQuery),
-        priceMin: apiPriceMin,
-        priceMax: apiPriceMax,
-        bedsMin: effectiveQuery.beds?.trim() || undefined,
-        bedroomsMin: effectiveQuery.bedrooms?.trim() || undefined,
-        bathroomsMin: effectiveQuery.bathrooms?.trim() || undefined,
-        hotelType: effectiveQuery.hotel_type?.trim() || undefined,
-        hotelTheme: effectiveQuery.hotel_theme?.trim() || undefined,
-        hotelAccommodation: effectiveQuery.hotel_accommodation?.trim() || undefined,
-        hotelStars: effectiveQuery.hotel_stars?.trim() || undefined,
-        tourTravelType: effectiveQuery.tour_travel_type?.trim() || undefined,
-        tourAccommodation: effectiveQuery.tour_accommodation?.trim() || undefined,
-        tourDuration: effectiveQuery.tour_duration?.trim() || undefined,
-        tourDeparture: effectiveQuery.tour_departure?.trim() || undefined,
-      },
-      CATALOG_LISTINGS_FETCH_INIT,
-    ),
+  const apiParams = {
+    categoryCode,
+    q: effectiveQuery.q?.trim() || undefined,
+    location: apiLocation,
+    propertyType: regionPropertyType || undefined,
+    checkin: effectiveQuery.checkin,
+    checkout: effectiveQuery.checkout,
+    flexDays: effectiveQuery.flex_days
+      ? Math.max(0, parseInt(effectiveQuery.flex_days, 10) || 0)
+      : undefined,
+    guests: effectiveQuery.guests ? parseInt(effectiveQuery.guests, 10) : undefined,
+    page,
+    perPage,
+    locale: locale || 'tr',
+    from: effectiveQuery.from,
+    to: effectiveQuery.to,
+    drop_off: effectiveQuery.drop_off,
+    theme: effectiveQuery.theme,
+    sort: effectiveQuery.sort?.trim() || undefined,
+    attrs: resolveListingAttrsParam(categoryCode, effectiveQuery),
+    priceMin: apiPriceMin,
+    priceMax: apiPriceMax,
+    bedsMin: effectiveQuery.beds?.trim() || undefined,
+    bedroomsMin: effectiveQuery.bedrooms?.trim() || undefined,
+    bathroomsMin: effectiveQuery.bathrooms?.trim() || undefined,
+    hotelType: effectiveQuery.hotel_type?.trim() || undefined,
+    hotelTheme: effectiveQuery.hotel_theme?.trim() || undefined,
+    hotelAccommodation: effectiveQuery.hotel_accommodation?.trim() || undefined,
+    hotelStars: effectiveQuery.hotel_stars?.trim() || undefined,
+    tourTravelType: effectiveQuery.tour_travel_type?.trim() || undefined,
+    tourAccommodation: effectiveQuery.tour_accommodation?.trim() || undefined,
+    tourDuration: effectiveQuery.tour_duration?.trim() || undefined,
+    tourDeparture: effectiveQuery.tour_departure?.trim() || undefined,
+  }
+
+  const [apiSearch, holidayPtItems, yachtPtItems] = await Promise.all([
+    searchPublicListingsResilient(apiParams, CATALOG_LISTINGS_FETCH_INIT),
     needsHolidayPt
       ? fetchPublicHolidayHomePropertyTypes(CATALOG_META_FETCH_INIT).catch(
           (): HolidayHomePropertyTypeItem[] => [],
@@ -717,7 +715,7 @@ export async function fetchCategoryListings(
       : Promise.resolve([] as YachtCharterPropertyTypeItem[]),
   ])
 
-  if (apiResult) {
+  if (apiSearch.result) {
     const detailSearchQuery = isStayRentalCategory(categoryCode)
       ? buildStayDetailSearchQuery(effectiveQuery)
       : undefined
@@ -727,7 +725,7 @@ export async function fetchCategoryListings(
       yachtPropertyTypeItems: yachtPtItems.length > 0 ? yachtPtItems : undefined,
       detailSearchQuery,
     }
-    let rows = apiResult.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
+    let rows = apiSearch.result.listings.map((it) => mapPublicListingItemToListingBase(it, mapOpts))
     if (categoryCode === 'flight') {
       rows = dedupeFlightListingsByRoute(rows)
     }
@@ -741,10 +739,10 @@ export async function fetchCategoryListings(
     }
     return {
       listings: rows,
-      total: vitrinTab ? rows.length : apiResult.total,
+      total: vitrinTab ? rows.length : apiSearch.result.total,
       page,
-      perPage: apiResult.per_page ?? perPage,
-      fromApi: true,
+      perPage: apiSearch.result.per_page ?? perPage,
+      fromApi: apiSearch.source === 'api',
     }
   }
 
@@ -769,7 +767,7 @@ export async function fetchListingsByIds(
   const categoryCode = SLUG_TO_CODE[categorySlug]
   if (!categoryCode) return []
 
-  const apiResult = await searchPublicListings(
+  const apiSearch = await searchPublicListingsResilient(
     {
       categoryCode,
       listingIds: ids,
@@ -778,7 +776,7 @@ export async function fetchListingsByIds(
     },
     CATALOG_LISTINGS_FETCH_INIT,
   )
-  if (!apiResult?.listings?.length) return []
+  if (!apiSearch.result?.listings?.length) return []
 
   const needsHolidayPt = categoryCode === 'holiday_home'
   const needsYachtPt = categoryCode === 'yacht_charter'
@@ -801,7 +799,7 @@ export async function fetchListingsByIds(
     yachtPropertyTypeItems: yachtPtItems.length > 0 ? yachtPtItems : undefined,
   }
   const byId = new Map(
-    apiResult.listings.map((it) => [it.id, mapPublicListingItemToListingBase(it, mapOpts)]),
+    apiSearch.result.listings.map((it) => [it.id, mapPublicListingItemToListingBase(it, mapOpts)]),
   )
   return ids.map((id) => byId.get(id)).filter((l): l is TListingBase => Boolean(l))
 }
