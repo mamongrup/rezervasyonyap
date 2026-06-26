@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -47,7 +48,7 @@ pub fn get_holiday_home(req: Request, ctx: Context, listing_id: String) -> Respo
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) ->
@@ -111,7 +112,7 @@ pub fn patch_holiday_home(req: Request, ctx: Context, listing_id: String) -> Res
                 |> pog.parameter(rc_p)
                 |> pog.parameter(im_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "upsert_failed")
                 Ok(r) ->
@@ -168,7 +169,7 @@ pub fn list_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(hh_bedroom_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) -> {
@@ -214,7 +215,7 @@ pub fn put_holiday_home_bedrooms(req: Request, ctx: Context, listing_id: String)
       case json.parse(body, hh_bedrooms_put_decoder()) {
         Error(_) -> json_err(400, "invalid_json")
         Ok(rows) ->
-          case pog.transaction(ctx.db, fn(conn) {
+          case db_exec.transaction(ctx.db, fn(conn) {
             case
               pog.query("delete from listing_bedrooms where listing_id = $1::uuid")
               |> pog.parameter(pog.text(lid_param(listing_id)))
@@ -292,7 +293,7 @@ pub fn get_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) ->
@@ -414,7 +415,7 @@ pub fn patch_yacht(req: Request, ctx: Context, listing_id: String) -> Response {
                 |> pog.parameter(rc_p)
                 |> pog.parameter(im_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "upsert_failed")
                 Ok(r) ->
@@ -455,7 +456,7 @@ pub fn list_hotel_rooms(req: Request, ctx: Context, listing_id: String) -> Respo
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(hr_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) -> {
@@ -545,7 +546,7 @@ pub fn add_hotel_room(req: Request, ctx: Context, listing_id: String) -> Respons
                 |> pog.parameter(bt_p)
                 |> pog.parameter(pog.text(mj))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "insert_failed")
                 Ok(r) ->
@@ -572,7 +573,7 @@ pub fn delete_hotel_room(req: Request, ctx: Context, listing_id: String, room_id
     )
     |> pog.parameter(pog.text(string.trim(room_id)))
     |> pog.parameter(pog.text(lid_param(listing_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "delete_failed")
     Ok(ret) ->
@@ -602,7 +603,7 @@ pub fn list_related_rules(req: Request, ctx: Context, listing_id: String) -> Res
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(rr_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) -> {
@@ -682,7 +683,7 @@ pub fn add_related_rule(req: Request, ctx: Context, listing_id: String) -> Respo
                     |> pog.parameter(tid_p)
                     |> pog.parameter(ar_p)
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "insert_failed")
                     Ok(r) ->
@@ -715,7 +716,7 @@ pub fn delete_related_rule(
     )
     |> pog.parameter(pog.text(string.trim(rule_id)))
     |> pog.parameter(pog.text(lid_param(listing_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "delete_failed")
     Ok(ret) ->
@@ -747,7 +748,7 @@ pub fn list_transfer_zones(req: Request, ctx: Context, listing_id: String) -> Re
     )
     |> pog.parameter(pog.text(lid_param(listing_id)))
     |> pog.returning(tz_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) -> {
@@ -841,7 +842,7 @@ pub fn add_transfer_zone(req: Request, ctx: Context, listing_id: String) -> Resp
                     |> pog.parameter(lo_p)
                     |> pog.parameter(pog.text(pj))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "insert_failed")
                     Ok(r) ->
@@ -875,7 +876,7 @@ pub fn delete_transfer_zone(
     )
     |> pog.parameter(pog.text(string.trim(zone_id)))
     |> pog.parameter(pog.text(lid_param(listing_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "delete_failed")
     Ok(ret) ->
@@ -910,7 +911,7 @@ pub fn get_vertical_meta(
         |> pog.parameter(pog.text(lid_param(listing_id)))
         |> pog.parameter(pog.text(group_code))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) ->
@@ -955,7 +956,7 @@ pub fn put_vertical_meta(
             |> pog.parameter(pog.text(group_code))
             |> pog.parameter(pog.text(body_str))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "upsert_failed")
             Ok(ret) ->

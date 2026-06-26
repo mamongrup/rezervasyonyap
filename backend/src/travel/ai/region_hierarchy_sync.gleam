@@ -9,6 +9,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 
@@ -122,7 +123,7 @@ fn lookup_country_id(
             )
             |> pog.parameter(pog.text(c))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("country_lookup_failed")
             Ok(r) ->
@@ -148,7 +149,7 @@ fn lookup_country_by_name(ctx: Context, name: String) -> Result(String, String) 
         )
         |> pog.parameter(pog.text(n))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error("country_lookup_failed")
         Ok(r) ->
@@ -171,7 +172,7 @@ fn run_hierarchy_job(
     )
     |> pog.parameter(pog.text(input_s))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("ai_job_insert_failed")
     Ok(r) ->
@@ -192,7 +193,7 @@ fn run_hierarchy_job(
     )
     |> pog.parameter(pog.text(job_id))
     |> pog.returning(job_out_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("ai_job_output_query_failed")
     Ok(r) ->
@@ -243,7 +244,7 @@ fn insert_region_row(
     |> pog.parameter(lat_p)
     |> pog.parameter(lng_p)
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("region_insert_failed")
     Ok(r) ->
@@ -338,7 +339,7 @@ fn lookup_region_ctx(ctx: Context, region_id: String) -> Result(
           }
         }))
         |> pog.returning(region_ctx_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error("region_lookup_failed")
         Ok(r) ->
@@ -387,7 +388,7 @@ fn lookup_district_ctx(ctx: Context, district_id: String) -> Result(
           }
         }))
         |> pog.returning(district_ctx_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error("district_lookup_failed")
         Ok(r) ->
@@ -445,7 +446,7 @@ fn upsert_district(
     |> pog.parameter(lat_p)
     |> pog.parameter(lng_p)
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("district_insert_failed")
     Ok(r) ->
@@ -473,7 +474,7 @@ fn upsert_district(
             |> pog.parameter(pog.text(name))
             |> pog.parameter(lat_p)
             |> pog.parameter(lng_p)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           Ok(True)
         }
         _ -> Error("unexpected_district_rows")
@@ -579,7 +580,7 @@ fn insert_destination_page(
     |> pog.parameter(lat_p)
     |> pog.parameter(lng_p)
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("destination_insert_failed")
     Ok(r) ->

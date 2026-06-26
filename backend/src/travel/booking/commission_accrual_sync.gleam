@@ -2,6 +2,7 @@
 
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 
 /// Silip yeniden yazar; rezervasyonda satır yoksa yalnızca siler.
 pub fn sync_reservation(conn: pog.Connection, reservation_id: String) -> Result(Nil, String) {

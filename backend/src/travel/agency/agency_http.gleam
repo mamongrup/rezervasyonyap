@@ -17,6 +17,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -208,7 +209,7 @@ pub fn list_api_keys(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(api_key_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -273,7 +274,7 @@ pub fn create_api_key(req: Request, ctx: Context) -> Response {
                   use a <- decode.field(0, decode.string)
                   decode.success(a)
                 })
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "insert_failed")
                 Ok(ret) ->
@@ -318,7 +319,7 @@ pub fn delete_api_key(req: Request, ctx: Context, key_id: String) -> Response {
         )
         |> pog.parameter(pog.text(key_id))
         |> pog.parameter(pog.text(oid))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->
@@ -398,7 +399,7 @@ pub fn persisted_commission_accruals(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(from_q))
         |> pog.parameter(pog.text(to_q))
         |> pog.returning(persisted_accrual_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "persisted_failed")
         Ok(ret) ->
@@ -457,7 +458,7 @@ pub fn browse_listings(req: Request, ctx: Context) -> Response {
         |> pog.parameter(like_param)
         |> pog.parameter(pog.text(oid))
         |> pog.returning(browse_listing_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "browse_failed")
         Ok(ret) -> {
@@ -507,7 +508,7 @@ pub fn commission_rates(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(rate_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -679,7 +680,7 @@ pub fn get_api_settings(req: Request, ctx: Context) -> Response {
           use ts <- decode.field(2, decode.string)
           decode.success(#(u, s, ts))
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "settings_load_failed")
         Ok(ret) -> {
@@ -748,7 +749,7 @@ pub fn patch_api_settings(req: Request, ctx: Context) -> Response {
                       use t <- decode.field(2, decode.string)
                       decode.success(#(u, s, t))
                     })
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "settings_save_failed")
                     Ok(ret) ->

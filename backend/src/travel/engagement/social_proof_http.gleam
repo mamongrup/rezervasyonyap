@@ -17,6 +17,7 @@ import gleam/json
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -55,7 +56,7 @@ pub fn view_ping(req: Request, ctx: Context, listing_id: String) -> Response {
                 )
                 |> pog.parameter(pog.text(listing_id))
                 |> pog.parameter(pog.text(sk))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "ping_failed")
                 Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -74,7 +75,7 @@ pub fn social_proof(req: Request, ctx: Context, listing_id: String) -> Response 
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(r) ->
       case r.rows {
@@ -96,7 +97,7 @@ pub fn social_proof(req: Request, ctx: Context, listing_id: String) -> Response 
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(r) ->
       case r.rows {
@@ -120,7 +121,7 @@ pub fn social_proof(req: Request, ctx: Context, listing_id: String) -> Response 
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(r) ->
       case r.rows {

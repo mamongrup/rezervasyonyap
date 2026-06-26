@@ -15,6 +15,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
@@ -441,12 +442,12 @@ pub fn stats(req: Request, ctx: Context) -> Response {
 
       let run_count = fn(sql: String) {
         case cat == "" {
-          True -> pog.query(sql) |> pog.returning(int_col0) |> pog.execute(ctx.db)
+          True -> pog.query(sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
           False ->
             pog.query(sql)
             |> pog.parameter(pog.text(cat))
             |> pog.returning(int_col0)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
         }
       }
 
@@ -462,12 +463,12 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                 True ->
                   pog.query(batches_sql)
                   |> pog.returning(batch_count_row())
-                  |> pog.execute(ctx.db)
+                  |> db_exec.execute(ctx.db)
                 False ->
                   pog.query(batches_sql)
                   |> pog.parameter(pog.text(cat))
                   |> pog.returning(batch_count_row())
-                  |> pog.execute(ctx.db)
+                  |> db_exec.execute(ctx.db)
               }
               case batches_q {
                 Error(_) -> json_err(500, "listing_content_batches_failed")
@@ -481,12 +482,12 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                     True ->
                       pog.query(phases_sql)
                       |> pog.returning(phase_count_row())
-                      |> pog.execute(ctx.db)
+                      |> db_exec.execute(ctx.db)
                     False ->
                       pog.query(phases_sql)
                       |> pog.parameter(pog.text(cat))
                       |> pog.returning(phase_count_row())
-                      |> pog.execute(ctx.db)
+                      |> db_exec.execute(ctx.db)
                   }
                   case phases_q {
                     Error(_) -> json_err(500, "listing_content_phases_failed")
@@ -565,7 +566,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
             pog.query(find_sql)
             |> pog.parameter(pog.text(cat))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "listing_content_find_failed")
             Ok(ret) -> {
@@ -593,7 +594,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(lid))
                         |> pog.parameter(pog.text(cat))
                         |> pog.parameter(pog.bool(overwrite))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       }),
                       result.is_ok,
                     )
@@ -690,7 +691,7 @@ fn load_listing_context(
     pog.query(sql)
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(listing_context_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -713,7 +714,7 @@ fn create_and_run_job(
     |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("listing_content_job_insert_failed")
     Ok(ret) ->
@@ -726,7 +727,7 @@ fn create_and_run_job(
             )
             |> pog.parameter(pog.text(job_id))
             |> pog.returning(ai_job_outcome_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("listing_content_job_output_failed")
             Ok(out_ret) ->
@@ -1174,7 +1175,7 @@ fn load_locale_title_desc(
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale_code))
     |> pog.returning(locale_title_desc_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -1256,7 +1257,7 @@ pub fn process_next(req: Request, ctx: Context) -> Response {
       case
         pog.query(pick_sql)
         |> pog.returning(batch_pick_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "listing_content_pick_failed")
         Ok(ret) ->
@@ -1310,7 +1311,7 @@ pub fn reset_stuck(req: Request, ctx: Context) -> Response {
           "update ai_listing_content_batches set status = 'pending', updated_at = now() where status = 'running' returning id::text",
         )
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "listing_content_reset_failed")
         Ok(ret) -> {

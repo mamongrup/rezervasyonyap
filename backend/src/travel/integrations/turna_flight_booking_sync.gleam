@@ -6,6 +6,7 @@ import gleam/list
 import gleam/option.{type Option}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/integrations/turna
 import travel/integrations/turna_config
 

@@ -14,6 +14,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
@@ -211,7 +212,7 @@ fn get_stats_for(ctx: Context, kind: RouteProfileKind) -> Response {
     use n <- decode.field(0, decode.int)
     decode.success(n)
   }
-  case pog.query(total_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db) {
+  case pog.query(total_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db) {
     Error(_) -> json_err(500, "trip_routes_stats_total_failed")
     Ok(tr) -> {
       let total = case tr.rows {
@@ -221,7 +222,7 @@ fn get_stats_for(ctx: Context, kind: RouteProfileKind) -> Response {
       case
         pog.query(has_sql)
         |> pog.returning(int_col0)
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "trip_routes_stats_has_failed")
         Ok(hr) -> {
@@ -232,7 +233,7 @@ fn get_stats_for(ctx: Context, kind: RouteProfileKind) -> Response {
           case
             pog.query(empty_sql)
             |> pog.returning(int_col0)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "trip_routes_stats_empty_failed")
             Ok(er) -> {
@@ -244,7 +245,7 @@ fn get_stats_for(ctx: Context, kind: RouteProfileKind) -> Response {
                 pog.query(jobs_sql)
                 |> pog.parameter(pog.text(pc))
                 |> pog.returning(stats_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "trip_routes_stats_jobs_failed")
                 Ok(jr) -> {
@@ -292,7 +293,7 @@ fn queue_all_for(ctx: Context, kind: RouteProfileKind) -> Response {
     pog.query(sql)
     |> pog.parameter(pog.text(pc))
     |> pog.returning(location_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "trip_routes_find_failed")
     Ok(ret) -> {
@@ -341,7 +342,7 @@ fn queue_all_for(ctx: Context, kind: RouteProfileKind) -> Response {
               )
               |> pog.parameter(pog.text(pc))
               |> pog.parameter(pog.text(input))
-              |> pog.execute(ctx.db)
+              |> db_exec.execute(ctx.db)
             })
           let ok_count = list.count(enqueue_results, fn(r) { result.is_ok(r) })
           let body =
@@ -378,7 +379,7 @@ fn process_next_for(ctx: Context, kind: RouteProfileKind) -> Response {
     )
     |> pog.parameter(pog.text(pc))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "trip_routes_queue_poll_failed")
     Ok(ret) ->
@@ -468,7 +469,7 @@ fn apply_routes_to_db(
     pog.query(sql)
     |> pog.parameter(pog.text(string.trim(lp_id)))
     |> pog.parameter(pog.text(json_to_store))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("location_page_routes_update_failed")
     Ok(_) -> Ok(stored)
@@ -489,7 +490,7 @@ fn run_and_apply(
         )
         |> pog.parameter(pog.text(job_id))
         |> pog.returning(job_output_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "trip_routes_output_fetch_failed")
         Ok(or) ->
@@ -540,7 +541,7 @@ fn reset_stuck_for(ctx: Context, kind: RouteProfileKind) -> Response {
     )
     |> pog.parameter(pog.text(pc))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "trip_routes_reset_stuck_failed")
     Ok(ret) -> {
@@ -566,7 +567,7 @@ pub fn worker_try_route_job(
     )
     |> pog.parameter(pog.text(pc))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("trip_routes_queue_poll_failed")
     Ok(ret) ->
@@ -582,7 +583,7 @@ pub fn worker_try_route_job(
                 )
                 |> pog.parameter(pog.text(job_id))
                 |> pog.returning(job_output_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> Error("trip_routes_output_fetch_failed")
                 Ok(or) ->

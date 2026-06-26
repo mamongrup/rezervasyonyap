@@ -35,6 +35,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -62,7 +63,7 @@ pub fn get_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Respon
     )
     |> pog.parameter(pog.text(lid))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "nearby_pois_query_failed")
     Ok(ret) ->
@@ -256,7 +257,7 @@ pub fn compute_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Re
     pog.query(sql)
     |> pog.parameter(pog.text(lid))
     |> pog.returning(pois_result_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "compute_pois_failed")
     Ok(ret) ->
@@ -321,7 +322,7 @@ pub fn patch_nearby_pois(req: Request, ctx: Context, listing_id: String) -> Resp
             |> pog.parameter(pog.text(lid))
             |> pog.parameter(pog.text(safe_json))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "patch_pois_failed")
             Ok(ret) ->
@@ -367,7 +368,7 @@ pub fn get_service_pois(req: Request, ctx: Context, listing_id: String) -> Respo
     )
     |> pog.parameter(pog.text(lid))
     |> pog.returning(service_pois_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "service_pois_query_failed")
     Ok(ret) ->
@@ -425,7 +426,7 @@ pub fn patch_service_pois(req: Request, ctx: Context, listing_id: String) -> Res
             |> pog.parameter(pog.text(safe_a))
             |> pog.parameter(pog.text(safe_t))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "patch_service_pois_failed")
             Ok(ret) ->
@@ -456,7 +457,7 @@ pub fn get_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Respons
     )
     |> pog.parameter(pog.text(id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "lp_service_pois_query_failed")
     Ok(ret) ->
@@ -505,7 +506,7 @@ pub fn patch_lp_service_pois(req: Request, ctx: Context, lp_id: String) -> Respo
                 |> pog.parameter(pog.text(id))
                 |> pog.parameter(pog.text(safe))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "patch_lp_service_pois_failed")
                 Ok(ret) ->
@@ -549,7 +550,7 @@ pub fn next_without_service_pois(req: Request, ctx: Context) -> Response {
           use parent <- decode.field(4, decode.string)
           decode.success(#(id, name, clat, clng, parent))
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "next_without_svc_pois_failed")
         Ok(ret) ->
@@ -646,7 +647,7 @@ pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> 
       use lo <- decode.field(1, decode.float)
       decode.success(#(la, lo))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "listing_coords_failed")
     Ok(cret) ->
@@ -675,7 +676,7 @@ pub fn computed_service_pois(req: Request, ctx: Context, listing_id: String) -> 
             |> pog.parameter(pog.float(mlat))
             |> pog.parameter(pog.float(mlng))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> empty_response
             Ok(dret) ->

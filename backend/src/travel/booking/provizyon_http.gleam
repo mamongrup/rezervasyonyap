@@ -32,6 +32,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -191,7 +192,7 @@ pub fn get_by_token(
     pog.query(sql)
     |> pog.parameter(pog.text(string.trim(token)))
     |> pog.returning(provizyon_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "load_failed")
     Ok(ret) ->
@@ -221,7 +222,7 @@ pub fn supplier_confirm(
 ) -> Response {
   use <- wisp.require_method(req, http.Post)
   case
-    pog.transaction(ctx.db, fn(conn) {
+    db_exec.transaction(ctx.db, fn(conn) {
       case
         pog.query(
           "update reservations set status = 'confirmed', payment_status = 'supplier_notified', supplier_confirmed_at = now() where supplier_confirm_token = $1 and payment_status in ('held', 'pending_confirm') and exists (select 1 from payments p where p.reservation_id = reservations.id and p.status = 'captured') returning id::text, public_code",
@@ -288,7 +289,7 @@ pub fn supplier_cancel(
       }
   }
   case
-    pog.transaction(ctx.db, fn(conn) {
+    db_exec.transaction(ctx.db, fn(conn) {
       case
         pog.query(
           "update reservations set payment_status = 'disputed', supplier_cancel_note = $2 where supplier_confirm_token = $1 and payment_status in ('held', 'pending_confirm') returning id::text, public_code",
@@ -378,7 +379,7 @@ pub fn list_supplier_reservations(req: Request, ctx: Context) -> Response {
         pog.query(sql)
         |> pog.parameter(pog.text(uid))
         |> pog.returning(provizyon_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -432,12 +433,12 @@ fn admin_list_query(ctx: Context, status_filter: String) -> Response {
         <> " order by r.created_at desc limit 200",
       )
       |> pog.returning(provizyon_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     False ->
       pog.query(base <> " where r.payment_status = $1 order by r.created_at desc limit 200")
       |> pog.parameter(pog.text(status_filter))
       |> pog.returning(provizyon_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
   }
   case result {
     Error(_) -> json_err(500, "list_failed")
@@ -467,7 +468,7 @@ pub fn admin_check_deadlines(req: Request, ctx: Context) -> Response {
       use b <- decode.field(1, decode.string)
       decode.success(#(a, b))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "check_failed")
     Ok(ret) -> {
@@ -475,7 +476,7 @@ pub fn admin_check_deadlines(req: Request, ctx: Context) -> Response {
         list.filter_map(ret.rows, fn(row) {
           let #(rid, pcode) = row
           case
-            pog.transaction(ctx.db, fn(conn) {
+            db_exec.transaction(ctx.db, fn(conn) {
               let _ =
                 pog.query(
                   "update reservations set escalated_at = now(), payment_status = 'disputed' where id = $1::uuid",
@@ -581,7 +582,7 @@ pub fn admin_list_escalations(req: Request, ctx: Context) -> Response {
     pog.query(sql)
     |> pog.parameter(pog.text(status_f))
     |> pog.returning(escalation_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "list_failed")
     Ok(ret) -> {
@@ -654,7 +655,7 @@ pub fn admin_resolve_escalation(
                 |> pog.parameter(pog.text(note))
                 |> pog.parameter(assigned_param)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "resolve_failed")
                 Ok(ret) ->
@@ -728,7 +729,7 @@ pub fn admin_add_transfer(
                 |> pog.parameter(staff_param)
                 |> pog.parameter(pog.text(notes))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "insert_failed")
                 Ok(ret) ->
@@ -775,7 +776,7 @@ pub fn admin_complete_transfer(
     |> pog.parameter(pog.text(transfer_id))
     |> pog.parameter(pog.text(ref))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "update_failed")
     Ok(ret) ->

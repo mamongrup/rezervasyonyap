@@ -4,6 +4,7 @@ import envoy
 import gleam/dynamic/decode
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 
 pub type TravelrobotConfig {
   TravelrobotConfig(
@@ -43,7 +44,7 @@ fn fetch_travelrobot_json_text(db: pog.Connection, field: String) -> String {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> ""
     Ok(ret) ->

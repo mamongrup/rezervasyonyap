@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -54,7 +55,7 @@ fn user_id_for_token(ctx: Context, token: String) -> Option(String) {
         )
         |> pog.parameter(pog.text(token))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Ok(ret) ->
           case ret.rows {
@@ -75,7 +76,7 @@ fn channel_id_for_code(ctx: Context, code: String) -> Result(Int, Nil) {
     pog.query("select id from support_channels where code = $1 limit 1")
     |> pog.parameter(pog.text(string.trim(code)))
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -110,7 +111,7 @@ pub fn list_channels(req: Request, ctx: Context) -> Response {
       "select id::text, code, coalesce(config_json::text,'{}') from support_channels order by id",
     )
     |> pog.returning(channel_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "channels_query_failed")
     Ok(ret) -> {
@@ -215,7 +216,7 @@ pub fn create_session(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(am))
                         |> pog.parameter(pog.text(loc))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "session_create_failed")
                         Ok(r) ->
@@ -247,7 +248,7 @@ pub fn list_my_sessions(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(session_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "sessions_query_failed")
         Ok(ret) -> {
@@ -270,7 +271,7 @@ pub fn get_session(req: Request, ctx: Context, session_id: String) -> Response {
     )
     |> pog.parameter(pog.text(string.trim(session_id)))
     |> pog.returning(session_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "session_query_failed")
     Ok(ret) ->
@@ -301,7 +302,7 @@ pub fn close_session(req: Request, ctx: Context, session_id: String) -> Response
             )
             |> pog.parameter(pog.text(string.trim(session_id)))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "session_close_failed")
             Ok(r) ->
@@ -349,7 +350,7 @@ pub fn list_messages(req: Request, ctx: Context, session_id: String) -> Response
     )
     |> pog.parameter(pog.text(string.trim(session_id)))
     |> pog.returning(msg_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "messages_query_failed")
     Ok(ret) -> {
@@ -394,7 +395,7 @@ pub fn post_message(req: Request, ctx: Context, session_id: String) -> Response 
                 |> pog.parameter(pog.text(bd))
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "message_insert_failed")
                 Ok(r) ->
@@ -458,7 +459,7 @@ pub fn list_followups(req: Request, ctx: Context, session_id: String) -> Respons
     )
     |> pog.parameter(pog.text(string.trim(session_id)))
     |> pog.returning(fu_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "followups_query_failed")
     Ok(ret) -> {
@@ -506,7 +507,7 @@ pub fn create_followup(req: Request, ctx: Context, session_id: String) -> Respon
                 |> pog.parameter(pog.text(sa))
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "followup_insert_failed")
                 Ok(r) ->

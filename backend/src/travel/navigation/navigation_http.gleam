@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -66,7 +67,7 @@ pub fn list_menus(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(pog.text(org_f))
     |> pog.returning(menu_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "menus_query_failed")
     Ok(ret) -> {
@@ -117,7 +118,7 @@ pub fn create_menu(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(org_p)
                 |> pog.parameter(pog.text(code))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "menu_create_failed")
                 Ok(r) ->
@@ -179,7 +180,7 @@ pub fn list_menu_items(req: Request, ctx: Context, menu_id: String) -> Response 
     )
     |> pog.parameter(pog.text(string.trim(menu_id)))
     |> pog.returning(item_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "menu_items_query_failed")
     Ok(ret) -> {
@@ -214,7 +215,7 @@ pub fn list_public_menu_items(req: Request, ctx: Context, menu_code: String) -> 
       |> pog.parameter(pog.text(code))
       |> pog.parameter(pog.text(org_f))
       |> pog.returning(item_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     {
       Error(_) -> json_err(500, "menu_items_query_failed")
       Ok(ret) -> {
@@ -293,7 +294,7 @@ pub fn add_menu_item(req: Request, ctx: Context, menu_id: String) -> Response {
                 |> pog.parameter(pog.text(cfg))
                 |> pog.parameter(pog.bool(is_pub))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "menu_item_create_failed")
                 Ok(r) ->
@@ -404,7 +405,7 @@ pub fn patch_menu_item(
                 |> pog.parameter(p_pub)
                 |> pog.parameter(p_pid)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "menu_item_update_failed")
                 Ok(r) ->
@@ -443,7 +444,7 @@ pub fn delete_menu_item(
     )
     |> pog.parameter(pog.text(string.trim(item_id)))
     |> pog.parameter(pog.text(string.trim(menu_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "menu_item_delete_failed")
     Ok(ret) ->
@@ -498,7 +499,7 @@ pub fn list_home_sections(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(pog.text(org_f))
     |> pog.returning(section_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "home_sections_query_failed")
     Ok(ret) -> {
@@ -561,7 +562,7 @@ pub fn create_home_section(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.int(so))
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "home_section_create_failed")
                 Ok(r) ->
@@ -636,7 +637,7 @@ pub fn patch_home_section(req: Request, ctx: Context, section_id: String) -> Res
                 |> pog.parameter(p_so)
                 |> pog.parameter(p_cfg)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "home_section_update_failed")
                 Ok(r) ->
@@ -667,7 +668,7 @@ pub fn delete_home_section(req: Request, ctx: Context, section_id: String) -> Re
       case
     pog.query("delete from home_layout_sections where id = $1::uuid")
     |> pog.parameter(pog.text(string.trim(section_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "home_section_delete_failed")
     Ok(ret) ->
@@ -724,7 +725,7 @@ pub fn list_popups(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(pog.text(org_f))
     |> pog.returning(popup_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "popups_query_failed")
     Ok(ret) -> {
@@ -794,7 +795,7 @@ pub fn create_popup(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(ck))
                     |> pog.parameter(pog.bool(active))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "popup_create_failed")
                     Ok(r) ->
@@ -884,7 +885,7 @@ pub fn patch_popup(req: Request, ctx: Context, popup_id: String) -> Response {
                 |> pog.parameter(p_ck)
                 |> pog.parameter(p_active)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "popup_update_failed")
                 Ok(r) ->
@@ -915,7 +916,7 @@ pub fn delete_popup(req: Request, ctx: Context, popup_id: String) -> Response {
       case
     pog.query("delete from site_popups where id = $1::uuid")
     |> pog.parameter(pog.text(string.trim(popup_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "popup_delete_failed")
     Ok(ret) ->

@@ -9,6 +9,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/commerce_ops_enqueue
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -62,7 +63,7 @@ pub fn overview(req: Request, ctx: Context) -> Response {
           "select code, display_name, description, mode, status, risk_level, coalesce(last_run_at::text,'') from ai_agents where scope_json->>'pillar' = 'commerce' order by code",
         )
         |> pog.returning(agent_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "commerce_agents_query_failed")
         Ok(ar) -> {
@@ -71,7 +72,7 @@ pub fn overview(req: Request, ctx: Context) -> Response {
               "select id::text, profile_code, status, created_at::text, coalesce(error,'') from ai_jobs where profile_code in ('post_booking_concierge','commerce_owner_agent','commerce_accounting_agent') order by created_at desc limit 30",
             )
             |> pog.returning(job_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "commerce_jobs_query_failed")
             Ok(jr) ->
@@ -80,7 +81,7 @@ pub fn overview(req: Request, ctx: Context) -> Response {
                   "select status, count(*)::int from ai_agent_recommendations where agent_code in ('commerce_owner_brief','commerce_accounting') group by status",
                 )
                 |> pog.returning(count_pair())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "commerce_recommendations_query_failed")
                 Ok(cr) -> {

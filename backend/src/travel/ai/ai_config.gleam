@@ -11,6 +11,7 @@ import gleam/int
 import gleam/json
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 
 /// Panel ile uyumlu genel varsayılan; kayıt yoksa kullanılır.
 const default_timeout_sec: Int = 3600
@@ -178,7 +179,7 @@ fn fetch_platform_ai_json(db: pog.Connection) -> String {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> ""
     Ok(ret) ->
@@ -202,7 +203,7 @@ fn fetch_any_org_ai_json(db: pog.Connection) -> String {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> ""
     Ok(ret) ->

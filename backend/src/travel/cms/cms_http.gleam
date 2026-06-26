@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -107,7 +108,7 @@ pub fn list_pages(req: Request, ctx: Context) -> Response {
     |> pog.parameter(pog.text(org_f))
     |> pog.parameter(pog.text(pub_f))
     |> pog.returning(page_row_full())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "pages_query_failed")
     Ok(ret) -> {
@@ -168,7 +169,7 @@ pub fn create_page(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(tmpl))
                 |> pog.parameter(pog.bool(is_published))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "page_create_failed")
                 Ok(r) ->
@@ -201,7 +202,7 @@ pub fn get_page(req: Request, ctx: Context, page_id: String) -> Response {
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(page_row_full())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "page_query_failed")
     Ok(ret) ->
@@ -244,7 +245,7 @@ pub fn get_by_slug(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(slug))
         |> pog.parameter(pog.text(org))
         |> pog.returning(page_row_full())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "page_query_failed")
         Ok(ret) ->
@@ -258,7 +259,7 @@ pub fn get_by_slug(req: Request, ctx: Context) -> Response {
                 )
                 |> pog.parameter(pog.text(page_id))
                 |> pog.returning(block_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "blocks_query_failed")
                 Ok(bret) -> {
@@ -337,7 +338,7 @@ pub fn patch_page(req: Request, ctx: Context, page_id: String) -> Response {
                 |> pog.parameter(p_tmpl)
                 |> pog.parameter(p_pub)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->
@@ -371,7 +372,7 @@ pub fn list_blocks(req: Request, ctx: Context, page_id: String) -> Response {
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(block_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "blocks_query_failed")
     Ok(ret) -> {
@@ -423,7 +424,7 @@ pub fn add_block(req: Request, ctx: Context, page_id: String) -> Response {
                 |> pog.parameter(pog.text(bt))
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "block_create_failed")
                 Ok(r) ->
@@ -503,7 +504,7 @@ pub fn patch_block(
                 |> pog.parameter(p_so)
                 |> pog.parameter(p_cj)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "block_update_failed")
                 Ok(r) ->
@@ -542,7 +543,7 @@ pub fn delete_block(
         )
         |> pog.parameter(pog.text(string.trim(block_id)))
         |> pog.parameter(pog.text(string.trim(page_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "block_delete_failed")
         Ok(ret) ->
@@ -576,7 +577,7 @@ fn reorder_loop(
         |> pog.parameter(pog.int(idx))
         |> pog.parameter(pog.text(string.trim(bid)))
         |> pog.parameter(pog.text(string.trim(page_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error(Nil)
         Ok(_) -> reorder_loop(rest, idx + 1, page_id, ctx)
@@ -625,7 +626,7 @@ pub fn get_curated_filter(req: Request, ctx: Context, page_id: String) -> Respon
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "curated_query_failed")
     Ok(ret) ->
@@ -676,7 +677,7 @@ pub fn put_curated_filter(req: Request, ctx: Context, page_id: String) -> Respon
             |> pog.parameter(pog.text(string.trim(page_id)))
             |> pog.parameter(pog.text(fj))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "curated_upsert_failed")
             Ok(r) ->

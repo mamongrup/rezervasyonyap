@@ -1,5 +1,7 @@
 import backend/config.{type AppConfig}
 import backend/context.{type Context, Context}
+import travel/db/pool_health
+import travel/db/resilient_pog as db_exec
 import travel/booking/booking_http
 import travel/booking/cart_coupon_http
 import travel/currency/currency_http
@@ -80,10 +82,18 @@ import gleam/string
 import wisp.{type Request, type Response}
 
 pub fn create_context(cfg: AppConfig) -> Result(Context, String) {
-  case pog.start(cfg.database) {
+  case db_exec.start(cfg.database) {
     Ok(actor.Started(data: db, ..)) ->
-      Ok(Context(db:, invoice_notify: cfg.invoice_notify))
-    Error(_) -> Error("PostgreSQL connection pool failed to start")
+      case db_exec.start(cfg.database_reserve) {
+        Ok(actor.Started(data: db_reserve, ..)) -> {
+          let _ = db_exec.set_reserve_pool(db_reserve)
+          let _ =
+            pool_health.start(db, db_reserve, cfg.db_health_interval_ms)
+          Ok(Context(db:, invoice_notify: cfg.invoice_notify))
+        }
+        Error(_) -> Error("PostgreSQL reserve pool failed to start")
+      }
+    Error(_) -> Error("PostgreSQL primary connection pool failed to start")
   }
 }
 
@@ -1832,7 +1842,7 @@ fn health_check(ctx: Context) -> Response {
     case
       pog.query("select 1")
       |> pog.returning(row_decoder)
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     {
       Ok(returned) -> returned.count > 0 && !list.is_empty(returned.rows)
       Error(_) -> False

@@ -6,6 +6,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/commerce_ops_enqueue
 import travel/booking/supplier_notification
 import travel/integrations/booking_fulfillment

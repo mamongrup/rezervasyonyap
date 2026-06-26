@@ -12,6 +12,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -64,7 +65,7 @@ pub fn list_email_templates(req: Request, ctx: Context) -> Response {
       "select id::text, code, subject_key, body_key from email_templates order by code",
     )
     |> pog.returning(email_tpl_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "email_templates_failed")
     Ok(ret) -> {
@@ -107,7 +108,7 @@ pub fn list_triggers(req: Request, ctx: Context) -> Response {
       "select id::text, code::text, coalesce(description,'') from notification_triggers order by id",
     )
     |> pog.returning(trigger_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "triggers_query_failed")
     Ok(ret) -> {
@@ -194,7 +195,7 @@ pub fn list_jobs(req: Request, ctx: Context) -> Response {
     |> pog.parameter(pog.text(st_f))
     |> pog.parameter(pog.int(lim))
     |> pog.returning(job_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "jobs_query_failed")
     Ok(ret) -> {
@@ -260,7 +261,7 @@ pub fn queue_job(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(tc))
                     |> pog.returning(decode_col0_int())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "trigger_lookup_failed")
                     Ok(ret) ->
@@ -285,7 +286,7 @@ pub fn queue_job(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(cfg))
                             |> pog.parameter(pog.text(sch))
                             |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "job_insert_failed")
                             Ok(r) ->

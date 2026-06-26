@@ -19,6 +19,7 @@ import gleam/http/response
 import gleam/json
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ical/ical_export
 import wisp.{type Request, type Response}
 
@@ -128,7 +129,7 @@ fn load_token(ctx: Context, listing_id: String) -> Result(Maybe, String) {
     )
     |> pog.parameter(pog.text(string.trim(listing_id)))
     |> pog.returning(token_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("listing_query_failed")
     Ok(qr) ->
@@ -163,7 +164,7 @@ fn do_create_token(
         |> pog.parameter(pog.text(string.trim(listing_id)))
         |> pog.parameter(pog.text(token))
         |> pog.returning(token_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> do_create_token(ctx, listing_id, attempts_left - 1)
         Ok(qr) ->
@@ -216,7 +217,7 @@ fn lookup_listing_by_token(ctx: Context, token: String) -> Result(String, Nil) {
         )
         |> pog.parameter(pog.text(clean))
         |> pog.returning(token_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Ok(qr) ->
           case qr.rows {

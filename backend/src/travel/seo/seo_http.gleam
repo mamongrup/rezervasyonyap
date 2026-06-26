@@ -13,6 +13,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -50,7 +51,7 @@ fn locale_id_by_code(ctx: Context, code: String) -> Result(String, Nil) {
     pog.query("select id::text from locales where lower(code) = lower($1) limit 1")
     |> pog.parameter(pog.text(string.trim(code)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -104,7 +105,7 @@ pub fn get_metadata(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.text(eid))
             |> pog.parameter(pog.text(lid))
             |> pog.returning(row)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "query_failed")
             Ok(ret) ->
@@ -195,7 +196,7 @@ pub fn upsert_metadata(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(o))
                 |> pog.parameter(pog.text(r))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "upsert_failed")
                 Ok(ret) ->
@@ -247,7 +248,7 @@ pub fn list_schema(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(et))
         |> pog.parameter(pog.text(eid))
         |> pog.returning(schema_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -308,7 +309,7 @@ pub fn upsert_schema(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(string.trim(st)))
                 |> pog.parameter(pog.text(jtrim))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "upsert_failed")
                 Ok(ret) ->
@@ -352,7 +353,7 @@ pub fn list_redirects(req: Request, ctx: Context) -> Response {
               "select id::text, from_path, to_path, status_code::int, coalesce(locale_id::text, '') from url_redirects order by from_path limit 500",
             )
             |> pog.returning(redirect_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "query_failed")
             Ok(ret) -> {
@@ -450,7 +451,7 @@ fn create_redirect_inner(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.int(sc))
                 |> pog.parameter(loc_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "redirect_conflict_or_invalid")
                 Ok(r) ->
@@ -489,7 +490,7 @@ pub fn delete_redirect(req: Request, ctx: Context, rid: String) -> Response {
                 )
                 |> pog.parameter(pog.text(string.trim(rid)))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "delete_failed")
                 Ok(ret) ->
@@ -532,7 +533,7 @@ pub fn list_not_found_logs(req: Request, ctx: Context) -> Response {
               "select n.id::text, n.path, coalesce(n.locale_id::text, ''), n.hit_count::text, to_char(n.last_seen, 'YYYY-MM-DD\"T\"HH24:MI:SS.MS\"Z\"') from not_found_logs n order by n.last_seen desc limit 200",
             )
             |> pog.returning(not_found_log_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "not_found_logs_query_failed")
             Ok(ret) -> {
@@ -620,7 +621,7 @@ pub fn sitemap_entries(req: Request, ctx: Context) -> Response {
   case
     pog.query(sitemap_union_sql())
     |> pog.returning(sitemap_row_decoder())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "sitemap_query_failed")
     Ok(ret) -> {
@@ -662,7 +663,7 @@ pub fn sitemap_xml(req: Request, ctx: Context) -> Response {
   case
     pog.query(sitemap_union_sql())
     |> pog.returning(sitemap_row_decoder())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "sitemap_query_failed")
     Ok(ret) -> {
@@ -712,7 +713,7 @@ pub fn log_not_found(req: Request, ctx: Context) -> Response {
                       "insert into not_found_logs (path, locale_id) values ($1, null)",
                     )
                     |> pog.parameter(pog.text(string.trim(path)))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
                     Error(_) -> json_err(500, "log_failed")
@@ -724,7 +725,7 @@ pub fn log_not_found(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(string.trim(path)))
                     |> pog.parameter(pog.text(lid))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
                     Error(_) -> json_err(500, "log_failed")

@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -97,7 +98,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(key_filter)
         |> pog.returning(setting_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "settings_query_failed")
         Ok(ret) -> settings_response(ret.rows)
@@ -113,7 +114,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.text(org_q))
             |> pog.parameter(key_filter)
             |> pog.returning(setting_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "settings_query_failed")
             Ok(ret) -> settings_response(ret.rows)
@@ -128,7 +129,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(key_filter)
             |> pog.returning(setting_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "settings_query_failed")
             Ok(ret) -> settings_response(ret.rows)
@@ -141,7 +142,7 @@ pub fn list_settings(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.text(org_q))
             |> pog.parameter(key_filter)
             |> pog.returning(setting_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "settings_query_failed")
             Ok(ret) -> settings_response(ret.rows)
@@ -202,7 +203,7 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(k))
                         |> pog.parameter(pog.text(cfg))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(409, "upsert_failed")
                         Ok(r) ->
@@ -228,7 +229,7 @@ pub fn upsert_setting(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(k))
                         |> pog.parameter(pog.text(cfg))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(409, "upsert_failed")
                         Ok(r) ->
@@ -288,7 +289,7 @@ pub fn delete_setting(req: Request, ctx: Context) -> Response {
                   "delete from site_settings where key = $1 and organization_id is null",
                 )
                 |> pog.parameter(pog.text(k))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "delete_failed")
                 Ok(ret) ->
@@ -304,7 +305,7 @@ pub fn delete_setting(req: Request, ctx: Context) -> Response {
                 )
                 |> pog.parameter(pog.text(k))
                 |> pog.parameter(pog.text(oid))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "delete_failed")
                 Ok(ret) ->
@@ -375,7 +376,7 @@ pub fn get_public_config(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(org_param)
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "public_config_failed")
     Ok(ret) ->

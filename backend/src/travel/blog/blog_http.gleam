@@ -12,6 +12,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import travel/identity/permissions
@@ -34,7 +35,7 @@ fn locale_id_by_code(ctx: Context, code: String) -> Result(String, Nil) {
     pog.query("select id::text from locales where lower(code) = lower($1) limit 1")
     |> pog.parameter(pog.text(string.trim(code)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -95,7 +96,7 @@ pub fn list_categories(req: Request, ctx: Context) -> Response {
       "select id::text, slug, coalesce(parent_id::text,''), coalesce(name,''), coalesce(description,''), coalesce(image_url,''), coalesce(meta_title,''), sort_order, is_active from blog_categories order by sort_order, slug limit 500",
     )
     |> pog.returning(category_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "categories_query_failed")
     Ok(ret) -> {
@@ -150,7 +151,7 @@ pub fn create_category(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pp)
                 |> pog.parameter(nm)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "category_create_failed")
                 Ok(r) ->
@@ -243,7 +244,7 @@ pub fn patch_category(req: Request, ctx: Context, cat_id: String) -> Response {
             |> pog.parameter(p_so)
             |> pog.parameter(p_ia)
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "update_failed")
             Ok(r) ->
@@ -355,7 +356,7 @@ pub fn list_posts(req: Request, ctx: Context) -> Response {
     |> pog.parameter(pog.text(pub_f))
     |> pog.parameter(pog.int(lim))
     |> pog.returning(post_row_list())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "posts_query_failed")
     Ok(ret) -> {
@@ -417,7 +418,7 @@ pub fn create_post(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(slug))
                 |> pog.parameter(auth_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "post_create_failed")
                 Ok(r) ->
@@ -450,7 +451,7 @@ pub fn get_post(req: Request, ctx: Context, post_id: String) -> Response {
     )
     |> pog.parameter(pog.text(string.trim(post_id)))
     |> pog.returning(post_row_list())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "post_query_failed")
     Ok(ret) ->
@@ -497,7 +498,7 @@ pub fn get_post_by_slug(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(slug))
         |> pog.parameter(pog.text(include_draft))
         |> pog.returning(post_row_list())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "post_query_failed")
         Ok(ret) ->
@@ -589,7 +590,7 @@ pub fn patch_post(req: Request, ctx: Context, post_id: String) -> Response {
                 |> pog.parameter(p_cat)
                 |> pog.parameter(p_pub)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->
@@ -670,7 +671,7 @@ pub fn put_post_meta(req: Request, ctx: Context, post_id: String) -> Response {
             |> pog.parameter(p_mt)
             |> pog.parameter(p_md)
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "meta_update_failed")
             Ok(r) ->
@@ -701,7 +702,7 @@ pub fn delete_post(req: Request, ctx: Context, post_id: String) -> Response {
         pog.query("delete from blog_posts where id = $1::uuid returning id::text")
         |> pog.parameter(pog.text(string.trim(post_id)))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(r) ->
@@ -747,7 +748,7 @@ fn blog_translation_for_post(
     |> pog.parameter(pog.text(string.trim(post_id)))
     |> pog.parameter(pog.text(string.trim(locale_code)))
     |> pog.returning(translation_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -770,7 +771,7 @@ pub fn list_translations(req: Request, ctx: Context, post_id: String) -> Respons
     )
     |> pog.parameter(pog.text(string.trim(post_id)))
     |> pog.returning(translation_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "translations_query_failed")
     Ok(ret) -> {
@@ -845,7 +846,7 @@ pub fn slugs_by_titles(req: Request, ctx: Context) -> Response {
               use slug <- decode.field(1, decode.string)
               decode.success(#(title, slug))
             })
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "slugs_by_titles_failed")
             Ok(ret) -> {
@@ -894,7 +895,7 @@ pub fn upsert_translation(req: Request, ctx: Context, post_id: String) -> Respon
                     |> pog.parameter(pog.text(body_raw))
                     |> pog.parameter(pog.text(excerpt))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "translation_upsert_failed")
                     Ok(r) ->

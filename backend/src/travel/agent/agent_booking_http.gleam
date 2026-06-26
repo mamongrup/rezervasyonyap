@@ -14,6 +14,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn read_body_string(req: Request) -> Result(String, Nil) {
@@ -269,7 +270,7 @@ pub fn get_booking(req: Request, ctx: Context, code: String) -> Response {
             |> pog.parameter(pog.text(code))
             |> pog.parameter(pog.text(oid))
             |> pog.returning(reservation_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> agent_auth.json_err(500, "load_failed")
             Ok(ret) ->

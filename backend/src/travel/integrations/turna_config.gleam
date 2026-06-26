@@ -6,6 +6,7 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 
 pub type TurnaConfig {
   TurnaConfig(
@@ -43,7 +44,7 @@ fn fetch_turna_json_text(db: pog.Connection, field: String) -> String {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> ""
     Ok(ret) ->
@@ -65,7 +66,7 @@ fn fetch_turna_enabled(db: pog.Connection) -> Bool {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> False
     Ok(ret) ->

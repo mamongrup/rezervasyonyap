@@ -3,6 +3,7 @@
 import backend/context.{type Context}
 import gleam/dynamic/decode
 import pog
+import travel/db/resilient_pog as db_exec
 
 const max_requests_per_minute: Int = 300
 
@@ -26,7 +27,7 @@ pub fn check_and_record(ctx: Context, organization_id: String) -> Result(Nil, In
       use n <- decode.field(0, decode.int)
       decode.success(n)
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Ok(Nil)
     Ok(ret) ->
@@ -36,13 +37,13 @@ pub fn check_and_record(ctx: Context, organization_id: String) -> Result(Nil, In
                 True -> {
                   let _ =
                     pog.query("select agent_api_usage_purge_old()")
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   Error(60)
                 }
                 False -> {
                   let _ =
                     pog.query("select agent_api_usage_purge_old()")
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   Ok(Nil)
                 }
               }

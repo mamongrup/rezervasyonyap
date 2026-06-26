@@ -7,6 +7,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/messaging/notification_channels
 import travel/site/integration_config
@@ -44,7 +45,7 @@ fn fetch_translation(
       |> pog.parameter(pog.text(key))
       |> pog.parameter(pog.text(loc))
       |> pog.returning(row_dec.col0_string())
-      |> pog.execute(db)
+      |> db_exec.execute(db)
     {
       Ok(ret) ->
         case ret.rows {
@@ -82,7 +83,7 @@ fn fetch_template_keys(
       use bk <- decode.field(1, decode.string)
       decode.success(#(sk, bk))
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -122,7 +123,7 @@ fn insert_sent_job(
     |> pog.parameter(pog.text(payload_json))
     |> pog.parameter(rid_p)
     |> pog.parameter(pog.text(recipient))
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   Nil
 }
 
@@ -246,7 +247,7 @@ pub fn dispatch_agency_reservation_created(
       use oname <- decode.field(1, decode.string)
       decode.success(#(oid, oname))
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -266,7 +267,7 @@ pub fn dispatch_agency_reservation_created(
               use dn <- decode.field(3, decode.string)
               decode.success(#(em, ph, uid, dn))
             })
-            |> pog.execute(db)
+            |> db_exec.execute(db)
           {
             Ok(cr) ->
               case cr.rows {
@@ -289,7 +290,7 @@ pub fn dispatch_agency_reservation_created(
                       use lt <- decode.field(4, decode.string)
                       decode.success(#(pc, gn, so, eo, lt))
                     })
-                    |> pog.execute(db)
+                    |> db_exec.execute(db)
                   {
                     Ok(rr) ->
                       case rr.rows {

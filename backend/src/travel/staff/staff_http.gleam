@@ -15,6 +15,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/pog_errors
 import travel/db/sql_dates
 import wisp.{type Request, type Response}
@@ -316,7 +317,7 @@ pub fn list_invoices(req: Request, ctx: Context) -> Response {
               case
                 pog.query(invoices_sql_admin_all)
                 |> pog.returning(inv_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "list_invoices_failed")
                 Ok(ret) -> invoices_rows_to_http_response(ret.rows)
@@ -332,7 +333,7 @@ pub fn list_invoices(req: Request, ctx: Context) -> Response {
                         pog.query(invoices_sql_staff_org)
                         |> pog.parameter(pog.text(oid))
                         |> pog.returning(inv_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "list_invoices_failed")
                         Ok(ret) -> invoices_rows_to_http_response(ret.rows)
@@ -357,7 +358,7 @@ pub fn list_reservations(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(resv_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -421,7 +422,7 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(oid))
         |> pog.parameter(like_param)
         |> pog.returning(staff_listing_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -470,7 +471,7 @@ pub fn pos_create_cart(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(cur))
                     |> pog.returning(decode_one_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "cart_create_failed")
                     Ok(ret) ->
@@ -531,7 +532,7 @@ pub fn pos_add_cart_line(req: Request, ctx: Context, cart_id: String) -> Respons
                             Error(_), _ | _, Error(_) -> json_err(400, "invalid_dates")
                             Ok(start_date), Ok(end_date) -> {
                       case
-                        pog.transaction(ctx.db, fn(conn) {
+                        db_exec.transaction(ctx.db, fn(conn) {
                           case
                             pog.query(
                               "select c.currency_code::text, l.currency_code::text, l.status::text, l.organization_id::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
@@ -655,7 +656,7 @@ pub fn pos_checkout(req: Request, ctx: Context, cart_id: String) -> Response {
                 False -> hold_minutes
               }
               case
-                pog.transaction(ctx.db, fn(conn) {
+                db_exec.transaction(ctx.db, fn(conn) {
                   case verify_pos_cart_lines_org(conn, cart_id, oid) {
                     Error(e) -> Error(e)
                     Ok(Nil) ->

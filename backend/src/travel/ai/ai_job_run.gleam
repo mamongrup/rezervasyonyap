@@ -6,6 +6,7 @@ import gleam/float
 import gleam/json
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_config
 import travel/ai/deepseek_chat
 
@@ -64,7 +65,7 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
         )
         |> pog.parameter(pog.text(jid))
         |> pog.returning(start_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error("ai_job_lock_failed")
         Ok(ret) ->
@@ -77,7 +78,7 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
                 )
                 |> pog.parameter(pog.text(string.trim(profile_code)))
                 |> pog.returning(prof_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> {
                   let _ = fail_job(ctx.db, jid, "profile_load_failed")
@@ -136,7 +137,7 @@ pub fn run_ai_job(ctx: Context, job_id: String) -> Result(Nil, String) {
                                 )
                                 |> pog.parameter(pog.text(jid))
                                 |> pog.parameter(pog.text(out_s))
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) -> Error("ai_job_success_update_failed")
                                 Ok(_) -> Ok(Nil)

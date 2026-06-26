@@ -14,6 +14,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/identity/admin_gate
@@ -129,7 +130,7 @@ fn run_listing_count_sql(
     pog.query(sql)
     |> run_params
     |> pog.returning(listing_count_col())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
@@ -678,7 +679,7 @@ pub fn get_public_listing_id_by_slug(req: Request, ctx: Context, slug: String) -
         )
         |> pog.parameter(pog.text(s))
         |> pog.returning(listing_id_only_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "listing_slug_lookup_failed")
         Ok(ret) ->
@@ -1408,7 +1409,7 @@ fn search_listings_impl(
     pog.query(page_sql)
     |> run_params
     |> pog.returning(pub_listing_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
@@ -1492,7 +1493,7 @@ fn search_listings_paged_response_impl(
     pog.query(sql_paged)
     |> run_params
     |> pog.returning(pub_listing_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
@@ -1581,7 +1582,7 @@ pub fn list_public_theme_items(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(cat))
         |> pog.parameter(pog.text(loc_raw))
         |> pog.returning(theme_item_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "theme_items_failed")
         Ok(ret) -> {
@@ -1682,7 +1683,7 @@ pub fn list_manage_theme_items(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.text(cat))
             |> pog.parameter(pog.text(loc_raw))
             |> pog.returning(manage_theme_item_manage_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "manage_theme_items_failed")
             Ok(ret) -> {
@@ -1737,7 +1738,7 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(cat))
                     |> pog.parameter(pog.text(code))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "theme_item_insert_failed")
                     Ok(ins) ->
@@ -1753,7 +1754,7 @@ pub fn create_manage_theme_item(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(new_id))
                             |> pog.parameter(pog.text(loc_raw))
                             |> pog.parameter(pog.text(label_raw))
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "theme_item_translation_failed")
                             Ok(_) ->
@@ -1806,7 +1807,7 @@ pub fn patch_manage_theme_item(req: Request, ctx: Context, item_id: String) -> R
                     |> pog.parameter(pog.text(string.trim(item_id)))
                     |> pog.parameter(pog.text(loc_raw))
                     |> pog.parameter(pog.text(label_raw))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "theme_item_translation_failed")
                     Ok(_) -> {
@@ -1832,7 +1833,7 @@ pub fn delete_manage_theme_item(req: Request, ctx: Context, item_id: String) -> 
         pog.query("delete from category_theme_items where id = $1::uuid returning id::text")
         |> pog.parameter(pog.text(string.trim(item_id)))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "theme_item_delete_failed")
         Ok(r) ->
@@ -2027,7 +2028,7 @@ pub fn search_bridge_listings(req: Request, ctx: Context) -> Response {
     |> pog.parameter(pog.int(offset))
     |> pog.parameter(pog.int(lim))
     |> pog.returning(bridge_listing_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
@@ -2087,7 +2088,7 @@ pub fn public_category_stats(req: Request, ctx: Context) -> Response {
   let run_stats = fn(q: String) {
     pog.query(q)
     |> pog.returning(cat_stats_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   }
   case run_stats(sql) {
     Error(e) ->
@@ -2179,7 +2180,7 @@ pub fn public_region_stats(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(cat_raw))
         |> pog.parameter(property_type_param)
         |> pog.returning(region_stats_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "region_stats_failed")
         Ok(ret) -> {
@@ -2400,7 +2401,7 @@ pub fn list_collections(req: Request, ctx: Context) -> Response {
       <> "order by sort_order, created_at desc limit 200",
     )
     |> pog.returning(collection_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "collections_query_failed")
     Ok(ret) -> {
@@ -2422,7 +2423,7 @@ pub fn get_collection_by_slug(req: Request, ctx: Context, slug: String) -> Respo
     )
     |> pog.parameter(pog.text(string.trim(slug)))
     |> pog.returning(collection_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "collection_query_failed")
     Ok(ret) ->
@@ -2488,7 +2489,7 @@ pub fn create_collection(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(hp)
                 |> pog.parameter(pog.text(rules))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "create_failed")
                 Ok(r) ->
@@ -2576,7 +2577,7 @@ pub fn patch_collection(req: Request, ctx: Context, col_id: String) -> Response 
             |> pog.parameter(p_so)
             |> pog.parameter(p_ia)
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "update_failed")
             Ok(r) ->
@@ -2602,7 +2603,7 @@ pub fn delete_collection(req: Request, ctx: Context, col_id: String) -> Response
         pog.query("delete from listing_collections where id = $1::uuid returning id::text")
         |> pog.parameter(pog.text(string.trim(col_id)))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(r) ->

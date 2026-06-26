@@ -6,6 +6,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 
 const social_api_key = "social_api"
@@ -61,7 +62,7 @@ fn fetch_social_api_raw(db: pog.Connection) -> String {
     )
     |> pog.parameter(pog.text(social_api_key))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> "{}"
     Ok(ret) ->
@@ -122,7 +123,7 @@ fn fetch_listing_for_enqueue(
       use e <- decode.field(4, decode.string)
       decode.success(#(a, b, c, d, e))
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -141,7 +142,7 @@ fn listing_image_keys(db: pog.Connection, listing_id: String, featured: String) 
       )
       |> pog.parameter(pog.text(listing_id))
       |> pog.returning(row_dec.col0_string())
-      |> pog.execute(db)
+      |> db_exec.execute(db)
     {
       Error(_) -> []
       Ok(ret) -> list.map(ret.rows, fn(s) { string.trim(s) })
@@ -189,7 +190,7 @@ fn insert_pending_job(
         |> pog.parameter(pog.text(network))
         |> pog.parameter(pog.array(pog.text, image_keys))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(db)
+        |> db_exec.execute(db)
       {
         Error(_) -> Error(Nil)
         Ok(ret) -> Ok(!list.is_empty(ret.rows))
@@ -237,7 +238,7 @@ pub fn listing_status(db: pog.Connection, listing_id: String) -> Result(String, 
     pog.query("select status::text from listings where id = $1::uuid limit 1")
     |> pog.parameter(pog.text(string.trim(listing_id)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -307,7 +308,7 @@ fn fetch_next_rotation_listings(
         |> pog.parameter(pog.int(hours))
         |> pog.parameter(pog.int(lim))
         |> pog.returning(rotation_listing_row())
-        |> pog.execute(db)
+        |> db_exec.execute(db)
       {
         Error(_) -> []
         Ok(ret) -> ret.rows

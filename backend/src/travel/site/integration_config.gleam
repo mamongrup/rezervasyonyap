@@ -11,6 +11,7 @@ import gleam/io
 import gleam/json
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 
 pub type IntegrationConfig {
   IntegrationConfig(
@@ -61,7 +62,7 @@ fn fetch_raw(db: pog.Connection) -> String {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> ""
     Ok(ret) ->

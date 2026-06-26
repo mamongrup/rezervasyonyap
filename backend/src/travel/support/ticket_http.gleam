@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -91,7 +92,7 @@ fn reservation_id_for_guest(
     |> pog.parameter(pog.text(string.trim(public_code)))
     |> pog.parameter(pog.text(string.lowercase(string.trim(guest_email))))
     |> pog.returning(row)
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -110,7 +111,7 @@ fn department_id(db: pog.Connection, code: String) -> Result(Int, Nil) {
     )
     |> pog.parameter(pog.text(code))
     |> pog.returning(row)
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -163,7 +164,7 @@ pub fn create_ticket(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(payload.priority))
                     |> pog.parameter(related_param)
                     |> pog.returning(returning)
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "ticket_insert_failed")
                     Ok(ret) ->
@@ -176,7 +177,7 @@ pub fn create_ticket(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(tid))
                             |> pog.parameter(pog.text(payload.body))
                             |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "message_insert_failed")
                             Ok(_) -> {
@@ -186,7 +187,7 @@ pub fn create_ticket(req: Request, ctx: Context) -> Response {
                                 )
                                 |> pog.parameter(pog.text(tid))
                                 |> pog.returning(row_dec.col0_string())
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               let out =
                                 json.object([
                                   #("id", json.string(tid)),
@@ -237,7 +238,7 @@ pub fn list_tickets(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(mail))
             |> pog.returning(ticket_row_decoder())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "list_failed")
             Ok(ret) -> {
@@ -292,7 +293,7 @@ pub fn get_ticket(_req: Request, ctx: Context, ticket_id: String) -> Response {
     )
     |> pog.parameter(pog.text(ticket_id))
     |> pog.returning(ticket_detail_decoder())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "load_failed")
     Ok(ret) ->
@@ -304,7 +305,7 @@ pub fn get_ticket(_req: Request, ctx: Context, ticket_id: String) -> Response {
             )
             |> pog.parameter(pog.text(ticket_id))
             |> pog.returning(msg_row_decoder())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Ok(mret) ->
               list.map(mret.rows, fn(m) {
@@ -359,7 +360,7 @@ pub fn add_message(req: Request, ctx: Context, ticket_id: String) -> Response {
             |> pog.parameter(pog.text(ticket_id))
             |> pog.parameter(pog.text(text))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "message_failed")
             Ok(ret) ->
@@ -371,7 +372,7 @@ pub fn add_message(req: Request, ctx: Context, ticket_id: String) -> Response {
                     )
                     |> pog.parameter(pog.text(ticket_id))
                     |> pog.returning(decode_col0_int())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   let out =
                     json.object([
                       #("message_id", json.string(mid)),

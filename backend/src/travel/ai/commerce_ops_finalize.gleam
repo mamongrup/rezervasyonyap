@@ -5,6 +5,7 @@ import gleam/json
 import gleam/option.{type Option}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 
 fn plan_json_from_llm(raw: String) -> String {
@@ -24,7 +25,7 @@ fn extract_output_text(db: pog.Connection, job_id: String) -> Option(String) {
     )
     |> pog.parameter(pog.text(job_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> option.None
     Ok(ret) ->
@@ -55,7 +56,7 @@ fn insert_post_booking_plan(
         |> pog.parameter(pog.text(rid))
         |> pog.parameter(pog.text(plan_json))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(db)
+        |> db_exec.execute(db)
       {
         Error(_) -> Nil
         Ok(_) -> Nil
@@ -85,7 +86,7 @@ fn insert_commerce_recommendation(
     |> pog.parameter(pog.text(reason))
     |> pog.parameter(pog.text(payload_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Nil
     Ok(_) -> Nil

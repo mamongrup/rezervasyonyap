@@ -11,6 +11,7 @@ import gleam/option
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import travel/integrations/yolcu360
 import travel/integrations/yolcu360_config
@@ -176,7 +177,7 @@ fn find_yolcu360_checkout_listing_id(db: pog.Connection) -> option.Option(String
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> option.None
     Ok(ret) ->

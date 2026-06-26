@@ -17,6 +17,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -82,7 +83,7 @@ fn insert_report(
     |> pog.parameter(pog.text(reason))
     |> pog.parameter(pog.text(message))
     |> pog.parameter(pog.text(email))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "report_insert_failed")
     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -139,7 +140,7 @@ pub fn list_reports(req: Request, ctx: Context) -> Response {
       case
         pog.query(sql)
         |> pog.returning(report_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -195,7 +196,7 @@ pub fn patch_status(req: Request, ctx: Context, report_id: String) -> Response {
                     pog.query(sql)
                     |> pog.parameter(pog.text(status))
                     |> pog.parameter(pog.text(report_id))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "patch_failed")
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)

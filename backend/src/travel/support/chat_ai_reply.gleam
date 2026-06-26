@@ -6,6 +6,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_config
 import travel/ai/deepseek_chat
 import travel/db/decode_helpers as row_dec
@@ -89,7 +90,7 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
         )
         |> pog.parameter(pog.text(sid))
         |> pog.returning(session_ai_state_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> None
         Ok(ret) ->
@@ -109,7 +110,7 @@ pub fn try_append_assistant_reply(ctx: Context, session_id: String) -> Option(St
                         )
                         |> pog.parameter(pog.text(sid))
                         |> pog.returning(msg_pair_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> None
                         Ok(mret) -> {
@@ -166,7 +167,7 @@ fn insert_assistant(ctx: Context, session_id: String, body: String) -> Option(St
     |> pog.parameter(pog.text(body))
     |> pog.parameter(pog.text(meta))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> None
     Ok(r) ->

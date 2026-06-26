@@ -10,6 +10,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/catalog/catalog_http
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
@@ -187,7 +188,7 @@ pub fn add_image(req: Request, ctx: Context, listing_id: String) -> Response {
                         |> pog.parameter(pog.text(sk_trim))
                         |> pog.parameter(pog.text(mime))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "insert_failed")
                         Ok(r) -> add_image_response(r)
@@ -201,7 +202,7 @@ pub fn add_image(req: Request, ctx: Context, listing_id: String) -> Response {
                         |> pog.parameter(pog.text(sk_trim))
                         |> pog.parameter(pog.text(mime))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "insert_failed")
                         Ok(r) -> add_image_response(r)
@@ -245,7 +246,7 @@ pub fn delete_image(
         |> pog.parameter(pog.text(string.trim(listing_id)))
         |> pog.parameter(pog.text(string.trim(image_id)))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(r) ->
@@ -288,7 +289,7 @@ pub fn reorder_images(req: Request, ctx: Context, listing_id: String) -> Respons
                 True -> json_err(400, "ordered_image_ids_required")
                 False ->
                   case
-                    pog.transaction(ctx.db, fn(conn) {
+                    db_exec.transaction(ctx.db, fn(conn) {
                       reorder_loop(conn, string.trim(listing_id), ids, 0)
                     })
                   {
@@ -370,7 +371,7 @@ pub fn patch_image_scene(
                 |> pog.parameter(pog.text(string.trim(image_id)))
                 |> pog.parameter(pog.text(scene))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "scene_update_failed")
                 Ok(r) ->
@@ -400,7 +401,7 @@ pub fn list_public_images(req: Request, ctx: Context, listing_id: String) -> Res
     )
     |> pog.parameter(pog.text(string.trim(listing_id)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "publish_check_failed")
     Ok(pub_row) ->

@@ -6,6 +6,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 
@@ -53,7 +54,7 @@ pub fn enqueue_ops_agent_job(
         )
         |> pog.parameter(pog.text(rid))
         |> pog.returning(ops_res_ctx_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error("reservation_context_failed")
         Ok(ret) ->
@@ -66,7 +67,7 @@ pub fn enqueue_ops_agent_job(
                 )
                 |> pog.parameter(pog.text(lid))
                 |> pog.returning(ops_sim_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> Error("similar_listings_failed")
                 Ok(sret) -> {
@@ -112,7 +113,7 @@ pub fn enqueue_ops_agent_job(
                     )
                     |> pog.parameter(pog.text(input_s))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> Error("ops_agent_job_insert_failed")
                     Ok(jr) ->

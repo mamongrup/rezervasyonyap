@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -43,7 +44,7 @@ fn locale_id_by_code(ctx: Context, code: String) -> Result(String, Nil) {
     pog.query("select id::text from locales where lower(code) = lower($1) limit 1")
     |> pog.parameter(pog.text(string.trim(code)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -131,7 +132,7 @@ pub fn list_placements(req: Request, ctx: Context) -> Response {
         |> pog.parameter(loc_filter)
         |> pog.parameter(pog.text(active_f))
         |> pog.returning(banner_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "banners_query_failed")
         Ok(ret) -> {
@@ -180,7 +181,7 @@ pub fn list_placements_public(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(org_f))
         |> pog.parameter(loc_filter)
         |> pog.returning(banner_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "banners_query_failed")
         Ok(ret) -> {
@@ -273,7 +274,7 @@ pub fn create_placement(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(loc_p)
                 |> pog.parameter(pog.bool(active))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "insert_failed")
                 Ok(r) ->
@@ -391,7 +392,7 @@ pub fn patch_placement(req: Request, ctx: Context, placement_id: String) -> Resp
                 |> pog.parameter(p_loc)
                 |> pog.parameter(p_active)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->
@@ -422,7 +423,7 @@ pub fn delete_placement(req: Request, ctx: Context, placement_id: String) -> Res
       case
         pog.query("delete from banner_placements where id = $1::uuid")
         |> pog.parameter(pog.text(string.trim(placement_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->

@@ -10,6 +10,7 @@ import gleam/list
 import gleam/result
 import gleam/uri
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 import travel/integrations/paytr.{
@@ -159,7 +160,7 @@ pub fn notification(req: Request, ctx: Context) -> Response {
                     False -> plain_text("BAD_HASH", 400)
                     True ->
                       case
-                        pog.transaction(ctx.db, fn(conn) {
+                        db_exec.transaction(ctx.db, fn(conn) {
                           paytr_notify.apply_paytr_notification(
                             conn,
                             pairs,

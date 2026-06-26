@@ -21,6 +21,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ical/ical_codec
 import travel/net/http_client
 
@@ -104,7 +105,7 @@ fn load_feed(
     )
     |> pog.parameter(pog.text(string.trim(feed_id)))
     |> pog.returning(feed_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("feed_query_failed")
     Ok(qr) ->
@@ -162,7 +163,7 @@ fn clear_old_blocks(
     pog.query(q)
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(feed_id))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(_) -> Ok(Nil)
     Error(_) -> Error("clear_old_blocks_failed")
@@ -173,7 +174,7 @@ fn purge_imported_blocks(ctx: Context, feed_id: String) -> Result(Nil, String) {
   case
     pog.query("delete from ical_imported_blocks where feed_id = $1::uuid")
     |> pog.parameter(pog.text(feed_id))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(_) -> Ok(Nil)
     Error(_) -> Error("purge_blocks_failed")
@@ -208,7 +209,7 @@ fn insert_events(
         |> pog.parameter(pog.text(ev.starts_on))
         |> pog.parameter(pog.text(ev.ends_on))
         |> pog.parameter(pog.text(ev.summary))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
 
       // 2) availability calendar — ends_on **dışlayıcı**, gün gün UPSERT
       //    SQL `generate_series(start, end - interval '1 day', '1 day')` ile.
@@ -227,7 +228,7 @@ fn insert_events(
         |> pog.parameter(pog.text(listing_id))
         |> pog.parameter(pog.text(ev.starts_on))
         |> pog.parameter(pog.text(ev.ends_on))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
 
       insert_events(ctx, feed_id, listing_id, rest, acc_days + day_count)
     }
@@ -248,7 +249,7 @@ fn record_success(
     |> pog.parameter(pog.text(feed_id))
     |> pog.parameter(pog.int(count))
     |> pog.parameter(pog.text(hash))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 
@@ -260,7 +261,7 @@ fn record_error(ctx: Context, feed_id: String, msg: String) -> Nil {
     )
     |> pog.parameter(pog.text(feed_id))
     |> pog.parameter(pog.text(msg))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 

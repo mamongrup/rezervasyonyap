@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/ai/ops_agent_enqueue
 import travel/ai/region_hierarchy_sync
@@ -66,7 +67,7 @@ pub fn list_ai_providers(req: Request, ctx: Context) -> Response {
       "select id::text, code, display_name, coalesce(default_model,''), is_active from ai_providers order by id",
     )
     |> pog.returning(prov_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "ai_providers_query_failed")
     Ok(ret) -> {
@@ -140,7 +141,7 @@ pub fn patch_feature_profile(req: Request, ctx: Context, code: String) -> Respon
                     |> pog.parameter(pog.text(sp))
                     |> pog.parameter(pog.text(tp))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "ai_profile_patch_failed")
                     Ok(r) ->
@@ -173,7 +174,7 @@ pub fn list_feature_profiles(req: Request, ctx: Context) -> Response {
       "select p.id::text, p.code, p.provider_id::text, coalesce(p.system_prompt,''), p.temperature::text from ai_feature_profiles p order by p.code",
     )
     |> pog.returning(fp_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "ai_profiles_query_failed")
     Ok(ret) -> {
@@ -255,7 +256,7 @@ pub fn create_ai_job(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(pc))
                 |> pog.parameter(pog.text(ij))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "ai_job_insert_failed")
                 Ok(r) ->
@@ -305,12 +306,12 @@ pub fn list_ai_jobs(req: Request, ctx: Context) -> Response {
     True ->
       pog.query(sql)
       |> pog.returning(job_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     False ->
       pog.query(sql)
       |> pog.parameter(pog.text(st))
       |> pog.returning(job_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
   }
   case exec {
     Error(_) -> json_err(500, "ai_jobs_query_failed")
@@ -338,7 +339,7 @@ pub fn get_ai_job(req: Request, ctx: Context, job_id: String) -> Response {
     )
     |> pog.parameter(pog.text(string.trim(job_id)))
     |> pog.returning(job_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "ai_job_query_failed")
     Ok(ret) ->
@@ -545,7 +546,7 @@ pub fn create_region_task(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(step))
                     |> pog.parameter(p_p)
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "region_task_insert_failed")
                     Ok(r) ->
@@ -587,7 +588,7 @@ pub fn list_region_tasks(req: Request, ctx: Context) -> Response {
       "select id::text, coalesce(country_id::text,''), country_name, step, coalesce(parent_region_id::text,''), coalesce(job_id::text,''), created_at::text from ai_region_generation_tasks order by created_at desc limit 100",
     )
     |> pog.returning(rt_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "region_tasks_query_failed")
     Ok(ret) -> {
@@ -658,7 +659,7 @@ pub fn create_geo_blog_batch(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(string.trim(cs)))
                 |> pog.parameter(pog.int(n))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "geo_batch_insert_failed")
                 Ok(r) ->
@@ -710,12 +711,12 @@ pub fn list_geo_blog_batches(req: Request, ctx: Context) -> Response {
     True ->
       pog.query(sql)
       |> pog.returning(gbb_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     False ->
       pog.query(sql)
       |> pog.parameter(pog.text(lp))
       |> pog.returning(gbb_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
   }
   case exec {
     Error(_) -> json_err(500, "geo_batches_query_failed")
@@ -778,7 +779,7 @@ pub fn list_post_booking_plans(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(rid))
         |> pog.returning(pbp_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "post_booking_plans_query_failed")
         Ok(ret) -> {
@@ -848,7 +849,7 @@ pub fn ops_agent_run(req: Request, ctx: Context) -> Response {
                         )
                         |> pog.parameter(pog.text(job_id))
                         |> pog.returning(job_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "ops_agent_job_read_failed")
                         Ok(jret) ->

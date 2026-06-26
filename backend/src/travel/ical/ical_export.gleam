@@ -13,6 +13,7 @@ import gleam/int
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ical/ical_codec.{type IcalEvent, IcalEvent}
 
 const horizon_days: Int = 365
@@ -56,7 +57,7 @@ fn load_reservations(ctx: Context, listing_id: String) -> List(IcalEvent) {
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.int(horizon_days))
     |> pog.returning(res_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> []
     Ok(qr) ->
@@ -101,7 +102,7 @@ fn load_manual_blocks(ctx: Context, listing_id: String) -> List(IcalEvent) {
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.int(horizon_days))
     |> pog.returning(day_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> []
     Ok(qr) -> merge_consecutive(qr.rows, listing_id)

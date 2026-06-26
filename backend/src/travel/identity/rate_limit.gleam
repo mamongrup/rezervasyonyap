@@ -19,6 +19,7 @@
 import backend/context.{type Context}
 import gleam/dynamic/decode
 import pog
+import travel/db/resilient_pog as db_exec
 
 pub type Decision {
   Allowed
@@ -51,7 +52,7 @@ pub fn check(ctx: Context, action: String, raw: String) -> Decision {
     pog.query(q)
     |> pog.parameter(pog.text(k))
     |> pog.returning(row_int)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(qr) ->
       case qr.rows {
@@ -94,7 +95,7 @@ pub fn record_failure(ctx: Context, action: String, raw: String) -> Nil {
     |> pog.parameter(pog.int(window_seconds))
     |> pog.parameter(pog.int(max_failures))
     |> pog.parameter(pog.int(block_seconds))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 
@@ -104,7 +105,7 @@ pub fn record_success(ctx: Context, action: String, raw: String) -> Nil {
   let _ =
     pog.query("delete from auth_rate_limit where key = $1")
     |> pog.parameter(pog.text(k))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 

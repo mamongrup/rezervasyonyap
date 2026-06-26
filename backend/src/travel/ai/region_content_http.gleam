@@ -9,6 +9,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
@@ -104,7 +105,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
         <> " > 0"
 
       case
-        pog.query(total_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db)
+        pog.query(total_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "region_content_total_failed")
         Ok(total_ret) -> {
@@ -115,7 +116,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
           case
             pog.query(desc_sql)
             |> pog.returning(int_col0)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "region_content_description_failed")
             Ok(desc_ret) -> {
@@ -126,7 +127,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
               case
                 pog.query(blog_sql)
                 |> pog.returning(int_col0)
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "region_content_blog_failed")
                 Ok(blog_ret) -> {
@@ -137,7 +138,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                   case
                     pog.query(place_blog_sql)
                     |> pog.returning(int_col0)
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) ->
                       json_err(500, "region_content_place_blog_failed")
@@ -149,7 +150,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                       case
                         pog.query(place_candidates_sql)
                         |> pog.returning(int_col0)
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) ->
                           json_err(
@@ -166,7 +167,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                           case
                             pog.query(batches_sql)
                             |> pog.returning(batch_count_row())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) ->
                               json_err(500, "region_content_batches_failed")
@@ -174,7 +175,7 @@ pub fn stats(req: Request, ctx: Context) -> Response {
                               case
                                 pog.query(place_batches_sql)
                                 |> pog.returning(batch_count_row())
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) ->
                                   json_err(
@@ -286,7 +287,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(category_slug))
         |> pog.parameter(pog.int(posts_per_region))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "region_content_queue_failed")
         Ok(ret) -> {
@@ -343,7 +344,7 @@ pub fn process_next(req: Request, ctx: Context) -> Response {
         returning id::text, location_page_id::text, category_slug, posts_to_create
         "
       case
-        pog.query(pick_sql) |> pog.returning(batch_row()) |> pog.execute(ctx.db)
+        pog.query(pick_sql) |> pog.returning(batch_row()) |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "region_content_pick_failed")
         Ok(ret) ->
@@ -367,7 +368,7 @@ fn mark_geo_batch_failed(ctx: Context, batch_id: String) -> Nil {
       "update ai_geo_blog_batches set status = 'failed' where id = $1::uuid",
     )
     |> pog.parameter(pog.text(batch_id))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 
@@ -391,7 +392,7 @@ pub fn worker_try_region_geo_batch(ctx: Context) -> Result(Bool, String) {
     returning id::text, location_page_id::text, category_slug, posts_to_create
     "
   case
-    pog.query(pick_sql) |> pog.returning(batch_row()) |> pog.execute(ctx.db)
+    pog.query(pick_sql) |> pog.returning(batch_row()) |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("region_content_pick_failed")
     Ok(ret) ->
@@ -453,7 +454,7 @@ fn run_geo_batch_from_loc(
                   "update ai_geo_blog_batches set status = 'done' where id = $1::uuid",
                 )
                 |> pog.parameter(pog.text(batch_id))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               Ok(#(created_count, description_written))
             }
           }
@@ -537,7 +538,7 @@ fn load_location(
     pog.query(sql)
     |> pog.parameter(pog.text(lp_id))
     |> pog.returning(location_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -567,7 +568,7 @@ fn create_and_run_job(
     |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("region_content_job_insert_failed")
     Ok(ret) ->
@@ -580,7 +581,7 @@ fn create_and_run_job(
             )
             |> pog.parameter(pog.text(job_id))
             |> pog.returning(ai_job_outcome_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("region_content_job_output_failed")
             Ok(out_ret) ->
@@ -702,7 +703,7 @@ fn apply_region_description(
     |> pog.parameter(pog.text(description_html))
     |> pog.parameter(pog.text(meta_title))
     |> pog.parameter(pog.text(string.slice(meta_description, 0, 155)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("region_content_description_update_failed")
     Ok(_) -> Ok(description_html)
@@ -724,7 +725,7 @@ fn ensure_blog_category(ctx: Context, slug: String) -> Result(String, Nil) {
     )
     |> pog.parameter(pog.text(slug))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -872,7 +873,7 @@ fn upsert_blog_post(
     |> pog.parameter(pog.text(string.slice(excerpt, 0, 155)))
     |> pog.parameter(pog.text(lp_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("region_content_blog_upsert_failed")
     Ok(ret) ->
@@ -897,7 +898,7 @@ fn upsert_blog_post(
             |> pog.parameter(pog.text(body_html))
             |> pog.parameter(pog.text(excerpt))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("region_content_blog_translation_failed")
             Ok(_) -> Ok(1)
@@ -963,7 +964,7 @@ pub fn queue_place_blogs(req: Request, ctx: Context) -> Response {
         pog.query(sql)
         |> pog.parameter(pog.int(posts_per_location))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "place_blog_queue_failed")
         Ok(ret) -> {
@@ -1000,7 +1001,7 @@ pub fn process_next_place_blog(req: Request, ctx: Context) -> Response {
       case
         pog.query(pick_sql)
         |> pog.returning(place_batch_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "place_blog_pick_failed")
         Ok(ret) ->
@@ -1033,7 +1034,7 @@ fn mark_place_blog_failed(ctx: Context, batch_id: String) -> Nil {
       "update ai_place_blog_batches set status = 'failed' where id = $1::uuid",
     )
     |> pog.parameter(pog.text(batch_id))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 
@@ -1054,7 +1055,7 @@ pub fn worker_try_place_blog_batch(ctx: Context) -> Result(Bool, String) {
   case
     pog.query(pick_sql)
     |> pog.returning(place_batch_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("place_blog_pick_failed")
     Ok(ret) ->
@@ -1109,7 +1110,7 @@ fn run_place_blog_from_loc(
               "update ai_place_blog_batches set status = 'done' where id = $1::uuid",
             )
             |> pog.parameter(pog.text(batch_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           Ok(created_count)
         }
       }
@@ -1321,7 +1322,7 @@ fn upsert_place_blog_post(
     |> pog.parameter(pog.text(ideas_json))
     |> pog.parameter(pog.text(lp_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("place_blog_upsert_failed")
     Ok(ret) ->
@@ -1346,7 +1347,7 @@ fn upsert_place_blog_post(
             |> pog.parameter(pog.text(body_html))
             |> pog.parameter(pog.text(excerpt))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("place_blog_translation_failed")
             Ok(_) -> Ok(1)
@@ -1370,13 +1371,13 @@ pub fn reset_stuck(req: Request, ctx: Context) -> Response {
           "update ai_geo_blog_batches set status = 'pending' where status = 'running' returning id",
         )
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       let place_reset =
         pog.query(
           "update ai_place_blog_batches set status = 'pending' where status = 'running' returning id",
         )
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       let geo_count = case geo_reset {
         Ok(r) -> list.length(r.rows)
         Error(_) -> 0

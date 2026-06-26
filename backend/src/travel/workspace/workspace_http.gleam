@@ -10,6 +10,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
 
@@ -256,7 +257,7 @@ pub fn admin_list_tasks(req: Request, ctx: Context) -> Response {
       case
         pog.query(tasks_query_sql() <> " order by t.due_date nulls last, t.remind_at nulls last, t.created_at desc limit 500")
         |> pog.returning(task_row_11())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -327,7 +328,7 @@ pub fn admin_create_task(req: Request, ctx: Context) -> Response {
                       use s <- decode.field(0, decode.string)
                       decode.success(s)
                     })
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "insert_failed")
                     Ok(ret) ->
@@ -410,7 +411,7 @@ pub fn admin_patch_task(req: Request, ctx: Context, task_id: String) -> Response
                         |> pog.parameter(rem_p)
                         |> pog.parameter(assign_p)
                         |> pog.parameter(pog.text(stt))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "update_failed")
                         Ok(ret) ->
@@ -437,7 +438,7 @@ pub fn admin_delete_task(req: Request, ctx: Context, task_id: String) -> Respons
       case
         pog.query("delete from staff_workspace_tasks where id = $1::uuid")
         |> pog.parameter(pog.text(string.trim(task_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->
@@ -462,7 +463,7 @@ pub fn staff_list_tasks(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(task_row_11())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -504,7 +505,7 @@ pub fn staff_patch_task(req: Request, ctx: Context, task_id: String) -> Response
                     |> pog.parameter(pog.text(string.trim(task_id)))
                     |> pog.parameter(pog.text(stt))
                     |> pog.parameter(pog.text(uid))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "update_failed")
                     Ok(ret) ->
@@ -558,7 +559,7 @@ pub fn admin_list_staff_assignees(req: Request, ctx: Context) -> Response {
           "select distinct u.id::text, coalesce(nullif(trim(coalesce(u.display_name, '')), ''), u.email, u.id::text) from users u inner join user_roles ur on ur.user_id = u.id inner join roles r on r.id = ur.role_id where r.code = 'staff' order by 2 limit 300",
         )
         |> pog.returning(staff_user_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -596,7 +597,7 @@ pub fn admin_list_recipient_orgs(req: Request, ctx: Context) -> Response {
       case
         pog.query(sql)
         |> pog.returning(org_pick_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -661,7 +662,7 @@ pub fn admin_list_announcements(req: Request, ctx: Context) -> Response {
             <> " order by a.created_at desc limit 200",
         )
         |> pog.returning(announcement_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -759,7 +760,7 @@ pub fn admin_create_announcement(req: Request, ctx: Context) -> Response {
                                   use s <- decode.field(0, decode.string)
                                   decode.success(s)
                                 })
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) -> json_err(500, "insert_failed")
                                 Ok(ret) ->
@@ -804,7 +805,7 @@ pub fn admin_create_announcement(req: Request, ctx: Context) -> Response {
                               use s <- decode.field(0, decode.string)
                               decode.success(s)
                             })
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "insert_failed")
                             Ok(ret) ->
@@ -841,7 +842,7 @@ pub fn supplier_list_announcements(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(announcement_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {
@@ -868,7 +869,7 @@ pub fn agency_list_announcements(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(announcement_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "query_failed")
         Ok(ret) -> {

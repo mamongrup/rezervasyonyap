@@ -6,6 +6,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/commerce_ops_finalize
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
@@ -135,7 +136,7 @@ fn job_exists_for_reservation(
     |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(reservation_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> False
     Ok(ret) -> ret.rows != []
@@ -154,7 +155,7 @@ fn insert_queued_job(
     |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("commerce_job_insert_failed")
     Ok(ret) ->
@@ -193,7 +194,7 @@ fn load_reservation_commerce_context(
     )
     |> pog.parameter(pog.text(reservation_id))
     |> pog.returning(commerce_ctx_row())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("reservation_context_failed")
     Ok(ret) ->
@@ -269,7 +270,7 @@ pub fn run_due_commerce_jobs(ctx: Context, limit: Int) -> Result(Int, String) {
       use pc <- decode.field(1, decode.string)
       decode.success(#(id, pc))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("commerce_jobs_query_failed")
     Ok(ret) -> {
@@ -283,7 +284,7 @@ pub fn run_due_commerce_jobs(ctx: Context, limit: Int) -> Result(Int, String) {
               )
               |> pog.parameter(pog.text(job_id))
               |> pog.returning(row_dec.col0_string())
-              |> pog.execute(ctx.db)
+              |> db_exec.execute(ctx.db)
             {
               Error(_) -> ""
               Ok(r) ->

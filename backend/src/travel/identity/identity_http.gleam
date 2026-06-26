@@ -19,6 +19,7 @@ import gleam/option.{None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import wisp.{type Request, type Response}
@@ -97,7 +98,7 @@ fn maybe_rehash(ctx: Context, user_id: String, stored: String, plain: String) ->
         )
         |> pog.parameter(pog.text(new_hash))
         |> pog.parameter(pog.text(user_id))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       Nil
     }
   }
@@ -138,7 +139,7 @@ fn do_register(
     |> pog.parameter(pog.text(hash))
     |> pog.parameter(display_param)
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -149,7 +150,7 @@ fn do_register(
             pog.query(role_sql)
             |> pog.parameter(pog.text(uid))
             |> pog.parameter(pog.text(platform_org_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           let display_str = case display {
             Some(s) -> s
             None -> ""
@@ -235,7 +236,7 @@ fn new_session_response(
     )
     |> pog.parameter(pog.text(token_lower))
     |> pog.parameter(pog.text(user_id))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       io.println(
@@ -279,7 +280,7 @@ pub fn logout(req: Request, ctx: Context) -> Response {
       case
         pog.query("delete from user_sessions where token = $1")
         |> pog.parameter(pog.text(token))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "logout_failed")
         Ok(_) ->
@@ -324,7 +325,7 @@ pub fn change_password(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(token))
                     |> pog.returning(user_row)
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "db_error")
                     Ok(ret) ->
@@ -339,7 +340,7 @@ pub fn change_password(req: Request, ctx: Context) -> Response {
                                 pog.query("update users set password_hash = $1, updated_at = now() where id = $2::uuid")
                                 |> pog.parameter(pog.text(new_hash))
                                 |> pog.parameter(pog.text(uid))
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) -> json_err(500, "update_failed")
                                 Ok(_) ->
@@ -390,7 +391,7 @@ fn forgot_password_do(ctx: Context, email: String, rkey: String) -> Response {
     pog.query("select id::text from users where email = $1 limit 1")
     |> pog.parameter(pog.text(email))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
@@ -421,7 +422,7 @@ fn forgot_password_do(ctx: Context, email: String, rkey: String) -> Response {
             )
             |> pog.parameter(pog.text(reset_token))
             |> pog.parameter(pog.text(uid))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "token_create_failed")
             Ok(_) -> {
@@ -466,7 +467,7 @@ pub fn reset_password(req: Request, ctx: Context) -> Response {
                 )
                 |> pog.parameter(pog.text(string.lowercase(string.trim(tok))))
                 |> pog.returning(token_row)
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "db_error")
                 Ok(ret) ->
@@ -478,12 +479,12 @@ pub fn reset_password(req: Request, ctx: Context) -> Response {
                       let _ =
                         pog.query("update password_reset_tokens set used_at = now() where token = $1")
                         |> pog.parameter(pog.text(tok_lower))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       case
                         pog.query("update users set password_hash = $1, updated_at = now() where id = $2::uuid")
                         |> pog.parameter(pog.text(new_hash))
                         |> pog.parameter(pog.text(uid))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "update_failed")
                         Ok(_) ->
@@ -518,7 +519,7 @@ fn do_login(ctx: Context, email: String, password: String) -> Response {
     )
     |> pog.parameter(pog.text(email))
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) -> {
       let _ =
@@ -650,7 +651,7 @@ pub fn list_roles(req: Request, ctx: Context) -> Response {
   case
     pog.query("select code::text, coalesce(description, '') from roles order by id")
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "roles_query_failed")
     Ok(ret) -> {
@@ -702,7 +703,7 @@ pub fn patch_me(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(token))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "session_query_failed")
                     Ok(ret) ->
@@ -716,7 +717,7 @@ pub fn patch_me(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(dn_trim))
                             |> pog.parameter(pog.text(loc_trim))
                             |> pog.parameter(pog.text(uid))
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "update_failed")
                             Ok(_) -> me(req, ctx)
@@ -756,7 +757,7 @@ pub fn me(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(token))
         |> pog.returning(me_row_full())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "me_query_failed")
         Ok(ret) ->
@@ -842,7 +843,7 @@ pub fn submit_tc_verification(req: Request, ctx: Context) -> Response {
                             )
                             |> pog.parameter(pog.text(uid))
                             |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "verified_lookup_failed")
                             Ok(vr) ->
@@ -861,7 +862,7 @@ pub fn submit_tc_verification(req: Request, ctx: Context) -> Response {
                                         |> pog.parameter(pog.text(fn_trim))
                                         |> pog.parameter(pog.text(ln_trim))
                                         |> pog.parameter(pog.int(year))
-                                        |> pog.execute(ctx.db)
+                                        |> db_exec.execute(ctx.db)
                                       {
                                         Error(_) ->
                                           json_err(500, "tc_request_upsert_failed")
@@ -926,7 +927,7 @@ pub fn admin_list_tc_verifications(req: Request, ctx: Context) -> Response {
           order by r.submitted_at asc",
         )
         |> pog.returning(tc_admin_pending_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "tc_verif_list_failed")
         Ok(ret) -> {
@@ -1007,7 +1008,7 @@ fn audit_log_insert(
     |> pog.parameter(pog.text(target_type))
     |> pog.parameter(tgt_param)
     |> pog.parameter(pog.text(details_s))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 
@@ -1039,7 +1040,7 @@ fn admin_tc_review_apply_reject(
     |> pog.parameter(pog.text(admin_id))
     |> pog.parameter(pog.text(admin_note))
     |> pog.parameter(pog.text(rid))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "tc_review_update_failed")
     Ok(_) -> {
@@ -1074,7 +1075,7 @@ fn admin_tc_review_apply_approve(
     |> pog.parameter(pog.text(tc_no))
     |> pog.parameter(pog.text(user_id))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "tc_conflict_lookup_failed")
     Ok(cr) ->
@@ -1087,7 +1088,7 @@ fn admin_tc_review_apply_approve(
             )
             |> pog.parameter(pog.text(tc_no))
             |> pog.parameter(pog.text(user_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "user_tc_update_failed")
             Ok(ur) ->
@@ -1100,7 +1101,7 @@ fn admin_tc_review_apply_approve(
                     )
                     |> pog.parameter(pog.text(admin_id))
                     |> pog.parameter(pog.text(rid))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "tc_request_finalize_failed")
                     Ok(_) -> {
@@ -1156,7 +1157,7 @@ pub fn admin_review_tc_verification(
                         )
                         |> pog.parameter(pog.text(rid))
                         |> pog.returning(tc_request_pending_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "tc_request_lookup_failed")
                         Ok(qr) ->
@@ -1231,7 +1232,7 @@ pub fn admin_list_users(req: Request, ctx: Context) -> Response {
         |> pog.parameter(like_param)
         |> pog.parameter(pog.int(limit_val))
         |> pog.returning(admin_users_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "admin_users_query_failed")
         Ok(ret) -> {
@@ -1330,7 +1331,7 @@ pub fn admin_update_user_role(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(uid))
                         |> pog.parameter(pog.text(code))
                         |> pog.parameter(org_param)
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "grant_failed")
                         Ok(_) -> {
@@ -1372,7 +1373,7 @@ pub fn admin_update_user_role(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(uid))
                         |> pog.parameter(pog.text(code))
                         |> pog.parameter(org_param)
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "revoke_failed")
                         Ok(_) -> {
@@ -1447,7 +1448,7 @@ pub fn admin_audit_log(req: Request, ctx: Context) -> Response {
         |> pog.parameter(uid_param)
         |> pog.parameter(pog.int(limit_val))
         |> pog.returning(audit_log_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "audit_log_query_failed")
         Ok(ret) -> {
@@ -1523,7 +1524,7 @@ pub fn admin_list_permissions(req: Request, ctx: Context) -> Response {
               "select code::text, coalesce(description, '') from permissions order by code",
             )
             |> pog.returning(perm_catalog_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> {
               let arr =
@@ -1595,7 +1596,7 @@ pub fn admin_list_role_permissions(req: Request, ctx: Context) -> Response {
               "select r.code::text, p.code::text from roles r join role_permissions rp on rp.role_id = r.id join permissions p on p.id = rp.permission_id order by r.code, p.code",
             )
             |> pog.returning(role_perm_pair_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> {
               let pairs = permissions.fallback_role_permission_entries(ctx.db)
@@ -1676,7 +1677,7 @@ pub fn admin_update_role_permission(req: Request, ctx: Context) -> Response {
                         )
                         |> pog.parameter(pog.text(rc))
                         |> pog.parameter(pog.text(pc))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "grant_failed")
                         Ok(_) -> {
@@ -1712,7 +1713,7 @@ pub fn admin_update_role_permission(req: Request, ctx: Context) -> Response {
                         )
                         |> pog.parameter(pog.text(rc))
                         |> pog.parameter(pog.text(pc))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "revoke_failed")
                         Ok(_) -> {
@@ -1784,7 +1785,7 @@ pub fn admin_list_agency_category_grants(req: Request, ctx: Context) -> Response
         )
         |> pog.parameter(org_param)
         |> pog.returning(agency_grant_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "grants_list_failed")
         Ok(ret) -> {
@@ -1844,7 +1845,7 @@ pub fn admin_upsert_agency_category_grant(req: Request, ctx: Context) -> Respons
                     |> pog.parameter(pog.text(cat))
                     |> pog.parameter(pog.bool(approved))
                     |> pog.returning(agency_grant_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(400, "upsert_failed")
                     Ok(upd) ->
@@ -1934,7 +1935,7 @@ fn agency_document_notification(
       use oname <- decode.field(4, decode.string)
       decode.success(#(em, ph, uid, dn, oname))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -2014,7 +2015,7 @@ pub fn admin_list_agency_profiles(req: Request, ctx: Context) -> Response {
           |> pog.parameter(pog.text(oid))
           |> pog.parameter(pog.text(status_filter))
           |> pog.returning(admin_agency_profile_row())
-          |> pog.execute(ctx.db)
+          |> db_exec.execute(ctx.db)
         {
           Error(_) -> json_err(500, "list_failed")
           Ok(ret) -> {
@@ -2051,7 +2052,7 @@ pub fn admin_list_agency_profiles(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(oid))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "org_check_failed")
             Ok(chk) ->
@@ -2105,7 +2106,7 @@ pub fn admin_patch_agency_profiles(req: Request, ctx: Context) -> Response {
                             )
                             |> pog.parameter(pog.text(oid))
                             |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "org_check_failed")
                             Ok(chk) ->
@@ -2120,7 +2121,7 @@ pub fn admin_patch_agency_profiles(req: Request, ctx: Context) -> Response {
                                     |> pog.parameter(pog.text(ds))
                                     |> pog.parameter(pog.text(dp))
                                     |> pog.returning(row_dec.col0_string())
-                                    |> pog.execute(ctx.db)
+                                    |> db_exec.execute(ctx.db)
                                   {
                                     Error(_) -> json_err(400, "update_failed")
                                     Ok(u) ->

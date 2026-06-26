@@ -6,6 +6,7 @@ import gleam/dynamic/decode
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 
 pub fn hash_api_secret(secret: String) -> String {
   let digest = crypto.hash(crypto.Sha256, bit_array.from_string(secret))

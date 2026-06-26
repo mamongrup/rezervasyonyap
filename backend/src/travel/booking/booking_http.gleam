@@ -21,6 +21,7 @@ import gleam/io
 import gleam/string
 import gleam/time/calendar
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
 import travel/db/sql_dates
@@ -73,7 +74,7 @@ pub fn create_cart(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(cur))
                 |> pog.parameter(session_param)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "cart_create_failed")
                 Ok(ret) ->
@@ -121,7 +122,7 @@ fn listing_category_code(db: pog.Connection, listing_id: String) -> Result(Strin
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -226,7 +227,7 @@ fn activity_expected_line_total(
     |> pog.parameter(pog.int(adults))
     |> pog.parameter(pog.int(children))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("activity_price_query_failed")
     Ok(ret) ->
@@ -350,7 +351,7 @@ fn hotel_expected_line_total(
     |> pog.parameter(pog.calendar_date(end_date))
     |> pog.parameter(pog.text(meal_sql))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("hotel_price_query_failed")
     Ok(ret) ->
@@ -434,7 +435,7 @@ fn hotel_room_stay_unavailable(
     |> pog.parameter(pog.calendar_date(end_date))
     |> pog.parameter(pog.int(quantity))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> True
     Ok(ret) ->
@@ -571,7 +572,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                               }
                             Ok(Nil) ->
                               case
-                                pog.transaction(ctx.db, fn(conn) {
+                                db_exec.transaction(ctx.db, fn(conn) {
                                   case
                                     pog.query(
                                       "select upper(trim(c.currency_code::text)), upper(trim(l.currency_code::text)), l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
@@ -1801,7 +1802,7 @@ pub fn get_cart(req: Request, ctx: Context, cart_id: String) -> Response {
       use fx_js <- decode.field(2, decode.string)
       decode.success(#(cc, fx_at, fx_js))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "cart_load_failed")
     Ok(head) ->
@@ -1818,7 +1819,7 @@ pub fn get_cart(req: Request, ctx: Context, cart_id: String) -> Response {
             )
             |> pog.parameter(pog.text(cart_id))
             |> pog.returning(cart_line_list_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "lines_failed")
             Ok(lr) -> {
@@ -1899,7 +1900,7 @@ pub fn checkout(req: Request, ctx: Context, cart_id: String) -> Response {
             Error(e) -> json_err(500, e)
             Ok(Nil) ->
           case
-            pog.transaction(ctx.db, fn(conn) {
+            db_exec.transaction(ctx.db, fn(conn) {
               do_checkout(
                 conn,
                 cart_id,
@@ -2012,7 +2013,7 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
               use i <- decode.field(8, decode.string)
               decode.success(#(a, b, c, d, e, f, g, h, i))
             })
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "load_failed")
             Ok(ret) ->
@@ -2025,7 +2026,7 @@ pub fn get_by_public_code(req: Request, ctx: Context, code: String) -> Response 
                     )
                     |> pog.parameter(pog.text(rid))
                     |> pog.returning(line_detail_decoder())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Ok(lr) -> lr.rows
                     Error(_) -> []
@@ -2221,7 +2222,7 @@ pub fn list_admin_reservations(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(search_raw))
         |> pog.parameter(pog.int(limit))
         |> pog.returning(admin_resv_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -2261,7 +2262,7 @@ pub fn list_my_reservations(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(uid))
         |> pog.parameter(pog.text(email))
         |> pog.returning(mine_reservation_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -2319,7 +2320,7 @@ pub fn agent_booking_from_api(
     Error(_), _ | _, Error(_) -> Error("invalid_dates")
     Ok(start_date), Ok(end_date) ->
       case
-        pog.transaction(db, fn(conn) {
+        db_exec.transaction(db, fn(conn) {
       case
         pog.query(
           "insert into carts (currency_code, session_key) values ($1, null) returning id::text",
@@ -2435,7 +2436,7 @@ pub fn agent_cancel_reservation(
   public_code: String,
 ) -> Result(#(String, String, String), String) {
   case
-    pog.transaction(db, fn(conn) {
+    db_exec.transaction(db, fn(conn) {
       case
         pog.query(
           "select r.id::text, r.listing_id::text, r.status::text "

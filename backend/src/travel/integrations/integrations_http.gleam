@@ -13,6 +13,7 @@ import gleam/int
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -93,12 +94,12 @@ pub fn list_integration_accounts(req: Request, ctx: Context) -> Response {
     True ->
       pog.query(sql)
       |> pog.returning(account_row_public())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     False ->
       pog.query(sql)
       |> pog.parameter(pog.text(org))
       |> pog.returning(account_row_public())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
   }
   case exec {
     Error(_) -> json_err(500, "integration_accounts_query_failed")
@@ -165,7 +166,7 @@ pub fn create_integration_account(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.bool(ia))
                 |> pog.parameter(pog.text(ej))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "integration_account_create_failed")
                 Ok(r) ->
@@ -238,7 +239,7 @@ pub fn patch_integration_account(req: Request, ctx: Context, account_id: String)
                 |> pog.parameter(p_ej)
                 |> pog.parameter(p_sr)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "integration_account_update_failed")
                 Ok(r) ->
@@ -303,7 +304,7 @@ pub fn list_sync_logs(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(aid))
             |> pog.returning(sync_log_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "sync_logs_query_failed")
             Ok(ret) -> {
@@ -359,7 +360,7 @@ pub fn create_sync_log(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(string.trim(st)))
                     |> pog.parameter(pog.text(dj))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "sync_log_insert_failed")
                     Ok(r) ->
@@ -431,7 +432,7 @@ pub fn list_google_merchant_products(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(lid))
             |> pog.returning(gmp_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "gmp_query_failed")
             Ok(ret) -> {
@@ -484,7 +485,7 @@ pub fn upsert_google_merchant_product(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(mp_p)
                     |> pog.parameter(pog.text(string.trim(st)))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "gmp_insert_failed")
                     Ok(r) ->
@@ -559,7 +560,7 @@ pub fn patch_google_merchant_product(req: Request, ctx: Context, product_id: Str
                     |> pog.parameter(p_st)
                     |> pog.parameter(p_lp)
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "gmp_update_failed")
                     Ok(r) ->
@@ -647,7 +648,7 @@ pub fn create_whatsapp_order_intent(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(cart_p)
                     |> pog.parameter(pog.text(pj))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "whatsapp_intent_insert_failed")
                     Ok(r) ->
@@ -717,7 +718,7 @@ pub fn list_whatsapp_order_intents(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.int(cap))
             |> pog.returning(wa_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "whatsapp_intents_query_failed")
             Ok(ret) -> {

@@ -15,6 +15,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -193,7 +194,7 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(oid))
         |> pog.parameter(like_param)
         |> pog.returning(listing_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -290,7 +291,7 @@ pub fn patch_listing(req: Request, ctx: Context, listing_id: String) -> Response
                     |> pog.parameter(pog.text(prep_a))
                     |> pog.parameter(pog.text(prep_p))
                     |> pog.returning(patch_listing_ret_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "patch_failed")
                     Ok(ret) ->
@@ -337,7 +338,7 @@ pub fn agency_commissions(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(sac_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -407,7 +408,7 @@ pub fn upsert_agency_commission(req: Request, ctx: Context) -> Response {
                           "delete from supplier_agency_commissions where supplier_organization_id = $1::uuid and agency_organization_id is null",
                         )
                         |> pog.parameter(pog.text(oid))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "delete_failed")
                         Ok(_) ->
@@ -418,7 +419,7 @@ pub fn upsert_agency_commission(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(oid))
                             |> pog.parameter(pog.text(pct))
                             |> pog.returning(sac_row())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(400, "insert_failed")
                             Ok(ins) ->
@@ -437,7 +438,7 @@ pub fn upsert_agency_commission(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(aid))
                         |> pog.parameter(pog.text(pct))
                         |> pog.returning(sac_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(400, "upsert_failed")
                         Ok(upd) ->
@@ -470,7 +471,7 @@ pub fn delete_agency_commission(
         )
         |> pog.parameter(pog.text(commission_id))
         |> pog.parameter(pog.text(oid))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->
@@ -529,7 +530,7 @@ pub fn persisted_commission_accruals(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(from_q))
         |> pog.parameter(pog.text(to_q))
         |> pog.returning(persisted_accrual_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "persisted_failed")
         Ok(ret) ->
@@ -563,7 +564,7 @@ pub fn promotion_fee_rules(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(oid))
         |> pog.returning(promo_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(ret) -> {
@@ -638,7 +639,7 @@ pub fn upsert_promotion_fee_rule(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(rt))
                         |> pog.parameter(pog.text(pct))
                         |> pog.returning(promo_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(400, "upsert_failed")
                         Ok(upd) ->
@@ -658,7 +659,7 @@ pub fn upsert_promotion_fee_rule(req: Request, ctx: Context) -> Response {
                                 |> pog.parameter(pog.text(rt))
                                 |> pog.parameter(pog.text(pct))
                                 |> pog.returning(promo_row())
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) -> json_err(400, "insert_failed")
                                 Ok(ins) ->
@@ -708,7 +709,7 @@ pub fn delete_promotion_fee_rule(
           use a <- decode.field(0, decode.string)
           decode.success(a)
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->

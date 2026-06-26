@@ -3,6 +3,7 @@
 import backend/context.{type Context}
 import gleam/http
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -19,7 +20,7 @@ pub fn overview(req: Request, ctx: Context) -> Response {
       case
         pog.query(overview_sql)
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "operations_overview_failed")
         Ok(ret) ->

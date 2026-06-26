@@ -9,6 +9,7 @@ import gleam/option.{type Option}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/integrations/turna
 import travel/integrations/turna_config
 import wisp.{type Request, type Response}
@@ -74,7 +75,7 @@ fn find_turna_listing_id(db: pog.Connection, origin: String, destination: String
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> option.None
     Ok(ret) ->

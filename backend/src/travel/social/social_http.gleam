@@ -13,6 +13,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -145,7 +146,7 @@ pub fn list_templates(req: Request, ctx: Context) -> Response {
               "select id::text, network::text, name, template_body, created_at::text from social_share_templates order by network, name",
             )
             |> pog.returning(template_row_full())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "templates_query_failed")
             Ok(ret) -> {
@@ -221,7 +222,7 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.text(title_loc))
             |> pog.parameter(pog.int(limit_n))
             |> pog.returning(social_listing_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "social_listings_query_failed")
             Ok(ret) -> {
@@ -281,7 +282,7 @@ pub fn create_template(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.text(string.trim(name)))
                             |> pog.parameter(pog.text(template_body))
                             |> pog.returning(template_row_full())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "template_insert_failed")
                             Ok(r) ->
@@ -398,7 +399,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
           <> int.to_string(limit),
         )
         |> pog.returning(job_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "jobs_query_failed")
         Ok(ret) -> jobs_response(ret.rows)
@@ -412,7 +413,7 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(status_filter))
         |> pog.returning(job_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "jobs_query_failed")
         Ok(ret) -> jobs_response(ret.rows)
@@ -522,7 +523,7 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                                 |> pog.parameter(pog.array(pog.text, image_keys))
                                 |> pog.parameter(cap_param)
                                 |> pog.returning(row_dec.col0_string())
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) -> json_err(500, "job_insert_failed")
                                 Ok(r) ->
@@ -576,7 +577,7 @@ fn apply_listing_social_patch(
         |> pog.parameter(pog.bool(share))
         |> pog.parameter(pog.bool(allow_ai))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(db)
+        |> db_exec.execute(db)
       {
         Error(_) -> json_err(500, "listing_update_failed")
         Ok(ret) ->
@@ -605,7 +606,7 @@ fn apply_listing_social_patch(
         |> pog.parameter(pog.bool(allow_ai))
         |> pog.parameter(pog.text(oid))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(db)
+        |> db_exec.execute(db)
       {
         Error(_) -> json_err(500, "listing_update_failed")
         Ok(ret) ->
@@ -680,7 +681,7 @@ fn session_user_id_opt(ctx: Context, token: String) -> Option(String) {
         )
         |> pog.parameter(pog.text(string.trim(token)))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> None
         Ok(ret) ->
@@ -743,7 +744,7 @@ pub fn list_instagram_shop_links(req: Request, ctx: Context) -> Response {
         pog.query(sql)
         |> pog.parameter(pog.text(lid))
         |> pog.returning(shop_link_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "instagram_shop_query_failed")
         Ok(ret) -> {
@@ -796,7 +797,7 @@ pub fn create_instagram_shop_link(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(mid))
                         |> pog.parameter(pog.bool(se))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(409, "instagram_shop_insert_failed")
                         Ok(r) ->
@@ -871,7 +872,7 @@ pub fn patch_instagram_shop_link(
                             |> pog.parameter(p_mid)
                             |> pog.parameter(p_se)
                             |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "instagram_shop_update_failed")
                             Ok(r) ->
@@ -920,7 +921,7 @@ pub fn delete_instagram_shop_link(
                 )
                 |> pog.parameter(pog.text(string.trim(link_id)))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "instagram_shop_delete_failed")
                 Ok(r) ->

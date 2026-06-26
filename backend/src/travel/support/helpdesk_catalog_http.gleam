@@ -9,6 +9,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -44,7 +45,7 @@ pub fn list_departments(req: Request, ctx: Context) -> Response {
       "select id::text, code, name_key, sort_order from support_departments order by sort_order, id",
     )
     |> pog.returning(dept_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "departments_query_failed")
     Ok(ret) -> {
@@ -102,12 +103,12 @@ pub fn list_macros(req: Request, ctx: Context) -> Response {
     True ->
       pog.query(sql)
       |> pog.returning(macro_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     False ->
       pog.query(sql)
       |> pog.parameter(pog.text(df))
       |> pog.returning(macro_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
   }
   case exec {
     Error(_) -> json_err(500, "macros_query_failed")
@@ -166,12 +167,12 @@ pub fn list_sla_policies(req: Request, ctx: Context) -> Response {
     True ->
       pog.query(sql)
       |> pog.returning(sla_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
     False ->
       pog.query(sql)
       |> pog.parameter(pog.text(df))
       |> pog.returning(sla_row())
-      |> pog.execute(ctx.db)
+      |> db_exec.execute(ctx.db)
   }
   case exec {
     Error(_) -> json_err(500, "sla_query_failed")
@@ -229,7 +230,7 @@ pub fn list_kb_articles(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(loc))
         |> pog.returning(kb_list_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "kb_query_failed")
         Ok(ret) -> {
@@ -274,7 +275,7 @@ pub fn get_kb_article(req: Request, ctx: Context, slug: String) -> Response {
         |> pog.parameter(pog.text(string.trim(slug)))
         |> pog.parameter(pog.text(loc))
         |> pog.returning(kb_detail_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "kb_query_failed")
         Ok(ret) ->

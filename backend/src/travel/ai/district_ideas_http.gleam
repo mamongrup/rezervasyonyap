@@ -21,6 +21,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
@@ -81,7 +82,7 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
       case
         pog.query(total_sql)
         |> pog.returning(int_col0)
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "stats_total_failed")
         Ok(tr) -> {
@@ -92,7 +93,7 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
           case
             pog.query(jobs_sql)
             |> pog.returning(stats_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "stats_jobs_failed")
             Ok(jr) -> {
@@ -104,7 +105,7 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
               case
                 pog.query(has_ideas_sql)
                 |> pog.returning(int_col0)
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "stats_has_ideas_failed")
                 Ok(hr) -> {
@@ -112,7 +113,7 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
                     [n] -> n
                     _ -> 0
                   }
-                  case pog.query(empty_sql) |> pog.returning(int_col0) |> pog.execute(ctx.db) {
+                  case pog.query(empty_sql) |> pog.returning(int_col0) |> db_exec.execute(ctx.db) {
                     Error(_) -> json_err(500, "stats_empty_failed")
                     Ok(er) ->
                       case er.rows {
@@ -121,7 +122,7 @@ pub fn get_stats(req: Request, ctx: Context) -> Response {
                           case
                             pog.query(placeholder_sql)
                             |> pog.returning(int_col0)
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "stats_placeholder_failed")
                             Ok(pr) -> {
@@ -225,7 +226,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
       case
         pog.query(find_sql)
         |> pog.returning(district_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "find_districts_failed")
         Ok(ret) -> {
@@ -267,7 +268,7 @@ pub fn queue_all(req: Request, ctx: Context) -> Response {
                     "insert into ai_jobs (profile_code, input_json) values ('district_travel_ideas', $1::jsonb)",
                   )
                   |> pog.parameter(pog.text(input))
-                  |> pog.execute(ctx.db)
+                  |> db_exec.execute(ctx.db)
                 })
               let ok_count =
                 list.count(enqueue_results, fn(r) { result.is_ok(r) })
@@ -321,7 +322,7 @@ pub fn process_next(req: Request, ctx: Context) -> Response {
           "select id::text from ai_jobs where profile_code = 'district_travel_ideas' and status = 'queued' order by created_at limit 1",
         )
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "queue_poll_failed")
         Ok(ret) ->
@@ -350,7 +351,7 @@ fn run_and_apply(ctx: Context, job_id: String) -> Response {
         )
         |> pog.parameter(pog.text(job_id))
         |> pog.returning(job_output_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "output_fetch_failed")
         Ok(or) ->
@@ -556,7 +557,7 @@ fn apply_ideas_to_db(ctx: Context, lp_id: String, ideas_json: String) -> Result(
     )
     |> pog.parameter(pog.text(trimmed_lp))
     |> pog.parameter(pog.text(json_to_store))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("location_page_update_failed")
     Ok(_) -> Ok(ideas_stored)
@@ -570,7 +571,7 @@ pub fn worker_try_district_travel_ideas(ctx: Context) -> Result(Bool, String) {
       "select id::text from ai_jobs where profile_code = 'district_travel_ideas' and status = 'queued' order by created_at limit 1",
     )
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("district_queue_poll_failed")
     Ok(ret) ->
@@ -586,7 +587,7 @@ pub fn worker_try_district_travel_ideas(ctx: Context) -> Result(Bool, String) {
                 )
                 |> pog.parameter(pog.text(job_id))
                 |> pog.returning(job_output_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> Error("district_output_fetch_failed")
                 Ok(or) ->
@@ -692,7 +693,7 @@ pub fn next_empty(req: Request, ctx: Context) -> Response {
           ",
         )
         |> pog.returning(next_empty_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "next_empty_query_failed")
         Ok(ret) ->
@@ -752,7 +753,7 @@ fn update_district_center(ctx: Context, lp_id: String, lat_str: String, lng_str:
         |> pog.parameter(pog.text(string.trim(lp_id)))
         |> pog.parameter(pog.text(lat))
         |> pog.parameter(pog.text(lng))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       Nil
     }
   }
@@ -784,7 +785,7 @@ fn sync_location_page_map_if_empty(
         |> pog.parameter(pog.text(string.trim(lp_id)))
         |> pog.parameter(pog.text(lat))
         |> pog.parameter(pog.text(lng))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       Nil
     }
   }
@@ -815,7 +816,7 @@ fn sync_region_center_for_province_page(
         |> pog.parameter(pog.text(string.trim(lp_id)))
         |> pog.parameter(pog.text(lat))
         |> pog.parameter(pog.text(lng))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       Nil
     }
   }
@@ -900,7 +901,7 @@ pub fn next_no_cover(req: Request, ctx: Context) -> Response {
            limit  1",
         )
         |> pog.returning(no_cover_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "next_no_cover_query_failed")
         Ok(ret) ->
@@ -985,7 +986,7 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(clean_cover))
                 |> pog.parameter(feat_param)
                 |> pog.parameter(gallery_param)
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "cover_update_failed")
                 Ok(_) -> {
@@ -1008,7 +1009,7 @@ pub fn save_cover(req: Request, ctx: Context) -> Response {
                         )
                         |> pog.parameter(pog.text(clean_lp_id))
                         |> pog.parameter(pog.text(clean_cover))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       Nil
                     }
                   }
@@ -1051,7 +1052,7 @@ pub fn cover_stats(req: Request, ctx: Context) -> Response {
            from location_pages",
         )
         |> pog.returning(cover_stats_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "cover_stats_query_failed")
         Ok(ret) ->
@@ -1121,7 +1122,7 @@ pub fn not_found_covers(req: Request, ctx: Context) -> Response {
           use par  <- decode.field(4, decode.string)
           decode.success(#(id, slug, rt, loc, par))
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "not_found_covers_query_failed")
         Ok(ret) -> {
@@ -1162,7 +1163,7 @@ pub fn reset_not_found(req: Request, ctx: Context) -> Response {
           use id <- decode.field(0, decode.int)
           decode.success(id)
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "reset_not_found_failed")
         Ok(ret) ->
@@ -1196,7 +1197,7 @@ pub fn reset_stuck_jobs(req: Request, ctx: Context) -> Response {
            returning id::text",
         )
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "reset_stuck_failed")
         Ok(ret) ->

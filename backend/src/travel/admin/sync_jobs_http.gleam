@@ -14,6 +14,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -78,7 +79,7 @@ pub fn get_status(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(provider))
             |> pog.returning(row_dec)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "db_error")
             Ok(ret) ->
@@ -154,7 +155,7 @@ pub fn create_job(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(p))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "db_error")
                     Ok(r) ->
@@ -225,7 +226,7 @@ pub fn update_progress(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.int(total))
                 |> pog.parameter(pog.text(log_line))
                 |> pog.parameter(pog.text(error_text))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "db_error")
                 Ok(_) -> wisp.json_response("{\"ok\":true}", 200)

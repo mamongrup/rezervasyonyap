@@ -4,6 +4,7 @@ import gleam/io
 import gleam/json
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/net/http_client
 import travel/site/integration_config.{type IntegrationConfig}
 
@@ -131,6 +132,6 @@ pub fn queue_whatsapp_fallback(
     |> pog.parameter(pog.text(payload))
     |> pog.parameter(pog.text(phone))
     |> pog.parameter(pog.text(trigger_code))
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   log_notif("WhatsApp kuyruğa alındı → " <> phone)
 }

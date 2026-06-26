@@ -13,6 +13,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 import travel/social/listing_social_enqueue
@@ -69,7 +70,7 @@ fn fetch_social_api_json(db: pog.Connection) -> String {
     )
     |> pog.parameter(pog.text(social_api_key))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> "{}"
     Ok(ret) ->
@@ -137,7 +138,7 @@ fn run_caption_profile(ctx: Context, input_json: String) -> Result(String, Strin
     |> pog.parameter(pog.text(caption_profile))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("social_caption_job_insert_failed")
     Ok(ret) ->
@@ -150,7 +151,7 @@ fn run_caption_profile(ctx: Context, input_json: String) -> Result(String, Strin
             )
             |> pog.parameter(pog.text(job_id))
             |> pog.returning(ai_job_outcome_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("social_caption_output_failed")
             Ok(out_ret) ->
@@ -250,7 +251,7 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
           <> int.to_string(limit),
         )
         |> pog.returning(pending_job_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "pending_jobs_query_failed")
         Ok(ret) -> {
@@ -351,7 +352,7 @@ pub fn patch_worker_job(req: Request, ctx: Context, job_id: String) -> Response 
                         |> pog.parameter(p_err)
                         |> pog.parameter(p_cap)
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "job_update_failed")
                         Ok(ret) ->
@@ -453,7 +454,7 @@ fn fetch_listing_social_context(
         )
         |> pog.parameter(pog.text(eid))
         |> pog.returning(listing_context_row())
-        |> pog.execute(db)
+        |> db_exec.execute(db)
       {
         Error(_) -> Error(Nil)
         Ok(ret) ->

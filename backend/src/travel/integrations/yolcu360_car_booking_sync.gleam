@@ -4,6 +4,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/integrations/yolcu360
 import travel/integrations/yolcu360_config
 

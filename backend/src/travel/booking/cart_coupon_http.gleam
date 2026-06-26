@@ -16,6 +16,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -162,7 +163,7 @@ fn apply_inner(ctx: Context, cart_id: String, code: String) -> Response {
     pog.query(lookup_sql)
     |> pog.parameter(pog.text(code))
     |> pog.returning(lookup_decoder())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "coupon_lookup_failed")
     Ok(r) ->
@@ -251,7 +252,7 @@ fn persist_apply_inner(
     |> pog.parameter(pog.text(dt))
     |> pog.parameter(pog.text(float.to_string(dv)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "apply_failed")
     Ok(_) -> {
@@ -275,7 +276,7 @@ pub fn remove_coupon(req: Request, ctx: Context, cart_id: String) -> Response {
   case
     pog.query("delete from cart_coupons where cart_id = $1::uuid")
     |> pog.parameter(pog.text(cart_id))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "remove_failed")
     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -304,7 +305,7 @@ pub fn validate_public(req: Request, ctx: Context) -> Response {
         pog.query(lookup_sql)
         |> pog.parameter(pog.text(code))
         |> pog.returning(lookup_decoder())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "validate_failed")
         Ok(r) ->
@@ -377,7 +378,7 @@ pub fn get_totals(req: Request, ctx: Context, cart_id: String) -> Response {
           use dv <- decode.field(2, decode.string)
           decode.success(#(code, dt, dv))
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "totals_failed")
         Ok(r) ->

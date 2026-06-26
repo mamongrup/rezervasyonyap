@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -58,7 +59,7 @@ pub fn get_cdn(req: Request, ctx: Context) -> Response {
       "select provider_code::text, coalesce(pull_zone_url, ''), is_active from cdn_connections where is_active = true limit 1",
     )
     |> pog.returning(cdn_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "cdn_query_failed")
     Ok(ret) ->
@@ -94,7 +95,7 @@ pub fn deactivate_cdn(req: Request, ctx: Context) -> Response {
   use <- require_admin(req, ctx)
   case
     pog.query("update cdn_connections set is_active = false")
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "deactivate_failed")
     Ok(_) -> {
@@ -131,7 +132,7 @@ pub fn get_cdn_all(req: Request, ctx: Context) -> Response {
       "select provider_code::text, coalesce(pull_zone_url,''), is_active, coalesce(config_json::text,'{}') from cdn_connections order by provider_code",
     )
     |> pog.returning(cdn_full_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "cdn_query_failed")
     Ok(ret) -> {
@@ -177,7 +178,7 @@ pub fn update_cdn_config(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(case url == "" { True -> pog.null() False -> pog.text(url) })
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->
@@ -220,7 +221,7 @@ pub fn update_cdn_url(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(code))
                 |> pog.parameter(case url == "" { True -> pog.null() False -> pog.text(url) })
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->
@@ -256,7 +257,7 @@ pub fn set_cdn_active(req: Request, ctx: Context) -> Response {
             False -> json_err(400, "invalid_code")
             True ->
               case
-                pog.transaction(ctx.db, fn(conn) {
+                db_exec.transaction(ctx.db, fn(conn) {
                   case
                     pog.query(
                       "update cdn_connections set is_active = false",
@@ -373,7 +374,7 @@ pub fn register_file(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(hpar)
                 |> pog.parameter(bspar)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "insert_failed")
                 Ok(r) ->
@@ -478,7 +479,7 @@ pub fn get_image_profiles(req: Request, ctx: Context) -> Response {
       "select folder, width, height, fit, vivid, quality, effort, thumb_size, coalesce(description,''), display_order from image_upload_profiles order by display_order, folder",
     )
     |> pog.returning(image_profile_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(e) ->
       json_err(500, "image_profiles_query_failed: " <> pog_error_to_string(e))
@@ -560,7 +561,7 @@ pub fn update_image_profile(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.int(eff))
                 |> pog.parameter(pog.int(thumb))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(e) ->
                   json_err(500, "update_failed: " <> pog_error_to_string(e))
@@ -622,7 +623,7 @@ pub fn patch_file(req: Request, ctx: Context, file_id: String) -> Response {
                 |> pog.parameter(w_p)
                 |> pog.parameter(h_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->

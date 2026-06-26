@@ -6,6 +6,7 @@ import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/net/http_client
 
 fn settings_row() -> decode.Decoder(#(String, String)) {

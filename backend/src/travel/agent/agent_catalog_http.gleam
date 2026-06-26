@@ -13,6 +13,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 /// Yayında ilan + acente kategori grant kontrolü; kategori kodu döner.
@@ -158,7 +159,7 @@ pub fn get_listing(req: Request, ctx: Context, listing_id: String) -> Response {
               instant,
             ))
           })
-          |> pog.execute(ctx.db)
+          |> db_exec.execute(ctx.db)
         {
           Error(_) -> agent_auth.json_err(500, "listing_detail_failed")
           Ok(ret) ->

@@ -13,6 +13,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/ical/ical_sync
 import travel/identity/admin_gate
@@ -93,7 +94,7 @@ pub fn list_countries(req: Request, ctx: Context) -> Response {
   case
     pog.query("select id::text, iso2::text, name from countries order by name limit 500")
     |> pog.returning(country_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "countries_query_failed")
     Ok(ret) -> {
@@ -135,7 +136,7 @@ pub fn create_country(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(iso_u))
                 |> pog.parameter(pog.text(name))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "country_create_failed")
                 Ok(r) ->
@@ -219,7 +220,7 @@ pub fn list_regions(req: Request, ctx: Context) -> Response {
                 )
                 |> pog.parameter(pog.int(cid_raw))
                 |> pog.returning(region_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "regions_query_failed")
                 Ok(ret) -> {
@@ -291,7 +292,7 @@ pub fn create_region(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(lat_p)
                 |> pog.parameter(lng_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "region_create_failed")
                 Ok(r) ->
@@ -410,7 +411,7 @@ pub fn get_district_lookup(req: Request, ctx: Context) -> Response {
                 )
                 |> pog.parameter(pog.int(did))
                 |> pog.returning(district_lookup_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "district_lookup_failed")
                 Ok(ret) ->
@@ -456,7 +457,7 @@ pub fn list_districts(req: Request, ctx: Context) -> Response {
                 )
                 |> pog.parameter(pog.int(rid))
                 |> pog.returning(district_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "districts_query_failed")
                 Ok(ret) -> {
@@ -533,7 +534,7 @@ pub fn create_district(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(lat_p)
                 |> pog.parameter(lng_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "district_create_failed")
                 Ok(r) ->
@@ -685,14 +686,14 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
         "select count(*)::text from location_pages lp left join districts d on d.id = lp.district_id",
       )
         |> pog.returning(location_pages_count_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
       pog.query(
         base_sql <> " order by lp.slug_path limit $1::int offset $2::int",
       )
         |> pog.parameter(pog.int(limit_n))
         |> pog.parameter(pog.int(offset_n))
         |> pog.returning(page_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
     )
     False, True -> #(
       pog.query(
@@ -701,7 +702,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
       )
         |> pog.parameter(pog.text(search_pat))
         |> pog.returning(location_pages_count_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
       pog.query(
         base_sql
         <> " where "
@@ -712,7 +713,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.int(limit_n))
         |> pog.parameter(pog.int(offset_n))
         |> pog.returning(page_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
     )
     True, False -> #(
       pog.query(
@@ -720,7 +721,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
       )
         |> pog.parameter(pog.text(df))
         |> pog.returning(location_pages_count_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
       pog.query(
         base_sql
         <> " where lp.district_id = $1::int order by lp.slug_path limit $2::int offset $3::int",
@@ -729,7 +730,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.int(limit_n))
         |> pog.parameter(pog.int(offset_n))
         |> pog.returning(page_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
     )
     True, True -> #(
       pog.query(
@@ -739,7 +740,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(df))
         |> pog.parameter(pog.text(search_pat))
         |> pog.returning(location_pages_count_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
       pog.query(
         base_sql
         <> " where lp.district_id = $1::int and "
@@ -751,7 +752,7 @@ pub fn list_location_pages(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.int(limit_n))
         |> pog.parameter(pog.int(offset_n))
         |> pog.returning(page_row())
-        |> pog.execute(ctx.db),
+        |> db_exec.execute(ctx.db),
     )
   }
 
@@ -810,7 +811,7 @@ pub fn get_location_page_by_slug(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(sp))
         |> pog.returning(page_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "location_page_query_failed")
         Ok(ret) ->
@@ -885,7 +886,7 @@ pub fn list_destination_children_pages(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(parent))
         |> pog.returning(destination_child_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "destination_children_query_failed")
         Ok(ret) -> {
@@ -927,7 +928,7 @@ pub fn get_location_page_by_name(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(name))
         |> pog.returning(page_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "location_page_query_failed")
         Ok(ret) ->
@@ -952,7 +953,7 @@ pub fn get_location_page(req: Request, ctx: Context, page_id: String) -> Respons
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(page_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "location_page_query_failed")
     Ok(ret) ->
@@ -1043,7 +1044,7 @@ pub fn create_location_page(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(opt_text(lng_opt))
                 |> pog.parameter(opt_map_zoom(zoom_opt))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "location_page_create_failed")
                 Ok(r) ->
@@ -1216,7 +1217,7 @@ pub fn patch_location_page(req: Request, ctx: Context, page_id: String) -> Respo
             |> pog.parameter(opt_text(p.nearby_vitrin_columns_json))
             |> pog.parameter(opt_text(p.service_pois_json))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "location_page_update_failed")
             Ok(r) ->
@@ -1243,7 +1244,7 @@ pub fn delete_location_page(req: Request, ctx: Context, page_id: String) -> Resp
   case
     pog.query("delete from location_pages where id = $1::uuid")
     |> pog.parameter(pog.text(string.trim(page_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "location_page_delete_failed")
     Ok(ret) ->
@@ -1273,7 +1274,7 @@ pub fn get_poi_settings(req: Request, ctx: Context, page_id: String) -> Response
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(poi_settings_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "poi_settings_query_failed")
     Ok(ret) ->
@@ -1321,7 +1322,7 @@ pub fn put_poi_settings(req: Request, ctx: Context, page_id: String) -> Response
               "delete from location_poi_settings where location_page_id = $1::uuid",
             )
             |> pog.parameter(pog.text(pid))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           case
             pog.query(
               "insert into location_poi_settings (location_page_id, poi_types, max_per_type, radius_meters) values ($1::uuid, $2::text[], $3, $4) returning id::text",
@@ -1331,7 +1332,7 @@ pub fn put_poi_settings(req: Request, ctx: Context, page_id: String) -> Response
             |> pog.parameter(pog.int(mpt))
             |> pog.parameter(pog.int(rm))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "poi_settings_upsert_failed")
             Ok(r) ->
@@ -1403,7 +1404,7 @@ pub fn list_poi_cache(req: Request, ctx: Context, page_id: String) -> Response {
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
     |> pog.returning(poi_cache_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "poi_cache_query_failed")
     Ok(ret) -> {
@@ -1491,7 +1492,7 @@ pub fn add_poi_cache_row(req: Request, ctx: Context, page_id: String) -> Respons
                 |> pog.parameter(lat_p)
                 |> pog.parameter(lng_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "poi_cache_insert_failed")
                 Ok(r) ->
@@ -1518,7 +1519,7 @@ pub fn clear_poi_cache(req: Request, ctx: Context, page_id: String) -> Response 
       "delete from location_poi_cache where location_page_id = $1::uuid",
     )
     |> pog.parameter(pog.text(string.trim(page_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "poi_cache_clear_failed")
     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -1606,7 +1607,7 @@ pub fn list_ical_feeds(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(lf))
         |> pog.returning(ical_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "ical_feeds_query_failed")
         Ok(ret) -> {
@@ -1654,7 +1655,7 @@ pub fn create_ical_feed(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.int(dp))
                 |> pog.parameter(pog.int(dm))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "ical_feed_create_failed")
                 Ok(r) ->
@@ -1747,7 +1748,7 @@ pub fn patch_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response 
                 |> pog.parameter(p_lh)
                 |> pog.parameter(p_ia)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "ical_feed_update_failed")
                 Ok(r) ->
@@ -1775,7 +1776,7 @@ pub fn delete_ical_feed(req: Request, ctx: Context, feed_id: String) -> Response
   case
     pog.query("delete from ical_feeds where id = $1::uuid")
     |> pog.parameter(pog.text(string.trim(feed_id)))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "ical_feed_delete_failed")
     Ok(ret) ->
@@ -1907,7 +1908,7 @@ pub fn list_imported_blocks(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(param))
         |> pog.parameter(pog.int(limit))
         |> pog.returning(imported_block_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "imported_blocks_query_failed")
         Ok(ret) -> {

@@ -7,6 +7,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/net/invoice_notify
 import wisp.{type Response}
 

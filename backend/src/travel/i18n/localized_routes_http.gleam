@@ -10,6 +10,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -42,7 +43,7 @@ fn locale_id_by_code(ctx: Context, code: String) -> Result(String, Nil) {
     pog.query("select id::text from locales where lower(code) = lower($1) limit 1")
     |> pog.parameter(pog.text(string.trim(code)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -89,7 +90,7 @@ pub fn list_routes(req: Request, ctx: Context) -> Response {
           "select r.id::text, l.code::text, r.logical_key, r.path_segment from localized_routes r join locales l on l.id = r.locale_id order by l.code, r.logical_key limit 2000",
         )
         |> pog.returning(route_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "routes_query_failed")
         Ok(ret) -> routes_response(ret.rows)
@@ -101,7 +102,7 @@ pub fn list_routes(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(loc))
         |> pog.returning(route_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "routes_query_failed")
         Ok(ret) -> routes_response(ret.rows)
@@ -153,7 +154,7 @@ pub fn upsert_route(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(lk))
                         |> pog.parameter(pog.text(ps))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "upsert_failed")
                         Ok(r) ->
@@ -216,7 +217,7 @@ pub fn patch_route(req: Request, ctx: Context, route_id: String) -> Response {
                     |> pog.parameter(p_lk)
                     |> pog.parameter(p_ps)
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "update_failed")
                     Ok(r) ->
@@ -250,7 +251,7 @@ pub fn delete_route(req: Request, ctx: Context, route_id: String) -> Response {
       case
         pog.query("delete from localized_routes where id = $1::uuid")
         |> pog.parameter(pog.text(string.trim(route_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->

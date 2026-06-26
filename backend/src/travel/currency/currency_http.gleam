@@ -8,6 +8,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/currency/tcmb
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
@@ -48,7 +49,7 @@ pub fn list_currencies(req: Request, ctx: Context) -> Response {
       "select code::text, name, coalesce(symbol, ''), decimal_places, is_active, sort_order from currencies order by sort_order asc, code asc",
     )
     |> pog.returning(currency_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "currencies_query_failed")
     Ok(ret) -> {
@@ -80,7 +81,7 @@ pub fn list_latest_rates(req: Request, ctx: Context) -> Response {
   case
     pog.query(sql)
     |> pog.returning(rate_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "rates_query_failed")
     Ok(ret) -> {
@@ -160,7 +161,7 @@ pub fn create_currency(req: Request, ctx: Context) -> Response {
                             |> pog.parameter(pog.int(dp_safe))
                             |> pog.parameter(pog.bool(active))
                             |> pog.returning(currency_row())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "currency_save_failed")
                             Ok(ret) ->
@@ -226,7 +227,7 @@ pub fn patch_currency_active(req: Request, ctx: Context, code_raw: String) -> Re
                             |> pog.parameter(pog.bool(is_active))
                             |> pog.parameter(pog.text(code))
                             |> pog.returning(currency_row())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "patch_failed")
                             Ok(ret) ->
@@ -281,7 +282,7 @@ fn apply_currency_order_loop(
             )
             |> pog.parameter(pog.int(idx))
             |> pog.parameter(pog.text(code))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("order_update_failed")
             Ok(_) -> apply_currency_order_loop(ctx, rest, idx + 1)
@@ -352,7 +353,7 @@ pub fn refresh_tcmb_rates(req: Request, ctx: Context) -> Response {
               case
                 pog.query("select now()::text")
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "timestamp_failed")
                 Ok(ts_row) ->
@@ -397,7 +398,7 @@ pub fn do_insert_tcmb_rates(
   case
     pog.query("select code::text from currencies where is_active = true")
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("currencies_lookup_failed")
     Ok(codes_ret) -> {
@@ -417,7 +418,7 @@ pub fn do_insert_tcmb_rates(
             |> pog.parameter(pog.text(code))
             |> pog.parameter(pog.float(rate))
             |> pog.parameter(pog.text("tcmb"))
-            |> pog.execute(db)
+            |> db_exec.execute(db)
           {
             Ok(_) -> acc + 1
             Error(_) -> acc

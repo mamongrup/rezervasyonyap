@@ -18,6 +18,7 @@ import gleam/string
 import gleam/time/calendar
 import gleam/dynamic/decode
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/catalog/listing_translation_sql
 import travel/db/decode_helpers as row_dec
 import travel/db/pog_errors
@@ -386,7 +387,7 @@ pub fn list_product_categories(req: Request, ctx: Context) -> Response {
   case
     pog.query(sql)
     |> pog.returning(category_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "product_categories_query_failed")
     Ok(ret) -> {
@@ -476,7 +477,7 @@ pub fn list_manage_listings(req: Request, ctx: Context) -> Response {
         |> pog.parameter(like_param)
         |> pog.parameter(cat_param)
         |> pog.returning(manage_listings_count_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "manage_listings_query_failed")
         Ok(count_ret) -> {
@@ -497,7 +498,7 @@ pub fn list_manage_listings(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.int(per_page_n))
             |> pog.parameter(pog.int(offset_n))
             |> pog.returning(manage_listing_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "manage_listings_query_failed")
             Ok(ret) -> {
@@ -710,7 +711,7 @@ pub fn create_manage_listing(req: Request, ctx: Context) -> Response {
                         |> pog.parameter(pog.text(cur))
                         |> pog.parameter(contract_param)
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "listing_insert_failed")
                         Ok(ret) ->
@@ -730,7 +731,7 @@ pub fn create_manage_listing(req: Request, ctx: Context) -> Response {
                                 |> pog.parameter(pog.text(title))
                                 |> pog.parameter(pog.text(title_locale))
                                 |> pog.returning(translation_upsert_return_row())
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) -> json_err(500, "listing_translation_insert_failed")
                                 Ok(tret) ->
@@ -981,7 +982,7 @@ pub fn get_listing_translations(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(lt_locale_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "listing_translations_query_failed")
             Ok(ret) -> {
@@ -1162,7 +1163,7 @@ fn fetch_listing_category_contract(
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale))
     |> pog.returning(contract_public_row())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -1197,7 +1198,7 @@ pub fn get_public_hotel_valid_campaigns(req: Request, ctx: Context) -> Response 
     )
     |> pog.parameter(pog.text(empty))
     |> pog.returning(one_string_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> wisp.json_response(empty, 200)
     Ok(ret) ->
@@ -1218,7 +1219,7 @@ pub fn get_public_holiday_home_faq_template(req: Request, ctx: Context) -> Respo
       "select coalesce(value_json::text, '{\"items\":[]}') from site_settings where organization_id is null and key = 'catalog.holiday_home_default_faq' order by id desc limit 1",
     )
     |> pog.returning(one_string_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> wisp.json_response(empty_items, 200)
     Ok(ret) ->
@@ -1239,7 +1240,7 @@ pub fn get_public_yacht_charter_faq_template(req: Request, ctx: Context) -> Resp
       "select coalesce(value_json::text, '{\"items\":[]}') from site_settings where organization_id is null and key = 'catalog.yacht_charter_default_faq' order by id desc limit 1",
     )
     |> pog.returning(one_string_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> wisp.json_response(empty_items, 200)
     Ok(ret) ->
@@ -1259,7 +1260,7 @@ pub fn get_public_yacht_charter_property_types(req: Request, ctx: Context) -> Re
       "select coalesce(value_json::text, '[]') from site_settings where organization_id is null and key = 'catalog.yacht_charter_property_types' order by id desc limit 1",
     )
     |> pog.returning(one_string_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> wisp.json_response("[]", 200)
     Ok(ret) ->
@@ -1285,7 +1286,7 @@ pub fn get_public_holiday_home_property_types(req: Request, ctx: Context) -> Res
       "select coalesce(value_json::text, '[]') from site_settings where organization_id is null and key = 'catalog.holiday_home_property_types' order by id desc limit 1",
     )
     |> pog.returning(one_string_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> wisp.json_response("[]", 200)
     Ok(ret) ->
@@ -1336,7 +1337,7 @@ pub fn get_public_listing_contract(
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(loc_use))
     |> pog.returning(contract_public_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "listing_contract_query_failed")
     Ok(ret) ->
@@ -1397,7 +1398,7 @@ fn fetch_scoped_contract_for_org(
     |> pog.parameter(pog.text(locale))
     |> pog.parameter(pog.text(scope))
     |> pog.returning(contract_public_row())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) ->
@@ -1435,7 +1436,7 @@ pub fn get_public_checkout_contract_bundle(req: Request, ctx: Context) -> Respon
           use a <- decode.field(0, decode.string)
           decode.success(a)
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "checkout_contracts_query_failed")
         Ok(ret) ->
@@ -1530,7 +1531,7 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(org_id))
             |> pog.returning(manage_contract_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "category_contracts_list_failed")
             Ok(ret) -> respond_rows(ret.rows)
@@ -1544,7 +1545,7 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(org_id))
             |> pog.returning(manage_contract_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "category_contracts_list_failed")
             Ok(ret) -> respond_rows(ret.rows)
@@ -1563,7 +1564,7 @@ pub fn list_manage_category_contracts(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(cat_raw))
                 |> pog.parameter(pog.text(org_id))
                 |> pog.returning(manage_contract_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "category_contracts_list_failed")
                 Ok(ret) -> respond_rows(ret.rows)
@@ -1641,7 +1642,7 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                             True -> json_err(400, "category_code_not_for_general_sales")
                             False ->
                               case
-                                pog.transaction(ctx.db, fn(conn) {
+                                db_exec.transaction(ctx.db, fn(conn) {
                                   case
                                     pog.query(
                                       "insert into category_contracts (category_id, organization_id, code, version, is_active, sort_order, contract_scope) "
@@ -1709,7 +1710,7 @@ pub fn create_manage_category_contract(req: Request, ctx: Context) -> Response {
                             True -> json_err(400, "category_code_contract_fields_required")
                             False ->
                               case
-                                pog.transaction(ctx.db, fn(conn) {
+                                db_exec.transaction(ctx.db, fn(conn) {
                                   case
                                     pog.query(
                                       "insert into category_contracts (category_id, organization_id, code, version, is_active, sort_order, contract_scope) "
@@ -1827,7 +1828,7 @@ pub fn patch_manage_listing_contract(
                     |> pog.parameter(pog.text(org_id))
                     |> pog.parameter(cc_param)
                     |> pog.returning(one_string_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "listing_contract_patch_failed")
                     Ok(ret) ->
@@ -1877,7 +1878,7 @@ pub fn list_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) -
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(hotel_room_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_rooms_query_failed")
             Ok(ret) -> {
@@ -1983,7 +1984,7 @@ pub fn add_manage_hotel_room(req: Request, ctx: Context, listing_id: String) -> 
                         |> pog.parameter(pog.text(mj))
                         |> pog.parameter(pog.int(uc))
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_room_insert_failed")
                         Ok(r) ->
@@ -2024,7 +2025,7 @@ pub fn delete_manage_hotel_room(
             )
             |> pog.parameter(pog.text(string.trim(room_id)))
             |> pog.parameter(pog.text(listing_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_room_delete_failed")
             Ok(ret) ->
@@ -2232,7 +2233,7 @@ pub fn put_manage_hotel_rooms(req: Request, ctx: Context, listing_id: String) ->
               case json.parse(body, hr_manage_put_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(rows) ->
-                  case pog.transaction(ctx.db, fn(conn) {
+                  case db_exec.transaction(ctx.db, fn(conn) {
                     case hr_sync_insert(conn, listing_id, rows, 0, []) {
                       Ok(keep_ids) -> hr_delete_stale_rooms(conn, listing_id, keep_ids)
                       Error(msg) -> Error(msg)
@@ -2261,7 +2262,7 @@ fn hotel_room_in_listing(
     |> pog.parameter(pog.text(room_id))
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(one_string_row())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error(Nil)
     Ok(ret) -> Ok(ret.rows != [])
@@ -2319,7 +2320,7 @@ pub fn get_hotel_room_availability_calendar(
                         |> pog.parameter(pog.calendar_date(from_date))
                         |> pog.parameter(pog.calendar_date(to_date))
                         |> pog.returning(hr_avail_day_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_room_availability_query_failed")
                         Ok(ret) -> {
@@ -2439,7 +2440,7 @@ pub fn put_hotel_room_availability_calendar(
                   case json.parse(body, hr_avail_put_decoder()) {
                     Error(_) -> json_err(400, "invalid_json")
                     Ok(days) ->
-                      case pog.transaction(ctx.db, fn(conn) {
+                      case db_exec.transaction(ctx.db, fn(conn) {
                         upsert_hotel_room_avail_days(conn, room_id, days)
                       }) {
                         Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
@@ -2477,7 +2478,7 @@ pub fn get_manage_hotel_details(req: Request, ctx: Context, listing_id: String) 
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(hotel_detail_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_details_query_failed")
             Ok(ret) ->
@@ -2585,7 +2586,7 @@ pub fn patch_manage_hotel_details(req: Request, ctx: Context, listing_id: String
                         |> pog.parameter(et_p)
                         |> pog.parameter(tc_p)
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_details_upsert_failed")
                         Ok(r) ->
@@ -2677,7 +2678,7 @@ fn list_activity_sessions_response(
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(date_param)
     |> pog.returning(activity_session_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "activity_sessions_query_failed")
     Ok(ret) -> {
@@ -2853,7 +2854,7 @@ pub fn put_manage_activity_sessions(req: Request, ctx: Context, listing_id: Stri
               case json.parse(body, put_activity_sessions_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(sessions) ->
-                  case pog.transaction(ctx.db, fn(conn) {
+                  case db_exec.transaction(ctx.db, fn(conn) {
                     case
                       pog.query("delete from listing_activity_sessions where listing_id = $1::uuid")
                       |> pog.parameter(pog.text(listing_id))
@@ -2920,7 +2921,7 @@ pub fn quote_public_activity(req: Request, ctx: Context, listing_id: String) -> 
                     |> pog.parameter(pog.int(adults))
                     |> pog.parameter(pog.int(children))
                     |> pog.returning(activity_quote_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "activity_quote_failed")
                     Ok(ret) ->
@@ -3020,7 +3021,7 @@ pub fn get_listing_availability_calendar(req: Request, ctx: Context, listing_id:
                     |> pog.parameter(pog.calendar_date(from_date))
                     |> pog.parameter(pog.calendar_date(to_date))
                     |> pog.returning(avail_day_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(e) -> {
                       let _ =
@@ -3152,7 +3153,7 @@ pub fn put_listing_availability_calendar(req: Request, ctx: Context, listing_id:
               case json.parse(body, put_availability_body_decoder()) {
                 Error(_) -> json_err(400, "invalid_json")
                 Ok(days) ->
-                  case pog.transaction(ctx.db, fn(conn) {
+                  case db_exec.transaction(ctx.db, fn(conn) {
                     upsert_availability_days(conn, listing_id, days)
                   }) {
                     Ok(Nil) -> wisp.json_response("{\"ok\":true}", 200)
@@ -3190,7 +3191,7 @@ pub fn list_listing_price_rules(req: Request, ctx: Context, listing_id: String) 
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(price_rule_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "price_rules_query_failed")
             Ok(ret) -> {
@@ -3284,7 +3285,7 @@ pub fn create_listing_price_rule(req: Request, ctx: Context, listing_id: String)
                         |> pog.parameter(vf_p)
                         |> pog.parameter(vt_p)
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                             Error(_) -> json_err(500, "price_rule_insert_failed")
                             Ok(r) ->
@@ -3475,7 +3476,7 @@ fn validate_prepayment_commission_after_patch(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(basics_decimal_row())
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("basics_prepayment_commission_check_failed")
     Ok(ret) ->
@@ -3554,7 +3555,7 @@ pub fn get_listing_basics(
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
             |> pog.returning(listing_basics_manage_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(e) -> {
               let _ =
@@ -3816,7 +3817,7 @@ fn do_patch_listing_basics(
                     )))
                     |> pog.parameter(pog.text(basics_patch_bool_param(p.is_locked)))
                     |> pog.returning(one_string_row())
-                    |> pog.execute(db)
+                    |> db_exec.execute(db)
                   {
                     Error(e) -> {
                       let detail = string.lowercase(pog_errors.query_error_to_string(e))
@@ -3901,7 +3902,7 @@ pub fn patch_listing_basics(
                             )
                             |> pog.parameter(pog.text(listing_id))
                             |> pog.returning(pg_bool_row())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "listing_lock_check_failed")
                             Ok(lock_ret) ->
@@ -3955,7 +3956,7 @@ pub fn patch_listing_slug(
                         |> pog.parameter(pog.text(listing_id))
                         |> pog.parameter(pog.text(org_id))
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "slug_query_failed")
                         Ok(ret) ->
@@ -3978,7 +3979,7 @@ pub fn patch_listing_slug(
                                     |> pog.parameter(pog.text(slug))
                                     |> pog.parameter(pog.text(listing_id))
                                     |> pog.returning(pg_bool_row())
-                                    |> pog.execute(ctx.db)
+                                    |> db_exec.execute(ctx.db)
                                   {
                                     Error(_) ->
                                       json_err(500, "slug_conflict_check_failed")
@@ -3995,7 +3996,7 @@ pub fn patch_listing_slug(
                                             |> pog.parameter(pog.text(org_id))
                                             |> pog.parameter(pog.text(slug))
                                             |> pog.returning(one_string_row())
-                                            |> pog.execute(ctx.db)
+                                            |> db_exec.execute(ctx.db)
                                           {
                                             Error(_) ->
                                               json_err(500, "slug_update_failed")
@@ -4077,7 +4078,7 @@ pub fn get_listing_owner_contact(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(owner_contact_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "owner_contact_query_failed")
             Ok(ret) ->
@@ -4172,7 +4173,7 @@ pub fn put_listing_owner_contact(
                     |> pog.parameter(pp)
                     |> pog.parameter(ep)
                     |> pog.parameter(bp)
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "owner_contact_save_failed")
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -4220,7 +4221,7 @@ pub fn get_listing_meta(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(one_string_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "listing_meta_query_failed")
             Ok(ret) ->
@@ -4360,7 +4361,7 @@ pub fn put_listing_meta(
                     )
                     |> pog.parameter(pog.text(listing_id))
                     |> pog.parameter(pog.text(cleaned))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(e) -> {
                       let _ =
@@ -4394,7 +4395,7 @@ pub fn put_listing_meta(
                         |> pog.parameter(pog.float(lng_f))
                         |> pog.parameter(pog.text(addr_m))
                         |> pog.parameter(pog.text(addr_s))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(e2) -> {
                           let _ =
@@ -4436,7 +4437,7 @@ pub fn delete_listing_price_rule(
             )
             |> pog.parameter(pog.text(string.trim(rule_id)))
             |> pog.parameter(pog.text(listing_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "price_rule_delete_failed")
             Ok(ret) ->
@@ -4564,7 +4565,7 @@ pub fn list_listing_external_bookings(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(external_booking_db_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "external_bookings_query_failed")
             Ok(ret) -> {
@@ -4653,7 +4654,7 @@ pub fn create_listing_external_booking(
                                 |> pog.parameter(pog.text(fp))
                                 |> pog.parameter(pog.text(notes))
                                 |> pog.returning(one_string_row())
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) ->
                                   json_err(500, "external_booking_insert_failed")
@@ -4729,7 +4730,7 @@ pub fn patch_listing_external_booking(
                                 |> pog.parameter(money_param_opt(rem_o))
                                 |> pog.parameter(pog.text(fp))
                                 |> pog.parameter(pog.text(notes))
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) ->
                                   json_err(500, "external_booking_update_failed")
@@ -4773,7 +4774,7 @@ pub fn delete_listing_external_booking(
             )
             |> pog.parameter(pog.text(string.trim(booking_id)))
             |> pog.parameter(pog.text(listing_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "external_booking_delete_failed")
             Ok(ret) ->
@@ -4842,7 +4843,7 @@ pub fn list_attribute_groups(req: Request, ctx: Context) -> Response {
         True -> q
         False -> pog.parameter(q, pog.text(cat_trim))
       }
-      case pog.returning(q2, attr_group_row()) |> pog.execute(ctx.db) {
+      case pog.returning(q2, attr_group_row()) |> db_exec.execute(ctx.db) {
         Error(_) -> json_err(500, "attr_groups_query_failed")
         Ok(ret) -> {
           let rows =
@@ -4919,7 +4920,7 @@ pub fn create_attribute_group(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.array(pog.text, cat_arr))
                     |> pog.parameter(pog.int(sort))
                     |> pog.returning(one_string_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "attr_group_insert_failed")
                     Ok(ret) ->
@@ -4960,7 +4961,7 @@ pub fn delete_attribute_group(
         )
         |> pog.parameter(pog.text(string.trim(gid)))
         |> pog.parameter(pog.text(org_id))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "attr_group_delete_failed")
         Ok(ret) ->
@@ -5047,7 +5048,7 @@ pub fn list_attribute_defs(
             |> pog.parameter(pog.text(gid))
             |> pog.parameter(pog.text(loc_raw))
             |> pog.returning(attr_def_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "attr_defs_query_failed")
             Ok(ret) -> {
@@ -5149,7 +5150,7 @@ pub fn create_attribute_def(
                         |> pog.parameter(opts_p)
                         |> pog.parameter(pog.int(sort))
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "attr_def_insert_failed")
                         Ok(ret) ->
@@ -5192,7 +5193,7 @@ pub fn delete_attribute_def(
         )
         |> pog.parameter(pog.text(string.trim(did)))
         |> pog.parameter(pog.text(org_id))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "attr_def_delete_failed")
         Ok(ret) ->
@@ -5243,7 +5244,7 @@ pub fn patch_attribute_def(
                     )
                     |> pog.parameter(pog.text(string.trim(did)))
                     |> pog.parameter(icon_param)
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "attr_def_patch_failed")
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -5290,7 +5291,7 @@ pub fn get_listing_attribute_values(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(attr_value_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "attr_values_query_failed")
             Ok(ret) -> {
@@ -5328,7 +5329,7 @@ pub fn get_public_listing_attributes(
     )
     |> pog.parameter(pog.text(lid))
     |> pog.returning(attr_value_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "attr_values_query_failed")
     Ok(ret) -> {
@@ -5353,7 +5354,7 @@ pub fn get_public_listing_attributes(
         )
         |> pog.parameter(pog.text(lid))
         |> pog.returning(attr_icon_pair_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json.object([])
         Ok(icon_ret) -> {
@@ -5433,7 +5434,7 @@ pub fn list_manage_meal_plans(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(meal_plan_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "meal_plans_query_failed")
             Ok(ret) -> {
@@ -5461,7 +5462,7 @@ pub fn list_public_meal_plans(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(meal_plan_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "meal_plans_query_failed")
     Ok(ret) -> {
@@ -5491,7 +5492,7 @@ pub fn list_public_listing_price_rules(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(price_rule_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "public_price_rules_query_failed")
     Ok(ret) -> {
@@ -5560,7 +5561,7 @@ pub fn list_public_listing_price_lines(
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale))
     |> pog.returning(public_price_line_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "public_price_lines_query_failed")
     Ok(ret) -> {
@@ -5618,7 +5619,7 @@ pub fn list_public_tour_periods(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(public_tour_periods_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "public_tour_periods_query_failed")
     Ok(ret) ->
@@ -5718,7 +5719,7 @@ pub fn get_public_ferry_details(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(public_ferry_details_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "public_ferry_details_query_failed")
     Ok(ret) ->
@@ -5814,7 +5815,7 @@ pub fn list_public_listing_availability_calendar(
             |> pog.parameter(pog.calendar_date(from_date))
             |> pog.parameter(pog.calendar_date(to_date))
             |> pog.returning(avail_day_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(e) -> {
               let _ =
@@ -5891,7 +5892,7 @@ pub fn list_public_hotel_room_availability_calendar(
             |> pog.parameter(pog.calendar_date(from_date))
             |> pog.parameter(pog.calendar_date(to_date))
             |> pog.returning(hr_avail_day_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "public_hotel_room_availability_query_failed")
             Ok(ret) -> {
@@ -5966,7 +5967,7 @@ pub fn list_public_listing_bedrooms(
     )
     |> pog.parameter(pog.text(string.trim(listing_id)))
     |> pog.returning(bedroom_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "public_bedrooms_query_failed")
     Ok(ret) -> {
@@ -6044,7 +6045,7 @@ pub fn get_public_listing_vitrine(
     |> pog.parameter(pog.text(listing_id))
     |> pog.parameter(pog.text(locale))
     |> pog.returning(vitrine_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "vitrine_failed")
     Ok(ret) ->
@@ -6163,7 +6164,7 @@ pub fn create_manage_meal_plan(
                         |> pog.parameter(pog.text(string.trim(price_str)))
                         |> pog.parameter(pog.text(string.trim(currency)))
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "meal_plan_insert_failed")
                         Ok(r) ->
@@ -6237,7 +6238,7 @@ pub fn update_manage_meal_plan(
                     |> pog.parameter(pog.text(active))
                     |> pog.parameter(pog.text(sort_str))
                     |> pog.parameter(pog.text(notes))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(e) -> {
                       let _ =
@@ -6280,7 +6281,7 @@ pub fn delete_manage_meal_plan(
             )
             |> pog.parameter(pog.text(string.trim(plan_id)))
             |> pog.parameter(pog.text(listing_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "meal_plan_delete_failed")
             Ok(ret) ->
@@ -6339,7 +6340,7 @@ pub fn list_manage_hotel_promotions(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(hotel_promotion_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_promotions_query_failed")
             Ok(ret) -> {
@@ -6371,7 +6372,7 @@ pub fn list_public_hotel_promotions(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(hotel_promotion_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "hotel_promotions_query_failed")
     Ok(ret) -> {
@@ -6430,7 +6431,7 @@ pub fn create_manage_hotel_promotion(
                         |> pog.parameter(pog.text(string.trim(image)))
                         |> pog.parameter(pog.text(string.trim(link)))
                         |> pog.returning(one_string_row())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_promotion_insert_failed")
                         Ok(r) ->
@@ -6498,7 +6499,7 @@ pub fn update_manage_hotel_promotion(
                         |> pog.parameter(pog.text(string.trim(link)))
                         |> pog.parameter(pog.text(active))
                         |> pog.parameter(pog.text(sort_str))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_promotion_update_failed")
                         Ok(ret) ->
@@ -6535,7 +6536,7 @@ pub fn delete_manage_hotel_promotion(
             )
             |> pog.parameter(pog.text(string.trim(promotion_id)))
             |> pog.parameter(pog.text(listing_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_promotion_delete_failed")
             Ok(ret) ->
@@ -6612,7 +6613,7 @@ pub fn list_manage_hotel_activities(
             )
             |> pog.parameter(pog.text(listing_id))
             |> pog.returning(hotel_activity_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_activities_query_failed")
             Ok(ret) -> {
@@ -6644,7 +6645,7 @@ pub fn list_public_hotel_activities(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(hotel_activity_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "hotel_activities_query_failed")
     Ok(ret) -> {
@@ -6715,7 +6716,7 @@ pub fn create_manage_hotel_activity(
                         |> pog.parameter(pog.text(string.trim(price)))
                         |> pog.parameter(pog.text(string.trim(currency)))
                         |> pog.returning(decode.at([0], decode.string))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_activity_insert_failed")
                         Ok(ret) ->
@@ -6800,7 +6801,7 @@ pub fn update_manage_hotel_activity(
                         |> pog.parameter(pog.text(string.trim(currency)))
                         |> pog.parameter(pog.text(active))
                         |> pog.parameter(pog.text(sort_str))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "hotel_activity_update_failed")
                         Ok(ret) ->
@@ -6837,7 +6838,7 @@ pub fn delete_manage_hotel_activity(
             )
             |> pog.parameter(pog.text(string.trim(activity_id)))
             |> pog.parameter(pog.text(listing_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "hotel_activity_delete_failed")
             Ok(ret) ->
@@ -6883,7 +6884,7 @@ pub fn put_listing_attribute_values(
                     )
                     |> pog.parameter(pog.text(listing_id))
                     |> pog.parameter(pog.text(body))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "attr_values_save_failed")
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -7249,7 +7250,7 @@ pub fn list_price_line_items(req: Request, ctx: Context) -> Response {
             |> pog.parameter(pog.text(cat))
             |> pog.parameter(pog.text(loc_raw))
             |> pog.returning(price_line_item_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "price_line_items_query_failed")
             Ok(ret) -> {
@@ -7316,7 +7317,7 @@ pub fn create_price_line_item(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(cd_t))
                     |> pog.parameter(pog.int(sort))
                     |> pog.returning(one_string_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "price_line_item_insert_failed")
                     Ok(ret) ->
@@ -7367,7 +7368,7 @@ pub fn delete_price_line_item(
             )
             |> pog.parameter(pog.text(string.trim(iid)))
             |> pog.parameter(pog.text(org_id))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "price_line_delete_failed")
             Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -7446,7 +7447,7 @@ pub fn get_listing_price_line_selections(
             |> pog.parameter(pog.text(listing_id))
             |> pog.parameter(pog.text(org_id))
             |> pog.returning(one_string_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "price_line_sel_query_failed")
             Ok(ret) -> {
@@ -7498,7 +7499,7 @@ pub fn put_listing_price_line_selections(
                           "delete from listing_price_line_selections where listing_id = $1::uuid",
                         )
                         |> pog.parameter(pog.text(listing_id))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "price_line_sel_clear_failed")
                         Ok(_) ->
@@ -7518,7 +7519,7 @@ pub fn put_listing_price_line_selections(
                                 |> pog.parameter(pog.text(org_id))
                                 |> pog.parameter(pog.text(cat_code))
                                 |> pog.parameter(pog.text(ids_sql))
-                                |> pog.execute(ctx.db)
+                                |> db_exec.execute(ctx.db)
                               {
                                 Error(_) ->
                                   json_err(500, "price_line_sel_insert_failed")
@@ -7582,7 +7583,7 @@ pub fn get_manage_category_accommodation_rules(req: Request, ctx: Context) -> Re
             |> pog.parameter(pog.text(org_id))
             |> pog.parameter(pog.text(cat))
             |> pog.returning(acc_rules_one_text_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "accommodation_rules_manage_query_failed")
             Ok(ret) -> {
@@ -7632,7 +7633,7 @@ pub fn put_manage_category_accommodation_rules(req: Request, ctx: Context) -> Re
                 |> pog.parameter(pog.text(org_id))
                 |> pog.parameter(pog.text(cat))
                 |> pog.parameter(pog.text(body))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "accommodation_rules_save_failed")
                 Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
@@ -7671,7 +7672,7 @@ pub fn get_public_listing_accommodation_rules(
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(acc_rules_public_vitrine_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "accommodation_rules_public_query_failed")
     Ok(ret) ->
@@ -7727,7 +7728,7 @@ pub fn admin_dashboard_catalog_stats(req: Request, ctx: Context) -> Response {
           "select count(*)::text from listings where status = 'published'",
         )
         |> pog.returning(one_string_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "dashboard_stats_failed")
         Ok(ret) ->

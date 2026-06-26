@@ -16,6 +16,7 @@ import gleam/json
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/catalog/catalog_http
 import wisp.{type Request, type Response}
 
@@ -46,7 +47,7 @@ pub fn get_perks(req: Request, ctx: Context, listing_id: String) -> Response {
     )
     |> pog.parameter(pog.text(listing_id))
     |> pog.returning(perks_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "perks_failed")
     Ok(r) ->
@@ -122,7 +123,7 @@ fn apply_patch(
         pog.query("update listings set instant_book = $1, updated_at = now() where id = $2::uuid")
         |> pog.parameter(pog.bool(v))
         |> pog.parameter(pog.text(listing_id))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       True
     }
     None -> False
@@ -143,7 +144,7 @@ fn apply_patch(
         )
         |> pog.parameter(pog.text(float.to_string(clamped)))
         |> pog.parameter(pog.text(listing_id))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       True
     }
     None -> False

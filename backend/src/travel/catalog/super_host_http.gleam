@@ -23,6 +23,7 @@ import gleam/json
 import gleam/list
 import gleam/result
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
 
@@ -122,13 +123,13 @@ pub fn recompute_all(req: Request, ctx: Context) -> Response {
     Ok(_) -> {
       case
         pog.query(recompute_sql)
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "metrics_failed")
         Ok(_) ->
           case
             pog.query(promote_sql)
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "promote_failed")
             Ok(_) -> {
@@ -185,7 +186,7 @@ pub fn list_organizations(req: Request, ctx: Context) -> Response {
             calc_at,
           ))
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "list_failed")
         Ok(r) -> {
@@ -245,7 +246,7 @@ pub fn manual_toggle(req: Request, ctx: Context, org_id: String) -> Response {
                 )
                 |> pog.parameter(pog.bool(active))
                 |> pog.parameter(pog.text(org_id))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "toggle_failed")
                 Ok(_) -> wisp.json_response("{\"ok\":true}", 200)

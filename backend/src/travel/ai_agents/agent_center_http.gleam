@@ -10,6 +10,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/ai/ai_job_run
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
@@ -144,21 +145,21 @@ pub fn overview(req: Request, ctx: Context) -> Response {
       case
         pog.query(agents_sql)
         |> pog.returning(agent_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "agents_query_failed")
         Ok(ar) ->
           case
             pog.query(runs_sql)
             |> pog.returning(run_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "agent_runs_query_failed")
             Ok(rr) ->
               case
                 pog.query(counts_sql)
                 |> pog.returning(count_row())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "agent_recommendation_counts_failed")
                 Ok(cr) -> {
@@ -247,7 +248,7 @@ fn create_and_run_job(
     |> pog.parameter(pog.text(profile_code))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("agent_ai_job_insert_failed")
     Ok(ret) ->
@@ -258,7 +259,7 @@ fn create_and_run_job(
             pog.query("select coalesce(output_json->>'text','') from ai_jobs where id = $1::uuid and status = 'succeeded' limit 1")
             |> pog.parameter(pog.text(job_id))
             |> pog.returning(row_dec.col0_string())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> Error("agent_ai_job_output_failed")
             Ok(out) ->
@@ -389,7 +390,7 @@ fn insert_recommendation(
         |> pog.parameter(pog.text(payload))
         |> pog.parameter(pog.text(special_day_agent))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> Error("recommendation_insert_failed")
         Ok(ret) ->
@@ -404,7 +405,7 @@ fn insert_recommendation(
                 |> pog.parameter(pog.text(id))
                 |> pog.parameter(pog.text(target_key))
                 |> pog.parameter(pog.text(payload))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               Ok(id)
             }
             _ -> Error("recommendation_unexpected_rows")
@@ -423,11 +424,11 @@ fn finish_run(ctx: Context, run_id: String, status: String, summary: String, err
     |> pog.parameter(pog.text(status))
     |> pog.parameter(pog.text(summary))
     |> pog.parameter(pog.text(err))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   let _ =
     pog.query("update ai_agents set last_run_at = now(), updated_at = now() where code in ('supervisor', $1)")
     |> pog.parameter(pog.text(special_day_agent))
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   Nil
 }
 
@@ -435,7 +436,7 @@ fn supervisor_enabled(ctx: Context) -> Result(Bool, String) {
   case
     pog.query("select case when status = 'active' and mode <> 'disabled' then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1")
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("supervisor_status_query_failed")
     Ok(ret) ->
@@ -452,7 +453,7 @@ fn supervisor_due(ctx: Context) -> Result(Bool, String) {
   case
     pog.query("select case when status = 'active' and mode <> 'disabled' and (last_run_at is null or last_run_at < now() - interval '20 hours') then 'yes' else 'no' end from ai_agents where code = 'supervisor' limit 1")
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("supervisor_due_query_failed")
     Ok(ret) ->
@@ -471,7 +472,7 @@ fn create_supervisor_run(ctx: Context, trigger_type: String, input_json: String)
     |> pog.parameter(pog.text(trigger_type))
     |> pog.parameter(pog.text(input_json))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("agent_run_insert_failed")
     Ok(ret) ->
@@ -597,7 +598,7 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
   case
     pog.query(upcoming_sql)
     |> pog.returning(upcoming_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> {
       finish_run(ctx, run_id, "failed", "{\"error\":\"special_days_query_failed\"}", "special_days_query_failed")
@@ -605,7 +606,7 @@ fn run_supervisor_for_run(ctx: Context, run_id: String) -> Response {
     }
     Ok(ret) -> {
       let content_health =
-        case pog.query(content_health_sql) |> pog.returning(content_health_row()) |> pog.execute(ctx.db) {
+        case pog.query(content_health_sql) |> pog.returning(content_health_row()) |> db_exec.execute(ctx.db) {
           Ok(health_ret) ->
             case health_ret.rows {
               [#(region_pending, region_failed, place_pending, place_failed, districts_missing_ideas, locations_missing_cover)] ->
@@ -737,7 +738,7 @@ pub fn list_recommendations(req: Request, ctx: Context) -> Response {
           "select id::text, agent_code, kind, target_key, title, reason, payload_json::text, status, coalesce(ai_job_id::text,''), created_at::text, updated_at::text, coalesce(reviewer_user_id::text,''), coalesce(review_note,''), coalesce(reviewed_at::text,''), coalesce(applied_at::text,'') from ai_agent_recommendations order by created_at desc limit 100",
         )
         |> pog.returning(recommendation_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "agent_recommendations_query_failed")
         Ok(ret) -> {
@@ -792,7 +793,7 @@ fn apply_popup_recommendation(
     |> pog.parameter(pog.text(string.trim(reviewer_user_id)))
     |> pog.parameter(pog.text(note))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("agent_popup_apply_failed")
     Ok(ret) ->
@@ -828,7 +829,7 @@ fn patch_recommendation_status(
     |> pog.parameter(pog.text(note))
     |> pog.parameter(pog.text(string.trim(reviewer_user_id)))
     |> pog.returning(row_dec.col0_string())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> Error("agent_recommendation_patch_failed")
     Ok(ret) ->

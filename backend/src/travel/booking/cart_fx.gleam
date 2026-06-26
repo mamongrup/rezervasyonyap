@@ -5,6 +5,7 @@ import gleam/dynamic/decode
 import gleam/json
 import gleam/list
 import pog
+import travel/db/resilient_pog as db_exec
 
 fn rate_row() -> decode.Decoder(#(String, Float)) {
   use code <- decode.field(0, decode.string)

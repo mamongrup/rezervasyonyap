@@ -5,6 +5,7 @@ import gleam/json
 import gleam/list
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Response}
 
 fn json_err(status: Int, msg: String) -> Response {

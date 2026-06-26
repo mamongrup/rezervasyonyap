@@ -12,6 +12,7 @@ import gleam/result
 import gleam/string
 import gleam/uri
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -73,7 +74,7 @@ fn paratika_settings_from_db(
         use a <- decode.field(0, decode.string)
         decode.success(a)
       })
-      |> pog.execute(db)
+      |> db_exec.execute(db)
     {
       Ok(ret) ->
         case ret.rows {
@@ -320,7 +321,7 @@ pub fn payment_return(req: Request, ctx: Context) -> Response {
             Error(_) -> html_err("no_config")
             Ok(cfg) -> {
               case
-                pog.transaction(ctx.db, fn(conn) {
+                db_exec.transaction(ctx.db, fn(conn) {
                   paratika_notify.apply_paratika_notification(
                     conn,
                     pairs,
@@ -345,7 +346,7 @@ pub fn payment_return(req: Request, ctx: Context) -> Response {
                         )
                         |> pog.parameter(pog.text(string.trim(mp)))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) ->
                           html_redirect(public_origin() <> "/checkout?pay=error")

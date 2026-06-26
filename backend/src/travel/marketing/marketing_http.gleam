@@ -12,6 +12,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -120,7 +121,7 @@ pub fn list_coupons(req: Request, ctx: Context) -> Response {
           "select id::text, code, discount_type, discount_value::text, coalesce(max_uses::text,''), used_count::text, coalesce(valid_from::text,''), coalesce(valid_to::text,''), created_at::text, coalesce(name,''), coalesce(description,''), coalesce(name_translations::text,'{}'), coalesce(description_translations::text,'{}'), is_public from coupons order by created_at desc limit 500",
         )
         |> pog.returning(coupon_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "coupons_query_failed")
         Ok(ret) -> {
@@ -242,7 +243,7 @@ pub fn create_coupon(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(dtr))
                     |> pog.parameter(pog.bool(is_pub))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(409, "coupon_create_failed")
                     Ok(r) ->
@@ -392,7 +393,7 @@ pub fn patch_coupon(req: Request, ctx: Context, coupon_id: String) -> Response {
                 |> pog.parameter(p_dtr)
                 |> pog.parameter(p_pub)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "update_failed")
                 Ok(r) ->
@@ -481,7 +482,7 @@ pub fn patch_coupon_limits(
                 |> pog.parameter(p_moa)
                 |> pog.parameter(p_cats)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "limits_update_failed")
                 Ok(r) ->
@@ -525,7 +526,7 @@ pub fn get_coupon_limits(
           use cats <- decode.field(1, decode.string)
           decode.success(#(moa, cats))
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "limits_query_failed")
         Ok(r) ->
@@ -555,7 +556,7 @@ pub fn delete_coupon(req: Request, ctx: Context, coupon_id: String) -> Response 
       case
         pog.query("delete from coupons where id = $1::uuid")
         |> pog.parameter(pog.text(string.trim(coupon_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->
@@ -622,7 +623,7 @@ pub fn list_campaigns(req: Request, ctx: Context) -> Response {
           "select id::text, code, campaign_type, name, rules_json::text, coalesce(starts_at::text,''), coalesce(ends_at::text,''), is_active, coalesce(name_translations::text,'{}') from campaigns order by created_at desc limit 200",
         )
         |> pog.returning(campaign_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "campaigns_query_failed")
         Ok(ret) -> {
@@ -717,7 +718,7 @@ pub fn create_campaign(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.bool(active))
                 |> pog.parameter(pog.text(trans_str))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(409, "campaign_create_failed")
                 Ok(r) ->
@@ -846,7 +847,7 @@ pub fn patch_campaign(req: Request, ctx: Context, campaign_id: String) -> Respon
                     |> pog.parameter(p_ac)
                     |> pog.parameter(p_nt)
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "update_failed")
                     Ok(r) ->
@@ -877,7 +878,7 @@ pub fn delete_campaign(req: Request, ctx: Context, campaign_id: String) -> Respo
       case
         pog.query("delete from campaigns where id = $1::uuid")
         |> pog.parameter(pog.text(string.trim(campaign_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->
@@ -961,7 +962,7 @@ pub fn list_holiday_packages(req: Request, ctx: Context) -> Response {
           "select id::text, name, bundle_json::text, coalesce(organization_id::text,''), created_at::text, coalesce(name_translations::text,'{}') from holiday_packages order by created_at desc limit 200",
         )
         |> pog.returning(holiday_package_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "holiday_packages_query_failed")
         Ok(ret) -> {
@@ -998,7 +999,7 @@ pub fn create_holiday_package(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(cfg))
                     |> pog.parameter(pog.text(trans))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(409, "holiday_package_create_failed")
                     Ok(r) ->
@@ -1066,7 +1067,7 @@ pub fn patch_holiday_package(req: Request, ctx: Context, package_id: String) -> 
                     |> pog.parameter(p_b)
                     |> pog.parameter(p_nt)
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "update_failed")
                     Ok(r) ->
@@ -1097,7 +1098,7 @@ pub fn delete_holiday_package(req: Request, ctx: Context, package_id: String) ->
       case
         pog.query("delete from holiday_packages where id = $1::uuid")
         |> pog.parameter(pog.text(string.trim(package_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "delete_failed")
         Ok(ret) ->
@@ -1152,7 +1153,7 @@ pub fn list_cross_sell_rules(req: Request, ctx: Context) -> Response {
           "select id::text, trigger_category_code, offer_category_code, coalesce(message_key,''), coalesce(discount_percent::text,''), priority::text from cross_sell_rules order by priority desc, id limit 500",
         )
         |> pog.returning(cross_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "cross_sell_query_failed")
         Ok(ret) -> {
@@ -1221,7 +1222,7 @@ pub fn create_cross_sell_rule(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(dp_p)
                 |> pog.parameter(pog.int(pr))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "cross_sell_create_failed")
                 Ok(r) ->
@@ -1294,7 +1295,7 @@ pub fn list_public_active_campaigns(req: Request, ctx: Context) -> Response {
       |> pog.parameter(pog.text(type_opt))
       |> pog.parameter(pog.int(limit))
   }
-  case q |> pog.returning(campaign_row()) |> pog.execute(ctx.db) {
+  case q |> pog.returning(campaign_row()) |> db_exec.execute(ctx.db) {
     Error(_) -> json_err(500, "campaigns_query_failed")
     Ok(ret) -> {
       let arr = list.map(ret.rows, campaign_json)
@@ -1321,7 +1322,7 @@ pub fn list_public_active_coupons(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(pog.int(limit))
     |> pog.returning(coupon_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "coupons_query_failed")
     Ok(ret) -> {
@@ -1348,7 +1349,7 @@ pub fn list_public_holiday_packages(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(pog.int(limit))
     |> pog.returning(holiday_package_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "holiday_packages_query_failed")
     Ok(ret) -> {
@@ -1382,7 +1383,7 @@ pub fn list_public_cross_sell_suggestions(req: Request, ctx: Context) -> Respons
         )
         |> pog.parameter(pog.text(tr))
         |> pog.returning(cross_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "cross_sell_query_failed")
         Ok(ret) -> {

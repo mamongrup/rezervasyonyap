@@ -1,6 +1,7 @@
 //// Ödeme sonrası tedarikçi API rezervasyonları — kategori/sağlayıcıya göre dağıtım.
 
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/integrations/turna_flight_booking_sync
 import travel/integrations/yolcu360_car_booking_sync
 

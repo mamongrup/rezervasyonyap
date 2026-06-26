@@ -11,6 +11,7 @@ import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -52,7 +53,7 @@ fn user_id_for_token(ctx: Context, token: String) -> Option(String) {
         )
         |> pog.parameter(pog.text(token))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Ok(ret) ->
           case ret.rows {
@@ -127,7 +128,7 @@ pub fn list_favorites(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(favorite_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "favorites_query_failed")
         Ok(ret) -> {
@@ -166,7 +167,7 @@ pub fn add_favorite(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(uid))
                     |> pog.parameter(pog.text(lid))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   wisp.json_response("{\"ok\":true}", 200)
                 }
               }
@@ -187,7 +188,7 @@ pub fn remove_favorite(req: Request, ctx: Context, listing_id: String) -> Respon
         )
         |> pog.parameter(pog.text(uid))
         |> pog.parameter(pog.text(string.trim(listing_id)))
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "favorite_delete_failed")
         Ok(ret) ->
@@ -231,7 +232,7 @@ pub fn list_recently_viewed(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(recent_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "recently_viewed_query_failed")
         Ok(ret) -> {
@@ -253,7 +254,7 @@ pub fn list_recently_viewed(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(sk))
             |> pog.returning(recent_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "recently_viewed_query_failed")
             Ok(ret) -> {
@@ -298,7 +299,7 @@ pub fn add_recently_viewed(req: Request, ctx: Context) -> Response {
                     )
                     |> pog.parameter(pog.text(uid))
                     |> pog.parameter(pog.text(lid))
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "recently_viewed_insert_failed")
                     Ok(_) -> wisp.json_response("{\"ok\":true}", 201)
@@ -317,7 +318,7 @@ pub fn add_recently_viewed(req: Request, ctx: Context) -> Response {
                         )
                         |> pog.parameter(pog.text(sk))
                         |> pog.parameter(pog.text(lid))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "recently_viewed_insert_failed")
                         Ok(_) -> wisp.json_response("{\"ok\":true}", 201)
@@ -360,7 +361,7 @@ fn get_set_owner(ctx: Context, set_id: String) -> Result(#(String, String), Nil)
       use s <- decode.field(1, decode.string)
       decode.success(#(u, s))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Ok(ret) ->
       case ret.rows {
@@ -385,7 +386,7 @@ pub fn list_comparison_sets(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(set_summary_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "comparison_sets_query_failed")
         Ok(ret) -> {
@@ -406,7 +407,7 @@ pub fn list_comparison_sets(req: Request, ctx: Context) -> Response {
             )
             |> pog.parameter(pog.text(sk))
             |> pog.returning(set_summary_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "comparison_sets_query_failed")
             Ok(ret) -> {
@@ -452,7 +453,7 @@ pub fn create_comparison_set(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(uid))
                 |> pog.parameter(pog.text(cfg))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "comparison_set_create_failed")
                 Ok(r) ->
@@ -479,7 +480,7 @@ pub fn create_comparison_set(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(sk))
                     |> pog.parameter(pog.text(cfg))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "comparison_set_create_failed")
                     Ok(r) ->
@@ -514,7 +515,7 @@ pub fn delete_comparison_set(req: Request, ctx: Context, set_id: String) -> Resp
           case
             pog.query("delete from comparison_sets where id = $1::uuid")
             |> pog.parameter(pog.text(string.trim(set_id)))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "comparison_set_delete_failed")
             Ok(ret) ->
@@ -552,7 +553,7 @@ pub fn list_comparison_items(req: Request, ctx: Context, set_id: String) -> Resp
             )
             |> pog.parameter(pog.text(string.trim(set_id)))
             |> pog.returning(cmp_item_detail_row())
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "comparison_items_query_failed")
             Ok(ret) -> {
@@ -602,7 +603,7 @@ pub fn add_comparison_item(req: Request, ctx: Context, set_id: String) -> Respon
                         )
                         |> pog.parameter(pog.text(string.trim(set_id)))
                         |> pog.parameter(pog.text(lid))
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       wisp.json_response("{\"ok\":true}", 200)
                     }
                   }
@@ -635,7 +636,7 @@ pub fn remove_comparison_item(
             )
             |> pog.parameter(pog.text(string.trim(set_id)))
             |> pog.parameter(pog.text(string.trim(listing_id)))
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "comparison_item_delete_failed")
             Ok(ret) ->
@@ -687,7 +688,7 @@ pub fn log_voice_search(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(uid_param)
                 |> pog.parameter(pog.text(tr))
                 |> pog.parameter(pog.text(cfg))
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "voice_log_insert_failed")
                 Ok(_) -> wisp.json_response("{\"ok\":true}", 201)

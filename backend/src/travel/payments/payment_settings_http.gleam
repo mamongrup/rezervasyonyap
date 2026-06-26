@@ -9,6 +9,7 @@ import gleam/json
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/permissions
 import wisp.{type Request, type Response}
@@ -62,7 +63,7 @@ fn checkout_methods_from_db(db: pog.Connection) -> #(
         use a <- decode.field(0, decode.string)
         decode.success(a)
       })
-      |> pog.execute(db)
+      |> db_exec.execute(db)
     {
       Ok(ret) ->
         case ret.rows {
@@ -173,7 +174,7 @@ pub fn get_active_provider(req: Request, ctx: Context) -> Response {
       use d <- decode.field(1, decode.string)
       decode.success(#(c, d))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "query_failed")
     Ok(ret) ->
@@ -222,7 +223,7 @@ pub fn set_active_provider(req: Request, ctx: Context) -> Response {
                     False -> json_err(400, "invalid_code")
                     True ->
                       case
-                        pog.transaction(ctx.db, fn(conn) {
+                        db_exec.transaction(ctx.db, fn(conn) {
                           case
                             pog.query(
                               "update payment_providers set is_active = false",

@@ -14,6 +14,7 @@ import gleam/result
 import gleam/string
 import gleam/time/calendar
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 const stay_categories = ["hotel", "holiday_home", "yacht_charter"]
@@ -129,7 +130,7 @@ pub fn stay_quote(req: Request, ctx: Context, listing_id: String) -> Response {
                                     |> pog.parameter(pog.calendar_date(end_date))
                                     |> pog.parameter(pog.text(string.trim(meal_plan)))
                                     |> pog.returning(quote_row())
-                                    |> pog.execute(ctx.db)
+                                    |> db_exec.execute(ctx.db)
                                   {
                                     Error(_) ->
                                       agent_auth.json_err(500, "stay_quote_failed")

@@ -12,6 +12,7 @@ import gleam/result
 import gleam/int
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import travel/identity/admin_gate
 import wisp.{type Request, type Response}
@@ -54,7 +55,7 @@ fn user_id_for_token(ctx: Context, token: String) -> Option(String) {
         )
         |> pog.parameter(pog.text(token))
         |> pog.returning(row_dec.col0_string())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Ok(ret) ->
           case ret.rows {
@@ -157,7 +158,7 @@ pub fn public_by_category(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(slug))
         |> pog.parameter(pog.int(limit_int))
         |> pog.returning(public_review_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "reviews_query_failed")
         Ok(ret) -> {
@@ -239,7 +240,7 @@ pub fn list_reviews_admin(req: Request, ctx: Context) -> Response {
       let run = fn(q) {
         q
         |> pog.returning(review_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       }
       case st {
         "all" ->
@@ -312,7 +313,7 @@ pub fn patch_review_moderation(req: Request, ctx: Context, review_id: String) ->
                     |> pog.parameter(pog.text(st_l))
                     |> pog.parameter(pog.text(string.trim(review_id)))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "review_moderation_failed")
                     Ok(res) ->
@@ -363,7 +364,7 @@ pub fn list_reviews(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(et))
         |> pog.parameter(pog.text(eid))
         |> pog.returning(review_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "reviews_query_failed")
         Ok(ret) -> {
@@ -436,7 +437,7 @@ pub fn create_review(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.bool(hvp))
                 |> pog.parameter(pog.array(pog.text, pks))
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "review_create_failed")
                 Ok(res) ->
@@ -467,7 +468,7 @@ pub fn list_my_reviews(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(uid))
         |> pog.returning(review_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "reviews_query_failed")
         Ok(ret) -> {
@@ -556,7 +557,7 @@ pub fn patch_review(req: Request, ctx: Context, review_id: String) -> Response {
                         |> pog.parameter(p_pk)
                         |> pog.parameter(pog.text(uid))
                         |> pog.returning(row_dec.col0_string())
-                        |> pog.execute(ctx.db)
+                        |> db_exec.execute(ctx.db)
                       {
                         Error(_) -> json_err(500, "review_update_failed")
                         Ok(res) ->
@@ -636,7 +637,7 @@ pub fn list_external_snapshots(req: Request, ctx: Context) -> Response {
         |> pog.parameter(pog.text(et))
         |> pog.parameter(pog.text(eid))
         |> pog.returning(ext_snap_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "external_snapshots_query_failed")
         Ok(ret) -> {
@@ -695,7 +696,7 @@ pub fn create_external_snapshot(req: Request, ctx: Context) -> Response {
                 |> pog.parameter(pog.text(sj))
                 |> pog.parameter(ai_p)
                 |> pog.returning(row_dec.col0_string())
-                |> pog.execute(ctx.db)
+                |> db_exec.execute(ctx.db)
               {
                 Error(_) -> json_err(500, "external_snapshot_create_failed")
                 Ok(res) ->

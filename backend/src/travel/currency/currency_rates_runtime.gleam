@@ -4,6 +4,7 @@ import gleam/erlang/process
 import gleam/int
 import gleam/io
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/currency/currency_http
 import travel/currency/tcmb
 import travel/net/http_client

@@ -12,6 +12,7 @@ import envoy
 import gleam/dynamic/decode
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/messaging/notification_channels
 import travel/site/integration_config.{type IntegrationConfig}
 
@@ -136,7 +137,7 @@ fn fetch_notif_data(
         flight_system_ref: fsys,
       ))
     })
-    |> pog.execute(db)
+    |> db_exec.execute(db)
   {
     Error(_) -> Error("fetch_failed")
     Ok(ret) ->

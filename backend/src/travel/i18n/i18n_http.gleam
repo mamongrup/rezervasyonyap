@@ -12,6 +12,7 @@ import gleam/list
 import gleam/result
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import travel/db/decode_helpers as row_dec
 import wisp.{type Request, type Response}
 
@@ -73,7 +74,7 @@ pub fn list_locales(req: Request, ctx: Context) -> Response {
       "select id, code, name, is_rtl, is_active from locales order by id",
     )
     |> pog.returning(locale_row())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "locales_query_failed")
     Ok(ret) -> {
@@ -123,7 +124,7 @@ pub fn create_locale(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.bool(is_rtl))
                     |> pog.parameter(pog.bool(is_active))
                     |> pog.returning(locale_row())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "locale_save_failed")
                     Ok(ret) ->
@@ -180,7 +181,7 @@ pub fn get_bundle(req: Request, ctx: Context) -> Response {
         )
         |> pog.parameter(pog.text(locale))
         |> pog.returning(translation_row())
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "bundle_query_failed")
         Ok(ret) -> {
@@ -243,7 +244,7 @@ pub fn upsert_translation(req: Request, ctx: Context) -> Response {
                     |> pog.parameter(pog.text(namespace))
                     |> pog.parameter(pog.text(key_trim))
                     |> pog.returning(row_dec.col0_string())
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "translation_entry_failed")
                     Ok(er) ->
@@ -256,7 +257,7 @@ pub fn upsert_translation(req: Request, ctx: Context) -> Response {
                             )
                             |> pog.parameter(pog.text(locale))
                             |> pog.returning(row_dec.col0_string())
-                            |> pog.execute(ctx.db)
+                            |> db_exec.execute(ctx.db)
                           {
                             Error(_) -> json_err(500, "locale_query_failed")
                             Ok(lr) ->
@@ -271,7 +272,7 @@ pub fn upsert_translation(req: Request, ctx: Context) -> Response {
                                     |> pog.parameter(pog.text(locale_id))
                                     |> pog.parameter(pog.text(value))
                                     |> pog.returning(row_dec.col0_string())
-                                    |> pog.execute(ctx.db)
+                                    |> db_exec.execute(ctx.db)
                                   {
                                     Error(_) -> json_err(500, "translation_value_failed")
                                     Ok(_) -> {
@@ -338,7 +339,7 @@ pub fn create_namespace(req: Request, ctx: Context) -> Response {
                       use c <- decode.field(1, decode.string)
                       decode.success(#(id, c))
                     })
-                    |> pog.execute(ctx.db)
+                    |> db_exec.execute(ctx.db)
                   {
                     Error(_) -> json_err(500, "namespace_insert_failed")
                     Ok(ret) ->
@@ -374,7 +375,7 @@ pub fn list_namespaces(req: Request, ctx: Context) -> Response {
   case
     pog.query("select id, code from translation_namespaces order by id")
     |> pog.returning(row)
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "namespaces_query_failed")
     Ok(ret) -> {

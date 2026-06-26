@@ -14,6 +14,7 @@ import gleam/list
 import gleam/option.{None, Some}
 import gleam/string
 import pog
+import travel/db/resilient_pog as db_exec
 import wisp.{type Request, type Response}
 
 fn json_err(status: Int, msg: String) -> Response {
@@ -223,7 +224,7 @@ pub fn list_my_applications(req: Request, ctx: Context) -> Response {
     )
     |> pog.parameter(pog.text(user_id))
     |> pog.returning(app_row_decoder())
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   case rows {
     Error(_) -> json_err(500, "db_error")
     Ok(r) ->
@@ -318,7 +319,7 @@ pub fn upsert_application(req: Request, ctx: Context) -> Response {
               use a <- decode.field(0, decode.string)
               decode.success(a)
             })
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Error(_) -> json_err(500, "db_error")
             Ok(r) ->
@@ -364,7 +365,7 @@ pub fn upsert_document(req: Request, ctx: Context, app_id: String) -> Response {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
     |> result.map_error(fn(_) { json_err(500, "db_error") })
     |> result.try(fn(r) {
       case list.first(r.rows) {
@@ -408,7 +409,7 @@ pub fn upsert_document(req: Request, ctx: Context, app_id: String) -> Response {
           use a <- decode.field(0, decode.string)
           decode.success(a)
         })
-        |> pog.execute(ctx.db)
+        |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "db_error")
         Ok(_) ->
@@ -445,7 +446,7 @@ pub fn submit_application(req: Request, ctx: Context, app_id: String) -> Respons
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "db_error")
     Ok(r) ->
@@ -520,7 +521,7 @@ pub fn admin_list_applications(req: Request, ctx: Context) -> Response {
     ))
   }
 
-  case pog.query(query) |> pog.returning(decoder) |> pog.execute(ctx.db) {
+  case pog.query(query) |> pog.returning(decoder) |> db_exec.execute(ctx.db) {
     Error(_) -> json_err(500, "db_error")
     Ok(r) ->
       json.object([
@@ -594,7 +595,7 @@ pub fn admin_approve(req: Request, ctx: Context, app_id: String) -> Response {
       use cat <- decode.field(1, decode.string)
       decode.success(#(uid, cat))
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "db_error")
     Ok(r) ->
@@ -615,7 +616,7 @@ pub fn admin_approve(req: Request, ctx: Context, app_id: String) -> Response {
               use a <- decode.field(0, decode.string)
               decode.success(a)
             })
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           case
             pog.query(
               "select coalesce(u.email,''), coalesce(u.phone,''), coalesce(u.display_name,''), coalesce(a.business_name,'') "
@@ -631,7 +632,7 @@ pub fn admin_approve(req: Request, ctx: Context, app_id: String) -> Response {
               use bn <- decode.field(3, decode.string)
               decode.success(#(em, ph, dn, bn))
             })
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Ok(rw) ->
               case rw.rows {
@@ -704,7 +705,7 @@ pub fn admin_reject(req: Request, ctx: Context, app_id: String) -> Response {
       use a <- decode.field(0, decode.string)
       decode.success(a)
     })
-    |> pog.execute(ctx.db)
+    |> db_exec.execute(ctx.db)
   {
     Error(_) -> json_err(500, "db_error")
     Ok(r) ->
@@ -733,7 +734,7 @@ pub fn admin_reject(req: Request, ctx: Context, app_id: String) -> Response {
               use catc <- decode.field(5, decode.string)
               decode.success(#(uu, em, ph, dn, bn, catc))
             })
-            |> pog.execute(ctx.db)
+            |> db_exec.execute(ctx.db)
           {
             Ok(rw) ->
               case rw.rows {
