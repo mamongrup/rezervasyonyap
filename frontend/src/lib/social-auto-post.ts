@@ -9,6 +9,7 @@ import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 
 const FB_GRAPH = 'https://graph.facebook.com/v18.0'
 const PINTEREST_API = 'https://api.pinterest.com/v5/pins'
+const INSTALLMENT_TEXT = 'Kredi kartına 12 Taksit'
 
 const LISTING_SEGMENT: Record<string, string> = {
   hotel: 'otel',
@@ -123,6 +124,12 @@ function ensureListingLink(caption: string, pageUrl: string): string {
   return `${c}\n\n🔗 ${u}`.trim()
 }
 
+function ensureInstallmentText(caption: string): string {
+  const c = caption.trim()
+  if (c.toLocaleLowerCase('tr-TR').includes('12 taksit')) return c
+  return `${c}\n\n💳 ${INSTALLMENT_TEXT}`.trim()
+}
+
 function listingSocialOgKind(categoryCode: string): 'stay' | 'experience' {
   return categoryCode === 'activity' || categoryCode === 'tour' || categoryCode === 'cruise'
     ? 'experience'
@@ -174,17 +181,13 @@ export function absoluteMediaUrl(siteUrl: string, storageKey: string): string {
   return preferListingGalleryFullAsset(`${base}${path}`)
 }
 
-async function probeShareJpegUrl(url: string, timeoutMs = 10_000): Promise<boolean> {
-  const ctrl = new AbortController()
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+async function probeShareJpegUrl(url: string): Promise<boolean> {
   try {
-    const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal })
+    const res = await fetch(url, { cache: 'no-store' })
     const ct = (res.headers.get('content-type') ?? '').toLowerCase()
     return res.ok && ct.includes('image/jpeg')
   } catch {
     return false
-  } finally {
-    clearTimeout(timer)
   }
 }
 
@@ -615,7 +618,7 @@ export async function processOneSocialJob(
   const captionBase = job.allow_ai_caption
     ? plan?.caption || cachedCaption || plan?.description || job.listing_title
     : plan?.caption || cachedCaption || plan?.description || job.listing_title
-  const caption = ensureListingLink(captionWithHashtags(captionBase, job), pageUrl)
+  const caption = ensureListingLink(ensureInstallmentText(captionWithHashtags(captionBase, job)), pageUrl)
   const title = plan?.title || job.listing_title
   const description = plan?.description || captionBase
   const jobKeys = job.image_keys.filter((k) => k.trim() !== '').slice(0, 10)

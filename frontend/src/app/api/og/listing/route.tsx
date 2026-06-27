@@ -53,6 +53,39 @@ async function pngFileDataUrl(file: string): Promise<string | null> {
   }
 }
 
+async function socialFrameDataUrl(): Promise<string | null> {
+  try {
+    const input = await sharp(SOCIAL_FRAME_FILE)
+      .resize(SOCIAL_W, SOCIAL_H)
+      .ensureAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const data = input.data
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i] ?? 0
+      const g = data[i + 1] ?? 0
+      const b = data[i + 2] ?? 0
+      if (r < 12 && g < 12 && b < 12) {
+        data[i + 3] = 0
+      }
+    }
+
+    const png = await sharp(data, {
+      raw: {
+        width: input.info.width,
+        height: input.info.height,
+        channels: 4,
+      },
+    })
+      .png()
+      .toBuffer()
+    return `data:image/png;base64,${png.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
 async function pngFileNativeDataUrl(file: string): Promise<string | null> {
   try {
     const input = await sharp(file).png().toBuffer()
@@ -81,7 +114,7 @@ async function buildMaskedSocialPhotoDataUrl(
       input = Buffer.from(b64, 'base64')
     } else {
       const fetchUrl = rewriteLoopbackUploadUrl(bgUrl, pageBase)
-      const res = await fetchWithTimeout(fetchUrl, 3500)
+      const res = await fetch(fetchUrl, { cache: 'no-store' })
       if (!res.ok) return null
       input = Buffer.from(await res.arrayBuffer())
     }
@@ -150,6 +183,10 @@ function titleFontSize(title: string): number {
   if (len <= 26) return 38
   if (len <= 34) return 34
   return 30
+}
+
+function rowValue(rows: { label: string; value: string }[], pattern: RegExp): string {
+  return rows.find((row) => pattern.test(row.label))?.value.trim() ?? ''
 }
 
 function socialThemeLabels(codes: string[] | string | null | undefined, locale: string): string[] {
@@ -344,12 +381,13 @@ async function socialListingImage({
   }
 
   const templateUrl = await pngFileDataUrl(SOCIAL_TEMPLATE_FILE)
-  const frameUrl = await pngFileDataUrl(SOCIAL_FRAME_FILE)
+  const frameUrl = await socialFrameDataUrl()
   const maskedPhotoUrl = bgUrl ? await buildMaskedSocialPhotoDataUrl(bgUrl, pageBase) : null
   const displayTitle = truncate(titleWithoutBadge(title, badge), 52)
-  const [guestsIcon, bedroomsIcon, bathroomsIcon, locationIcon, linkIcon, phoneIcon] =
+  const installmentText = 'Kredi kartına 12 Taksit'
+  const [guestsIcon, bedroomsIcon, bathroomsIcon, locationIcon] =
     await Promise.all(
-      ['guests.png', 'bedrooms.png', 'bathrooms.png', 'location.png', 'link.png', 'phone.png'].map(
+      ['guests.png', 'bedrooms.png', 'bathrooms.png', 'location.png'].map(
         (file) => pngFileNativeDataUrl(path.join(SOCIAL_ICON_DIR, file)),
       ),
     )
@@ -368,6 +406,7 @@ async function socialListingImage({
     .slice(0, 4)
   const locationRow = detailRows.find((row) => rowPriority(row.label) === 0)
   const featureRows = detailRows.filter((row) => row !== locationRow).slice(0, 3)
+  const priceValue = rowValue(rows, /fiyat|price/i)
   const featureIcon = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
     if (/kişi|guest|kapasite|capacity/.test(l)) return guestsIcon
@@ -476,6 +515,25 @@ async function socialListingImage({
           >
             {badge}
           </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: scaleSocialTemplate(310),
+              marginTop: 12,
+              padding: '12px 18px',
+              borderRadius: 999,
+              background: 'linear-gradient(90deg, #ef1010 0%, #f97316 100%)',
+              color: '#ffffff',
+              fontSize: 24,
+              fontWeight: 900,
+              letterSpacing: 0.2,
+              boxShadow: '0 12px 26px rgba(239,16,16,0.18)',
+            }}
+          >
+            {installmentText}
+          </div>
           {locationRow ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
               {locationIcon ? <img src={locationIcon} alt="" width={36} height={36} /> : null}
@@ -545,62 +603,21 @@ async function socialListingImage({
               </span>
             </div>
           ))}
-        </div>
-
-        <div
-          style={{
-            position: 'absolute',
-            left: scaleSocialTemplate(52),
-            bottom: scaleSocialTemplate(18),
-            width: scaleSocialTemplate(430),
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}
-        >
-          {[
-            { text: 'Mamon Plus Travel Agency', icon: null },
-            {
-              text: 'www.rezervasyonyap.com.tr - info@rezervasyonyap.com.tr',
-              icon: linkIcon,
-            },
-            { text: '0850 466 0 464 - 0532 397 7957', icon: phoneIcon },
-            { text: 'TURSAB NO : 13127', icon: null },
-          ].map((line, index) => (
+          {priceValue ? (
             <div
-              key={line.text}
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 8,
+                width: scaleSocialTemplate(300),
+                borderTop: '2px solid rgba(19,41,75,0.12)',
+                paddingTop: 12,
+                color: '#ef1010',
+                fontSize: 27,
+                fontWeight: 900,
               }}
             >
-              {line.icon ? (
-                <span
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 11,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    background: '#ef1010',
-                  }}
-                >
-                  <img src={line.icon} alt="" width={13} height={13} />
-                </span>
-              ) : null}
-              <span
-                style={{
-                  color: '#13294b',
-                  fontSize: index === 0 ? 21 : index === 1 ? 13 : 15,
-                  fontWeight: index === 0 || index === 3 ? 800 : 500,
-                }}
-              >
-                {line.text}
-              </span>
+              {priceValue}
             </div>
-          ))}
+          ) : null}
         </div>
       </div>
     ),

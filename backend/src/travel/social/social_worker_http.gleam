@@ -440,10 +440,11 @@ fn fetch_listing_social_context(
           <> "inner join locales loc on loc.id = lt.locale_id "
           <> "where lt.listing_id = l.id and lower(loc.code) = 'tr' limit 1), ''), "
           <> "coalesce(nullif(trim(both ', ' from concat_ws(', ', "
-          <> "nullif(trim(lm.meta->>'region_display'), ''), "
-          <> "nullif(trim(lm.meta->>'district_label'), ''), "
-          <> "nullif(trim(lm.meta->>'city'), ''), "
-          <> "nullif(trim(l.location_name), '')"
+          <> "nullif(case when lower(trim(coalesce(lm.meta->>'district_label', ''))) in ("
+          <> "lower(trim(coalesce(lm.meta->>'city', ''))), "
+          <> "lower(trim(coalesce(lm.meta->>'region_display', '')))"
+          <> ") then '' else trim(coalesce(lm.meta->>'district_label', '')) end, ''), "
+          <> "nullif(trim(coalesce(nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(l.location_name), ''), '')), '')"
           <> ")), ''), ''), "
           <> "coalesce(pc.code::text, ''), "
           <> "coalesce(l.featured_image_url::text, '') "
@@ -580,7 +581,7 @@ pub fn post_worker_caption(req: Request, ctx: Context) -> Response {
                           #(
                             "instruction",
                             json.string(
-                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan. Açıklamanın altına 5-8 ilgili Türkçe hashtag ekle (#RezervasyonYap, kategori, bölge/tema gibi). Seçili paylaşım şablonunu uygula; {{title}}, {{description}}, {{region}}, {{price}}, {{rooms}}, {{bathrooms}}, {{bedrooms}}, {{guests}}, {{area}}, {{pool}}, {{url}} gibi yer tutucuları ilan başlığı/açıklaması/bölge/url bilgisinden doğal metne çevir. Oda, banyo, yatak odası, kişi, m2, havuz veya fiyat bilgisi açıkça yoksa uydurma; cümleyi bozmadan o alanı atla. Şablon: "
+                              "JSON çıktı: title, description, caption, selected_image_indexes (10 görsel). Caption içinde ilan bölgesini doğal biçimde kullan; aynı bölge adını tekrar etme (Fethiye, Fethiye yazma), varsa Kayaköy, Fethiye gibi semt + ilçe formatını koru. Description ve caption içinde Kredi kartına 12 Taksit ifadesini geçir. Açıklamanın altına 5-8 ilgili Türkçe hashtag ekle (#RezervasyonYap, kategori, bölge/tema gibi). Seçili paylaşım şablonunu uygula; {{title}}, {{description}}, {{region}}, {{price}}, {{rooms}}, {{bathrooms}}, {{bedrooms}}, {{guests}}, {{area}}, {{pool}}, {{url}} gibi yer tutucuları ilan başlığı/açıklaması/bölge/url bilgisinden doğal metne çevir. Oda, banyo, yatak odası, kişi, m2, havuz veya fiyat bilgisi açıkça yoksa uydurma; cümleyi bozmadan o alanı atla. Şablon: "
                               <> string.slice(string.trim(template_body), 0, 1800),
                             ),
                           ),

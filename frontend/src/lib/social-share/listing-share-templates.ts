@@ -43,13 +43,29 @@ function labels(locale: string) {
   return locale.toLowerCase().startsWith('en') ? L.en : L.tr
 }
 
+function normalizeLocationPart(raw?: string): string {
+  return (raw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\s*,\s*/g, ', ')
+}
+
+function locationKey(raw: string): string {
+  return normalizeLocationPart(raw)
+    .toLocaleLowerCase('tr-TR')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
 function regionFromListing(city?: string, address?: string): string | undefined {
-  const c = city?.trim()
-  if (c) return c
-  const a = address?.trim()
-  if (!a) return undefined
-  const part = a.split(',')[0]?.trim()
-  return part || undefined
+  const c = normalizeLocationPart(city)
+  const a = normalizeLocationPart(address)
+  const parts = a
+    ? a.split(',').map(normalizeLocationPart).filter(Boolean)
+    : []
+  const area = parts.find((part) => !c || locationKey(part) !== locationKey(c))
+  if (area && c) return `${area}, ${c}`
+  return area || c || undefined
 }
 
 export function inferCatalogVerticalForStayListing(listing: {
