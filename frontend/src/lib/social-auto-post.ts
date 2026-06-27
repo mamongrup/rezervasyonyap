@@ -355,9 +355,9 @@ async function postFacebook(
   if (!pageId || !token) throw new Error('facebook_not_configured')
   await validateFacebookPageToken(pageId, token)
 
-  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
+  const imageUrl = imageUrls.find((u) => u.startsWith('https://')) ?? ''
 
-  if (httpsUrls.length === 0) {
+  if (!imageUrl) {
     const body = new URLSearchParams({
       message: `${message}\n\n${pageUrl}`.trim(),
       access_token: token,
@@ -376,58 +376,20 @@ async function postFacebook(
     return fbData.id ?? ''
   }
 
-  if (httpsUrls.length === 1) {
-    const body = new URLSearchParams({
-      url: httpsUrls[0],
-      caption: `${message}\n\n${pageUrl}`.trim(),
-      access_token: token,
-    })
-    const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
-      method: 'POST',
-      body,
-    })
-    const photoData = (await photoRes.json()) as { id?: string; post_id?: string; error?: { message: string } }
-    if (!photoRes.ok || photoData.error) {
-      throw new Error(photoData.error?.message ?? `fb_photo_${photoRes.status}`)
-    }
-    return photoData.post_id ?? photoData.id ?? ''
-  }
-
-  const mediaIds: string[] = []
-  for (const url of httpsUrls) {
-    const body = new URLSearchParams({
-      url,
-      published: 'false',
-      access_token: token,
-    })
-    const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
-      method: 'POST',
-      body,
-    })
-    const photoData = (await photoRes.json()) as { id?: string; error?: { message: string } }
-    if (!photoRes.ok || photoData.error || !photoData.id) {
-      throw new Error(photoData.error?.message ?? `fb_photo_${photoRes.status}`)
-    }
-    mediaIds.push(photoData.id)
-  }
-
   const body = new URLSearchParams({
-    message: `${message}\n\n${pageUrl}`.trim(),
-    attached_media: JSON.stringify(mediaIds.map((id) => ({ media_fbid: id }))),
+    url: imageUrl,
+    caption: `${message}\n\n${pageUrl}`.trim(),
     access_token: token,
   })
-  const feedRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
+  const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
     method: 'POST',
     body,
   })
-  const feedData = (await feedRes.json()) as {
-    id?: string
-    error?: { message: string }
+  const photoData = (await photoRes.json()) as { id?: string; post_id?: string; error?: { message: string } }
+  if (!photoRes.ok || photoData.error) {
+    throw new Error(photoData.error?.message ?? `fb_photo_${photoRes.status}`)
   }
-  if (!feedRes.ok || feedData.error) {
-    throw new Error(feedData.error?.message ?? `fb_feed_${feedRes.status}`)
-  }
-  return feedData.id ?? ''
+  return photoData.post_id ?? photoData.id ?? ''
 }
 
 async function postInstagramSingle(
@@ -440,7 +402,6 @@ async function postInstagramSingle(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      media_type: 'IMAGE',
       image_url: imageUrl,
       caption,
       access_token: token,
@@ -483,7 +444,7 @@ async function postInstagram(
   const token = meta.page_access_token?.trim()
   if (!igId || !token) throw new Error('instagram_not_configured')
 
-  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://'))
+  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 1)
   if (httpsUrls.length === 0) throw new Error('instagram_requires_https_image')
 
   if (httpsUrls.length === 1) {
@@ -496,7 +457,6 @@ async function postInstagram(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        media_type: 'IMAGE',
         image_url: url,
         is_carousel_item: true,
         access_token: token,

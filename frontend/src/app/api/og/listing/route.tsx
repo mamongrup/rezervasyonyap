@@ -561,6 +561,33 @@ async function socialListingImage({
             </div>
           ))}
         </div>
+
+        <div
+          style={{
+            position: 'absolute',
+            left: scaleSocialTemplate(30),
+            bottom: scaleSocialTemplate(24),
+            width: scaleSocialTemplate(455),
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 7,
+            color: '#13294b',
+            lineHeight: 1.08,
+          }}
+        >
+          <div style={{ display: 'flex', fontSize: 28, fontWeight: 800 }}>
+            Mamon Plus Travel Agency
+          </div>
+          <div style={{ display: 'flex', fontSize: 24, fontWeight: 600 }}>
+            www.rezervasyonyap.com.tr
+          </div>
+          <div style={{ display: 'flex', fontSize: 23, fontWeight: 600 }}>
+            0532 397 7957 - 0850 466 0464
+          </div>
+          <div style={{ display: 'flex', fontSize: 21, fontWeight: 700 }}>
+            TURSAB NO : 13127
+          </div>
+        </div>
       </div>
     ),
     {
