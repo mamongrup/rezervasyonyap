@@ -5,15 +5,15 @@
  * Sunucu tarafında çalışır — page_access_token client'a açılmaz.
  *
  * Body: { listing_id: string, caption?: string }
- * Returns: { ok, post_id, post_url, job_id }
+ * Returns: { ok, post_id, job_id, results }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 import { verifyAdminToken } from '@/lib/security'
+import { processOneSocialJob, type PendingSocialJob, type SocialApiSettings } from '@/lib/social-auto-post'
 
 const INTERNAL = process.env.INTERNAL_API_ORIGIN ?? process.env.NEXT_PUBLIC_API_URL ?? ''
-const FB_GRAPH = 'https://graph.facebook.com/v18.0'
 
 // ─── Yardımcı: Backend'den JSON al ───────────────────────────────────────────
 
@@ -45,22 +45,15 @@ async function backendPost<T>(path: string, token: string, body: unknown): Promi
   return res.json() as Promise<T>
 }
 
-async function validateFacebookPageToken(pageId: string, token: string): Promise<void> {
-  const res = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`, {
+async function backendPublicGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${INTERNAL}${path}`, {
     cache: 'no-store',
   })
-  const data = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } }
-  if (!res.ok || data.error) {
-    throw new Error(data.error?.message ?? 'facebook_page_token_invalid')
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({})) as { error?: string }
+    throw new Error(e.error ?? `backend_${res.status}: ${path}`)
   }
-  if (data.id && data.id !== pageId) {
-    throw new Error('facebook_page_token_mismatch')
-  }
-}
-
-function looksLikeFacebookPageToken(token: string): boolean {
-  const t = token.trim()
-  return t.startsWith('EA') || t.includes('|')
+  return res.json() as Promise<T>
 }
 
 // ─── İlan detay URL'si ────────────────────────────────────────────────────────
@@ -86,6 +79,18 @@ function listingUrl(categoryCode: string, handle: string): string {
 // ─── Ana handler ──────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  const workerSecret = process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? ''
+  if (!INTERNAL.trim()) {
+    return NextResponse.json({ error: 'api_origin_missing' }, { status: 503 })
+  }
+  if (!workerSecret.trim()) {
+    return NextResponse.json({ error: 'worker_secret_not_configured' }, { status: 503 })
+  }
+  const siteUrl = getPublicSiteUrl()
+  if (!siteUrl.trim()) {
+    return NextResponse.json({ error: 'site_url_missing' }, { status: 503 })
+  }
+
   // 1. Auth
   const authHeader = req.headers.get('authorization') ?? ''
   const token = authHeader.replace(/^Bearer\s+/i, '').trim()
@@ -143,95 +148,99 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. social_api ayarlarını al
-  interface SocialApi {
-    meta?: {
-      page_id?: string
-      page_access_token?: string
-      auto_post?: boolean
-    }
-  }
-  let socialApi: SocialApi = {}
+  let socialApi: SocialApiSettings = {}
   try {
     const sRes = await backendGet<{ settings: { key: string; value_json: string }[] }>(
       '/api/v1/site/settings?scope=platform&key=social_api',
       token,
     )
     const row = sRes.settings.find((s) => s.key === 'social_api')
-    if (row) socialApi = JSON.parse(row.value_json) as SocialApi
+    if (row) socialApi = JSON.parse(row.value_json) as SocialApiSettings
   } catch {
     // Ayar yoksa devam et — aşağıda kontrol
   }
 
   const meta = socialApi.meta ?? {}
-  if (!meta.page_id || !meta.page_access_token) {
+  if (!meta.page_id || !meta.page_access_token || !meta.instagram_account_id) {
     return NextResponse.json(
-      { error: 'facebook_not_configured', hint: 'Admin → Sosyal Medya → API Ayarları → Meta bölümüne Page ID ve Page Access Token girin.' },
+      { error: 'meta_not_configured', hint: 'Admin → Sosyal Medya → API Ayarları → Meta bölümüne Page ID, Instagram Account ID ve Page Access Token girin.' },
       { status: 422 },
     )
   }
-  if (!looksLikeFacebookPageToken(meta.page_access_token)) {
-    return NextResponse.json(
-      { error: 'facebook_token_invalid', hint: 'Page Access Token değil gibi görünüyor. Kullanıcı tokenı değil, sayfa tokenı girin.' },
-      { status: 422 },
-    )
-  }
-  await validateFacebookPageToken(meta.page_id, meta.page_access_token)
 
-  // 6. Paylaşım metnini hazırla
+  // 6. Galeri görsellerini ve paylaşım metnini hazırla
+  let imageKeys: string[] = []
+  try {
+    const imgs = await backendPublicGet<{ images: Array<{ storage_key?: string }> }>(
+      `/api/v1/catalog/public/listings/${encodeURIComponent(listing_id)}/images`,
+    )
+    imageKeys = (imgs.images ?? [])
+      .map((img) => img.storage_key?.trim() ?? '')
+      .filter(Boolean)
+      .slice(0, 10)
+  } catch {
+    imageKeys = []
+  }
+
+  if (imageKeys.length === 0) {
+    return NextResponse.json(
+      { error: 'image_keys_required', hint: 'Bu ilanın yayınlanmış galeri görseli bulunamadı. Önce ilana en az 1 görsel ekleyin.' },
+      { status: 422 },
+    )
+  }
+
   const pageUrl = listingUrl(basics.category_code, basics.handle)
-  const message = caption?.trim()
+  const customCaption = caption?.trim() ?? ''
+  const message = customCaption
     || `${basics.title}\n\n🔗 ${pageUrl}`
 
-  // 7. Facebook Graph API — /feed endpoint
-  const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(meta.page_id)}/feed`, {
-    method: 'POST',
-    body: new URLSearchParams({
-      message,
-      link: pageUrl,
-      access_token: meta.page_access_token,
-    }),
-  })
-
-  const fbData = await fbRes.json() as { id?: string; error?: { message: string; type: string; code: number } }
-
-  if (!fbRes.ok || fbData.error) {
-    const errMsg = fbData.error?.message ?? `fb_${fbRes.status}`
-
-    // Kuyruğa başarısız kayıt
-    try {
-      await backendPost('/api/v1/social/jobs', token, {
-        entity_type: 'listing',
-        entity_id: listing_id,
-        image_keys: [],
-        caption_ai_generated: message,
-        status: 'failed',
-      })
-    } catch { /* log hatası önemsiz */ }
-
-    return NextResponse.json({ ok: false, error: errMsg }, { status: 502 })
-  }
-
-  // 8. Kuyruk kaydı oluştur (posted)
-  let jobId: string | undefined
-  try {
-    const job = await backendPost<{ id: string }>('/api/v1/social/jobs', token, {
+  // 7. Aynı worker hattıyla Facebook + Instagram paylaş.
+  const networks = ['facebook', 'instagram'] as const
+  const results = []
+  for (const network of networks) {
+    const created = await backendPost<{ id: string }>('/api/v1/social/jobs', token, {
       entity_type: 'listing',
       entity_id: listing_id,
-      image_keys: [],
-      caption_ai_generated: message,
+      network,
+      image_keys: imageKeys,
+      caption_ai_generated: customCaption || undefined,
     })
-    jobId = job.id
-  } catch { /* log hatası önemsiz */ }
 
-  const postId = fbData.id ?? ''
-  const postUrl = postId ? `https://www.facebook.com/${postId.replace('_', '/posts/')}` : undefined
+    const job: PendingSocialJob = {
+      id: created.id,
+      network,
+      entity_id: listing_id,
+      entity_type: 'listing',
+      image_keys: imageKeys,
+      caption_ai_generated: customCaption || null,
+      allow_ai_caption: !customCaption,
+      listing_title: basics.title,
+      listing_slug: basics.handle,
+      category_code: basics.category_code,
+      template_body: null,
+    }
+    results.push(await processOneSocialJob(INTERNAL, workerSecret, job, socialApi, siteUrl))
+  }
+
+  const failed = results.filter((r) => !r.ok)
+  if (failed.length > 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: failed.map((r) => `${r.network}: ${r.error}`).join(' | '),
+        results,
+        hint: 'Meta token, Instagram Account ID veya görsel erişimi hatalı olabilir. Hata ağ bazında yukarıdadır.',
+      },
+      { status: 502 },
+    )
+  }
 
   return NextResponse.json({
     ok: true,
-    post_id: postId,
-    post_url: postUrl,
+    post_id: results.map((r) => `${r.network}:${r.post_id ?? ''}`).join(', '),
     listing_url: pageUrl,
-    job_id: jobId,
+    job_id: results.map((r) => r.job_id).join(', '),
+    results,
     message_preview: message.slice(0, 80),
   })
 }

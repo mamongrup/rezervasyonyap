@@ -444,6 +444,7 @@ fn fetch_listing_social_context(
           <> "lower(trim(coalesce(lm.meta->>'city', ''))), "
           <> "lower(trim(coalesce(lm.meta->>'region_display', '')))"
           <> ") then '' else trim(coalesce(lm.meta->>'district_label', '')) end, ''), "
+          <> "(select lp.title from location_pages lp where lp.region_type = 'destination' and lp.map_lat is not null and lp.map_lng is not null and l.map_lat is not null and l.map_lng is not null and abs(lp.map_lat - l.map_lat) <= 0.35 and abs(lp.map_lng - l.map_lng) <= 0.35 order by ((lp.map_lat - l.map_lat) * (lp.map_lat - l.map_lat) + (lp.map_lng - l.map_lng) * (lp.map_lng - l.map_lng)) asc limit 1), "
           <> "nullif(trim(coalesce(nullif(trim(lm.meta->>'city'), ''), nullif(trim(lm.meta->>'region_display'), ''), nullif(trim(l.location_name), ''), '')), '')"
           <> ")), ''), ''), "
           <> "coalesce(pc.code::text, ''), "

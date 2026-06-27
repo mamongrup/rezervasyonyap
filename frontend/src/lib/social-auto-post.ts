@@ -617,7 +617,7 @@ export async function processOneSocialJob(
   const cachedCaption = (job.caption_ai_generated ?? '').trim()
   const captionBase = job.allow_ai_caption
     ? plan?.caption || cachedCaption || plan?.description || job.listing_title
-    : plan?.caption || cachedCaption || plan?.description || job.listing_title
+    : cachedCaption || plan?.caption || plan?.description || job.listing_title
   const caption = ensureListingLink(ensureInstallmentText(captionWithHashtags(captionBase, job)), pageUrl)
   const title = plan?.title || job.listing_title
   const description = plan?.description || captionBase

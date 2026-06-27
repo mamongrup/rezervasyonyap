@@ -60,6 +60,7 @@ function locationKey(raw: string): string {
 function regionFromListing(city?: string, address?: string): string | undefined {
   const c = normalizeLocationPart(city)
   const a = normalizeLocationPart(address)
+  if (c && a && locationKey(c) === locationKey(a)) return c
   const parts = a
     ? a.split(',').map(normalizeLocationPart).filter(Boolean)
     : []

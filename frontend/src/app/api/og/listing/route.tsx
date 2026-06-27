@@ -185,10 +185,6 @@ function titleFontSize(title: string): number {
   return 30
 }
 
-function rowValue(rows: { label: string; value: string }[], pattern: RegExp): string {
-  return rows.find((row) => pattern.test(row.label))?.value.trim() ?? ''
-}
-
 function socialThemeLabels(codes: string[] | string | null | undefined, locale: string): string[] {
   const labelMap = new Map(HOLIDAY_THEME_FILTER_FALLBACK.map((item) => [item.code, item.label]))
   return parseHolidayThemeCodes(codes)
@@ -238,30 +234,6 @@ function toAbsoluteAssetUrl(pageBase: string, path: string): string | null {
     : pageBase
   const abs = toAbsoluteSiteUrl(base, p) ?? null
   return abs ? rewriteLoopbackUploadUrl(abs, pageBase) : null
-}
-
-function titleWithoutBadge(title: string, badge: string): string {
-  const t = title.trim()
-  const b = badge.trim()
-  if (!t || !b) return t
-  const re = new RegExp(`\\s+${b.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')
-  return t.replace(re, '').trim() || t
-}
-
-function badgeFromCategoryCode(categoryCode: string, locale: string): string {
-  switch (categoryCode.trim().toLowerCase()) {
-    case 'holiday_home':
-      return locale.startsWith('en') ? 'Holiday home' : 'Villa'
-    case 'yacht_charter':
-      return locale.startsWith('en') ? 'Yacht' : 'Yat'
-    case 'tour':
-      return locale.startsWith('en') ? 'Tour' : 'Tur'
-    case 'activity':
-      return locale.startsWith('en') ? 'Activity' : 'Aktivite'
-    case 'hotel':
-    default:
-      return locale.startsWith('en') ? 'Hotel' : 'Otel'
-  }
 }
 
 async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
@@ -361,14 +333,12 @@ async function fetchOgBranding(base: string): Promise<{
 
 async function socialListingImage({
   bgUrl,
-  badge,
   title,
   rows,
   themes,
   pageBase,
 }: {
   bgUrl: string | null
-  badge: string
   title: string
   rows: { label: string; value: string }[]
   themes: string[]
@@ -383,7 +353,7 @@ async function socialListingImage({
   const templateUrl = await pngFileDataUrl(SOCIAL_TEMPLATE_FILE)
   const frameUrl = await socialFrameDataUrl()
   const maskedPhotoUrl = bgUrl ? await buildMaskedSocialPhotoDataUrl(bgUrl, pageBase) : null
-  const displayTitle = truncate(titleWithoutBadge(title, badge), 52)
+  const displayTitle = truncate(title.trim(), 52)
   const installmentText = 'Kredi kartına 12 Taksit'
   const [guestsIcon, bedroomsIcon, bathroomsIcon, locationIcon] =
     await Promise.all(
@@ -406,7 +376,6 @@ async function socialListingImage({
     .slice(0, 4)
   const locationRow = detailRows.find((row) => rowPriority(row.label) === 0)
   const featureRows = detailRows.filter((row) => row !== locationRow).slice(0, 3)
-  const priceValue = rowValue(rows, /fiyat|price/i)
   const featureIcon = (label: string) => {
     const l = label.toLocaleLowerCase('tr-TR')
     if (/kişi|guest|kapasite|capacity/.test(l)) return guestsIcon
@@ -428,7 +397,7 @@ async function socialListingImage({
           fontFamily: 'Arial, Helvetica, sans-serif',
         }}
       >
-        {!maskedPhotoUrl && templateUrl ? (
+        {templateUrl ? (
           <img
             src={templateUrl}
             alt=""
@@ -506,18 +475,6 @@ async function socialListingImage({
           <div
             style={{
               display: 'flex',
-              color: '#13294b',
-              fontSize: 32,
-              fontWeight: 500,
-              lineHeight: 1.02,
-              textTransform: 'uppercase',
-            }}
-          >
-            {badge}
-          </div>
-          <div
-            style={{
-              display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               width: scaleSocialTemplate(310),
@@ -549,11 +506,11 @@ async function socialListingImage({
             style={{
               position: 'absolute',
               left: text.x,
-              top: scaleSocialTemplate(450),
-              width: scaleSocialTemplate(280),
+            top: scaleSocialTemplate(482),
+            width: scaleSocialTemplate(335),
               display: 'flex',
               flexWrap: 'wrap',
-              gap: 8,
+            gap: 10,
             }}
           >
             {themes.map((theme) => (
@@ -562,13 +519,13 @@ async function socialListingImage({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  padding: '7px 10px',
-                  border: '1px solid #0c93a0',
-                  borderRadius: 6,
+                  padding: '9px 13px',
+                  border: '2px solid #0c93a0',
+                  borderRadius: 9,
                   background: 'rgba(255,255,255,0.9)',
                   color: '#13294b',
-                  fontSize: 17,
-                  fontWeight: 700,
+                  fontSize: 21,
+                  fontWeight: 800,
                 }}
               >
                 {theme}
@@ -581,7 +538,7 @@ async function socialListingImage({
           style={{
             position: 'absolute',
             left: text.x,
-            top: scaleSocialTemplate(620),
+            top: scaleSocialTemplate(635),
             width: text.w,
             display: 'flex',
             flexDirection: 'column',
@@ -603,21 +560,6 @@ async function socialListingImage({
               </span>
             </div>
           ))}
-          {priceValue ? (
-            <div
-              style={{
-                display: 'flex',
-                width: scaleSocialTemplate(300),
-                borderTop: '2px solid rgba(19,41,75,0.12)',
-                paddingTop: 12,
-                color: '#ef1010',
-                fontSize: 27,
-                fontWeight: 900,
-              }}
-            >
-              {priceValue}
-            </div>
-          ) : null}
         </div>
       </div>
     ),
@@ -657,7 +599,6 @@ export async function GET(req: NextRequest) {
 
   const fallbackListingId = searchParams.get('listing_id')?.trim() || null
   const fallbackTitle = searchParams.get('title')?.trim() || ''
-  const fallbackCategoryCode = searchParams.get('category_code')?.trim() || (kind === 'experience' ? 'tour' : 'hotel')
   const fallbackImagePath = searchParams.get('image')?.trim() || ''
   const fallbackThemes = socialThemeLabels(searchParams.get('theme_codes'), locale)
   const fallbackRows = [
@@ -674,7 +615,6 @@ export async function GET(req: NextRequest) {
       : null
     return socialListingImage({
       bgUrl: imageUrls[0] ?? fallbackImageUrl,
-      badge: badgeFromCategoryCode(fallbackCategoryCode, locale),
       title: fallbackTitle,
       rows: fallbackRows,
       themes: fallbackThemes,
@@ -732,7 +672,6 @@ export async function GET(req: NextRequest) {
     if (variant === 'social') {
       return socialListingImage({
         bgUrl,
-        badge,
         title: listing.title,
         rows,
         themes: socialThemeLabels(listing.themeCodes, locale),
@@ -881,7 +820,6 @@ export async function GET(req: NextRequest) {
   if (variant === 'social') {
     return socialListingImage({
       bgUrl,
-      badge,
       title: listing.title,
       rows,
       themes: [],

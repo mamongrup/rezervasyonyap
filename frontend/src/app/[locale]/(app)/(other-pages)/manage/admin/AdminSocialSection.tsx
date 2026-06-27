@@ -255,7 +255,7 @@ function ListingPicker({
   )
 }
 
-// ─── Hızlı Facebook Paylaşım Paneli ──────────────────────────────────────────
+// ─── Hızlı Meta Paylaşım Paneli ──────────────────────────────────────────────
 
 interface FbResult {
   ok: boolean
@@ -934,8 +934,8 @@ function FacebookQuickPost() {
           <Facebook className="h-5 w-5 text-white" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Facebook&apos;ta Paylaş</h3>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">İlanı ada göre bulun, Facebook sayfanıza anında gönderin</p>
+          <h3 className="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Facebook + Instagram&apos;da Paylaş</h3>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">İlanı ada göre bulun, Facebook sayfanıza ve Instagram hesabınıza anında gönderin</p>
         </div>
       </div>
 
@@ -964,7 +964,7 @@ function FacebookQuickPost() {
           className="flex items-center gap-2 rounded-xl bg-[#1877F2] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#166FE5] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Facebook className="h-4 w-4" />}
-          {busy ? 'Paylaşılıyor…' : 'Facebook\'ta Paylaş'}
+          {busy ? 'Paylaşılıyor…' : 'Facebook + Instagram\'da Paylaş'}
         </button>
 
         {/* Sonuç */}
