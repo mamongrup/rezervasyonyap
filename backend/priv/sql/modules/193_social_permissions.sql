@@ -1,8 +1,7 @@
 -- Sosyal paylaşım API izinleri (Madde 5); admin + 189 önkoşulu
 INSERT INTO permissions (code, description) VALUES
   ('admin.social.read', 'Yönetici: sosyal şablon ve paylaşım kuyruğu okuma'),
-  ('admin.social.write', 'Yönetici: şablon/kuyruk oluşturma
-ON CONFLICT DO NOTHING; tüm ilanlarda paylaşım bayrakları')
+  ('admin.social.write', 'Yönetici: şablon/kuyruk oluşturma ve tüm ilanlarda paylaşım bayraklarını yönetme')
 ON CONFLICT (code) DO NOTHING;
 
 INSERT INTO role_permissions (role_id, permission_id)

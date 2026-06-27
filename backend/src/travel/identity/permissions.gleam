@@ -111,6 +111,7 @@ fn legacy_admin_perm_codes() -> List(String) {
   [
     "admin.users.read", "admin.roles.read", "admin.users.write_roles",
     "admin.audit.read", "admin.permissions.read", "admin.permissions.write",
+    "admin.social.read", "admin.social.write",
   ]
 }
 
@@ -122,6 +123,8 @@ pub fn fallback_permission_catalog() -> List(#(String, String)) {
     #("admin.audit.read", "Yönetici: denetim günlüğü"),
     #("admin.permissions.read", "Yönetici: izin ve rol–izin matrisini okuma"),
     #("admin.permissions.write", "Yönetici: rol–izin ataması değiştirme"),
+    #("admin.social.read", "Yönetici: sosyal şablon ve paylaşım kuyruğu okuma"),
+    #("admin.social.write", "Yönetici: sosyal şablon/kuyruk oluşturma"),
     #("staff.profile.read", "Personel: profil / kurum özeti"),
     #("staff.reservations.read", "Personel: rezervasyon listesi"),
     #("staff.invoices.read", "Personel: kurum faturaları (salt okuma)"),
