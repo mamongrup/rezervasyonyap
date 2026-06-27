@@ -5,7 +5,6 @@
 
 import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 import { preferListingGalleryFullAsset } from '@/lib/listing-gallery-display-url'
-import { storageKeyToPublicUrl } from '@/lib/listing-gallery-hero-order'
 import { buildListingOgImageUrl } from '@/lib/social-share/listing-og-image-url'
 
 const FB_GRAPH = 'https://graph.facebook.com/v18.0'
@@ -111,8 +110,17 @@ function captionWithHashtags(caption: string, job: PendingSocialJob): string {
   ].filter((tag, index, arr) => arr.indexOf(tag) === index)
 
   const hashtagBlock = tags.slice(0, 8).join(' ')
-  if (!hashtagBlock || base.includes('#RezervasyonYap')) return base
+  if (!hashtagBlock) return base
+  if (base.includes('#RezervasyonYap')) return base
+  if (!base) return hashtagBlock
   return `${base}\n\n${hashtagBlock}`.trim()
+}
+
+function ensureListingLink(caption: string, pageUrl: string): string {
+  const c = caption.trim()
+  const u = pageUrl.trim()
+  if (!u || c.includes(u)) return c
+  return `${c}\n\n🔗 ${u}`.trim()
 }
 
 function listingSocialOgKind(categoryCode: string): 'stay' | 'experience' {
@@ -146,15 +154,48 @@ function socialShareJpegUrl(siteUrl: string, src: string): string {
   return `${siteUrl.replace(/\/$/, '')}/api/social/share-jpeg?src=${encodeURIComponent(u)}`
 }
 
+/** Worker paylaşımı: galeri URL'lerini her zaman site köküne sabitle (www/apex karışmasın). */
 export function absoluteMediaUrl(siteUrl: string, storageKey: string): string {
-  const rel = storageKeyToPublicUrl(storageKey.trim())
-  if (!rel) return ''
-  if (rel.startsWith('http://') || rel.startsWith('https://')) {
-    return preferListingGalleryFullAsset(rel)
-  }
+  const key = storageKey.trim()
+  if (!key) return ''
   const base = siteUrl.replace(/\/$/, '')
-  const path = rel.startsWith('/') ? rel : `/${rel}`
+  if (!base) return ''
+  if (key.startsWith('https://')) return preferListingGalleryFullAsset(key)
+  if (key.startsWith('http://')) {
+    try {
+      const u = new URL(key)
+      u.protocol = 'https:'
+      return preferListingGalleryFullAsset(u.toString())
+    } catch {
+      return ''
+    }
+  }
+  const path = key.startsWith('/') ? key : `/${key}`
   return preferListingGalleryFullAsset(`${base}${path}`)
+}
+
+async function probeShareJpegUrl(url: string, timeoutMs = 10_000): Promise<boolean> {
+  const ctrl = new AbortController()
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, { cache: 'no-store', signal: ctrl.signal })
+    const ct = (res.headers.get('content-type') ?? '').toLowerCase()
+    return res.ok && ct.includes('image/jpeg')
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function metaReadyImageUrls(siteUrl: string, sourceUrls: string[]): Promise<string[]> {
+  const out: string[] = []
+  for (const src of sourceUrls) {
+    const proxy = socialShareJpegUrl(siteUrl, src)
+    if (!proxy.startsWith('https://')) continue
+    if (await probeShareJpegUrl(proxy)) out.push(proxy)
+  }
+  return out.slice(0, 10)
 }
 
 function workerHeaders(secret: string): HeadersInit {
@@ -555,8 +596,7 @@ export async function processOneSocialJob(
   const pageUrl = listingPublicUrl(job.category_code, job.listing_slug)
 
   let plan: SocialPostPlan | null = null
-  const cachedCaption = (job.caption_ai_generated ?? '').trim()
-  if (!cachedCaption) {
+  try {
     plan = await fetchSocialPostPlan(apiOrigin, secret, {
       entity_id: job.entity_id,
       listing_title: job.listing_title,
@@ -567,15 +607,19 @@ export async function processOneSocialJob(
       image_keys: job.image_keys,
       template_body: job.template_body,
     })
+  } catch {
+    plan = null
   }
 
-  const caption = captionWithHashtags(cachedCaption || plan?.caption || '', job)
+  const cachedCaption = (job.caption_ai_generated ?? '').trim()
+  const captionBase = job.allow_ai_caption
+    ? plan?.caption || cachedCaption || plan?.description || job.listing_title
+    : plan?.caption || cachedCaption || plan?.description || job.listing_title
+  const caption = ensureListingLink(captionWithHashtags(captionBase, job), pageUrl)
   const title = plan?.title || job.listing_title
-  const description = plan?.description || caption
-  const selectedKeys =
-    plan?.image_keys?.length
-      ? plan.image_keys
-      : job.image_keys.filter((k) => k.trim() !== '').slice(0, 10)
+  const description = plan?.description || captionBase
+  const jobKeys = job.image_keys.filter((k) => k.trim() !== '').slice(0, 10)
+  const selectedKeys = plan?.image_keys?.length ? plan.image_keys : jobKeys
   const imageUrls = selectedKeys
     .map((k) => absoluteMediaUrl(siteUrl, k))
     .filter((u) => u.startsWith('https://'))
@@ -585,12 +629,12 @@ export async function processOneSocialJob(
     .filter((u) => u.startsWith('https://'))
     .filter((u, i, arr) => arr.indexOf(u) === i)
     .slice(0, 10)
-  const metaPostImageUrls = postImageUrls
-    .map((url) => socialShareJpegUrl(siteUrl, url))
-    .filter((url) => url.startsWith('https://'))
-    .slice(0, 10)
+  const metaPostImageUrls = await metaReadyImageUrls(siteUrl, postImageUrls)
 
   try {
+    if (metaPostImageUrls.length === 0 && postImageUrls.length > 0) {
+      throw new Error('social_share_images_unreachable')
+    }
     let postId = ''
     switch (job.network) {
       case 'facebook':

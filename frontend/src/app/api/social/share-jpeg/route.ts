@@ -5,13 +5,18 @@ import { getPublicSiteUrl } from '@/lib/site-branding-seo'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+function hostApexKey(hostname: string): string {
+  return hostname.replace(/^www\./i, '').toLowerCase()
+}
+
 function isAllowedSourceUrl(raw: string): URL | null {
   try {
     const url = new URL(raw)
     const site = getPublicSiteUrl()
     if (!site) return null
     const siteUrl = new URL(site)
-    if (url.protocol !== 'https:' || url.origin !== siteUrl.origin) return null
+    if (url.protocol !== 'https:') return null
+    if (hostApexKey(url.hostname) !== hostApexKey(siteUrl.hostname)) return null
     return url
   } catch {
     return null
