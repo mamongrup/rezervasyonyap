@@ -140,10 +140,6 @@ fn finish_pool_config(
   |> pog.pool_size(pool_size)
   |> pog.idle_interval(idle_ms)
   |> pog.connection_parameter("application_name", app_name)
-  |> pog.connection_parameter("connect_timeout", "8")
-  |> pog.connection_parameter("tcp_keepalives_idle", "30")
-  |> pog.connection_parameter("tcp_keepalives_interval", "10")
-  |> pog.connection_parameter("tcp_keepalives_count", "5")
 }
 
 fn trim_opt(s: Result(String, Nil)) -> Option(String) {
