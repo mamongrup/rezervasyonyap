@@ -79,31 +79,41 @@ if [[ -z "$DB_USER" || -z "$DB_NAME" ]]; then
 fi
 
 PSQL_MODE="app"
+GUARD_CONNECT_DB="${TRAVEL_DB_GUARD_DATABASE:-postgres}"
 
 psql_guard() {
   if [[ "$PSQL_MODE" == "postgres-sudo" ]]; then
-    sudo -u postgres psql -d "$DB_NAME" "$@"
+    sudo -u postgres psql -d "$GUARD_CONNECT_DB" "$@"
   elif [[ "$PSQL_MODE" == "postgres-runuser" ]]; then
-    runuser -u postgres -- psql -d "$DB_NAME" "$@"
+    runuser -u postgres -- psql -d "$GUARD_CONNECT_DB" "$@"
   else
     psql_travel "$@"
   fi
 }
 
-if command -v sudo >/dev/null 2>&1 && sudo -n -u postgres psql -d "$DB_NAME" -tA -c "select 1" >/dev/null 2>&1; then
+if command -v sudo >/dev/null 2>&1 && sudo -n -u postgres psql -d "$GUARD_CONNECT_DB" -tA -c "select 1" >/dev/null 2>&1; then
   PSQL_MODE="postgres-sudo"
-elif command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d "$DB_NAME" -tA -c "select 1" >/dev/null 2>&1; then
+elif command -v runuser >/dev/null 2>&1 && runuser -u postgres -- psql -d "$GUARD_CONNECT_DB" -tA -c "select 1" >/dev/null 2>&1; then
   PSQL_MODE="postgres-runuser"
 fi
 
 DB_USER_SQL="$(sql_quote "$DB_USER")"
 DB_NAME_SQL="$(sql_quote "$DB_NAME")"
+DB_FILTER_SQL="and datname = '$DB_NAME_SQL'"
 
-TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL'" | tr -d '[:space:]')"
-IDLE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)" | tr -d '[:space:]')"
-ACTIVE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)" | tr -d '[:space:]')"
+if [[ "$PSQL_MODE" != "app" ]]; then
+  DB_EXISTS="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select exists(select 1 from pg_database where datname = '$DB_NAME_SQL')" | tr -d '[:space:]')"
+  if [[ "$DB_EXISTS" != "t" && "$DB_EXISTS" != "true" ]]; then
+    warn "DB adı '$DB_NAME' bulunamadı; guard sadece user='$DB_USER' filtresiyle çalışacak."
+    DB_FILTER_SQL=""
+  fi
+fi
 
-ok "PostgreSQL bağlantı durumu: mode=$PSQL_MODE db=$DB_NAME user=$DB_USER total=$TOTAL idle_old=${IDLE_OLD} active_old=${ACTIVE_OLD} threshold=$THRESHOLD"
+TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL" | tr -d '[:space:]')"
+IDLE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)" | tr -d '[:space:]')"
+ACTIVE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)" | tr -d '[:space:]')"
+
+ok "PostgreSQL bağlantı durumu: mode=$PSQL_MODE connect_db=$GUARD_CONNECT_DB db=$DB_NAME user=$DB_USER total=$TOTAL idle_old=${IDLE_OLD} active_old=${ACTIVE_OLD} threshold=$THRESHOLD"
 
 if [[ "$TOTAL" -le "$THRESHOLD" ]]; then
   exit 0
@@ -111,15 +121,15 @@ fi
 
 warn "Bağlantı sayısı eşik üstünde; eski idle bağlantılar sonlandırılıyor."
 
-TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)) x" | tr -d '[:space:]')"
-AFTER="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL'" | tr -d '[:space:]')"
+TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)) x" | tr -d '[:space:]')"
+AFTER="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL" | tr -d '[:space:]')"
 
 ok "PostgreSQL idle bağlantı temizliği: terminated=$TERMINATED remaining=$AFTER"
 
 if [[ "$AFTER" -gt "$THRESHOLD" ]]; then
   warn "Bağlantı sayısı hâlâ yüksek; $ACTIVE_MIN_SECONDS saniyeden eski aktif bağlantılar sonlandırılıyor."
-  ACTIVE_TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)) x" | tr -d '[:space:]')"
-  AFTER_ACTIVE="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL'" | tr -d '[:space:]')"
+  ACTIVE_TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)) x" | tr -d '[:space:]')"
+  AFTER_ACTIVE="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' $DB_FILTER_SQL" | tr -d '[:space:]')"
   ok "PostgreSQL aktif bağlantı temizliği: terminated=$ACTIVE_TERMINATED remaining=$AFTER_ACTIVE"
   if [[ "$AFTER_ACTIVE" -gt "$THRESHOLD" ]]; then
     warn "Bağlantı sayısı hâlâ yüksek. Yeni aktif istekler veya farklı kullanıcılar olabilir; pg_stat_activity inceleyin."
