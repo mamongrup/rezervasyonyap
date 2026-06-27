@@ -396,6 +396,7 @@ async function postInstagramSingle(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      media_type: 'IMAGE',
       image_url: imageUrl,
       caption,
       access_token: token,
@@ -451,6 +452,7 @@ async function postInstagram(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        media_type: 'IMAGE',
         image_url: url,
         is_carousel_item: true,
         access_token: token,

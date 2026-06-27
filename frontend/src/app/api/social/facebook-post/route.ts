@@ -58,6 +58,11 @@ async function validateFacebookPageToken(pageId: string, token: string): Promise
   }
 }
 
+function looksLikeFacebookPageToken(token: string): boolean {
+  const t = token.trim()
+  return t.startsWith('EA') || t.includes('|')
+}
+
 // ─── İlan detay URL'si ────────────────────────────────────────────────────────
 
 const SEGMENT: Record<string, string> = {
@@ -161,6 +166,12 @@ export async function POST(req: NextRequest) {
   if (!meta.page_id || !meta.page_access_token) {
     return NextResponse.json(
       { error: 'facebook_not_configured', hint: 'Admin → Sosyal Medya → API Ayarları → Meta bölümüne Page ID ve Page Access Token girin.' },
+      { status: 422 },
+    )
+  }
+  if (!looksLikeFacebookPageToken(meta.page_access_token)) {
+    return NextResponse.json(
+      { error: 'facebook_token_invalid', hint: 'Page Access Token değil gibi görünüyor. Kullanıcı tokenı değil, sayfa tokenı girin.' },
       { status: 422 },
     )
   }
