@@ -144,6 +144,14 @@ function truncate(s: string, max: number): string {
   return `${t.slice(0, max - 1)}…`
 }
 
+function titleFontSize(title: string): number {
+  const len = title.trim().length
+  if (len <= 18) return 42
+  if (len <= 26) return 38
+  if (len <= 34) return 34
+  return 30
+}
+
 function socialThemeLabels(codes: string[] | string | null | undefined, locale: string): string[] {
   const labelMap = new Map(HOLIDAY_THEME_FILTER_FALLBACK.map((item) => [item.code, item.label]))
   return parseHolidayThemeCodes(codes)
@@ -438,7 +446,7 @@ async function socialListingImage({
             width: text.w,
             display: 'flex',
             flexDirection: 'column',
-            gap: 5,
+            gap: 7,
           }}
         >
           <div
@@ -446,10 +454,10 @@ async function socialListingImage({
               display: 'flex',
               flexWrap: 'wrap',
               color: '#ef1010',
-              fontSize: 42,
+              fontSize: titleFontSize(displayTitle),
               fontWeight: 900,
-              lineHeight: 1.04,
-              maxHeight: 96,
+              lineHeight: 1.02,
+              maxHeight: 108,
               overflow: 'hidden',
               textTransform: 'uppercase',
             }}
@@ -460,16 +468,16 @@ async function socialListingImage({
             style={{
               display: 'flex',
               color: '#13294b',
-              fontSize: 34,
+              fontSize: 32,
               fontWeight: 500,
-              lineHeight: 1.05,
+              lineHeight: 1.02,
               textTransform: 'uppercase',
             }}
           >
             {badge}
           </div>
           {locationRow ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 14 }}>
               {locationIcon ? <img src={locationIcon} alt="" width={36} height={36} /> : null}
               <span style={{ color: '#13294b', fontSize: 25, fontWeight: 800, textTransform: 'uppercase' }}>
                 {truncate(locationRow.value, 24)}
@@ -483,8 +491,8 @@ async function socialListingImage({
             style={{
               position: 'absolute',
               left: text.x,
-              top: scaleSocialTemplate(465),
-              width: scaleSocialTemplate(260),
+              top: scaleSocialTemplate(450),
+              width: scaleSocialTemplate(280),
               display: 'flex',
               flexWrap: 'wrap',
               gap: 8,
@@ -515,11 +523,11 @@ async function socialListingImage({
           style={{
             position: 'absolute',
             left: text.x,
-            top: scaleSocialTemplate(635),
+            top: scaleSocialTemplate(620),
             width: text.w,
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: 18,
           }}
         >
           {featureRows.map((row) => (
@@ -776,7 +784,7 @@ export async function GET(req: NextRequest) {
               padding: '36px 44px 40px',
               display: 'flex',
               flexDirection: 'column',
-              gap: 20,
+              gap: 18,
             }}
           >
             <div
@@ -924,7 +932,7 @@ export async function GET(req: NextRequest) {
             padding: '36px 44px 40px',
             display: 'flex',
             flexDirection: 'column',
-            gap: 20,
+            gap: 18,
           }}
         >
           <div
@@ -966,3 +974,5 @@ export async function GET(req: NextRequest) {
     { width: OG_W, height: OG_H },
   )
 }
+
+
