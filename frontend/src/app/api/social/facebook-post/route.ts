@@ -45,6 +45,19 @@ async function backendPost<T>(path: string, token: string, body: unknown): Promi
   return res.json() as Promise<T>
 }
 
+async function validateFacebookPageToken(pageId: string, token: string): Promise<void> {
+  const res = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`, {
+    cache: 'no-store',
+  })
+  const data = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } }
+  if (!res.ok || data.error) {
+    throw new Error(data.error?.message ?? 'facebook_page_token_invalid')
+  }
+  if (data.id && data.id !== pageId) {
+    throw new Error('facebook_page_token_mismatch')
+  }
+}
+
 // ─── İlan detay URL'si ────────────────────────────────────────────────────────
 
 const SEGMENT: Record<string, string> = {
@@ -151,6 +164,7 @@ export async function POST(req: NextRequest) {
       { status: 422 },
     )
   }
+  await validateFacebookPageToken(meta.page_id, meta.page_access_token)
 
   // 6. Paylaşım metnini hazırla
   const pageUrl = listingUrl(basics.category_code, basics.handle)
@@ -160,8 +174,7 @@ export async function POST(req: NextRequest) {
   // 7. Facebook Graph API — /feed endpoint
   const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(meta.page_id)}/feed`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    body: new URLSearchParams({
       message,
       link: pageUrl,
       access_token: meta.page_access_token,

@@ -164,6 +164,19 @@ function workerHeaders(secret: string): HeadersInit {
   }
 }
 
+async function validateFacebookPageToken(pageId: string, token: string): Promise<void> {
+  const res = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`, {
+    cache: 'no-store',
+  })
+  const data = (await res.json().catch(() => ({}))) as { id?: string; error?: { message?: string } }
+  if (!res.ok || data.error) {
+    throw new Error(data.error?.message ?? 'facebook_page_token_invalid')
+  }
+  if (data.id && data.id !== pageId) {
+    throw new Error('facebook_page_token_mismatch')
+  }
+}
+
 export async function fetchPendingSocialJobs(
   apiOrigin: string,
   secret: string,
@@ -296,6 +309,7 @@ async function postFacebook(
   const pageId = meta.page_id?.trim()
   const token = meta.page_access_token?.trim()
   if (!pageId || !token) throw new Error('facebook_not_configured')
+  await validateFacebookPageToken(pageId, token)
 
   const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
 
