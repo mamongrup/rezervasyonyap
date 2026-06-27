@@ -4,11 +4,11 @@
 # Varsayılan davranış:
 # - travel-api ile aynı DB kullanıcısını tespit eder.
 # - Bağlantı sayısı eşik altındaysa yalnız raporlar.
-# - Eşik üstündeyse aynı kullanıcının idle ve eski bağlantılarını sonlandırır.
+# - Eşik üstündeyse aynı kullanıcının idle ve uzun süredir aktif bağlantılarını sonlandırır.
 #
 # Örnek:
 #   ./deploy/scripts/guard-postgres-connections.sh
-#   TRAVEL_DB_CONN_THRESHOLD=30 TRAVEL_DB_IDLE_MIN_SECONDS=20 ./deploy/scripts/guard-postgres-connections.sh
+#   TRAVEL_DB_CONN_THRESHOLD=30 TRAVEL_DB_IDLE_MIN_SECONDS=20 TRAVEL_DB_ACTIVE_MIN_SECONDS=120 ./deploy/scripts/guard-postgres-connections.sh
 
 set -euo pipefail
 
@@ -25,12 +25,16 @@ command -v psql >/dev/null 2>&1 || fail "psql bulunamadı"
 
 THRESHOLD="${TRAVEL_DB_CONN_THRESHOLD:-30}"
 IDLE_MIN_SECONDS="${TRAVEL_DB_IDLE_MIN_SECONDS:-20}"
+ACTIVE_MIN_SECONDS="${TRAVEL_DB_ACTIVE_MIN_SECONDS:-120}"
 
 case "$THRESHOLD" in
   ''|*[!0-9]*) fail "TRAVEL_DB_CONN_THRESHOLD sayısal olmalı: $THRESHOLD" ;;
 esac
 case "$IDLE_MIN_SECONDS" in
   ''|*[!0-9]*) fail "TRAVEL_DB_IDLE_MIN_SECONDS sayısal olmalı: $IDLE_MIN_SECONDS" ;;
+esac
+case "$ACTIVE_MIN_SECONDS" in
+  ''|*[!0-9]*) fail "TRAVEL_DB_ACTIVE_MIN_SECONDS sayısal olmalı: $ACTIVE_MIN_SECONDS" ;;
 esac
 
 load_travel_db_env
@@ -97,8 +101,9 @@ DB_NAME_SQL="$(sql_quote "$DB_NAME")"
 
 TOTAL="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL'" | tr -d '[:space:]')"
 IDLE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'idle' and now() - state_change > make_interval(secs => $IDLE_MIN_SECONDS)" | tr -d '[:space:]')"
+ACTIVE_OLD="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)" | tr -d '[:space:]')"
 
-ok "PostgreSQL bağlantı durumu: mode=$PSQL_MODE db=$DB_NAME user=$DB_USER total=$TOTAL idle_old=${IDLE_OLD} threshold=$THRESHOLD"
+ok "PostgreSQL bağlantı durumu: mode=$PSQL_MODE db=$DB_NAME user=$DB_USER total=$TOTAL idle_old=${IDLE_OLD} active_old=${ACTIVE_OLD} threshold=$THRESHOLD"
 
 if [[ "$TOTAL" -le "$THRESHOLD" ]]; then
   exit 0
@@ -112,5 +117,11 @@ AFTER="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat
 ok "PostgreSQL idle bağlantı temizliği: terminated=$TERMINATED remaining=$AFTER"
 
 if [[ "$AFTER" -gt "$THRESHOLD" ]]; then
-  warn "Bağlantı sayısı hâlâ yüksek. Aktif bağlantılar veya farklı kullanıcılar olabilir; pg_stat_activity inceleyin."
+  warn "Bağlantı sayısı hâlâ yüksek; $ACTIVE_MIN_SECONDS saniyeden eski aktif bağlantılar sonlandırılıyor."
+  ACTIVE_TERMINATED="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from (select pg_terminate_backend(pid) from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL' and pid <> pg_backend_pid() and state = 'active' and now() - query_start > make_interval(secs => $ACTIVE_MIN_SECONDS)) x" | tr -d '[:space:]')"
+  AFTER_ACTIVE="$(psql_guard -tA -v ON_ERROR_STOP=1 -c "select count(*)::int from pg_stat_activity where usename = '$DB_USER_SQL' and datname = '$DB_NAME_SQL'" | tr -d '[:space:]')"
+  ok "PostgreSQL aktif bağlantı temizliği: terminated=$ACTIVE_TERMINATED remaining=$AFTER_ACTIVE"
+  if [[ "$AFTER_ACTIVE" -gt "$THRESHOLD" ]]; then
+    warn "Bağlantı sayısı hâlâ yüksek. Yeni aktif istekler veya farklı kullanıcılar olabilir; pg_stat_activity inceleyin."
+  fi
 fi

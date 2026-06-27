@@ -4,6 +4,7 @@
 # Sunucuda (deploy kökünden), örnek:
 #   chmod +x deploy/apply-sql.sh
 #   ./deploy/apply-sql.sh backend/priv/sql/modules/281_holiday_home_default_faq_tuscany_seed.sql
+#   ./deploy/apply-sql.sh -c "SELECT refresh_listing_vitrin_prices();"
 #
 # Bağlantı (backend ile aynı — bkz. backend/src/backend/config.gleam):
 #   Öncelik: DATABASE_URL
@@ -28,13 +29,22 @@ require_cmd() {
 require_cmd psql
 
 if [[ -z "${1:-}" ]]; then
-  fail "Kullanım: $0 <sql-dosyası-yolu>
+  fail "Kullanım: $0 <sql-dosyası-yolu> | -c <sql>
 
 Örnek (üretim, deploy kökü):
   cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
-  ./deploy/apply-sql.sh backend/priv/sql/modules/281_holiday_home_default_faq_tuscany_seed.sql"
+  ./deploy/apply-sql.sh backend/priv/sql/modules/281_holiday_home_default_faq_tuscany_seed.sql
+  ./deploy/apply-sql.sh -c \"SELECT refresh_listing_vitrin_prices();\""
 fi
+SQL_MODE="file"
 SQL_FILE_INPUT="$1"
+SQL_COMMAND=""
+
+if [[ "$SQL_FILE_INPUT" == "-c" || "$SQL_FILE_INPUT" == "--command" ]]; then
+  SQL_MODE="command"
+  SQL_COMMAND="${2:-}"
+  [[ -n "$SQL_COMMAND" ]] || fail "-c için SQL komutu gerekli"
+fi
 
 resolve_sql_path() {
   local input="$1"
@@ -47,7 +57,9 @@ resolve_sql_path() {
   fi
 }
 
-SQL_FILE="$(resolve_sql_path "$SQL_FILE_INPUT")"
+if [[ "$SQL_MODE" == "file" ]]; then
+  SQL_FILE="$(resolve_sql_path "$SQL_FILE_INPUT")"
+fi
 
 loaded_env=0
 if [[ -f "$ENV_FILE" ]]; then
@@ -69,13 +81,25 @@ if [[ "$loaded_env" -eq 1 ]] && [[ -z "${DATABASE_URL:-}" ]] && [[ -z "${PGPASSW
 fi
 
 if [[ -n "${DATABASE_URL:-}" ]]; then
-  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_FILE"
+  if [[ "$SQL_MODE" == "command" ]]; then
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c "$SQL_COMMAND"
+  else
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$SQL_FILE"
+  fi
 else
   export PGHOST="${PGHOST:-127.0.0.1}"
   export PGPORT="${PGPORT:-5432}"
   export PGUSER="${PGUSER:-postgres}"
   export PGDATABASE="${PGDATABASE:-travel}"
-  psql -v ON_ERROR_STOP=1 -f "$SQL_FILE"
+  if [[ "$SQL_MODE" == "command" ]]; then
+    psql -v ON_ERROR_STOP=1 -c "$SQL_COMMAND"
+  else
+    psql -v ON_ERROR_STOP=1 -f "$SQL_FILE"
+  fi
 fi
 
-echo "[OK] SQL uygulandı: $SQL_FILE"
+if [[ "$SQL_MODE" == "command" ]]; then
+  echo "[OK] SQL komutu uygulandı"
+else
+  echo "[OK] SQL uygulandı: $SQL_FILE"
+fi
