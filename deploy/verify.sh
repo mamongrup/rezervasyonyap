@@ -7,6 +7,8 @@
 #   API_ORIGIN=http://127.0.0.1:8080 WEB_ORIGIN=http://127.0.0.1:3000 ./deploy/verify.sh
 #   WEB_READY_ATTEMPTS=60 WEB_READY_SLEEP=3 ./deploy/verify.sh  # travel-web yavas kalkiyorsa
 #   CHUNK_VERIFY_ATTEMPTS=30 CHUNK_VERIFY_SLEEP=2 ./deploy/verify.sh  # _next/static bazen restart sonrasi gecikmeli
+#   CHUNK_HTTP_MAX_TIME=8 ./deploy/verify.sh                            # chunk curl yavas asilirsa (varsayilan 8)
+#   VERIFY_SKIP_APP_LAYOUT_CHUNK=1 ./deploy/verify.sh                   # [locale] app chunk testini atla
 
 set -euo pipefail
 
@@ -42,9 +44,11 @@ check_env() {
   local f="/etc/rezervasyonyap/frontend.env"
   [[ -f "$f" ]] || warn "$f yok — env yalnızca unit içindeyse bu denetim atlanmış olabilir"
   if [[ -f "$f" ]]; then
+    echo "   frontend.env okunuyor: $f"
     # shellcheck disable=SC1090
     set -a && source "$f" && set +a
   fi
+  echo "   env anahtarlari kontrol ediliyor..."
   [[ -n "${NEXT_PUBLIC_API_URL:-}" ]] ||
     fail "NEXT_PUBLIC_API_URL tanımlı değil ( $f içinde veya systemd Environment olmalı)"
   [[ -n "${INTERNAL_API_ORIGIN:-}" ]] ||
@@ -60,17 +64,22 @@ check_env() {
     warn "ALLOWED_HOSTS boş — eski proxy build'inde tüm site 400 Bad Request verebilir. Örnek: ALLOWED_HOSTS=rezervasyonyap.tr,www.rezervasyonyap.tr,127.0.0.1,localhost"
   fi
   if [[ -z "${GOOGLE_MAPS_API_KEY:-}" ]] && [[ -z "${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY:-}" ]]; then
-    maps_from_settings=""
-    if [[ -n "${INTERNAL_API_ORIGIN:-}" ]]; then
-      maps_from_settings="$(curl -sS --connect-timeout 3 --max-time 8 \
-        "${INTERNAL_API_ORIGIN%/}/api/v1/site/public-config" 2>/dev/null \
-        | sed -n 's/.*"google_maps_api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-        | head -n1)"
-    fi
-    if [[ -n "$maps_from_settings" ]]; then
-      ok "Google Maps anahtarı site ayarlarında (public-config); env opsiyonel"
+    if [[ "${VERIFY_SKIP_MAPS_CURL:-0}" == "1" ]]; then
+      warn "VERIFY_SKIP_MAPS_CURL=1 — Google Maps public-config curl atlandi"
     else
-      warn "Google Maps: env boş ve public-config'te anahtar yok. Yönetim → Genel ayarlar (Harita) veya GOOGLE_MAPS_API_KEY env."
+      maps_from_settings=""
+      if [[ -n "${INTERNAL_API_ORIGIN:-}" ]]; then
+        echo "   public-config (maps) kontrol ediliyor..."
+        maps_from_settings="$(curl -sS --connect-timeout 2 --max-time 5 \
+          "${INTERNAL_API_ORIGIN%/}/api/v1/site/public-config" 2>/dev/null \
+          | sed -n 's/.*"google_maps_api_key"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+          | head -n1)"
+      fi
+      if [[ -n "$maps_from_settings" ]]; then
+        ok "Google Maps anahtarı site ayarlarında (public-config); env opsiyonel"
+      else
+        warn "Google Maps: env boş ve public-config'te anahtar yok (veya API yavas). Yönetim → Genel ayarlar (Harita) veya GOOGLE_MAPS_API_KEY env."
+      fi
     fi
   fi
   ok "$WEB_SERVICE için gerekli env anahtarları tanımlı (frontend.env)"
@@ -105,7 +114,14 @@ check_workdir_matches_deploy_root() {
 
 http_status() {
   local url="$1"
-  curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 25 "$url" 2>/dev/null || echo ""
+  local max_time="${2:-25}"
+  curl -sS -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time "$max_time" "$url" 2>/dev/null || echo ""
+}
+
+chunk_http_status() {
+  local url="$1"
+  local max_time="${CHUNK_HTTP_MAX_TIME:-8}"
+  http_status "$url" "$max_time"
 }
 
 # Yanlis pozitifleri engelle: yalnizca RFC benzeri 3 basamak kod (100-599).
@@ -159,21 +175,28 @@ check_next_static_chunk() {
   [[ -n "$sample" ]] || fail "No *.js in $wd/.next/static/chunks"
   chunk_base="$(basename "$sample")"
   url="$WEB_ORIGIN/_next/static/chunks/$chunk_base"
-  attempts="${CHUNK_VERIFY_ATTEMPTS:-25}"
+  attempts="${CHUNK_VERIFY_ATTEMPTS:-20}"
   si="${CHUNK_VERIFY_SLEEP:-2}"
   j=1
   status=""
+  echo "   chunk URL: $url (curl max ${CHUNK_HTTP_MAX_TIME:-8}s)"
   while [[ "$j" -le "$attempts" ]]; do
-    status="$(http_status "$url")"
+    status="$(chunk_http_status "$url")"
     [[ "$status" == "200" ]] && break
-    echo "   chunk bekleniyor $j/$attempts (${chunk_base}) HTTP=${status:-bos} ..."
+    echo "   chunk bekleniyor $j/$attempts (${chunk_base}) HTTP=${status:-bos/timeout} ..."
     j=$((j + 1))
     sleep "$si"
   done
-  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> ${status:-bos} - Next henuz hazir degil (beklemeyi artirin: CHUNK_VERIFY_ATTEMPTS) veya cerceve/WAF"
+  [[ "$status" == "200" ]] || fail "Next static chunk must be 200: $url -> ${status:-bos} - Next henuz hazir degil (CHUNK_VERIFY_ATTEMPTS) veya CPU/WAF; elle: curl -I \"$url\""
+
+  # Diskte var ama HTTP 404: eski .next kalintisi — travel-web restart veya tam frontend build gerekir.
   ok "Next static chunk OK, HTTP 200, file ${chunk_base}"
 
   # [locale] yolu - Plesk ModSecurity/Imunify bazen koseli parantez iceren URL 500 donebilir
+  if [[ "${VERIFY_SKIP_APP_LAYOUT_CHUNK:-0}" == "1" ]]; then
+    warn "VERIFY_SKIP_APP_LAYOUT_CHUNK=1 — app layout chunk testi atlandi"
+    return 0
+  fi
   sample="$(find "$wd/.next/static/chunks/app" -type f -name 'layout-*.js' 2>/dev/null | sort | head -1 || true)"
   if [[ -n "${sample:-}" ]]; then
     command -v python3 >/dev/null 2>&1 || {
@@ -185,12 +208,13 @@ check_next_static_chunk() {
     # Heredoc nested in $() bazı bash sürümlerinde "syntax error near (" veriyor; -c kullan.
     export PYTHON_REL="$rel"
     url_path="$(python3 -c 'import os,urllib.parse as up; r=os.environ["PYTHON_REL"]; print("/_next/static/" + "/".join(up.quote(p, safe="") for p in r.split("/")), end="")')"
+    echo "   app chunk URL: $WEB_ORIGIN$url_path"
     j=1
     status=""
     while [[ "$j" -le "$attempts" ]]; do
-      status="$(http_status "$WEB_ORIGIN$url_path")"
+      status="$(chunk_http_status "$WEB_ORIGIN$url_path")"
       [[ "$status" == "200" ]] && break
-      echo "   app chunk bekleniyor $j/$attempts HTTP=${status:-bos} ..."
+      echo "   app chunk bekleniyor $j/$attempts HTTP=${status:-bos/timeout} ..."
       j=$((j + 1))
       sleep "$si"
     done

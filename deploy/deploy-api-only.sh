@@ -12,4 +12,5 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export SKIP_FRONTEND_BUILD=1
 export RESTART_WEB=0
+export SKIP_SOCIAL_WORKER_TIMER=1
 exec "$ROOT/deploy/deploy.sh"

@@ -1421,9 +1421,11 @@ fn search_listings_impl(
         True -> strip_vitrin_price_cache_sql(fast_count_sql)
         False -> strip_vitrin_price_cache_sql(count_sql)
       }
+      // Eski sql_paged tüm eşleşen satırlarda projeksiyon çalıştırır (dakikalar + DB tükenmesi).
+      // vitrin_price hatasında aynı fast/deferred planı strip ile yeniden dene.
       search_listings_paged_response(
         ctx,
-        strip_vitrin_price_cache_sql(sql_paged),
+        strip_vitrin_price_cache_sql(page_sql),
         run_params,
         offset,
         lim,
