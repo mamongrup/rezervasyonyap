@@ -727,7 +727,7 @@ export async function processPendingSocialJobs(options?: {
     process.env.NEXT_PUBLIC_API_URL ??
     ''
   const secret = options?.secret ?? process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? ''
-  const limit = options?.limit ?? 50
+  const limit = options?.limit ?? 5
   const siteUrl = options?.siteUrl ?? getPublicSiteUrl()
 
   if (!apiOrigin.trim()) throw new Error('api_origin_missing')

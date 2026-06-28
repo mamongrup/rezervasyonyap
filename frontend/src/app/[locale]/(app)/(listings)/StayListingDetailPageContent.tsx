@@ -73,6 +73,7 @@ import {
   type ListingPriceRuleRow,
 } from '@/lib/travel-api'
 import type { TListingHolidayHome } from '@/types/listing-types'
+import type { RegionPlaceData } from '@/app/api/region-places/route'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
@@ -202,6 +203,102 @@ export async function generateStayListingMetadata({
           images: [ogImage],
         }
       : undefined,
+  }
+}
+
+type StayRelatedListingCandidate = {
+  handle: string
+  address?: string
+  city?: string
+  map?: { lat: number; lng: number }
+  maxGuests?: number
+  bedrooms?: number
+  bathrooms?: number
+  themeCodes?: string[]
+  reviewStart?: number
+  reviewCount?: number
+}
+
+function normalizeLocationKey(value: string | undefined): string {
+  return (value ?? '')
+    .split(',')
+    .map((part) => part.trim().toLocaleLowerCase('tr-TR'))
+    .filter(Boolean)[0] ?? ''
+}
+
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180
+  const earthKm = 6371
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const lat1 = toRad(a.lat)
+  const lat2 = toRad(b.lat)
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return earthKm * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h))
+}
+
+function nearbyStayListings<T extends StayRelatedListingCandidate>(
+  listing: StayRelatedListingCandidate,
+  candidates: T[],
+): T[] {
+  const currentMap = listing.map
+  if (currentMap) {
+    return candidates
+      .map((candidate) => ({
+        candidate,
+        distanceKm: candidate.map ? haversineKm(currentMap, candidate.map) : Number.POSITIVE_INFINITY,
+      }))
+      .filter((row) => Number.isFinite(row.distanceKm) && row.distanceKm > 0 && row.distanceKm <= 35)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+      .map((row) => row.candidate)
+  }
+
+  const locationKey = normalizeLocationKey(listing.city ?? listing.address)
+  if (!locationKey) return []
+  return candidates.filter((candidate) => normalizeLocationKey(candidate.city ?? candidate.address) === locationKey)
+}
+
+function similarStayListings<T extends StayRelatedListingCandidate>(
+  listing: StayRelatedListingCandidate,
+  candidates: T[],
+): T[] {
+  const targetThemes = new Set(listing.themeCodes ?? [])
+  const targetGuests = listing.maxGuests ?? null
+  const targetBedrooms = listing.bedrooms ?? null
+  const targetBathrooms = listing.bathrooms ?? null
+
+  return candidates
+    .map((candidate) => {
+      const themeMatches = (candidate.themeCodes ?? []).filter((code) => targetThemes.has(code)).length
+      const guestPenalty =
+        targetGuests != null && candidate.maxGuests != null ? Math.abs(candidate.maxGuests - targetGuests) : 4
+      const bedroomPenalty =
+        targetBedrooms != null && candidate.bedrooms != null ? Math.abs(candidate.bedrooms - targetBedrooms) : 2
+      const bathroomPenalty =
+        targetBathrooms != null && candidate.bathrooms != null ? Math.abs(candidate.bathrooms - targetBathrooms) : 2
+      const ratingBoost = (candidate.reviewStart ?? 0) * 0.2 + Math.min(candidate.reviewCount ?? 0, 20) * 0.02
+      return {
+        candidate,
+        score: themeMatches * 12 - guestPenalty * 2 - bedroomPenalty - bathroomPenalty + ratingBoost,
+      }
+    })
+    .filter((row) => row.score > -10)
+    .sort((a, b) => b.score - a.score)
+    .map((row) => row.candidate)
+}
+
+function emptyRegionPlacesData(
+  regionName: string,
+  map: { lat: number; lng: number } | undefined,
+): RegionPlaceData {
+  return {
+    regionName: regionName.trim() || 'Yakın çevre',
+    regionSlug: '',
+    coordinates: map ?? { lat: 0, lng: 0 },
+    savedAt: '',
+    categories: [],
   }
 }
 
@@ -834,7 +931,7 @@ export default async function StayListingDetailPageContent({
         : 'oteller'
   const [reviewsRaw, similarRes] = await Promise.all([
     getListingReviews(handle),
-    fetchCategoryListings(categorySlug, {}, {}, locale),
+    fetchCategoryListings(categorySlug, {}, { perPage: 100 }, locale),
   ])
   const reviews = reviewsRaw.slice(0, 3)
   const otherStays = similarRes.listings.filter((l) => l.handle !== handle)
@@ -860,8 +957,19 @@ export default async function StayListingDetailPageContent({
         )
       : undefined,
   })
-  const similarListings = (isStayRental ? otherStays.slice(0, 4) : otherStays.slice(0, 8)).map(mapSimilar)
-  const nearbyListings = isStayRental ? otherStays.slice(4, 8).map(mapSimilar) : []
+  const nearbyStayCandidates = isStayRental ? nearbyStayListings(listing, otherStays).slice(0, 4) : []
+  const nearbyHandles = new Set(nearbyStayCandidates.map((l) => l.handle))
+  const similarStayCandidates = isStayRental
+    ? similarStayListings(
+        {
+          ...listing,
+          themeCodes: stayThemeCodesAll,
+        },
+        otherStays.filter((l) => !nearbyHandles.has(l.handle)),
+      ).slice(0, 4)
+    : otherStays.slice(0, 8)
+  const similarListings = similarStayCandidates.map(mapSimilar)
+  const nearbyListings = nearbyStayCandidates.map(mapSimilar)
 
   const siteConfig = mergeBrandingIntoEnvContact(getSitePublicConfigSync(), sitePubApi?.branding ?? null)
   const organizationName = siteConfig.orgName?.trim() || siteConfig.orgLegalName?.trim() || 'Travel'
@@ -1298,14 +1406,22 @@ export default async function StayListingDetailPageContent({
   )
 
   const socialProof = <SocialProofBadge listingId={listing.id} className="px-1" />
+  const holidayHomeNearbyPlacesData =
+    isHolidayHome
+      ? regionPlacesInitialData ??
+        emptyRegionPlacesData(
+          shortRegionLabelFromLocationPin(listing.city) || listing.city || address || '',
+          map,
+        )
+      : null
 
   const renderListingLocationSection = () => (
     <div id="stay-section-location" className="scroll-mt-28 space-y-5">
       <SectionMap locale={locale} lat={map?.lat} lng={map?.lng} address={address} heading={dp.location} />
-      {isHolidayHome && regionPlacesInitialData ? (
+      {isHolidayHome && holidayHomeNearbyPlacesData ? (
         <ListingNearbyPlacesVitrinSection
           locale={locale}
-          placesData={regionPlacesInitialData}
+          placesData={holidayHomeNearbyPlacesData}
           config={villaNearbyVitrinConfig}
           listingLat={map?.lat}
           listingLng={map?.lng}

@@ -1099,17 +1099,20 @@ export default function AdminSocialSection() {
       let processed = 0
       let posted = 0
       let failed = 0
-      let batches = 0
-      for (let i = 0; i < 100; i += 1) {
-        const out = await processSocialPendingJobs(token, { limit: 50, rotate: false })
-        batches += 1
+      let requests = 0
+      const requestLimit = 5
+      const maxRequests = 200
+      for (let i = 0; i < maxRequests; i += 1) {
+        const out = await processSocialPendingJobs(token, { limit: requestLimit, rotate: false })
+        requests += 1
         processed += out.processed
         posted += out.posted
         failed += out.failed
-        if (out.processed < 50) break
+        if (out.processed < requestLimit) break
       }
+      const logicalBatches = Math.ceil(processed / 50)
       setProcessMsg(
-        `Paket: ${batches}, işlenen: ${processed}, paylaşılan: ${posted}, başarısız: ${failed}.`,
+        `50'lik paket: ${logicalBatches}, istek: ${requests}, işlenen: ${processed}, paylaşılan: ${posted}, başarısız: ${failed}.`,
       )
       await refresh()
     } catch (e) {

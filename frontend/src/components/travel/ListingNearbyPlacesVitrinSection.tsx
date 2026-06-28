@@ -78,7 +78,7 @@ export default function ListingNearbyPlacesVitrinSection({
   const columns = enrichVitrinWithListingPois(
     resolveNearbyVitrinForDisplay(data, config),
     nearbyPois,
-  ).filter((col) => col.cells.length > 0)
+  )
 
   if (columns.length === 0) return null
 

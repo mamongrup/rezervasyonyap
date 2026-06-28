@@ -12,15 +12,15 @@
 # Kullanım:
 #   chmod +x deploy/scripts/social-process-pending.sh
 #   ./deploy/scripts/social-process-pending.sh
-#   ./deploy/scripts/social-process-pending.sh 50
+#   ./deploy/scripts/social-process-pending.sh
 #   WEB_ORIGIN=http://127.0.0.1:3000 ./deploy/scripts/social-process-pending.sh
-#   LOOP_UNTIL_EMPTY=0 ./deploy/scripts/social-process-pending.sh 50
+#   SOCIAL_WORKER_REQUEST_LIMIT=5 LOOP_UNTIL_EMPTY=0 ./deploy/scripts/social-process-pending.sh
 set -euo pipefail
 
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
 WEB_ORIGIN="${WEB_ORIGIN:-http://127.0.0.1:3000}"
 WORKER_PATH="${WORKER_PATH:-/api/social/worker-process}"
-LIMIT="${1:-${SOCIAL_WORKER_LIMIT:-50}}"
+REQUEST_LIMIT="${SOCIAL_WORKER_REQUEST_LIMIT:-5}"
 LOOP_UNTIL_EMPTY="${LOOP_UNTIL_EMPTY:-1}"
 
 if [[ -f "$FRONTEND_ENV_FILE" ]]; then
@@ -46,7 +46,7 @@ while true; do
     ROTATE_PARAM="&rotate=0"
   fi
 
-  URL="${WEB_ORIGIN%/}${WORKER_PATH}?limit=${LIMIT}${ROTATE_PARAM}"
+  URL="${WEB_ORIGIN%/}${WORKER_PATH}?limit=${REQUEST_LIMIT}${ROTATE_PARAM}"
   code="$(curl -sS -o "$TMP" -w "%{http_code}" \
     -X POST \
     -H "x-travel-social-worker-secret: ${SECRET}" \
@@ -70,7 +70,7 @@ while true; do
     echo
   fi
 
-  if [[ "$LOOP_UNTIL_EMPTY" != "1" || "$processed" -lt "$LIMIT" ]]; then
+  if [[ "$LOOP_UNTIL_EMPTY" != "1" || "$processed" -lt "$REQUEST_LIMIT" ]]; then
     exit 0
   fi
   batch=$((batch + 1))
