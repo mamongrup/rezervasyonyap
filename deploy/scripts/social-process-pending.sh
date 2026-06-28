@@ -20,8 +20,9 @@ set -euo pipefail
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
 WEB_ORIGIN="${WEB_ORIGIN:-http://127.0.0.1:3000}"
 WORKER_PATH="${WORKER_PATH:-/api/social/worker-process}"
-REQUEST_LIMIT="${SOCIAL_WORKER_REQUEST_LIMIT:-5}"
+REQUEST_LIMIT="${SOCIAL_WORKER_REQUEST_LIMIT:-3}"
 LOOP_UNTIL_EMPTY="${LOOP_UNTIL_EMPTY:-1}"
+BATCH_SLEEP="${SOCIAL_WORKER_BATCH_SLEEP:-45}"
 
 if [[ -f "$FRONTEND_ENV_FILE" ]]; then
   set -a
@@ -73,5 +74,9 @@ while true; do
   if [[ "$LOOP_UNTIL_EMPTY" != "1" || "$processed" -lt "$REQUEST_LIMIT" ]]; then
     exit 0
   fi
+  if [[ "$posted" -eq 0 && "$failed" -gt 0 ]]; then
+    echo "[WARN] batch ${batch} posted=0 failed=${failed} — Meta limit/token sorunu olabilir; ${BATCH_SLEEP}s bekleniyor" >&2
+  fi
+  sleep "$BATCH_SLEEP"
   batch=$((batch + 1))
 done

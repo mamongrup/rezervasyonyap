@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
   const limitRaw = req.nextUrl.searchParams.get('limit')
   // Meta image upload + carousel publish can take long; keep each HTTP request
   // small and let the caller loop, otherwise nginx/Next returns 504.
-  const limit = limitRaw ? Math.min(5, Math.max(1, Number.parseInt(limitRaw, 10) || 5)) : 5
+  const limit = limitRaw ? Math.min(3, Math.max(1, Number.parseInt(limitRaw, 10) || 3)) : 3
   const rotate = req.nextUrl.searchParams.get('rotate') !== '0'
 
   try {

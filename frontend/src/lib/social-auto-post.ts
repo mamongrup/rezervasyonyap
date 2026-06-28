@@ -208,6 +208,21 @@ function workerHeaders(secret: string): HeadersInit {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isMetaRateLimitError(message: string): boolean {
+  const m = message.toLowerCase()
+  return (
+    m.includes('too many actions') ||
+    m.includes('request limit reached') ||
+    m.includes('application request limit') ||
+    m.includes('rate limit') ||
+    m.includes('(#613)')
+  )
+}
+
 async function validateFacebookPageToken(pageId: string, token: string): Promise<void> {
   const res = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(token)}`, {
     cache: 'no-store',
@@ -225,6 +240,17 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
   const raw = token.trim()
   if (!pageId || !raw) throw new Error('facebook_not_configured')
 
+  // Page Access Token validates on the page node directly (/me may fail or return a user id).
+  const pageRes = await fetch(
+    `${FB_GRAPH}/${encodeURIComponent(pageId)}?fields=id,name&access_token=${encodeURIComponent(raw)}`,
+    { cache: 'no-store' },
+  )
+  const pageData = (await pageRes.json().catch(() => ({}))) as {
+    id?: string
+    error?: { message?: string }
+  }
+  if (pageRes.ok && pageData.id === pageId) return raw
+
   const meRes = await fetch(`${FB_GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(raw)}`, {
     cache: 'no-store',
   })
@@ -233,7 +259,7 @@ async function resolveFacebookPageAccessToken(pageId: string, token: string): Pr
     error?: { message?: string }
   }
   if (!meRes.ok || me.error) {
-    throw new Error(me.error?.message ?? 'facebook_token_invalid')
+    throw new Error(pageData.error?.message ?? me.error?.message ?? 'facebook_page_token_required')
   }
   if (me.id === pageId) return raw
 
@@ -477,14 +503,16 @@ async function postInstagram(
   imageUrls: string[],
 ): Promise<string> {
   const igId = meta.instagram_account_id?.trim()
+  const pageId = meta.page_id?.trim()
   const token = meta.page_access_token?.trim()
-  if (!igId || !token) throw new Error('instagram_not_configured')
+  if (!igId || !pageId || !token) throw new Error('instagram_not_configured')
+  const pageToken = await resolveFacebookPageAccessToken(pageId, token)
 
   const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
   if (httpsUrls.length === 0) throw new Error('instagram_requires_https_image')
 
   if (httpsUrls.length === 1) {
-    return postInstagramSingle(igId, token, caption, httpsUrls[0])
+    return postInstagramSingle(igId, pageToken, caption, httpsUrls[0])
   }
 
   const childIds: string[] = []
@@ -495,7 +523,7 @@ async function postInstagram(
       body: JSON.stringify({
         image_url: url,
         is_carousel_item: true,
-        access_token: token,
+        access_token: pageToken,
       }),
     })
     const createData = (await createRes.json()) as {
@@ -506,7 +534,7 @@ async function postInstagram(
       throw new Error(createData.error?.message ?? `ig_carousel_item_${createRes.status}`)
     }
     childIds.push(createData.id)
-    await new Promise((r) => setTimeout(r, 1500))
+    await sleep(2500)
   }
 
   const carouselRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media`, {
@@ -516,7 +544,7 @@ async function postInstagram(
       media_type: 'CAROUSEL',
       caption,
       children: childIds.join(','),
-      access_token: token,
+      access_token: pageToken,
     }),
   })
   const carouselData = (await carouselRes.json()) as {
@@ -527,14 +555,14 @@ async function postInstagram(
     throw new Error(carouselData.error?.message ?? `ig_carousel_${carouselRes.status}`)
   }
 
-  await new Promise((r) => setTimeout(r, 2500))
+  await sleep(3000)
 
   const pubRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(igId)}/media_publish`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       creation_id: carouselData.id,
-      access_token: token,
+      access_token: pageToken,
     }),
   })
   const pubData = (await pubRes.json()) as {
@@ -665,6 +693,10 @@ export async function processOneSocialJob(
     return { ok: true, network: job.network, job_id: job.id, post_id: postId }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
+    if (isMetaRateLimitError(msg)) {
+      // Leave job pending — Meta throttled us; retry later instead of marking failed.
+      return { ok: false, network: job.network, job_id: job.id, error: msg }
+    }
     try {
       await patchSocialJob(apiOrigin, secret, job.id, {
         status: 'failed',
@@ -739,12 +771,20 @@ export async function processPendingSocialJobs(options?: {
   let posted = 0
   let failed = 0
 
+  let processed = 0
   for (const job of jobs) {
     const r = await processOneSocialJob(apiOrigin, secret, job, socialApi, siteUrl)
     results.push(r)
-    if (r.ok) posted += 1
-    else failed += 1
+    processed += 1
+    if (r.ok) {
+      posted += 1
+    } else if (r.error && isMetaRateLimitError(r.error)) {
+      break
+    } else {
+      failed += 1
+    }
+    await sleep(4000)
   }
 
-  return { processed: jobs.length, posted, failed, results }
+  return { processed, posted, failed, results }
 }
