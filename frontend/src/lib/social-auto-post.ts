@@ -192,13 +192,14 @@ async function probeShareJpegUrl(url: string): Promise<boolean> {
 }
 
 async function metaReadyImageUrls(siteUrl: string, sourceUrls: string[]): Promise<string[]> {
-  const out: string[] = []
-  for (const src of sourceUrls) {
-    const proxy = socialShareJpegUrl(siteUrl, src)
-    if (!proxy.startsWith('https://')) continue
-    if (await probeShareJpegUrl(proxy)) out.push(proxy)
-  }
-  return out.slice(0, 10)
+  const checked = await Promise.all(
+    sourceUrls.map(async (src) => {
+      const proxy = socialShareJpegUrl(siteUrl, src)
+      if (!proxy.startsWith('https://')) return null
+      return (await probeShareJpegUrl(proxy)) ? proxy : null
+    }),
+  )
+  return checked.filter((u): u is string => u != null).slice(0, 10)
 }
 
 function workerHeaders(secret: string): HeadersInit {
@@ -622,23 +623,24 @@ export async function processOneSocialJob(
 ): Promise<{ ok: boolean; network: string; job_id: string; post_id?: string; error?: string }> {
   const pageUrl = listingPublicUrl(job.category_code, job.listing_slug)
 
-  let plan: SocialPostPlan | null = null
-  try {
-    plan = await fetchSocialPostPlan(apiOrigin, secret, {
-      entity_id: job.entity_id,
-      listing_title: job.listing_title,
-      listing_url: pageUrl,
-      network: job.network,
-      category_code: job.category_code,
-      allow_ai_caption: job.allow_ai_caption,
-      image_keys: job.image_keys,
-      template_body: job.template_body,
-    })
-  } catch {
-    plan = null
-  }
-
   const cachedCaption = (job.caption_ai_generated ?? '').trim()
+  let plan: SocialPostPlan | null = null
+  if (job.allow_ai_caption && !cachedCaption) {
+    try {
+      plan = await fetchSocialPostPlan(apiOrigin, secret, {
+        entity_id: job.entity_id,
+        listing_title: job.listing_title,
+        listing_url: pageUrl,
+        network: job.network,
+        category_code: job.category_code,
+        allow_ai_caption: job.allow_ai_caption,
+        image_keys: job.image_keys,
+        template_body: job.template_body,
+      })
+    } catch {
+      plan = null
+    }
+  }
   const captionBase = job.allow_ai_caption
     ? plan?.caption || cachedCaption || plan?.description || job.listing_title
     : cachedCaption || plan?.caption || plan?.description || job.listing_title

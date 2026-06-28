@@ -323,6 +323,7 @@ const TR_BY_CODE: Record<string, string> = {
     'Sosyal paylaşım işi kuyruğa yazılamadı. Aynı ilan/platform için bekleyen iş varsa sayfayı yenileyip Bekleyenler listesini kontrol edin.',
   image_keys_required: 'Bu ilanda paylaşım için uygun görsel bulunamadı. Önce ilan galerisine en az bir görsel ekleyin.',
   social_worker_process_failed: 'Bekleyen sosyal paylaşımlar işlenemedi. Worker secret, Meta API ayarları veya sunucu bağlantısını kontrol edin.',
+  social_worker_504: 'Sosyal paylaşım worker zaman aşımına uğradı. Panelden tek seferde bir iş işlenir; toplu gönderim için sunucuda social-process-pending.sh kullanın.',
   worker_secret_not_configured: 'Sosyal medya worker secret tanımlı değil. /etc/rezervasyonyap/frontend.env içinde TRAVEL_SOCIAL_WORKER_SECRET eklenmeli ve frontend yeniden başlatılmalı.',
   worker_secret_missing: 'Sosyal medya worker secret okunamadı. Frontend ortam değişkenlerini kontrol edin.',
   api_origin_missing: 'Worker API adresini bulamadı. INTERNAL_API_ORIGIN veya NEXT_PUBLIC_API_URL ayarını kontrol edin.',

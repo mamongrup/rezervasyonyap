@@ -1096,23 +1096,10 @@ export default function AdminSocialSection() {
     setProcessMsg(null)
     setProcessing(true)
     try {
-      let processed = 0
-      let posted = 0
-      let failed = 0
-      let requests = 0
-      const requestLimit = 5
-      const maxRequests = 200
-      for (let i = 0; i < maxRequests; i += 1) {
-        const out = await processSocialPendingJobs(token, { limit: requestLimit, rotate: false })
-        requests += 1
-        processed += out.processed
-        posted += out.posted
-        failed += out.failed
-        if (out.processed < requestLimit) break
-      }
-      const logicalBatches = Math.ceil(processed / 50)
+      // Tek istek / tek iş — Instagram carousel + AI uzun sürer; döngü nginx 504 verir.
+      const out = await processSocialPendingJobs(token, { limit: 1, rotate: false })
       setProcessMsg(
-        `50'lik paket: ${logicalBatches}, istek: ${requests}, işlenen: ${processed}, paylaşılan: ${posted}, başarısız: ${failed}.`,
+        `İşlenen: ${out.processed}, paylaşılan: ${out.posted}, başarısız: ${out.failed}. Toplu gönderim için sunucuda ./deploy/scripts/social-process-pending.sh kullanın.`,
       )
       await refresh()
     } catch (e) {

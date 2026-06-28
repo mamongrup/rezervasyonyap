@@ -13,6 +13,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { enqueueRotationSocialJobs, processPendingSocialJobs } from '@/lib/social-auto-post'
 import { verifyAdminToken } from '@/lib/security'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 300
+
 export async function POST(req: NextRequest) {
   const expected = (process.env.TRAVEL_SOCIAL_WORKER_SECRET ?? '').trim()
   if (!expected) {
