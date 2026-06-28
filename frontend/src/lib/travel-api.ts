@@ -4876,6 +4876,7 @@ export async function listSocialListings(
     search?: string
     titleLocale?: string
     limit?: number
+    offset?: number
   },
 ): Promise<ManageCatalogListingsResult> {
   const b = base()
@@ -4885,6 +4886,7 @@ export async function listSocialListings(
   if (params?.search?.trim()) q.set('search', params.search.trim())
   if (params?.titleLocale?.trim()) q.set('title_locale', params.titleLocale.trim().toLowerCase())
   if (params?.limit != null && params.limit >= 1) q.set('limit', String(Math.floor(params.limit)))
+  if (params?.offset != null && params.offset >= 0) q.set('offset', String(Math.floor(params.offset)))
   const res = await fetch(`${b}/api/v1/social/listings${q.toString() ? `?${q}` : ''}`, {
     headers: { Authorization: `Bearer ${token}` },
   })

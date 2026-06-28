@@ -12,14 +12,16 @@
 # Kullanım:
 #   chmod +x deploy/scripts/social-process-pending.sh
 #   ./deploy/scripts/social-process-pending.sh
-#   ./deploy/scripts/social-process-pending.sh 10
+#   ./deploy/scripts/social-process-pending.sh 50
 #   WEB_ORIGIN=http://127.0.0.1:3000 ./deploy/scripts/social-process-pending.sh
+#   LOOP_UNTIL_EMPTY=0 ./deploy/scripts/social-process-pending.sh 50
 set -euo pipefail
 
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
 WEB_ORIGIN="${WEB_ORIGIN:-http://127.0.0.1:3000}"
 WORKER_PATH="${WORKER_PATH:-/api/social/worker-process}"
-LIMIT="${1:-${SOCIAL_WORKER_LIMIT:-5}}"
+LIMIT="${1:-${SOCIAL_WORKER_LIMIT:-50}}"
+LOOP_UNTIL_EMPTY="${LOOP_UNTIL_EMPTY:-1}"
 
 if [[ -f "$FRONTEND_ENV_FILE" ]]; then
   set -a
@@ -34,26 +36,42 @@ if [[ -z "${SECRET// /}" ]]; then
   exit 0
 fi
 
-URL="${WEB_ORIGIN%/}${WORKER_PATH}?limit=${LIMIT}"
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
-code="$(curl -sS -o "$TMP" -w "%{http_code}" \
-  -X POST \
-  -H "x-travel-social-worker-secret: ${SECRET}" \
-  -H "Accept: application/json" \
-  "$URL")"
+batch=1
+while true; do
+  ROTATE_PARAM=""
+  if [[ "$batch" -gt 1 ]]; then
+    ROTATE_PARAM="&rotate=0"
+  fi
 
-if [[ "$code" =~ ^2 ]]; then
-  echo "[OK] social-process-pending HTTP ${code}"
+  URL="${WEB_ORIGIN%/}${WORKER_PATH}?limit=${LIMIT}${ROTATE_PARAM}"
+  code="$(curl -sS -o "$TMP" -w "%{http_code}" \
+    -X POST \
+    -H "x-travel-social-worker-secret: ${SECRET}" \
+    -H "Accept: application/json" \
+    "$URL")"
+
+  if [[ ! "$code" =~ ^2 ]]; then
+    echo "[FAIL] social-process-pending batch ${batch} HTTP ${code}" >&2
+    head -c 2000 "$TMP" >&2 || true
+    echo >&2
+    exit 1
+  fi
+
+  processed="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(Number(p.processed||0))" "$TMP" 2>/dev/null || echo 0)"
+  posted="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(Number(p.posted||0))" "$TMP" 2>/dev/null || echo 0)"
+  failed="$(node -e "const fs=require('fs'); const p=JSON.parse(fs.readFileSync(process.argv[1],'utf8')); console.log(Number(p.failed||0))" "$TMP" 2>/dev/null || echo 0)"
+  echo "[OK] social-process-pending batch ${batch} HTTP ${code} processed=${processed} posted=${posted} failed=${failed}"
+
   if [[ "${WORKER_VERBOSE:-0}" == "1" ]]; then
     cat "$TMP"
     echo
   fi
-  exit 0
-fi
 
-echo "[FAIL] social-process-pending HTTP ${code}" >&2
-head -c 2000 "$TMP" >&2 || true
-echo >&2
-exit 1
+  if [[ "$LOOP_UNTIL_EMPTY" != "1" || "$processed" -lt "$LIMIT" ]]; then
+    exit 0
+  fi
+  batch=$((batch + 1))
+done

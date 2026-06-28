@@ -189,6 +189,18 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
     list.key_find(qs, "limit")
     |> result.unwrap("20")
     |> parse_limit
+  let offset_n =
+    case list.key_find(qs, "offset") {
+      Error(_) -> 0
+      Ok(v) ->
+        case int.parse(string.trim(v)) {
+          Ok(n) -> case n < 0 {
+            True -> 0
+            False -> n
+          }
+          Error(_) -> 0
+        }
+    }
   let cat_param = case cat_raw == "" {
     True -> pog.null()
     False -> pog.text(cat_raw)
@@ -215,12 +227,13 @@ pub fn list_listings(req: Request, ctx: Context) -> Response {
               <> "left join listing_yacht_details y on y.listing_id = l.id "
               <> "where ($1::text is null or pc.code = $1) "
               <> "and ($2::text is null or l.slug ilike $2 or l.id::text ilike $2 or exists (select 1 from listing_translations lt_search where lt_search.listing_id = l.id and lt_search.title ilike $2)) "
-              <> "order by case when l.status::text = 'published' then 0 else 1 end, l.created_at desc limit $4::int",
+              <> "order by case when l.status::text = 'published' then 0 else 1 end, l.created_at desc limit $4::int offset $5::int",
             )
             |> pog.parameter(cat_param)
             |> pog.parameter(like_param)
             |> pog.parameter(pog.text(title_loc))
             |> pog.parameter(pog.int(limit_n))
+            |> pog.parameter(pog.int(offset_n))
             |> pog.returning(social_listing_row())
             |> db_exec.execute(ctx.db)
           {
@@ -379,8 +392,8 @@ fn list_jobs_inner(req: Request, ctx: Context) -> Response {
     |> result.unwrap("50")
     |> string.trim
   let limit = case int.parse(limit_str) {
-    Ok(n) -> case n > 200 {
-      True -> 200
+    Ok(n) -> case n > 1000 {
+      True -> 1000
       False -> case n < 1 {
         True -> 50
         False -> n

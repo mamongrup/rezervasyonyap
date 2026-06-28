@@ -535,12 +535,19 @@ function SocialCampaignPlanner({ onQueued }: { onQueued: () => void }) {
     setMessage(null)
     try {
       const tplId = await ensureTemplate(token)
-      const res = await listSocialListings(token, {
-        categoryCode,
-        limit: 500,
-        titleLocale: 'tr',
-      })
-      const published = res.listings.filter((l) => l.status === 'published')
+      const published: ManageListingRow[] = []
+      const pageSize = 500
+      for (let offset = 0; ; offset += pageSize) {
+        const res = await listSocialListings(token, {
+          categoryCode,
+          limit: pageSize,
+          offset,
+          titleLocale: 'tr',
+        })
+        const batch = res.listings.filter((l) => l.status === 'published')
+        published.push(...batch)
+        if (res.listings.length < pageSize) break
+      }
       let queued = 0
       let skipped = 0
       for (const listing of published) {
@@ -1070,7 +1077,7 @@ export default function AdminSocialSection() {
     setLoading(true)
     try {
       const j = await listSocialJobs(token, {
-        limit: 100,
+        limit: 1000,
       })
       setJobs(j.jobs)
     } catch (e) {
@@ -1089,9 +1096,20 @@ export default function AdminSocialSection() {
     setProcessMsg(null)
     setProcessing(true)
     try {
-      const out = await processSocialPendingJobs(token, { limit: 5, rotate: false })
+      let processed = 0
+      let posted = 0
+      let failed = 0
+      let batches = 0
+      for (let i = 0; i < 100; i += 1) {
+        const out = await processSocialPendingJobs(token, { limit: 50, rotate: false })
+        batches += 1
+        processed += out.processed
+        posted += out.posted
+        failed += out.failed
+        if (out.processed < 50) break
+      }
       setProcessMsg(
-        `İşlenen: ${out.processed}, paylaşılan: ${out.posted}, başarısız: ${out.failed}.`,
+        `Paket: ${batches}, işlenen: ${processed}, paylaşılan: ${posted}, başarısız: ${failed}.`,
       )
       await refresh()
     } catch (e) {

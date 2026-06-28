@@ -222,8 +222,8 @@ pub fn get_worker_pending(req: Request, ctx: Context) -> Response {
         Ok(v) ->
           case int.parse(string.trim(v)) {
             Ok(n) ->
-              case n > 20 {
-                True -> 20
+              case n > 50 {
+                True -> 50
                 False -> case n < 1 {
                   True -> 10
                   False -> n

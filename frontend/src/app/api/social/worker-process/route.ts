@@ -5,7 +5,7 @@
  * Cron / systemd ile çağrılır.
  *
  * Header: x-travel-social-worker-secret: TRAVEL_SOCIAL_WORKER_SECRET
- * Query: limit=5 (isteğe bağlı, max 20)
+ * Query: limit=50 (isteğe bağlı, max 50)
  * Query: rotate=0 — döngü kuyruğu ekleme atlanır (varsayılan: açık)
  */
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   }
 
   const limitRaw = req.nextUrl.searchParams.get('limit')
-  const limit = limitRaw ? Math.min(20, Math.max(1, Number.parseInt(limitRaw, 10) || 5)) : 5
+  const limit = limitRaw ? Math.min(50, Math.max(1, Number.parseInt(limitRaw, 10) || 50)) : 50
   const rotate = req.nextUrl.searchParams.get('rotate') !== '0'
 
   try {
