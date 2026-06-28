@@ -6,7 +6,7 @@
  *
  * Header: x-travel-social-worker-secret: TRAVEL_SOCIAL_WORKER_SECRET
  * Query: limit=5 (isteğe bağlı, max 5)
- * Query: rotate=0 — döngü kuyruğu ekleme atlanır (varsayılan: açık)
+ * Query: rotate=1 — döngü kuyruğu ekler (varsayılan: kapalı; bekleyenleri boşaltırken açmayın)
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   // Meta image upload + carousel publish can take long; keep each HTTP request
   // small and let the caller loop, otherwise nginx/Next returns 504.
   const limit = limitRaw ? Math.min(3, Math.max(1, Number.parseInt(limitRaw, 10) || 3)) : 3
-  const rotate = req.nextUrl.searchParams.get('rotate') !== '0'
+  const rotate = req.nextUrl.searchParams.get('rotate') === '1'
 
   try {
     let enqueued = 0
