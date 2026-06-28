@@ -221,6 +221,41 @@ async function validateFacebookPageToken(pageId: string, token: string): Promise
   }
 }
 
+async function resolveFacebookPageAccessToken(pageId: string, token: string): Promise<string> {
+  const raw = token.trim()
+  if (!pageId || !raw) throw new Error('facebook_not_configured')
+
+  const meRes = await fetch(`${FB_GRAPH}/me?fields=id,name&access_token=${encodeURIComponent(raw)}`, {
+    cache: 'no-store',
+  })
+  const me = (await meRes.json().catch(() => ({}))) as {
+    id?: string
+    error?: { message?: string }
+  }
+  if (!meRes.ok || me.error) {
+    throw new Error(me.error?.message ?? 'facebook_token_invalid')
+  }
+  if (me.id === pageId) return raw
+
+  const accountsRes = await fetch(
+    `${FB_GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(raw)}`,
+    { cache: 'no-store' },
+  )
+  const accounts = (await accountsRes.json().catch(() => ({}))) as {
+    data?: Array<{ id?: string; access_token?: string }>
+    error?: { message?: string }
+  }
+  if (!accountsRes.ok || accounts.error) {
+    throw new Error(accounts.error?.message ?? 'facebook_page_token_required')
+  }
+
+  const pageToken = accounts.data?.find((p) => p.id === pageId)?.access_token?.trim()
+  if (!pageToken) {
+    throw new Error('facebook_page_token_required')
+  }
+  return pageToken
+}
+
 export async function fetchPendingSocialJobs(
   apiOrigin: string,
   secret: string,
@@ -353,14 +388,15 @@ async function postFacebook(
   const pageId = meta.page_id?.trim()
   const token = meta.page_access_token?.trim()
   if (!pageId || !token) throw new Error('facebook_not_configured')
-  await validateFacebookPageToken(pageId, token)
+  const pageToken = await resolveFacebookPageAccessToken(pageId, token)
+  await validateFacebookPageToken(pageId, pageToken)
 
   const imageUrl = imageUrls.find((u) => u.startsWith('https://')) ?? ''
 
   if (!imageUrl) {
     const body = new URLSearchParams({
       message: `${message}\n\n${pageUrl}`.trim(),
-      access_token: token,
+      access_token: pageToken,
     })
     const fbRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/feed`, {
       method: 'POST',
@@ -379,7 +415,7 @@ async function postFacebook(
   const body = new URLSearchParams({
     url: imageUrl,
     caption: `${message}\n\n${pageUrl}`.trim(),
-    access_token: token,
+    access_token: pageToken,
   })
   const photoRes = await fetch(`${FB_GRAPH}/${encodeURIComponent(pageId)}/photos`, {
     method: 'POST',
@@ -444,7 +480,7 @@ async function postInstagram(
   const token = meta.page_access_token?.trim()
   if (!igId || !token) throw new Error('instagram_not_configured')
 
-  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 1)
+  const httpsUrls = imageUrls.filter((u) => u.startsWith('https://')).slice(0, 10)
   if (httpsUrls.length === 0) throw new Error('instagram_requires_https_image')
 
   if (httpsUrls.length === 1) {
