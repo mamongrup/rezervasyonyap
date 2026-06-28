@@ -48,6 +48,17 @@ function enrichVitrinWithListingPois(
   )
 }
 
+function aiFallbackText(regionName: string, rowLabel: string, columnTitle: string): string {
+  const region = regionName.split(',')[0]?.trim() || regionName.trim() || 'bölge'
+  const key = `${rowLabel} ${columnTitle}`.toLocaleLowerCase('tr-TR')
+  if (/plaj|beach|koy|sahil/.test(key)) return `${region} çevresindeki plaj ve koy alternatiflerini inceleyin.`
+  if (/tarih|ören|antik|ruin|müze|museum|gezilecek/.test(key)) return `${region} çevresindeki tarihi ve gezilecek durakları keşfedin.`
+  if (/restoran|restaurant|cafe|yeme/.test(key)) return `${region} çevresindeki restoran ve kafe seçeneklerini değerlendirin.`
+  if (/market|eczane|pharmacy|temel|ihtiyaç/.test(key)) return `${region} çevresindeki günlük ihtiyaç noktalarını kontrol edin.`
+  if (/hava|airport|otogar|bus|minibüs|metro|ulaşım|transfer/.test(key)) return `${region} için ulaşım ve transfer seçeneklerini planlayın.`
+  return `${region} çevresinde bu kategori için öne çıkan seçenekleri değerlendirin.`
+}
+
 interface Props {
   placesData: RegionPlaceData
   config: NearbyVitrinColumnsConfig
@@ -104,54 +115,56 @@ export default function ListingNearbyPlacesVitrinSection({
               {col.title}
             </h4>
             <ul className="mt-3 flex flex-col gap-3">
-              {col.cells.map((cell) => (
-                <li key={`${col.title}-${cell.rowLabel}-${cell.placeName}`} className="flex flex-col gap-0.5">
-                  {cell.placeName && cell.distanceLabel ? (
-                    cell.mapsHref ? (
+              {col.cells.map((cell) => {
+                const placeName = cell.placeName?.trim() || aiFallbackText(data.regionName, cell.rowLabel, col.title)
+                const hasRealPlace = Boolean(cell.placeName?.trim())
+                return (
+                <li key={`${col.title}-${cell.rowLabel}-${placeName}`} className="flex flex-col gap-0.5">
+                  {cell.mapsHref ? (
                       <Link
                         href={cell.mapsHref}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="group flex flex-col gap-0.5"
                       >
-                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !==
-                        cell.placeName.trim().toLocaleLowerCase('tr-TR') ? (
+                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !== placeName.toLocaleLowerCase('tr-TR') ? (
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
                             {cell.rowLabel}
                           </span>
                         ) : null}
                         <span className="flex items-start justify-between gap-2">
                           <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-neutral-800 group-hover:text-primary-600 dark:text-neutral-200 dark:group-hover:text-primary-400">
-                            {cell.placeName}
+                            {placeName}
                           </span>
-                          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
-                            {cell.distanceLabel}
-                          </span>
+                          {cell.distanceLabel ? (
+                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+                              {cell.distanceLabel}
+                            </span>
+                          ) : null}
                         </span>
                       </Link>
                     ) : (
                       <div className="flex flex-col gap-0.5">
-                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !==
-                        cell.placeName.trim().toLocaleLowerCase('tr-TR') ? (
+                        {cell.rowLabel.trim().toLocaleLowerCase('tr-TR') !== placeName.toLocaleLowerCase('tr-TR') ? (
                           <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400 dark:text-neutral-500">
-                            {cell.rowLabel}
+                            {hasRealPlace ? cell.rowLabel : 'AI önerisi'}
                           </span>
                         ) : null}
                         <div className="flex items-start justify-between gap-2">
                           <span className="min-w-0 flex-1 text-sm font-medium leading-snug text-neutral-800 dark:text-neutral-200">
-                            {cell.placeName}
+                            {placeName}
                           </span>
-                          <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
-                            {cell.distanceLabel}
-                          </span>
+                          {cell.distanceLabel ? (
+                            <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
+                              {cell.distanceLabel}
+                            </span>
+                          ) : null}
                         </div>
                       </div>
-                    )
-                  ) : (
-                    <span className="text-sm text-neutral-400 dark:text-neutral-500">{copy.nearbyVitrinEmpty}</span>
                   )}
                 </li>
-              ))}
+                )
+              })}
             </ul>
           </div>
         ))}
