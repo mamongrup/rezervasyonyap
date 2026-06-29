@@ -22,6 +22,7 @@ import { panelImagesToFreeformUrls } from '@/lib/hero-gallery-slots'
 import { resolveHeroLcpImageUrl } from '@/lib/hero-lcp-url'
 import { DEFAULT_REGION_HERO_FREEFORM } from '@/lib/region-hero-freeform-defaults'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
+import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
 import { vitrinHref } from '@/lib/vitrin-href'
 import heroRightStay from '@/images/hero-right.avif'
 import ButtonPrimary from '@/shared/ButtonPrimary'
@@ -127,18 +128,20 @@ export default async function Page({ params }: { params: Promise<{ locale: strin
   }))
 
   // Hero config — page-builder hero modülü > homepageConfig > varsayılan mesaj
+  // Page-builder hero editörü metinleri çoklu-dilli ({ tr, en, … }) saklar;
+  // «Ana Sayfa Düzenleyici» düz string yazar → `pickLocalized` ikisini de okur.
   const heroModule = modules.find((mod) => mod.type === 'hero' && mod.enabled)
   const heroModuleCfg = heroModule?.config as Record<string, unknown> | undefined
   const heroHeading =
-    (heroModuleCfg?.heading as string | undefined)?.trim() ||
+    pickLocalized(heroModuleCfg?.heading as LocalizedText | string | undefined, locale).trim() ||
     homepageConfig?.heroHeading ||
     m.homePage.heroDefaults.heading
   const heroSubheading =
-    (heroModuleCfg?.subheading as string | undefined)?.trim() ||
+    pickLocalized(heroModuleCfg?.subheading as LocalizedText | string | undefined, locale).trim() ||
     homepageConfig?.heroSubheading ||
     m.homePage.heroDefaults.subheading
   const heroCtaText =
-    (heroModuleCfg?.ctaText as string | undefined)?.trim() ||
+    pickLocalized(heroModuleCfg?.ctaText as LocalizedText | string | undefined, locale).trim() ||
     homepageConfig?.heroCtaText ||
     m.homePage.heroDefaults.cta
   /** Anasayfa hero CTA linki — hero modülünde özel link varsa onu kullan, yoksa kategori vitrin */

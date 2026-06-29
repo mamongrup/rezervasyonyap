@@ -47,6 +47,7 @@ import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { getLocalizedDefaultModules } from '@/lib/page-builder-default-modules'
 import { sanitizeHeroInlineHtml } from '@/lib/sanitize-cms-html'
+import { pickLocalized, type LocalizedText } from '@/lib/localized-text'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { vitrinHref } from '@/lib/vitrin-href'
 import { buildListingsItemListJsonLd } from '@/lib/seo/listings-itemlist-jsonld'
@@ -253,7 +254,9 @@ export default async function CategoryPageTemplate({
   const heroModule = resolvedModules.find((m) => m.type === 'hero' && m.enabled)
   const heroConfig = (heroModule?.config as Record<string, unknown>) ?? {}
   const configImages = heroConfig.images as string[] | undefined
-  const configHeading = (heroConfig.heading as string) || null
+  // Page-builder hero editörü başlığı çoklu-dilli ({ tr, en, … }) saklayabilir; düz string de gelebilir.
+  const configHeading =
+    pickLocalized(heroConfig.heading as LocalizedText | string | undefined, locale).trim() || null
 
   const heroImage = heroImages[category.heroImageType ?? 'stay']
   const defaultSrc =
