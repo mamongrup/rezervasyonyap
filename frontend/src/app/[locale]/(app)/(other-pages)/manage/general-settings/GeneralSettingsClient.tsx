@@ -630,17 +630,53 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
     setGoogleServicesSaving(true)
     setStatus({ kind: 'idle' })
     try {
+      // Yanlış alana girilen ID'leri doğru yere taşı (ör. GTM alanına AW-/G- yazılması).
+      let ga4 = ga4Id.trim()
+      let gtm = gtmId.trim()
+      let ads = googleAdsId.trim()
+      const moved: string[] = []
+      if (/^AW-/i.test(gtm)) {
+        if (!ads) ads = gtm
+        gtm = ''
+        moved.push('GTM alanındaki AW- değeri Google Ads alanına taşındı')
+      } else if (/^G-/i.test(gtm)) {
+        if (!ga4) ga4 = gtm
+        gtm = ''
+        moved.push('GTM alanındaki G- değeri Analytics alanına taşındı')
+      }
+      if (gtm && !/^GTM-/i.test(gtm)) {
+        moved.push('GTM ID «GTM-» ile başlamadığı için yok sayıldı')
+        gtm = ''
+      }
+      if (ga4 && !/^G-/i.test(ga4)) {
+        if (/^AW-/i.test(ga4) && !ads) ads = ga4
+        moved.push('Analytics ID «G-» ile başlamadığı için düzeltildi')
+        ga4 = ''
+      }
+      if (ads && !/^AW-/i.test(ads)) {
+        moved.push('Google Ads ID «AW-» ile başlamadığı için yok sayıldı')
+        ads = ''
+      }
+      // Düzeltilmiş değerleri forma yansıt.
+      setGa4Id(ga4)
+      setGtmId(gtm)
+      setGoogleAdsId(ads)
+
       const next = {
         ...analyticsRest,
-        ...(ga4Id.trim() ? { ga4_id: ga4Id.trim() } : {}),
-        ...(gtmId.trim() ? { gtm_id: gtmId.trim() } : {}),
+        ...(ga4 ? { ga4_id: ga4 } : {}),
+        ...(gtm ? { gtm_id: gtm } : {}),
         ...(adsenseId.trim() ? { adsense_id: adsenseId.trim() } : {}),
         adsense_auto_ads: adsenseAutoAds,
-        ...(googleAdsId.trim() ? { google_ads_id: googleAdsId.trim() } : {}),
+        ...(ads ? { google_ads_id: ads } : {}),
         ...(searchConsoleCode.trim() ? { search_console_verification: searchConsoleCode.trim() } : {}),
       }
       await upsertSiteSettingFromPanel({ key: 'analytics', value_json: JSON.stringify(next) })
-      setStatus({ kind: 'ok', text: 'Google hizmet ayarları kaydedildi. Değişiklikler bir sonraki deploy\'da yansır.' })
+      const note = moved.length > 0 ? ` (${moved.join('; ')})` : ''
+      setStatus({
+        kind: 'ok',
+        text: `Google hizmet ayarları kaydedildi.${note} Değişiklikler bir sonraki deploy'da yansır.`,
+      })
       await load()
     } catch (e) {
       setStatus({ kind: 'err', text: formatManageApiCatch(e, 'Kayıt başarısız') })
@@ -1815,6 +1851,9 @@ export default function GeneralSettingsClient({ embedded = false }: GeneralSetti
               <Input className="mt-1 font-mono" value={gtmId} onChange={(e) => setGtmId(e.target.value)} placeholder="GTM-XXXXXXX" />
               <p className="mt-1 text-xs text-neutral-400">
                 <a href="https://tagmanager.google.com" target="_blank" rel="noopener noreferrer" className="text-primary-600 underline">Google Tag Manager</a> → Kapsayıcı → Genel Bakış → Kapsayıcı Kimliği
+              </p>
+              <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
+                ⚠️ <code className="font-mono">AW-…</code> (Google Ads) veya <code className="font-mono">G-…</code> (Analytics) buraya yazmayın — aşağıdaki kendi alanlarını kullanın. Yanlışlıkla girilirse kayıtta otomatik taşınır.
               </p>
             </Field>
           </section>

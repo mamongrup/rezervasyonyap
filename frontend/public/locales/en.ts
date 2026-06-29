@@ -1296,6 +1296,12 @@ export const en = {
       subtitleHolidayHome: 'Standout themes and concept for this holiday home.',
       subtitleYachtCharter: 'Standout themes and concept for this yacht charter.',
     },
+    detailCampaigns: {
+      title: 'Campaigns',
+      installmentSubtitle: 'Up to {count} interest-free installments on all credit cards.',
+      discountBadge: '{percent}% off',
+      validUntil: 'Valid until {date}.',
+    },
     /** Auto-generated FAQ block on hotel detail page */
     faq: {
       title: 'Frequently asked questions',

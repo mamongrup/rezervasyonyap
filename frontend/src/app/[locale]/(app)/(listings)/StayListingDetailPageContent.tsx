@@ -54,6 +54,7 @@ import {
   fetchPublicListingAvailabilityDaysSafe,
   fetchPublicListingBedroomsSafe,
   fetchPublicListingContractSafe,
+  fetchPublicListingDetailCampaigns,
   fetchPublicVerticalMetaSafe,
   fetchPublicVerticalYachtSafe,
   getBlogSlugsByTitles,
@@ -120,6 +121,7 @@ import {
 import HotelListingPromotionsSection from './HotelListingPromotionsSection'
 import HotelListingActivitiesSection from './HotelListingActivitiesSection'
 import HotelHighlightsSection from './HotelHighlightsSection'
+import ListingDetailCampaignsSection from './ListingDetailCampaignsSection'
 import HotelImportantNotesSection from './HotelImportantNotesSection'
 import HotelPropertyInfoGrid from './HotelPropertyInfoGrid'
 import HotelRoomShowcase, { type HotelRoomShowcaseItem } from './HotelRoomShowcase'
@@ -164,6 +166,7 @@ import {
   siteCampaignsToPromotionCards,
   splitHotelValidCampaignsForListing,
 } from '@/lib/hotel-valid-campaigns'
+import { parseListingDetailCampaignsPayload } from '@/lib/listing-detail-campaigns'
 import { pickLocalized } from '@/lib/localized-text'
 import { safeTrim, safeTrimOrNull } from '@/lib/safe-string'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
@@ -364,6 +367,7 @@ export default async function StayListingDetailPageContent({
     hotelPromotions,
     availabilityCalendarDays,
     listingBedrooms,
+    listingDetailCampaignsRaw,
   ] = await Promise.all([
     catalogListingId != null
       ? getPublicListingAccommodationRules(catalogListingId)
@@ -379,7 +383,14 @@ export default async function StayListingDetailPageContent({
     isStayRentalCategory(vertical) && catalogListingId
       ? fetchPublicListingBedroomsSafe(catalogListingId)
       : Promise.resolve([]),
+    catalogListingId && vertical
+      ? fetchPublicListingDetailCampaigns({
+          listingId: catalogListingId,
+          categoryCode: vertical,
+        })
+      : Promise.resolve({ campaigns: [] }),
   ])
+  const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
 
   let listingContractHref: string | null = null
   let listingContractBody: { title: string; bodyHtml: string } | null = null
@@ -1158,6 +1169,29 @@ export default async function StayListingDetailPageContent({
     )
   }
 
+  const dc = messages.listing.detailCampaigns
+
+  const renderListingDetailCampaignsSection = () => {
+    if (listingDetailCampaigns.length === 0) return null
+    return (
+      <ListingDetailCampaignsSection
+        locale={locale}
+        campaigns={listingDetailCampaigns}
+        title={dc?.title ?? 'Kampanyalar'}
+        labels={{
+          installmentSubtitle: (count) =>
+            interpolate(dc?.installmentSubtitle ?? 'Tüm kredi kartlarına vade farksız {count} taksit imkânı.', {
+              count: String(count),
+            }),
+          discountBadge: (percent) =>
+            interpolate(dc?.discountBadge ?? '%{percent} indirim', { percent }),
+          validUntil: (date) =>
+            interpolate(dc?.validUntil ?? '{date} tarihine kadar geçerlidir.', { date }),
+        }}
+      />
+    )
+  }
+
   const renderHotelActivitiesSection = () => {
     if (vertical !== 'hotel' || hotelActivities.length === 0) return null
     return (
@@ -1534,6 +1568,7 @@ export default async function StayListingDetailPageContent({
         {/* LEFT COLUMN */}
         <div className="flex min-w-0 w-full flex-col gap-y-5 lg:w-3/5 xl:w-[62%] xl:gap-y-7">
           {renderSectionHeader()}
+          {renderListingDetailCampaignsSection()}
           {renderHotelCampaignsSection()}
           {renderHotelActivitiesSection()}
           {perksBadges}

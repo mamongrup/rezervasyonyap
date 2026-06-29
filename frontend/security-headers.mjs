@@ -78,6 +78,8 @@ export function buildContentSecurityPolicy(mode = 'enforce') {
       'https://region1.google-analytics.com',
       'https://maps.googleapis.com',
       'https://pagead2.googlesyndication.com',
+      'https://www.googleadservices.com',
+      'https://googleads.g.doubleclick.net',
       'https://www.google.com',
       'https://www.gstatic.com',
       'https://embed.tawk.to',

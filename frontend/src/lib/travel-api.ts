@@ -11453,6 +11453,80 @@ export async function listPublicActiveCampaigns(params?: {
   }
 }
 
+export type ListingDetailCampaignPublic = {
+  id: string
+  kind: string
+  title: string
+  name_translations?: string
+  rules_json?: string
+  starts_at: string | null
+  ends_at: string | null
+  discount_percent: string | null
+}
+
+/** İlan detay sayfası kampanyaları (kart taksit + ilana özel indirim). */
+export async function fetchPublicListingDetailCampaigns(params: {
+  listingId: string
+  categoryCode: string
+}): Promise<{ campaigns: ListingDetailCampaignPublic[] }> {
+  const b = base()
+  if (!b) return { campaigns: [] }
+  const q = new URLSearchParams({
+    listing_id: params.listingId,
+    category_code: params.categoryCode,
+  })
+  try {
+    const res = await fetch(`${b}/api/v1/public/marketing/listing-detail-campaigns?${q}`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return { campaigns: [] }
+    return json(res)
+  } catch {
+    return { campaigns: [] }
+  }
+}
+
+export type CampaignListingLink = {
+  listing_id: string
+  listing_title: string
+  discount_percent: string | null
+}
+
+export async function getCampaignListings(
+  token: string,
+  campaignId: string,
+): Promise<{ listings: CampaignListingLink[] }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/marketing/campaigns/${campaignId}/listings`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`campaign_listings_${res.status}`)
+  return json(res)
+}
+
+export async function putCampaignListings(
+  token: string,
+  campaignId: string,
+  listings: Array<{ listing_id: string; discount_percent: number | string }>,
+): Promise<{ ok: boolean }> {
+  const b = base()
+  if (!b) throw new Error('NEXT_PUBLIC_API_URL_missing')
+  const res = await fetch(`${b}/api/v1/marketing/campaigns/${campaignId}/listings`, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ listings }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as { error?: string }).error ?? `campaign_listings_put_${res.status}`)
+  }
+  return json(res)
+}
+
 /** Sadece is_public=true kuponlar. Vitrin şeridi/banner için. */
 export async function listPublicActiveCoupons(params?: {
   limit?: number

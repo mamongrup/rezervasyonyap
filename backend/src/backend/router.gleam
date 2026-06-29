@@ -1264,6 +1264,12 @@ fn dispatch(req: Request, ctx: Context) -> Response {
     http.Delete, ["api", "v1", "marketing", "campaigns", cid] ->
       marketing_http.delete_campaign(req, ctx, cid)
 
+    http.Get, ["api", "v1", "marketing", "campaigns", cid, "listings"] ->
+      marketing_http.get_campaign_listings(req, ctx, cid)
+
+    http.Put, ["api", "v1", "marketing", "campaigns", cid, "listings"] ->
+      marketing_http.put_campaign_listings(req, ctx, cid)
+
     http.Get, ["api", "v1", "marketing", "holiday-packages"] ->
       marketing_http.list_holiday_packages(req, ctx)
 
@@ -1281,6 +1287,9 @@ fn dispatch(req: Request, ctx: Context) -> Response {
 
     http.Get, ["api", "v1", "public", "marketing", "active-campaigns"] ->
       marketing_http.list_public_active_campaigns(req, ctx)
+
+    http.Get, ["api", "v1", "public", "marketing", "listing-detail-campaigns"] ->
+      marketing_http.list_public_listing_detail_campaigns(req, ctx)
 
     http.Get, ["api", "v1", "public", "marketing", "active-coupons"] ->
       marketing_http.list_public_active_coupons(req, ctx)

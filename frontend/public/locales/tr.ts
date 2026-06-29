@@ -813,6 +813,12 @@ export const tr = {
       subtitleHolidayHome: 'Bu tatil evinin öne çıkan temaları ve konsepti.',
       subtitleYachtCharter: 'Bu yat kiralama ilanının öne çıkan temaları ve konsepti.',
     },
+    detailCampaigns: {
+      title: 'Kampanyalar',
+      installmentSubtitle: 'Tüm kredi kartlarına vade farksız {count} taksit imkânı.',
+      discountBadge: '%{percent} indirim',
+      validUntil: '{date} tarihine kadar geçerlidir.',
+    },
     faq: {
       title: 'Sıkça sorulan sorular',
       subtitle: 'Bu otel hakkında misafirlerin en çok sorduğu sorular.',

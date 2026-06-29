@@ -1396,3 +1396,214 @@ pub fn list_public_cross_sell_suggestions(req: Request, ctx: Context) -> Respons
       }
   }
 }
+
+fn listing_detail_campaign_row() -> decode.Decoder(
+  #(String, String, String, String, String, String, String, Bool, String, String),
+) {
+  use id <- decode.field(0, decode.string)
+  use code <- decode.field(1, decode.string)
+  use ct <- decode.field(2, decode.string)
+  use name <- decode.field(3, decode.string)
+  use rules <- decode.field(4, decode.string)
+  use st <- decode.field(5, decode.string)
+  use en <- decode.field(6, decode.string)
+  use active <- decode.field(7, decode.bool)
+  use trans <- decode.field(8, decode.string)
+  use disc <- decode.field(9, decode.string)
+  decode.success(#(id, code, ct, name, rules, st, en, active, trans, disc))
+}
+
+fn listing_detail_campaign_json(
+  row: #(
+    String, String, String, String, String, String, String, Bool, String, String,
+  ),
+) -> json.Json {
+  let #(id, _code, ct, name, rules, st, en, _active, trans, disc) = row
+  let trans_str = case string.trim(trans) == "" {
+    True -> "{}"
+    False -> trans
+  }
+  let stj = case st == "" {
+    True -> json.null()
+    False -> json.string(st)
+  }
+  let enj = case en == "" {
+    True -> json.null()
+    False -> json.string(en)
+  }
+  let discj = case disc == "" {
+    True -> json.null()
+    False -> json.string(disc)
+  }
+  json.object([
+    #("id", json.string(id)),
+    #("kind", json.string(ct)),
+    #("title", json.string(name)),
+    #("name_translations", json.string(trans_str)),
+    #("rules_json", json.string(rules)),
+    #("starts_at", stj),
+    #("ends_at", enj),
+    #("discount_percent", discj),
+  ])
+}
+
+/// GET /api/v1/public/marketing/listing-detail-campaigns?listing_id=&category_code=
+pub fn list_public_listing_detail_campaigns(req: Request, ctx: Context) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  let qs = case request.get_query(req) {
+    Ok(q) -> q
+    Error(_) -> []
+  }
+  let listing_id =
+    list.key_find(qs, "listing_id")
+    |> result.unwrap("")
+    |> string.trim
+  let category_code =
+    list.key_find(qs, "category_code")
+    |> result.unwrap("")
+    |> string.trim
+  case listing_id == "" || category_code == "" {
+    True -> json_err(400, "listing_id_and_category_code_required")
+    False -> {
+      let installment_q =
+        pog.query(
+          "select c.id::text, c.code, c.campaign_type, c.name, c.rules_json::text, coalesce(c.starts_at::text,''), coalesce(c.ends_at::text,''), c.is_active, coalesce(c.name_translations::text,'{}'), '' from campaigns c where c.campaign_type = 'card_installment' and c.is_active = true and (c.starts_at is null or c.starts_at <= now()) and (c.ends_at is null or c.ends_at >= now()) and ( coalesce(jsonb_array_length(c.rules_json->'category_codes'), 0) = 0 or exists ( select 1 from jsonb_array_elements_text(coalesce(c.rules_json->'category_codes', '[]'::jsonb)) x where x = $1 ) ) order by c.created_at desc limit 5",
+        )
+        |> pog.parameter(pog.text(category_code))
+        |> pog.returning(listing_detail_campaign_row())
+      let discount_q =
+        pog.query(
+          "select c.id::text, c.code, c.campaign_type, c.name, c.rules_json::text, coalesce(c.starts_at::text,''), coalesce(c.ends_at::text,''), c.is_active, coalesce(c.name_translations::text,'{}'), coalesce(lc.discount_percent::text,'') from campaigns c inner join listing_campaigns lc on lc.campaign_id = c.id where lc.listing_id = $1::uuid and c.campaign_type = 'listing_discount' and c.is_active = true and (c.starts_at is null or c.starts_at <= now()) and (c.ends_at is null or c.ends_at >= now()) order by c.created_at desc limit 20",
+        )
+        |> pog.parameter(pog.text(listing_id))
+        |> pog.returning(listing_detail_campaign_row())
+      case installment_q |> db_exec.execute(ctx.db) {
+        Error(_) -> json_err(500, "listing_campaigns_query_failed")
+        Ok(inst_ret) ->
+          case discount_q |> db_exec.execute(ctx.db) {
+            Error(_) -> json_err(500, "listing_campaigns_query_failed")
+            Ok(disc_ret) -> {
+              let all = list.append(inst_ret.rows, disc_ret.rows)
+              let arr = list.map(all, listing_detail_campaign_json)
+              let body =
+                json.object([#("campaigns", json.array(from: arr, of: fn(x) { x }))])
+                |> json.to_string
+              wisp.json_response(body, 200)
+            }
+          }
+      }
+    }
+  }
+}
+
+fn campaign_listing_link_row() -> decode.Decoder(#(String, String, String)) {
+  use lid <- decode.field(0, decode.string)
+  use title <- decode.field(1, decode.string)
+  use disc <- decode.field(2, decode.string)
+  decode.success(#(lid, title, disc))
+}
+
+fn campaign_listing_link_json(row: #(String, String, String)) -> json.Json {
+  let #(lid, title, disc) = row
+  let discj = case disc == "" {
+    True -> json.null()
+    False -> json.string(disc)
+  }
+  json.object([
+    #("listing_id", json.string(lid)),
+    #("listing_title", json.string(title)),
+    #("discount_percent", discj),
+  ])
+}
+
+/// GET /api/v1/marketing/campaigns/:id/listings — `admin.users.read`
+pub fn get_campaign_listings(req: Request, ctx: Context, campaign_id: String) -> Response {
+  use <- wisp.require_method(req, http.Get)
+  case require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case
+        pog.query(
+          "select lc.listing_id::text, coalesce(l.title,''), coalesce(lc.discount_percent::text,'') from listing_campaigns lc inner join listings l on l.id = lc.listing_id where lc.campaign_id = $1::uuid order by l.title asc limit 500",
+        )
+        |> pog.parameter(pog.text(campaign_id))
+        |> pog.returning(campaign_listing_link_row())
+        |> db_exec.execute(ctx.db)
+      {
+        Error(_) -> json_err(500, "campaign_listings_query_failed")
+        Ok(ret) -> {
+          let arr = list.map(ret.rows, campaign_listing_link_json)
+          let body =
+            json.object([#("listings", json.array(from: arr, of: fn(x) { x }))])
+            |> json.to_string
+          wisp.json_response(body, 200)
+        }
+      }
+  }
+}
+
+fn put_campaign_listings_decoder() -> decode.Decoder(List(#(String, String))) {
+  decode.field("listings", decode.list(decode.field("listing_id", decode.string, fn(lid) {
+    decode.field("discount_percent", decode.string, fn(disc) {
+      decode.success(#(string.trim(lid), string.trim(disc)))
+    })
+  })), fn(rows) { decode.success(rows) })
+}
+
+/// PUT /api/v1/marketing/campaigns/:id/listings — `admin.users.read`
+pub fn put_campaign_listings(req: Request, ctx: Context, campaign_id: String) -> Response {
+  use <- wisp.require_method(req, http.Put)
+  case require_admin_users_read(req, ctx) {
+    Error(r) -> r
+    Ok(_) ->
+      case read_body_string(req) {
+        Error(_) -> json_err(400, "empty_body")
+        Ok(body) ->
+          case json.parse(body, put_campaign_listings_decoder()) {
+            Error(_) -> json_err(400, "invalid_json")
+            Ok(rows) -> {
+              case
+                pog.query("delete from listing_campaigns where campaign_id = $1::uuid")
+                |> pog.parameter(pog.text(campaign_id))
+                |> db_exec.execute(ctx.db)
+              {
+                Error(_) -> json_err(500, "campaign_listings_delete_failed")
+                Ok(_) ->
+                  case list.fold(rows, Ok(Nil), fn(acc, row) {
+                    case acc {
+                      Error(e) -> Error(e)
+                      Ok(_) -> {
+                        let #(lid, disc) = row
+                        case lid == "" {
+                          True -> Ok(Nil)
+                          False -> {
+                            let disc_p = case disc == "" {
+                              True -> pog.null()
+                              False -> pog.text(disc)
+                            }
+                            case
+                              pog.query(
+                                "insert into listing_campaigns (listing_id, campaign_id, discount_percent) values ($1::uuid, $2::uuid, $3::numeric) on conflict (listing_id, campaign_id) do update set discount_percent = excluded.discount_percent",
+                              )
+                              |> pog.parameter(pog.text(lid))
+                              |> pog.parameter(pog.text(campaign_id))
+                              |> pog.parameter(disc_p)
+                              |> db_exec.execute(ctx.db)
+                            {
+                              Error(_) -> Error("insert_failed")
+                              Ok(_) -> Ok(Nil)
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }) {
+                    Ok(_) -> wisp.json_response("{\"ok\":true}", 200)
+                    Error(_) -> json_err(500, "campaign_listings_save_failed")
+                  }
+              }
+            }
+          }
+      }
+  }
+}

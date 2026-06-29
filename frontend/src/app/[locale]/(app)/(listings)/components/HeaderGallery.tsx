@@ -61,14 +61,21 @@ const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOpti
 
   return (
     <div className="relative flex min-h-0 w-full flex-1 flex-col embla">
+      {/* Kapatma butonu — viewport dışında, her zaman üstte ve ekrana sabit */}
+      <div className="fixed top-3 right-3 z-[60] sm:top-4 sm:right-4">
+        <CloseButton as={ButtonClose}>
+          <span className="sr-only">Close</span>
+        </CloseButton>
+      </div>
+
       <div className="embla__viewport relative mx-auto h-full min-h-0 w-full flex-1 overflow-hidden" ref={emblaMainRef}>
         <div className="embla__container flex h-full">
           {images.map((image, index) => (
             <div
-              className="relative flex min-h-0 flex-[0_0_100%] embla__slide items-center justify-center"
+              className="relative flex h-full min-h-0 flex-[0_0_100%] embla__slide items-center justify-center"
               key={index}
             >
-              <div className="relative h-[min(91vh,960px)] w-full max-w-[1920px] px-1">
+              <div className="relative h-full w-full max-w-[1920px] px-1">
                 <Image
                   alt=""
                   src={image}
@@ -82,32 +89,25 @@ const EmblaCarousel = ({ images, option }: { images: string[]; option: EmblaOpti
             </div>
           ))}
         </div>
-
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="absolute top-2.5 right-2.5 z-50 sm:top-4 sm:right-4">
-            <CloseButton as={ButtonClose}>
-              <span className="sr-only">Close</span>
-            </CloseButton>
-          </div>
-        </div>
       </div>
 
-      <div className="embla-thumbs fixed inset-x-0 bottom-5 z-10">
-        <div className="embla-thumbs__viewport mx-auto max-w-28" ref={emblaThumbsRef}>
-          <div className="embla-thumbs__container flex">
+      <div className="embla-thumbs z-10 mt-3 shrink-0 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+        <div className="embla-thumbs__viewport mx-auto max-w-full px-4" ref={emblaThumbsRef}>
+          <div className="embla-thumbs__container flex gap-2">
             {images.map((image, index) => (
-              <div
+              <button
+                type="button"
                 key={index}
                 className={clsx(
-                  'relative flex aspect-5/3 w-24 shrink-0 items-center justify-center transition-[transform,filter] duration-300 ease-in-out',
+                  'relative flex aspect-5/3 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md transition-[transform,filter] duration-300 ease-in-out sm:w-20',
                   index === selectedIndex
-                    ? 'z-10 scale-125 overflow-hidden rounded-md brightness-100'
+                    ? 'z-10 ring-2 ring-white brightness-100'
                     : 'brightness-50 hover:brightness-75'
                 )}
                 onClick={() => onThumbClick(index)}
               >
                 <Image alt="Slide image" src={image} fill sizes="100px" className={'object-cover'} />
-              </div>
+              </button>
             ))}
           </div>
         </div>

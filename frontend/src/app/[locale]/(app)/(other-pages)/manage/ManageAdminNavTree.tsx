@@ -133,6 +133,8 @@ const GROUPS: NavGroupDef[] = [
     Icon: Megaphone,
     items: [
       { path: '/manage/campaigns', label: 'Tüm kampanyalar' },
+      { path: '/manage/campaigns/card-installment', label: 'Kart taksit (12 taksit)' },
+      { path: '/manage/campaigns/listing-discounts', label: 'İlana özel indirim' },
       { path: '/manage/campaigns/coupons', label: 'Kuponlar' },
       { path: '/manage/campaigns/early-booking', label: 'Erken rezervasyon' },
       { path: '/manage/campaigns/last-minute', label: 'Son dakika' },
