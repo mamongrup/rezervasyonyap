@@ -5,7 +5,7 @@ import { getSitePublicConfig as fetchSitePublicConfig } from '@/lib/travel-api'
 import { useFloatingWidgetsSuppressed } from '@/components/aside/aside'
 import { useEffect, useState } from 'react'
 
-/** Sol altta sabit WhatsApp; AI sohbet sağda (çakışmayı önlemek için). */
+/** Sağ altta AI sohbet butonunun hemen üstünde sabit WhatsApp. */
 export default function WhatsAppFloatButton() {
   const suppressed = useFloatingWidgetsSuppressed()
   const [wa, setWa] = useState(() => getSitePublicConfig().whatsappE164)
@@ -29,7 +29,7 @@ export default function WhatsAppFloatButton() {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="fixed bottom-24 start-4 z-[99] hidden h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg hover:bg-[#20bd5a] lg:bottom-6 lg:start-6 lg:flex lg:h-14 lg:w-14"
+      className="fixed bottom-24 end-4 z-[99] hidden h-12 w-12 items-center justify-center rounded-full bg-[#25D366] text-2xl text-white shadow-lg hover:bg-[#20bd5a] lg:bottom-24 lg:end-6 lg:flex lg:h-14 lg:w-14"
       aria-label="WhatsApp ile yazın"
       title="WhatsApp"
     >
