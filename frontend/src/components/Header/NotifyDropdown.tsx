@@ -10,6 +10,7 @@ import {
   type UserRole,
 } from '@/lib/notification-roles'
 import { getAuthMe, listCampaigns, type Campaign } from '@/lib/travel-api'
+import { campaignTypeLabel } from '@/lib/campaign-type-labels'
 import { CloseButton, Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { Notification01Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -123,7 +124,9 @@ const NotifyDropdown: FC<Props> = ({ className = '' }) => {
                   Aktif Kampanyalar
                 </p>
                 <div className="space-y-2">
-                  {campaigns.map((c) => (
+                  {campaigns.map((c) => {
+                    const typeLabel = campaignTypeLabel(c.campaign_type)
+                    return (
                     <CloseButton
                       as={Link}
                       key={c.id}
@@ -147,16 +150,19 @@ const NotifyDropdown: FC<Props> = ({ className = '' }) => {
                           >
                             {c.is_active ? 'Aktif' : 'Pasif'}
                           </span>
-                          <span className="text-[11px] text-neutral-400">{c.campaign_type}</span>
-                          {c.ends_at && (
+                          {typeLabel ? (
+                            <span className="text-[11px] text-neutral-400">{typeLabel}</span>
+                          ) : null}
+                          {c.ends_at ? (
                             <span className="text-[11px] text-neutral-400">
                               → {new Date(c.ends_at).toLocaleDateString('tr-TR')}
                             </span>
-                          )}
+                          ) : null}
                         </div>
                       </div>
                     </CloseButton>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

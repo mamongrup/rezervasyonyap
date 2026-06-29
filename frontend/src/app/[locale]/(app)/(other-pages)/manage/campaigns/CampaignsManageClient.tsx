@@ -6,6 +6,7 @@ import {
   listCampaigns,
   type Campaign,
 } from '@/lib/travel-api'
+import { campaignTypeLabel } from '@/lib/campaign-type-labels'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { ManageFormPageHeader } from '@/components/manage/ManageFormShell'
 import MultiLangNamePanel, {
@@ -285,7 +286,9 @@ export default function CampaignsManageClient() {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-neutral-100 dark:border-neutral-800">
                     <td className="px-4 py-3 font-mono text-xs">{r.code}</td>
-                    <td className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-400">{r.campaign_type}</td>
+                    <td className="px-4 py-3 text-xs text-neutral-600 dark:text-neutral-400">
+                      {campaignTypeLabel(r.campaign_type) || '—'}
+                    </td>
                     <td className="px-4 py-3 font-medium text-neutral-900 dark:text-neutral-100">{r.name}</td>
                     <td className="px-4 py-3 text-xs text-neutral-600">{fmtDate(r.starts_at)}</td>
                     <td className="px-4 py-3 text-xs text-neutral-600">{fmtDate(r.ends_at)}</td>
