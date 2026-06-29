@@ -21,7 +21,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fetchYolcu360CarSearch, loadYolcu360ConfigAsync, pingYolcu360 } from './lib/yolcu360-api.mjs'
-import { normalizeYolcu360Cars } from './lib/yolcu360-cars.mjs'
+import { normalizeYolcu360Cars, isPlausiblyPricedCar } from './lib/yolcu360-cars.mjs'
 import { resolveImportContext, routeKey, upsertYolcu360CarListing } from './lib/yolcu360-listing-db.mjs'
 import { createPgClient } from './lib/pg-client.mjs'
 import { createJobReporter } from './lib/sync-job-reporter.mjs'
@@ -133,7 +133,7 @@ async function main() {
       try {
         const { json } = await fetchYolcu360CarSearch(route, { cfg })
         searchPayload = json
-        cars = normalizeYolcu360Cars(json)
+        cars = normalizeYolcu360Cars(json).filter(isPlausiblyPricedCar)
       } catch (e) {
         skipped += 1
         console.log(`atlandı (${e.message})`)

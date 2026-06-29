@@ -26,6 +26,11 @@ function pickStr(...vals) {
   return ''
 }
 
+/**
+ * Yolcu360 `pricing.total.amount` kuruş tamsayısı döner (TRY * 100); canlı
+ * yanıtta doğrulandı. `>= 1000` eşiği olası major-unit değeri yanlışlıkla
+ * bölmemek için korunur. İmkânsız düşük fiyatlar `isPlausiblyPricedCar` ile elenir.
+ */
 function moneyAmount(v) {
   const n = pickNum(v)
   if (n === undefined) return undefined
@@ -124,6 +129,26 @@ export function normalizeYolcu360Cars(raw) {
     }
   }
   return []
+}
+
+/**
+ * Toplam tutarı bu eşiğin altındaki kayıt Yolcu360'ta bozuk/yanlış ölçeklenmiş
+ * demektir (çok günlük araç kiralama toplamı ₺1.000 altı olamaz). Vitrin
+ * (`yolcu360-car-search.ts`) ile aynı kural — import'ta da bozuk fiyatlı ilan kaydedilmesin.
+ */
+export const YOLCU360_MIN_PLAUSIBLE_TOTAL_TRY = 1000
+
+/** @param {{ totalPrice?: number, dailyPrice?: number }} car */
+export function isPlausiblyPricedCar(car) {
+  const total = car.totalPrice
+  if (typeof total === 'number' && Number.isFinite(total) && total > 0) {
+    return total >= YOLCU360_MIN_PLAUSIBLE_TOTAL_TRY
+  }
+  const daily = car.dailyPrice
+  if (typeof daily === 'number' && Number.isFinite(daily) && daily > 0) {
+    return daily >= 150
+  }
+  return true
 }
 
 /** @param {ReturnType<typeof flattenYolcu360CarItem>} car */

@@ -68,7 +68,12 @@ function pickStr(...vals: unknown[]): string {
   return ''
 }
 
-/** API amount alanları genelde kuruş (TRY * 100). */
+/**
+ * Yolcu360 `pricing.total.amount` alanı **kuruş tamsayısı** döner (TRY * 100);
+ * canlı yanıtta doğrulandı (182 araç, hepsi 4+ haneli tamsayı, ondalık yok).
+ * `>= 1000` eşiği: olası major-unit (lira) bir değeri yanlışlıkla 100'e bölmemek
+ * için korunur. İmkânsız düşük fiyatlar `isPlausiblyPricedCar` ile ayıklanır.
+ */
 function moneyAmount(v: unknown): number | undefined {
   const n = pickNum(v)
   if (n === undefined) return undefined

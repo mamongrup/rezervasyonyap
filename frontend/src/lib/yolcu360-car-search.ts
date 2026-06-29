@@ -250,6 +250,28 @@ export function findYolcu360Listing(
   return cars.find((c) => c.id === handle || c.handle === handle)
 }
 
+/**
+ * Bir kiralamanın toplam tutarı bu eşiğin altındaysa kayıt Yolcu360'ta
+ * bozuk/yanlış ölçeklenmiş demektir (çok günlük araç kiralama toplamı ₺1.000'in
+ * altında olamaz). Ölçüldü: 182 araçtan ~4'ü 5 haneli kuruş (₺100–1.000 toplam)
+ * → vitrinde ₺52/gün gibi imkânsız fiyatlar. Bunları gizle.
+ */
+const YOLCU360_MIN_PLAUSIBLE_TOTAL_TRY = 1000
+
+/** Toplam tutarı bilinen ve eşik altı olan araçları ele; fiyatı bilinmeyen veya makul olanları tut. */
+function isPlausiblyPricedCar(car: { totalPrice?: number; dailyPrice?: number }): boolean {
+  const total = car.totalPrice
+  if (typeof total === 'number' && Number.isFinite(total) && total > 0) {
+    return total >= YOLCU360_MIN_PLAUSIBLE_TOTAL_TRY
+  }
+  // Toplam yoksa günlük üzerinden kaba bir alt sınır (tek günlük kiralama dahil makul).
+  const daily = car.dailyPrice
+  if (typeof daily === 'number' && Number.isFinite(daily) && daily > 0) {
+    return daily >= 150
+  }
+  return true
+}
+
 export async function fetchYolcu360CarListings(
   input: Yolcu360SearchInput,
   options: { includeDetailQuery?: boolean } = {},
@@ -268,7 +290,7 @@ export async function fetchYolcu360CarListings(
     if (res.status === 503) return null
     if (!res.ok) return null
     const data = (await res.json()) as unknown
-    const raw = normalizeYolcu360Cars(data)
+    const raw = normalizeYolcu360Cars(data).filter(isPlausiblyPricedCar)
     if (raw.length === 0) return null
     return raw.map((c, i) => {
       let snap: Yolcu360Snap | undefined
