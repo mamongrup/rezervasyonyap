@@ -14,6 +14,8 @@ import CheckoutReservationDetails from '@/components/checkout/CheckoutReservatio
 import CheckoutSection from '@/components/checkout/CheckoutSection'
 import type { CheckoutContractAcceptancePayload } from '@/components/CheckoutContractAcceptance'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { readPreferredCurrencyCode } from '@/lib/checkout-payment-currency'
 import { checkoutT, fmtCheckout } from '@/lib/checkout-i18n'
 import {
   computeCheckoutPriceBreakdown,
@@ -113,6 +115,7 @@ function parsePoolHeatingFeeFromQuery(
 function CheckoutPageContent() {
   const router = useRouter()
   const vitrinHref = useVitrinHref()
+  const preferredCurrency = usePreferredCurrencyContext()
   const params = useParams()
   const searchParams = useSearchParams()
   const locale = typeof params?.locale === 'string' ? params.locale : 'tr'
@@ -143,7 +146,9 @@ function CheckoutPageContent() {
     process.env.NEXT_PUBLIC_CHECKOUT_LISTING_ID,
   )
   const checkoutCurrency = resolveCheckoutCurrency(
-    searchParams.get('currency'),
+    searchParams.get('currency')
+      ?? preferredCurrency?.preferredCode
+      ?? readPreferredCurrencyCode(),
     process.env.NEXT_PUBLIC_CHECKOUT_CURRENCY,
   )
   const checkoutUnitPrice = resolveCheckoutUnitPrice(

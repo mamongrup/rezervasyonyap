@@ -562,9 +562,23 @@ export default async function ExperienceListingDetailPage({
   const siteLanguagesLine = SITE_LOCALE_CATALOG.map((l) => l.name).join(', ')
 
   const renderSidebarPriceAndForm = () => {
+    const listingMoney = listing as TListingBase & {
+      priceAmount?: number
+      priceCurrency?: string
+      listingCurrencyCode?: string
+    }
+    const priceCur =
+      listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
+
     if (isTour) {
       return (
-        <TourBookingSidebar listingId={catalogListingId} fallbackPrice={price} locale={locale} />
+        <TourBookingSidebar
+          listingId={catalogListingId}
+          fallbackPrice={price}
+          fallbackPriceAmount={listingMoney.priceAmount}
+          fallbackPriceCurrency={priceCur}
+          locale={locale}
+        />
       )
     }
 
@@ -572,6 +586,8 @@ export default async function ExperienceListingDetailPage({
       <ExperienceBookingSidebar
         listingId={catalogListingId}
         price={price}
+        priceAmount={listingMoney.priceAmount}
+        priceCurrency={priceCur}
         locale={locale}
       />
     )

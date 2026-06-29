@@ -1,6 +1,7 @@
 'use client'
 
 import { convertAmountWithRates } from '@/lib/currency-convert'
+import { resolveCheckoutPaymentAmount } from '@/lib/checkout-payment-currency'
 import { formatMoneyIntl, parseListingPriceString } from '@/lib/parse-listing-price'
 import type { PublicCurrencyRateRow } from '@/lib/travel-api'
 import { getPublicCurrencyRates } from '@/lib/travel-api'
@@ -168,4 +169,44 @@ export function useConvertedListingPrice(
     if (converted == null) return native
     return formatMoneyIntl(converted, target)
   }, [priceLabel, priceAmount, priceCurrency, priceAmountMax, ctx])
+}
+
+/** Sayısal tutarı header’daki seçili para biriminde biçimlendirir */
+export function useFormatMoneyInPreferredCurrency(
+  amount: number | null | undefined,
+  fromCurrency: string | undefined,
+): string {
+  const ctx = usePreferredCurrencyContext()
+
+  return useMemo(() => {
+    const n = typeof amount === 'number' && Number.isFinite(amount) ? amount : null
+    const from = (fromCurrency?.trim().toUpperCase() || 'TRY')
+    if (n == null || n <= 0) return '—'
+    if (!ctx) return formatMoneyIntl(n, from)
+
+    const target = (ctx.preferredCode?.trim().toUpperCase() || from)
+    if (from === target || ctx.rates.length === 0) return formatMoneyIntl(n, from)
+
+    const converted = convertAmountWithRates(n, from, target, ctx.rates)
+    return converted != null ? formatMoneyIntl(converted, target) : formatMoneyIntl(n, from)
+  }, [amount, fromCurrency, ctx])
+}
+
+/** Checkout / ödeme URL'si için seçili para biriminde tutar */
+export function useCheckoutPaymentAmount(
+  listingCurrency: string,
+  amountInListingCurrency: number,
+): { currencyCode: string; unitPrice: number } {
+  const ctx = usePreferredCurrencyContext()
+
+  return useMemo(
+    () =>
+      resolveCheckoutPaymentAmount(
+        listingCurrency,
+        amountInListingCurrency,
+        ctx?.rates ?? [],
+        ctx?.preferredCode,
+      ),
+    [listingCurrency, amountInListingCurrency, ctx?.rates, ctx?.preferredCode],
+  )
 }

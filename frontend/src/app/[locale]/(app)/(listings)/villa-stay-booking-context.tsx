@@ -2,6 +2,8 @@
 
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
+import { resolveCheckoutPaymentAmount } from '@/lib/checkout-payment-currency'
+import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
 import {
   defaultStayListingGuests,
   parsePoolHeatingFromSearchParams,
@@ -49,6 +51,7 @@ export function VillaStayBookingProvider({
   const router = useRouter()
   const vitrinHref = useVitrinHref()
   const searchParams = useSearchParams()
+  const currencyCtx = usePreferredCurrencyContext()
 
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
@@ -86,20 +89,35 @@ export function VillaStayBookingProvider({
       heatingSubtotal: number
     }) => {
       if (!input.listingId.trim() || !rangeStart || !rangeEnd || input.grandTotal <= 0) return
+      const payment = resolveCheckoutPaymentAmount(
+        input.currencyCode,
+        input.grandTotal,
+        currencyCtx?.rates ?? [],
+        currencyCtx?.preferredCode,
+      )
+      const heatingPayment =
+        input.heatingSubtotal > 0
+          ? resolveCheckoutPaymentAmount(
+              input.currencyCode,
+              input.heatingSubtotal,
+              currencyCtx?.rates ?? [],
+              currencyCtx?.preferredCode,
+            )
+          : { unitPrice: 0 }
       router.push(
         buildStayCheckoutUrl(vitrinHref('/checkout'), {
           listingId: input.listingId,
           startDate: rangeStart,
           endDate: rangeEnd,
-          currencyCode: input.currencyCode,
-          unitPrice: input.grandTotal,
+          currencyCode: payment.currencyCode,
+          unitPrice: payment.unitPrice,
           guests,
           poolHeatingSelected,
-          poolHeatingFee: input.heatingSubtotal,
+          poolHeatingFee: heatingPayment.unitPrice,
         }),
       )
     },
-    [router, vitrinHref, rangeStart, rangeEnd, guests, poolHeatingSelected],
+    [router, vitrinHref, rangeStart, rangeEnd, guests, poolHeatingSelected, currencyCtx],
   )
 
   const value = useMemo(

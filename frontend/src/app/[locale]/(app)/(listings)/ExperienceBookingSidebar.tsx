@@ -11,15 +11,18 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import GuestsInputPopover from './components/GuestsInputPopover'
+import { useConvertedListingPrice, useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 
 export default function ExperienceBookingSidebar({
   listingId,
   price,
+  priceAmount,
   priceCurrency,
   locale = 'tr',
 }: {
   listingId: string
   price?: string
+  priceAmount?: number
   priceCurrency?: string
   locale?: string
 }) {
@@ -30,7 +33,9 @@ export default function ExperienceBookingSidebar({
 
   const parsed = useMemo(() => (price ? parseListingPriceString(price) : null), [price])
   const currencyCode = (priceCurrency || parsed?.currency || 'TRY').trim().toUpperCase()
-  const personPrice = parsed?.amount ?? 0
+  const personPrice = priceAmount ?? parsed?.amount ?? 0
+
+  const displayPrice = useConvertedListingPrice(price, personPrice > 0 ? personPrice : undefined, currencyCode)
 
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
@@ -38,6 +43,7 @@ export default function ExperienceBookingSidebar({
 
   const guestCount = Math.max(1, totalGuestCount(guests))
   const unitTotal = personPrice > 0 ? personPrice * guestCount : 0
+  const checkoutPayment = useCheckoutPaymentAmount(currencyCode, unitTotal)
   const hasDates = rangeStart != null && rangeEnd != null
   const canCheckout = Boolean(listingId.trim()) && hasDates && unitTotal > 0
 
@@ -48,8 +54,8 @@ export default function ExperienceBookingSidebar({
         listingId,
         startDate: rangeStart,
         endDate: rangeEnd,
-        currencyCode,
-        unitPrice: unitTotal,
+        currencyCode: checkoutPayment.currencyCode,
+        unitPrice: checkoutPayment.unitPrice,
         guests,
       }),
     )
@@ -59,7 +65,7 @@ export default function ExperienceBookingSidebar({
     <div className="listingSection__wrap sm:shadow-xl">
       <div className="flex justify-between">
         <span className="text-3xl font-semibold">
-          {price ?? '—'}
+          {displayPrice}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
             {td.pricePerPerson}
           </span>

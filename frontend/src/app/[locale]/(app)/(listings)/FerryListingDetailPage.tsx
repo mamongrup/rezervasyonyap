@@ -207,10 +207,17 @@ export default async function FerryListingDetailPage({
               fares={ferryDetails.ticket_fares}
               currencyCode={ferryDetails.currency_code}
               fallbackPrice={price}
+              fallbackPriceAmount={(listing as { priceAmount?: number }).priceAmount}
               locale={locale}
             />
           ) : (
-            <ExperienceBookingSidebar listingId={ferryListingId} price={price} locale={locale} />
+            <ExperienceBookingSidebar
+              listingId={ferryListingId}
+              price={price}
+              priceAmount={(listing as { priceAmount?: number }).priceAmount}
+              priceCurrency={(listing as { priceCurrency?: string }).priceCurrency}
+              locale={locale}
+            />
           )}
         </div>
       </main>

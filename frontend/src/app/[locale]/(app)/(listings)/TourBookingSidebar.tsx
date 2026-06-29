@@ -2,7 +2,6 @@
 
 import ButtonPrimary from '@/shared/ButtonPrimary'
 import {
-  formatTourPeriodPrice,
   isTourPeriodBookable,
 } from '@/lib/tour-periods'
 import { DEFAULT_GUESTS_EXPERIENCE, totalGuestCount } from '@/lib/guest-search-defaults'
@@ -15,14 +14,23 @@ import { useState } from 'react'
 import GuestsInputPopover from './components/GuestsInputPopover'
 import TourPeriodSelect from './components/TourPeriodSelect'
 import { useTourPeriodSelection } from './TourPeriodContext'
+import {
+  useConvertedListingPrice,
+  useCheckoutPaymentAmount,
+  useFormatMoneyInPreferredCurrency,
+} from '@/contexts/preferred-currency-context'
 
 export default function TourBookingSidebar({
   listingId,
   fallbackPrice,
+  fallbackPriceAmount,
+  fallbackPriceCurrency,
   locale = 'tr',
 }: {
   listingId: string
   fallbackPrice?: string
+  fallbackPriceAmount?: number
+  fallbackPriceCurrency?: string
   locale?: string
 }) {
   const { options, selected, setSelected } = useTourPeriodSelection()
@@ -35,14 +43,27 @@ export default function TourBookingSidebar({
   const bookable = isTourPeriodBookable(selected)
   const guestCount = Math.max(1, totalGuestCount(guests))
   const personPrice = selected?.price ?? null
+  const periodCurrency = (selected?.currencyCode || fallbackPriceCurrency || 'TRY').trim().toUpperCase()
   const unitTotal =
     bookable && personPrice != null && Number.isFinite(personPrice) ? personPrice * guestCount : 0
 
+  const convertedFallback = useConvertedListingPrice(
+    fallbackPrice,
+    fallbackPriceAmount,
+    fallbackPriceCurrency,
+  )
+  const convertedPeriodPrice = useFormatMoneyInPreferredCurrency(personPrice, periodCurrency)
+  const convertedUnitTotal = useFormatMoneyInPreferredCurrency(unitTotal, periodCurrency)
+  const checkoutPayment = useCheckoutPaymentAmount(
+    selected?.currencyCode || fallbackPriceCurrency || 'TRY',
+    unitTotal,
+  )
+
   const displayPrice =
     selected?.price != null
-      ? formatTourPeriodPrice(selected.price, selected.currencyCode)
+      ? convertedPeriodPrice
       : bookable
-        ? fallbackPrice ?? '—'
+        ? convertedFallback
         : '—'
 
   const canCheckout =
@@ -62,8 +83,8 @@ export default function TourBookingSidebar({
         listingId,
         startDate: start,
         endDate: end,
-        currencyCode: selected.currencyCode || 'TRY',
-        unitPrice: unitTotal,
+        currencyCode: checkoutPayment.currencyCode,
+        unitPrice: checkoutPayment.unitPrice,
         guests,
         extra: { tour_period_id: selected.id },
       }),
@@ -99,8 +120,7 @@ export default function TourBookingSidebar({
 
       {bookable && unitTotal > 0 ? (
         <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-          {td.pricePerPerson}: {formatTourPeriodPrice(unitTotal, selected?.currencyCode ?? 'TRY')} (
-          {guestCount} {m.HeroSearchForm.Guests.toLowerCase()})
+          {td.pricePerPerson}: {convertedUnitTotal} ({guestCount} {m.HeroSearchForm.Guests.toLowerCase()})
         </p>
       ) : null}
 

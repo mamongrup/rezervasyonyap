@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import type { ListingAvailabilityDay } from '@/lib/travel-api'
+import { useConvertedListingPrice, useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 
 function rentalDays(start: Date, end: Date): number {
   const diff = Math.round((end.getTime() - start.getTime()) / 86400000)
@@ -19,6 +20,7 @@ function rentalDays(start: Date, end: Date): number {
 export default function CarCatalogBookingSidebar({
   listingId,
   price,
+  priceAmount,
   priceCurrency,
   availabilityDays,
   reviewStart,
@@ -27,6 +29,7 @@ export default function CarCatalogBookingSidebar({
 }: {
   listingId: string
   price?: string
+  priceAmount?: number
   priceCurrency?: string
   availabilityDays?: ListingAvailabilityDay[]
   reviewStart?: number
@@ -40,13 +43,20 @@ export default function CarCatalogBookingSidebar({
 
   const parsed = useMemo(() => (price ? parseListingPriceString(price) : null), [price])
   const currencyCode = (priceCurrency || parsed?.currency || 'TRY').trim().toUpperCase()
-  const dailyRate = parsed?.amount ?? 0
+  const dailyRate = priceAmount ?? parsed?.amount ?? 0
+
+  const displayPrice = useConvertedListingPrice(
+    price,
+    dailyRate > 0 ? dailyRate : undefined,
+    currencyCode,
+  )
 
   const [rangeStart, setRangeStart] = useState<Date | null>(null)
   const [rangeEnd, setRangeEnd] = useState<Date | null>(null)
 
   const days = rangeStart && rangeEnd ? rentalDays(rangeStart, rangeEnd) : 0
   const unitTotal = dailyRate > 0 && days > 0 ? dailyRate * days : 0
+  const checkoutPayment = useCheckoutPaymentAmount(currencyCode, unitTotal)
   const hasDates = rangeStart != null && rangeEnd != null && days > 0
   const canCheckout = Boolean(listingId.trim()) && hasDates && unitTotal > 0
 
@@ -57,8 +67,8 @@ export default function CarCatalogBookingSidebar({
         listingId,
         startDate: rangeStart,
         endDate: rangeEnd,
-        currencyCode,
-        unitPrice: unitTotal,
+        currencyCode: checkoutPayment.currencyCode,
+        unitPrice: checkoutPayment.unitPrice,
       }),
     )
   }
@@ -67,7 +77,7 @@ export default function CarCatalogBookingSidebar({
     <div className="sticky top-5 mt-10 listingSection__wrap sm:shadow-xl">
       <div className="flex justify-between">
         <span className="text-3xl font-semibold">
-          {price ?? '—'}
+          {displayPrice}
           <span className="ml-1 text-base font-normal text-neutral-500 dark:text-neutral-400">
             {cd.pricePerDay}
           </span>
@@ -87,12 +97,6 @@ export default function CarCatalogBookingSidebar({
           }}
         />
       </div>
-
-      {!hasDates ? (
-        <p className="mt-4 rounded-2xl bg-neutral-50 px-4 py-3 text-sm text-neutral-600 dark:bg-neutral-800/50 dark:text-neutral-400">
-          {m.listing.sidebar.addDates}
-        </p>
-      ) : null}
 
       <ButtonPrimary type="button" className="mt-4 w-full" disabled={!canCheckout} onClick={goCheckout}>
         {m.common.Reserve}

@@ -189,6 +189,7 @@ modules/344_ai_panel_stats_schema_guard.sql
 modules/345_vitrin_price_schema_guard.sql
 modules/346_social_caption_installment_region.sql
 modules/347_listing_detail_campaigns.sql
+modules/348_google_merchant_listing_unique.sql
 
 # Kurulum doğrulama (install_order’a dahil değil — elle çalıştırın):
 #   psql -U postgres -d travel -f priv/sql/check_installation.sql

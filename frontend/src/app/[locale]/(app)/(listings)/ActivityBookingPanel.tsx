@@ -4,7 +4,7 @@ import ActivityParticipantsInputPopover from '@/app/[locale]/(app)/(listings)/co
 import ActivitySessionInputPopover from '@/app/[locale]/(app)/(listings)/components/ActivitySessionInputPopover'
 import SingleDateInputPopover from '@/app/[locale]/(app)/(listings)/components/SingleDateInputPopover'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
-import { usePreferredCurrencyContext } from '@/contexts/preferred-currency-context'
+import { usePreferredCurrencyContext, useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 import { convertAmountWithRates } from '@/lib/currency-convert'
 import { formatLocalYmd } from '@/lib/date-format-local'
 import { buildActivityCheckoutUrl } from '@/lib/stay-checkout-url'
@@ -157,11 +157,10 @@ export default function ActivityBookingPanel({
   const adultsSubtotal = adultUnit * adults
   const childrenSubtotal = childUnit * children
   const grandTotal = parseMoney(quote?.line_total)
-  const targetCurrency = (pageCurrency || fallbackPriceCurrency || currencyContext?.preferredCode || currency || 'TRY')
-    .trim()
-    .toUpperCase()
+  const listingCurrency = (fallbackPriceCurrency || pageCurrency || currency || 'TRY').trim().toUpperCase()
+  const targetCurrency = (currencyContext?.preferredCode || listingCurrency).trim().toUpperCase()
   const convertForDisplay = (amount: number, sourceCurrency: string): number => {
-    const source = (sourceCurrency || currency || 'TRY').trim().toUpperCase()
+    const source = (sourceCurrency || listingCurrency).trim().toUpperCase()
     if (amount <= 0 || source === targetCurrency) return amount
     const converted = convertAmountWithRates(amount, source, targetCurrency, currencyContext?.rates ?? [])
     return converted ?? amount
@@ -176,7 +175,7 @@ export default function ActivityBookingPanel({
   const parsedFallbackPrice = parseListingPriceString(stripActivityFromAffix(fallbackPrice))
   const convertedHeaderPrice =
     fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
-      ? convertForDisplay(fallbackPriceAmount, fallbackPriceCurrency || currency)
+      ? convertForDisplay(fallbackPriceAmount, listingCurrency)
       : parsedFallbackPrice
         ? convertForDisplay(parsedFallbackPrice.amount, parsedFallbackPrice.currency)
         : displayAdultUnit
@@ -191,6 +190,8 @@ export default function ActivityBookingPanel({
     adults + children > 0 &&
     Boolean(date)
 
+  const payment = useCheckoutPaymentAmount(currency, grandTotal)
+
   function goCheckout() {
     if (!canCheckout || !quote || !date.trim()) return
     router.push(
@@ -200,8 +201,8 @@ export default function ActivityBookingPanel({
         sessionId,
         adults,
         children,
-        currencyCode: currency,
-        unitPrice: grandTotal,
+        currencyCode: payment.currencyCode,
+        unitPrice: payment.unitPrice,
         startTime: quote.start_time,
       }),
     )

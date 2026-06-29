@@ -479,7 +479,13 @@ pub fn upsert_google_merchant_product(req: Request, ctx: Context) -> Response {
                   }
                   case
                     pog.query(
-                      "insert into google_merchant_products (listing_id, merchant_product_id, status) values ($1::uuid, $2, $3) returning id::text",
+                      "insert into google_merchant_products (listing_id, merchant_product_id, status, last_push_at) "
+                      <> "values ($1::uuid, $2, $3, case when $3 = 'active' then now() else null end) "
+                      <> "on conflict (listing_id) do update set "
+                      <> "merchant_product_id = coalesce(excluded.merchant_product_id, google_merchant_products.merchant_product_id), "
+                      <> "status = excluded.status, "
+                      <> "last_push_at = case when excluded.status = 'active' then now() else google_merchant_products.last_push_at end "
+                      <> "returning id::text",
                     )
                     |> pog.parameter(pog.text(string.trim(lid)))
                     |> pog.parameter(mp_p)

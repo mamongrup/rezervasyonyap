@@ -250,22 +250,33 @@ fn activity_line_price_mismatch(
   client_price: String,
   adults: Int,
   children: Int,
+  listing_cc: String,
+  cart_cc: String,
+  fx_snap: String,
 ) -> Bool {
-  case parse_price_text(client_price) {
+  case
+    activity_expected_line_total(
+      db,
+      listing_id,
+      session_id,
+      travel_date,
+      adults,
+      children,
+    )
+  {
     Error(_) -> True
-    Ok(client_total) ->
+    Ok(expected) ->
       case
-        activity_expected_line_total(
-          db,
-          listing_id,
-          session_id,
-          travel_date,
-          adults,
-          children,
+        cart_fx.price_matches_cart_currency(
+          client_price,
+          expected,
+          listing_cc,
+          cart_cc,
+          fx_snap,
         )
       {
-        Error(_) -> True
-        Ok(expected) -> float.absolute_value(client_total -. expected) >. 0.05
+        True -> False
+        False -> True
       }
   }
 }
@@ -374,23 +385,45 @@ fn hotel_line_price_mismatch(
   end_date: calendar.Date,
   client_price: String,
   meta_json: String,
+  listing_cc: String,
+  cart_cc: String,
+  fx_snap: String,
 ) -> Bool {
-  case parse_price_text(client_price) {
-    Error(_) -> True
-    Ok(client_total) ->
+  case
+    hotel_expected_line_total(
+      db,
+      listing_id,
+      room_id,
+      start_date,
+      end_date,
+      meta_json_string_field(meta_json, "meal_plan_id"),
+    )
+  {
+    Error(_) -> False
+    Ok(expected) ->
       case
-        hotel_expected_line_total(
-          db,
-          listing_id,
-          room_id,
-          start_date,
-          end_date,
-          meta_json_string_field(meta_json, "meal_plan_id"),
+        cart_fx.price_matches_cart_currency(
+          client_price,
+          expected,
+          listing_cc,
+          cart_cc,
+          fx_snap,
         )
       {
-        Error(_) -> False
-        Ok(expected) -> float.absolute_value(client_total -. expected) >. 0.05
+        True -> False
+        False -> True
       }
+  }
+}
+
+fn cart_listing_currency_allowed(
+  cart_cc: String,
+  listing_cc: String,
+  fx_snap: String,
+) -> Bool {
+  case string.uppercase(cart_cc) == string.uppercase(listing_cc) {
+    True -> True
+    False -> cart_fx.can_convert_between(listing_cc, cart_cc, fx_snap)
   }
 }
 
@@ -575,7 +608,7 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                 db_exec.transaction(ctx.db, fn(conn) {
                                   case
                                     pog.query(
-                                      "select upper(trim(c.currency_code::text)), upper(trim(l.currency_code::text)), l.status::text from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
+                                      "select upper(trim(c.currency_code::text)), upper(trim(l.currency_code::text)), l.status::text, coalesce(c.fx_snapshot_json::text, '{}') from carts c inner join listings l on l.id = $2::uuid where c.id = $1::uuid",
                                     )
                                     |> pog.parameter(pog.text(cart_id))
                                     |> pog.parameter(pog.text(listing_id))
@@ -583,15 +616,19 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                       use a <- decode.field(0, decode.string)
                                       use b <- decode.field(1, decode.string)
                                       use st <- decode.field(2, decode.string)
-                                      decode.success(#(a, b, st))
+                                      use fx <- decode.field(3, decode.string)
+                                      decode.success(#(a, b, st, fx))
                                     })
                                     |> pog.execute(conn)
                                   {
                                     Error(_) -> Error("cart_or_listing")
                                     Ok(rows) ->
                                       case rows.rows {
-                                        [#(cc, lc, st)] ->
-                                          case st == "published" && string.uppercase(cc) == string.uppercase(lc) {
+                                        [#(cc, lc, st, fx_snap)] ->
+                                          case
+                                            st == "published"
+                                            && cart_listing_currency_allowed(cc, lc, fx_snap)
+                                          {
                                             False ->
                                               Error(
                                                 "listing_unavailable_or_currency_mismatch",
@@ -650,6 +687,9 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                               price_trim,
                                                               adults,
                                                               children,
+                                                              lc,
+                                                              cc,
+                                                              fx_snap,
                                                             )
                                                           {
                                                             True ->
@@ -693,6 +733,9 @@ pub fn add_cart_line(req: Request, ctx: Context, cart_id: String) -> Response {
                                                                   end_date,
                                                                   price_trim,
                                                                   meta_sql,
+                                                                  lc,
+                                                                  cc,
+                                                                  fx_snap,
                                                                 )
                                                               {
                                                                 True ->

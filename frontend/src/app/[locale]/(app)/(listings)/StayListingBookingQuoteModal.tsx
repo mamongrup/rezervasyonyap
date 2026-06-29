@@ -18,6 +18,7 @@ import { getMessages } from '@/utils/getT'
 import { interpolate } from '@/utils/interpolate'
 import { CloseButton, Dialog, DialogBackdrop, DialogPanel } from '@headlessui/react'
 import { buildStayCheckoutUrl } from '@/lib/stay-checkout-url'
+import { useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 import { useRouter } from 'next/navigation'
 import { Fragment, useMemo, useState } from 'react'
 import { useOptionalHotelStayBooking } from './hotel-stay-booking-context'
@@ -161,6 +162,9 @@ export default function StayListingBookingQuoteModal(props: Props) {
     ? hotelQuote.grandTotal > 0 && hotelQuote.available
     : villaQuote.grandTotal > 0
 
+  const checkoutPayment = useCheckoutPaymentAmount(currencyCode, grandTotal)
+  const villaHeatingPayment = useCheckoutPaymentAmount(currencyCode, villaQuote.heatingSubtotal)
+
   const goCheckout = () => {
     if (!listingId.trim() || !canProceed) return
     if (isHotel && hotelRoom) {
@@ -169,8 +173,8 @@ export default function StayListingBookingQuoteModal(props: Props) {
           listingId,
           startDate: rangeStart,
           endDate: rangeEnd,
-          currencyCode,
-          unitPrice: grandTotal,
+          currencyCode: checkoutPayment.currencyCode,
+          unitPrice: checkoutPayment.unitPrice,
           guests: props.guests ?? bookingCtx?.guests,
           hotelRoomId: hotelRoom.id,
           hotelRoomName: hotelRoom.name,
@@ -185,11 +189,11 @@ export default function StayListingBookingQuoteModal(props: Props) {
           listingId,
           startDate: rangeStart,
           endDate: rangeEnd,
-          currencyCode,
-          unitPrice: grandTotal,
+          currencyCode: checkoutPayment.currencyCode,
+          unitPrice: checkoutPayment.unitPrice,
           guests: villaCtx?.guests,
           poolHeatingSelected,
-          poolHeatingFee: villaQuote.heatingSubtotal,
+          poolHeatingFee: villaHeatingPayment.unitPrice,
         }),
       )
     }

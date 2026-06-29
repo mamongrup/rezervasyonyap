@@ -1,7 +1,6 @@
 'use client'
 
 import ButtonPrimary from '@/shared/ButtonPrimary'
-import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { FerryTicketFare } from '@/lib/travel-api'
 import { DEFAULT_GUESTS_STAY, totalGuestCount } from '@/lib/guest-search-defaults'
 import type { GuestsObject } from '@/type'
@@ -12,18 +11,25 @@ import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import DatesRangeInputPopover from './components/DatesRangeInputPopover'
 import GuestsInputPopover from './components/GuestsInputPopover'
+import {
+  useConvertedListingPrice,
+  useCheckoutPaymentAmount,
+  useFormatMoneyInPreferredCurrency,
+} from '@/contexts/preferred-currency-context'
 
 export default function FerryBookingSidebar({
   listingId,
   fares,
   currencyCode,
   fallbackPrice,
+  fallbackPriceAmount,
   locale = 'tr',
 }: {
   listingId: string
   fares: FerryTicketFare[]
   currencyCode: string
   fallbackPrice?: string
+  fallbackPriceAmount?: number
   locale?: string
 }) {
   const fd = getMessages(locale).listing.ferryDetail
@@ -31,6 +37,7 @@ export default function FerryBookingSidebar({
   const router = useRouter()
   const vitrinHref = useVitrinHref()
   const ticketLabels = fd.ticketType as Record<string, string>
+  const listingCurrency = currencyCode.trim().toUpperCase() || 'TRY'
 
   const options = useMemo(
     () =>
@@ -52,10 +59,16 @@ export default function FerryBookingSidebar({
   const unitTotal =
     selected != null && Number.isFinite(selected.price) ? selected.price * guestCount : 0
 
-  const displayPrice =
-    selected != null
-      ? formatMoneyIntl(selected.price, currencyCode)
-      : fallbackPrice ?? '—'
+  const convertedFallback = useConvertedListingPrice(
+    fallbackPrice,
+    fallbackPriceAmount,
+    listingCurrency,
+  )
+  const convertedSelected = useFormatMoneyInPreferredCurrency(selected?.price, listingCurrency)
+  const convertedUnitTotal = useFormatMoneyInPreferredCurrency(unitTotal, listingCurrency)
+  const checkoutPayment = useCheckoutPaymentAmount(listingCurrency, unitTotal)
+
+  const displayPrice = selected != null ? convertedSelected : convertedFallback
 
   const hasDates = rangeStart != null && rangeEnd != null
   const canCheckout = Boolean(listingId.trim()) && hasDates && unitTotal > 0
@@ -67,8 +80,8 @@ export default function FerryBookingSidebar({
         listingId,
         startDate: rangeStart,
         endDate: rangeEnd,
-        currencyCode,
-        unitPrice: unitTotal,
+        currencyCode: checkoutPayment.currencyCode,
+        unitPrice: checkoutPayment.unitPrice,
         guests,
         extra: { ticket_type: selectedType },
       }),
@@ -131,7 +144,7 @@ export default function FerryBookingSidebar({
 
       {hasDates && unitTotal > 0 ? (
         <p className="mt-4 text-sm text-neutral-600 dark:text-neutral-400">
-          {fd.pricePerPerson}: {formatMoneyIntl(unitTotal, currencyCode)} ({guestCount}{' '}
+          {fd.pricePerPerson}: {convertedUnitTotal} ({guestCount}{' '}
           {m.HeroSearchForm.Guests.toLowerCase()})
         </p>
       ) : (

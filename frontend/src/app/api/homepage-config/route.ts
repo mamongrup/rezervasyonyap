@@ -25,13 +25,68 @@ const DEFAULT_CONFIG: Omit<HomepageConfig, 'updatedAt'> = {
   heroImages: ['', '', ''],
 }
 
+/** Anasayfa hero, render'da `modules[].config` (hero) ÖNCELİKLİ okunur. Tek efektif kaynak modül olsun. */
+function findHeroModule(modules: PageBuilderModule[] | undefined): PageBuilderModule | undefined {
+  return modules?.find((m) => m.type === 'hero' && m.enabled) ?? modules?.find((m) => m.type === 'hero')
+}
+
+function moduleImagesTuple(cfg: Record<string, unknown>): [string, string, string] {
+  const imgs = Array.isArray(cfg.images) ? (cfg.images as unknown[]) : []
+  return [String(imgs[0] ?? ''), String(imgs[1] ?? ''), String(imgs[2] ?? '')]
+}
+
+/** GET: form mevcut canlı değeri göstersin — üst-seviye boşsa hero modül config'inden doldur. */
+function withHeroFieldsFromModule(config: HomepageConfig): HomepageConfig {
+  const cfg = (findHeroModule(config.modules)?.config as Record<string, unknown>) ?? {}
+  const topImages = Array.isArray(config.heroImages) ? config.heroImages : []
+  const hasTopImages = topImages.some((u) => (u ?? '').trim())
+  const moduleImages = moduleImagesTuple(cfg)
+  const hasModuleImages = moduleImages.some((u) => u.trim())
+  return {
+    ...config,
+    heroHeading:
+      (config.heroHeading ?? '').trim() || (typeof cfg.heading === 'string' ? cfg.heading.trim() : ''),
+    heroSubheading:
+      (config.heroSubheading ?? '').trim() || (typeof cfg.subheading === 'string' ? cfg.subheading.trim() : ''),
+    heroCtaText:
+      (config.heroCtaText ?? '').trim() || (typeof cfg.ctaText === 'string' ? cfg.ctaText.trim() : ''),
+    heroCtaHref:
+      (config.heroCtaHref ?? '').trim() || (typeof cfg.ctaHref === 'string' ? cfg.ctaHref.trim() : ''),
+    heroImages: hasTopImages ? (topImages as [string, string, string]) : hasModuleImages ? moduleImages : ['', '', ''],
+  }
+}
+
+/** POST: üst-seviye hero alanlarını hero modülüne yaz — render modül-öncelikli okuduğundan değişiklik görünür olur. */
+function syncHeroModuleConfig(
+  modules: PageBuilderModule[] | undefined,
+  config: HomepageConfig,
+): PageBuilderModule[] | undefined {
+  if (!modules) return modules
+  let done = false
+  return modules.map((mod): PageBuilderModule => {
+    if (done || mod.type !== 'hero') return mod
+    done = true
+    return {
+      ...mod,
+      config: {
+        ...mod.config,
+        heading: config.heroHeading,
+        subheading: config.heroSubheading,
+        ctaText: config.heroCtaText,
+        ctaHref: config.heroCtaHref,
+        images: config.heroImages,
+      },
+    }
+  })
+}
+
 export async function GET() {
   const authErr = await requireAdminCookie()
   if (authErr) return authErr
   try {
     const raw = await fs.readFile(FILE_PATH, 'utf-8')
     const config = JSON.parse(raw) as HomepageConfig
-    return NextResponse.json({ ok: true, config })
+    return NextResponse.json({ ok: true, config: withHeroFieldsFromModule(config) })
   } catch {
     return NextResponse.json({
       ok: true,
@@ -68,6 +123,9 @@ export async function POST(req: NextRequest) {
     updatedAt: new Date().toISOString(),
     modules: body.modules !== undefined ? body.modules : previousModules,
   }
+
+  // Hero metin/görselleri render'da modül config'inden okunur; üst-seviye değerleri modüle yansıt.
+  config.modules = syncHeroModuleConfig(config.modules, config)
 
   await fs.mkdir(path.dirname(FILE_PATH), { recursive: true })
   await fs.writeFile(FILE_PATH, JSON.stringify(config, null, 2), 'utf-8')

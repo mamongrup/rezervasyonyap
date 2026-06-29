@@ -2,10 +2,10 @@
 
 import {
   formatTourPeriodDateRange,
-  formatTourPeriodPrice,
   isTourPeriodBookable,
   type TourPeriodOption,
 } from '@/lib/tour-periods'
+import { useFormatMoneyInPreferredCurrency } from '@/contexts/preferred-currency-context'
 import { Popover, PopoverButton, PopoverPanel } from '@headlessui/react'
 import { ArrowDown01Icon, Calendar04Icon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -23,6 +23,11 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
     () => periods.find((p) => p.id === selectedId) ?? periods.find((p) => p.bookable !== false) ?? periods[0] ?? null,
     [selectedId, periods],
   )
+
+  function PeriodPriceLabel({ period }: { period: TourPeriodOption }) {
+    const label = useFormatMoneyInPreferredCurrency(period.price, period.currencyCode)
+    return <>{label}</>
+  }
 
   useEffect(() => {
     if (selectedId == null && selected && onChange) {
@@ -119,9 +124,11 @@ const TourPeriodSelect: FC<Props> = ({ className = 'flex-1', periods, selectedId
                           : 'text-neutral-400 dark:text-neutral-500'
                       }`}
                     >
-                      {canBook
-                        ? formatTourPeriodPrice(period.price, period.currencyCode)
-                        : 'Satışa kapalı'}
+                      {canBook ? (
+                        <PeriodPriceLabel period={period} />
+                      ) : (
+                        'Satışa kapalı'
+                      )}
                     </span>
                   </button>
                 )

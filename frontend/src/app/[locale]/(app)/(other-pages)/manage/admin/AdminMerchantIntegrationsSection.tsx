@@ -16,7 +16,7 @@ import ButtonPrimary from '@/shared/ButtonPrimary'
 import { Field, Label } from '@/shared/fieldset'
 import Input from '@/shared/Input'
 import clsx from 'clsx'
-import { AlertCircle, Instagram, Loader2, MessageCircle, RefreshCw, ShoppingBag } from 'lucide-react'
+import { AlertCircle, Instagram, Loader2, MessageCircle, RefreshCw, ShoppingBag, UploadCloud } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 
 const UUID_RE =
@@ -51,6 +51,8 @@ export default function AdminMerchantIntegrationsSection() {
   >([])
   const [loadingWa, setLoadingWa] = useState(false)
   const [waErr, setWaErr] = useState<string | null>(null)
+
+  const [gmpPushMsg, setGmpPushMsg] = useState<string | null>(null)
 
   const listingOk = useMemo(() => {
     const t = listingId.trim()
@@ -93,6 +95,42 @@ export default function AdminMerchantIntegrationsSection() {
       setLoadingIg(false)
     }
   }, [listingId, listingOk])
+
+  async function onPushToGoogle() {
+    const token = getStoredAuthToken()
+    const lid = listingId.trim()
+    if (!token || !listingOk) return
+    setBusy('gmp-push')
+    setGmpErr(null)
+    setGmpPushMsg(null)
+    try {
+      const res = await fetch('/api/google/merchant/push', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ listing_id: lid }),
+      })
+      const data = (await res.json()) as {
+        error?: string
+        hint?: string
+        results?: { ok: boolean; error?: string; offer_id?: string }[]
+      }
+      if (!res.ok) throw new Error(data.hint ?? data.error ?? `push_${res.status}`)
+      const r = data.results?.[0]
+      if (r?.ok) {
+        setGmpPushMsg(`Google Merchant'a gönderildi (offer: ${r.offer_id ?? lid})`)
+        await loadGmp()
+      } else {
+        throw new Error(r?.error ?? 'push_failed')
+      }
+    } catch (e) {
+      setGmpErr(formatManageApiCatch(e, 'gmp_push_failed'))
+    } finally {
+      setBusy(null)
+    }
+  }
 
   async function onAddGmp(e: React.FormEvent) {
     e.preventDefault()
@@ -294,7 +332,8 @@ export default function AdminMerchantIntegrationsSection() {
           <div>
             <h3 className="text-base font-semibold text-neutral-900 dark:text-white">Google Merchant ürün kayıtları</h3>
             <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-              Ürün feed / Merchant Center ile eşleşen kayıtlar. Önce yukarıda ilanı seçip listeyi yükleyin.
+              Merchant Center API ile gönderim ve yerel eşleşme kayıtları. Yapılandırma:{' '}
+              <strong>SEO → Merchant Center</strong>.
             </p>
           </div>
         </div>
@@ -304,6 +343,24 @@ export default function AdminMerchantIntegrationsSection() {
             {gmpErr}
           </p>
         ) : null}
+
+        {gmpPushMsg ? (
+          <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+            {gmpPushMsg}
+          </p>
+        ) : null}
+
+        <div className="mt-4">
+          <ButtonPrimary
+            type="button"
+            disabled={busy === 'gmp-push' || !listingOk}
+            onClick={() => void onPushToGoogle()}
+            className="inline-flex items-center gap-2"
+          >
+            {busy === 'gmp-push' ? <Loader2 className="h-4 w-4 animate-spin" /> : <UploadCloud className="h-4 w-4" />}
+            {busy === 'gmp-push' ? 'Google\'a gönderiliyor…' : 'Bu ilanı Google Merchant API\'ye gönder'}
+          </ButtonPrimary>
+        </div>
 
         <form onSubmit={(e) => void onAddGmp(e)} className="mt-6 grid gap-4 sm:grid-cols-12 sm:items-end">
           <Field className="sm:col-span-5">

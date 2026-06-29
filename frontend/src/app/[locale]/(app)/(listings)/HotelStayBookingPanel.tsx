@@ -26,6 +26,7 @@ import {
 } from '@/lib/hotel-room-availability-public'
 import { interpolate } from '@/utils/interpolate'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
+import { useCheckoutPaymentAmount } from '@/contexts/preferred-currency-context'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { useHotelStayBooking } from './hotel-stay-booking-context'
@@ -222,6 +223,8 @@ export function HotelStayBookingSidebar(props: SharedProps) {
     quote.available &&
     selectedRoom?.id
 
+  const checkoutPayment = useCheckoutPaymentAmount(quote.currencyCode, quote.grandTotal)
+
   function goCheckout() {
     if (!canCheckout || !rangeStart || !rangeEnd || !selectedRoom) return
     router.push(
@@ -229,8 +232,8 @@ export function HotelStayBookingSidebar(props: SharedProps) {
         listingId,
         startDate: rangeStart,
         endDate: rangeEnd,
-        currencyCode: quote.currencyCode,
-        unitPrice: quote.grandTotal,
+        currencyCode: checkoutPayment.currencyCode,
+        unitPrice: checkoutPayment.unitPrice,
         selectedRoom,
         selectedPlanLabel: checkoutBoardLabel,
         selectedMealPlanId: booking.selectedMealPlanId,
