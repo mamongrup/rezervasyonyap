@@ -21,9 +21,10 @@ set -euo pipefail
 FRONTEND_ENV_FILE="${FRONTEND_ENV_FILE:-/etc/rezervasyonyap/frontend.env}"
 WEB_ORIGIN="${WEB_ORIGIN:-http://127.0.0.1:3000}"
 WORKER_PATH="${WORKER_PATH:-/api/social/worker-process}"
-REQUEST_LIMIT="${SOCIAL_WORKER_REQUEST_LIMIT:-3}"
+REQUEST_LIMIT="${SOCIAL_WORKER_REQUEST_LIMIT:-1}"
 LOOP_UNTIL_EMPTY="${LOOP_UNTIL_EMPTY:-1}"
-BATCH_SLEEP="${SOCIAL_WORKER_BATCH_SLEEP:-45}"
+BATCH_SLEEP="${SOCIAL_WORKER_BATCH_SLEEP:-90}"
+RATE_LIMIT_SLEEP="${SOCIAL_WORKER_RATE_LIMIT_SLEEP:-300}"
 SOCIAL_WORKER_ROTATE="${SOCIAL_WORKER_ROTATE:-0}"
 
 if [[ -f "$FRONTEND_ENV_FILE" ]]; then
@@ -70,7 +71,10 @@ while true; do
   echo "[OK] social-process-pending batch ${batch} HTTP ${code} processed=${processed} posted=${posted} failed=${failed}"
   if [[ "$processed" -gt 0 && "$posted" -eq 0 && "$failed" -eq 0 && -n "$last_err" ]]; then
     echo "[WARN] Meta limit — iş pending kaldı: ${last_err}" >&2
-    echo "[WARN] ${BATCH_SLEEP}s bekleyip tekrar deneyin veya birkaç saat sonra devam edin." >&2
+    echo "[WARN] ${RATE_LIMIT_SLEEP}s bekleniyor, sonra tekrar denenecek..." >&2
+    sleep "$RATE_LIMIT_SLEEP"
+    batch=$((batch + 1))
+    continue
   fi
 
   if [[ "${WORKER_VERBOSE:-0}" == "1" ]]; then
@@ -78,11 +82,18 @@ while true; do
     echo
   fi
 
-  if [[ "$LOOP_UNTIL_EMPTY" != "1" || "$processed" -lt "$REQUEST_LIMIT" ]]; then
+  # Kuyruk bitti: hiç iş işlenmedi
+  if [[ "$processed" -eq 0 ]]; then
+    echo "[OK] Bekleyen iş kalmadı."
     exit 0
   fi
+
+  if [[ "$LOOP_UNTIL_EMPTY" != "1" ]]; then
+    exit 0
+  fi
+
   if [[ "$posted" -eq 0 ]]; then
-    echo "[WARN] batch ${batch} posted=0 — Meta limit veya token; ${BATCH_SLEEP}s bekleniyor" >&2
+    echo "[WARN] batch ${batch} posted=0 — ${BATCH_SLEEP}s bekleniyor" >&2
   fi
   sleep "$BATCH_SLEEP"
   batch=$((batch + 1))
