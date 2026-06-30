@@ -242,9 +242,9 @@ export default async function CategoryPageTemplate({
     category.slug === 'kruvaziyer' &&
     !resolvedModules.some((mod) => mod.type === 'category_hub_grid' && mod.enabled)
   ) {
-    const hubDefaults = getLocalizedDefaultModules('kruvaziyer', m)
+    const hubDefaults: PageBuilderModule[] = getLocalizedDefaultModules('kruvaziyer', m)
       .filter((mod) => mod.type === 'category_hub_grid')
-      .map((mod, i) => ({ ...mod, id: `default-kruvaziyer-hub-${i}` }))
+      .map((mod, i) => ({ ...mod, id: `default-kruvaziyer-hub-${i}` } as PageBuilderModule))
     if (hubDefaults.length > 0) {
       const heroIdx = resolvedModules.findIndex((mod) => mod.type === 'hero')
       const insertAt = heroIdx >= 0 ? heroIdx + 1 : 0
