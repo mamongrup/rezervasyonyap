@@ -8,10 +8,12 @@ import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
 import { redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import {
   getHolidayThemeLabelMap,
+  holidayThemeOptionsFromMap,
   resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { stayRentalFlexibleSearchActive } from '@/lib/stay-rental-flexible-search'
 import { regionLabelFromHandle } from '@/lib/stay-location-display'
 import { YACHT_TYPE_HANDLE_MAP } from '@/lib/stay-rental-categories'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
@@ -120,8 +122,9 @@ export default async function Page({
         fromApi,
         lastMinute: query.last_minute === '1',
       }}
+      preloadedStayRentalThemeOptions={holidayThemeOptionsFromMap(themeLabelMap)}
       flexibleListingCards={
-        requestedPage === 1 ? (
+        requestedPage === 1 && stayRentalFlexibleSearchActive(query) ? (
           <Suspense fallback={null}>
             <YachtFlexibleListingCards
               mainListingIds={listings.map((l) => l.id)}

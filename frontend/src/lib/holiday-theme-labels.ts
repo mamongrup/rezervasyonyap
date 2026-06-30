@@ -9,9 +9,12 @@ function mergeHolidayThemeFallbacksIntoMap(map: Map<string, string>): void {
   }
 }
 
-/**
- * Tek `theme-items` isteğiyle kod→etiket haritası (liste/grid kartlarında toplu kullanım).
- */
+export function holidayThemeOptionsFromMap(
+  map: Map<string, string>,
+): { code: string; label: string }[] {
+  return [...map.entries()].map(([code, label]) => ({ code, label }))
+}
+
 export async function getHolidayThemeLabelMap(
   locale: string,
   categoryCode: 'holiday_home' | 'yacht_charter' = 'holiday_home',

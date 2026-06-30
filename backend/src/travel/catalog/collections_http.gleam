@@ -956,12 +956,7 @@ fn search_listings_impl(
         <> "desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
-    _ ->
-      case cat_raw {
-        "yacht_charter" ->
-          "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
-        _ -> "order by l.created_at desc "
-      }
+    _ -> "order by l.created_at desc "
   }
 
   // Faz F: Esnek tarih arama. start_date / end_date verilirse müsaitlik filtresi uygulanır.
@@ -1248,12 +1243,7 @@ fn search_listings_impl(
       "order by coalesce(l.vitrin_price, l.first_charge_amount) desc nulls last, l.created_at desc "
     "recommended" | "rating" ->
       "order by l.review_avg desc nulls last, l.created_at desc "
-    _ ->
-      case cat_raw {
-        "yacht_charter" ->
-          "order by case when coalesce(trim(l.featured_image_url), '') <> '' then 0 else 1 end, l.created_at desc "
-        _ -> "order by l.created_at desc "
-      }
+    _ -> "order by l.created_at desc "
   }
   // page_ids'i FROM'un sürücü tablosu yapıyoruz; planlayıcı nested-loop'u 24 satırdan
   // başlatır ve pahalı lateral'lar (tur fiyatı, listing_images vb.) yalnız o satırlar için

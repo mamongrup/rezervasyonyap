@@ -137,6 +137,8 @@ interface CategoryPageTemplateProps {
   listingSectionTitle?: string
   /** Kategori landing'inde liste/sonuç bloğunu gizle (örn. dış API arama bekleyen sayfalar). */
   hideListingsOnLanding?: boolean
+  /** Tatil evi / yat — tema filtresi (sayfa zaten theme-items çektiyse tekrar API'ye gitme) */
+  preloadedStayRentalThemeOptions?: { code: string; label: string }[]
 }
 
 const heroImages = {
@@ -172,6 +174,7 @@ export default async function CategoryPageTemplate({
   listingPagination,
   listingSectionTitle,
   hideListingsOnLanding = false,
+  preloadedStayRentalThemeOptions,
 }: CategoryPageTemplateProps) {
   const m = getMessages(locale)
   const cat = m.categoryPage
@@ -223,7 +226,9 @@ export default async function CategoryPageTemplate({
           })),
         ),
     stayRentalCode
-      ? listPublicThemeItems({ categoryCode: stayRentalCode, locale }).then((r) => r?.items ?? [])
+      ? preloadedStayRentalThemeOptions != null
+        ? Promise.resolve(preloadedStayRentalThemeOptions)
+        : listPublicThemeItems({ categoryCode: stayRentalCode, locale }).then((r) => r?.items ?? [])
       : Promise.resolve([]),
     // Bölge istatistikleri — dışarıdan geçilmemişse çek
     regionStats

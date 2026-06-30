@@ -8,6 +8,7 @@ import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
 import { redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import {
   getHolidayThemeLabelMap,
+  holidayThemeOptionsFromMap,
   resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
@@ -16,6 +17,7 @@ import {
   parseSearchParamsFromUrl,
   HOLIDAY_TYPE_HANDLE_MAP,
 } from '@/lib/listings-fetcher'
+import { stayRentalFlexibleSearchActive } from '@/lib/stay-rental-flexible-search'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import type { TListingBase } from '@/types/listing-types'
 import { categoryMetadata } from '@/lib/category-page-metadata'
@@ -68,7 +70,7 @@ export default async function Page({
   } = bundle
 
   const flexibleListings =
-    page === 1
+    page === 1 && stayRentalFlexibleSearchActive(query)
       ? await fetchFlexibleHolidayListings(
           new Set(listings.map((l) => l.id)),
           query,
@@ -141,6 +143,7 @@ export default async function Page({
         lastMinute: query.last_minute === '1',
         vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),
       }}
+      preloadedStayRentalThemeOptions={holidayThemeOptionsFromMap(themeLabelMap)}
       flexibleListingCards={
         flexibleForUi.length > 0
           ? flexibleForUi.map((l) => (
