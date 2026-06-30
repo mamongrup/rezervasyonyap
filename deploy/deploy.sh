@@ -264,6 +264,20 @@ main() {
     warn "Sosyal paylaşım worker systemd dosyaları bulunamadı."
   fi
 
+  if [[ "${SKIP_WARM_CACHE_TIMER:-0}" == "1" ]]; then
+    warn "SKIP_WARM_CACHE_TIMER=1 — vitrin önbellek ısıtma timer kurulumu atlandı."
+  elif [[ -f "$APP_ROOT/deploy/systemd/travel-warm-cache.service" && -f "$APP_ROOT/deploy/systemd/travel-warm-cache.timer" ]]; then
+    step "Vitrin önbellek ısıtma timer kurulumu"
+    cp "$APP_ROOT/deploy/systemd/travel-warm-cache.service" /etc/systemd/system/travel-warm-cache.service \
+      && cp "$APP_ROOT/deploy/systemd/travel-warm-cache.timer" /etc/systemd/system/travel-warm-cache.timer \
+      && systemctl daemon-reload \
+      && systemctl enable --now travel-warm-cache.timer \
+      && ok "travel-warm-cache.timer etkin" \
+      || warn "travel-warm-cache.timer kurulamadı; soğuk render için elle ./deploy/scripts/warm-cache.sh çalıştırın."
+  else
+    warn "Vitrin önbellek ısıtma systemd dosyaları bulunamadı."
+  fi
+
   step "Servis restart"
   systemctl daemon-reload
   if [[ "$RESTART_API" == "1" ]]; then
@@ -303,6 +317,13 @@ main() {
       warn "timeout komutu yok — verify süre sınırı olmadan çalışacak."
       VERIFY_REPO_FRONTEND="$APP_ROOT/frontend" bash "$APP_ROOT/deploy/verify.sh"
     fi
+  fi
+
+  if [[ "${SKIP_WARM_CACHE:-0}" == "1" ]]; then
+    warn "SKIP_WARM_CACHE=1 — deploy sonrası önbellek ısıtma atlandı (ilk ziyaretçi soğuk render görebilir)."
+  elif [[ -f "$APP_ROOT/deploy/scripts/warm-cache.sh" ]]; then
+    step "Vitrin önbellek ısıtma (deploy sonrası)"
+    bash "$APP_ROOT/deploy/scripts/warm-cache.sh" || warn "warm-cache tamamlanamadı (deploy etkilenmez); elle: ./deploy/scripts/warm-cache.sh"
   fi
 }
 

@@ -1,0 +1,28 @@
+# Vitrin ISR önbelleği ısıtma — oneshot.
+# travel-warm-cache.timer tarafından periyodik çağrılır; ayrıca deploy sonrası elle çalıştırılabilir.
+# Amaç: travel-web restart / cache eviction sonrası ilk ziyaretçinin soğuk render'a düşmemesi.
+#
+# Kurulum:
+#   sudo cp deploy/systemd/travel-warm-cache.service /etc/systemd/system/
+#   sudo cp deploy/systemd/travel-warm-cache.timer /etc/systemd/system/
+#   sudo chmod +x /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/warm-cache.sh
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now travel-warm-cache.timer
+#
+# Log: journalctl -u travel-warm-cache.service -n 100 --no-pager
+
+[Unit]
+Description=Travel — vitrin ISR önbellek ısıtma (oneshot)
+After=network-online.target travel-web.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/var/www/vhosts/rezervasyonyap.tr/httpdocs
+Environment=WEB_ORIGIN=http://127.0.0.1:3000
+ExecStart=/bin/bash /var/www/vhosts/rezervasyonyap.tr/httpdocs/deploy/scripts/warm-cache.sh
+Nice=15
+IOSchedulingClass=best-effort
+
+[Install]
+WantedBy=multi-user.target
