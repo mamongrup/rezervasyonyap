@@ -1,4 +1,5 @@
 import { LOCALIZED_FIRST_SEGMENT_ALIASES } from '@/data/localized-middleware-rewrites'
+import { facetQueryRedirectResponse } from '@/lib/category-facet-proxy-redirect'
 import { defaultLocale, isAppLocale } from '@/lib/i18n-config'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
@@ -302,6 +303,12 @@ export function proxy(request: NextRequest) {
     const res = NextResponse.next()
     applySecurityHeaders(res)
     return res
+  }
+
+  const facetRedirect = facetQueryRedirectResponse(request)
+  if (facetRedirect) {
+    applySecurityHeaders(facetRedirect)
+    return facetRedirect
   }
 
   const segments = pathname.split('/').filter(Boolean)
