@@ -487,9 +487,9 @@ export function pickFacetForPath(
   return undefined
 }
 
-export function applyFacetRouteToSearchQuery<T extends Record<string, unknown>>(
+export function applyFacetRouteToSearchQuery<T extends object>(
   query: T,
   route: CategoryFacetRoute,
 ): T {
-  return { ...query, [route.queryKey]: route.queryValue }
+  return { ...query, [route.queryKey]: route.queryValue } as T
 }
