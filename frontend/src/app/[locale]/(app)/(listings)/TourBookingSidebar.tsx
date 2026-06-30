@@ -42,7 +42,11 @@ export default function TourBookingSidebar({
 
   const bookable = isTourPeriodBookable(selected)
   const guestCount = Math.max(1, totalGuestCount(guests))
-  const personPrice = selected?.price ?? null
+  const fallbackAmount =
+    fallbackPriceAmount != null && Number.isFinite(fallbackPriceAmount) && fallbackPriceAmount > 0
+      ? fallbackPriceAmount
+      : null
+  const personPrice = selected?.price ?? fallbackAmount
   const periodCurrency = (selected?.currencyCode || fallbackPriceCurrency || 'TRY').trim().toUpperCase()
   const unitTotal =
     bookable && personPrice != null && Number.isFinite(personPrice) ? personPrice * guestCount : 0
@@ -60,7 +64,7 @@ export default function TourBookingSidebar({
   )
 
   const displayPrice =
-    selected?.price != null
+    personPrice != null
       ? convertedPeriodPrice
       : bookable
         ? convertedFallback

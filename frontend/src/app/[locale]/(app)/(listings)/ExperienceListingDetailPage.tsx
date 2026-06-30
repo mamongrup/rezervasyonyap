@@ -46,7 +46,7 @@ import {
   cruiseInfoSections as buildCruiseInfoSections,
   cruiseItineraryDays,
   cruiseOverviewItems as buildCruiseOverviewItems,
-  cruisePeriodLabels,
+  cruisePeriodSelectOptions,
   parseCruiseVerticalMeta,
 } from '@/lib/cruise-meta'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
@@ -70,7 +70,6 @@ import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
 import SectionHeader from './components/SectionHeader'
-import { SectionHeading } from './components/SectionHeading'
 import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
@@ -82,7 +81,6 @@ import {
   LISTING_DETAIL_SECTION_GAP,
   LISTING_DETAIL_SECTION_GAP_Y,
   LISTING_SECTION_SHELL,
-  LISTING_SECTION_STACKED,
 } from './listing-section-classes'
 import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
@@ -420,6 +418,22 @@ export default async function ExperienceListingDetailPage({
         : durationTime || td.durationNotSpecified
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
   const cruiseMeta = isCruise ? parseCruiseVerticalMeta(rawCruiseMeta) : null
+  const listingPriceMoney = listing as TListingBase & {
+    priceAmount?: number
+    priceCurrency?: string
+    listingCurrencyCode?: string
+  }
+  const cruisePeriodCurrency =
+    listingPriceMoney.priceCurrency?.trim() ||
+    listingPriceMoney.listingCurrencyCode?.trim() ||
+    'TRY'
+  const cruisePeriodOptions =
+    isCruise && cruiseMeta
+      ? cruisePeriodSelectOptions(cruiseMeta, {
+          fallbackPrice: listingPriceMoney.priceAmount,
+          currencyCode: cruisePeriodCurrency,
+        })
+      : []
   const cruiseOverview = isCruise
     ? buildCruiseOverviewItems(
         cruiseMeta,
@@ -437,7 +451,6 @@ export default async function ExperienceListingDetailPage({
     : []
   const cruiseInfo = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
   const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
-  const cruisePeriods = isCruise ? cruisePeriodLabels(cruiseMeta) : []
   const activityVitrin = isActivity
     ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta))
     : null
@@ -603,7 +616,7 @@ export default async function ExperienceListingDetailPage({
     const priceCur =
       listingMoney.priceCurrency || listingMoney.listingCurrencyCode || undefined
 
-    if (isTour) {
+    if (isTour || isCruise) {
       return (
         <TourBookingSidebar
           listingId={catalogListingId}
@@ -748,22 +761,6 @@ export default async function ExperienceListingDetailPage({
               <TourItinerarySection days={cruiseDays} locale={locale} />
             ) : null}
             <TourInfoSections sections={cruiseInfo} locale={locale} />
-            {cruisePeriods.length > 0 ? (
-              <section id="cruise-section-periods" className={LISTING_SECTION_STACKED}>
-                <SectionHeading>Dönemler</SectionHeading>
-                <Divider className="w-14!" />
-                <ul className="grid gap-2 sm:grid-cols-2">
-                  {cruisePeriods.map((label) => (
-                    <li
-                      key={label}
-                      className="rounded-xl border border-neutral-200 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-100"
-                    >
-                      {label}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
             {description?.trim() && cruiseInfo.length === 0 && cruiseDays.length === 0 ? (
               <ActivityDescriptionSection locale={locale}>
                 <ListingDescriptionExpandable locale={locale} html={description} />
@@ -847,6 +844,14 @@ export default async function ExperienceListingDetailPage({
             currencyCode={tourPeriodCurrency}
           >
             <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderTourMainContent()}</main>
+          </TourPeriodProvider>
+        ) : isCruise ? (
+          <TourPeriodProvider
+            bookablePeriods={cruisePeriodOptions}
+            flightSchedules={[]}
+            currencyCode={cruisePeriodCurrency}
+          >
+            <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>
           </TourPeriodProvider>
         ) : (
           <main className="flex flex-col gap-8 lg:flex-row xl:gap-10">{renderNonTourMainContent()}</main>

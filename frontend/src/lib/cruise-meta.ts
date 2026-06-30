@@ -1,6 +1,16 @@
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import type { TourPeriodOption } from '@/lib/tour-periods'
 import type { TourInfoSection, TourItineraryDay, TourOverviewItem } from '@/app/[locale]/(app)/(listings)/TourDetailSections'
+
+function normalizeIsoDate(raw: string | undefined | null): string {
+  if (!raw) return ''
+  const s = String(raw).trim()
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10)
+  const m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/)
+  if (m) return `${m[3]}-${m[2]!.padStart(2, '0')}-${m[1]!.padStart(2, '0')}`
+  return s.slice(0, 10)
+}
 
 export type CruiseVerticalMeta = {
   cruise_line?: string | null
@@ -16,7 +26,13 @@ export type CruiseVerticalMeta = {
   detail_text?: string | null
   info_sections?: Array<{ id: string; title: string; html: string }>
   program_days?: Array<{ day: number; title: string; description: string }>
-  periods?: Array<{ id?: number | null; start?: string; end?: string; label?: string }>
+  periods?: Array<{
+    id?: number | string | null
+    start?: string
+    end?: string
+    label?: string
+    isAvailable?: boolean
+  }>
 }
 
 export function parseCruiseVerticalMeta(raw: unknown): CruiseVerticalMeta | null {
@@ -93,4 +109,42 @@ export function cruisePeriodLabels(meta: CruiseVerticalMeta | null): string[] {
   return periods
     .map((p) => p.label || (p.start && p.end ? `${p.start} – ${p.end}` : p.start || ''))
     .filter(Boolean)
+}
+
+/** Gezinomi dönemleri → tur rezervasyon formu (TourPeriodSelect) seçenekleri */
+export function cruisePeriodSelectOptions(
+  meta: CruiseVerticalMeta | null,
+  opts: { fallbackPrice?: number | null; currencyCode?: string },
+): TourPeriodOption[] {
+  const periods = meta?.periods ?? []
+  if (periods.length === 0) return []
+
+  const currency = (opts.currencyCode || 'TRY').trim().toUpperCase()
+  const today = new Date().toISOString().slice(0, 10)
+  const fallbackPrice =
+    opts.fallbackPrice != null && Number.isFinite(opts.fallbackPrice) && opts.fallbackPrice > 0
+      ? opts.fallbackPrice
+      : null
+
+  const options: TourPeriodOption[] = []
+  for (const p of periods) {
+    const startDate = normalizeIsoDate(p.start)
+    const endDate = normalizeIsoDate(p.end) || startDate
+    if (!startDate && !endDate) continue
+    const start = startDate || endDate
+    const end = endDate || startDate
+    if (end < today) continue
+
+    options.push({
+      id: String(p.id ?? `${start}-${end}`),
+      startDate: start,
+      endDate: end,
+      price: fallbackPrice,
+      currencyCode: currency,
+      bookable: p.isAvailable !== false,
+    })
+  }
+
+  options.sort((a, b) => a.startDate.localeCompare(b.startDate))
+  return options
 }
