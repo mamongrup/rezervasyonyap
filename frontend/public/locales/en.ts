@@ -571,6 +571,8 @@ export const en = {
       tourAccCamping: 'Camping',
       tourAccNone: 'No overnight stay',
       tourDepartureLabel: 'Departure city',
+      cruiseLineLabel: 'Cruise line',
+      cruiseRouteLabel: 'Route',
       tourDeparture_istanbul: 'Istanbul',
       tourDeparture_ankara: 'Ankara',
       tourDeparture_izmir: 'Izmir',

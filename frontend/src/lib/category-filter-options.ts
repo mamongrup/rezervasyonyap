@@ -6,6 +6,10 @@ import {
   getTourDepartureCityOptions,
   getTourTravelTypeOptions,
 } from '@/lib/tour-filter-options'
+import {
+  getCruiseLineFilterOptions,
+  getCruiseRouteFilterOptions,
+} from '@/data/cruise-hub-categories'
 import type { FilterOption } from '@/types/listing-types'
 import { getMessages } from '@/utils/getT'
 import { STAY_RENTAL_PRICE_FILTER_MAX } from '@/lib/stay-rental-price-filter'
@@ -106,6 +110,23 @@ export async function getTourCategoryFilterOptions(locale: string): Promise<Filt
         { name: filters.duration8PlusDays, value: '8+' },
       ],
     },
+    {
+      label: filters.priceRangeLabel,
+      name: 'price',
+      tabUIType: 'price-range',
+      min: 0,
+      max: STAY_RENTAL_PRICE_FILTER_MAX,
+    },
+  ].filter((option): option is FilterOption => option != null)
+}
+
+export async function getCruiseCategoryFilterOptions(locale: string): Promise<FilterOption[]> {
+  const m = getMessages(locale)
+  const filters = m.categoryPage.listingFilters
+
+  return [
+    checkboxFilter(filters.cruiseLineLabel ?? 'Gemi hattı', 'cruise_line', getCruiseLineFilterOptions(locale)),
+    checkboxFilter(filters.cruiseRouteLabel ?? 'Rota', 'cruise_route', getCruiseRouteFilterOptions(locale)),
     {
       label: filters.priceRangeLabel,
       name: 'price',

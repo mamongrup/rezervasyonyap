@@ -1,8 +1,10 @@
 import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { CruiseCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
-import { getExperienceListingFilterOptions } from '@/data/listings'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
+import { getCruiseCategoryFilterOptions } from '@/lib/category-filter-options'
+import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
+import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
@@ -31,6 +33,8 @@ export default async function Page({
   const category = getCategoryBySlug('kruvaziyer')
   if (!category) return redirect('/')
 
+  await redirectCategoryFacetFromQuery(locale, 'kruvaziyer', sp, currentHandle)
+
   const query = parseSearchParamsFromUrl(sp)
   const {
     result: { listings, total, page, perPage, fromApi },
@@ -41,21 +45,34 @@ export default async function Page({
     query,
     { regionHandle: currentHandle },
     locale,
-    getExperienceListingFilterOptions(locale),
+    getCruiseCategoryFilterOptions(locale),
   )
 
+  const pathFacetRoute =
+    currentHandle && currentHandle !== 'all'
+      ? categoryFacetRouteFromHandle('kruvaziyer', locale, currentHandle)
+      : undefined
+  const facetLabel = pathFacetRoute
+    ? facetLabelFromRoute(
+        pathFacetRoute,
+        filterOptions.map((f) => ({
+          name: f.name,
+          options: f.tabUIType === 'checkbox' ? f.options : [],
+        })),
+      )
+    : undefined
   const regionLabel =
-    currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
+    !pathFacetRoute && currentHandle && currentHandle !== 'all'
+      ? currentHandle.replace(/-/g, ' ')
+      : undefined
 
   return (
     <CategoryPageTemplate
       category={category}
       count={total}
       listingCards={listings.map((l) => (
-         
         <CruiseCard key={l.id} data={l as any} />
       ))}
-       
       listingCardRenderer={(l) => <CruiseCard key={l.id} data={l as any} />}
       filterOptions={filterOptions}
       currentHandle={currentHandle}
@@ -71,6 +88,7 @@ export default async function Page({
         checkout: query.checkout,
         guests: query.guests,
         regionLabel,
+        propertyTypeLabel: facetLabel,
         fromApi,
       }}
       listingPagination={{ page, total, perPage }}

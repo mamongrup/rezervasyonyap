@@ -1,6 +1,10 @@
 import { getCategoryBySlug } from '@/data/category-registry'
 import type { PageBuilderModule } from '@/types/listing-types'
 import { buildTurlarCategoryHubGridConfig } from '@/data/tour-hub-categories'
+import {
+  buildCruiseBrandHubGridConfig,
+  buildCruiseRouteHubGridConfig,
+} from '@/data/cruise-hub-categories'
 import type { AppMessages } from '../../public/locales/en'
 import { interpolate } from '@/utils/interpolate'
 
@@ -134,7 +138,22 @@ function experienceModules(m: AppMessages, slug?: string): Omit<PageBuilderModul
             config: buildTurlarCategoryHubGridConfig('tr'),
           },
         ] satisfies Omit<PageBuilderModule, 'id'>[])
-      : []
+      : slug === 'kruvaziyer'
+        ? ([
+            {
+              type: 'category_hub_grid' as const,
+              enabled: true,
+              order: 2,
+              config: buildCruiseBrandHubGridConfig('tr'),
+            },
+            {
+              type: 'category_hub_grid' as const,
+              enabled: true,
+              order: 3,
+              config: buildCruiseRouteHubGridConfig('tr'),
+            },
+          ] satisfies Omit<PageBuilderModule, 'id'>[])
+        : []
 
   return [
     {

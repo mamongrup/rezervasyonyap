@@ -1,4 +1,8 @@
 import { getTourHubCategories, type TourHubCategory } from '@/data/tour-hub-categories'
+import {
+  getCruiseBrandHubCards,
+  getCruiseRouteHubCards,
+} from '@/data/cruise-hub-categories'
 import { heroBelowContentClassName } from '@/components/hero-sections/hero-below-header-classes'
 import { vitrinHref } from '@/lib/vitrin-href'
 import Link from 'next/link'
@@ -106,7 +110,9 @@ export default async function CategoryHubGridModule({
       ? config.cards
       : categorySlug === 'turlar'
         ? getTourHubCategories(locale).map(tourCategoryToHubCard)
-        : []
+        : categorySlug === 'kruvaziyer'
+          ? [...getCruiseBrandHubCards(locale), ...getCruiseRouteHubCards(locale)]
+          : []
 
   if (rawCards.length === 0) return null
 

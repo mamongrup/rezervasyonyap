@@ -884,6 +884,24 @@ fn search_listings_impl(
     True -> pog.null()
     False -> pog.text(tour_departure_raw)
   }
+  let cruise_line_raw =
+    list.key_find(qs, "cruise_line")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let cruise_line_param = case cruise_line_raw == "" {
+    True -> pog.null()
+    False -> pog.text(cruise_line_raw)
+  }
+  let cruise_route_raw =
+    list.key_find(qs, "cruise_route")
+    |> result.unwrap("")
+    |> string.trim
+    |> string.lowercase
+  let cruise_route_param = case cruise_route_raw == "" {
+    True -> pog.null()
+    False -> pog.text(cruise_route_raw)
+  }
 
   // $23: tatil evi ilan tipi (villa | apart | daire | bungalov)
   let property_type_raw =
@@ -1069,6 +1087,7 @@ fn search_listings_impl(
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'hotel' and la.key = 'accommodation_code' limit 1) hotel_acc_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'vertical_tour' and la.key = 'v1' limit 1) tour_attr on true "
     <> "left join lateral (select la.value_json from listing_attributes la where la.listing_id = l.id and la.group_code = 'wtatil' and la.key = 'snapshot' limit 1) wtatil_snap on true "
+    <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
     <> public_listing_must_have_image_sql()
     <> "and ($1::text is null or trim($1) = '' or (select coalesce(bool_and("
@@ -1169,6 +1188,14 @@ fn search_listings_impl(
     <> "    '')) ilike '%' || trim(dep.v) || '%' "
     <> "  or lower(coalesce(wtatil_snap.value_json->'catalog'->>'freeServices', '')) ilike '%' || trim(dep.v) || '%' "
     <> ")) "
+    <> "and ($28::text is null or pc.code != 'cruise' or lower(coalesce(cruise_det.cruise_line, '')) ilike '%' || trim($28) || '%' "
+    <> "  or lower(coalesce(cruise_det.meta_json->>'category_link', '')) ilike '%' || trim($28) || '%') "
+    <> "and ($29::text is null or pc.code != 'cruise' or lower(coalesce(cruise_det.meta_json->>'category_link', '')) ilike '%' || trim($29) || '%' "
+    <> "  or lower(coalesce(cruise_det.route_summary, '')) ilike '%' || replace(trim($29), '-', '%') || '%' "
+    <> "  or lower(coalesce(l.location_name, '')) ilike '%' || replace(trim($29), '-', '%') || '%' "
+    <> "  or "
+    <> listing_search_match_sql
+    <> " ilike '%' || replace(split_part(trim($29), '-', 1), '-', '') || '%') "
     <> "and ($25::text is null or pc.code not in ('holiday_home', 'yacht_charter') or ( "
     <> "  "
     <> meta_bed_count_sql
@@ -1244,6 +1271,7 @@ fn search_listings_impl(
     <> "left join listing_holiday_home_details h on h.listing_id = l.id "
     <> "left join listing_yacht_details y on y.listing_id = l.id "
     <> "left join lateral (select la.value_json as meta from listing_attributes la where la.listing_id = l.id and la.group_code = 'listing_meta' and la.key = 'v1' limit 1) lm on true "
+    <> "left join listing_cruise_details cruise_det on cruise_det.listing_id = l.id "
     <> "where l.status = 'published' "
     <> public_listing_must_have_image_sql()
     <> "and ($2::text is null or pc.code = $2) "
@@ -1288,6 +1316,14 @@ fn search_listings_impl(
     <> " is not null and "
     <> meta_bath_count_sql
     <> " >= nullif($27::text, '')::int)) "
+    <> "and ($28::text is null or pc.code != 'cruise' or lower(coalesce(cruise_det.cruise_line, '')) ilike '%' || trim($28) || '%' "
+    <> "  or lower(coalesce(cruise_det.meta_json->>'category_link', '')) ilike '%' || trim($28) || '%') "
+    <> "and ($29::text is null or pc.code != 'cruise' or lower(coalesce(cruise_det.meta_json->>'category_link', '')) ilike '%' || trim($29) || '%' "
+    <> "  or lower(coalesce(cruise_det.route_summary, '')) ilike '%' || replace(trim($29), '-', '%') || '%' "
+    <> "  or lower(coalesce(l.location_name, '')) ilike '%' || replace(trim($29), '-', '%') || '%' "
+    <> "  or "
+    <> listing_search_match_sql
+    <> " ilike '%' || replace(split_part(trim($29), '-', 1), '-', '') || '%') "
     // Fiyat filtresi ve tur "fiyatı olmalı" koşulu önbellek sütununu (vitrin_price) kullanır;
     // satır-başı fiyat lateral'ı gerekmez → fast path fiyat/sıralamayı index ile karşılar.
     <> "and ($12::text is null or coalesce(l.vitrin_price, l.first_charge_amount) >= nullif($12::text, '')::numeric) "
@@ -1307,7 +1343,7 @@ fn search_listings_impl(
   let fast_count_sql =
     "select count(*)::int from (select l.id "
     <> fast_filter_body
-    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24) __allp"
+    <> ") _cnt cross join (select $1::text as a1, $4::text as a4, $5::int as a5, $6::text as a6, $7::text as a7, $11::text as a11, $12::text as a12, $13::text as a13, $14::text as a14, $15::text as a15, $16::text as a16, $17::text as a17, $18::text as a18, $19::text as a19, $20::text as a20, $21::int as a21, $22::uuid as a22, $24::text as a24, $28::text as a28, $29::text as a29) __allp"
   // Filtreli (fast olmayan) aramalar da deferred-projeksiyon kullanır: page_ids tüm filtreleri
   // + sıralamayı yalnız l.id üzerinde uygular; pahalı projeksiyon (galeri, çeviri, pansiyon)
   // yalnızca sayfadaki ~24 satır için çalışır. WHERE/ORDER lateral'ları (fiyat, attr) zaten gerekli.
@@ -1354,6 +1390,8 @@ fn search_listings_impl(
     |> pog.parameter(beds_param)
     |> pog.parameter(bedrooms_param)
     |> pog.parameter(bathrooms_param)
+    |> pog.parameter(cruise_line_param)
+    |> pog.parameter(cruise_route_param)
   }
 
   let is_agent_search = case agency_org_opt {
@@ -1376,6 +1414,8 @@ fn search_listings_impl(
     && tour_accommodation_raw == ""
     && tour_duration_raw == ""
     && tour_departure_raw == ""
+    && cruise_line_raw == ""
+    && cruise_route_raw == ""
   let exact_count_needed =
     is_agent_search
     || q_normalized != ""
@@ -1393,6 +1433,8 @@ fn search_listings_impl(
     || tour_accommodation_raw != ""
     || tour_duration_raw != ""
     || tour_departure_raw != ""
+    || cruise_line_raw != ""
+    || cruise_route_raw != ""
     || property_type_raw != ""
     || string.trim(beds_raw) != ""
     || string.trim(bedrooms_raw) != ""

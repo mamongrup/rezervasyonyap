@@ -351,6 +351,8 @@ export const tr = {
       tourAccCamping: 'Kamp',
       tourAccNone: 'Gece konaklama yok',
       tourDepartureLabel: 'Hareket noktası',
+      cruiseLineLabel: 'Gemi hattı',
+      cruiseRouteLabel: 'Rota',
       tourDeparture_istanbul: 'İstanbul',
       tourDeparture_ankara: 'Ankara',
       tourDeparture_izmir: 'İzmir',

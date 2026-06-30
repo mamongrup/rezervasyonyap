@@ -237,7 +237,24 @@ export default async function CategoryPageTemplate({
             : undefined,
         ).catch(() => []),
   ])
-  const resolvedModules = resolvedModulesRaw as PageBuilderModule[]
+  let resolvedModules = resolvedModulesRaw as PageBuilderModule[]
+  if (
+    category.slug === 'kruvaziyer' &&
+    !resolvedModules.some((mod) => mod.type === 'category_hub_grid' && mod.enabled)
+  ) {
+    const hubDefaults = getLocalizedDefaultModules('kruvaziyer', m)
+      .filter((mod) => mod.type === 'category_hub_grid')
+      .map((mod, i) => ({ ...mod, id: `default-kruvaziyer-hub-${i}` }))
+    if (hubDefaults.length > 0) {
+      const heroIdx = resolvedModules.findIndex((mod) => mod.type === 'hero')
+      const insertAt = heroIdx >= 0 ? heroIdx + 1 : 0
+      resolvedModules = [
+        ...resolvedModules.slice(0, insertAt),
+        ...hubDefaults,
+        ...resolvedModules.slice(insertAt),
+      ]
+    }
+  }
   const resolvedRegionStats: RegionSliderItem[] = regionsWithListings(
     filterRegionsForHandle(rawRegionStats, currentHandle),
   )
@@ -550,8 +567,18 @@ export default async function CategoryPageTemplate({
     !currentHandle &&
     !hasActiveSearch &&
     hasEnabledCategoryHub
+  const isCruiseHubLanding =
+    category.slug === 'kruvaziyer' &&
+    !currentHandle &&
+    !hasActiveSearch &&
+    hasEnabledCategoryHub
+  const isExperienceHubLanding = isTourHubLanding || isCruiseHubLanding
   const isTourFullListingsView =
     category.slug === 'turlar' &&
+    !hasActiveSearch &&
+    (currentHandle === 'all' || !hasEnabledCategoryHub)
+  const isCruiseFullListingsView =
+    category.slug === 'kruvaziyer' &&
     !hasActiveSearch &&
     (currentHandle === 'all' || !hasEnabledCategoryHub)
   const subcategoryBelowHeadingSlot = null
@@ -562,8 +589,8 @@ export default async function CategoryPageTemplate({
       .filter((m) => m.type !== 'hero')
       .filter(
         (m) =>
-          !isTourFullListingsView ||
-          (m.type !== 'listings_slider' && m.type !== 'listings_grid'),
+          ((!isTourFullListingsView && !isCruiseFullListingsView) ||
+            (m.type !== 'listings_slider' && m.type !== 'listings_grid')),
       )
       .filter((m) => m.type !== 'category_hub_grid' || (!currentHandle && !hasActiveSearch))
       .map((m, i) => ({ ...m, id: m.id ?? generateModuleId(i) }))
@@ -594,9 +621,9 @@ export default async function CategoryPageTemplate({
           />
         </div>
 
-        {!isTourHubLanding ? searchResultsSection : null}
+        {!isExperienceHubLanding ? searchResultsSection : null}
 
-        {!isTourHubLanding ? regionSlider : null}
+        {!isExperienceHubLanding ? regionSlider : null}
 
         <div className={heroBelowContentClassName}>
           <PageBuilderRenderer
