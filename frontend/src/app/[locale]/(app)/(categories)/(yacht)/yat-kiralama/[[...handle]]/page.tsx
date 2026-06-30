@@ -2,15 +2,14 @@ import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { YachtCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { filterHolidayThemeCodesForListingCards } from '@/lib/holiday-theme-codes'
 import {
   getHolidayThemeLabelMap,
   resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import {
-  fetchCategoryListings,
   fetchFlexibleStayRentalListings,
   parseSearchParamsFromUrl,
 } from '@/lib/listings-fetcher'
@@ -45,14 +44,17 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings(
-    'yat-kiralama',
-    query,
-    {
-      regionHandle: currentHandle,
-    },
-    locale,
-  )
+  const [{ result, filterOptions, heroOverride }, themeLabelMap] = await Promise.all([
+    loadCategoryPageListingsBundle(
+      'yat-kiralama',
+      query,
+      { regionHandle: currentHandle },
+      locale,
+      getStayListingFilterOptions(),
+    ),
+    getHolidayThemeLabelMap(locale, 'yacht_charter'),
+  ])
+  const { listings, total, page, perPage, fromApi } = result
 
   const pageNum = page
   const flexibleListings =
@@ -66,11 +68,6 @@ export default async function Page({
         )
       : []
 
-  const [filterOptions, heroOverride] = await Promise.all([
-    getStayListingFilterOptions(),
-    getRegionHeroConfig('yat-kiralama', currentHandle ?? ''),
-  ])
-
   const isPropertyTypeHandle =
     currentHandle && currentHandle !== 'all' && !!YACHT_TYPE_HANDLE_MAP[currentHandle]
   const propertyTypeLabel = isPropertyTypeHandle
@@ -81,7 +78,6 @@ export default async function Page({
       ? regionLabelFromHandle(currentHandle)
       : undefined
 
-  const themeLabelMap = await getHolidayThemeLabelMap(locale, 'yacht_charter')
   function withYachtThemeChips<L extends TListingBase>(l: L): L {
     const codes = filterHolidayThemeCodesForListingCards(l.themeCodes ?? [])
     if (!codes.length) return l

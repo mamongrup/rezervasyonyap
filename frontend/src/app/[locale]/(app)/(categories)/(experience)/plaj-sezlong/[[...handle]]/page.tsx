@@ -2,9 +2,9 @@ import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { BeachLoungerCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getExperienceListingFilterOptions } from '@/data/listings'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
-import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -32,19 +32,17 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings(
+  const {
+    result: { listings, total, page, perPage, fromApi },
+    filterOptions,
+    heroOverride,
+  } = await loadCategoryPageListingsBundle(
     'plaj-sezlong',
     query,
-    {
-      regionHandle: currentHandle,
-    },
+    { regionHandle: currentHandle },
     locale,
-  )
-
-  const [filterOptions, heroOverride] = await Promise.all([
     getExperienceListingFilterOptions(locale),
-    getRegionHeroConfig('plaj-sezlong', currentHandle ?? ''),
-  ])
+  )
 
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined

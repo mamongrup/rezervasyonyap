@@ -5,6 +5,7 @@ import { getCarListingFilterOptions } from '@/data/listings'
 import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { resolveCategoryDisplay } from '@/lib/localized-category'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { ensureCarRentalCheckout } from '@/lib/yolcu360-cars'
 import { fetchYolcu360CarListings } from '@/lib/yolcu360-car-search'
@@ -74,30 +75,60 @@ export default async function Page({
   const checkout = ensureCarRentalCheckout(checkin, checkoutRaw)
   const hasSearchQuery = !!(pickup && checkin && checkout)
 
-  const yolcu360Cars = hasSearchQuery
-    ? await fetchYolcu360CarListings(
+  let filterOptions: Awaited<ReturnType<typeof getCarListingFilterOptions>>
+  let heroOverride: Awaited<ReturnType<typeof getRegionHeroConfig>>
+  let dbListings: Awaited<ReturnType<typeof fetchCategoryListings>>['listings'] = []
+  let dbTotal = 0
+  let page = 1
+  let perPage = 12
+  let fromApi = false
+  let yolcu360Cars: Awaited<ReturnType<typeof fetchYolcu360CarListings>> | null = null
+
+  if (hasSearchQuery) {
+    const [y360, filterOpts, hero] = await Promise.all([
+      fetchYolcu360CarListings(
         { pickup, dropoff, checkin, checkout },
         { includeDetailQuery: true },
-      )
-    : null
+      ),
+      getCarListingFilterOptions(),
+      getRegionHeroConfig('arac-kiralama', currentHandle ?? ''),
+    ])
+    yolcu360Cars = y360
+    filterOptions = filterOpts
+    heroOverride = hero
+
+    if (!yolcu360Cars?.length) {
+      const db = await fetchCategoryListings('arac-kiralama', query, { regionHandle: currentHandle })
+      dbListings = db.listings
+      dbTotal = db.total
+      page = db.page
+      perPage = db.perPage
+      fromApi = db.fromApi
+    }
+  } else {
+    const bundle = await loadCategoryPageListingsBundle(
+      'arac-kiralama',
+      query,
+      { regionHandle: currentHandle },
+      locale,
+      getCarListingFilterOptions(),
+    )
+    filterOptions = bundle.filterOptions
+    heroOverride = bundle.heroOverride
+    dbListings = bundle.result.listings
+    dbTotal = bundle.result.total
+    page = bundle.result.page
+    perPage = bundle.result.perPage
+    fromApi = bundle.result.fromApi
+  }
 
   const fromYolcu360 = yolcu360Cars !== null && yolcu360Cars.length > 0
-
-  const { listings: dbListings, total: dbTotal, page, perPage, fromApi } = fromYolcu360
-    ? { listings: [], total: 0, page: 1, perPage: 12, fromApi: false }
-    : await fetchCategoryListings('arac-kiralama', query, { regionHandle: currentHandle })
-
   const listings = isCarLandingWithoutSearch
     ? []
     : fromYolcu360
-      ? yolcu360Cars
+      ? yolcu360Cars!
       : dbListings
-  const total = fromYolcu360 ? yolcu360Cars.length : dbTotal
-
-  const [filterOptions, heroOverride] = await Promise.all([
-    getCarListingFilterOptions(),
-    getRegionHeroConfig('arac-kiralama', currentHandle ?? ''),
-  ])
+  const total = fromYolcu360 ? yolcu360Cars!.length : dbTotal
 
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined

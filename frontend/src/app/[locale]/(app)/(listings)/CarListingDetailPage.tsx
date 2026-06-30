@@ -69,8 +69,10 @@ export default async function CarListingDetailPage({
   const { handle: rawHandle, locale } = await params
   const handle = rawHandle.split('?')[0]
   const sp = (await searchParams) ?? {}
-  const calendarMonthsShown = await guessCalendarMonthsShownFromRequest()
-  const referer = (await headers()).get('referer')
+  const [calendarMonthsShown, referer] = await Promise.all([
+    guessCalendarMonthsShownFromRequest(),
+    headers().then((h) => h.get('referer')),
+  ])
 
   if (handle.startsWith('yolcu360-')) {
     const yolcu360Detail = await renderYolcu360CarDetail({

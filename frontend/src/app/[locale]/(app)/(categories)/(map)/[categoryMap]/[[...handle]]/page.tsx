@@ -126,19 +126,21 @@ export default async function Page({
   const query = parseSearchParamsFromUrl(sp)
   const currentHandle = handleParam?.[0] ?? 'all'
 
-  const { listings, total, page, perPage } = await fetchCategoryListings(reg.slug, query, { regionHandle: currentHandle }, locale)
+  const listingsPromise = fetchCategoryListings(reg.slug, query, { regionHandle: currentHandle }, locale)
 
   const variant = mapVariant(reg)
   const closeListingHref = `${reg.categoryRoute}/${currentHandle}#heading`
 
   if (variant === 'stay') {
-    const [filterOptions, category, themeOpts] = await Promise.all([
+    const [listingResult, filterOptions, themeOpts] = await Promise.all([
+      listingsPromise,
       getStayListingFilterOptions(),
-      Promise.resolve(stayStub(reg, currentHandle, total)),
       reg.slug === 'tatil-evleri'
         ? listPublicThemeItems({ categoryCode: 'holiday_home', locale })
         : Promise.resolve(null),
     ])
+    const { listings, total, page, perPage } = listingResult
+    const category = stayStub(reg, currentHandle, total)
     const themeOptions = themeOpts?.items?.length ? themeOpts.items : undefined
     return (
       <StaySectionGridHasMap
@@ -155,10 +157,12 @@ export default async function Page({
   }
 
   if (variant === 'car') {
-    const [filterOptions, category] = await Promise.all([
+    const [listingResult, filterOptions] = await Promise.all([
+      listingsPromise,
       getCarListingFilterOptions(),
-      Promise.resolve(carStub(reg, currentHandle, total)),
     ])
+    const { listings, total, page, perPage } = listingResult
+    const category = carStub(reg, currentHandle, total)
     return (
       <CarSectionGridHasMap
         category={category}
@@ -171,10 +175,12 @@ export default async function Page({
     )
   }
 
-  const [filterOptions, category] = await Promise.all([
+  const [listingResult, filterOptions] = await Promise.all([
+    listingsPromise,
     getStayListingFilterOptions(),
-    Promise.resolve(experienceStub(reg, currentHandle, total)),
   ])
+  const { listings, total, page, perPage } = listingResult
+  const category = experienceStub(reg, currentHandle, total)
   return (
     <ExperienceSectionGridHasMap
       category={category}

@@ -1,10 +1,10 @@
 import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { TourCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getTourCategoryFilterOptions } from '@/lib/category-filter-options'
-import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { isTourSubcategorySlug } from '@/lib/tour-subcategory-routes'
 import { getSubcategoryBySlug } from '@/data/subcategory-registry'
 import { categoryMetadata } from '@/lib/category-page-metadata'
@@ -34,14 +34,17 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings('turlar', query, {
-    regionHandle: currentHandle,
-  })
-
-  const [filterOptions, heroOverride] = await Promise.all([
+  const {
+    result: { listings, total, page, perPage, fromApi },
+    filterOptions,
+    heroOverride,
+  } = await loadCategoryPageListingsBundle(
+    'turlar',
+    query,
+    { regionHandle: currentHandle },
+    locale,
     getTourCategoryFilterOptions(locale),
-    getRegionHeroConfig('turlar', currentHandle ?? ''),
-  ])
+  )
 
   const isTourSubHandle =
     currentHandle && currentHandle !== 'all' && isTourSubcategorySlug(currentHandle)

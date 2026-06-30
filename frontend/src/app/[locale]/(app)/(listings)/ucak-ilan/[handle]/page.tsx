@@ -13,8 +13,6 @@ import FlightCard from '@/components/FlightCard'
 import type { TFlightListing } from '@/data/listings'
 import HeaderGallery from '../../components/HeaderGallery'
 
-export const dynamic = 'force-dynamic'
-
 type Props = { params: Promise<{ locale: string; handle: string }> }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -51,7 +49,12 @@ export default async function Page({ params }: Props) {
   const msgs = getMessages(locale)
   const m = msgs.flightDetail
 
-  const listing = await getFlightListingByHandle(handle, locale)
+  const [listing, similarRes, backHref, searchHref] = await Promise.all([
+    getFlightListingByHandle(handle, locale),
+    searchPublicListings({ categoryCode: 'flight', locale, perPage: 6 }),
+    vitrinHref(locale, '/ucak-bileti/all'),
+    vitrinHref(locale, '/ucak-bileti/all'),
+  ])
   if (!listing) redirect(await vitrinHref(locale, '/ucak-bileti/all'))
 
   // Parse from / to from location_name or title
@@ -72,9 +75,6 @@ export default async function Page({ params }: Props) {
     .filter((l) => l.slug !== handle)
     .slice(0, 3)
     .map((l) => mapPublicListingItemToListingBase(l, { locale })) as TFlightListing[]
-
-  const backHref = await vitrinHref(locale, '/ucak-bileti/all')
-  const searchHref = await vitrinHref(locale, '/ucak-bileti/all')
 
   return (
     <main className="container mx-auto px-4 pb-24 pt-10 sm:px-6 lg:px-8">

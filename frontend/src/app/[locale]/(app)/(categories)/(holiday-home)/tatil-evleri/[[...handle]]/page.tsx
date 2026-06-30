@@ -2,15 +2,14 @@ import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { HolidayHomeCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { filterHolidayThemeCodesForListingCards } from '@/lib/holiday-theme-codes'
 import {
   getHolidayThemeLabelMap,
   resolveHolidayThemeLabelsFromMap,
 } from '@/lib/holiday-theme-labels'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import {
-  fetchCategoryListings,
   fetchFlexibleHolidayListings,
   parseSearchParamsFromUrl,
   HOLIDAY_TYPE_HANDLE_MAP,
@@ -48,13 +47,21 @@ export default async function Page({
   // Ana ilan listesini, listeden bağımsız verilerle (filtre seçenekleri, bölge
   // hero, tema etiketleri) paralel çek. flexibleListings ana listenin id'lerine
   // bağlı olduğu için ondan sonra gelir.
-  const [mainResult, filterOptions, heroOverride, themeLabelMap] = await Promise.all([
-    fetchCategoryListings('tatil-evleri', query, { regionHandle: currentHandle }, locale),
-    getStayListingFilterOptions(),
-    getRegionHeroConfig('tatil-evleri', currentHandle ?? ''),
+  const [bundle, themeLabelMap] = await Promise.all([
+    loadCategoryPageListingsBundle(
+      'tatil-evleri',
+      query,
+      { regionHandle: currentHandle },
+      locale,
+      getStayListingFilterOptions(),
+    ),
     getHolidayThemeLabelMap(locale),
   ])
-  const { listings, total, page, perPage, fromApi } = mainResult
+  const {
+    result: { listings, total, page, perPage, fromApi },
+    filterOptions,
+    heroOverride,
+  } = bundle
 
   const flexibleListings =
     page === 1

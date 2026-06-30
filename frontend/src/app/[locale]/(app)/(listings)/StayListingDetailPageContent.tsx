@@ -368,6 +368,8 @@ export default async function StayListingDetailPageContent({
     availabilityCalendarDays,
     listingBedrooms,
     listingDetailCampaignsRaw,
+    priceLines,
+    prefetchedHolidayHomePriceRules,
   ] = await Promise.all([
     catalogListingId != null
       ? getPublicListingAccommodationRules(catalogListingId)
@@ -389,6 +391,12 @@ export default async function StayListingDetailPageContent({
           categoryCode: vertical,
         })
       : Promise.resolve({ campaigns: [] }),
+    isStayRentalCategory(vertical) && catalogListingId
+      ? getPublicListingPriceLines(catalogListingId, locale)
+      : Promise.resolve(null),
+    isStayRentalCategory(vertical) && catalogListingId
+      ? getPublicListingPriceRules(catalogListingId)
+      : Promise.resolve([]),
   ])
   const listingDetailCampaigns = parseListingDetailCampaignsPayload(listingDetailCampaignsRaw)
 
@@ -412,11 +420,54 @@ export default async function StayListingDetailPageContent({
     }
     listingContractHref = await vitrinHref(locale, `${canonicalPath}/${handle}/sozlesme`)
   }
+  const regionSlugForPlaces =
+    regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
+  const isHolidayHomeListing = vertical === 'holiday_home'
+  const [
+    yachtRaw,
+    yachtExtraMeta,
+    rawNearbyPois,
+    servicePois,
+    regionPlacesBundle,
+    hotelVitrinMetaRaw,
+    fetchedHotelActivities,
+    fetchedReviewCriteriaSummary,
+    attrs,
+    hotelValidCampaignsPayload,
+    hotelRoomsResult,
+  ] = await Promise.all([
+    vertical === 'yacht_charter' && catalogListingId
+      ? fetchPublicVerticalYachtSafe(catalogListingId)
+      : Promise.resolve(null),
+    vertical === 'yacht_charter' && catalogListingId
+      ? fetchPublicVerticalMetaSafe(catalogListingId, 'yacht_extra')
+      : Promise.resolve(null),
+    getListingNearbyPois(listing.id),
+    getComputedServicePois(listing.id),
+    resolveRegionPlacesBundleForListingPage(
+      regionSlugForPlaces,
+      locale,
+      shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
+      { villaFourColumns: isHolidayHomeListing },
+    ),
+    vertical === 'hotel' && catalogListingId
+      ? getVerticalMeta(catalogListingId, 'hotel').catch(() => ({}))
+      : Promise.resolve(null),
+    vertical === 'hotel'
+      ? getPublicHotelActivities(catalogListingId ?? listing.id)
+      : Promise.resolve([]),
+    fetchListingReviewCriteriaSummarySafe(listing.id),
+    fetchPublicListingAttributesSafe(catalogListingId ?? listing.id),
+    vertical === 'hotel'
+      ? fetchPublicHotelValidCampaigns({ next: { revalidate: 60 } })
+      : Promise.resolve(null),
+    getPublicHotelRooms(catalogListingId ?? listing.id).catch(() => null),
+  ])
   const yachtCharterSpecs =
     vertical === 'yacht_charter' && catalogListingId
       ? parseYachtCharterSpecs(
-          await fetchPublicVerticalYachtSafe(catalogListingId),
-          await fetchPublicVerticalMetaSafe(catalogListingId, 'yacht_extra'),
+          yachtRaw,
+          yachtExtraMeta,
           {
             description: listing.description,
             locationLabel: listing.city || listing.address,
@@ -426,19 +477,6 @@ export default async function StayListingDetailPageContent({
           },
         )
       : null
-  const regionSlugForPlaces =
-    regionBrowseSlugFromLocationPin(listing.city) ?? regionPlacesSlugFromCity(listing.city)
-  const isHolidayHomeListing = vertical === 'holiday_home'
-  const [rawNearbyPois, servicePois, regionPlacesBundle] = await Promise.all([
-    getListingNearbyPois(listing.id),
-    getComputedServicePois(listing.id),
-    resolveRegionPlacesBundleForListingPage(
-      regionSlugForPlaces,
-      locale,
-      shortRegionLabelFromLocationPin(listing.city) || listing.city || undefined,
-      { villaFourColumns: isHolidayHomeListing },
-    ),
-  ])
   const regionPlacesInitialData = regionPlacesBundle.places
   const villaNearbyVitrinConfig = regionPlacesBundle.vitrinConfig
   const blogSlugMap = await getBlogSlugsByTitles(rawNearbyPois.map((p) => p.title))
@@ -447,14 +485,6 @@ export default async function StayListingDetailPageContent({
     blog_slug: blogSlugMap[p.title] ?? p.blog_slug,
   }))
   const isHotelDemoListing = vertical === 'hotel' && handle === HOTEL_DEMO_LISTING_HANDLE
-  const [hotelVitrinMetaRaw, fetchedHotelActivities] = await Promise.all([
-    vertical === 'hotel' && catalogListingId
-      ? getVerticalMeta(catalogListingId, 'hotel').catch(() => ({}))
-      : Promise.resolve(null),
-    vertical === 'hotel'
-      ? getPublicHotelActivities(catalogListingId ?? listing.id)
-      : Promise.resolve([]),
-  ])
   const hotelVitrinMeta = hotelVitrinMetaRaw != null ? parseHotelVitrinMeta(hotelVitrinMetaRaw) : null
   const hotelActivities =
     vertical === 'hotel'
@@ -485,19 +515,6 @@ export default async function StayListingDetailPageContent({
   )
   const hasServicePoiDistances =
     servicePois.amenities.length > 0 || servicePois.transport.length > 0
-  const [
-    fetchedReviewCriteriaSummary,
-    attrs,
-    hotelValidCampaignsPayload,
-    hotelRoomsResult,
-  ] = await Promise.all([
-    fetchListingReviewCriteriaSummarySafe(listing.id),
-    fetchPublicListingAttributesSafe(catalogListingId ?? listing.id),
-    vertical === 'hotel'
-      ? fetchPublicHotelValidCampaigns({ next: { revalidate: 60 } })
-      : Promise.resolve(null),
-    getPublicHotelRooms(catalogListingId ?? listing.id).catch(() => null),
-  ])
   const listingReviewCriteriaSummary =
     fetchedReviewCriteriaSummary ??
     (vertical === 'hotel' && isHotelDemoListing ? HOTEL_DEMO_REVIEW_CRITERIA : null)
@@ -639,14 +656,6 @@ export default async function StayListingDetailPageContent({
   const isHolidayHome = vertical === 'holiday_home'
   const isYachtCharter = vertical === 'yacht_charter'
   const isStayRental = isStayRentalCategory(vertical)
-  const [priceLines, prefetchedHolidayHomePriceRules] = await Promise.all([
-    isStayRental && catalogListingId
-      ? getPublicListingPriceLines(catalogListingId, locale)
-      : Promise.resolve(null),
-    isStayRental && catalogListingId
-      ? getPublicListingPriceRules(catalogListingId)
-      : Promise.resolve([]),
-  ])
   const holidayHomePools = isHolidayHome ? (listing as TListingHolidayHome).pools : undefined
   const poolHeatingOption = isHolidayHome
     ? getPoolHeatingReservationOption(holidayHomePools, (priceCurrency ?? 'TRY').trim())

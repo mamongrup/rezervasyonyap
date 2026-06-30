@@ -2,9 +2,9 @@ import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { FerryCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getCarListingFilterOptions } from '@/data/listings'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
-import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
@@ -32,14 +32,17 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings('feribot', query, {
-    regionHandle: currentHandle,
-  })
-
-  const [filterOptions, heroOverride] = await Promise.all([
+  const {
+    result: { listings, total, page, perPage, fromApi },
+    filterOptions,
+    heroOverride,
+  } = await loadCategoryPageListingsBundle(
+    'feribot',
+    query,
+    { regionHandle: currentHandle },
+    locale,
     getCarListingFilterOptions(),
-    getRegionHeroConfig('feribot', currentHandle ?? ''),
-  ])
+  )
 
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined

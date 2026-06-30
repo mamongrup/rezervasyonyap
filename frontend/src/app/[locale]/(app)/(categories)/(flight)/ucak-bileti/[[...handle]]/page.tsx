@@ -3,10 +3,10 @@ import FlightCard from '@/components/FlightCard'
 import FlightLiveSearch from '@/components/FlightLiveSearch'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { getFlightFilterOptions } from '@/data/listings'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { resolveFlightAirportCode } from '@/lib/flight-airports'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
-import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { getMessages } from '@/utils/getT'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
@@ -36,14 +36,17 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings('ucak-bileti', query, {
-    regionHandle: currentHandle,
-  })
-
-  const [filterOptions, heroOverride] = await Promise.all([
+  const {
+    result: { listings, total, page, perPage, fromApi },
+    filterOptions,
+    heroOverride,
+  } = await loadCategoryPageListingsBundle(
+    'ucak-bileti',
+    query,
+    { regionHandle: currentHandle },
+    locale,
     getFlightFilterOptions(),
-    getRegionHeroConfig('ucak-bileti', currentHandle ?? ''),
-  ])
+  )
 
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined

@@ -1,10 +1,10 @@
 import CategoryPageTemplate from '@/components/CategoryPageTemplate'
 import { HotelCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
-import { getRegionHeroConfig } from '@/data/region-hero-config'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
-import { fetchCategoryListings, parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
+import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
+import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
 import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 import type { Metadata } from 'next'
@@ -34,14 +34,17 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const { listings, total, page, perPage, fromApi } = await fetchCategoryListings('oteller', query, {
-    regionHandle: currentHandle,
-  })
-
-  const [filterOptions, heroOverride] = await Promise.all([
+  const {
+    result: { listings, total, page, perPage, fromApi },
+    filterOptions,
+    heroOverride,
+  } = await loadCategoryPageListingsBundle(
+    'oteller',
+    query,
+    { regionHandle: currentHandle },
+    locale,
     getHotelCategoryFilterOptions(locale),
-    getRegionHeroConfig('oteller', currentHandle ?? ''),
-  ])
+  )
 
   const regionLabel =
     currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined

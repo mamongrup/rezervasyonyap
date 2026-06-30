@@ -45,6 +45,11 @@ export default async function FerryListingDetailPage({
 }) {
   const { handle: rawHandle, locale } = await params
   const handle = rawHandle.split('?')[0]
+  // Similar listings — kategori vitrinini ilan çözümlemesiyle paralel başlat
+  const similarListingsPromise = fetchCategoryListings('feribot', {}, {}, locale).catch(() => ({
+    listings: [],
+  }))
+
   const listing = await getFerryListingByHandle(handle, locale)
 
   if (!listing?.id) {
@@ -61,11 +66,10 @@ export default async function FerryListingDetailPage({
     redirect(await vitrinHref(locale, `${canonicalPath}/${handle}`))
   }
 
-  // listing.id zaten yayınlanmış katalog id'si; tekrar çözmeye gerek yok.
   const catalogListingId = listing.id
   const [ferryDetails, similarRes] = await Promise.all([
     catalogListingId ? getPublicFerryDetails(catalogListingId) : Promise.resolve(null),
-    fetchCategoryListings('feribot', {}, {}, locale).catch(() => ({ listings: [] })),
+    similarListingsPromise,
   ])
 
   const m = getMessages(locale)

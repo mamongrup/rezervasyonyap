@@ -149,11 +149,12 @@ export const getStayListingByHandle = cache(async (
   const catalogId = await resolvePublishedListingIdForStayPage(handle, locale)
   if (!catalogId) return null
 
-  const pub = await searchPublicListings({ listingIds: [catalogId], perPage: 1, locale })
+  const [pub, vitrine] = await Promise.all([
+    searchPublicListings({ listingIds: [catalogId], perPage: 1, locale }),
+    getPublicListingVitrine(catalogId, locale),
+  ])
   const item = pub?.listings?.[0]
   if (!item) return null
-
-  const vitrine = await getPublicListingVitrine(catalogId, locale)
 
   const api = mapPublicListingItemToListingBase(item)
   const pinFromSearch = (api.city ?? api.address ?? '').trim()
