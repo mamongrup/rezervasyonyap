@@ -4,6 +4,8 @@ import { getCategoryBySlug } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { filterHolidayThemeCodesForListingCards } from '@/lib/holiday-theme-codes'
+import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
+import { redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import {
   getHolidayThemeLabelMap,
   resolveHolidayThemeLabelsFromMap,
@@ -43,6 +45,8 @@ export default async function Page({
   const category = getCategoryBySlug('tatil-evleri')
   if (!category) return redirect('/')
 
+  await redirectCategoryFacetFromQuery(locale, 'tatil-evleri', sp, currentHandle)
+
   const query = parseSearchParamsFromUrl(sp)
   // Ana ilan listesini, listeden bağımsız verilerle (filtre seçenekleri, bölge
   // hero, tema etiketleri) paralel çek. flexibleListings ana listenin id'lerine
@@ -73,13 +77,28 @@ export default async function Page({
         )
       : []
 
+  const pathFacetRoute =
+    currentHandle && currentHandle !== 'all'
+      ? categoryFacetRouteFromHandle('tatil-evleri', locale, currentHandle)
+      : undefined
+  const pathThemeCode = pathFacetRoute?.queryKey === 'theme' ? pathFacetRoute.queryValue : undefined
+  const isThemeHandle = !!pathThemeCode
   const isPropertyTypeHandle =
-    currentHandle && currentHandle !== 'all' && !!HOLIDAY_TYPE_HANDLE_MAP[currentHandle]
+    !isThemeHandle &&
+    currentHandle &&
+    currentHandle !== 'all' &&
+    !!HOLIDAY_TYPE_HANDLE_MAP[currentHandle]
   const propertyTypeLabel = isPropertyTypeHandle
     ? (getSubcategoryBySlug(currentHandle!)?.name ?? currentHandle)
     : undefined
+  const themeLabel = isThemeHandle
+    ? (themeLabelMap.get(pathThemeCode!.toLowerCase()) ?? pathThemeCode)
+    : undefined
   const regionLabel =
-    !isPropertyTypeHandle && currentHandle && currentHandle !== 'all'
+    !isPropertyTypeHandle &&
+    !isThemeHandle &&
+    currentHandle &&
+    currentHandle !== 'all'
       ? currentHandle.replace(/-/g, ' ')
       : undefined
 
@@ -117,7 +136,7 @@ export default async function Page({
         checkout: query.checkout,
         guests: query.guests,
         regionLabel,
-        propertyTypeLabel,
+        propertyTypeLabel: propertyTypeLabel ?? themeLabel,
         fromApi,
         lastMinute: query.last_minute === '1',
         vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),

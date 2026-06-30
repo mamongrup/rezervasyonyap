@@ -3,6 +3,8 @@ import { HotelCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getHotelCategoryFilterOptions } from '@/lib/category-filter-options'
+import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
+import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { categoryMetadata } from '@/lib/category-page-metadata'
@@ -33,6 +35,8 @@ export default async function Page({
   const category = getCategoryBySlug('oteller')
   if (!category) return redirect('/')
 
+  await redirectCategoryFacetFromQuery(locale, 'oteller', sp, currentHandle)
+
   const query = parseSearchParamsFromUrl(sp)
   const {
     result: { listings, total, page, perPage, fromApi },
@@ -46,8 +50,23 @@ export default async function Page({
     getHotelCategoryFilterOptions(locale),
   )
 
+  const pathFacetRoute =
+    currentHandle && currentHandle !== 'all'
+      ? categoryFacetRouteFromHandle('oteller', locale, currentHandle)
+      : undefined
+  const facetLabel = pathFacetRoute
+    ? facetLabelFromRoute(
+        pathFacetRoute,
+        filterOptions.map((f) => ({
+          name: f.name,
+          options: f.tabUIType === 'checkbox' ? f.options : [],
+        })),
+      )
+    : undefined
   const regionLabel =
-    currentHandle && currentHandle !== 'all' ? currentHandle.replace(/-/g, ' ') : undefined
+    !pathFacetRoute && currentHandle && currentHandle !== 'all'
+      ? currentHandle.replace(/-/g, ' ')
+      : undefined
 
   return (
     <CategoryPageTemplate
@@ -73,6 +92,7 @@ export default async function Page({
         checkout: query.checkout,
         guests: query.guests,
         regionLabel,
+        propertyTypeLabel: facetLabel,
         fromApi,
         lastMinute: query.last_minute === '1',
         vitrinTab: parseFeaturedVitrinTab(query.vitrin_tab),

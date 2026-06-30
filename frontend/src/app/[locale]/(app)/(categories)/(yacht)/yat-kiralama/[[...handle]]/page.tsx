@@ -4,6 +4,8 @@ import { getCategoryBySlug } from '@/data/category-registry'
 import { getStayListingFilterOptions } from '@/data/listings'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { filterHolidayThemeCodesForListingCards } from '@/lib/holiday-theme-codes'
+import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
+import { redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import {
   getHolidayThemeLabelMap,
   resolveHolidayThemeLabelsFromMap,
@@ -42,6 +44,8 @@ export default async function Page({
   const category = getCategoryBySlug('yat-kiralama')
   if (!category) return redirect('/')
 
+  await redirectCategoryFacetFromQuery(locale, 'yat-kiralama', sp, currentHandle)
+
   const query = parseSearchParamsFromUrl(sp)
   const requestedPage = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
   const [{ result, filterOptions, heroOverride }, themeLabelMap] = await Promise.all([
@@ -56,13 +60,28 @@ export default async function Page({
   ])
   const { listings, total, page, perPage, fromApi } = result
 
+  const pathFacetRoute =
+    currentHandle && currentHandle !== 'all'
+      ? categoryFacetRouteFromHandle('yat-kiralama', locale, currentHandle)
+      : undefined
+  const pathThemeCode = pathFacetRoute?.queryKey === 'theme' ? pathFacetRoute.queryValue : undefined
+  const isThemeHandle = !!pathThemeCode
   const isPropertyTypeHandle =
-    currentHandle && currentHandle !== 'all' && !!YACHT_TYPE_HANDLE_MAP[currentHandle]
+    !isThemeHandle &&
+    currentHandle &&
+    currentHandle !== 'all' &&
+    !!YACHT_TYPE_HANDLE_MAP[currentHandle]
   const propertyTypeLabel = isPropertyTypeHandle
     ? (getSubcategoryBySlug(currentHandle!)?.name ?? currentHandle)
     : undefined
+  const themeLabel = isThemeHandle
+    ? (themeLabelMap.get(pathThemeCode!.toLowerCase()) ?? pathThemeCode)
+    : undefined
   const regionLabel =
-    !isPropertyTypeHandle && currentHandle && currentHandle !== 'all'
+    !isPropertyTypeHandle &&
+    !isThemeHandle &&
+    currentHandle &&
+    currentHandle !== 'all'
       ? regionLabelFromHandle(currentHandle)
       : undefined
 
@@ -97,7 +116,7 @@ export default async function Page({
         checkout: query.checkout,
         guests: query.guests,
         regionLabel,
-        propertyTypeLabel,
+        propertyTypeLabel: propertyTypeLabel ?? themeLabel,
         fromApi,
         lastMinute: query.last_minute === '1',
       }}

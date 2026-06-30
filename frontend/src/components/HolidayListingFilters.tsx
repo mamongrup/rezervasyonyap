@@ -32,6 +32,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { getCategoryByMapRoute } from '@/data/category-registry'
 import { HOLIDAY_THEME_FILTER_FALLBACK } from '@/lib/holiday-theme-filter-fallback'
+import {
+  buildCategoryFacetVitrinPath,
+  categoryFacetRouteFromHandle,
+  isFacetRoutableCategorySlug,
+} from '@/lib/category-facet-routes'
 import { getStayRentalFilterAttrKeys,
   normalizeStayRentalAttrKey,
   parseStayRentalAttrsParam,
@@ -40,6 +45,7 @@ import { subcategoryInternalPath } from '@/lib/subcategory-href'
 import { getMessages } from '@/utils/getT'
 import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
 import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/components/aside/aside'
+import { useLocalizedRouteIndexes } from '@/contexts/localized-routes-context'
 import { useVitrinHref } from '@/hooks/use-vitrin-href'
 import {
   STAY_RENTAL_PRICE_FILTER_MAX,
@@ -85,6 +91,7 @@ export default function HolidayListingFilters({
   const pathname = usePathname() ?? ''
   const searchParams = useSearchParams()
   const vitrinPath = useVitrinHref()
+  const routeIdx = useLocalizedRouteIndexes()
 
   const [showAll, setShowAll] = useState(false)
   useRegisterVitrinOverlay(showAll)
@@ -158,6 +165,38 @@ export default function HolidayListingFilters({
   const themeParam = searchParams.get('theme') ?? ''
   const attrsParam = searchParams.get('attrs') ?? ''
 
+  const pathFacetRoute = useMemo(
+    () =>
+      pathHandle && isFacetRoutableCategorySlug(categorySlug)
+        ? categoryFacetRouteFromHandle(categorySlug, effectiveLocale, pathHandle)
+        : undefined,
+    [pathHandle, categorySlug, effectiveLocale],
+  )
+  const pathThemeCode = pathFacetRoute?.queryKey === 'theme' ? pathFacetRoute.queryValue : undefined
+
+  const navigateToTheme = useCallback(
+    (code: string | null) => {
+      const sp = new URLSearchParams(searchParams.toString())
+      sp.delete('theme')
+      sp.delete('page')
+      const q = sp.toString()
+      const suffix = q ? `?${q}` : ''
+      if (!code || !isFacetRoutableCategorySlug(categorySlug)) {
+        router.push(`${listBasePath}${suffix}`, { scroll: false })
+        return
+      }
+      const themePath = buildCategoryFacetVitrinPath(
+        effectiveLocale,
+        categorySlug,
+        'theme',
+        code,
+        routeIdx,
+      )
+      router.push(`${themePath}${suffix}`, { scroll: false })
+    },
+    [searchParams, categorySlug, listBasePath, effectiveLocale, routeIdx, router],
+  )
+
   const selectedAttrKeys = useMemo(() => parseStayRentalAttrsParam(attrsParam), [attrsParam])
 
   const attrOptions = useMemo(() => {
@@ -185,7 +224,7 @@ export default function HolidayListingFilters({
 
   /** Tema listesi varsa alt kategori yerine tema filtresi (tatil evi + yat) */
   const useThemeFilter = isStayRentalCategoryPage && effectiveThemeOptions.length > 0
-  const themeActive = useThemeFilter && !!themeParam.trim()
+  const themeActive = useThemeFilter && (!!pathThemeCode || !!themeParam.trim())
 
   const subActive =
     !useThemeFilter &&
@@ -225,33 +264,36 @@ export default function HolidayListingFilters({
         : l.sortRecommended
 
   function clearFilters() {
-    setQuery({
-      sort: null,
-      price_min: null,
-      price_max: null,
-      beds: null,
-      bedrooms: null,
-      bathrooms: null,
-      theme: null,
-      attrs: null,
-    })
+    const sp = new URLSearchParams(searchParams.toString())
+    sp.delete('sort')
+    sp.delete('price_min')
+    sp.delete('price_max')
+    sp.delete('beds')
+    sp.delete('bedrooms')
+    sp.delete('bathrooms')
+    sp.delete('theme')
+    sp.delete('attrs')
+    sp.delete('page')
+    const q = sp.toString()
+    const suffix = q ? `?${q}` : ''
+    router.push(`${listBasePath}${suffix}`, { scroll: false })
   }
 
   const selectedThemeCodes = useMemo(() => {
     const s = new Set<string>()
-    for (const x of themeParam.split(',')) {
-      const t = x.trim()
-      if (t) s.add(t)
+    if (pathThemeCode) s.add(pathThemeCode)
+    else {
+      for (const x of themeParam.split(',')) {
+        const t = x.trim()
+        if (t) s.add(t)
+      }
     }
     return s
-  }, [themeParam])
+  }, [pathThemeCode, themeParam])
 
   function toggleThemeCode(code: string) {
-    const next = new Set(selectedThemeCodes)
-    if (next.has(code)) next.delete(code)
-    else next.add(code)
-    const joined = [...next].join(',')
-    setQuery({ theme: joined || null })
+    const isActive = pathThemeCode === code || selectedThemeCodes.has(code)
+    navigateToTheme(isActive ? null : code)
   }
 
   const themeOrSubBadgeCount = useThemeFilter ? selectedThemeCodes.size : subActive ? 1 : 0
@@ -370,7 +412,7 @@ export default function HolidayListingFilters({
                       type="button"
                       className="text-sm text-link-muted-underline"
                       onClick={() => {
-                        setQuery({ theme: null })
+                        navigateToTheme(null)
                         setShowAll(false)
                       }}
                     >
@@ -560,7 +602,7 @@ export default function HolidayListingFilters({
                       <button
                         type="button"
                         className="text-sm text-link-muted-underline"
-                        onClick={() => setQuery({ theme: null })}
+                        onClick={() => navigateToTheme(null)}
                       >
                         {l.allTypes}
                       </button>

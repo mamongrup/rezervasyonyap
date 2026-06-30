@@ -1,5 +1,9 @@
 /** `localized_routes` API satırları — saf fonksiyonlar (middleware + RSC + client). */
 
+import {
+  isFacetRoutableCategorySlug,
+  swapCategoryFacetSlug,
+} from '@/lib/category-facet-routes'
 import { defaultLocale, isAppLocale, swapLocaleInPathname } from '@/lib/i18n-config'
 
 export type LocalizedRouteRow = {
@@ -96,7 +100,11 @@ export function swapLocaleInLocalizedPath(
 
   const fNew = idx.forward[norm(next)] ?? {}
   const outFirst = fNew[logical0] ?? logical0
-  const tail = segs.slice(1)
+  let tail = segs.slice(1)
+  if (tail.length === 1 && isFacetRoutableCategorySlug(logical0)) {
+    const localizedFacetSlug = swapCategoryFacetSlug(logical0, tail[0]!, curLocale, next)
+    if (localizedFacetSlug) tail = [localizedFacetSlug]
+  }
   const pathRest = tail.length > 0 ? `/${outFirst}/${tail.join('/')}` : `/${outFirst}`
   if (norm(next) === norm(defaultLocale)) {
     return pathRest

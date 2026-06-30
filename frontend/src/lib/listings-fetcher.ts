@@ -47,6 +47,10 @@ import {
 } from '@/lib/featured-listing-filters'
 import { parseFeaturedVitrinTab } from '@/lib/featured-tab-view-all'
 import {
+  applyFacetRouteToSearchQuery,
+  categoryFacetRouteFromHandle,
+} from '@/lib/category-facet-routes'
+import {
   isTourSubcategorySlug,
   tourSubcategoryRoute,
 } from '@/lib/tour-subcategory-routes'
@@ -640,16 +644,26 @@ export async function fetchCategoryListings(
     categorySlug === 'turlar' && region && region !== 'all' && isTourSubcategorySlug(region)
       ? tourSubcategoryRoute(region)
       : undefined
-  const effectiveQuery: SearchQuery = tourSubRoute
-    ? { ...apiQuery, ...tourSubRoute.query }
-    : apiQuery
 
   const regionPropertyType =
     categoryCode && isStayRentalCategory(categoryCode)
       ? stayRentalPropertyTypeFromHandle(categoryCode, region)
       : undefined
+
+  const facetRoute =
+    region && region !== 'all' && !regionPropertyType && !tourSubRoute
+      ? categoryFacetRouteFromHandle(categorySlug, locale, region)
+      : undefined
+
+  const effectiveQuery: SearchQuery = tourSubRoute
+    ? { ...apiQuery, ...tourSubRoute.query }
+    : facetRoute
+      ? applyFacetRouteToSearchQuery(apiQuery, facetRoute)
+      : apiQuery
+
   const regionAsLocation =
     !tourSubRoute &&
+    !facetRoute &&
     region &&
     region !== 'all' &&
     !regionPropertyType

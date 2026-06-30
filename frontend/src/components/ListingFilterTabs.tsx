@@ -24,13 +24,24 @@ import { useRegisterVitrinOverlay, vitrinOverlayDialogClassName } from '@/compon
 import clsx from 'clsx'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { FormEvent } from 'react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { PriceRangeSlider } from './PriceRangeSlider'
 import type { FilterOption } from '@/types/listing-types'
 import {
   STAY_RENTAL_PRICE_FILTER_MAX,
   STAY_RENTAL_PRICE_FILTER_MIN,
 } from '@/lib/stay-rental-price-filter'
+import { getCategoryByMapRoute } from '@/data/category-registry'
+import { useLocalizedRouteIndexes } from '@/contexts/localized-routes-context'
+import {
+  buildCategoryFacetVitrinPath,
+  categoryFacetRouteFromHandle,
+  isFacetRoutableCategorySlug,
+  PATH_ROUTABLE_FACET_KEYS,
+  pickFacetForPath,
+} from '@/lib/category-facet-routes'
+import { defaultLocale, normalizeHrefForLocale, stripLocalePrefix } from '@/lib/i18n-config'
+import { useVitrinHref } from '@/hooks/use-vitrin-href'
 
 type CheckboxFilter = {
   label: string
@@ -70,22 +81,85 @@ const filterPillIdle =
 const filterPillEmphasis =
   'border-2 border-neutral-950 text-neutral-950 shadow-sm dark:border-white dark:text-white'
 
-const CheckboxPanel = ({ filterOption, className }: { filterOption: CheckboxFilter; className?: string }) => {
+const CheckboxPanel = ({
+  filterOption,
+  className,
+  categorySlug,
+  locale,
+  pathFacetRoute,
+  routeIdx,
+  listBasePath,
+}: {
+  filterOption: CheckboxFilter
+  className?: string
+  categorySlug?: string
+  locale: string
+  pathFacetRoute?: { queryKey: string; queryValue: string }
+  routeIdx: ReturnType<typeof useLocalizedRouteIndexes>
+  listBasePath: string
+}) => {
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const selectedValues = new Set(
-    (searchParams.get(filterOption.name) ?? '')
-      .split(',')
-      .map((value) => value.trim())
-      .filter(Boolean),
+  const isPathRoutable =
+    !!categorySlug &&
+    isFacetRoutableCategorySlug(categorySlug) &&
+    PATH_ROUTABLE_FACET_KEYS.has(filterOption.name)
+
+  const selectedValues = useMemo(() => {
+    const s = new Set(
+      (searchParams.get(filterOption.name) ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean),
+    )
+    if (pathFacetRoute?.queryKey === filterOption.name) {
+      s.clear()
+      s.add(pathFacetRoute.queryValue)
+    }
+    return s
+  }, [searchParams, filterOption.name, pathFacetRoute])
+
+  const navigateFacet = useCallback(
+    (value: string | null) => {
+      const sp = new URLSearchParams(searchParams.toString())
+      for (const key of PATH_ROUTABLE_FACET_KEYS) sp.delete(key)
+      sp.delete('page')
+      const q = sp.toString()
+      const suffix = q ? `?${q}` : ''
+      if (!value || !categorySlug || !isPathRoutable) {
+        router.push(`${listBasePath}${suffix}`, { scroll: false })
+        return
+      }
+      const facetPath = buildCategoryFacetVitrinPath(
+        locale,
+        categorySlug,
+        filterOption.name,
+        value,
+        routeIdx,
+      )
+      router.push(`${facetPath}${suffix}`, { scroll: false })
+    },
+    [searchParams, categorySlug, isPathRoutable, listBasePath, locale, routeIdx, router, filterOption.name],
   )
+
   return (
     <Fieldset>
       <CheckboxGroup className={className}>
         {filterOption.options.map((option) => {
           const value = option.value ?? option.name
+          const checked = selectedValues.has(value) || !!option.defaultChecked
           return (
             <CheckboxField key={value}>
-              <Checkbox name={filterOption.name} value={value} defaultChecked={selectedValues.has(value) || !!option.defaultChecked} />
+              <Checkbox
+                name={filterOption.name}
+                value={value}
+                {...(isPathRoutable
+                  ? {
+                      checked,
+                      onChange: (next: boolean) => navigateFacet(next ? value : null),
+                    }
+                  : { defaultChecked: checked })}
+              />
               <Label>{option.name}</Label>
               {option.description && <Description>{option.description}</Description>}
             </CheckboxField>
@@ -168,6 +242,35 @@ const ListingFilterTabs = ({
   const router = useRouter()
   const pathname = usePathname() ?? ''
   const searchParams = useSearchParams()
+  const routeIdx = useLocalizedRouteIndexes()
+  const vitrinPath = useVitrinHref()
+
+  const { locale: pathLocale, restPath } = stripLocalePrefix(pathname)
+  const effectiveLocale = locale ?? pathLocale ?? defaultLocale
+  const restSegs = restPath.split('/').filter(Boolean)
+  const firstRest = restSegs[0] ?? ''
+  const mapEntry = getCategoryByMapRoute(firstRest)
+  const categorySlug = mapEntry?.slug ?? firstRest
+  const pathHandle = restSegs[1]
+  const pathFacetRoute = useMemo(
+    () =>
+      pathHandle && isFacetRoutableCategorySlug(categorySlug)
+        ? categoryFacetRouteFromHandle(categorySlug, effectiveLocale, pathHandle)
+        : undefined,
+    [pathHandle, categorySlug, effectiveLocale],
+  )
+  const listBasePath = normalizeHrefForLocale(
+    effectiveLocale,
+    vitrinPath(`/${isFacetRoutableCategorySlug(categorySlug) ? categorySlug : firstRest || categorySlug}`),
+  )
+
+  const checkboxPanelProps = {
+    categorySlug: isFacetRoutableCategorySlug(categorySlug) ? categorySlug : undefined,
+    locale: effectiveLocale,
+    pathFacetRoute,
+    routeIdx,
+    listBasePath,
+  }
 
   const handleFormSubmit = (formData: FormData) => {
     const next = new URLSearchParams(searchParams.toString())
@@ -208,6 +311,28 @@ const ListingFilterTabs = ({
       }
       if (Number.isFinite(maxN) && maxN < sliderMax) {
         next.set(`${option.name}_max`, String(maxN))
+      }
+    }
+
+    if (isFacetRoutableCategorySlug(categorySlug)) {
+      const queryObj: Record<string, string | undefined> = {}
+      next.forEach((v, k) => {
+        queryObj[k] = v
+      })
+      const facet = pickFacetForPath(categorySlug, queryObj)
+      if (facet) {
+        for (const key of PATH_ROUTABLE_FACET_KEYS) next.delete(key)
+        const facetPath = buildCategoryFacetVitrinPath(
+          effectiveLocale,
+          categorySlug,
+          facet.queryKey,
+          facet.queryValue,
+          routeIdx,
+        )
+        next.delete('page')
+        const qs = next.toString()
+        router.push(qs ? `${facetPath}?${qs}` : facetPath, { scroll: false })
+        return
       }
     }
 
@@ -271,7 +396,7 @@ const ListingFilterTabs = ({
                         <h3 className="text-xl font-medium">{filterOption.label}</h3>
                         <div className="relative mt-6">
                           {filterOption.tabUIType === 'checkbox' && (
-                            <CheckboxPanel filterOption={filterOption as CheckboxFilter} />
+                            <CheckboxPanel filterOption={filterOption as CheckboxFilter} {...checkboxPanelProps} />
                           )}
                           {filterOption.tabUIType === 'price-range' && (
                             <PriceRagePanel key={index} filterOption={filterOption as PriceRangeFilter} minLabel={priceMinLabel} maxLabel={priceMaxLabel} />
@@ -317,10 +442,13 @@ const ListingFilterTabs = ({
 
           const checkedNumber =
             filterOption.tabUIType === 'checkbox'
-              ? (searchParams.get(filterOption.name) ?? '')
-                  .split(',')
-                  .map((value) => value.trim())
-                  .filter(Boolean).length
+              ? (() => {
+                  if (pathFacetRoute?.queryKey === filterOption.name) return 1
+                  return (searchParams.get(filterOption.name) ?? '')
+                    .split(',')
+                    .map((value) => value.trim())
+                    .filter(Boolean).length
+                })()
               : 0
 
           return (
@@ -349,7 +477,7 @@ const ListingFilterTabs = ({
                 <div className="rounded-2xl border border-neutral-200 bg-white shadow-xl dark:border-neutral-700 dark:bg-neutral-900">
                   <div className="hidden-scrollbar max-h-[28rem] overflow-y-auto px-5 py-6">
                     {filterOption.tabUIType === 'checkbox' && (
-                      <CheckboxPanel filterOption={filterOption as CheckboxFilter} />
+                      <CheckboxPanel filterOption={filterOption as CheckboxFilter} {...checkboxPanelProps} />
                     )}
                     {filterOption.tabUIType === 'price-range' && (
                       <PriceRagePanel key={index} filterOption={filterOption as PriceRangeFilter} minLabel={priceMinLabel} maxLabel={priceMaxLabel} />

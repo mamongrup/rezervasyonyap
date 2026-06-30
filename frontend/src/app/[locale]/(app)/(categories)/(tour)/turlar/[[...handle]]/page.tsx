@@ -3,6 +3,8 @@ import { TourCard } from '@/components/cards'
 import { getCategoryBySlug } from '@/data/category-registry'
 import { regionHandleFromParams } from '@/lib/region-handle-path'
 import { getTourCategoryFilterOptions } from '@/lib/category-filter-options'
+import { categoryFacetRouteFromHandle } from '@/lib/category-facet-routes'
+import { facetLabelFromRoute, redirectCategoryFacetFromQuery } from '@/lib/category-facet-redirect'
 import { loadCategoryPageListingsBundle } from '@/lib/category-page-data'
 import { parseSearchParamsFromUrl } from '@/lib/listings-fetcher'
 import { isTourSubcategorySlug } from '@/lib/tour-subcategory-routes'
@@ -33,6 +35,8 @@ export default async function Page({
   const category = getCategoryBySlug('turlar')
   if (!category) return redirect('/')
 
+  await redirectCategoryFacetFromQuery(locale, 'turlar', sp, currentHandle)
+
   const query = parseSearchParamsFromUrl(sp)
   const {
     result: { listings, total, page, perPage, fromApi },
@@ -48,11 +52,24 @@ export default async function Page({
 
   const isTourSubHandle =
     currentHandle && currentHandle !== 'all' && isTourSubcategorySlug(currentHandle)
+  const pathFacetRoute =
+    !isTourSubHandle && currentHandle && currentHandle !== 'all'
+      ? categoryFacetRouteFromHandle('turlar', locale, currentHandle)
+      : undefined
+  const facetLabel = pathFacetRoute
+    ? facetLabelFromRoute(
+        pathFacetRoute,
+        filterOptions.map((f) => ({
+          name: f.name,
+          options: f.tabUIType === 'checkbox' ? f.options : [],
+        })),
+      )
+    : undefined
   const propertyTypeLabel = isTourSubHandle
     ? (getSubcategoryBySlug(currentHandle!)?.name ?? currentHandle)
-    : undefined
+    : facetLabel
   const regionLabel =
-    !isTourSubHandle && currentHandle && currentHandle !== 'all'
+    !isTourSubHandle && !pathFacetRoute && currentHandle && currentHandle !== 'all'
       ? currentHandle.replace(/-/g, ' ')
       : undefined
 
