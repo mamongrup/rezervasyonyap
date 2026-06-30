@@ -8,7 +8,6 @@ import {
   categoryFacetRouteFromHandle,
   categoryFacetSlugForCode,
   isCategoryFacetSlug,
-  isFacetRoutableCategorySlug,
   swapCategoryFacetSlug,
   type CategoryFacetRoute,
 } from '@/lib/category-facet-routes'
@@ -18,7 +17,8 @@ export const STAY_RENTAL_THEME_CATEGORY_SLUGS = ['tatil-evleri', 'yat-kiralama']
 export type StayRentalThemeCategorySlug = (typeof STAY_RENTAL_THEME_CATEGORY_SLUGS)[number]
 
 export function isStayRentalThemeCategorySlug(slug: string | undefined | null): slug is StayRentalThemeCategorySlug {
-  return isFacetRoutableCategorySlug(slug) && (STAY_RENTAL_THEME_CATEGORY_SLUGS as readonly string[]).includes(slug)
+  if (!slug) return false
+  return (STAY_RENTAL_THEME_CATEGORY_SLUGS as readonly string[]).includes(slug)
 }
 
 export function holidayThemeSlugForCode(locale: string, themeCode: string): string | undefined {
