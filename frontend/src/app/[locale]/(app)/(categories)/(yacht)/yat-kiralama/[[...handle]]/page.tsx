@@ -18,7 +18,7 @@ import { categoryMetadata } from '@/lib/category-page-metadata'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
-import { YachtFlexibleListingCards } from './YachtFlexibleListingCards'
+import { YachtFlexibleListingCards } from '../YachtFlexibleListingCards'
 
 export async function generateMetadata({
   params,
