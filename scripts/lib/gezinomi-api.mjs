@@ -68,7 +68,9 @@ export async function resolveGezinomiTourPagePath(match) {
   const typeId = match.typeId ?? match.tourTypeId ?? 4
   const probePaths = [
     match.apiRow?.path ? `/${String(match.apiRow.path).replace(/^\/+/, '')}` : null,
+    match.apiRow?.pathLink ? `/${String(match.apiRow.pathLink).replace(/^\/+/, '')}` : null,
     `/${link}`,
+    typeId === 2 ? `/cruise-turlari/${link}` : null,
     `/yurtdisi-turlari/${link}`,
     `/kapadokya-turlari/${link}`,
   ].filter(Boolean)
@@ -185,5 +187,78 @@ export function gezinomiRefererHeaders() {
     'User-Agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+  }
+}
+
+const GEIZINOMI_INFO_SECTIONS = [
+  ['Fiyatlarımıza Dahil Olan Servislerimiz', 'cruise-section-included', 'Fiyata dahil olanlar'],
+  ['Fiyatlarımıza Dahil Olmayan Servislerimiz', 'cruise-section-excluded', 'Fiyata dahil olmayanlar'],
+  ['Önemli Bilgiler', 'cruise-section-important', 'Önemli bilgiler'],
+  ['Ulaşım Detayı', 'cruise-section-transport', 'Ulaşım'],
+  ['Yeme – İçme Konsepti ', 'cruise-section-meals', 'Yeme içme'],
+  ['Yeme - İçme Konsepti ', 'cruise-section-meals', 'Yeme içme'],
+  ['Kabin Bilgileri', 'cruise-section-cabin', 'Kabin bilgileri'],
+  ['Ekstra Turlar', 'cruise-section-extras', 'Ekstra turlar'],
+  ['Vize Bilgileri', 'cruise-section-visa', 'Vize bilgileri'],
+]
+
+function gezinomiText(raw) {
+  const s = String(raw ?? '').trim()
+  if (!s || s === 'null') return ''
+  return s
+}
+
+/** Gezinomi TourDetail → vitrin açıklama + program + bilgi bölümleri */
+export function buildGezinomiTourContentPackage(model) {
+  if (!model || typeof model !== 'object') return null
+
+  const descriptions = Array.isArray(model.tourDescriptions) ? model.tourDescriptions : []
+  const infoSections = []
+  const seenIds = new Set()
+
+  for (const [typeName, id, title] of GEIZINOMI_INFO_SECTIONS) {
+    if (seenIds.has(id)) continue
+    const row = descriptions.find((d) => {
+      const name = String(d.descriptionTypeName || '').trim()
+      return name === typeName || name.includes(typeName.replace(/\s+$/, ''))
+    })
+    const html = gezinomiText(row?.text)
+    if (!html || html === '<P>&nbsp;</P>') continue
+    seenIds.add(id)
+    infoSections.push({ id, title, html })
+  }
+
+  const programDays = (Array.isArray(model.tourPrograms) ? model.tourPrograms : [])
+    .map((p) => {
+      const day = Number(p.day ?? p.daySorting ?? 0)
+      const text = gezinomiText(p.text)
+      if (!day || !text) return null
+      const titleMatch = text.match(/^([^.:]{4,80})/)
+      return {
+        day,
+        title: titleMatch ? titleMatch[1].trim() : `Gün ${day}`,
+        description: text,
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.day - b.day)
+
+  const detailText = gezinomiText(model.tourDetailText)
+  const programHtml = programDays.length
+    ? programDays.map((d) => `<p><strong>${d.title}</strong></p><p>${d.description}</p>`).join('\n')
+    : ''
+
+  const descriptionHtml =
+    [programHtml, ...infoSections.map((s) => `<h3>${s.title}</h3>${s.html}`)].filter(Boolean).join('\n') ||
+    detailText
+
+  return {
+    descriptionHtml,
+    detailText,
+    infoSections,
+    programDays,
+    conceptName: gezinomiText(model.tourHotelTypeName || model.conceptName),
+    tourDeparture: gezinomiText(model.tourDeparture),
+    numberOfNights: model.numberOfNights ?? null,
   }
 }

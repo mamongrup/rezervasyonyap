@@ -1,0 +1,111 @@
+/**
+ * Gezinomi cruise — açıklama/program backfill (görselsiz, hızlı)
+ *
+ *   node scripts/backfill-gezinomi-cruise-content.mjs --limit 10
+ *   node scripts/backfill-gezinomi-cruise-content.mjs
+ */
+
+import { summarizeGezinomiPeriods, fetchGezinomiTourDetail } from './lib/gezinomi-api.mjs'
+import {
+  findListingByGezinomiRef,
+  resolveGezinomiImportContext,
+  upsertGezinomiCruiseListing,
+} from './lib/gezinomi-listing-db.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
+
+const args = new Set(process.argv.slice(2))
+const DRY_RUN = args.has('--dry-run')
+const limitIdx = process.argv.indexOf('--limit')
+const LIMIT = limitIdx >= 0 ? Number(process.argv[limitIdx + 1]) : 0
+const slugIdx = process.argv.indexOf('--slug')
+const SLUG = slugIdx >= 0 ? process.argv[slugIdx + 1] : ''
+const DELAY_MS = Number(process.env.GEIZINOMI_DELAY_MS || 400)
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+async function main() {
+  const pg = createPgClient()
+  await pg.connect()
+  const ctx = await resolveGezinomiImportContext(pg, process.env.GEIZINOMI_ORG_ID || 'a0000000-0000-4000-8000-000000000001')
+
+  let sql = `
+    SELECT l.id::text AS listing_id, l.slug, l.external_listing_ref AS product_id,
+           la.value_json->'catalog' AS catalog
+    FROM listings l
+    JOIN listing_attributes la ON la.listing_id = l.id AND la.group_code = 'gezinomi' AND la.key = 'snapshot'
+    WHERE l.external_provider_code = 'gezinomi'
+      AND l.category_id = (SELECT id FROM product_categories WHERE code = 'cruise' LIMIT 1)
+  `
+  const params = []
+  if (SLUG) {
+    params.push(SLUG)
+    sql += ` AND l.slug = $${params.length}`
+  }
+  sql += ' ORDER BY l.slug'
+  if (LIMIT > 0) sql += ` LIMIT ${LIMIT}`
+
+  const { rows } = await pg.query(sql, params)
+  console.log(`Cruise içerik backfill — ${rows.length} ilan, dry-run=${DRY_RUN}`)
+
+  let ok = 0
+  let fail = 0
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const catalog = row.catalog || {}
+    const link = catalog.link
+    const productId = Number(row.product_id || catalog.productId)
+    process.stdout.write(`[${i + 1}/${rows.length}] ${row.slug} … `)
+
+    if (!link || !productId) {
+      console.log('link/productId yok')
+      fail++
+      continue
+    }
+
+    try {
+      const detail = await fetchGezinomiTourDetail({
+        link,
+        productId,
+        typeId: catalog.tourTypeId ?? 2,
+        name: catalog.productName,
+      })
+      if (detail.model) {
+        detail.periods = summarizeGezinomiPeriods(detail.model)
+      }
+
+      if (DRY_RUN) {
+        const hasProgram = (detail.model?.tourPrograms || []).length
+        const hasInfo = (detail.model?.tourDescriptions || []).length
+        console.log(`dry-run program=${hasProgram} desc=${hasInfo}`)
+        ok++
+        await sleep(DELAY_MS)
+        continue
+      }
+
+      catalog.cruiseLine = catalog.cruiseLine || catalog.cruise_line
+      await upsertGezinomiCruiseListing(pg, ctx, { ...catalog, productId }, {
+        status: 'published',
+        detail,
+        galleryUrls: [],
+        dryRun: false,
+      })
+      ok++
+      console.log('ok')
+    } catch (e) {
+      fail++
+      console.log(`hata: ${e.message}`)
+    }
+    await sleep(DELAY_MS)
+  }
+
+  await pg.end()
+  console.log(`\nBitti: ${ok} ok, ${fail} hata`)
+}
+
+main().catch((e) => {
+  console.error(e.message || e)
+  process.exit(1)
+})

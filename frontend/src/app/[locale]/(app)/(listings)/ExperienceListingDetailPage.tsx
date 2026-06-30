@@ -42,6 +42,13 @@ import {
   tourFlightScheduleInsertAfterSectionId,
 } from '@/lib/tour-description-parser'
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
+import {
+  cruiseInfoSections as buildCruiseInfoSections,
+  cruiseItineraryDays,
+  cruiseOverviewItems as buildCruiseOverviewItems,
+  cruisePeriodLabels,
+  parseCruiseVerticalMeta,
+} from '@/lib/cruise-meta'
 import { guessCalendarMonthsShownFromRequest } from '@/lib/calendar-months-shown-server'
 import { resolveRegionPlacesForListingPage } from '@/lib/region-places-from-location-page'
 import {
@@ -63,6 +70,7 @@ import type { CatalogListingVerticalCode } from '@/lib/catalog-listing-vertical'
 import HeaderGallery from './components/HeaderGallery'
 import SectionDateRange from './components/SectionDateRange'
 import SectionHeader from './components/SectionHeader'
+import { SectionHeading } from './components/SectionHeading'
 import SectionHost from './components/SectionHost'
 import ListingDetailOurFeatures from './components/ListingDetailOurFeatures'
 import SimilarListings from './components/SimilarListings'
@@ -74,6 +82,7 @@ import {
   LISTING_DETAIL_SECTION_GAP,
   LISTING_DETAIL_SECTION_GAP_Y,
   LISTING_SECTION_SHELL,
+  LISTING_SECTION_STACKED,
 } from './listing-section-classes'
 import ExperienceBookingSidebar from './ExperienceBookingSidebar'
 import TourBookingSidebar from './TourBookingSidebar'
@@ -297,6 +306,7 @@ export default async function ExperienceListingDetailPage({
   const vertical = normalizeCatalogVertical(listing.listingVertical) ?? 'activity'
   const isTour = vertical === 'tour'
   const isActivity = vertical === 'activity'
+  const isCruise = vertical === 'cruise'
   const experienceCodes: CatalogListingVerticalCode[] = [
     'tour',
     'activity',
@@ -334,6 +344,7 @@ export default async function ExperienceListingDetailPage({
     similarToursRes,
     similarActivitiesRes,
     regionPlacesInitialData,
+    rawCruiseMeta,
   ] = await Promise.all([
     vertical === 'tour'
       ? Promise.resolve([])
@@ -365,6 +376,9 @@ export default async function ExperienceListingDetailPage({
           locale,
           shortRegionLabelFromLocationPin(city) || city || undefined,
         )
+      : Promise.resolve(null),
+    isCruise
+      ? getVerticalMeta(catalogListingId, 'cruise').catch(() => null)
       : Promise.resolve(null),
   ])
 
@@ -405,6 +419,25 @@ export default async function ExperienceListingDetailPage({
           })
         : durationTime || td.durationNotSpecified
   const activityMeta = isActivity ? parseActivityMeta(rawActivityMeta) : null
+  const cruiseMeta = isCruise ? parseCruiseVerticalMeta(rawCruiseMeta) : null
+  const cruiseOverview = isCruise
+    ? buildCruiseOverviewItems(
+        cruiseMeta,
+        {
+          cruiseLine: 'Gemi hattı',
+          ship: 'Gemi',
+          route: 'Rota',
+          cabin: 'Kabin',
+          nights: 'Gece',
+          departure: 'Kalkış limanı',
+          concept: 'Konsept',
+        },
+        tourNights,
+      )
+    : []
+  const cruiseInfo = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
+  const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
+  const cruisePeriods = isCruise ? cruisePeriodLabels(cruiseMeta) : []
   const activityVitrin = isActivity
     ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta))
     : null
@@ -640,7 +673,7 @@ export default async function ExperienceListingDetailPage({
       >
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={Clock01Icon} className="h-6 w-6" strokeWidth={1.75} />
-          <span>{isTour ? tourDurationLine : activityDurationLine}</span>
+          <span>{isTour ? tourDurationLine : isCruise && cruiseMeta?.night_count ? interpolate(td.durationNightsDays, { nights: String(cruiseMeta.night_count), days: String(cruiseMeta.night_count + 1) }) : isCruise ? tourDurationLine : activityDurationLine}</span>
         </div>
         <div className="flex flex-col items-center space-y-3 text-center sm:flex-row sm:space-y-0 sm:gap-x-3 sm:text-start">
           <HugeiconsIcon icon={UserMultiple02Icon} className="h-6 w-6" strokeWidth={1.75} />
@@ -706,6 +739,38 @@ export default async function ExperienceListingDetailPage({
     <>
       <div className={`flex w-full flex-col ${LISTING_DETAIL_SECTION_GAP_Y} lg:w-3/5 xl:w-[64%]`}>
         {renderSectionHeader()}
+        {isCruise ? (
+          <>
+            {cruiseOverview.length > 0 ? (
+              <TourOverviewSection items={cruiseOverview} locale={locale} />
+            ) : null}
+            {cruiseDays.length > 0 ? (
+              <TourItinerarySection days={cruiseDays} locale={locale} />
+            ) : null}
+            <TourInfoSections sections={cruiseInfo} locale={locale} />
+            {cruisePeriods.length > 0 ? (
+              <section id="cruise-section-periods" className={LISTING_SECTION_STACKED}>
+                <SectionHeading>Dönemler</SectionHeading>
+                <Divider className="w-14!" />
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {cruisePeriods.map((label) => (
+                    <li
+                      key={label}
+                      className="rounded-xl border border-neutral-200 bg-neutral-50/80 px-4 py-3 text-sm text-neutral-800 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-100"
+                    >
+                      {label}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {description?.trim() && cruiseInfo.length === 0 && cruiseDays.length === 0 ? (
+              <ActivityDescriptionSection locale={locale}>
+                <ListingDescriptionExpandable locale={locale} html={description} />
+              </ActivityDescriptionSection>
+            ) : null}
+          </>
+        ) : null}
         {isActivity ? (
           <>
             <ActivityOverviewSection items={activityOverviewItems} locale={locale} />
@@ -731,7 +796,7 @@ export default async function ExperienceListingDetailPage({
             locale={locale}
           />
         ) : null}
-        {!isActivity ? (
+        {!isActivity && !isCruise ? (
           <div className="scroll-mt-28">
             <SectionDateRange
               locale={locale}

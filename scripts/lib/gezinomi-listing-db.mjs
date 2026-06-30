@@ -11,6 +11,7 @@ import {
   pickCruisePrice,
 } from './gezinomi-cruise-catalog.mjs'
 import { listingStorageKey, listingUploadDir } from './listing-upload-path.mjs'
+import { buildGezinomiTourContentPackage } from './gezinomi-api.mjs'
 
 const PROVIDER = 'gezinomi'
 
@@ -86,7 +87,11 @@ export async function upsertGezinomiCruiseListing(
   const productId = String(row.productId)
   const slug = slugForGezinomiCruise(row)
   const title = String(row.productName || `Cruise ${productId}`).trim()
-  const description = String(row.tourDetailText || '').trim() || null
+  const content = detail?.model ? buildGezinomiTourContentPackage(detail.model) : null
+  const description =
+    content?.descriptionHtml?.trim() ||
+    String(row.tourDetailText || '').trim() ||
+    null
   const currency = pickCruiseCurrency(row)
   const price = pickCruisePrice(row)
   const locName = parseRouteSummary(row) || row.tourDeparture || row.cruiseLine || null
@@ -135,8 +140,32 @@ export async function upsertGezinomiCruiseListing(
      VALUES ($1::uuid, $2, $3, $4)
      ON CONFLICT (listing_id, locale_id) DO UPDATE SET
        title = EXCLUDED.title,
-       description = COALESCE(EXCLUDED.description, listing_translations.description)`,
+       description = EXCLUDED.description`,
     [listingId, ctx.localeTrId, title, description],
+  )
+
+  const verticalCruise = {
+    cruise_line: cruiseLine,
+    ship_name: shipName,
+    route_summary: routeSummary,
+    cabin_category: cabinCategory,
+    night_count: row.nightCount ?? content?.numberOfNights ?? null,
+    concept_name: content?.conceptName || row.conceptName || null,
+    tour_departure: content?.tourDeparture || row.tourDeparture || null,
+    product_id: Number(row.productId),
+    gezinomi_link: row.link,
+    gezinomi_page_url: detail?.pageUrl || null,
+    info_sections: content?.infoSections ?? [],
+    program_days: content?.programDays ?? [],
+    periods: detail?.periods ?? null,
+    detail_text: content?.detailText || row.tourDetailText || null,
+  }
+
+  await pgClient.query(
+    `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
+     VALUES ($1::uuid, 'vertical_cruise', 'v1', $2::jsonb)
+     ON CONFLICT (listing_id, group_code, key) DO UPDATE SET value_json = EXCLUDED.value_json`,
+    [listingId, JSON.stringify(verticalCruise)],
   )
 
   const meta = {
@@ -170,7 +199,13 @@ export async function upsertGezinomiCruiseListing(
 
   const snapshot = {
     catalog: row,
-    detail: detail?.model ? { tourCode: detail.tourCode, pageUrl: detail.pageUrl } : null,
+    detail: detail?.model
+      ? {
+          tourCode: detail.tourCode,
+          pageUrl: detail.pageUrl,
+          content: content ?? null,
+        }
+      : null,
   }
   await pgClient.query(
     `INSERT INTO listing_attributes (listing_id, group_code, key, value_json)
