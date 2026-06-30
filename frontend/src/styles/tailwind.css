@@ -279,6 +279,21 @@
     opacity: 1;
   }
 }
+
+/*
+ * Rota geçişi iskeleti — yalnızca yükleme gerçekten uzarsa görünür.
+ * Hızlı gezinmelerde (≈<300ms) içerik fallback görünür olmadan gelir → "çat diye" his.
+ * 0s'den 300ms gecikmeyle opaklığı 0→1 yapar; reduce-motion'da anında gizli kalır.
+ */
+@keyframes skeletonDelayIn {
+  to {
+    opacity: 1;
+  }
+}
+@utility skeleton-delayed {
+  opacity: 0;
+  animation: skeletonDelayIn 200ms ease-out 300ms forwards;
+}
 @utility custom-shadow-1 {
   box-shadow:
     rgba(17, 17, 26, 0.05) 0px 4px 16px,
