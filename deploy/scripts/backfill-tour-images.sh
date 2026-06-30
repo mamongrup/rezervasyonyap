@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Tur görselleri — eksik yerel dosyalar için Wtatil snapshot (reserwation.com).
+# Tur görselleri — önce Gezinomi (yüksek kalite), sonra Wtatil snapshot yedek.
 #
-# Gezinomi tek seferlik import sunucuda tamamlandıktan sonra repo'dan kaldırıldı.
-# Kalıcı kaynak: listing_attributes wtatil/snapshot → reserwation.com galeri URL.
+#   ./deploy/scripts/import-gezinomi-tour-images.sh --few-only --skip-existing
+#   ./deploy/scripts/backfill-tour-images.sh --missing-local-files
 #
 #   chmod +x deploy/scripts/backfill-tour-images.sh
 #   ./deploy/scripts/backfill-tour-images.sh --dry-run --limit 5
