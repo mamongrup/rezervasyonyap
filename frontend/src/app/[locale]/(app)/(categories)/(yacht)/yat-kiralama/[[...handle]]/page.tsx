@@ -44,7 +44,11 @@ export default async function Page({
   if (!category) return redirect('/')
 
   const query = parseSearchParamsFromUrl(sp)
-  const [{ result, filterOptions, heroOverride }, themeLabelMap] = await Promise.all([
+  // Yat backend sorgusu görece yavaş; ana liste ile "esnek" listeyi sıralı
+  // beklemek süreyi ~2 katına çıkarıyordu. Üçünü tek Promise.all'da paralel
+  // çalıştır; esnek listeden ana listedeki id'leri sonradan ele.
+  const requestedPage = Math.max(1, parseInt(query.page ?? '1', 10) || 1)
+  const [{ result, filterOptions, heroOverride }, themeLabelMap, flexibleRaw] = await Promise.all([
     loadCategoryPageListingsBundle(
       'yat-kiralama',
       query,
@@ -53,20 +57,21 @@ export default async function Page({
       getStayListingFilterOptions(),
     ),
     getHolidayThemeLabelMap(locale, 'yacht_charter'),
-  ])
-  const { listings, total, page, perPage, fromApi } = result
-
-  const pageNum = page
-  const flexibleListings =
-    pageNum === 1
-      ? await fetchFlexibleStayRentalListings(
+    requestedPage === 1
+      ? fetchFlexibleStayRentalListings(
           'yacht_charter',
-          new Set(listings.map((l) => l.id)),
+          new Set(),
           query,
           { regionHandle: currentHandle },
           locale,
+          16,
         )
-      : []
+      : Promise.resolve([] as TListingBase[]),
+  ])
+  const { listings, total, page, perPage, fromApi } = result
+
+  const mainListingIds = new Set(listings.map((l) => l.id))
+  const flexibleListings = flexibleRaw.filter((l) => !mainListingIds.has(l.id)).slice(0, 8)
 
   const isPropertyTypeHandle =
     currentHandle && currentHandle !== 'all' && !!YACHT_TYPE_HANDLE_MAP[currentHandle]
