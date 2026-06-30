@@ -69,8 +69,6 @@ export default async function Page({ params }: Props) {
   // Gallery
   const gallery = listing.galleryImgs ?? (listing.featuredImage ? [listing.featuredImage] : [])
 
-  // Similar listings — same category, exclude current
-  const similarRes = await searchPublicListings({ categoryCode: 'flight', locale, perPage: 6 })
   const similarFiltered = (similarRes?.listings ?? [])
     .filter((l) => l.slug !== handle)
     .slice(0, 3)
