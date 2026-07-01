@@ -395,6 +395,19 @@ export async function updateWtatilTourPricesOnly(
     )
   }
 
+  // Vitrin kapısı vitrin_price kullanır — senkron anında yaz; fiyat yoksa gizlensin.
+  if (cheapestFromEnrich != null) {
+    await pgClient.query(
+      `UPDATE listings SET vitrin_price = $2::numeric, updated_at = now() WHERE id = $1::uuid`,
+      [listingId, cheapestFromEnrich],
+    )
+  } else {
+    await pgClient.query(
+      `UPDATE listings SET vitrin_price = NULL, updated_at = now() WHERE id = $1::uuid`,
+      [listingId],
+    )
+  }
+
   return { listingId, tourId, cheapest_price: cheapestFromEnrich }
 }
 

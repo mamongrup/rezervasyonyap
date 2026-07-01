@@ -75,12 +75,11 @@ fn tour_listing_vitrin_price_numeric_lateral_sql() -> String {
   <> " as v) px) tour_price_row on pc.code = 'tour' "
 }
 
-/// Vitrinde fiyatsız turlar listelenmesin — ancak vitrin_price önbelleği wtatil fiyat
-/// senkronu öncesi boş kalabilir; yayında tur programı varsa göster (hub/liste boş kalmasın).
+/// Vitrinde fiyatsız turlar listelenmesin. vitrin_price; wtatil fiyat senkronu +
+/// refresh_listing_vitrin_prices() ile dolar — fiyatı olmayan tur vitrinde görünmez.
+/// Günlük sync-wtatil-auto + vitrin timer sonrası fiyatı gelen turlar otomatik görünür.
 fn tour_public_must_have_price_sql() -> String {
-  "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0 "
-  <> "or exists (select 1 from listing_tour_details td where td.listing_id = l.id "
-  <> "and td.program_days_json is not null and td.program_days_json::text not in ('{}', 'null'))) "
+  "and (pc.code != 'tour' or coalesce(l.vitrin_price, l.first_charge_amount, 0) > 0) "
 }
 
 /// Vitrinde fiyatsız oteller listelenmesin (KPlus/Travelrobot import'ta fiyatı
