@@ -206,6 +206,42 @@ fn public_review_json(row: #(String, String, Int, String, String, String)) -> js
   ])
 }
 
+fn listing_public_review_row() -> decode.Decoder(
+  #(String, Int, String, String, String, Bool, String),
+) {
+  use id <- decode.field(0, decode.string)
+  use r <- decode.field(1, decode.int)
+  use title <- decode.field(2, decode.string)
+  use body <- decode.field(3, decode.string)
+  use name <- decode.field(4, decode.string)
+  use hvp <- decode.field(5, decode.bool)
+  use ca <- decode.field(6, decode.string)
+  decode.success(#(id, r, title, body, name, hvp, ca))
+}
+
+fn listing_public_review_json(
+  row: #(String, Int, String, String, String, Bool, String),
+) -> json.Json {
+  let #(id, r, title, body, name, hvp, ca) = row
+  let titlej = case title == "" {
+    True -> json.null()
+    False -> json.string(title)
+  }
+  let bodyj = case body == "" {
+    True -> json.null()
+    False -> json.string(body)
+  }
+  json.object([
+    #("id", json.string(id)),
+    #("rating", json.int(r)),
+    #("title", titlej),
+    #("body", bodyj),
+    #("reviewer_display_name", json.string(name)),
+    #("has_verified_purchase", json.bool(hvp)),
+    #("created_at", json.string(ca)),
+  ])
+}
+
 /// GET /api/v1/reviews/admin?status=pending|approved|rejected|hidden|all&limit= — yönetici
 pub fn list_reviews_admin(req: Request, ctx: Context) -> Response {
   use <- wisp.require_method(req, http.Get)
@@ -359,16 +395,20 @@ pub fn list_reviews(req: Request, ctx: Context) -> Response {
     False ->
       case
         pog.query(
-          "select id::text, entity_type, entity_id::text, coalesce(user_id::text,''), rating::int, coalesce(title,''), coalesce(body,''), status, has_verified_purchase, coalesce(photo_keys::text,'{}'), created_at::text from reviews where entity_type = $1 and entity_id = $2::uuid and status = 'approved' order by created_at desc limit 200",
+          "select r.id::text, r.rating::int, coalesce(r.title,''), coalesce(r.body,''), coalesce(u.display_name, 'Misafir'), r.has_verified_purchase, r.created_at::text "
+          <> "from reviews r "
+          <> "left join users u on u.id = r.user_id "
+          <> "where r.entity_type = $1 and r.entity_id = $2::uuid and r.status = 'approved' "
+          <> "order by r.created_at desc limit 200",
         )
         |> pog.parameter(pog.text(et))
         |> pog.parameter(pog.text(eid))
-        |> pog.returning(review_row())
+        |> pog.returning(listing_public_review_row())
         |> db_exec.execute(ctx.db)
       {
         Error(_) -> json_err(500, "reviews_query_failed")
         Ok(ret) -> {
-          let arr = list.map(ret.rows, review_json)
+          let arr = list.map(ret.rows, listing_public_review_json)
           let body =
             json.object([#("reviews", json.array(from: arr, of: fn(x) { x }))])
             |> json.to_string
