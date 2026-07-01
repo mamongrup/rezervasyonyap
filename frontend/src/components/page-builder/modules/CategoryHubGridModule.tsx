@@ -13,6 +13,8 @@ import { HugeiconsIcon } from '@hugeicons/react'
 
 export interface CategoryHubGridLink {
   label: string
+  /** Hub kartlarında ikinci satır (ör. gece sayısı) */
+  sublabel?: string
   /** Vitrin yolu — locale öneki olmadan, örn. /turlar/all?location=paris */
   path: string
 }
@@ -201,14 +203,17 @@ export default async function CategoryHubGridModule({
               </div>
               <div className="mt-3 h-px w-12 bg-white/70" aria-hidden />
 
-              <ul className="mt-auto space-y-1.5 pt-6">
+              <ul className="mt-auto space-y-2.5 pt-6">
                 {cat.links.map((link) => (
-                  <li key={`${cat.id}-${link.label}`}>
+                  <li key={`${cat.id}-${link.label}-${link.sublabel ?? ''}`}>
                     <Link
                       href={link.href}
                       className="pointer-events-auto relative z-[4] inline-block text-sm font-medium text-white/90 transition-colors hover:text-white hover:underline"
                     >
-                      {link.label}
+                      <span className="block leading-snug">{link.label}</span>
+                      {link.sublabel ? (
+                        <span className="mt-0.5 block text-xs font-normal text-white/70">{link.sublabel}</span>
+                      ) : null}
                     </Link>
                   </li>
                 ))}

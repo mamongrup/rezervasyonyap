@@ -34,6 +34,7 @@ import { normalizeCatalogVertical } from '@/lib/catalog-listing-vertical'
 import { formatMoneyIntl } from '@/lib/parse-listing-price'
 import type { TListingBase } from '@/types/listing-types'
 import { normalizeStayLocationPin } from '@/lib/stay-location-display'
+import { formatCruiseRouteSummary } from '@/lib/cruise-route-display'
 import { parseStayBookingRulesFromPublicItem } from '@/lib/stay-booking-rules'
 import { normalizeStayRentalAttrsParam } from '@/lib/stay-rental-filter-attrs'
 import {
@@ -360,7 +361,9 @@ export function mapPublicListingItemToListingBase(
 
   const locationPin = isStayRental
     ? normalizeStayLocationPin(item.location ?? '') || undefined
-    : (item.location ?? undefined)
+    : vertical === 'cruise'
+      ? formatCruiseRouteSummary(item.location ?? '') || (item.location ?? undefined)
+      : (item.location ?? undefined)
 
   const base: TListingBase = {
     id: item.id,

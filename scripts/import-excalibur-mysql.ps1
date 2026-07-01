@@ -4,7 +4,7 @@
 #   .\scripts\import-excalibur-mysql.ps1 -SqlFile "$env:USERPROFILE\Downloads\rezervasyonyapco_excalibur.sql"
 
 param(
-    [string]$SqlFile = "$env:USERPROFILE\Downloads\rezervasyonyapco_excalibur.sql",
+    [string]$SqlFile = "$env:USERPROFILE\Downloads\rezervasyonyapco_excalibur (3).sql",
     [string]$Database = "rezervasyonyapco_excalibur",
     [string]$MysqlExe = "C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe"
 )

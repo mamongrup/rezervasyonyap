@@ -1,5 +1,9 @@
 import { unwrapVerticalMetaPayload } from '@/lib/listing-pools'
 import { sanitizeRichCmsHtml } from '@/lib/sanitize-cms-html'
+import {
+  formatCruisePlaceName,
+  formatCruiseRouteSummary,
+} from '@/lib/cruise-route-display'
 import type { TourPeriodOption } from '@/lib/tour-periods'
 import type { TourInfoSection, TourItineraryDay, TourOverviewItem } from '@/app/[locale]/(app)/(listings)/TourDetailSections'
 
@@ -58,13 +62,13 @@ export function cruiseOverviewItems(
   const nights = meta.night_count ?? nightFallback
   const items: TourOverviewItem[] = []
   if (meta.cruise_line) {
-    items.push({ label: labels.cruiseLine, value: meta.cruise_line, icon: 'location' })
+    items.push({ label: labels.cruiseLine, value: formatCruisePlaceName(meta.cruise_line), icon: 'location' })
   }
   if (meta.ship_name) {
     items.push({ label: labels.ship, value: meta.ship_name, icon: 'transport' })
   }
   if (meta.route_summary) {
-    items.push({ label: labels.route, value: meta.route_summary, icon: 'location' })
+    items.push({ label: labels.route, value: formatCruiseRouteSummary(meta.route_summary), icon: 'location' })
   }
   if (meta.cabin_category) {
     items.push({ label: labels.cabin, value: meta.cabin_category, icon: 'location' })
@@ -73,7 +77,7 @@ export function cruiseOverviewItems(
     items.push({ label: labels.nights, value: String(nights), icon: 'duration' })
   }
   if (meta.tour_departure) {
-    items.push({ label: labels.departure, value: meta.tour_departure, icon: 'location' })
+    items.push({ label: labels.departure, value: formatCruisePlaceName(meta.tour_departure), icon: 'location' })
   }
   if (meta.concept_name) {
     items.push({ label: labels.concept, value: meta.concept_name, icon: 'location' })
@@ -98,7 +102,7 @@ export function cruiseItineraryDays(meta: CruiseVerticalMeta | null): TourItiner
     .filter((d) => d?.description?.trim())
     .map((d) => ({
       day: Number(d.day) || 0,
-      title: d.title || `Gün ${d.day}`,
+      title: d.title?.trim() ? formatCruiseRouteSummary(d.title) : `Gün ${d.day}`,
       description: d.description,
     }))
     .filter((d) => d.day > 0)

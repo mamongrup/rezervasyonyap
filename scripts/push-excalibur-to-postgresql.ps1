@@ -41,8 +41,12 @@ $countSql = "SELECT COUNT(*) AS c FROM bravo_spaces WHERE deleted_at IS NULL AND
 $mysqlArgs = @('-h', $MysqlHost, '-u', $MysqlUser)
 if ($MysqlPassword) { $mysqlArgs += "-p$MysqlPassword" }
 $mysqlArgs += @($MysqlDatabase, '-N', '-e', $countSql)
-$countOut = & $mysqlExe.FullName @mysqlArgs 2>&1
-if ($LASTEXITCODE -ne 0) {
+$prevEap = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$countOut = (& $mysqlExe.FullName @mysqlArgs 2>&1 | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] }) -join "`n"
+$mysqlExit = $LASTEXITCODE
+$ErrorActionPreference = $prevEap
+if ($mysqlExit -ne 0) {
     Write-Host $countOut
     Write-Error "Yerel MySQL '$MysqlDatabase' okunamadi. .\scripts\import-excalibur-mysql.ps1"
 }
@@ -101,6 +105,18 @@ try {
     Write-Host '=== Sync: MySQL (PC) -> PostgreSQL (uretim) ===' -ForegroundColor Yellow
     & node @nodeArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    $importArgs = @(
+        'scripts/import-bravo-spaces.mjs',
+        '--mysql-database', $MysqlDatabase,
+        '--create-missing-only'
+    )
+    if ($DryRun) { $importArgs += '--dry-run' }
+
+    Write-Host '=== Yeni ilanlar: import-bravo-spaces (create-missing-only) ===' -ForegroundColor Yellow
+    & node @importArgs
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
     Write-Host ''
     Write-Host 'Tamam. Veri uretim PostgreSQL travel icinde.' -ForegroundColor Green
     Write-Host 'Sunucudaki MariaDB/rezervasyonyap silinebilir; site onu kullanmaz.' -ForegroundColor Green

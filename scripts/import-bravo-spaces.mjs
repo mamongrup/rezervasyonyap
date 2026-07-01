@@ -25,6 +25,7 @@ import {
 } from './lib/bravo-property-type.mjs'
 import { listingStorageKey, listingUploadDir } from './lib/listing-upload-path.mjs'
 import { mysqlConfigFromArgv } from './lib/bravo-mysql-config.mjs'
+import { createPgClient } from './lib/pg-client.mjs'
 import {
   applyBravoHolidayHomeVitrinFields,
   buildBravoHolidayHomeVitrinPackage,
@@ -36,7 +37,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const TRAVEL_ROOT = path.resolve(__dirname, '..')
 const require = createRequire(path.join(TRAVEL_ROOT, 'frontend', 'package.json'))
 const mysql = require('mysql2/promise')
-const pg = require('pg')
 
 const UPLOADS_ROOT = path.join(TRAVEL_ROOT, 'frontend', 'public', 'uploads', 'listings')
 
@@ -554,13 +554,7 @@ async function main() {
 
   const mysqlConn = await mysql.createConnection(mysqlConfigFromArgv())
 
-  const pgClient = new pg.Client({
-    host: '127.0.0.1',
-    port: 5432,
-    user: 'postgres',
-    password: '',
-    database: 'travel',
-  })
+  const pgClient = createPgClient()
   await pgClient.connect()
 
   let sql = `SELECT s.* FROM bravo_spaces s

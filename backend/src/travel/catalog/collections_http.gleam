@@ -2652,12 +2652,13 @@ pub fn delete_collection(req: Request, ctx: Context, col_id: String) -> Response
 
 // ─── Public Cruise Hub Stats ───────────────────────────────────────────────────
 
-fn cruise_hub_agg_row() -> decode.Decoder(#(String, String, String, Int)) {
+fn cruise_hub_agg_row() -> decode.Decoder(#(String, String, String, Int, Int)) {
   use line <- decode.field(0, decode.string)
   use route <- decode.field(1, decode.string)
   use cat_link <- decode.field(2, decode.string)
-  use cnt <- decode.field(3, decode.int)
-  decode.success(#(line, route, cat_link, cnt))
+  use night_cnt <- decode.field(3, decode.int)
+  use cnt <- decode.field(4, decode.int)
+  decode.success(#(line, route, cat_link, night_cnt, cnt))
 }
 
 fn public_cruise_hub_stats_sql() -> String {
@@ -2665,10 +2666,17 @@ fn public_cruise_hub_stats_sql() -> String {
   <> "  coalesce(c.cruise_line, '') as cruise_line, "
   <> "  coalesce(c.route_summary, '') as route_summary, "
   <> "  coalesce(c.meta_json->>'category_link', '') as category_link, "
+  <> "  max(coalesce("
+  <> "    nullif(trim(vc.value_json->>'night_count'), '')::int, "
+  <> "    nullif(trim(c.meta_json->>'night_count'), '')::int, "
+  <> "    0"
+  <> "  ))::int as night_count, "
   <> "  count(*)::int as cnt "
   <> "from listings l "
   <> "join product_categories pc on pc.id = l.category_id and pc.code = 'cruise' "
   <> "join listing_cruise_details c on c.listing_id = l.id "
+  <> "left join listing_attributes vc on vc.listing_id = l.id "
+  <> "  and vc.group_code = 'vertical_cruise' and vc.key = 'v1' "
   <> "where l.status = 'published' "
   <> public_listing_must_have_image_sql()
   <> "group by 1, 2, 3 "
@@ -2698,11 +2706,12 @@ pub fn public_cruise_hub_stats(req: Request, ctx: Context) -> Response {
     Ok(ret) -> {
       let rows =
         list.map(ret.rows, fn(row) {
-          let #(line, route, cat_link, cnt) = row
+          let #(line, route, cat_link, night_cnt, cnt) = row
           json.object([
             #("cruise_line", json.string(line)),
             #("route_summary", json.string(route)),
             #("category_link", json.string(cat_link)),
+            #("night_count", json.int(night_cnt)),
             #("count", json.int(cnt)),
           ])
         })

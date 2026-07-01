@@ -97,7 +97,13 @@ const CITY_COORDS: { keys: string[]; name: string; lat: number; lng: number }[] 
   { keys: ['milan', 'milano'], name: 'Milano', lat: 45.4642, lng: 9.1900 },
   { keys: ['napoli', 'naples'], name: 'Napoli', lat: 40.8518, lng: 14.2681 },
   { keys: ['iskele', 'iscele'], name: 'İskele', lat: 35.2922, lng: 33.8988 },
-  { keys: ['barcelona', 'barcelone'], name: 'Barcelona', lat: 41.3851, lng: 2.1734 },
+  { keys: ['barcelona', 'barcelone', 'barselona'], name: 'Barcelona', lat: 41.3851, lng: 2.1734 },
+  { keys: ['palma', 'mallorca', 'palma-de-mallorca'], name: 'Palma', lat: 39.5696, lng: 2.6502 },
+  { keys: ['hellesylt'], name: 'Hellesylt', lat: 62.0918, lng: 6.8672 },
+  { keys: ['kiel'], name: 'Kiel', lat: 54.3233, lng: 10.1228 },
+  { keys: ['patmos'], name: 'Patmos', lat: 37.3214, lng: 26.5453 },
+  { keys: ['mikonos'], name: 'Mikonos', lat: 37.4467, lng: 25.3289 },
+  { keys: ['balear', 'baleares', 'balearic'], name: 'Balear Adaları', lat: 39.5696, lng: 2.6502 },
   { keys: ['madrid', 'ispanya', 'spain'], name: 'Madrid', lat: 40.4168, lng: -3.7038 },
   { keys: ['lizbon', 'lisbon', 'portekiz', 'portugal'], name: 'Lizbon', lat: 38.7223, lng: -9.1393 },
   { keys: ['amsterdam', 'hollanda', 'netherlands'], name: 'Amsterdam', lat: 52.3676, lng: 4.9041 },
@@ -190,6 +196,15 @@ const CITY_LOOKUP = new Map<string, { name: string; lat: number; lng: number }>(
     keys.map((k) => [normalizeText(k), { name, lat, lng }] as const),
   ),
 )
+
+export function geocodePlaceName(text: string): { name: string; lat: number; lng: number } | null {
+  return findCity(text)
+}
+
+/** Metin içinde tanınan ilk/son şehir (gün başlığı veya program metni) */
+export function geocodeFromText(text: string): { name: string; lat: number; lng: number } | null {
+  return extractCityFromTitle(text)
+}
 
 function findCity(text: string): { name: string; lat: number; lng: number } | null {
   const norm = normalizeText(text)

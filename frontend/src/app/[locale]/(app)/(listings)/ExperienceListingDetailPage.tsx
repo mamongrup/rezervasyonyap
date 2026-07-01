@@ -1,6 +1,8 @@
 import ListingDescriptionExpandable from '@/components/listing/ListingDescriptionExpandable'
 import TourItineraryMapSection from '@/components/listing/TourItineraryMapSection'
 import { parseTourDayPins } from '@/lib/tour-itinerary-geocoder'
+import { parseCruiseItineraryPins } from '@/lib/cruise-itinerary-pins'
+import { formatCruiseRouteSummary } from '@/lib/cruise-route-display'
 import { getExperienceListingByHandle, listingHostForSection } from '@/data/listings'
 import {
   Clock01Icon,
@@ -451,6 +453,13 @@ export default async function ExperienceListingDetailPage({
     : []
   const cruiseInfo = isCruise ? buildCruiseInfoSections(cruiseMeta, locale) : []
   const cruiseDays = isCruise ? cruiseItineraryDays(cruiseMeta) : []
+  const cruiseDayPins = isCruise ? parseCruiseItineraryPins(cruiseMeta) : []
+  const cruiseRouteLabel =
+    isCruise && cruiseMeta?.route_summary?.trim()
+      ? formatCruiseRouteSummary(cruiseMeta.route_summary)
+      : city?.trim()
+        ? formatCruiseRouteSummary(city)
+        : undefined
   const activityVitrin = isActivity
     ? parseActivityVitrinMeta(unwrapVerticalMetaPayload(rawActivityMeta))
     : null
@@ -872,13 +881,18 @@ export default async function ExperienceListingDetailPage({
         ) : (
           <>
             <div id="experience-section-location" className="mt-8 w-full scroll-mt-28 space-y-5">
-              <SectionMap
-                locale={locale}
-                lat={map?.lat}
-                lng={map?.lng}
-                address={address ?? undefined}
-                heading={dp.location}
-              />
+              {isCruise && cruiseDayPins.length > 0 ? (
+                <TourItineraryMapSection pins={cruiseDayPins} locale={locale} />
+              ) : (
+                <SectionMap
+                  locale={locale}
+                  lat={map?.lat}
+                  lng={map?.lng}
+                  address={isCruise ? cruiseRouteLabel : (address ?? undefined)}
+                  heading={dp.location}
+                  subheading={isCruise ? cruiseRouteLabel : undefined}
+                />
+              )}
               <NearbyPlacesSection
                 locale={locale}
                 regionSlug={regionSlugForPlaces}

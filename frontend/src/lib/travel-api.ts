@@ -6897,6 +6897,7 @@ export type CruiseHubStatsRow = {
   route_summary: string
   category_link: string
   count: number
+  night_count: number
 }
 
 /** GET /api/v1/catalog/public/cruise-hub-stats — kruvaziyer hub kart istatistikleri */
@@ -6911,6 +6912,7 @@ export async function getPublicCruiseHubStats(init?: RequestInit): Promise<Cruis
         cruise_line?: string
         route_summary?: string
         category_link?: string
+        night_count?: number
         count?: number
       }>
     }
@@ -6920,6 +6922,7 @@ export async function getPublicCruiseHubStats(init?: RequestInit): Promise<Cruis
         cruise_line: String(row.cruise_line ?? ''),
         route_summary: String(row.route_summary ?? ''),
         category_link: String(row.category_link ?? ''),
+        night_count: typeof row.night_count === 'number' ? row.night_count : 0,
         count: typeof row.count === 'number' ? row.count : 0,
       }))
       .filter((row) => row.count > 0)
