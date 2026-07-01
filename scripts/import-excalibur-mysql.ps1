@@ -4,7 +4,7 @@
 #   .\scripts\import-excalibur-mysql.ps1 -SqlFile "$env:USERPROFILE\Downloads\rezervasyonyapco_excalibur.sql"
 
 param(
-    [string]$SqlFile = "$env:USERPROFILE\Downloads\rezervasyonyapco_excalibur (3).sql",
+    [string]$SqlFile = "$env:USERPROFILE\Downloads\1.7.26.sql",
     [string]$Database = "rezervasyonyapco_excalibur",
     [string]$MysqlExe = "C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe"
 )
@@ -22,7 +22,7 @@ if (-not (Test-Path $MysqlExe)) {
 }
 
 Write-Host "Veritabanı: $Database" -ForegroundColor Cyan
-& $MysqlExe -h 127.0.0.1 -u root -e "CREATE DATABASE IF NOT EXISTS ``$Database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+& $MysqlExe -h 127.0.0.1 -u root -e "DROP DATABASE IF EXISTS ``$Database``; CREATE DATABASE ``$Database`` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "İçe aktarılıyor (büyük dosya, birkaç dakika sürebilir)..." -ForegroundColor Yellow

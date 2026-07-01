@@ -99,23 +99,34 @@ try {
     $env:MYSQL_PASSWORD = $MysqlPassword
     $env:MYSQL_DATABASE = $MysqlDatabase
 
-    $nodeArgs = @('scripts/sync-excalibur-bravo.mjs', '--mysql-database', $MysqlDatabase)
-    if ($DryRun) { $nodeArgs += '--dry-run' }
-
-    Write-Host '=== Sync: MySQL (PC) -> PostgreSQL (uretim) ===' -ForegroundColor Yellow
-    & node @nodeArgs
-    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
     $importArgs = @(
         'scripts/import-bravo-spaces.mjs',
         '--mysql-database', $MysqlDatabase,
-        '--create-missing-only'
+        '--create-missing-only',
+        '--skip-images'
     )
     if ($DryRun) { $importArgs += '--dry-run' }
 
-    Write-Host '=== Yeni ilanlar: import-bravo-spaces (create-missing-only) ===' -ForegroundColor Yellow
+    Write-Host '=== 1/4 Yeni ilanlar (once eksikler) ===' -ForegroundColor Yellow
     & node @importArgs
     if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    $nodeArgs = @('scripts/sync-excalibur-bravo.mjs', '--mysql-database', $MysqlDatabase)
+    if ($DryRun) { $nodeArgs += '--dry-run' }
+
+    Write-Host '=== 2/4 Takvim + fiyat sync (tum eslesen ilanlar) ===' -ForegroundColor Yellow
+    & node @nodeArgs
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    if (-not $DryRun) {
+        Write-Host '=== 3/4 Tutarlilik denetimi ===' -ForegroundColor Yellow
+        & node scripts/audit-excalibur-sync.mjs --mysql-database $MysqlDatabase --fail-on-mismatch
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+        Write-Host '=== 4/4 Vitrin fiyat onbellegi ===' -ForegroundColor Yellow
+        & node scripts/audit-excalibur-sync.mjs --mysql-database $MysqlDatabase --refresh-vitrin
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+    }
 
     Write-Host ''
     Write-Host 'Tamam. Veri uretim PostgreSQL travel icinde.' -ForegroundColor Green

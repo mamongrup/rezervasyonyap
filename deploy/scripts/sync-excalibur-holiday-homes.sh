@@ -78,11 +78,19 @@ IMPORT_ARGS=(scripts/import-bravo-spaces.mjs --mysql-database "$MYSQL_DATABASE" 
 [[ $DRY_RUN -eq 1 ]] && SYNC_ARGS+=(--dry-run) && IMPORT_ARGS+=(--dry-run)
 [[ $SKIP_IMAGES -eq 1 ]] && IMPORT_ARGS+=(--skip-images)
 
-echo "→ Mevcut ilanlar: takvim + fiyat sync…"
+echo "→ 1/4 Eksik publish ilanları ekle (önce)…"
+node "${IMPORT_ARGS[@]}"
+
+echo "→ 2/4 Tüm eşleşen ilanlar: takvim + fiyat sync…"
 node "${SYNC_ARGS[@]}"
 
-echo "→ Eksik publish ilanları ekle…"
-node "${IMPORT_ARGS[@]}"
+if [[ $DRY_RUN -eq 0 ]]; then
+  echo "→ 3/4 Tutarlılık denetimi…"
+  node scripts/audit-excalibur-sync.mjs --mysql-database "$MYSQL_DATABASE" --fail-on-mismatch
+
+  echo "→ 4/4 Vitrin fiyat önbelleği…"
+  "$APP_ROOT/deploy/scripts/refresh-vitrin-prices.sh" || echo "[WARN] vitrin_price tazeleme atlandı"
+fi
 
 if [[ $DRY_RUN -eq 0 ]] && [[ -x "$APP_ROOT/deploy/scripts/warm-cache.sh" ]]; then
   echo "→ Vitrin önbelleği…"
