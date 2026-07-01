@@ -8,7 +8,32 @@ Canlı site **her zaman PostgreSQL** (`travel`) kullanır. MariaDB/MySQL **site 
 
 **Sunucu adımları (dolu rehber):** [`EXCALIBUR_SUNUCU_ADIMLARI.md`](./EXCALIBUR_SUNUCU_ADIMLARI.md)
 
-## Sunucuda MariaDB istemiyorsanız
+## Sunucuda MariaDB yok — önerilen (PG bundle)
+
+PC’de Excalibur dump → yerel MySQL → yerel PostgreSQL sync → **bundle export** → sunucuda yalnızca PostgreSQL’e import.
+
+**PC:**
+```powershell
+cd C:\laragon\www\travel
+.\scripts\export-excalibur-for-server.ps1 -SqlFile "$env:USERPROFILE\Downloads\1.7.26.sql"
+# Çıktı: backups\excalibur-holiday-1.7.26.json.gz (~2–3 MB)
+```
+
+Dosyayı Plesk/WinSCP ile sunucuya yükleyin: `httpdocs/tmp/excalibur-holiday-1.7.26.json.gz`
+
+**Sunucu (bash):**
+```bash
+cd /var/www/vhosts/rezervasyonyap.tr/httpdocs
+git pull origin main
+chmod +x deploy/scripts/apply-excalibur-holiday-bundle.sh
+./deploy/scripts/apply-excalibur-holiday-bundle.sh tmp/excalibur-holiday-1.7.26.json.gz
+```
+
+Bundle içeriği: ilan alanları, takvim (`listing_availability_calendar`), fiyat dönemleri (`listing_price_rules`), meta. Eşleşme `external_listing_ref` / slug ile yapılır; MariaDB gerekmez.
+
+---
+
+## Sunucuda MariaDB istemiyorsanız (alternatif: SSH tünel)
 
 1. **PC (Laragon):** dump’ı yerel MySQL’e alın:
    ```powershell
