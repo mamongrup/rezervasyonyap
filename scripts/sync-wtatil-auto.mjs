@@ -77,10 +77,22 @@ async function main() {
     console.warn('[WARN] WTATIL_AGENCY_ID yok — search-tour / ek dönem penceresi sınırlı kalır.')
   }
 
-  const { userName, token } = await fetchWtatilToken()
+  let auth = await fetchWtatilToken()
+  let authFetchedAt = Date.now()
+
+  async function ensureFreshToken() {
+    const expMs = auth.expireDate ? new Date(auth.expireDate).getTime() : NaN
+    const expireSoon = Number.isFinite(expMs) && expMs - Date.now() < 5 * 60 * 1000
+    const stale = Date.now() - authFetchedAt > 20 * 60 * 1000
+    if (!expireSoon && !stale) return
+    auth = await fetchWtatilToken()
+    authFetchedAt = Date.now()
+    console.log(`\n[wtatil] token yenilendi (expireDate: ${auth.expireDate || '?'})`)
+  }
+
   await reporter.log('Token alındı, katalog çekiliyor…')
 
-  const tours = await fetchAllTours(userName, token, PAGE_SIZE)
+  const tours = await fetchAllTours(auth.userName, auth.token, PAGE_SIZE)
   const tourById = new Map(tours.map((t) => [String(t.id), t]))
   await reporter.log(`API katalog: ${tours.length} tur`)
 
@@ -137,7 +149,8 @@ async function main() {
         continue
       }
 
-      const enrich = await enrichWtatilTour(userName, token, tour, agencyId, { withPrices: true })
+      await ensureFreshToken()
+      const enrich = await enrichWtatilTour(auth.userName, auth.token, tour, agencyId, { withPrices: true })
       const result = await updateWtatilTourPricesOnly(client, listingId, ref, enrich, {
         currencyCode: pickCurrency(tour),
         replacePeriods: true,
@@ -174,7 +187,8 @@ async function main() {
           continue
         }
 
-        const enrich = await enrichWtatilTour(userName, token, tour, agencyId, { withPrices: true })
+        await ensureFreshToken()
+      const enrich = await enrichWtatilTour(auth.userName, auth.token, tour, agencyId, { withPrices: true })
         const row = await upsertWtatilTourListing(client, ctx, tour, {
           status: STATUS,
           enrich,

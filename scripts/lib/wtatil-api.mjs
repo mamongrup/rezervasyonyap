@@ -87,10 +87,33 @@ function pageCountFrom(data) {
 }
 
 function isTokenExpiredResponse(json) {
+  if (json == null || typeof json !== 'object') return false
   const msg = String(json?.message || json?.Message || json?.error || '')
     .trim()
     .toLowerCase()
-  return msg.includes('token is expired') || msg.includes('token expired')
+  if (!msg) return false
+  return (
+    msg.includes('token is expired') ||
+    msg.includes('token expired') ||
+    msg.includes('token not valid') ||
+    msg.includes('invalid token') ||
+    msg.includes('geçersiz token') ||
+    msg.includes('gecersiz token')
+  )
+}
+
+/** unwrapData / catch blokları — mesaj metninden auth hatası */
+export function isWtatilTokenErrorMessage(message) {
+  const msg = String(message || '').trim().toLowerCase()
+  if (!msg) return false
+  return (
+    msg.includes('token is expired') ||
+    msg.includes('token expired') ||
+    msg.includes('token not valid') ||
+    msg.includes('invalid token') ||
+    msg.includes('geçersiz token') ||
+    msg.includes('gecersiz token')
+  )
 }
 
 export async function wtatilRequest(method, path, body = null, query = null) {
