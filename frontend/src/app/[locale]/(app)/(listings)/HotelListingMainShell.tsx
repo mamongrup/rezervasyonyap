@@ -25,7 +25,7 @@ export default function HotelListingMainShell({
 }) {
   if (!enabled) return children
   return (
-    <Suspense fallback={children}>
+    <Suspense fallback={null}>
       <HotelStayBookingProvider
         listingId={listingId}
         rooms={rooms}
