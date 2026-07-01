@@ -83,3 +83,27 @@ export function cruiseNightCountLabel(nights: number, locale: string): string {
   if (en) return nights === 1 ? '1 night' : `${nights} nights`
   return `${nights} gece`
 }
+
+/** Gemi hattı kısa etiketi (hub kartları) */
+export function formatCruiseBrandLabel(cruiseLine: string): string {
+  const line = String(cruiseLine ?? '').trim()
+  if (!line) return ''
+  const lower = line.toLowerCase()
+  if (lower.includes('msc')) return 'MSC'
+  if (lower.includes('costa')) return 'Costa'
+  if (lower.includes('royal')) return 'Royal Caribbean'
+  if (lower.includes('celebrity')) return 'Celebrity'
+  if (lower.includes('princess')) return 'Princess'
+  if (lower.includes('celestyal')) return 'Celestyal'
+  if (lower.includes('norwegian')) return 'Norwegian'
+  if (lower.includes('carnival')) return 'Carnival'
+  if (lower.includes('disney')) return 'Disney'
+  if (lower.includes('aroya')) return 'Aroya'
+  if (lower.includes('selectum')) return 'Selectum Blu'
+  if (lower.includes('amadeus')) return 'Amadeus'
+  return formatCruisePlaceName(line)
+}
+
+export function hubOfferMetaLabel(parts: string[]): string {
+  return parts.filter(Boolean).join(' · ')
+}

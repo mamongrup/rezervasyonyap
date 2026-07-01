@@ -1,6 +1,12 @@
 import type { CategoryHubGridCard } from '@/components/page-builder/modules/CategoryHubGridModule'
+import { cruiseBrandFacetPath } from '@/data/cruise-hub-categories'
 import { categoryFacetSlugForCode } from '@/lib/category-facet-routes'
-import { cruiseNightCountLabel, cruiseRouteStartLabel } from '@/lib/cruise-route-display'
+import {
+  cruiseNightCountLabel,
+  cruiseRouteStartLabel,
+  formatCruiseBrandLabel,
+  hubOfferMetaLabel,
+} from '@/lib/cruise-route-display'
 
 export type CruiseHubStatsRow = {
   cruise_line: string
@@ -71,10 +77,25 @@ function tourCountLabel(count: number, locale: string): string {
   return `${count} tur`
 }
 
+function offerSublabel(nightCount: number, tourCount: number, locale: string): string | undefined {
+  const parts: string[] = []
+  if (nightCount > 0) parts.push(cruiseNightCountLabel(nightCount, locale))
+  if (tourCount > 0) parts.push(tourCountLabel(tourCount, locale))
+  return parts.length > 0 ? hubOfferMetaLabel(parts) : undefined
+}
+
 type RouteAgg = {
   routeSummary: string
   count: number
   nightCount: number
+  path: string
+}
+
+type RouteHubOfferAgg = {
+  brandLabel: string
+  startLabel: string
+  nightCount: number
+  tourCount: number
   path: string
 }
 
@@ -100,7 +121,42 @@ function aggregateBrandRoutes(
       map.set(key, { routeSummary, count: row.count, nightCount: nights, path })
     }
   }
-  return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 4)
+  return [...map.values()].sort((a, b) => b.count - a.count).slice(0, 6)
+}
+
+function aggregateRouteHubOffers(
+  hubCode: string,
+  rows: CruiseHubStatsRow[],
+  locale: string,
+  routePath: string,
+): RouteHubOfferAgg[] {
+  const map = new Map<string, RouteHubOfferAgg>()
+  for (const row of rows) {
+    if (!cruiseRouteMatchesHubCode(hubCode, row.route_summary, row.category_link)) continue
+    const brandLabel = formatCruiseBrandLabel(row.cruise_line)
+    if (!brandLabel) continue
+    const startLabel = cruiseRouteStartLabel(row.route_summary)
+    const nights = row.night_count && row.night_count > 0 ? row.night_count : 0
+    const key = `${brandLabel.toLowerCase()}|${startLabel.toLowerCase()}|${nights}`
+    const path =
+      cruiseBrandFacetPath(locale, row.cruise_line, row.category_link) ??
+      routeSummaryToFacetPath(row.route_summary, locale) ??
+      routePath
+    const prev = map.get(key)
+    if (prev) {
+      prev.tourCount += row.count
+      if (nights > prev.nightCount) prev.nightCount = nights
+    } else {
+      map.set(key, {
+        brandLabel,
+        startLabel,
+        nightCount: nights,
+        tourCount: row.count,
+        path,
+      })
+    }
+  }
+  return [...map.values()].sort((a, b) => b.tourCount - a.tourCount).slice(0, 7)
 }
 
 function hubFilterCode(card: CategoryHubGridCard): string {
@@ -121,11 +177,14 @@ export function enrichCruiseBrandHubCards(
       return sum + row.count
     }, 0)
     const routes = aggregateBrandRoutes(code, rows, locale, card.path)
-    const links = routes.map((r) => ({
-      label: cruiseRouteStartLabel(r.routeSummary),
-      sublabel: r.nightCount > 0 ? cruiseNightCountLabel(r.nightCount, locale) : undefined,
-      path: r.path,
-    }))
+    const links = routes.map((r) => {
+      const start = cruiseRouteStartLabel(r.routeSummary)
+      return {
+        label: start,
+        sublabel: offerSublabel(r.nightCount, r.count, locale),
+        path: r.path,
+      }
+    })
     links.push({ label: viewAll, sublabel: undefined, path: card.path })
     return {
       ...card,
@@ -148,10 +207,17 @@ export function enrichCruiseRouteHubCards(
       if (!cruiseRouteMatchesHubCode(code, row.route_summary, row.category_link)) return sum
       return sum + row.count
     }, 0)
+    const offers = aggregateRouteHubOffers(code, rows, locale, card.path)
+    const links = offers.map((o) => ({
+      label: o.startLabel ? `${o.brandLabel} · ${o.startLabel}` : o.brandLabel,
+      sublabel: offerSublabel(o.nightCount, o.tourCount, locale),
+      path: o.path,
+    }))
+    links.push({ label: viewAll, sublabel: undefined, path: card.path })
     return {
       ...card,
       metaLine: total > 0 ? tourCountLabel(total, locale) : undefined,
-      links: [{ label: viewAll, sublabel: undefined, path: card.path }],
+      links: links.length > 1 ? links : [{ label: viewAll, sublabel: undefined, path: card.path }],
     }
   })
 }

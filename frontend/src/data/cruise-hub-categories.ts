@@ -186,3 +186,19 @@ export function getCruiseRouteFilterOptions(locale: string): { code: string; lab
   const en = isEn(locale)
   return CRUISE_ROUTE_HUBS.map((d) => ({ code: d.code, label: en ? d.titleEn : d.titleTr }))
 }
+
+/** Hub istatistik eşleşmesi — gemi hattı facet yolu */
+export function cruiseBrandFacetPath(
+  locale: string,
+  cruiseLine: string,
+  categoryLink: string,
+): string | null {
+  const line = cruiseLine.toLowerCase()
+  const link = categoryLink.toLowerCase()
+  for (const hub of CRUISE_BRAND_HUBS) {
+    if (link.includes(hub.gezinomiLink) || line.includes(hub.code.replace(/-/g, ' ')) || line.includes(hub.code)) {
+      return facetPath(locale, 'cruise_line', hub.code)
+    }
+  }
+  return null
+}
